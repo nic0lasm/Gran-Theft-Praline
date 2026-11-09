@@ -19,3 +19,7 @@ assets/geo/raw/**
 
 # Unreal per-user scratch content
 **/Content/Developers/
+
+# Python
+__pycache__/
+*.pyc
