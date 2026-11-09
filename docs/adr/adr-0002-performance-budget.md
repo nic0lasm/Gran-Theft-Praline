@@ -26,8 +26,9 @@ nic0lasm (project lead)
 Sets the frame-rate and resolution target of Gran Theft Praline on the
 reference hardware and splits the GPU frame into per-feature budgets, so that
 every rendering choice of ADR-0001 is measured against a fixed number.
-Recommended: 30 fps "fidelity" mode at 1080p output on the M1 Pro, with a
-60 fps "performance" mode added later.
+Two quality tiers (project lead's direction, 2026-11-09): content is built
+for a photorealistic **Ultra** tier on capable hardware, and the M1 Pro runs a
+reduced **M1** preset at 30 fps, 1080p. A 60 fps performance mode comes later.
 
 ## Engine Compatibility
 
@@ -65,7 +66,23 @@ below are set for this machine.
 
 ## Decision
 
-### Target (M1 Pro, 16 GB)
+### Quality tiers
+
+The goal stays photorealism, even if the game ends up heavy in size and GPU
+cost (project lead, 2026-11-09). Quality is therefore scaled per tier, never
+lowered globally:
+
+| Tier | Purpose | Hardware | Rendering | Target |
+| ---- | ---- | ---- | ---- | ---- |
+| **Ultra** | The photorealistic target; all content is authored for it | Apple M2 Max or newer, Windows with an RTX-class GPU | Nanite, Lumen high quality (hardware ray tracing where available), Virtual Shadow Maps, MegaLights, full-resolution textures | 30 fps at 1440p or more; measured once such hardware is available |
+| **M1** | Playable development preset on the current MacBook Pro | M1 Pro, 16 GB | Nanite fallback / LODs, reduced Lumen (Lumen Lite or lower internal resolution, chosen from measurements), classic night lights, capped texture pool | 30 fps at 1080p, budget below |
+
+Rules: assets and materials are never simplified at the source to fit the M1
+tier; the M1 tier is produced by scalability settings, LODs and texture
+streaming only. Client size is not a constraint on the Ultra tier; its size
+budget is set later with the project lead.
+
+### M1 tier target (M1 Pro, 16 GB)
 
 | Mode | Frame rate | Output | Internal (TSR) | Lighting | Priority |
 | ---- | ---- | ---- | ---- | ---- | ---- |
@@ -75,7 +92,7 @@ below are set for this machine.
 Hitches: no frame above 100 ms during traversal, shader compilation included
 (PSO precaching on).
 
-### GPU budget, fidelity mode (33.3 ms)
+### M1 tier GPU budget, fidelity mode (33.3 ms)
 
 | Pass | Budget (ms) |
 | ---- | ---- |

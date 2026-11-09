@@ -24,9 +24,11 @@ nic0lasm (responsable du projet)
 
 Fixe la fréquence d'image et la résolution visées sur le matériel de
 référence, et découpe l'image GPU en budgets par fonction, pour que chaque
-choix de l'ADR-0001 se mesure contre un chiffre fixe. Recommandé : mode
-« fidélité » à 30 i/s en sortie 1080p sur le M1 Pro, et un mode
-« performance » à 60 i/s ajouté plus tard.
+choix de l'ADR-0001 se mesure contre un chiffre fixe. Deux niveaux de
+qualité (orientation de Nico, 2026-11-09) : le contenu est fait pour un niveau
+**Ultra** photoréaliste sur du matériel puissant, et le M1 Pro fait tourner un
+préréglage **M1** réduit à 30 i/s en 1080p. Un mode performance à 60 i/s
+viendra plus tard.
 
 ## Compatibilité moteur
 
@@ -56,7 +58,23 @@ budgets ci-dessous sont fixés pour cette machine.
 
 ## Décision
 
-### Cible (M1 Pro, 16 Go)
+### Niveaux de qualité
+
+L'objectif reste le photoréalisme, quitte à ce que le jeu soit lourd en
+poids et en calcul graphique (Nico, 2026-11-09). La qualité s'échelonne donc
+par niveau, sans jamais baisser globalement :
+
+| Niveau | Rôle | Matériel | Rendu | Cible |
+| ---- | ---- | ---- | ---- | ---- |
+| **Ultra** | La cible photoréaliste ; tout le contenu est produit pour elle | Apple M2 Max ou plus récent, Windows avec GPU type RTX | Nanite, Lumen haute qualité (RT matériel si disponible), Virtual Shadow Maps, MegaLights, textures en pleine résolution | 30 i/s en 1440p ou plus ; mesuré dès qu'un tel matériel est disponible |
+| **M1** | Préréglage jouable de développement sur le MacBook Pro actuel | M1 Pro, 16 Go | Repli Nanite / LOD, Lumen réduit (Lumen Lite ou résolution interne plus basse, choisi d'après les mesures), lumières de nuit classiques, pool de textures plafonné | 30 i/s en 1080p, budget ci-dessous |
+
+Règles : on ne simplifie jamais les assets ni les matériaux à la source pour
+le niveau M1 ; ce niveau vient uniquement des réglages de qualité, des LOD et
+du streaming des textures. La taille du client ne contraint pas le niveau
+Ultra ; son budget de taille sera fixé plus tard avec Nico.
+
+### Cible du niveau M1 (M1 Pro, 16 Go)
 
 | Mode | Images/s | Sortie | Interne (TSR) | Éclairage | Priorité |
 | ---- | ---- | ---- | ---- | ---- | ---- |
@@ -66,7 +84,7 @@ budgets ci-dessous sont fixés pour cette machine.
 Saccades : aucune image au-dessus de 100 ms pendant les déplacements,
 compilation des shaders comprise (précache des PSO actif).
 
-### Budget GPU, mode fidélité (33,3 ms)
+### Budget GPU du niveau M1, mode fidélité (33,3 ms)
 
 | Passe | Budget (ms) |
 | ---- | ---- |
