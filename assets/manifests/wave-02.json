@@ -1,0 +1,279 @@
+{
+  "wave": "w2",
+  "items": [
+    {
+      "id": "W2-01",
+      "slug": "city_car_body_draft",
+      "name": "City car body draft",
+      "size_m": 3.9,
+      "family": "Vehicles",
+      "asset": "Draft_CityCar",
+      "category": "large"
+    },
+    {
+      "id": "W2-02",
+      "slug": "sedan_body_draft",
+      "name": "Sedan body draft",
+      "size_m": 4.6,
+      "family": "Vehicles",
+      "asset": "Draft_Sedan",
+      "category": "large"
+    },
+    {
+      "id": "W2-03",
+      "slug": "van_body_draft",
+      "name": "Van body draft",
+      "size_m": 5.0,
+      "family": "Vehicles",
+      "asset": "Draft_Van",
+      "category": "large"
+    },
+    {
+      "id": "W2-04",
+      "slug": "alloy_wheel_with_tyre",
+      "name": "Alloy wheel with tyre",
+      "size_m": 0.65,
+      "family": "VehicleParts",
+      "asset": "Wheel_Alloy",
+      "category": "small"
+    },
+    {
+      "id": "W2-05",
+      "slug": "steel_wheel_with_hubcap",
+      "name": "Steel wheel with hubcap",
+      "size_m": 0.65,
+      "family": "VehicleParts",
+      "asset": "Wheel_SteelHubcap",
+      "category": "small"
+    },
+    {
+      "id": "W2-06",
+      "slug": "worn_spare_tyre",
+      "name": "Worn spare tyre",
+      "size_m": 0.65,
+      "family": "VehicleParts",
+      "asset": "Tyre_SpareWorn",
+      "category": "small"
+    },
+    {
+      "id": "W2-07",
+      "slug": "crumpled_car_door",
+      "name": "Crumpled car door",
+      "size_m": 1.1,
+      "family": "Debris",
+      "asset": "CarDoor_Crumpled",
+      "category": "medium"
+    },
+    {
+      "id": "W2-08",
+      "slug": "broken_bumper",
+      "name": "Broken bumper",
+      "size_m": 1.6,
+      "family": "Debris",
+      "asset": "Bumper_Broken",
+      "category": "medium"
+    },
+    {
+      "id": "W2-09",
+      "slug": "crash_debris_pile",
+      "name": "Crash debris pile",
+      "size_m": 0.8,
+      "family": "Debris",
+      "asset": "CrashDebris_Pile",
+      "category": "small"
+    },
+    {
+      "id": "W2-10",
+      "slug": "dented_car_hood",
+      "name": "Dented car hood",
+      "size_m": 1.4,
+      "family": "Debris",
+      "asset": "CarHood_Dented",
+      "category": "medium"
+    },
+    {
+      "id": "W2-11",
+      "slug": "concrete_roadside_bollard",
+      "name": "Concrete roadside bollard",
+      "size_m": 0.9,
+      "family": "StreetFurniture",
+      "asset": "Bollard_ConcreteRound",
+      "category": "small"
+    },
+    {
+      "id": "W2-12",
+      "slug": "flexible_lane_bollard",
+      "name": "Flexible lane bollard",
+      "size_m": 0.75,
+      "family": "Roadworks",
+      "asset": "Bollard_FlexibleLane",
+      "category": "small"
+    },
+    {
+      "id": "W2-13",
+      "slug": "removable_steel_bollard",
+      "name": "Removable steel bollard",
+      "size_m": 1.0,
+      "family": "StreetFurniture",
+      "asset": "Bollard_RemovableSteel",
+      "category": "medium"
+    },
+    {
+      "id": "W2-14",
+      "slug": "rubber_speed_bump_segment",
+      "name": "Rubber speed bump segment",
+      "size_m": 0.5,
+      "family": "Roadworks",
+      "asset": "SpeedBump_RubberSegment",
+      "category": "small"
+    },
+    {
+      "id": "W2-15",
+      "slug": "speed_cushion",
+      "name": "Speed cushion",
+      "size_m": 1.8,
+      "family": "Roadworks",
+      "asset": "SpeedCushion_Asphalt",
+      "category": "medium"
+    },
+    {
+      "id": "W2-16",
+      "slug": "delivery_bay_sign_post",
+      "name": "Delivery bay sign post",
+      "size_m": 2.3,
+      "family": "Signage",
+      "asset": "Post_DeliveryBay",
+      "category": "medium"
+    },
+    {
+      "id": "W2-17",
+      "slug": "fold_down_parking_post",
+      "name": "Fold-down parking post",
+      "size_m": 0.8,
+      "family": "StreetFurniture",
+      "asset": "Post_FoldDownParking",
+      "category": "small"
+    },
+    {
+      "id": "W2-18",
+      "slug": "parking_barrier_arm",
+      "name": "Parking barrier arm",
+      "size_m": 3.5,
+      "family": "Utilities",
+      "asset": "Barrier_ParkingArm",
+      "pivot": "back_center",
+      "category": "large"
+    },
+    {
+      "id": "W2-19",
+      "slug": "blank_front_license_plate",
+      "name": "Blank front license plate",
+      "size_m": 0.52,
+      "family": "VehicleParts",
+      "asset": "Plate_FrontBlank",
+      "pivot": "back_center",
+      "category": "small"
+    },
+    {
+      "id": "W2-20",
+      "slug": "blank_rear_plate_with_holder",
+      "name": "Blank rear plate with holder",
+      "size_m": 0.52,
+      "family": "VehicleParts",
+      "asset": "Plate_RearBlankHolder",
+      "pivot": "back_center",
+      "category": "small"
+    },
+    {
+      "id": "W2-21",
+      "slug": "stack_of_old_tyres",
+      "name": "Stack of old tyres",
+      "size_m": 0.8,
+      "family": "Debris",
+      "asset": "Tyres_Stack",
+      "category": "small"
+    },
+    {
+      "id": "W2-22",
+      "slug": "steel_road_plate",
+      "name": "Steel road plate",
+      "size_m": 2.4,
+      "family": "Roadworks",
+      "asset": "RoadPlate_Steel",
+      "collision": "none",
+      "category": "medium"
+    },
+    {
+      "id": "W2-23",
+      "slug": "water_filled_road_barrier",
+      "name": "Water-filled road barrier",
+      "size_m": 1.8,
+      "family": "Roadworks",
+      "asset": "Barrier_WaterFilled",
+      "category": "medium"
+    },
+    {
+      "id": "W2-24",
+      "slug": "concrete_jersey_barrier",
+      "name": "Concrete jersey barrier",
+      "size_m": 2.0,
+      "family": "Roadworks",
+      "asset": "Barrier_Jersey",
+      "category": "medium"
+    },
+    {
+      "id": "W2-25",
+      "slug": "delineator_post",
+      "name": "Delineator post",
+      "size_m": 1.1,
+      "family": "Roadworks",
+      "asset": "Delineator_Post",
+      "category": "medium"
+    },
+    {
+      "id": "W2-26",
+      "slug": "car_battery",
+      "name": "Car battery",
+      "size_m": 0.3,
+      "family": "Debris",
+      "asset": "CarBattery_Generic",
+      "category": "small"
+    },
+    {
+      "id": "W2-27",
+      "slug": "exhaust_muffler",
+      "name": "Exhaust muffler",
+      "size_m": 1.0,
+      "family": "Debris",
+      "asset": "Muffler_Rusty",
+      "category": "medium"
+    },
+    {
+      "id": "W2-28",
+      "slug": "broken_side_mirror",
+      "name": "Broken side mirror",
+      "size_m": 0.25,
+      "family": "Debris",
+      "asset": "SideMirror_Broken",
+      "category": "small"
+    },
+    {
+      "id": "W2-29",
+      "slug": "road_grit_bin",
+      "name": "Road grit bin",
+      "size_m": 0.8,
+      "family": "Utilities",
+      "asset": "GritBin_Yellow",
+      "category": "small"
+    },
+    {
+      "id": "W2-30",
+      "slug": "portable_roadwork_sign",
+      "name": "Portable roadwork sign",
+      "size_m": 1.2,
+      "family": "Roadworks",
+      "asset": "Sign_RoadworkTriangle",
+      "category": "medium"
+    }
+  ]
+}

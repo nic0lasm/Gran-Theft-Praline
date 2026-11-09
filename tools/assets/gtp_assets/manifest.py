@@ -55,6 +55,31 @@ WAVE1_NAMES = {
     "W1-59": ("Utilities", "ATM_WallMounted"), "W1-60": ("Logistics", "GarbageBags_Pile"),
 }
 
+
+# Wave 2 (vehicle drafts, roadway objects): the catalog table has no size column,
+# so family, name and longest dimension in metres are declared here.
+WAVE2 = {
+    "W2-01": ("Vehicles", "Draft_CityCar", 3.9, {}), "W2-02": ("Vehicles", "Draft_Sedan", 4.6, {}),
+    "W2-03": ("Vehicles", "Draft_Van", 5.0, {}), "W2-04": ("VehicleParts", "Wheel_Alloy", 0.65, {}),
+    "W2-05": ("VehicleParts", "Wheel_SteelHubcap", 0.65, {}), "W2-06": ("VehicleParts", "Tyre_SpareWorn", 0.65, {}),
+    "W2-07": ("Debris", "CarDoor_Crumpled", 1.1, {}), "W2-08": ("Debris", "Bumper_Broken", 1.6, {}),
+    "W2-09": ("Debris", "CrashDebris_Pile", 0.8, {}), "W2-10": ("Debris", "CarHood_Dented", 1.4, {}),
+    "W2-11": ("StreetFurniture", "Bollard_ConcreteRound", 0.9, {}),
+    "W2-12": ("Roadworks", "Bollard_FlexibleLane", 0.75, {}),
+    "W2-13": ("StreetFurniture", "Bollard_RemovableSteel", 1.0, {}),
+    "W2-14": ("Roadworks", "SpeedBump_RubberSegment", 0.5, {}),
+    "W2-15": ("Roadworks", "SpeedCushion_Asphalt", 1.8, {}),
+    "W2-16": ("Signage", "Post_DeliveryBay", 2.3, {}), "W2-17": ("StreetFurniture", "Post_FoldDownParking", 0.8, {}),
+    "W2-18": ("Utilities", "Barrier_ParkingArm", 3.5, {"pivot": "back_center"}),
+    "W2-19": ("VehicleParts", "Plate_FrontBlank", 0.52, {"pivot": "back_center"}),
+    "W2-20": ("VehicleParts", "Plate_RearBlankHolder", 0.52, {"pivot": "back_center"}),
+    "W2-21": ("Debris", "Tyres_Stack", 0.8, {}), "W2-22": ("Roadworks", "RoadPlate_Steel", 2.4, {"collision": "none"}),
+    "W2-23": ("Roadworks", "Barrier_WaterFilled", 1.8, {}), "W2-24": ("Roadworks", "Barrier_Jersey", 2.0, {}),
+    "W2-25": ("Roadworks", "Delineator_Post", 1.1, {}), "W2-26": ("Debris", "CarBattery_Generic", 0.3, {}),
+    "W2-27": ("Debris", "Muffler_Rusty", 1.0, {}), "W2-28": ("Debris", "SideMirror_Broken", 0.25, {}),
+    "W2-29": ("Utilities", "GritBin_Yellow", 0.8, {}), "W2-30": ("Roadworks", "Sign_RoadworkTriangle", 1.2, {}),
+}
+
 _ROW = re.compile(r"^\|\s*(W\d+-\d+)\s*\|\s*([^|]+?)\s*\|\s*([^|]*?)\s*\|\s*([^|]*?)\s*\|")
 
 
@@ -71,6 +96,8 @@ def parse_catalog(md_text: str, wave_prefix: str = "W1") -> list[dict]:
             continue
         asset_id, name, _notes, size = m.groups()
         nums = [float(n) for n in re.findall(r"\d+(?:\.\d+)?", size)]
+        if asset_id in WAVE2:
+            nums = [WAVE2[asset_id][2]]
         if not nums:
             continue
         item = {"id": asset_id, "slug": slugify(name), "name": name,
@@ -78,6 +105,9 @@ def parse_catalog(md_text: str, wave_prefix: str = "W1") -> list[dict]:
         item.update(WAVE1_OVERRIDES.get(asset_id, {}))
         if asset_id in WAVE1_NAMES:
             item["family"], item["asset"] = WAVE1_NAMES[asset_id]
+        if asset_id in WAVE2:
+            item["family"], item["asset"] = WAVE2[asset_id][:2]
+            item.update(WAVE2[asset_id][3])
         item["category"] = category(item["size_m"])
         items.append(item)
     return items
