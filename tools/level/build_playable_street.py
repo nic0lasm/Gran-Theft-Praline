@@ -5,9 +5,11 @@ so /Game/ReferenceScene/Geo and /Game/ReferenceScene/Maps/ReferenceStreet_Noon
 exist. Lighting and post-process come from that map unchanged: this script
 only adds what makes the street playable.
 
-Run from the editor (Tools > Execute Python Script) or headless:
-  UnrealEditor-Cmd GranTheftPraline.uproject -run=pythonscript \
-      -script="<repo>/tools/level/build_playable_street.py"
+Run from the editor (Tools > Execute Python Script) or without the UI
+(UE 5.8 on Mac has no UnrealEditor-Cmd, and -run=pythonscript has no
+StaticMeshEditorSubsystem; copy the script to a path without spaces first):
+  UnrealEditor GranTheftPraline.uproject -unattended -nosplash \
+      -ExecutePythonScript=/tmp/build_playable_street.py
 
 Steps (idempotent, the map is rebuilt from scratch each run):
   1. collisions on the greybox meshes (buildings and ground block, roads do not)
@@ -48,7 +50,8 @@ editor_sub = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem)
 
 
 def log(msg):
-    unreal.log("[PlayableStreet] " + msg)
+    # Warning level: plain Log lines are hidden when the editor runs a script without UI.
+    unreal.log_warning("[PlayableStreet] " + msg)
 
 
 def warn(msg):
@@ -69,12 +72,13 @@ def set_mesh_collision(mesh, enabled):
     if body is None:
         warn("%s has no body setup" % mesh.get_name())
         return False
+    # BodySetup.collision_response is not exposed to Python in UE 5.8: toggle per section instead.
     if enabled:
         body.set_editor_property("collision_trace_flag", unreal.CollisionTraceFlag.CTF_USE_COMPLEX_AS_SIMPLE)
-        body.set_editor_property("collision_response", unreal.BodyCollisionResponse.BODY_COLLISION_ENABLED)
-    else:
-        body.set_editor_property("collision_response", unreal.BodyCollisionResponse.BODY_COLLISION_DISABLED)
-    mesh.set_editor_property("body_setup", body)
+        mesh.set_editor_property("body_setup", body)
+    sm_sub = unreal.get_editor_subsystem(unreal.StaticMeshEditorSubsystem)
+    for section in range(mesh.get_num_sections(0)):
+        sm_sub.enable_section_collision(mesh, enabled, 0, section)
     return True
 
 
@@ -107,13 +111,18 @@ def duplicate_map():
                            % SOURCE_MAP)
     if eal.does_asset_exist(TARGET_MAP):
         eal.delete_asset(TARGET_MAP)
-    if not eal.duplicate_asset(SOURCE_MAP, TARGET_MAP):
-        # Fallback: open the source map and save it under the new name.
-        level_sub.load_level(SOURCE_MAP)
-        if not unreal.EditorLoadingAndSavingUtils.save_map(editor_sub.get_editor_world(), TARGET_MAP):
-            raise RuntimeError("could not duplicate %s" % SOURCE_MAP)
+    # Open the source map and save it under the new name. duplicate_asset followed by
+    # load_level crashes UE 5.8 (the duplicated world stays referenced: "World Memory Leaks").
+    if not level_sub.load_level(SOURCE_MAP):
+        raise RuntimeError("could not load %s" % SOURCE_MAP)
+    if not unreal.EditorLoadingAndSavingUtils.save_map(editor_sub.get_editor_world(), TARGET_MAP):
+        raise RuntimeError("could not save %s as %s" % (SOURCE_MAP, TARGET_MAP))
+    # save_map writes a copy and keeps the source world open: open the copy.
     if not level_sub.load_level(TARGET_MAP):
         raise RuntimeError("could not load %s" % TARGET_MAP)
+    world_path = editor_sub.get_editor_world().get_path_name()
+    if not world_path.startswith(TARGET_MAP + "."):
+        raise RuntimeError("current world is %s, expected %s" % (world_path, TARGET_MAP))
     log("duplicated %s -> %s" % (SOURCE_MAP, TARGET_MAP))
 
 
@@ -143,11 +152,13 @@ def ground_box():
             origin.z + extent.z)
 
 
-def trace(world, start, end, ignore=()):
-    """Line trace on the visibility channel; returns the hit result or None."""
+def trace(world, start, end, ignore=(), complex_=True):
+    """Line trace on the visibility channel; returns the hit result or None.
+
+    complex_=False only sees simple collision, i.e. what a moving pawn collides with."""
     res = unreal.SystemLibrary.line_trace_single(
         world, unreal.Vector(*start), unreal.Vector(*end),
-        unreal.TraceTypeQuery.TRACE_TYPE_QUERY1, True, list(ignore), unreal.DrawDebugTrace.NONE, True)
+        unreal.TraceTypeQuery.TRACE_TYPE_QUERY1, complex_, list(ignore), unreal.DrawDebugTrace.NONE, True)
     if isinstance(res, tuple):  # (bool, HitResult) in some engine versions
         return res[1] if res[0] else None
     return res
@@ -235,14 +246,19 @@ def run_checks(world, axis, ps, bounds, top_z):
 
     # Facades on both sides of the street block a pedestrian-height trace.
     samples = resample(axis, 1000.0)
-    blocked = 0
-    for x, y, h in samples:
-        for side in (1, -1):
-            nx, ny = -math.sin(h) * side, math.cos(h) * side
-            if trace(world, (x, y, top_z + 150.0), (x + nx * 4000.0, y + ny * 4000.0, top_z + 150.0)):
-                blocked += 1
-    ratio = blocked / float(2 * len(samples))
-    checks["facades_block"] = dict(ok=ratio >= 0.8, ratio=round(ratio, 3), traces=2 * len(samples))
+    # 0.7: side streets and squares open the street at about a quarter of the samples
+    # (0.758 measured on 2026-11-09). The simple-collision pass must match the complex
+    # one: complex-as-simple is what the pawn collides with.
+    for name, complex_ in (("facades_block", True), ("facades_block_simple", False)):
+        blocked = 0
+        for x, y, h in samples:
+            for side in (1, -1):
+                nx, ny = -math.sin(h) * side, math.cos(h) * side
+                if trace(world, (x, y, top_z + 150.0), (x + nx * 4000.0, y + ny * 4000.0, top_z + 150.0),
+                         complex_=complex_):
+                    blocked += 1
+        ratio = blocked / float(2 * len(samples))
+        checks[name] = dict(ok=ratio >= 0.7, ratio=round(ratio, 3), traces=2 * len(samples))
 
     # Every wall blocks a trace leaving the playable area from its centre.
     min_x, min_y, max_x, max_y = bounds

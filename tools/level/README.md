@@ -12,19 +12,25 @@ reference street scene, so its lighting is exactly the measured `Noon` state.
    has run (it imports the greybox into `/Game/ReferenceScene/Geo` and builds
    `ReferenceStreet_Noon`).
 2. `build_playable_street.py` (Unreal Editor Python) rebuilds
-   `/Game/Maps/L_RueRepublique` from scratch:
+   `/Game/Maps/L_RueRepublique` from scratch. Without the UI (UE 5.8 on Mac
+   has no `UnrealEditor-Cmd`), from a copy in a folder without spaces:
+   `UnrealEditor GranTheftPraline.uproject -unattended -nosplash -ExecutePythonScript=/tmp/build_playable_street.py`.
    - collisions: buildings and ground block (complex as simple, so courtyards
      and L-shaped blocks are exact), road ribbons do not;
    - camera path actor removed, `PlayerStart` 5 m into the street, facing it;
    - four invisible walls (`Gameplay/Bounds`, tag `PlayBounds`) 60 m high
      along the ground edges, kill-Z at -30 m;
    - line-trace checks (spawn on the ground and under open sky, facades block
-     on both sides, walls block, kill-Z), report in
+     on both sides with complex and with simple collision, at least 70 % of
+     the samples since side streets open the street, walls block, kill-Z),
+     report in
      `GranTheftPraline/Saved/PlayableStreet/report.json`, `RESULT PASS` in
      the log.
 3. `playtest_street.sh` plays the level in `-game` mode and runs
-   `playtest_street.py`: screenshot at spawn, pawn driven into a facade and
-   into a wall, both must stop it. Report `playtest.json` and screenshots
+   `playtest_street.py`: screenshot at spawn, then the pawn is pushed across
+   the street towards the nearest facade, and above the roofs towards the
+   north wall; the distance to each obstacle is measured first by a trace,
+   and the pawn must stop before it. Report `playtest.json` and screenshots
    `spawn.png`, `facade.png`, `bounds.png` in the same folder.
 
 Lighting and rendering settings belong to the reference scene: change them
@@ -41,7 +47,9 @@ mesuré.
    tourné (import du greybox dans `/Game/ReferenceScene/Geo` et niveau
    `ReferenceStreet_Noon`).
 2. `build_playable_street.py` (Python de l'éditeur Unreal) reconstruit
-   `/Game/Maps/L_RueRepublique` de zéro :
+   `/Game/Maps/L_RueRepublique` de zéro. Sans interface (UE 5.8 sur Mac n'a
+   pas `UnrealEditor-Cmd`), depuis une copie dans un dossier sans espace :
+   `UnrealEditor GranTheftPraline.uproject -unattended -nosplash -ExecutePythonScript=/tmp/build_playable_street.py`.
    - collisions : bâtiments et sol bloquent (collision complexe utilisée
      comme simple, donc cours intérieures et îlots en L exacts), les rubans
      de route non ;
@@ -49,12 +57,16 @@ mesuré.
    - quatre murs invisibles (`Gameplay/Bounds`, tag `PlayBounds`) de 60 m
      le long des bords du sol, kill-Z à -30 m ;
    - contrôles par lancer de rayons (apparition au sol et à ciel ouvert,
-     façades bloquantes des deux côtés, murs bloquants, kill-Z), rapport dans
+     façades bloquantes des deux côtés en collision complexe et simple, sur
+     au moins 70 % des points car les rues transversales ouvrent la rue,
+     murs bloquants, kill-Z), rapport dans
      `GranTheftPraline/Saved/PlayableStreet/report.json`, `RESULT PASS` dans
      le journal.
 3. `playtest_street.sh` joue le niveau en mode `-game` avec
-   `playtest_street.py` : capture au point d'apparition, pion poussé contre
-   une façade puis contre un mur, les deux doivent l'arrêter. Rapport
+   `playtest_street.py` : capture au point d'apparition, puis le pion est
+   poussé en travers de la rue vers la façade la plus proche, et au-dessus
+   des toits vers le mur nord ; la distance à chaque obstacle est d'abord
+   mesurée par un rayon, et le pion doit s'arrêter avant. Rapport
    `playtest.json` et captures `spawn.png`, `facade.png`, `bounds.png` dans
    le même dossier.
 
