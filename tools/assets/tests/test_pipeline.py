@@ -133,3 +133,42 @@ def test_catalog_manifest_covers_wave_1():
     assert by_id["W1-06"]["pivot"] == "back_center"
     committed = json.load(open(os.path.join(ROOT, "assets", "manifests", "wave-01.json")))
     assert committed["items"] == items, "regenerate assets/manifests/wave-01.json"
+
+
+def test_calibration_helpers():
+    from gtp_assets import calibrate
+    # normals: green flipped to DirectX
+    n = Image.fromarray(np.full((4, 4, 3), [128, 200, 255], dtype=np.uint8), "RGB")
+    assert np.asarray(calibrate.flip_normal_green(n))[0, 0].tolist() == [128, 55, 255]
+    # albedo: near-black and near-white non-metal pixels pulled into 30-240
+    rng = np.random.default_rng(1)
+    base = Image.fromarray(rng.integers(0, 256, (64, 64, 3), dtype=np.uint8), "RGB")
+    orm = Image.fromarray(np.zeros((64, 64, 3), dtype=np.uint8), "RGB")
+    out, info = calibrate.calibrate_albedo(base, orm)
+    assert info["albedo_corrected"]
+    lum = np.asarray(out).astype(float) @ [0.2126, 0.7152, 0.0722]
+    assert np.percentile(lum, 0.5) >= 28 and np.percentile(lum, 99.5) <= 242
+    # a flat roughness map gets variation, a varied one is left alone
+    flat = Image.fromarray(np.full((128, 128, 3), 180, dtype=np.uint8), "RGB")
+    varied, did = calibrate.vary_roughness(flat)
+    assert did and np.asarray(varied)[..., 1].std() > 2
+    assert calibrate.vary_roughness(varied)[1] is False
+
+
+def test_density_drives_texture_size(tmp_path):
+    from gtp_assets.calibrate import target_side
+    m = trimesh.creation.box(extents=[1.0, 1.0, 1.0])  # 6 m2 = 60000 cm2
+    path = str(tmp_path / "W1-99.glb")
+    big = Image.fromarray(np.full((4096, 4096, 3), 120, dtype=np.uint8), "RGB")
+    from trimesh.visual import TextureVisuals
+    from trimesh.visual.material import PBRMaterial
+    uv = np.c_[(m.vertices[:, 0] + .5), (m.vertices[:, 2] + .5)]
+    m.visual = TextureVisuals(uv=uv, material=PBRMaterial(baseColorTexture=big))
+    trimesh.Scene(m).export(path)
+    a = load_glb(path)
+    normalize(a, 1.0)
+    side = target_side(a.parts[0])
+    assert side in (1024, 2048, 4096)
+    meta = prepare_asset(path, {"id": "W1-99", "size_m": 1.0}, str(tmp_path / "o"))
+    assert max(meta["materials"][0]["size_px"]) <= 4096
+    assert meta["materials"][0]["density_px_cm"] > 0

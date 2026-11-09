@@ -80,10 +80,12 @@ Masters retrouvés par préfixe d'identifiant (`W1-07.glb`). Les absents sont li
 - **À vérifier au premier passage sur le Mac** : axe de face (+X), que le profil M1 (Nanite
   coupé) retombe bien sur le repli LOD0 puis la chaîne, et les noms exacts de l'API Python
   5.8 (`StaticMeshEditorSubsystem`). Le script échoue bruyamment par asset.
-- **Non couvert** : réencodage des textures à la densité de la section 4.4 et recalibrage de
-  l'albédo (sans lumière, rugosité variée) : les textures du master sont prises telles
-  quelles ; une passe Blender ultérieure gère le nettoyage manuel. Les objets à
-  transparence découpée demandent un matériau maître masqué.
+- **Calibrage des textures** (bible 4) : normales converties en DirectX ; taille choisie
+  d'après la densité cible (10,24 px/cm, puissance de deux, jamais agrandie, 4K max,
+  densité mesurée dans `asset.json`) ; albédo non métallique étiré dans 30-240 s'il en
+  sort ; rugosité plate rendue légèrement variable. Le vrai dé-éclairage et un re-UV
+  demandent une passe Blender. Les objets à transparence découpée demandent un matériau
+  maître masqué.
 - Les `.uasset` et textures importés vont dans Git LFS ; surveiller le quota
   ([git-lfs.fr.md](../project/git-lfs.fr.md)).
 - Pas de dépendance à Blender : trimesh et meshoptimizer tournent en CI comme sur le Mac.

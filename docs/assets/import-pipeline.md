@@ -79,9 +79,11 @@ Masters are matched by id prefix (`W1-07.glb`). Missing ones are listed in
 - **To verify on the first Mac run**: front axis (+X), that M1 (Nanite off) really falls
   back to LOD0 fallback plus the chain, and the exact Python API names of 5.8
   (`StaticMeshEditorSubsystem`). The script is written to fail loudly per asset.
-- **Not covered**: texture rebake to the section 4.4 density and albedo recalibration
-  (de-lit, varied roughness): the master's textures are used as they come; a later
-  Blender pass handles hand cleanup. Alpha-tested objects need a masked master material.
+- **Texture calibration** (art bible 4): normals flipped to DirectX; texture side chosen
+  from the target density (10.24 px/cm, power of two, never upscaled, 4K max, measured
+  density in `asset.json`); non-metal albedo stretched into 30-240 when outside; flat
+  roughness gets soft variation. True de-lighting and re-UV rebakes need a Blender pass.
+  Alpha-tested objects need a masked master material.
 - Imported `.uasset` files and textures go to Git LFS; watch the quota
   ([git-lfs.md](../project/git-lfs.md)).
 - No Blender dependency: trimesh and meshoptimizer run in CI and on the Mac alike.

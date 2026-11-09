@@ -13,7 +13,7 @@ The master material is created if missing at /Game/Materials/Masters/M_Master_Su
 
 Run headless (see tools/assets/import-props-mac.sh):
   GTP_STAGING=<dir> GTP_WAVE=w1 [GTP_IDS="W1-01 W1-02"] UnrealEditor-Cmd <uproject> \
-      -ExecutePythonScript=tools/assets/unreal/import_props.py -unattended
+      -run=pythonscript -script=tools/assets/unreal/import_props.py -unattended
 
 Idempotent: assets are replaced on re-import. Writes only under /Game/Environment/Props
 and creates /Game/Materials/Masters/M_Master_Surface when absent.
