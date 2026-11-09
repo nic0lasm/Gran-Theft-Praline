@@ -203,6 +203,29 @@ Commands: `python3 tools/city/brands.py --name presqu-ile --focus rue-de-la-repu
 then `python3 tools/city/signs.py --name presqu-ile`, then `assemble.py` (add
 `--logos` for local renders with the logos).
 
+## Morning test map and street furniture (added 2026-11-09)
+
+* `import_city.py` now gives the city map the **art-bible lighting** of the
+  reference scene (`GTP_CITY_LIGHT` = Noon by default, GoldenHour, Rain or
+  Night: the reference map is copied and everything but its lights, sky, fog
+  and post-process is removed), **complex collision** on buildings and terrain
+  (the pawn walks on the LiDAR ground and is stopped by the walls), a kill-Z,
+  and the **PlayerStart at the Bellecour end** of the rue de la République,
+  8 m into the street, looking up it.
+* `props.py` places the wave-1 street furniture at **surveyed positions only**:
+  Grand Lyon litter bins (transparent-bag hoops where the register says so),
+  bike-rack hoops (one per arceau, built racks only), bus shelters and tree
+  grates; OSM benches, street lamps, hydrants, post boxes, drinking fountains,
+  bike-share terminals and glass bells; and café/restaurant terraces in front
+  of the 16 places on the street (tables, chairs, parasol, chalkboard). 732
+  props for the street. `unreal/place_props.py` instances them (one
+  hierarchical instanced component per asset, collision on), drops each one on
+  the ground by a trace, and lists the assets not imported yet.
+* `unreal/run_city_import.sh` chains import, facades, props, then walks the
+  street in `-game` with the m1 rendering profile at 5 m/s from Bellecour to the
+  far end, recording every frame time (p50, p95, p99, hitches over 100 ms) and
+  five screenshots.
+
 ## Limits and next steps
 
 1. **Editor test**: `tools/city/unreal/import_city.py` imports the greybox and

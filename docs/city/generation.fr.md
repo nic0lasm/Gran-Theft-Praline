@@ -210,6 +210,29 @@ Commandes : `python3 tools/city/brands.py --name presqu-ile --focus rue-de-la-re
 puis `python3 tools/city/signs.py --name presqu-ile`, puis `assemble.py`
 (`--logos` pour des rendus locaux avec les logos).
 
+## Map de test du matin et mobilier urbain (ajouté le 2026-11-09)
+
+* `import_city.py` donne maintenant à la map de la ville **l'éclairage de la
+  bible** issu de la scène de référence (`GTP_CITY_LIGHT` = Noon par défaut,
+  GoldenHour, Rain ou Night : la map de référence est copiée et tout ce qui
+  n'est pas lumière, ciel, brouillard ou post-traitement est retiré), des
+  **collisions complexes** sur bâtiments et terrain (le personnage marche sur
+  le sol LiDAR et bute sur les murs), un kill-Z, et le **PlayerStart côté
+  Bellecour** de la rue de la République, 8 m dans la rue, regard vers le nord.
+* `props.py` pose le mobilier de la vague 1 **uniquement à des positions
+  relevées** : corbeilles Grand Lyon (cerceaux à sac transparent quand le
+  registre le dit), arceaux vélo (un par arceau, seulement ceux construits),
+  abribus et grilles d'arbres ; bancs, lampadaires, bornes incendie, boîtes
+  aux lettres, fontaines, bornes Vélo'v et colonnes à verre d'OSM ; terrasses
+  devant les 16 cafés et restaurants de la rue (tables, chaises, parasol,
+  ardoise). 732 objets pour la rue. `unreal/place_props.py` les instancie (un
+  composant instancié par asset, collisions actives), pose chacun au sol par
+  un lancer de rayon et liste les assets pas encore importés.
+* `unreal/run_city_import.sh` enchaîne import, façades, mobilier, puis parcourt
+  la rue en `-game` avec le profil de rendu m1 à 5 m/s de Bellecour au bout de
+  la rue, en relevant chaque temps d'image (p50, p95, p99, saccades de plus de
+  100 ms) et cinq captures.
+
 ## Limites et suite
 
 1. **Test éditeur** : `tools/city/unreal/import_city.py` importe greybox et

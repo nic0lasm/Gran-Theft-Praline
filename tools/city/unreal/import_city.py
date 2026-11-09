@@ -16,8 +16,10 @@ Steps (idempotent, the map is rebuilt each run; nothing else is touched):
      version with modules baked in) and the terrain meshes into /Game/Environment/City/<Zone>/
   2. check every building mesh against the bounds computed by generate.py
      (catches an axis or pivot convention change of the glTF importer)
-  3. new map /Game/Maps/L_City_<Focus>: sun, sky, fixed exposure, buildings
-     and terrain placed at their Lambert-93 positions, a PlayerStart in the street
+  3. collisions (complex as simple) on buildings and terrain; new map
+     /Game/Maps/L_City_<Focus> with the lighting of the reference scene
+     (GTP_CITY_LIGHT = Noon | GoldenHour | Rain | Night, art bible states), buildings
+     and terrain at their Lambert-93 positions, a PlayerStart at the Bellecour end
   4. report in Saved/CityImport/report.json
 The facade module list (facade_modules.csv) is left for the facade kit / PCG
 graph; this script only builds the greybox that already contains the modules.
@@ -25,6 +27,7 @@ graph; this script only builds the greybox that already contains the modules.
 
 import csv
 import json
+import math
 import os
 import time
 
@@ -41,6 +44,14 @@ CAMEL = "".join(p.capitalize() for p in FOCUS.split("-"))
 ROOT = "/Game/Environment/City/" + "".join(p.capitalize() for p in ZONE.split("-"))
 MAP = "/Game/Maps/L_City_" + CAMEL
 BOUNDS_TOLERANCE_CM = 30.0
+# Lighting state of the art bible, taken unchanged from the reference scene (rendering thread):
+# Noon (default), GoldenHour, Rain or Night. Falls back to a plain sun and sky if missing.
+LIGHT_STATE = os.environ.get("GTP_CITY_LIGHT", "Noon")
+LIGHT_SOURCE_MAP = "/Game/ReferenceScene/Maps/ReferenceStreet_" + LIGHT_STATE
+LIGHT_CLASSES = (unreal.DirectionalLight, unreal.SkyLight, unreal.SkyAtmosphere, unreal.ExponentialHeightFog,
+                 unreal.VolumetricCloud, unreal.PostProcessVolume, unreal.Light)
+KILL_Z = -5000.0
+SPAWN_ALONG_AXIS_CM = 800.0   # start 8 m into the street from its Bellecour end
 
 eal = unreal.EditorAssetLibrary
 asset_tools = unreal.AssetToolsHelpers.get_asset_tools()
@@ -72,78 +83,48 @@ def import_glb(path, dest):
     return meshes
 
 
-def check_bounds(mesh, expected):
-    """True if the imported mesh has the pivot-relative bounds generate.py wrote."""
-    box = mesh.get_bounding_box()
-    got = [box.min.x, box.min.y, box.min.z, box.max.x, box.max.y, box.max.z]
-    return max(abs(g - e) for g, e in zip(got, expected)) <= BOUNDS_TOLERANCE_CM, got
-
-
-def spawn(cls, loc, rot=None, label=None, folder=None):
-    a = actor_sub.spawn_actor_from_class(cls, unreal.Vector(*loc), rot or unreal.Rotator(0, 0, 0))
-    if label:
-        a.set_actor_label(label)
-    if folder:
-        a.set_folder_path(folder)
-    return a
-
-
-def place_mesh(mesh, loc, label, folder):
-    a = spawn(unreal.StaticMeshActor, loc, None, label, folder)
-    comp = a.static_mesh_component
-    comp.set_static_mesh(mesh)
-    comp.set_editor_property("mobility", unreal.ComponentMobility.STATIC)
-    return a
-
-
-def main():
-    t0 = time.time()
-    report = {"zone": ZONE, "focus": FOCUS, "map": MAP, "errors": []}
-    with open(os.path.join(GEN, "buildings_gen.csv"), encoding="utf-8") as f:
-        rows = list(csv.DictReader(f))
-    with open(os.path.join(TERRAIN, "terrain.json")) as f:
-        terrain_meta = json.load(f)
-
-    buildings = import_glb(os.path.join(GEN, MESH + ".glb"), ROOT + "/Buildings/" + CAMEL)
-    prefix, bounds_col = ("SM_BuildingShell_", "shell_bounds_ue_cm") if MESH == "shell" else \
-        ("SM_Building_", "bounds_ue_cm")
-    for r in rows:
-        r["mesh_name"] = r["mesh_name"].replace("SM_Building_", prefix)
-        r["bounds_ue_cm"] = r[bounds_col]
-    terrain = import_glb(os.path.join(TERRAIN, "terrain.glb"), ROOT + "/Terrain")
-
-    # Convention check before anything is placed.
-    bad = []
-    for r in rows:
-        m = buildings.get(r["mesh_name"])
-        if m is None:
-            bad.append((r["mesh_name"], "missing"))
+def set_complex_collision(meshes):
+    """Complex-as-simple collision: the pawn walks on the terrain and is stopped by the walls."""
+    sm_sub = unreal.get_editor_subsystem(unreal.StaticMeshEditorSubsystem)
+    done = 0
+    for mesh in meshes:
+        body = mesh.get_editor_property("body_setup")
+        if body is None:
             continue
-        ok, got = check_bounds(m, [float(v) for v in r["bounds_ue_cm"].split()])
-        if not ok:
-            bad.append((r["mesh_name"], [round(v) for v in got]))
-    report["buildings_expected"] = len(rows)
-    report["bounds_mismatch"] = len(bad)
-    if bad:
-        report["errors"].append("bounds mismatch, first: %s" % (bad[:3],))
-        log("STOP: %d meshes do not match their expected bounds (axis/pivot convention?): %s" % (len(bad), bad[:3]))
-        write_report(report, t0)
-        return
+        body.set_editor_property("collision_trace_flag", unreal.CollisionTraceFlag.CTF_USE_COMPLEX_AS_SIMPLE)
+        mesh.set_editor_property("body_setup", body)
+        for section in range(mesh.get_num_sections(0)):
+            sm_sub.enable_section_collision(mesh, True, 0, section)
+        eal.save_loaded_asset(mesh)
+        done += 1
+    return done
 
-    level_sub.new_level(MAP)
-    sun = spawn(unreal.DirectionalLight, (0, 0, 10000), unreal.Rotator(0, -40, 135), "Sun", "Lighting")
-    sun.light_component.set_editor_property("atmosphere_sun_light", True)
-    spawn(unreal.SkyAtmosphere, (0, 0, 0), None, "SkyAtmosphere", "Lighting")
-    sky = spawn(unreal.SkyLight, (0, 0, 2000), None, "SkyLight", "Lighting")
-    sky.light_component.set_editor_property("real_time_capture", True)
-    pp = spawn(unreal.PostProcessVolume, (0, 0, 0), None, "PostProcess_Greybox", "Lighting")
-    pp.set_editor_property("unbound", True)
-    s = pp.get_editor_property("settings")
-    s.set_editor_property("override_auto_exposure_method", True)
-    s.set_editor_property("auto_exposure_method", unreal.AutoExposureMethod.AEM_MANUAL)
-    s.set_editor_property("override_auto_exposure_bias", True)
-    s.set_editor_property("auto_exposure_bias", 14.0)  # EV100 midday range of the art bible
-    pp.set_editor_property("settings", s)
+
+def open_level_with_bible_lighting(report):
+    """Copy the reference scene map of the chosen lighting state, keep only its lighting.
+
+    load + save_map, never duplicate_asset (crashes UE 5.8, see build_playable_street.py)."""
+    editor_sub = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem)
+    if eal.does_asset_exist(MAP):
+        eal.delete_asset(MAP)
+    if eal.does_asset_exist(LIGHT_SOURCE_MAP) and level_sub.load_level(LIGHT_SOURCE_MAP) and \
+            unreal.EditorLoadingAndSavingUtils.save_map(editor_sub.get_editor_world(), MAP) and \
+            level_sub.load_level(MAP):
+        kept = 0
+        for a in actor_sub.get_all_level_actors():
+            if isinstance(a, LIGHT_CLASSES) or isinstance(a, unreal.WorldSettings):
+                kept += 1
+                continue
+            actor_sub.destroy_actor(a)
+        report["lighting"] = {"source": LIGHT_SOURCE_MAP, "actors_kept": kept}
+        log("lighting from %s (%d actors kept)" % (LIGHT_SOURCE_MAP, kept))
+        return
+    report["lighting"] = {"source": "fallback sun and sky", "missing": LIGHT_SOURCE_MAP}
+    log("%s missing: plain sun and sky" % LIGHT_SOURCE_MAP)
+    report["collision_meshes"] = set_complex_collision(list(buildings.values()) + list(terrain.values()))
+    open_level_with_bible_lighting(report)
+    unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world() \
+        .get_world_settings().set_editor_property("kill_z", KILL_Z)
 
     for r in rows:
         place_mesh(buildings[r["mesh_name"]], (float(r["ue_x"]), float(r["ue_y"]), float(r["ue_z"])),
@@ -155,11 +136,12 @@ def main():
             continue
         place_mesh(m, tuple(tile["ue_cm"]), tile["name"], "City/Terrain")
 
-    # Player start: middle of the focus street axis, facing north (-Y in Unreal).
+    # Player start: Bellecour end of the focus street, looking up the street (morning test map).
     with open(os.path.join(GEN, "report.json"), encoding="utf-8") as f:
         axis = json.load(f)["focus_axis_ue_cm"]
-    x, y, z = axis[len(axis) // 2]
-    spawn(unreal.PlayerStart, (x, y, z + 120.0), unreal.Rotator(0, 0, -90), "PlayerStart_City")
+    loc, yaw = bellecour_start(axis)
+    spawn(unreal.PlayerStart, loc, unreal.Rotator(0, 0, yaw), "PlayerStart_City")
+    report["player_start"] = [round(v) for v in loc] + [round(yaw, 1)]
 
     level_sub.save_current_level()
     report.update({"buildings_placed": len(rows), "terrain_tiles": len(terrain),

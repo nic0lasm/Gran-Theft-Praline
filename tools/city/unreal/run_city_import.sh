@@ -7,7 +7,9 @@
 # Results: GranTheftPraline/Saved/CityImport/{report,facades_report,play_report}.json and shots/.
 #
 # Usage: tools/city/unreal/run_city_import.sh
-#   UE_ROOT (default /Users/Shared/Epic Games/UE_5.8), GTP_CITY_ZONE, GTP_CITY_FOCUS.
+#   UE_ROOT (default /Users/Shared/Epic Games/UE_5.8), GTP_CITY_ZONE, GTP_CITY_FOCUS,
+#   GTP_CITY_LIGHT (Noon | GoldenHour | Rain | Night, reference scene lighting states),
+#   PROFILE (rendering profile of tools/rendering/reference_scene/profiles.json, default m1).
 set -euo pipefail
 
 repo="$(cd "$(dirname "$0")/../../.." && pwd)"
@@ -21,7 +23,7 @@ out="$repo/GranTheftPraline/Saved/CityImport"
 map="/Game/Maps/L_City_$(echo "$focus" | awk -F- '{for(i=1;i<=NF;i++) printf "%s", toupper(substr($i,1,1)) substr($i,2)}')"
 
 test -x "$editor" || { echo "Unreal Editor not found: $editor" >&2; exit 1; }
-for f in "$gen/shell.glb" "$gen/buildings_gen.csv" "$gen/facade_modules.csv" "$gen/report.json" \
+for f in "$gen/signs/signs.csv" "$gen/props_placement.csv" "$gen/shell.glb" "$gen/buildings_gen.csv" "$gen/facade_modules.csv" "$gen/report.json" \
          "$gen/kit/facade_kit.glb" "$gen/kit/kit_manifest.json" \
          "$repo/assets/geo/processed/$zone/terrain/terrain.glb"; do
   test -f "$f" || { echo "missing input: $f" >&2; exit 1; }
@@ -31,8 +33,9 @@ mkdir -p "$out"
 
 # Python scripts run from a copy without spaces (the project folder has one).
 tmp="$(mktemp -d)"
-cp "$repo"/tools/city/unreal/{import_city,place_facades,shoot_city}.py "$tmp/"
-export GTP_CITY_ZONE="$zone" GTP_CITY_FOCUS="$focus"
+cp "$repo"/tools/city/unreal/{import_city,place_facades,place_props,shoot_city}.py "$tmp/"
+export GTP_CITY_ZONE="$zone" GTP_CITY_FOCUS="$focus" GTP_CITY_LIGHT="${GTP_CITY_LIGHT:-Noon}"
+cvars="$(python3 "$repo/tools/rendering/reference_scene/profiles.py" "${PROFILE:-m1}")"
 
 "$editor" "$project" -unattended -nosplash -nosound -ExecutePythonScript="$tmp/import_city.py"
 test -f "$out/report.json" || { echo "import_city.py wrote no report" >&2; exit 1; }
@@ -42,9 +45,13 @@ grep -q '"errors": \[\]' "$out/report.json" || { cat "$out/report.json"; exit 1;
 test -f "$out/facades_report.json" || { echo "place_facades.py wrote no report" >&2; exit 1; }
 grep -q '"errors": \[\]' "$out/facades_report.json" || { cat "$out/facades_report.json"; exit 1; }
 
+# Street furniture: assets not imported yet are skipped and listed in the report.
+"$editor" "$project" -unattended -nosplash -nosound -ExecutePythonScript="$tmp/place_props.py"
+test -f "$out/props_report.json" || { echo "place_props.py wrote no report" >&2; exit 1; }
+
 "$editor" "$project" "$map" -game -windowed -ResX=1920 -ResY=1080 -nosound -NoScreenMessages -unattended \
   "-ini:Engine:[/Script/Engine.UserInterfaceSettings]:bAllowHighDPIInGameMode=True" \
-  -ExecCmds="r.SetRes 1920x1080w, py $tmp/shoot_city.py"
+  -ExecCmds="r.SetRes 1920x1080w, $cvars, py $tmp/shoot_city.py"
 rm -rf "$tmp"
 
-cat "$out/report.json" "$out/facades_report.json" "$out/play_report.json"
+cat "$out/report.json" "$out/facades_report.json" "$out/props_report.json" "$out/play_report.json"

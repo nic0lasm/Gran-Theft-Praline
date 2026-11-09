@@ -17,6 +17,7 @@ python3 tools/city/terrain.py --name presqu-ile
 python3 tools/city/render.py --name presqu-ile --view street:176,-60,1.8,179,150,9
 python3 tools/city/brands.py --name presqu-ile --focus rue-de-la-republique   # brand colours and logos
 python3 tools/city/signs.py --name presqu-ile                                 # sign textures
+python3 tools/city/props.py --name presqu-ile                                 # street furniture positions
 python3 -I -m unittest discover -s tools/city/tests
 ```
 
