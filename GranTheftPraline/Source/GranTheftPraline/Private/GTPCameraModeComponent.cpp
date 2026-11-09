@@ -1,5 +1,6 @@
 #include "GTPCameraModeComponent.h"
 
+#include "GTPVehicle.h"
 #include "Camera/CameraActor.h"
 #include "Camera/CameraComponent.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -59,6 +60,13 @@ void UGTPCameraModeComponent::HandlePawnChanged(APawn* NewPawn)
 		ApplyToPawn(AppliedPawn.Get(), false);
 	}
 	AppliedPawn = nullptr;
+	if (AGTPVehicle* Vehicle = Cast<AGTPVehicle>(NewPawn))
+	{
+		// Vehicles carry their own chase and interior cameras.
+		SetComponentTickEnabled(false);
+		Vehicle->SetInteriorView(bFirstPerson);
+		return;
+	}
 	if (bFirstPerson && NewPawn)
 	{
 		SetFirstPerson(true, true);
@@ -73,6 +81,13 @@ void UGTPCameraModeComponent::SetFirstPerson(bool bEnable, bool bInstant)
 	if (!PC || !Pawn)
 	{
 		// Kept for the next pawn.
+		return;
+	}
+
+	if (AGTPVehicle* Vehicle = Cast<AGTPVehicle>(Pawn))
+	{
+		Vehicle->SetInteriorView(bEnable);
+		UE_LOG(LogGTPCameraMode, Log, TEXT("Vehicle view: %s"), bEnable ? TEXT("interior") : TEXT("chase"));
 		return;
 	}
 
