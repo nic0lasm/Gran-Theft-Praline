@@ -121,6 +121,7 @@ python3 tools/city/render.py --name presqu-ile --view street:176,-60,1.8,179,150
 | Modules de façade | 13 182, dont 215 commerces avec enseigne (106 marques) |
 | Greybox | 288 k triangles, GLB 28 Mo (faces plates, non indexé) |
 | Durée | 16 s génération, 30 s terrain, environ 1 min par aperçu |
+| Zone entière (`--focus all`, 1,4 × 1,4 km) | 2 601 bâtiments → 3 617 volumes, 205 k modules, 2 486 enseignes (499 marques), 3,8 M triangles, toit vs LiDAR médiane 0,52 m / p90 3,2 m, 3 min 44 s |
 
 La greybox sert à vérifier la mise en page, ce n'est pas un asset : les façades
 finales sont des modules de kit (≤ 50 k triangles chacun, ADR-0002), instanciés ;
