@@ -2,7 +2,7 @@
 
 *Version anglaise : [vehicles.md](vehicles.md).*
 *Version 0.3 « Au volant » de la [roadmap](../../production/roadmap.fr.md).*
-*Dernière mise à jour : 2026-11-09. Statut : design écrit, code C++ écrit sur la branche `feat/vehicles`, **pas encore compilé** (créneau Unreal à négocier sur le Mac).*
+*Dernière mise à jour : 2026-11-09. Statut : design écrit, code C++ compilé sans erreur ni avertissement sur le M1 Pro (cibles éditeur et jeu, 2026-11-09) ; pas encore essayé en jeu (il faut d'abord `BP_TestCar`, section 9.1).*
 
 ## 1. Objectif
 
@@ -280,10 +280,8 @@ des vitres se fait dans Blender (section 9.2).
 
 ## 12. Points ouverts
 
-- **Première compilation** : le code n'a jamais été compilé. Noms d'API
-  Chaos Vehicles 5.8 à confirmer (réglages du moteur, de la boîte, des
-  roues). Créneau Unreal à demander au coordinateur (compilation C++ seule,
-  sans éditeur, ~5 min).
+- **Premier essai en jeu** : le code compile (2026-11-09) ; les réglages
+  Chaos (moteur, boîte, roues) restent à éprouver en conduisant.
 - Animations entrer / sortir / assis : à trouver (GASP n'en a pas) ; en
   attendant, personnage caché au volant.
 - Chaos Vehicles reste marqué expérimental en 5.8.2 : à surveiller, repli

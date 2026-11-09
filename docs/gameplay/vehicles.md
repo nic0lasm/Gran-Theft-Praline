@@ -2,7 +2,7 @@
 
 *French version: [vehicles.fr.md](vehicles.fr.md).*
 *Version 0.3 "Behind the wheel" of the [roadmap](../../production/roadmap.md).*
-*Last updated: 2026-11-09. Status: design written, C++ code written on branch `feat/vehicles`, **not compiled yet** (Unreal slot on the Mac to be negotiated).*
+*Last updated: 2026-11-09. Status: design written, C++ code compiles with no error or warning on the M1 Pro (editor and game targets, 2026-11-09); not tried in game yet (`BP_TestCar` comes first, section 9.1).*
 
 ## 1. Goal
 
@@ -276,9 +276,8 @@ whole car with reference images; wheels and glass are split in Blender
 
 ## 12. Open points
 
-- **First compile**: the code has never been compiled. Chaos Vehicles 5.8
-  API names to confirm (engine, gearbox, wheel settings). Unreal slot to
-  request from the coordinator (C++ compile only, no editor, ~5 min).
+- **First run in game**: the code compiles (2026-11-09); the Chaos
+  settings (engine, gearbox, wheels) still have to be proven by driving.
 - Enter / exit / seated animations: to find (the GASP has none); until
   then the character is hidden at the wheel.
 - Chaos Vehicles is still marked experimental in 5.8.2: to watch, with a
