@@ -81,16 +81,20 @@ void UGTPFollowCameraComponent::SetDriving(bool bDrive)
 
 void UGTPFollowCameraComponent::SetBodyHidden(USkeletalMeshComponent* Mesh, bool bHidden)
 {
+	// Owner-no-see would not work: the view target is our camera actor, not the character.
 	if (HiddenBody.IsValid() && HiddenBody.Get() != Mesh)
 	{
-		HiddenBody->SetOwnerNoSee(false);
+		HiddenBody->SetHiddenInGame(false);
+		HiddenBody->SetCastHiddenShadow(false);
 		HiddenBody = nullptr;
 	}
-	if (!Mesh || Mesh->bOwnerNoSee == bHidden)
+	const bool bIsHidden = HiddenBody.IsValid() && HiddenBody.Get() == Mesh;
+	if (!Mesh || bIsHidden == bHidden)
 	{
 		return;
 	}
-	Mesh->SetOwnerNoSee(bHidden);
+	Mesh->SetCastHiddenShadow(bHidden);
+	Mesh->SetHiddenInGame(bHidden);
 	HiddenBody = bHidden ? Mesh : nullptr;
 }
 

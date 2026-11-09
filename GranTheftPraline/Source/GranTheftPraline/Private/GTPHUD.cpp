@@ -18,14 +18,14 @@ namespace
 	const FLinearColor KeyTextColor(0.06f, 0.06f, 0.06f);
 	const FLinearColor PanelColor(0.f, 0.f, 0.f, 0.45f);
 
-	void DrawRect(UCanvas* Canvas, const FVector2D& Position, const FVector2D& Size, const FLinearColor& Color)
+	void GTPDrawRect(UCanvas* Canvas, const FVector2D& Position, const FVector2D& Size, const FLinearColor& Color)
 	{
 		FCanvasTileItem Tile(Position, Size, Color);
 		Tile.BlendMode = SE_BLEND_Translucent;
 		Canvas->DrawItem(Tile);
 	}
 
-	void DrawText(UCanvas* Canvas, const UFont* Font, const FText& Text, const FVector2D& Position, float TextScale, const FLinearColor& Color, bool bShadow)
+	void GTPDrawText(UCanvas* Canvas, const UFont* Font, const FText& Text, const FVector2D& Position, float TextScale, const FLinearColor& Color, bool bShadow)
 	{
 		FCanvasTextItem Item(Position, Text, Font, Color);
 		Item.Scale = FVector2D(TextScale);
@@ -37,16 +37,20 @@ namespace
 		Canvas->DrawItem(Item);
 	}
 
-	FVector2D TextSize(const UFont* Font, const FText& Text, float TextScale)
-	{
-		const FString String = Text.ToString();
-		return FVector2D(Font->GetStringSize(*String), Font->GetStringHeightSize(*String)) * TextScale;
-	}
+}
+
+FVector2D AGTPHUD::MeasureText(const UFont* Font, const FText& Text, float TextScale) const
+{
+	// Measured through the canvas: the engine fonts are runtime-cached, their legacy metrics are empty.
+	float Width = 0.f;
+	float Height = 0.f;
+	GetTextSize(Text.ToString(), Width, Height, const_cast<UFont*>(Font), TextScale);
+	return FVector2D(Width, Height);
 }
 
 float AGTPHUD::TextScaleFor(const UFont* Font, float Scale) const
 {
-	const float FontHeight = Font ? FMath::Max(1.f, Font->GetMaxCharHeight()) : 1.f;
+	const float FontHeight = Font ? FMath::Max(1.f, static_cast<float>(MeasureText(Font, FText::FromString(TEXT("Ag")), 1.f).Y)) : 1.f;
 	return PromptTextHeight * Scale / FontHeight;
 }
 
@@ -123,19 +127,19 @@ void AGTPHUD::DrawPrompts(float Scale, float DeltaTime)
 	{
 		const FText& Key = ShownPrompts[Index].Key;
 		const FText& Action = ShownPrompts[Index].Value;
-		const FVector2D ActionSize = TextSize(Font, Action, TextScale);
-		const FVector2D KeySize = TextSize(Font, Key, TextScale);
+		const FVector2D ActionSize = MeasureText(Font, Action, TextScale);
+		const FVector2D KeySize = MeasureText(Font, Key, TextScale);
 		const float BoxWidth = FMath::Max(KeyBox, KeySize.X + 14.f * Scale);
 		const float RowWidth = BoxWidth + Gap + ActionSize.X;
 		const float Left = Canvas->ClipX - Margin - RowWidth + Slide;
 		const float Top = Bottom - KeyBox;
 
-		DrawRect(Canvas, FVector2D(Left - Gap, Top - 6.f * Scale), FVector2D(RowWidth + 2.f * Gap, KeyBox + 12.f * Scale),
+		GTPDrawRect(Canvas, FVector2D(Left - Gap, Top - 6.f * Scale), FVector2D(RowWidth + 2.f * Gap, KeyBox + 12.f * Scale),
 			PanelColor * FLinearColor(1.f, 1.f, 1.f, PromptAlpha));
-		DrawRect(Canvas, FVector2D(Left, Top), FVector2D(BoxWidth, KeyBox), KeyBoxColor * FLinearColor(1.f, 1.f, 1.f, PromptAlpha));
-		DrawText(Canvas, Font, Key, FVector2D(Left + (BoxWidth - KeySize.X) * 0.5f, Top + (KeyBox - KeySize.Y) * 0.5f), TextScale,
+		GTPDrawRect(Canvas, FVector2D(Left, Top), FVector2D(BoxWidth, KeyBox), KeyBoxColor * FLinearColor(1.f, 1.f, 1.f, PromptAlpha));
+		GTPDrawText(Canvas, Font, Key, FVector2D(Left + (BoxWidth - KeySize.X) * 0.5f, Top + (KeyBox - KeySize.Y) * 0.5f), TextScale,
 			FLinearColor(KeyTextColor.R, KeyTextColor.G, KeyTextColor.B, PromptAlpha), false);
-		DrawText(Canvas, Font, Action, FVector2D(Left + BoxWidth + Gap, Top + (KeyBox - ActionSize.Y) * 0.5f), TextScale,
+		GTPDrawText(Canvas, Font, Action, FVector2D(Left + BoxWidth + Gap, Top + (KeyBox - ActionSize.Y) * 0.5f), TextScale,
 			FLinearColor(TextColor.R, TextColor.G, TextColor.B, PromptAlpha), true);
 
 		Bottom = Top - (LineHeight - KeyBox);
@@ -153,9 +157,9 @@ void AGTPHUD::DrawMessage(float Scale)
 		return;
 	}
 	const float TextScale = TextScaleFor(Font, Scale);
-	const FVector2D Size = TextSize(Font, Message, TextScale);
+	const FVector2D Size = MeasureText(Font, Message, TextScale);
 	const FVector2D Position((Canvas->ClipX - Size.X) * 0.5f, Canvas->ClipY - 140.f * Scale);
 	const float Pad = 10.f * Scale;
-	DrawRect(Canvas, Position - FVector2D(Pad * 1.5f, Pad), Size + FVector2D(Pad * 3.f, Pad * 2.f), PanelColor);
-	DrawText(Canvas, Font, Message, Position, TextScale, TextColor, true);
+	GTPDrawRect(Canvas, Position - FVector2D(Pad * 1.5f, Pad), Size + FVector2D(Pad * 3.f, Pad * 2.f), PanelColor);
+	GTPDrawText(Canvas, Font, Message, Position, TextScale, TextColor, true);
 }
