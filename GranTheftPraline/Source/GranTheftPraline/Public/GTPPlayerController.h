@@ -7,6 +7,8 @@
 
 class UGTPCameraModeComponent;
 class UGTPMenuWidget;
+class UGTPVehicleInput;
+class UGTPVehicleInteractionComponent;
 class UInputAction;
 class UInputMappingContext;
 
@@ -19,6 +21,10 @@ class UInputMappingContext;
  * possession the sample's own mapping context is removed and ours are added,
  * keyboard AZERTY by default (-Qwerty on the command line or
  * bQwertyKeyboard=True for QWERTY) plus the gamepad context.
+ *
+ * Vehicles (docs/gameplay/vehicles.md): the enter / exit action stays active
+ * on foot and at the wheel; while a vehicle is possessed the on-foot
+ * contexts are swapped for the driving ones (UGTPVehicleInput, built in code).
  */
 UCLASS(Config = Game)
 class GRANTHEFTPRALINE_API AGTPPlayerController : public APlayerController
@@ -41,8 +47,13 @@ public:
 
 	UGTPCameraModeComponent* GetCameraMode() const { return CameraMode; }
 
-	/** Re-applies the on-foot mapping contexts (keyboard layout switch, after possession). */
-	void ApplyOnFootInput();
+	/** Re-applies the mapping contexts of the controlled pawn: on foot or driving (keyboard layout switch, after possession). */
+	void ApplyInputForPawn();
+
+	/** Vehicle and interaction input actions, created on first use. */
+	UGTPVehicleInput* GetVehicleInput();
+
+	UGTPVehicleInteractionComponent* GetVehicleInteraction() const { return VehicleInteraction; }
 
 protected:
 	virtual void BeginPlay() override;
@@ -57,6 +68,10 @@ private:
 
 	static bool IsPauseKey(const FKey& Key);
 	void OnToggleCameraMode();
+	void OnEnterExit();
+	void ApplyOnFootInput();
+	void ApplyDrivingInput();
+	bool UsesQwerty() const;
 
 	/**
 	 * Gives the view a level starting rotation (pawn yaw, StartViewPitch) and
@@ -107,6 +122,12 @@ private:
 
 	UPROPERTY(VisibleAnywhere, Category = "Camera")
 	TObjectPtr<UGTPCameraModeComponent> CameraMode;
+
+	UPROPERTY(VisibleAnywhere, Category = "Vehicle")
+	TObjectPtr<UGTPVehicleInteractionComponent> VehicleInteraction;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UGTPVehicleInput> VehicleInput;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UGTPMenuWidget> TitleMenu;

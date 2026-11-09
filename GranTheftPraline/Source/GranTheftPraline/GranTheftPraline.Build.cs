@@ -13,7 +13,9 @@ public class GranTheftPraline : ModuleRules
 			"Engine",
 			"InputCore",
 			"EnhancedInput",
-			"UMG"
+			"UMG",
+			"ChaosVehicles",
+			"PhysicsCore"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[]
