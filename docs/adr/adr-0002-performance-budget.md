@@ -131,7 +131,7 @@ The project lead chose the `m1` combination on 2026-11-09. It holds the median
 (19.5 to 27 ms) but its 95th percentile is still 4 to 9 ms over budget, with
 one hitch at golden hour (131 ms) and one at night (198 ms).
 
-**Provisional M1 target (2026-11-09, pending the project lead's confirmation):**
+**Provisional M1 target (chosen by the project lead on 2026-11-09):**
 the `m1` preset is accepted for development at about 25 fps, GPU p95 at or
 under 42 ms with no frame above 100 ms. 30 fps (33.3 ms) stays the M1 goal and
 is to be reached by content optimisation (HLOD, shadow casters, light
