@@ -140,7 +140,11 @@ dès la première scène.
 ## Profil M1 Pro (décidé le 2026-11-09)
 
 Nico a choisi de rester sur le M1 Pro (16 Go) plutôt que d'acheter une
-machine de rendu. Ce qui change sur ce matériel :
+machine de rendu, en gardant le photoréalisme comme objectif même si le jeu
+est lourd (2026-11-09). Le contenu est donc produit pour le niveau de qualité
+**Ultra** (pipeline complet ci-dessus) et le M1 Pro fait tourner le niveau
+**M1**, un préréglage de qualité défini dans l'ADR-0002. Ce que change le
+niveau M1 :
 
 | Fonction | Pipeline complet | Sur le M1 Pro |
 | ---- | ---- | ---- |

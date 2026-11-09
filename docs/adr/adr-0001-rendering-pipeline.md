@@ -156,7 +156,10 @@ Sun/sky/clouds/fog + weather params ──► Lumen + VSM + MegaLights ──►
 ## M1 Pro profile (decided 2026-11-09)
 
 The project lead chose to stay on the M1 Pro (16 GB) instead of buying a
-rendering machine. What changes on this hardware:
+rendering machine, while keeping photorealism as the goal even if the game is
+heavy (2026-11-09). Content is therefore authored for the **Ultra** quality
+tier (full pipeline above) and the M1 Pro runs the **M1** tier, a scalability
+preset defined in ADR-0002. What the M1 tier changes:
 
 | Feature | Full pipeline | On the M1 Pro |
 | ---- | ---- | ---- |
