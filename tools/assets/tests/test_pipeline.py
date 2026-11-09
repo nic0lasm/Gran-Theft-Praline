@@ -49,6 +49,7 @@ def test_decimation_hits_budget_and_keeps_shape(sample):
     d = decimate(a, 3000)
     assert before > 3000 * 4
     assert 1500 <= d.tri_count <= 3000  # a hard cap
+    assert not d.used_sloppy  # the attribute-aware pass is enough on a clean mesh
     lo0, hi0 = a.bounds()
     lo1, hi1 = d.bounds()
     assert np.allclose(lo0, lo1, atol=0.03) and np.allclose(hi0, hi1, atol=0.03)
