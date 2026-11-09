@@ -6,7 +6,7 @@
 
 Proposé. Passe à Accepté quand la scène témoin
 ([plan de test](../rendering/rendering-strategy.fr.md#7-scène-témoin--plan-de-test))
-réussit sur la machine de référence du rendu (voir ADR-0002).
+réussit sur le MacBook Pro de développement (M1 Pro).
 
 ## Date
 
@@ -40,7 +40,7 @@ ville.
 | **Risque de connaissance** | ÉLEVÉ (5.8 est récent ; plusieurs fonctions sont en bêta ou expérimentales sur Mac) |
 | **Références consultées** | Notes de version UE 5.8 ; page Epic « macOS development requirements » ; blog technique Epic sur la parité macOS |
 | **API récentes utilisées** | MegaLights (production en 5.8), Lumen Lite (bêta en 5.8) |
-| **Vérifications requises** | Nanite, VSM, Lumen RT logiciel et matériel, MegaLights sur le Mac de dev, mesurés dans la scène témoin |
+| **Vérifications requises** | Rendu LOD/repli des maillages activés Nanite, coût des VSM, Lumen logiciel et Lumen Lite sur le M1 Pro, mesurés dans la scène témoin |
 
 ## Dépendances
 
@@ -74,11 +74,10 @@ ray tracing et Substrate, avec les shaders SM6 sur Metal. Aucun contenu.
 - Niveaux sur Mac (Epic, UE 5.8) : Lumen RT logiciel dès M1 ; Nanite dès M2
   (bêta) ; Lumen RT matériel et MegaLights dès M2 (expérimental) ; pas de path
   tracer.
-- Mac de développement actuel (vérifié le 2026-11-09) : MacBook Pro M1 Pro,
-  GPU 16 cœurs, 16 Go de mémoire unifiée. **Il ne prend pas en charge
-  Nanite** (M2 minimum) ni le RT matériel : il ne peut pas afficher ce
-  pipeline en qualité finale ; la machine de référence du rendu est une
-  décision de Nico (voir ADR-0002).
+- Machine de développement et de référence (décidé le 2026-11-09) :
+  MacBook Pro M1 Pro, GPU 16 cœurs, 16 Go de mémoire unifiée, sans achat de
+  matériel. **Il n'exécute pas Nanite** (M2 minimum) ni le RT matériel : voir
+  « Profil M1 Pro » plus bas.
 - Ni marques ni personnes réelles ; chaque asset inscrit dans `assets/SOURCES.md`.
 - Développeur seul : privilégier les kits réutilisables et le placement
   procédural plutôt que des bâtiments uniques faits main.
@@ -97,13 +96,15 @@ ray tracing et Substrate, avec les shaders SM6 sur Metal. Aucun contenu.
    matériel s'active par plateforme après mesure (PC Windows avec GPU type
    RTX d'abord, Mac seulement si la scène témoin le montre stable). Lumen Lite
    sert de repli pour les réglages bas.
-2. **Géométrie : Nanite** pour tous les maillages statiques opaques
-   (bâtiments, sol, accessoires), y compris le déplacement Nanite pour pavés
-   et trottoirs. Les machines de développement du rendu doivent être des Mac M2 ou plus récents, ou des PC Windows avec GPU type RTX.
+2. **Géométrie : assets prêts pour Nanite, avec LOD classiques.** Les
+   maillages statiques opaques sont modélisés en haute définition avec Nanite
+   activé **et** des LOD vérifiés ou des maillages de repli réglés ; le M1 Pro
+   affiche les LOD ou le repli, une future machine M2+ ou RTX aura tout le
+   détail Nanite sans refaire le travail.
 3. **Ombres : Virtual Shadow Maps** pour le soleil et les lumières principales.
-4. **Nombreuses lumières de nuit : MegaLights**, derrière un réglage de
-   qualité, gardé seulement s'il passe sur Mac ; sinon lumières ombrées à
-   rayon court et appoints sans ombre.
+4. **Éclairage de nuit : lumières classiques** (MegaLights exige M2+) :
+   quelques lumières ombrées à rayon court près de la caméra, appoints sans
+   ombre et vitrines émissives pour le reste.
 5. **Matériaux : Substrate** (déjà actif), un matériau maître par famille
    (pierre et enduit, métal, verre, peinture carrosserie avec vernis, couche
    mouillée), pilotés par des instances et un paramètre global d'humidité.
@@ -131,10 +132,31 @@ ray tracing et Substrate, avec les shaders SM6 sur Metal. Aucun contenu.
 
 Le schéma d'architecture et les consignes d'implémentation sont dans la
 [version anglaise](adr-0001-rendering-pipeline.md#architecture-diagram).
-Points obligatoires : tout maillage statique opaque en Nanite ; matériaux
+Points obligatoires : tout maillage statique opaque activé Nanite avec LOD ou repli dans le budget de triangles de l'ADR-0002 ; matériaux
 dérivés des matériaux maîtres ; textures dé-éclairées et calibrées ; unités
 de lumière physiques et exposition bornée ; préréglages de qualité mesurés
 dès la première scène.
+
+## Profil M1 Pro (décidé le 2026-11-09)
+
+Nico a choisi de rester sur le M1 Pro (16 Go) plutôt que d'acheter une
+machine de rendu. Ce qui change sur ce matériel :
+
+| Fonction | Pipeline complet | Sur le M1 Pro |
+| ---- | ---- | ---- |
+| Géométrie | Nanite, déplacement | LOD ou maillages de repli Nanite, HLOD World Partition ; parallax occlusion mapping et décalques pour les pavés et le relief des murs |
+| GI et réflexions | Lumen logiciel, RT matériel sur GPU compatibles | Lumen logiciel en qualité moyenne, Lumen Lite en mode performance ; réflexions en espace écran là où Lumen coûte trop |
+| Ombres | Virtual Shadow Maps | VSM si dans le budget, sinon cascades + ombres par champs de distance (à mesurer) |
+| Lumières de nuit | MegaLights | Lumières classiques (voir Décision 4) |
+| Mémoire | | 16 Go partagés entre macOS, l'éditeur et le jeu : petites cellules World Partition, pool de textures de 1,5 Go, fermer les autres applications pendant le travail |
+
+Ce que cela veut dire pour l'image : la lumière, les matériaux,
+l'exposition et l'habillage (sections 1, 2 et 4 de la
+[stratégie de rendu](../rendering/rendering-strategy.fr.md)) ne sont pas
+touchés et portent l'essentiel du réalisme. Le micro-détail géométrique, la
+netteté des reflets et la densité de lumières la nuit resteront en dessous de
+la référence tant que le matériel ne change pas. Les assets restent prêts
+pour Nanite pour que ce changement ne demande aucune reprise.
 
 ## Alternatives écartées
 

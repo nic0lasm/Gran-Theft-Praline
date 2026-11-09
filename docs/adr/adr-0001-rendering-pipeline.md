@@ -6,7 +6,7 @@
 
 Proposed. Becomes Accepted once the reference street scene
 ([test plan](../rendering/rendering-strategy.md#7-reference-street-scene-test-plan))
-passes on the rendering reference machine (see ADR-0002).
+passes on the development MacBook Pro (M1 Pro).
 
 ## Date
 
@@ -39,7 +39,7 @@ by raw city scans.
 | **Knowledge Risk** | HIGH (5.8 is recent; Mac support for several features is Beta or Experimental) |
 | **References Consulted** | UE 5.8 release notes; Epic "macOS development requirements" page; Epic tech blog "Bringing Unreal Engine on macOS up to feature parity with Windows" |
 | **Post-Cutoff APIs Used** | MegaLights (production-ready in 5.8), Lumen Lite (Beta in 5.8) |
-| **Verification Required** | Nanite, VSM, Lumen SWRT and HWRT, MegaLights on the rendering reference machine, measured in the reference street scene |
+| **Verification Required** | LOD/fallback rendering of Nanite-enabled meshes, VSM cost, Lumen software and Lumen Lite on the M1 Pro, measured in the reference street scene |
 
 ## ADR Dependencies
 
@@ -72,11 +72,10 @@ and Substrate, with SM6 shaders on Metal. No content exists yet.
 - Mac feature levels (Epic, UE 5.8): Lumen with software ray tracing on M1+;
   Nanite on M2+ (Beta); Lumen hardware ray tracing and MegaLights on M2+
   (Experimental); no path tracer on Mac.
-- Current development Mac (checked 2026-11-09): MacBook Pro M1 Pro, 16-core
-  GPU, 16 GB unified memory. **It does not support Nanite** (M2+ only) nor
-  hardware ray tracing, so it cannot render this pipeline at final quality;
-  the rendering reference machine is a decision for the project lead
-  (see ADR-0002).
+- Development and reference machine (decided 2026-11-09): MacBook Pro
+  M1 Pro, 16-core GPU, 16 GB unified memory, no hardware purchase. **It does
+  not run Nanite** (M2+ only) nor hardware ray tracing: see "M1 Pro profile"
+  below.
 - No real brands or people; every asset logged in `assets/SOURCES.md`.
 - Solo developer: the pipeline must favour reusable kits and procedural
   placement over unique hand-made buildings.
@@ -96,13 +95,14 @@ and Substrate, with SM6 shaders on Metal. No content exists yet.
    platform once measured (Windows PC with an RTX-class GPU first, Mac only
    if the test scene proves it stable). Lumen Lite is the fallback for lower
    scalability levels.
-2. **Geometry: Nanite** for all opaque static meshes (buildings, ground,
-   props, parked vehicles' bodies when static), including Nanite displacement
-   for cobbles and pavements. Rendering development machines must be M2 Macs or newer, or Windows PCs with an RTX-class GPU.
+2. **Geometry: Nanite-ready assets with classic LODs.** Opaque static meshes
+   are authored high-poly with Nanite enabled **and** hand-checked LODs or
+   tuned fallback meshes; the M1 Pro renders the LOD/fallback geometry, a
+   future M2+ or RTX machine gets full Nanite detail without rework.
 3. **Shadows: Virtual Shadow Maps** for the sun and key lights.
-4. **Many lights at night: MegaLights**, behind a scalability switch, kept
-   only if it passes on Mac; otherwise classic shadowed lights with tight
-   radii plus unshadowed fill.
+4. **Night lighting: classic lights** (MegaLights needs M2+): a few
+   shadow-casting lights with tight radii near the camera, unshadowed fill
+   and emissive shop windows for the rest.
 5. **Materials: Substrate** (already on), with one master material per family
    (façade stone and render, metal, glass, car paint with clear coat, wet
    layer), driven by material instances and a global wetness parameter.
@@ -141,8 +141,9 @@ Sun/sky/clouds/fog + weather params ──► Lumen + VSM + MegaLights ──►
 
 ### Implementation Guidelines
 
-- Every opaque static mesh must be Nanite-enabled; translucent and
-  skinned meshes must have LODs.
+- Every opaque static mesh must be Nanite-enabled and have LODs or a tuned
+  fallback mesh within the ADR-0002 triangle budget; translucent and skinned
+  meshes must have LODs.
 - Materials must use the master materials; no one-off material graphs in
   production content.
 - Every texture must be de-lit and calibrated (albedo within physically
@@ -151,6 +152,26 @@ Sun/sky/clouds/fog + weather params ──► Lumen + VSM + MegaLights ──►
   local lights); auto-exposure must be bounded.
 - Scalability presets (Low to Epic) must exist from the first test scene and
   be measured, not guessed.
+
+## M1 Pro profile (decided 2026-11-09)
+
+The project lead chose to stay on the M1 Pro (16 GB) instead of buying a
+rendering machine. What changes on this hardware:
+
+| Feature | Full pipeline | On the M1 Pro |
+| ---- | ---- | ---- |
+| Geometry | Nanite, displacement | LODs or Nanite fallback meshes, World Partition HLODs; parallax occlusion mapping and decals for cobbles and wall relief |
+| GI and reflections | Lumen SWRT, HWRT on capable GPUs | Lumen software at medium quality, Lumen Lite in performance mode; screen-space reflections where Lumen reflections cost too much |
+| Shadows | Virtual Shadow Maps | VSM if within budget, otherwise cascaded shadow maps + distance field shadows (to measure) |
+| Night lights | MegaLights | Classic lights (see Decision 4) |
+| Memory | | 16 GB shared by macOS, editor and game: small World Partition cells, 1.5 GB texture pool, close other apps while working |
+
+What it means for the image: lighting, materials, exposure and dressing
+(sections 1, 2 and 4 of the [rendering strategy](../rendering/rendering-strategy.md))
+are unaffected and carry most of the realism. Geometric micro-detail,
+reflection sharpness and night light density will stay below the benchmark
+until the hardware changes. Assets remain Nanite-ready so that upgrade
+needs no rework.
 
 ## Alternatives Considered
 

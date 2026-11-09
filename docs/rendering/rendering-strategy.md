@@ -8,7 +8,8 @@
 
 1. Use the stock Unreal Engine 5.8 stack: **Lumen (software ray tracing on
    Mac), Nanite, Virtual Shadow Maps, Substrate, TSR**, physical sun and sky.
-   No custom renderer.
+   No custom renderer. On our M1 Pro, without Nanite: Nanite-ready assets
+   rendered through their LODs.
 2. Make photorealism come from **content quality**: de-lit, calibrated
    materials from our own photos of Lyon, a modular Nanite façade kit,
    dense street dressing, wear and wetness. This is where most of the
@@ -53,11 +54,12 @@ In order of impact for a city at street level:
 | Path tracer | Ground-truth reference renders | Not available | Available | PC only, for lighting reference stills |
 | Volumetric clouds, fog | Weather, atmosphere | Supported | Supported | **Yes** |
 
-**Our current Mac (checked 2026-11-09): MacBook Pro M1 Pro, 16-core GPU,
-16 GB.** It runs software Lumen but **not Nanite** and has no hardware ray
-tracing: it is fine for gameplay prototyping and greybox, not for judging
-final rendering. A rendering reference machine is needed (decision for the
-project lead, see ADR-0002).
+**Our machine (decided 2026-11-09): MacBook Pro M1 Pro, 16-core GPU, 16 GB,
+no hardware purchase.** It runs software Lumen but **not Nanite**, hardware
+ray tracing or MegaLights. The project uses the "M1 Pro profile" of
+[ADR-0001](../adr/adr-0001-rendering-pipeline.md#m1-pro-profile-decided-2026-11-09):
+Nanite-ready assets rendered through LODs, Lumen at medium quality, classic
+night lights. Realism comes first from sections 2 and 4 below.
 
 Consequence: a recent Mac (M2 or newer, ideally Pro or Max tier with 32 GB or
 more) can author and run the full look with software Lumen. A Windows PC with
@@ -145,7 +147,7 @@ vertical slice district.
 
 - A Sequencer camera path of 60 seconds at street level plus 3 fixed shots,
   identical for every run.
-- Run on the rendering reference machine, in a packaged Development build (not in the editor) at 2560×1440,
+- Run on the M1 Pro, in a packaged Development build (not in the editor) at 1920×1080,
   Epic scalability, TSR at 67 %.
 - Capture with the CSV profiler (`csvprofile start` and `csvprofile stop`)
   and Unreal Insights for one run per state; `stat gpu` screenshots for the
@@ -162,7 +164,7 @@ vertical slice district.
 | Longest frame during the path | ≤ 100 ms |
 | GPU-visible memory | ≤ 60 % of unified memory |
 | Visual checklist (exposure, materials, shadows, reflections, wetness, density), scored 1 to 5 against the photos | Average ≥ 4, no item below 3 |
-| Stability | No crash or visible artefact (Nanite holes, Lumen light leaks, TSR ghosting) in the 3 fixed shots |
+| Stability | No crash or visible artefact (LOD popping, Lumen light leaks, TSR ghosting) in the 3 fixed shots |
 
 Results are written in `docs/rendering/test-results/` with the captures and
 numbers, before anything is merged into the integration branch.
@@ -184,7 +186,7 @@ numbers, before anything is merged into the integration branch.
 | Fab and Megascans assets | Free to paid per asset; budget to be set when needed |
 | Poly Haven HDRIs and textures | Free (CC0) |
 | Colour checker card for photo capture | About 30 to 100 € |
-| Rendering reference machine (needed: the M1 Pro has no Nanite) | Windows PC with RTX 5080-class GPU about 2,500 to 3,000 €; or M4/M5 Max Mac with 48 GB+ about 3,000 to 4,500 € |
+| Additional hardware | None (project lead's decision, 2026-11-09); a Windows RTX PC or M4/M5 Max Mac would unlock Nanite and hardware ray tracing later, 2,500 to 4,500 € |
 | Time | The façade kit and the test scene are the largest effort: several weeks for one person |
 
 ## 9. Sources
