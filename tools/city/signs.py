@@ -197,7 +197,11 @@ def main():
         facts = brands.get(r["sign_wikidata"], {}) if r["sign_wikidata"] else {}
         logo = None
         if facts.get("logo_png") and os.path.exists(os.path.join(brands_dir, "logos", facts["logo_png"])):
-            logo = Image.open(os.path.join(brands_dir, "logos", facts["logo_png"]))
+            try:
+                logo = Image.open(os.path.join(brands_dir, "logos", facts["logo_png"]))
+                logo.load()
+            except (OSError, ValueError):  # truncated or not a raster image: lettering only
+                logo = None
         if facts.get("colour"):
             bg, source = hex_rgb(facts["colour"]), "wikidata"
         elif logo is not None and logo_colour(logo):
