@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Play L_RueRepublique in -game mode with the player character and run
+# playtest_character.py: run, walk, sprint, jump, crouch, first person toggle,
+# respawn in first person. Frame timings are recorded with -FrameLog.
+#
+# Results in .scratch/character/ (or $1): playtest.json, screenshots,
+# frametimes.csv (+ .summary.txt) and game.log.
+#
+# Usage: tools/character/playtest_character.sh [output folder]
+#   UE_ROOT can point to the engine folder (default: /Users/Shared/Epic Games/UE_5.8).
+set -euo pipefail
+
+repo="$(cd "$(dirname "$0")/../.." && pwd)"
+project="$repo/GranTheftPraline/GranTheftPraline.uproject"
+ue_root="${UE_ROOT:-/Users/Shared/Epic Games/UE_5.8}"
+editor="$ue_root/Engine/Binaries/Mac/UnrealEditor.app/Contents/MacOS/UnrealEditor"
+out="${1:-$repo/.scratch/character}"
+
+test -x "$editor" || { echo "Unreal Editor not found: $editor" >&2; exit 1; }
+mkdir -p "$out"
+rm -f "$out/playtest.json"
+
+# The "py" console command takes the rest of the line as the path, and the
+# command line splits on spaces: run from a folder without spaces.
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+cp "$repo/tools/character/playtest_character.py" "$tmp/playtest_character.py"
+
+GTP_PLAYTEST_OUT="$out" "$editor" "$project" /Game/Maps/L_RueRepublique -game -windowed -ResX=1920 -ResY=1080 \
+  -nosound -NoScreenMessages -unattended -SkipTitle -FrameLog -FrameLogWarmup=10 \
+  -FrameLogFile="$tmp/frametimes.csv" -abslog="$tmp/game.log" \
+  "-ini:Engine:[/Script/Engine.UserInterfaceSettings]:bAllowHighDPIInGameMode=True" \
+  -ExecCmds="r.SetRes 1920x1080w, py $tmp/playtest_character.py" || true
+
+for f in frametimes.csv frametimes.summary.txt game.log; do
+  test -f "$tmp/$f" && cp "$tmp/$f" "$out/$f"
+done
+test -f "$out/playtest.json" || { echo "no playtest report written" >&2; exit 1; }
+cat "$out/playtest.json"
+grep -q '"result": "PASS"' "$out/playtest.json"
