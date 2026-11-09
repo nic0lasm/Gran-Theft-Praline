@@ -35,6 +35,12 @@ assets/geo/raw/**
 /GranTheftPraline/Content/Levels/
 /GranTheftPraline/Content/Misc/
 GranTheftPraline/Plugins/GameAnimationSample/
+# Epic Vehicle template content (test car), copied by
+# tools/vehicles/install_vehicle_template.sh; our cars live in Content/Vehicles/<Model>/.
+/GranTheftPraline/Content/VehicleTemplate/
+/GranTheftPraline/Content/Vehicles/SportsCar/
+/GranTheftPraline/Content/Vehicles/OffroadCar/
+
 # Fab and Megascans content, same rule
 GranTheftPraline/Plugins/FabContent/
 # Real shop signs and brands: kept locally, not covered by the MIT licence

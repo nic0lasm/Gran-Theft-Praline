@@ -101,6 +101,7 @@ public:
 	 * then Controller possesses the car. Returns false if the car cannot be
 	 * entered now.
 	 */
+	UFUNCTION(BlueprintCallable, Category = "Vehicle|Seats")
 	bool BeginEnter(ACharacter* Character, AController* Controller);
 
 	/** Asks the driver to get out: stops first, or bails out above BailOutSpeedKmh. */

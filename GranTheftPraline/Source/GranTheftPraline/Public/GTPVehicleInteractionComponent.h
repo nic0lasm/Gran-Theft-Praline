@@ -21,7 +21,8 @@ class GRANTHEFTPRALINE_API UGTPVehicleInteractionComponent : public UActorCompon
 	GENERATED_BODY()
 
 public:
-	/** Bound to the enter / exit action. */
+	/** Bound to the enter / exit action; callable from scripts for playtests. */
+	UFUNCTION(BlueprintCallable, Category = "Vehicle")
 	void HandleEnterExit();
 
 	/** Best vehicle the controlled character could enter now, or null. */
