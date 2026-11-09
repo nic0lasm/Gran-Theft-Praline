@@ -29,3 +29,19 @@ jobs:
           lfs: false
       - name: Unit tests
         run: python3 -I -m unittest discover -s tools/city/tests
+
+  assets-pipeline:
+    name: Asset pipeline tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r tools/assets/requirements.txt
+      - name: Unit tests (preparation outside Unreal)
+        run: python -m pytest tools/assets/tests -q
+      - name: Unreal import script compiles
+        run: python -m py_compile tools/assets/unreal/import_props.py

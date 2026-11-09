@@ -32,3 +32,8 @@ __pycache__/
 # City pipeline tables are derived from OSM (ODbL): regenerate, do not commit
 assets/geo/processed/*/*.csv
 assets/geo/processed/*/*.geojson
+
+# Prop pipeline: staging output is regenerated from the Tripo masters
+assets/staging/
+# Ultra-profile (Nanite) prop meshes come from the full masters: local only
+GranTheftPraline/Content/Props/**/Ultra/

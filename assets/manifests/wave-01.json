@@ -1,0 +1,376 @@
+{
+  "wave": "w1",
+  "items": [
+    {
+      "id": "W1-01",
+      "slug": "wood_and_cast_iron_public_bench",
+      "name": "Wood and cast-iron public bench",
+      "size_m": 1.8
+    },
+    {
+      "id": "W1-02",
+      "slug": "modern_metal_public_bench",
+      "name": "Modern metal public bench",
+      "size_m": 1.8
+    },
+    {
+      "id": "W1-03",
+      "slug": "concrete_bench",
+      "name": "Concrete bench",
+      "size_m": 2.0
+    },
+    {
+      "id": "W1-04",
+      "slug": "old_style_street_lamp",
+      "name": "Old-style street lamp",
+      "size_m": 4.5
+    },
+    {
+      "id": "W1-05",
+      "slug": "contemporary_street_lamp",
+      "name": "Contemporary street lamp",
+      "size_m": 6.0
+    },
+    {
+      "id": "W1-06",
+      "slug": "wall_mounted_street_light",
+      "name": "Wall-mounted street light",
+      "size_m": 0.9,
+      "pivot": "back_center"
+    },
+    {
+      "id": "W1-07",
+      "slug": "litter_bin_with_transparent_bag",
+      "name": "Litter bin with transparent bag",
+      "size_m": 0.9
+    },
+    {
+      "id": "W1-08",
+      "slug": "cylindrical_litter_bin",
+      "name": "Cylindrical litter bin",
+      "size_m": 0.9
+    },
+    {
+      "id": "W1-09",
+      "slug": "anti_parking_bollard",
+      "name": "Anti-parking bollard",
+      "size_m": 1.0
+    },
+    {
+      "id": "W1-10",
+      "slug": "retractable_bollard",
+      "name": "Retractable bollard",
+      "size_m": 0.8
+    },
+    {
+      "id": "W1-11",
+      "slug": "sidewalk_barrier",
+      "name": "Sidewalk barrier",
+      "size_m": 1.5
+    },
+    {
+      "id": "W1-12",
+      "slug": "bike_rack_hoop",
+      "name": "Bike rack hoop",
+      "size_m": 0.8
+    },
+    {
+      "id": "W1-13",
+      "slug": "bike_share_station_terminal",
+      "name": "Bike-share station terminal",
+      "size_m": 1.3
+    },
+    {
+      "id": "W1-14",
+      "slug": "generic_city_bike",
+      "name": "Generic city bike",
+      "size_m": 1.8
+    },
+    {
+      "id": "W1-15",
+      "slug": "rectangular_planter_with_shrub",
+      "name": "Rectangular planter with shrub",
+      "size_m": 1.5
+    },
+    {
+      "id": "W1-16",
+      "slug": "large_wooden_tree_planter",
+      "name": "Large wooden tree planter",
+      "size_m": 1.2
+    },
+    {
+      "id": "W1-17",
+      "slug": "tree_grate",
+      "name": "Tree grate",
+      "size_m": 1.5,
+      "collision": "none"
+    },
+    {
+      "id": "W1-18",
+      "slug": "public_drinking_fountain",
+      "name": "Public drinking fountain",
+      "size_m": 1.2
+    },
+    {
+      "id": "W1-19",
+      "slug": "cultural_poster_column",
+      "name": "Cultural poster column",
+      "size_m": 3.5
+    },
+    {
+      "id": "W1-20",
+      "slug": "pedestrian_information_sign_district_map",
+      "name": "Pedestrian information sign (district map)",
+      "size_m": 2.2
+    },
+    {
+      "id": "W1-21",
+      "slug": "glass_bus_shelter",
+      "name": "Glass bus shelter",
+      "size_m": 4.0
+    },
+    {
+      "id": "W1-22",
+      "slug": "closed_newsstand",
+      "name": "Closed newsstand",
+      "size_m": 3.0
+    },
+    {
+      "id": "W1-23",
+      "slug": "disused_phone_booth",
+      "name": "Disused phone booth",
+      "size_m": 2.3
+    },
+    {
+      "id": "W1-24",
+      "slug": "street_mailbox",
+      "name": "Street mailbox",
+      "size_m": 1.2
+    },
+    {
+      "id": "W1-25",
+      "slug": "parking_meter",
+      "name": "Parking meter",
+      "size_m": 1.6
+    },
+    {
+      "id": "W1-26",
+      "slug": "ev_charging_station",
+      "name": "EV charging station",
+      "size_m": 1.5
+    },
+    {
+      "id": "W1-27",
+      "slug": "fire_hydrant",
+      "name": "Fire hydrant",
+      "size_m": 0.8
+    },
+    {
+      "id": "W1-28",
+      "slug": "round_manhole_cover",
+      "name": "Round manhole cover",
+      "size_m": 0.7,
+      "collision": "none"
+    },
+    {
+      "id": "W1-29",
+      "slug": "storm_drain_grate",
+      "name": "Storm drain grate",
+      "size_m": 0.8,
+      "collision": "none"
+    },
+    {
+      "id": "W1-30",
+      "slug": "street_electrical_cabinet",
+      "name": "Street electrical cabinet",
+      "size_m": 1.4
+    },
+    {
+      "id": "W1-31",
+      "slug": "glass_recycling_container",
+      "name": "Glass recycling container",
+      "size_m": 1.7
+    },
+    {
+      "id": "W1-32",
+      "slug": "240_l_wheelie_bin",
+      "name": "240 l wheelie bin",
+      "size_m": 1.1
+    },
+    {
+      "id": "W1-33",
+      "slug": "660_l_wheelie_bin",
+      "name": "660 l wheelie bin",
+      "size_m": 1.3
+    },
+    {
+      "id": "W1-34",
+      "slug": "caf_terrace_table",
+      "name": "Café terrace table",
+      "size_m": 0.7
+    },
+    {
+      "id": "W1-35",
+      "slug": "rattan_terrace_chair",
+      "name": "Rattan terrace chair",
+      "size_m": 0.85
+    },
+    {
+      "id": "W1-36",
+      "slug": "metal_terrace_chair",
+      "name": "Metal terrace chair",
+      "size_m": 0.85
+    },
+    {
+      "id": "W1-37",
+      "slug": "closed_terrace_parasol",
+      "name": "Closed terrace parasol",
+      "size_m": 3.0
+    },
+    {
+      "id": "W1-38",
+      "slug": "open_terrace_parasol",
+      "name": "Open terrace parasol",
+      "size_m": 3.0
+    },
+    {
+      "id": "W1-39",
+      "slug": "glass_terrace_windscreen",
+      "name": "Glass terrace windscreen",
+      "size_m": 1.5
+    },
+    {
+      "id": "W1-40",
+      "slug": "restaurant_chalkboard_easel",
+      "name": "Restaurant chalkboard easel",
+      "size_m": 1.0
+    },
+    {
+      "id": "W1-41",
+      "slug": "freestanding_menu_holder",
+      "name": "Freestanding menu holder",
+      "size_m": 1.4
+    },
+    {
+      "id": "W1-42",
+      "slug": "clothing_rack_in_front_of_a_shop",
+      "name": "Clothing rack in front of a shop",
+      "size_m": 1.5
+    },
+    {
+      "id": "W1-43",
+      "slug": "florist_s_stall",
+      "name": "Florist's stall",
+      "size_m": 2.0
+    },
+    {
+      "id": "W1-44",
+      "slug": "closed_metal_shop_shutter",
+      "name": "Closed metal shop shutter",
+      "size_m": 3.0
+    },
+    {
+      "id": "W1-45",
+      "slug": "retracted_awning",
+      "name": "Retracted awning",
+      "size_m": 4.0,
+      "pivot": "back_center"
+    },
+    {
+      "id": "W1-46",
+      "slug": "extended_awning",
+      "name": "Extended awning",
+      "size_m": 4.0,
+      "pivot": "back_center"
+    },
+    {
+      "id": "W1-47",
+      "slug": "fa_ade_air_conditioner",
+      "name": "Façade air conditioner",
+      "size_m": 0.8,
+      "pivot": "back_center"
+    },
+    {
+      "id": "W1-48",
+      "slug": "wrought_iron_balcony_railing",
+      "name": "Wrought-iron balcony (railing)",
+      "size_m": 2.0,
+      "pivot": "back_center"
+    },
+    {
+      "id": "W1-49",
+      "slug": "mobile_construction_fence",
+      "name": "Mobile construction fence",
+      "size_m": 3.5
+    },
+    {
+      "id": "W1-50",
+      "slug": "traffic_cone",
+      "name": "Traffic cone",
+      "size_m": 0.5
+    },
+    {
+      "id": "W1-51",
+      "slug": "crowd_control_barrier",
+      "name": "Crowd control barrier",
+      "size_m": 2.0
+    },
+    {
+      "id": "W1-52",
+      "slug": "delivery_pallet_with_boxes",
+      "name": "Delivery pallet with boxes",
+      "size_m": 1.2
+    },
+    {
+      "id": "W1-53",
+      "slug": "delivery_hand_truck",
+      "name": "Delivery hand truck",
+      "size_m": 1.2
+    },
+    {
+      "id": "W1-54",
+      "slug": "generic_parked_scooter",
+      "name": "Generic parked scooter",
+      "size_m": 1.8
+    },
+    {
+      "id": "W1-55",
+      "slug": "shared_electric_kick_scooter",
+      "name": "Shared electric kick scooter",
+      "size_m": 1.1
+    },
+    {
+      "id": "W1-56",
+      "slug": "street_name_sign",
+      "name": "Street name sign",
+      "size_m": 0.5,
+      "collision": "none"
+    },
+    {
+      "id": "W1-57",
+      "slug": "generic_pedestrian_zone_sign",
+      "name": "Generic \"pedestrian zone\" sign",
+      "size_m": 2.5
+    },
+    {
+      "id": "W1-58",
+      "slug": "urban_surveillance_camera",
+      "name": "Urban surveillance camera",
+      "size_m": 0.4,
+      "pivot": "back_center"
+    },
+    {
+      "id": "W1-59",
+      "slug": "wall_mounted_atm",
+      "name": "Wall-mounted ATM",
+      "size_m": 1.0,
+      "pivot": "back_center"
+    },
+    {
+      "id": "W1-60",
+      "slug": "pile_of_garbage_bags",
+      "name": "Pile of garbage bags",
+      "size_m": 0.8
+    }
+  ]
+}
