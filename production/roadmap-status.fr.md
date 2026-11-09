@@ -7,14 +7,14 @@ Légende : ✅ fait · 🟡 en cours · ⬜ à faire · ⛔ bloqué
 
 ## Version en cours : 0.1 « Jouer en un clic »
 
-Cible : 2026-11-27. Avancement : 4 / 8 tâches.
+Cible : 2026-11-27. Avancement : 6 / 8 tâches.
 
 | # | Tâche | Fil | Statut | Preuve |
 | ---- | ---- | ---- | ---- | ---- |
 | 1 | Projet passé en C++ (GameMode, PlayerController, GameInstance) | Build et lancement en un clic | ✅ | compile sans erreur ni avertissement sur le M1 Pro, build Shipping lancée |
 | 2 | Règles Git LFS posées, quota vérifié | Build et lancement en un clic | ✅ | [règles](../docs/project/git-lfs.fr.md) ; ~30 Mo en LFS sur 10 Gio |
-| 3 | Game Animation Sample intégré (personnage, motion matching, caméra) | Personnage jouable | 🟡 plan prêt, éditeur en attente | [plan](../docs/gameplay/player-character.fr.md) |
-| 4 | Enhanced Input clavier-souris et manette | Personnage jouable | 🟡 mappings définis | [§5 du plan](../docs/gameplay/player-character.fr.md) |
+| 3 | Game Animation Sample intégré (personnage, motion matching, caméra) | Personnage jouable | ✅ caméra GTA 3e personne + bascule 1re personne (V / Vue) | Playtest 50 s réussi dans `L_RueRepublique`, cook Mac sans erreur, captures 3e/1re personne ([§9 du plan](../docs/gameplay/player-character.fr.md)) |
+| 4 | Enhanced Input clavier-souris et manette | Personnage jouable | ✅ ZQSD par défaut, WASD en option, manette | [§5 du plan](../docs/gameplay/player-character.fr.md) ; touches réelles et manette à confirmer en jouant |
 | 5 | Niveau `L_RueRepublique` jouable (collisions, PlayerStart, limites) | Rue de la République jouable | ✅ | Testé sur le M1 Pro le 2026-11-09 ([scripts](../tools/level/README.md)) : collision simple sur 336 meshes, façades bloquantes sur 76 % des points (rues transversales), zone 410 × 562 m, kill-Z -30 m ; en jeu le pion s'arrête 35 cm avant la façade et 36 cm avant le mur nord |
 | 6 | Écran titre et menu pause | Build et lancement en un clic | 🟡 | code compilé ; capture de l'écran titre au prochain test |
 | 7 | Script de packaging macOS → `GTAL/Builds/0.1/` | Build et lancement en un clic | ✅ | [package-mac.sh](../tools/build/package-mac.sh) : 154 s, 944 Mo (cuisson Metal SM5 + SM6 pour le M1) |
