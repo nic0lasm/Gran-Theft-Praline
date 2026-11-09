@@ -25,9 +25,20 @@ for folder in VehicleTemplate Vehicles; do
   if test -d "$template/$folder"; then
     mkdir -p "$project_dir/Content/$folder"
     # -n: never overwrite (our own Content/Vehicles/<Model>/ stays as is).
-    cp -R -n "$template/$folder/." "$project_dir/Content/$folder/"
+    rsync -a --ignore-existing "$template/$folder/" "$project_dir/Content/$folder/"
     echo "copied $folder"
   fi
 done
+# Shared content packs (wheel AnimBlueprints, car meshes) are not in the
+# template folder: the project wizard mounts them from TemplateResources at
+# /Game/<MountName>.
+shared="$ue_root/Templates/TemplateResources/Standard/Vehicles/Content"
+if test -d "$shared"; then
+  mkdir -p "$project_dir/Content/Vehicles"
+  rsync -a --ignore-existing "$shared/" "$project_dir/Content/Vehicles/"
+  echo "copied shared pack Vehicles"
+else
+  echo "no shared Vehicles pack under $ue_root/Templates/TemplateResources" >&2
+fi
 echo "top-level template folders (only VehicleTemplate and Vehicles are copied):"
 ls "$template"
