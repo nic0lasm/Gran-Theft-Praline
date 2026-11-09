@@ -22,3 +22,7 @@ assets/geo/raw/**
 
 # Epic sample content: used and packaged, never published in source form
 GranTheftPraline/Plugins/GameAnimationSample/
+
+# Python
+__pycache__/
+*.pyc
