@@ -234,7 +234,7 @@ Ultra profile, and the M1 profile plays within the ADR-0002 budget.
 République to quai du Rhône.
 
 **Done when:**
-- A fictional car with physics-based driving (Chaos Vehicles): acceleration,
+- A real car from the French fleet (Clio V) with physics-based driving (Chaos Vehicles): acceleration,
   braking, handbrake, controllable drift, chase camera.
 - Get in, get out, eject an NPC driver, open a parked car.
 - Simple damage (deformed bodywork, broken windows).
@@ -449,7 +449,7 @@ integrate, tune and measure them.
 | ---- | ---- | ---- | ---- |
 | **0.14 Façades and monuments** | Façade kit v2 across the whole district; Hôtel de Ville, Opéra, place Bellecour and its statue, bridges at final quality; Ultra captures of the 4 lighting setups, M1 profile within budget across the whole district | *Façade kit v2*, *Monuments*, *Photorealism* | Field photos, Blender; Tripo for decorative elements (wave 13, 60 models) |
 | **0.15 The lived-in district** | PCG set dressing (furniture, vegetation, generated and checked fictional shop signs) across the whole district; visual grid ≥ 4/5 against the photos | *PCG set dressing*, *Fictional shop signs* | Wave 14, vegetation, shopfronts, details (80 models) |
-| **0.16 People and cars** | MetaHuman population and police (fictional faces), 6 final fictional vehicles, police car | *Characters*, *Final vehicles* | Wave 15, final car bodies and character accessories (40 models) |
+| **0.16 People and cars** | MetaHuman population and police (fictional faces), 6 final vehicles (real models from the French fleet), police car | *Characters*, *Final vehicles* | Wave 15, final car bodies and character accessories (40 models) |
 | **0.17 Interiors** | 30 shops, 10 accessible buildings, 3 safehouses, lobby and parking garage at final quality | *Interiors* | Waves 16-17, final interior furniture (150 models) |
 | **0.18 The sound of Lyon** | Footsteps per surface, engines, weapons, ambience per street, reverb; field recordings in Lyon | *Audio* | Free libraries + field recordings |
 

@@ -234,7 +234,7 @@ profil Ultra, et le profil M1 se joue dans le budget de l'ADR-0002.
 République jusqu'au quai du Rhône.
 
 **Fait quand :**
-- Une voiture fictive à conduite physique (Chaos Vehicles) : accélération,
+- Une voiture réelle du parc français (Clio V) à conduite physique (Chaos Vehicles) : accélération,
   freinage, frein à main, dérapage contrôlable, caméra de poursuite.
 - Monter, descendre, éjecter un conducteur PNJ, ouvrir une voiture garée.
 - Dégâts simples (carrosserie déformée, vitres cassées).
@@ -449,7 +449,7 @@ intègrent, les règlent et les mesurent.
 | ---- | ---- | ---- | ---- |
 | **0.14 Façades et monuments** | Kit de façades v2 sur tout le quartier ; Hôtel de Ville, Opéra, place Bellecour et sa statue, ponts en qualité finale ; captures Ultra des 4 éclairages, profil M1 dans le budget sur tout le quartier | *Kit de façades v2*, *Monuments*, *Photoréalisme* | Photos de terrain, Blender ; Tripo pour les éléments décoratifs (vague 13, 60 modèles) |
 | **0.15 Le quartier habité** | Habillage PCG (mobilier, végétation, enseignes fictives générées et vérifiées) sur tout le quartier ; grille visuelle ≥ 4/5 face aux photos | *Habillage PCG*, *Enseignes fictives* | Vague 14, végétation, devantures, détails (80 modèles) |
-| **0.16 Les gens et les voitures** | Population et police MetaHuman (visages fictifs), 6 véhicules finaux fictifs, voiture de police | *Personnages*, *Véhicules finaux* | Vague 15, carrosseries finales et accessoires de personnages (40 modèles) |
+| **0.16 Les gens et les voitures** | Population et police MetaHuman (visages fictifs), 6 véhicules finaux (modèles réels du parc français), voiture de police | *Personnages*, *Véhicules finaux* | Vague 15, carrosseries finales et accessoires de personnages (40 modèles) |
 | **0.17 Les intérieurs** | 30 boutiques, 10 bâtiments accessibles, 3 planques, hall et parking en qualité finale | *Intérieurs* | Vagues 16-17, mobilier intérieur final (150 modèles) |
 | **0.18 Le son de Lyon** | Pas par surface, moteurs, armes, ambiance par rue, réverbération ; prises de son à Lyon | *Audio* | Bibliothèques libres + prises de son |
 

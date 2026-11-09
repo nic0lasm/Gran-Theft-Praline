@@ -1,0 +1,292 @@
+# Véhicules conduisibles
+
+*Version anglaise : [vehicles.md](vehicles.md).*
+*Version 0.3 « Au volant » de la [roadmap](../../production/roadmap.fr.md).*
+*Dernière mise à jour : 2026-11-09. Statut : design écrit, code C++ écrit sur la branche `feat/vehicles`, **pas encore compilé** (créneau Unreal à négocier sur le Mac).*
+
+## 1. Objectif
+
+En 0.3, on vole une voiture garée rue de la République et on la conduit
+jusqu'au quai du Rhône. La conduite doit avoir la sensation d'un GTA récent :
+physique crédible mais pardonnante, entrée et sortie en un geste, caméra de
+poursuite qui se replace toute seule.
+
+Les voitures sont **celles du parc circulant en France** (décision de Nico,
+2026-11-09) : modèles réels, toutes marques confondues, dans des proportions
+réalistes, plus quelques véhicules propres à Lyon (bus TCL, Vélo'v). Usage
+non commercial : marques et logos reproduits fidèlement, textures de logos
+hors Git (`Plugins/CityBrands/`, voir la [bible artistique](../art/art-bible.fr.md), section 3.5).
+
+Rien n'est réinventé : la physique vient de **Chaos Vehicles** (plugin Epic
+livré avec le moteur, socle décidé), les animations d'entrée viendront plus
+tard du Game Animation Sample ou d'une capture.
+
+## 2. Ce que fait la 0.3, et ce qu'elle ne fait pas
+
+| Dans la 0.3 | Plus tard |
+| ---- | ---- |
+| Entrer, sortir, sauter d'une voiture en marche | Passagers, places arrière (0.6, police) |
+| Ouvrir une voiture verrouillée en cassant la vitre | Alarme, crochetage, clés |
+| Éjecter un conducteur PNJ | PNJ qui résistent, fuient, appellent la police (0.6) |
+| Conduite physique : accélération, freinage, marche arrière, frein à main, dérapage | Boîte manuelle, réglages par joueur |
+| Caméra de poursuite, vue intérieure (V), regard arrière | Caméra cinématique, caméra capot |
+| Dégâts simples : bosses par zone, vitres cassées, épave | Feu, explosion (0.4), pneus crevés, portes arrachées |
+| 1 à 3 modèles conduisibles | Trafic (0.7), 6 véhicules finaux (0.16) |
+
+## 3. Entrer et sortir façon GTA
+
+Une seule touche : **F** au clavier, **Y** (bouton du haut) à la manette.
+
+### Entrer
+
+1. À pied, la touche choisit la voiture la plus proche dont une portière est
+   à moins de 3,5 m, en favorisant celle que la caméra regarde.
+2. Le personnage se place à la portière conducteur (à gauche, on roule à
+   droite en France). En 0.3 il y est replacé directement ; ensuite il y
+   marchera, avec motion warping pour caler l'animation.
+3. Selon l'état de la voiture :
+
+| État | Ce qui se passe | Durée sans animation |
+| ---- | ---- | ---- |
+| Ouverte et vide | ouvre la portière, s'assoit | 0,9 s |
+| Verrouillée et vide | casse la vitre conducteur (coude), ouvre de l'intérieur | 1,6 s |
+| Quelqu'un au volant | ouvre, sort le conducteur et le jette au sol, s'assoit | 2,2 s |
+
+4. Le joueur prend le contrôle de la voiture ; le personnage est attaché au
+   siège (socket `seat_driver`). Il reste caché tant qu'on n'a pas de pose
+   assise pour notre personnage (option `bShowDriverInside`).
+
+Une animation par cas (montage) se branche sans code : si le montage existe,
+sa durée remplace la durée par défaut.
+
+### Sortir
+
+- **À l'arrêt ou lentement** (moins de 40 km/h) : la voiture freine jusqu'à
+  moins de 4 km/h (3 s au plus), puis le personnage sort par la portière
+  conducteur et la voiture reste au frein à main.
+- **Vite** (plus de 40 km/h) : le personnage **saute** sur le côté avec une
+  partie de la vitesse de la voiture, qui continue sa route sans conducteur.
+  Chute et ragdoll viendront avec la 0.4 (dégâts au personnage).
+- **Portière bloquée** (mur, autre voiture) : sortie par l'autre portière,
+  puis par le toit ; si tout est bloqué, on reste dedans.
+
+## 4. Conduite (Chaos Vehicles)
+
+Le but est la sensation GTA : une voiture lourde mais vive, qui pardonne au
+clavier, et dont on garde le contrôle en dérapage.
+
+- **Boîte automatique**, marche arrière en restant sur le frein à l'arrêt.
+- **Frein à main** sur les roues arrière seulement, avec un peu moins
+  d'adhérence à l'arrière : un coup de frein à main en virage fait pivoter la
+  voiture, comme attendu.
+- **Direction qui se durcit avec la vitesse** (100 % à l'arrêt, 40 % à
+  130 km/h) pour rester conduisible au clavier.
+- **Réglage de base** (classe C) : citadine française type Clio V ou 208,
+  1 150 kg, ~100 ch, traction, pneus 195/55 R16. Chaque modèle surcharge ce
+  qui le distingue dans son Blueprint.
+
+Trois profils de conduite suffisent pour la 0.3 et le trafic :
+
+| Profil | Exemples | Masse | Couple | Transmission | Ressenti |
+| ---- | ---- | ---- | ---- | ---- | ---- |
+| Citadine | Clio, 208, C3, Sandero, Yaris, Polo | 1 150 kg | 220 N·m | traction | vive, légère, survire au frein à main |
+| Berline / SUV | 308, 3008, Golf, Classe A, Série 3 | 1 400 kg | 300 N·m | traction (propulsion pour BMW) | plus stable, plus rapide |
+| Utilitaire | Kangoo, Berlingo, Trafic, Master | 1 900 kg | 330 N·m | traction | lent, roulis, freine long |
+
+Cibles à mesurer en jeu (vidéo + journal) : 0 à 50 km/h en 4 à 5 s pour la
+citadine ; vitesse de pointe 150 à 170 km/h ; arrêt depuis 50 km/h en
+moins de 15 m.
+
+## 5. Commandes
+
+Les actions de conduite sont créées **en code** (`UGTPVehicleInput`) : aucun
+asset d'entrée à fabriquer dans l'éditeur. AZERTY par défaut, QWERTY avec
+`-Qwerty` ou `bQwertyKeyboard=True`, comme à pied.
+
+| Action | AZERTY | QWERTY | Manette |
+| ---- | ---- | ---- | ---- |
+| Entrer / sortir | F | F | Y (haut) |
+| Accélérer | Z, ↑ | W, ↑ | gâchette droite |
+| Freiner / reculer | S, ↓ | S, ↓ | gâchette gauche |
+| Tourner | Q / D, ← / → | A / D, ← / → | stick gauche |
+| Frein à main | Espace | Espace | RB |
+| Regarder | souris | souris | stick droit |
+| Regarder derrière | C | C | clic stick droit |
+| Vue intérieure / poursuite | V | V | Vue |
+| Pause | Échap | Échap | Menu |
+
+Au volant, les contextes « à pied » sont retirés et remplacés par ceux de
+conduite ; l'action entrer / sortir reste toujours active, au-dessus des
+autres (priorité 2). À vérifier au premier essai : que le Game Animation
+Sample n'utilise ni F ni Y à pied.
+
+## 6. Caméra
+
+Caméra GTA : poursuite en 3e personne par défaut, intérieure en option.
+Aucun effet de caméra corporelle (décision du 2026-11-09).
+
+| Réglage | Valeur | Rôle |
+| ---- | ---- | ---- |
+| Distance / hauteur | 6,2 m / 1,7 m | toute la voiture et la route devant |
+| Retard de position / rotation | 8 / 10 | la caméra suit avec souplesse |
+| Replacement | après 1,5 s sans toucher la vue, au-dessus de 10 km/h | revient derrière la voiture, inclinée à -10° |
+| Champ de vision | 75° à l'arrêt → 88° à 130 km/h | sensation de vitesse |
+| Regard arrière | tant que la touche est tenue | vue vers l'arrière, puis retour |
+| Vue intérieure | V, FOV 85°, à hauteur des yeux du conducteur | la même touche qu'à pied ; le choix est gardé en sortant |
+
+La caméra évite les murs (bras à ressort avec test de collision).
+
+## 7. Dégâts simples
+
+- **Santé** de 1 000 points. Les chocs comptent à partir de 11 km/h de
+  variation de vitesse : un choc frontal à 50 km/h retire environ 130 points.
+- **Quatre zones** (avant, arrière, gauche, droite), chacune avec un **morph
+  target** de bosse (`Dent_Front`…) appliqué progressivement : pleinement
+  enfoncé à 400 points dans la zone. Déformation crédible pour un coût quasi nul.
+- **Vitres** : composants séparés étiquetés `Glass` + zone, masqués à
+  120 points dans la zone (éclats et son dans le Blueprint via
+  `OnGlassBroken`). La vitre conducteur casse aussi quand on force la voiture.
+- **Épave** à 0 point : le moteur ne répond plus, la voiture ne peut plus
+  être volée. Fumée sous 35 % de santé, puis feu et explosion avec les armes (0.4).
+- Les dégâts d'armes passent déjà par `TakeDamage` (zone déduite du point
+  d'impact).
+
+## 8. Architecture du code
+
+Module `GranTheftPraline`, préfixe `GTP`, branche `feat/vehicles`.
+
+| Classe | Rôle |
+| ---- | ---- |
+| `AGTPVehicle` (`AWheeledVehiclePawn`) | réglage de base, entrées de conduite, entrée / sortie (siège, portières, éjection, saut), caméras, dégâts |
+| `UGTPWheelFront`, `UGTPWheelRear` (`UChaosVehicleWheel`) | roues de citadine : avant directrices et motrices, arrière avec frein à main |
+| `UGTPVehicleInput` | actions et contextes Enhanced Input construits en code |
+| `UGTPVehicleInteractionComponent` (sur le PlayerController) | touche entrer / sortir : choix de la voiture, demande de sortie |
+| `AGTPPlayerController` (modifié) | échange des contextes à pied / au volant à chaque possession ; V bascule aussi la vue de la voiture |
+| `UGTPCameraModeComponent` (modifié) | laisse la voiture gérer sa caméra et lui transmet le choix 1re / 3e personne |
+| `AGTPGameMode` (modifié) | `-TestVehicle` gare une voiture devant le joueur dans n'importe quel niveau |
+
+Déroulé d'une entrée : touche F → `UGTPVehicleInteractionComponent` →
+`AGTPVehicle::BeginEnter` (personnage figé à la portière, vitre ou
+conducteur selon le cas, minuterie) → `FinishEnter` (attache au siège,
+`Possess`) → le PlayerController passe en contextes de conduite et la
+caméra de la voiture prend la main.
+
+Réglages : section `[/Script/GranTheftPraline.GTPVehicle]` de
+`Config/DefaultGame.ini` (durées, caméra, dégâts), ou dans chaque Blueprint.
+Le plugin `ChaosVehiclesPlugin` est activé dans le `.uproject`.
+
+## 9. Préparer une voiture conduisible
+
+### 9.1 Première voiture d'essai (sans Tripo)
+
+Pour la première compilation, la voiture du modèle de projet *Vehicle*
+d'Epic (contenu moteur, gardé en local hors Git comme le GASP) suffit :
+
+1. Copier `SportsCar` du modèle *Vehicle* dans `Content/Vehicles/Test/`.
+2. Créer `BP_TestCar`, enfant de `AGTPVehicle` : maillage `SKM_SportsCar`,
+   son Animation Blueprint (nœud *Wheel Controller*).
+3. Lancer avec `-TestVehicle` : la voiture est garée devant le joueur.
+
+Les os de roues de ce modèle (`Phys_Wheel_FL`…) sont ceux que notre code
+attend : nos propres voitures suivent la même convention.
+
+### 9.2 Voitures du jeu (Tripo → Blender → Unreal)
+
+| Étape | Convention |
+| ---- | ---- |
+| Master Tripo | voiture entière, échelle réelle, sans logo (posé ensuite en décal) ; images de référence du modèle réel |
+| Découpe Blender | caisse, 4 roues séparées, vitres en objets séparés (pare-brise, lunette, vitres gauches, vitres droites) |
+| Squelette | `root` au sol au centre, os de roues `Phys_Wheel_FL`, `Phys_Wheel_FR`, `Phys_Wheel_BL`, `Phys_Wheel_BR` au centre de chaque roue, axe X vers l'avant |
+| Morph targets | `Dent_Front`, `Dent_Rear`, `Dent_Left`, `Dent_Right` (sculptés une fois, réutilisables par silhouette) |
+| Sockets | `seat_driver` à la hanche du conducteur |
+| Budget | bible artistique : ≤ 1,5 M triangles en Ultra, 120 k en M1, 4 LOD, textures 4K / 2K |
+| Unreal | `Content/Vehicles/<Modèle>/` : `SKM_`, `PA_` (asset physique), `ABP_` (Wheel Controller), `BP_` enfant de `AGTPVehicle` avec les vitres taguées |
+
+Un script Blender de découpe et de squelette (`tools/vehicles/`) est la
+prochaine étape outillage, à écrire quand les premiers masters arrivent.
+
+## 10. Modèles à générer (proposition transmise au fil Tripo)
+
+Le parc français en circulation, pas seulement les marques françaises. Les
+proportions donnent la répartition visée dans le trafic et les rues garées
+(estimation d'après le parc roulant 2025, à affiner).
+
+### Priorité 1 : conduisibles en 0.3 (3 modèles)
+
+| Id | Modèle | Pourquoi |
+| ---- | ---- | ---- |
+| V-01 | Renault Clio V (2019+) | voiture la plus courante en France |
+| V-02 | Peugeot 208 II (2019+) | deuxième du parc récent |
+| V-03 | Renault Kangoo II (artisan, blanc) | l'utilitaire de toutes les rues de Lyon |
+
+### Priorité 2 : trafic et voitures garées (0.7)
+
+| Id | Modèle | Part visée |
+| ---- | ---- | ---- |
+| V-04 | Dacia Sandero III | 6 % |
+| V-05 | Citroën C3 III | 5 % |
+| V-06 | Peugeot 308 II | 5 % |
+| V-07 | Renault Captur II | 4 % |
+| V-08 | Peugeot 3008 II | 4 % |
+| V-09 | Volkswagen Golf VII | 4 % |
+| V-10 | Toyota Yaris IV (hybride) | 3 % |
+| V-11 | Volkswagen Polo VI | 3 % |
+| V-12 | Renault Twingo III | 3 % |
+| V-13 | Fiat 500 | 3 % |
+| V-14 | Renault Mégane IV | 3 % |
+| V-15 | Dacia Duster II | 3 % |
+| V-16 | Mercedes Classe A (W177) | 2 % |
+| V-17 | BMW Série 3 (G20) | 2 % |
+| V-18 | Tesla Model Y | 2 % |
+| V-19 | Citroën Berlingo III (utilitaire) | 3 % |
+| V-20 | Renault Trafic III | 2 % |
+| V-21 | Peugeot Boxer / Citroën Jumper | 2 % |
+| V-22 | Taxi : Toyota Corolla break hybride (lumineux « TAXI ») | taxis lyonnais |
+
+Clio et 208 font ensemble environ 20 % ; le reste (≈ 20 %) est couvert par
+des variantes de couleur et d'année des modèles ci-dessus.
+
+### Priorité 3 : véhicules de la ville et deux-roues (0.6 à 0.16)
+
+| Id | Modèle | Version |
+| ---- | ---- | ---- |
+| V-23 | Bus TCL articulé (type Heuliez GX 437, livrée TCL) | 0.7 |
+| V-24 | Trolleybus TCL (type Hess lighTram, lignes C) | 0.7 |
+| V-25 | Peugeot 5008 Police nationale (sérigraphie) | 0.6 |
+| V-26 | Renault Mégane / Kangoo Police municipale de Lyon | 0.6 |
+| V-27 | Fourgon pompiers SDMIS (VSAV) | 0.16 |
+| V-28 | Renault Kangoo La Poste (jaune) | 0.7 |
+| V-29 | Benne à ordures de la Métropole | 0.7 |
+| V-30 | Vélo'v (vélo en libre-service lyonnais) | 0.13 |
+| V-31 | Trottinette en libre-service | 0.13 |
+| V-32 | Scooter Piaggio Liberty / Vespa | 0.13 |
+| V-33 | Yamaha TMAX | 0.13 |
+| V-34 | Vélo cargo de livraison | 0.13 |
+
+Coût estimé au tarif Studio actuel (55 crédits par master, sans les
+variantes) : 34 modèles ≈ 1 870 crédits. Pour V-01 à V-03, demander à
+Tripo la voiture entière avec images de référence ; la découpe des roues et
+des vitres se fait dans Blender (section 9.2).
+
+## 11. Tests et preuve attendue
+
+- Playtest automatique (comme `tools/level/playtest_street.py`) : entrer,
+  rouler 30 s en ligne droite puis en virage, sortir ; journal des vitesses
+  et des états.
+- Vidéo de 3 minutes dans la build Shipping (enregistrée par le jeu), CSV de
+  temps d'image : 95 % des images ≤ 33,3 ms en conduisant (profil M1).
+- Vérifications à la main par le fil : clavier AZERTY, manette, sortie
+  bloquée contre un mur, saut à 60 km/h, vitre cassée sur voiture verrouillée.
+
+## 12. Points ouverts
+
+- **Première compilation** : le code n'a jamais été compilé. Noms d'API
+  Chaos Vehicles 5.8 à confirmer (réglages du moteur, de la boîte, des
+  roues). Créneau Unreal à demander au coordinateur (compilation C++ seule,
+  sans éditeur, ~5 min).
+- Animations entrer / sortir / assis : à trouver (GASP n'en a pas) ; en
+  attendant, personnage caché au volant.
+- Chaos Vehicles reste marqué expérimental en 5.8.2 : à surveiller, repli
+  possible sur le *Mover* plus tard.
+- Coût du trafic sur le M1 : 15 véhicules en mouvement prévus par la bible ;
+  à mesurer en 0.7.

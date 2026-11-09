@@ -128,7 +128,8 @@ précédents pour les enseignes et la signalétique de la ville.
 | Source des logos | Photo terrain redressée, ou vectorisation fidèle refaite à la main ; jamais de logo inventé par une IA quand le vrai existe |
 | Rangement | Les textures et matériaux d'enseignes réelles vont dans un plugin de contenu local **hors Git**, `Plugins/CityBrands/`, comme le contenu Epic et Fab : le dépôt public est sous licence MIT et ne peut pas relicencier des marques qui appartiennent à leurs propriétaires |
 | Registre | Chaque enseigne a sa ligne dans `assets/SOURCES.md` (photo d'origine, date, adresse) avec la mention « marque réelle, usage non commercial » |
-| Inchangé | Visages et personnes réelles : interdits. Véhicules : modèles fictifs (ADR-0001) tant que Nico n'en décide pas autrement. Aucun asset, personnage ou logo repris d'un jeu existant |
+| Véhicules | Modèles réels du parc circulant en France, toutes marques (décision de Nico, 2026-11-09 ; voir [véhicules](../gameplay/vehicles.fr.md), section 10) ; logos et plaques en décals, rangés comme les enseignes |
+| Inchangé | Visages et personnes réelles : interdits. Aucun asset, personnage ou logo repris d'un jeu existant |
 
 Point de vigilance, noté une fois : l'usage non commercial réduit le risque
 mais ne vaut pas autorisation des titulaires de marques. Si le jeu est un

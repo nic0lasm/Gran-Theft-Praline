@@ -124,7 +124,8 @@ documents for shop signs and city signage.
 | Logo source | Rectified field photo, or a faithful vector redrawn by hand; never an AI-invented logo when the real one exists |
 | Storage | Textures and materials of real signs go into a local content plugin **out of Git**, `Plugins/CityBrands/`, like Epic and Fab content: the public repo is MIT-licensed and cannot relicense trademarks that belong to their owners |
 | Registry | Each sign has a row in `assets/SOURCES.md` (source photo, date, address) marked "real brand, non-commercial use" |
-| Unchanged | Real faces and people: forbidden. Vehicles: fictional models (ADR-0001) until Nico decides otherwise. No asset, character or logo taken from an existing game |
+| Vehicles | Real models of the fleet on French roads, every make (project lead decision, 2026-11-09; see [vehicles](../gameplay/vehicles.md), section 10); logos and plates as decals, stored like shop signs |
+| Unchanged | Real faces and people: forbidden. No asset, character or logo taken from an existing game |
 
 One caution, stated once: non-commercial use lowers the risk but is not
 permission from trademark owners. If the game is ever distributed publicly
