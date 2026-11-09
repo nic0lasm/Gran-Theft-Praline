@@ -11,6 +11,8 @@ Pre-production: engine setup and geodata pipeline.
 - `assets/geo/` — Lyon geodata (IGN, data.grandlyon.com, OpenStreetMap)
 - `assets/SOURCES.md` — source and licence registry for every external asset
 - `tools/geo-pipeline/` — geodata conversion scripts
+- `production/roadmap.md` — development roadmap (FR: `roadmap.fr.md`)
+- `docs/sourcing/asset-sourcing.md` — survey of existing assets, plugins, data and tools (FR: `asset-sourcing.fr.md`)
 
 ## Data credits
 
