@@ -129,8 +129,20 @@ by state. GPU time p50 / p95 in ms (raw files in
 
 The project lead chose the `m1` combination on 2026-11-09. It holds the median
 (19.5 to 27 ms) but its 95th percentile is still 4 to 9 ms over budget, with
-one hitch at golden hour (131 ms) and one at night (198 ms). The M1 target is
-therefore not met yet; the next step is decided with the project lead.
+one hitch at golden hour (131 ms) and one at night (198 ms).
+
+**Provisional M1 target (2026-11-09, pending the project lead's confirmation):**
+the `m1` preset is accepted for development at about 25 fps, GPU p95 at or
+under 42 ms with no frame above 100 ms. 30 fps (33.3 ms) stays the M1 goal and
+is to be reached by content optimisation (HLOD, shadow casters, light
+complexity) by version 0.2; the Validation Criteria below are unchanged.
+
+Hitch hypothesis: in both hitches the render thread and the GPU stall together
+for one frame (render thread 106 and 198 ms) while the game thread stays under
+5 ms and the number of loaded shaders does not change. This points to a
+pipeline state (PSO) compiled at first use on Metal, or a one-off render target
+or shadow page pool reallocation, rather than texture streaming. Check with
+PSO precaching logs (`r.PSOPrecache.Validation`) when the street is dressed.
 
 ## Alternatives Considered
 

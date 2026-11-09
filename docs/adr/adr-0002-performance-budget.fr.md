@@ -121,9 +121,23 @@ ambiance par ambiance. Temps GPU p50 / p95 en ms (fichiers bruts dans
 
 Le responsable du projet a choisi la combinaison `m1` le 2026-11-09. Elle tient
 la médiane (19,5 à 27 ms), mais son 95e centile dépasse encore le budget de 4 à
-9 ms, avec une saccade à l'heure dorée (131 ms) et une la nuit (198 ms). La
-cible M1 n'est donc pas encore atteinte ; la suite est décidée avec le
-responsable du projet.
+9 ms, avec une saccade à l'heure dorée (131 ms) et une la nuit (198 ms).
+
+**Cible M1 provisoire (2026-11-09, en attente de la confirmation du responsable
+du projet) :** le préréglage `m1` est retenu pour le développement à environ
+25 i/s, GPU p95 au plus 42 ms et aucune image au-dessus de 100 ms. Les 30 i/s
+(33,3 ms) restent l'objectif du M1, à atteindre par l'optimisation du contenu
+(HLOD, objets qui projettent des ombres, complexité des lumières) d'ici la
+version 0.2 ; les critères de validation ci-dessous ne changent pas.
+
+Hypothèse sur les saccades : dans les deux cas, le thread de rendu et le GPU
+bloquent ensemble pendant une image (thread de rendu à 106 et 198 ms), alors que
+le thread de jeu reste sous 5 ms et que le nombre de shaders chargés ne change
+pas. Cela désigne plutôt un état de pipeline (PSO) compilé à la première
+utilisation sur Metal, ou une réallocation ponctuelle d'une cible de rendu ou du
+pool de pages d'ombres, que le streaming des textures. À vérifier avec les
+journaux de précache des PSO (`r.PSOPrecache.Validation`) quand la rue sera
+habillée.
 
 ## Alternatives écartées
 
