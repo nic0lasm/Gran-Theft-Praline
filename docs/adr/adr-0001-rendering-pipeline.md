@@ -177,10 +177,12 @@ On the **M1** tier the same scenes will show the lighting, materials and
 camera style, but with less geometric detail and a softer image (lower
 internal resolution), so they will look clearly below Bodycam.
 
-Camera emulation is added as a **"realistic camera" post-process profile**
-(lens distortion, grain, exposure adaptation, motion blur), subtle by default
-in third person and stronger in an optional first-person mode. This replaces
-the "no chromatic aberration" rule of Decision 8 for that profile only.
+**Decision (project lead, 2026-11-09): Bodycam is a reference for graphics
+quality only, not for the camera.** The game keeps the genre's classic
+third-person camera with an optional first-person view (see the game
+concept). We take Bodycam's scanned materials, lighting and density, not its
+body-camera effects; the post-process stays the restrained, natural lens of
+Decision 8.
 
 ## M1 Pro profile (decided 2026-11-09)
 

@@ -162,11 +162,12 @@ mêmes scènes montreront la lumière, les matériaux et le style de caméra, ma
 avec moins de détail géométrique et une image plus douce (résolution interne
 plus basse) : elles resteront nettement en dessous de Bodycam.
 
-L'émulation de caméra devient un **profil de post-traitement « caméra
-réaliste »** (distorsion d'objectif, grain, adaptation d'exposition, flou de
-mouvement), discret par défaut en troisième personne et plus marqué dans un
-mode première personne optionnel. Pour ce profil seulement, cela remplace la
-règle « pas d'aberration chromatique » de la Décision 8.
+**Décision (Nico, 2026-11-09) : Bodycam est une référence de qualité
+graphique uniquement, pas de caméra.** Le jeu garde la caméra classique du
+genre en troisième personne, avec une vue à la première personne en option
+(voir le concept). On reprend de Bodycam ses matériaux scannés, sa lumière et
+sa densité, pas ses effets de caméra corporelle ; le post-traitement reste
+l'optique sobre et naturelle de la Décision 8.
 
 ## Profil M1 Pro (décidé le 2026-11-09)
 
