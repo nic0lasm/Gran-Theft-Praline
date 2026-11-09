@@ -13,8 +13,8 @@ Cible : 2026-11-27. Avancement : 0 / 8 tâches.
 | ---- | ---- | ---- | ---- | ---- |
 | 1 | Projet passé en C++ (GameMode, PlayerController, GameInstance) | Build et lancement en un clic | ⬜ | |
 | 2 | Règles Git LFS posées, quota vérifié | Build et lancement en un clic | ⬜ | |
-| 3 | Game Animation Sample intégré (personnage, motion matching, caméra) | Personnage jouable | ⬜ | |
-| 4 | Enhanced Input clavier-souris et manette | Personnage jouable | ⬜ | |
+| 3 | Game Animation Sample intégré (personnage, motion matching, caméra) | Personnage jouable | 🟡 plan prêt, éditeur en attente | [plan](../docs/gameplay/player-character.fr.md) |
+| 4 | Enhanced Input clavier-souris et manette | Personnage jouable | 🟡 mappings définis | [§5 du plan](../docs/gameplay/player-character.fr.md) |
 | 5 | Niveau `L_RueRepublique` jouable (collisions, PlayerStart, limites) | Rue de la République jouable | ⬜ | |
 | 6 | Écran titre et menu pause | Build et lancement en un clic | ⬜ | |
 | 7 | Script de packaging macOS → `GTAL/Builds/0.1/` | Build et lancement en un clic | ⬜ | |
@@ -59,5 +59,6 @@ En parallèle (pour la 0.2) : vague Tripo 1, mobilier urbain, 0 / 60 modèles
 
 ## Décisions en attente de Nico
 
+- Contenu Epic (GASP, plus tard Megascans) hors du repo public : recommandé, à confirmer.
 - Leviers du profil M1 pour tenir 30 i/s (pendant la 0.2).
 - Où stocker les masters Tripo haute qualité, hors Git (avant la fin de la vague 1).

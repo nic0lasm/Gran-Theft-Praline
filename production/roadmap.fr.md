@@ -154,9 +154,9 @@ contrôle un personnage dans la rue de la République en greybox.
   de 30 secondes, sans éditeur, sans terminal.
 - Écran titre avec « Jouer » et « Quitter », menu pause (Échap), retour au
   bureau propre.
-- Le personnage marche, court, saute, s'accroupit ; caméra troisième
-  personne réglable à la souris et à la manette ; collisions sur tous les
-  bâtiments ; impossible de tomber hors du monde.
+- Le personnage marche, court, saute, s'accroupit ; caméra façon GTA
+  (troisième personne, bascule en première personne) réglable à la souris
+  et à la manette ; collisions sur tous les bâtiments ; impossible de tomber hors du monde.
 - Une vidéo de 2 minutes et un relevé de temps d'image (CSV) de la build
   empaquetée sont versionnés comme preuves. Le budget 30 i/s n'est **pas**
   exigé en 0.1 : il l'est à partir de 0.2.

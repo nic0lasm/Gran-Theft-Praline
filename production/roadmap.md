@@ -154,8 +154,8 @@ control a character in rue de la République in greybox.
   30 seconds, with no editor and no terminal.
 - Title screen with "Play" and "Quit", pause menu (Esc), clean return to the
   desktop.
-- The character walks, runs, jumps, crouches; third-person camera
-  adjustable with mouse and gamepad; collisions on every building; you
+- The character walks, runs, jumps, crouches; GTA-style camera
+  (third person, first-person toggle) adjustable with mouse and gamepad; collisions on every building; you
   cannot fall out of the world.
 - A 2-minute video and a frame-time capture (CSV) of the packaged build are
   versioned as evidence. The 30 fps budget is **not** required in 0.1: it

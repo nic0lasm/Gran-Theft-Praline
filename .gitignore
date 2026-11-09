@@ -19,3 +19,6 @@ assets/geo/raw/**
 
 # Unreal per-user scratch content
 **/Content/Developers/
+
+# Epic sample content: used and packaged, never published in source form
+GranTheftPraline/Plugins/GameAnimationSample/
