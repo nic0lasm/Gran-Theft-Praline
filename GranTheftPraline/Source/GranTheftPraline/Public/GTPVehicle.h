@@ -100,11 +100,11 @@ public:
 	/**
 	 * Starts the entry sequence: Character walks to the driver door, opens
 	 * it (breaking the window or pulling the driver out if needed), sits,
-	 * then Controller possesses the car. Returns false if the car cannot be
+	 * then DriverController possesses the car. Returns false if the car cannot be
 	 * entered now.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Vehicle|Seats")
-	bool BeginEnter(ACharacter* Character, AController* Controller);
+	bool BeginEnter(ACharacter* Character, AController* DriverController);
 
 	/** Asks the driver to get out: stops first, or bails out above BailOutSpeedKmh. */
 	UFUNCTION(BlueprintCallable, Category = "Vehicle|Seats")
