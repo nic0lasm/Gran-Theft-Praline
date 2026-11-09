@@ -1,0 +1,7 @@
+# fetch.py --skip-lidar --skip-grandlyon and build.py need nothing beyond the standard library.
+# LiDAR, generation, terrain and preview need:
+numpy>=1.26
+scipy>=1.11
+shapely>=2.0
+triangle>=20230923
+pillow>=10.0
