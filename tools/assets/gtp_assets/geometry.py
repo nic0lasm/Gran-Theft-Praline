@@ -25,6 +25,12 @@ _meshopt.meshopt_simplifyWithAttributes.argtypes = [
     _P(ctypes.c_float),
 ]
 _meshopt.meshopt_simplifyWithAttributes.restype = ctypes.c_size_t
+_meshopt.meshopt_simplifySloppy.argtypes = [
+    _P(ctypes.c_uint), _P(ctypes.c_uint), ctypes.c_size_t,
+    _P(ctypes.c_float), ctypes.c_size_t, ctypes.c_size_t,
+    ctypes.c_size_t, ctypes.c_float, _P(ctypes.c_float),
+]
+_meshopt.meshopt_simplifySloppy.restype = ctypes.c_size_t
 
 
 @dataclass
@@ -42,6 +48,7 @@ class Part:
 @dataclass
 class Asset:
     parts: list[Part] = field(default_factory=list)
+    used_sloppy: bool = False
 
     @property
     def tri_count(self) -> int:
@@ -152,6 +159,28 @@ def decimate_part(part: Part, target_tris: int, uv_weight: float = 4.0,
     return Part(v, f, u, nm, part.material, part.name)
 
 
+def decimate_part_sloppy(part: Part, target_tris: int) -> Part:
+    """Topology-blind fallback for meshes the attribute-aware pass cannot reduce.
+
+    Tripo masters with many open borders and UV islands hit a floor (about 480 k
+    triangles on a 2 M master). Sloppy simplification ignores borders; it keeps
+    original vertices, so UVs stay valid, at the price of rougher silhouettes.
+    """
+    if len(part.faces) <= target_tris:
+        return part
+    verts = np.ascontiguousarray(part.vertices, dtype=np.float32)
+    idx = np.ascontiguousarray(part.faces.reshape(-1), dtype=np.uint32)
+    dest = np.zeros_like(idx)
+    err = ctypes.c_float(0.0)
+    n = _meshopt.meshopt_simplifySloppy(
+        dest.ctypes.data_as(_P(ctypes.c_uint)), idx.ctypes.data_as(_P(ctypes.c_uint)),
+        len(idx), verts.ctypes.data_as(_P(ctypes.c_float)), len(verts), 12,
+        int(target_tris) * 3, 1.0, ctypes.byref(err),
+    )
+    v, u, nm, f = _compact(part.vertices, part.uv, part.normals, dest[:n].reshape(-1, 3))
+    return Part(v, f, u, nm, part.material, part.name)
+
+
 def decimate(asset: Asset, target_tris: int) -> Asset:
     """Decimate to at most ``target_tris`` triangles, split across parts by share.
 
@@ -174,6 +203,10 @@ def decimate(asset: Asset, target_tris: int) -> Asset:
         if out.tri_count <= target_tris:
             break
         goal = max(64, int(goal * target_tris / out.tri_count * 0.99))
+    if out.tri_count > target_tris:  # floor reached: finish with the topology-blind pass
+        out = Asset([decimate_part_sloppy(p, max(64, int(target_tris * len(p.faces) / out.tri_count)))
+                     for p in out.parts])
+        out.used_sloppy = True
     return out
 
 

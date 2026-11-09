@@ -191,3 +191,14 @@ def test_batch_cli_runs_one_process_per_asset(sample, tmp_path):
     assert r.returncode == 0, r.stderr
     report = json.load(open(staging / "report.json"))
     assert report["prepared"] == ["W1-01"] and report["no_master_yet"] == ["W1-02"]
+
+
+def test_cap_enforced_when_attribute_pass_hits_a_floor(sample, monkeypatch):
+    import gtp_assets.geometry as g
+    monkeypatch.setattr(g, "decimate_part", lambda part, share, **kw: part)  # simulate the floor
+    a = load_glb(sample)
+    normalize(a, 1.8)
+    d = g.decimate(a, 4000)
+    assert d.used_sloppy and 500 < d.tri_count <= 4000
+    for p in d.parts:
+        assert p.faces.max() < len(p.vertices) and np.isfinite(p.uv).all()

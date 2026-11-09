@@ -103,6 +103,7 @@ def prepare_asset(src_glb: str, item: dict, staging_root: str, wave: str = "w1",
         "triangles": {"master": master_tris, "ultra": ultra.tri_count, "m1_lod0": m1_target},
         "files": {"ultra": f"{asset_id}_ultra.glb"},
         "lod_plan": lod_plan(ultra.tri_count, m1_target, budget["lods"]),
+        "sloppy_fallback": bool(ultra.used_sloppy),
         "collision": collision_recipe(proxy, item.get("collision", "auto"), cat),
         "materials": materials,
     }

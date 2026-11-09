@@ -50,6 +50,11 @@ Content/Environment/Props/<Famille>/<Asset>/
 6. Les noms viennent de `assets/manifests/wave-01.json` (famille, `Type_Descripteur`), généré
    depuis le catalogue par `catalog_to_manifest.py`.
 
+Certains masters Tripo (bords ouverts, nombreux îlots UV) bloquent la passe sensible aux
+attributs vers 480 k triangles ; le plafond est alors terminé par une passe aveugle à la
+topologie (`sloppy_fallback: true` dans `asset.json`) : mêmes sommets et UV, silhouette plus
+rugueuse. 8 petits objets en ont eu besoin.
+
 Le lot lance un processus neuf par asset, pour que la mémoire ne s'accumule pas
 (un master de 2 M triangles culmine vers 3 Go ; un seul processus pour les 60 a atteint 10,6 Go).
 
