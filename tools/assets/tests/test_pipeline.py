@@ -206,3 +206,29 @@ def test_floor_keeps_uvs_intact_and_is_flagged(sample, tmp_path, monkeypatch):
     assert meta["over_cap"] is True and meta["triangles"]["ultra"] > 3000
     a = load_glb(str(tmp_path / "W1-01" / "W1-01_ultra.glb"))
     assert a.parts[0].uv.min() >= -1e-4 and a.parts[0].uv.max() <= 1 + 1e-4
+
+
+def test_budgets_match_the_art_bible():
+    """Art bible 5.1 / 6: Nanite source caps, M1 LOD0 budgets, LOD counts and screen sizes."""
+    from gtp_assets.manifest import BUDGETS, SCREEN_SIZES, lod_plan
+    assert BUDGETS == {
+        "small": {"ultra_tris": 300_000, "m1_tris": 3_000, "lods": 3},
+        "medium": {"ultra_tris": 1_000_000, "m1_tris": 10_000, "lods": 4},
+        "large": {"ultra_tris": 2_000_000, "m1_tris": 30_000, "lods": 4},
+    }
+    assert SCREEN_SIZES == [1.0, 0.5, 0.25, 0.1]
+    for cat, b in BUDGETS.items():
+        plan = lod_plan(b["lods"])
+        assert len(plan) == b["lods"]
+        # each LOD halves the triangles of the previous one, from the M1 LOD0 budget
+        assert [e["percent_triangles"] for e in plan] == [0.5 ** k for k in range(b["lods"])]
+        assert [e["screen_size"] for e in plan] == SCREEN_SIZES[:b["lods"]]
+
+
+def test_unreal_script_sets_the_nanite_fallback_the_way_ue_requires():
+    """Regression: with the default AUTO target UE ignores the percentage (found on 5.8.4)."""
+    src = open(os.path.join(HERE, "..", "unreal", "import_props.py"), encoding="utf-8").read()
+    assert "NaniteFallbackTarget.PERCENT_TRIANGLES" in src
+    assert src.index("fallback_target") < src.index("fallback_percent_triangles")
+    assert 'set_nanite(mesh, True, min(1.0, tris["m1_lod0"] / max(1, tris["ultra"])))' in src
+    assert src.index("set_nanite(mesh, True") < src.index("build_lods(mesh")  # fallback first
