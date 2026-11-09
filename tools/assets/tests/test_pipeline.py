@@ -70,7 +70,7 @@ def test_prepare_outputs(sample, tmp_path):
     assert t["m1_lod0"] == 10000  # medium prop budget (art bible 5.1)
     assert meta["category"] == "medium" and len(meta["lod_plan"]) == 4
     pct = [e["percent_triangles"] for e in meta["lod_plan"]]
-    assert pct[0] == 1.0 and pct[1] > pct[2] > pct[3]
+    assert pct == [1.0, 0.5, 0.25, 0.125]  # fractions of the M1 LOD0 / Nanite fallback
     assert [e["screen_size"] for e in meta["lod_plan"]] == [1.0, 0.5, 0.25, 0.1]
     assert meta["collision"]["type"] == "convex" and meta["collision"]["hulls"] >= 1
     tex = meta["materials"][0]["textures"]

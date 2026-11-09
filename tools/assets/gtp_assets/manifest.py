@@ -97,20 +97,15 @@ BUDGETS = {
 SCREEN_SIZES = [1.0, 0.5, 0.25, 0.1]  # art bible 6.2
 
 
-def lod_plan(ultra_tris: int, m1_tris: int, lods: int) -> list[dict]:
-    """LOD chain for the single Nanite mesh.
+def lod_plan(lods: int) -> list[dict]:
+    """LOD chain for the single Nanite mesh, as fractions of the M1 LOD0.
 
-    LOD0 is the Nanite source; its fallback (used when Nanite is off, M1 tier)
-    is the M1 LOD0 budget; each further LOD halves the triangles.
+    Validated on UE 5.8.4: once the Nanite fallback is set (PERCENT_TRIANGLES, the M1 LOD0
+    budget), LOD0 in the render data *is* the fallback and ``set_lods`` percentages apply to
+    it. So the chain halves from there: 1 / 0.5 / 0.25 / 0.125 (art bible 6.2).
     """
-    m1_tris = min(m1_tris, ultra_tris)
-    plan = [{"percent_triangles": 1.0, "screen_size": SCREEN_SIZES[0]}]
-    for k in range(1, lods):
-        plan.append({
-            "percent_triangles": max(m1_tris * 0.5 ** k / ultra_tris, 0.0005),
-            "screen_size": SCREEN_SIZES[k],
-        })
-    return plan
+    return [{"percent_triangles": 0.5 ** k, "screen_size": SCREEN_SIZES[k]}
+            for k in range(lods)]
 
 
 def load_manifest(path: str) -> dict:

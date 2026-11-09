@@ -160,7 +160,9 @@ def set_nanite(mesh, enabled, fallback_percent=None):
     ns = sm_subsystem.get_nanite_settings(mesh)
     ns.set_editor_property("enabled", enabled)
     if enabled and fallback_percent is not None:
-        # Nanite fallback = M1 LOD0 budget (art bible 6.1)
+        # Nanite fallback = M1 LOD0 budget (art bible 6.1). The percentage is ignored
+        # unless the target is PERCENT_TRIANGLES (AUTO is the default).
+        ns.set_editor_property("fallback_target", unreal.NaniteFallbackTarget.PERCENT_TRIANGLES)
         ns.set_editor_property("fallback_percent_triangles", float(fallback_percent))
     sm_subsystem.set_nanite_settings(mesh, ns, True)
 

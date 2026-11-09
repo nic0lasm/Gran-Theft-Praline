@@ -86,6 +86,9 @@ Masters are matched by id prefix (`W1-07.glb`). Missing ones are listed in
 
 ## Open points
 
+- **LOD chain** (validated on 5.8.4): the Nanite fallback is set with target `PERCENT_TRIANGLES`
+  (the default `AUTO` ignores the percentage), and the chain halves from the M1 LOD0 (1 / 0.5 /
+  0.25 / 0.125), because LOD0 in the render data is the fallback itself.
 - **First Mac run (UE 5.8.4, headless commandlet)**: the API names used all exist; three
   fixes came out of it (subsystem built directly under `-run=pythonscript`, mesh located through
   the importer's returned paths, `pgrep -x` in the launcher). Three props imported with the right

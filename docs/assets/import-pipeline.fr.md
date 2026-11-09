@@ -88,6 +88,9 @@ Masters retrouvés par préfixe d'identifiant (`W1-07.glb`). Les absents sont li
 
 ## Points ouverts
 
+- **Chaîne de LOD** (validée sur 5.8.4) : le repli Nanite est réglé avec la cible
+  `PERCENT_TRIANGLES` (le défaut `AUTO` ignore le pourcentage) et la chaîne se divise par deux à
+  partir du LOD0 M1 (1 / 0,5 / 0,25 / 0,125), car le LOD0 des données de rendu est le repli lui-même.
 - **Premier passage sur le Mac (UE 5.8.4, commandlet headless)** : tous les noms d'API utilisés
   existent ; trois correctifs en sont sortis (sous-système construit directement sous
   `-run=pythonscript`, maillage retrouvé via les chemins renvoyés par l'importeur, `pgrep -x`
