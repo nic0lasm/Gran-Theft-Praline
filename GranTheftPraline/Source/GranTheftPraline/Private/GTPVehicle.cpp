@@ -476,15 +476,15 @@ float AGTPVehicle::PlayMontageOr(ACharacter* Character, const TSoftObjectPtr<UAn
 	return Fallback;
 }
 
-bool AGTPVehicle::BeginEnter(ACharacter* Character, AController* Controller)
+bool AGTPVehicle::BeginEnter(ACharacter* Character, AController* DriverController)
 {
-	if (!CanEnter(Character) || !Controller)
+	if (!CanEnter(Character) || !DriverController)
 	{
 		return false;
 	}
 	PendingEntry = GetEntryKind();
 	EnteringCharacter = Character;
-	EnteringController = Controller;
+	EnteringController = DriverController;
 	State = EGTPVehicleState::Entering;
 
 	// Freeze the character at the driver door, facing the car. A walk to the
@@ -494,7 +494,7 @@ bool AGTPVehicle::BeginEnter(ACharacter* Character, AController* Controller)
 		Move->StopMovementImmediately();
 		Move->DisableMovement();
 	}
-	Controller->SetIgnoreMoveInput(true);
+	DriverController->SetIgnoreMoveInput(true);
 	Character->MoveIgnoreActorAdd(this);
 	const FVector Door = GetDoorLocation(DriverSide);
 	const FVector Stand(Door.X, Door.Y, Character->GetActorLocation().Z);
@@ -532,10 +532,10 @@ bool AGTPVehicle::BeginEnter(ACharacter* Character, AController* Controller)
 void AGTPVehicle::FinishEnter()
 {
 	ACharacter* Character = EnteringCharacter;
-	AController* Controller = EnteringController;
+	AController* DriverController = EnteringController;
 	EnteringCharacter = nullptr;
 	EnteringController = nullptr;
-	if (!IsValid(Character) || !IsValid(Controller))
+	if (!IsValid(Character) || !IsValid(DriverController))
 	{
 		State = EGTPVehicleState::Parked;
 		return;
@@ -543,9 +543,9 @@ void AGTPVehicle::FinishEnter()
 	AttachToSeat(Character);
 	Driver = Character;
 	bLocked = false;
-	Controller->SetIgnoreMoveInput(false);
+	DriverController->SetIgnoreMoveInput(false);
 	State = EGTPVehicleState::Driven;
-	Controller->Possess(this);
+	DriverController->Possess(this);
 }
 
 void AGTPVehicle::SeatOccupant(ACharacter* Character)
