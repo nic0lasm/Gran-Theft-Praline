@@ -50,3 +50,6 @@ assets/geo/processed/*/*.geojson
 
 # Prop pipeline: staging output is regenerated from the Tripo masters
 assets/staging/
+# City generation output (LiDAR, Grand Lyon, OSM derived): regenerate with tools/city/
+assets/geo/processed/*/gen/
+assets/geo/processed/*/terrain/

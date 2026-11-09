@@ -22,8 +22,8 @@ free-to-look *reference layer* inside the editor to check our result.
 |---|---|---|---|
 | IGN **BD TOPO V3** (WFS `data.geopf.fr`) | 2.6k building footprints with height, floors, uses, materials, altitudes in the test zone; roads with width, lanes, direction, speed; vegetation; water; structures; ERP (public venues) | Licence Ouverte Etalab 2.0 (credit IGN) | **Core.** Tested, no key needed |
 | **OpenStreetMap** (standard API, tiled) | Shops, restaurants with `name`, `brand`, `brand:wikidata`, hours, addresses; trees; street lamps, benches, bins, bus stops, hydrants, traffic lights | ODbL 1.0 (credit, share-alike on the database) | **Core for shop signs and furniture.** Tested. Overpass is not reachable from our cloud, the API works for district-sized zones |
-| IGN **LiDAR HD** (MNT / MNS) | Terrain and surface model, 0.5 m, roof shapes, tree heights | Licence Ouverte Etalab 2.0 | **Next step** (v1, roadmap 0.7): terrain and roof shapes. Not tested yet |
-| **Grand Lyon open data** (data.grandlyon.com: 3D model, imagery, trees, street furniture) | City-maintained trees, lighting, possibly 3D building model | Licence Ouverte (per dataset, to confirm) | **To evaluate** for trees and lamps; not tested |
+| IGN **LiDAR HD** (MNT / MNS) | Terrain and surface model, 0.5 m, roof shapes, tree heights | Licence Ouverte Etalab 2.0 | **In use** (step 2): terrain, eaves, roofs, courtyards. Tested, no key ([generation](generation.md)) |
+| **Grand Lyon open data** (data.grandlyon.com: 3D model, imagery, trees, street furniture) | Street trees, 3D roof ridge lines, kerbs, bins, bike racks, shelters, benches; 2012 CityGML model | Licence Ouverte (benches and fountains: ODbL, from OSM) | **In use** (step 2): ridges, trees, furniture. CityGML 2012 not used ([generation](generation.md)) |
 | **Google Photorealistic 3D Tiles** via Cesium for Unreal | Textured photogrammetry mesh | Google Maps Platform terms: online only, attribution, no extraction or offline use | **Reference only**, never shipped |
 | Own **photogrammetry** (Apple Object Capture) | Façades and details of key landmarks | Ours | Later, for a handful of monuments (0.14+) |
 
@@ -34,7 +34,8 @@ fetch.py  ->  assets/geo/raw/<zone>/        BD TOPO GeoJSON (Lambert-93) + OSM X
 build.py  ->  assets/geo/processed/<zone>/  buildings.csv|geojson, shops.csv, trees.csv,
                                             furniture.csv, roads/vegetation/water.geojson,
                                             manifest.json
-(next)    ->  Unreal editor script          spawns PCG building actors, splines, sign actors
+generate.py / terrain.py -> gen/, terrain/  roofs, courtyards, facade modules, greybox, heightmap
+(editor)  ->  unreal/import_city.py         greybox level; facade kit / PCG reads facade_modules.csv
 ```
 
 * Coordinates: Lambert-93 metres recentred on the zone, `x` east, `y` north.
@@ -88,6 +89,6 @@ the Tripo masters) and mention the non-commercial intent in the README.
    key shops by hand from street photos.
 2. BD TOPO has no façade detail: window rhythm, balconies and ground floors
    come from the façade kit, fed by `usage_*`, `floors`, wall material and photos.
-3. Next: LiDAR HD terrain and roof import, the editor script that spawns
-   buildings, bridges and quays (BD TOPO `construction_*`), road lanes and lights.
+3. Done in step 2 ([generation](generation.md)): LiDAR HD terrain and roofs, façade layout,
+   greybox import script. Still to do: bridges and quays (BD TOPO `construction_*`), road lanes and lights.
 4. Tests: `python3 -I -m unittest discover -s tools/city/tests` (CI job "City tools tests").
