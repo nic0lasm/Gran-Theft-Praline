@@ -51,7 +51,10 @@ Content/Environment/Props/<Family>/<Asset>/
 
 Some Tripo masters (open borders, many UV islands) stop the attribute-aware pass near
 480 k triangles; the cap is then finished with a topology-blind pass (`sloppy_fallback: true` in
-`asset.json`): same vertices and UVs, rougher silhouette. 8 small props needed it.
+`asset.json`): same vertices and UVs, rougher silhouette. 8 small props needed it; measured on the street name plate (W1-56,
+484 k to 300 k), the surface moves by less than 1 mm (0.17 % of its size) from the master,
+within the measurement precision. Full wave 1 batch on the M1 Pro: 60 of 60 prepared, about
+11 min at nice 19, under 4.2 GB RAM per asset, 2.8 GB of staging.
 
 The batch runs one fresh worker process per asset, so memory does not pile up
 (a 2 M-triangle master peaks near 3 GB; a single-process run of all 60 peaked at 10.6 GB).

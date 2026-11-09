@@ -53,7 +53,10 @@ Content/Environment/Props/<Famille>/<Asset>/
 Certains masters Tripo (bords ouverts, nombreux îlots UV) bloquent la passe sensible aux
 attributs vers 480 k triangles ; le plafond est alors terminé par une passe aveugle à la
 topologie (`sloppy_fallback: true` dans `asset.json`) : mêmes sommets et UV, silhouette plus
-rugueuse. 8 petits objets en ont eu besoin.
+rugueuse. 8 petits objets en ont eu besoin ; mesuré sur la plaque de rue (W1-56, de 484 k à
+300 k), la surface bouge de moins de 1 mm (0,17 % de sa taille) par rapport au master, dans la
+précision de la mesure. Lot complet de la vague 1 sur le M1 Pro : 60 sur 60 préparés, environ
+11 min en nice 19, moins de 4,2 Go de RAM par asset, 2,8 Go de staging.
 
 Le lot lance un processus neuf par asset, pour que la mémoire ne s'accumule pas
 (un master de 2 M triangles culmine vers 3 Go ; un seul processus pour les 60 a atteint 10,6 Go).
