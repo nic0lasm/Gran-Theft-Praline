@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="360" viewBox="0 0 1280 360" role="img" aria-label="Gran Theft Praline: an open world in Lyon">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1b1f2e"/>
+      <stop offset="0.65" stop-color="#3a2f3f"/>
+      <stop offset="1" stop-color="#c0704a"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="360" fill="url(#sky)"/>
+  <!-- Stylised skyline: hill, basilica-like towers, roofs along the river -->
+  <path d="M0 300 L0 250 Q160 190 320 205 Q420 212 470 230 L470 300 Z" fill="#141722"/>
+  <path d="M250 205 l0-34 l10 0 l0-12 l8 0 l0 12 l10 0 l0 34 Z M300 207 l0-40 l12 0 l0 40 Z" fill="#141722"/>
+  <path d="M470 300 L470 262 L520 262 L520 248 L575 248 L575 266 L640 266 L640 240 L700 240 L700 258 L760 258 L760 236 L800 236 L800 260 L870 260 L870 246 L940 246 L940 268 L1010 268 L1010 252 L1080 252 L1080 270 L1150 270 L1150 256 L1280 256 L1280 300 Z" fill="#141722"/>
+  <rect y="300" width="1280" height="60" fill="#10131c"/>
+  <path d="M0 318 H1280" stroke="#c0704a" stroke-opacity="0.35" stroke-width="2"/>
+  <path d="M0 334 H1280" stroke="#c0704a" stroke-opacity="0.18" stroke-width="2"/>
+  <text x="640" y="128" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="64" font-weight="700" letter-spacing="4" fill="#f4ede4">GRAN THEFT PRALINE</text>
+  <text x="640" y="172" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="22" letter-spacing="6" fill="#e3c9b4">LYON · OPEN WORLD · UNREAL ENGINE 5</text>
+</svg>
