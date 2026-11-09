@@ -4,8 +4,9 @@
 
 ## Statut
 
-Proposé. La cible de fréquence d'image et la question du matériel sont des
-décisions de Nico ; cet ADR consigne la recommandation en attendant.
+Accepté le 2026-11-09 par Nico : cible fidélité à 30 i/s, mode performance
+à 60 i/s plus tard, sur le M1 Pro (sans achat de matériel). Les chiffres
+ci-dessous sont des valeurs de départ, remesurées dans la scène témoin.
 
 ## Date
 
@@ -53,7 +54,7 @@ de matériel. Selon Epic, les puces M1 n'exécutent pas Nanite et n'ont pas de
 RT matériel, et 16 Go est juste pour l'éditeur avec une ville dense. Les
 budgets ci-dessous sont fixés pour cette machine.
 
-## Décision (recommandée, en attente de Nico)
+## Décision
 
 ### Cible (M1 Pro, 16 Go)
 

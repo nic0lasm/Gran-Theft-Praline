@@ -4,8 +4,10 @@
 
 ## Status
 
-Proposed. The frame-rate target and the hardware question are decisions for
-the project lead; this ADR records the recommendation until they are made.
+Accepted on 2026-11-09 by the project lead: 30 fps fidelity target with a
+60 fps performance mode later, on the M1 Pro (no hardware purchase). The
+numbers below are starting values, re-measured in the reference street
+scene.
 
 ## Date
 
@@ -61,7 +63,7 @@ hardware purchase. Per Epic, M1 chips do not run Nanite and have no hardware
 ray tracing, and 16 GB is tight for the editor with a dense city. The budgets
 below are set for this machine.
 
-## Decision (recommended, pending the project lead)
+## Decision
 
 ### Target (M1 Pro, 16 GB)
 
