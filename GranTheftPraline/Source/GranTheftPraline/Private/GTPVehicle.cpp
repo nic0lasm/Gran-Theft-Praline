@@ -4,6 +4,8 @@
 #include "GTPPlayerController.h"
 #include "GTPVehicleInput.h"
 #include "GTPVehicleWheels.h"
+#include "Components/StaticMeshComponent.h"
+#include "Engine/StaticMesh.h"
 #include "Animation/AnimMontage.h"
 #include "Camera/CameraComponent.h"
 #include "ChaosWheeledVehicleMovementComponent.h"
@@ -147,6 +149,37 @@ void AGTPVehicle::ApplyCityCarTuning()
 		Steering->AddKey(0.f, 1.f);
 		Steering->AddKey(30.f, 0.75f);
 		Steering->AddKey(80.f, 0.4f);
+	}
+}
+
+void AGTPVehicle::OnConstruction(const FTransform& Transform)
+{
+	Super::OnConstruction(Transform);
+
+	for (UStaticMeshComponent* Old : GlassComponents)
+	{
+		if (Old)
+		{
+			Old->DestroyComponent();
+		}
+	}
+	GlassComponents.Reset();
+
+	USkeletalMeshComponent* Body = GetMesh();
+	for (const TPair<EGTPDamageZone, TObjectPtr<UStaticMesh>>& Pair : GlassMeshes)
+	{
+		if (!Pair.Value || !Body)
+		{
+			continue;
+		}
+		UStaticMeshComponent* Glass = NewObject<UStaticMeshComponent>(this, NAME_None, RF_Transient);
+		Glass->SetStaticMesh(Pair.Value);
+		Glass->SetupAttachment(Body);
+		Glass->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Glass->SetCastShadow(false);
+		Glass->ComponentTags = {TEXT("Glass"), ZoneTag(Pair.Key)};
+		Glass->RegisterComponent();
+		GlassComponents.Add(Glass);
 	}
 }
 

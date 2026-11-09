@@ -9,6 +9,8 @@ class AController;
 class ACharacter;
 class UAnimMontage;
 class UCameraComponent;
+class UStaticMesh;
+class UStaticMeshComponent;
 class UChaosWheeledVehicleMovementComponent;
 class UPrimitiveComponent;
 class USpringArmComponent;
@@ -151,6 +153,7 @@ public:
 	bool bLocked = false;
 
 protected:
+	virtual void OnConstruction(const FTransform& Transform) override;
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaSeconds) override;
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
@@ -296,6 +299,14 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Vehicle|Damage")
 	TMap<EGTPDamageZone, FName> DentMorphTargets;
 
+	/**
+	 * Glass panels of the car, one static mesh per zone, modelled in the
+	 * body's space (tools/vehicles/prepare_vehicle.py). Each becomes a
+	 * component on the root bone, tagged "Glass" plus the zone.
+	 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Vehicle|Damage")
+	TMap<EGTPDamageZone, TObjectPtr<UStaticMesh>> GlassMeshes;
+
 	/** Blueprint hook: dents, glass, smoke and wreck changes, for FX and sound. */
 	UFUNCTION(BlueprintImplementableEvent, Category = "Vehicle|Damage")
 	void OnDamageChanged(EGTPDamageZone Zone, float AccumulatedZoneDamage, float NewHealth);
@@ -366,5 +377,9 @@ private:
 	bool bWrecked = false;
 	float ZoneDamage[4] = {0.f, 0.f, 0.f, 0.f};
 	bool bGlassBroken[4] = {false, false, false, false};
+
+	/** Components built from GlassMeshes (rebuilt on each construction). */
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UStaticMeshComponent>> GlassComponents;
 	float LastImpactTime = -1000.f;
 };

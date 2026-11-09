@@ -43,6 +43,12 @@ void AGTPGameMode::RestartPlayer(AController* NewPlayer)
 		return;
 	}
 	const APawn* Pawn = NewPlayer ? NewPlayer->GetPawn() : nullptr;
+	// -TestVehicleClass=/Game/... overrides the config (one car per playtest run).
+	FString ClassOverride;
+	if (FParse::Value(FCommandLine::Get(), TEXT("TestVehicleClass="), ClassOverride))
+	{
+		TestVehicleClass = FSoftClassPath(ClassOverride);
+	}
 	UClass* VehicleClass = TestVehicleClass.TryLoadClass<AGTPVehicle>();
 	if (!Pawn || !VehicleClass)
 	{

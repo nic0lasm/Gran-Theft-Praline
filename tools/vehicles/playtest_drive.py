@@ -9,6 +9,9 @@ Steps, each logged and photographed:
   exit     enter / exit again: the player is back on foot next to the car
   damage   front damage applied: dent morph target and health
 Writes Saved/Vehicles/playtest_drive.json (PASS / FAIL per check) and quits.
+
+With GTP_DRIVE_MODE=bench (frame time run of playtest_drive.sh): enter the
+car, drive for BENCH_S with gentle steering, write playtest_bench.json, quit.
 """
 
 import json
@@ -24,8 +27,10 @@ LAUNCH_S = 9.0
 TURN_S = 3.0
 MAX_BRAKE_S = 8.0
 TIMEOUT_S = 6.0
+BENCH_S = 60.0
+MODE = os.environ.get("GTP_DRIVE_MODE", "checks")
 
-state = dict(t=0.0, phase="warmup", phase_t=0.0, checks={}, samples=[], handle=None)
+state = dict(t=0.0, phase="warmup", phase_t=0.0, checks={}, samples=[], handle=None, tilt=0.0)
 
 
 def log(msg):
@@ -83,7 +88,8 @@ def finish():
     os.makedirs(OUT, exist_ok=True)
     ok = bool(state["checks"]) and all(c["ok"] for c in state["checks"].values())
     report = dict(result="PASS" if ok else "FAIL", checks=state["checks"], speed_samples=state["samples"])
-    with open(os.path.join(OUT, "playtest_drive.json"), "w") as f:
+    name = "playtest_bench.json" if MODE == "bench" else "playtest_drive.json"
+    with open(os.path.join(OUT, name), "w") as f:
         json.dump(report, f, indent=1)
     log("RESULT " + report["result"])
 
@@ -112,8 +118,11 @@ def step(dt):
                 go("quit")
             else:
                 d = v.get_actor_location().distance(pawn().get_actor_location())
-                check("parked", True, vehicle=v.get_class().get_name(), distance_cm=round(d))
-                screenshot("parked")
+                r = v.get_actor_rotation()
+                check("parked", abs(r.roll) < 5 and abs(r.pitch) < 5, vehicle=v.get_class().get_name(),
+                      distance_cm=round(d), roll=round(r.roll, 1), pitch=round(r.pitch, 1))
+                if MODE != "bench":
+                    screenshot("parked")
                 go("enter")
         elif state["t"] > 120.0:
             check("parked", False, reason="no pawn after 120 s")
@@ -127,9 +136,12 @@ def step(dt):
             interaction().handle_enter_exit()
         if pawn() == v:
             check("enter", True, seconds=round(state["t"] - state["enter_t0"], 2), state=str(v.get_vehicle_state()))
-            screenshot("seated")
             state["start"] = v.get_actor_location()
-            go("launch")
+            if MODE == "bench":
+                go("bench")
+            else:
+                screenshot("seated")
+                go("launch")
         elif state["t"] - state["enter_t0"] > TIMEOUT_S:
             check("enter", False, reason="car not possessed", state=str(v.get_vehicle_state()))
             go("quit")
@@ -139,6 +151,8 @@ def step(dt):
         m.set_handbrake_input(False)
         m.set_throttle_input(1.0)
         speed = v.get_speed_kmh()
+        r = v.get_actor_rotation()
+        state["tilt"] = max(state["tilt"], abs(r.roll), abs(r.pitch))
         state["samples"].append([round(pt, 2), round(speed, 1)])
         if speed >= 50.0 and "t50" not in state:
             state["t50"] = pt
@@ -146,7 +160,8 @@ def step(dt):
             screenshot("driving")
         if pt >= LAUNCH_S:
             top = max(s[1] for s in state["samples"])
-            check("launch", top > 40.0, top_kmh=round(top, 1),
+            check("launch", top > 40.0 and state["tilt"] < 10.0, top_kmh=round(top, 1),
+                  max_tilt_deg=round(state["tilt"], 1),
                   zero_to_50_s=round(state["t50"], 2) if "t50" in state else None,
                   distance_m=round(v.get_actor_location().distance(state["start"]) / 100.0, 1))
             state["yaw0"] = v.get_actor_rotation().yaw
@@ -164,6 +179,22 @@ def step(dt):
             state["brake_from"] = v.get_speed_kmh()
             state["brake_start"] = v.get_actor_location()
             go("brake")
+
+    elif phase == "bench":
+        # Gentle city driving: about 40 km/h, slow left-right weave.
+        import math
+        m = movement(v)
+        speed = v.get_speed_kmh()
+        m.set_handbrake_input(False)
+        m.set_throttle_input(0.7 if speed < 40.0 else 0.0)
+        m.set_brake_input(0.4 if speed > 50.0 else 0.0)
+        m.set_steering_input(0.35 * math.sin(pt * 0.6))
+        if int(pt) != int(pt - dt):
+            state["samples"].append([round(pt, 1), round(speed, 1)])
+        if pt >= BENCH_S:
+            check("bench", True, seconds=round(pt, 1),
+                  distance_m=round(v.get_actor_location().distance(state["start"]) / 100.0, 1))
+            go("quit")
 
     elif phase == "brake":
         m = movement(v)
