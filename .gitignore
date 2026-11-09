@@ -28,3 +28,7 @@ GranTheftPraline/Plugins/GameAnimationSample/
 # Python
 __pycache__/
 *.pyc
+
+# City pipeline tables are derived from OSM (ODbL): regenerate, do not commit
+assets/geo/processed/*/*.csv
+assets/geo/processed/*/*.geojson

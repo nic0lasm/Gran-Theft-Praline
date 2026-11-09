@@ -1,0 +1,40 @@
+{
+  "name": "presqu-ile",
+  "bbox_lat0_lon0_lat1_lon1": [
+    45.757,
+    4.825,
+    45.769,
+    4.842
+  ],
+  "origin_lambert93_m": [
+    842498,
+    6519809
+  ],
+  "origin_altitude_m": 167.8,
+  "axes": "x=east, y=north (metres); Unreal X=east, Y=south, Z=up (cm)",
+  "counts": {
+    "buildings": 2601,
+    "shops": 2692,
+    "shops_with_brand": 521,
+    "shops_matched_to_building": 2615,
+    "trees": 1466,
+    "furniture": 3604,
+    "roads": 1194,
+    "vegetation": 74,
+    "water": 3,
+    "structures": 5,
+    "structures_lineaires": 83
+  },
+  "sources": [
+    {
+      "name": "IGN BD TOPO V3",
+      "licence": "Licence Ouverte Etalab 2.0",
+      "credit": "IGN, BD TOPO"
+    },
+    {
+      "name": "OpenStreetMap contributors",
+      "licence": "ODbL 1.0",
+      "note": "derived tables stay out of Git; credit in game and docs"
+    }
+  ]
+}
