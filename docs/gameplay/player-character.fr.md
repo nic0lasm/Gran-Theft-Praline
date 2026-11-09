@@ -2,7 +2,7 @@
 
 *Version anglaise : [player-character.md](player-character.md).*
 *Version 0.1 « Jouer en un clic », tâches 3 et 4 du [tableau de bord](../../production/roadmap-status.fr.md).*
-*Dernière mise à jour : 2026-11-09. Statut : plan prêt, sample relevé, intégration dans l'éditeur à venir.*
+*Dernière mise à jour : 2026-11-09. Statut : intégré et testé sans interface dans `L_RueRepublique` (troisième et première personne) ; vérification manette à la main et test d'enjambement à faire.*
 
 ## 1. Objectif
 
@@ -62,19 +62,24 @@ Projet téléchargé dans `Samples/GameAnimationSample` (7,0 Go, 3 890 `.uasset`
 - **Physique** : substepping activé (pas max 16,7 ms, 16 sous-pas), à
   reprendre.
 - **Entrées** : `Content/Input/IMC_Sandbox` et 18 actions `IA_*` du sample.
-  Nos propres `IA_*` et `IMC_*` vivent dans notre `Content/Input` ; pour
-  éviter la collision de chemins, le sample passe dans son plugin
-  (`/GameAnimationSample/Input`).
+  Le sample garde son chemin `/Game/Input` ; nos propres actions et
+  contextes vivent dans `/Game/Input/GTP`.
 - **Caméra** : Gameplay Camera System (`CameraAsset_SandboxCharacter`,
-  `CameraDirector_SandboxCharacter`, rigs Close, Medium et Far). Le mode
-  première personne s'ajoute comme un nouveau rig dans ce directeur.
-- **Contenu à garder dans le plugin** : `Blueprints`, `Input`, `Audio`
-  (bruitages), `Characters/UEFN_Mannequin`, `Characters/UE5_Mannequins`,
-  `Widgets`. **À écarter** : `Characters/Paragon`, `Characters/Echo`,
-  `MetaHumans`, `IsolatedExamples`, `Levels`, `Movies` (environ 5 Go de moins),
-  ainsi que les Blueprints qui en dépendent (`RetargetedCharacters/BP_Echo`,
-  `BP_Twinblast`). La liste exacte se vérifie avec le visualiseur de
-  références avant suppression.
+  `CameraDirector_SandboxCharacter`, rigs Close, Medium et Far), gardé tel
+  quel pour la troisième personne.
+- **Contenu réellement nécessaire** (fermeture du registre d'assets,
+  références dures et souples, depuis `SandboxCharacter_CMC`, son
+  Blueprint d'animation, `GM_Sandbox`, `PC_Sandbox`, `/Game/Input` et les
+  assets de caméra) : 2 039 paquets, 2,0 Go. `Characters/UEFN_Mannequin`
+  (1,97 Go), `Levels/LevelPrototyping` (38 Mo, référence dure de
+  `AC_TraversalLogic` vers `LevelBlock_Traversable`), `Audio` (12 Mo),
+  `Blueprints` (31 Mo), `Input`, `Misc`. La fermeture brute fait 4,7 Go
+  car `GM_Sandbox` référence en souple les personnages alternatifs du
+  sample (Echo, Twinblast, mannequin UE4, MetaHuman Kellan) ; ces
+  références souples ne sont pas suivies, notre mode de jeu ne s'en sert
+  pas. **Non copiés** : `Characters/Paragon`, `Characters/Echo`,
+  `Characters/UE4_Mannequin`, `Characters/UE5_Mannequins`, `MetaHumans`,
+  `IsolatedExamples`, `Movies`, les niveaux du sample, `RetargetedCharacters`.
 
 ## 3. Licence et Git : le contenu Epic ne va pas dans le repo public
 
@@ -88,16 +93,15 @@ Règle décidée par Nico le 2026-11-09 : le contenu Epic et Fab reste hors du r
 
 | Contenu | Où | Dans Git ? |
 | ---- | ---- | ---- |
-| Assets du GASP (personnages, animations, bases de données de poses, Blueprints d'origine) | Plugin de contenu local `Plugins/GameAnimationSample/` | **Non** (`.gitignore`), réinstallé par la procédure §6 |
-| Nos Blueprints enfants, réglages, caméra | `Content/Characters/Player/` | Oui (LFS) |
-| Nos actions et contextes d'entrée | `Content/Input/` | Oui (LFS) |
-| Code C++ (caméra, contrôleur) | `Source/GranTheftPraline/` | Oui |
+| Assets du GASP (personnages, animations, bases de données de poses, Blueprints d'origine) | Mêmes chemins `/Game` que dans le sample : `Content/Audio`, `Content/Blueprints`, `Content/Characters/UEFN_Mannequin`, `Content/Input` (sauf `GTP`), `Content/Levels`, `Content/Misc` | **Non** (`.gitignore`), réinstallés par `tools/character/install_gasp_content.sh` |
+| Notre Blueprint enfant | `Content/Characters/Player/` | Oui (LFS) ; reconstructible par `tools/character/create_player_assets.py` |
+| Nos actions et contextes d'entrée | `Content/Input/GTP/` | Oui (LFS), même script |
+| Code C++ (mode de caméra, contrôleur), config, scripts | `Source/GranTheftPraline/`, `Config/`, `tools/character/` | Oui |
 
-Ranger le GASP dans un plugin de contenu sépare proprement ce qui est à
-Epic de ce qui est à nous, et permet de passer à une version plus récente
-du sample sans toucher à notre contenu. La même règle s'appliquera plus
-tard à Megascans et aux autres assets Fab : utilisés, empaquetés, jamais
-publiés en source.
+Le sample garde ses propres chemins `/Game` (décision du 2026-11-09, à la
+place d'un plugin de contenu) : aucune redirection à corriger, le projet
+du sample reste intact, et une version plus récente s'installe en
+relançant le script.
 
 ## 4. Caméra façon GTA
 
@@ -107,57 +111,80 @@ publiés en source.
 | **Première personne** | Caméra attachée à la tête, champ de vision 90° (réglable 70 à 110°), tête masquée pour le joueur, corps et ombre visibles, mêmes animations que la troisième personne | Utiliser le rendu première personne du moteur (champ de vision et échelle séparés pour le corps) s'il est disponible en 5.8, à vérifier dans l'éditeur |
 | **Bascule** | Touche `V` / bouton Vue de la manette, transition rapide (~0,2 s) | Le mode choisi est conservé dans les options |
 
-Mise en œuvre : partir de la caméra du GASP (Gameplay Cameras) et ajouter
-un mode première personne ; si l'ajout est trop fragile, une petite classe
-C++ maison (`UGtpCameraModeComponent`) gère les deux modes sur un bras de
-caméra classique. Le choix se fait dans l'éditeur, sur mesure.
+Mise en œuvre (choisie sur mesure, 2026-11-09) : `UGTPCameraModeComponent`,
+un composant C++ porté par notre contrôleur de joueur (le mode survit donc
+à une réapparition).
+- Troisième personne : la caméra de jeu du GASP portée par le pion, sans
+  changement (champ de vision 80° dans le réglage du sample).
+- Première personne : la cible de vue passe (0,2 s, courbe cubique) à une
+  caméra placée sur l'os `head` plus un petit décalage (12 cm devant, 6 cm
+  au-dessus), tournée avec la rotation de contrôle, champ de vision 90°.
+  L'os `head` est masqué sur le maillage : le corps (bras, jambes) reste
+  visible. L'état d'entrée `WantsToStrafe` du personnage est activé en
+  première personne pour que le corps suive la caméra.
+- Pourquoi pas un rig dans le directeur de caméra du GASP : le directeur
+  et ses rigs sont des assets Epic (hors Git) à modifier dans l'éditeur ;
+  le changement de cible de vue marche avec le Gameplay Camera System
+  intact et reste entièrement dans notre code.
+- Limite connue : masquer l'os retire aussi la tête de l'ombre. Le rendu
+  première personne du moteur (champ de vision et échelle séparés pour le
+  corps) reste à évaluer.
 
 ## 5. Entrées (Enhanced Input)
 
-Contextes : `IMC_OnFoot_KBM` (clavier-souris), `IMC_OnFoot_Gamepad`,
-`IMC_Global` (caméra). Échap et le bouton Menu de la manette sont réservés au menu pause, géré par le code du jeu. Disposition clavier **AZERTY par défaut**
-(Mac de Nico), QWERTY en option, remappage complet prévu en 0.12.
+Contextes dans `/Game/Input/GTP` : `IMC_OnFoot_KBM_AZERTY` (par défaut),
+`IMC_OnFoot_KBM_QWERTY` (`-Qwerty` en ligne de commande ou
+`bQwertyKeyboard=True` dans `DefaultGame.ini`) et `IMC_OnFoot_Gamepad`.
+`AGTPPlayerController` retire `IMC_Sandbox` du sample après chaque prise
+de contrôle du pion et ajoute les nôtres. Échap et le bouton Menu de la
+manette sont réservés au menu pause, géré par le code du jeu. Remappage
+complet prévu en 0.12.
+
+Lettres : Unreal lit le caractère tapé, donc sur un clavier AZERTY la
+touche marquée Z arrive comme `Z` ; ZQSD est la disposition AZERTY de WASD.
 
 | Action | Type | Clavier AZERTY | Clavier QWERTY | Manette |
 | ---- | ---- | ---- | ---- | ---- |
-| `IA_Move` | Axe 2D | Z Q S D | W A S D | Stick gauche |
-| `IA_Look` | Axe 2D | Souris | Souris | Stick droit |
-| `IA_Sprint` | Maintien | Maj gauche | Maj gauche | A / Croix (maintien) |
-| `IA_Walk` | Bascule | Alt gauche | Alt gauche | Clic stick gauche |
-| `IA_Jump` | Appui | Espace | Espace | X / Carré |
-| `IA_Crouch` | Bascule | C | C | B / Rond |
-| `IA_ToggleCameraMode` | Appui | V | V | Bouton Vue / Share |
-| `IA_CameraRecenter` | Appui | clic molette | clic molette | Clic stick droit |
+| `IA_Move` (sample) | Axe 2D | Z Q S D | W A S D | Stick gauche |
+| `IA_Look` / `IA_Look_Gamepad` (sample) | Axe 2D | Souris | Souris | Stick droit |
+| `IA_Sprint` (sample) | Maintien | Maj gauche | Maj gauche | A / Croix (maintien) |
+| `IA_Walk` (sample) | Bascule | Alt gauche | Alt gauche | Clic stick gauche |
+| `IA_Jump` et `IA_Traverse` (sample) | Appui | Espace | Espace | X / Carré |
+| `IA_Crouch` (sample) | Bascule | C | C | B / Rond |
+| `IA_ToggleCameraMode` (le nôtre) | Appui | V | V | Bouton Vue / Share |
+| `IA_CameraRecenter` | Appui | clic molette | clic molette | Clic stick droit (pas encore fait) |
 
-Modificateurs : zone morte radiale 0,2 sur les sticks, sensibilité souris
-et manette réglables, inversion de l'axe vertical en option. Les noms
-d'actions sont gardés pour les versions suivantes (`IA_Aim`, `IA_Fire`,
-`IA_EnterVehicle` arrivent en 0.3 et 0.4).
+Modificateurs repris de `IMC_Sandbox` : inversion et permutation d'axes sur
+les touches de déplacement, axe Y de la souris inversé par un facteur, zone
+morte radiale 0,3 sur le stick gauche, zone morte 0,2, courbe exponentielle
+et facteur 90/70 sur le stick droit. Les réglages de sensibilité et
+d'inversion arrivent avec le menu d'options. Les noms d'actions sont gardés
+pour les versions suivantes (`IA_Aim`, `IA_Fire`, `IA_EnterVehicle`
+arrivent en 0.3 et 0.4).
 
 ## 6. Étapes d'intégration
 
-Préparation (sans l'éditeur du projet) :
 1. Récupérer le GASP 5.8 sur le Mac : launcher Epic, onglet Fab,
    « Game Animation Sample », créer le projet dans
-   `Samples/GameAnimationSample`, à côté de `GTAL` (hors repo).
-2. Relever dans son `.uproject` et ses `.ini` les plugins, tags et CVars
-   exacts, et mettre à jour ce document.
-
-Dans l'éditeur (une seule session Unreal à la fois, après la conversion du
-projet en C++) :
-3. Dans le projet GASP : créer un plugin de contenu `GameAnimationSample`,
-   y déplacer le contenu du sample, corriger les redirections.
-4. Copier le plugin dans `GranTheftPraline/Plugins/`, activer les plugins
-   moteur, fusionner tags et CVars.
-5. Créer `BP_PlayerCharacter` (enfant du personnage du GASP) dans
-   `Content/Characters/Player/`, nos `IA_*` et `IMC_*` dans
-   `Content/Input/`, et le déclarer comme pion par défaut : `PlayerPawnClass`
-   dans `DefaultGame.ini`, section `[/Script/GranTheftPraline.GTPGameMode]`.
-   Ajouter `Content/Characters` et `Content/Input` (et le plugin GASP) aux
-   dossiers toujours cuits (`DirectoriesToAlwaysCook`).
-6. Ajouter le mode première personne et la bascule.
-7. Tester dans la greybox : parcours de 2 minutes, capture vidéo, relevé du
-   temps d'image (indicatif en 0.1), vérification manette.
+   `Samples/GameAnimationSample`, à côté du repo (hors repo).
+2. `tools/character/install_gasp_content.sh` : liste les paquets
+   nécessaires par une exécution sans interface et en lecture seule dans le
+   sample (`gasp_dependency_closure.py`) et les copie dans
+   `GranTheftPraline/Content` aux mêmes chemins.
+3. Config (dans Git) : plugins du sample et GameplayCameras dans le
+   `.uproject` ; canaux et profils de collision, CVars pilotées par les
+   données, substepping physique et réglages Pose Search dans
+   `DefaultEngine.ini` ; `DefaultGameplayTags.ini` ; `PlayerPawnClass`, la
+   section de notre contrôleur et `DirectoriesToAlwaysCook` dans
+   `DefaultGame.ini`. Les réglages de rendu du sample ne sont pas repris
+   (les nôtres suivent les ADR).
+4. Compiler l'éditeur, puis `tools/character/create_player_assets.py`
+   (sans interface) : `BP_PlayerCharacter`, `IA_ToggleCameraMode` et les
+   trois contextes d'entrée.
+5. `tools/character/playtest_character.sh` : joue `L_RueRepublique` en
+   mode `-game` et vérifie course, marche, sprint, saut, accroupi, la
+   bascule première personne et une réapparition en première personne,
+   avec captures et temps d'image (§9).
 
 ## 7. Critère « fait quand »
 
@@ -167,7 +194,7 @@ projet en C++) :
   première personne sans saut d'image ni tête visible.
 - Preuves : vidéo de 2 minutes et captures des deux modes, rangées avec
   les preuves de la 0.1 ; aucun asset Epic suivi par Git (contrôle
-  `git ls-files Plugins/`).
+  `git ls-files GranTheftPraline/Content`).
 
 ## 8. Risques
 
@@ -176,4 +203,34 @@ projet en C++) :
 | Migration du GASP incomplète (caméra qui ne démarre pas, tags manquants), problèmes déjà signalés par la communauté | Plugins activés avant la copie, tags et CVars repris, test immédiat dans une carte vide |
 | Coût du motion matching sur le M1 Pro | Mesure dès l'intégration ; budget exigé seulement à partir de la 0.2 |
 | Première personne : clipping du corps, mal des transports | Rendu première personne du moteur, champ de vision réglable, pas de balancement de tête par défaut |
-| Contenu Epic poussé par erreur | `.gitignore` sur `Plugins/GameAnimationSample/` et vérification avant chaque push |
+| Contenu Epic poussé par erreur | `.gitignore` sur chaque dossier copié du sample et vérification avant chaque push |
+
+## 9. Résultats de l'intégration (2026-11-09, M1 Pro, build éditeur en mode `-game`)
+
+`tools/character/playtest_character.sh`, environ 50 s de jeu scripté dans
+`L_RueRepublique` en 1920x1080, tous les contrôles passent :
+
+| Contrôle | Mesure |
+| ---- | ---- |
+| Apparition | `BP_PlayerCharacter` au PlayerStart (1212, -15665) |
+| Course (par défaut) | 500 cm/s |
+| Marche (bascule) | 200 cm/s |
+| Sprint (maintien) | 700 cm/s |
+| Saut | en l'air, 127 cm de hauteur |
+| Accroupi (bascule) | accroupi, 225 cm/s |
+| Première personne | cible de vue sur la caméra, champ de vision 90°, tête masquée, corps visible en regardant vers le bas |
+| Réapparition en première personne | nouveau pion, toujours en première personne, tête masquée |
+| Retour en troisième personne | vue du pion (caméra du GASP), tête affichée |
+
+Temps d'image sur le parcours (hors chauffe) : image p50 45 ms, p95 56 ms ;
+thread de jeu p50 14 à 19 ms ; GPU p50 45 ms, p95 55 ms. Le parcours est
+limité par le GPU, en accord avec la mesure de la scène de référence (GPU
+p95 de 43 à 51 ms avant les profils de rendu) ; le coût du motion matching
+sur le thread de jeu sera budgété en 0.2. Aucune erreur de nos assets dans
+le journal. L'enjambement (`IA_Traverse`) et une vraie manette restent à
+vérifier à la main.
+
+Contrôle de cuisson : `-run=cook -targetplatform=Mac -map=/Game/Maps/L_RueRepublique`
+réussit en 58 s, 2 899 paquets, 0 erreur, 0 avertissement ; notre
+Blueprint de joueur, nos actions et contextes d'entrée sont dans le
+registre d'assets cuit.
