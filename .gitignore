@@ -1,0 +1,18 @@
+# Unreal Engine
+Binaries/
+DerivedDataCache/
+Intermediate/
+Saved/
+Build/
+*.sln
+*.xcworkspace
+.vs/
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+
+# Geodata: raw downloads stay out of Git
+assets/geo/raw/**
+!assets/geo/raw/.gitkeep
