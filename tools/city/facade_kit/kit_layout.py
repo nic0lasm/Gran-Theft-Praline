@@ -33,6 +33,8 @@ FAMILY_OF_TYPOLOGY = {"haussmann": "haussmann", "ancien": "lyonnais", "moderne":
 # Variants: a building keeps one variant per module (stable hash of its id), so a
 # frontage reads as one design, and neighbours differ. Repeats weight the pick.
 VARIANTS = {
+    "SM_Facade_Lyonnais_Window": ["SM_Facade_Lyonnais_Window", "SM_Facade_Lyonnais_Window",
+                                  "SM_Facade_Lyonnais_Window_B", "SM_Facade_Lyonnais_Window_C"],
     "SM_Facade_Haussmann_Window": ["SM_Facade_Haussmann_Window", "SM_Facade_Haussmann_Window_B",
                                    "SM_Facade_Haussmann_Window_C"],
     "SM_Facade_Haussmann_WindowBalcony": ["SM_Facade_Haussmann_WindowBalcony", "SM_Facade_Haussmann_WindowBalcony_B",

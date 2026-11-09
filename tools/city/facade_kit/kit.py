@@ -375,7 +375,9 @@ def blank(b, W, H, mat):
 
 
 # --------------------------------------------------------------------------- Lyonnais
-def lyon_window(b, W, H, small=False, court=False, shutters=True, bars=False, sill_z=0.9):
+def lyon_window(b, W, H, small=False, court=False, shutters=True, bars=False, sill_z=0.9, style="A"):
+    """style A: louvred shutters folded back; B: no shutters, wrought-iron guard
+    across the French window (garde-corps); C: one shutter closed, one open."""
     ow = 1.0
     oh = min(H - sill_z - 0.35, 0.95 if small else 1.75)
     ox0, ox1, oz0, oz1 = -ow / 2, ow / 2, sill_z, sill_z + oh
@@ -391,6 +393,13 @@ def lyon_window(b, W, H, small=False, court=False, shutters=True, bars=False, si
     if bars:
         for k in range(1, 6):
             b.cyl(ox0 + ow * k / 6, -0.05, oz0, oz1, 0.012, "MI_Ironwork_Painted")
+    if style == "B":
+        b.railing(ox0, ox1, oz0, 0.9, -0.06, spacing=0.1)
+        return
+    if style == "C":  # left shutter closed over the glass, right one folded back
+        louvres(b, ox0, (ox0 + ox1) / 2, oz0, oz1, -0.04)
+        louvres(b, ox1 + s, ox1 + s + 0.5, oz0, oz1, -0.06)
+        return
     if shutters:  # louvred shutters folded back against the wall
         for side in (-1, 1):
             xa = ox0 - s - 0.52 if side < 0 else ox1 + s
@@ -398,6 +407,12 @@ def lyon_window(b, W, H, small=False, court=False, shutters=True, bars=False, si
             b.box(xa, xb, -0.06, -0.03, oz0, oz1, "MI_Shutter_Painted")
             for z in [oz0 + 0.06 + k * 0.07 for k in range(int((oz1 - oz0 - 0.12) / 0.07))]:
                 b.box(xa + 0.04, xb - 0.04, -0.085, -0.06, z, z + 0.035, "MI_Shutter_Painted")
+
+
+def louvres(b, xa, xb, oz0, oz1, y):
+    b.box(xa, xb, y, y + 0.03, oz0, oz1, "MI_Shutter_Painted")
+    for z in [oz0 + 0.06 + k * 0.07 for k in range(int((oz1 - oz0 - 0.12) / 0.07))]:
+        b.box(xa + 0.04, xb - 0.04, y - 0.025, y, z, z + 0.035, "MI_Shutter_Painted")
 
 
 def lyon_shop(b, W, H):
@@ -466,6 +481,8 @@ def _defs():
         "SM_Facade_Haussmann_Blank": (H, "upper", lambda b: blank(b, H["bay"], H["upper"], "MI_Facade_LimestoneCream")),
         "SM_Facade_Haussmann_Cornice": (H, None, lambda b: haus_cornice(b, H["bay"])),
         "SM_Facade_Lyonnais_Window": (L, "upper", lambda b: lyon_window(b, L["bay"], L["upper"])),
+        "SM_Facade_Lyonnais_Window_B": (L, "upper", lambda b: lyon_window(b, L["bay"], L["upper"], style="B")),
+        "SM_Facade_Lyonnais_Window_C": (L, "upper", lambda b: lyon_window(b, L["bay"], L["upper"], style="C")),
         "SM_Facade_Lyonnais_WindowSmall": (L, "upper", lambda b: lyon_window(b, L["bay"], L["upper"], small=True)),
         "SM_Facade_Lyonnais_CourtWindow": (L, "upper", lambda b: lyon_window(b, L["bay"], L["upper"], court=True)),
         "SM_Facade_Lyonnais_GroundWindow": (L, "gf", lambda b: lyon_window(b, L["bay"], L["gf"], shutters=False,

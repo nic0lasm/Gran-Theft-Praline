@@ -184,7 +184,9 @@ que ceux-là, pas le kit entier.
   rideaux baissés. Les boutiques à enduit lyonnais ont aussi la pièce éclairée.
 * **Encadrements de fenêtres** : trois dessins haussmanniens (entablement,
   fronton triangulaire, corniche sur consoles avec clé), pour les étages
-  courants et à balcon.
+  courants et à balcon. Fenêtres lyonnaises à enduit (deuxième module le plus
+  fréquent côté rue) : volets rabattus, garde-corps en fer forgé sans volets,
+  ou un volet fermé.
 * **Variantes par immeuble** (`kit_layout.module_for`, hachage stable de
   l'identifiant) : une façade garde un seul dessin, les voisines diffèrent, et
   Blender comme Unreal choisissent la même.

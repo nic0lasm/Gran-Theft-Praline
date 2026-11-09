@@ -179,7 +179,9 @@ and 185 bays of real shops, then the Haussmann windows (2 698) and balconies
   shutters down. Lyon render shops got the lit room too.
 * **Window surrounds**: three Haussmann designs (entablature, triangular
   pediment, lintel cornice on consoles with a keystone), for plain and
-  balcony storeys.
+  balcony storeys. Lyon render windows (the second most frequent street
+  module): shutters folded back, a wrought-iron guard without shutters, or one
+  shutter closed.
 * **Variants are per building** (`kit_layout.module_for`, stable hash of the
   building id): a frontage reads as one design, neighbours differ, and
   Blender and Unreal pick the same one.
