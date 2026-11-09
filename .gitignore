@@ -16,3 +16,7 @@ Build/
 # Geodata: raw downloads stay out of Git
 assets/geo/raw/**
 !assets/geo/raw/.gitkeep
+
+# Secrets / local scratch
+.scratch/
+*.env
