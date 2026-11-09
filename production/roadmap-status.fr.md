@@ -7,7 +7,7 @@ Légende : ✅ fait · 🟡 en cours · ⬜ à faire · ⛔ bloqué
 
 ## Version en cours : 0.1 « Jouer en un clic »
 
-Cible : 2026-11-27. Avancement : 6 / 8 tâches.
+Cible : 2026-11-27. Avancement : 7 / 8 tâches.
 
 | # | Tâche | Fil | Statut | Preuve |
 | ---- | ---- | ---- | ---- | ---- |
@@ -16,9 +16,9 @@ Cible : 2026-11-27. Avancement : 6 / 8 tâches.
 | 3 | Game Animation Sample intégré (personnage, motion matching, caméra) | Personnage jouable | ✅ caméra GTA 3e personne + bascule 1re personne (V / Vue) | Playtest 50 s réussi dans `L_RueRepublique`, cook Mac sans erreur, captures 3e/1re personne ([§9 du plan](../docs/gameplay/player-character.fr.md)) |
 | 4 | Enhanced Input clavier-souris et manette | Personnage jouable | ✅ ZQSD par défaut, WASD en option, manette | [§5 du plan](../docs/gameplay/player-character.fr.md) ; touches réelles et manette à confirmer en jouant |
 | 5 | Niveau `L_RueRepublique` jouable (collisions, PlayerStart, limites) | Rue de la République jouable | ✅ | Testé sur le M1 Pro le 2026-11-09 ([scripts](../tools/level/README.md)) : collision simple sur 336 meshes, façades bloquantes sur 76 % des points (rues transversales), zone 410 × 562 m, kill-Z -30 m ; en jeu le pion s'arrête 35 cm avant la façade et 36 cm avant le mur nord |
-| 6 | Écran titre et menu pause | Build et lancement en un clic | 🟡 | code compilé ; capture de l'écran titre au prochain test |
-| 7 | Script de packaging macOS → `GTAL/Builds/0.1/` | Build et lancement en un clic | ✅ | [package-mac.sh](../tools/build/package-mac.sh) : 154 s, 944 Mo (cuisson Metal SM5 + SM6 pour le M1) |
-| 8 | Build testée : vidéo 2 min, CSV de temps d'image, 10 min sans plantage | Build et lancement en un clic | ⬜ | |
+| 6 | Écran titre et menu pause | Build et lancement en un clic | 🟡 | écran titre filmé dans la build ([title.jpg](evidence/0.1/title.jpg)) ; menu pause compilé, pas encore filmé |
+| 7 | Script de packaging macOS → `GTAL/Builds/0.1/` | Build et lancement en un clic | ✅ | [package-mac.sh](../tools/build/package-mac.sh) : build finale 714 s, 1,1 Go (cuisson Metal SM5 + SM6 pour le M1) |
+| 8 | Build testée : vidéo 2 min, CSV de temps d'image, 10 min sans plantage | Build et lancement en un clic | ✅ | [preuves](evidence/0.1/) : 10 min plein écran sans plantage, vidéo 2 min (rue et personnage), CSV ; image p50 41,0 ms, p95 51,0 ms (30 i/s exigé à partir de la 0.2) |
 
 En parallèle (pour la 0.2) : vague Tripo 1, mobilier urbain, 0 / 60 modèles
 (voir [catalogue](asset-catalog.fr.md)).
@@ -55,7 +55,8 @@ En parallèle (pour la 0.2) : vague Tripo 1, mobilier urbain, 0 / 60 modèles
 | Temps d'image GPU, 95e centile (scène témoin, éditeur, avant profils) | 43,0 à 50,7 ms | ≤ 33,3 ms en profil M1 | Mesure du 2026-11-09, 4 éclairages |
 | Modèles Tripo générés / intégrés | 0 / 0 | ~800 d'ici la 0.17 | [catalogue](asset-catalog.fr.md) |
 | Crédits Tripo Studio restants | 25 200 | à consommer avant expiration | Interface Studio |
-| Build jouable la plus récente | 0.1 Shipping du 2026-11-09 (carte modèle, sans personnage ni rue) | une par version | `GTAL/Builds/` |
+| Temps d'image, 95e centile (build 0.1 Shipping, plein écran, 10 min) | 51,0 ms (GPU 50,9 ms) | ≤ 33,3 ms en profil M1 | [preuves 0.1](evidence/0.1/frametimes.summary.txt) |
+| Build jouable la plus récente | 0.1 Shipping du 2026-11-09 (rue de la République, personnage, commit 76cddbd) | une par version | `GTAL/Builds/` |
 
 ## Décisions en attente de Nico
 

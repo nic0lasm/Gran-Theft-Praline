@@ -7,7 +7,7 @@ Legend: ✅ done · 🟡 in progress · ⬜ to do · ⛔ blocked
 
 ## Current version: 0.1 "Play in one click"
 
-Target: 2026-11-27. Progress: 6 / 8 tasks.
+Target: 2026-11-27. Progress: 7 / 8 tasks.
 
 | # | Task | Thread | Status | Evidence |
 | ---- | ---- | ---- | ---- | ---- |
@@ -16,9 +16,9 @@ Target: 2026-11-27. Progress: 6 / 8 tasks.
 | 3 | Game Animation Sample integrated (character, motion matching, camera) | Playable character | ✅ GTA-style third-person camera + first-person toggle (V / View) | 50 s playtest passed in `L_RueRepublique`, Mac cook with no error, third/first-person screenshots ([plan §9](../docs/gameplay/player-character.md)) |
 | 4 | Enhanced Input for keyboard-mouse and gamepad | Playable character | ✅ ZQSD by default, WASD option, gamepad | [plan §5](../docs/gameplay/player-character.md); physical keys and gamepad to confirm in play |
 | 5 | Playable `L_RueRepublique` level (collisions, PlayerStart, boundaries) | Playable rue de la République | ✅ | Tested on the M1 Pro on 2026-11-09 ([scripts](../tools/level/README.md)): simple collision on 336 meshes, facades block at 76 % of the samples (side streets), 410 × 562 m area, kill-Z -30 m; in game the pawn stops 35 cm short of the facade and 36 cm short of the north wall |
-| 6 | Title screen and pause menu | Build and one-click launch | 🟡 | code compiled; title screen still at next test |
-| 7 | macOS packaging script → `GTAL/Builds/0.1/` | Build and one-click launch | ✅ | [package-mac.sh](../tools/build/package-mac.sh): 154 s, 944 MB (Metal SM5 + SM6 cooked for the M1) |
-| 8 | Build tested: 2 min video, frame-time CSV, 10 min without a crash | Build and one-click launch | ⬜ | |
+| 6 | Title screen and pause menu | Build and one-click launch | 🟡 | title screen filmed in the build ([title.jpg](evidence/0.1/title.jpg)); pause menu compiled, not filmed yet |
+| 7 | macOS packaging script → `GTAL/Builds/0.1/` | Build and one-click launch | ✅ | [package-mac.sh](../tools/build/package-mac.sh): final build 714 s, 1.1 GB (Metal SM5 + SM6 cooked for the M1) |
+| 8 | Build tested: 2 min video, frame-time CSV, 10 min without a crash | Build and one-click launch | ✅ | [evidence](evidence/0.1/): 10 min fullscreen with no crash, 2 min video (street and character), CSV; frame p50 41.0 ms, p95 51.0 ms (30 fps required from 0.2) |
 
 In parallel (for 0.2): Tripo wave 1, street furniture, 0 / 60 models
 (see [catalog](asset-catalog.md)).
@@ -55,7 +55,8 @@ In parallel (for 0.2): Tripo wave 1, street furniture, 0 / 60 models
 | GPU frame time, 95th percentile (reference scene, editor, before profiles) | 43.0 to 50.7 ms | ≤ 33.3 ms in the M1 profile | Measurement of 2026-11-09, 4 lighting setups |
 | Tripo models generated / integrated | 0 / 0 | ~800 by 0.17 | [catalog](asset-catalog.md) |
 | Tripo Studio credits remaining | 25,200 | to be used before expiry | Studio interface |
-| Most recent playable build | none | one per version | `GTAL/Builds/` |
+| Frame time, 95th percentile (0.1 Shipping build, fullscreen, 10 min) | 51.0 ms (GPU 50.9 ms) | ≤ 33.3 ms in the M1 profile | [0.1 evidence](evidence/0.1/frametimes.summary.txt) |
+| Most recent playable build | 0.1 Shipping, 2026-11-09 (rue de la République, character, commit 76cddbd) | one per version | `GTAL/Builds/` |
 
 ## Decisions awaiting Nico
 
