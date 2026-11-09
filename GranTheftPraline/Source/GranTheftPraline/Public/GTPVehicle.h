@@ -297,7 +297,7 @@ protected:
 
 	/** Blueprint hook: dents, glass, smoke and wreck changes, for FX and sound. */
 	UFUNCTION(BlueprintImplementableEvent, Category = "Vehicle|Damage")
-	void OnDamageChanged(EGTPDamageZone Zone, float ZoneDamage, float NewHealth);
+	void OnDamageChanged(EGTPDamageZone Zone, float AccumulatedZoneDamage, float NewHealth);
 
 	UFUNCTION(BlueprintImplementableEvent, Category = "Vehicle|Damage")
 	void OnGlassBroken(EGTPDamageZone Zone);
