@@ -28,3 +28,8 @@ GranTheftPraline/Plugins/GameAnimationSample/
 # Python
 __pycache__/
 *.pyc
+
+# Prop pipeline: staging output is regenerated from the Tripo masters
+assets/staging/
+# Ultra-profile (Nanite) prop meshes come from the full masters: local only
+GranTheftPraline/Content/Props/**/Ultra/
