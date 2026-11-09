@@ -35,14 +35,15 @@ profils de qualité, choisis dans le menu d'options du jeu :
 
 | Profil | Rôle | Critère |
 | ---- | ---- | ---- |
-| **Master (photoréaliste)** | La cible visuelle : assets en pleine résolution, Nanite et Lumen matériel activés là où la machine le permet, éclairage et matériaux sans compromis | Validé par captures (Movie Render Queue) comparées aux photos réelles, même si le M1 ne le rend qu'à quelques images par seconde |
+| **Ultra (photoréaliste)** | La cible visuelle : assets en pleine résolution, Nanite et Lumen matériel activés là où la machine le permet, éclairage et matériaux sans compromis | Validé par captures (Movie Render Queue) comparées aux photos réelles, même si le M1 ne le rend qu'à quelques images par seconde |
 | **M1 (jouable)** | Ce qu'on joue au quotidien sur le MacBook Pro M1 Pro 16 Go | 95 % des images ≤ 33,3 ms en 1080p (ADR-0002) dans la build empaquetée |
 
-Le profil M1 est **dérivé** du master (LOD, textures réduites, Lumen
+Le profil M1 est **dérivé** du profil Ultra (LOD, textures réduites, Lumen
 logiciel allégé, densités) et jamais l'inverse : on ne baisse pas la
-qualité des assets sources pour faire tenir le M1. Le profil Master
+qualité des assets sources pour faire tenir le M1. Le profil Ultra
 deviendra jouable sur une machine plus puissante le jour où Nico le
-décidera.
+décidera. Ces deux niveaux sont ceux définis dans l'ADR-0001 et l'ADR-0002
+(niveaux Ultra et M1).
 
 Dans les fiches ci-dessous, « budget tenu » veut dire : profil M1 dans le
 budget de l'ADR-0002, mesuré dans la build empaquetée.
@@ -65,7 +66,7 @@ budget de l'ADR-0002, mesuré dans la build empaquetée.
 | ---- | ---- |
 | Environnement | Fait : projet UE 5.8, repo, CI « Provenance check », règles de travail |
 | Concept | Fait : tableaux de parité P0-P2, tranche verticale = nord de la Presqu'île |
-| Rendu | ADR-0002 accepté (30 i/s, 1080p, 95 % des images ≤ 33,3 ms), à appliquer au profil M1. ADR-0001 proposé, à amender pour le profil Master |
+| Rendu | ADR-0002 accepté (30 i/s, 1080p, 95 % des images ≤ 33,3 ms), à appliquer au profil M1. ADR-0001 proposé, à amender pour le profil Ultra |
 | Scène témoin | Greybox de la rue de la République (BD TOPO IGN, 334 bâtiments, 367 m), 4 éclairages. **Mesurée hors budget : 43 à 51 ms** (GPU limitant) |
 | Assets | Abonnement Tripo Studio Max actif (25 200 crédits Studio), outil `tools/tripo/` en cours |
 | Code gameplay | Aucun. **Rien n'est encore jouable** |
@@ -77,7 +78,7 @@ budget de l'ADR-0002, mesuré dans la build empaquetée.
 | Version | Nom | On peut… | Cible |
 | ---- | ---- | ---- | ---- |
 | **0.1** | Jouer en un clic | lancer le jeu d'un double-clic et marcher, courir, sauter dans la rue de la République | 2026-11-27 |
-| **0.2** | La rue habillée | se promener dans une rue photoréaliste en profil Master (captures) et à 30 i/s en profil M1, sous 4 éclairages | 2026-12-18 |
+| **0.2** | La rue habillée | se promener dans une rue photoréaliste en profil Ultra (captures) et à 30 i/s en profil M1, sous 4 éclairages | 2026-12-18 |
 | **0.3** | Au volant | voler une voiture garée et rouler jusqu'au quai du Rhône | 2027-01-15 |
 | **0.4** | Armé | tirer, se mettre à couvert, se battre, mourir et réapparaître | 2027-02-05 |
 | **0.5** | Première boutique | entrer dans une boutique sans chargement, acheter, la braquer | 2027-02-19 |
@@ -191,15 +192,15 @@ contrôle un personnage dans la rue de la République en greybox.
 #### 0.2 La rue habillée
 
 **Objectif.** La rue de la République ressemble à une vraie rue lyonnaise en
-profil Master, et le profil M1 se joue dans le budget de l'ADR-0002.
+profil Ultra, et le profil M1 se joue dans le budget de l'ADR-0002.
 
 **Fait quand :**
-- Profil Master : captures des 4 éclairages (midi, heure dorée, pluie,
+- Profil Ultra : captures des 4 éclairages (midi, heure dorée, pluie,
   nuit) mises à côté de photos réelles de la rue, jugées crédibles par Nico.
 - Profil M1 : 95 % des images ≤ 33,3 ms dans la build empaquetée, sous les
   4 éclairages, mesuré par CSV.
 - Choix du profil dans le menu d'options du jeu.
-- ADR-0001 amendé : profil Master et profil M1, avec les chiffres.
+- ADR-0001 amendé : profil Ultra et profil M1, avec les chiffres.
 - Façades kit v1 (8 à 12 modules), sols Megascans, au moins 40 objets de
   mobilier urbain issus de la vague Tripo 1, tous inscrits dans
   `assets/SOURCES.md`.
@@ -209,7 +210,7 @@ profil Master, et le profil M1 se joue dans le budget de l'ADR-0002.
 **Tâches :**
 1. Définir les deux profils (Scalability et Device Profiles) ; choisir les
    leviers du profil M1 (Lumen Lite, résolution interne 50 %, autre) par
-   carte à Nico, avec chiffres et images comparatives Master / M1.
+   carte à Nico, avec chiffres et images comparatives Ultra / M1.
 2. Kit de façades v1 (Blender + textures photo).
 3. Sols et trottoirs Megascans en pleine résolution (pavés, asphalte,
    bordures), variantes réduites pour le profil M1.
@@ -446,7 +447,7 @@ intègrent, les règlent et les mesurent.
 
 | Version | Fait quand | Fils | Assets |
 | ---- | ---- | ---- | ---- |
-| **0.14 Façades et monuments** | Kit de façades v2 sur tout le quartier ; Hôtel de Ville, Opéra, place Bellecour et sa statue, ponts en qualité finale ; captures Master des 4 éclairages, profil M1 dans le budget sur tout le quartier | *Kit de façades v2*, *Monuments*, *Photoréalisme* | Photos de terrain, Blender ; Tripo pour les éléments décoratifs (vague 13, 60 modèles) |
+| **0.14 Façades et monuments** | Kit de façades v2 sur tout le quartier ; Hôtel de Ville, Opéra, place Bellecour et sa statue, ponts en qualité finale ; captures Ultra des 4 éclairages, profil M1 dans le budget sur tout le quartier | *Kit de façades v2*, *Monuments*, *Photoréalisme* | Photos de terrain, Blender ; Tripo pour les éléments décoratifs (vague 13, 60 modèles) |
 | **0.15 Le quartier habité** | Habillage PCG (mobilier, végétation, enseignes fictives générées et vérifiées) sur tout le quartier ; grille visuelle ≥ 4/5 face aux photos | *Habillage PCG*, *Enseignes fictives* | Vague 14, végétation, devantures, détails (80 modèles) |
 | **0.16 Les gens et les voitures** | Population et police MetaHuman (visages fictifs), 6 véhicules finaux fictifs, voiture de police | *Personnages*, *Véhicules finaux* | Vague 15, carrosseries finales et accessoires de personnages (40 modèles) |
 | **0.17 Les intérieurs** | 30 boutiques, 10 bâtiments accessibles, 3 planques, hall et parking en qualité finale | *Intérieurs* | Vagues 16-17, mobilier intérieur final (150 modèles) |
@@ -456,7 +457,7 @@ intègrent, les règlent et les mesurent.
 
 | Version | Fait quand | Fils |
 | ---- | ---- | ---- |
-| **0.19 Finition** | Saccades, mémoire, bugs ; une heure de jeu libre sans bloquant en profil M1 ; budget tenu partout ; captures Master de tout le quartier ; étude du mode 60 i/s | *Performance*, *Qualité*, *Sensations* (playtests de Nico) |
+| **0.19 Finition** | Saccades, mémoire, bugs ; une heure de jeu libre sans bloquant en profil M1 ; budget tenu partout ; captures Ultra de tout le quartier ; étude du mode 60 i/s | *Performance*, *Qualité*, *Sensations* (playtests de Nico) |
 | **1.0 Tranche verticale** | Revue de parité face à la référence ligne par ligne ; vidéo de présentation ; décision de Nico sur la suite (quartier suivant, histoire) | *Revue de parité*, *Présentation* |
 
 ### Après la 1.0
@@ -489,7 +490,7 @@ l'intégration** : chaque version a sa vague de modèles listée dans le
 - **Master et variante légère :** chaque modèle est gardé en **master haute
   qualité** (génération et textures à la résolution maximale, GLB d'origine
   conservé) et décliné en **variante légère** (polygones et textures
-  réduits) pour le profil M1. Dans Unreal, le master sert au profil Master
+  réduits) pour le profil M1. Dans Unreal, le master sert au profil Ultra
   (Nanite activé quand la machine le permet) et la variante légère aux LOD
   du profil M1.
 - **Stockage :** les GLB masters sont lourds et restent **hors Git**. Le
@@ -558,9 +559,9 @@ StateTree, Mass) ; police et boutiques écrites par nous.*
 
 | Risque | Probabilité | Impact | Parade |
 | ---- | ---- | ---- | ---- |
-| **M1 Pro, 16 Go** : déjà hors budget en greybox (43-51 ms), pas de Nanite | Certaine | Haut | Deux profils : le M1 joue un profil dégradé, le photoréalisme est porté par le profil Master ; leviers choisis en 0.2, mesure à chaque version, HLOD et petites cellules dès 0.7 |
+| **M1 Pro, 16 Go** : déjà hors budget en greybox (43-51 ms), pas de Nanite | Certaine | Haut | Deux profils : le M1 joue un profil dégradé, le photoréalisme est porté par le profil Ultra ; leviers choisis en 0.2, mesure à chaque version, HLOD et petites cellules dès 0.7 |
 | **Poids du jeu et des sources** (masters haute qualité, textures 4K-8K) | Haute | Moyen | Masters hors Git, stockage décidé avant la fin de la vague 1, packaging par profil |
-| **Profil Master non vérifiable en temps réel** sur le M1 | Certaine | Moyen | Validation par captures Movie Render Queue ; test sur une machine plus puissante quand Nico le décidera |
+| **Profil Ultra non vérifiable en temps réel** sur le M1 | Certaine | Moyen | Validation par captures Movie Render Queue ; test sur une machine plus puissante quand Nico le décidera |
 | **Une seule session d'éditeur** à la fois sur le Mac | Certaine | Moyen | Fils éditeur en file ; fils docs, géo et Tripo en parallèle ; scripts headless quand c'est possible |
 | **UE 5.8 dernière majeure UE5** | Certaine | Moyen | Rester sur 5.8 jusqu'à la 1.0 |
 | **Frameworks expérimentaux** (Mover, Chaos Vehicles 5.8.2, Mass) | Haute | Moyen | Voie stable d'abord, Mass derrière nos interfaces, repli en acteurs |
