@@ -34,7 +34,7 @@ mkdir -p "$out"
 # Python scripts run from a copy without spaces (the project folder has one).
 tmp="$(mktemp -d)"
 cp "$repo"/tools/city/unreal/{import_city,place_facades,place_props,shoot_city}.py "$tmp/"
-export GTP_CITY_ZONE="$zone" GTP_CITY_FOCUS="$focus" GTP_CITY_LIGHT="${GTP_CITY_LIGHT:-Noon}"
+export GTP_CITY_ZONE="$zone" GTP_CITY_FOCUS="$focus" GTP_CITY_LIGHT="${GTP_CITY_LIGHT:-Noon}" GTP_PROFILE="${PROFILE:-m1}"
 cvars="$(python3 "$repo/tools/rendering/reference_scene/profiles.py" "${PROFILE:-m1}")"
 
 "$editor" "$project" -unattended -nosplash -nosound -ExecutePythonScript="$tmp/import_city.py"

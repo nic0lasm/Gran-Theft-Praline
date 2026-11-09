@@ -128,7 +128,8 @@ def tick(dt):
             "frame_ms_max": max(f) if f else None, "hitches_over_100ms": state["hitches"],
             "share_under_33ms": round(sum(1 for v in f if v <= 33.3) / len(f), 3) if f else None,
             "shots": state["shots"],
-            "note": "editor -game run (not a Shipping build); profile given by the caller"})
+            "profile": os.environ.get("GTP_PROFILE", "unknown"),
+            "note": "editor -game run (not a Shipping build); profile cvars forced on the command line"})
         with open(os.path.join(OUT, "play_report.json"), "w") as fh:
             json.dump(state["result"], fh, indent=2)
         log("report: " + json.dumps(state["result"]))
