@@ -76,7 +76,10 @@ bool UGTPFrameCapture::Tick(float DeltaTime)
 			// Slow frames: keep the schedule instead of bursting to catch up.
 			NextCaptureSeconds = Elapsed + 1.0 / FramesPerSecond;
 		}
-		FScreenshotRequest::RequestScreenshot(false, false);
+		// Capture the whole window through Slate: it includes menus and HUD, and the
+		// scene-only readback returns black frames on Metal when the backbuffer size
+		// differs from the viewport size.
+		FScreenshotRequest::RequestScreenshot(true, false);
 	}
 	return true;
 }
