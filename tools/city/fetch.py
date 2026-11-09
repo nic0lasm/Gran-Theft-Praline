@@ -4,10 +4,14 @@
 Sources (see docs/city/plan.md for licences):
   * IGN BD TOPO V3 via the Geoplateforme WFS (Licence Ouverte Etalab 2.0)
   * OpenStreetMap via the standard API, tiled (ODbL, kept out of Git)
+  * IGN LiDAR HD terrain/surface/height rasters, 0.5 m (Licence Ouverte Etalab 2.0)
+  * Metropole de Lyon open data WFS: trees, roof ridges, kerbs, furniture (Licence Ouverte)
 
 Output (never committed): assets/geo/raw/<name>/
   bdtopo_<layer>.geojson   Lambert-93 coordinates
   osm_<tile>.osm           raw OSM XML tiles
+  lidar_<mnt|mns|mnh>.f32  float32 grids + lidar.json
+  grandlyon_<layer>.geojson
 
 Usage:
   python3 tools/city/fetch.py --name presqu-ile \
@@ -67,13 +71,16 @@ def main():
     ap.add_argument("--name", required=True)
     ap.add_argument("--bbox", required=True, help="lat0,lon0,lat1,lon1 (WGS84)")
     ap.add_argument("--out", default=os.path.join(REPO, "assets", "geo", "raw"))
+    ap.add_argument("--skip-bdtopo", action="store_true")
     ap.add_argument("--skip-osm", action="store_true")
+    ap.add_argument("--skip-lidar", action="store_true")
+    ap.add_argument("--skip-grandlyon", action="store_true")
     args = ap.parse_args()
     bbox = tuple(float(v) for v in args.bbox.split(","))
     out = os.path.join(args.out, args.name)
     os.makedirs(out, exist_ok=True)
 
-    for layer in BDTOPO_LAYERS:
+    for layer in ([] if args.skip_bdtopo else BDTOPO_LAYERS):
         fc = fetch_wfs(layer, bbox)
         with open(os.path.join(out, f"bdtopo_{layer}.geojson"), "w", encoding="utf-8") as f:
             json.dump(fc, f, ensure_ascii=False)
@@ -86,6 +93,15 @@ def main():
             with open(os.path.join(out, f"osm_{tag}.osm"), "wb") as f:
                 f.write(data)
             print(f"osm tile {tag}: {len(data) / 1e6:.1f} MB")
+
+    if not args.skip_lidar or not args.skip_grandlyon:
+        import raster  # numpy is only needed for these sources
+        import grandlyon
+        env = raster.l93_envelope(bbox)
+        if not args.skip_lidar:
+            raster.fetch(out, env)
+        if not args.skip_grandlyon:
+            grandlyon.fetch(out, env)
 
     with open(os.path.join(out, "fetch.json"), "w") as f:
         json.dump({"name": args.name, "bbox_lat0_lon0_lat1_lon1": bbox}, f, indent=2)

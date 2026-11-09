@@ -24,8 +24,8 @@ notre résultat.
 |---|---|---|---|
 | IGN **BD TOPO V3** (WFS `data.geopf.fr`) | 2,6 k emprises de bâtiments avec hauteur, étages, usages, matériaux, altitudes sur la zone test ; routes avec largeur, voies, sens, vitesse ; végétation ; eau ; ouvrages ; ERP | Licence Ouverte Etalab 2.0 (crédit IGN) | **Socle.** Testé, sans clé |
 | **OpenStreetMap** (API standard, par tuiles) | Commerces et restaurants avec `name`, `brand`, `brand:wikidata`, horaires, adresses ; arbres ; lampadaires, bancs, poubelles, arrêts de bus, bouches d'incendie, feux | ODbL 1.0 (crédit, partage à l'identique de la base) | **Socle pour enseignes et mobilier.** Testé. Overpass n'est pas joignable depuis notre cloud, l'API marche pour des zones de la taille d'un quartier |
-| IGN **LiDAR HD** (MNT / MNS) | Modèle de terrain et de surface 0,5 m, formes de toits, hauteurs d'arbres | Licence Ouverte Etalab 2.0 | **Étape suivante** (v1, roadmap 0.7) : terrain et toits. Pas encore testé |
-| **Données ouvertes Grand Lyon** (data.grandlyon.com : maquette 3D, imagerie, arbres, mobilier) | Arbres, éclairage, peut-être maquette 3D des bâtiments | Licence Ouverte (par jeu de données, à confirmer) | **À évaluer** pour arbres et lampadaires ; pas testé |
+| IGN **LiDAR HD** (MNT / MNS) | Modèle de terrain et de surface 0,5 m, formes de toits, hauteurs d'arbres | Licence Ouverte Etalab 2.0 | **Utilisé** (étape 2) : terrain, égouts, toits, cours. Testé, sans clé ([génération](generation.fr.md)) |
+| **Données ouvertes Grand Lyon** (data.grandlyon.com : maquette 3D, imagerie, arbres, mobilier) | Arbres d'alignement, faîtages 3D, bordures, corbeilles, arceaux, abris, bancs ; maquette CityGML 2012 | Licence Ouverte (bancs et fontaines : ODbL, repris d'OSM) | **Utilisé** (étape 2) : faîtages, arbres, mobilier. CityGML 2012 non utilisée ([génération](generation.fr.md)) |
 | **Google Photorealistic 3D Tiles** via Cesium for Unreal | Maillage photogrammétrique texturé | Conditions Google Maps Platform : en ligne seulement, attribution, pas d'extraction ni d'usage hors ligne | **Référence seulement**, jamais livré |
 | **Photogrammétrie** maison (Apple Object Capture) | Façades et détails de quelques monuments | À nous | Plus tard, pour une poignée de monuments (0.14+) |
 
@@ -36,7 +36,8 @@ fetch.py  ->  assets/geo/raw/<zone>/        GeoJSON BD TOPO (Lambert-93) + tuile
 build.py  ->  assets/geo/processed/<zone>/  buildings.csv|geojson, shops.csv, trees.csv,
                                             furniture.csv, roads/vegetation/water.geojson,
                                             manifest.json
-(suite)   ->  script d'éditeur Unreal       crée les acteurs bâtiment PCG, splines, enseignes
+generate.py / terrain.py -> gen/, terrain/  toits, cours, modules de façade, greybox, heightmap
+(éditeur) ->  unreal/import_city.py         niveau greybox ; kit de façades / PCG lit facade_modules.csv
 ```
 
 * Coordonnées : mètres Lambert-93 recentrés sur la zone, `x` est, `y` nord.
@@ -91,6 +92,6 @@ afficher l'intention non commerciale dans le README.
    commerces clés à la main avec des photos de rue.
 2. La BD TOPO n'a aucun détail de façade : rythme des fenêtres, balcons et
    rez-de-chaussée viennent du kit de façades, alimenté par `usage_*`, étages, matériau et photos.
-3. Suite : import du terrain et des toits LiDAR HD, script d'éditeur qui crée
-   bâtiments, ponts et quais (`construction_*` BD TOPO), voies et feux.
+3. Fait à l'étape 2 ([génération](generation.fr.md)) : terrain et toits LiDAR HD, façades, script d'import de la greybox.
+   Reste : ponts et quais (`construction_*` BD TOPO), voies et feux.
 4. Tests : `python3 -I -m unittest discover -s tools/city/tests` (job CI « City tools tests »).
