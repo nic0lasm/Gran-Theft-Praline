@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Containers/Ticker.h"
+#include <atomic>
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "GTPFrameCapture.generated.h"
 
@@ -16,8 +17,9 @@
  *   -CaptureDelay=<s>     wait before starting (default 3)
  *   -CaptureDir=<path>    output folder (default <Saved>/Capture/<date>)
  *
- * Reading back frames costs GPU time: do not combine with a frame time
- * measurement run.
+ * Frames are read from the window back buffer just before it is presented,
+ * at its real size, so menus and HUD are included. Reading back frames costs
+ * GPU time: do not combine with a frame time measurement run.
  */
 UCLASS()
 class GRANTHEFTPRALINE_API UGTPFrameCapture : public UGameInstanceSubsystem
@@ -30,18 +32,19 @@ public:
 
 private:
 	bool Tick(float DeltaTime);
-	void HandleScreenshot(int32 Width, int32 Height, const TArray<FColor>& Colors);
+	/** Render thread: reads the back buffer when a frame was requested. */
+	void HandleBackBufferReady(class SWindow& Window, class ISlateViewportProvider& ViewportProvider);
 	void Finish();
 
 	FTSTicker::FDelegateHandle TickHandle;
-	FDelegateHandle ScreenshotHandle;
+	FDelegateHandle BackBufferHandle;
 	FString OutputDir;
 	double StartSeconds = 0.0;
 	double DelaySeconds = 3.0;
 	double DurationSeconds = 0.0;
 	double FramesPerSecond = 10.0;
 	double NextCaptureSeconds = 0.0;
-	int32 FrameIndex = 0;
-	bool bRequestPending = false;
+	std::atomic<int32> FrameIndex{0};
+	std::atomic<bool> bRequestPending{false};
 	bool bFinished = false;
 };
