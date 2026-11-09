@@ -59,6 +59,5 @@ En parallèle (pour la 0.2) : vague Tripo 1, mobilier urbain, 0 / 60 modèles
 
 ## Décisions en attente de Nico
 
-- Contenu de la 0.2 (rue habillée et budget, recommandé, ou voiture d'abord).
 - Leviers du profil M1 pour tenir 30 i/s (pendant la 0.2).
 - Où stocker les masters Tripo haute qualité, hors Git (avant la fin de la vague 1).

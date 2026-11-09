@@ -59,6 +59,5 @@ In parallel (for 0.2): Tripo wave 1, street furniture, 0 / 60 models
 
 ## Decisions awaiting Nico
 
-- Content of 0.2 (dressed street and budget, recommended, or the car first).
 - M1 profile levers to hold 30 fps (during 0.2).
 - Where to store the high-quality Tripo masters, out of Git (before the end of wave 1).
