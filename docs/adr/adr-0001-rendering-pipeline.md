@@ -161,7 +161,7 @@ footage, and what we can take from it:
 
 | Ingredient in Bodycam | Cost | Transposable to an open-world Lyon? |
 | ---- | ---- | ---- |
-| **Camera emulation**: wide lens with barrel distortion, strong motion blur, sensor noise, aggressive auto-exposure and blooming highlights, slight chromatic aberration, a shaky body-mounted camera. Our eyes accept it as real footage and it hides most CG tells | Very low (post-process) | **Yes**, and it is the cheapest win. It suits first-person; in third person it must stay subtle to keep driving and aiming readable |
+| **Camera emulation**: wide lens with barrel distortion, strong motion blur, sensor noise, aggressive auto-exposure and blooming highlights, slight chromatic aberration, a shaky body-mounted camera. Our eyes accept it as real footage and it hides most CG tells | Very low (post-process) | **Not adopted**: we keep a classic game camera (decision below) |
 | **Photogrammetry everywhere** (Megascans) with dense, worn surfaces | Medium (disk size, memory) | **Yes** at street level: Megascans is free on Fab, plus our own Lyon scans for façades |
 | **Lumen** global illumination | High on GPU | **Yes**, same stack as ours |
 | **Small closed maps**: all budget concentrated in a few hundred metres | n/a | **Partly**: an open world spreads that budget over 1.5 km² with traffic, crowds and streaming. We match the density near the camera and rely on HLODs further away |
