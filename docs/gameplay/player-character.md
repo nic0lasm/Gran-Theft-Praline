@@ -2,7 +2,7 @@
 
 *French version: [player-character.fr.md](player-character.fr.md).*
 *Version 0.1 "One-click play", tasks 3 and 4 of the [status board](../../production/roadmap-status.md).*
-*Last updated: 2026-11-09. Status: plan ready, editor integration pending.*
+*Last updated: 2026-11-09. Status: plan ready, sample surveyed, editor integration pending.*
 
 ## 1. Goal
 
@@ -31,6 +31,46 @@ Deformer Graph, Gameplay Cameras, Mover, Live Link Control Rig.
 Also carry over from the GASP: gameplay tags
 (`Config/DefaultGameplayTags.ini`), collision channels and the project
 CVars it declares.
+
+### GASP 5.8 survey on the Mac (2026-11-09)
+
+Project downloaded to `Samples/GameAnimationSample` (7.0 GB, 3,890
+`.uasset`, 5 levels), Blueprint only.
+
+- **`.uproject` plugins**: AnimationWarping, RigLogic, LiveLink,
+  LiveLinkControlRig, PoseSearch, AnimationLocomotionLibrary, MotionWarping,
+  HairStrands, Chooser, Mover, NetworkPrediction, ChaosMover,
+  AnimationLayering, MoverExamples, MovieSceneAnimMixer, DrawDebugLibrary,
+  SmartObjects, Locomotor, CurveExpression, GameplayInteractions. All are
+  enabled, even though our character uses the `CharacterMovementComponent`:
+  the sample Blueprints reference them. GameplayCameras is not listed but
+  the camera uses it (enabled as a dependency, to be checked).
+- **Collision channels to recreate before copying**, with the same
+  indices: `GameTraceChannel1` Traversable (trace), `GameTraceChannel2`
+  Mouse (trace), `GameTraceChannel3` Obstacle (object), plus the
+  `TraversalObjectPreset`, `CharacterCapsule` and `ObstaclePreset` profiles.
+  Without them traversal detects nothing. Our project has no custom channel
+  yet.
+- **Gameplay tags**: copy `DefaultGameplayTags.ini` as is (`MotionMatching.*`,
+  `Foley.*`, `SmartObject.*` tags, redirects).
+- **Data-driven CVars** (`DataDrivenConsoleVariableSettings`): carry them
+  all over. We pick the `SandboxCharacter_CMC` character (stable path);
+  `DDCVar.NewGameplayCameraSystem.Enable=True` keeps the new camera.
+- **Physics**: substepping enabled (16.7 ms max step, 16 substeps), carry
+  over.
+- **Input**: `Content/Input/IMC_Sandbox` and 18 sample `IA_*` actions. Our
+  own `IA_*` and `IMC_*` live in our `Content/Input`; to avoid a path clash
+  the sample moves into its plugin (`/GameAnimationSample/Input`).
+- **Camera**: Gameplay Camera System (`CameraAsset_SandboxCharacter`,
+  `CameraDirector_SandboxCharacter`, Close, Medium and Far rigs). First
+  person is added as a new rig in that director.
+- **Content kept in the plugin**: `Blueprints`, `Input`, `Audio` (foley),
+  `Characters/UEFN_Mannequin`, `Characters/UE5_Mannequins`, `Widgets`.
+  **Dropped**: `Characters/Paragon`, `Characters/Echo`, `MetaHumans`,
+  `IsolatedExamples`, `Levels`, `Movies` (about 5 GB less), and the
+  Blueprints depending on them (`RetargetedCharacters/BP_Echo`,
+  `BP_Twinblast`). The exact list is checked with the reference viewer
+  before deleting.
 
 ## 3. Licensing and Git: Epic content stays out of the public repo
 

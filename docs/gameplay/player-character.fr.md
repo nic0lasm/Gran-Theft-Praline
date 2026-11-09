@@ -2,7 +2,7 @@
 
 *Version anglaise : [player-character.md](player-character.md).*
 *Version 0.1 « Jouer en un clic », tâches 3 et 4 du [tableau de bord](../../production/roadmap-status.fr.md).*
-*Dernière mise à jour : 2026-11-09. Statut : plan prêt, intégration dans l'éditeur à venir.*
+*Dernière mise à jour : 2026-11-09. Statut : plan prêt, sample relevé, intégration dans l'éditeur à venir.*
 
 ## 1. Objectif
 
@@ -32,6 +32,49 @@ Deformer Graph, Gameplay Cameras, Mover, Live Link Control Rig.
 Il faut aussi reprendre du GASP : les gameplay tags
 (`Config/DefaultGameplayTags.ini`), les canaux de collision et les CVars
 de projet qu'il déclare.
+
+### Relevé du GASP 5.8 sur le Mac (2026-11-09)
+
+Projet téléchargé dans `Samples/GameAnimationSample` (7,0 Go, 3 890 `.uasset`,
+5 niveaux), 100 % Blueprint.
+
+- **Plugins du `.uproject`** : AnimationWarping, RigLogic, LiveLink,
+  LiveLinkControlRig, PoseSearch, AnimationLocomotionLibrary, MotionWarping,
+  HairStrands, Chooser, Mover, NetworkPrediction, ChaosMover,
+  AnimationLayering, MoverExamples, MovieSceneAnimMixer, DrawDebugLibrary,
+  SmartObjects, Locomotor, CurveExpression, GameplayInteractions. On les
+  active tous, même si notre personnage utilise le
+  `CharacterMovementComponent` : les Blueprints du sample y font référence.
+  GameplayCameras n'y figure pas mais la caméra s'en sert (activé par
+  dépendance, à vérifier).
+- **Canaux de collision à recréer avant la copie**, aux mêmes numéros :
+  `GameTraceChannel1` Traversable (trace), `GameTraceChannel2` Mouse
+  (trace), `GameTraceChannel3` Obstacle (objet), et les profils
+  `TraversalObjectPreset`, `CharacterCapsule`, `ObstaclePreset`. Sans eux,
+  le franchissement ne détecte rien. Aucun canal personnalisé n'est encore
+  pris dans notre projet.
+- **Gameplay tags** : copier `DefaultGameplayTags.ini` tel quel (tags
+  `MotionMatching.*`, `Foley.*`, `SmartObject.*`, redirections).
+- **CVars pilotées par les données** (`DataDrivenConsoleVariableSettings`) :
+  les reprendre toutes. On choisit le personnage `SandboxCharacter_CMC`
+  (voie stable) ; `DDCVar.NewGameplayCameraSystem.Enable=True` garde la
+  nouvelle caméra.
+- **Physique** : substepping activé (pas max 16,7 ms, 16 sous-pas), à
+  reprendre.
+- **Entrées** : `Content/Input/IMC_Sandbox` et 18 actions `IA_*` du sample.
+  Nos propres `IA_*` et `IMC_*` vivent dans notre `Content/Input` ; pour
+  éviter la collision de chemins, le sample passe dans son plugin
+  (`/GameAnimationSample/Input`).
+- **Caméra** : Gameplay Camera System (`CameraAsset_SandboxCharacter`,
+  `CameraDirector_SandboxCharacter`, rigs Close, Medium et Far). Le mode
+  première personne s'ajoute comme un nouveau rig dans ce directeur.
+- **Contenu à garder dans le plugin** : `Blueprints`, `Input`, `Audio`
+  (bruitages), `Characters/UEFN_Mannequin`, `Characters/UE5_Mannequins`,
+  `Widgets`. **À écarter** : `Characters/Paragon`, `Characters/Echo`,
+  `MetaHumans`, `IsolatedExamples`, `Levels`, `Movies` (environ 5 Go de moins),
+  ainsi que les Blueprints qui en dépendent (`RetargetedCharacters/BP_Echo`,
+  `BP_Twinblast`). La liste exacte se vérifie avec le visualiseur de
+  références avant suppression.
 
 ## 3. Licence et Git : le contenu Epic ne va pas dans le repo public
 
