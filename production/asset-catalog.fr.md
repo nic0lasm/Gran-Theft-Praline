@@ -154,6 +154,47 @@ Prompts : texte de l'objet, puis « single object, isolated, game prop, photorea
 | W2-29 | Bac à sel de voirie | plastique jaune, couvercle articulé | ⬜ |
 | W2-30 | Panneau de chantier mobile | triangle vierge sur pied | ⬜ |
 
+## Vagues V : véhicules réels du parc français (pour 0.3 et suivantes)
+
+Source : docs/gameplay/vehicles.fr.md, section 10 (proposé par le fil véhicules ; décision de Nico : les voitures sont celles que l'on trouve en France). Voiture entière à l'échelle réelle, avec images de référence du vrai modèle, sans logo ni plaque (posés en décalques hors Git) ; découpe des roues et vitres et squelette dans Blender ensuite. Aucune dimension dans les prompts. Priorité 1 = conduisibles en 0.3 ; 2 = trafic 0.7 ; 3 = services et deux-roues.
+
+| ID | Véhicule | Priorité | Statut |
+| ---- | ---- | ---- | ---- |
+| V-01 | Renault Clio V | 1 | ⬜ |
+| V-02 | Peugeot 208 II | 1 | ⬜ |
+| V-03 | Renault Kangoo II (white) | 1 | ⬜ |
+| V-04 | Dacia Sandero III | 2 | ⬜ |
+| V-05 | Citroën C3 III | 2 | ⬜ |
+| V-06 | Peugeot 308 II | 2 | ⬜ |
+| V-07 | Renault Captur II | 2 | ⬜ |
+| V-08 | Peugeot 3008 II | 2 | ⬜ |
+| V-09 | VW Golf VII | 2 | ⬜ |
+| V-10 | Toyota Yaris IV | 2 | ⬜ |
+| V-11 | VW Polo VI | 2 | ⬜ |
+| V-12 | Renault Twingo III | 2 | ⬜ |
+| V-13 | Fiat 500 | 2 | ⬜ |
+| V-14 | Renault Mégane IV | 2 | ⬜ |
+| V-15 | Dacia Duster II | 2 | ⬜ |
+| V-16 | Mercedes A-Class W177 | 2 | ⬜ |
+| V-17 | BMW 3 Series G20 | 2 | ⬜ |
+| V-18 | Tesla Model Y | 2 | ⬜ |
+| V-19 | Citroën Berlingo III | 2 | ⬜ |
+| V-20 | Renault Trafic III | 2 | ⬜ |
+| V-21 | Peugeot Boxer / Jumper | 2 | ⬜ |
+| V-22 | Taxi Toyota Corolla estate | 2 | ⬜ |
+| V-23 | TCL articulated bus (Heuliez GX 437 type) | 3 | ⬜ |
+| V-24 | TCL trolleybus (Hess lighTram type) | 3 | ⬜ |
+| V-25 | Peugeot 5008 Police nationale | 3 | ⬜ |
+| V-26 | Lyon municipal police car | 3 | ⬜ |
+| V-27 | SDMIS ambulance (VSAV) | 3 | ⬜ |
+| V-28 | La Poste Kangoo | 3 | ⬜ |
+| V-29 | Métropole waste truck | 3 | ⬜ |
+| V-30 | Vélo'v bike | 3 | ⬜ |
+| V-31 | Shared kick scooter | 3 | ⬜ |
+| V-32 | Piaggio Liberty / Vespa scooter | 3 | ⬜ |
+| V-33 | Yamaha TMAX | 3 | ⬜ |
+| V-34 | Cargo bike | 3 | ⬜ |
+
 ## Vagues 2 à 5 : aperçu (détail ajouté avant leur lancement)
 
 - **Vague 2 (0.3)** : 3 ébauches de carrosseries fictives (citadine,

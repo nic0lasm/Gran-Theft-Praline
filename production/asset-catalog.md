@@ -154,6 +154,47 @@ Prompts: object text, then "single object, isolated, game prop, photorealistic, 
 | W2-29 | Road grit bin | yellow plastic, hinged lid | ⬜ |
 | W2-30 | Portable roadwork sign | blank triangle sign on stand | ⬜ |
 
+## Waves V: real-world vehicles of the French fleet (for 0.3 onward)
+
+Source: docs/gameplay/vehicles.md, section 10 (proposed by the vehicles thread; Nico's decision: cars are those found in France). Whole car at real scale, with reference images of the real model, no logos or plates (applied as decals outside Git); wheel and window cutting and rig done in Blender afterwards. No dimensions in prompts. Priority 1 = drivable in 0.3; 2 = traffic 0.7; 3 = services and two-wheelers.
+
+| ID | Vehicle | Priority | Status |
+| ---- | ---- | ---- | ---- |
+| V-01 | Renault Clio V | 1 | ⬜ |
+| V-02 | Peugeot 208 II | 1 | ⬜ |
+| V-03 | Renault Kangoo II (white) | 1 | ⬜ |
+| V-04 | Dacia Sandero III | 2 | ⬜ |
+| V-05 | Citroën C3 III | 2 | ⬜ |
+| V-06 | Peugeot 308 II | 2 | ⬜ |
+| V-07 | Renault Captur II | 2 | ⬜ |
+| V-08 | Peugeot 3008 II | 2 | ⬜ |
+| V-09 | VW Golf VII | 2 | ⬜ |
+| V-10 | Toyota Yaris IV | 2 | ⬜ |
+| V-11 | VW Polo VI | 2 | ⬜ |
+| V-12 | Renault Twingo III | 2 | ⬜ |
+| V-13 | Fiat 500 | 2 | ⬜ |
+| V-14 | Renault Mégane IV | 2 | ⬜ |
+| V-15 | Dacia Duster II | 2 | ⬜ |
+| V-16 | Mercedes A-Class W177 | 2 | ⬜ |
+| V-17 | BMW 3 Series G20 | 2 | ⬜ |
+| V-18 | Tesla Model Y | 2 | ⬜ |
+| V-19 | Citroën Berlingo III | 2 | ⬜ |
+| V-20 | Renault Trafic III | 2 | ⬜ |
+| V-21 | Peugeot Boxer / Jumper | 2 | ⬜ |
+| V-22 | Taxi Toyota Corolla estate | 2 | ⬜ |
+| V-23 | TCL articulated bus (Heuliez GX 437 type) | 3 | ⬜ |
+| V-24 | TCL trolleybus (Hess lighTram type) | 3 | ⬜ |
+| V-25 | Peugeot 5008 Police nationale | 3 | ⬜ |
+| V-26 | Lyon municipal police car | 3 | ⬜ |
+| V-27 | SDMIS ambulance (VSAV) | 3 | ⬜ |
+| V-28 | La Poste Kangoo | 3 | ⬜ |
+| V-29 | Métropole waste truck | 3 | ⬜ |
+| V-30 | Vélo'v bike | 3 | ⬜ |
+| V-31 | Shared kick scooter | 3 | ⬜ |
+| V-32 | Piaggio Liberty / Vespa scooter | 3 | ⬜ |
+| V-33 | Yamaha TMAX | 3 | ⬜ |
+| V-34 | Cargo bike | 3 | ⬜ |
+
 ## Waves 2 to 5: overview (details added before they start)
 
 - **Wave 2 (0.3)**: 3 fictional car body drafts (city car,
