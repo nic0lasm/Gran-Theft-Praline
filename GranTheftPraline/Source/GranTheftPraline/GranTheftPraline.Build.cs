@@ -12,6 +12,7 @@ public class GranTheftPraline : ModuleRules
 			"CoreUObject",
 			"Engine",
 			"InputCore",
+			"EnhancedInput",
 			"UMG"
 		});
 
