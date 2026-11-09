@@ -1,10 +1,103 @@
 #include "GTPPlayerController.h"
 
+#include "GTPCameraModeComponent.h"
 #include "GTPGameInstance.h"
 #include "GTPMenuWidgets.h"
 #include "Blueprint/UserWidget.h"
+#include "EnhancedInputComponent.h"
+#include "EnhancedInputSubsystems.h"
+#include "InputAction.h"
+#include "InputMappingContext.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Parse.h"
+#include "TimerManager.h"
 #include "InputCoreTypes.h"
 #include "Kismet/KismetSystemLibrary.h"
+
+DEFINE_LOG_CATEGORY_STATIC(LogGTPInput, Log, All);
+
+namespace
+{
+	// Gamepad mappings are added below the keyboard ones; both stay active.
+	constexpr int32 KeyboardContextPriority = 1;
+	constexpr int32 GamepadContextPriority = 0;
+}
+
+AGTPPlayerController::AGTPPlayerController()
+{
+	CameraMode = CreateDefaultSubobject<UGTPCameraModeComponent>(TEXT("CameraMode"));
+}
+
+void AGTPPlayerController::OnPossess(APawn* InPawn)
+{
+	Super::OnPossess(InPawn);
+	if (!IsLocalController())
+	{
+		return;
+	}
+	ApplyOnFootInput();
+	// The sample character adds its own context from its possession events,
+	// which may run after this point: apply ours again on the next tick.
+	GetWorldTimerManager().SetTimerForNextTick(this, &AGTPPlayerController::ApplyOnFootInput);
+	CameraMode->HandlePawnChanged(InPawn);
+}
+
+void AGTPPlayerController::ApplyOnFootInput()
+{
+	UEnhancedInputLocalPlayerSubsystem* Input = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer());
+	if (!Input)
+	{
+		return;
+	}
+	const bool bQwerty = bQwertyKeyboard || FParse::Param(FCommandLine::Get(), TEXT("Qwerty"));
+	UInputMappingContext* Sample = SampleContext.LoadSynchronous();
+	UInputMappingContext* Azerty = KeyboardContextAzerty.LoadSynchronous();
+	UInputMappingContext* Qwerty = KeyboardContextQwerty.LoadSynchronous();
+	UInputMappingContext* Gamepad = GamepadContext.LoadSynchronous();
+
+	if (Sample)
+	{
+		Input->RemoveMappingContext(Sample);
+	}
+	UInputMappingContext* Keyboard = bQwerty ? Qwerty : Azerty;
+	UInputMappingContext* OtherKeyboard = bQwerty ? Azerty : Qwerty;
+	if (OtherKeyboard)
+	{
+		Input->RemoveMappingContext(OtherKeyboard);
+	}
+	if (Keyboard && !Input->HasMappingContext(Keyboard))
+	{
+		Input->AddMappingContext(Keyboard, KeyboardContextPriority);
+	}
+	if (Gamepad && !Input->HasMappingContext(Gamepad))
+	{
+		Input->AddMappingContext(Gamepad, GamepadContextPriority);
+	}
+	if (!Keyboard || !Gamepad)
+	{
+		UE_LOG(LogGTPInput, Warning, TEXT("On-foot mapping contexts missing (keyboard %s, gamepad %s)"),
+			Keyboard ? TEXT("ok") : TEXT("missing"), Gamepad ? TEXT("ok") : TEXT("missing"));
+	}
+}
+
+void AGTPPlayerController::SetupInputComponent()
+{
+	Super::SetupInputComponent();
+	UEnhancedInputComponent* Enhanced = Cast<UEnhancedInputComponent>(InputComponent);
+	UInputAction* Toggle = ToggleCameraModeAction.LoadSynchronous();
+	if (Enhanced && Toggle)
+	{
+		Enhanced->BindAction(Toggle, ETriggerEvent::Started, this, &AGTPPlayerController::OnToggleCameraMode);
+	}
+}
+
+void AGTPPlayerController::OnToggleCameraMode()
+{
+	if (!TitleMenu && !PauseMenu)
+	{
+		CameraMode->ToggleCameraMode();
+	}
+}
 
 void AGTPPlayerController::BeginPlay()
 {
