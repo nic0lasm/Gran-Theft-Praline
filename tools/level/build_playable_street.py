@@ -107,7 +107,10 @@ def duplicate_map():
     if eal.does_asset_exist(TARGET_MAP):
         eal.delete_asset(TARGET_MAP)
     if not eal.duplicate_asset(SOURCE_MAP, TARGET_MAP):
-        raise RuntimeError("could not duplicate %s" % SOURCE_MAP)
+        # Fallback: open the source map and save it under the new name.
+        level_sub.load_level(SOURCE_MAP)
+        if not unreal.EditorLoadingAndSavingUtils.save_map(editor_sub.get_editor_world(), TARGET_MAP):
+            raise RuntimeError("could not duplicate %s" % SOURCE_MAP)
     if not level_sub.load_level(TARGET_MAP):
         raise RuntimeError("could not load %s" % TARGET_MAP)
     log("duplicated %s -> %s" % (SOURCE_MAP, TARGET_MAP))
@@ -192,7 +195,7 @@ def place_bounds(box):
         comp.set_editor_property("cast_shadow", False)
         actor.set_actor_hidden_in_game(True)
         actor.set_folder_path("Gameplay/Bounds")
-        actor.tags = [unreal.Name("PlayBounds")]
+        actor.set_editor_property("tags", [unreal.Name("PlayBounds")])
     log("bounds %.0f x %.0f m" % (sx / 100.0, sy / 100.0))
     return (min_x, min_y, max_x, max_y)
 

@@ -27,18 +27,28 @@ def log(msg):
     unreal.log("[Playtest] " + msg)
 
 
+def player_controller():
+    # In -game mode there is no editor subsystem: find the local controller directly.
+    for pc in unreal.ObjectIterator(unreal.PlayerController):
+        if pc.get_world() is not None and pc.is_local_player_controller():
+            return pc
+    return None
+
+
 def game_world():
-    return unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_game_world()
+    pc = player_controller()
+    return pc.get_world() if pc else None
 
 
 def pawn():
-    world = game_world()
-    return unreal.GameplayStatics.get_player_pawn(world, 0) if world else None
+    pc = player_controller()
+    return pc.get_controlled_pawn() if pc else None
 
 
 def screenshot(name):
     path = os.path.join(OUT, name + ".png")
-    unreal.AutomationLibrary.take_high_res_screenshot(1920, 1080, path)
+    unreal.SystemLibrary.execute_console_command(
+        game_world(), 'HighResShot 1920x1080 filename="%s"' % path)
     log("screenshot " + path)
 
 
@@ -83,7 +93,9 @@ def tick(dt):
         # facade: turn 90 degrees right of the street and walk into the buildings;
         # bounds: rise above the roofs and fly back towards the north wall, ~30 m behind the spawn.
         yaw = p.get_actor_rotation().yaw if p else 0.0
-        if phase == "facade":
+        if p is None:
+            pass
+        elif phase == "facade":
             drive(p, yaw + 90.0)
         else:
             if state["phase_t"] < 4.0:  # ~48 m up, above the 35 m roofs
@@ -91,7 +103,10 @@ def tick(dt):
             else:
                 drive(p, yaw + 180.0)
         limit = DRIVE_S if phase == "facade" else DRIVE_S * 2
-        if state["phase_t"] >= limit:
+        if p is None or state["start"] is None:
+            state["results"][phase] = dict(ok=False, reason="pawn lost")
+            next_phase("quit")
+        elif state["phase_t"] >= limit:
             loc, start = p.get_actor_location(), state["start"]
             moved = math.hypot(loc.x - start.x, loc.y - start.y)
             speed = p.get_velocity().length()
