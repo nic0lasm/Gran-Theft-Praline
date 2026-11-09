@@ -43,6 +43,7 @@ generate.py  -> processed/<zone>/gen/<rue>/   buildings_gen.csv, facade_modules.
 terrain.py   -> processed/<zone>/terrain/     heightmap.png (Landscape), terrain.glb (tuiles), terrain.json
 render.py    -> processed/<zone>/gen/<rue>/preview_<vue>.png
 unreal/import_city.py (éditeur, sans interface) -> /Game/Maps/L_City_<Rue>
+unreal/run_city_import.sh (Mac) -> import_city.py, place_facades.py, puis une partie -game : captures + temps d'image
 ```
 
 Commandes (Python 3 + `pip install -r tools/city/requirements.txt`) :
