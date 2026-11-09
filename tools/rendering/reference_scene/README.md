@@ -39,6 +39,7 @@ Notes for UE 5.8 on Mac (checked on 5.8.4, 2026-11-09):
 | `fidelity` (default) | ADR-0002 fidelity mode: TSR at 67 %, GI and reflections at High (`sg.GlobalIlluminationQuality 2`, `sg.ReflectionQuality 2`) |
 | `lumenlite` | GI at Medium (Lumen irradiance volume, "Lumen Lite") and reflections at Medium (SSR, no Lumen reflections), TSR at 67 % |
 | `res50` | `fidelity` with TSR at 50 % |
+| `m1` | Candidate M1 preset: TSR at 50 %, GI and reflections at Medium (Lumen Lite), shadows at Medium |
 
 - One profile: `PROFILE=res50 tools/rendering/reference_scene/run_benchmark.sh`.
   CSV files go to `csv/` for `fidelity` and `csv-<profile>/` otherwise; the
@@ -111,6 +112,7 @@ Notes pour UE 5.8 sur Mac (vérifiées sur 5.8.4, le 2026-11-09) :
 | `fidelity` (par défaut) | Mode fidélité de l'ADR-0002 : TSR à 67 %, GI et réflexions en High (`sg.GlobalIlluminationQuality 2`, `sg.ReflectionQuality 2`) |
 | `lumenlite` | GI en Medium (volume d'irradiance Lumen, « Lumen Lite ») et réflexions en Medium (SSR, sans réflexions Lumen), TSR à 67 % |
 | `res50` | `fidelity` avec TSR à 50 % |
+| `m1` | Préréglage M1 candidat : TSR à 50 %, GI et réflexions en Medium (Lumen Lite), ombres en Medium |
 
 - Un profil : `PROFILE=res50 tools/rendering/reference_scene/run_benchmark.sh`.
   Les CSV vont dans `csv/` pour `fidelity` et dans `csv-<profil>/` sinon ; le

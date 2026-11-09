@@ -28,5 +28,15 @@
     "cvars": {
       "r.ScreenPercentage": "50"
     }
+  },
+  "m1": {
+    "description": "Candidate M1 preset: TSR at 50 %, Lumen Lite (GI and reflections at Medium), shadows at Medium",
+    "base": "fidelity",
+    "cvars": {
+      "r.ScreenPercentage": "50",
+      "sg.GlobalIlluminationQuality": "1",
+      "sg.ReflectionQuality": "1",
+      "sg.ShadowQuality": "1"
+    }
   }
 }
