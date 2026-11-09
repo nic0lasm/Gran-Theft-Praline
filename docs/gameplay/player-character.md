@@ -40,7 +40,7 @@ content under the Epic Content License: we may use them and ship them
 to the general public. Code, `.ini` files, the `.uproject` and our own
 creations can be public.
 
-Chosen plan (recommendation, pending the project lead's confirmation):
+Rule decided by the project lead on 2026-11-09: Epic and Fab content stays out of the public repo, kept locally.
 
 | Content | Where | In Git? |
 | ---- | ---- | ---- |

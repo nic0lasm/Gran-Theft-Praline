@@ -41,7 +41,7 @@ les livrer **intégrés au jeu empaqueté**, mais pas les redistribuer en
 source au grand public. Le code, les fichiers `.ini`, le `.uproject` et nos
 propres créations peuvent, eux, être publics.
 
-Plan retenu (recommandation, en attente de confirmation de Nico) :
+Règle décidée par Nico le 2026-11-09 : le contenu Epic et Fab reste hors du repo public, en local.
 
 | Contenu | Où | Dans Git ? |
 | ---- | ---- | ---- |
