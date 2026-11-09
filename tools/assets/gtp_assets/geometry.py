@@ -130,7 +130,7 @@ def _compact(vertices, uv, normals, indices):
 
 
 def decimate_part(part: Part, target_tris: int, uv_weight: float = 4.0,
-                  normal_weight: float = 1.0) -> Part:
+                  normal_weight: float = 1.0, target_error: float = 0.2) -> Part:
     """Attribute-aware quadric decimation (UV and normals steer the collapses)."""
     if len(part.faces) <= target_tris:
         return part
@@ -145,7 +145,7 @@ def decimate_part(part: Part, target_tris: int, uv_weight: float = 4.0,
         len(idx), verts.ctypes.data_as(_P(ctypes.c_float)), len(verts), 12,
         attrs.ctypes.data_as(_P(ctypes.c_float)), 20,
         weights.ctypes.data_as(_P(ctypes.c_float)), 5,
-        None, int(target_tris) * 3, 0.2, 0, ctypes.byref(result_error),
+        None, int(target_tris) * 3, target_error, 0, ctypes.byref(result_error),
     )
     new_idx = dest[:n].reshape(-1, 3)
     v, u, nm, f = _compact(part.vertices, part.uv, part.normals, new_idx)
@@ -163,11 +163,13 @@ def decimate(asset: Asset, target_tris: int) -> Asset:
         return Asset(list(asset.parts))
     goal = target_tris
     out = asset
-    for _ in range(4):
+    for attempt in range(4):
+        # From the second attempt the error limit stops binding (1.0 = whole extent).
+        error = 0.2 if attempt == 0 else 1.0
         shares = []
         for p in asset.parts:
             share = max(64, int(round(goal * len(p.faces) / total)))
-            shares.append(decimate_part(p, share))
+            shares.append(decimate_part(p, share, target_error=error))
         out = Asset(shares)
         if out.tri_count <= target_tris:
             break

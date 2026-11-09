@@ -50,6 +50,9 @@ Content/Environment/Props/<Famille>/<Asset>/
 6. Les noms viennent de `assets/manifests/wave-01.json` (famille, `Type_Descripteur`), généré
    depuis le catalogue par `catalog_to_manifest.py`.
 
+Le lot lance un processus neuf par asset, pour que la mémoire ne s'accumule pas
+(un master de 2 M triangles culmine vers 3 Go ; un seul processus pour les 60 a atteint 10,6 Go).
+
 Relancer est incrémental : un asset dont master et réglages n'ont pas bougé est sauté
 (`--force` pour refaire).
 

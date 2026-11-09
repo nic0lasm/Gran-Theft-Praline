@@ -172,3 +172,22 @@ def test_density_drives_texture_size(tmp_path):
     meta = prepare_asset(path, {"id": "W1-99", "size_m": 1.0}, str(tmp_path / "o"))
     assert max(meta["materials"][0]["size_px"]) <= 4096
     assert meta["materials"][0]["density_px_cm"] > 0
+
+
+def test_batch_cli_runs_one_process_per_asset(sample, tmp_path):
+    import shutil
+    import subprocess
+    masters = tmp_path / "masters"
+    masters.mkdir()
+    shutil.copy(sample, masters / "W1-01_bench.glb")
+    manifest = tmp_path / "m.json"
+    manifest.write_text(json.dumps({"wave": "w1", "items": [
+        {"id": "W1-01", "size_m": 1.8, "ultra_tris": 6000},
+        {"id": "W1-02", "size_m": 1.8}]}))
+    staging = tmp_path / "staging"
+    r = subprocess.run([sys.executable, "-I", os.path.join(os.path.dirname(HERE), "prepare_props.py"),
+                        "--manifest", str(manifest), "--masters", str(masters),
+                        "--staging", str(staging)], capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+    report = json.load(open(staging / "report.json"))
+    assert report["prepared"] == ["W1-01"] and report["no_master_yet"] == ["W1-02"]

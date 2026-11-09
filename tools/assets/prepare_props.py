@@ -8,6 +8,7 @@ Examples:
 """
 import argparse
 import json
+import multiprocessing
 import os
 import sys
 import traceback
@@ -32,25 +33,35 @@ def main(argv=None) -> int:
     items = manifest["items"]
     wanted = {i.upper() for i in args.ids} if args.ids else None
     done, skipped, missing, failed = [], [], [], []
+    jobs = []
     for item in items:
         if wanted and item["id"].upper() not in wanted:
             continue
         src = find_master(args.masters, item["id"])
         if src is None:
             missing.append(item["id"])
-            continue
-        try:
-            meta = prepare_asset(src, item, args.staging, manifest.get("wave", "w1"),
-                                 force=args.force)
-        except Exception:
-            traceback.print_exc()
-            failed.append(item["id"])
-            continue
-        (skipped if meta.get("skipped") else done).append(item["id"])
-        t = meta["triangles"]
-        print(f"{item['id']}: {'unchanged' if meta.get('skipped') else 'prepared'} "
-              f"master {t['master']:,} -> ultra {t['ultra']:,} tris (M1 LOD0 {t['m1_lod0']:,}), "
-              f"collision {meta['collision']['type']}")
+        else:
+            jobs.append((item, src))
+
+    # One fresh worker process per asset: a 2 M-triangle master peaks around 3 GB,
+    # and memory must not pile up across the batch (16 GB machine, editor open).
+    ctx = multiprocessing.get_context("spawn")
+    with ctx.Pool(1, maxtasksperchild=1) as pool:
+        results = [(item, pool.apply_async(
+            prepare_asset, (src, item, args.staging, manifest.get("wave", "w1"), args.force)))
+            for item, src in jobs]
+        for item, res in results:
+            try:
+                meta = res.get()
+            except Exception:
+                traceback.print_exc()
+                failed.append(item["id"])
+                continue
+            (skipped if meta.get("skipped") else done).append(item["id"])
+            t = meta["triangles"]
+            print(f"{item['id']}: {'unchanged' if meta.get('skipped') else 'prepared'} "
+                  f"master {t['master']:,} -> ultra {t['ultra']:,} tris (M1 LOD0 {t['m1_lod0']:,}), "
+                  f"collision {meta['collision']['type']}", flush=True)
     report = {"prepared": done, "unchanged": skipped, "no_master_yet": missing,
               "failed": failed}
     os.makedirs(args.staging, exist_ok=True)

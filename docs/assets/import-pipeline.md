@@ -49,6 +49,9 @@ Content/Environment/Props/<Family>/<Asset>/
 6. Names come from `assets/manifests/wave-01.json` (family, `Kind_Descriptor`), generated
    from the catalog by `catalog_to_manifest.py`.
 
+The batch runs one fresh worker process per asset, so memory does not pile up
+(a 2 M-triangle master peaks near 3 GB; a single-process run of all 60 peaked at 10.6 GB).
+
 Re-running is incremental: an asset whose master and settings are unchanged is skipped
 (`--force` to redo).
 
