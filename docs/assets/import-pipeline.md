@@ -86,4 +86,12 @@ Masters are matched by id prefix (`W1-07.glb`). Missing ones are listed in
   Alpha-tested objects need a masked master material.
 - Imported `.uasset` files and textures go to Git LFS; watch the quota
   ([git-lfs.md](../project/git-lfs.md)).
+- **Install**: `meshoptimizer` exists only as pre-releases on PyPI; `requirements.txt` pins
+  `0.2.20a5` (validated on the Mac). No wheel for Python 3.13, so it compiles; if the linker
+  fails with `library 'c++' not found` (Homebrew Python targeting a missing SDK), install with
+  `LDCXXSHARED="clang++ -bundle -undefined dynamic_lookup -isysroot $(xcrun --show-sdk-path)"`.
+- **Real masters** (W1-07, W1-21, W1-27, Mac, 6-8 s and under 3.2 GB RAM each): bin and
+  hydrant (1.9 M triangles) are capped to 300 k; the bus shelter (1.88 M) stays whole under
+  the 2 M large-prop cap. Tripo textures are opaque: the glass shelter needs a dedicated
+  glass master (`M_Master_Glass`), not covered here.
 - No Blender dependency: trimesh and meshoptimizer run in CI and on the Mac alike.

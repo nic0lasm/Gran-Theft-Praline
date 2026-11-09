@@ -153,14 +153,25 @@ def decimate_part(part: Part, target_tris: int, uv_weight: float = 4.0,
 
 
 def decimate(asset: Asset, target_tris: int) -> Asset:
-    """Decimate to about ``target_tris`` triangles, split across parts by share."""
+    """Decimate to at most ``target_tris`` triangles, split across parts by share.
+
+    The simplifier may stop slightly above the target: retry with a tighter
+    target (up to 3 times) so the art bible budgets are real caps.
+    """
     total = asset.tri_count
     if total <= target_tris:
         return Asset(list(asset.parts))
-    out = Asset()
-    for p in asset.parts:
-        share = max(64, int(round(target_tris * len(p.faces) / total)))
-        out.parts.append(decimate_part(p, share))
+    goal = target_tris
+    out = asset
+    for _ in range(4):
+        shares = []
+        for p in asset.parts:
+            share = max(64, int(round(goal * len(p.faces) / total)))
+            shares.append(decimate_part(p, share))
+        out = Asset(shares)
+        if out.tri_count <= target_tris:
+            break
+        goal = max(64, int(goal * target_tris / out.tri_count * 0.99))
     return out
 
 

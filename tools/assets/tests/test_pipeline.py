@@ -48,7 +48,7 @@ def test_decimation_hits_budget_and_keeps_shape(sample):
     before = a.tri_count
     d = decimate(a, 3000)
     assert before > 3000 * 4
-    assert 1500 <= d.tri_count <= 4500
+    assert 1500 <= d.tri_count <= 3000  # a hard cap
     lo0, hi0 = a.bounds()
     lo1, hi1 = d.bounds()
     assert np.allclose(lo0, lo1, atol=0.03) and np.allclose(hi0, hi1, atol=0.03)

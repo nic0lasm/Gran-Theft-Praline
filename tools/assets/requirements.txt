@@ -2,5 +2,7 @@ numpy>=1.26
 scipy>=1.11
 pillow>=10.0
 trimesh>=4.4
-meshoptimizer>=0.2.20
+# Only pre-releases exist on PyPI. No wheel for Python 3.13: it compiles from source
+# (on macOS with a missing SDK, set LDCXXSHARED, see docs/assets/import-pipeline.md).
+meshoptimizer==0.2.20a5
 pytest>=8.0

@@ -88,4 +88,12 @@ Masters retrouvés par préfixe d'identifiant (`W1-07.glb`). Les absents sont li
   maître masqué.
 - Les `.uasset` et textures importés vont dans Git LFS ; surveiller le quota
   ([git-lfs.fr.md](../project/git-lfs.fr.md)).
+- **Installation** : `meshoptimizer` n'existe qu'en préversions sur PyPI ; `requirements.txt`
+  épingle `0.2.20a5` (validée sur le Mac). Pas de wheel pour Python 3.13 : compilation ; si
+  l'édition de liens échoue (`library 'c++' not found`, Python Homebrew visant un SDK absent),
+  installer avec `LDCXXSHARED="clang++ -bundle -undefined dynamic_lookup -isysroot $(xcrun --show-sdk-path)"`.
+- **Vrais masters** (W1-07, W1-21, W1-27, Mac, 6 à 8 s et moins de 3,2 Go de RAM chacun) :
+  poubelle et borne (1,9 M triangles) plafonnées à 300 k ; l'abribus (1,88 M) reste entier sous
+  le plafond de 2 M des grands objets. Les textures Tripo sont opaques : l'abribus vitré demande
+  un matériau de verre dédié (`M_Master_Glass`), non couvert ici.
 - Pas de dépendance à Blender : trimesh et meshoptimizer tournent en CI comme sur le Mac.
