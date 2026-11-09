@@ -56,21 +56,30 @@ def ensure_body_master():
     if eal.does_asset_exist(path):
         return unreal.load_asset(path)
     mat = tools.create_asset("M_Vehicle_Body", MASTERS, unreal.Material, unreal.MaterialFactoryNew())
-    base = tex_param(mat, "BaseColor", -600, -300, unreal.MaterialSamplerType.SAMPLERTYPE_COLOR)
-    orm = tex_param(mat, "ORM", -600, 0, unreal.MaterialSamplerType.SAMPLERTYPE_MASKS)
-    normal = tex_param(mat, "Normal", -600, 300, unreal.MaterialSamplerType.SAMPLERTYPE_NORMAL)
-    mel.connect_material_property(base, "RGB", unreal.MaterialProperty.MP_BASE_COLOR)
-    mel.connect_material_property(orm, "R", unreal.MaterialProperty.MP_AMBIENT_OCCLUSION)
-    mel.connect_material_property(orm, "G", unreal.MaterialProperty.MP_ROUGHNESS)
-    mel.connect_material_property(orm, "B", unreal.MaterialProperty.MP_METALLIC)
-    mel.connect_material_property(normal, "RGB", unreal.MaterialProperty.MP_NORMAL)
-    # Car paint: a clear coat where the texture is metallic paint, none on tyres and plastics.
-    mat.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_CLEAR_COAT)
-    mel.connect_material_property(orm, "B", unreal.MaterialProperty.MP_CUSTOM_DATA0)
-    coat_rough = mel.create_material_expression(mat, unreal.MaterialExpressionScalarParameter, -600, 550)
+    base = tex_param(mat, "BaseColor", -900, -300, unreal.MaterialSamplerType.SAMPLERTYPE_COLOR)
+    orm = tex_param(mat, "ORM", -900, 0, unreal.MaterialSamplerType.SAMPLERTYPE_MASKS)
+    normal = tex_param(mat, "Normal", -900, 300, unreal.MaterialSamplerType.SAMPLERTYPE_NORMAL)
+    coat_rough = mel.create_material_expression(mat, unreal.MaterialExpressionScalarParameter, -900, 550)
     coat_rough.set_editor_property("parameter_name", "ClearCoatRoughness")
     coat_rough.set_editor_property("default_value", 0.06)
-    mel.connect_material_property(coat_rough, "", unreal.MaterialProperty.MP_CUSTOM_DATA1)
+    # Car paint: a clear coat where the texture is metallic paint, none on tyres
+    # and plastics. The clear coat pins are hidden from Python, so the material
+    # goes through a Make Material Attributes node.
+    mat.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_CLEAR_COAT)
+    mat.set_editor_property("use_material_attributes", True)
+    attrs = mel.create_material_expression(mat, unreal.MaterialExpressionMakeMaterialAttributes, -300, 0)
+    for node, out, pin in (
+        (base, "RGB", "BaseColor"),
+        (orm, "R", "AmbientOcclusion"),
+        (orm, "G", "Roughness"),
+        (orm, "B", "Metallic"),
+        (orm, "B", "ClearCoat"),
+        (coat_rough, "", "ClearCoatRoughness"),
+        (normal, "RGB", "Normal"),
+    ):
+        if not mel.connect_material_expressions(node, out, attrs, pin):
+            log("could not connect " + pin)
+    mel.connect_material_property(attrs, "", unreal.MaterialProperty.MP_MATERIAL_ATTRIBUTES)
     mat.set_editor_property("used_with_skeletal_mesh", True)
     mat.set_editor_property("used_with_morph_targets", True)
     mel.recompile_material(mat)
