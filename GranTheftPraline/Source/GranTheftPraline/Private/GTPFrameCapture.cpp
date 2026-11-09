@@ -1,7 +1,7 @@
 #include "GTPFrameCapture.h"
 
 #include "Async/Async.h"
-#include "Engine/GameViewportClient.h"
+#include "Framework/Application/SlateApplication.h"
 #include "HAL/FileManager.h"
 #include "HAL/PlatformTime.h"
 #include "IImageWrapper.h"
@@ -12,7 +12,10 @@
 #include "Misc/Parse.h"
 #include "Misc/Paths.h"
 #include "Modules/ModuleManager.h"
-#include "UnrealClient.h"
+#include "RHICommandList.h"
+#include "Rendering/SlateRenderer.h"
+#include "RenderingThread.h"
+#include "Slate/SlateViewportProvider.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogGTPFrameCapture, Log, All);
 
@@ -45,7 +48,17 @@ void UGTPFrameCapture::Initialize(FSubsystemCollectionBase& Collection)
 	// Load on the game thread; compression runs on worker threads.
 	FModuleManager::LoadModuleChecked<IImageWrapperModule>(TEXT("ImageWrapper"));
 
-	ScreenshotHandle = UGameViewportClient::OnScreenshotCaptured().AddUObject(this, &UGTPFrameCapture::HandleScreenshot);
+	if (!FSlateApplication::IsInitialized() || !FSlateApplication::Get().GetRenderer())
+	{
+		UE_LOG(LogGTPFrameCapture, Warning, TEXT("No Slate renderer: capture disabled"));
+		return;
+	}
+	// Removed in Finish(), which flushes the render thread before this object goes away.
+	BackBufferHandle = FSlateApplication::Get().GetRenderer()->OnBackBufferReadyToPresent()
+		.AddLambda([this](SWindow& Window, ISlateViewportProvider& ViewportProvider)
+		{
+			HandleBackBufferReady(Window, ViewportProvider);
+		});
 	StartSeconds = FPlatformTime::Seconds();
 	NextCaptureSeconds = DelaySeconds;
 	TickHandle = FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateUObject(this, &UGTPFrameCapture::Tick));
@@ -69,31 +82,46 @@ bool UGTPFrameCapture::Tick(float DeltaTime)
 	}
 	if (!bRequestPending && Elapsed >= NextCaptureSeconds)
 	{
-		bRequestPending = true;
 		NextCaptureSeconds += 1.0 / FramesPerSecond;
 		if (NextCaptureSeconds < Elapsed)
 		{
 			// Slow frames: keep the schedule instead of bursting to catch up.
 			NextCaptureSeconds = Elapsed + 1.0 / FramesPerSecond;
 		}
-		// Capture the whole window through Slate: it includes menus and HUD, and the
-		// scene-only readback returns black frames on Metal when the backbuffer size
-		// differs from the viewport size.
-		FScreenshotRequest::RequestScreenshot(true, false);
+		bRequestPending = true;
 	}
 	return true;
 }
 
-void UGTPFrameCapture::HandleScreenshot(int32 Width, int32 Height, const TArray<FColor>& Colors)
+void UGTPFrameCapture::HandleBackBufferReady(SWindow& Window, ISlateViewportProvider& ViewportProvider)
 {
-	bRequestPending = false;
-	if (bFinished || Colors.Num() != Width * Height)
+	if (bFinished || !bRequestPending.exchange(false))
+	{
+		return;
+	}
+	FRHITexture* BackBuffer = ViewportProvider.GetBackBufferResource();
+	if (!BackBuffer)
 	{
 		return;
 	}
 
+	// Read the whole texture at its real size: the viewport size can differ from
+	// the back buffer size on Metal, and reading past it returns black frames.
+	const FIntPoint Size = BackBuffer->GetSizeXY();
+	TArray<FColor> Pixels;
+	FRHICommandListImmediate::Get().ReadSurfaceData(BackBuffer, FIntRect(0, 0, Size.X, Size.Y), Pixels, FReadSurfaceDataFlags());
+	if (Pixels.Num() != Size.X * Size.Y)
+	{
+		return;
+	}
+	for (FColor& Pixel : Pixels)
+	{
+		Pixel.A = 255;
+	}
+
 	const FString Path = FPaths::Combine(OutputDir, FString::Printf(TEXT("frame_%05d.jpg"), FrameIndex++));
-	TArray<FColor> Pixels = Colors;
+	const int32 Width = Size.X;
+	const int32 Height = Size.Y;
 	Async(EAsyncExecution::ThreadPool, [Pixels = MoveTemp(Pixels), Width, Height, Path]()
 	{
 		IImageWrapperModule& Module = FModuleManager::GetModuleChecked<IImageWrapperModule>(TEXT("ImageWrapper"));
@@ -119,16 +147,21 @@ void UGTPFrameCapture::Finish()
 		FTSTicker::GetCoreTicker().RemoveTicker(TickHandle);
 		TickHandle.Reset();
 	}
-	if (ScreenshotHandle.IsValid())
+	if (BackBufferHandle.IsValid())
 	{
-		UGameViewportClient::OnScreenshotCaptured().Remove(ScreenshotHandle);
-		ScreenshotHandle.Reset();
+		if (FSlateApplication::IsInitialized() && FSlateApplication::Get().GetRenderer())
+		{
+			FSlateApplication::Get().GetRenderer()->OnBackBufferReadyToPresent().Remove(BackBufferHandle);
+		}
+		BackBufferHandle.Reset();
+		FlushRenderingCommands();
 	}
 
 	const double Captured = FMath::Max(0.0, FPlatformTime::Seconds() - StartSeconds - DelaySeconds);
-	const double EffectiveFps = Captured > 0.0 ? FrameIndex / FMath::Min(Captured, DurationSeconds) : 0.0;
+	const int32 Frames = FrameIndex.load();
+	const double EffectiveFps = Captured > 0.0 ? Frames / FMath::Min(Captured, DurationSeconds) : 0.0;
 	const FString Info = FString::Printf(TEXT("frames=%d\nrequested_fps=%.2f\neffective_fps=%.2f\n"),
-		FrameIndex, FramesPerSecond, EffectiveFps);
+		Frames, FramesPerSecond, EffectiveFps);
 	FFileHelper::SaveStringToFile(Info, *FPaths::Combine(OutputDir, TEXT("capture.txt")));
-	UE_LOG(LogGTPFrameCapture, Log, TEXT("Capture finished: %d frames, %.2f fps effective"), FrameIndex, EffectiveFps);
+	UE_LOG(LogGTPFrameCapture, Log, TEXT("Capture finished: %d frames, %.2f fps effective"), Frames, EffectiveFps);
 }
