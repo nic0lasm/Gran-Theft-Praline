@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Engine/TimerHandle.h"
 #include "GameFramework/PlayerController.h"
 #include "GTPPlayerController.generated.h"
 
@@ -57,6 +58,15 @@ private:
 	static bool IsPauseKey(const FKey& Key);
 	void OnToggleCameraMode();
 
+	/**
+	 * Gives the view a level starting rotation (pawn yaw, StartViewPitch) and
+	 * ignores look input for LookSettleTime seconds, so the mouse delta produced
+	 * when the window captures the cursor cannot throw the camera to the ground.
+	 */
+	void SettleView(bool bResetRotation);
+	void EndLookSettle();
+	void ApplyViewPitchLimits();
+
 	UPROPERTY(Config)
 	TSoftObjectPtr<UInputMappingContext> KeyboardContextAzerty;
 
@@ -75,6 +85,25 @@ private:
 
 	UPROPERTY(Config)
 	bool bQwertyKeyboard = false;
+
+	/** Pitch of the view when gameplay starts or after a respawn, in degrees. */
+	UPROPERTY(Config)
+	float StartViewPitch = -10.f;
+
+	/** Look input is ignored this long after entering gameplay, in seconds. */
+	UPROPERTY(Config)
+	float LookSettleTime = 0.3f;
+
+	/** Vertical view limits, in degrees (third and first person). */
+	UPROPERTY(Config)
+	float MinViewPitch = -70.f;
+
+	UPROPERTY(Config)
+	float MaxViewPitch = 60.f;
+
+	bool bLookSettling = false;
+	bool bViewSettledOnce = false;
+	FTimerHandle LookSettleTimer;
 
 	UPROPERTY(VisibleAnywhere, Category = "Camera")
 	TObjectPtr<UGTPCameraModeComponent> CameraMode;

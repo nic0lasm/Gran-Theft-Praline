@@ -4,6 +4,7 @@
 #include "GTPGameInstance.h"
 #include "GTPMenuWidgets.h"
 #include "Blueprint/UserWidget.h"
+#include "Camera/PlayerCameraManager.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputAction.h"
@@ -40,6 +41,50 @@ void AGTPPlayerController::OnPossess(APawn* InPawn)
 	// which may run after this point: apply ours again on the next tick.
 	GetWorldTimerManager().SetTimerForNextTick(this, &AGTPPlayerController::ApplyOnFootInput);
 	CameraMode->HandlePawnChanged(InPawn);
+	if (bViewSettledOnce)
+	{
+		// Respawn: face where the new pawn faces.
+		SettleView(true);
+	}
+}
+
+void AGTPPlayerController::SettleView(bool bResetRotation)
+{
+	if (bResetRotation)
+	{
+		if (const APawn* ControlledPawn = GetPawn())
+		{
+			SetControlRotation(FRotator(StartViewPitch, ControlledPawn->GetActorRotation().Yaw, 0.f));
+			bViewSettledOnce = true;
+		}
+	}
+	RotationInput = FRotator::ZeroRotator;
+	if (!bLookSettling)
+	{
+		SetIgnoreLookInput(true);
+		bLookSettling = true;
+	}
+	GetWorldTimerManager().SetTimer(LookSettleTimer, this, &AGTPPlayerController::EndLookSettle, LookSettleTime, false);
+}
+
+void AGTPPlayerController::EndLookSettle()
+{
+	RotationInput = FRotator::ZeroRotator;
+	if (bLookSettling)
+	{
+		SetIgnoreLookInput(false);
+		bLookSettling = false;
+	}
+	UE_LOG(LogGTPInput, Log, TEXT("View settled at %s"), *GetControlRotation().ToCompactString());
+}
+
+void AGTPPlayerController::ApplyViewPitchLimits()
+{
+	if (PlayerCameraManager)
+	{
+		PlayerCameraManager->ViewPitchMin = MinViewPitch;
+		PlayerCameraManager->ViewPitchMax = MaxViewPitch;
+	}
 }
 
 void AGTPPlayerController::ApplyOnFootInput()
@@ -107,6 +152,7 @@ void AGTPPlayerController::BeginPlay()
 	{
 		return;
 	}
+	ApplyViewPitchLimits();
 
 	const UGTPGameInstance* GameInstance = GetGameInstance<UGTPGameInstance>();
 	if (GameInstance && !GameInstance->HasDismissedTitle())
@@ -215,4 +261,7 @@ void AGTPPlayerController::EnterGameplayInput()
 	SetPause(false);
 	SetInputMode(FInputModeGameOnly());
 	SetShowMouseCursor(false);
+	// First entry: level view facing the street. Later entries (pause menu
+	// closed) keep the rotation but still swallow the cursor capture delta.
+	SettleView(!bViewSettledOnce);
 }
