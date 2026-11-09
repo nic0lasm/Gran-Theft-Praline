@@ -117,6 +117,43 @@ furniture in anthracite gray or dark green.
 | W1-59 | Wall-mounted ATM | stainless steel front, screen, no logo | 0.8 × 1.0 | ⬜ |
 | W1-60 | Pile of garbage bags | three black bags | 0.8 × 0.6 × 0.5 | ⬜ |
 
+## Wave 2: vehicle drafts and roadway objects (for 0.3)
+
+Prompts: object text, then "single object, isolated, game prop, photorealistic, PBR textures, no logo, no readable text". No dimensions in prompts.
+
+| ID | Object | Generation notes | Status |
+| ---- | ---- | ---- | ---- |
+| W2-01 | City car body draft | reuse interim hatchback | ⬜ |
+| W2-02 | Sedan body draft | reuse interim sedan | ⬜ |
+| W2-03 | Van body draft | reuse interim delivery van | ⬜ |
+| W2-04 | Alloy wheel with tyre | five-spoke alloy, worn tyre | ⬜ |
+| W2-05 | Steel wheel with hubcap | plain stamped steel | ⬜ |
+| W2-06 | Worn spare tyre | dusty, cracked sidewall | ⬜ |
+| W2-07 | Crumpled car door | debris, bent panel | ⬜ |
+| W2-08 | Broken bumper | debris, cracked plastic | ⬜ |
+| W2-09 | Crash debris pile | glass shards and plastic fragments | ⬜ |
+| W2-10 | Dented car hood | debris, scraped paint | ⬜ |
+| W2-11 | Concrete roadside bollard | round, chipped edges | ⬜ |
+| W2-12 | Flexible lane bollard | white plastic with reflective band | ⬜ |
+| W2-13 | Removable steel bollard | socket base, padlock | ⬜ |
+| W2-14 | Rubber speed bump segment | black and yellow stripes | ⬜ |
+| W2-15 | Speed cushion | asphalt-colored, painted marks | ⬜ |
+| W2-16 | Delivery bay sign post | blank pictogram | ⬜ |
+| W2-17 | Fold-down parking post | steel, hinged | ⬜ |
+| W2-18 | Parking barrier arm | red-white arm, housing | ⬜ |
+| W2-19 | Blank front license plate | no characters | ⬜ |
+| W2-20 | Blank rear plate with holder | no characters | ⬜ |
+| W2-21 | Stack of old tyres | five tyres | ⬜ |
+| W2-22 | Steel road plate | trench cover, anti-slip | ⬜ |
+| W2-23 | Water-filled road barrier | red plastic | ⬜ |
+| W2-24 | Concrete jersey barrier | chipped, grey | ⬜ |
+| W2-25 | Delineator post | white with reflector | ⬜ |
+| W2-26 | Car battery | generic, no logo | ⬜ |
+| W2-27 | Exhaust muffler | debris, rusty | ⬜ |
+| W2-28 | Broken side mirror | debris, hanging cable | ⬜ |
+| W2-29 | Road grit bin | yellow plastic, hinged lid | ⬜ |
+| W2-30 | Portable roadwork sign | blank triangle sign on stand | ⬜ |
+
 ## Waves 2 to 5: overview (details added before they start)
 
 - **Wave 2 (0.3)**: 3 fictional car body drafts (city car,

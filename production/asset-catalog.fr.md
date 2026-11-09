@@ -117,6 +117,43 @@ anthracite ou vert sombre.
 | W1-59 | Distributeur de billets mural | façade inox, écran, sans logo | 0,8 × 1,0 | ⬜ |
 | W1-60 | Sac poubelle, tas | trois sacs noirs | 0,8 × 0,6 × 0,5 | ⬜ |
 
+## Vague 2 : véhicules (ébauches) et objets de chaussée (pour 0.3)
+
+Prompts : texte de l'objet, puis « single object, isolated, game prop, photorealistic, PBR textures, no logo, no readable text ». Aucune dimension dans les prompts.
+
+| ID | Objet | Notes de génération | Statut |
+| ---- | ---- | ---- | ---- |
+| W2-01 | Ébauche de carrosserie citadine | réutilise le hatchback provisoire | ⬜ |
+| W2-02 | Ébauche de carrosserie berline | réutilise la berline provisoire | ⬜ |
+| W2-03 | Ébauche de carrosserie fourgonnette | réutilise le fourgon provisoire | ⬜ |
+| W2-04 | Roue alliage avec pneu | alliage à cinq branches, pneu usé | ⬜ |
+| W2-05 | Roue en tôle avec enjoliveur | tôle emboutie simple | ⬜ |
+| W2-06 | Pneu de secours usé | poussiéreux, flanc fissuré | ⬜ |
+| W2-07 | Porte de voiture froissée | débris, tôle pliée | ⬜ |
+| W2-08 | Pare-chocs brisé | débris, plastique fissuré | ⬜ |
+| W2-09 | Tas de débris d'accident | éclats de verre et fragments de plastique | ⬜ |
+| W2-10 | Capot cabossé | débris, peinture éraflée | ⬜ |
+| W2-11 | Borne de bord de route en béton | ronde, arêtes ébréchées | ⬜ |
+| W2-12 | Balise souple de voie | plastique blanc, bande réfléchissante | ⬜ |
+| W2-13 | Borne amovible en acier | socle, cadenas | ⬜ |
+| W2-14 | Segment de ralentisseur caoutchouc | bandes noires et jaunes | ⬜ |
+| W2-15 | Coussin berlinois | couleur asphalte, marquages peints | ⬜ |
+| W2-16 | Poteau de zone de livraison | pictogramme sans texte | ⬜ |
+| W2-17 | Potelet de parking rabattable | acier, articulé | ⬜ |
+| W2-18 | Barrière de parking | bras rouge et blanc, boîtier | ⬜ |
+| W2-19 | Plaque d'immatriculation avant vierge | sans caractères | ⬜ |
+| W2-20 | Plaque arrière vierge avec support | sans caractères | ⬜ |
+| W2-21 | Pile de vieux pneus | cinq pneus | ⬜ |
+| W2-22 | Plaque de chaussée en acier | couvre-tranchée antidérapant | ⬜ |
+| W2-23 | Barrière routière remplie d'eau | plastique rouge | ⬜ |
+| W2-24 | Glissière en béton | ébréchée, grise | ⬜ |
+| W2-25 | Balise de rive | blanche avec catadioptre | ⬜ |
+| W2-26 | Batterie de voiture | générique, sans logo | ⬜ |
+| W2-27 | Pot d'échappement | débris, rouillé | ⬜ |
+| W2-28 | Rétroviseur brisé | débris, câble pendant | ⬜ |
+| W2-29 | Bac à sel de voirie | plastique jaune, couvercle articulé | ⬜ |
+| W2-30 | Panneau de chantier mobile | triangle vierge sur pied | ⬜ |
+
 ## Vagues 2 à 5 : aperçu (détail ajouté avant leur lancement)
 
 - **Vague 2 (0.3)** : 3 ébauches de carrosseries fictives (citadine,
