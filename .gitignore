@@ -47,6 +47,9 @@ GranTheftPraline/Plugins/FabContent/
 # Real shop signs and brands: kept locally, not covered by the MIT licence
 GranTheftPraline/Plugins/CityBrands/
 
+# Generated street ambience (tools/audio/make_street_ambience.py + import_ambience.py)
+/GranTheftPraline/Content/Sound/Ambience/
+
 # Python
 __pycache__/
 *.pyc

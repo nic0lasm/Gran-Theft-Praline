@@ -7,13 +7,15 @@
 class ACameraActor;
 class APawn;
 class APlayerController;
+class UGTPFollowCameraComponent;
 
 /**
  * Third person / first person switch, owned by the player controller so the
  * chosen mode survives a respawn.
  *
- * Third person is the pawn's own camera (the Game Animation Sample gameplay
- * camera), untouched. First person blends the view target to a camera actor
+ * Third person is UGTPFollowCameraComponent (docs/gameplay/on-foot-feel.md),
+ * or the pawn's own camera (the Game Animation Sample gameplay camera) when
+ * that component is disabled in the config. First person blends the view target to a camera actor
  * placed at the head bone and turned with the control rotation; the head is
  * hidden on the player's mesh (bone hide) and the body stays visible. While in
  * first person the character is asked to strafe, so the body faces the camera.
@@ -49,6 +51,10 @@ protected:
 	UPROPERTY(Config, EditAnywhere, Category = "First person")
 	float BlendTime = 0.2f;
 
+	/** Blend from the car's chase camera to the on-foot camera after leaving a car, in seconds. */
+	UPROPERTY(Config, EditAnywhere, Category = "Third person")
+	float ExitVehicleBlendTime = 0.5f;
+
 	/** Bone whose geometry is hidden in first person (its children are hidden too). */
 	UPROPERTY(Config, EditAnywhere, Category = "First person")
 	FName HeadBoneName = TEXT("head");
@@ -59,6 +65,8 @@ protected:
 
 private:
 	APlayerController* GetPlayerController() const;
+	UGTPFollowCameraComponent* GetFollowCamera() const;
+	void UseThirdPersonView(APlayerController* PC, APawn* Pawn, float Blend);
 	void ApplyToPawn(APawn* Pawn, bool bEnable);
 	void UpdateFirstPersonCamera();
 	static void SetWantsToStrafe(APawn* Pawn, bool bWants, bool& bOutPrevious);
@@ -69,4 +77,5 @@ private:
 	TWeakObjectPtr<APawn> AppliedPawn;
 	bool bFirstPerson = false;
 	bool bPreviousWantsToStrafe = false;
+	bool bLastPawnWasVehicle = false;
 };

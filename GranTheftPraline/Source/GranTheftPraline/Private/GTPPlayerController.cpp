@@ -1,6 +1,8 @@
 #include "GTPPlayerController.h"
 
 #include "GTPCameraModeComponent.h"
+#include "GTPFollowCameraComponent.h"
+#include "GTPInteraction.h"
 #include "GTPGameInstance.h"
 #include "GTPMenuWidgets.h"
 #include "GTPVehicle.h"
@@ -16,7 +18,10 @@
 #include "Misc/Parse.h"
 #include "TimerManager.h"
 #include "InputCoreTypes.h"
+#include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "Components/AudioComponent.h"
+#include "Sound/SoundBase.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogGTPInput, Log, All);
 
@@ -32,6 +37,8 @@ namespace
 AGTPPlayerController::AGTPPlayerController()
 {
 	CameraMode = CreateDefaultSubobject<UGTPCameraModeComponent>(TEXT("CameraMode"));
+	FollowCamera = CreateDefaultSubobject<UGTPFollowCameraComponent>(TEXT("FollowCamera"));
+	Interaction = CreateDefaultSubobject<UGTPInteractionComponent>(TEXT("Interaction"));
 	VehicleInteraction = CreateDefaultSubobject<UGTPVehicleInteractionComponent>(TEXT("VehicleInteraction"));
 }
 
@@ -211,12 +218,69 @@ void AGTPPlayerController::SetupInputComponent()
 		UGTPVehicleInput* Vehicle = GetVehicleInput();
 		Enhanced->BindAction(Vehicle->EnterExit, ETriggerEvent::Started, this, &AGTPPlayerController::OnEnterExit);
 		Enhanced->BindAction(Vehicle->ToggleView, ETriggerEvent::Started, this, &AGTPPlayerController::OnToggleCameraMode);
+		Enhanced->BindAction(Vehicle->Interact, ETriggerEvent::Started, this, &AGTPPlayerController::OnInteract);
+		Enhanced->BindAction(Vehicle->CameraRecenter, ETriggerEvent::Started, this, &AGTPPlayerController::OnCameraRecenter);
+	}
+}
+
+void AGTPPlayerController::OnInteract()
+{
+	if (!IsMenuOpen())
+	{
+		Interaction->HandleInteract();
+	}
+}
+
+void AGTPPlayerController::OnCameraRecenter()
+{
+	if (!IsMenuOpen())
+	{
+		FollowCamera->RequestRecenter();
+	}
+}
+
+void AGTPPlayerController::AddYawInput(float Val)
+{
+	Super::AddYawInput(Val);
+	if (Val != 0.f && !IsLookInputIgnored())
+	{
+		FollowCamera->NotifyLookInput();
+	}
+}
+
+void AGTPPlayerController::AddPitchInput(float Val)
+{
+	Super::AddPitchInput(Val);
+	if (Val != 0.f && !IsLookInputIgnored())
+	{
+		FollowCamera->NotifyLookInput();
+	}
+}
+
+void AGTPPlayerController::StartAmbience()
+{
+	if (Ambience || AmbienceSound.IsNull())
+	{
+		return;
+	}
+	USoundBase* Sound = AmbienceSound.LoadSynchronous();
+	if (!Sound)
+	{
+		UE_LOG(LogGTPInput, Warning, TEXT("Ambience sound '%s' not found"), *AmbienceSound.ToString());
+		return;
+	}
+	// 2D, kept across pauses (the menu sits over the street), not tied to the pawn.
+	Ambience = UGameplayStatics::CreateSound2D(this, Sound, AmbienceVolume, 1.f, 0.f, nullptr, false, false);
+	if (Ambience)
+	{
+		Ambience->bIsUISound = true;
+		Ambience->FadeIn(AmbienceFadeInTime, AmbienceVolume);
 	}
 }
 
 void AGTPPlayerController::OnEnterExit()
 {
-	if (!TitleMenu && !PauseMenu)
+	if (!IsMenuOpen())
 	{
 		VehicleInteraction->HandleEnterExit();
 	}
@@ -239,6 +303,7 @@ void AGTPPlayerController::BeginPlay()
 		return;
 	}
 	ApplyViewPitchLimits();
+	StartAmbience();
 
 	const UGTPGameInstance* GameInstance = GetGameInstance<UGTPGameInstance>();
 	if (GameInstance && !GameInstance->HasDismissedTitle())
@@ -256,6 +321,11 @@ void AGTPPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	HideMenu(TitleMenu);
 	HideMenu(PauseMenu);
+	if (Ambience)
+	{
+		Ambience->Stop();
+		Ambience = nullptr;
+	}
 	Super::EndPlay(EndPlayReason);
 }
 

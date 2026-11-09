@@ -109,8 +109,10 @@ untouched, and a newer sample is installed by running the script again.
 Implementation (chosen after measurement, 2026-11-09):
 `UGTPCameraModeComponent`, a C++ component on our player controller (so the
 mode survives a respawn).
-- Third person: the pawn's own GASP gameplay camera, unchanged (80° FOV in
-  the sample setup).
+- Third person: since 0.2 our follow camera, `UGTPFollowCameraComponent`
+  (lag, shoulder, collision, sprint FOV, recentering; see
+  [on-foot-feel.md](on-foot-feel.md)). With `bEnabled=False` it falls back
+  to the pawn's own GASP gameplay camera (80° FOV in the sample setup).
 - First person: the view target blends (0.2 s, cubic) to a camera actor
   placed at the `head` bone plus a small offset (12 cm forward, 6 cm up)
   and turned with the control rotation, 90° FOV. The `head` bone is hidden
@@ -146,7 +148,8 @@ key labelled Z arrives as `Z`; ZQSD is therefore the AZERTY layout of WASD.
 | `IA_Jump` and `IA_Traverse` (sample) | Press | Space | Space | X / Square |
 | `IA_Crouch` (sample) | Toggle | C | C | B / Circle |
 | `IA_ToggleCameraMode` (ours) | Press | V | V | View / Share button |
-| `IA_CameraRecenter` | Press | Middle mouse | Middle mouse | Right stick click (not done yet) |
+| `IA_CameraRecenter` (ours, built in code) | Press | Middle mouse | Middle mouse | none (right stick click is taken) |
+| `IA_Interact` (ours, built in code) | Press | E | E | D-pad right |
 
 Modifiers copied from `IMC_Sandbox`: swizzle and negate on the movement
 keys, mouse Y inverted by a scalar, 0.3 radial dead zone on the left

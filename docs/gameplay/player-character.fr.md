@@ -114,8 +114,11 @@ relançant le script.
 Mise en œuvre (choisie sur mesure, 2026-11-09) : `UGTPCameraModeComponent`,
 un composant C++ porté par notre contrôleur de joueur (le mode survit donc
 à une réapparition).
-- Troisième personne : la caméra de jeu du GASP portée par le pion, sans
-  changement (champ de vision 80° dans le réglage du sample).
+- Troisième personne : depuis la 0.2, notre caméra de suivi
+  `UGTPFollowCameraComponent` (retard, épaule, collision, champ de vision en
+  sprint, recentrage ; voir [on-foot-feel.fr.md](on-foot-feel.fr.md)). Avec
+  `bEnabled=False`, retour à la caméra de jeu du GASP portée par le pion
+  (champ de vision 80° dans le réglage du sample).
 - Première personne : la cible de vue passe (0,2 s, courbe cubique) à une
   caméra placée sur l'os `head` plus un petit décalage (12 cm devant, 6 cm
   au-dessus), tournée avec la rotation de contrôle, champ de vision 90°.
@@ -152,7 +155,8 @@ touche marquée Z arrive comme `Z` ; ZQSD est la disposition AZERTY de WASD.
 | `IA_Jump` et `IA_Traverse` (sample) | Appui | Espace | Espace | X / Carré |
 | `IA_Crouch` (sample) | Bascule | C | C | B / Rond |
 | `IA_ToggleCameraMode` (le nôtre) | Appui | V | V | Bouton Vue / Share |
-| `IA_CameraRecenter` | Appui | clic molette | clic molette | Clic stick droit (pas encore fait) |
+| `IA_CameraRecenter` (le nôtre, construit en code) | Appui | clic molette | clic molette | aucun (clic stick droit déjà pris) |
+| `IA_Interact` (le nôtre, construit en code) | Appui | E | E | croix droite |
 
 Modificateurs repris de `IMC_Sandbox` : inversion et permutation d'axes sur
 les touches de déplacement, axe Y de la souris inversé par un facteur, zone

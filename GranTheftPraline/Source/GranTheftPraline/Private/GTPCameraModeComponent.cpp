@@ -1,5 +1,7 @@
 #include "GTPCameraModeComponent.h"
 
+#include "GTPFollowCameraComponent.h"
+#include "GTPPlayerController.h"
 #include "GTPVehicle.h"
 #include "Camera/CameraActor.h"
 #include "Camera/CameraComponent.h"
@@ -48,6 +50,23 @@ APlayerController* UGTPCameraModeComponent::GetPlayerController() const
 	return Cast<APlayerController>(GetOwner());
 }
 
+UGTPFollowCameraComponent* UGTPCameraModeComponent::GetFollowCamera() const
+{
+	const AGTPPlayerController* PC = Cast<AGTPPlayerController>(GetOwner());
+	return PC ? PC->GetFollowCamera() : nullptr;
+}
+
+void UGTPCameraModeComponent::UseThirdPersonView(APlayerController* PC, APawn* Pawn, float Blend)
+{
+	UGTPFollowCameraComponent* Follow = GetFollowCamera();
+	AActor* Target = Follow ? Follow->GetViewTargetFor(Pawn, true) : nullptr;
+	PC->SetViewTargetWithBlend(Target ? Target : Pawn, Blend, VTBlend_Cubic);
+	if (Follow)
+	{
+		Follow->SetDriving(Target != nullptr);
+	}
+}
+
 void UGTPCameraModeComponent::ToggleCameraMode()
 {
 	SetFirstPerson(!bFirstPerson);
@@ -64,12 +83,28 @@ void UGTPCameraModeComponent::HandlePawnChanged(APawn* NewPawn)
 	{
 		// Vehicles carry their own chase and interior cameras.
 		SetComponentTickEnabled(false);
+		if (UGTPFollowCameraComponent* Follow = GetFollowCamera())
+		{
+			Follow->SetDriving(false);
+		}
 		Vehicle->SetInteriorView(bFirstPerson);
+		bLastPawnWasVehicle = true;
 		return;
 	}
-	if (bFirstPerson && NewPawn)
+	const bool bFromVehicle = bLastPawnWasVehicle;
+	bLastPawnWasVehicle = false;
+	if (!NewPawn)
+	{
+		return;
+	}
+	if (bFirstPerson)
 	{
 		SetFirstPerson(true, true);
+	}
+	else if (APlayerController* PC = GetPlayerController())
+	{
+		// Out of a car the view glides from the chase camera; a spawn cuts.
+		UseThirdPersonView(PC, NewPawn, bFromVehicle ? ExitVehicleBlendTime : 0.f);
 	}
 }
 
@@ -105,6 +140,11 @@ void UGTPCameraModeComponent::SetFirstPerson(bool bEnable, bool bInstant)
 			Camera->bOverrideAspectRatioAxisConstraint = false;
 		}
 		FirstPersonCamera->GetCameraComponent()->SetFieldOfView(FirstPersonFOV);
+		if (UGTPFollowCameraComponent* Follow = GetFollowCamera())
+		{
+			// Stop it first, or it would take the view back from the blend.
+			Follow->SetDriving(false);
+		}
 		ApplyToPawn(Pawn, true);
 		UpdateFirstPersonCamera();
 		SetComponentTickEnabled(true);
@@ -113,7 +153,7 @@ void UGTPCameraModeComponent::SetFirstPerson(bool bEnable, bool bInstant)
 	else
 	{
 		ApplyToPawn(Pawn, false);
-		PC->SetViewTargetWithBlend(Pawn, Blend, VTBlend_Cubic);
+		UseThirdPersonView(PC, Pawn, Blend);
 		// Keep the first person camera following the head while the blend runs.
 		if (Blend <= 0.f)
 		{

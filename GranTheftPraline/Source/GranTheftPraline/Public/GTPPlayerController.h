@@ -5,12 +5,16 @@
 #include "GameFramework/PlayerController.h"
 #include "GTPPlayerController.generated.h"
 
+class UAudioComponent;
 class UGTPCameraModeComponent;
+class UGTPFollowCameraComponent;
+class UGTPInteractionComponent;
 class UGTPMenuWidget;
 class UGTPVehicleInput;
 class UGTPVehicleInteractionComponent;
 class UInputAction;
 class UInputMappingContext;
+class USoundBase;
 
 /**
  * Local player controller: owns the title screen, the pause menu and the
@@ -25,6 +29,11 @@ class UInputMappingContext;
  * Vehicles (docs/gameplay/vehicles.md): the enter / exit action stays active
  * on foot and at the wheel; while a vehicle is possessed the on-foot
  * contexts are swapped for the driving ones (UGTPVehicleInput, built in code).
+ *
+ * On foot (docs/gameplay/on-foot-feel.md): third person view from
+ * UGTPFollowCameraComponent, contextual interaction (E) from
+ * UGTPInteractionComponent, HUD drawn by AGTPHUD, and a street ambience
+ * loop played in 2D.
  */
 UCLASS(Config = Game)
 class GRANTHEFTPRALINE_API AGTPPlayerController : public APlayerController
@@ -46,6 +55,14 @@ public:
 	void QuitToDesktop();
 
 	UGTPCameraModeComponent* GetCameraMode() const { return CameraMode; }
+	UGTPFollowCameraComponent* GetFollowCamera() const { return FollowCamera; }
+	UGTPInteractionComponent* GetInteraction() const { return Interaction; }
+
+	/** True while the title screen or the pause menu is shown. */
+	bool IsMenuOpen() const { return TitleMenu != nullptr || PauseMenu != nullptr; }
+
+	virtual void AddYawInput(float Val) override;
+	virtual void AddPitchInput(float Val) override;
 
 	/** Re-applies the mapping contexts of the controlled pawn: on foot or driving (keyboard layout switch, after possession). */
 	void ApplyInputForPawn();
@@ -69,6 +86,9 @@ private:
 	static bool IsPauseKey(const FKey& Key);
 	void OnToggleCameraMode();
 	void OnEnterExit();
+	void OnInteract();
+	void OnCameraRecenter();
+	void StartAmbience();
 	void ApplyOnFootInput();
 	void ApplyDrivingInput();
 	bool UsesQwerty() const;
@@ -101,6 +121,16 @@ private:
 	UPROPERTY(Config)
 	bool bQwertyKeyboard = false;
 
+	/** Street ambience loop played in 2D during play (empty = none). */
+	UPROPERTY(Config)
+	TSoftObjectPtr<USoundBase> AmbienceSound;
+
+	UPROPERTY(Config)
+	float AmbienceVolume = 0.5f;
+
+	UPROPERTY(Config)
+	float AmbienceFadeInTime = 3.f;
+
 	/** Pitch of the view when gameplay starts or after a respawn, in degrees. */
 	UPROPERTY(Config)
 	float StartViewPitch = -10.f;
@@ -123,8 +153,17 @@ private:
 	UPROPERTY(VisibleAnywhere, Category = "Camera")
 	TObjectPtr<UGTPCameraModeComponent> CameraMode;
 
+	UPROPERTY(VisibleAnywhere, Category = "Camera")
+	TObjectPtr<UGTPFollowCameraComponent> FollowCamera;
+
+	UPROPERTY(VisibleAnywhere, Category = "Interaction")
+	TObjectPtr<UGTPInteractionComponent> Interaction;
+
 	UPROPERTY(VisibleAnywhere, Category = "Vehicle")
 	TObjectPtr<UGTPVehicleInteractionComponent> VehicleInteraction;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UAudioComponent> Ambience;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UGTPVehicleInput> VehicleInput;
