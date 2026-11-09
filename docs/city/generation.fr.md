@@ -165,6 +165,51 @@ et [`tools/city/unreal/place_facades.py`](../../tools/city/unreal/place_facades.
   Suite : trim sheets et textures Megascans/photos, `M_Master_Facade` qui lit
   la couleur par instance, modules d'angle, lucarnes et brisis haussmannien.
 
+## Ce que le joueur voit d'abord : devantures et enseignes réelles (ajouté le 2026-11-09)
+
+Priorité fixée en mesurant ce qui donne sur la rue de la République :
+2 801 modules côté rue ; à hauteur d'yeux, 672 travées de rez-de-chaussée sans
+commerce connu et 185 travées de vrais commerces, puis les fenêtres
+haussmanniennes (2 698) et les balcons (1 846). Cette passe ne traite donc
+que ceux-là, pas le kit entier.
+
+* **Devantures** (`kit.py`) : la travée commerciale haussmannienne a trois
+  dessins (cadre aluminium, devanture en applique en bois peint devant les
+  piédroits, vitrage sans cadre à cornière acier) et un rideau métallique
+  baissé ; chaque devanture a une pièce éclairée derrière un verre
+  transparent (fond, sol, plafond, deux tables de présentation) : les
+  vitrines se lisent comme des boutiques, plus comme des miroirs noirs. Le
+  bandeau d'enseigne fait 60 cm (35 avant). Les travées sans commerce connu
+  prennent les mêmes dessins avec un bandeau nu ; un immeuble sur huit a ses
+  rideaux baissés. Les boutiques à enduit lyonnais ont aussi la pièce éclairée.
+* **Encadrements de fenêtres** : trois dessins haussmanniens (entablement,
+  fronton triangulaire, corniche sur consoles avec clé), pour les étages
+  courants et à balcon.
+* **Variantes par immeuble** (`kit_layout.module_for`, hachage stable de
+  l'identifiant) : une façade garde un seul dessin, les voisines diffèrent, et
+  Blender comme Unreal choisissent la même.
+* **Enseignes** (`brands.py`, `signs.py`) : pour chaque marque, Wikidata donne
+  le nom, la couleur officielle et le fichier du logo ; le logo vient de
+  Commons (vignettes 960 px, requêtes espacées : Commons freine les scripts).
+  `signs.py` dessine une texture 2048 × 464 par commerce avec son vrai nom
+  (nom de marque si la marque a un identifiant Wikidata, sinon le nom propre
+  du commerce), fond à la couleur de la marque, sinon couleur dominante du
+  logo, sinon palette par métier ; lettres blanches ou presque noires selon le
+  meilleur contraste (ratio WCAG vérifié, 4,3 au minimum). Si un logo existe,
+  une seconde texture le pose sur le bandeau. Distributeurs, consignes à
+  colis, œuvres d'art et parkings n'ont pas de bandeau (13 sur 215).
+* **Placement** : un panneau d'enseigne (`SM_Sign_Panel`) sur le bandeau de
+  chaque travée du commerce, à la hauteur et à la profondeur de la variante
+  posée. Dans Unreal, `place_facades.py` crée `M_Sign_Fascia` et une instance
+  de matériau par enseigne ; les textures de lettrage vont sous
+  `/Game/Environment/City/Signs/`, celles des logos seulement sous
+  `/CityBrands/Signs/` quand le plugin hors Git est monté (aucun logo de
+  marque dans Git).
+
+Commandes : `python3 tools/city/brands.py --name presqu-ile --focus rue-de-la-republique`,
+puis `python3 tools/city/signs.py --name presqu-ile`, puis `assemble.py`
+(`--logos` pour des rendus locaux avec les logos).
+
 ## Limites et suite
 
 1. **Test éditeur** : `tools/city/unreal/import_city.py` importe greybox et
