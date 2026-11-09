@@ -202,8 +202,37 @@ attend : nos propres voitures suivent la même convention.
 | Budget | bible artistique : ≤ 1,5 M triangles en Ultra, 120 k en M1, 4 LOD, textures 4K / 2K |
 | Unreal | `Content/Vehicles/<Modèle>/` : `SKM_`, `PA_` (asset physique), `ABP_` (Wheel Controller), `BP_` enfant de `AGTPVehicle` avec les vitres taguées |
 
-Un script Blender de découpe et de squelette (`tools/vehicles/`) est la
-prochaine étape outillage, à écrire quand les premiers masters arrivent.
+Le script `tools/vehicles/prepare_vehicle.py` fait tout cela sans Unreal,
+dans Blender ou avec le module Python `bpy` (5.2) :
+
+```
+python -I tools/vehicles/prepare_vehicle.py -- --master assets/tripo/v/V-01.glb \
+    --id V-01 --out assets/staging/vehicles --preview
+```
+
+Réglages par modèle dans `tools/vehicles/vehicles.json` (longueur réelle,
+rayon et largeur des pneus, siège). Sortie dans `assets/staging/vehicles/<id>/`
+(hors Git) : `SKM_<Nom>.fbx` (caisse + roues, squelette, 4 bosses, 1,36 M
+triangles), `SM_<Nom>_Glass_<Zone>.fbx`, textures 4K, `report.json` et deux
+aperçus (roues en rouge, vitres en bleu).
+
+Premier passage (2026-11-09) sur Clio V, 208 II et Kangoo II : avant
+détecté seul, 4 roues trouvées et découpées proprement sur les trois,
+environ 2 min par voiture. Limites connues :
+
+- **Vitres** : Tripo peint les vitres avec les reflets de la carrosserie
+  (même couleur, rugosité et métal), la texture ne les distingue donc pas.
+  Le script prend toute la partie haute (au-dessus de la ceinture de caisse,
+  sans le toit) ; les montants reçoivent aussi une fine couche de verre.
+  Vraie transparence = il faudra un habitacle (plus tard).
+- **Proportions** : à longueur réelle, les masters sont ~13 % trop hauts
+  (Clio 1,62 m au lieu de 1,44 m). Échelle uniforme gardée pour ne pas
+  ovaliser les roues ; à corriger à la génération si ça se voit.
+- **LOD du profil M1** : générés par la réduction de maillage squelettique
+  d'Unreal à l'import (LOD 1 ≈ 120 k triangles) ; la décimation de Blender
+  casse l'ombrage de ces surfaces à ce taux.
+- Logos : peints dans la texture par Tripo, gardés ; leur version en décal
+  hors Git reste à faire.
 
 ## 10. Modèles à générer (proposition transmise au fil Tripo)
 

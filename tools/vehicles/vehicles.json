@@ -1,0 +1,27 @@
+{
+  "V-01": {
+    "name": "Renault_ClioV",
+    "length_m": 4.05,
+    "wheel_radius_m": 0.317,
+    "tyre_width_m": 0.195,
+    "front": "auto",
+    "seat_driver": [-0.2, 0.37, 0.5]
+  },
+  "V-02": {
+    "name": "Peugeot_208II",
+    "length_m": 4.055,
+    "wheel_radius_m": 0.31,
+    "tyre_width_m": 0.205,
+    "front": "auto",
+    "seat_driver": [-0.2, 0.37, 0.5]
+  },
+  "V-03": {
+    "name": "Renault_KangooII",
+    "length_m": 4.213,
+    "wheel_radius_m": 0.317,
+    "tyre_width_m": 0.195,
+    "front": "auto",
+    "seat_driver": [0.0, 0.38, 0.62],
+    "glass": {"belt_ratio": 0.6}
+  }
+}
