@@ -7,17 +7,17 @@ Legend: ✅ done · 🟡 in progress · ⬜ to do · ⛔ blocked
 
 ## Current version: 0.1 "Play in one click"
 
-Target: 2026-11-27. Progress: 0 / 8 tasks.
+Target: 2026-11-27. Progress: 3 / 8 tasks.
 
 | # | Task | Thread | Status | Evidence |
 | ---- | ---- | ---- | ---- | ---- |
-| 1 | Project switched to C++ (GameMode, PlayerController, GameInstance) | Build and one-click launch | 🟡 | code written, Mac compile pending |
-| 2 | Git LFS rules set up, quota checked | Build and one-click launch | 🟡 | [rules](../docs/project/git-lfs.md); quota to read |
+| 1 | Project switched to C++ (GameMode, PlayerController, GameInstance) | Build and one-click launch | ✅ | compiles with no error or warning on the M1 Pro, Shipping build launches |
+| 2 | Git LFS rules set up, quota checked | Build and one-click launch | ✅ | [rules](../docs/project/git-lfs.md); ~30 MB in LFS out of 10 GiB |
 | 3 | Game Animation Sample integrated (character, motion matching, camera) | Playable character | 🟡 plan ready, editor pending | [plan](../docs/gameplay/player-character.md) |
 | 4 | Enhanced Input for keyboard-mouse and gamepad | Playable character | 🟡 mappings defined | [plan §5](../docs/gameplay/player-character.md) |
 | 5 | Playable `L_RueRepublique` level (collisions, PlayerStart, boundaries) | Playable rue de la République | ⬜ | |
-| 6 | Title screen and pause menu | Build and one-click launch | 🟡 | code written (UMG in C++), to test |
-| 7 | macOS packaging script → `GTAL/Builds/0.1/` | Build and one-click launch | 🟡 | [package-mac.sh](../tools/build/package-mac.sh), to run |
+| 6 | Title screen and pause menu | Build and one-click launch | 🟡 | code compiled; title screen still at next test |
+| 7 | macOS packaging script → `GTAL/Builds/0.1/` | Build and one-click launch | ✅ | [package-mac.sh](../tools/build/package-mac.sh): 154 s, 944 MB (Metal SM5 + SM6 cooked for the M1) |
 | 8 | Build tested: 2 min video, frame-time CSV, 10 min without a crash | Build and one-click launch | ⬜ | |
 
 In parallel (for 0.2): Tripo wave 1, street furniture, 0 / 60 models
