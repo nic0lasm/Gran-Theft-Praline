@@ -162,6 +162,47 @@ module) and [`tools/city/unreal/place_facades.py`](../../tools/city/unreal/place
   reading the per-instance colour, corner modules, dormers and the Haussmann
   mansard.
 
+## What the player sees first: shopfronts and real signs (added 2026-11-09)
+
+Priority set by measuring what faces the street on the rue de la République:
+2 801 street modules; at eye level, 672 ground-floor bays without a known shop
+and 185 bays of real shops, then the Haussmann windows (2 698) and balconies
+(1 846). So this pass works on those, not on the kit as a whole.
+
+* **Shopfronts** (`kit.py`): the Haussmann shop bay now has three designs
+  (aluminium frame, painted-wood heritage shopfront in front of the piers,
+  frameless glass with a steel rim) and a lowered metal shutter; every
+  shopfront has a lit room behind see-through glass (back wall, floor,
+  ceiling, two display tables), so windows read as shops and not as black
+  mirrors. The fascia is 60 cm high (was 35). Ground-floor bays with no known
+  shop use the same designs with a plain fascia; one building in eight has its
+  shutters down. Lyon render shops got the lit room too.
+* **Window surrounds**: three Haussmann designs (entablature, triangular
+  pediment, lintel cornice on consoles with a keystone), for plain and
+  balcony storeys.
+* **Variants are per building** (`kit_layout.module_for`, stable hash of the
+  building id): a frontage reads as one design, neighbours differ, and
+  Blender and Unreal pick the same one.
+* **Signs** (`brands.py`, `signs.py`): for every distinct brand, Wikidata gives
+  the label, official colour and logo file; the logo is fetched from Commons
+  (960 px thumbnails, spaced requests: Commons throttles scripts). `signs.py`
+  draws one 2048 × 464 texture per shop with its real name (brand name when
+  the brand has a Wikidata id, else the shop's own name), background from the
+  brand's colour, else the logo's dominant colour, else a palette by trade;
+  lettering white or near-black, whichever contrasts more (WCAG ratio checked,
+  4.3 minimum). When a logo exists, a second texture shows it on the fascia.
+  ATMs, parcel lockers, artworks and car parks get no fascia (13 of 215).
+* **Placement**: a sign panel (`SM_Sign_Panel`) on the fascia of every bay of
+  the shop, at the height and depth of the variant placed there. In Unreal,
+  `place_facades.py` builds `M_Sign_Fascia` and one material instance per sign;
+  lettering textures go under `/Game/Environment/City/Signs/`, logo textures
+  only under `/CityBrands/Signs/` when the out-of-Git plugin is mounted
+  (trademark artwork never enters Git).
+
+Commands: `python3 tools/city/brands.py --name presqu-ile --focus rue-de-la-republique`,
+then `python3 tools/city/signs.py --name presqu-ile`, then `assemble.py` (add
+`--logos` for local renders with the logos).
+
 ## Limits and next steps
 
 1. **Editor test**: `tools/city/unreal/import_city.py` imports the greybox and

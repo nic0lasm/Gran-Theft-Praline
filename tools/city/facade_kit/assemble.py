@@ -47,6 +47,7 @@ def args_from_cli():
     ap.add_argument("--height", type=int, default=900)
     ap.add_argument("--save-blend", action="store_true")
     ap.add_argument("--kit-only", action="store_true")
+    ap.add_argument("--logos", action="store_true", help="brand logos on the fascias (local renders only)")
     return ap.parse_args(argv)
 
 
@@ -117,6 +118,13 @@ def setup_preview_materials():
         b.inputs["Specular IOR Level"].default_value = 0.8
     node_material("MI_Glass_Window", glass)
 
+    def shop_glass(nt, b):
+        b.inputs["Base Color"].default_value = (0.92, 0.95, 0.95, 1)
+        b.inputs["Roughness"].default_value = 0.02
+        b.inputs["Transmission Weight"].default_value = 1.0
+        b.inputs["IOR"].default_value = 1.5
+    node_material("MI_Glass_Shop", shop_glass)
+
     def ground(nt, b):
         stone(nt, b, (0.52, 0.50, 0.47), (0.47, 0.45, 0.42), True, (0.8, 0.8))
         b.inputs["Roughness"].default_value = 0.7
@@ -133,6 +141,12 @@ def setup_preview_materials():
         b.inputs["Emission Color"].default_value = (1.0, 0.95, 0.85, 1)
         b.inputs["Emission Strength"].default_value = 0.6
     node_material("MI_Sign_Letters", sign_letters)
+
+    def interior(nt, b):
+        b.inputs["Base Color"].default_value = (0.85, 0.82, 0.76, 1)
+        b.inputs["Emission Color"].default_value = (1.0, 0.92, 0.8, 1)
+        b.inputs["Emission Strength"].default_value = 1.2  # shop lighting seen through the glass
+    node_material("MI_Shop_Interior", interior)
 
 
 # --------------------------------------------------------------------------- assembly
@@ -152,25 +166,35 @@ def place(objname, mesh, col, x, y, z, yaw_ue, sx, sz, colour=None):
     return o
 
 
-def sign(col, text, x, y, z, yaw_ue, width, depth_out):
-    """Raised letters with the shop's real name, centred on the fascia."""
-    cu = bpy.data.curves.new("Sign_" + text[:20], "FONT")
-    cu.body = text
-    cu.align_x = "CENTER"
-    cu.align_y = "CENTER"
-    cu.extrude = 0.015
-    cu.size = 0.3
-    o = bpy.data.objects.new("Sign_" + text[:20], cu)
+def sign_plane(col, image_path, x, y, z, yaw_ue, width, height, out):
+    """Textured sign panel on the fascia (the texture made by tools/city/signs.py)."""
+    key = os.path.basename(image_path)
+    mat = bpy.data.materials.get(key)
+    if mat is None:
+        def build(nt, b):
+            tex = nt.nodes.new("ShaderNodeTexImage")
+            tex.image = bpy.data.images.load(image_path, check_existing=True)
+            nt.links.new(tex.outputs["Color"], b.inputs["Base Color"])
+            nt.links.new(tex.outputs["Color"], b.inputs["Emission Color"])
+            b.inputs["Emission Strength"].default_value = 0.15  # back-lit letters read at dusk
+            b.inputs["Roughness"].default_value = 0.35
+        mat = node_material(key, build)
+    me = bpy.data.meshes.get("SignPlane")
+    if me is None:
+        bpy.ops.mesh.primitive_plane_add(size=1.0)
+        tmp = bpy.context.active_object
+        me = tmp.data
+        me.name = "SignPlane"
+        bpy.data.objects.remove(tmp)
+        me.transform(__import__("mathutils").Matrix.Rotation(math.pi / 2, 4, "X"))  # plane in xz, facing -Y
+    o = bpy.data.objects.new("Sign_" + key, me.copy())
+    o.data.materials.append(mat)
     col.objects.link(o)
-    o.data.materials.append(bpy.data.materials["MI_Sign_Letters"])
-    bpy.context.view_layer.update()
-    w = o.dimensions.x or 1.0
-    s = min(1.0, (width * 0.85) / w)
     a = math.radians(-yaw_ue)
     nx, ny = math.cos(a), math.sin(a)
-    o.location = (x + nx * depth_out, y + ny * depth_out, z)
-    o.rotation_euler = (math.pi / 2, 0.0, a + math.pi / 2)
-    o.scale = (s, s, s)
+    o.location = (x + nx * out, y + ny * out, z)
+    o.rotation_euler = (0.0, 0.0, a + math.pi / 2)
+    o.scale = (width, 1.0, height)
     return o
 
 
@@ -213,6 +237,11 @@ def main():
         views.append((label, [float(v) for v in nums.split(",")]))
     cx, cy = (views[0][1][0], views[0][1][1]) if views else (0.0, 0.0)
 
+    signs_dir = os.path.join(gen, "signs")
+    sign_of = {}
+    if os.path.exists(os.path.join(signs_dir, "signs.csv")):
+        with open(os.path.join(signs_dir, "signs.csv"), encoding="utf-8") as f:
+            sign_of = {r["shop_osm_id"]: r for r in csv.DictReader(f) if r["has_fascia"] == "True"}
     street = bpy.data.collections.new("Street")
     scene.collection.children.link(street)
     top = {}
@@ -224,7 +253,7 @@ def main():
         if math.hypot(x - cx, y - cy) > args.radius:
             continue
         fam = kit.FAMILY_OF_TYPOLOGY[r["typology"]]
-        name = kit.KIND_TO_MODULE[fam][r["kind"]]
+        name = kit.module_for(r["typology"], r["kind"], r["building_id"])
         obj, nw, nh = modules[name]
         w, h, yaw = float(r["width_m"]), float(r["height_m"]), float(r["ue_yaw"])
         place(name + "_i", obj.data, street, x, y, z, yaw, w / nw, h / nh, r["colour"])
@@ -232,13 +261,14 @@ def main():
         if r["side"] == "street" and int(r["storey"]) == top[r["building_id"]]:
             eave = kit.KIND_TO_MODULE[fam]["_eave"]
             place(eave + "_i", modules[eave][0].data, street, x, y, z + h, yaw, w / nw, 1.0, r["colour"])
-        if r["kind"] == "shop" and r["sign_continued"] == "False":
-            text = r["sign_brand"] or r["sign_name"]
-            if text:
-                depth = 0.0 if fam == "haussmann" else 0.17
-                zf = z + h * ((nh - 1.125) / nh if fam == "haussmann" else (nh - 1.075) / nh)
-                sign(street, text, x, y, zf, yaw, w, depth + 0.01)
-                signs += 1
+        sg = sign_of.get(r["shop_osm_id"]) if r["kind"] == "shop" else None
+        if sg:
+            tex = sg["logo_texture"] if args.logos and sg["logo_texture"] else sg["texture"]
+            zc, out_m = kit.sign_frame(name, fam, h, nh)
+            fa = kit.FASCIA[fam]
+            sign_plane(street, os.path.join(signs_dir, tex + ".png"), x, y, z + zc, yaw,
+                       w * fa["width_share"] - 0.04, fa["height_m"] * h / nh - 0.04, out_m)
+            signs += 1
     print("assembled %d modules and %d signs within %.0f m" % (placed, signs, args.radius))
 
     shell = os.path.join(gen, "shell.glb")

@@ -15,6 +15,8 @@ python3 tools/city/build.py --name presqu-ile
 python3 tools/city/generate.py --name presqu-ile --focus "Rue de la République" --buffer 45
 python3 tools/city/terrain.py --name presqu-ile
 python3 tools/city/render.py --name presqu-ile --view street:176,-60,1.8,179,150,9
+python3 tools/city/brands.py --name presqu-ile --focus rue-de-la-republique   # brand colours and logos
+python3 tools/city/signs.py --name presqu-ile                                 # sign textures
 python3 -I -m unittest discover -s tools/city/tests
 ```
 
@@ -22,7 +24,8 @@ Facade kit (Blender 4.2+ or the `bpy` module, Python 3.11):
 `python tools/city/facade_kit/assemble.py --view street:176,-60,1.8,179,150,9`
 (or `blender -b -P tools/city/facade_kit/assemble.py -- --view ...`).
 
-Editor (one Unreal process at a time on the Mac): `unreal/import_city.py` then
-`unreal/place_facades.py`, see their docstrings.
+Editor (one Unreal process at a time on the Mac): `unreal/run_city_import.sh` runs
+`unreal/import_city.py`, `unreal/place_facades.py`, then plays the level for
+screenshots and frame times (`unreal/shoot_city.py`); see their docstrings.
 
 Raw and processed data live in `assets/geo/` and are not committed.
