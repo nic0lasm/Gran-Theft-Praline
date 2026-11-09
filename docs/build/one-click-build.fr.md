@@ -31,7 +31,10 @@ Lance le jeu empaqueté directement en jeu, enregistre chaque image et
 vérifie qu'il se ferme proprement au bout du temps demandé, sans rapport de
 plantage. Les preuves vont dans `Builds/<version>/evidence/<horodatage>/` :
 `frametimes.csv`, `frametimes.summary.txt` (p50, p95, p99, part des images
-sous 33,3 ms, délai avant la première image), `capture.mov`, `result.txt`.
+sous 33,3 ms, délai avant la première image), `title.jpg`, `capture.mov`,
+`result.txt`. La vidéo et l'image de l'écran titre sont filmées par le jeu
+lui-même, puis assemblées par `tools/build/frames-to-movie.swift`
+(frameworks système uniquement).
 Les preuves retenues pour une version sont copiées dans
 `production/evidence/<version>/` (vidéo via Git LFS).
 
@@ -44,6 +47,7 @@ Les preuves retenues pour une version sont copiées dans
 | `-FrameLogFile=<chemin>` | Enregistre les temps d'image dans ce fichier |
 | `-FrameLogWarmup=<s>` | Ignore les premières secondes (5 par défaut) |
 | `-ExitAfter=<s>` | Quitte proprement après ce nombre de secondes |
+| `-CaptureVideo=<s>` | Enregistre les images rendues en JPEG pendant ce nombre de secondes (`-CaptureFps`, 10 par défaut ; `-CaptureDelay`, 3 par défaut ; `-CaptureDir`) |
 
 L'enregistreur fonctionne aussi en Shipping : il lit les temps des fils du
 moteur (`frame`, `game`, `render`, `gpu`), pas le profileur.
@@ -59,6 +63,7 @@ moteur (`frame`, `game`, `render`, `gpu`), pas le profileur.
 | `AGTPPlayerController` | Écran titre et menu pause (Échap, bouton Menu de la manette) |
 | `UGTPTitleMenuWidget`, `UGTPPauseMenuWidget` | Menus construits en C++ avec UMG, sans asset de widget |
 | `UGTPFrameTimeRecorder` | CSV de temps d'image et arrêt des tests d'endurance |
+| `UGTPFrameCapture` | Filme le jeu de l'intérieur (sans autorisation d'enregistrement d'écran) |
 
 La classe du personnage jouable doit aussi être cuite : mettre son dossier
 dans `DirectoriesToAlwaysCook` ou la référencer depuis un asset cuit.
