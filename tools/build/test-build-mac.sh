@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
-# Soak test of a packaged build: launches it straight into gameplay, records
-# frame times for the whole run, optionally films the first minutes, and
-# checks that it quits cleanly (no crash).
+# Soak test of a packaged build. Two runs, both straight into gameplay:
+#   1. video run: the game films itself (-CaptureVideo), then the frames are
+#      turned into a movie by frames-to-movie.swift (no screen-recording
+#      permission needed);
+#   2. soak run: frame times recorded for the whole duration, then the game
+#      must quit cleanly with no crash report.
 #
 # Usage: tools/build/test-build-mac.sh [version] [duration_s] [video_s]
 #   version     default 0.1
 #   duration_s  default 600 (10 minutes)
-#   video_s     default 120; 0 disables the screen recording
-#               (screen recording needs the Screen Recording permission
-#               for the app running this script)
+#   video_s     default 120; 0 skips the video run
 #
 # Output: Builds/<version>/evidence/<timestamp>/
-#   frametimes.csv, frametimes.summary.txt, capture.mov, result.txt
+#   title.jpg, capture.mov, frametimes.csv, frametimes.summary.txt, result.txt
 set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -34,17 +35,40 @@ test -n "$exe" || die "no executable inside $app_path"
 stamp="$(date +%Y%m%d-%H%M%S)"
 out_dir="$builds_dir/$version/evidence/$stamp"
 mkdir -p "$out_dir"
+touch "$out_dir/.start"
 csv="$out_dir/frametimes.csv"
 
 echo "Running $(basename "$exe") for ${duration}s, evidence in $out_dir"
 
-recorder_pid=""
-if test "$video" -gt 0; then
-  # Give the game time to open its window before filming.
-  ( sleep 15 && screencapture -v -x -V "$video" "$out_dir/capture.mov" ) &
-  recorder_pid=$!
+# Title screen still: launch without -SkipTitle and keep one frame.
+title_status="failed"
+set +e
+"$exe" -CaptureVideo=1 -CaptureFps=1 -CaptureDelay=10 -CaptureDir="$out_dir/title" -ExitAfter=16 \
+  > "$out_dir/title-run.log" 2>&1
+set -e
+if test -f "$out_dir/title/frame_00000.jpg"; then
+  mv "$out_dir/title/frame_00000.jpg" "$out_dir/title.jpg"
+  rm -rf "$out_dir/title"
+  title_status="ok"
 fi
 
+video_status="skipped"
+if test "$video" -gt 0; then
+  fps=10
+  echo "Video run: ${video}s at ${fps} fps"
+  set +e
+  "$exe" -SkipTitle -CaptureVideo="$video" -CaptureFps="$fps" -CaptureDelay=5 \
+    -CaptureDir="$out_dir/frames" -ExitAfter=$(( video + 15 )) > "$out_dir/video-run.log" 2>&1
+  set -e
+  if swift "$script_dir/frames-to-movie.swift" "$out_dir/frames" "$fps" "$out_dir/capture.mov"; then
+    video_status="ok"
+    rm -rf "$out_dir/frames"
+  else
+    video_status="failed (frames kept in $out_dir/frames)"
+  fi
+fi
+
+echo "Soak run: ${duration}s"
 start="$(date +%s)"
 set +e
 "$exe" -SkipTitle -FrameLogFile="$csv" -ExitAfter="$duration" > "$out_dir/stdout.log" 2>&1
@@ -52,11 +76,7 @@ status=$?
 set -e
 elapsed=$(( $(date +%s) - start ))
 
-if test -n "$recorder_pid"; then
-  wait "$recorder_pid" || echo "screen recording failed (permission?)" >&2
-fi
-
-crash_reports="$(find "$HOME/Library/Logs/DiagnosticReports" -newer "$out_dir/stdout.log" -iname '*GranTheftPraline*' 2>/dev/null | wc -l | tr -d ' ')"
+crash_reports="$(find "$HOME/Library/Logs/DiagnosticReports" -newer "$out_dir/.start" -iname '*GranTheftPraline*' 2>/dev/null | wc -l | tr -d ' ')"
 
 verdict="PASS"
 test "$status" -eq 0 || verdict="FAIL"
@@ -70,6 +90,8 @@ test "$elapsed" -ge "$duration" || verdict="FAIL"
   echo "elapsed_s=$elapsed"
   echo "requested_s=$duration"
   echo "crash_reports=$crash_reports"
+  echo "title=$title_status"
+  echo "video=$video_status"
   cat "$builds_dir/$version/build-info.txt" 2>/dev/null || true
 } > "$out_dir/result.txt"
 
