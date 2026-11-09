@@ -1,0 +1,13 @@
+verdict=PASS
+exit_status=0
+elapsed_s=602
+requested_s=600
+crash_reports=0
+title=ok
+video=ok
+version=0.1
+configuration=Shipping
+commit=76cddbd
+built=2026-11-09T19:10:45Z
+duration_s=714
+size=1.1G
