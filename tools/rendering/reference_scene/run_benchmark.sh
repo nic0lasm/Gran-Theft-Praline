@@ -69,7 +69,16 @@ for state in "${states[@]}"; do
     run "$state" 1800 "$profile"
     latest="$(ls -1t "$saved"/*.csv | head -n 1)"
     test "$(ls -1 "$saved" | wc -l)" -gt "$before" || { echo "no new CSV for $state / $profile" >&2; exit 1; }
-    cp "$latest" "$out/csv$(suffix "$profile")/$state.csv"
+    # Copy the CSV with the absolute repository path (local folder names) made
+    # relative, so published results do not leak the machine's directory layout.
+    python3 - "$latest" "$out/csv$(suffix "$profile")/$state.csv" "$repo/" <<'PY'
+import sys
+src, dst, prefix = sys.argv[1:4]
+with open(src, "rb") as f:
+    data = f.read()
+with open(dst, "wb") as f:
+    f.write(data.replace(prefix.encode(), b""))
+PY
   done
 done
 load_after="$(uptime)"
