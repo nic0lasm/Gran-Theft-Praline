@@ -22,7 +22,18 @@ assets/geo/raw/**
 # Unreal per-user scratch content
 **/Content/Developers/
 
-# Epic sample content: used and packaged, never published in source form
+# Epic sample content: used and packaged, never published in source form.
+# Game Animation Sample folders copied by tools/character/install_gasp_content.sh
+# (same /Game paths as in the sample). Our own content sits in
+# Content/Characters/Player/ and Content/Input/GTP/.
+/GranTheftPraline/Content/Audio/
+/GranTheftPraline/Content/Blueprints/
+/GranTheftPraline/Content/Characters/*
+!/GranTheftPraline/Content/Characters/Player/
+/GranTheftPraline/Content/Input/*
+!/GranTheftPraline/Content/Input/GTP/
+/GranTheftPraline/Content/Levels/
+/GranTheftPraline/Content/Misc/
 GranTheftPraline/Plugins/GameAnimationSample/
 # Fab and Megascans content, same rule
 GranTheftPraline/Plugins/FabContent/
