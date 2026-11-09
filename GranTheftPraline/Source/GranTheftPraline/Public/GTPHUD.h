@@ -49,6 +49,7 @@ private:
 	void DrawPrompts(float Scale, float DeltaTime);
 	void DrawMessage(float Scale);
 	float TextScaleFor(const UFont* Font, float Scale) const;
+	FVector2D MeasureText(const UFont* Font, const FText& Text, float TextScale) const;
 
 	float PromptAlpha = 0.f;
 	/** Last lines shown, kept while they fade out. */
