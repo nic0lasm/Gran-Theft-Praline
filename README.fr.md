@@ -82,9 +82,10 @@ La version **0.1 « Jouer en un clic »** est sortie le **9 novembre 2026**,
 18 jours avant la date prévue : double-clic sur `GranTheftPraline.app`, bouton
 *Jouer*, et vous voilà rue de la République.
 
-Les versions ne sont pas encore proposées en téléchargement : pour l'instant,
-on [compile l'application soi-même](#le-compiler-soi-même) avec un seul
-script. Elle tourne sur un Mac Apple Silicon.
+**[⬇️ Télécharger la version 0.1 pour macOS](https://github.com/nic0lasm/Gran-Theft-Praline/releases/tag/v0.1.0)**
+(Mac Apple Silicon). L'application n'est pas encore signée par Apple : les
+notes de version expliquent comment l'ouvrir la première fois. On peut aussi
+[compiler l'application soi-même](#le-compiler-soi-même) avec un seul script.
 
 | Action | Clavier AZERTY | Clavier QWERTY | Manette |
 | ---- | ---- | ---- | ---- |

@@ -81,9 +81,10 @@ Version **0.1 "Play in one click"** was delivered on **November 9, 2026**,
 18 days ahead of its target date: double-click `GranTheftPraline.app`, press
 *Play*, and you are in rue de la République.
 
-Builds are not published for download yet: for now you
-[build the app yourself](#-build-it-yourself) with a single script. It runs
-on a Mac with Apple Silicon.
+**[⬇️ Download version 0.1 for macOS](https://github.com/nic0lasm/Gran-Theft-Praline/releases/tag/v0.1.0)**
+(Mac with Apple Silicon). The app is not signed by Apple yet: the release
+notes explain how to open it the first time. You can also
+[build the app yourself](#-build-it-yourself) with a single script.
 
 | Action | Keyboard (AZERTY) | Keyboard (QWERTY) | Gamepad |
 | ---- | ---- | ---- | ---- |
