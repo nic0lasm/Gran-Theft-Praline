@@ -3,6 +3,9 @@
 #include "GTPCameraModeComponent.h"
 #include "GTPGameInstance.h"
 #include "GTPMenuWidgets.h"
+#include "GTPVehicle.h"
+#include "GTPVehicleInput.h"
+#include "GTPVehicleInteractionComponent.h"
 #include "Blueprint/UserWidget.h"
 #include "Camera/PlayerCameraManager.h"
 #include "EnhancedInputComponent.h"
@@ -22,11 +25,70 @@ namespace
 	// Gamepad mappings are added below the keyboard ones; both stay active.
 	constexpr int32 KeyboardContextPriority = 1;
 	constexpr int32 GamepadContextPriority = 0;
+	// Enter / exit sits above everything so the on-foot contexts cannot hide it.
+	constexpr int32 InteractionContextPriority = 2;
 }
 
 AGTPPlayerController::AGTPPlayerController()
 {
 	CameraMode = CreateDefaultSubobject<UGTPCameraModeComponent>(TEXT("CameraMode"));
+	VehicleInteraction = CreateDefaultSubobject<UGTPVehicleInteractionComponent>(TEXT("VehicleInteraction"));
+}
+
+bool AGTPPlayerController::UsesQwerty() const
+{
+	return bQwertyKeyboard || FParse::Param(FCommandLine::Get(), TEXT("Qwerty"));
+}
+
+UGTPVehicleInput* AGTPPlayerController::GetVehicleInput()
+{
+	if (!VehicleInput)
+	{
+		VehicleInput = NewObject<UGTPVehicleInput>(this, TEXT("VehicleInput"), RF_Transient);
+	}
+	VehicleInput->Build(UsesQwerty());
+	return VehicleInput;
+}
+
+void AGTPPlayerController::ApplyInputForPawn()
+{
+	if (Cast<AGTPVehicle>(GetPawn()))
+	{
+		ApplyDrivingInput();
+	}
+	else
+	{
+		ApplyOnFootInput();
+	}
+}
+
+void AGTPPlayerController::ApplyDrivingInput()
+{
+	UEnhancedInputLocalPlayerSubsystem* Input = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer());
+	if (!Input)
+	{
+		return;
+	}
+	for (const TSoftObjectPtr<UInputMappingContext>& OnFoot : {SampleContext, KeyboardContextAzerty, KeyboardContextQwerty, GamepadContext})
+	{
+		if (UInputMappingContext* Context = OnFoot.LoadSynchronous())
+		{
+			Input->RemoveMappingContext(Context);
+		}
+	}
+	UGTPVehicleInput* Vehicle = GetVehicleInput();
+	if (!Input->HasMappingContext(Vehicle->Interaction))
+	{
+		Input->AddMappingContext(Vehicle->Interaction, InteractionContextPriority);
+	}
+	if (!Input->HasMappingContext(Vehicle->DrivingKeyboard))
+	{
+		Input->AddMappingContext(Vehicle->DrivingKeyboard, KeyboardContextPriority);
+	}
+	if (!Input->HasMappingContext(Vehicle->DrivingGamepad))
+	{
+		Input->AddMappingContext(Vehicle->DrivingGamepad, GamepadContextPriority);
+	}
 }
 
 void AGTPPlayerController::OnPossess(APawn* InPawn)
@@ -36,10 +98,10 @@ void AGTPPlayerController::OnPossess(APawn* InPawn)
 	{
 		return;
 	}
-	ApplyOnFootInput();
+	ApplyInputForPawn();
 	// The sample character adds its own context from its possession events,
 	// which may run after this point: apply ours again on the next tick.
-	GetWorldTimerManager().SetTimerForNextTick(this, &AGTPPlayerController::ApplyOnFootInput);
+	GetWorldTimerManager().SetTimerForNextTick(this, &AGTPPlayerController::ApplyInputForPawn);
 	CameraMode->HandlePawnChanged(InPawn);
 	if (bViewSettledOnce)
 	{
@@ -94,7 +156,17 @@ void AGTPPlayerController::ApplyOnFootInput()
 	{
 		return;
 	}
-	const bool bQwerty = bQwertyKeyboard || FParse::Param(FCommandLine::Get(), TEXT("Qwerty"));
+	const bool bQwerty = UsesQwerty();
+
+	// Leaving a vehicle: drop the driving contexts, keep enter / exit.
+	UGTPVehicleInput* Vehicle = GetVehicleInput();
+	Input->RemoveMappingContext(Vehicle->DrivingKeyboard);
+	Input->RemoveMappingContext(Vehicle->DrivingGamepad);
+	if (!Input->HasMappingContext(Vehicle->Interaction))
+	{
+		Input->AddMappingContext(Vehicle->Interaction, InteractionContextPriority);
+	}
+
 	UInputMappingContext* Sample = SampleContext.LoadSynchronous();
 	UInputMappingContext* Azerty = KeyboardContextAzerty.LoadSynchronous();
 	UInputMappingContext* Qwerty = KeyboardContextQwerty.LoadSynchronous();
@@ -133,6 +205,20 @@ void AGTPPlayerController::SetupInputComponent()
 	if (Enhanced && Toggle)
 	{
 		Enhanced->BindAction(Toggle, ETriggerEvent::Started, this, &AGTPPlayerController::OnToggleCameraMode);
+	}
+	if (Enhanced)
+	{
+		UGTPVehicleInput* Vehicle = GetVehicleInput();
+		Enhanced->BindAction(Vehicle->EnterExit, ETriggerEvent::Started, this, &AGTPPlayerController::OnEnterExit);
+		Enhanced->BindAction(Vehicle->ToggleView, ETriggerEvent::Started, this, &AGTPPlayerController::OnToggleCameraMode);
+	}
+}
+
+void AGTPPlayerController::OnEnterExit()
+{
+	if (!TitleMenu && !PauseMenu)
+	{
+		VehicleInteraction->HandleEnterExit();
 	}
 }
 

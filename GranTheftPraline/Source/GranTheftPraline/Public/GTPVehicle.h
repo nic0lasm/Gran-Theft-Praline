@@ -1,0 +1,369 @@
+#pragma once
+
+#include "CoreMinimal.h"
+#include "Engine/TimerHandle.h"
+#include "WheeledVehiclePawn.h"
+#include "GTPVehicle.generated.h"
+
+class AController;
+class ACharacter;
+class UAnimMontage;
+class UCameraComponent;
+class UChaosWheeledVehicleMovementComponent;
+class UPrimitiveComponent;
+class USpringArmComponent;
+struct FInputActionValue;
+
+/** Side of the car, seen from the driver's seat. France drives on the right: the driver sits on the left. */
+UENUM(BlueprintType)
+enum class EGTPVehicleSide : uint8
+{
+	Left,
+	Right
+};
+
+/** How the player gets in, chosen from the state of the car when the enter key is pressed. */
+UENUM(BlueprintType)
+enum class EGTPEntryKind : uint8
+{
+	/** Unlocked, empty: open the door and sit. */
+	OpenDoor,
+	/** Locked, empty: break the side window, then open from inside. */
+	BreakWindow,
+	/** Someone at the wheel: open the door and pull the driver out. */
+	Carjack
+};
+
+UENUM(BlueprintType)
+enum class EGTPVehicleState : uint8
+{
+	Parked,
+	Entering,
+	Driven,
+	Exiting,
+	Wrecked
+};
+
+/** Damage zones, each driving one morph target on the body mesh. */
+UENUM(BlueprintType)
+enum class EGTPDamageZone : uint8
+{
+	Front,
+	Rear,
+	Left,
+	Right
+};
+
+/**
+ * Drivable car: Chaos Vehicles physics, GTA-style enter and exit, chase and
+ * interior cameras, simple damage (dents through morph targets, breakable
+ * glass, wrecked state).
+ *
+ * The C++ class carries the behaviour and the default tuning of a French
+ * city car (about 1,100 kg, front-wheel drive). Each model is a Blueprint
+ * child that sets the skeletal mesh, its animation Blueprint (wheel
+ * controller), the glass components and, if needed, its own tuning.
+ *
+ * Mesh conventions (docs/gameplay/vehicles.md, section 9):
+ * - wheel bones Phys_Wheel_FL, Phys_Wheel_FR, Phys_Wheel_BL, Phys_Wheel_BR;
+ * - socket seat_driver (falls back to DriverSeatOffset);
+ * - morph targets Dent_Front, Dent_Rear, Dent_Left, Dent_Right;
+ * - glass as separate components tagged "Glass" plus one zone tag
+ *   (Front, Rear, Left, Right).
+ *
+ * Driving input comes from the player controller's vehicle input set
+ * (UGTPVehicleInput), built in code: no input asset is needed.
+ */
+UCLASS(Config = Game)
+class GRANTHEFTPRALINE_API AGTPVehicle : public AWheeledVehiclePawn
+{
+	GENERATED_BODY()
+
+public:
+	AGTPVehicle(const FObjectInitializer& ObjectInitializer);
+
+	// --- Enter and exit -------------------------------------------------
+
+	/** True when Character may start getting in now. */
+	UFUNCTION(BlueprintPure, Category = "Vehicle|Seats")
+	bool CanEnter(const ACharacter* Character) const;
+
+	UFUNCTION(BlueprintPure, Category = "Vehicle|Seats")
+	EGTPEntryKind GetEntryKind() const;
+
+	/** World position where a character stands to open this door. */
+	UFUNCTION(BlueprintPure, Category = "Vehicle|Seats")
+	FVector GetDoorLocation(EGTPVehicleSide Side) const;
+
+	/**
+	 * Starts the entry sequence: Character walks to the driver door, opens
+	 * it (breaking the window or pulling the driver out if needed), sits,
+	 * then Controller possesses the car. Returns false if the car cannot be
+	 * entered now.
+	 */
+	bool BeginEnter(ACharacter* Character, AController* Controller);
+
+	/** Asks the driver to get out: stops first, or bails out above BailOutSpeedKmh. */
+	UFUNCTION(BlueprintCallable, Category = "Vehicle|Seats")
+	void RequestExit();
+
+	/** Seats a non-player driver (traffic, tests) without any sequence. */
+	UFUNCTION(BlueprintCallable, Category = "Vehicle|Seats")
+	void SeatOccupant(ACharacter* Character);
+
+	UFUNCTION(BlueprintPure, Category = "Vehicle|Seats")
+	ACharacter* GetDriver() const { return Driver; }
+
+	/** Wrecked is reported for a destroyed car nobody sits in. */
+	UFUNCTION(BlueprintPure, Category = "Vehicle")
+	EGTPVehicleState GetVehicleState() const { return (bWrecked && State == EGTPVehicleState::Parked) ? EGTPVehicleState::Wrecked : State; }
+
+	UFUNCTION(BlueprintPure, Category = "Vehicle|Damage")
+	bool IsWrecked() const { return bWrecked; }
+
+	/** Signed forward speed, in km/h. */
+	UFUNCTION(BlueprintPure, Category = "Vehicle")
+	float GetSpeedKmh() const;
+
+	// --- Camera ---------------------------------------------------------
+
+	/** Interior (first person) view instead of the chase camera. */
+	UFUNCTION(BlueprintCallable, Category = "Vehicle|Camera")
+	void SetInteriorView(bool bEnable);
+
+	UFUNCTION(BlueprintPure, Category = "Vehicle|Camera")
+	bool IsInteriorView() const { return bInteriorView; }
+
+	// --- Damage ---------------------------------------------------------
+
+	UFUNCTION(BlueprintPure, Category = "Vehicle|Damage")
+	float GetHealth() const { return Health; }
+
+	/** Adds damage to one zone (dents, glass) and to the health of the car. */
+	UFUNCTION(BlueprintCallable, Category = "Vehicle|Damage")
+	void ApplyZoneDamage(EGTPDamageZone Zone, float Amount);
+
+	virtual float TakeDamage(float DamageAmount, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
+
+	/** Locked cars are entered by breaking a side window. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vehicle|Seats")
+	bool bLocked = false;
+
+protected:
+	virtual void BeginPlay() override;
+	virtual void Tick(float DeltaSeconds) override;
+	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
+	virtual void PossessedBy(AController* NewController) override;
+	virtual void UnPossessed() override;
+
+	// Components ---------------------------------------------------------
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Vehicle|Camera")
+	TObjectPtr<USpringArmComponent> ChaseArm;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Vehicle|Camera")
+	TObjectPtr<UCameraComponent> ChaseCamera;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Vehicle|Camera")
+	TObjectPtr<UCameraComponent> InteriorCamera;
+
+	// Seats and doors ----------------------------------------------------
+
+	/** Side of the driver's door. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Vehicle|Seats")
+	EGTPVehicleSide DriverSide = EGTPVehicleSide::Left;
+
+	/** Where a character stands to open the left door, in actor space (cm). The right door mirrors it. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Vehicle|Seats")
+	FVector LeftDoorOffset = FVector(10.f, -150.f, 0.f);
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Vehicle|Seats")
+	FName DriverSeatSocket = TEXT("seat_driver");
+
+	/** Used when the mesh has no DriverSeatSocket, in actor space (cm). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Vehicle|Seats")
+	FVector DriverSeatOffset = FVector(-20.f, -38.f, 40.f);
+
+	/** The driver stays visible once a seated pose exists for our character; hidden until then. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Vehicle|Seats")
+	bool bShowDriverInside = false;
+
+	/** Optional montages played on the character (left-side versions; right side is mirrored later). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Vehicle|Seats")
+	TSoftObjectPtr<UAnimMontage> EnterMontage;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Vehicle|Seats")
+	TSoftObjectPtr<UAnimMontage> BreakWindowMontage;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Vehicle|Seats")
+	TSoftObjectPtr<UAnimMontage> CarjackMontage;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Vehicle|Seats")
+	TSoftObjectPtr<UAnimMontage> ExitMontage;
+
+	/** Duration of each entry, used when no montage is set (seconds). */
+	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Seats")
+	float EnterDuration = 0.9f;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Seats")
+	float BreakWindowDuration = 1.6f;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Seats")
+	float CarjackDuration = 2.2f;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Seats")
+	float ExitDuration = 0.7f;
+
+	/** Above this speed the driver jumps out instead of stopping first (km/h). */
+	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Seats")
+	float BailOutSpeedKmh = 40.f;
+
+	/** Below this speed the car counts as stopped for a normal exit (km/h). */
+	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Seats")
+	float StoppedSpeedKmh = 4.f;
+
+	/** Sideways launch speed of a bail out (cm/s). */
+	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Seats")
+	float BailOutLaunchSpeed = 450.f;
+
+	// Camera -------------------------------------------------------------
+
+	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Camera")
+	float ChaseDistance = 620.f;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Camera")
+	float ChaseHeight = 170.f;
+
+	/** Pitch the camera returns to when recentring (degrees). */
+	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Camera")
+	float ChasePitch = -10.f;
+
+	/** Seconds without look input before the camera swings back behind the car. */
+	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Camera")
+	float RecenterDelay = 1.5f;
+
+	/** Recentring speed (interpolation speed, 1/s). */
+	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Camera")
+	float RecenterSpeed = 2.5f;
+
+	/** No recentring below this speed, so the player can look around a parked car (km/h). */
+	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Camera")
+	float RecenterMinSpeedKmh = 10.f;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Camera")
+	float BaseFOV = 75.f;
+
+	/** FOV reached at FOVMaxSpeedKmh, for a sense of speed. */
+	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Camera")
+	float MaxSpeedFOV = 88.f;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Camera")
+	float FOVMaxSpeedKmh = 130.f;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Camera")
+	float InteriorFOV = 85.f;
+
+	/** Driver eye position for the interior view, in actor space (cm). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Vehicle|Camera")
+	FVector InteriorEyeOffset = FVector(-25.f, -38.f, 115.f);
+
+	// Damage -------------------------------------------------------------
+
+	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Damage")
+	float MaxHealth = 1000.f;
+
+	/** Impacts below this change of speed do nothing (cm/s, about 11 km/h). */
+	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Damage")
+	float MinImpactSpeed = 300.f;
+
+	/** Damage per cm/s of speed change above MinImpactSpeed. */
+	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Damage")
+	float DamagePerImpactSpeed = 0.12f;
+
+	/** Zone damage at which a zone's dent morph is fully applied. */
+	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Damage")
+	float FullDentDamage = 400.f;
+
+	/** Zone damage at which the glass of that zone breaks. */
+	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Damage")
+	float GlassBreakDamage = 120.f;
+
+	/** Below this share of health the engine smokes (smoke FX comes with the art pass). */
+	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Damage")
+	float SmokeHealthRatio = 0.35f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Vehicle|Damage")
+	TMap<EGTPDamageZone, FName> DentMorphTargets;
+
+	/** Blueprint hook: dents, glass, smoke and wreck changes, for FX and sound. */
+	UFUNCTION(BlueprintImplementableEvent, Category = "Vehicle|Damage")
+	void OnDamageChanged(EGTPDamageZone Zone, float ZoneDamage, float NewHealth);
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Vehicle|Damage")
+	void OnGlassBroken(EGTPDamageZone Zone);
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Vehicle|Damage")
+	void OnWrecked();
+
+private:
+	// Input
+	void OnThrottle(const FInputActionValue& Value);
+	void OnThrottleReleased();
+	void OnBrake(const FInputActionValue& Value);
+	void OnBrakeReleased();
+	void OnSteer(const FInputActionValue& Value);
+	void OnSteerReleased();
+	void OnHandbrakeStarted();
+	void OnHandbrakeCompleted();
+	void OnLook(const FInputActionValue& Value);
+	void OnLookBehindStarted();
+	void OnLookBehindCompleted();
+	void ClearDrivingInput();
+
+	// Enter / exit
+	void FinishEnter();
+	void PollExit();
+	void DoExit(bool bBailOut);
+	bool FindExitLocation(const ACharacter* Character, FVector& OutLocation, EGTPVehicleSide& OutSide) const;
+	EGTPVehicleSide GetPassengerSide() const;
+	void AttachToSeat(ACharacter* Character);
+	void ReleaseCharacter(ACharacter* Character, const FVector& Location, const FRotator& Rotation);
+	float PlayMontageOr(ACharacter* Character, const TSoftObjectPtr<UAnimMontage>& Montage, float Fallback) const;
+
+	// Camera
+	void UpdateChaseCamera(float DeltaSeconds);
+
+	// Damage
+	UFUNCTION()
+	void OnBodyHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
+	EGTPDamageZone ZoneFromWorldLocation(const FVector& WorldLocation) const;
+	void BreakGlass(EGTPDamageZone Zone);
+	void SetWrecked();
+
+	void ApplyCityCarTuning();
+	UChaosWheeledVehicleMovementComponent* GetWheeledMovement() const;
+
+	UPROPERTY(Transient)
+	TObjectPtr<ACharacter> Driver;
+
+	UPROPERTY(Transient)
+	TObjectPtr<ACharacter> EnteringCharacter;
+
+	UPROPERTY(Transient)
+	TObjectPtr<AController> EnteringController;
+
+	EGTPVehicleState State = EGTPVehicleState::Parked;
+	EGTPEntryKind PendingEntry = EGTPEntryKind::OpenDoor;
+	FTimerHandle SequenceTimer;
+	float ExitWaitTime = 0.f;
+
+	bool bInteriorView = false;
+	bool bLookingBehind = false;
+	float LastLookInputTime = -1000.f;
+
+	float Health = 1000.f;
+	bool bWrecked = false;
+	float ZoneDamage[4] = {0.f, 0.f, 0.f, 0.f};
+	bool bGlassBroken[4] = {false, false, false, false};
+	float LastImpactTime = -1000.f;
+};

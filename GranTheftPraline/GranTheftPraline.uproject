@@ -119,6 +119,10 @@
 		{
 			"Name": "GameplayCameras",
 			"Enabled": true
+		},
+		{
+			"Name": "ChaosVehiclesPlugin",
+			"Enabled": true
 		}
 	]
 }
