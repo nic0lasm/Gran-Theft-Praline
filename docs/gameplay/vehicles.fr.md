@@ -222,12 +222,19 @@ environ 2 min par voiture. Limites connues :
 
 - **Vitres** : Tripo peint les vitres avec les reflets de la carrosserie
   (même couleur, rugosité et métal), la texture ne les distingue donc pas.
-  Le script prend toute la partie haute (au-dessus de la ceinture de caisse,
-  sans le toit) ; les montants reçoivent aussi une fine couche de verre.
-  Vraie transparence = il faudra un habitacle (plus tard).
-- **Proportions** : à longueur réelle, les masters sont ~13 % trop hauts
-  (Clio 1,62 m au lieu de 1,44 m). Échelle uniforme gardée pour ne pas
-  ovaliser les roues ; à corriger à la génération si ça se voit.
+  Par défaut, le script prend toute la partie haute (au-dessus de la
+  ceinture de caisse, sans le toit). Pour une voiture prioritaire,
+  `vehicles.json` peut donner le contour réel des fenêtres
+  (`"mode": "outline"` : polygones vus de dessus pour le pare-brise et la
+  lunette, vus de côté pour les vitres latérales) ; la Clio V l'utilise
+  (2026-11-09), rétroviseurs et montants restent carrosserie. Vraie
+  transparence = il faudra un habitacle (plus tard).
+- **Proportions** : à longueur réelle, les masters sont ~13 % trop hauts.
+  Avec `height_m`, le script ne comprime que ce qui est au-dessus des roues
+  (2,15 rayons de roue), les roues restent rondes : Clio V 1,46 m (réel
+  1,44 m).
+- **Bosses** : les quatre morph targets sont exportés à poids 0 (la voiture
+  démarre intacte).
 - **LOD du profil M1** : générés par la réduction de maillage squelettique
   d'Unreal à l'import (LOD 1 ≈ 120 k triangles) ; la décimation de Blender
   casse l'ombrage de ces surfaces à ce taux.
