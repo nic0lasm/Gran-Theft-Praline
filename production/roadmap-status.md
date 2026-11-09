@@ -15,7 +15,7 @@ Target: 2026-11-27. Progress: 3 / 8 tasks.
 | 2 | Git LFS rules set up, quota checked | Build and one-click launch | ✅ | [rules](../docs/project/git-lfs.md); ~30 MB in LFS out of 10 GiB |
 | 3 | Game Animation Sample integrated (character, motion matching, camera) | Playable character | 🟡 plan ready, editor pending | [plan](../docs/gameplay/player-character.md) |
 | 4 | Enhanced Input for keyboard-mouse and gamepad | Playable character | 🟡 mappings defined | [plan §5](../docs/gameplay/player-character.md) |
-| 5 | Playable `L_RueRepublique` level (collisions, PlayerStart, boundaries) | Playable rue de la République | ⬜ | |
+| 5 | Playable `L_RueRepublique` level (collisions, PlayerStart, boundaries) | Playable rue de la République | 🟡 | Reference scene merged; `tools/level/` scripts written, to run in the editor |
 | 6 | Title screen and pause menu | Build and one-click launch | 🟡 | code compiled; title screen still at next test |
 | 7 | macOS packaging script → `GTAL/Builds/0.1/` | Build and one-click launch | ✅ | [package-mac.sh](../tools/build/package-mac.sh): 154 s, 944 MB (Metal SM5 + SM6 cooked for the M1) |
 | 8 | Build tested: 2 min video, frame-time CSV, 10 min without a crash | Build and one-click launch | ⬜ | |

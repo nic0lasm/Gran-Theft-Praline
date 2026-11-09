@@ -15,7 +15,7 @@ Cible : 2026-11-27. Avancement : 3 / 8 tâches.
 | 2 | Règles Git LFS posées, quota vérifié | Build et lancement en un clic | ✅ | [règles](../docs/project/git-lfs.fr.md) ; ~30 Mo en LFS sur 10 Gio |
 | 3 | Game Animation Sample intégré (personnage, motion matching, caméra) | Personnage jouable | 🟡 plan prêt, éditeur en attente | [plan](../docs/gameplay/player-character.fr.md) |
 | 4 | Enhanced Input clavier-souris et manette | Personnage jouable | 🟡 mappings définis | [§5 du plan](../docs/gameplay/player-character.fr.md) |
-| 5 | Niveau `L_RueRepublique` jouable (collisions, PlayerStart, limites) | Rue de la République jouable | ⬜ | |
+| 5 | Niveau `L_RueRepublique` jouable (collisions, PlayerStart, limites) | Rue de la République jouable | 🟡 | Scène témoin fusionnée ; scripts `tools/level/` écrits, à exécuter dans l'éditeur |
 | 6 | Écran titre et menu pause | Build et lancement en un clic | 🟡 | code compilé ; capture de l'écran titre au prochain test |
 | 7 | Script de packaging macOS → `GTAL/Builds/0.1/` | Build et lancement en un clic | ✅ | [package-mac.sh](../tools/build/package-mac.sh) : 154 s, 944 Mo (cuisson Metal SM5 + SM6 pour le M1) |
 | 8 | Build testée : vidéo 2 min, CSV de temps d'image, 10 min sans plantage | Build et lancement en un clic | ⬜ | |
