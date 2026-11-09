@@ -11,13 +11,13 @@ Cible : 2026-11-27. Avancement : 0 / 8 tâches.
 
 | # | Tâche | Fil | Statut | Preuve |
 | ---- | ---- | ---- | ---- | ---- |
-| 1 | Projet passé en C++ (GameMode, PlayerController, GameInstance) | Build et lancement en un clic | ⬜ | |
-| 2 | Règles Git LFS posées, quota vérifié | Build et lancement en un clic | ⬜ | |
+| 1 | Projet passé en C++ (GameMode, PlayerController, GameInstance) | Build et lancement en un clic | 🟡 | code écrit, compilation sur le Mac à faire |
+| 2 | Règles Git LFS posées, quota vérifié | Build et lancement en un clic | 🟡 | [règles](../docs/project/git-lfs.fr.md) ; quota à relever |
 | 3 | Game Animation Sample intégré (personnage, motion matching, caméra) | Personnage jouable | 🟡 plan prêt, éditeur en attente | [plan](../docs/gameplay/player-character.fr.md) |
 | 4 | Enhanced Input clavier-souris et manette | Personnage jouable | 🟡 mappings définis | [§5 du plan](../docs/gameplay/player-character.fr.md) |
 | 5 | Niveau `L_RueRepublique` jouable (collisions, PlayerStart, limites) | Rue de la République jouable | ⬜ | |
-| 6 | Écran titre et menu pause | Build et lancement en un clic | ⬜ | |
-| 7 | Script de packaging macOS → `GTAL/Builds/0.1/` | Build et lancement en un clic | ⬜ | |
+| 6 | Écran titre et menu pause | Build et lancement en un clic | 🟡 | code écrit (UMG en C++), à tester |
+| 7 | Script de packaging macOS → `GTAL/Builds/0.1/` | Build et lancement en un clic | 🟡 | [package-mac.sh](../tools/build/package-mac.sh), à exécuter |
 | 8 | Build testée : vidéo 2 min, CSV de temps d'image, 10 min sans plantage | Build et lancement en un clic | ⬜ | |
 
 En parallèle (pour la 0.2) : vague Tripo 1, mobilier urbain, 0 / 60 modèles

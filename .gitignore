@@ -3,7 +3,9 @@ Binaries/
 DerivedDataCache/
 Intermediate/
 Saved/
-Build/
+/GranTheftPraline/Build/
+# Packaged games (tools/build/package-mac.sh), kept on the Mac only
+/Builds/
 *.sln
 *.xcworkspace
 .vs/
