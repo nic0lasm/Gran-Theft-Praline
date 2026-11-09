@@ -30,9 +30,11 @@ def read(path):
     header = rows[0]
     data = []
     for row in rows[1:]:
-        if len(row) != len(header):
+        if row and row[0] == header[0]:
+            break  # header repeated before the metadata footer ([HasHeaderRowAtEnd])
+        if len(row) < len(header) - 1:
             break  # metadata footer
-        data.append(row)
+        data.append(row)  # rows without an event have no trailing EVENTS cell
     return header, data[SKIP_FRAMES:]
 
 
@@ -40,10 +42,10 @@ def column(header, data, *names):
     for name in names:
         if name in header:
             i = header.index(name)
-            return [float(r[i]) for r in data if r[i]]
+            return [float(r[i]) for r in data if i < len(r) and r[i]]
     for i, h in enumerate(header):
         if any(n.lower() in h.lower() for n in names):
-            return [float(r[i]) for r in data if r[i]]
+            return [float(r[i]) for r in data if i < len(r) and r[i]]
     return []
 
 

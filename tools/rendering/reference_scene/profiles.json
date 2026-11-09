@@ -1,0 +1,32 @@
+{
+  "_comment": "Rendering profiles for run_benchmark.sh and render_stills.py. Each profile is a list of console variables applied on top of the project settings.",
+  "fidelity": {
+    "description": "ADR-0002 fidelity mode: TSR at 67 %, Lumen GI and reflections at High",
+    "cvars": {
+      "r.ScreenPercentage": "67",
+      "sg.ViewDistanceQuality": "3",
+      "sg.ShadowQuality": "2",
+      "sg.GlobalIlluminationQuality": "2",
+      "sg.ReflectionQuality": "2",
+      "sg.PostProcessQuality": "3",
+      "sg.TextureQuality": "2",
+      "sg.EffectsQuality": "2",
+      "sg.FoliageQuality": "2"
+    }
+  },
+  "lumenlite": {
+    "description": "Lumen Lite: GI at Medium (Lumen irradiance volume), reflections at Medium (SSR, no Lumen reflections), TSR at 67 %",
+    "base": "fidelity",
+    "cvars": {
+      "sg.GlobalIlluminationQuality": "1",
+      "sg.ReflectionQuality": "1"
+    }
+  },
+  "res50": {
+    "description": "Fidelity lighting with TSR at 50 %",
+    "base": "fidelity",
+    "cvars": {
+      "r.ScreenPercentage": "50"
+    }
+  }
+}

@@ -189,11 +189,14 @@ def make_sequence(axis_cm):
     seq.set_display_rate(unreal.FrameRate(FPS, 1))
     seq.set_playback_start(0)
     seq.set_playback_end(frames)
-    tick = seq.get_tick_resolution()
-    ticks_per_frame = tick.numerator / tick.denominator / FPS
 
     # Spawnable camera so the sequence works in any of the four maps.
     camera = seq.add_spawnable_from_class(unreal.CineCameraActor)
+    # Disable depth of field: the default manual focus at 1 km blurs nearby facades.
+    template = camera.get_object_template()
+    focus = template.camera_component.get_editor_property("focus_settings")
+    focus.set_editor_property("focus_method", unreal.CameraFocusMethod.DISABLE)
+    template.camera_component.set_editor_property("focus_settings", focus)
     cut_track = seq.add_track(unreal.MovieSceneCameraCutTrack)
     cut = cut_track.add_section()
     cut.set_range(0, frames)
@@ -213,7 +216,7 @@ def make_sequence(axis_cm):
         x, y = a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f
         if i % 15:
             continue  # one key every half second, cubic interpolation in between
-        t = unreal.FrameNumber(int(i * ticks_per_frame))
+        t = unreal.FrameNumber(i)  # display-rate frame (add_key default time unit)
         # look slightly to the right side facades, like a pedestrian
         yaw = a[2] + 12.0 * math.sin(i / frames * math.pi * 4)
         for ch, v in zip(channels[:6], (x, y, EYE_HEIGHT_CM, 0.0, -3.0, yaw)):
@@ -237,7 +240,8 @@ def make_still_configs():
         out.set_editor_property("use_custom_playback_range", True)
         out.set_editor_property("custom_start_frame", frame)
         out.set_editor_property("custom_end_frame", frame + 1)
-        out.set_editor_property("file_name_format", "{sequence_name}_{level_name}_frame{frame_number}")
+        # render_stills.py overrides the name per job (state and shot).
+        out.set_editor_property("file_name_format", "shot%d_frame{frame_number}" % n)
         out.set_editor_property("output_directory", unreal.DirectoryPath(
             os.path.join(REPO, "docs", "rendering", "test-results", "stills")))
         cfg.find_or_add_setting_by_class(unreal.MoviePipelineDeferredPassBase)
@@ -283,7 +287,7 @@ def build_state(name, st, meshes, mats, meta, seq):
     sc.set_editor_property("atmosphere_sun_light", True)
     sc.set_editor_property("intensity", st["sun_lux"] if elev > -2 else 0.0)
     sc.set_editor_property("cast_cloud_shadows", True)
-    sc.set_editor_property("mobility", unreal.ComponentMobility.MOVABLE)
+    sc.set_mobility(unreal.ComponentMobility.MOVABLE)
 
     if st["night"]:
         moon = spawn(unreal.DirectionalLight, (0, 0, 5000), unreal.Rotator(0, -35, 30), "Moon")
@@ -292,13 +296,13 @@ def build_state(name, st, meshes, mats, meta, seq):
         mc.set_editor_property("light_color", unreal.Color(170, 190, 255, 255))
         mc.set_editor_property("atmosphere_sun_light_index", 1)
         mc.set_editor_property("atmosphere_sun_light", True)
-        mc.set_editor_property("mobility", unreal.ComponentMobility.MOVABLE)
+        mc.set_mobility(unreal.ComponentMobility.MOVABLE)
 
     spawn(unreal.SkyAtmosphere, label="SkyAtmosphere")
     sky = spawn(unreal.SkyLight, label="SkyLight")
     skc = sky.get_component_by_class(unreal.SkyLightComponent)
     skc.set_editor_property("real_time_capture", True)
-    skc.set_editor_property("mobility", unreal.ComponentMobility.MOVABLE)
+    skc.set_mobility(unreal.ComponentMobility.MOVABLE)
 
     # Cloud coverage per state is tuned in a later pass (st["cloud"]); v0 uses the default cloud material.
     spawn(unreal.VolumetricCloud, label="VolumetricCloud")
@@ -306,7 +310,7 @@ def build_state(name, st, meshes, mats, meta, seq):
     fog = spawn(unreal.ExponentialHeightFog, label="HeightFog")
     fc = fog.get_component_by_class(unreal.ExponentialHeightFogComponent)
     fc.set_editor_property("fog_density", st["fog"])
-    fc.set_editor_property("volumetric_fog", True)
+    fc.set_editor_property("enable_volumetric_fog", True)
 
     ppv = spawn(unreal.PostProcessVolume, label="PostProcess")
     ppv.set_editor_property("unbound", True)
@@ -336,13 +340,9 @@ def build_state(name, st, meshes, mats, meta, seq):
 
     seq_actor = spawn(unreal.LevelSequenceActor, label="StreetPath")
     seq_actor.set_sequence(seq)
-    for owner, prop in ((seq_actor, "auto_play"),):
-        try:
-            owner.set_editor_property(prop, True)
-        except Exception:
-            ps = seq_actor.get_editor_property("playback_settings")
-            ps.set_editor_property("auto_play", True)
-            seq_actor.set_editor_property("playback_settings", ps)
+    ps = seq_actor.get_editor_property("playback_settings")
+    ps.set_editor_property("auto_play", True)
+    seq_actor.set_editor_property("playback_settings", ps)
 
     level_sub.save_current_level()
     log("saved " + map_path)
@@ -366,7 +366,7 @@ def place_street_lights(meta):
         lc.set_editor_property("source_radius", 15.0)
         # ADR-0002: at most about 8 shadow-casting local lights in view
         lc.set_editor_property("cast_shadows", i % 3 == 0)
-        lc.set_editor_property("mobility", unreal.ComponentMobility.MOVABLE)
+        lc.set_mobility(unreal.ComponentMobility.MOVABLE)
 
 
 def main():
