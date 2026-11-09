@@ -17,9 +17,17 @@ out="$repo/GranTheftPraline/Saved/PlayableStreet"
 test -x "$editor" || { echo "Unreal Editor not found: $editor" >&2; exit 1; }
 rm -f "$out/playtest.json"
 
+# The "py" console command takes the rest of the line as the path, so run a
+# copy from a folder without spaces. -ExecutePythonScript would quit at once.
+tmp="$(mktemp -d)"
+cp "$repo/tools/level/playtest_street.py" "$tmp/playtest_street.py"
+
+# bAllowHighDPIInGameMode: otherwise 1920x1080 becomes 1440x1080 on a Retina Mac.
 "$editor" "$project" /Game/Maps/L_RueRepublique -game -windowed -ResX=1920 -ResY=1080 \
   -nosound -NoScreenMessages -unattended \
-  -ExecutePythonScript="$repo/tools/level/playtest_street.py"
+  "-ini:Engine:[/Script/Engine.UserInterfaceSettings]:bAllowHighDPIInGameMode=True" \
+  -ExecCmds="r.SetRes 1920x1080w, py $tmp/playtest_street.py"
+rm -rf "$tmp"
 
 test -f "$out/playtest.json" || { echo "no playtest report written" >&2; exit 1; }
 cat "$out/playtest.json"

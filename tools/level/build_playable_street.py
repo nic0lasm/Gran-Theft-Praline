@@ -23,7 +23,8 @@ import os
 
 import unreal
 
-REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+# From the project, not from __file__: the scripts may be run from a copy (see playtest_street.sh).
+REPO = os.path.abspath(os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_dir()), ".."))
 GEO_NAME = "rue-republique"
 STREET = "Rue de la République"
 GEO_DIR = "/Game/ReferenceScene/Geo"
@@ -192,7 +193,7 @@ def place_bounds(box):
         comp.set_static_mesh(cube)
         actor.set_actor_scale3d(unreal.Vector(wx / 100.0, wy / 100.0, WALL_HEIGHT / 100.0))
         comp.set_collision_profile_name("BlockAll")
-        comp.set_editor_property("cast_shadow", False)
+        comp.set_cast_shadow(False)
         actor.set_actor_hidden_in_game(True)
         actor.set_folder_path("Gameplay/Bounds")
         actor.set_editor_property("tags", [unreal.Name("PlayBounds")])

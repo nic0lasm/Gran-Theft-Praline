@@ -14,7 +14,8 @@ import os
 
 import unreal
 
-REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+# From the project, not from __file__: the scripts may be run from a copy (see playtest_street.sh).
+REPO = os.path.abspath(os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_dir()), ".."))
 OUT = os.path.join(REPO, "GranTheftPraline", "Saved", "PlayableStreet")
 WARMUP_S = 8.0     # shaders, Lumen and auto exposure settle
 DRIVE_S = 6.0      # long enough to cross the 15-20 m to the facade
