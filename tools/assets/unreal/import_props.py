@@ -30,7 +30,9 @@ MASTER_MATERIAL = "/Game/Materials/Masters/M_Master_Surface"
 
 eal = unreal.EditorAssetLibrary
 mel = unreal.MaterialEditingLibrary
-sm_subsystem = unreal.get_editor_subsystem(unreal.StaticMeshEditorSubsystem)
+# get_editor_subsystem returns None under -run=pythonscript (validated on 5.8.4): build it directly.
+sm_subsystem = (unreal.get_editor_subsystem(unreal.StaticMeshEditorSubsystem)
+                or unreal.StaticMeshEditorSubsystem())
 
 
 def log(msg):
@@ -164,10 +166,28 @@ def set_nanite(mesh, enabled, fallback_percent=None):
 
 
 def import_mesh(glb, dest, name):
+    """Import a GLB and return its StaticMesh at ``dest/name``.
+
+    The Interchange glTF pipeline of 5.8 files a first import under
+    ``dest/<file name>/StaticMeshes/`` and ``/Materials/``; a re-import replaces in place.
+    """
     paths = import_files([(glb, name)], dest)
-    mesh = unreal.load_asset(f"{dest}/{name}")
-    if mesh is None or not isinstance(mesh, unreal.StaticMesh):
+    target = f"{dest}/{name}"
+    mesh = None
+    for path in paths:
+        asset = unreal.load_asset(path)
+        if isinstance(asset, unreal.StaticMesh):
+            mesh = asset
+            break
+    if mesh is None:
         raise RuntimeError(f"static mesh not imported from {glb} (got {paths})")
+    current = mesh.get_path_name().split(".")[0]
+    if current != target:
+        if eal.does_asset_exist(target):
+            eal.delete_asset(target)
+        if not eal.rename_asset(current, target):
+            raise RuntimeError(f"could not move {current} to {target}")
+        mesh = unreal.load_asset(target)
     return mesh
 
 
@@ -200,6 +220,9 @@ def process(meta_path, master):
     eal.save_loaded_asset(mesh)
 
     drop_importer_materials(base)
+    leftover = f"{base}/{os.path.splitext(meta['files']['ultra'])[0]}"
+    if eal.does_directory_exist(leftover):  # importer's per-file folder, now empty
+        eal.delete_directory(leftover)
     log(f"{meta['id']}: SM_{name}_A ({tris['ultra']} tris Nanite, M1 LOD0 {tris['m1_lod0']}, "
         f"{len(meta['lod_plan'])} LODs)")
 

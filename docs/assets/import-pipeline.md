@@ -49,12 +49,12 @@ Content/Environment/Props/<Family>/<Asset>/
 6. Names come from `assets/manifests/wave-01.json` (family, `Kind_Descriptor`), generated
    from the catalog by `catalog_to_manifest.py`.
 
-Some Tripo masters (open borders, many UV islands) stop the attribute-aware pass near
-480 k triangles; the cap is then finished with a topology-blind pass (`sloppy_fallback: true` in
-`asset.json`): same vertices and UVs, rougher silhouette. 8 small props needed it; measured on the street name plate (W1-56,
-484 k to 300 k), the surface moves by less than 1 mm (0.17 % of its size) from the master,
-within the measurement precision. Full wave 1 batch on the M1 Pro: 60 of 60 prepared, about
-11 min at nice 19, under 4.2 GB RAM per asset, 2.8 GB of staging.
+Some Tripo masters (open borders, many UV islands) cannot go below about 480 k triangles
+without tearing UV seams. A topology-blind fallback pass was tried and smeared the UVs (8.6 %
+of triangles straddling islands): dropped. The result stays above the cap, flagged
+`over_cap: true` in `asset.json` (8 small wave 1 props: hydrant, bollards, street name plate...);
+Nanite absorbs it and the cap is a starting value of the art bible. Full wave 1 batch on the
+M1 Pro: 60 of 60 prepared, about 11 min at nice 19, under 4.2 GB RAM per asset, 2.8 GB of staging.
 
 The batch runs one fresh worker process per asset, so memory does not pile up
 (a 2 M-triangle master peaks near 3 GB; a single-process run of all 60 peaked at 10.6 GB).
@@ -86,9 +86,11 @@ Masters are matched by id prefix (`W1-07.glb`). Missing ones are listed in
 
 ## Open points
 
-- **To verify on the first Mac run**: front axis (+X), that M1 (Nanite off) really falls
-  back to LOD0 fallback plus the chain, and the exact Python API names of 5.8
-  (`StaticMeshEditorSubsystem`). The script is written to fail loudly per asset.
+- **First Mac run (UE 5.8.4, headless commandlet)**: the API names used all exist; three
+  fixes came out of it (subsystem built directly under `-run=pythonscript`, mesh located through
+  the importer's returned paths, `pgrep -x` in the launcher). Three props imported with the right
+  LODs, Nanite fallback, collision, `CatalogId`. Still to check: front axis (+X) in a level, and
+  that M1 (Nanite off) falls back to LOD0 fallback plus the chain.
 - **Texture calibration** (art bible 4): normals flipped to DirectX; texture side chosen
   from the target density (10.24 px/cm, power of two, never upscaled, 4K max, measured
   density in `asset.json`); non-metal albedo stretched into 30-240 when outside; flat

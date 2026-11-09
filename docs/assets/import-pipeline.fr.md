@@ -50,13 +50,13 @@ Content/Environment/Props/<Famille>/<Asset>/
 6. Les noms viennent de `assets/manifests/wave-01.json` (famille, `Type_Descripteur`), généré
    depuis le catalogue par `catalog_to_manifest.py`.
 
-Certains masters Tripo (bords ouverts, nombreux îlots UV) bloquent la passe sensible aux
-attributs vers 480 k triangles ; le plafond est alors terminé par une passe aveugle à la
-topologie (`sloppy_fallback: true` dans `asset.json`) : mêmes sommets et UV, silhouette plus
-rugueuse. 8 petits objets en ont eu besoin ; mesuré sur la plaque de rue (W1-56, de 484 k à
-300 k), la surface bouge de moins de 1 mm (0,17 % de sa taille) par rapport au master, dans la
-précision de la mesure. Lot complet de la vague 1 sur le M1 Pro : 60 sur 60 préparés, environ
-11 min en nice 19, moins de 4,2 Go de RAM par asset, 2,8 Go de staging.
+Certains masters Tripo (bords ouverts, nombreux îlots UV) ne descendent pas sous ~480 k
+triangles sans déchirer les coutures UV. Une passe de repli aveugle à la topologie a été
+essayée et étalait les UV (8,6 % de triangles à cheval sur des îlots) : abandonnée. Le résultat
+reste au-dessus du plafond, signalé par `over_cap: true` dans `asset.json` (8 petits objets de
+la vague 1 : borne, bollards, plaque de rue…) ; Nanite l'absorbe, le plafond est une valeur de
+départ de la bible. Lot complet de la vague 1 sur le M1 Pro : 60 sur 60 préparés, environ 11 min
+en nice 19, moins de 4,2 Go de RAM par asset, 2,8 Go de staging.
 
 Le lot lance un processus neuf par asset, pour que la mémoire ne s'accumule pas
 (un master de 2 M triangles culmine vers 3 Go ; un seul processus pour les 60 a atteint 10,6 Go).
@@ -88,9 +88,12 @@ Masters retrouvés par préfixe d'identifiant (`W1-07.glb`). Les absents sont li
 
 ## Points ouverts
 
-- **À vérifier au premier passage sur le Mac** : axe de face (+X), que le profil M1 (Nanite
-  coupé) retombe bien sur le repli LOD0 puis la chaîne, et les noms exacts de l'API Python
-  5.8 (`StaticMeshEditorSubsystem`). Le script échoue bruyamment par asset.
+- **Premier passage sur le Mac (UE 5.8.4, commandlet headless)** : tous les noms d'API utilisés
+  existent ; trois correctifs en sont sortis (sous-système construit directement sous
+  `-run=pythonscript`, maillage retrouvé via les chemins renvoyés par l'importeur, `pgrep -x`
+  dans le lanceur). Trois objets importés avec les bons LOD, le repli Nanite, la collision et
+  `CatalogId`. Reste à vérifier : l'axe de face (+X) dans un niveau, et que le profil M1
+  (Nanite coupé) retombe sur le repli LOD0 puis la chaîne.
 - **Calibrage des textures** (bible 4) : normales converties en DirectX ; taille choisie
   d'après la densité cible (10,24 px/cm, puissance de deux, jamais agrandie, 4K max,
   densité mesurée dans `asset.json`) ; albédo non métallique étiré dans 30-240 s'il en

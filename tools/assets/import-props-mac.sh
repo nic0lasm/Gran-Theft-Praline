@@ -13,7 +13,8 @@ STAGING="${GTP_STAGING:-$REPO/assets/staging/$WAVE}"
 
 test -x "$CMD" || { echo "UnrealEditor-Cmd not found at $CMD (set UE_ROOT)" >&2; exit 1; }
 test -d "$STAGING" || { echo "nothing prepared in $STAGING: run prepare_props.py first" >&2; exit 1; }
-if pgrep -f "UnrealEditor" >/dev/null; then
+# -x: exact name, so the background UnrealEditorServices.app does not count
+if pgrep -x "UnrealEditor" >/dev/null || pgrep -x "UnrealEditor-Cmd" >/dev/null; then
   echo "An Unreal editor is already running: close it first." >&2
   exit 1
 fi

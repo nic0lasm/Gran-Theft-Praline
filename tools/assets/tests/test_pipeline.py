@@ -49,7 +49,6 @@ def test_decimation_hits_budget_and_keeps_shape(sample):
     d = decimate(a, 3000)
     assert before > 3000 * 4
     assert 1500 <= d.tri_count <= 3000  # a hard cap
-    assert not d.used_sloppy  # the attribute-aware pass is enough on a clean mesh
     lo0, hi0 = a.bounds()
     lo1, hi1 = d.bounds()
     assert np.allclose(lo0, lo1, atol=0.03) and np.allclose(hi0, hi1, atol=0.03)
@@ -194,12 +193,16 @@ def test_batch_cli_runs_one_process_per_asset(sample, tmp_path):
     assert report["prepared"] == ["W1-01"] and report["no_master_yet"] == ["W1-02"]
 
 
-def test_cap_enforced_when_attribute_pass_hits_a_floor(sample, monkeypatch):
+def test_floor_keeps_uvs_intact_and_is_flagged(sample, tmp_path, monkeypatch):
     import gtp_assets.geometry as g
-    monkeypatch.setattr(g, "decimate_part", lambda part, share, **kw: part)  # simulate the floor
-    a = load_glb(sample)
-    normalize(a, 1.8)
-    d = g.decimate(a, 4000)
-    assert d.used_sloppy and 500 < d.tri_count <= 4000
-    for p in d.parts:
-        assert p.faces.max() < len(p.vertices) and np.isfinite(p.uv).all()
+    real = g.decimate_part
+
+    def floor(part, share, **kw):  # simulate a master that cannot go below 70 %
+        return real(part, max(share, int(len(part.faces) * 0.7)), **kw)
+
+    monkeypatch.setattr(g, "decimate_part", floor)
+    meta = prepare_asset(sample, {"id": "W1-01", "size_m": 1.8, "ultra_tris": 3000},
+                         str(tmp_path))
+    assert meta["over_cap"] is True and meta["triangles"]["ultra"] > 3000
+    a = load_glb(str(tmp_path / "W1-01" / "W1-01_ultra.glb"))
+    assert a.parts[0].uv.min() >= -1e-4 and a.parts[0].uv.max() <= 1 + 1e-4
