@@ -137,6 +137,37 @@ dérivés des matériaux maîtres ; textures dé-éclairées et calibrées ; uni
 de lumière physiques et exposition bornée ; préréglages de qualité mesurés
 dès la première scène.
 
+## Référence visuelle : Bodycam (Reissad Studio, Steam)
+
+La référence de photoréalisme de Nico (2026-11-09) est *Bodycam*, un jeu de
+tir sous Unreal Engine 5 d'un petit studio français. Ce qui le fait passer
+pour une vraie vidéo, et ce que nous pouvons en reprendre :
+
+| Ingrédient de Bodycam | Coût | Transposable à un Lyon en monde ouvert ? |
+| ---- | ---- | ---- |
+| **Émulation de caméra** : objectif grand angle avec distorsion en barillet, flou de mouvement marqué, bruit de capteur, auto-exposition brutale et hautes lumières qui bavent, légère aberration chromatique, caméra portée qui bouge. L'œil l'accepte comme une vraie vidéo et cela masque la plupart des défauts de la 3D | Très faible (post-traitement) | **Oui**, et c'est le gain le moins cher. Idéal en première personne ; en troisième personne il doit rester discret pour garder la conduite et la visée lisibles |
+| **Photogrammétrie partout** (Megascans), surfaces denses et usées | Moyen (poids disque, mémoire) | **Oui** au niveau de la rue : Megascans est gratuit sur Fab, plus nos propres scans de façades lyonnaises |
+| **Lumen** pour l'illumination globale | Élevé sur le GPU | **Oui**, c'est notre pile |
+| **Petites cartes fermées** : tout le budget concentré sur quelques centaines de mètres | - | **En partie** : un monde ouvert étale ce budget sur 1,5 km² avec circulation, foule et streaming. On égale la densité près de la caméra, et les HLOD prennent le relais plus loin |
+| **GPU de PC de bureau** (minimum autour d'une RTX 2070 ou RX 5700) | - | Notre niveau **Ultra** vise cette classe de matériel ou mieux |
+
+**Conclusion : atteignable en partie, sous conditions.** Au niveau Ultra, une
+marche en première personne dans une rue habillée de la Presqu'île peut
+atteindre le niveau de Bodycam, car son réalisme vient surtout des matériaux
+scannés, de Lumen et de l'émulation de caméra, que nous utilisons tous.
+L'égaler partout dans un monde ouvert avec circulation, foule et cycle
+jour-nuit est plus dur et coûte plus de contenu et de GPU : c'est une cible à
+long terme, pas une promesse de la tranche verticale. Au niveau **M1**, les
+mêmes scènes montreront la lumière, les matériaux et le style de caméra, mais
+avec moins de détail géométrique et une image plus douce (résolution interne
+plus basse) : elles resteront nettement en dessous de Bodycam.
+
+L'émulation de caméra devient un **profil de post-traitement « caméra
+réaliste »** (distorsion d'objectif, grain, adaptation d'exposition, flou de
+mouvement), discret par défaut en troisième personne et plus marqué dans un
+mode première personne optionnel. Pour ce profil seulement, cela remplace la
+règle « pas d'aberration chromatique » de la Décision 8.
+
 ## Profil M1 Pro (décidé le 2026-11-09)
 
 Nico a choisi de rester sur le M1 Pro (16 Go) plutôt que d'acheter une
