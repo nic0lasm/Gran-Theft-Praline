@@ -123,8 +123,7 @@ Le responsable du projet a choisi la combinaison `m1` le 2026-11-09. Elle tient
 la médiane (19,5 à 27 ms), mais son 95e centile dépasse encore le budget de 4 à
 9 ms, avec une saccade à l'heure dorée (131 ms) et une la nuit (198 ms).
 
-**Cible M1 provisoire (2026-11-09, en attente de la confirmation du responsable
-du projet) :** le préréglage `m1` est retenu pour le développement à environ
+**Cible M1 provisoire (choisie par le responsable du projet le 2026-11-09) :** le préréglage `m1` est retenu pour le développement à environ
 25 i/s, GPU p95 au plus 42 ms et aucune image au-dessus de 100 ms. Les 30 i/s
 (33,3 ms) restent l'objectif du M1, à atteindre par l'optimisation du contenu
 (HLOD, objets qui projettent des ombres, complexité des lumières) d'ici la
