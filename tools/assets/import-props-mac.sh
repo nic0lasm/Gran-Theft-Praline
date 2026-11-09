@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Import prepared props into the Unreal project, headless, on the Mac.
+# Import prepared props into the Unreal project, headless (commandlet, no editor GUI), on the Mac.
 # Usage: tools/assets/import-props-mac.sh [wave] [ids...]   e.g. w1 W1-01 W1-07
 # The Unreal editor must be CLOSED (one editor session at a time).
 set -euo pipefail
@@ -20,5 +20,5 @@ fi
 
 GTP_STAGING="$STAGING" GTP_WAVE="$WAVE" GTP_IDS="$*" \
   "$CMD" "$REPO/GranTheftPraline/GranTheftPraline.uproject" \
-  -ExecutePythonScript="$REPO/tools/assets/unreal/import_props.py" \
+  -run=pythonscript -script="$REPO/tools/assets/unreal/import_props.py" \
   -unattended -nosplash -stdout -FullStdOutLogOutput

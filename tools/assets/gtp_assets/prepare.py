@@ -16,6 +16,7 @@ import os
 from typing import Optional
 
 from . import __version__
+from .calibrate import density_px_cm, target_side
 from .collision import recipe as collision_recipe
 from .geometry import decimate, export_geometry_glb, load_glb, normalize
 from .manifest import BUDGETS, category, lod_plan
@@ -73,8 +74,11 @@ def prepare_asset(src_glb: str, item: dict, staging_root: str, wave: str = "w1",
     materials = []
     for i, part in enumerate(ultra.parts):
         suffix = f"_{i}" if len(ultra.parts) > 1 else ""
+        # Art bible 4.4: texture side = what the target density needs (never upscaled).
+        side = target_side(part, float(item.get("density_px_cm", 10.24)))
         info = extract_material(part.material, os.path.join(out, "textures"),
-                                f"T_{asset_name}{suffix}")
+                                f"T_{asset_name}{suffix}", cap=side)
+        info["density_px_cm"] = round(density_px_cm(part, max(info["size_px"])), 2)
         info["slot"] = i
         info["imported_name"] = slots[i]
         info["instance_name"] = f"MI_{asset_name}{suffix}"
