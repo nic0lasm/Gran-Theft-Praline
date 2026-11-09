@@ -9,6 +9,7 @@ Output (regenerated, not committed): assets/geo/processed/<name>/gen/<focus>/
                         ground height, LiDAR checks, colour
   facade_modules.csv    one row per facade module (input of the engine facade kit / PCG)
   greybox.glb           one node per building, vertex colours, glTF axes (X east, Y up, Z south)
+  shell.glb             same without the facade modules (roofs, party walls): the kit fills the rest
   report.json           counts and fidelity measurements
 
 Usage:
@@ -45,7 +46,7 @@ MODULE_FIELDS = ["building_id", "typology", "side", "street", "kind", "storey", 
 BUILDING_FIELDS = ["building_id", "bdtopo_id", "courtyard_share", "podium", "typology", "colour", "levels", "street_edges", "court_edges",
                    "party_edges", "roof_kind", "ridges", "ground_z", "eave_z", "top_z", "wall_h_m",
                    "bdtopo_height_m", "lidar_top_minus_ground_m", "modules", "triangles", "cx", "cy",
-                   "mesh_name", "ue_x", "ue_y", "ue_z", "bounds_ue_cm"]
+                   "mesh_name", "ue_x", "ue_y", "ue_z", "bounds_ue_cm", "shell_bounds_ue_cm"]
 
 
 def slug(s):
@@ -168,7 +169,7 @@ def main():
             focus_axis.append(list(cl.to_unreal(p.x, p.y, 0.0 if np.isnan(gz) else float(gz))))
     print(f"{len(selected)} buildings selected ({args.focus}), {len(ridge_lines)} ridge lines")
 
-    mod_rows, bld_rows, glb_items = [], [], []
+    mod_rows, bld_rows, glb_items, shell_items = [], [], [], []
     roof_err, roof_kinds, typologies, tri_total = [], {}, {}, 0
     skipped = []
     work = []
@@ -220,11 +221,16 @@ def main():
         c = poly.centroid
         mesh_name = "SM_Building_" + key.replace("BATIMENT", "")
         glb_items.append((mesh_name, mesh, (c.x, c.y, ground)))
-        mv = np.asarray(mesh.v) - np.array([c.x, c.y, ground])
-        # pivot-relative bounds in Unreal axes (cm): X east, Y south, Z up; checked after import
-        bounds = [round(float(mv[:, 0].min()) * 100), round(float(-mv[:, 1].max()) * 100),
-                  round(float(mv[:, 2].min()) * 100), round(float(mv[:, 0].max()) * 100),
-                  round(float(-mv[:, 1].min()) * 100), round(float(mv[:, 2].max()) * 100)]
+        shell = meshkit.building_mesh(poly, ground, roof, modules, info, roof_tris, with_modules=False)
+        shell_items.append((mesh_name.replace("SM_Building_", "SM_BuildingShell_"), shell, (c.x, c.y, ground)))
+
+        def ue_bounds(m):
+            """Pivot-relative bounds in Unreal axes (cm): X east, Y south, Z up; checked after import."""
+            mv = np.asarray(m.v) - np.array([c.x, c.y, ground])
+            return " ".join(str(v) for v in (
+                round(float(mv[:, 0].min()) * 100), round(float(-mv[:, 1].max()) * 100),
+                round(float(mv[:, 2].min()) * 100), round(float(mv[:, 0].max()) * 100),
+                round(float(-mv[:, 1].min()) * 100), round(float(mv[:, 2].max()) * 100)))
         pux, puy, puz = cl.to_unreal(c.x, c.y, ground)
         tri_total += mesh.tris
         for m in modules:
@@ -247,7 +253,7 @@ def main():
             "wall_h_m": round(info["wall_h"], 2), "bdtopo_height_m": b["height_m"],
             "lidar_top_minus_ground_m": round(lidar_h, 2), "modules": len(modules), "triangles": mesh.tris,
             "cx": round(c.x, 2), "cy": round(c.y, 2), "mesh_name": mesh_name, "ue_x": pux, "ue_y": puy,
-            "ue_z": puz, "bounds_ue_cm": " ".join(str(v) for v in bounds)})
+            "ue_z": puz, "bounds_ue_cm": ue_bounds(mesh), "shell_bounds_ue_cm": ue_bounds(shell)})
 
     with open(os.path.join(out, "facade_modules.csv"), "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, MODULE_FIELDS)
@@ -257,6 +263,7 @@ def main():
         w = csv.DictWriter(f, BUILDING_FIELDS)
         w.writeheader()
         w.writerows(bld_rows)
+    meshkit.write_glb(os.path.join(out, "shell.glb"), shell_items)
     meshkit.write_glb(os.path.join(out, "greybox.glb"), glb_items,
                       extras={"zone": args.name, "focus": args.focus, "origin_lambert93_m": origin,
                               "origin_altitude_m": origin_alt, "node_translation": "building centroid at ground"})

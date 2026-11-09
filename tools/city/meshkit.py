@@ -133,8 +133,12 @@ def add_module(mesh, mod):
         plain_wall(mesh, a, u, w, h, wall)
 
 
-def building_mesh(poly, ground_z, roof, modules, info, roof_tris):
-    """Walls (party/plain where no module), modules, roof. Returns Mesh."""
+def building_mesh(poly, ground_z, roof, modules, info, roof_tris, with_modules=True):
+    """Walls (party/plain where no module), modules, roof. Returns Mesh.
+
+    with_modules=False gives the "shell" (roof, party and plain walls, skirts):
+    the facade kit instances fill the module walls.
+    """
     m = Mesh()
     up = np.array([0, 0, 1.0])
     eave = roof["eave_z"]
@@ -151,7 +155,7 @@ def building_mesh(poly, ground_z, roof, modules, info, roof_tris):
             m.quad(a, b, b + up * (ground_z - base), a + up * (ground_z - base), col)
             continue
         m.quad(a, b, b + up * (eave - base), a + up * (eave - base), col)
-    for mod in modules:
+    for mod in modules if with_modules else ():
         add_module(m, mod)
     verts, tris = roof_tris
     rc = ROOF_COLOURS["flat" if roof["kind"] == "flat" else

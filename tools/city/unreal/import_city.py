@@ -12,7 +12,8 @@ Settings come from the environment: GTP_CITY_ZONE (presqu-ile), GTP_CITY_FOCUS
 (rue-de-la-republique).
 
 Steps (idempotent, the map is rebuilt each run; nothing else is touched):
-  1. import the building and terrain meshes into /Game/Environment/City/<Zone>/
+  1. import the building meshes (shell.glb by default, GTP_CITY_MESH=greybox for the
+     version with modules baked in) and the terrain meshes into /Game/Environment/City/<Zone>/
   2. check every building mesh against the bounds computed by generate.py
      (catches an axis or pivot convention change of the glTF importer)
   3. new map /Game/Maps/L_City_<Focus>: sun, sky, fixed exposure, buildings
@@ -34,6 +35,8 @@ ZONE = os.environ.get("GTP_CITY_ZONE", "presqu-ile")
 FOCUS = os.environ.get("GTP_CITY_FOCUS", "rue-de-la-republique")
 GEN = os.path.join(REPO, "assets", "geo", "processed", ZONE, "gen", FOCUS)
 TERRAIN = os.path.join(REPO, "assets", "geo", "processed", ZONE, "terrain")
+# "shell" (roofs and party walls; place_facades.py adds the kit) or "greybox" (modules baked in)
+MESH = os.environ.get("GTP_CITY_MESH", "shell")
 CAMEL = "".join(p.capitalize() for p in FOCUS.split("-"))
 ROOT = "/Game/Environment/City/" + "".join(p.capitalize() for p in ZONE.split("-"))
 MAP = "/Game/Maps/L_City_" + CAMEL
@@ -101,7 +104,12 @@ def main():
     with open(os.path.join(TERRAIN, "terrain.json")) as f:
         terrain_meta = json.load(f)
 
-    buildings = import_glb(os.path.join(GEN, "greybox.glb"), ROOT + "/Buildings/" + CAMEL)
+    buildings = import_glb(os.path.join(GEN, MESH + ".glb"), ROOT + "/Buildings/" + CAMEL)
+    prefix, bounds_col = ("SM_BuildingShell_", "shell_bounds_ue_cm") if MESH == "shell" else \
+        ("SM_Building_", "bounds_ue_cm")
+    for r in rows:
+        r["mesh_name"] = r["mesh_name"].replace("SM_Building_", prefix)
+        r["bounds_ue_cm"] = r[bounds_col]
     terrain = import_glb(os.path.join(TERRAIN, "terrain.glb"), ROOT + "/Terrain")
 
     # Convention check before anything is placed.

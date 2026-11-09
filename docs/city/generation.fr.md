@@ -127,6 +127,43 @@ La greybox sert à vérifier la mise en page, ce n'est pas un asset : les façad
 finales sont des modules de kit (≤ 50 k triangles chacun, ADR-0002), instanciés ;
 c'est la liste des modules qui est conservée.
 
+## Kit de façades v0 et placement (ajouté le 2026-11-09)
+
+Code : [`tools/city/facade_kit/`](../../tools/city/facade_kit/) (Blender 4.2+, appli ou module `bpy`)
+et [`tools/city/unreal/place_facades.py`](../../tools/city/unreal/place_facades.py).
+
+* **18 modules**, une travée × un étage, construits procéduralement dans
+  Blender d'après la bible (section 3.1) : *haussmannien* (pierre de taille,
+  socle gris, entresol à refends, portes-fenêtres à chambranles, entablements
+  et garde-corps, balcons filants sur consoles, portes cochères à imposte,
+  corniche à modillons, devantures alu à bandeau) et *lyonnais* (enduit
+  coloré, encadrements et appuis en pierre dorée, volets persiennés, fenêtres
+  barreaudées en rez-de-chaussée, devantures bois, génoise). 6,5 k triangles
+  pour tout le kit (1 k pour le plus gros module) : très loin du budget M1 de
+  50 k par module ; le détail viendra des trim sheets et des textures
+  Megascans/photos (les emplacements `MI_*` suivent déjà la bible).
+* `assemble.py` exporte `facade_kit.glb` + `kit_manifest.json` et assemble la
+  rue depuis `facade_modules.csv` avec la même règle que dans Unreal : module
+  à sa place, face vers l'extérieur, largeur et hauteur étirées à la travée,
+  corniche/génoise sur chaque travée sur rue du dernier étage, **lettres en
+  relief au vrai nom du commerce** sur chaque bandeau. Rendus Cycles de la
+  rue de la République : 3 895 modules et 62 enseignes dans un rayon de
+  160 m, environ 2 min par image 1600 × 900 sur 4 cœurs cloud.
+* `place_facades.py` (éditeur, après `import_city.py`) : importe le kit dans
+  `Content/Environment/Facades/LyonKit/`, vérifie la taille de chaque module
+  et le côté extérieur (d'après l'emprise du balcon) avant de placer, puis un
+  acteur par type de module avec un composant d'instances hiérarchiques
+  (13 k instances pour la rue), la couleur d'enduit du bâtiment en données
+  par instance, et les enseignes : le vrai logo si
+  `/CityBrands/Logos/T_Brand_<QID Wikidata>` existe (hors Git), sinon un
+  texte au vrai nom. `import_city.py` place maintenant les **coques** (toits,
+  murs mitoyens) pour que le kit ne soit pas doublé.
+* Pas encore fait : un graphe PCG n'est pas nécessaire pour ce placement (la
+  liste des modules est déjà calculée) ; il vaudra la peine pour le streaming
+  (partition PCG) et la variation en jeu, après le premier test éditeur.
+  Suite : trim sheets et textures Megascans/photos, `M_Master_Facade` qui lit
+  la couleur par instance, modules d'angle, lucarnes et brisis haussmannien.
+
 ## Limites et suite
 
 1. **Test éditeur** : `tools/city/unreal/import_city.py` importe greybox et

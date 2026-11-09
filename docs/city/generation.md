@@ -123,6 +123,44 @@ python3 tools/city/render.py --name presqu-ile --view street:176,-60,1.8,179,150
 The greybox is a layout check, not an asset: final façades are kit modules
 (≤ 50 k triangles each, ADR-0002), instanced; the module list is what carries over.
 
+## Facade kit v0 and placement (added 2026-11-09)
+
+Code: [`tools/city/facade_kit/`](../../tools/city/facade_kit/) (Blender 4.2+, app or the `bpy`
+module) and [`tools/city/unreal/place_facades.py`](../../tools/city/unreal/place_facades.py).
+
+* **18 modules**, one bay × one storey, built procedurally in Blender from the
+  art bible (section 3.1): *Haussmann* (ashlar, grey plinth, entresol with
+  rustication, French windows with stone surrounds, entablatures and
+  balconettes, continuous balconies on consoles, carriage doors with
+  fanlights, moulded cornice with modillions, aluminium shopfronts with a
+  fascia) and *Lyonnais* (coloured render, pierre dorée surrounds and sills,
+  louvred shutters, barred ground-floor windows, wooden shopfronts, genoise).
+  6.5 k triangles for the whole kit (largest module 1 k): far below the
+  50 k M1 budget per module; the detail will come from the trim sheets and
+  Megascans/photo textures (`MI_*` slot names already follow the bible).
+* `assemble.py` exports `facade_kit.glb` + `kit_manifest.json` and assembles
+  the street from `facade_modules.csv` with the same placement rule as
+  Unreal: module at its position, front turned outward, width and height
+  stretched to the bay, cornice/genoise on top of every street bay, **raised
+  letters with the shop's real name** on every shop fascia. Cycles renders of
+  the rue de la République: 3 895 module instances and 62 signs within
+  160 m, about 2 min per 1600 × 900 still on 4 cloud cores.
+* `place_facades.py` (editor, after `import_city.py`): imports the kit into
+  `Content/Environment/Facades/LyonKit/`, checks every module's size and which
+  side is the outside (from the balcony bounds) before placing, then one
+  actor per module type with a hierarchical instanced static mesh component
+  (13 k instances for the street), the building's render colour in
+  per-instance custom data, and the signs: the real logo when
+  `/CityBrands/Logos/T_Brand_<Wikidata QID>` exists (kept out of Git),
+  otherwise a text actor with the real name. `import_city.py` now places the
+  **shells** (roofs, party walls) so the kit is not doubled.
+* Not done yet: a PCG graph is not needed for this placement (the module
+  list is already computed); it will be worth it for streaming (PCG
+  partitioning) and for runtime variation, after the first editor test.
+  Next: trim sheets and textures from Megascans/photos, `M_Master_Facade`
+  reading the per-instance colour, corner modules, dormers and the Haussmann
+  mansard.
+
 ## Limits and next steps
 
 1. **Editor test**: `tools/city/unreal/import_city.py` imports the greybox and

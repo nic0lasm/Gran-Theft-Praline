@@ -18,6 +18,11 @@ python3 tools/city/render.py --name presqu-ile --view street:176,-60,1.8,179,150
 python3 -I -m unittest discover -s tools/city/tests
 ```
 
-Editor (one Unreal process at a time on the Mac): `unreal/import_city.py`, see its docstring.
+Facade kit (Blender 4.2+ or the `bpy` module, Python 3.11):
+`python tools/city/facade_kit/assemble.py --view street:176,-60,1.8,179,150,9`
+(or `blender -b -P tools/city/facade_kit/assemble.py -- --view ...`).
+
+Editor (one Unreal process at a time on the Mac): `unreal/import_city.py` then
+`unreal/place_facades.py`, see their docstrings.
 
 Raw and processed data live in `assets/geo/` and are not committed.
