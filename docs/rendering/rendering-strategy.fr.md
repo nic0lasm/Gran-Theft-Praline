@@ -57,6 +57,12 @@ Par ordre d'impact pour une ville vue de la rue :
 | Path tracer | Rendus de référence | Indisponible | Disponible | PC seulement, images de référence |
 | Nuages volumétriques, brouillard | Météo, atmosphère | Pris en charge | Pris en charge | **Oui** |
 
+**Notre Mac actuel (vérifié le 2026-11-09) : MacBook Pro M1 Pro, GPU
+16 cœurs, 16 Go.** Il fait tourner Lumen logiciel mais **pas Nanite** et n'a
+pas de RT matériel : bien pour prototyper le gameplay et le greybox, pas pour
+juger le rendu final. Il faut une machine de référence du rendu (décision de
+Nico, voir ADR-0002).
+
 Conséquence : un Mac récent (M2 ou plus, idéalement Pro ou Max avec 32 Go ou
 plus) peut produire et faire tourner tout le rendu avec Lumen logiciel. Un PC
 Windows avec un GPU type RTX ajoute le ray tracing matériel, le path tracer
@@ -147,7 +153,7 @@ quartier de la tranche verticale.
 
 - Un trajet caméra Sequencer de 60 secondes au niveau de la rue plus 3 plans
   fixes, identiques à chaque passage.
-- Exécution dans un build packagé Development (pas dans l'éditeur) en
+- Exécution sur la machine de référence du rendu, dans un build packagé Development (pas dans l'éditeur) en
   2560×1440, réglages Epic, TSR à 67 %.
 - Capture avec le profileur CSV (`csvprofile start` et `csvprofile stop`) et
   Unreal Insights pour un passage par état ; captures `stat gpu` sur les plans
@@ -187,7 +193,7 @@ chiffres, avant toute fusion sur la branche d'intégration.
 | Assets Fab et Megascans | De gratuit à payant selon l'asset ; budget à fixer au besoin |
 | HDRI et textures Poly Haven | Gratuits (CC0) |
 | Charte de couleurs pour les photos | Environ 30 à 100 € |
-| PC Windows avec GPU type RTX (optionnel) | Environ 2 000 à 3 500 € selon le GPU ; décision reportée aux mesures de la scène témoin |
+| Machine de référence du rendu (nécessaire : le M1 Pro n'a pas Nanite) | PC Windows avec GPU type RTX 5080 environ 2 500 à 3 000 € ; ou Mac M4/M5 Max 48 Go+ environ 3 000 à 4 500 € |
 | Temps | Le kit de façades et la scène témoin sont le plus gros effort : plusieurs semaines pour une personne |
 
 ## 9. Sources

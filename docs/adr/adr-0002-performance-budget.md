@@ -24,7 +24,7 @@ nic0lasm (project lead)
 Sets the frame-rate and resolution target of Gran Theft Praline on the
 reference hardware and splits the GPU frame into per-feature budgets, so that
 every rendering choice of ADR-0001 is measured against a fixed number.
-Recommended: 30 fps "fidelity" mode at 1440p output on the development Mac,
+Recommended: 30 fps "fidelity" mode at 1440p output on the rendering reference machine,
 with a 60 fps "performance" mode added later.
 
 ## Engine Compatibility
@@ -54,14 +54,22 @@ Photorealism and density compete for the same milliseconds. The benchmark
 genre ships at 30 fps on consoles for its quality mode. Our first platform is
 an Apple Silicon Mac, whose exact GPU tier sets the ceiling.
 
+The current development Mac (read with `system_profiler` on 2026-11-09) is a
+MacBook Pro M1 Pro, 16-core GPU, 16 GB unified memory. Per Epic, M1 chips do
+not run Nanite and have no hardware ray tracing; 16 GB is also tight for the
+editor with a dense city. The budgets below therefore apply to a **rendering
+reference machine still to be chosen** by the project lead (Windows PC with an
+RTX-class GPU recommended, or an M4/M5 Max Mac). On the M1 Pro, the game
+runs at reduced scalability (no Nanite, Lumen Lite) for gameplay work only.
+
 ## Decision (recommended, pending the project lead)
 
 ### Target
 
 | Mode | Frame rate | Output | Internal (TSR) | Hardware | Priority |
 | ---- | ---- | ---- | ---- | ---- | ---- |
-| Fidelity | 30 fps locked (33.3 ms) | 2560×1440 | about 1706×960 (67 %) | Development Mac | P0 |
-| Performance | 60 fps (16.7 ms) | 1920×1080 | about 1280×720 (67 %), Lumen Lite | Development Mac and Windows PC | P1 |
+| Fidelity | 30 fps locked (33.3 ms) | 2560×1440 | about 1706×960 (67 %) | Rendering reference machine | P0 |
+| Performance | 60 fps (16.7 ms) | 1920×1080 | about 1280×720 (67 %), Lumen Lite | Reference machine, then Macs M2+ | P1 |
 
 Hitches: no frame above 100 ms during traversal, shader compilation included
 (PSO precaching on).
@@ -82,7 +90,7 @@ Hitches: no frame above 100 ms during traversal, shader compilation included
 ### Memory and content budgets (starting values, refined by measurement)
 
 - Texture streaming pool: 3 GB; total GPU-visible memory used by the game: at
-  most 60 % of the Mac's unified memory.
+  most 60 % of the reference machine's video or unified memory.
 - Visible on screen at once: 40 animated characters, 25 moving vehicles,
   200 local lights (night).
 - Nanite: no per-asset triangle limit; Nanite streaming pool sized from the
@@ -103,7 +111,7 @@ Hitches: no frame above 100 ms during traversal, shader compilation included
 
 - Every content and feature review compares captured numbers with these
   budgets.
-- If the development Mac cannot hold 33.3 ms in the test scene at Epic
+- If the reference machine cannot hold 33.3 ms in the test scene at Epic
   settings, the options are: lower internal resolution, Lumen Lite, or a
   Windows PC as the quality reference (decision for the project lead).
 
@@ -111,7 +119,7 @@ Hitches: no frame above 100 ms during traversal, shader compilation included
 
 The [reference street scene](../rendering/rendering-strategy.md#7-reference-street-scene-test-plan)
 holds a 95th-percentile GPU time at or under 33.3 ms in all four lighting
-states on the development Mac.
+states on the rendering reference machine.
 
 ## Related
 

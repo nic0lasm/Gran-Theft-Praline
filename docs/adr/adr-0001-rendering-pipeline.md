@@ -6,7 +6,7 @@
 
 Proposed. Becomes Accepted once the reference street scene
 ([test plan](../rendering/rendering-strategy.md#7-reference-street-scene-test-plan))
-passes on the development Mac.
+passes on the rendering reference machine (see ADR-0002).
 
 ## Date
 
@@ -39,7 +39,7 @@ by raw city scans.
 | **Knowledge Risk** | HIGH (5.8 is recent; Mac support for several features is Beta or Experimental) |
 | **References Consulted** | UE 5.8 release notes; Epic "macOS development requirements" page; Epic tech blog "Bringing Unreal Engine on macOS up to feature parity with Windows" |
 | **Post-Cutoff APIs Used** | MegaLights (production-ready in 5.8), Lumen Lite (Beta in 5.8) |
-| **Verification Required** | Nanite, VSM, Lumen SWRT and HWRT, MegaLights on the development Mac, measured in the reference street scene |
+| **Verification Required** | Nanite, VSM, Lumen SWRT and HWRT, MegaLights on the rendering reference machine, measured in the reference street scene |
 
 ## ADR Dependencies
 
@@ -72,6 +72,11 @@ and Substrate, with SM6 shaders on Metal. No content exists yet.
 - Mac feature levels (Epic, UE 5.8): Lumen with software ray tracing on M1+;
   Nanite on M2+ (Beta); Lumen hardware ray tracing and MegaLights on M2+
   (Experimental); no path tracer on Mac.
+- Current development Mac (checked 2026-11-09): MacBook Pro M1 Pro, 16-core
+  GPU, 16 GB unified memory. **It does not support Nanite** (M2+ only) nor
+  hardware ray tracing, so it cannot render this pipeline at final quality;
+  the rendering reference machine is a decision for the project lead
+  (see ADR-0002).
 - No real brands or people; every asset logged in `assets/SOURCES.md`.
 - Solo developer: the pipeline must favour reusable kits and procedural
   placement over unique hand-made buildings.
@@ -93,7 +98,7 @@ and Substrate, with SM6 shaders on Metal. No content exists yet.
    scalability levels.
 2. **Geometry: Nanite** for all opaque static meshes (buildings, ground,
    props, parked vehicles' bodies when static), including Nanite displacement
-   for cobbles and pavements. Development Macs must be M2 or newer.
+   for cobbles and pavements. Rendering development machines must be M2 Macs or newer, or Windows PCs with an RTX-class GPU.
 3. **Shadows: Virtual Shadow Maps** for the sun and key lights.
 4. **Many lights at night: MegaLights**, behind a scalability switch, kept
    only if it passes on Mac; otherwise classic shadowed lights with tight

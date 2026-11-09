@@ -53,6 +53,12 @@ In order of impact for a city at street level:
 | Path tracer | Ground-truth reference renders | Not available | Available | PC only, for lighting reference stills |
 | Volumetric clouds, fog | Weather, atmosphere | Supported | Supported | **Yes** |
 
+**Our current Mac (checked 2026-11-09): MacBook Pro M1 Pro, 16-core GPU,
+16 GB.** It runs software Lumen but **not Nanite** and has no hardware ray
+tracing: it is fine for gameplay prototyping and greybox, not for judging
+final rendering. A rendering reference machine is needed (decision for the
+project lead, see ADR-0002).
+
 Consequence: a recent Mac (M2 or newer, ideally Pro or Max tier with 32 GB or
 more) can author and run the full look with software Lumen. A Windows PC with
 an RTX-class GPU adds hardware ray tracing, the path tracer for reference and
@@ -139,7 +145,7 @@ vertical slice district.
 
 - A Sequencer camera path of 60 seconds at street level plus 3 fixed shots,
   identical for every run.
-- Run in a packaged Development build (not in the editor) at 2560×1440,
+- Run on the rendering reference machine, in a packaged Development build (not in the editor) at 2560×1440,
   Epic scalability, TSR at 67 %.
 - Capture with the CSV profiler (`csvprofile start` and `csvprofile stop`)
   and Unreal Insights for one run per state; `stat gpu` screenshots for the
@@ -178,7 +184,7 @@ numbers, before anything is merged into the integration branch.
 | Fab and Megascans assets | Free to paid per asset; budget to be set when needed |
 | Poly Haven HDRIs and textures | Free (CC0) |
 | Colour checker card for photo capture | About 30 to 100 € |
-| Windows PC with RTX-class GPU (optional) | About 2,000 to 3,500 € depending on GPU tier; decision deferred to the test scene numbers |
+| Rendering reference machine (needed: the M1 Pro has no Nanite) | Windows PC with RTX 5080-class GPU about 2,500 to 3,000 €; or M4/M5 Max Mac with 48 GB+ about 3,000 to 4,500 € |
 | Time | The façade kit and the test scene are the largest effort: several weeks for one person |
 
 ## 9. Sources

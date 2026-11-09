@@ -6,7 +6,7 @@
 
 Proposé. Passe à Accepté quand la scène témoin
 ([plan de test](../rendering/rendering-strategy.fr.md#7-scène-témoin--plan-de-test))
-réussit sur le Mac de développement.
+réussit sur la machine de référence du rendu (voir ADR-0002).
 
 ## Date
 
@@ -74,6 +74,11 @@ ray tracing et Substrate, avec les shaders SM6 sur Metal. Aucun contenu.
 - Niveaux sur Mac (Epic, UE 5.8) : Lumen RT logiciel dès M1 ; Nanite dès M2
   (bêta) ; Lumen RT matériel et MegaLights dès M2 (expérimental) ; pas de path
   tracer.
+- Mac de développement actuel (vérifié le 2026-11-09) : MacBook Pro M1 Pro,
+  GPU 16 cœurs, 16 Go de mémoire unifiée. **Il ne prend pas en charge
+  Nanite** (M2 minimum) ni le RT matériel : il ne peut pas afficher ce
+  pipeline en qualité finale ; la machine de référence du rendu est une
+  décision de Nico (voir ADR-0002).
 - Ni marques ni personnes réelles ; chaque asset inscrit dans `assets/SOURCES.md`.
 - Développeur seul : privilégier les kits réutilisables et le placement
   procédural plutôt que des bâtiments uniques faits main.
@@ -94,7 +99,7 @@ ray tracing et Substrate, avec les shaders SM6 sur Metal. Aucun contenu.
    sert de repli pour les réglages bas.
 2. **Géométrie : Nanite** pour tous les maillages statiques opaques
    (bâtiments, sol, accessoires), y compris le déplacement Nanite pour pavés
-   et trottoirs. Les Mac de développement doivent être M2 ou plus récents.
+   et trottoirs. Les machines de développement du rendu doivent être des Mac M2 ou plus récents, ou des PC Windows avec GPU type RTX.
 3. **Ombres : Virtual Shadow Maps** pour le soleil et les lumières principales.
 4. **Nombreuses lumières de nuit : MegaLights**, derrière un réglage de
    qualité, gardé seulement s'il passe sur Mac ; sinon lumières ombrées à

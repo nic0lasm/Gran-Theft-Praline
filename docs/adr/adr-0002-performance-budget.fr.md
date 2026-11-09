@@ -24,7 +24,7 @@ nic0lasm (responsable du projet)
 Fixe la fréquence d'image et la résolution visées sur le matériel de
 référence, et découpe l'image GPU en budgets par fonction, pour que chaque
 choix de l'ADR-0001 se mesure contre un chiffre fixe. Recommandé : mode
-« fidélité » à 30 i/s en sortie 1440p sur le Mac de développement, et un mode
+« fidélité » à 30 i/s en sortie 1440p sur la machine de référence du rendu, et un mode
 « performance » à 60 i/s ajouté plus tard.
 
 ## Compatibilité moteur
@@ -44,14 +44,25 @@ mémoire de textures, densité de foule et de circulation). Bloque la
 production de contenu en qualité finale ; le concept exige cet ADR avant la
 production.
 
+## Machine de développement
+
+Le Mac actuel (lu avec `system_profiler` le 2026-11-09) est un MacBook Pro
+M1 Pro, GPU 16 cœurs, 16 Go de mémoire unifiée. Selon Epic, les puces M1
+n'exécutent pas Nanite et n'ont pas de RT matériel ; 16 Go est aussi juste
+pour l'éditeur avec une ville dense. Les budgets ci-dessous s'appliquent donc
+à une **machine de référence du rendu encore à choisir** par Nico (PC Windows
+avec GPU type RTX recommandé, ou Mac M4/M5 Max). Sur le M1 Pro, le jeu tourne
+en qualité réduite (sans Nanite, Lumen Lite) pour le travail de gameplay
+seulement.
+
 ## Décision (recommandée, en attente de Nico)
 
 ### Cible
 
 | Mode | Images/s | Sortie | Interne (TSR) | Matériel | Priorité |
 | ---- | ---- | ---- | ---- | ---- | ---- |
-| Fidélité | 30 verrouillé (33,3 ms) | 2560×1440 | environ 1706×960 (67 %) | Mac de développement | P0 |
-| Performance | 60 (16,7 ms) | 1920×1080 | environ 1280×720 (67 %), Lumen Lite | Mac de dev et PC Windows | P1 |
+| Fidélité | 30 verrouillé (33,3 ms) | 2560×1440 | environ 1706×960 (67 %) | Machine de référence du rendu | P0 |
+| Performance | 60 (16,7 ms) | 1920×1080 | environ 1280×720 (67 %), Lumen Lite | Machine de référence, puis Mac M2+ | P1 |
 
 Saccades : aucune image au-dessus de 100 ms pendant les déplacements,
 compilation des shaders comprise (précache des PSO actif).
@@ -71,8 +82,7 @@ compilation des shaders comprise (précache des PSO actif).
 
 ### Mémoire et contenu (valeurs de départ, affinées par la mesure)
 
-- Pool de streaming des textures : 3 Go ; mémoire totale vue par le GPU : au
-  plus 60 % de la mémoire unifiée du Mac.
+- Pool de streaming des textures : 3 Go ; mémoire totale vue par le GPU : au plus 60 % de la mémoire vidéo ou unifiée de la machine de référence.
 - À l'écran en même temps : 40 personnages animés, 25 véhicules en mouvement,
   200 lumières locales (nuit).
 - Nanite : pas de limite de triangles par asset ; pool de streaming Nanite
@@ -91,14 +101,14 @@ compilation des shaders comprise (précache des PSO actif).
 
 - Chaque revue de contenu ou de fonction compare les chiffres capturés à ces
   budgets.
-- Si le Mac de développement ne tient pas 33,3 ms dans la scène témoin en
+- Si la machine de référence ne tient pas 33,3 ms dans la scène témoin en
   réglages Epic : baisser la résolution interne, passer à Lumen Lite, ou
   prendre un PC Windows comme référence qualité (décision de Nico).
 
 ## Critères de validation
 
 La scène témoin tient un temps GPU au 95e centile inférieur ou égal à
-33,3 ms dans ses quatre états d'éclairage sur le Mac de développement.
+33,3 ms dans ses quatre états d'éclairage sur la machine de référence du rendu.
 
 ## Liens
 
