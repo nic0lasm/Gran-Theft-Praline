@@ -24,7 +24,7 @@ cp "$repo/tools/level/playtest_street.py" "$tmp/playtest_street.py"
 
 # bAllowHighDPIInGameMode: otherwise 1920x1080 becomes 1440x1080 on a Retina Mac.
 "$editor" "$project" /Game/Maps/L_RueRepublique -game -windowed -ResX=1920 -ResY=1080 \
-  -nosound -NoScreenMessages -unattended \
+  -nosound -NoScreenMessages -unattended -SkipTitle \
   "-ini:Engine:[/Script/Engine.UserInterfaceSettings]:bAllowHighDPIInGameMode=True" \
   -ExecCmds="r.SetRes 1920x1080w, py $tmp/playtest_street.py"
 rm -rf "$tmp"
