@@ -40,7 +40,9 @@ GAME_ARGS="-GfxProfile=ultra" tools/build/test-build-mac.sh 0.2 300 0
 
 Lance le jeu empaqueté directement en jeu, enregistre chaque image et
 vérifie qu'il se ferme proprement au bout du temps demandé, sans rapport de
-plantage. Les preuves vont dans `Builds/<version>/evidence/<horodatage>/` :
+plantage. Par défaut, les passes vidéo et endurance jouent le parcours
+automatique (`-TestVehicle -DemoRoute`) pour filmer et mesurer marche et
+conduite ; `DEMO_ROUTE=0` laisse le joueur immobile. Les preuves vont dans `Builds/<version>/evidence/<horodatage>/` :
 `frametimes.csv`, `frametimes.summary.txt` (p50, p95, p99, part des images
 sous 33,3 ms, délai avant la première image), `title.jpg`, `capture.mov`,
 `result.txt`. La vidéo et l'image de l'écran titre sont filmées par le jeu
@@ -60,6 +62,7 @@ Les preuves retenues pour une version sont copiées dans
 | `-ExitAfter=<s>` | Quitte proprement après ce nombre de secondes |
 | `-CaptureVideo=<s>` | Enregistre les images rendues en JPEG pendant ce nombre de secondes (`-CaptureFps`, 10 par défaut ; `-CaptureDelay`, 3 par défaut ; `-CaptureDir`) |
 | `-GfxProfile=<nom>` | Profil de rendu de l'ADR-0002 : `m1` (par défaut), `fidelity` ou `ultra` (réglages du projet seuls) |
+| `-DemoRoute` | Joue seul un parcours fixe (regard circulaire, marche, montée dans la voiture de test, conduite, descente) pour filmer et mesurer sans joueur ; avec `-SkipTitle -TestVehicle` |
 
 L'enregistreur fonctionne aussi en Shipping : il lit les temps des fils du
 moteur (`frame`, `game`, `render`, `gpu`), pas le profileur. La minuterie GPU
@@ -92,6 +95,7 @@ les réglages enregistrés du joueur ne peuvent donc pas fausser la mesure.
 | `UGTPFrameTimeRecorder` | CSV de temps d'image et arrêt des tests d'endurance |
 | `UGTPFrameCapture` | Filme le jeu de l'intérieur (sans autorisation d'enregistrement d'écran) |
 | `UGTPGraphicsProfile` | Applique le profil de rendu de l'ADR-0002 (`-GfxProfile`) |
+| `UGTPDemoRoute` | Parcours automatique pour les tests filmés et mesurés (`-DemoRoute`) |
 
 La classe du personnage jouable doit aussi être cuite : mettre son dossier
 dans `DirectoriesToAlwaysCook` ou la référencer depuis un asset cuit.

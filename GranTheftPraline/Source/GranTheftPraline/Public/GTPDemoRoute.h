@@ -1,0 +1,65 @@
+#pragma once
+
+#include "CoreMinimal.h"
+#include "Containers/Ticker.h"
+#include "Subsystems/GameInstanceSubsystem.h"
+#include "GTPDemoRoute.generated.h"
+
+class AGTPVehicle;
+class APlayerController;
+
+/**
+ * Plays a fixed route by itself, so a packaged build can film and measure
+ * walking and driving with nobody at the keyboard.
+ *
+ * Command line: -DemoRoute (with -SkipTitle -TestVehicle so a car is parked
+ * in front of the player). The route:
+ *   1. looks around the street,
+ *   2. walks down the street, turns back and walks to the test car,
+ *   3. gets in with the normal enter action,
+ *   4. drives down the street at city speed, keeping the street heading,
+ *   5. stops, gets out and stays on foot.
+ *
+ * Everything goes through the normal gameplay paths: movement input on foot,
+ * control rotation for the view, the vehicle interaction component to get
+ * in and out, and the vehicle movement inputs to drive. Phase changes are
+ * logged (LogGTPDemo) with their time, to match them with the frame times.
+ */
+UCLASS()
+class GRANTHEFTPRALINE_API UGTPDemoRoute : public UGameInstanceSubsystem
+{
+	GENERATED_BODY()
+
+public:
+	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
+	virtual void Deinitialize() override;
+
+private:
+	enum class EPhase : uint8
+	{
+		WaitForPawn,
+		LookAround,
+		WalkStreet,
+		TurnBack,
+		WalkToCar,
+		Enter,
+		Drive,
+		Stop,
+		Exit,
+		Done
+	};
+
+	bool Tick(float DeltaTime);
+	void SetPhase(EPhase NewPhase);
+	AGTPVehicle* FindCar() const;
+	void DriveInputs(AGTPVehicle* Car, float Throttle, float Brake, float Steering, bool bHandbrake) const;
+	APlayerController* GetController() const;
+
+	FTSTicker::FDelegateHandle TickHandle;
+	EPhase Phase = EPhase::WaitForPawn;
+	double PhaseStart = 0.0;
+	double RouteStart = 0.0;
+	float StreetYaw = 0.f;
+	float StartControlYaw = 0.f;
+	TWeakObjectPtr<AGTPVehicle> Car;
+};

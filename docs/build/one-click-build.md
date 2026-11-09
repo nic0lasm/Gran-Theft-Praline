@@ -39,6 +39,9 @@ GAME_ARGS="-GfxProfile=ultra" tools/build/test-build-mac.sh 0.2 300 0
 
 Launches the packaged game straight into gameplay, records every frame and
 checks that it quits cleanly after the requested time, with no crash report.
+By default the video and soak runs play the demo route (`-TestVehicle
+-DemoRoute`) so walking and driving are filmed and measured; `DEMO_ROUTE=0`
+keeps the player still.
 Evidence goes to `Builds/<version>/evidence/<timestamp>/`: `frametimes.csv`,
 `frametimes.summary.txt` (p50, p95, p99, share of frames within 33.3 ms,
 time to first frame), `title.jpg`, `capture.mov`, `result.txt`. The video
@@ -57,6 +60,7 @@ version is copied to `production/evidence/<version>/` (video through Git LFS).
 | `-ExitAfter=<s>` | Quit cleanly after this many seconds |
 | `-CaptureVideo=<s>` | Save rendered frames as JPEG for this many seconds (`-CaptureFps`, default 10; `-CaptureDelay`, default 3; `-CaptureDir`) |
 | `-GfxProfile=<name>` | Rendering profile from ADR-0002: `m1` (default), `fidelity` or `ultra` (project settings only) |
+| `-DemoRoute` | Plays a fixed route by itself (look around, walk, get in the test car, drive, get out) to film and measure without a player; use with `-SkipTitle -TestVehicle` |
 
 The recorder works in Shipping builds too: it uses the engine thread
 timings (`frame`, `game`, `render`, `gpu`), not the profiler. The Metal GPU
@@ -89,6 +93,7 @@ cannot override what is measured.
 | `UGTPFrameTimeRecorder` | Frame time CSV and soak test exit |
 | `UGTPFrameCapture` | Films the game from the inside (no screen-recording permission) |
 | `UGTPGraphicsProfile` | Applies the ADR-0002 rendering profile (`-GfxProfile`) |
+| `UGTPDemoRoute` | Self-playing route for filmed and measured test runs (`-DemoRoute`) |
 
 The playable character pawn class must also be cooked: list its folder in
 `DirectoriesToAlwaysCook` or reference it from a cooked asset.

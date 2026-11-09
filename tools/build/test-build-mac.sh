@@ -14,6 +14,9 @@
 # Environment:
 #   GAME_ARGS   extra game arguments for every run, e.g. "-GfxProfile=ultra"
 #               (the default profile is m1, see GTPGraphicsProfile.h)
+#   DEMO_ROUTE  1 (default): the video and soak runs play the demo route
+#               (look around, walk, get in the test car, drive, get out;
+#               see GTPDemoRoute.h); 0: the player stands still
 #
 # Output: Builds/<version>/evidence/<timestamp>/
 #   title.jpg, capture.mov, frametimes.csv, frametimes.summary.txt, result.txt
@@ -26,6 +29,9 @@ version="${1:-$(printf '%s' "$project_version" | cut -d. -f1-2)}"
 # Word splitting is wanted here: GAME_ARGS holds several arguments.
 # shellcheck disable=SC2206
 game_args=(${GAME_ARGS:-})
+if test "${DEMO_ROUTE:-1}" = "1"; then
+  game_args+=(-TestVehicle -DemoRoute)
+fi
 duration="${2:-600}"
 video="${3:-120}"
 builds_dir="${BUILDS_DIR:-$repo_root/Builds}"
@@ -100,7 +106,7 @@ test "$elapsed" -ge "$duration" || verdict="FAIL"
   echo "crash_reports=$crash_reports"
   echo "title=$title_status"
   echo "video=$video_status"
-  echo "game_args=${GAME_ARGS:-}"
+  echo "game_args=${game_args[*]+${game_args[*]}}"
   cat "$builds_dir/$version/build-info.txt" 2>/dev/null || true
 } > "$out_dir/result.txt"
 
