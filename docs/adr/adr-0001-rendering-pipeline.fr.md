@@ -78,7 +78,9 @@ ray tracing et Substrate, avec les shaders SM6 sur Metal. Aucun contenu.
   MacBook Pro M1 Pro, GPU 16 cœurs, 16 Go de mémoire unifiée, sans achat de
   matériel. **Il n'exécute pas Nanite** (M2 minimum) ni le RT matériel : voir
   « Profil M1 Pro » plus bas.
-- Ni marques ni personnes réelles ; chaque asset inscrit dans `assets/SOURCES.md`.
+- Aucune personne réelle ; vraies enseignes et marques autorisées depuis le
+  2026-11-09 (usage non commercial, [bible artistique](../art/art-bible.fr.md)
+  section 3.5) ; chaque asset inscrit dans `assets/SOURCES.md`.
 - Développeur seul : privilégier les kits réutilisables et le placement
   procédural plutôt que des bâtiments uniques faits main.
 

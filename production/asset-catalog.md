@@ -11,15 +11,18 @@
 - **Master + light variant**: the original GLB is the master (kept out of
   Git, storage to be decided); a light variant (reduced polygons and
   textures) serves the M1 profile. See roadmap, section 1.
-- **Fiction required**: no brands, no logos, no real text,
-  no object copied from an existing game. Inspiration: generic Lyon and
-  European street furniture.
+- **Faithful to Lyon**: Tripo generates objects without text or logos
+  (`no text` in the prompt); real signs, brands and lettering are added
+  afterwards from field photos ([art bible](../docs/art/art-bible.md),
+  section 3.5). No object copied from an existing game. Prompts, scale,
+  pivot and orientation follow the art bible's Tripo charter (section 8).
 - **Real scale** in meters noted in the Size column; pivot on the ground.
 - **A model's path**: ⬜ to generate → 🎲 generated (pick among the
   variants) → 🧹 cleaned up in Blender (scale, pivot, LODs, collisions) →
   ✅ integrated in Unreal and recorded in `assets/SOURCES.md`.
 - **Exports**: `assets/tripo/<wave>/<id>.glb` (masters, out of Git);
-  Unreal assets in `Content/Props/<wave>/`.
+  Unreal assets in `Content/Environment/Props/<Family>/<Asset>/`
+  (art bible, section 7).
 
 ## Waves at a glance
 

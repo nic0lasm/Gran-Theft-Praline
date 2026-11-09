@@ -11,15 +11,18 @@
 - **Master + variante légère** : le GLB d'origine est le master (gardé hors
   Git, stockage à décider) ; une variante légère (polygones et textures
   réduits) sert au profil M1. Voir roadmap, section 1.
-- **Fiction obligatoire** : aucune marque, aucun logo, aucun texte réel,
-  aucun objet copié d'un jeu existant. Inspiration : mobilier urbain
-  lyonnais générique et européen.
+- **Fidèle à Lyon** : Tripo génère les objets sans texte ni logo
+  (`no text` dans le prompt) ; les vraies enseignes, marques et inscriptions
+  sont posées ensuite d'après photos terrain ([bible artistique](../docs/art/art-bible.fr.md),
+  section 3.5). Aucun objet copié d'un jeu existant. Prompts, échelle, pivot
+  et orientation suivent la charte Tripo de la bible (section 8).
 - **Échelle réelle** en mètres notée dans la colonne Taille ; pivot au sol.
 - **Parcours d'un modèle** : ⬜ à générer → 🎲 généré (choix parmi les
   variantes) → 🧹 nettoyé dans Blender (échelle, pivot, LOD, collisions) →
   ✅ intégré dans Unreal et inscrit dans `assets/SOURCES.md`.
 - **Exports** : `assets/tripo/<vague>/<id>.glb` (masters, hors Git) ;
-  assets Unreal dans `Content/Props/<vague>/`.
+  assets Unreal dans `Content/Environment/Props/<Famille>/<Asset>/`
+  (bible artistique, section 7).
 
 ## Vue d'ensemble des vagues
 

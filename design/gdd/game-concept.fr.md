@@ -171,8 +171,10 @@ responsable du projet.
   publiques (place Bellecour, Hôtel de Ville, Opéra, ponts, Fourvière à
   l'horizon).
 - **Façades et rez-de-chaussée** : matières et couleurs propres à chaque rue,
-  types de commerces réels aux bons endroits, tous les **noms, enseignes,
-  logos, marques et visages fictifs**.
+  vrais commerces aux bons endroits avec leurs **vraies enseignes et
+  marques**, reproduites d'après photos terrain (décision de Nico du
+  2026-11-09, usage non commercial ; voir la [bible artistique](../../docs/art/art-bible.fr.md),
+  section 3.5) ; **visages fictifs**.
 - **Intérieurs** : absents des données ouvertes ; reconstitués en fiction crédible.
 - **Référence visuelle uniquement** : Google Photorealistic 3D Tiles et photos
   de terrain guident la modélisation mais ne sont jamais livrées dans le jeu.
@@ -239,8 +241,8 @@ on construit le système.
 
 - **PAS une copie du contenu d'un autre jeu** : on égale les fonctions et la
   qualité, jamais les noms, personnages, carte, missions ou assets.
-- **PAS de marques ni de personnes réelles** : les lieux sont fidèles, les
-  enseignes et visages fictifs.
+- **PAS de personnes réelles** : les lieux et les enseignes sont fidèles
+  (vraies marques comprises, usage non commercial), les visages fictifs.
 - **PAS toute la ville d'un coup** : un quartier en qualité finale d'abord,
   puis quartier par quartier.
 - **PAS de multijoueur** pour l'instant : le budget va à la ville et aux systèmes.

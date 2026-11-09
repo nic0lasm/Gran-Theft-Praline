@@ -502,7 +502,8 @@ l'intégration** : chaque version a sa vague de modèles listée dans le
   semaines, soit environ 800 modèles d'ici la 0.17. Le coût réel en crédits
   par modèle est mesuré sur la vague 1 et le rythme ajusté pour consommer
   les crédits avant leur expiration.
-- **Garde-fous :** aucune marque, aucun logo réel, aucun objet copié d'un
+- **Garde-fous :** les vraies enseignes et marques viennent des photos
+  terrain, jamais de Tripo ([bible artistique](../docs/art/art-bible.fr.md)) ; aucun objet copié d'un
   jeu existant ; chaque modèle passe une revue visuelle avant d'entrer dans
   le jeu.
 
@@ -567,7 +568,7 @@ StateTree, Mass) ; police et boutiques écrites par nous.*
 | **Frameworks expérimentaux** (Mover, Chaos Vehicles 5.8.2, Mass) | Haute | Moyen | Voie stable d'abord, Mass derrière nos interfaces, repli en acteurs |
 | **Crédits Tripo Studio qui expirent** | Moyenne | Moyen | Vagues continues dès la 0.1, coût mesuré sur la vague 1, rythme ajusté |
 | **Qualité des modèles générés** (topologie, échelle, textures) | Haute | Moyen | Nettoyage Blender systématique, revue visuelle, objets secondaires d'abord |
-| **Licences et marques** | Moyenne | Haut | `assets/SOURCES.md` à chaque asset, aucune marque réelle |
+| **Licences et marques** | Moyenne | Haut | `assets/SOURCES.md` à chaque asset ; vraies marques (usage non commercial) gardées hors du dépôt public dans `Plugins/CityBrands/`, remplaçables d'un bloc |
 | **Taille du repo** (quota Git LFS) | Moyenne | Moyen | LFS posé en 0.1, sources brutes hors Git |
 | **Périmètre** face à un studio de milliers de personnes | Certaine | Haut | P0 seulement jusqu'à 1.0 ; réduire le nombre de boutiques avant la qualité |
 | **Pas de build Unreal en CI** | Certaine | Faible | Packaging et mesures scriptés sur le Mac, preuves versionnées |

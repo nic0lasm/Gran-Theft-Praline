@@ -15,9 +15,11 @@ item whether we use it.
 - **Rejected**: not used, with the reason.
 
 **Licence rules that apply to every item**: original game, no content from
-existing games, no real brands or people (rules 18 to 21 of the working
-rules). An asset that shows a real brand, a real vehicle make or a real face is
-reworked or rejected.
+existing games, no real people (rules 18 to 21 of the working rules). An
+asset that shows a real vehicle make or a real face is reworked or rejected.
+Real shop signs and brands are allowed since 2026-11-09 (non-commercial use),
+reproduced from field photos and kept out of the repo
+([art bible](../art/art-bible.md), section 3.5).
 
 ---
 

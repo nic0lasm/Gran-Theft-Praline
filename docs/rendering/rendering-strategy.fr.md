@@ -79,13 +79,13 @@ scène témoin.
 | ---- | ---- | ---- | ---- |
 | Façades (immeubles XIXe en pierre et enduit de la Presqu'île) | Kit modulaire dans Blender : travées, corniches, balcons, volets, devantures ; trim sheets et matériaux répétables **tirés de nos propres photos** du quartier | Kits de façades Fab, retravaillés aux proportions lyonnaises | Photomaillage Grand Lyon, Google 3D Tiles (référence et blocage seulement) |
 | Sol : pavés, asphalte, trottoirs, bordures | Surfaces Megascans / Fab + nos scans de trottoirs lyonnais (RealityScan) | Couches Substrate procédurales pour usure et humidité | |
-| Mobilier urbain, accessoires | Fab et Megascans, rendus fictifs (sans marques) | Ébauches Tripo finies dans Blender | |
+| Mobilier urbain, accessoires | Fab et Megascans, débadgés ; signalétique réelle de la ville ajoutée d'après photos terrain | Ébauches Tripo finies dans Blender | |
 | Monuments (Hôtel de Ville, Opéra, fontaines, statues) | Modélisés à la main dans Blender d'après photos et plans ; photogrammétrie des détails | | |
 | Végétation (platanes des quais, Bellecour) | Plantes Fab / Megascans, feuillage Nanite | | |
 | Personnages | MetaHuman (créateur dans l'éditeur, disponible sur macOS en 5.8), visages fictifs uniquement | | Scans de personnes réelles |
 | Véhicules | Modèles fictifs : ébauche Tripo ou concept, modélisation dure dans Blender, Chaos Vehicles, peinture carrosserie Substrate | Bases de véhicules Fab, débadgées et redessinées | Vraies marques, logos, plaques |
 | Ciel et éclairage | Sky Atmosphere, Volumetric Clouds, brouillard, position réelle du soleil | HDRI (Poly Haven, CC0) pour le look-dev uniquement | HDRI comme ciel du jeu |
-| Enseignes, affiches, menus | Flux / GPT Image, puis nettoyage en retouche | | Vraies marques |
+| Enseignes, affiches, menus | Vraies enseignes et marques reproduites d'après photos terrain (bible artistique, section 3.5) | Flux / GPT Image pour les affiches et menus sans équivalent réel | Logos inventés par une IA quand le vrai existe |
 
 **Prises de vue à Lyon** (sorties terrain par Nico ou toute personne sur
 place) : jours couverts pour des textures sans lumière incrustée, une charte
@@ -104,7 +104,7 @@ la licence sur Fab au moment du téléchargement.
 
 | Outil | Bon pour | Pas pour |
 | ---- | ---- | ---- |
-| Flux 3 Max, GPT Image | Planches d'ambiance et images clés des plans visés ; enseignes, logos, affiches, menus, graffitis fictifs ; bases de décalques et de salissures ; pistes de textures | Cartes PBR finales sorties telles quelles (ni dé-éclairage, ni répétition, ni rugosité fiables) ; façades |
+| Flux 3 Max, GPT Image | Planches d'ambiance et images clés des plans visés ; affiches, menus, graffitis sans équivalent réel ; bases de décalques et de salissures ; pistes de textures | Cartes PBR finales sorties telles quelles (ni dé-éclairage, ni répétition, ni rugosité fiables) ; façades |
 | Tripo | Ébauches rapides d'accessoires et de silhouettes de véhicules ; encombrement d'arrière-plan après nettoyage | Assets de premier plan, bâtiments, tout ce qui est proche de la caméra sans retopologie, UV et vrais matériaux dans Blender |
 | Blender | Kit de façades, monuments, véhicules, nettoyage de tout maillage généré | |
 

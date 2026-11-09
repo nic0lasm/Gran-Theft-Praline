@@ -164,8 +164,10 @@ decision.
   buildings) and OpenStreetMap. Credits shown in game.
 - **Landmarks**: rebuilt at real scale from public references (Place
   Bellecour, Hôtel de Ville, Opéra, bridges, Fourvière on the skyline).
-- **Façades and street level**: per-street materials and colours, real shop
-  types in the right places, all **names, signs, logos, brands and faces
+- **Façades and street level**: per-street materials and colours, real shops
+  in the right places with their **real signs and brands**, reproduced from
+  field photos (Nico's decision, 2026-11-09, non-commercial use; see the
+  [art bible](../../docs/art/art-bible.md), section 3.5); **faces stay
   fictional**.
 - **Interiors**: not in open data; rebuilt as plausible fiction.
 - **Visual reference only**: Google Photorealistic 3D Tiles and field photos
@@ -231,8 +233,8 @@ same moment, we build the system.
 
 - **NOT a copy of another game's content**: we match functions and quality,
   never names, characters, map, missions or assets.
-- **NOT real brands or people**: places are faithful, signs and faces are
-  fictional.
+- **NOT real people**: places and shop signs are faithful (real brands
+  included, non-commercial use), faces are fictional.
 - **NOT the whole city at once**: one district at full quality first, then
   district by district.
 - **NOT multiplayer** for now: the budget goes to the city and the systems.

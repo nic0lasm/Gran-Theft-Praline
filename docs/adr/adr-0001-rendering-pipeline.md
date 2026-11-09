@@ -76,7 +76,9 @@ and Substrate, with SM6 shaders on Metal. No content exists yet.
   M1 Pro, 16-core GPU, 16 GB unified memory, no hardware purchase. **It does
   not run Nanite** (M2+ only) nor hardware ray tracing: see "M1 Pro profile"
   below.
-- No real brands or people; every asset logged in `assets/SOURCES.md`.
+- No real people; real shop signs and brands allowed since 2026-11-09
+  (non-commercial use, [art bible](../art/art-bible.md) section 3.5); every
+  asset logged in `assets/SOURCES.md`.
 - Solo developer: the pipeline must favour reusable kits and procedural
   placement over unique hand-made buildings.
 

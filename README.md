@@ -32,8 +32,11 @@ embankments (about 1.5 km²).
 > first: movement, driving, weapons, enterable interiors, crowds and traffic.
 > The plot, characters and tone will be written once that base exists.
 
-Everything in the game is original. No real brands, no real people, no
-assets taken from other games.
+The city is reproduced as faithfully as possible, real shop signs
+included. No real people and no assets taken from other games. This is a
+non-commercial project: trademarks shown in the game belong to their
+owners, are not covered by the MIT licence and are not stored in this
+repository.
 
 ## Screenshots
 
@@ -130,7 +133,8 @@ How the repository works:
   documentation in both English and French (`file.md` + `file.fr.md`).
 - **Assets**: every external or generated asset gets a row in
   [assets/SOURCES.md](assets/SOURCES.md) with its origin and licence. Large
-  binaries go through Git LFS. No real brands or real people.
+  binaries go through Git LFS. No real people; real shop signs stay out of
+  the repository (see the [art bible](docs/art/art-bible.md)).
 
 ## Credits and data
 

@@ -502,7 +502,8 @@ integration**: each version has its wave of models listed in the
   weeks, about 800 models by 0.17. The actual credit cost
   per model is measured on wave 1 and the pace adjusted to use up
   the credits before they expire.
-- **Safeguards:** no brands, no real logos, no object copied from an
+- **Safeguards:** real signs and brands come from field photos, never
+  from Tripo ([art bible](../docs/art/art-bible.md)); no object copied from an
   existing game; every model goes through a visual review before entering
   the game.
 
@@ -567,7 +568,7 @@ StateTree, Mass); police and shops written by us.*
 | **Experimental frameworks** (Mover, Chaos Vehicles 5.8.2, Mass) | High | Medium | Stable path first, Mass behind our interfaces, actor fallback |
 | **Tripo Studio credits expiring** | Medium | Medium | Continuous waves from 0.1, cost measured on wave 1, pace adjusted |
 | **Quality of generated models** (topology, scale, textures) | High | Medium | Systematic Blender cleanup, visual review, secondary objects first |
-| **Licenses and brands** | Medium | High | `assets/SOURCES.md` for every asset, no real brands |
+| **Licenses and brands** | Medium | High | `assets/SOURCES.md` for every asset; real brands (non-commercial use) kept out of the public repo in `Plugins/CityBrands/`, swappable in one go |
 | **Repo size** (Git LFS quota) | Medium | Medium | LFS set up in 0.1, raw sources kept out of Git |
 | **Scope** compared with a studio of thousands of people | Certain | High | P0 only until 1.0; reduce the number of shops before reducing quality |
 | **No Unreal build in CI** | Certain | Low | Scripted packaging and measurements on the Mac, versioned evidence |

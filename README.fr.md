@@ -34,8 +34,11 @@ de Saône et du Rhône (environ 1,5 km²).
 > foule et circulation. L'intrigue, les personnages et le ton seront écrits
 > une fois cette base en place.
 
-Tout dans le jeu est original : aucune marque réelle, aucune personne
-réelle, aucun asset repris d'autres jeux.
+La ville est reproduite le plus fidèlement possible, vraies enseignes
+comprises. Aucune personne réelle, aucun asset repris d'autres jeux. Projet
+non commercial : les marques visibles dans le jeu appartiennent à leurs
+propriétaires, ne sont pas couvertes par la licence MIT et ne sont pas
+stockées dans ce dépôt.
 
 ## Captures
 
@@ -132,7 +135,8 @@ Fonctionnement du dépôt :
   documentation en anglais et en français (`fichier.md` + `fichier.fr.md`).
 - **Assets** : chaque asset externe ou généré a sa ligne dans
   [assets/SOURCES.md](assets/SOURCES.md), avec son origine et sa licence. Les
-  gros binaires passent par Git LFS. Aucune marque ni personne réelle.
+  gros binaires passent par Git LFS. Aucune personne réelle ; les vraies
+  enseignes restent hors du dépôt (voir la [bible artistique](docs/art/art-bible.fr.md)).
 
 ## Crédits et données
 

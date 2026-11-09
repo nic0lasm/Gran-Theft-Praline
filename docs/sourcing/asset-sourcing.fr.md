@@ -16,9 +16,11 @@ But : lister ce qui existe déjà pour ne pas le refaire, et dire pour chaque
 - **Écarté** : non utilisé, avec la raison.
 
 **Règles de licence valables pour tout** : jeu original, aucun contenu de
-jeux existants, ni marques ni personnes réelles (règles 18 à 21 des règles
-de travail). Un asset qui montre une vraie marque, un vrai modèle de voiture
-ou un vrai visage est retravaillé ou écarté.
+jeux existants, aucune personne réelle (règles 18 à 21 des règles de
+travail). Un asset qui montre un vrai modèle de voiture ou un vrai visage est
+retravaillé ou écarté. Les vraies enseignes et marques sont autorisées depuis
+le 2026-11-09 (usage non commercial), reproduites d'après photos terrain et
+gardées hors du dépôt ([bible artistique](../art/art-bible.fr.md), section 3.5).
 
 ---
 

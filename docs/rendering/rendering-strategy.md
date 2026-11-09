@@ -73,13 +73,13 @@ project lead, informed by the test scene numbers.
 | ---- | ---- | ---- | ---- |
 | Façades (Presqu'île 19th-century stone and render buildings) | Modular kit in Blender: bays, cornices, balconies, shutters, shopfronts; trim sheets and tiling materials **made from our own photos** of the district | Fab façade kits, reworked to Lyon proportions | Grand Lyon photomesh, Google 3D Tiles (reference and blocking only) |
 | Ground: cobbles, asphalt, pavements, kerbs | Megascans / Fab surfaces + our photo-scanned Lyon pavements (RealityScan) | Procedural Substrate layers for wear and wetness | |
-| Street furniture, props | Fab and Megascans, then made fictional (no brands) | Tripo blockouts finished in Blender | |
+| Street furniture, props | Fab and Megascans, debadged; real city signage added from field photos | Tripo blockouts finished in Blender | |
 | Landmarks (Hôtel de Ville, Opéra, fountains, statues) | Hand-modelled in Blender from photos and plans; photogrammetry of details | | |
 | Vegetation (plane trees on the quays, Bellecour) | Fab / Megascans plants, Nanite foliage | | |
 | Characters | MetaHuman (in-editor creator, supported on macOS in 5.8), fictional faces only | | Scans of real people |
 | Vehicles | Fictional designs: Tripo or concept blockout, hard-surface in Blender, Chaos Vehicles, Substrate car paint | Fab vehicle bases, debadged and redesigned | Real makes, logos, plates |
 | Sky and lighting | Sky Atmosphere, Volumetric Clouds, height fog, real sun position | HDRIs (Poly Haven, CC0) for look-dev only | HDRI as game sky |
-| Signs, posters, menus | Flux / GPT Image, then cleaned in an image editor | | Real brands |
+| Signs, posters, menus | Real signs and brands reproduced from field photos (art bible, section 3.5) | Flux / GPT Image for posters and menus with no real counterpart | AI-invented logos when the real one exists |
 
 **Photo capture in Lyon** (field days by the project lead or anyone on
 site): overcast days for de-lit textures, a colour checker card in frame,
@@ -96,7 +96,7 @@ changed several times since 2024: read the licence on Fab when downloading.
 
 | Tool | Good for | Not for |
 | ---- | ---- | ---- |
-| Flux 3 Max, GPT Image | Mood boards and key frames of target shots; fictional shop signs, logos, posters, menus, graffiti; decal and grunge bases; texture ideas | Final PBR maps straight from the model (no reliable de-lighting, tiling or roughness); building façades |
+| Flux 3 Max, GPT Image | Mood boards and key frames of target shots; posters, menus, graffiti with no real counterpart; decal and grunge bases; texture ideas | Final PBR maps straight from the model (no reliable de-lighting, tiling or roughness); building façades |
 | Tripo | Fast blockout of props and vehicle shapes; background clutter after cleanup | Hero assets, buildings, anything near the camera without retopology, UVs and proper materials in Blender |
 | Blender | Façade kit, landmarks, vehicles, cleanup of every generated mesh | |
 
