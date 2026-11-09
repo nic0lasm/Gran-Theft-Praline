@@ -153,6 +153,35 @@ Sun/sky/clouds/fog + weather params ──► Lumen + VSM + MegaLights ──►
 - Scalability presets (Low to Epic) must exist from the first test scene and
   be measured, not guessed.
 
+## Visual reference: Bodycam (Reissad Studio, Steam)
+
+The project lead's benchmark for photorealism (2026-11-09) is *Bodycam*, an
+Unreal Engine 5 shooter by a small French studio. What makes it read as real
+footage, and what we can take from it:
+
+| Ingredient in Bodycam | Cost | Transposable to an open-world Lyon? |
+| ---- | ---- | ---- |
+| **Camera emulation**: wide lens with barrel distortion, strong motion blur, sensor noise, aggressive auto-exposure and blooming highlights, slight chromatic aberration, a shaky body-mounted camera. Our eyes accept it as real footage and it hides most CG tells | Very low (post-process) | **Yes**, and it is the cheapest win. It suits first-person; in third person it must stay subtle to keep driving and aiming readable |
+| **Photogrammetry everywhere** (Megascans) with dense, worn surfaces | Medium (disk size, memory) | **Yes** at street level: Megascans is free on Fab, plus our own Lyon scans for façades |
+| **Lumen** global illumination | High on GPU | **Yes**, same stack as ours |
+| **Small closed maps**: all budget concentrated in a few hundred metres | n/a | **Partly**: an open world spreads that budget over 1.5 km² with traffic, crowds and streaming. We match the density near the camera and rely on HLODs further away |
+| **Desktop GPUs** (minimum around an RTX 2070 or RX 5700) | n/a | Our **Ultra** tier targets this class of hardware or better |
+
+**Conclusion: partially achievable, under conditions.** On the Ultra tier, a
+first-person walk in a dressed street of the Presqu'île can reach Bodycam's
+level, because its realism comes mostly from scanned materials, Lumen and
+camera emulation, all of which we use. Matching it everywhere in an open
+world with traffic, crowds and day-night cycles is harder and costs more
+content and GPU time; it is a long-term target, not a vertical-slice promise.
+On the **M1** tier the same scenes will show the lighting, materials and
+camera style, but with less geometric detail and a softer image (lower
+internal resolution), so they will look clearly below Bodycam.
+
+Camera emulation is added as a **"realistic camera" post-process profile**
+(lens distortion, grain, exposure adaptation, motion blur), subtle by default
+in third person and stronger in an optional first-person mode. This replaces
+the "no chromatic aberration" rule of Decision 8 for that profile only.
+
 ## M1 Pro profile (decided 2026-11-09)
 
 The project lead chose to stay on the M1 Pro (16 GB) instead of buying a
