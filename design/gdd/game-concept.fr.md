@@ -251,9 +251,9 @@ on construit le système.
 
 ## Tranche verticale : périmètre de la ville
 
-**Quartier recommandé : le nord de la Presqu'île, de la place Bellecour à la
+**Quartier : le nord de la Presqu'île, de la place Bellecour à la
 place des Terreaux, entre les quais de Saône et du Rhône** (environ 1,5 km²).
-*En attente de la décision du responsable du projet.*
+*Décidé par le responsable du projet le 2026-11-09.*
 
 - Pourquoi : les rues commerçantes les plus denses (types de boutiques
   accessibles en P0), des rues larges et des quais pour la conduite et les
@@ -329,7 +329,7 @@ histoire, téléphone, personnalisation.
 
 ## Prochaines étapes
 
-- [ ] Décision : quartier de la tranche verticale
+- [x] Décision : quartier de la tranche verticale (nord de la Presqu'île, 2026-11-09)
 - [ ] Étude : outils pour reproduire Lyon (données géo, Cesium for Unreal, façades procédurales, photogrammétrie)
 - [ ] `/art-bible` : identité visuelle photoréaliste de Lyon
 - [ ] ADR du budget de performance

@@ -243,9 +243,9 @@ same moment, we build the system.
 
 ## Vertical Slice: City Scope
 
-**Recommended district: northern Presqu'île, from Place Bellecour to Place
+**District: northern Presqu'île, from Place Bellecour to Place
 des Terreaux, between the Saône and Rhône quays** (about 1.5 km²).
-*Pending the project lead's decision.*
+*Decided by the project lead on 2026-11-09.*
 
 - Why: the densest shopping streets (enterable shop types for P0), wide
   streets and quays for driving and chases, two rivers with bridges, iconic
@@ -317,7 +317,7 @@ phone, customisation.
 
 ## Next Steps
 
-- [ ] Decision: vertical slice district
+- [x] Decision: vertical slice district (northern Presqu'île, 2026-11-09)
 - [ ] Study: tools to reproduce Lyon (geodata, Cesium for Unreal, procedural façades, photogrammetry)
 - [ ] `/art-bible`: photorealistic visual identity for Lyon
 - [ ] Performance budget ADR
