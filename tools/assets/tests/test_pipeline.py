@@ -232,3 +232,11 @@ def test_unreal_script_sets_the_nanite_fallback_the_way_ue_requires():
     assert src.index("fallback_target") < src.index("fallback_percent_triangles")
     assert 'set_nanite(mesh, True, min(1.0, tris["m1_lod0"] / max(1, tris["ultra"])))' in src
     assert src.index("set_nanite(mesh, True, min") < src.index("build_lods(mesh, meta")  # fallback first
+
+
+def test_wave2_manifest_has_names_and_sizes():
+    from gtp_assets.manifest import parse_catalog
+    with open(os.path.join(os.path.dirname(__file__), "..", "..", "..", "production", "asset-catalog.md"), encoding="utf-8") as f:
+        items = parse_catalog(f.read(), "W2")
+    assert len(items) == 30
+    assert all(i.get("family") and i.get("asset") and i["size_m"] > 0 for i in items)
