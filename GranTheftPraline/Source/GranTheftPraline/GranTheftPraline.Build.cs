@@ -20,6 +20,7 @@ public class GranTheftPraline : ModuleRules
 			"Slate",
 			"SlateCore",
 			"EngineSettings",
+			"ImageWrapper",
 			"RHI",
 			"RenderCore"
 		});

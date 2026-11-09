@@ -30,7 +30,9 @@ Launches the packaged game straight into gameplay, records every frame and
 checks that it quits cleanly after the requested time, with no crash report.
 Evidence goes to `Builds/<version>/evidence/<timestamp>/`: `frametimes.csv`,
 `frametimes.summary.txt` (p50, p95, p99, share of frames within 33.3 ms,
-time to first frame), `capture.mov`, `result.txt`. The evidence kept for a
+time to first frame), `title.jpg`, `capture.mov`, `result.txt`. The video
+and the title still are filmed by the game itself, then assembled by
+`tools/build/frames-to-movie.swift` (system frameworks only). The evidence kept for a
 version is copied to `production/evidence/<version>/` (video through Git LFS).
 
 ## Game command-line switches
@@ -42,6 +44,7 @@ version is copied to `production/evidence/<version>/` (video through Git LFS).
 | `-FrameLogFile=<path>` | Record frame times to this file |
 | `-FrameLogWarmup=<s>` | Ignore the first seconds (default 5) |
 | `-ExitAfter=<s>` | Quit cleanly after this many seconds |
+| `-CaptureVideo=<s>` | Save rendered frames as JPEG for this many seconds (`-CaptureFps`, default 10; `-CaptureDelay`, default 3; `-CaptureDir`) |
 
 The recorder works in Shipping builds too: it uses the engine thread
 timings (`frame`, `game`, `render`, `gpu`), not the profiler.
@@ -57,6 +60,7 @@ timings (`frame`, `game`, `render`, `gpu`), not the profiler.
 | `AGTPPlayerController` | Title screen and pause menu (Escape, gamepad Menu) |
 | `UGTPTitleMenuWidget`, `UGTPPauseMenuWidget` | Menus built in C++ with UMG, no widget asset |
 | `UGTPFrameTimeRecorder` | Frame time CSV and soak test exit |
+| `UGTPFrameCapture` | Films the game from the inside (no screen-recording permission) |
 
 The playable character pawn class must also be cooked: list its folder in
 `DirectoriesToAlwaysCook` or reference it from a cooked asset.
