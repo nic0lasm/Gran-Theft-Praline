@@ -184,8 +184,13 @@ prompt and date.
 
 ## 9. Purchases to decide
 
-None is needed before the MVP. Candidates, each a decision for the project
-lead:
+**Decided by the project lead on 2026-11-09: small budget until the MVP.**
+A paid Tripo plan (about USD 20 a month) for any Tripo output meant to ship;
+Metashape only if Apple Object Capture falls short; no large pack before a
+measured spike in Phase 2. Gameplay foundation, also decided on 2026-11-09:
+**free Epic building blocks** (section 8), police and shops written in-house.
+
+Candidates:
 
 | Item | Approximate cost | When |
 | ---- | ---- | ---- |

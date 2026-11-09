@@ -189,8 +189,13 @@ plan, le prompt et la date.
 
 ## 9. Achats à décider
 
-Aucun n'est nécessaire avant le MVP. Candidats, chacun soumis à décision de
-Nico :
+**Décidé par Nico le 2026-11-09 : petit budget jusqu'au MVP.** Plan Tripo
+payant (environ 20 $/mois) pour toute sortie Tripo destinée au jeu ;
+Metashape seulement si Apple Object Capture ne suffit pas ; aucun gros pack
+avant un essai mesuré en phase 2. Socle gameplay, décidé le même jour :
+**briques Epic gratuites** (section 8), police et boutiques écrites par nous.
+
+Candidats :
 
 | Élément | Coût approximatif | Quand |
 | ---- | ---- | ---- |

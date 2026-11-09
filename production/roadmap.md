@@ -164,6 +164,10 @@ mature. Every new district is a decision for the project lead (card), after a
 | 16 | Audio: footsteps, vehicles, weapons, city ambience, reverb by street, radio later | 3, 5, 6 | MetaSounds, Sonniss GDC bundles, Lyon field recordings | continuous from 1 | 6 weeks spread |
 | 17 | Two-wheelers (scooter, motorbike, bicycle) | 5 | Chaos Vehicles two-wheel setup | 2A | 4 weeks |
 
+*Decided by the project lead on 2026-11-09: the gameplay foundation is built
+on free Epic building blocks (Game Animation Sample, Gameplay Ability System,
+Chaos Vehicles, StateTree, Mass); police and shops are written in-house.*
+
 Dependency graph (systems in the order they become playable):
 
 ```mermaid

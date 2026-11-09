@@ -166,6 +166,10 @@ décision de Nico (carte), après un `/scope-check`.
 | 16 | Audio : pas, véhicules, armes, ambiance urbaine, réverbération par rue, radio plus tard | 3, 5, 6 | MetaSounds, bundles Sonniss GDC, prises de son à Lyon | continu dès la phase 1 | 6 semaines étalées |
 | 17 | Deux-roues (scooter, moto, vélo) | 5 | Chaos Vehicles en configuration deux roues | 2A | 4 semaines |
 
+*Décidé par Nico le 2026-11-09 : le socle gameplay repose sur les briques
+Epic gratuites (Game Animation Sample, Gameplay Ability System, Chaos
+Vehicles, StateTree, Mass) ; police et boutiques sont écrites par nous.*
+
 Graphe de dépendances (systèmes dans l'ordre où ils deviennent jouables) :
 
 ```mermaid
