@@ -145,7 +145,7 @@ pour une vraie vidéo, et ce que nous pouvons en reprendre :
 
 | Ingrédient de Bodycam | Coût | Transposable à un Lyon en monde ouvert ? |
 | ---- | ---- | ---- |
-| **Émulation de caméra** : objectif grand angle avec distorsion en barillet, flou de mouvement marqué, bruit de capteur, auto-exposition brutale et hautes lumières qui bavent, légère aberration chromatique, caméra portée qui bouge. L'œil l'accepte comme une vraie vidéo et cela masque la plupart des défauts de la 3D | Très faible (post-traitement) | **Oui**, et c'est le gain le moins cher. Idéal en première personne ; en troisième personne il doit rester discret pour garder la conduite et la visée lisibles |
+| **Émulation de caméra** : objectif grand angle avec distorsion en barillet, flou de mouvement marqué, bruit de capteur, auto-exposition brutale et hautes lumières qui bavent, légère aberration chromatique, caméra portée qui bouge. L'œil l'accepte comme une vraie vidéo et cela masque la plupart des défauts de la 3D | Très faible (post-traitement) | **Non retenu** : on garde une caméra de jeu classique (décision plus bas) |
 | **Photogrammétrie partout** (Megascans), surfaces denses et usées | Moyen (poids disque, mémoire) | **Oui** au niveau de la rue : Megascans est gratuit sur Fab, plus nos propres scans de façades lyonnaises |
 | **Lumen** pour l'illumination globale | Élevé sur le GPU | **Oui**, c'est notre pile |
 | **Petites cartes fermées** : tout le budget concentré sur quelques centaines de mètres | - | **En partie** : un monde ouvert étale ce budget sur 1,5 km² avec circulation, foule et streaming. On égale la densité près de la caméra, et les HLOD prennent le relais plus loin |
