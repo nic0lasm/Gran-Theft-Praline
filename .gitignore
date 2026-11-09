@@ -16,3 +16,6 @@ Build/
 # Geodata: raw downloads stay out of Git
 assets/geo/raw/**
 !assets/geo/raw/.gitkeep
+
+# Unreal per-user scratch content
+**/Content/Developers/
