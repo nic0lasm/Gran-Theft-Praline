@@ -86,7 +86,7 @@ budget is set later with the project lead.
 
 | Mode | Frame rate | Output | Internal (TSR) | Lighting | Priority |
 | ---- | ---- | ---- | ---- | ---- | ---- |
-| Fidelity | 30 fps locked (33.3 ms) | 1920×1080 | about 1280×720 (67 %) | Lumen software, medium quality | P0 |
+| Fidelity | 30 fps locked (33.3 ms) | 1920×1080 | 960×540 (50 %) | Lumen Lite (GI and reflections at Medium), shadows at Medium: profile `m1`, chosen 2026-11-09 | P0 |
 | Performance | 60 fps (16.7 ms) | 1920×1080 | about 1080×608 (56 %) | Lumen Lite | P1 |
 
 Hitches: no frame above 100 ms during traversal, shader compilation included
@@ -113,6 +113,24 @@ Hitches: no frame above 100 ms during traversal, shader compilation included
   8 shadow-casting local lights and up to 100 unshadowed ones (night).
 - Static meshes: LODs mandatory; LOD0 of a façade module at most 50k
   triangles; World Partition HLODs beyond about 150 m.
+
+### M1 preset measurements (reference scene, 2026-11-09)
+
+Greybox street, 1080p output, Mac unlocked and idle, profiles alternated state
+by state. GPU time p50 / p95 in ms (raw files in
+[test-results/2026-11-09](../rendering/test-results/2026-11-09/)):
+
+| Profile | Noon | Golden hour | Rain | Night |
+| ---- | ---- | ---- | ---- | ---- |
+| `fidelity` (TSR 67 %, Lumen High) | 44.5 / 58.7 | 29.3 / 43.3 | 35.5 / 48.6 | 29.4 / 50.8 |
+| `lumenlite` (TSR 67 %, Lumen Lite) | 31.3 / 42.0 | 27.5 / 41.6 | 32.8 / 45.8 | 26.6 / 47.6 |
+| `res50` (TSR 50 %, Lumen High) | 28.5 / 39.2 | 24.4 / 38.4 | 29.3 / 42.8 | 22.3 / 44.0 |
+| `m1` (TSR 50 %, Lumen Lite, shadows Medium) | 25.7 / 37.1 | 22.7 / 38.1 | 27.0 / 40.8 | 19.5 / 41.9 |
+
+The project lead chose the `m1` combination on 2026-11-09. It holds the median
+(19.5 to 27 ms) but its 95th percentile is still 4 to 9 ms over budget, with
+one hitch at golden hour (131 ms) and one at night (198 ms). The M1 target is
+therefore not met yet; the next step is decided with the project lead.
 
 ## Alternatives Considered
 

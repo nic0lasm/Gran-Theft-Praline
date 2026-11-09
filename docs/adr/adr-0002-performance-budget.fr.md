@@ -78,7 +78,7 @@ Ultra ; son budget de taille sera fixé plus tard avec Nico.
 
 | Mode | Images/s | Sortie | Interne (TSR) | Éclairage | Priorité |
 | ---- | ---- | ---- | ---- | ---- | ---- |
-| Fidélité | 30 verrouillé (33,3 ms) | 1920×1080 | environ 1280×720 (67 %) | Lumen logiciel, qualité moyenne | P0 |
+| Fidélité | 30 verrouillé (33,3 ms) | 1920×1080 | 960×540 (50 %) | Lumen Lite (GI et réflexions en Medium), ombres en Medium : profil `m1`, choisi le 2026-11-09 | P0 |
 | Performance | 60 (16,7 ms) | 1920×1080 | environ 1080×608 (56 %) | Lumen Lite | P1 |
 
 Saccades : aucune image au-dessus de 100 ms pendant les déplacements,
@@ -105,6 +105,25 @@ compilation des shaders comprise (précache des PSO actif).
   mouvement, 8 lumières locales ombrées et jusqu'à 100 sans ombre (nuit).
 - Maillages statiques : LOD obligatoires ; LOD0 d'un module de façade à
   50 000 triangles au plus ; HLOD World Partition au-delà d'environ 150 m.
+
+### Mesures des préréglages M1 (scène témoin, 2026-11-09)
+
+Rue en greybox, sortie 1080p, Mac déverrouillé et au repos, profils alternés
+ambiance par ambiance. Temps GPU p50 / p95 en ms (fichiers bruts dans
+[test-results/2026-11-09](../rendering/test-results/2026-11-09/)) :
+
+| Profil | Midi | Heure dorée | Pluie | Nuit |
+| ---- | ---- | ---- | ---- | ---- |
+| `fidelity` (TSR 67 %, Lumen High) | 44,5 / 58,7 | 29,3 / 43,3 | 35,5 / 48,6 | 29,4 / 50,8 |
+| `lumenlite` (TSR 67 %, Lumen Lite) | 31,3 / 42,0 | 27,5 / 41,6 | 32,8 / 45,8 | 26,6 / 47,6 |
+| `res50` (TSR 50 %, Lumen High) | 28,5 / 39,2 | 24,4 / 38,4 | 29,3 / 42,8 | 22,3 / 44,0 |
+| `m1` (TSR 50 %, Lumen Lite, ombres Medium) | 25,7 / 37,1 | 22,7 / 38,1 | 27,0 / 40,8 | 19,5 / 41,9 |
+
+Le responsable du projet a choisi la combinaison `m1` le 2026-11-09. Elle tient
+la médiane (19,5 à 27 ms), mais son 95e centile dépasse encore le budget de 4 à
+9 ms, avec une saccade à l'heure dorée (131 ms) et une la nuit (198 ms). La
+cible M1 n'est donc pas encore atteinte ; la suite est décidée avec le
+responsable du projet.
 
 ## Alternatives écartées
 
