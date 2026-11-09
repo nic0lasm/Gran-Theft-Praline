@@ -231,4 +231,4 @@ def test_unreal_script_sets_the_nanite_fallback_the_way_ue_requires():
     assert "NaniteFallbackTarget.PERCENT_TRIANGLES" in src
     assert src.index("fallback_target") < src.index("fallback_percent_triangles")
     assert 'set_nanite(mesh, True, min(1.0, tris["m1_lod0"] / max(1, tris["ultra"])))' in src
-    assert src.index("set_nanite(mesh, True") < src.index("build_lods(mesh")  # fallback first
+    assert src.index("set_nanite(mesh, True, min") < src.index("build_lods(mesh, meta")  # fallback first
