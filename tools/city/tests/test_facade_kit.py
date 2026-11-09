@@ -28,9 +28,27 @@ class KitLayoutTests(unittest.TestCase):
 
     def test_modules_are_built_by_the_kit(self):
         src = open(os.path.join(HERE, "..", "facade_kit", "kit.py"), encoding="utf-8").read()
-        built = set(re.findall(r'"(SM_Facade_[A-Za-z]+_[A-Za-z]+)": \(', src))
+        built = set(re.findall(r'"(SM_[A-Za-z]+_[A-Za-z_]+)": \(', src))
         used = {m for fam in kit_layout.KIND_TO_MODULE.values() for m in fam.values()}
+        used |= {v for opts in kit_layout.VARIANTS.values() for v in opts} | set(kit_layout.FASCIA_FRONT_Y)
         self.assertTrue(used <= built, used - built)
+        self.assertIn("SM_Sign_Panel", built)
+
+    def test_variants_are_stable_per_building(self):
+        a = kit_layout.module_for("haussmann", "shop", "BATIMENT1")
+        self.assertEqual(a, kit_layout.module_for("haussmann", "shop", "BATIMENT1"))
+        seen = {kit_layout.module_for("haussmann", "shop", "B%d" % k) for k in range(200)}
+        self.assertEqual(seen, set(kit_layout.VARIANTS["SM_Facade_Haussmann_Shop"]))
+        self.assertEqual(kit_layout.module_for("haussmann", "shop"), "SM_Facade_Haussmann_Shop")
+
+    def test_sign_sits_on_the_fascia(self):
+        # nominal Haussmann shop: fascia 0.6 m whose top is 0.95 m under the 4.2 m storey top
+        z, out = kit_layout.sign_frame("SM_Facade_Haussmann_Shop", "haussmann", 4.2, 4.2)
+        self.assertAlmostEqual(z, 4.2 - 0.95 - 0.3)
+        self.assertAlmostEqual(out, -0.01)  # fascia set 2 cm back in the opening
+        z, out = kit_layout.sign_frame("SM_Facade_Haussmann_Shop_B", "haussmann", 4.6, 4.2)
+        self.assertAlmostEqual(z, (4.2 - 1.25) * 4.6 / 4.2)
+        self.assertAlmostEqual(out, 0.21)
 
     def test_nominal_sizes_match_procgen(self):
         self.assertEqual(kit_layout.HAUSSMANN["bay"], procgen.TYPOLOGY["haussmann"]["bay"])
