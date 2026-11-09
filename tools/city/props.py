@@ -7,8 +7,13 @@ Every prop comes from a surveyed object, never from a random scatter:
                                  fountains, bike-share stations, glass recycling bells
   shops (OSM, facade_modules)    café and restaurant terraces on pedestrian streets: tables,
                                  chairs, a parasol and a chalkboard easel by the door
-Assets are the wave-1 catalogue items (assets/manifests/wave-01.json). Each row gets
-the Unreal asset path that tools/assets/unreal/import_props.py creates.
+  wave 14 (priority wave, generated next)  plane-tree trunks on the Grand Lyon plane trees,
+                                 pharmacy crosses, mannequins in clothes shops, bay laurels
+                                 at café doors, terrace heaters and planter dividers,
+                                 intercoms and doorstep stones at entrances, parcel lockers
+Rows carry the catalogue id; wave-1 rows also the Unreal asset path that
+tools/assets/unreal/import_props.py creates (assets/manifests/wave-01.json). Later
+waves are found in the editor by their CatalogId tag once imported.
 
 Rules: a prop inside a building footprint or within 0.6 m of an earlier prop is
 dropped; the yaw turns the prop's front (+X, import convention) away from the
@@ -101,18 +106,20 @@ def main():  # noqa: C901, PLR0915
 
     rows, placed = [], []
 
-    def add(cid, x, y, yaw, source, ref=""):
-        if cid not in assets or not zone.contains(Point(x, y)):
+    def add(cid, x, y, yaw, source, ref="", indoors=False):
+        # Items of later waves (no manifest yet) are kept by catalogue id: the editor
+        # finds them by their CatalogId tag once imported.
+        if not zone.contains(Point(x, y)):
             return False
         p = Point(x, y)
-        if any(footprints[i].contains(p) for i in fp_tree.query(p)):
+        if not indoors and any(footprints[i].contains(p) for i in fp_tree.query(p)):
             return False
         if any(math.hypot(x - a, y - b) < MIN_GAP_M for a, b in placed):
             return False
         gz = mnt.sample(np.array([x + origin[0]]), np.array([y + origin[1]]))[0]
         z = 0.0 if np.isnan(gz) else float(gz) - origin_alt
         ux, uy, uz = cl.to_unreal(x, y, z)
-        a = assets[cid]
+        a = assets.get(cid, {"asset": "", "family": "", "path": ""})
         rows.append({"catalog_id": cid, "asset": a["asset"], "family": a["family"], "asset_path": a["path"],
                      "x_m": round(x, 2), "y_m": round(y, 2), "z_m": round(z, 2), "ue_x": ux, "ue_y": uy, "ue_z": uz,
                      "ue_yaw": round(yaw % 360.0, 1), "source": source, "ref": ref})
@@ -146,7 +153,20 @@ def main():  # noqa: C901, PLR0915
         add("W1-21", x, y, facing(x, y)[0] + 180.0, "grandlyon:shelters", ft["properties"].get("identifiant", ""))
     for ft in grandlyon.load(raw, "trees"):
         x, y = local(ft)
-        add("W1-17", x, y, facing(x, y)[0], "grandlyon:trees", str(ft["properties"].get("identifiant", "")))
+        p = ft["properties"]
+        yaw = facing(x, y)[0]
+        grate = add("W1-17", x, y, yaw, "grandlyon:trees", str(p.get("identifiant", "")))
+        if grate and p.get("genre") == "Platanus":  # the plane trees of the Presqu'ile: trunk asset, young ones guarded
+            young = (p.get("circonference_cm") or 100) < 60
+            placed.pop()  # the trunk stands in the grate
+            add("W14-64" if young else "W14-63", x, y, yaw, "grandlyon:trees", str(p.get("identifiant", "")))
+
+    with open(os.path.join(proc, "shops.csv"), encoding="utf-8") as f:
+        shops = {r["osm_id"]: r for r in csv.DictReader(f)}
+        for r in shops.values():
+            if r["type"] == "parcel_locker":
+                x, y = float(r["x_m"]), float(r["y_m"])
+                add("W14-47", x, y, facing(x, y)[0] + 180.0, "osm:parcel_locker", r["osm_id"])
 
     # OSM street furniture
     with open(os.path.join(proc, "furniture.csv"), encoding="utf-8") as f:
@@ -157,9 +177,36 @@ def main():  # noqa: C901, PLR0915
                 add(cid, x, y, facing(x, y)[0], "osm:" + r["type"], r["osm_id"])
 
     # Terraces in front of cafés and restaurants on the focus street (pedestrian)
-    with open(os.path.join(proc, "shops.csv"), encoding="utf-8") as f:
-        shops = {r["osm_id"]: r for r in csv.DictReader(f)}
     terraces = 0
+    # Wave 14 shop details, anchored on real shops and entrances
+    for m in modules:
+        if m["sign_continued"] != "False":
+            continue
+        yaw = float(m["ue_yaw"])
+        nx, ny = math.cos(math.radians(yaw)), -math.sin(math.radians(yaw))
+        tx, ty = ny, -nx
+        x0, y0 = float(m["x_m"]), float(m["y_m"])
+        w = float(m["width_m"])
+        if m["kind"] == "entrance":  # intercom beside the carriage door, doorstep stone
+            add("W14-35", x0 + nx * 0.08 + tx * (w / 2 - 0.35), y0 + ny * 0.08 + ty * (w / 2 - 0.35), yaw,
+                "entrance", m["building_id"])
+            add("W14-39", x0 + nx * 0.25, y0 + ny * 0.25, yaw, "entrance", m["building_id"])
+            continue
+        if m["kind"] != "shop" or m["street"] != args.street:
+            continue
+        trade = shops.get(m["shop_osm_id"], {}).get("type", "")
+        if trade == "pharmacy":  # green cross over the door, perpendicular to the facade
+            add("W14-28", x0 + nx * 0.6 + tx * (w / 2), y0 + ny * 0.6 + ty * (w / 2), yaw + 90.0, "shop", m["shop_osm_id"])
+        elif trade in ("clothes", "shoes", "boutique"):  # mannequins behind the glass
+            for k in (-0.6, 0.6):
+                add("W14-31", x0 - nx * 1.1 + tx * k, y0 - ny * 1.1 + ty * k, yaw, "shop", m["shop_osm_id"],
+                    indoors=True)  # in the lit display room of the shopfront module
+        elif trade in ("florist", "greengrocer"):
+            add("W14-77", x0 + nx * 0.8, y0 + ny * 0.8, yaw, "shop", m["shop_osm_id"])
+        if trade in TERRACE_TRADES:  # potted bay laurels framing the door
+            for k in (-1, 1):
+                add("W14-05", x0 + nx * 0.4 + tx * k * (w / 2 - 0.2), y0 + ny * 0.4 + ty * k * (w / 2 - 0.2), yaw,
+                    "shop", m["shop_osm_id"])
     for m in modules:
         if m["kind"] != "shop" or m["street"] != args.street or m["sign_continued"] != "False":
             continue
@@ -179,6 +226,11 @@ def main():  # noqa: C901, PLR0915
             add(chair, cx - nx * 0.7, cy - ny * 0.7, yaw, "terrace", m["shop_osm_id"])
             if k == 0:
                 add("W1-38", cx + tx * 0.95, cy + ty * 0.95, yaw, "terrace", m["shop_osm_id"])
+                add("W14-78", cx - tx * 0.95, cy - ty * 0.95, yaw, "terrace", m["shop_osm_id"])  # heater
+        # planter dividers closing the terrace on the street side
+        for k in (-1, 1):
+            add("W14-79", x0 + nx * (TERRACE_OUT_M + 1.4) + tx * k * 1.2, y0 + ny * (TERRACE_OUT_M + 1.4) + ty * k * 1.2,
+                yaw + 90.0, "terrace", m["shop_osm_id"])
         terraces += 1
 
     fields = ["catalog_id", "asset", "family", "asset_path", "x_m", "y_m", "z_m", "ue_x", "ue_y", "ue_z", "ue_yaw",

@@ -218,7 +218,12 @@ then `python3 tools/city/signs.py --name presqu-ile`, then `assemble.py` (add
   grates; OSM benches, street lamps, hydrants, post boxes, drinking fountains,
   bike-share terminals and glass bells; and café/restaurant terraces in front
   of the 16 places on the street (tables, chairs, parasol, chalkboard). 732
-  props for the street. `unreal/place_props.py` instances them (one
+  props for the street, plus 362 wave-14 details on the same real anchors
+  (plane-tree trunks on the Grand Lyon plane trees, pharmacy crosses,
+  mannequins in clothes shops, bay laurels at café doors, terrace heaters and
+  planter dividers, intercoms and doorstep stones at entrances, parcel
+  lockers), found in the editor by their CatalogId tag once imported: 1 094
+  rows in all. `unreal/place_props.py` instances them (one
   hierarchical instanced component per asset, collision on), drops each one on
   the ground by a trace, and lists the assets not imported yet.
 * `unreal/run_city_import.sh` chains import, facades, props, then walks the

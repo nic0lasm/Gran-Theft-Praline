@@ -8,8 +8,10 @@ the props imported by tools/assets/unreal/import_props.py under
 Steps (idempotent): open the map, delete folder City/Props, then one actor per
 asset with a hierarchical instanced static mesh component (collision on), every
 instance dropped onto the ground by a downward trace (terrain tiles have complex
-collision since import_city.py). Assets not imported yet are listed in the
-report and skipped. Report: Saved/CityImport/props_report.json.
+collision since import_city.py). Wave-1 rows name their asset path; any
+row is also matched by its catalogue id through the CatalogId metadata tag that
+import_props.py sets, so later waves (14...) appear as soon as they are imported.
+Assets not imported yet are listed in the report and skipped. Report: Saved/CityImport/props_report.json.
 """
 
 import csv
@@ -25,7 +27,8 @@ FOCUS = os.environ.get("GTP_CITY_FOCUS", "rue-de-la-republique")
 GEN = os.path.join(REPO, "assets", "geo", "processed", ZONE, "gen", FOCUS)
 MAP = "/Game/Maps/L_City_" + "".join(p.capitalize() for p in FOCUS.split("-"))
 TRACE_UP_CM, TRACE_DOWN_CM = 300.0, 1500.0
-MAX_SNAP_CM = 250.0   # farther than this from the LiDAR ground: keep the LiDAR height
+MAX_SNAP_CM = 250.0
+PROPS_ROOT = "/Game/Environment/Props"   # farther than this from the LiDAR ground: keep the LiDAR height
 
 eal = unreal.EditorAssetLibrary
 level_sub = unreal.get_editor_subsystem(unreal.LevelEditorSubsystem)
@@ -65,6 +68,17 @@ def hism_actor(label, mesh):
     return comp
 
 
+def catalog_index():
+    """CatalogId tag (set by import_props.py) -> static mesh, for every imported prop."""
+    out = {}
+    for path in eal.list_assets(PROPS_ROOT, recursive=True, include_folder=False):
+        a = eal.load_asset(path)
+        tag = eal.get_metadata_tag(a, "CatalogId") if isinstance(a, unreal.StaticMesh) else ""
+        if tag and tag not in out:
+            out[tag] = path
+    return out
+
+
 def main():
     t0 = time.time()
     report = {"map": MAP, "errors": [], "missing_assets": [], "instances": {}}
@@ -79,15 +93,20 @@ def main():
         if str(a.get_folder_path()).startswith("City/Props"):
             actor_sub.destroy_actor(a)
     world = editor_sub.get_editor_world()
+    by_id = catalog_index() if eal.does_directory_exist(PROPS_ROOT) else {}
+    report["imported_catalog_ids"] = len(by_id)
     comps, snapped, kept = {}, 0, 0
     for r in rows:
-        p = r["asset_path"]
-        if p not in comps:
-            mesh = eal.load_asset(p) if eal.does_asset_exist(p) else None
-            comps[p] = hism_actor("Props_" + r["asset"], mesh) if mesh else None
+        p = r["asset_path"] if r["asset_path"] and eal.does_asset_exist(r["asset_path"]) else \
+            by_id.get(r["catalog_id"], "")
+        key = p or r["catalog_id"]
+        if key not in comps:
+            mesh = eal.load_asset(p) if p else None
+            comps[key] = hism_actor("Props_" + r["catalog_id"] + "_" + (r["asset"] or mesh.get_name() if mesh else ""),
+                                    mesh) if mesh else None
             if mesh is None:
-                report["missing_assets"].append(r["catalog_id"] + " " + p)
-        comp = comps[p]
+                report["missing_assets"].append(r["catalog_id"])
+        comp = comps[key]
         if comp is None:
             continue
         x, y, z = float(r["ue_x"]), float(r["ue_y"]), float(r["ue_z"])
@@ -98,7 +117,7 @@ def main():
             z, snapped = gz, snapped + 1
         comp.add_instance(unreal.Transform(unreal.Vector(x, y, z), unreal.Rotator(0.0, 0.0, float(r["ue_yaw"])),
                                            unreal.Vector(1, 1, 1)), True)
-        report["instances"][r["asset"]] = report["instances"].get(r["asset"], 0) + 1
+        report["instances"][r["catalog_id"]] = report["instances"].get(r["catalog_id"], 0) + 1
     level_sub.save_current_level()
     report.update({"rows": len(rows), "placed": sum(report["instances"].values()), "snapped_to_ground": snapped,
                    "kept_lidar_height": kept})

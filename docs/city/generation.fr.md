@@ -225,7 +225,13 @@ puis `python3 tools/city/signs.py --name presqu-ile`, puis `assemble.py`
   abribus et grilles d'arbres ; bancs, lampadaires, bornes incendie, boîtes
   aux lettres, fontaines, bornes Vélo'v et colonnes à verre d'OSM ; terrasses
   devant les 16 cafés et restaurants de la rue (tables, chaises, parasol,
-  ardoise). 732 objets pour la rue. `unreal/place_props.py` les instancie (un
+  ardoise). 732 objets pour la rue, plus 362 détails de la vague 14 sur les
+  mêmes ancrages réels (troncs de platanes sur les platanes du Grand Lyon,
+  croix de pharmacie, mannequins des boutiques de vêtements, lauriers aux
+  portes des cafés, chauffages et jardinières de terrasse, interphones et
+  seuils aux entrées, consignes à colis), retrouvés dans l'éditeur par leur
+  étiquette CatalogId une fois importés : 1 094 lignes au total.
+  `unreal/place_props.py` les instancie (un
   composant instancié par asset, collisions actives), pose chacun au sol par
   un lancer de rayon et liste les assets pas encore importés.
 * `unreal/run_city_import.sh` enchaîne import, façades, mobilier, puis parcourt
