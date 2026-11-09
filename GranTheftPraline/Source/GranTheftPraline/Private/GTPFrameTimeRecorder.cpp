@@ -1,5 +1,8 @@
 #include "GTPFrameTimeRecorder.h"
 
+#include "Engine/GameInstance.h"
+#include "GTPGraphicsProfile.h"
+
 #include "HAL/FileManager.h"
 #include "HAL/PlatformMisc.h"
 #include "HAL/PlatformTime.h"
@@ -17,6 +20,16 @@ DEFINE_LOG_CATEGORY_STATIC(LogGTPFrameTime, Log, All);
 namespace
 {
 	constexpr float BudgetMs = 33.3f;
+
+	// The Metal GPU timer sometimes returns absurd values (about 89 000 ms).
+	// Such samples stay in the CSV as recorded but are left out of the GPU
+	// statistics, like summarize_csv.py does for the benchmark runs.
+	constexpr float GpuOutlierMs = 1000.f;
+
+	bool IsValidGpuSample(float GpuMs)
+	{
+		return FMath::IsFinite(GpuMs) && GpuMs >= 0.f && GpuMs <= GpuOutlierMs;
+	}
 
 	float Percentile(TArray<float>& Sorted, double Fraction)
 	{
@@ -46,6 +59,8 @@ namespace
 void UGTPFrameTimeRecorder::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
+	// The summary reports the graphics profile, so it must exist first and go last.
+	Collection.InitializeDependency<UGTPGraphicsProfile>();
 
 	const TCHAR* CommandLine = FCommandLine::Get();
 	FString RequestedPath;
@@ -129,6 +144,7 @@ void UGTPFrameTimeRecorder::WriteResults()
 	Lines.Add(TEXT("frame,time_s,frame_ms,game_ms,render_ms,gpu_ms"));
 
 	TArray<float> Frame, Game, Render, Gpu;
+	int32 GpuOutliers = 0;
 	Frame.Reserve(Samples.Num());
 	Game.Reserve(Samples.Num());
 	Render.Reserve(Samples.Num());
@@ -142,7 +158,14 @@ void UGTPFrameTimeRecorder::WriteResults()
 		Frame.Add(S.FrameMs);
 		Game.Add(S.GameMs);
 		Render.Add(S.RenderMs);
-		Gpu.Add(S.GpuMs);
+		if (IsValidGpuSample(S.GpuMs))
+		{
+			Gpu.Add(S.GpuMs);
+		}
+		else
+		{
+			++GpuOutliers;
+		}
 	}
 
 	IFileManager::Get().MakeDirectory(*FPaths::GetPath(OutputPath), true);
@@ -156,6 +179,17 @@ void UGTPFrameTimeRecorder::WriteResults()
 	Summary.Add(Describe(TEXT("game"), Game));
 	Summary.Add(Describe(TEXT("render"), Render));
 	Summary.Add(Describe(TEXT("gpu"), Gpu));
+	Summary.Add(FString::Printf(TEXT("gpu samples discarded as timer outliers (> %.0f ms): %d"), GpuOutlierMs, GpuOutliers));
+
+	if (const UGameInstance* GameInstance = GetGameInstance())
+	{
+		if (const UGTPGraphicsProfile* Profile = GameInstance->GetSubsystem<UGTPGraphicsProfile>())
+		{
+			const FIntPoint Size = Profile->GetViewportSize();
+			Summary.Add(FString::Printf(TEXT("graphics profile %s | viewport %dx%d | screen percentage %.1f %%"),
+				*Profile->GetActiveProfile(), Size.X, Size.Y, Profile->GetAppliedScreenPercentage()));
+		}
+	}
 
 	const FString SummaryPath = FPaths::ChangeExtension(OutputPath, TEXT("summary.txt"));
 	FFileHelper::SaveStringArrayToFile(Summary, *SummaryPath);

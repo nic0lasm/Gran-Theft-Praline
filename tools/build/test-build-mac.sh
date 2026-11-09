@@ -7,9 +7,13 @@
 #      must quit cleanly with no crash report.
 #
 # Usage: tools/build/test-build-mac.sh [version] [duration_s] [video_s]
-#   version     default 0.1
+#   version     default: ProjectVersion from Config/DefaultGame.ini, as major.minor
 #   duration_s  default 600 (10 minutes)
 #   video_s     default 120; 0 skips the video run
+#
+# Environment:
+#   GAME_ARGS   extra game arguments for every run, e.g. "-GfxProfile=ultra"
+#               (the default profile is m1, see GTPGraphicsProfile.h)
 #
 # Output: Builds/<version>/evidence/<timestamp>/
 #   title.jpg, capture.mov, frametimes.csv, frametimes.summary.txt, result.txt
@@ -17,7 +21,11 @@ set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/../.." && pwd)"
-version="${1:-0.1}"
+project_version="$(sed -n 's/^ProjectVersion=//p' "$repo_root/GranTheftPraline/Config/DefaultGame.ini" | head -n 1 | tr -d '\r')"
+version="${1:-$(printf '%s' "$project_version" | cut -d. -f1-2)}"
+# Word splitting is wanted here: GAME_ARGS holds several arguments.
+# shellcheck disable=SC2206
+game_args=(${GAME_ARGS:-})
 duration="${2:-600}"
 video="${3:-120}"
 builds_dir="${BUILDS_DIR:-$repo_root/Builds}"
@@ -43,7 +51,7 @@ echo "Running $(basename "$exe") for ${duration}s, evidence in $out_dir"
 # Title screen still: launch without -SkipTitle and keep one frame.
 title_status="failed"
 set +e
-"$exe" -CaptureVideo=1 -CaptureFps=1 -CaptureDelay=10 -CaptureDir="$out_dir/title" -ExitAfter=16 \
+"$exe" ${game_args[@]+"${game_args[@]}"} -CaptureVideo=1 -CaptureFps=1 -CaptureDelay=10 -CaptureDir="$out_dir/title" -ExitAfter=16 \
   > "$out_dir/title-run.log" 2>&1
 set -e
 if test -f "$out_dir/title/frame_00000.jpg"; then
@@ -57,7 +65,7 @@ if test "$video" -gt 0; then
   fps=10
   echo "Video run: ${video}s at ${fps} fps"
   set +e
-  "$exe" -SkipTitle -CaptureVideo="$video" -CaptureFps="$fps" -CaptureDelay=5 \
+  "$exe" ${game_args[@]+"${game_args[@]}"} -SkipTitle -CaptureVideo="$video" -CaptureFps="$fps" -CaptureDelay=5 \
     -CaptureDir="$out_dir/frames" -ExitAfter=$(( video + 15 )) > "$out_dir/video-run.log" 2>&1
   set -e
   if swift "$script_dir/frames-to-movie.swift" "$out_dir/frames" "$fps" "$out_dir/capture.mov"; then
@@ -71,7 +79,7 @@ fi
 echo "Soak run: ${duration}s"
 start="$(date +%s)"
 set +e
-"$exe" -SkipTitle -FrameLogFile="$csv" -ExitAfter="$duration" > "$out_dir/stdout.log" 2>&1
+"$exe" ${game_args[@]+"${game_args[@]}"} -SkipTitle -FrameLogFile="$csv" -ExitAfter="$duration" > "$out_dir/stdout.log" 2>&1
 status=$?
 set -e
 elapsed=$(( $(date +%s) - start ))
@@ -92,6 +100,7 @@ test "$elapsed" -ge "$duration" || verdict="FAIL"
   echo "crash_reports=$crash_reports"
   echo "title=$title_status"
   echo "video=$video_status"
+  echo "game_args=${GAME_ARGS:-}"
   cat "$builds_dir/$version/build-info.txt" 2>/dev/null || true
 } > "$out_dir/result.txt"
 
