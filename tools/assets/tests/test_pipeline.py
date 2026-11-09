@@ -58,29 +58,48 @@ def test_decimation_hits_budget_and_keeps_shape(sample):
 
 
 def test_prepare_outputs(sample, tmp_path):
-    item = {"id": "W1-01", "slug": "bench", "name": "Bench", "size_m": 1.8, "m1_tris": 2000}
+    item = {"id": "W1-01", "size_m": 1.8, "family": "StreetFurniture",
+            "asset": "Bench_WoodCastIron", "ultra_tris": 6000}
     meta = prepare_asset(sample, item, str(tmp_path))
     out = tmp_path / "W1-01"
-    for f in ("asset.json", "W1-01_ultra.glb", "W1-01_m1.glb"):
+    for f in ("asset.json", "W1-01_ultra.glb"):
         assert (out / f).exists()
-    assert meta["triangles"]["m1"] < meta["triangles"]["ultra"]
-    assert meta["triangles"]["ultra"] == meta["triangles"]["master"]
-    assert meta["collision"]["type"] == "convex"
-    assert meta["collision"]["hulls"] >= 1
+    assert not (out / "W1-01_m1.glb").exists()
+    t = meta["triangles"]
+    assert t["master"] > 6000 and 3000 <= t["ultra"] <= 7500  # capped to the Nanite budget
+    assert t["m1_lod0"] == 10000  # medium prop budget (art bible 5.1)
+    assert meta["category"] == "medium" and len(meta["lod_plan"]) == 4
+    pct = [e["percent_triangles"] for e in meta["lod_plan"]]
+    assert pct[0] == 1.0 and pct[1] > pct[2] > pct[3]
+    assert [e["screen_size"] for e in meta["lod_plan"]] == [1.0, 0.5, 0.25, 0.1]
+    assert meta["collision"]["type"] == "convex" and meta["collision"]["hulls"] >= 1
     tex = meta["materials"][0]["textures"]
-    for key in ("base_color", "orm", "normal"):
+    assert tex == {"base_color": "T_Bench_WoodCastIron_BC.png",
+                   "orm": "T_Bench_WoodCastIron_ORM.png",
+                   "normal": "T_Bench_WoodCastIron_N.png"}
+    assert meta["materials"][0]["instance_name"] == "MI_Bench_WoodCastIron"
+    for key in tex:
         assert (out / "textures" / tex[key]).exists()
     orm = np.asarray(Image.open(out / "textures" / tex["orm"]))
     assert abs(int(orm[..., 1].mean()) - 180) <= 1 and abs(int(orm[..., 2].mean()) - 60) <= 1
-    # exported geometry round-trips with correct size and no texture payload
-    scene = trimesh.load(str(out / "W1-01_m1.glb"), force="scene", process=False)
+    scene = trimesh.load(str(out / "W1-01_ultra.glb"), force="scene", process=False)
     assert max(scene.extents) == pytest.approx(1.8, abs=1e-3)
-    assert os.path.getsize(out / "W1-01_m1.glb") < os.path.getsize(out / "W1-01_ultra.glb")
     json.load(open(out / "asset.json"))
 
 
+def test_small_prop_budget_and_box_collision(tmp_path):
+    m = trimesh.creation.icosphere(subdivisions=5)  # 20k tris
+    path = str(tmp_path / "W1-09.glb")
+    trimesh.Scene(m).export(path)
+    meta = prepare_asset(path, {"id": "W1-09", "size_m": 0.5, "ultra_tris": 6000},
+                         str(tmp_path / "o"))
+    assert meta["category"] == "small" and len(meta["lod_plan"]) == 3
+    assert meta["triangles"]["m1_lod0"] == 3000
+    assert meta["collision"] == {"type": "box", "hulls": 1}
+
+
 def test_incremental_skip_and_force(sample, tmp_path):
-    item = {"id": "W1-01", "size_m": 1.8, "m1_tris": 2000}
+    item = {"id": "W1-01", "size_m": 1.8}
     assert prepare_asset(sample, item, str(tmp_path))["skipped"] is False
     assert prepare_asset(sample, item, str(tmp_path))["skipped"] is True
     assert prepare_asset(sample, {**item, "size_m": 2.0}, str(tmp_path))["skipped"] is False
@@ -107,6 +126,10 @@ def test_catalog_manifest_covers_wave_1():
     assert by_id["W1-04"]["size_m"] == 4.5
     assert by_id["W1-32"]["size_m"] == 1.1  # longest of 0.6 x 0.7 x 1.1
     assert by_id["W1-28"]["collision"] == "none"
+    assert by_id["W1-01"]["family"] == "StreetFurniture" and by_id["W1-01"]["asset"] == "Bench_WoodCastIron"
+    assert all("asset" in i and i["category"] in ("small", "medium", "large") for i in items)
+    names = [(i["family"], i["asset"]) for i in items]
+    assert len(set(names)) == 60, "asset names must be unique"
     assert by_id["W1-06"]["pivot"] == "back_center"
     committed = json.load(open(os.path.join(ROOT, "assets", "manifests", "wave-01.json")))
     assert committed["items"] == items, "regenerate assets/manifests/wave-01.json"

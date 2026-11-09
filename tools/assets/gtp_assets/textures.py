@@ -1,7 +1,7 @@
 """Extract PBR textures from a glTF material into Unreal-friendly PNG maps.
 
 Outputs per material slot:
-  BaseColor (sRGB), Normal (tangent space, OpenGL/+Y up as in glTF),
+  BC (sRGB base color), N (tangent-space normal, OpenGL/+Y up as in glTF),
   ORM = R occlusion, G roughness, B metallic (linear). Same packing as glTF,
   so Unreal reads it without swizzling.
 Missing maps become 4x4 constants built from the material factors.
@@ -63,7 +63,7 @@ def extract_material(material, out_dir: str, stem: str, cap: int = MAX_TEXTURE_S
         b = _solid(factor)
         if alpha_mode == "OPAQUE":
             b = b.convert("RGB")
-    paths["base_color"] = f"{stem}_BaseColor.png"
+    paths["base_color"] = f"{stem}_BC.png"
     b.save(os.path.join(out_dir, paths["base_color"]))
 
     # ORM: R=occlusion (white if none), G=roughness, B=metallic.
@@ -84,7 +84,7 @@ def extract_material(material, out_dir: str, stem: str, cap: int = MAX_TEXTURE_S
     orm_img.save(os.path.join(out_dir, paths["orm"]))
 
     n = _cap(nrm.convert("RGB"), cap) if nrm is not None else _solid([0.5, 0.5, 1.0, 1.0]).convert("RGB")
-    paths["normal"] = f"{stem}_Normal.png"
+    paths["normal"] = f"{stem}_N.png"
     n.save(os.path.join(out_dir, paths["normal"]))
 
     return {

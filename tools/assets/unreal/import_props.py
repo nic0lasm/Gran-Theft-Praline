@@ -1,18 +1,22 @@
 """Batch-import prepared props into the Unreal project (runs INSIDE the editor).
 
-Reads <staging>/<id>/asset.json written by tools/assets/prepare_props.py and creates:
+Reads <staging>/<id>/asset.json written by tools/assets/prepare_props.py and creates,
+following the art bible (sections 5-7), one folder per asset:
 
-  /Game/Props/<WAVE>/<ID>/SM_<ID>         M1 profile: classic LODs (auto-generated
-                                          from the decimated base mesh), no Nanite
-  /Game/Props/<WAVE>/Ultra/SM_<ID>_Ultra  Ultra profile: full master, Nanite
-  /Game/Props/<WAVE>/<ID>/Textures/T_*    BaseColor / ORM / Normal with proper flags
-  /Game/Props/<WAVE>/<ID>/MI_<ID>         material instance of /Game/Props/M_Prop_PBR
+  /Game/Environment/Props/<Family>/<Asset>/SM_<Asset>_A   Nanite on (Ultra); Nanite
+        fallback = M1 LOD0 budget; LOD chain halving below it; collision per recipe
+  .../T_<Asset>_BC / _N / _ORM                            textures with proper flags
+  .../MI_<Asset>                                          instance of M_Master_Surface
+
+The master material is created if missing at /Game/Materials/Masters/M_Master_Surface
+(parameters BaseColor, ORM, Normal); an existing one with the same parameter names is reused.
 
 Run headless (see tools/assets/import-props-mac.sh):
   GTP_STAGING=<dir> GTP_WAVE=w1 [GTP_IDS="W1-01 W1-02"] UnrealEditor-Cmd <uproject> \
       -ExecutePythonScript=tools/assets/unreal/import_props.py -unattended
 
-Idempotent: assets are replaced on re-import. Never touches anything outside /Game/Props.
+Idempotent: assets are replaced on re-import. Writes only under /Game/Environment/Props
+and creates /Game/Materials/Masters/M_Master_Surface when absent.
 """
 import json
 import os
@@ -22,7 +26,7 @@ import unreal
 STAGING = os.environ.get("GTP_STAGING", "")
 WAVE = os.environ.get("GTP_WAVE", "w1").upper()
 ONLY = set(os.environ.get("GTP_IDS", "").split())
-MASTER_MATERIAL = "/Game/Props/M_Prop_PBR"
+MASTER_MATERIAL = "/Game/Materials/Masters/M_Master_Surface"
 
 eal = unreal.EditorAssetLibrary
 mel = unreal.MaterialEditingLibrary
@@ -35,7 +39,7 @@ def log(msg):
 
 # ---------------------------------------------------------------- master material
 def ensure_master_material():
-    """One shared opaque PBR material with BaseColor / ORM / Normal texture parameters."""
+    """Opaque PBR master with BaseColor / ORM / Normal texture parameters."""
     if eal.does_asset_exist(MASTER_MATERIAL):
         return unreal.load_asset(MASTER_MATERIAL)
     tools = unreal.AssetToolsHelpers.get_asset_tools()
@@ -107,7 +111,7 @@ def import_textures(meta, asset_dir, tex_dir):
 
 
 def make_material_instance(master, meta, slot_info, textures, folder):
-    name = f"MI_{meta['id'].replace('-', '_')}_m{slot_info['slot']}"
+    name = slot_info["instance_name"]
     tools = unreal.AssetToolsHelpers.get_asset_tools()
     path = f"{folder}/{name}"
     if eal.does_asset_exist(path):
@@ -150,9 +154,12 @@ def build_lods(mesh, plan):
     sm_subsystem.set_lods(mesh, options)
 
 
-def set_nanite(mesh, enabled):
+def set_nanite(mesh, enabled, fallback_percent=None):
     ns = sm_subsystem.get_nanite_settings(mesh)
     ns.set_editor_property("enabled", enabled)
+    if enabled and fallback_percent is not None:
+        # Nanite fallback = M1 LOD0 budget (art bible 6.1)
+        ns.set_editor_property("fallback_percent_triangles", float(fallback_percent))
     sm_subsystem.set_nanite_settings(mesh, ns, True)
 
 
@@ -164,9 +171,9 @@ def import_mesh(glb, dest, name):
     return mesh
 
 
-def drop_importer_materials(dest, meta):
+def drop_importer_materials(dest):
     """The glTF importer creates placeholder materials named after our slots."""
-    for entry in unreal.EditorAssetLibrary.list_assets(dest, recursive=True, include_folder=False):
+    for entry in eal.list_assets(dest, recursive=True, include_folder=False):
         if "M_Imported_" in entry:
             eal.delete_asset(entry.split(".")[0])
 
@@ -176,31 +183,25 @@ def process(meta_path, master):
     asset_dir = os.path.dirname(meta_path)
     with open(meta_path, encoding="utf-8") as f:
         meta = json.load(f)
-    aid = meta["id"]
-    safe = aid.replace("-", "_")
-    base = f"/Game/Props/{WAVE}/{aid}"
-    ultra_dir = f"/Game/Props/{WAVE}/Ultra"
+    name = meta["asset_name"]
+    base = f"/Game/Environment/Props/{meta['family']}/{name}"
 
-    textures = import_textures(meta, asset_dir, f"{base}/Textures")
+    textures = import_textures(meta, asset_dir, base)
     mis = [make_material_instance(master, meta, s, textures, base) for s in meta["materials"]]
 
-    m1 = import_mesh(os.path.join(asset_dir, meta["files"]["m1"]), base, f"SM_{safe}")
-    apply_materials(m1, mis)
-    set_nanite(m1, False)
-    apply_collision(m1, meta["collision"])
-    build_lods(m1, meta["lod_plan"])
-    eal.save_loaded_asset(m1)
+    mesh = import_mesh(os.path.join(asset_dir, meta["files"]["ultra"]), base, f"SM_{name}_A")
+    apply_materials(mesh, mis)
+    apply_collision(mesh, meta["collision"])
+    tris = meta["triangles"]
+    set_nanite(mesh, True, min(1.0, tris["m1_lod0"] / max(1, tris["ultra"])))
+    build_lods(mesh, meta["lod_plan"])
+    # catalog id travels with the asset (art bible section 7)
+    eal.set_metadata_tag(mesh, "CatalogId", meta["id"])
+    eal.save_loaded_asset(mesh)
 
-    ultra = import_mesh(os.path.join(asset_dir, meta["files"]["ultra"]), ultra_dir, f"SM_{safe}_Ultra")
-    apply_materials(ultra, mis)
-    set_nanite(ultra, True)
-    apply_collision(ultra, meta["collision"])
-    eal.save_loaded_asset(ultra)
-
-    drop_importer_materials(base, meta)
-    drop_importer_materials(ultra_dir, meta)
-    log(f"{aid}: SM_{safe} ({meta['triangles']['m1']} tris, {len(meta['lod_plan'])} LODs) "
-        f"+ SM_{safe}_Ultra ({meta['triangles']['ultra']} tris, Nanite)")
+    drop_importer_materials(base)
+    log(f"{meta['id']}: SM_{name}_A ({tris['ultra']} tris Nanite, M1 LOD0 {tris['m1_lod0']}, "
+        f"{len(meta['lod_plan'])} LODs)")
 
 
 def main():

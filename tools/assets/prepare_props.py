@@ -49,7 +49,7 @@ def main(argv=None) -> int:
         (skipped if meta.get("skipped") else done).append(item["id"])
         t = meta["triangles"]
         print(f"{item['id']}: {'unchanged' if meta.get('skipped') else 'prepared'} "
-              f"master {t['master']:,} -> ultra {t['ultra']:,} / m1 {t['m1']:,} tris, "
+              f"master {t['master']:,} -> ultra {t['ultra']:,} tris (M1 LOD0 {t['m1_lod0']:,}), "
               f"collision {meta['collision']['type']}")
     report = {"prepared": done, "unchanged": skipped, "no_master_yet": missing,
               "failed": failed}

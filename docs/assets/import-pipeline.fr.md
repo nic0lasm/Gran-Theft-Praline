@@ -1,90 +1,89 @@
 # Pipeline d'import Tripo vers Unreal
 
-*English version: [import-pipeline.md](import-pipeline.md). Catalogue : [asset-catalog.fr.md](../../production/asset-catalog.fr.md).*
+*English version: [import-pipeline.md](import-pipeline.md). Règles suivies : [bible artistique](../art/art-bible.fr.md) sections 5 à 8. Catalogue : [asset-catalog.fr.md](../../production/asset-catalog.fr.md).*
 
-But : transformer un GLB master Tripo (environ 1 M de sommets, 64-74 Mo) en
-assets Unreal prêts à jouer pour les deux profils de rendu, sans geste manuel.
+But : transformer un GLB master Tripo (environ 1 M de sommets, 55-88 Mo) en un maillage
+statique Unreal prêt à jouer par objet, valable pour les deux profils de rendu, sans geste manuel.
 
-État : la partie préparation (Python, hors Unreal) est testée en CI sur un
-échantillon procédural. La partie Unreal (`import_props.py`) est écrite pour l'API
-Python 5.8 mais **pas encore exécutée dans l'éditeur** : premier essai sur le Mac
-= prochaine étape, sur feu vert du coordinateur (une seule session d'éditeur à la fois).
+État : la partie préparation (Python, hors Unreal) est testée en CI sur un échantillon
+procédural. La partie Unreal (`import_props.py`) est écrite pour l'API Python 5.8 mais
+**pas encore exécutée dans l'éditeur** : premier essai sur le Mac = prochaine étape, sur
+feu vert du coordinateur (une seule session d'éditeur à la fois).
 
 ## Flux
 
 ```
 assets/tripo/w1/W1-07*.glb            masters, hors Git
-        |  tools/assets/prepare_props.py   (n'importe quelle machine, Python seul, ~1 s par asset)
+        |  tools/assets/prepare_props.py   (n'importe quelle machine, Python seul)
         v
 assets/staging/w1/W1-07/              hors Git, régénérable
-   asset.json  W1-07_ultra.glb  W1-07_m1.glb  textures/*.png
+   asset.json  W1-07_ultra.glb  textures/T_*_BC|ORM|N.png
         |  tools/assets/import-props-mac.sh   (éditeur Unreal fermé)
         v
-Content/Props/W1/W1-07/  SM_W1_07 (M1, LODs)   MI_*   Textures/
-Content/Props/W1/Ultra/  SM_W1_07_Ultra (Nanite, local seulement)
+Content/Environment/Props/<Famille>/<Asset>/
+   SM_<Asset>_A   T_<Asset>_BC / _N / _ORM   MI_<Asset>
 ```
 
 ## Ce que fait la préparation
 
-1. **Normaliser** : mise à l'échelle pour que la plus grande dimension vaille la
-   taille du catalogue (`size_m`, le plus grand nombre de la colonne Taille),
-   pivot au centre du bas (`back_center` pour les objets muraux : centré en X/Y,
-   collé à la face arrière), `rotate_y_deg` en option. Les conventions glTF sont
-   conservées (Y haut, +Z face, mètres) : l'import Unreal convertit en Z haut et centimètres.
-2. **Deux géométries** :
-   - `*_ultra.glb` : le master complet, normalisé (profil Ultra, Nanite).
-   - `*_m1.glb` : maillage de base décimé pour le profil M1. Décimation quadrique
-     sensible aux attributs (meshoptimizer ; UV et normales pèsent dans le calcul,
-     donc coutures et ombrage tiennent). Budget selon la taille : moins de 1 m
-     6 000 triangles, moins de 3 m 15 000, au-delà 30 000 ; `m1_tris` pour forcer par objet.
-3. **Textures** : extraites à côté des maillages en `BaseColor` (sRGB), `ORM`
-   (R occlusion, G rugosité, B métal, linéaire, même empaquetage que glTF) et
-   `Normal`. Une carte absente devient une constante 4x4 issue des facteurs du
-   matériau. **Les textures ne sont jamais réduites** (plafond 4096 px) : le profil
-   M1 économise la mémoire par le streaming de textures et les réglages
-   graphiques, pas en dégradant les assets (ADR-0001).
-4. **Recette de collision** dans `asset.json` : `none` pour les objets plats (moins
-   de 3 cm : plaque d'égout, grille) ou par exception, sinon décomposition convexe
-   dont le nombre de coques (1, 4 ou 8) suit l'écart à la convexité.
-5. **Plan de LOD** : 100 / 35 / 12 / 4 % des triangles M1 aux tailles d'écran
-   1,0 / 0,45 / 0,20 / 0,08.
+1. **Normaliser** : échelle pour que la plus grande dimension vaille la taille du catalogue
+   (`size_m`, le plus grand nombre de la colonne Taille), pivot au centre du bas
+   (`back_center` pour les objets muraux : centré en X/Y, collé à la face arrière),
+   `rotate_y_deg` en option. Conventions glTF conservées (Y haut, +Z face, mètres) :
+   l'import Unreal convertit en Z haut et centimètres. La bible veut la face sur +X dans
+   Unreal : à vérifier au premier import, puis corriger par un `rotate_y_deg` global.
+2. **Plafonner la source Nanite** au budget 5.1 de la bible selon la taille (petit sous
+   1 m : 300 k triangles ; moyen 1-3 m : 1 M ; grand : 2 M) par décimation quadrique
+   sensible aux attributs (meshoptimizer ; UV et normales guident les fusions). Un master
+   sous le plafond est gardé entier.
+3. **Textures** à côté du maillage : `T_<Asset>_BC` (sRGB), `_ORM` (R occlusion, G rugosité,
+   B métal, linéaire, même empaquetage que glTF) et `_N`. Une carte absente devient une
+   constante 4x4 issue des facteurs du matériau. Jamais réduites (plafond 4096 px) : le
+   profil M1 économise la mémoire par le streaming et les groupes de LOD de texture
+   (ADR-0001, bible 5.2).
+4. **Recette de collision** : aucune pour les objets plats (moins de 3 cm) ou par exception ;
+   une boîte pour les petits objets ; sinon une décomposition convexe dont le nombre de
+   coques (1, 4 ou 8) suit l'écart à la convexité.
+5. **Plan de LOD** (bible 5.1 et 6) : petits objets 3 LOD, autres 4 ; budget LOD0 M1
+   3 k / 10 k / 30 k triangles ; tailles d'écran 1,0 / 0,5 / 0,25 / 0,1 ; environ 50 % de
+   triangles en moins par LOD.
+6. Les noms viennent de `assets/manifests/wave-01.json` (famille, `Type_Descripteur`), généré
+   depuis le catalogue par `catalog_to_manifest.py`.
 
-Relancer est incrémental : un asset dont le master et les réglages n'ont pas bougé
-est sauté (`--force` pour refaire).
+Relancer est incrémental : un asset dont master et réglages n'ont pas bougé est sauté
+(`--force` pour refaire).
 
 ## Ce que fait le script Unreal
 
-Par asset : importe les trois textures avec les bons drapeaux (sRGB, masques,
-normal map), crée une instance de `/Game/Props/M_Prop_PBR` (créé au premier passage :
-paramètres BaseColor, ORM, Normal), importe le maillage M1 (Nanite coupé, LODs
-générés dans le moteur depuis le maillage de base, collision construite d'après la
-recette) et le maillage Ultra (Nanite actif). Les matériaux provisoires de
-l'importeur sont supprimés. Remplace les assets existants : relançable sans risque.
-Un asset en échec n'arrête pas le lot ; le code de sortie l'indique.
+Un `SM_<Asset>_A` par objet (bible 6.1) : importe les trois textures avec les bons
+drapeaux, crée `MI_<Asset>` depuis `M_Master_Surface` (créé dans `/Game/Materials/Masters/`
+s'il manque, paramètres `BaseColor`, `ORM`, `Normal`), importe le maillage, construit la
+collision d'après la recette, active Nanite avec le repli réglé sur le budget LOD0 M1,
+génère la chaîne de LOD du plan, pose le tag `CatalogId` et supprime les matériaux
+provisoires de l'importeur. Relancer remplace les assets. Un asset en échec n'arrête pas le
+lot ; le code de sortie l'indique.
 
 ## Utilisation
 
 ```bash
 pip install -r tools/assets/requirements.txt
-python3 tools/assets/catalog_to_manifest.py --out assets/manifests/wave-01.json   # seulement si le catalogue change
 python3 tools/assets/prepare_props.py --manifest assets/manifests/wave-01.json \
     --masters assets/tripo/w1 --staging assets/staging/w1 [--ids W1-01 W1-07] [--force]
 tools/assets/import-props-mac.sh w1 [W1-01 W1-07]      # éditeur Unreal fermé
 ```
 
-Les masters sont retrouvés par préfixe d'identifiant (`W1-07.glb`, `W1-07_bin.glb`).
-Les masters absents sont listés dans `assets/staging/w1/report.json` (`no_master_yet`).
+Masters retrouvés par préfixe d'identifiant (`W1-07.glb`). Les absents sont listés dans
+`assets/staging/w1/report.json` (`no_master_yet`).
 
-## Choix et points ouverts
+## Points ouverts
 
-- **Pas de dépendance à Blender** : trimesh + meshoptimizer tournent en CI comme sur
-  le Mac. Blender reste optionnel pour le nettoyage à la main (étape « nettoyé » du catalogue).
-- **Deux maillages par objet** (`SM_x` et `SM_x_Ultra`) : les niveaux utilisent `SM_x` ;
-  une build Ultra remplace par `_Ultra` via script. Les maillages Ultra restent hors
-  Git (`.gitignore`) : plusieurs dizaines de Mo chacun, régénérables depuis les masters.
-  L'outil de bascule viendra avec le travail sur le changement de profil.
-- **Opaque seulement** : les objets à transparence découpée (grilles vues à travers,
-  feuillage) demandent un matériau maître masqué ; à ajouter quand la vague 1 montrera lesquels.
-- **Orientation** : suppose que Tripo regarde vers +Z. Si un modèle sort tourné,
-  renseigner `rotate_y_deg` dans le manifeste.
-- Textures et maillages M1 vont dans Git LFS ; surveiller le quota ([git-lfs.fr.md](../project/git-lfs.fr.md)).
+- **À vérifier au premier passage sur le Mac** : axe de face (+X), que le profil M1 (Nanite
+  coupé) retombe bien sur le repli LOD0 puis la chaîne, et les noms exacts de l'API Python
+  5.8 (`StaticMeshEditorSubsystem`). Le script échoue bruyamment par asset.
+- **Non couvert** : réencodage des textures à la densité de la section 4.4 et recalibrage de
+  l'albédo (sans lumière, rugosité variée) : les textures du master sont prises telles
+  quelles ; une passe Blender ultérieure gère le nettoyage manuel. Les objets à
+  transparence découpée demandent un matériau maître masqué.
+- Les `.uasset` et textures importés vont dans Git LFS ; surveiller le quota
+  ([git-lfs.fr.md](../project/git-lfs.fr.md)).
+- Pas de dépendance à Blender : trimesh et meshoptimizer tournent en CI comme sur le Mac.

@@ -9,7 +9,7 @@ from .geometry import Asset
 FLAT_THICKNESS_M = 0.03  # thinner than this: walked over, no collision
 
 
-def recipe(asset: Asset, mode: str = "auto") -> dict:
+def recipe(asset: Asset, mode: str = "auto", category: str = "medium") -> dict:
     """Return ``{"type": "none"|"box"|"convex", "hulls": n}``.
 
     mode: ``auto`` | ``none`` | ``box`` | ``convex:N``.
@@ -27,6 +27,9 @@ def recipe(asset: Asset, mode: str = "auto") -> dict:
     ext = hi - lo
     if float(ext.min()) < FLAT_THICKNESS_M:
         return {"type": "none", "hulls": 0, "reason": "flat"}
+
+    if category == "small":  # art bible 5.1: simple box for small props
+        return {"type": "box", "hulls": 1}
 
     pts = np.vstack([p.vertices for p in asset.parts])
     try:

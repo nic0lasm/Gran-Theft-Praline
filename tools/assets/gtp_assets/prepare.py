@@ -2,9 +2,11 @@
 
 Output layout (one folder per asset, under the staging root):
   <id>/asset.json              what Unreal's import script reads
-  <id>/<id>_ultra.glb          normalised master geometry (Nanite, Ultra profile)
-  <id>/<id>_m1.glb             decimated base mesh (classic LODs, M1 profile)
-  <id>/textures/*.png          BaseColor / ORM / Normal per material slot
+  <id>/<id>_ultra.glb          normalised geometry, capped to the art bible Nanite budget
+  <id>/textures/*.png          BC / ORM / N per material slot (art bible suffixes)
+
+One static mesh per prop in Unreal: Nanite source (Ultra), Nanite fallback set to
+the M1 LOD0 budget, LOD chain halving from there (art bible sections 5 and 6).
 """
 from __future__ import annotations
 
@@ -16,7 +18,7 @@ from typing import Optional
 from . import __version__
 from .collision import recipe as collision_recipe
 from .geometry import decimate, export_geometry_glb, load_glb, normalize
-from .manifest import LOD_PLAN, default_m1_tris
+from .manifest import BUDGETS, category, lod_plan
 from .textures import extract_material
 
 
@@ -29,7 +31,8 @@ def file_sha256(path: str) -> str:
 
 
 def settings_key(item: dict) -> str:
-    keys = {k: item.get(k) for k in ("size_m", "pivot", "rotate_y_deg", "collision", "m1_tris")}
+    keys = {k: item.get(k) for k in ("size_m", "pivot", "rotate_y_deg", "collision",
+                                     "m1_tris", "ultra_tris", "family", "asset")}
     return json.dumps(keys, sort_keys=True) + __version__
 
 
@@ -54,26 +57,37 @@ def prepare_asset(src_glb: str, item: dict, staging_root: str, wave: str = "w1",
     scale = normalize(asset, size_m, item.get("pivot", "bottom_center"),
                       float(item.get("rotate_y_deg", 0.0)))
 
-    m1_target = int(item.get("m1_tris") or default_m1_tris(size_m))
-    m1 = decimate(asset, m1_target)
+    cat = category(size_m)
+    budget = BUDGETS[cat]
+    ultra_cap = int(item.get("ultra_tris") or budget["ultra_tris"])
+    m1_target = int(item.get("m1_tris") or budget["m1_tris"])
+    master_tris = asset.tri_count
+    ultra = decimate(asset, ultra_cap)
+    proxy = decimate(ultra, m1_target)  # M1-sized proxy, only used for the collision recipe
 
-    slots = [f"M_Imported_{asset_id}_{i}" for i in range(len(asset.parts))]
-    export_geometry_glb(asset, os.path.join(out, f"{asset_id}_ultra.glb"), slots)
-    export_geometry_glb(m1, os.path.join(out, f"{asset_id}_m1.glb"), slots)
+    slots = [f"M_Imported_{asset_id}_{i}" for i in range(len(ultra.parts))]
+    export_geometry_glb(ultra, os.path.join(out, f"{asset_id}_ultra.glb"), slots)
 
+    family = item.get("family", "Props")
+    asset_name = item.get("asset") or item.get("slug", asset_id)
     materials = []
-    for i, part in enumerate(asset.parts):
+    for i, part in enumerate(ultra.parts):
+        suffix = f"_{i}" if len(ultra.parts) > 1 else ""
         info = extract_material(part.material, os.path.join(out, "textures"),
-                                f"T_{asset_id}_m{i}")
+                                f"T_{asset_name}{suffix}")
         info["slot"] = i
         info["imported_name"] = slots[i]
+        info["instance_name"] = f"MI_{asset_name}{suffix}"
         materials.append(info)
 
-    lo, hi = asset.bounds()
+    lo, hi = ultra.bounds()
     meta = {
         "id": asset_id,
         "slug": item.get("slug", asset_id.lower()),
         "name": item.get("name", asset_id),
+        "family": family,
+        "asset_name": asset_name,
+        "category": cat,
         "wave": wave,
         "source": os.path.basename(src_glb),
         "source_sha256": sha,
@@ -82,10 +96,10 @@ def prepare_asset(src_glb: str, item: dict, staging_root: str, wave: str = "w1",
         "scale_applied": scale,
         "size_m": size_m,
         "bounds_m": {"min": [float(x) for x in lo], "max": [float(x) for x in hi]},
-        "triangles": {"master": master_tris, "ultra": asset.tri_count, "m1": m1.tri_count},
-        "files": {"ultra": f"{asset_id}_ultra.glb", "m1": f"{asset_id}_m1.glb"},
-        "lod_plan": LOD_PLAN,
-        "collision": collision_recipe(m1, item.get("collision", "auto")),
+        "triangles": {"master": master_tris, "ultra": ultra.tri_count, "m1_lod0": m1_target},
+        "files": {"ultra": f"{asset_id}_ultra.glb"},
+        "lod_plan": lod_plan(ultra.tri_count, m1_target, budget["lods"]),
+        "collision": collision_recipe(proxy, item.get("collision", "auto"), cat),
         "materials": materials,
     }
     with open(meta_path, "w", encoding="utf-8") as f:
