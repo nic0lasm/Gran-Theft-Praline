@@ -8,6 +8,9 @@
 #
 # Usage: tools/character/playtest_character.sh [output folder]
 #   UE_ROOT can point to the engine folder (default: /Users/Shared/Epic Games/UE_5.8).
+#   GTP_CAPTURE=<seconds> also films the run (UGTPFrameCapture, frames in
+#   <out>/capture; tools/build/frames-to-movie.swift makes the video). Do not
+#   use the frame times of a filmed run: reading frames back costs GPU time.
 set -euo pipefail
 
 repo="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -22,13 +25,18 @@ rm -f "$out/playtest.json"
 
 # The "py" console command takes the rest of the line as the path, and the
 # command line splits on spaces: run from a folder without spaces.
+capture=()
+if test -n "${GTP_CAPTURE:-}"; then
+  capture=(-CaptureVideo="$GTP_CAPTURE" -CaptureFps=30 -CaptureDelay=12 -CaptureDir="$out/capture")
+fi
+
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 cp "$repo/tools/character/playtest_character.py" "$tmp/playtest_character.py"
 
 GTP_PLAYTEST_OUT="$out" "$editor" "$project" /Game/Maps/L_RueRepublique -game -windowed -ResX=1920 -ResY=1080 \
   -nosound -NoScreenMessages -unattended -SkipTitle -FrameLog -FrameLogWarmup=10 \
-  -FrameLogFile="$tmp/frametimes.csv" -abslog="$tmp/game.log" \
+  -FrameLogFile="$tmp/frametimes.csv" -abslog="$tmp/game.log" ${capture[@]+"${capture[@]}"} \
   "-ini:Engine:[/Script/Engine.UserInterfaceSettings]:bAllowHighDPIInGameMode=True" \
   -ExecCmds="r.SetRes 1920x1080w, py $tmp/playtest_character.py" || true
 

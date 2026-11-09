@@ -26,6 +26,11 @@ class UInputMappingContext;
  *   look          mouse         mouse         right stick
  *   look behind   C             C             right stick click
  *   view          V             V             View (special left)
+ *
+ * On foot, in the always-active Interaction context
+ * (docs/gameplay/on-foot-feel.md):
+ *   interact      E             E             D-pad right
+ *   recenter view middle mouse  middle mouse  -
  */
 UCLASS()
 class GRANTHEFTPRALINE_API UGTPVehicleInput : public UObject
@@ -59,6 +64,12 @@ public:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UInputAction> ToggleView;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UInputAction> Interact;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UInputAction> CameraRecenter;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UInputMappingContext> Interaction;

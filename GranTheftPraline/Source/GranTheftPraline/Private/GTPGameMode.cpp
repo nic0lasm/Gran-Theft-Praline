@@ -1,5 +1,6 @@
 #include "GTPGameMode.h"
 
+#include "GTPHUD.h"
 #include "GTPPlayerController.h"
 #include "GTPVehicle.h"
 #include "Engine/World.h"
@@ -12,6 +13,7 @@ DEFINE_LOG_CATEGORY_STATIC(LogGTPGameMode, Log, All);
 AGTPGameMode::AGTPGameMode()
 {
 	PlayerControllerClass = AGTPPlayerController::StaticClass();
+	HUDClass = AGTPHUD::StaticClass();
 }
 
 void AGTPGameMode::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)

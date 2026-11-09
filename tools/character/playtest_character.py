@@ -6,6 +6,12 @@ jump, crouch, then the camera toggle to first person and back, and a respawn
 while in first person. Measures speeds, jump height and states, takes
 1920x1080 screenshots and writes <out>/playtest.json, then quits.
 
+On-foot feel (docs/gameplay/on-foot-feel.md): checks the follow camera
+framing (distance, field of view at rest and sprinting), that the camera is
+never behind a wall (a line from the shoulders to the camera on every frame),
+the stopping distance after a sprint, and the automatic recentering while
+running diagonally.
+
 The output folder comes from the GTP_PLAYTEST_OUT environment variable
 (default: <repo>/.scratch/character).
 """
@@ -98,9 +104,36 @@ def camera_info():
     target = pc.get_view_target()
     p = pawn()
     head_hidden = bool(mesh(p).is_bone_hidden_by_name("head")) if p else None
-    fov = pc.player_camera_manager.get_fov_angle()
+    manager = pc.player_camera_manager
+    fov = manager.get_fov_angle()
+    distance = None
+    if p:
+        cam = manager.get_camera_location()
+        loc = p.get_actor_location()
+        distance = round(math.sqrt((cam.x - loc.x) ** 2 + (cam.y - loc.y) ** 2 + (cam.z - loc.z - 62.0) ** 2))
     return dict(view_target=target.get_class().get_name() if target else None, head_hidden=head_hidden,
-                fov=round(fov, 1))
+                fov=round(fov, 1), distance_cm=distance)
+
+
+def sample_camera_clear(p):
+    """Counts frames where something solid sits between the shoulders and the third person camera."""
+    pc = player_controller()
+    if not p or not pc or state["data"].get("first_person"):
+        return
+    c = state["data"].setdefault("clear", dict(frames=0, blocked=0, error=None))
+    if c["error"]:
+        return
+    try:
+        loc = p.get_actor_location()
+        start = unreal.Vector(loc.x, loc.y, loc.z + 62.0)
+        hit = unreal.SystemLibrary.line_trace_single(
+            world(), start, pc.player_camera_manager.get_camera_location(),
+            unreal.TraceTypeQuery.TRACE_TYPE_QUERY2, True, [p], unreal.DrawDebugTrace.NONE, True)
+        c["frames"] += 1
+        if hit is not None and hit.to_tuple()[0]:
+            c["blocked"] += 1
+    except Exception as exc:  # keep the playtest going, report the probe failure
+        c["error"] = repr(exc)
 
 
 # Each step: (name, duration_s, per-tick action, on-end check)
@@ -168,10 +201,13 @@ def turn_around(p):
 def check_camera(key, first_person):
     def f(p):
         info = camera_info()
+        state["data"]["first_person"] = first_person
         if first_person:
-            ok = info["view_target"] == "CameraActor" and info["head_hidden"] is True and 85.0 <= info["fov"] <= 95.0
+            ok = info["view_target"] == "CameraActor" and info["head_hidden"] is True and 85.0 <= info["fov"] <= 95.0 \
+                and info["distance_cm"] is not None and info["distance_cm"] < 60
         else:
-            ok = info["view_target"] != "CameraActor" and info["head_hidden"] is False
+            # Follow camera: behind the shoulder at walking framing (a wall may pull it in).
+            ok = info["head_hidden"] is False and info["distance_cm"] is not None and info["distance_cm"] > 120
         info["ok"] = ok
         state["results"][key] = info
         log("%s %s" % (key, json.dumps(info)))
@@ -199,20 +235,80 @@ def nothing(p):
     pass
 
 
+def check_framing(key, fov_range, min_distance):
+    def f(p):
+        info = camera_info()
+        info["speed_cm_s"] = round(hspeed(p))
+        info["ok"] = fov_range[0] <= info["fov"] <= fov_range[1] and (info["distance_cm"] or 0) >= min_distance
+        state["results"][key] = info
+        state["data"][key] = info
+        log("%s %s" % (key, json.dumps(info)))
+    return f
+
+
+def track_stop(p):
+    d = state["data"].setdefault("stop", dict(start=p.get_actor_location(), time_to_stop=None))
+    if d["time_to_stop"] is None and hspeed(p) < 10.0:
+        d["time_to_stop"] = round(state["step_t"], 2)
+
+
+def record_stop(p):
+    d = state["data"].get("stop", {})
+    start = d.get("start")
+    loc = p.get_actor_location()
+    moved = math.hypot(loc.x - start.x, loc.y - start.y) if start else 0.0
+    r = dict(stop_distance_cm=round(moved), time_to_stop_s=d.get("time_to_stop"))
+    # Weight without skating: a sprint stops within about 0.3 to 3 m and a second.
+    r["ok"] = 20 <= moved <= 300 and r["time_to_stop_s"] is not None and r["time_to_stop_s"] <= 1.2
+    state["results"]["sprint_stop"] = r
+    log("sprint_stop %s" % json.dumps(r))
+
+
+def diagonal_run(p):
+    if "diag_yaw0" not in state["data"]:
+        state["data"]["diag_yaw0"] = player_controller().get_control_rotation().yaw
+    inject("IA_Move", 0.7, 0.7)
+
+
+def record_recenter(p):
+    yaw0 = state["data"].get("diag_yaw0", 0.0)
+    yaw1 = player_controller().get_control_rotation().yaw
+    turned = abs((yaw1 - yaw0 + 180.0) % 360.0 - 180.0)
+    r = dict(view_turned_deg=round(turned, 1))
+    # The view drifts towards the direction of travel, without spinning.
+    r["ok"] = 15.0 <= turned <= 200.0
+    state["results"]["auto_recenter"] = r
+    log("auto_recenter %s" % json.dumps(r))
+
+
+def record_clear(p):
+    c = state["data"].get("clear", dict(frames=0, blocked=0, error="no sample"))
+    ratio = 1.0 - c["blocked"] / c["frames"] if c["frames"] else 0.0
+    r = dict(frames=c["frames"], blocked=c["blocked"], clear_ratio=round(ratio, 4), error=c["error"])
+    r["ok"] = c["error"] is None and c["frames"] > 100 and ratio >= 0.99
+    state["results"]["camera_never_behind_wall"] = r
+    log("camera_clear %s" % json.dumps(r))
+
+
 STEPS = [
-    ("tp_idle", 2.0, nothing, lambda p: screenshot("third_person_idle")),
+    ("tp_idle", 2.0, nothing, lambda p: (screenshot("third_person_idle"),
+                                         check_framing("framing_idle", (74.0, 82.0), 200)(p))),
     ("run", 5.0, run_step("run"), record("run", ran=lambda r: r["max_speed_cm_s"] > 300)),
     ("walk_on", 0.2, press_once("IA_Walk"), nothing),
     ("walk", 4.0, run_step("walk"), record("walk", slower=lambda r: 50 < r["max_speed_cm_s"] < 300)),
     ("walk_off", 0.2, press_once("IA_Walk"), turn_around),
     ("sprint", 5.0, run_step("sprint", "IA_Sprint"), record("sprint", fast=lambda r: r["max_speed_cm_s"] > 500)),
-    ("sprint_shot", 0.6, run_step("sprint_shot", "IA_Sprint"), lambda p: screenshot("third_person_sprint")),
+    ("sprint_shot", 0.6, run_step("sprint_shot", "IA_Sprint"),
+     lambda p: (screenshot("third_person_sprint"), check_framing("framing_sprint", (82.0, 90.0), 240)(p))),
+    ("sprint_stop", 2.0, track_stop, record_stop),
     ("jump", 1.6, lambda p: (press_once("IA_Jump")(p), track("jump")(p)),
      record("jump", airborne=lambda r: r["fell"] and r["jump_rise_cm"] > 20)),
     ("crouch_on", 0.4, press_once("IA_Crouch"), turn_around),
     ("crouch", 4.0, run_step("crouch"), record("crouch", crouched=lambda r: r["crouched"] and r["max_speed_cm_s"] < 350)),
     ("crouch_shot", 0.5, nothing, lambda p: screenshot("third_person_crouch")),
     ("crouch_off", 0.6, press_once("IA_Crouch"), check_camera("third_person_camera", False)),
+    ("diagonal", 6.0, diagonal_run, record_recenter),
+    ("diagonal_shot", 0.3, nothing, lambda p: (screenshot("third_person_recenter"), record_clear(p))),
     ("to_first", 1.0, press_once("IA_ToggleCameraMode"),
      check_camera("first_person_camera", True)),
     ("fp_idle", 1.0, nothing, lambda p: screenshot("first_person_idle")),
@@ -274,6 +370,7 @@ def tick(dt):
                 return
         elif state["step_t"] < duration:
             during(p)
+            sample_camera_clear(p)
             return
         if p is not None:
             at_end(p)

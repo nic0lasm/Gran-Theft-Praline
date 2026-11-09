@@ -53,6 +53,8 @@ void UGTPVehicleInput::BuildActions()
 	Look = MakeAction(this, TEXT("IA_Vehicle_Look"), EInputActionValueType::Axis2D);
 	LookBehind = MakeAction(this, TEXT("IA_Vehicle_LookBehind"), EInputActionValueType::Boolean);
 	ToggleView = MakeAction(this, TEXT("IA_Vehicle_ToggleView"), EInputActionValueType::Boolean);
+	Interact = MakeAction(this, TEXT("IA_Interact"), EInputActionValueType::Boolean);
+	CameraRecenter = MakeAction(this, TEXT("IA_CameraRecenter"), EInputActionValueType::Boolean);
 }
 
 void UGTPVehicleInput::BuildKeyboard(bool bQwerty)
@@ -83,6 +85,9 @@ void UGTPVehicleInput::BuildGamepadAndInteraction()
 	Interaction = NewObject<UInputMappingContext>(this, TEXT("IMC_Vehicle_Interaction"), RF_Transient);
 	Interaction->MapKey(EnterExit, EKeys::F);
 	Interaction->MapKey(EnterExit, EKeys::Gamepad_FaceButton_Top);
+	Interaction->MapKey(Interact, EKeys::E);
+	Interaction->MapKey(Interact, EKeys::Gamepad_DPad_Right);
+	Interaction->MapKey(CameraRecenter, EKeys::MiddleMouseButton);
 
 	DrivingGamepad = NewObject<UInputMappingContext>(this, TEXT("IMC_Vehicle_Gamepad"), RF_Transient);
 	UInputMappingContext* Context = DrivingGamepad;
