@@ -70,7 +70,7 @@ choice is made in the editor, based on measurement.
 ## 5. Input (Enhanced Input)
 
 Contexts: `IMC_OnFoot_KBM` (keyboard and mouse), `IMC_OnFoot_Gamepad`,
-`IMC_Global` (pause, camera). **AZERTY keyboard layout by default** (the
+`IMC_Global` (camera). Escape and the gamepad Menu button are reserved for the pause menu, handled by game code. **AZERTY keyboard layout by default** (the
 project lead's Mac), QWERTY as an option, full remapping planned for 0.12.
 
 | Action | Type | AZERTY keyboard | QWERTY keyboard | Gamepad |
@@ -83,7 +83,6 @@ project lead's Mac), QWERTY as an option, full remapping planned for 0.12.
 | `IA_Crouch` | Toggle | C | C | B / Circle |
 | `IA_ToggleCameraMode` | Press | V | V | View / Share button |
 | `IA_CameraRecenter` | Press | Middle mouse | Middle mouse | Right stick click |
-| `IA_Pause` | Press | Escape | Escape | Menu / Options |
 
 Modifiers: 0.2 radial dead zone on sticks, adjustable mouse and gamepad
 sensitivity, optional vertical axis inversion. Action names are kept for
@@ -107,7 +106,10 @@ conversion):
    plugins, merge tags and CVars.
 5. Create `BP_PlayerCharacter` (child of the GASP character) in
    `Content/Characters/Player/`, our `IA_*` and `IMC_*` in `Content/Input/`,
-   and wire it to the C++ `GameMode`.
+   and make it the default pawn: `PlayerPawnClass` in `DefaultGame.ini`,
+   section `[/Script/GranTheftPraline.GTPGameMode]`. Add
+   `Content/Characters` and `Content/Input` (and the GASP plugin) to the
+   always-cooked directories (`DirectoriesToAlwaysCook`).
 6. Add the first-person mode and the toggle.
 7. Test in the greybox: 2-minute walkthrough, video capture, frame time
    capture (indicative in 0.1), gamepad check.

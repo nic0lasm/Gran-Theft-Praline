@@ -72,7 +72,7 @@ caméra classique. Le choix se fait dans l'éditeur, sur mesure.
 ## 5. Entrées (Enhanced Input)
 
 Contextes : `IMC_OnFoot_KBM` (clavier-souris), `IMC_OnFoot_Gamepad`,
-`IMC_Global` (pause, caméra). Disposition clavier **AZERTY par défaut**
+`IMC_Global` (caméra). Échap et le bouton Menu de la manette sont réservés au menu pause, géré par le code du jeu. Disposition clavier **AZERTY par défaut**
 (Mac de Nico), QWERTY en option, remappage complet prévu en 0.12.
 
 | Action | Type | Clavier AZERTY | Clavier QWERTY | Manette |
@@ -85,7 +85,6 @@ Contextes : `IMC_OnFoot_KBM` (clavier-souris), `IMC_OnFoot_Gamepad`,
 | `IA_Crouch` | Bascule | C | C | B / Rond |
 | `IA_ToggleCameraMode` | Appui | V | V | Bouton Vue / Share |
 | `IA_CameraRecenter` | Appui | clic molette | clic molette | Clic stick droit |
-| `IA_Pause` | Appui | Échap | Échap | Menu / Options |
 
 Modificateurs : zone morte radiale 0,2 sur les sticks, sensibilité souris
 et manette réglables, inversion de l'axe vertical en option. Les noms
@@ -109,7 +108,10 @@ projet en C++) :
    moteur, fusionner tags et CVars.
 5. Créer `BP_PlayerCharacter` (enfant du personnage du GASP) dans
    `Content/Characters/Player/`, nos `IA_*` et `IMC_*` dans
-   `Content/Input/`, et le brancher sur le `GameMode` C++.
+   `Content/Input/`, et le déclarer comme pion par défaut : `PlayerPawnClass`
+   dans `DefaultGame.ini`, section `[/Script/GranTheftPraline.GTPGameMode]`.
+   Ajouter `Content/Characters` et `Content/Input` (et le plugin GASP) aux
+   dossiers toujours cuits (`DirectoriesToAlwaysCook`).
 6. Ajouter le mode première personne et la bascule.
 7. Tester dans la greybox : parcours de 2 minutes, capture vidéo, relevé du
    temps d'image (indicatif en 0.1), vérification manette.
