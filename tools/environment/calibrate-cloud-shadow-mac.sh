@@ -24,8 +24,8 @@ strengths="${STRENGTHS:-0.2 0.5 0.75}"
 tolerance="${TOLERANCE:-3}"
 exe="$(find "$build_dir/GranTheftPraline.app/Contents/MacOS" -maxdepth 1 -type f -perm -u+x | head -n 1)"
 test -n "$exe" || { echo "calibrate: no executable in $build_dir" >&2; exit 1; }
-command -v ffmpeg > /dev/null || { echo "calibrate: ffmpeg missing" >&2; exit 1; }
-if pgrep -fl "UnrealEditor|GranTheftPraline" > /dev/null; then
+# UnrealEditorServices is an always-on helper, not the editor: ignore it.
+if pgrep -f "UnrealEditor( |$)|GranTheftPraline-Mac" > /dev/null; then
   echo "calibrate: an Unreal or game process is already running" >&2; exit 1
 fi
 mkdir -p "$out"
@@ -35,7 +35,11 @@ luma() {
   local img
   img="$(ls "$1"/frame_*.jpg 2>/dev/null | tail -n 1 || true)"
   test -n "$img" || { echo "nan"; return; }
-  ffmpeg -v error -i "$img" -vf "scale=1:1:flags=area,format=gray" -f rawvideo - | od -An -tu1 | tr -d ' \n'
+  if command -v ffmpeg > /dev/null; then
+    ffmpeg -v error -i "$img" -vf "scale=1:1:flags=area,format=gray" -f rawvideo - | od -An -tu1 | tr -d ' \n'
+  else
+    swift "$(dirname "$0")/mean-luma.swift" "$img"
+  fi
 }
 
 shot() {  # name, args...
