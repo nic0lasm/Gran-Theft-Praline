@@ -50,6 +50,14 @@ class TrafficTests(unittest.TestCase):
         targets = {(lanes[i]["road"], lanes[i]["dir"]) for i in b_west["next"]}
         self.assertEqual(targets, {("A", -1), ("C", 1)})
 
+    def test_bridges_kept_tunnels_dropped(self):
+        bridge = road("B", [[0, 0], [0, 100]], sens="Sens direct", voies=1)
+        bridge["properties"]["position_par_rapport_au_sol"] = "1"
+        tunnel = road("T", [[10, 0], [10, 100]], sens="Sens direct", voies=1)
+        tunnel["properties"]["position_par_rapport_au_sol"] = "-1"
+        lanes = traffic.build_lanes([bridge, tunnel])
+        self.assertEqual([lane["road"] for lane in lanes], ["B"])
+
     def test_dead_end_has_no_u_turn(self):
         lanes = traffic.build_lanes([road("A", [[0, 0], [0, 100]])])
         for lane in lanes:

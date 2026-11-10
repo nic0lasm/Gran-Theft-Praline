@@ -43,12 +43,22 @@ UGTPAIDriverComponent::UGTPAIDriverComponent()
 void UGTPAIDriverComponent::Start(AGTPTrafficNetwork* InNetwork, int32 Lane, int32 StartPoint)
 {
 	Network = InNetwork;
+	ReleaseJunctions();
 	Route.Reset();
 	Route.Add(Lane);
 	Closest = StartPoint;
+	StoppedTime = 0.f;
 	bAtDeadEnd = false;
 	PlanRoute();
 	SetComponentTickEnabled(true);
+}
+
+void UGTPAIDriverComponent::ReleaseJunctions()
+{
+	if (Network)
+	{
+		Junctions.Clear(Network->GetJunctionTable(), static_cast<int>(GetOwner()->GetUniqueID()));
+	}
 }
 
 void UGTPAIDriverComponent::PlanRoute()
@@ -114,6 +124,7 @@ void UGTPAIDriverComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 	if (!Vehicle->HasAIDriver() || Vehicle->IsWrecked())
 	{
 		// Stolen or destroyed: this driver is done.
+		ReleaseJunctions();
 		SetComponentTickEnabled(false);
 		return;
 	}
@@ -121,9 +132,22 @@ void UGTPAIDriverComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 	const FVector Location = Vehicle->GetActorLocation();
 	const float Yaw = FMath::DegreesToRadians(static_cast<float>(Vehicle->GetActorRotation().Yaw));
 	const float Speed = Vehicle->GetSpeedKmh() / 3.6f;
-	const float LaneSpeed = Network->GetLanes()[Route[0]].SpeedKmh / 3.6f;
-	const FGTPDriveCommand Command = GTPDrive::Decide(Path, static_cast<float>(Location.X) * CmToM, static_cast<float>(Location.Y) * CmToM, Yaw, Speed, LaneSpeed,
-		FindObstacleMetres(Vehicle), Settings, Closest);
+	const FGTPTrafficLane& Lane = Network->GetLanes()[Route[0]];
+	const float LaneSpeed = Lane.SpeedKmh / 3.6f;
+	const float X = static_cast<float>(Location.X) * CmToM;
+	const float Y = static_cast<float>(Location.Y) * CmToM;
+	StoppedTime = FMath::Abs(Speed) < 0.3f ? StoppedTime + DeltaTime : 0.f;
+
+	// Nearest of: something in front, the stop line of a junction another car is crossing.
+	float Obstacle = FindObstacleMetres(Vehicle);
+	const FVector& LaneEnd = Lane.Points.Last();
+	const float StopLine = Junctions.Update(Network->GetJunctionTable(), static_cast<int>(Vehicle->GetUniqueID()), Lane.ToJunction,
+		{static_cast<float>(LaneEnd.X) * CmToM, static_cast<float>(LaneEnd.Y) * CmToM}, X, Y, Speed, Settings.ComfortDecel, StoppedTime);
+	if (StopLine >= 0.f && (Obstacle < 0.f || StopLine < Obstacle))
+	{
+		Obstacle = StopLine;
+	}
+	const FGTPDriveCommand Command = GTPDrive::Decide(Path, X, Y, Yaw, Speed, LaneSpeed, Obstacle, Settings, Closest);
 	Vehicle->SetAIDriveInput(Command.Throttle, Command.Brake, Command.Steering, Command.Brake >= 1.f && Speed < 0.5f);
 
 	if (Closest >= CurrentLaneLength && Route.Num() > 1)
@@ -201,6 +225,10 @@ int32 AGTPTrafficNetwork::LoadLanesFromCsv(const FString& Path)
 		for (const FString& Id : Next)
 		{
 			Lane.Next.Add(FCString::Atoi(*Id));
+		}
+		if (Fields.Num() >= 9)
+		{
+			Lane.ToJunction = FCString::Atoi(*Fields[8].TrimEnd());
 		}
 		Lanes.Add(MoveTemp(Lane));
 	}
@@ -383,6 +411,10 @@ bool AGTPTrafficNetwork::SpawnCar()
 void AGTPTrafficNetwork::Recycle(AGTPVehicle* Car)
 {
 	Cars.Remove(Car);
+	if (UGTPAIDriverComponent* AIDriver = Car->FindComponentByClass<UGTPAIDriverComponent>())
+	{
+		AIDriver->ReleaseJunctions();
+	}
 	if (ACharacter* Driver = Car->GetDriver())
 	{
 		if (AController* Controller = Driver->GetController())
@@ -405,12 +437,20 @@ void AGTPTrafficNetwork::Tick(float DeltaSeconds)
 		AGTPVehicle* Car = Cars[Index];
 		if (!IsValid(Car) || !Car->HasAIDriver())
 		{
+			if (IsValid(Car))
+			{
+				if (UGTPAIDriverComponent* Stolen = Car->FindComponentByClass<UGTPAIDriverComponent>())
+				{
+					Stolen->ReleaseJunctions();
+				}
+			}
 			Cars.RemoveAt(Index);
 			continue;
 		}
 		const UGTPAIDriverComponent* AIDriver = Car->FindComponentByClass<UGTPAIDriverComponent>();
 		const bool bFar = Player && FVector::Dist2D(Car->GetActorLocation(), Player->GetActorLocation()) > MaxCarDistance;
-		if ((bFar || (AIDriver && AIDriver->IsAtDeadEnd())) && !IsSeenByPlayer(Car->GetActorLocation()))
+		const bool bStuck = AIDriver && (AIDriver->IsAtDeadEnd() || AIDriver->GetStoppedTime() > StuckSeconds);
+		if ((bFar || bStuck) && !IsSeenByPlayer(Car->GetActorLocation()))
 		{
 			Recycle(Car);
 		}

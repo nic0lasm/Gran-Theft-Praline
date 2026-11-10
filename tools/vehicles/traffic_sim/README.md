@@ -13,8 +13,9 @@ g++ -O2 -std=c++17 -I GranTheftPraline/Source/GranTheftPraline/Public \
 /tmp/traffic_sim assets/geo/processed/presqu-ile/gen/rue-de-la-republique/traffic/lanes.csv 25 300
 ```
 
-Pass criteria: distance to the lane p95 < 1.5 m and p99 < 3 m, mean speed
-above 12 km/h, at most a quarter of the cars stopped for 20 s, under one
-second of contact in total (junctions have no priority rules before 0.9).
-Cars reaching a dead end are taken away and put back on a free lane, as the
-game does out of sight.
+Pass criteria: distance to the lane p95 < 1.5 m and p99 < 4 m (the worst
+1 % is at junction corners, measured against the straight jump between two
+lane ends), mean speed above 12 km/h, at most a quarter of the cars stuck
+for 20 s, no contact at all. One car at a time crosses a junction (lights
+and priorities come in 0.9). Cars reaching a dead end or stuck for 20 s are
+taken away and put back on a free lane, as the game does out of sight.
