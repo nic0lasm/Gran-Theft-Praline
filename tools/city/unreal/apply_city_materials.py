@@ -106,9 +106,10 @@ class Graph:
         self.link(alpha, alpha_out, e, "Alpha")
         return e
 
-    def unary(self, cls, a, a_out="", **props):
+    def unary(self, cls, src, src_out="", **props):
+        # "src", not "a": ComponentMask has a property named "a" (alpha channel).
         e = self.node(cls, **props)
-        self.link(a, a_out, e, "")
+        self.link(src, src_out, e, "")
         return e
 
     def mask(self, a, r=False, g=False, b=False):
