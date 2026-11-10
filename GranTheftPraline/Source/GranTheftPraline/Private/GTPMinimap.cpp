@@ -277,6 +277,25 @@ void UGTPMinimapSubsystem::DrawFullMap(UCanvas* Canvas, const AGTPPlayerControll
 		DrawLine(Canvas, ToCanvas(Centre, A), ToCanvas(Centre, B), Style.Color, FMath::Max(1.f, Style.Thickness * Scale * 1.6f));
 	});
 
+	// Blips (the player's car, police cars, ...): bigger dots, with a dark rim.
+	for (const FBlip& Blip : Blips)
+	{
+		const AActor* Actor = Blip.Actor.Get();
+		if (!Actor)
+		{
+			continue;
+		}
+		const FVector P = Actor->GetActorLocation();
+		const GTPUI::FVec2 Screen = View.ToScreen({static_cast<float>(P.X), static_cast<float>(P.Y)});
+		const FVector2D At = ToCanvas(Centre, Screen);
+		if (At.X < 0.f || At.Y < 0.f || At.X > Canvas->ClipX || At.Y > Canvas->ClipY)
+		{
+			continue;
+		}
+		DrawDisc(Canvas, At, 8.f * Scale, FLinearColor(0.f, 0.f, 0.f, 0.8f));
+		DrawDisc(Canvas, At, 6.f * Scale, Blip.Color);
+	}
+
 	const UFont* Font = GEngine ? GEngine->GetMediumFont() : nullptr;
 	if (Font)
 	{

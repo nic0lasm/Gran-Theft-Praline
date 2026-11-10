@@ -1,4 +1,5 @@
 #include "GTPVehicleInteractionComponent.h"
+#include "GTPMinimap.h"
 
 #include "GTPVehicle.h"
 #include "EngineUtils.h"
@@ -32,6 +33,11 @@ void UGTPVehicleInteractionComponent::HandleEnterExit()
 	if (AGTPVehicle* Vehicle = FindBestVehicle())
 	{
 		Vehicle->BeginEnter(Character, PC);
+		// The car the player took stays marked on the maps after they get out.
+		if (UGTPMinimapSubsystem* Minimap = GetWorld() ? GetWorld()->GetSubsystem<UGTPMinimapSubsystem>() : nullptr)
+		{
+			Minimap->AddBlip(Vehicle, FLinearColor(0.35f, 0.75f, 1.f), false);
+		}
 	}
 }
 

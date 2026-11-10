@@ -63,13 +63,17 @@ pré-rendue par map, tournée par le HUD (un seul appel de dessin).
 
 ## Carte plein écran
 
-**M** (bouton Vue de la manette) ouvre une carte plein écran et met le jeu en pause ; M,
+**M** (croix haut de la manette) ouvre une carte plein écran et met le jeu en pause ; M,
 Échap ou B la ferme. Mêmes données, nord en haut, centrée sur le joueur, 700 m de haut,
 avec contours des bâtiments, eau, toutes les routes, **noms de voies** (une étiquette par
 nom, au milieu de sa polyligne la plus longue ; les noms viennent de la colonne BD TOPO
 `nom_voie_ban`, écrite dans la colonne `name` de `minimap.csv`) et la flèche du joueur
 tournée vers où il regarde. Dessinée par `UGTPMinimapSubsystem::DrawFullMap` ; le HUD lui
 cède la place tant qu'elle est ouverte.
+
+Icônes de carte : UGTPMinimapSubsystem::AddBlip(Actor, Couleur). La voiture que le joueur
+prend est marquée en bleu clair (`UGTPVehicleInteractionComponent`) sur la mini-carte et la
+carte plein écran ; la police ajoute ses voitures de la même façon.
 
 ## Suite (roadmap 0.10)
 

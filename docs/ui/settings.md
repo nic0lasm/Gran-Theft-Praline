@@ -31,6 +31,14 @@ QWERTY pair covers the two layouts of the player base; a full remap goes through
 Enhanced Input user settings and comes with the controls pass), resolution and
 window mode, subtitles. They are listed in the roadmap.
 
+## Controls screen
+
+The **Controls** button (title and pause menus) lists, for the keyboard layout in use
+(AZERTY or QWERTY) and for the gamepad, the key of each action that exists in code:
+interact, get in / out, change view, recentre, throttle, brake, steer, handbrake, look
+behind, map, pause. The rows are in `GTPControls.h` and are updated with the bindings
+(on-foot movement and jump are in the Enhanced Input assets and are not listed yet).
+
 ## Texts
 
 All menu texts live in one table, `Source/GranTheftPraline/Public/GTPStringTable.h`:
