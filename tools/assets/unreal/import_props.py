@@ -74,6 +74,13 @@ def set_master_defaults(orm, normal):
         DEFAULT_NORMAL, "/Engine/EngineMaterials/DefaultNormal", unreal.TextureCompressionSettings.TC_NORMALMAP))
 
 
+def enable_nanite_usage(mat):
+    """Nanite meshes need MATUSAGE_NANITE on the master: without it a packaged
+    build draws the props with the grey default material."""
+    mel.set_material_usage(mat, unreal.MaterialUsage.MATUSAGE_NANITE)
+    mat.set_editor_property("used_with_nanite", True)
+
+
 def fix_master_material():
     """Give an existing master the defaults above (GTP_FIX_MASTER=1)."""
     mat = unreal.load_asset(MASTER_MATERIAL)
@@ -86,6 +93,7 @@ def fix_master_material():
         if not isinstance(node, unreal.MaterialExpressionTextureSampleParameter2D):
             raise RuntimeError(f"{label} input of {MASTER_MATERIAL} is not a texture parameter: {node}")
     set_master_defaults(orm, normal)
+    enable_nanite_usage(mat)
     mel.recompile_material(mat)
     eal.save_loaded_asset(mat)
     log(f"master material defaults set: {DEFAULT_MASKS}, {DEFAULT_NORMAL}")
@@ -115,6 +123,7 @@ def ensure_master_material():
     mel.connect_material_property(orm, "G", unreal.MaterialProperty.MP_ROUGHNESS)
     mel.connect_material_property(orm, "B", unreal.MaterialProperty.MP_METALLIC)
     mel.connect_material_property(normal, "RGB", unreal.MaterialProperty.MP_NORMAL)
+    enable_nanite_usage(mat)
     mel.recompile_material(mat)
     eal.save_loaded_asset(mat)
     return mat
