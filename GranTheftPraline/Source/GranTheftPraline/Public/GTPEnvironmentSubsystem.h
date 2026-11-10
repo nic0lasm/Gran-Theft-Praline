@@ -143,6 +143,11 @@ struct FGTPLightBudget
 	UPROPERTY()
 	bool bCloudShadows = true;
 
+	/** EV added to the exposure target with this profile (compensates a flatter, brighter scene,
+	 *  e.g. without cloud shadows). Applied only when the cloud shadows are off. */
+	UPROPERTY()
+	float NoCloudShadowExposureOffset = 0.f;
+
 	/** The weather may change the cloud coverage (denser clouds cost more). */
 	UPROPERTY()
 	bool bDriveCloudCoverage = true;
@@ -177,6 +182,7 @@ struct FGTPLightBudget
  * Command line: -TimeOfDay=<hours> -Date=YYYY-MM-DD -TimeScale=<x> (0 freezes)
  * -Weather=<preset> -Ambience=<noon|golden|dusk|night|rain|night-rain|fog>
  * (frozen test ambience, time stopped unless -TimeScale is given)
+ * -CloudShadows=0 (no cloud shadows, exposure compensated by NoCloudShadowExposureOffset)
  * -CloudDome=1 (2D cloud dome instead of the volumetric clouds, 0 = never)
  * -DayNight=0 or -NoEnvironment (leave the map lighting untouched).
  * Start line on stdout, Shipping included: "daynight: on | ..." or "daynight: off".

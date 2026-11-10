@@ -125,7 +125,8 @@ hours, weighted for a Lyon autumn.
 
 Command line: `-TimeOfDay=22 -Date=2027-01-15 -Weather=Rain -TimeScale=0`
 (0 freezes time for measurements), `-Ambience=<noon|golden|dusk|night|rain|night-rain|fog>`
-(frozen test ambience, defined in `Ambiences`), `-CloudDome=1` (2D cloud dome instead of the volumetric clouds, 0 = never),
+(frozen test ambience, defined in `Ambiences`), `-CloudShadows=0` (no cloud shadows, exposure compensated by
+`NoCloudShadowExposureOffset` EV), `-CloudDome=1` (2D cloud dome instead of the volumetric clouds, 0 = never),
 `-DayNight=0` or `-NoEnvironment` (switches the system off). At start a `daynight: on | ...` or `daynight: off` line goes to stdout, Shipping included.
 
 Unattended chain: `tools/environment/setup-environment-mac.sh` (non-zero

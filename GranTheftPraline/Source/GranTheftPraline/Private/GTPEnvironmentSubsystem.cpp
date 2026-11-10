@@ -551,6 +551,11 @@ void UGTPEnvironmentSubsystem::ApplyBudgetForProfile(UWorld& World)
 	{
 		Budget.bCloudDome = CloudDome != 0;
 	}
+	int32 CloudShadows = -1;
+	if (FParse::Value(FCommandLine::Get(), TEXT("CloudShadows="), CloudShadows) && CloudShadows >= 0)
+	{
+		Budget.bCloudShadows = CloudShadows != 0;
+	}
 }
 
 void UGTPEnvironmentSubsystem::ApplyCloudQuality()
@@ -1009,6 +1014,10 @@ void UGTPEnvironmentSubsystem::ApplyExposure()
 	// Cloud darkens the day; at night the street lights set the exposure.
 	const float Daylight = Saturate((Elevation + 6.f) / 12.f);
 	ExposureTarget = ExposureForElevation(Elevation) + Weather.ExposureOffset * Daylight;
+	if (!Budget.bCloudShadows)
+	{
+		ExposureTarget += Budget.NoCloudShadowExposureOffset * Daylight;
+	}
 
 	FPostProcessSettings& S = PostProcess->Settings;
 	S.AutoExposureMinBrightness = ExposureTarget - ExposureHalfRange;
