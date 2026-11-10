@@ -27,7 +27,8 @@ public class GranTheftPraline : ModuleRules
 			"ImageWrapper",
 			"RHI",
 			"RenderCore",
-			"AudioExtensions"
+			"AudioExtensions",
+			"AssetRegistry"
 		});
 	}
 }
