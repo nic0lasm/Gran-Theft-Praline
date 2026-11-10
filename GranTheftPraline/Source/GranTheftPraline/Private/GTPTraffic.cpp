@@ -172,7 +172,7 @@ void UGTPAIDriverComponent::SetGhost(bool bInGhost)
 		return;
 	}
 	USkeletalMeshComponent* Body = Vehicle->GetMesh();
-	UChaosWheeledVehicleMovementComponent* Movement = Vehicle->GetWheeledMovement();
+	UChaosWheeledVehicleMovementComponent* Movement = Cast<UChaosWheeledVehicleMovementComponent>(Vehicle->GetVehicleMovementComponent());
 	if (bInGhost)
 	{
 		GhostSpeed = FMath::Max(0.f, Vehicle->GetSpeedKmh() / 3.6f);
