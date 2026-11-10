@@ -37,19 +37,19 @@ cp "$repo"/tools/city/unreal/{import_city,place_facades,place_props,shoot_city}.
 export GTP_CITY_ZONE="$zone" GTP_CITY_FOCUS="$focus" GTP_CITY_LIGHT="${GTP_CITY_LIGHT:-Noon}" GTP_PROFILE="${PROFILE:-m1}"
 cvars="$(python3 "$repo/tools/rendering/reference_scene/profiles.py" "${PROFILE:-m1}")"
 
-"$editor" "$project" -unattended -nosplash -nosound -ExecutePythonScript="$tmp/import_city.py"
+"$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES -ExecutePythonScript="$tmp/import_city.py"
 test -f "$out/report.json" || { echo "import_city.py wrote no report" >&2; exit 1; }
 grep -q '"errors": \[\]' "$out/report.json" || { cat "$out/report.json"; exit 1; }
 
-"$editor" "$project" -unattended -nosplash -nosound -ExecutePythonScript="$tmp/place_facades.py"
+"$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES -ExecutePythonScript="$tmp/place_facades.py"
 test -f "$out/facades_report.json" || { echo "place_facades.py wrote no report" >&2; exit 1; }
 grep -q '"errors": \[\]' "$out/facades_report.json" || { cat "$out/facades_report.json"; exit 1; }
 
 # Street furniture: assets not imported yet are skipped and listed in the report.
-"$editor" "$project" -unattended -nosplash -nosound -ExecutePythonScript="$tmp/place_props.py"
+"$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES -ExecutePythonScript="$tmp/place_props.py"
 test -f "$out/props_report.json" || { echo "place_props.py wrote no report" >&2; exit 1; }
 
-"$editor" "$project" "$map" -game -windowed -ResX=1920 -ResY=1080 -nosound -NoScreenMessages -unattended \
+"$editor" "$project" "$map" -game -windowed -ResX=1920 -ResY=1080 -nosound -NoScreenMessages -unattended -NSAppSleepDisabled YES \
   "-ini:Engine:[/Script/Engine.UserInterfaceSettings]:bAllowHighDPIInGameMode=True" \
   -ExecCmds="r.SetRes 1920x1080w, $cvars, py $tmp/shoot_city.py"
 rm -rf "$tmp"

@@ -121,20 +121,133 @@ def open_level_with_bible_lighting(report):
         return
     report["lighting"] = {"source": "fallback sun and sky", "missing": LIGHT_SOURCE_MAP}
     log("%s missing: plain sun and sky" % LIGHT_SOURCE_MAP)
+    level_sub.new_level(MAP)
+    sun = spawn(unreal.DirectionalLight, (0, 0, 10000), unreal.Rotator(0, -40, 135), "Sun", "Lighting")
+    sun.light_component.set_editor_property("atmosphere_sun_light", True)
+    spawn(unreal.SkyAtmosphere, (0, 0, 0), None, "SkyAtmosphere", "Lighting")
+    sky = spawn(unreal.SkyLight, (0, 0, 2000), None, "SkyLight", "Lighting")
+    sky.light_component.set_editor_property("real_time_capture", True)
+    pp = spawn(unreal.PostProcessVolume, (0, 0, 0), None, "PostProcess_Greybox", "Lighting")
+    pp.set_editor_property("unbound", True)
+    s = pp.get_editor_property("settings")
+    s.set_editor_property("override_auto_exposure_method", True)
+    s.set_editor_property("auto_exposure_method", unreal.AutoExposureMethod.AEM_MANUAL)
+    s.set_editor_property("override_auto_exposure_bias", True)
+    s.set_editor_property("auto_exposure_bias", 14.0)  # EV100 midday range of the art bible
+    pp.set_editor_property("settings", s)
+
+
+def check_bounds(mesh, expected, offset):
+    """Compare the imported bounds with the pivot-relative bounds generate.py wrote.
+
+    Returns (ok, baked, got). The UE 5.8 Interchange glTF importer bakes the node
+    translation into the vertices (pivot at the world origin): the bounds then match
+    the expected ones shifted by the building position, and the mesh is placed at 0."""
+    box = mesh.get_bounding_box()
+    got = [box.min.x, box.min.y, box.min.z, box.max.x, box.max.y, box.max.z]
+    if max(abs(g - e) for g, e in zip(got, expected)) <= BOUNDS_TOLERANCE_CM:
+        return True, False, got
+    shifted = [e + offset[i % 3] for i, e in enumerate(expected)]
+    if max(abs(g - e) for g, e in zip(got, shifted)) <= BOUNDS_TOLERANCE_CM:
+        return True, True, got
+    return False, False, got
+
+
+def spawn(cls, loc, rot=None, label=None, folder=None):
+    a = actor_sub.spawn_actor_from_class(cls, unreal.Vector(*loc), rot or unreal.Rotator(0, 0, 0))
+    if label:
+        a.set_actor_label(label)
+    if folder:
+        a.set_folder_path(folder)
+    return a
+
+
+def place_mesh(mesh, loc, label, folder):
+    a = spawn(unreal.StaticMeshActor, loc, None, label, folder)
+    comp = a.static_mesh_component
+    comp.set_static_mesh(mesh)
+    comp.set_editor_property("mobility", unreal.ComponentMobility.STATIC)
+    return a
+
+
+def bellecour_start(axis):
+    """Start a few metres into the street from its Bellecour (south, larger Y) end, facing up it."""
+    pts = axis if axis[0][1] > axis[-1][1] else list(reversed(axis))
+    (x0, y0, z0), (x1, y1, _) = pts[0], pts[1]
+    dist = math.hypot(x1 - x0, y1 - y0) or 1.0
+    t = min(1.0, SPAWN_ALONG_AXIS_CM / dist)
+    loc = (x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, z0 + 120.0)
+    return loc, math.degrees(math.atan2(y1 - y0, x1 - x0))
+
+
+def terrain_baked(mesh, tile):
+    """True if the terrain tile came in with its translation baked (bounds far from its pivot)."""
+    box = mesh.get_bounding_box()
+    cx, cy = (box.min.x + box.max.x) / 2, (box.min.y + box.max.y) / 2
+    tx, ty = tile["ue_cm"][0], tile["ue_cm"][1]
+    return math.hypot(cx - tx, cy - ty) < math.hypot(cx, cy)
+
+
+def main():
+    t0 = time.time()
+    report = {"zone": ZONE, "focus": FOCUS, "map": MAP, "errors": []}
+    with open(os.path.join(GEN, "buildings_gen.csv"), encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+    with open(os.path.join(TERRAIN, "terrain.json")) as f:
+        terrain_meta = json.load(f)
+
+    buildings = import_glb(os.path.join(GEN, MESH + ".glb"), ROOT + "/Buildings/" + CAMEL)
+    prefix, bounds_col = ("SM_BuildingShell_", "shell_bounds_ue_cm") if MESH == "shell" else \
+        ("SM_Building_", "bounds_ue_cm")
+    for r in rows:
+        r["mesh_name"] = r["mesh_name"].replace("SM_Building_", prefix)
+        r["bounds_ue_cm"] = r[bounds_col]
+    terrain = import_glb(os.path.join(TERRAIN, "terrain.glb"), ROOT + "/Terrain")
+
+    # Convention check before anything is placed.
+    bad, baked = [], 0
+    for r in rows:
+        m = buildings.get(r["mesh_name"])
+        if m is None:
+            bad.append((r["mesh_name"], "missing"))
+            continue
+        pos = (float(r["ue_x"]), float(r["ue_y"]), float(r["ue_z"]))
+        ok, is_baked, got = check_bounds(m, [float(v) for v in r["bounds_ue_cm"].split()], pos)
+        if not ok:
+            bad.append((r["mesh_name"], [round(v) for v in got]))
+        r["baked"] = is_baked
+        baked += is_baked
+    report["buildings_expected"] = len(rows)
+    report["bounds_mismatch"] = len(bad)
+    report["meshes_with_baked_position"] = baked
+    if bad:
+        report["errors"].append("bounds mismatch, first: %s" % (bad[:3],))
+        log("STOP: %d meshes do not match their expected bounds (axis/pivot convention?): %s" % (len(bad), bad[:3]))
+        write_report(report, t0)
+        return
+
     report["collision_meshes"] = set_complex_collision(list(buildings.values()) + list(terrain.values()))
     open_level_with_bible_lighting(report)
     unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world() \
         .get_world_settings().set_editor_property("kill_z", KILL_Z)
 
     for r in rows:
-        place_mesh(buildings[r["mesh_name"]], (float(r["ue_x"]), float(r["ue_y"]), float(r["ue_z"])),
-                   r["mesh_name"], "City/Buildings")
+        pos = (0.0, 0.0, 0.0) if r["baked"] else (float(r["ue_x"]), float(r["ue_y"]), float(r["ue_z"]))
+        place_mesh(buildings[r["mesh_name"]], pos, r["mesh_name"], "City/Buildings")
+    terrain_check = {"baked": 0, "at_pivot": 0}
     for tile in terrain_meta["mesh_tiles"]:
         m = terrain.get(tile["name"])
         if m is None:
             report["errors"].append("terrain tile missing: " + tile["name"])
             continue
-        place_mesh(m, tuple(tile["ue_cm"]), tile["name"], "City/Terrain")
+        if terrain_baked(m, tile):
+            terrain_check["baked"] += 1
+            pos = (0.0, 0.0, 0.0)
+        else:
+            terrain_check["at_pivot"] += 1
+            pos = tuple(tile["ue_cm"])
+        place_mesh(m, pos, tile["name"], "City/Terrain")
+    report["terrain_bounds_check"] = terrain_check
 
     # Player start: Bellecour end of the focus street, looking up the street (morning test map).
     with open(os.path.join(GEN, "report.json"), encoding="utf-8") as f:
