@@ -8,6 +8,7 @@ as lived in, always anchored on something real, never scattered at random over a
                                 doors, awnings over cafés and food shops, ATMs on banks,
                                 ashtrays at bar and tobacconist doors, doormats, window
                                 boxes and the odd satellite dish or air conditioner,
+                                display shelves in the lit rooms behind the shop glass,
                                 keystone mascarons over Haussmann carriage doors
   corners (facade_modules.csv)  street-name plates where a building turns a street corner
   OpenStreetMap (ODbL)          bollards, pedestrian and vehicle traffic lights on the
@@ -57,6 +58,11 @@ import citylib as cl  # noqa: E402
 import generate  # noqa: E402
 import grandlyon  # noqa: E402
 
+sys.path.insert(0, os.path.join(HERE, "facade_kit"))
+from kit_layout import module_for  # noqa: E402
+
+SHOP_BACK_M = 0.45 + 2.2 - 0.25   # kit.py WALL_DEPTH + shop_interior depth, minus half a shelf
+
 MAX_INSTANCES = 3000       # agreed with the optimisation pass; above it, ask first
 MIN_GAP_M = 0.35           # wall items sit close together (plaque beside an intercom)
 FOOD_TRADES = {"restaurant", "cafe", "bar", "pub", "fast_food", "ice_cream", "bakery", "pastry",
@@ -71,7 +77,7 @@ SIGNS = {"B1": "W8-07", "AB3a": "W8-06", "AB4": "W8-05", "B6a1": "W8-09", "B6d":
 PRIORITY = {"W1-46": 0, "W1-45": 0, "W1-57": 0, "W8-02": 0, "W8-01": 0, "W1-56": 0, "W14-42": 1,
             "W1-09": 1, "W8-07": 1, "W8-06": 1, "W8-05": 1, "W8-09": 1, "W8-08": 1, "W8-10": 1,
             "W8-11": 1, "W8-14": 1, "W8-15": 1, "W8-16": 1, "W8-17": 1, "W1-59": 1, "W13-19": 2,
-            "W14-45": 2, "W14-46": 2, "W14-41": 2, "W14-62": 2, "W13-07": 2, "W1-30": 2, "W1-19": 2,
+            "W14-45": 2, "W14-46": 2, "W14-41": 2, "W14-62": 2, "W13-07": 2, "W14-32": 1, "W1-30": 2, "W1-19": 2,
             "W14-43": 3, "W14-36": 3, "W14-55": 3, "W14-34": 3, "W14-03": 3, "W1-32": 3, "W1-60": 3,
             "W14-53": 3, "W14-69": 3, "W14-65": 4, "W14-66": 4, "W14-48": 4, "W1-47": 4, "W14-72": 4}
 
@@ -269,6 +275,19 @@ def main():  # noqa: C901, PLR0912, PLR0915
                 if trade in ("bar", "pub") and u < 0.5:
                     add("W14-75", m["x"] + nx * 0.5 + tx * (m["w"] / 2 + 0.3), m["y"] + ny * 0.5 + ty * (m["w"] / 2 + 0.3),
                         m["z"], m["yaw"], "shop", m["shop_osm_id"])
+
+    # --- 1b. Something to see behind the shop glass: a display shelf against the back wall
+    for m in ground:
+        if m["kind"] not in ("shop", "shopfront_closed") or m["w"] < 2.0 or m["street"] != args.street:
+            continue
+        if module_for(m["typology"], m["kind"], m["building_id"]).endswith("Shutter"):
+            continue                                                               # shutter down
+        if shops.get(m["shop_osm_id"], {}).get("type", "") in ("clothes", "shoes", "boutique"):
+            continue                                                               # mannequins (props.py)
+        nx, ny, tx, ty = frame(m)
+        off = (h01(m["building_id"], m["bay"], "shelf") - 0.5) * 0.6
+        add("W14-32", m["x"] - nx * SHOP_BACK_M + tx * off, m["y"] - ny * SHOP_BACK_M + ty * off, m["z"], m["yaw"],
+            "shop_window", m["shop_osm_id"] or m["building_id"], snap="keep", inside_ok=True)
 
     # --- 2. Upper storeys: window boxes, the odd dish or air conditioner ----------------
     for m in all_mods:
