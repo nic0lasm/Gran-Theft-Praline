@@ -229,7 +229,7 @@ struct FRagdollTimings
 	float RestSeconds = 0.7f;
 	/** Give up and decide after this even if still sliding (s). */
 	float MaxSeconds = 10.f;
-	/** Pause on the ground before getting up, by severity (s). */
+	/** Pause on the ground before getting up or being frozen (<= 5 s after rest, agreed with the optimisation thread). */
 	float PauseKnock = 0.6f;
 	float PauseLaunch = 2.5f;
 };

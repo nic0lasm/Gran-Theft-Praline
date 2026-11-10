@@ -46,7 +46,7 @@ layer, the player side and a cost limit, in a frame budget that is already tight
    when getting up. It ticks only while a ragdoll runs. Get-up montages are
    optional properties (see docs/animation/sources.md); without them the body
    is given back with a pose pop.
-3. **Cap** in `UGTPRagdollSubsystem`: m1 3, fidelity 6, ultra 10 simultaneous
+3. **Cap** in `UGTPRagdollSubsystem`: hard limit (a fourth body stays animated); m1 3, fidelity 6, ultra 10 simultaneous
    ragdolls (`-MaxRagdolls=N` overrides), the farthest then the oldest is frozen
    (pose kept, simulation off), checked twice a second.
 4. **Player** in `UGTPPlayerReactionComponent`: finds cars touching the capsule at
