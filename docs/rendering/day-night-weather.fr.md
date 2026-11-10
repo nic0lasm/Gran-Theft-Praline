@@ -42,13 +42,14 @@ la map. Adaptation 2 EV/s vers le clair, 1 EV/s vers le sombre.
 
 | État de la bible | Soleil | Cible obtenue | Plage de la bible |
 | ---- | ---- | ---- | ---- |
-| Midi (21 juin, 13 h 30) | 67,6° | 14,6 | 13,5 – 15 |
+| Midi (21 juin, 13 h 30) | 67,6° | 14,5 | 13,5 – 15 |
 | Heure dorée (15 oct., 18 h 15) | ≈ 6° | 11,5 | 10 – 12,5 |
-| Pluie (9 nov., 11 h) | ≈ 22° | 13,3 − 2,5 = 10,8 | 10,5 – 12,5 |
+| Pluie (9 nov., 11 h) | 24,7° | 13,45 − 2,4 = 11,05 | 10,5 – 12,5 |
 | Nuit (15 janv., 22 h) | −48° | 3,5 | 2 – 6 |
 
 Balance des blancs 6500 K le jour, 5400 K la nuit (chaude sans virer au
-sépia). Saturation selon la météo (0,8 sous la pluie).
+sépia). Saturation selon la météo (0,8 sous la pluie). `tools/environment/environment_model.py`
+refait ces calculs hors Unreal et les tests vérifient chaque état contre la bible.
 
 ## 4. Nuit
 
@@ -79,7 +80,10 @@ sépia). Saturation selon la météo (0,8 sous la pluie).
   `bCloudShadows`, `bDriveCloudCoverage`). Les nuages volumétriques coûtent
   ≈ 12 ms GPU en m1 (mesure du 2026-11-10) : en m1, la météo ne change pas
   leur couverture (le couvert passe par le soleil, le ciel et le brouillard),
-  en attendant la décision sur leur qualité. Repli bon marché : `bCloudDome`
+  en attendant la décision sur leur qualité. Par météo, `CloudSampleScale`
+  multiplie celui du profil, et `bCloudDomeWhenOvercast` affiche le dôme 2D à
+  la place des nuages volumétriques par temps couvert, pluie, orage et
+  brouillard (`bPreferCloudDome`). Repli bon marché : `bCloudDome`
   coupe les nuages volumétriques et affiche un dôme de nuages 2D non éclairé
   autour de la caméra (`M_CloudDome`, couverture `Cloudiness`, luminance
   calée sur l'exposition par `CloudLuminance`).
@@ -98,7 +102,7 @@ Six états qui se fondent en 60 s ; la météo automatique en tire un toutes les
 | Clear | 0,15 | 1 | 0,008 | 0 | 0 | 3 |
 | Cloudy | 0,55 | 0,7 | 0,012 | 0 | −0,7 | 3 |
 | Overcast | 0,95 | 0,15 | 0,02 | 0 | −2,2 | 2 |
-| Rain | 1 | 0,1 | 0,035 | 0,7 | −2,5 | 2 |
+| Rain | 1 | 0,1 | 0,035 | 0,7 | −2,4 | 2 |
 | Storm | 1 | 0,06 | 0,05 | 1 | −3 | 0,5 |
 | Fog | 0,7 | 0,35 | 0,12 | 0 | −1,5 | 1 |
 
@@ -125,7 +129,8 @@ Six états qui se fondent en 60 s ; la météo automatique en tire un toutes les
 
 Ligne de commande : `-TimeOfDay=22 -Date=2027-01-15 -Weather=Rain
 -TimeScale=0` (0 fige le temps pour mesurer), `-Ambience=<noon|golden|dusk|night|rain|night-rain|fog>`
-(ambiance de test figée, définie dans `Ambiences`), `-CloudDome=1` (dôme de nuages 2D à la place des nuages volumétriques, 0 = jamais),
+(ambiance de test figée, définie dans `Ambiences`), `-CloudShadows=0` (sans ombres de nuages, exposition compensée de
+`NoCloudShadowExposureOffset` EV), `-CloudDome=1` (dôme de nuages 2D à la place des nuages volumétriques, 0 = jamais),
 `-DayNight=0` ou `-NoEnvironment` (coupe le système). Au démarrage, une ligne `daynight: on | …` ou `daynight: off` sort sur stdout, Shipping compris.
 
 Enchaînement sans intervention : `tools/environment/setup-environment-mac.sh`

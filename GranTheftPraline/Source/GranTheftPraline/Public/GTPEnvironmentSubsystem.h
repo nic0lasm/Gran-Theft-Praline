@@ -70,6 +70,15 @@ struct FGTPWeatherPreset
 	/** Relative chance to be drawn by the automatic weather. */
 	UPROPERTY()
 	float Weight = 1.f;
+
+	/** Multiplier of the profile's cloud ray samples in this weather (thick cover can take fewer). */
+	UPROPERTY()
+	float CloudSampleScale = 1.f;
+
+	/** A uniform cover that the 2D dome renders well: used instead of the volumetric
+	 *  clouds when the profile sets bCloudDomeWhenOvercast. */
+	UPROPERTY()
+	bool bPreferCloudDome = false;
 };
 
 /** A named, frozen test ambience (-Ambience=<Name>): date, time and weather. */
@@ -134,6 +143,11 @@ struct FGTPLightBudget
 	UPROPERTY()
 	bool bCloudShadows = true;
 
+	/** EV added to the exposure target with this profile (compensates a flatter, brighter scene,
+	 *  e.g. without cloud shadows). Applied only when the cloud shadows are off. */
+	UPROPERTY()
+	float NoCloudShadowExposureOffset = 0.f;
+
 	/** The weather may change the cloud coverage (denser clouds cost more). */
 	UPROPERTY()
 	bool bDriveCloudCoverage = true;
@@ -141,6 +155,10 @@ struct FGTPLightBudget
 	/** Cheap fallback: a 2D cloud dome around the camera, when the volumetric clouds are off. */
 	UPROPERTY()
 	bool bCloudDome = false;
+
+	/** The 2D dome replaces the volumetric clouds in the weathers that prefer it (overcast, rain...). */
+	UPROPERTY()
+	bool bCloudDomeWhenOvercast = false;
 };
 
 /**
@@ -164,6 +182,7 @@ struct FGTPLightBudget
  * Command line: -TimeOfDay=<hours> -Date=YYYY-MM-DD -TimeScale=<x> (0 freezes)
  * -Weather=<preset> -Ambience=<noon|golden|dusk|night|rain|night-rain|fog>
  * (frozen test ambience, time stopped unless -TimeScale is given)
+ * -CloudShadows=0 (no cloud shadows, exposure compensated by NoCloudShadowExposureOffset)
  * -CloudDome=1 (2D cloud dome instead of the volumetric clouds, 0 = never)
  * -DayNight=0 or -NoEnvironment (leave the map lighting untouched).
  * Start line on stdout, Shipping included: "daynight: on | ..." or "daynight: off".
@@ -221,6 +240,7 @@ private:
 	void ReadCommandLine();
 	void ApplyBudgetForProfile(UWorld& World);
 	void ApplyCloudQuality();
+	void UpdateClouds(const FGTPWeatherPreset& Weather);
 
 	void AdvanceTime(float DeltaTime);
 	void UpdateWeather(float DeltaTime);
@@ -444,6 +464,8 @@ private:
 	FLinearColor DayFogInscattering = FLinearColor::Black;
 	FLinearColor AppliedFogInscattering = FLinearColor(-1.f, -1.f, -1.f);
 	float AppliedRiverFog = -1.f;
+	float AppliedCloudSampleScale = 1.f;
+	int32 AppliedCloudMode = -1;
 
 	UPROPERTY(Transient)
 	TObjectPtr<AActor> Holder;
