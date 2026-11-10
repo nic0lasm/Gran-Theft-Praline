@@ -428,9 +428,32 @@ def assign_kit(mics, report):
 
 
 def water_material():
-    """Dark, glossy river surface (no waves yet)."""
+    """Dark, glossy river surface with small moving waves: a world-space normal from three
+    sines drifting downstream (the Rhone flows south, +Y in Unreal). Opaque and texture
+    free: a few ALU, no extra pass, unlike the Water plugin."""
     mat = new_material("M_City_Water")
+    mat.set_editor_property("tangent_space_normal", False)
     g = Graph(mat)
+    wp = g.world_position()
+    x, y = g.mask(wp, r=True), g.mask(wp, g=True)
+    t = g.node(unreal.MaterialExpressionTime)
+    sin, cos = unreal.MaterialExpressionSine, unreal.MaterialExpressionCosine
+    # (wavelength cm, direction x, direction y, speed cm/s, slope)
+    dx, dy = g.const(0.0), g.const(0.0)
+    for lam, ux, uy, speed, slope in ((340.0, 0.2, 1.0, 60.0, 0.05), (130.0, -0.6, 0.8, 35.0, 0.035),
+                                      (55.0, 0.9, 0.45, 20.0, 0.02)):
+        k = 6.2832 / lam
+        ph = g.mul(g.sub(g.add(g.mul(x, g.const(ux)), g.mul(y, g.const(uy))), g.mul(t, g.const(speed))), g.const(k))
+        c = g.mul(g.unary(cos, ph), g.const(slope))
+        dx = g.add(dx, g.mul(c, g.const(ux)))
+        dy = g.add(dy, g.mul(c, g.const(uy)))
+    n = g.node(unreal.MaterialExpressionAppendVector)
+    g.link(g.sub(g.const(0.0), dx), "", n, "A")
+    g.link(g.sub(g.const(0.0), dy), "", n, "B")
+    n3 = g.node(unreal.MaterialExpressionAppendVector)
+    g.link(n, "", n3, "A")
+    g.link(g.const(1.0), "", n3, "B")
+    mel.connect_material_property(g.unary(unreal.MaterialExpressionNormalize, n3), "", unreal.MaterialProperty.MP_NORMAL)
     mel.connect_material_property(g.const((0.012, 0.022, 0.026)), "", unreal.MaterialProperty.MP_BASE_COLOR)
     mel.connect_material_property(g.const(0.06), "", unreal.MaterialProperty.MP_ROUGHNESS)
     mel.connect_material_property(g.const(0.6), "", unreal.MaterialProperty.MP_SPECULAR)
