@@ -215,6 +215,9 @@ private:
 	bool CarNear(const FVector& Where, float Radius, float MinSpeed, FVector* OutCarLocation = nullptr, FVector* OutCarVelocity = nullptr) const;
 	USkeletalMesh* PickMesh();
 
+	/** Best animation of the mesh's skeleton whose name has one of Words (walk, idle...). */
+	static UAnimSequenceBase* FindAnimation(const USkeletalMesh* Mesh, const TArray<FString>& Words);
+
 	GTPWalk::FGraph Graph;
 	GTPWalk::FSettings Settings;
 	GTPWalk::FRng Rng{0x50454421u};

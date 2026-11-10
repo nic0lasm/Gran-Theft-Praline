@@ -1,5 +1,7 @@
 #include "GTPPedestrians.h"
 
+#include "AssetRegistry/AssetRegistryModule.h"
+#include "Animation/AnimSequence.h"
 #include "Animation/AnimSequenceBase.h"
 #include "Components/SceneComponent.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -225,13 +227,59 @@ USkeletalMesh* UGTPPedestrianSubsystem::PickMesh()
 	return LoadedMeshes[FMath::Min(LoadedMeshes.Num() - 1, static_cast<int32>(Rng.Next() * LoadedMeshes.Num()))];
 }
 
+UAnimSequenceBase* UGTPPedestrianSubsystem::FindAnimation(const USkeletalMesh* Mesh, const TArray<FString>& Words)
+{
+	if (!Mesh || !Mesh->GetSkeleton())
+	{
+		return nullptr;
+	}
+	TArray<FAssetData> Assets;
+	FAssetRegistryModule::GetRegistry().GetAssetsByPath(FName(TEXT("/Game")), Assets, true);
+	const FTopLevelAssetPath SequenceClass = UAnimSequence::StaticClass()->GetClassPathName();
+	FAssetData Best;
+	int32 BestScore = 0;
+	for (const FAssetData& Asset : Assets)
+	{
+		if (Asset.AssetClassPath != SequenceClass)
+		{
+			continue;
+		}
+		const FString Name = Asset.AssetName.ToString().ToLower();
+		bool bWord = false;
+		for (const FString& Word : Words)
+		{
+			bWord |= Name.Contains(Word);
+		}
+		if (!bWord)
+		{
+			continue;
+		}
+		// Prefer a plain forward loop: "fwd" or a leading "f", no turn, start, stop or in-place variants.
+		int32 Score = 10;
+		Score += (Name.Contains(TEXT("fwd")) || Name.Contains(TEXT("_f_")) || Name.Contains(TEXT("forward"))) ? 5 : 0;
+		Score += Name.Contains(TEXT("loop")) ? 3 : 0;
+		Score -= (Name.Contains(TEXT("turn")) || Name.Contains(TEXT("start")) || Name.Contains(TEXT("stop")) || Name.Contains(TEXT("pivot"))
+			|| Name.Contains(TEXT("back")) || Name.Contains(TEXT("left")) || Name.Contains(TEXT("right")) || Name.Contains(TEXT("strafe"))) ? 8 : 0;
+		if (Score > BestScore)
+		{
+			UAnimSequenceBase* Candidate = Cast<UAnimSequenceBase>(Asset.GetAsset());
+			if (Candidate && Candidate->GetSkeleton() == Mesh->GetSkeleton())
+			{
+				BestScore = Score;
+				Best = Asset;
+			}
+		}
+	}
+	return BestScore > 0 ? Cast<UAnimSequenceBase>(Best.GetAsset()) : nullptr;
+}
+
 void UGTPPedestrianSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 {
 	Super::OnWorldBeginPlay(InWorld);
 	Wanted = ChooseDensity();
 	if (Wanted <= 0)
 	{
-		GTP_TRACE(LogGTPPedestrians, TEXT("pedestrians off"));
+		GTP_TRACE(LogGTPPedestrians, TEXT("pedestrians: off"));
 		return;
 	}
 	const FString File = WalkwaysFileFor(UGameplayStatics::GetCurrentLevelName(&InWorld, true));
@@ -261,9 +309,26 @@ void UGTPPedestrianSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 			}
 		}
 	}
-	Walk = Cast<UAnimSequenceBase>(WalkAnimation.TryLoad());
-	Idle = Cast<UAnimSequenceBase>(IdleAnimation.TryLoad());
-	Run = Cast<UAnimSequenceBase>(RunAnimation.TryLoad());
+	// -PedWalk= / -PedIdle= / -PedRun= (asset paths) override the config; anything still missing
+	// is found among the animations of the mesh's skeleton by name (walk, idle, run or jog).
+	auto Resolve = [&](const FSoftObjectPath& Configured, const TCHAR* Param, const TArray<FString>& Words) -> UAnimSequenceBase*
+	{
+		FString Override;
+		if (FParse::Value(FCommandLine::Get(), Param, Override) && !Override.IsEmpty())
+		{
+			return Cast<UAnimSequenceBase>(FSoftObjectPath(Override).TryLoad());
+		}
+		if (Configured.IsValid())
+		{
+			return Cast<UAnimSequenceBase>(Configured.TryLoad());
+		}
+		return FindAnimation(LoadedMeshes[0], Words);
+	};
+	Walk = Resolve(WalkAnimation, TEXT("PedWalk="), {TEXT("walk")});
+	Idle = Resolve(IdleAnimation, TEXT("PedIdle="), {TEXT("idle")});
+	Run = Resolve(RunAnimation, TEXT("PedRun="), {TEXT("run"), TEXT("jog")});
+	GTP_TRACE(LogGTPPedestrians, TEXT("animations: walk=%s idle=%s run=%s"),
+		Walk ? *Walk->GetPathName() : TEXT("none"), Idle ? *Idle->GetPathName() : TEXT("none"), Run ? *Run->GetPathName() : TEXT("none"));
 	if (LoadedMeshes.Num() == 0 || !Walk)
 	{
 		GTP_TRACE(LogGTPPedestrians, TEXT("no pedestrians: mesh (%d) or walk animation (%s) missing, see tools/pedestrians/find_walk_assets.py"),
@@ -295,7 +360,7 @@ void UGTPPedestrianSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 		Actor->SetDetail(false, false, -1);
 		P.Actor = Actor;
 	}
-	GTP_TRACE(LogGTPPedestrians, TEXT("%d walkway edges, %d people wanted, %d visible at most"), Edges, Wanted, MaxVisible);
+	GTP_TRACE(LogGTPPedestrians, TEXT("pedestrians: on (%d), %d walkway edges, %d visible at most"), Wanted, Edges, MaxVisible);
 }
 
 void UGTPPedestrianSubsystem::Deinitialize()
