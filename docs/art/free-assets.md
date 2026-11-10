@@ -21,10 +21,10 @@ façades, street furniture, signs), then water, foliage and vehicles.
    Megaplants Norway Maple (Forest and Saplings). The only real plane tree
    pack found is paid (Greenleaf Vision, 23 Platanus presets, USD 29.99,
    UE 5.8, experimental Nanite Foliage).
-3. **Water: nothing to download.** The Water plugin ships with the engine
-   (river splines, Single Layer Water, buoyancy). On Mac the simulation
-   bake crashes (Metal bug reported, no fix), so we use it without fluid
-   simulation.
+3. **Water: nothing to download.** Roadmap decision (2026-11-10): our own
+   mesh with the `M_City_Water` material. The engine's Water plugin is ruled
+   out (extra passes, over the M1 budget; simulation bake crashes on Mac,
+   Metal bug reported with no fix).
 4. **Without any account, threads can fetch Poly Haven (CC0) and ambientCG
    (CC0) on their own**: 521 models, 869 textures and 997 HDRIs on Poly
    Haven, 2,041 materials on ambientCG (counts read from their APIs on
@@ -52,7 +52,7 @@ measured before anything lands on next.
 | European Black Alder (Megascans Trees) | [fab.com/s/8f6f8b0282d1](https://fab.com/s/8f6f8b0282d1) | Free, Megascans | Not shown | Same | 22 trees, wind and seasons, LODs | Medium | **Take** (river banks) |
 | Megaplants: Norway Maple Forest and Saplings | [Forest](https://www.fab.com/listings/e789ad04-cf79-4973-adb0-85c794d77144), [Saplings](https://www.fab.com/listings/e79a64ce-2291-4505-ba8e-d2fdf20791e8) | Free, Megaplants | Not shown | Needs the PVE plugin and "Nanite Foliage (Experimental)" | Norway maple, editable presets: a leafy street tree until we have plane trees | Unknown, to measure: experimental Nanite Foliage | **Take and test** |
 | PVE Broadleaf Park Tree Presets (Greenleaf Vision) | [Fab listing](https://www.fab.com/listings/e141228c-0db1-4560-9dbe-48067e8ba2d5) | **Paid USD 29.99** | 7 GB | UE 5.8 required, experimental PVE + Nanite Foliage | 23 plane trees + 19 lindens, leafless winter variants, wind, seasons | Unknown, to measure | **Purchase to decide** after the Megaplants test |
-| Water plugin (engine) | [Epic docs](https://dev.epicgames.com/documentation/unreal-engine/water-system-in-unreal-engine) | Engine | 0 (installed) | Plugin listed as experimental; simulation bake crashes on Mac ([thread](https://forums.unrealengine.com/t/ue-v-5-6-1-water-simulation-bake-crash-on-macos-15-6-1-metal-apple-m3-ultra-28-core-cpu-60-core-gpu-32-core/2656076)); river vanishes in LiveSim on 5.8.3 ([thread](https://forums.unrealengine.com/t/wateradvanced-shallowwaterrivercomponent-no-valid-sinks-warning-and-river-disappears-in-5-8-3/2840450)) | Rhône and Saône (river spline, waves, buoyancy, swimming later) | Medium (Single Layer Water + Lumen reflections); avoid fluid simulation | **Enable**, no simulation |
+| Water plugin (engine) | [Epic docs](https://dev.epicgames.com/documentation/unreal-engine/water-system-in-unreal-engine) | Engine | 0 (installed) | Plugin listed as experimental; simulation bake crashes on Mac ([thread](https://forums.unrealengine.com/t/ue-v-5-6-1-water-simulation-bake-crash-on-macos-15-6-1-metal-apple-m3-ultra-28-core-cpu-60-core-gpu-32-core/2656076)); river vanishes in LiveSim on 5.8.3 ([thread](https://forums.unrealengine.com/t/wateradvanced-shallowwaterrivercomponent-no-valid-sinks-warning-and-river-disappears-in-5-8-3/2840450)) | Rhône and Saône (river spline, waves, buoyancy, swimming later) | Medium to high (Single Layer Water, extra passes) | **Ruled out** (roadmap 2026-11-10): own mesh + `M_City_Water` |
 | Procedural Vegetation Editor (engine) | [Epic docs](https://dev.epicgames.com/documentation/unreal-engine/procedural-vegetation-editor-in-unreal-engine) | Engine | 0 | Experimental; PVE 5.7 files do not open in 5.8 | Grow our own plane trees (Grower node); Nanite Foliage output + wind | Unknown | **Test** alongside Megaplants |
 | City Sample (5.8) | [fab.com/s/5e8f5eda64d8](https://fab.com/s/5e8f5eda64d8) | Free, Unreal-only content | Very heavy (several tens of GB) | Updated for 5.8 (PCG building graphs) | PCG city study; American style | High | **Later**, study only |
 | City Sample Vehicles | [fab.com/s/62cf08ebaf2e](https://fab.com/s/62cf08ebaf2e) | Free, Unreal-only | Not shown | Unreal | 13 drivable American vehicles | Medium | **No**: our fleet is French |
@@ -99,18 +99,18 @@ One session of about 15 minutes on the Mac. Everything is free, no card.
    Epic session open on the Mac, out of Git, one line per asset in
    `SOURCES.md`.
 
-Nothing to click for water (engine plugin) or for Poly Haven / ambientCG.
+Nothing to click for water (own mesh) or for Poly Haven / ambientCG.
 
 ## 4. What threads do on their own
 
 - Fetch the Poly Haven and ambientCG models and textures above by script,
   run them through `tools/assets` (normalisation, triangle caps, M1 LODs),
   out of Git.
-- Enable the Water plugin and lay a first Saône/Rhône river spline on the
-  slice map, without fluid simulation; measure the M1 cost.
-- Once the Megaplants are in the library: give leaves back to the street's
-  112 trees with the Norway maple (autumn foliage, the bible's season), M1
-  measurement before and after. If it holds the budget, offer Nico the
+- Once the trees are in the project: give leaves back to the street's 112
+  trees with `tools/city/unreal/run_tree_swap.sh` (street walk with bare
+  then leafy trees, automatic return to the bare trees if the M1 p95 goes
+  above 42 ms or rises by more than 4 ms). Megaplants are PVE presets that
+  must be turned into a mesh first; the "Field" beech is the first try. If it holds the budget, offer Nico the
   Greenleaf plane trees (USD 29.99) on a card.
 - Cross the remaining Tripo catalogue with Megascans and Poly Haven and drop
   what already exists for free.

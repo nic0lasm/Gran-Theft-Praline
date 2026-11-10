@@ -85,3 +85,8 @@ assets/tripo/**/*.zip
 # by tools/environment (the lights come from OpenStreetMap tables, kept out of Git)
 /GranTheftPraline/Content/Environment/Weather/
 /GranTheftPraline/Content/Environment/Data/
+
+# Fab and Megascans content added through the editor Fab window
+/GranTheftPraline/Content/Fab/
+/GranTheftPraline/Content/Megascans/
+/GranTheftPraline/Content/MSPresets/

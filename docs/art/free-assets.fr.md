@@ -22,10 +22,10 @@ gratuitement, en priorité pour ce que voit le joueur rue de la République
    Saplings). Le seul vrai pack de platanes trouvé est payant (Greenleaf
    Vision, 23 préréglages Platanus, 29,99 $, UE 5.8, Nanite Foliage
    expérimental).
-3. **Eau : rien à télécharger.** Le plugin Water est livré avec le moteur
-   (rivières par spline, Single Layer Water, flottaison). Sur Mac, le
-   *bake* de simulation plante (bug Metal signalé, sans correctif) : on
-   l'utilise sans simulation de fluide.
+3. **Eau : rien à télécharger.** Décision de la roadmap (2026-11-10) : notre
+   propre maillage avec le matériau `M_City_Water`. Le plugin Water du
+   moteur est écarté (passes en plus, hors budget M1 ; *bake* de simulation
+   qui plante sur Mac, bug Metal signalé sans correctif).
 4. **Sans compte, les fils peuvent tout récupérer seuls sur Poly Haven
    (CC0) et ambientCG (CC0)** : 521 modèles, 869 textures et 997 HDRI sur
    Poly Haven, 2 041 matériaux sur ambientCG (comptes lus sur leurs API le
@@ -54,7 +54,7 @@ mesurer avant toute intégration sur next.
 | European Black Alder (Megascans Trees) | [fab.com/s/8f6f8b0282d1](https://fab.com/s/8f6f8b0282d1) | Gratuit, Megascans | Non affichée | Idem | 22 arbres, vent et saisons, LOD | Moyen | **À prendre** (berges) |
 | Megaplants : Norway Maple Forest et Saplings | [Forest](https://www.fab.com/listings/e789ad04-cf79-4973-adb0-85c794d77144), [Saplings](https://www.fab.com/listings/e79a64ce-2291-4505-ba8e-d2fdf20791e8) | Gratuit, Megaplants | Non affichée | Exige le plugin PVE et « Nanite Foliage (Experimental) » | Érable plane, préréglages éditables : arbre d'alignement feuillu en attendant les platanes | Inconnu, à mesurer : Nanite Foliage expérimental | **À prendre et tester** |
 | PVE Broadleaf Park Tree Presets (Greenleaf Vision) | [fiche Fab](https://www.fab.com/listings/e141228c-0db1-4560-9dbe-48067e8ba2d5) | **Payant 29,99 $** | 7 Go | UE 5.8 requis, PVE + Nanite Foliage expérimentaux | 23 platanes + 19 tilleuls, variantes d'hiver sans feuilles, vent, saisons | Inconnu, à mesurer | **Achat à décider** après le test Megaplants |
-| Plugin Water (moteur) | [doc Epic](https://dev.epicgames.com/documentation/unreal-engine/water-system-in-unreal-engine) | Moteur | 0 (déjà installé) | Plugin listé expérimental ; *bake* de simulation qui plante sur Mac ([fil](https://forums.unrealengine.com/t/ue-v-5-6-1-water-simulation-bake-crash-on-macos-15-6-1-metal-apple-m3-ultra-28-core-cpu-60-core-gpu-32-core/2656076)) ; rivière qui disparaît en LiveSim en 5.8.3 ([fil](https://forums.unrealengine.com/t/wateradvanced-shallowwaterrivercomponent-no-valid-sinks-warning-and-river-disappears-in-5-8-3/2840450)) | Rhône et Saône (spline de rivière, vagues, flottaison, nage plus tard) | Moyen (Single Layer Water + réflexions Lumen) ; éviter la simulation de fluide | **À activer**, sans simulation |
+| Plugin Water (moteur) | [doc Epic](https://dev.epicgames.com/documentation/unreal-engine/water-system-in-unreal-engine) | Moteur | 0 (déjà installé) | Plugin listé expérimental ; *bake* de simulation qui plante sur Mac ([fil](https://forums.unrealengine.com/t/ue-v-5-6-1-water-simulation-bake-crash-on-macos-15-6-1-metal-apple-m3-ultra-28-core-cpu-60-core-gpu-32-core/2656076)) ; rivière qui disparaît en LiveSim en 5.8.3 ([fil](https://forums.unrealengine.com/t/wateradvanced-shallowwaterrivercomponent-no-valid-sinks-warning-and-river-disappears-in-5-8-3/2840450)) | Rhône et Saône (spline de rivière, vagues, flottaison, nage plus tard) | Moyen à élevé (Single Layer Water, passes en plus) | **Écarté** (roadmap 2026-11-10) : maillage maison + `M_City_Water` |
 | Procedural Vegetation Editor (moteur) | [doc Epic](https://dev.epicgames.com/documentation/unreal-engine/procedural-vegetation-editor-in-unreal-engine) | Moteur | 0 | Expérimental ; les fichiers PVE 5.7 ne s'ouvrent pas en 5.8 | Faire nos propres platanes (nœud Grower) ; sortie Nanite Foliage + vent | Inconnu | **À tester** avec les Megaplants |
 | City Sample (5.8) | [fab.com/s/5e8f5eda64d8](https://fab.com/s/5e8f5eda64d8) | Gratuit, contenu limité à Unreal | Très lourd (plusieurs dizaines de Go) | Mis à jour pour 5.8 (graphes PCG de bâtiments) | Étude PCG de ville ; style américain | Élevé | **Plus tard**, étude seulement |
 | City Sample Vehicles | [fab.com/s/62cf08ebaf2e](https://fab.com/s/62cf08ebaf2e) | Gratuit, limité à Unreal | Non affichée | Unreal | 13 véhicules américains conduisibles | Moyen | **Non** : notre parc est français |
@@ -101,18 +101,19 @@ carte bancaire.
    projet »), éditeur et session Epic ouverts sur le Mac, hors Git, avec une
    ligne par asset dans `SOURCES.md`.
 
-Rien à cliquer pour l'eau (plugin moteur) ni pour Poly Haven / ambientCG.
+Rien à cliquer pour l'eau (maillage maison) ni pour Poly Haven / ambientCG.
 
 ## 4. Ce que les fils font seuls
 
 - Récupérer par script les modèles et textures Poly Haven et ambientCG
   listés plus haut, les faire passer par `tools/assets` (normalisation,
   plafonds de triangles, LOD M1), hors Git.
-- Activer le plugin Water et poser une première Saône/Rhône par spline sur
-  la carte de la tranche, sans simulation de fluide ; mesurer le coût M1.
-- Une fois les Megaplants dans la bibliothèque : remettre des feuilles aux
-  112 arbres de la rue avec l'érable plane (feuillage d'automne, saison de
-  la bible), mesure M1 avant/après. Si le résultat tient le budget, proposer
+- Une fois les arbres dans le projet : remettre des feuilles aux 112 arbres
+  de la rue avec `tools/city/unreal/run_tree_swap.sh` (parcours de la rue
+  arbres nus puis feuillus, retour automatique aux arbres nus si le p95 M1
+  dépasse 42 ms ou monte de plus de 4 ms). Les Megaplants sont des
+  préréglages PVE à générer en maillage d'abord ; le hêtre « Field » sert de
+  premier essai. Si le résultat tient le budget, proposer
   à Nico l'achat des platanes Greenleaf (29,99 $) par carte.
 - Croiser le catalogue Tripo restant avec Megascans et Poly Haven et retirer
   du catalogue ce qui existe déjà gratuitement.
