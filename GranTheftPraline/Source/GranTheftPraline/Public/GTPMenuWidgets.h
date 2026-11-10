@@ -35,7 +35,7 @@ protected:
 	virtual float GetBackgroundOpacity() const { return 0.55f; }
 
 	/** Adds a button; OutLabel receives its text block when the label changes later. */
-	UButton* AddButton(const FText& Label, UTextBlock** OutLabel = nullptr);
+	UButton* AddButton(const FText& Label, TObjectPtr<UTextBlock>* OutLabel = nullptr);
 	AGTPPlayerController* GetGTPController() const;
 
 	/** Re-reads GetHeading() and GetSubtitle() (language change). */

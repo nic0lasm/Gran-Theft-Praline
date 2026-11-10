@@ -99,7 +99,7 @@ void UGTPMenuWidget::RefreshHeadings()
 	}
 }
 
-UButton* UGTPMenuWidget::AddButton(const FText& Label, UTextBlock** OutLabel)
+UButton* UGTPMenuWidget::AddButton(const FText& Label, TObjectPtr<UTextBlock>* OutLabel)
 {
 	check(ButtonColumn);
 
@@ -279,7 +279,7 @@ namespace
 	{
 		if (UGTPUserSettings* Settings = UGTPUserSettings::Find(Context))
 		{
-			Settings->Modify(Change);
+			Settings->ChangeSettings(Change);
 		}
 	}
 }

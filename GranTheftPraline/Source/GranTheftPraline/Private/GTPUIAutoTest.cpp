@@ -95,7 +95,7 @@ void UGTPUIAutoTestSubsystem::RunWrite()
 		return;
 	}
 	const GTPUI::FUserSettings Wanted = NonDefaultSettings();
-	User->Modify([&Wanted](GTPUI::FUserSettings& S) { S = Wanted; });
+	User->ChangeSettings([&Wanted](GTPUI::FUserSettings& S) { S = Wanted; });
 	FString Text;
 	if (!FFileHelper::LoadFileToString(Text, *UGTPUserSettings::GetSavePath()))
 	{
@@ -122,6 +122,6 @@ void UGTPUIAutoTestSubsystem::RunReset()
 		Finish(false, TEXT("no settings subsystem"));
 		return;
 	}
-	User->Modify([](GTPUI::FUserSettings& S) { S = GTPUI::FUserSettings(); });
+	User->ChangeSettings([](GTPUI::FUserSettings& S) { S = GTPUI::FUserSettings(); });
 	Finish(User->Get() == GTPUI::FUserSettings(), Describe(User->Get()));
 }
