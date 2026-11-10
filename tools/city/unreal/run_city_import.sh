@@ -70,9 +70,12 @@ fi
 "$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES -ExecutePythonScript="$tmp/apply_city_materials.py"
 grep -q '"errors": \[\]' "$out/materials_report.json" || { cat "$out/materials_report.json"; exit 1; }
 
+if [ "${SKIP_PLAY:-0}" != "1" ]; then
 "$editor" "$project" "$map" -game -windowed -ResX=1920 -ResY=1080 -nosound -NoScreenMessages -unattended -NSAppSleepDisabled YES \
   "-ini:Engine:[/Script/Engine.UserInterfaceSettings]:bAllowHighDPIInGameMode=True" \
   -ExecCmds="r.SetRes 1920x1080w, $cvars, py $tmp/shoot_city.py"
+fi
 rm -rf "$tmp"
 
-cat "$out/report.json" "$out/facades_report.json" "$out/props_report.json" "$out/play_report.json"
+cat "$out/report.json" "$out/facades_report.json" "$out/props_report.json"
+if test -f "$out/play_report.json"; then cat "$out/play_report.json"; fi

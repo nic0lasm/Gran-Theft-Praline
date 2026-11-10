@@ -39,7 +39,7 @@ PROPS_ROOT = "/Game/Environment/Props"
 # Draw distances by prop size (largest bounding box side), metres, and per set (fil
 # optimisation: numbers to tune after the m1 measure). Culling starts at CULL_START_SHARE of
 # the end. Props smaller than NO_SHADOW_BELOW_M cast no dynamic shadow.
-CULL_END_M = {"props": {"small": 80.0, "medium": 120.0, "large": 250.0},
+CULL_END_M = {"props": {"small": 30.0, "medium": 60.0, "large": 120.0},   # fil optimisation 10/11
               "details": {"small": 40.0, "medium": 60.0, "large": 120.0}}
 SIZE_CLASSES_M = (("small", 1.0), ("medium", 3.0))   # up to 1 m small, up to 3 m medium
 CULL_START_SHARE = 0.8

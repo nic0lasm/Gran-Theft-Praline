@@ -253,6 +253,19 @@ per-instance custom data 3) and rain streaks under each cornice and sill, scaled
 (repairs, wheel paths). The mask is drawn on square texels and resampled, so streets keep their
 width whatever the texture aspect.
 
+### Carriageways fitted to the kerbs and one-command regeneration
+
+The BD TOPO centre lines sit 0.8 m off the middle of the carriageway (2.2 m at the 90th
+percentile) and cars on lanes drawn from them rode on the kerbs of the LiDAR terrain.
+`tools/city/carriageway.py` fits each car road to the Grand Lyon kerb lines (rays every 2 m,
+smoothed; 79 % of samples find a real kerb) and writes `processed/<zone>/carriageway.geojson`:
+one polygon, a corrected centre line and half widths per road. `ground_mask.py` draws the
+asphalt and kerbs from it; `traffic.py` can place its lanes on it.
+
+`tools/city/regen_city.sh` regenerates everything in one command (geo data, generation with
+the Rhone box, signs, carriageways, props, details, riverside, Unreal import, facades, props,
+details, materials, parked car, traffic lanes): `caffeinate -dimsu tools/city/regen_city.sh`.
+
 ## Rhone quay and pont Lafayette (added 2026-11-10, for 0.3)
 
 The generated footprint grows east for the 0.3 driving loop:
