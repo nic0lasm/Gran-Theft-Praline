@@ -166,7 +166,8 @@ int main()
 		// A 250 kg street lamp: a walking person does not break it, a car at 20 km/h does.
 		CHECK(B::Resolve(B::EKind::Breakable, 250.f, 80.f, Walk).Outcome == B::EOutcome::None, "person cannot break a lamp");
 		CHECK(B::Resolve(B::EKind::Breakable, 250.f, Car, CmSFromKmh(5.f)).Outcome == B::EOutcome::None, "5 km/h does not break a lamp");
-		CHECK(B::Resolve(B::EKind::Breakable, 250.f, Car, CmSFromKmh(20.f)).Outcome == B::EOutcome::Break, "a car at 20 km/h breaks a lamp");
+		CHECK(B::Resolve(B::EKind::Breakable, 250.f, Car, CmSFromKmh(25.f)).Outcome == B::EOutcome::None, "25 km/h does not break an anchored lamp");
+		CHECK(B::Resolve(B::EKind::Breakable, 250.f, Car, CmSFromKmh(38.f)).Outcome == B::EOutcome::Break, "a car at 38 km/h breaks a lamp");
 		// A 25 kg sign breaks at a low car speed; a light breakable only tips when walked into.
 		CHECK(B::Resolve(B::EKind::Breakable, 25.f, Car, CmSFromKmh(8.f)).Outcome == B::EOutcome::Break, "sign breaks at 8 km/h");
 		CHECK(B::Resolve(B::EKind::Breakable, 25.f, 80.f, Walk).Outcome == B::EOutcome::Topple, "a person tips a sign");

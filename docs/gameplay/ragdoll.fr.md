@@ -66,8 +66,8 @@ physique). Tags sur les composants instanciés, posés depuis les tableaux de
 placement par le script de la rue : `GTP_Breakable_R` (se renverse),
 `GTP_Breakable_C` (casse), `GTP_MassKg=<n>`, option `GTP_BrokenMesh=<chemin>`. Les
 objets fixes (potelets) n'ont pas besoin de tag. Règles : un renversable tombe dès
-une poussée de 3 km/h ; un cassable demande 400 J + 20 J par kg (un lampadaire de
-250 kg casse sous une voiture vers 11 km/h, un panneau de 25 kg vers 5 km/h ; une
+une poussée de 3 km/h ; un cassable demande 400 J + 20 J par kg, au moins 225 J par kg dès 100 kg (un lampadaire de
+250 kg casse sous une voiture vers 35 km/h, un panneau de 25 kg vers 5 km/h ; une
 personne ne casse pas un lampadaire). Le corps est lancé avec une part de la vitesse
 de l'impacteur et la voiture perd un peu. Au plus 6 corps vivants en m1 (16
 ailleurs), 25 s chacun. `-Breakables=0` coupe tout. Liste des objets :

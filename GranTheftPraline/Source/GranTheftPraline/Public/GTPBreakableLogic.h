@@ -35,6 +35,9 @@ struct FSettings
 	/** Breakable: energy needed = Base + PerKg * object mass (joules). */
 	float BreakBaseJoules = 400.f;
 	float BreakJoulesPerKg = 20.f;
+	/** Objects of at least HeavyMassKg are anchored: energy needed is at least this per kg (a 250 kg lamp breaks near 35 km/h under a car). */
+	float HeavyMassKg = 100.f;
+	float HeavyJoulesPerKg = 225.f;
 	/** The object leaves with this share of the impactor's speed, shared by mass. */
 	float Transfer = 1.1f;
 	float MaxThrowCmS = 1500.f;
@@ -57,7 +60,8 @@ inline float Energy(float ImpactorMassKg, float ClosingCmS)
 
 inline float BreakThresholdJoules(float ObjectMassKg, const FSettings& S)
 {
-	return S.BreakBaseJoules + S.BreakJoulesPerKg * ObjectMassKg;
+	const float Light = S.BreakBaseJoules + S.BreakJoulesPerKg * ObjectMassKg;
+	return ObjectMassKg >= S.HeavyMassKg ? std::max(Light, S.HeavyJoulesPerKg * ObjectMassKg) : Light;
 }
 
 inline FResult Resolve(EKind Kind, float ObjectMassKg, float ImpactorMassKg, float ClosingCmS, const FSettings& S = FSettings())
