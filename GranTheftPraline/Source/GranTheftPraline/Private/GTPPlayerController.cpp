@@ -5,6 +5,7 @@
 #include "GTPInteraction.h"
 #include "GTPGameInstance.h"
 #include "GTPMenuWidgets.h"
+#include "GTPMinimap.h"
 #include "GTPUserSettings.h"
 #include "GTPVehicle.h"
 #include "GTPVehicleInput.h"
@@ -418,9 +419,14 @@ void AGTPPlayerController::ClosePauseMenu()
 
 void AGTPPlayerController::ToggleFullMap()
 {
-	if (!bFullMapOpen && IsMenuOpen())
+	if (!bFullMapOpen)
 	{
-		return;
+		// Open only when there is something to show: no pause on an empty screen.
+		const UGTPMinimapSubsystem* Minimap = GetWorld() ? GetWorld()->GetSubsystem<UGTPMinimapSubsystem>() : nullptr;
+		if (IsMenuOpen() || !GetPawn() || !Minimap || !Minimap->HasData())
+		{
+			return;
+		}
 	}
 	bFullMapOpen = !bFullMapOpen;
 	SetPause(bFullMapOpen);
