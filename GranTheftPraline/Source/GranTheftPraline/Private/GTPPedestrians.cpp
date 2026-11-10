@@ -472,6 +472,11 @@ void UGTPPedestrianSubsystem::InitFarCrowd(UWorld& InWorld)
 {
 	int32 Count = FarCrowdCount;
 	FParse::Value(FCommandLine::Get(), TEXT("PedFar="), Count);
+	FString MeshOverride;
+	if (FParse::Value(FCommandLine::Get(), TEXT("PedFarMesh="), MeshOverride) && !MeshOverride.IsEmpty())
+	{
+		FarCrowdMesh = FSoftObjectPath(MeshOverride);
+	}
 	UStaticMesh* Mesh = Cast<UStaticMesh>(FarCrowdMesh.TryLoad());
 	if (Count <= 0 || !Mesh)
 	{
