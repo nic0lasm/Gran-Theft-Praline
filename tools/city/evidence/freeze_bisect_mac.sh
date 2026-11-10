@@ -15,6 +15,7 @@
 # Usage: caffeinate -dimsu tools/city/evidence/freeze_bisect_mac.sh [steps=ABC]
 #   PYTHON (venv with numpy, scipy, shapely, PIL), BUILDS_DIR (default <repo>/Builds/freeze-bisect),
 #   DRY_RUN=1 (every Unreal step replaced by a short sleep; DRY_SLOW=<step> makes that one hang).
+# Dry run outside the Mac: run it from a scratch copy of the repo, never commit what it writes.
 # Writes <BUILDS_DIR>/FREEZE.md. One Unreal or game process at a time.
 set -euo pipefail
 repo="$(cd "$(dirname "$0")/../../.." && pwd)"
@@ -46,7 +47,8 @@ done
 sums "$proj" > "$out/before.md5"
 restore() {
   for k in "${kept[@]}"; do
-    if test -e "$backup/$k"; then rm -rf "${proj:?}/$k"; mkdir -p "$proj/$(dirname "$k")"; cp -Rp "$backup/$k" "$proj/$k"; fi
+    rm -rf "${proj:?}/$k"   # also what did not exist at the start
+    if test -e "$backup/$k"; then mkdir -p "$proj/$(dirname "$k")"; cp -Rp "$backup/$k" "$proj/$k"; fi
   done
   sums "$proj" > "$out/after.md5"
   if cmp -s "$out/before.md5" "$out/after.md5"; then
