@@ -13,7 +13,9 @@
 #   SCENARIOS  bench scenarios, default "street-fixed rain"
 #   DURATION   seconds per bench run, default 90
 #   VARIANTS   passed to bench.sh (cvars of the optimisation work), default "base="
-#   BENCH      path of bench.sh, default tools/perf/bench.sh
+#   BENCH      path of bench.sh, default tools/perf/bench.sh (feat/perf-bench 517b170 or later)
+#   AMBIENCE   ambience of the street-* scenarios, default noon (bench.sh adds none without it)
+#   REFERENCE  passed to bench.sh: results.csv of an earlier bench, fails on a regression
 # Output: <out_dir>/index.html (stills side by side) and <out_dir>/<mode>/summary.md.
 set -euo pipefail
 
@@ -39,7 +41,7 @@ ambience_of() {
 
 for mode in $modes; do
   echo "== sky $mode: bench"
-  EXTRA_ARGS="${EXTRA_ARGS:-} -Sky=$mode" SCENARIOS="$scenarios" "$bench" "$build_dir" "$out/$mode"
+  AMBIENCE="${AMBIENCE:-noon}" EXTRA_ARGS="${EXTRA_ARGS:-} -Sky=$mode" SCENARIOS="$scenarios" "$bench" "$build_dir" "$out/$mode"
   for scenario in $scenarios; do
     ambience="$(ambience_of "$scenario")"
     still="$out/$mode/stills-$ambience"
