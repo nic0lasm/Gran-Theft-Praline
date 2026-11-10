@@ -26,6 +26,13 @@
 #include "Misc/Parse.h"
 #include "Misc/Paths.h"
 
+#if __has_include("GTPLog.h")
+#include "GTPLog.h"
+#endif
+#ifndef GTP_TRACE
+#define GTP_TRACE(CategoryName, Format, ...) UE_LOG(CategoryName, Log, Format, ##__VA_ARGS__)
+#endif
+
 DEFINE_LOG_CATEGORY_STATIC(LogGTPEnvironment, Log, All);
 
 namespace
@@ -180,16 +187,18 @@ void UGTPEnvironmentSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 {
 	Super::OnWorldBeginPlay(InWorld);
 
-	if (!bEnabled || FParse::Param(FCommandLine::Get(), TEXT("NoEnvironment")))
+	int32 DayNight = 1;
+	FParse::Value(FCommandLine::Get(), TEXT("DayNight="), DayNight);
+	if (!bEnabled || DayNight == 0 || FParse::Param(FCommandLine::Get(), TEXT("NoEnvironment")))
 	{
-		UE_LOG(LogGTPEnvironment, Log, TEXT("Environment disabled, map lighting left as authored"));
+		GTP_TRACE(LogGTPEnvironment, TEXT("daynight: off (map lighting left as authored)"));
 		return;
 	}
 
 	FindSceneComponents(InWorld);
 	if (!Sun.IsValid())
 	{
-		UE_LOG(LogGTPEnvironment, Log, TEXT("No directional light in %s, no day-night cycle"), *InWorld.GetMapName());
+		GTP_TRACE(LogGTPEnvironment, TEXT("daynight: off (no directional light in %s)"), *InWorld.GetMapName());
 		return;
 	}
 
@@ -229,7 +238,7 @@ void UGTPEnvironmentSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 	ApplyExposure();
 	ApplyParameters();
 	UpdateNightLights();
-	UE_LOG(LogGTPEnvironment, Log, TEXT("%s"), *Describe());
+	GTP_TRACE(LogGTPEnvironment, TEXT("daynight: on | %s"), *Describe());
 }
 
 void UGTPEnvironmentSubsystem::Deinitialize()
@@ -542,6 +551,27 @@ void UGTPEnvironmentSubsystem::ReadCommandLine()
 {
 	const TCHAR* Cmd = FCommandLine::Get();
 	float Value = 0.f;
+	FString Text;
+	FDateTime Date;
+
+	// A test ambience first, so the single options below can still override it.
+	if (FParse::Value(Cmd, TEXT("Ambience="), Text))
+	{
+		const FGTPAmbience* Ambience = Ambiences.FindByPredicate([&Text](const FGTPAmbience& A) { return A.Name == FName(*Text); });
+		if (Ambience && ParseDate(Ambience->Date, Date) && FindPreset(Ambience->Weather))
+		{
+			CurrentDate = Date;
+			LocalHours = FMath::Clamp(static_cast<double>(Ambience->Hour), 0.0, 23.999);
+			FromWeather = ToWeather = Ambience->Weather;
+			bAutoWeather = false;
+			TimeScale = 0.f;
+			UE_LOG(LogGTPEnvironment, Log, TEXT("Test ambience %s"), *Text);
+		}
+		else
+		{
+			UE_LOG(LogGTPEnvironment, Warning, TEXT("Unknown or invalid ambience '%s'"), *Text);
+		}
+	}
 	if (FParse::Value(Cmd, TEXT("TimeOfDay="), Value))
 	{
 		LocalHours = FMath::Clamp(static_cast<double>(Value), 0.0, 23.999);
@@ -550,8 +580,6 @@ void UGTPEnvironmentSubsystem::ReadCommandLine()
 	{
 		TimeScale = FMath::Max(0.f, Value);
 	}
-	FString Text;
-	FDateTime Date;
 	if (FParse::Value(Cmd, TEXT("Date="), Text) && ParseDate(Text, Date))
 	{
 		CurrentDate = Date;

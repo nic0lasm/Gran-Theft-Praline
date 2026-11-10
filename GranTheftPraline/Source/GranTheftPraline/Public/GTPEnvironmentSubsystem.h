@@ -72,6 +72,27 @@ struct FGTPWeatherPreset
 	float Weight = 1.f;
 };
 
+/** A named, frozen test ambience (-Ambience=<Name>): date, time and weather. */
+USTRUCT()
+struct FGTPAmbience
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	FName Name;
+
+	/** Local date, YYYY-MM-DD. */
+	UPROPERTY()
+	FString Date;
+
+	/** Local hour, 0..24. */
+	UPROPERTY()
+	float Hour = 12.f;
+
+	UPROPERTY()
+	FName Weather;
+};
+
 /** Light budget of one graphics profile (ADR-0002, art bible section 5.3). */
 USTRUCT()
 struct FGTPLightBudget
@@ -116,7 +137,10 @@ struct FGTPLightBudget
  *     (Wetness, Puddles, RainIntensity, CityLights, EmissiveScale, Cloudiness).
  *
  * Command line: -TimeOfDay=<hours> -Date=YYYY-MM-DD -TimeScale=<x> (0 freezes)
- * -Weather=<preset> -NoEnvironment (leave the map lighting untouched).
+ * -Weather=<preset> -Ambience=<noon|golden|dusk|night|rain|night-rain|fog>
+ * (frozen test ambience, time stopped unless -TimeScale is given)
+ * -DayNight=0 or -NoEnvironment (leave the map lighting untouched).
+ * Start line on stdout, Shipping included: "daynight: on | ..." or "daynight: off".
  * Console: gtp.Time, gtp.Date, gtp.TimeScale, gtp.Weather, gtp.EnvStatus.
  */
 UCLASS(Config = Game)
@@ -259,6 +283,10 @@ private:
 
 	UPROPERTY(Config)
 	FName StartWeather = TEXT("Clear");
+
+	/** Test ambiences for -Ambience= (tools/environment/measure-ambiences-mac.sh). */
+	UPROPERTY(Config)
+	TArray<FGTPAmbience> Ambiences;
 
 	UPROPERTY(Config)
 	bool bAutoWeather = true;

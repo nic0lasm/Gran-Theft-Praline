@@ -108,7 +108,13 @@ hours, weighted for a Lyon autumn.
 ## 6. Commands
 
 Command line: `-TimeOfDay=22 -Date=2027-01-15 -Weather=Rain -TimeScale=0`
-(0 freezes time for measurements), `-NoEnvironment`.
+(0 freezes time for measurements), `-Ambience=<noon|golden|dusk|night|rain|night-rain|fog>`
+(frozen test ambience, defined in `Ambiences`), `-DayNight=0` or `-NoEnvironment` (switches the system off). At start a `daynight: on | ...` or `daynight: off` line goes to stdout, Shipping included.
+
+Unattended chain: `tools/environment/setup-environment-mac.sh` (non-zero
+exit on error, JSON report), then packaging, then
+`GAME_ARGS="-Ambience=night" tools/build/test-build-mac.sh` or
+`tools/environment/measure-ambiences-mac.sh`.
 
 Console (not in Shipping): `gtp.Time 18.25`, `gtp.Date 2026-06-21`,
 `gtp.TimeScale 600`, `gtp.Weather Rain 30`, `gtp.EnvStatus`.
