@@ -167,6 +167,11 @@ def main():
     for r in rows:
         p = r["asset_path"] if r["asset_path"] and eal.does_asset_exist(r["asset_path"]) else \
             by_id.get(r["catalog_id"], "")
+        if MERGED and p:
+            m = p.rsplit("/", 1)
+            mp = m[0] + "/" + (m[1][:-2] if m[1].endswith("_A") else m[1]) + "_Merged"
+            if eal.does_asset_exist(mp):   # one-material bake of merge_detail_materials.py
+                p = mp
         key = p or r["catalog_id"]
         if key not in comps:
             mesh = eal.load_asset(p) if p else None
@@ -214,6 +219,9 @@ def main():
 # ray-tracing scene: a 2 cm plaque or a 30 cm meter adds nothing visible to the bounce light, but
 # each mesh distance field costs GPU time in software Lumen. GTP_DETAILS_LEAN=0 turns it off.
 LEAN_SMALL = os.environ.get("GTP_DETAILS_LEAN", "1") != "0"
+# GTP_DETAILS_MERGED=1: use SM_<Asset>_Merged (tools/city/unreal/merge_detail_materials.py, one
+# baked material instead of 2-4 slots, so fewer draws per pass) wherever it exists.
+MERGED = os.environ.get("GTP_DETAILS_MERGED", "0") == "1"
 LEAN_OFF = ("affect_distance_field_lighting", "affect_dynamic_indirect_lighting", "visible_in_ray_tracing",
             "receives_decals")
 

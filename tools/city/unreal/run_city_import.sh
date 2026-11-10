@@ -33,7 +33,7 @@ mkdir -p "$out"
 
 # Python scripts run from a copy without spaces (the project folder has one).
 tmp="$(mktemp -d)"
-cp "$repo"/tools/city/unreal/{import_city,place_facades,place_props,apply_city_materials,shoot_city}.py "$tmp/"
+cp "$repo"/tools/city/unreal/{import_city,place_facades,place_props,apply_city_materials,shoot_city,merge_detail_materials}.py "$tmp/"
 python3 "$repo/tools/city/ground_mask.py" --zone "$zone" --focus "$focus" > /dev/null
 # Facade and street details table (tools/city/details.py), replayed on every run.
 # GTP_CITY_DETAILS=0 leaves them out (M1 budget fallback).
@@ -73,6 +73,11 @@ fi
 
 # Facade and street details (tools/city/details.py), when the table exists: own folder City/Details.
 if [ "${FACADES_ONLY:-0}" != "1" ] && test -f "$gen/details_placement.csv"; then
+  if [ "${GTP_DETAILS_MERGED:-0}" = "1" ]; then
+    # one baked material per multi-slot detail mesh (merge_detail_materials.py), used by place_props.py
+    "$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES -ExecutePythonScript="$tmp/merge_detail_materials.py"
+    test -f "$out/merge_details_report.json" || { echo "merge_detail_materials.py wrote no report" >&2; exit 1; }
+  fi
   GTP_PROPS_SET=details "$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES -ExecutePythonScript="$tmp/place_props.py"
   test -f "$out/details_report.json" || { echo "place_props.py (details) wrote no report" >&2; exit 1; }
 fi
