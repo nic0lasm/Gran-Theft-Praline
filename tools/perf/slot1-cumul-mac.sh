@@ -34,12 +34,12 @@ die() { log "ABORT: $*"; printf '\n**ABORTED:** %s\n' "$*" >> "$report"; exit 1;
 limit() { local s="$1"; shift; perl -e 'alarm shift; exec @ARGV or die "exec: $!"' "$s" "$@"; }
 
 # Heartbeat every 10 minutes until the script ends.
-( while sleep 600; do printf '%s alive\n' "$(date +%H:%M:%S)" >> "$out/heartbeat.txt"; done ) &
+( while sleep 600; do printf "%s alive\n" "$(date +%H:%M:%S)" >> "$out/heartbeat.txt"; done ) > /dev/null 2>&1 &
 hb=$!
 orig_head="$(git rev-parse --abbrev-ref HEAD)"
 test "$orig_head" != "HEAD" || orig_head="$(git rev-parse HEAD)"
 cleanup() {
-  kill "$hb" 2>/dev/null || true
+  pkill -P "$hb" 2>/dev/null || true; kill "$hb" 2>/dev/null || true
   pkill -f "GranTheftPraline-Mac" 2>/dev/null || true
   if test "$dry" != "1"; then git checkout -q "$orig_head" 2>/dev/null || log "could not restore $orig_head"; fi
   log "end (clone back on $orig_head)"
