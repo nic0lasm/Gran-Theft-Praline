@@ -4,6 +4,7 @@
 # recorded and the pass goes on (a failed package stops it).
 #
 #   1. package (Shipping)                 tools/build/package-mac.sh
+#      then a 30 s control launch (watchdog: a build that freezes stops the pass)
 #   2. cars 3 / 6 / 12, -VehicleLod 0/1   tools/perf/vehicle-count-bench.sh
 #   3. pedestrians 0 / 12 / 30 / 60       tools/pedestrians/bench-crowd-mac.sh
 #   4. parked cars as instances 0 / 1     tools/perf/bench.sh -ParkedCars
@@ -43,6 +44,17 @@ fi
   echo
   echo "Base: ${DENSITY_BASE:-main 0.3.0 rendering (volumetric cloud shadow, facade kit without LODs): not the optimised base yet}."
   echo
+  # Content on disk is not in Git (map, materials, shared links between clones): fingerprint it.
+  map="GranTheftPraline/Content/Maps/L_City_RueDeLaRepublique.umap"
+  if test -f "$map"; then
+    echo "Map: $(md5 -q "$map" 2>/dev/null || md5sum "$map" | cut -d' ' -f1), $(wc -c < "$map" | tr -d ' ') bytes, modified $(date -r "$map" '+%Y-%m-%d %H:%M')."
+  else
+    echo "Map: $map not found."
+  fi
+  for linked in GranTheftPraline/Content/*; do
+    test -L "$linked" && echo "Linked content: $linked -> $(readlink "$linked")"
+  done
+  echo
 } > "$report"
 
 step() {
@@ -69,6 +81,28 @@ if test "${SKIP_PACKAGE:-0}" != "1"; then
   fi
 fi
 test -d "$build_dir/GranTheftPraline.app" || { echo "- no build at $build_dir" >> "$report"; exit 1; }
+
+# Control launch: 30 s of play must finish. A build that freezes at start is
+# killed after 180 s and stops the pass before the long benches.
+control() {
+  GAME_ARGS="${CONTROL_ARGS:-}" tools/build/test-build-mac.sh "$version" 30 0 &
+  local pid=$! waited=0
+  while kill -0 "$pid" 2>/dev/null; do
+    if test "$waited" -ge 180; then
+      echo "control launch still running after 180 s: frozen, killed"
+      pkill -f "GranTheftPraline.app/Contents/MacOS" 2>/dev/null
+      kill "$pid" 2>/dev/null
+      return 124
+    fi
+    sleep 5
+    waited=$(( waited + 5 ))
+  done
+  wait "$pid"
+}
+if ! step control control; then
+  echo "- control launch failed or froze: pass stopped, see control.log" >> "$report"
+  exit 1
+fi
 
 COUNTS="${COUNTS:-3 6 12}" DURATION="$duration" step cars tools/perf/vehicle-count-bench.sh "$build_dir" "$out/cars"
 # shellcheck disable=SC2086
