@@ -73,7 +73,7 @@ tuning for Metal.
 
 - `tools/pedestrians/check_walk_logic.py` PASS on the street's real walkways.
 - Packaged m1 build, 3 minutes on foot in the street with 12 people:
-  p95 <= 42 ms and at most +2 ms GPU against the same run with `-Pedestrians=0`.
+  p95 <= 42 ms and at most +1.5 ms GPU and +0.5 ms game-thread CPU against the same run with `-Pedestrians=0`.
 - A car at 50 km/h at people on the road makes them run; one on a crossing
   makes them wait.
 

@@ -79,7 +79,7 @@ couche de représentation resterait à régler pour Metal.
 
 - `tools/pedestrians/check_walk_logic.py` PASS sur les vrais cheminements de la rue.
 - Build m1 empaquetée, 3 minutes à pied dans la rue avec 12 personnes : p95 <=
-  42 ms et au plus +2 ms de GPU face à la même passe avec `-Pedestrians=0`.
+  42 ms et au plus +1,5 ms de GPU et +0,5 ms de CPU (thread jeu) face à la même passe avec `-Pedestrians=0`.
 - Une voiture à 50 km/h sur des gens sur la chaussée les fait courir ; sur un
   passage, elle les fait attendre.
 
