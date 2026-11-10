@@ -225,6 +225,11 @@ private:
 		bool bRunning = false;
 		bool bIdle = false;
 		bool bDrawn = false;
+		/** Index of the partner this person follows (a pair walking together), -1 = walks alone. */
+		int32 Leader = -1;
+		GTPWalk::FStepResult LastResult;
+		GTPWalk::FPoint Pos;
+		GTPWalk::FPoint Dir;
 	};
 
 	int32 ChooseDensity() const;
@@ -233,6 +238,8 @@ private:
 	void RefreshDetail();
 	bool IsSeen(const FVector& Location) const;
 	bool TrySpawn(FPerson& Person);
+	void Activate(FPerson& Person, const GTPWalk::FPoint& P, const GTPWalk::FPoint& D);
+	void SeparatePeople();
 	void Retire(FPerson& Person);
 	void MoveGroundTo(FPerson& Person, bool bSnap);
 	void Update(FPerson& Person, float DeltaTime);

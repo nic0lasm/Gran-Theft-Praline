@@ -63,6 +63,11 @@ Cause is null for now (the car is not identified yet).
   get a clothing colour from a small city palette through the vector parameters
   of `TintParameters` (those a material lacks are ignored). More meshes go in `Meshes`.
 
+- Street behaviour: a quarter of the people walk in pairs (the partner stays beside
+  and a little behind and does what the leader does), and people closer than 90 cm
+  step sideways round each other (`Separate` in `GTPWalkLogic.h`, checked at 12 and
+  60 people by `walk_sim`).
+
 ## Checks
 
 - `python3 tools/pedestrians/check_walk_logic.py [walkways.csv]` builds

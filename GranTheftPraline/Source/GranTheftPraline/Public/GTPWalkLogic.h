@@ -126,6 +126,11 @@ struct FSettings
 	float CrossingWaitMax = 7.f;    // after that they cross anyway: cars give way to people
 	float LateralSpeed = 60.f;      // cm/s sideways drift to the chosen line
 	float CrossingWeight = 0.4f;    // relative chance to take a crossing at a junction
+	float GroupChance = 0.25f;      // chance that a new person is half of a pair walking together
+	float GroupGap = 70.f;          // the follower walks this far behind its partner (cm)
+	float GroupSide = 80.f;         // ...and this far beside (cm)
+	float SeparationDistance = 90.f; // people closer than this step sideways round each other (cm)
+	float SeparationNudge = 70.f;   // how far sideways (cm)
 };
 
 struct FWalker
@@ -272,6 +277,39 @@ inline void Flee(const FGraph& G, FWalker& W, const FPoint& Threat, const FSetti
 	W.FleeTimeLeft = S.FleeSeconds;
 	W.Threat = Threat;
 	W.Pause = 0.f;
+}
+
+/** Puts Follower beside and a little behind Leader on the same edge (a pair walking together). */
+inline void Follow(const FGraph& G, FWalker& Follower, const FWalker& Leader, const FSettings& S)
+{
+	Follower.Edge = Leader.Edge;
+	Follower.bForward = Leader.bForward;
+	Follower.S = std::max(0.f, Leader.S - S.GroupGap);
+	Follower.SpeedScale = Leader.SpeedScale;
+	const float Half = G.Edges[Leader.Edge].Width * 0.5f;
+	Follower.Lateral = Follower.LateralTarget = std::max(-Half, std::min(Half, Leader.Lateral + (Leader.Lateral < 0.f ? S.GroupSide : -S.GroupSide)));
+	Follower.Pause = Leader.Pause;
+	Follower.FleeTimeLeft = Leader.FleeTimeLeft;
+	Follower.Threat = Leader.Threat;
+}
+
+/**
+ * Two people too close to each other: A steps sideways, away from B, on its own line
+ * (its left is (dy, -dx) for the walking direction DirA). Call it for both ways round.
+ */
+inline void Separate(const FGraph& G, FWalker& A, const FPoint& PosA, const FPoint& DirA, const FPoint& PosB, const FSettings& S)
+{
+	const float Dx = PosA.X - PosB.X;
+	const float Dy = PosA.Y - PosB.Y;
+	const float Dist = std::sqrt(Dx * Dx + Dy * Dy);
+	if (Dist >= S.SeparationDistance || !G.IsValidEdge(A.Edge))
+	{
+		return;
+	}
+	// Exactly on top of each other: pick a side from the position, so the two do not pick the same.
+	const float Side = Dist < 1.f ? ((static_cast<int>(PosA.X) & 1) ? 1.f : -1.f) : ((Dx * DirA.Y - Dy * DirA.X) >= 0.f ? 1.f : -1.f);
+	const float Half = G.Edges[A.Edge].Width * 0.5f;
+	A.LateralTarget = std::max(-Half, std::min(Half, A.Lateral + Side * S.SeparationNudge));
 }
 
 struct FStepResult

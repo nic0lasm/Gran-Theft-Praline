@@ -66,6 +66,11 @@ Cause est nulle pour l'instant (la voiture n'est pas encore identifiée).
   urbaine via les paramètres vectoriels de `TintParameters` (ceux qu'un matériau
   n'a pas sont ignorés). D'autres maillages vont dans `Meshes`.
 
+- Comportement de rue : un quart des gens marchent par deux (le partenaire reste à
+  côté et un peu derrière et fait comme le meneur), et deux personnes à moins de
+  90 cm se contournent par le côté (`Separate` dans `GTPWalkLogic.h`, vérifié à 12
+  et 60 personnes par `walk_sim`).
+
 ## Contrôles
 
 - `python3 tools/pedestrians/check_walk_logic.py [walkways.csv]` compile

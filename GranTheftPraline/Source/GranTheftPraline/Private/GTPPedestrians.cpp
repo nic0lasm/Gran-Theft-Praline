@@ -504,27 +504,81 @@ bool UGTPPedestrianSubsystem::TrySpawn(FPerson& Person)
 			continue;
 		}
 		Person.Walker = W;
-		Person.Walker.SpeedScale = W.SpeedScale;
-		Person.Location = Location;
-		Person.GroundZ = PlayerLocation.Z;
-		MoveGroundTo(Person, true);
-		Person.Yaw = FMath::RadiansToDegrees(FMath::Atan2(D.Y, D.X));
-		Person.bActive = true;
-		Person.bRunning = false;
-		Person.bIdle = false;
-		Person.bDrawn = false;
-		Person.RagdollLeft = 0.f;
-		Actor->ResetBody();
-		Actor->SetActorLocationAndRotation(FVector(Location.X, Location.Y, Person.GroundZ), FRotator(0.f, Person.Yaw, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
+		Person.Leader = -1;
+		Activate(Person, P, D);
+		// Sometimes two people walk together: the partner takes a free place beside this one.
+		if (Rng.Next() < Settings.GroupChance)
+		{
+			const int32 LeaderIndex = static_cast<int32>(&Person - People.GetData());
+			for (FPerson& Other : People)
+			{
+				if (!Other.bActive && Other.Actor.IsValid() && &Other != &Person)
+				{
+					Other.Walker = GTPWalk::FWalker();
+					GTPWalk::Follow(Graph, Other.Walker, Person.Walker, Settings);
+					GTPWalk::FPoint OP, OD;
+					GTPWalk::Locate(Graph, Other.Walker, OP, OD);
+					Other.Leader = LeaderIndex;
+					Activate(Other, OP, OD);
+					++SpawnedTotal;
+					break;
+				}
+			}
+		}
 		++SpawnedTotal;
 		return true;
 	}
 	return false;
 }
 
+void UGTPPedestrianSubsystem::Activate(FPerson& Person, const GTPWalk::FPoint& P, const GTPWalk::FPoint& D)
+{
+	AGTPPedestrian* Actor = Person.Actor.Get();
+	Person.Location = FVector(P.X, P.Y, PlayerLocation.Z);
+	Person.GroundZ = PlayerLocation.Z;
+	MoveGroundTo(Person, true);
+	Person.Yaw = FMath::RadiansToDegrees(FMath::Atan2(D.Y, D.X));
+	Person.Pos = P;
+	Person.Dir = D;
+	Person.bActive = true;
+	Person.bRunning = false;
+	Person.bIdle = false;
+	Person.bDrawn = false;
+	Person.RagdollLeft = 0.f;
+	Actor->ResetBody();
+	Actor->SetActorLocationAndRotation(FVector(Person.Location.X, Person.Location.Y, Person.GroundZ), FRotator(0.f, Person.Yaw, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
+}
+
+void UGTPPedestrianSubsystem::SeparatePeople()
+{
+	// Walkers closer than the personal distance step sideways round each other (pairs excepted).
+	for (int32 i = 0; i < People.Num(); ++i)
+	{
+		FPerson& A = People[i];
+		if (!A.bActive || A.Leader >= 0 || (A.Actor.IsValid() && A.Actor->IsRagdoll()) || A.Walker.FleeTimeLeft > 0.f)
+		{
+			continue;
+		}
+		for (int32 j = 0; j < People.Num(); ++j)
+		{
+			const FPerson& B = People[j];
+			if (i != j && B.bActive && B.Leader != i && A.Leader != j)
+			{
+				GTPWalk::Separate(Graph, A.Walker, A.Pos, A.Dir, B.Pos, Settings);
+			}
+		}
+	}
+}
+
 void UGTPPedestrianSubsystem::Retire(FPerson& Person)
 {
 	Person.bActive = false;
+	const int32 Index = static_cast<int32>(&Person - People.GetData());
+	for (FPerson& Other : People)
+	{
+		Other.Leader = Other.Leader == Index ? -1 : Other.Leader;
+	}
+	Person.Leader = -1;
 	if (AGTPPedestrian* A = Person.Actor.Get())
 	{
 		A->ResetBody();
@@ -583,9 +637,24 @@ void UGTPPedestrianSubsystem::Update(FPerson& Person, float DeltaTime)
 		}
 	}
 
-	const GTPWalk::FStepResult R = GTPWalk::Step(Graph, Person.Walker, DeltaTime, Rng, Settings, bCrossingUnsafe);
+	GTPWalk::FStepResult R;
+	if (Person.Leader >= 0 && People.IsValidIndex(Person.Leader) && People[Person.Leader].bActive)
+	{
+		// Half of a pair: stays beside the partner and does what the partner does.
+		const FPerson& Partner = People[Person.Leader];
+		GTPWalk::Follow(Graph, Person.Walker, Partner.Walker, Settings);
+		R = Partner.LastResult;
+	}
+	else
+	{
+		Person.Leader = -1;
+		R = GTPWalk::Step(Graph, Person.Walker, DeltaTime, Rng, Settings, bCrossingUnsafe);
+	}
+	Person.LastResult = R;
 	GTPWalk::FPoint P, D;
 	GTPWalk::Locate(Graph, Person.Walker, P, D);
+	Person.Pos = P;
+	Person.Dir = D;
 	FVector Wanted2D(P.X, P.Y, 0.f);
 
 	// Social space: step aside for the player (display only, the walker keeps its line).
@@ -687,6 +756,7 @@ void UGTPPedestrianSubsystem::Tick(float DeltaTime)
 		RefreshCars();
 	}
 
+	SeparatePeople();
 	for (FPerson& P : People)
 	{
 		if (P.bActive)
