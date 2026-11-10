@@ -124,6 +124,9 @@ public:
 
 	int32 GetActiveCount() const { return Active.Num(); }
 
+	/** Hard limit: false when the cap of simulating ragdolls is reached (the body stays animated). */
+	bool HasRoom() const;
+
 protected:
 	UPROPERTY(Config)
 	int32 MaxRagdollsM1 = 3;
