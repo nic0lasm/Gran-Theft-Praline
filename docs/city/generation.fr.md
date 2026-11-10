@@ -373,6 +373,10 @@ masquant les détails, le mobilier, ou un groupe de détails à la fois (tags d'
 plaqués au mur, les présentoirs derrière les vitres et les petits objets ne projettent plus d'ombre
 (colonne `shadow`) ; seuls les stores et les cheminées gardent la leur.
 
+**Arbres en feuilles** : `GTP_CITY_LEAFY=1` (ou `props.py --leafy`) remplace, aux mêmes ancrages
+Grand Lyon, les troncs nus de platane par le hêtre Megascans gratuit (`SM_EuropeanBeech_Field_01`,
+`_Sapling_01` pour les jeunes arbres). Désactivé par défaut tant que son coût M1 n'est pas mesuré.
+
 ## Limites et suite
 
 1. **Test éditeur** : `tools/city/unreal/import_city.py` importe greybox et
