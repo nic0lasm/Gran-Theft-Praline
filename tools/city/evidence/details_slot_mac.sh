@@ -107,7 +107,14 @@ put_back() {
     for d in $snap_dirs; do
       [ -d "$out/snapshot/$d" ] || continue
       real="$(cd -P "$content/$d" 2> /dev/null && pwd || echo "$content/$d")"   # Maps may link to a shared folder
-      rsync -a --delete "$out/snapshot/$d/" "$real/"
+      if command -v rsync > /dev/null; then
+        rsync -a --delete "$out/snapshot/$d/" "$real/" || say "restore of $d failed"
+      else   # same result without rsync: empty the folder, clone the snapshot back
+        find "$real" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+        for f in "$out/snapshot/$d"/* "$out/snapshot/$d"/.[!.]*; do
+          if [ -e "$f" ]; then clone_copy "$f" "$real/$(basename "$f")" || say "restore of $f failed"; fi
+        done
+      fi
     done
     # merged meshes, their baked materials and textures: created by this slot only
     find "$content/Environment/Props" -newer "$marker" -name "*_Merged*" -print -delete \
@@ -121,6 +128,7 @@ current_pid=""
 on_exit() {
   local rc=$? now_md5
   trap - EXIT
+  set +e   # restore as much as possible, whatever fails
   if [ -n "$current_pid" ]; then kill_tree "$current_pid"; fi
   if [ "$rc" -ne 0 ]; then stop_unreal; fi
   put_back
