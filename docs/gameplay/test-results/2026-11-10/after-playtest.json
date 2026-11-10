@@ -1,0 +1,124 @@
+{
+ "result": "PASS",
+ "checks": {
+  "spawned": {
+   "ok": true,
+   "pawn": "BP_PlayerCharacter_C",
+   "location": [
+    1212,
+    -15665,
+    90
+   ]
+  },
+  "framing_idle": {
+   "view_target": "CameraActor",
+   "head_hidden": false,
+   "fov": 78.0,
+   "distance_cm": 293,
+   "speed_cm_s": 0,
+   "ok": true
+  },
+  "run": {
+   "max_speed_cm_s": 500,
+   "moved_cm": 2485,
+   "jump_rise_cm": 0,
+   "fell": false,
+   "crouched": false,
+   "ok": true
+  },
+  "walk": {
+   "max_speed_cm_s": 200,
+   "moved_cm": 801,
+   "jump_rise_cm": 0,
+   "fell": false,
+   "crouched": false,
+   "ok": true
+  },
+  "sprint": {
+   "max_speed_cm_s": 700,
+   "moved_cm": 3195,
+   "jump_rise_cm": 0,
+   "fell": false,
+   "crouched": false,
+   "ok": true
+  },
+  "framing_sprint": {
+   "view_target": "CameraActor",
+   "head_hidden": false,
+   "fov": 86.0,
+   "distance_cm": 385,
+   "speed_cm_s": 700,
+   "ok": true
+  },
+  "sprint_stop": {
+   "stop_distance_cm": 83,
+   "time_to_stop_s": 0.17,
+   "ok": true
+  },
+  "jump": {
+   "max_speed_cm_s": 0,
+   "moved_cm": 0,
+   "jump_rise_cm": 128,
+   "fell": true,
+   "crouched": false,
+   "ok": true
+  },
+  "crouch": {
+   "max_speed_cm_s": 225,
+   "moved_cm": 875,
+   "jump_rise_cm": 0,
+   "fell": false,
+   "crouched": true,
+   "ok": true
+  },
+  "third_person_camera": {
+   "view_target": "CameraActor",
+   "head_hidden": false,
+   "fov": 78.0,
+   "distance_cm": 289,
+   "ok": true
+  },
+  "auto_recenter": {
+   "view_turned_deg": 97.5,
+   "ok": true
+  },
+  "camera_never_behind_wall": {
+   "frames": 881,
+   "blocked": 0,
+   "clear_ratio": 1.0,
+   "error": null,
+   "ok": true
+  },
+  "first_person_camera": {
+   "view_target": "CameraActor",
+   "head_hidden": true,
+   "fov": 90.0,
+   "distance_cm": 14,
+   "ok": true
+  },
+  "first_person_run": {
+   "max_speed_cm_s": 500,
+   "moved_cm": 1606,
+   "jump_rise_cm": 0,
+   "fell": false,
+   "crouched": false,
+   "ok": true
+  },
+  "first_person_after_respawn": {
+   "view_target": "CameraActor",
+   "head_hidden": true,
+   "fov": 90.0,
+   "distance_cm": 14,
+   "new_pawn": "BP_PlayerCharacter_C_1",
+   "ok": true
+  },
+  "third_person_camera_back": {
+   "view_target": "CameraActor",
+   "head_hidden": false,
+   "fov": 78.0,
+   "distance_cm": 293,
+   "ok": true
+  }
+ },
+ "duration_s": 56.6
+}

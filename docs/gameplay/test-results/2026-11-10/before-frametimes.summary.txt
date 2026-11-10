@@ -1,0 +1,6 @@
+first frame 30.9 s after launch
+frames 1763 over 60.5 s (warm-up 10 s excluded)
+frame  p50  28.85 ms | p95  44.26 ms | p99  70.31 ms | max 2199.89 ms | <= 33.3 ms:  58.0 %
+game   p50  27.93 ms | p95  43.99 ms | p99  45.26 ms | max 4033.17 ms | <= 33.3 ms:  62.1 %
+render p50   0.00 ms | p95  26.68 ms | p99  36.70 ms | max 1169.33 ms | <= 33.3 ms:  98.4 %
+gpu    p50  25.30 ms | p95  36.13 ms | p99  40.44 ms | max  773.18 ms | <= 33.3 ms:  91.3 %
