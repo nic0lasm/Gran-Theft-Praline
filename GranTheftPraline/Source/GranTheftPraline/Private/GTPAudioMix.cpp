@@ -47,6 +47,9 @@ namespace
 		case EGTPAudioCategory::Impacts:
 		case EGTPAudioCategory::Sirens:
 			return EGTPAudioCategory::Effects;
+		case EGTPAudioCategory::Zones:
+			// Zone layers of the bed follow the ambience (driving mix: lower and duller in a car).
+			return EGTPAudioCategory::Ambience;
 		default:
 			return EGTPAudioCategory::Master;
 		}
@@ -210,6 +213,8 @@ void UGTPAudioMix::BuildMixes()
 	Ambience.SoundClassObject = Classes[static_cast<int32>(EGTPAudioCategory::Ambience)];
 	Ambience.VolumeAdjuster = Settings->DrivingAmbienceVolume;
 	Ambience.LowPassFilterFrequency = Settings->DrivingAmbienceLowPass;
+	// Reaches the zone layers too; the street-bed mix and the user mix stay on the Ambience class alone.
+	Ambience.bApplyToChildren = true;
 	DrivingMix->SoundClassEffects.Add(Ambience);
 }
 

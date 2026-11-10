@@ -53,7 +53,10 @@ void UGTPAmbienceBed::Start(UWorld* World)
 		Layer->SoundClassOverride = Mix->GetClass(bWeather ? EGTPAudioCategory::Weather : EGTPAudioCategory::Zones);
 		Layer->SetVolumeMultiplier(0.001f);
 		// Start each loop at a different point so two layers never pulse together.
-		Layer->Play(FMath::FRandRange(0.f, 30.f));
+		// The wave's own length: GetDuration() says "forever" once bLooping is set.
+		const USoundWave* LoopWave = Cast<USoundWave>(Sound);
+		const float LoopLength = LoopWave ? LoopWave->Duration : 0.f;
+		Layer->Play(LoopLength > 1.f && LoopLength < 600.f ? FMath::FRandRange(0.f, LoopLength * 0.9f) : 0.f);
 		Layers[Index] = Layer;
 	}
 
