@@ -23,8 +23,8 @@ as lived in, always anchored on something real, never scattered at random over a
 
 The choice of which bay gets a detail is a stable hash of its building id and bay, so
 every run gives the same street. Same columns as props_placement.csv plus: snap ("ground"
-rows are dropped onto the ground by tools/city/unreal/place_props.py, "keep" rows, wall and
-roof items, keep their height), scale_x/y/z (awnings stretched to the bay width) and
+rows sit on the terrain tiles, terrain.surface_z, and may still be traced in the editor;
+"keep" rows, wall and roof items, keep their height), scale_x/y/z (awnings stretched to the bay width) and
 collision (false for small items). Cull distances and shadows come from the mesh size in
 place_props.py (details set). The total is capped (MAX_INSTANCES) by priority, the most
 visible first.
@@ -57,6 +57,8 @@ sys.path.insert(0, HERE)
 import citylib as cl  # noqa: E402
 import generate  # noqa: E402
 import grandlyon  # noqa: E402
+import raster  # noqa: E402
+import terrain  # noqa: E402
 
 sys.path.insert(0, os.path.join(HERE, "facade_kit"))
 from kit_layout import module_for  # noqa: E402
@@ -129,7 +131,8 @@ def main():  # noqa: C901, PLR0912, PLR0915
     gen = os.path.join(proc, "gen", args.focus)
     with open(os.path.join(proc, "manifest.json"), encoding="utf-8") as f:
         man = json.load(f)
-    origin = man["origin_lambert93_m"]
+    origin, origin_alt = man["origin_lambert93_m"], man["origin_altitude_m"]
+    mnt = raster.Raster.load(raw, "mnt")
     items = load_manifests(args.manifests)
 
     roads = generate.load_roads(raw, origin)
@@ -167,7 +170,7 @@ def main():  # noqa: C901, PLR0912, PLR0915
     kerb_tree = STRtree(kerbs) if kerbs else None
 
     def ground_z(x, y):
-        """Ground height (local metres) from the nearest street-level facade module."""
+        """Fallback ground height (local metres): the nearest street-level facade module."""
         k = int(np.argmin(np.hypot(gxy[:, 0] - x, gxy[:, 1] - y)))
         return ground[k]["z"]
 
@@ -188,6 +191,9 @@ def main():  # noqa: C901, PLR0912, PLR0915
             return False
         if any(abs(x - a) < MIN_GAP_M and abs(y - b) < MIN_GAP_M and abs(z - c) < MIN_GAP_M for a, b, c in placed):
             return False
+        if snap == "ground":   # on the terrain tiles the game collides with (a headless editor cannot trace)
+            gz = float(terrain.surface_z(mnt, origin, origin_alt, [x], [y])[0])
+            z = z if np.isnan(gz) else gz
         cls = size_class(it)
         ux, uy, uz = cl.to_unreal(x, y, z)
         rows.append({"catalog_id": cid, "asset": it["asset"], "family": it["family"],
