@@ -1,6 +1,7 @@
 """Cut the quarter (Bellecour -> Terreaux, both quays) into streaming cells and generate
 each one outside the engine: buildings and facade modules (generate.py --cell), shop
-signs (signs.py) and the ground mask (ground_mask.py, carriageways fitted to the kerbs).
+signs (signs.py, then their atlas pages, sign_atlas.py), the landmarks of the cell
+(landmarks.py) and the ground mask (ground_mask.py, carriageways fitted to the kerbs).
 
 A cell is a square of CELL_M on a grid anchored at the zone origin, so cell names never
 change when the quarter grows. Each cell is written to processed/<zone>/gen/<cell>/ in the
@@ -70,7 +71,11 @@ def make_cell(zone, cell, py):
     out["modules"] = rep.get("modules")
     if out["buildings"]:
         run([py, os.path.join(HERE, "signs.py"), "--name", zone, "--focus", cell["name"]])
+        run([py, os.path.join(HERE, "sign_atlas.py"), "--name", zone, "--focus", cell["name"]])
         run([py, os.path.join(HERE, "ground_mask.py"), "--zone", zone, "--focus", cell["name"]])
+    # the landmarks whose centre lies in this cell (Opera, Hotel de Ville...)
+    lm = run([py, os.path.join(HERE, "landmarks.py"), "--name", zone, "--focus", cell["name"], "--cell=" + bbox])
+    out["landmarks"] = json.loads(lm).get("placed_in_" + cell["name"], [])
     out["seconds"] = round(time.time() - t0, 1)
     return out
 
@@ -84,6 +89,7 @@ def main():
     py = sys.executable
     cells = [c for c in grid() if not a.only or c["name"] in a.only]
     run([py, os.path.join(HERE, "carriageway.py"), "--name", a.name])
+    run([py, os.path.join(HERE, "landmarks.py"), "--name", a.name])   # generate.py leaves their buildings out
     done, errors = [], []
     with cf.ProcessPoolExecutor(max_workers=a.jobs) as ex:
         futs = {ex.submit(make_cell, a.name, c, py): c for c in cells}
