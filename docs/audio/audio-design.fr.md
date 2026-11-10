@@ -70,6 +70,29 @@ et la charge est coupée pendant chaque changement de rapport.
 - Un choc moyen ou fort diffuse `UGTPAudioWorld::OnLoudSound(lieu, rayon, cause)`, avec un rayon de 8 m (moyen) ou 20 m (fort). Les piétons y branchent `ScareAround` par une lambda.
 - Radio de police, en 2D et sans paroles : tonalités d'alerte puis un appel à chaque étoile gagnée, appel de fin quand la poursuite s'arrête. Entre les deux, un bavardage toutes les 7 à 16 s, plus serré avec les étoiles. Les sons d'étoile du HUD (`StarUp`, `StarDown`) partent au même moment.
 
+## Budget de foule (50 piétons, 25 voitures)
+
+Toutes les 0,25 s, `UGTPAudioWorld` classe les moteurs allumés et les
+marcheurs par distance à l'écoute. Seuls les 6 moteurs les plus proches et à
+moins de leur distance de silence (45 m) sont calculés ; les autres
+s'éteignent en fondu. Seuls les 8 marcheurs visibles les plus proches et à
+moins de 25 m cherchent leurs pas ; la couche foule du lit couvre les autres.
+La voiture du joueur et le joueur passent toujours en premier. Les couches du
+lit muettes sont arrêtées au lieu de jouer à zéro. Les voitures lointaines
+regardent leurs pneus 4 fois par seconde au lieu de 20.
+
+| Poste | Sans le budget | Avec |
+|---|---|---|
+| Synthés de moteur, fil audio (mesuré hors Unreal, cœur x86 à 2,1 GHz) | 25 × 0,44 % = 11 % d'un cœur | 6 × 0,44 % = 2,6 % |
+| Marcheurs qui cherchent leurs pas, fil de jeu | jusqu'à 50 | 8 |
+| Boucles du lit décodées et mixées | 8 | la rue et les couches utiles (2 à 4) |
+| Voix au plus | ~70 | 42 : pas 10, chocs 6, sirènes 3, crissements 4, voix 4, radio 1, interface 3, moteurs 6, lit 5 |
+
+Coût estimé sur le fil de jeu à 30 i/s avec cette foule : environ 0,15 ms
+(budget 0,3 ms), à confirmer sur le Mac avec `-AudioStats` ; la ligne de log
+donne `heard=` (marcheurs) et `engines=audibles/total`. Réglages
+`MaxEngineVoices`, `MaxStepWalkers` et `BudgetInterval` dans `DefaultGame.ini`.
+
 ## Surfaces
 
 Ordre de décision au point touché : matériau physique (nommé dans les

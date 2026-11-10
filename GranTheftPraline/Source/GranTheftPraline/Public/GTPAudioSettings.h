@@ -139,6 +139,21 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category = "Budget")
 	int32 MaxSkidVoices = 4;
 
+	/**
+	 * Crowd budget, re-ranked every BudgetInterval seconds by distance to the listener:
+	 * engines rendered at once (the player's car always counts), and walkers whose
+	 * steps are heard (the player always). 25 traffic engines would take about 11 %
+	 * of a core on the audio thread; 6 take under 3 %.
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Budget")
+	int32 MaxEngineVoices = 6;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Budget")
+	int32 MaxStepWalkers = 8;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Budget")
+	float BudgetInterval = 0.25f;
+
 	/** Characters farther than this from the listener do not look for steps (cm). */
 	UPROPERTY(Config, EditAnywhere, Category = "Budget")
 	float FootstepMaxDistance = 2500.f;

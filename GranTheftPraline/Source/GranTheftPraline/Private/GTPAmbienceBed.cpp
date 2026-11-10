@@ -52,11 +52,9 @@ void UGTPAmbienceBed::Start(UWorld* World)
 		Layer->bIsUISound = true;
 		Layer->SoundClassOverride = Mix->GetClass(bWeather ? EGTPAudioCategory::Weather : EGTPAudioCategory::Zones);
 		Layer->SetVolumeMultiplier(0.001f);
-		// Start each loop at a different point so two layers never pulse together.
-		// The wave's own length: GetDuration() says "forever" once bLooping is set.
-		const USoundWave* LoopWave = Cast<USoundWave>(Sound);
-		const float LoopLength = LoopWave ? LoopWave->Duration : 0.f;
-		Layer->Play(LoopLength > 1.f && LoopLength < 600.f ? FMath::FRandRange(0.f, LoopLength * 0.9f) : 0.f);
+		// Not played yet: Tick starts a layer when it is needed, at a random point of
+		// the loop (the wave's own length, GetDuration() says "forever" once bLooping
+		// is set) so two layers never pulse together.
 		Layers[Index] = Layer;
 	}
 
@@ -179,8 +177,29 @@ void UGTPAmbienceBed::Tick(float DeltaTime, const TArray<TWeakObjectPtr<AActor>>
 	{
 		if (UAudioComponent* Layer = Layers[Index])
 		{
+			const float Before = Current[Index];
 			Current[Index] = FMath::FInterpConstantTo(Current[Index], Targets[Index], DeltaTime, Rate);
-			Layer->SetVolumeMultiplier(FMath::Max(0.001f, Current[Index]));
+			// A silent layer is stopped (no decoding, no mixing); it starts again at a random point when needed.
+			const bool bSilent = Current[Index] <= 0.002f && Targets[Index] <= 0.002f;
+			if (bSilent)
+			{
+				if (Layer->IsPlaying())
+				{
+					Layer->Stop();
+				}
+				continue;
+			}
+			if (!Layer->IsPlaying())
+			{
+				const USoundWave* LoopWave = Cast<USoundWave>(Layer->Sound);
+				const float LoopLength = LoopWave ? LoopWave->Duration : 0.f;
+				Layer->SetVolumeMultiplier(FMath::Max(0.001f, Current[Index]));
+				Layer->Play(LoopLength > 1.f && LoopLength < 600.f ? FMath::FRandRange(0.f, LoopLength * 0.9f) : 0.f);
+			}
+			else if (FMath::Abs(Current[Index] - Before) > 0.f)
+			{
+				Layer->SetVolumeMultiplier(FMath::Max(0.001f, Current[Index]));
+			}
 		}
 	}
 }
@@ -189,10 +208,12 @@ FString UGTPAmbienceBed::Describe() const
 {
 	static const TCHAR* ZoneNames[] = {TEXT("street"), TEXT("pedestrian"), TEXT("quay"), TEXT("bridge")};
 	int32 Loaded = 0;
+	int32 Playing = 0;
 	for (const UAudioComponent* Layer : Layers)
 	{
 		Loaded += Layer ? 1 : 0;
+		Playing += Layer && Layer->IsPlaying() ? 1 : 0;
 	}
-	return FString::Printf(TEXT("zone=%s street=%.2f rain=%.2f night=%.2f crowd=%d layers=%d/%d"),
-		ZoneNames[FMath::Clamp(static_cast<int32>(Zone), 0, 3)], StreetApplied, RainAmount, NightAmount, CrowdCount, Loaded, static_cast<int32>(NumLayers));
+	return FString::Printf(TEXT("zone=%s street=%.2f rain=%.2f night=%.2f crowd=%d layers=%d/%d playing=%d"),
+		ZoneNames[FMath::Clamp(static_cast<int32>(Zone), 0, 3)], StreetApplied, RainAmount, NightAmount, CrowdCount, Loaded, static_cast<int32>(NumLayers), Playing);
 }
