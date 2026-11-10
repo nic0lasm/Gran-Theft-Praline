@@ -6,6 +6,9 @@
 #include "CollisionQueryParams.h"
 #include "Components/LightComponent.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "Engine/StaticMesh.h"
+#include "Materials/MaterialInterface.h"
 #include "Engine/World.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/GameModeBase.h"
@@ -65,7 +68,7 @@ void FGTPLaneFollower::Plan()
 	}
 	while (AheadM < RouteAheadM)
 	{
-		const int32 Next = Net->PickNext(Route.Last());
+		const int32 Next = bHasGoal ? Net->PickNextToward(Route.Last(), Goal) : Net->PickNext(Route.Last());
 		if (Next == INDEX_NONE)
 		{
 			break;
@@ -224,10 +227,34 @@ void UGTPAIDriverComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 	const float Y = static_cast<float>(Location.Y) * CmToM;
 	StoppedTime = FMath::Abs(Speed) < 0.3f ? StoppedTime + DeltaTime : 0.f;
 
-	// Nearest of: something in front, the stop line of a junction another car is crossing.
+	// Nearest of: something in front (straight probe, then along the lanes for
+	// queues on bends), a red light, the stop line of a junction another car is crossing.
 	float Obstacle = FindObstacleMetres(Vehicle);
+	const float Queue = Network->GapAlongLanes(this, 40.f);
+	if (Queue >= 0.f && (Obstacle < 0.f || Queue < Obstacle))
+	{
+		Obstacle = Queue;
+	}
 	const FVector& LaneEnd = Lane.Points.Last();
-	const float StopLine = Junctions.Update(Network->GetJunctionTable(), static_cast<int>(Vehicle->GetUniqueID()), Lane.ToJunction,
+	// Signed distance to the end of the lane along its last segment: negative once past
+	// the line, so a car already in the junction when the light turns red carries on.
+	const FVector& LaneBeforeEnd = Lane.Points.Num() >= 2 ? Lane.Points[Lane.Points.Num() - 2] : LaneEnd;
+	const FVector2D EndDir = FVector2D(LaneEnd - LaneBeforeEnd).GetSafeNormal();
+	const float ToLaneEnd = EndDir.IsNearlyZero()
+		? FMath::Sqrt(FMath::Square(static_cast<float>(LaneEnd.X) * CmToM - X) + FMath::Square(static_cast<float>(LaneEnd.Y) * CmToM - Y))
+		: static_cast<float>(FVector2D::DotProduct(FVector2D(LaneEnd.X * CmToM - X, LaneEnd.Y * CmToM - Y), EndDir));
+	const float LightStop = Network->GetTrafficLights().StopDistance(Route[0], Network->GetLightTime(), ToLaneEnd, Speed, Settings.ComfortDecel);
+	if (LightStop >= 0.f && (Obstacle < 0.f || LightStop < Obstacle))
+	{
+		Obstacle = LightStop;
+	}
+	// A car waiting at a red light claims no junction (the crossing traffic has green):
+	// one claimed on green just before the light changed is given back.
+	if (LightStop >= 0.f)
+	{
+		Junctions.Drop(Network->GetJunctionTable(), static_cast<int>(Vehicle->GetUniqueID()), Lane.ToJunction);
+	}
+	const float StopLine = Junctions.Update(Network->GetJunctionTable(), static_cast<int>(Vehicle->GetUniqueID()), LightStop >= 0.f ? -1 : Lane.ToJunction,
 		{static_cast<float>(LaneEnd.X) * CmToM, static_cast<float>(LaneEnd.Y) * CmToM}, X, Y, Speed, Settings.ComfortDecel, StoppedTime);
 	if (StopLine >= 0.f && (Obstacle < 0.f || StopLine < Obstacle))
 	{
@@ -391,9 +418,9 @@ bool AGTPTrafficNetwork::FindJoinPoint(const FVector& Location, float MaxDistanc
 void AGTPTrafficNetwork::MakeCheap(AGTPVehicle* Car, ACharacter* Driver) const
 {
 	// Lights of AI cars never cast shadows: a shadowed spot light is a full extra shadow pass.
-	TArray<ULightComponent*> Lights;
-	Car->GetComponents<ULightComponent>(Lights);
-	for (ULightComponent* Light : Lights)
+	TArray<ULightComponent*> CarLights;
+	Car->GetComponents<ULightComponent>(CarLights);
+	for (ULightComponent* Light : CarLights)
 	{
 		Light->SetCastShadows(false);
 	}
@@ -442,6 +469,30 @@ int32 AGTPTrafficNetwork::PickNext(int32 Lane)
 	return Next[Random.RandRange(0, Next.Num() - 1)];
 }
 
+int32 AGTPTrafficNetwork::PickNextToward(int32 Lane, const FVector& Target) const
+{
+	if (!Lanes.IsValidIndex(Lane) || Lanes[Lane].Next.Num() == 0)
+	{
+		return INDEX_NONE;
+	}
+	int32 Best = INDEX_NONE;
+	double BestDistance = TNumericLimits<double>::Max();
+	for (const int32 Id : Lanes[Lane].Next)
+	{
+		if (!Lanes.IsValidIndex(Id) || Lanes[Id].Points.Num() == 0)
+		{
+			continue;
+		}
+		const double Distance = FVector::DistSquared2D(Lanes[Id].Points.Last(), Target);
+		if (Distance < BestDistance)
+		{
+			BestDistance = Distance;
+			Best = Id;
+		}
+	}
+	return Best;
+}
+
 void AGTPTrafficNetwork::BeginPlay()
 {
 	Super::BeginPlay();
@@ -451,6 +502,16 @@ void AGTPTrafficNetwork::BeginPlay()
 		const int32 Count = LoadLanesFromCsv(File);
 		GTP_TRACE(LogGTPTraffic, TEXT("%d lanes from %s"), Count, *File);
 	}
+	int32 LightsFlag = bTrafficLights ? 1 : 0;
+	FParse::Value(FCommandLine::Get(), TEXT("TrafficLights="), LightsFlag);
+	bTrafficLights = LightsFlag != 0;
+	if (bTrafficLights)
+	{
+		BuildLights();
+	}
+	GTP_TRACE(LogGTPTraffic, TEXT("traffic lights: %s (%d junctions, %d signal heads)"), bTrafficLights ? TEXT("on") : TEXT("off"),
+		Lights.NumSignalledJunctions(), SignalHeads.Num());
+
 	WantedCars = NumCars;
 	FParse::Value(FCommandLine::Get(), TEXT("Traffic="), WantedCars);
 	WantedCars = FMath::Clamp(WantedCars, 0, 40);
@@ -594,6 +655,7 @@ bool AGTPTrafficNetwork::SpawnCar()
 		return false;
 	}
 	UGTPAIDriverComponent* AIDriver = NewObject<UGTPAIDriverComponent>(Car, TEXT("AIDriver"));
+	AIDrivers.Add(AIDriver);
 	AIDriver->RegisterComponent();
 	AIDriver->Start(this, Lane, Point);
 	Cars.Add(Car);
@@ -654,10 +716,239 @@ void AGTPTrafficNetwork::Tick(float DeltaSeconds)
 			Recycle(Car);
 		}
 	}
+	UpdateSignalHeads();
+	AIDrivers.RemoveAll([](const TWeakObjectPtr<UGTPAIDriverComponent>& Weak) { return !Weak.IsValid(); });
+
 	// One new car at a time, so spawns never come in a burst.
 	if (Cars.Num() < WantedCars && GetWorld()->GetTimeSeconds() >= NextSpawnTime)
 	{
 		SpawnCar();
 		NextSpawnTime = GetWorld()->GetTimeSeconds() + 1.f;
 	}
+}
+
+// --- Traffic lights (version 0.4) --------------------------------------------
+
+float AGTPTrafficNetwork::GetLightTime() const
+{
+	return GetWorld() ? static_cast<float>(GetWorld()->GetTimeSeconds()) : 0.f;
+}
+
+void AGTPTrafficNetwork::BuildLights()
+{
+	FGTPTrafficLights Built;
+	for (int32 Index = 0; Index < Lanes.Num(); ++Index)
+	{
+		const TArray<FVector>& Points = Lanes[Index].Points;
+		if (Points.Num() >= 2 && Lanes[Index].ToJunction >= 0)
+		{
+			const FVector Dir = Points.Last() - Points[Points.Num() - 2];
+			// Lane points are Unreal cm (Y = -north); the lights only compare headings, any frame works.
+			Built.AddApproach(Index, Lanes[Index].ToJunction, FMath::Atan2(static_cast<float>(Dir.Y), static_cast<float>(Dir.X)));
+		}
+	}
+	FGTPLightTimings Timings;
+	Timings.Green = GreenSeconds;
+	Timings.Amber = AmberSeconds;
+	Timings.AllRed = AllRedSeconds;
+	Built.Build(Timings);
+	Lights = MoveTemp(Built);
+
+	TMap<int32, int32> Count;
+	for (int32 Index = 0; Index < Lanes.Num(); ++Index)
+	{
+		const int32 Group = Lights.GroupOf(Index);
+		if (Group < 0)
+		{
+			continue;
+		}
+		const int32 Junction = Lanes[Index].ToJunction;
+		const TArray<FVector>& Points = Lanes[Index].Points;
+		JunctionCentres.FindOrAdd(Junction, FVector::ZeroVector) += Points.Last();
+		Count.FindOrAdd(Junction) += 1;
+		if (Group == 0 && !JunctionAxis.Contains(Junction))
+		{
+			const FVector Dir = Points.Last() - Points[Points.Num() - 2];
+			JunctionAxis.Add(Junction, FMath::Atan2(static_cast<float>(Dir.Y), static_cast<float>(Dir.X)));
+		}
+	}
+	for (TPair<int32, FVector>& Centre : JunctionCentres)
+	{
+		Centre.Value /= static_cast<double>(FMath::Max(Count[Centre.Key], 1));
+	}
+
+	int32 HeadsFlag = bShowSignalHeads ? 1 : 0;
+	FParse::Value(FCommandLine::Get(), TEXT("SignalHeads="), HeadsFlag);
+	if (HeadsFlag == 0)
+	{
+		return;
+	}
+	UStaticMesh* Sphere = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Sphere.Sphere"));
+	UStaticMesh* Cylinder = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cylinder.Cylinder"));
+	UMaterialInterface* Base = LoadObject<UMaterialInterface>(nullptr, TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial"));
+	if (!Sphere || !Cylinder || !Base)
+	{
+		GTP_TRACE(LogGTPTraffic, TEXT("traffic lights: engine basic shapes missing, no signal heads"));
+		return;
+	}
+	for (int32 Index = 0; Index < Lanes.Num(); ++Index)
+	{
+		if (Lights.GroupOf(Index) < 0)
+		{
+			continue;
+		}
+		const TArray<FVector>& Points = Lanes[Index].Points;
+		const FVector Dir = (Points.Last() - Points[Points.Num() - 2]).GetSafeNormal2D();
+		// Right-hand side of the stop line, 3 m back from the lane end, 2.6 m to the right.
+		const FVector Right(-Dir.Y, Dir.X, 0.f);
+		FVector Foot = Points.Last() - Dir * 300.f + Right * 260.f;
+		FHitResult Ground;
+		const FVector Top(Foot.X, Foot.Y, Foot.Z + 10000.f);
+		FCollisionQueryParams Params(SCENE_QUERY_STAT(GTPSignalGround), false, this);
+		if (GetWorld()->LineTraceSingleByChannel(Ground, Top, Top - FVector(0.f, 0.f, 20000.f), ECC_WorldStatic, Params))
+		{
+			Foot = Ground.ImpactPoint;
+		}
+		FSignalHead Head;
+		Head.Lane = Index;
+		Head.Location = Foot;
+		UStaticMeshComponent* Pole = NewObject<UStaticMeshComponent>(this);
+		Pole->SetStaticMesh(Cylinder);
+		Pole->SetWorldLocationAndRotation(Foot + FVector(0.f, 0.f, 150.f), FRotator::ZeroRotator);
+		Pole->SetWorldScale3D(FVector(0.1f, 0.1f, 3.f));
+		UStaticMeshComponent* Lamp = NewObject<UStaticMeshComponent>(this);
+		Lamp->SetStaticMesh(Sphere);
+		Lamp->SetWorldLocation(Foot + FVector(0.f, 0.f, 320.f));
+		Lamp->SetWorldScale3D(FVector(0.35f));
+		for (UStaticMeshComponent* Part : {Pole, Lamp})
+		{
+			Part->SetMobility(EComponentMobility::Movable);
+			Part->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+			Part->SetCastShadow(false);
+			Part->SetGenerateOverlapEvents(false);
+			Part->RegisterComponent();
+		}
+		UMaterialInstanceDynamic* Material = UMaterialInstanceDynamic::Create(Base, this);
+		Lamp->SetMaterial(0, Material);
+		Pole->SetMaterial(0, Base);
+		Head.Lamp = Lamp;
+		Head.Pole = Pole;
+		Head.Material = Material;
+		SignalHeads.Add(Head);
+	}
+}
+
+void AGTPTrafficNetwork::UpdateSignalHeads()
+{
+	if (SignalHeads.Num() == 0)
+	{
+		return;
+	}
+	const APlayerController* Viewer = GetWorld()->GetFirstPlayerController();
+	const FVector View = Viewer && Viewer->PlayerCameraManager ? Viewer->PlayerCameraManager->GetCameraLocation() : FVector::ZeroVector;
+	const float Now = GetLightTime();
+	for (FSignalHead& Head : SignalHeads)
+	{
+		UStaticMeshComponent* Lamp = Head.Lamp.Get();
+		UStaticMeshComponent* Pole = Head.Pole.Get();
+		if (!Lamp || !Pole)
+		{
+			continue;
+		}
+		const bool bVisible = SignalDrawDistance <= 0.f || FVector::DistSquared(View, Head.Location) < FMath::Square(SignalDrawDistance);
+		Lamp->SetVisibility(bVisible);
+		Pole->SetVisibility(bVisible);
+		const EGTPLight Light = Lights.LightFor(Head.Lane, Now);
+		if (Light != Head.Shown)
+		{
+			Head.Shown = Light;
+			if (UMaterialInstanceDynamic* Material = Head.Material.Get())
+			{
+				const FLinearColor Colour = Light == EGTPLight::Green ? FLinearColor(0.f, 1.f, 0.25f)
+					: Light == EGTPLight::Amber ? FLinearColor(1.f, 0.55f, 0.f) : FLinearColor(1.f, 0.02f, 0.f);
+				Material->SetVectorParameterValue(TEXT("Color"), Colour);
+			}
+		}
+	}
+}
+
+bool AGTPTrafficNetwork::IsWalkAllowed(const FVector& Location, const FVector& WalkDirection, float JunctionRadiusCm) const
+{
+	if (!bTrafficLights)
+	{
+		return true;
+	}
+	const int32* Nearest = nullptr;
+	double Best = FMath::Square(static_cast<double>(JunctionRadiusCm));
+	for (const TPair<int32, FVector>& Centre : JunctionCentres)
+	{
+		const double D = FVector::DistSquared2D(Centre.Value, Location);
+		if (D < Best)
+		{
+			Best = D;
+			Nearest = &Centre.Key;
+		}
+	}
+	if (!Nearest)
+	{
+		return true;
+	}
+	const float* Axis = JunctionAxis.Find(*Nearest);
+	if (!Axis)
+	{
+		return true;
+	}
+	// Walking along group 0's axis crosses group 1's roads, and the other way round.
+	const float Walk = FMath::Atan2(static_cast<float>(WalkDirection.Y), static_cast<float>(WalkDirection.X));
+	const int32 Crossed = FMath::Abs(FMath::Cos(Walk - *Axis)) >= 0.7071f ? 1 : 0;
+	return Lights.WalkAllowed(*Nearest, Crossed, GetLightTime());
+}
+
+float AGTPTrafficNetwork::GapAlongLanes(const UGTPAIDriverComponent* Driver, float MaxMetres) const
+{
+	const int32 Lane = Driver ? Driver->GetLane() : INDEX_NONE;
+	if (!Lanes.IsValidIndex(Lane))
+	{
+		return -1.f;
+	}
+	auto Length = [this](int32 L, int32 From, int32 To)
+	{
+		const TArray<FVector>& P = Lanes[L].Points;
+		double Sum = 0.0;
+		for (int32 K = FMath::Max(From, 0); K < To && K + 1 < P.Num(); ++K)
+		{
+			Sum += FVector::Dist2D(P[K], P[K + 1]);
+		}
+		return static_cast<float>(Sum) * CmToM;
+	};
+	const int32 Next = Driver->GetNextLane();
+	const int32 Mine = Driver->GetLanePoint();
+	float Best = -1.f;
+	for (const TWeakObjectPtr<UGTPAIDriverComponent>& Weak : AIDrivers)
+	{
+		const UGTPAIDriverComponent* Other = Weak.Get();
+		if (!Other || Other == Driver || !Other->IsComponentTickEnabled())
+		{
+			continue;
+		}
+		float Along = -1.f;
+		if (Other->GetLane() == Lane && Other->GetLanePoint() > Mine)
+		{
+			Along = Length(Lane, Mine, Other->GetLanePoint());
+		}
+		else if (Next != INDEX_NONE && Other->GetLane() == Next)
+		{
+			Along = Length(Lane, Mine, Lanes[Lane].Points.Num() - 1) + Length(Next, 0, Other->GetLanePoint());
+		}
+		if (Along >= 0.f && Along < MaxMetres)
+		{
+			// Lane points are car centres: keep a car length between them.
+			const float Gap = FMath::Max(0.f, Along - 4.2f);
+			if (Best < 0.f || Gap < Best)
+			{
+				Best = Gap;
+			}
+		}
+	}
+	return Best;
 }

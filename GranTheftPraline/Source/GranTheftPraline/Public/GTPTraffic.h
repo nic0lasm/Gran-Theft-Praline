@@ -3,8 +3,10 @@
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "GameFramework/Actor.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "UObject/SoftObjectPath.h"
 #include "GTPDriveLogic.h"
+#include "GTPTrafficLights.h"
 #include "GTPTraffic.generated.h"
 
 class ACharacter;
@@ -49,8 +51,15 @@ struct GRANTHEFTPRALINE_API FGTPLaneFollower
 
 	bool IsActive() const { return Network.IsValid() && Route.Num() > 0; }
 
+	/** From now on, junction choices lead towards Goal (world cm) instead of being random. */
+	void SetGoal(const FVector& InGoal) { Goal = InGoal; bHasGoal = true; }
+	void ClearGoal() { bHasGoal = false; }
+
 private:
 	void Plan();
+
+	FVector Goal = FVector::ZeroVector;
+	bool bHasGoal = false;
 
 	TWeakObjectPtr<AGTPTrafficNetwork> Network;
 	TArray<int32> Route;
@@ -83,6 +92,12 @@ public:
 	bool IsAtDeadEnd() const { return bAtDeadEnd; }
 
 	int32 GetLane() const { return Route.Num() > 0 ? Route[0] : INDEX_NONE; }
+
+	/** Lane after the current one on the planned route, INDEX_NONE if none. */
+	int32 GetNextLane() const { return Route.Num() > 1 ? Route[1] : INDEX_NONE; }
+
+	/** Index of the lane point the car is nearest to, on its current lane. */
+	int32 GetLanePoint() const { return Closest; }
 
 	/** Free distance in front of Vehicle (m) to the nearest car or person, negative if none within LengthCm. */
 	static float ProbeAhead(const AGTPVehicle* Vehicle, float LengthCm, float RadiusCm);
@@ -150,7 +165,30 @@ public:
 	/** Picks a random lane among Lane's next lanes, INDEX_NONE at a dead end. */
 	int32 PickNext(int32 Lane);
 
+	/** Next lane of Lane whose end is closest to Target (world cm); INDEX_NONE at a dead end. */
+	int32 PickNextToward(int32 Lane, const FVector& Target) const;
+
 	FGTPJunctionTable& GetJunctionTable() { return JunctionTable; }
+
+	/** Traffic lights of the crossings (version 0.4); empty with -TrafficLights=0. */
+	const FGTPTrafficLights& GetTrafficLights() const { return Lights; }
+
+	/** Clock of the lights (seconds). */
+	float GetLightTime() const;
+
+	/**
+	 * Pedestrian crossings: may someone walk across the road at Location now,
+	 * heading WalkDirection? True away from any signalled junction (JunctionRadiusCm),
+	 * else true only while the roads being crossed have a red light.
+	 */
+	bool IsWalkAllowed(const FVector& Location, const FVector& WalkDirection, float JunctionRadiusCm = 2500.f) const;
+
+	/**
+	 * Free distance (m) along the lanes from Driver to the next AI car on its
+	 * current or next lane, negative if none within MaxMetres. Sees queues on
+	 * bends that a straight probe misses.
+	 */
+	float GapAlongLanes(const UGTPAIDriverComponent* Driver, float MaxMetres) const;
 
 	/** Lane and point closest to Location whose direction is within 60 degrees of YawDegrees. */
 	bool FindNearestLane(const FVector& Location, float YawDegrees, float MaxDistanceCm, int32& OutLane, int32& OutPoint) const;
@@ -201,11 +239,36 @@ protected:
 	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Cost")
 	float DrawDistance = 15000.f;
 
-	/** A car standing still this long (gridlock), out of sight, is taken away (seconds). */
+	/** A car standing still this long (gridlock), out of sight, is taken away (seconds); longer than a red light and its queue. */
 	UPROPERTY(Config, EditAnywhere, Category = "Traffic")
-	float StuckSeconds = 20.f;
+	float StuckSeconds = 35.f;
+
+	/** Traffic lights at the crossings (off: -TrafficLights=0). */
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Lights")
+	bool bTrafficLights = true;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Lights")
+	float GreenSeconds = 12.f;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Lights")
+	float AmberSeconds = 3.f;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Lights")
+	float AllRedSeconds = 2.f;
+
+	/**
+	 * Stand-in signal heads until the street furniture model exists: one small
+	 * coloured sphere on a thin pole at each stop line, no shadow, no collision.
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Lights")
+	bool bShowSignalHeads = true;
+
+	/** Signal heads farther than this from the camera are hidden (cm). */
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Lights")
+	float SignalDrawDistance = 6000.f;
 
 private:
+	friend class AGTPPoliceDirector;
 	bool SpawnCar();
 	bool FindSpawnPoint(int32& OutLane, int32& OutPoint, FTransform& OutTransform) const;
 	bool IsSeenByPlayer(const FVector& Location) const;
@@ -222,7 +285,28 @@ private:
 	UPROPERTY(Transient)
 	TSubclassOf<ACharacter> LoadedDriverClass;
 
+	void BuildLights();
+	void UpdateSignalHeads();
+
+	struct FSignalHead
+	{
+		int32 Lane = INDEX_NONE;
+		FVector Location = FVector::ZeroVector;
+		EGTPLight Shown = EGTPLight::None;
+		TWeakObjectPtr<UStaticMeshComponent> Lamp;
+		TWeakObjectPtr<UStaticMeshComponent> Pole;
+		TWeakObjectPtr<UMaterialInstanceDynamic> Material;
+	};
+
 	FGTPJunctionTable JunctionTable;
+	FGTPTrafficLights Lights;
+	TArray<FSignalHead> SignalHeads;
+	/** AI drivers of the cars spawned here (stolen ones stop ticking), for GapAlongLanes. */
+	TArray<TWeakObjectPtr<UGTPAIDriverComponent>> AIDrivers;
+	/** Centre of each signalled junction (mean of its stop lines), by junction id. */
+	TMap<int32, FVector> JunctionCentres;
+	/** Heading (radians) of group 0 at each signalled junction. */
+	TMap<int32, float> JunctionAxis;
 	int32 WantedCars = 0;
 	float NextSpawnTime = 0.f;
 	FRandomStream Random;

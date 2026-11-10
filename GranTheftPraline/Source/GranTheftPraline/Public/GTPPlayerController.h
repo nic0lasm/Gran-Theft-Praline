@@ -12,6 +12,7 @@ class UGTPInteractionComponent;
 class UGTPMenuWidget;
 class UGTPVehicleInput;
 class UGTPVehicleInteractionComponent;
+class UGTPWantedComponent;
 class UInputAction;
 class UInputMappingContext;
 class USoundBase;
@@ -51,6 +52,16 @@ public:
 	void OpenPauseMenu();
 	void ClosePauseMenu();
 
+	/** Settings screen, from the title screen or the pause menu; Close returns to that menu. */
+	/** Full-screen map (M, gamepad D-pad up): pauses the game; the same key, Escape or B closes it. */
+	void ToggleFullMap();
+	/** True when the keyboard keys shown and bound are QWERTY (setting, command line or project default). */
+	bool IsUsingQwerty() const { return UsesQwerty(); }
+	bool IsFullMapOpen() const { return bFullMapOpen; }
+
+	void OpenSettingsMenu(bool bControlsScreen = false);
+	void CloseSettingsMenu();
+
 	/** Leaves the game and returns to the desktop. */
 	void QuitToDesktop();
 
@@ -59,8 +70,9 @@ public:
 	UGTPInteractionComponent* GetInteraction() const { return Interaction; }
 
 	/** True while the title screen or the pause menu is shown. */
-	bool IsMenuOpen() const { return TitleMenu != nullptr || PauseMenu != nullptr; }
+	bool IsMenuOpen() const { return TitleMenu != nullptr || PauseMenu != nullptr || SettingsMenu != nullptr || bFullMapOpen; }
 
+	/** Look input is scaled by the player's sensitivity setting; pitch can be inverted. */
 	virtual void AddYawInput(float Val) override;
 	virtual void AddPitchInput(float Val) override;
 
@@ -71,6 +83,8 @@ public:
 	UGTPVehicleInput* GetVehicleInput();
 
 	UGTPVehicleInteractionComponent* GetVehicleInteraction() const { return VehicleInteraction; }
+
+	UGTPWantedComponent* GetWanted() const { return Wanted; }
 
 protected:
 	virtual void BeginPlay() override;
@@ -92,6 +106,7 @@ private:
 	void ApplyOnFootInput();
 	void ApplyDrivingInput();
 	bool UsesQwerty() const;
+	void HandleSettingsChanged();
 
 	/**
 	 * Gives the view a level starting rotation (pawn yaw, StartViewPitch) and
@@ -162,6 +177,9 @@ private:
 	UPROPERTY(VisibleAnywhere, Category = "Vehicle")
 	TObjectPtr<UGTPVehicleInteractionComponent> VehicleInteraction;
 
+	UPROPERTY()
+	TObjectPtr<UGTPWantedComponent> Wanted;
+
 	UPROPERTY(Transient)
 	TObjectPtr<UAudioComponent> Ambience;
 
@@ -173,4 +191,11 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UGTPMenuWidget> PauseMenu;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UGTPMenuWidget> SettingsMenu;
+
+	/** The settings screen was opened from the title screen (else from the pause menu). */
+	bool bSettingsFromTitle = false;
+	bool bFullMapOpen = false;
 };

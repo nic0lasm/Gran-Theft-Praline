@@ -47,8 +47,12 @@ GranTheftPraline/Plugins/FabContent/
 # Real shop signs and brands: kept locally, not covered by the MIT licence
 GranTheftPraline/Plugins/CityBrands/
 
-# Generated street ambience (tools/audio/make_street_ambience.py + import_ambience.py)
-/GranTheftPraline/Content/Sound/Ambience/
+# Mini-map data derived from BD TOPO (tools/ui/minimap.py), regenerate
+/GranTheftPraline/Content/City/Minimap/
+
+# Game audio: generated (tools/audio) or recorded (Sonniss GDC, CC0) sounds and the
+# surface maps derived from OSM/BD TOPO, imported on the Mac, never versioned
+/GranTheftPraline/Content/Sound/
 
 # Python
 __pycache__/
@@ -76,3 +80,8 @@ assets/geo/processed/*/terrain/
 assets/tripo/**/*.glb
 assets/tripo/**/*.fbx
 assets/tripo/**/*.zip
+
+# Day-night and weather assets and the night lights file, generated on the Mac
+# by tools/environment (the lights come from OpenStreetMap tables, kept out of Git)
+/GranTheftPraline/Content/Environment/Weather/
+/GranTheftPraline/Content/Environment/Data/

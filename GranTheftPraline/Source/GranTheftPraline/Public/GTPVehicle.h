@@ -111,6 +111,16 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Vehicle|Seats")
 	void RequestExit();
 
+	/**
+	 * Takes whoever sits at the wheel out at once and puts them at Location
+	 * (river recovery: the car sank). The player controller gets its character
+	 * back. Returns the character, or null when nobody was inside.
+	 */
+	ACharacter* EjectDriverTo(const FVector& Location, const FRotator& Rotation);
+
+	/** Car fell into water: engine dead, wrecked, no more input. */
+	void Drown();
+
 	/** Seats a non-player driver (traffic, tests) without any sequence. */
 	UFUNCTION(BlueprintCallable, Category = "Vehicle|Seats")
 	void SeatOccupant(ACharacter* Character);

@@ -73,6 +73,16 @@ private:
 	TObjectPtr<UGTPEngineSoundWave> EngineWave;
 
 	TSharedPtr<FGTPEngineSynth, ESPMode::ThreadSafe> Synth;
+
+	/** Engine profile of the car model (UGTPAudioSettings::EngineProfiles, ADR-0009): rpm mapping and gear-change cut. */
+	float PhysicsIdleRpm = 0.f;
+	float PhysicsMaxRpm = 0.f;
+	float SoundIdleRpm = 0.f;
+	float SoundMaxRpm = 0.f;
+	float ShiftCutSeconds = 0.f;
+	float ShiftCutLeft = 0.f;
+	int32 LastGear = 0;
+	FString ProfileLabel;
 	bool bEngineOn = false;
 	bool bLoggedFirstAudio = false;
 };

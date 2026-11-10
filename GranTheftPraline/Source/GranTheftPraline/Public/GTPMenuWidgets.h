@@ -2,9 +2,11 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
+#include "GTPSettingsCore.h"
 #include "GTPMenuWidgets.generated.h"
 
 class UButton;
+class UTextBlock;
 class UVerticalBox;
 class AGTPPlayerController;
 
@@ -32,8 +34,16 @@ protected:
 	virtual FText GetSubtitle() const { return FText::GetEmpty(); }
 	virtual float GetBackgroundOpacity() const { return 0.55f; }
 
-	UButton* AddButton(const FText& Label);
+	/** Adds a button; OutLabel receives its text block when the label changes later. */
+	UButton* AddButton(const FText& Label, TObjectPtr<UTextBlock>* OutLabel = nullptr);
 	AGTPPlayerController* GetGTPController() const;
+
+	/** Re-reads GetHeading() and GetSubtitle() (language change). */
+	void RefreshHeadings();
+
+	/** Focus sound when the pointer moves onto a button (ADR-0009). */
+	UFUNCTION()
+	void HandleButtonHovered();
 
 private:
 	void BuildTree();
@@ -42,10 +52,16 @@ private:
 	TObjectPtr<UVerticalBox> ButtonColumn;
 
 	UPROPERTY(Transient)
+	TObjectPtr<UTextBlock> HeadingBlock;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UTextBlock> SubtitleBlock;
+
+	UPROPERTY(Transient)
 	TObjectPtr<UWidget> DefaultFocusTarget;
 };
 
-/** Title screen: Play, Quit. */
+/** Title screen: Play, Settings, Quit. */
 UCLASS()
 class GRANTHEFTPRALINE_API UGTPTitleMenuWidget : public UGTPMenuWidget
 {
@@ -62,10 +78,16 @@ private:
 	void HandlePlay();
 
 	UFUNCTION()
+	void HandleSettings();
+
+	UFUNCTION()
+	void HandleControls();
+
+	UFUNCTION()
 	void HandleQuit();
 };
 
-/** Pause menu: Resume, Quit to desktop. Escape or gamepad B/Start resumes. */
+/** Pause menu: Resume, Settings, Quit to desktop. Escape or gamepad B/Start resumes. */
 UCLASS()
 class GRANTHEFTPRALINE_API UGTPPauseMenuWidget : public UGTPMenuWidget
 {
@@ -81,5 +103,90 @@ private:
 	void HandleResume();
 
 	UFUNCTION()
+	void HandleSettings();
+
+	UFUNCTION()
+	void HandleControls();
+
+	UFUNCTION()
 	void HandleQuit();
+};
+
+/**
+ * Controls screen: the keyboard keys (AZERTY or QWERTY, as chosen) and the
+ * gamepad buttons of each action, from GTPControls.h. Back, Escape or gamepad
+ * B returns to the menu it was opened from (same route as the settings).
+ */
+UCLASS()
+class GRANTHEFTPRALINE_API UGTPControlsMenuWidget : public UGTPMenuWidget
+{
+	GENERATED_BODY()
+
+protected:
+	virtual void BuildButtons() override;
+	virtual FText GetHeading() const override;
+	virtual FText GetSubtitle() const override;
+	virtual FReply NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) override;
+
+private:
+	UFUNCTION()
+	void HandleBack();
+};
+
+/**
+ * Settings screen (docs/ui/settings.md), reached from the title screen and the
+ * pause menu. One button per setting, "label : value"; a click moves to the
+ * next value, saves and applies it at once. Back, Escape or gamepad B returns
+ * to the menu it was opened from.
+ */
+UCLASS()
+class GRANTHEFTPRALINE_API UGTPSettingsMenuWidget : public UGTPMenuWidget
+{
+	GENERATED_BODY()
+
+protected:
+	virtual void BuildButtons() override;
+	virtual FText GetHeading() const override;
+	virtual FText GetSubtitle() const override;
+	virtual FReply NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) override;
+
+private:
+	/** One label per setting, rebuilt from the saved values after every click. */
+	void RefreshRows();
+
+	UFUNCTION()
+	void HandleLanguage();
+	UFUNCTION()
+	void HandleGraphics();
+	UFUNCTION()
+	void HandleVolume();
+	UFUNCTION()
+	void HandleSensitivity();
+	UFUNCTION()
+	void HandleInvertY();
+	UFUNCTION()
+	void HandleKeyboard();
+	UFUNCTION()
+	void HandleMinimap();
+	UFUNCTION()
+	void HandleMinimapZoom();
+	UFUNCTION()
+	void HandleBack();
+
+	UPROPERTY(Transient)
+	TObjectPtr<UTextBlock> LanguageLabel;
+	UPROPERTY(Transient)
+	TObjectPtr<UTextBlock> GraphicsLabel;
+	UPROPERTY(Transient)
+	TObjectPtr<UTextBlock> VolumeLabel;
+	UPROPERTY(Transient)
+	TObjectPtr<UTextBlock> SensitivityLabel;
+	UPROPERTY(Transient)
+	TObjectPtr<UTextBlock> InvertYLabel;
+	UPROPERTY(Transient)
+	TObjectPtr<UTextBlock> KeyboardLabel;
+	UPROPERTY(Transient)
+	TObjectPtr<UTextBlock> MinimapLabel;
+	UPROPERTY(Transient)
+	TObjectPtr<UTextBlock> MinimapZoomLabel;
 };

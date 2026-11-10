@@ -335,5 +335,22 @@
     },
     "height_m": 1.82,
     "mass_kg": 1400
+  },
+  "V-26": {
+    "name": "Police_Compact",
+    "length_m": 4.2,
+    "wheel_radius_m": 0.31,
+    "tyre_width_m": 0.2,
+    "front": "auto",
+    "seat_driver": [
+      -0.2,
+      0.37,
+      0.55
+    ],
+    "height_m": 1.62,
+    "mass_kg": 1250,
+    "glass": {
+      "belt_ratio": 0.6
+    }
   }
 }

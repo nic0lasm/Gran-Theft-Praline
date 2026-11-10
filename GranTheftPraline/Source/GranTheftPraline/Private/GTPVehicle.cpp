@@ -2,10 +2,12 @@
 
 #include "GTPCameraModeComponent.h"
 #include "GTPLog.h"
+#include "GTPPlayerReaction.h"
 #include "GTPEngineSoundComponent.h"
 #include "GTPPlayerController.h"
 #include "GTPVehicleInput.h"
 #include "GTPVehicleWheels.h"
+#include "GTPWanted.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "AIController.h"
@@ -24,6 +26,19 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "InputActionValue.h"
 #include "TimerManager.h"
+
+// Crimes of the player at the wheel go to the wanted level (GTPWanted.h).
+namespace
+{
+	void ReportPlayerCrime(const AGTPVehicle* Vehicle, EGTPCrimeKind Kind)
+	{
+		if (UGTPWantedComponent* Wanted = UGTPWantedComponent::Find(Vehicle))
+		{
+			Wanted->ReportCrime(Kind, Vehicle->GetActorLocation());
+		}
+	}
+}
+
 
 DEFINE_LOG_CATEGORY_STATIC(LogGTPVehicle, Log, All);
 
@@ -557,6 +572,10 @@ bool AGTPVehicle::BeginEnter(ACharacter* Character, AController* DriverControlle
 	switch (PendingEntry)
 	{
 	case EGTPEntryKind::Carjack:
+		if (DriverController && DriverController->IsPlayerController())
+		{
+			ReportPlayerCrime(this, EGTPCrimeKind::CarTheft);
+		}
 		// The car stops where it is while its driver is pulled out.
 		ClearDrivingInput();
 		if (UChaosWheeledVehicleMovementComponent* Move = GetWheeledMovement())
@@ -581,6 +600,10 @@ bool AGTPVehicle::BeginEnter(ACharacter* Character, AController* DriverControlle
 		Duration = PlayMontageOr(Character, CarjackMontage, CarjackDuration);
 		break;
 	case EGTPEntryKind::BreakWindow:
+		if (DriverController && DriverController->IsPlayerController())
+		{
+			ReportPlayerCrime(this, EGTPCrimeKind::CarTheft);
+		}
 		BreakGlass(ZoneOfSide(DriverSide));
 		Duration = PlayMontageOr(Character, BreakWindowMontage, BreakWindowDuration);
 		break;
@@ -727,6 +750,37 @@ bool AGTPVehicle::FindExitLocation(const ACharacter* Character, FVector& OutLoca
 	return false;
 }
 
+ACharacter* AGTPVehicle::EjectDriverTo(const FVector& Location, const FRotator& Rotation)
+{
+	GetWorldTimerManager().ClearTimer(SequenceTimer);
+	ACharacter* Character = Driver;
+	if (!Character)
+	{
+		return nullptr;
+	}
+	AController* Controller = GetController();
+	Driver = nullptr;
+	State = EGTPVehicleState::Parked;
+	ReleaseCharacter(Character, Location, Rotation);
+	if (Controller && Controller->IsPlayerController())
+	{
+		Controller->Possess(Character);
+	}
+	GTP_TRACE(LogGTPVehicle, TEXT("%s: driver taken out to %s"), *GetName(), *Location.ToCompactString());
+	return Character;
+}
+
+void AGTPVehicle::Drown()
+{
+	if (!bWrecked)
+	{
+		Health = 0.f;
+		SetWrecked();
+	}
+	ClearDrivingInput();
+	GTP_TRACE(LogGTPVehicle, TEXT("%s: drowned"), *GetName());
+}
+
 void AGTPVehicle::DoExit(bool bBailOut)
 {
 	GetWorldTimerManager().ClearTimer(SequenceTimer);
@@ -767,6 +821,11 @@ void AGTPVehicle::DoExit(bool bBailOut)
 		// Thrown sideways with part of the car's speed; the car rolls on.
 		const FVector Out = (Location - GetActorLocation()).GetSafeNormal2D();
 		Character->LaunchCharacter(Out * BailOutLaunchSpeed + CarVelocity * 0.6f + FVector(0.f, 0.f, 200.f), true, true);
+		// Stumble, fall or be thrown depending on the speed (ADR-0006), when the character reacts.
+		if (UGTPPlayerReactionComponent* Reaction = Character->FindComponentByClass<UGTPPlayerReactionComponent>())
+		{
+			Reaction->ReactToBailOut(CarVelocity);
+		}
 		if (UChaosWheeledVehicleMovementComponent* Move = GetWheeledMovement())
 		{
 			Move->SetHandbrakeInput(false);
@@ -788,6 +847,18 @@ void AGTPVehicle::DoExit(bool bBailOut)
 
 void AGTPVehicle::OnBodyHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
+	// Crimes by the player at the wheel: running into people, cars and police.
+	if (OtherActor && State == EGTPVehicleState::Driven && Cast<APlayerController>(GetController()) && FMath::Abs(GetSpeedKmh()) > 12.f)
+	{
+		if (OtherActor->IsA<ACharacter>())
+		{
+			ReportPlayerCrime(this, EGTPCrimeKind::HitPedestrian);
+		}
+		else if (OtherActor->IsA<AGTPVehicle>())
+		{
+			ReportPlayerCrime(this, OtherActor->ActorHasTag(GTPPolice::PoliceTag) ? EGTPCrimeKind::HitPolice : EGTPCrimeKind::HitVehicle);
+		}
+	}
 	const float Now = GetWorld()->GetTimeSeconds();
 	const float Mass = HitComponent ? HitComponent->GetMass() : 0.f;
 	if (Mass <= 0.f || Now - LastImpactTime < MinTimeBetweenImpacts)
