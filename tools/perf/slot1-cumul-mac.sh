@@ -12,7 +12,9 @@
 #
 # Every step has a time limit; a heartbeat line is written every 10 minutes.
 # The clone's branch is restored on exit. The map on disk is NOT regenerated:
-# it must be the healthy 799c8d5 regeneration (md5 recorded in REPORT.md).
+# whatever map is on disk is used and its md5 is recorded; the 30 s control
+# launch stops the pass if it freezes. The sky and traffic gains are judged
+# inside the same build (cumul-lf vs cumul-vol), so the map does not bias them.
 set -euo pipefail
 
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -41,6 +43,10 @@ test "$orig_head" != "HEAD" || orig_head="$(git rev-parse HEAD)"
 cleanup() {
   pkill -P "$hb" 2>/dev/null || true; kill "$hb" 2>/dev/null || true
   pkill -f "GranTheftPraline-Mac" 2>/dev/null || true
+  # A step killed by its time limit leaves its children alive (perl alarm
+  # kills the direct process only): stop the editor, UBT and UAT, never the
+  # UnrealEditorServices helper.
+  pkill -f "UnrealEditor( |$)|UnrealBuildTool|AutomationTool" 2>/dev/null || true
   if test "$dry" != "1"; then git checkout -q "$orig_head" 2>/dev/null || log "could not restore $orig_head"; fi
   log "end (clone back on $orig_head)"
 }
@@ -59,6 +65,8 @@ log "prerequisites"
 if pgrep -f "UnrealEditor( |$)|GranTheftPraline-Mac" > /dev/null; then die "an Unreal editor or the game is running"; fi
 test -f "$map" || die "map missing: $map"
 test -d "$ref_build/GranTheftPraline.app" || die "reference build missing: $ref_build"
+# Generated city data is left modified by the city passes: restore it first.
+if test "$dry" != "1"; then git checkout -q -- assets/geo/processed 2>/dev/null || true; fi
 test -z "$(git status --porcelain --untracked-files=no)" || die "tracked changes in the clone, refusing to switch branch"
 git fetch -q origin "$branch" || die "fetch $branch failed"
 
