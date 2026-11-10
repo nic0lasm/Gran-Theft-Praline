@@ -418,9 +418,9 @@ bool AGTPTrafficNetwork::FindJoinPoint(const FVector& Location, float MaxDistanc
 void AGTPTrafficNetwork::MakeCheap(AGTPVehicle* Car, ACharacter* Driver) const
 {
 	// Lights of AI cars never cast shadows: a shadowed spot light is a full extra shadow pass.
-	TArray<ULightComponent*> Lights;
-	Car->GetComponents<ULightComponent>(Lights);
-	for (ULightComponent* Light : Lights)
+	TArray<ULightComponent*> CarLights;
+	Car->GetComponents<ULightComponent>(CarLights);
+	for (ULightComponent* Light : CarLights)
 	{
 		Light->SetCastShadows(false);
 	}

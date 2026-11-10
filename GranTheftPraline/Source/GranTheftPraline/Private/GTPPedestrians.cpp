@@ -246,7 +246,8 @@ FLinearColor UGTPPedestrianSubsystem::Palette(float Pick)
 		FLinearColor(0.02f, 0.02f, 0.025f), FLinearColor(0.02f, 0.035f, 0.10f), FLinearColor(0.18f, 0.18f, 0.19f),
 		FLinearColor(0.42f, 0.34f, 0.24f), FLinearColor(0.12f, 0.14f, 0.06f), FLinearColor(0.30f, 0.07f, 0.04f),
 		FLinearColor(0.07f, 0.12f, 0.25f), FLinearColor(0.70f, 0.70f, 0.68f)};
-	return Colours[FMath::Min(UE_ARRAY_COUNT(Colours) - 1, static_cast<int32>(Pick * UE_ARRAY_COUNT(Colours)))];
+	constexpr int32 Count = UE_ARRAY_COUNT(Colours);
+	return Colours[FMath::Min(Count - 1, static_cast<int32>(Pick * Count))];
 }
 
 USkeletalMesh* UGTPPedestrianSubsystem::PickMesh()
