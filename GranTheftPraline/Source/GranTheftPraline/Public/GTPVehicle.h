@@ -12,6 +12,7 @@ class UCameraComponent;
 class UStaticMesh;
 class UStaticMeshComponent;
 class UChaosWheeledVehicleMovementComponent;
+class UGTPEngineSoundComponent;
 class UPrimitiveComponent;
 class USpringArmComponent;
 struct FInputActionValue;
@@ -128,6 +129,33 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Vehicle")
 	float GetSpeedKmh() const;
 
+	/** Engine speed reported by Chaos, in rpm. */
+	UFUNCTION(BlueprintPure, Category = "Vehicle")
+	float GetEngineRpm() const;
+
+	/** Current gear: 0 neutral, negative reverse. */
+	UFUNCTION(BlueprintPure, Category = "Vehicle")
+	int32 GetGear() const;
+
+	/** Throttle applied by whoever drives (player or AI), 0 to 1. */
+	UFUNCTION(BlueprintPure, Category = "Vehicle")
+	float GetThrottleAmount() const { return ThrottleAmount; }
+
+	/** True while someone sits at the wheel of a car that is not wrecked. */
+	UFUNCTION(BlueprintPure, Category = "Vehicle")
+	bool IsEngineRunning() const { return Driver != nullptr && !bWrecked; }
+
+	/**
+	 * Driving inputs for a non-player driver (UGTPAIDriverComponent).
+	 * Ignored while the player drives or once the car is wrecked.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Vehicle")
+	void SetAIDriveInput(float Throttle, float Brake, float Steering, bool bHandbrake);
+
+	/** True when a non-player character sits at the wheel. */
+	UFUNCTION(BlueprintPure, Category = "Vehicle|Seats")
+	bool HasAIDriver() const { return Driver != nullptr && State != EGTPVehicleState::Driven; }
+
 	// --- Camera ---------------------------------------------------------
 
 	/** Interior (first person) view instead of the chase camera. */
@@ -141,6 +169,10 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Vehicle|Damage")
 	float GetHealth() const { return Health; }
+
+	/** Health as a share of MaxHealth, 0 to 1. */
+	UFUNCTION(BlueprintPure, Category = "Vehicle|Damage")
+	float GetHealthRatio() const { return MaxHealth > 0.f ? Health / MaxHealth : 0.f; }
 
 	/** Adds damage to one zone (dents, glass) and to the health of the car. */
 	UFUNCTION(BlueprintCallable, Category = "Vehicle|Damage")
@@ -170,6 +202,9 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Vehicle|Camera")
 	TObjectPtr<UCameraComponent> InteriorCamera;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Vehicle|Sound")
+	TObjectPtr<UGTPEngineSoundComponent> EngineSound;
 
 	// Seats and doors ----------------------------------------------------
 
@@ -375,6 +410,8 @@ private:
 	EGTPEntryKind PendingEntry = EGTPEntryKind::OpenDoor;
 	FTimerHandle SequenceTimer;
 	float ExitWaitTime = 0.f;
+
+	float ThrottleAmount = 0.f;
 
 	bool bInteriorView = false;
 	bool bLookingBehind = false;
