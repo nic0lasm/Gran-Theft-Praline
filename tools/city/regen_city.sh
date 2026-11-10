@@ -8,7 +8,8 @@
 #   PYTHON (default python3; a venv with numpy, scipy, shapely, PIL), UE_ROOT,
 #   GTP_CITY_ZONE (presqu-ile), GTP_CITY_FOCUS (rue-de-la-republique),
 #   GTP_CITY_EXTRA_BBOX (250,-60,700,220: quai du Rhone and pont Lafayette),
-#   GTP_SHOP_GLASS (translucent | opaque), SKIP_PLAY=1 to skip the screenshot run.
+#   GTP_SHOP_GLASS (translucent | opaque), GTP_CITY_LANDMARKS=0 (generic shells for the Opera
+#   and the Hotel de Ville), SKIP_PLAY=1 to skip the screenshot run.
 set -euo pipefail
 
 repo="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -31,8 +32,15 @@ fi
 
 step "geo data (roads with street names, buildings)"
 "$py" "$repo/tools/city/build.py" --name "$zone" > /dev/null
+step "landmarks (Opera, Hotel de Ville: LiDAR volumes instead of the facade kit; GTP_CITY_LANDMARKS=0 to skip)"
+if test "${GTP_CITY_LANDMARKS:-1}" != "0"; then
+  "$py" "$repo/tools/city/landmarks.py" --name "$zone" > /dev/null
+else
+  rm -f "$repo/assets/geo/processed/$zone/landmarks.json" "$repo/assets/geo/processed/$zone/gen/$focus/landmarks."*
+fi
 step "generation (focus street + $extra)"
 "$py" "$repo/tools/city/generate.py" --name "$zone" --focus "$focus_name" --extra-bbox "$extra" > /dev/null
+test "${GTP_CITY_LANDMARKS:-1}" = "0" || "$py" "$repo/tools/city/landmarks.py" --name "$zone" --focus "$focus" > /dev/null
 test -f "$repo/assets/geo/processed/$zone/terrain/terrain.glb" || "$py" "$repo/tools/city/terrain.py" --name "$zone" > /dev/null
 step "signs, carriageways fitted to the kerbs, street furniture"
 "$py" "$repo/tools/city/signs.py" --name "$zone" --focus "$focus" > /dev/null

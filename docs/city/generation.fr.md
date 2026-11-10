@@ -342,6 +342,30 @@ lance le build « après » sur le parcours de démonstration (profil m1, le jeu
 des images côte à côte aux mêmes instants (`compare-stills.swift`, AVFoundation, sans ffmpeg) et les
 deux résumés de temps d'image.
 
+## Monuments repères et poids des cellules (ajouté le 2026-11-10)
+
+`tools/city/landmarks.py` remplace le kit de façades générique par un volume mesuré pour les
+monuments qu'on reconnaît : l'Opéra (voûte de verre) et l'Hôtel de Ville (pavillons, beffroi,
+cours). Emprise OpenStreetMap (identifiant Wikidata), cours retirées là où le LiDAR voit le sol,
+murs sur le vrai contour, toit = champ de hauteur du MNS LiDAR raccordé au haut des murs.
+Opéra : 2 072 m², 45 m, 4 261 triangles ; Hôtel de Ville : 3 764 m² dont 1 604 m² de cours
+retirés, 52 m, 7 856 triangles. Les 6 bâtiments BD TOPO couverts sortent de `generate.py`
+(`left_to_landmarks` dans le rapport) et `import_city.py` pose `gen/<focus>/landmarks.glb`
+avec collision. `GTP_CITY_LANDMARKS=0` revient aux coques génériques.
+
+Places Bellecour et Jacobins : données seulement (contour, revêtement, monuments). La statue
+de Louis XIV et les fontaines des Jacobins et Bartholdi n'ont pas de volume : le MNS LiDAR
+est égal au terrain sur ces places (sursol filtré), il faudra des modèles. Limite connue.
+
+`tools/city/cell_budget.py` estime le poids de chaque cellule (instances de façade, enseignes,
+mobilier) calibré sur la rue mesurée (21 299 + 3 400 instances = 14 ms). Pire cellule
+p0000-m0500 : 8,4 ms ; pire bloc 2 × 2 : 26,1 ms ; 3 × 3 : 50,4 ms. Bornes hautes (ni
+distance de coupe ni occlusion) : 2 × 2 dépasse les 14 ms de l'ADR-0010, d'où la variété du
+kit à coût constant et la coupe à 250 m à mesurer.
+
+Créneau Mac en une commande : `caffeinate -dimsu tools/city/city_slot_mac.sh <builds_avant> 0.3`
+(régénération, package, test M1 60 s filmé, avant/après du fil réalisme).
+
 ## Limites et suite
 
 1. **Test éditeur** : `tools/city/unreal/import_city.py` importe greybox et

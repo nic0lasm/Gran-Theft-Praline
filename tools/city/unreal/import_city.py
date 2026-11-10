@@ -235,6 +235,14 @@ def main():
             river_meta = json.load(f)
         river = import_glb(os.path.join(GEN, "riverside.glb"), ROOT + "/Riverside/" + CAMEL)
     solid = [river[n["name"]] for n in (river_meta or {}).get("nodes", []) if n["collision"] and n["name"] in river]
+    # Optional landmarks (tools/city/landmarks.py): Opera, Hotel de Ville... LiDAR volumes that
+    # replace the generic shells of their BD TOPO buildings. Origin at the zone origin.
+    mark_meta, marks = None, {}
+    if os.path.exists(os.path.join(GEN, "landmarks.json")):
+        with open(os.path.join(GEN, "landmarks.json"), encoding="utf-8") as f:
+            mark_meta = json.load(f)
+        marks = import_glb(os.path.join(GEN, "landmarks.glb"), ROOT + "/Landmarks/" + CAMEL)
+        solid += [marks[n["name"]] for n in mark_meta["nodes"] if n["name"] in marks]
     report["collision_meshes"] = set_complex_collision(list(buildings.values()) + list(terrain.values()) + solid)
     open_level_with_bible_lighting(report)
     unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world() \
@@ -272,6 +280,13 @@ def main():
             comp.set_collision_profile_name("NoCollision")
             comp.set_collision_enabled(unreal.CollisionEnabled.NO_COLLISION)
     report["riverside"] = sorted(river)
+    for n in (mark_meta or {}).get("nodes", []):
+        m = marks.get(n["name"])
+        if m is None:
+            report["errors"].append("landmark mesh missing: " + n["name"])
+            continue
+        place_mesh(m, (0.0, 0.0, 0.0), n["name"], "City/Landmarks")
+    report["landmarks"] = sorted(marks)
     # Fall-in safety (riverside.py "recovery"): tagged trigger boxes over the water and quay
     # exits at street level; the game swims or fishes out whoever enters them.
     rec = (river_meta or {}).get("recovery")
