@@ -55,3 +55,19 @@ M1, which is why it is next after the first measure.
 - Reading the result: the cost per car is the slope between 3 and 12 cars of
   GPU p50 and of frame p95; the switch is kept on if p95 does not get worse
   and the slope drops.
+
+## 4. Ghost mode and car pool (switches, not measured yet)
+
+- `-VehicleGhost=1` (or `bVehicleGhost=True`): past `GhostDistance` (90 m) from
+  the player an AI car turns into a ghost: physics and the Chaos vehicle off,
+  it slides along its planned path 20 times a second under the same stops as
+  a driven car (bends, the car ahead along the lanes, red lights, junction
+  stop lines), on the ground found a few times a second. It is driven again
+  inside `GhostWakeDistance` (70 m), at the ghost's speed. No sweep for
+  ghosts. Logic in `GTPTrafficGhost.h`, checked by `tools/vehicles/ghost_test`.
+- `-TrafficPool=1` (or `bTrafficPool=True`): a car taken away is hidden and
+  kept, then reused for the next spawn, instead of destroy and spawn.
+- Police cars are driven by the police director, not by an AI driver: they
+  never turn into ghosts.
+- `tools/perf/vehicle-count-bench.sh` now runs three tiers per count: none,
+  `-VehicleLod=1`, then `-VehicleLod=1 -VehicleGhost=1 -TrafficPool=1`.

@@ -59,3 +59,23 @@ M1 : c'est la suite après la première mesure.
 - Lecture : le coût par voiture est la pente entre 3 et 12 voitures du GPU
   p50 et du p95 d'image ; l'interrupteur est gardé si le p95 ne se dégrade
   pas et que la pente baisse.
+
+## 4. Mode fantôme et réserve de voitures (interrupteurs, pas encore mesurés)
+
+- `-VehicleGhost=1` (ou `bVehicleGhost=True`) : au-delà de `GhostDistance`
+  (90 m) du joueur, une voiture PNJ devient un fantôme. La physique et le
+  véhicule Chaos sont coupés, et elle glisse le long de son chemin 20 fois
+  par seconde, avec les mêmes arrêts qu'une voiture conduite : virages,
+  voiture qui précède le long des voies, feux rouges, lignes d'arrêt des
+  carrefours. Le sol est retrouvé quelques fois par seconde. Elle redevient
+  conduite sous `GhostWakeDistance` (70 m), à la vitesse du fantôme. Pas de
+  balayage d'obstacle pour un fantôme. La logique est dans
+  `GTPTrafficGhost.h`, vérifiée par `tools/vehicles/ghost_test`.
+- `-TrafficPool=1` (ou `bTrafficPool=True`) : une voiture retirée est cachée
+  et gardée, puis réutilisée à la prochaine apparition, au lieu d'être
+  détruite puis recréée.
+- Les voitures de police sont pilotées par le directeur de la police, sans
+  conducteur PNJ : elles ne deviennent jamais des fantômes.
+- `tools/perf/vehicle-count-bench.sh` mesure maintenant trois niveaux par
+  nombre de voitures : aucun, `-VehicleLod=1`, puis
+  `-VehicleLod=1 -VehicleGhost=1 -TrafficPool=1`.

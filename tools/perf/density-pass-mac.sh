@@ -13,7 +13,7 @@
 # Environment: BUILDS_DIR (default <repo>/Builds), SKIP_PACKAGE=1 to reuse a build,
 #   CROWD_CASES (default "n0 n12 n30 n60"), COUNTS (default "3 6 12").
 # Output: <BUILDS_DIR>/<version>/density-<stamp>/DENSITY.md and one log per step.
-# Expected length: package 15-25 min, cars ~15 min, crowd ~10 min, ragdolls ~5 min.
+# Expected length: package 15-25 min, cars ~25 min (3 counts x 3 tiers), crowd ~10 min, ragdolls ~5 min.
 set -uo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
