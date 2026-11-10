@@ -104,7 +104,40 @@ void UGTPAudioMix::Initialize(FSubsystemCollectionBase& Collection)
 	BuildMixes();
 	BuildConcurrencyAndAttenuation();
 	LoadBanks();
+	MuteFolders();
 	LoadSurfaceMap();
+}
+
+void UGTPAudioMix::MuteFolders()
+{
+	const TArray<FString>& Folders = GetDefault<UGTPAudioSettings>()->MutedSoundFolders;
+	if (Folders.Num() == 0)
+	{
+		return;
+	}
+	MutedClass = NewObject<USoundClass>(this, TEXT("SC_GTP_Muted"));
+	MutedClass->Properties.Volume = 0.f;
+	if (FAudioDeviceManager* Manager = GEngine ? GEngine->GetAudioDeviceManager() : nullptr)
+	{
+		Manager->RegisterSoundClass(MutedClass);
+	}
+	IAssetRegistry& Registry = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry")).Get();
+	int32 Muted = 0;
+	for (const FString& Folder : Folders)
+	{
+		TArray<FAssetData> Assets;
+		Registry.GetAssetsByPath(FName(*Folder), Assets, /*bRecursive*/ true);
+		for (const FAssetData& Asset : Assets)
+		{
+			if (USoundBase* Sound = Cast<USoundBase>(Asset.GetAsset()))
+			{
+				Sound->SoundClassObject = MutedClass;
+				AllSounds.Add(Sound);
+				++Muted;
+			}
+		}
+	}
+	GTP_TRACE(LogGTPAudio, TEXT("[Audio] muted %d sounds under %s"), Muted, *FString::Join(Folders, TEXT(", ")));
 }
 
 void UGTPAudioMix::Deinitialize()
@@ -321,7 +354,7 @@ void UGTPAudioMix::LoadBanks()
 	{
 		ImpactCount += Bank.Sounds.Num();
 	}
-	GTP_TRACE(LogGTPAudio, TEXT("[Audio] game audio on (ADR-0006, -Audio=0 turns it off); banks under %s: steps/landings%s; impacts %d (glass %d); %d unsorted"),
+	GTP_TRACE(LogGTPAudio, TEXT("[Audio] game audio on (ADR-0009, -Audio=0 turns it off); banks under %s: steps/landings%s; impacts %d (glass %d); %d unsorted"),
 		*Root, *Summary, ImpactCount, Glass.Sounds.Num(), Unsorted);
 }
 

@@ -1,6 +1,6 @@
-# ADR-0006: Game audio (mix, footsteps, vehicles, sirens)
+# ADR-0009: Game audio (mix, footsteps, vehicles, sirens)
 
-*French version: [adr-0006-audio-mix.fr.md](adr-0006-audio-mix.fr.md)*
+*French version: [adr-0009-audio-mix.fr.md](adr-0009-audio-mix.fr.md)*
 
 ## Status
 

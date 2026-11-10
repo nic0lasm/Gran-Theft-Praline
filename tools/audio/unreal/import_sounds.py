@@ -3,7 +3,7 @@
     UnrealEditor-Cmd GranTheftPraline.uproject -run=pythonscript \
         -script="tools/audio/unreal/import_sounds.py <folder> [/Game/Sound/SFX]"
 
-<folder> mirrors the bank layout read by UGTPAudioMix (ADR-0006):
+<folder> mirrors the bank layout read by UGTPAudioMix (ADR-0009):
   Footsteps/<Surface>/*.wav, Land/<Surface>/*.wav,
   Impacts/<Kind>/<Light|Medium|Heavy>/*.wav, Impacts/Glass/*.wav
 as written by tools/audio/make_sfx.py (generated) or
@@ -23,6 +23,9 @@ DEFAULT_ROOT = "/Game/Sound/SFX"
 
 
 def main(argv):
+    # Paths may hold spaces: the Mac pass script hands them over by environment.
+    if not argv and os.environ.get("GTP_AUDIO_SRC"):
+        argv = [os.environ["GTP_AUDIO_SRC"]] + ([os.environ["GTP_AUDIO_ROOT"]] if os.environ.get("GTP_AUDIO_ROOT") else [])
     if not argv:
         raise SystemExit("usage: import_sounds.py <folder> [/Game/Sound/SFX]")
     source = os.path.abspath(argv[0])

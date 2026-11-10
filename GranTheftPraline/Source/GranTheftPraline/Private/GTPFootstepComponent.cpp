@@ -10,13 +10,21 @@
 #include "GTPAudioSettings.h"
 #include "GTPLog.h"
 #include "HAL/IConsoleManager.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Parse.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogGTPFootsteps, Log, All);
 
 namespace
 {
 	TAutoConsoleVariable<int32> CVarDebugFeet(TEXT("gtp.Audio.DebugFeet"), 0,
-		TEXT("1: log the foot heights above the ground and every step of the player (calibration)."));
+		TEXT("1: log the foot heights above the ground and every step of the player (calibration); also -DebugFeet."));
+
+	bool DebugFeet()
+	{
+		static const bool bParam = FParse::Param(FCommandLine::Get(), TEXT("DebugFeet"));
+		return bParam || CVarDebugFeet.GetValueOnGameThread() != 0;
+	}
 }
 
 UGTPFootstepComponent::UGTPFootstepComponent()
@@ -203,9 +211,9 @@ void UGTPFootstepComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 	{
 		const FVector FootLocation = Mesh->GetSocketLocation(FootBones[Foot]);
 		const float Height = FootLocation.Z - GroundZ;
-		if (CVarDebugFeet.GetValueOnGameThread() != 0 && Character && Character->IsPlayerControlled())
+		if (DebugFeet() && Character && Character->IsPlayerControlled())
 		{
-			UE_LOG(LogGTPFootsteps, Log, TEXT("[Feet] %s h=%.1f cm speed=%.0f"), Foot == 0 ? TEXT("L") : TEXT("R"), Height, GroundSpeed);
+			GTP_TRACE(LogGTPFootsteps, TEXT("[Feet] %s h=%.1f speed=%.0f t=%.3f"), Foot == 0 ? TEXT("L") : TEXT("R"), Height, GroundSpeed, GetWorld()->GetTimeSeconds());
 		}
 		if (Feet[Foot].Update(Height, DeltaTime, PlantSettings))
 		{
@@ -244,7 +252,7 @@ void UGTPFootstepComponent::Step(const FVector& FootLocation, bool bLanding, flo
 	Mix->PlayAt(this, Sound, EGTPAudioCategory::Footsteps, Where, Volume, Pitch);
 	++StepCount;
 	const ACharacter* Character = Cast<ACharacter>(GetOwner());
-	if (CVarDebugFeet.GetValueOnGameThread() != 0 && Character && Character->IsPlayerControlled())
+	if (DebugFeet() && Character && Character->IsPlayerControlled())
 	{
 		GTP_TRACE(LogGTPFootsteps, TEXT("[Step] %s %s gain=%.2f"), bLanding ? TEXT("land") : TEXT("step"),
 			*StaticEnum<EGTPSurface>()->GetNameStringByValue(static_cast<int64>(LastSurface)), Gain);

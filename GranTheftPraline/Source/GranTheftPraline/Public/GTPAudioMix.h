@@ -16,7 +16,7 @@ class USoundMix;
 struct FHitResult;
 
 /**
- * Mix of the game, built in code once per game instance (ADR-0006):
+ * Mix of the game, built in code once per game instance (ADR-0009):
  * - one sound class per EGTPAudioCategory, children of Master and Effects;
  * - a user mix holding the category volumes (options menu, later);
  * - a driving mix (ambience lower and duller while the player drives);
@@ -35,7 +35,7 @@ public:
 
 	/**
 	 * False when the game runs with -Audio=0 (or -NoGameAudio): nothing of
-	 * ADR-0006 is added to the world and SetSiren does nothing, to measure or
+	 * ADR-0009 is added to the world and SetSiren does nothing, to measure or
 	 * test a system without it. The engine, the ambience and GASP sounds stay.
 	 */
 	static bool IsGameAudioEnabled();
@@ -111,6 +111,11 @@ private:
 	/** Keeps the bank sounds loaded (the FBank arrays are not seen by the garbage collector). */
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<USoundBase>> AllSounds;
+
+	UPROPERTY(Transient)
+	TObjectPtr<USoundClass> MutedClass;
+
+	void MuteFolders();
 
 	TMap<EGTPAudioCategory, float> Volumes;
 	FGTPSurfaceMap SurfaceMap;

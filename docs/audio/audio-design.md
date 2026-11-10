@@ -1,6 +1,6 @@
 # Game audio
 
-*Version française : [audio-design.fr.md](audio-design.fr.md). Decision: [ADR-0006](../adr/adr-0006-audio-mix.md).*
+*Version française : [audio-design.fr.md](audio-design.fr.md). Decision: [ADR-0009](../adr/adr-0009-audio-mix.md).*
 
 ## What you hear in 0.3
 
@@ -53,6 +53,23 @@ Every recorded sound that enters a release is listed with its licence in
 
 ## Pipeline on the Mac
 
+Unattended, in two steps of the grouped pass:
+
+```
+tools/audio/mac_audio_pass.sh prepare        # editor closed, before packaging
+tools/audio/mac_audio_pass.sh check 0.4      # after packaging
+```
+
+`prepare` generates the banks and the grid, imports them headless and tells
+whether GASP already plays footsteps (`.scratch/audio/gasp_foley.json`; if so,
+put its folder in `MutedSoundFolders`). `check` makes a filmed run with sound
+(`-DemoRoute -TestSiren -DebugFeet -RecordAudio`, then
+`capture-with-sound.mov`), two A/B runs (`-Audio=0` and with audio), and
+writes `audio-report.md` (step rate, suggested plant height, game thread cost
+against the 0.3 ms budget).
+
+Steps in detail:
+
 ```
 python3 -I tools/audio/make_sfx.py .scratch/audio/sfx            # generated banks
 python3 -I tools/audio/surface_map.py --ground <gen/rue-de-la-republique/ground>
@@ -68,8 +85,9 @@ recordings, delete its folder in the editor first.
 ## Measuring and tuning
 
 - `-AudioStats`: one line `[Audio] steps=… impacts=… sirens_on=… skids_on=… walkers=…` per second.
-- `-Audio=0`: nothing of ADR-0006 (A/B measurement).
-- `gtp.Audio.DebugFeet 1`: foot heights of the player and every step with its surface (to calibrate `FootPlantHeight`).
+- `-Audio=0`: nothing of ADR-0009 (A/B measurement).
+- `-RecordAudio[=s]` (`-RecordAudioDir=`): records the game output to a WAV, at the same time as `-CaptureVideo`; `-TestSiren`: the nearest traffic car sounds a siren (two-tone 12 s, yelp 4 s).
+- `-DebugFeet` (or `gtp.Audio.DebugFeet 1`): foot heights of the player and every step with its surface (to calibrate `FootPlantHeight`).
 - Outside the engine, in CI: `tools/audio/audio_logic_test.cpp` + `check_synths.py`
   (footstep rules, sirens, squeal), `tools/audio/tests` (banks, grid,
   recorded picks).

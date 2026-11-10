@@ -9,7 +9,7 @@
 class UGTPSynthSoundWave;
 
 /**
- * Siren of a police car (ADR-0006, police in ADR-0004): French « deux tons »
+ * Siren of a police car (ADR-0009, police in ADR-0004): French « deux tons »
  * or a chase yelp, synthesised (GTPAudioSynths.h), with the Doppler shift of
  * the car passing the listener. Silent and not ticking while Off.
  *

@@ -29,7 +29,8 @@ public class GranTheftPraline : ModuleRules
 			"RenderCore",
 			"AudioExtensions",
 			"DeveloperSettings",
-			"AssetRegistry"
+			"AssetRegistry",
+			"AudioMixer"
 		});
 	}
 }

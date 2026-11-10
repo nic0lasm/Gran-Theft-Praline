@@ -28,7 +28,7 @@ enum class EGTPSurface : uint8
 	Count UMETA(Hidden)
 };
 
-/** Mixing category: one sound class each, children of Master (ADR-0006). */
+/** Mixing category: one sound class each, children of Master (ADR-0009). */
 UENUM(BlueprintType)
 enum class EGTPAudioCategory : uint8
 {

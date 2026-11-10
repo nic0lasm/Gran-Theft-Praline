@@ -10,7 +10,7 @@ class UGTPSynthSoundWave;
 class UPrimitiveComponent;
 
 /**
- * Body sounds of a car (ADR-0006): impacts and tyre squeal. The engine
+ * Body sounds of a car (ADR-0009): impacts and tyre squeal. The engine
  * stays in UGTPEngineSoundComponent (ADR-0003).
  * - Impacts: bound to the body's hit event; the change of speed sets the
  *   tier (light, medium, heavy), what was hit sets the kind (car, metal,

@@ -8,7 +8,7 @@
 class USoundBase;
 
 /**
- * Audio mix of the game (ADR-0006), section [/Script/GranTheftPraline.GTPAudioSettings]
+ * Audio mix of the game (ADR-0009), section [/Script/GranTheftPraline.GTPAudioSettings]
  * of Config/DefaultGame.ini. Sound classes, mixes, concurrency and
  * attenuation are built in code at start-up from these values, so the mix
  * lives in Git and needs no binary asset. Sounds are found by folder:
@@ -31,6 +31,13 @@ public:
 	/** Ambience loop played by AGTPPlayerController: put in the Ambience class. */
 	UPROPERTY(Config, EditAnywhere, Category = "Banks")
 	TSoftObjectPtr<USoundBase> AmbienceSound;
+
+	/**
+	 * Folders whose sounds are silenced at start-up (in memory only), e.g. the
+	 * Game Animation Sample foley if it doubles our footsteps (/Game/Audio/Foley).
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Banks")
+	TArray<FString> MutedSoundFolders;
 
 	/** Volume of each category, 0..1 (future options menu writes these). */
 	UPROPERTY(Config, EditAnywhere, Category = "Mix")

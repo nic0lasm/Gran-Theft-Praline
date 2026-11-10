@@ -12,9 +12,12 @@
 #include "GTPLog.h"
 #include "GTPSirenComponent.h"
 #include "GTPVehicleAudioComponent.h"
+#include "AudioMixerBlueprintLibrary.h"
 #include "Kismet/GameplayStatics.h"
+#include "Misc/Paths.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
+#include "HAL/FileManager.h"
 #include "WheeledVehiclePawn.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogGTPAudioWorld, Log, All);
@@ -29,6 +32,24 @@ void UGTPAudioWorld::OnWorldBeginPlay(UWorld& InWorld)
 {
 	Super::OnWorldBeginPlay(InWorld);
 	bLogStats = GetDefault<UGTPAudioSettings>()->bLogStats || FParse::Param(FCommandLine::Get(), TEXT("AudioStats"));
+	// Sound for the filmed runs: same delay and length as UGTPFrameCapture (-CaptureDelay, -CaptureVideo).
+	const TCHAR* Cmd = FCommandLine::Get();
+	if (FParse::Param(Cmd, TEXT("RecordAudio")) || FParse::Value(Cmd, TEXT("RecordAudio="), RecordSeconds))
+	{
+		float CaptureSeconds = 0.f;
+		if (RecordSeconds <= 0.f && FParse::Value(Cmd, TEXT("CaptureVideo="), CaptureSeconds))
+		{
+			RecordSeconds = CaptureSeconds;
+		}
+		RecordSeconds = RecordSeconds > 0.f ? RecordSeconds : 60.f;
+		RecordDelay = 0.f;
+		FParse::Value(Cmd, TEXT("CaptureDelay="), RecordDelay);
+		if (!FParse::Value(Cmd, TEXT("RecordAudioDir="), RecordDir))
+		{
+			RecordDir = FPaths::ProjectSavedDir() / TEXT("AudioCapture");
+		}
+	}
+	bTestSiren = FParse::Param(Cmd, TEXT("TestSiren"));
 	SpawnHandle = InWorld.AddOnActorSpawnedHandler(FOnActorSpawned::FDelegate::CreateUObject(this, &UGTPAudioWorld::OnActorSpawned));
 	for (TActorIterator<AActor> It(&InWorld); It; ++It)
 	{
@@ -124,6 +145,8 @@ void UGTPAudioWorld::Tick(float DeltaTime)
 			UGameplayStatics::PopSoundMixModifier(World, Mix->GetDrivingMix());
 		}
 	}
+	UpdateRecording();
+	UpdateTestSiren(DeltaTime);
 	if (bLogStats)
 	{
 		StatsTimer += DeltaTime;
@@ -133,6 +156,80 @@ void UGTPAudioWorld::Tick(float DeltaTime)
 			LogStats();
 		}
 	}
+}
+
+void UGTPAudioWorld::UpdateRecording()
+{
+	if (RecordDelay < 0.f)
+	{
+		return;
+	}
+	UWorld* World = GetWorld();
+	const float Now = World->GetRealTimeSeconds();
+	if (!bRecording && Now >= RecordDelay)
+	{
+		bRecording = true;
+		RecordStartedAt = Now;
+		UAudioMixerBlueprintLibrary::StartRecordingOutput(World, RecordSeconds);
+		GTP_TRACE(LogGTPAudioWorld, TEXT("[Audio] recording the output for %.0f s from %.1f s"), RecordSeconds, Now);
+	}
+	else if (bRecording && Now - RecordStartedAt >= RecordSeconds)
+	{
+		bRecording = false;
+		RecordDelay = -1.f;
+		IFileManager::Get().MakeDirectory(*RecordDir, true);
+		UAudioMixerBlueprintLibrary::StopRecordingOutput(World, EAudioRecordingExportType::WavFile, TEXT("game_audio"), RecordDir);
+		GTP_TRACE(LogGTPAudioWorld, TEXT("[Audio] recording written to %s/game_audio.wav"), *RecordDir);
+	}
+}
+
+void UGTPAudioWorld::UpdateTestSiren(float DeltaTime)
+{
+	if (!bTestSiren)
+	{
+		return;
+	}
+	TestSirenTimer += DeltaTime;
+	AActor* Car = TestSirenCar.Get();
+	if (!Car)
+	{
+		// Every 2 s, look for the nearest car nobody plays.
+		if (TestSirenTimer < 2.f)
+		{
+			return;
+		}
+		TestSirenTimer = 0.f;
+		const APlayerController* Player = GetWorld()->GetFirstPlayerController();
+		const APawn* PlayerPawn = Player ? Player->GetPawn() : nullptr;
+		if (!PlayerPawn)
+		{
+			return;
+		}
+		float Best = TNumericLimits<float>::Max();
+		for (TActorIterator<AWheeledVehiclePawn> It(GetWorld()); It; ++It)
+		{
+			if (*It == PlayerPawn || It->IsPlayerControlled())
+			{
+				continue;
+			}
+			const float Dist = FVector::DistSquared(It->GetActorLocation(), PlayerPawn->GetActorLocation());
+			if (Dist < Best)
+			{
+				Best = Dist;
+				Car = *It;
+			}
+		}
+		if (Car)
+		{
+			TestSirenCar = Car;
+			UGTPSirenComponent::SetSiren(Car, EGTPSirenMode::TwoTone);
+			GTP_TRACE(LogGTPAudioWorld, TEXT("[Audio] test siren on %s, %.0f m away"), *Car->GetName(), FMath::Sqrt(Best) / 100.f);
+		}
+		return;
+	}
+	// 12 s of two-tone, 4 s of yelp, repeat.
+	const float Phase = FMath::Fmod(TestSirenTimer, 16.f);
+	UGTPSirenComponent::SetSiren(Car, Phase < 12.f ? EGTPSirenMode::TwoTone : EGTPSirenMode::Yelp);
 }
 
 void UGTPAudioWorld::LogStats()

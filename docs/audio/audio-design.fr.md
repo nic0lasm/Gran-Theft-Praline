@@ -1,6 +1,6 @@
 # Audio du jeu
 
-*English version: [audio-design.md](audio-design.md). Décision : [ADR-0006](../adr/adr-0006-audio-mix.fr.md).*
+*English version: [audio-design.md](audio-design.md). Décision : [ADR-0009](../adr/adr-0009-audio-mix.fr.md).*
 
 ## Ce qu'on entend en 0.3
 
@@ -53,6 +53,23 @@ dans `assets/SOURCES.md`. Le dépôt ne contient aucun son.
 
 ## Chaîne sur le Mac
 
+Sans intervention, en deux temps du passage groupé :
+
+```
+tools/audio/mac_audio_pass.sh prepare        # éditeur fermé, avant le package
+tools/audio/mac_audio_pass.sh check 0.4      # après le package
+```
+
+`prepare` génère les banques et la grille, les importe sans interface et dit
+si GASP joue déjà des pas (`.scratch/audio/gasp_foley.json` ; si oui, mettre
+son dossier dans `MutedSoundFolders`). `check` fait une course filmée avec le
+son (`-DemoRoute -TestSiren -DebugFeet -RecordAudio`, puis
+`capture-with-sound.mov`), deux courses A/B (`-Audio=0` et avec), et écrit
+`audio-report.md` (cadence des pas, hauteur de pose conseillée, coût du game
+thread face au budget de 0,3 ms).
+
+Détail des étapes :
+
 ```
 python3 -I tools/audio/make_sfx.py .scratch/audio/sfx            # banques générées
 python3 -I tools/audio/surface_map.py --ground <gen/rue-de-la-republique/ground>
@@ -68,8 +85,9 @@ entière aux prises de son, supprimer d'abord son dossier dans l'éditeur.
 ## Mesure et réglage
 
 - `-AudioStats` : une ligne `[Audio] steps=… impacts=… sirens_on=… skids_on=… walkers=…` par seconde.
-- `-Audio=0` : rien de l'ADR-0006 (mesure A/B).
-- `gtp.Audio.DebugFeet 1` : hauteur des pieds du joueur et chaque pas avec sa surface (étalonnage de `FootPlantHeight`).
+- `-Audio=0` : rien de l'ADR-0009 (mesure A/B).
+- `-RecordAudio[=s]` (`-RecordAudioDir=`) : enregistre la sortie du jeu en WAV, au même moment que `-CaptureVideo` ; `-TestSiren` : la voiture de trafic la plus proche fait sonner une sirène (deux tons 12 s, yelp 4 s).
+- `-DebugFeet` (ou `gtp.Audio.DebugFeet 1`) : hauteur des pieds du joueur et chaque pas avec sa surface (étalonnage de `FootPlantHeight`).
 - Hors moteur, en CI : `tools/audio/audio_logic_test.cpp` + `check_synths.py`
   (règles des pas, sirènes, crissement), `tools/audio/tests` (banques, grille,
   prises de son).

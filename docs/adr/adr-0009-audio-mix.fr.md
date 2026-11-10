@@ -1,6 +1,6 @@
-# ADR-0006 : Audio du jeu (mixage, pas, véhicules, sirènes)
+# ADR-0009 : Audio du jeu (mixage, pas, véhicules, sirènes)
 
-*English version: [adr-0006-audio-mix.md](adr-0006-audio-mix.md)*
+*English version: [adr-0009-audio-mix.md](adr-0009-audio-mix.md)*
 
 ## Statut
 

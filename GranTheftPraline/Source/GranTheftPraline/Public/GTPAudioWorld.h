@@ -7,7 +7,7 @@
 class AActor;
 
 /**
- * Audio of a game world (ADR-0006). Without touching the classes of the
+ * Audio of a game world (ADR-0009). Without touching the classes of the
  * other systems, it gives sounds to what appears in the world:
  * - footsteps (UGTPFootstepComponent) to every ACharacter and pedestrian;
  * - impacts and tyre squeal (UGTPVehicleAudioComponent) to every car, and
@@ -35,6 +35,20 @@ public:
 private:
 	void OnActorSpawned(AActor* Actor);
 	void LogStats();
+	void UpdateRecording();
+	void UpdateTestSiren(float DeltaTime);
+
+	/** -TestSiren: the nearest AI car runs a siren (two-tone, then yelp), to hear it pass without the police. */
+	bool bTestSiren = false;
+	float TestSirenTimer = 0.f;
+	TWeakObjectPtr<AActor> TestSirenCar;
+
+	/** -RecordAudio[=seconds]: records the game output to a WAV next to the video capture. */
+	float RecordDelay = -1.f;
+	float RecordSeconds = 0.f;
+	float RecordStartedAt = -1.f;
+	FString RecordDir;
+	bool bRecording = false;
 
 	FDelegateHandle SpawnHandle;
 	bool bDrivingMixOn = false;
