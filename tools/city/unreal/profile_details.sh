@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # GPU cost of the street dressing by set and by catalogue group, on the current city map,
 # without rebuilding it (tools/city/unreal/profile_details.py, about 4 minutes).
-# Usage: tools/city/unreal/profile_details.sh   (UE_ROOT, GTP_CITY_ZONE, GTP_CITY_FOCUS, PROFILE=m1)
+# Usage: tools/city/unreal/profile_details.sh   (UE_ROOT, GTP_CITY_ZONE, GTP_CITY_FOCUS, PROFILE=m1,
+#   GTP_PLAY_ARGS: extra game arguments, e.g. -Sky=lightfunction)
 # Result: GranTheftPraline/Saved/CityImport/details_profile.json. One Unreal at a time; run it
 # under caffeinate -dimsu with the Mac unlocked.
 set -euo pipefail
@@ -23,6 +24,6 @@ export GTP_CITY_ZONE="${GTP_CITY_ZONE:-presqu-ile}" GTP_CITY_FOCUS="$focus" GTP_
 cvars="$(python3 "$repo/tools/rendering/reference_scene/profiles.py" "${PROFILE:-m1}")"
 "$editor" "$project" "$map" -game -windowed -ResX=1920 -ResY=1080 -nosound -NoScreenMessages -unattended -NSAppSleepDisabled YES \
   "-ini:Engine:[/Script/Engine.UserInterfaceSettings]:bAllowHighDPIInGameMode=True" \
-  -ExecCmds="r.SetRes 1920x1080w, $cvars, py $tmp/profile_details.py"
+  ${GTP_PLAY_ARGS:-} -ExecCmds="r.SetRes 1920x1080w, $cvars, py $tmp/profile_details.py"
 rm -rf "$tmp"
 cat "$repo/GranTheftPraline/Saved/CityImport/details_profile.json"

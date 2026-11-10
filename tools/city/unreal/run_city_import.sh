@@ -89,7 +89,7 @@ grep -q '"errors": \[\]' "$out/materials_report.json" || { cat "$out/materials_r
 if [ "${SKIP_PLAY:-0}" != "1" ]; then
 "$editor" "$project" "$map" -game -windowed -ResX=1920 -ResY=1080 -nosound -NoScreenMessages -unattended -NSAppSleepDisabled YES \
   "-ini:Engine:[/Script/Engine.UserInterfaceSettings]:bAllowHighDPIInGameMode=True" \
-  -ExecCmds="r.SetRes 1920x1080w, $cvars, py $tmp/shoot_city.py"
+  ${GTP_PLAY_ARGS:-} -ExecCmds="r.SetRes 1920x1080w, $cvars, py $tmp/shoot_city.py"
 fi
 rm -rf "$tmp"
 
