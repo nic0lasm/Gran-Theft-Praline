@@ -70,6 +70,15 @@ struct FGTPWeatherPreset
 	/** Relative chance to be drawn by the automatic weather. */
 	UPROPERTY()
 	float Weight = 1.f;
+
+	/** Multiplier of the profile's cloud ray samples in this weather (thick cover can take fewer). */
+	UPROPERTY()
+	float CloudSampleScale = 1.f;
+
+	/** A uniform cover that the 2D dome renders well: used instead of the volumetric
+	 *  clouds when the profile sets bCloudDomeWhenOvercast. */
+	UPROPERTY()
+	bool bPreferCloudDome = false;
 };
 
 /** A named, frozen test ambience (-Ambience=<Name>): date, time and weather. */
@@ -141,6 +150,10 @@ struct FGTPLightBudget
 	/** Cheap fallback: a 2D cloud dome around the camera, when the volumetric clouds are off. */
 	UPROPERTY()
 	bool bCloudDome = false;
+
+	/** The 2D dome replaces the volumetric clouds in the weathers that prefer it (overcast, rain...). */
+	UPROPERTY()
+	bool bCloudDomeWhenOvercast = false;
 };
 
 /**
@@ -221,6 +234,7 @@ private:
 	void ReadCommandLine();
 	void ApplyBudgetForProfile(UWorld& World);
 	void ApplyCloudQuality();
+	void UpdateClouds(const FGTPWeatherPreset& Weather);
 
 	void AdvanceTime(float DeltaTime);
 	void UpdateWeather(float DeltaTime);
@@ -444,6 +458,8 @@ private:
 	FLinearColor DayFogInscattering = FLinearColor::Black;
 	FLinearColor AppliedFogInscattering = FLinearColor(-1.f, -1.f, -1.f);
 	float AppliedRiverFog = -1.f;
+	float AppliedCloudSampleScale = 1.f;
+	int32 AppliedCloudMode = -1;
 
 	UPROPERTY(Transient)
 	TObjectPtr<AActor> Holder;

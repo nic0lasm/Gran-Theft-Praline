@@ -556,25 +556,9 @@ void UGTPEnvironmentSubsystem::ApplyBudgetForProfile(UWorld& World)
 void UGTPEnvironmentSubsystem::ApplyCloudQuality()
 {
 	// Volumetric clouds are the most expensive part of the sky on the M1 (about 12 ms
-	// measured): quality per profile, values owned by the optimisation work.
-	if (Clouds.IsValid())
-	{
-		if (!Budget.bVolumetricClouds || Budget.bCloudDome)
-		{
-			Clouds->SetVisibility(false);
-		}
-		else if (!FMath::IsNearlyEqual(Budget.CloudSampleScale, 1.f))
-		{
-			for (const TCHAR* Setter : { TEXT("SetViewSampleCountScale"), TEXT("SetReflectionViewSampleCountScale"), TEXT("SetShadowViewSampleCountScale") })
-			{
-				if (!CallFloatSetter(Clouds.Get(), Setter, Budget.CloudSampleScale))
-				{
-					UE_LOG(LogGTPEnvironment, Warning, TEXT("Cloud setter %s not found"), Setter);
-				}
-			}
-		}
-	}
-	if (Budget.bCloudDome && Holder)
+	// measured): quality per profile and per weather, values owned by the optimisation work.
+	// The 2D dome is created whenever the profile may use it, and shown by UpdateClouds.
+	if ((Budget.bCloudDome || Budget.bCloudDomeWhenOvercast) && Holder)
 	{
 		UStaticMesh* Mesh = CloudDomeMesh.LoadSynchronous();
 		UMaterialInterface* Material = CloudDomeMaterial.LoadSynchronous();
@@ -588,6 +572,7 @@ void UGTPEnvironmentSubsystem::ApplyCloudQuality()
 			CloudDome->SetCastShadow(false);
 			CloudDome->bReceivesDecals = false;
 			CloudDome->SetWorldScale3D(CloudDomeScale);
+			CloudDome->SetVisibility(false);
 			CloudDome->SetupAttachment(Holder->GetRootComponent());
 			CloudDome->RegisterComponent();
 		}
@@ -603,6 +588,40 @@ void UGTPEnvironmentSubsystem::ApplyCloudQuality()
 		{
 			Prop->SetPropertyValue_InContainer(Sun.Get(), false);
 			Sun->MarkRenderStateDirty();
+		}
+	}
+}
+
+void UGTPEnvironmentSubsystem::UpdateClouds(const FGTPWeatherPreset& Weather)
+{
+	// 0 none, 1 volumetric, 2 dome. Without the dome assets the volumetric clouds stay.
+	int32 Mode = Budget.bVolumetricClouds ? 1 : 0;
+	if (CloudDome && (Budget.bCloudDome || (Budget.bCloudDomeWhenOvercast && Weather.bPreferCloudDome)))
+	{
+		Mode = 2;
+	}
+	if (Mode != AppliedCloudMode)
+	{
+		AppliedCloudMode = Mode;
+		if (Clouds.IsValid())
+		{
+			Clouds->SetVisibility(Mode == 1);
+		}
+		if (CloudDome)
+		{
+			CloudDome->SetVisibility(Mode == 2);
+		}
+	}
+	const float SampleScale = Budget.CloudSampleScale * Weather.CloudSampleScale;
+	if (Mode == 1 && Clouds.IsValid() && FMath::Abs(SampleScale - AppliedCloudSampleScale) > 0.05f)
+	{
+		AppliedCloudSampleScale = SampleScale;
+		for (const TCHAR* Setter : { TEXT("SetViewSampleCountScale"), TEXT("SetReflectionViewSampleCountScale"), TEXT("SetShadowViewSampleCountScale") })
+		{
+			if (!CallFloatSetter(Clouds.Get(), Setter, SampleScale))
+			{
+				UE_LOG(LogGTPEnvironment, Warning, TEXT("Cloud setter %s not found"), Setter);
+			}
 		}
 	}
 }
@@ -727,6 +746,7 @@ FGTPWeatherPreset UGTPEnvironmentSubsystem::BlendedWeather() const
 	Out.Rain = FMath::Lerp(A->Rain, B->Rain, FMath::Clamp(T * 1.6f - 0.6f * (B->Rain > A->Rain ? 1.f : 0.f), 0.f, 1.f));
 	Out.ExposureOffset = FMath::Lerp(A->ExposureOffset, B->ExposureOffset, T);
 	Out.Saturation = FMath::Lerp(A->Saturation, B->Saturation, T);
+	Out.CloudSampleScale = FMath::Lerp(A->CloudSampleScale, B->CloudSampleScale, T);
 	return Out;
 }
 
@@ -931,6 +951,7 @@ void UGTPEnvironmentSubsystem::ApplyAtmosphere()
 			HeightFog->MarkRenderStateDirty();
 		}
 	}
+	UpdateClouds(Weather);
 	if (CloudMaterial && Budget.bDriveCloudCoverage)
 	{
 		for (const FName& Parameter : CloudCoverageParameters)

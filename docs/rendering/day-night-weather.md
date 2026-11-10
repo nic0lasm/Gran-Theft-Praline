@@ -42,13 +42,14 @@ EV/s towards bright, 1 EV/s towards dark.
 
 | Bible state | Sun | Target | Bible range |
 | ---- | ---- | ---- | ---- |
-| Noon (21 June, 1:30 pm) | 67.6° | 14.6 | 13.5 – 15 |
+| Noon (21 June, 1:30 pm) | 67.6° | 14.5 | 13.5 – 15 |
 | Golden hour (15 Oct, 6:15 pm) | about 6° | 11.5 | 10 – 12.5 |
-| Rain (9 Nov, 11 am) | about 22° | 13.3 − 2.5 = 10.8 | 10.5 – 12.5 |
+| Rain (9 Nov, 11 am) | 24.7° | 13.45 − 2.4 = 11.05 | 10.5 – 12.5 |
 | Night (15 Jan, 10 pm) | −48° | 3.5 | 2 – 6 |
 
 White balance 6500 K by day, 5400 K at night (warm without turning sepia).
-Saturation follows the weather (0.8 in the rain).
+Saturation follows the weather (0.8 in the rain). `tools/environment/environment_model.py`
+redoes these computations outside Unreal and the tests check every state against the bible.
 
 ## 4. Night
 
@@ -77,7 +78,9 @@ Saturation follows the weather (0.8 in the rain).
   `bCloudShadows`, `bDriveCloudCoverage`). Volumetric clouds cost about 12 ms
   GPU in m1 (measured 2026-11-10): in m1 the weather does not change their
   coverage (overcast goes through the sun, sky and fog) until the decision on
-  their quality. Cheap fallback: `bCloudDome` turns the volumetric clouds
+  their quality. Per weather, `CloudSampleScale` multiplies the profile's,
+  and `bCloudDomeWhenOvercast` shows the 2D dome instead of the volumetric
+  clouds in overcast, rain, storm and fog (`bPreferCloudDome`). Cheap fallback: `bCloudDome` turns the volumetric clouds
   off and shows an unlit 2D cloud dome around the camera (`M_CloudDome`,
   coverage `Cloudiness`, luminance matched to the exposure through
   `CloudLuminance`).
@@ -96,7 +99,7 @@ hours, weighted for a Lyon autumn.
 | Clear | 0.15 | 1 | 0.008 | 0 | 0 | 3 |
 | Cloudy | 0.55 | 0.7 | 0.012 | 0 | −0.7 | 3 |
 | Overcast | 0.95 | 0.15 | 0.02 | 0 | −2.2 | 2 |
-| Rain | 1 | 0.1 | 0.035 | 0.7 | −2.5 | 2 |
+| Rain | 1 | 0.1 | 0.035 | 0.7 | −2.4 | 2 |
 | Storm | 1 | 0.06 | 0.05 | 1 | −3 | 0.5 |
 | Fog | 0.7 | 0.35 | 0.12 | 0 | −1.5 | 1 |
 

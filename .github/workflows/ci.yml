@@ -54,4 +54,4 @@ jobs:
       - name: Environment tools tests (day-night and weather)
         run: python -m pytest tools/environment/tests -q
       - name: Environment Unreal script compiles
-        run: python -m py_compile tools/environment/unreal/setup_environment.py tools/environment/unreal/gtp_weather.py
+        run: python -m py_compile tools/environment/unreal/setup_environment.py tools/environment/unreal/gtp_weather.py tools/environment/environment_model.py
