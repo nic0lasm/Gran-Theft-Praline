@@ -15,6 +15,9 @@ Run headless (see tools/assets/import-props-mac.sh):
   GTP_STAGING=<dir> GTP_WAVE=w1 [GTP_IDS="W1-01 W1-02"] UnrealEditor-Cmd <uproject> \
       -run=pythonscript -script=tools/assets/unreal/import_props.py -unattended
 
+Fix an existing master (defaults for ORM / Normal, needed to compile on Metal):
+  GTP_FIX_MASTER=1 UnrealEditor <uproject> -ExecutePythonScript=<copy of this file>
+
 Idempotent: assets are replaced on re-import. Writes only under /Game/Environment/Props
 and creates /Game/Materials/Masters/M_Master_Surface when absent.
 """
@@ -40,6 +43,50 @@ def log(msg):
 
 
 # ---------------------------------------------------------------- master material
+MASTER_FOLDER = MASTER_MATERIAL.rsplit("/", 1)[0]
+DEFAULT_MASKS = f"{MASTER_FOLDER}/T_Default_Masks"
+DEFAULT_NORMAL = f"{MASTER_FOLDER}/T_Default_Normal"
+
+
+def default_texture(path, source, compression):
+    """Linear copy of an engine texture, so a parameter's default matches its sampler type."""
+    if not eal.does_asset_exist(path):
+        if eal.duplicate_asset(source, path) is None:
+            raise RuntimeError(f"cannot duplicate {source} to {path}")
+    tex = unreal.load_asset(path)
+    tex.set_editor_property("srgb", False)
+    tex.set_editor_property("compression_settings", compression)
+    eal.save_loaded_asset(tex)
+    return tex
+
+
+def set_master_defaults(orm, normal):
+    """Without these defaults the master fails to compile on Metal
+    ("Sampler type is Normal/Masks, should be Color") and every prop falls
+    back to the engine checker material in packaged builds."""
+    orm.set_editor_property("texture", default_texture(
+        DEFAULT_MASKS, "/Engine/EngineMaterials/DefaultWhite", unreal.TextureCompressionSettings.TC_MASKS))
+    normal.set_editor_property("texture", default_texture(
+        DEFAULT_NORMAL, "/Engine/EngineMaterials/DefaultNormal", unreal.TextureCompressionSettings.TC_NORMALMAP))
+
+
+def fix_master_material():
+    """Give an existing master the defaults above (GTP_FIX_MASTER=1)."""
+    mat = unreal.load_asset(MASTER_MATERIAL)
+    if mat is None:
+        raise RuntimeError(f"no master material at {MASTER_MATERIAL}")
+    # The parameters feed Normal and Roughness directly (see ensure_master_material).
+    normal = mel.get_material_property_input_node(mat, unreal.MaterialProperty.MP_NORMAL)
+    orm = mel.get_material_property_input_node(mat, unreal.MaterialProperty.MP_ROUGHNESS)
+    for label, node in (("Normal", normal), ("ORM", orm)):
+        if not isinstance(node, unreal.MaterialExpressionTextureSampleParameter2D):
+            raise RuntimeError(f"{label} input of {MASTER_MATERIAL} is not a texture parameter: {node}")
+    set_master_defaults(orm, normal)
+    mel.recompile_material(mat)
+    eal.save_loaded_asset(mat)
+    log(f"master material defaults set: {DEFAULT_MASKS}, {DEFAULT_NORMAL}")
+
+
 def ensure_master_material():
     """Opaque PBR master with BaseColor / ORM / Normal texture parameters."""
     if eal.does_asset_exist(MASTER_MATERIAL):
@@ -58,6 +105,7 @@ def ensure_master_material():
     normal = tex_param("Normal", 300)
     orm.set_editor_property("sampler_type", unreal.MaterialSamplerType.SAMPLERTYPE_MASKS)
     normal.set_editor_property("sampler_type", unreal.MaterialSamplerType.SAMPLERTYPE_NORMAL)
+    set_master_defaults(orm, normal)
     mel.connect_material_property(base, "RGB", unreal.MaterialProperty.MP_BASE_COLOR)
     mel.connect_material_property(orm, "R", unreal.MaterialProperty.MP_AMBIENT_OCCLUSION)
     mel.connect_material_property(orm, "G", unreal.MaterialProperty.MP_ROUGHNESS)
@@ -230,6 +278,9 @@ def process(meta_path, master):
 
 
 def main():
+    if os.environ.get("GTP_FIX_MASTER") == "1":
+        fix_master_material()
+        return
     if not STAGING or not os.path.isdir(STAGING):
         raise SystemExit(f"GTP_STAGING must point to the staging folder (got {STAGING!r})")
     master = ensure_master_material()
