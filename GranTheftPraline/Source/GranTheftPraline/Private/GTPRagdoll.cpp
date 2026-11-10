@@ -61,7 +61,22 @@ bool UGTPRagdollComponent::BeginRagdoll(FVector LaunchVelocity, EGTPImpactSeveri
 		}
 	}
 
+	if (UGTPRagdollSubsystem::IsLite() && MaxStartDistance > 0.f)
+	{
+		if (const APlayerController* PC = GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr)
+		{
+			FVector Viewer;
+			FRotator Rotation;
+			PC->GetPlayerViewPoint(Viewer, Rotation);
+			if (FVector::Dist(Viewer, GetOwner()->GetActorLocation()) > MaxStartDistance)
+			{
+				return false;
+			}
+		}
+	}
+
 	State = GTPImpact::StartRagdollState(ToLogic(Severity), HealthAfterHit);
+	Timings = UGTPRagdollSubsystem::IsLite() ? GTPImpact::LiteTimings() : GTPImpact::FRagdollTimings();
 	bActive = true;
 
 	MeshParent = Mesh->GetAttachParent();
@@ -82,6 +97,25 @@ bool UGTPRagdollComponent::BeginRagdoll(FVector LaunchVelocity, EGTPImpactSeveri
 	Mesh->SetCollisionProfileName(RagdollProfile);
 	Mesh->SetAllBodiesSimulatePhysics(true);
 	Mesh->SetSimulatePhysics(true);
+	if (UGTPRagdollSubsystem::IsLite())
+	{
+		for (const FName& Bone : LiteKinematicBones)
+		{
+			Mesh->SetAllBodiesBelowSimulatePhysics(Bone, false, true);
+		}
+		for (FBodyInstance* Body : Mesh->Bodies)
+		{
+			if (Body)
+			{
+				Body->PositionSolverIterationCount = static_cast<uint8>(FMath::Clamp(LiteSolverIterations, 1, 255));
+				Body->VelocitySolverIterationCount = 1;
+				Body->LinearDamping = LiteDamping;
+				Body->AngularDamping = LiteDamping;
+				Body->UpdateDampingProperties();
+				Body->SleepFamily = ESleepFamily::Sensitive;
+			}
+		}
+	}
 	Mesh->WakeAllRigidBodies();
 	Mesh->AddImpulse(LaunchVelocity, PelvisBone, true);
 	if (SpinRadS > 0.f)
@@ -192,6 +226,17 @@ void UGTPRagdollComponent::Finish(bool bGotUp)
 	{
 		// Keep the pose; no more simulation cost.
 		Mesh->SetSimulatePhysics(false);
+		const APawn* OwnerPawn = Cast<APawn>(GetOwner());
+		if (UGTPRagdollSubsystem::IsLite() && HideFrozenAfter > 0.f && !(OwnerPawn && OwnerPawn->IsPlayerControlled()) && GetWorld())
+		{
+			TWeakObjectPtr<USkeletalMeshComponent> Weak = Mesh;
+			GetWorld()->GetTimerManager().SetTimer(HideTimer, FTimerDelegate::CreateLambda([Weak]() {
+				if (Weak.IsValid())
+				{
+					Weak->SetVisibility(false, true);
+				}
+			}), HideFrozenAfter, false);
+		}
 	}
 	if (UWorld* World = GetWorld())
 	{
@@ -224,7 +269,7 @@ void UGTPRagdollComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 void UGTPRagdollSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 {
 	Super::OnWorldBeginPlay(InWorld);
-	GTP_TRACE(LogGTPRagdoll, TEXT("ragdoll: %s (cap %d)"), IsEnabled() ? TEXT("on") : TEXT("off"), ChooseCap());
+	GTP_TRACE(LogGTPRagdoll, TEXT("ragdoll: %s%s (cap %d)"), IsEnabled() ? TEXT("on") : TEXT("off"), IsLite() ? TEXT(" lite") : TEXT(""), ChooseCap());
 	InWorld.GetTimerManager().SetTimer(EnforceTimer, this, &UGTPRagdollSubsystem::Enforce, 0.5f, true);
 }
 
@@ -250,6 +295,13 @@ bool UGTPRagdollSubsystem::IsEnabled()
 	return Value != 0;
 }
 
+bool UGTPRagdollSubsystem::IsLite()
+{
+	int32 Value = 0;
+	FParse::Value(FCommandLine::Get(), TEXT("-RagdollLite="), Value);
+	return Value != 0;
+}
+
 bool UGTPRagdollSubsystem::HasRoom() const
 {
 	int32 Running = 0;
@@ -272,6 +324,7 @@ int32 UGTPRagdollSubsystem::ChooseCap() const
 	{
 		return FMath::Max(0, Override);
 	}
+	const bool bLite = IsLite();
 	FString Profile = TEXT("m1");
 	if (const UGameInstance* GI = GetWorld()->GetGameInstance())
 	{
@@ -282,7 +335,11 @@ int32 UGTPRagdollSubsystem::ChooseCap() const
 	}
 	if (Profile == TEXT("ultra"))
 	{
-		return MaxRagdollsUltra;
+		return bLite ? MaxRagdollsLiteOther : MaxRagdollsUltra;
+	}
+	if (bLite)
+	{
+		return Profile == TEXT("fidelity") ? MaxRagdollsLiteOther : MaxRagdollsLiteM1;
 	}
 	return Profile == TEXT("fidelity") ? MaxRagdollsFidelity : MaxRagdollsM1;
 }

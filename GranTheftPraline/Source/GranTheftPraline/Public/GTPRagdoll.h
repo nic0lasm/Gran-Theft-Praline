@@ -83,6 +83,25 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Ragdoll")
 	TSoftObjectPtr<UAnimMontage> GetUpFaceDown;
 
+	/** Lite mode: physics solver iterations per body (default engine value is higher). */
+	UPROPERTY(Config, EditAnywhere, Category = "Ragdoll|Lite")
+	int32 LiteSolverIterations = 3;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Ragdoll|Lite")
+	float LiteDamping = 1.5f;
+
+	/** Lite mode: these bones and everything below them (fingers) are not simulated. */
+	UPROPERTY(Config, EditAnywhere, Category = "Ragdoll|Lite")
+	TArray<FName> LiteKinematicBones = {TEXT("hand_l"), TEXT("hand_r")};
+
+	/** Lite mode: no ragdoll for a body farther than this from the viewer (cm; it stays animated). */
+	UPROPERTY(Config, EditAnywhere, Category = "Ragdoll|Lite")
+	float MaxStartDistance = 3500.f;
+
+	/** Lite mode: a frozen non-player body is hidden after this long (s). */
+	UPROPERTY(Config, EditAnywhere, Category = "Ragdoll|Lite")
+	float HideFrozenAfter = 4.f;
+
 	/** Used when no montage is set: pause before the character is given back (s). */
 	UPROPERTY(Config, EditAnywhere, Category = "Ragdoll")
 	float FallbackGetUpSeconds = 1.f;
@@ -95,6 +114,7 @@ private:
 	GTPImpact::FRagdollState State;
 	GTPImpact::FRagdollTimings Timings;
 	bool bActive = false;
+	FTimerHandle HideTimer;
 
 	UPROPERTY(Transient)
 	TObjectPtr<USkeletalMeshComponent> Mesh;
@@ -129,6 +149,13 @@ public:
 	/** -Ragdoll=0 on the command line turns every physical reaction off. */
 	static bool IsEnabled();
 
+	/**
+	 * -RagdollLite=1: cheaper ragdolls (ADR-0006, cost section): fewer solver iterations,
+	 * more damping so bodies sleep sooner, hands kept kinematic, shorter life cycle,
+	 * a higher cap, no ragdoll beyond MaxStartDistance, frozen bodies hidden after a few seconds.
+	 */
+	static bool IsLite();
+
 	/** Hard limit: false when the cap of simulating ragdolls is reached (the body stays animated). */
 	bool HasRoom() const;
 
@@ -141,6 +168,13 @@ protected:
 
 	UPROPERTY(Config)
 	int32 MaxRagdollsUltra = 10;
+
+	/** Cap in lite mode (to confirm by measurement before it becomes the default). */
+	UPROPERTY(Config)
+	int32 MaxRagdollsLiteM1 = 6;
+
+	UPROPERTY(Config)
+	int32 MaxRagdollsLiteOther = 12;
 
 private:
 	void Enforce();
