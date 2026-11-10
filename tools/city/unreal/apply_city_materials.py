@@ -78,7 +78,7 @@ KIT_SLOTS = {
     "MI_Shop_Floor": (0.35, 0.33, 0.31, 0.4, 0.0),
     "MI_Shop_Display": (0.25, 0.22, 0.2, 0.6, 0.0),
     "MI_Sign_Panel": (0.5, 0.5, 0.5, 0.35, 0.0),
-    "MI_Glass_Shop": (0.05, 0.06, 0.065, 0.03, 0.0),   # opaque here: reflective dark glass
+    "MI_Glass_Shop": (0.05, 0.06, 0.065, 0.05, 0.0),   # translucent: M_City_GlassShop
 }
 KIT_EMISSIVE = {"MI_Shop_Interior": (1.0, 0.92, 0.8, 1.2)}
 # Share of the facade weathering each slot takes (1 when not listed).
@@ -338,16 +338,50 @@ def kit_master():
     return mat
 
 
+# Shop windows show the lit shop room behind them (~370 on the street side); the upper
+# floor windows stay opaque dark glass. Cheapest translucent lighting on Metal.
+SHOP_GLASS = "MI_Glass_Shop"
+SHOP_GLASS_OPACITY = 0.12
+
+
+def shop_glass_master():
+    mat = new_material("M_City_GlassShop")
+    mat.set_editor_property("blend_mode", unreal.BlendMode.BLEND_TRANSLUCENT)
+    mat.set_editor_property("translucency_lighting_mode",
+                            unreal.TranslucencyLightingMode.TLM_VOLUMETRIC_NON_DIRECTIONAL)
+    mat.set_editor_property("used_with_instanced_static_meshes", True)
+    g = Graph(mat)
+    base = g.node(unreal.MaterialExpressionVectorParameter, parameter_name="BaseColor",
+                  default_value=unreal.LinearColor(0.05, 0.06, 0.065, 1.0))
+    op = g.node(unreal.MaterialExpressionScalarParameter, parameter_name="Opacity", default_value=SHOP_GLASS_OPACITY)
+    # A touch of Fresnel: grazing views read as glass, straight-on views see the shop.
+    fres = g.node(unreal.MaterialExpressionFresnel)
+    opacity = g.unary(unreal.MaterialExpressionSaturate, g.add(op, g.mul(fres, g.const(0.5))))
+    rough = g.node(unreal.MaterialExpressionScalarParameter, parameter_name="Roughness", default_value=0.05)
+    mel.connect_material_property(g.mask(base, r=True, g=True, b=True), "", unreal.MaterialProperty.MP_BASE_COLOR)
+    mel.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS)
+    mel.connect_material_property(g.const(0.9), "", unreal.MaterialProperty.MP_SPECULAR)
+    mel.connect_material_property(opacity, "", unreal.MaterialProperty.MP_OPACITY)
+    g.done()
+    return mat
+
+
 def kit_instances(master):
     out = {}
+    glass = shop_glass_master()
     for name, (r, gr, b, rough, metal) in KIT_SLOTS.items():
         path = MAT_DIR + "/" + name.replace("MI_", "MI_City_", 1)
         if eal.does_asset_exist(path):
             eal.delete_asset(path)
         mic = asset_tools.create_asset(path.rsplit("/", 1)[1], MAT_DIR, unreal.MaterialInstanceConstant,
                                        unreal.MaterialInstanceConstantFactoryNew())
-        mel.set_material_instance_parent(mic, master)
+        mel.set_material_instance_parent(mic, glass if name == SHOP_GLASS else master)
         mel.set_material_instance_vector_parameter_value(mic, "BaseColor", unreal.LinearColor(r, gr, b, 1.0))
+        if name == SHOP_GLASS:
+            mel.set_material_instance_scalar_parameter_value(mic, "Roughness", rough)
+            eal.save_loaded_asset(mic)
+            out[name] = mic
+            continue
         mel.set_material_instance_scalar_parameter_value(mic, "Roughness", rough)
         mel.set_material_instance_scalar_parameter_value(mic, "Metallic", metal)
         mel.set_material_instance_scalar_parameter_value(mic, "UseBuildingColour",

@@ -40,6 +40,7 @@ from shapely.strtree import STRtree
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
 sys.path.insert(0, HERE)
+import terrain  # noqa: E402
 import citylib as cl  # noqa: E402
 import generate  # noqa: E402
 import grandlyon  # noqa: E402
@@ -116,7 +117,7 @@ def main():  # noqa: C901, PLR0915
             return False
         if any(math.hypot(x - a, y - b) < MIN_GAP_M for a, b in placed):
             return False
-        gz = mnt.sample(np.array([x + origin[0]]), np.array([y + origin[1]]))[0]
+        gz = terrain.surface_z(mnt, origin, origin_alt, [x], [y])[0] + origin_alt   # the collided tiles
         z = 0.0 if np.isnan(gz) else float(gz) - origin_alt
         ux, uy, uz = cl.to_unreal(x, y, z)
         a = assets.get(cid, {"asset": "", "family": "", "path": ""})
