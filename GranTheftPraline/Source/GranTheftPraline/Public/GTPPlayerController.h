@@ -52,6 +52,10 @@ public:
 	void ClosePauseMenu();
 
 	/** Settings screen, from the title screen or the pause menu; Close returns to that menu. */
+	/** Full-screen map (M, gamepad View button): pauses the game; the same key, Escape or B closes it. */
+	void ToggleFullMap();
+	bool IsFullMapOpen() const { return bFullMapOpen; }
+
 	void OpenSettingsMenu();
 	void CloseSettingsMenu();
 
@@ -63,7 +67,7 @@ public:
 	UGTPInteractionComponent* GetInteraction() const { return Interaction; }
 
 	/** True while the title screen or the pause menu is shown. */
-	bool IsMenuOpen() const { return TitleMenu != nullptr || PauseMenu != nullptr || SettingsMenu != nullptr; }
+	bool IsMenuOpen() const { return TitleMenu != nullptr || PauseMenu != nullptr || SettingsMenu != nullptr || bFullMapOpen; }
 
 	/** Look input is scaled by the player's sensitivity setting; pitch can be inverted. */
 	virtual void AddYawInput(float Val) override;
@@ -185,4 +189,5 @@ private:
 
 	/** The settings screen was opened from the title screen (else from the pause menu). */
 	bool bSettingsFromTitle = false;
+	bool bFullMapOpen = false;
 };

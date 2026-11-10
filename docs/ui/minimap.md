@@ -23,7 +23,7 @@ la République: `/mnt/project-files/ui/minimap-preview-*.png` (made by
 
 `tools/ui/minimap.py` turns the city tables (`roads.geojson`, `water.geojson`,
 `buildings.geojson` of the zone: IGN BD TOPO, Licence Ouverte Etalab 2.0) into
-`minimap.csv`: one row per polyline, `kind,width_m,points_ue_cm`, simplified to 1.5 m
+`minimap.csv`: one row per polyline, `kind,width_m,points_ue_cm,name`, simplified to 1.5 m
 and in Unreal centimetres like the traffic lanes. Presqu'île: 3 497 polylines,
 295 KB. With `--map <Map>` it is copied to
 `GranTheftPraline/Content/City/Minimap/<Map>.minimap.csv`, which is **not committed**
@@ -61,7 +61,16 @@ the mini-map on and off, same route); the budget requested from the optimisation
 is 0.3 ms CPU and 0.2 ms GPU. If it does not fit, the fallback is one static
 pre-rendered texture per map rotated by the HUD (one draw call).
 
+## Full-screen map
+
+**M** (gamepad View button) opens a full-screen map and pauses the game; M, Escape or B
+closes it. Same data, north up, centred on the player, 700 m tall, with building outlines,
+water, all roads, **street names** (one label per name, at the middle of its longest
+polyline; names come from the BD TOPO `nom_voie_ban` column, written as the `name` column of
+`minimap.csv`) and the player's arrow turned to where they look. Drawn by
+`UGTPMinimapSubsystem::DrawFullMap`; the HUD hands over to it while it is open.
+
 ## Next (roadmap 0.10)
 
-Full-screen map with the same data and a larger view, waypoint set by the player, GPS
-route drawn on the lanes (`lanes.csv` of the traffic), district names.
+Waypoint set by the player, GPS route drawn on the lanes (`lanes.csv` of the traffic),
+pan and zoom of the full map, district names.

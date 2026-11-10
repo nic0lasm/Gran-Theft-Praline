@@ -13,6 +13,7 @@
 #include <cstdlib>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
 namespace GTPUI
@@ -37,13 +38,24 @@ struct FMapLine
 {
 	EMapKind Kind = EMapKind::RoadMinor;
 	float WidthM = 0.f;
+	std::string Name;          // street name, empty when none
 	std::vector<FVec2> Points; // Unreal cm
 	float MinX = 0.f, MinY = 0.f, MaxX = 0.f, MaxY = 0.f;
+};
+
+/** A street name and where to write it (full-screen map). */
+struct FMapLabel
+{
+	std::string Text;
+	FVec2 Position; // Unreal cm
 };
 
 struct FMapData
 {
 	std::vector<FMapLine> Lines;
+
+	/** One label per street name, at the middle of its longest polyline. */
+	std::vector<FMapLabel> BuildStreetLabels() const;
 
 	/** Parses the file written by tools/ui/minimap.py; returns the number of polylines kept. */
 	int ParseCsv(std::string_view Text);
@@ -101,6 +113,12 @@ inline int FMapData::ParseCsv(std::string_view Text)
 		}
 		Entry.WidthM = static_cast<float>(std::atof(std::string(Line.substr(C1 + 1, C2 - C1 - 1)).c_str()));
 		std::string_view Points = Line.substr(C2 + 1);
+		const std::size_t C3 = Points.find(',');
+		if (C3 != std::string_view::npos)
+		{
+			Entry.Name = std::string(Points.substr(C3 + 1));
+			Points = Points.substr(0, C3);
+		}
 		while (!Points.empty())
 		{
 			const std::size_t Semi = Points.find(';');
@@ -137,6 +155,61 @@ inline int FMapData::ParseCsv(std::string_view Text)
 		++Kept;
 	}
 	return Kept;
+}
+
+inline std::vector<FMapLabel> FMapData::BuildStreetLabels() const
+{
+	struct FBest
+	{
+		float Length = 0.f;
+		FVec2 Middle;
+	};
+	std::unordered_map<std::string, FBest> Best;
+	std::vector<std::string> Order; // stable output order
+	for (const FMapLine& Line : Lines)
+	{
+		if (Line.Name.empty() || (Line.Kind != EMapKind::RoadMajor && Line.Kind != EMapKind::RoadMinor))
+		{
+			continue;
+		}
+		float Total = 0.f;
+		for (std::size_t i = 1; i < Line.Points.size(); ++i)
+		{
+			Total += std::hypot(Line.Points[i].X - Line.Points[i - 1].X, Line.Points[i].Y - Line.Points[i - 1].Y);
+		}
+		auto It = Best.find(Line.Name);
+		if (It == Best.end())
+		{
+			Order.push_back(Line.Name);
+			It = Best.emplace(Line.Name, FBest()).first;
+		}
+		if (Total <= It->second.Length)
+		{
+			continue;
+		}
+		// Point at half the length.
+		float Walked = 0.f;
+		FVec2 Middle = Line.Points.front();
+		for (std::size_t i = 1; i < Line.Points.size(); ++i)
+		{
+			const float Step = std::hypot(Line.Points[i].X - Line.Points[i - 1].X, Line.Points[i].Y - Line.Points[i - 1].Y);
+			if (Walked + Step >= Total * 0.5f && Step > 0.f)
+			{
+				const float T = (Total * 0.5f - Walked) / Step;
+				Middle = {Line.Points[i - 1].X + (Line.Points[i].X - Line.Points[i - 1].X) * T,
+					Line.Points[i - 1].Y + (Line.Points[i].Y - Line.Points[i - 1].Y) * T};
+				break;
+			}
+			Walked += Step;
+		}
+		It->second = {Total, Middle};
+	}
+	std::vector<FMapLabel> Out;
+	for (const std::string& Name : Order)
+	{
+		Out.push_back({Name, Best[Name].Middle});
+	}
+	return Out;
 }
 
 /** Round view of the map: where the player is, where they look, how much street the disc shows. */

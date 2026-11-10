@@ -146,16 +146,21 @@ static void TestMinimap()
 	// CSV: kinds, closed ring, bad rows skipped, culling by box.
 	FMapData Data;
 	const int Kept = Data.ParseCsv(
-		"kind,width_m,points_ue_cm\n"
-		"road_major,6,0 0;1000 0\n"
-		"road_minor,4,0 5000;1000 5000\n"
+		"kind,width_m,points_ue_cm,name\n"
+		"road_major,6,0 0;1000 0,Rue Test\n"
+		"road_minor,4,0 100;500 100,Rue Test\n"
+		"road_minor,4,0 5000;1000 5000,\n"
 		"water,0,0 0;100 0;100 100;0 0\n"
 		"mystery,1,0 0;1 1\n"
 		"path,2,5 5\r\n"
 		"building,0,-100 -100;100 -100;100 100;-100 100;-100 -100\n");
-	CHECK(Kept == 4);
+	CHECK(Kept == 5);
 	CHECK(Data.Lines[0].Kind == EMapKind::RoadMajor && Data.Lines[0].WidthM == 6.f);
-	CHECK(Data.Lines[2].Kind == EMapKind::Water);
+	CHECK(Data.Lines[3].Kind == EMapKind::Water);
+	CHECK(Data.Lines[0].Name == "Rue Test" && Data.Lines[2].Name.empty());
+	// One label per name, at the middle of the longest polyline (the 1000 cm one).
+	const std::vector<FMapLabel> Labels = Data.BuildStreetLabels();
+	CHECK(Labels.size() == 1 && Labels[0].Text == "Rue Test" && Near(Labels[0].Position.X, 500.f) && Near(Labels[0].Position.Y, 0.f));
 
 	FMapView Near2;
 	Near2.Center = {500.f, 0.f};
@@ -166,7 +171,7 @@ static void TestMinimap()
 	const int Segments = ForEachVisibleSegment(Data, Near2, [&](EMapKind K, float, const FVec2&, const FVec2&) {
 		(K == EMapKind::RoadMajor || K == EMapKind::RoadMinor) ? ++Roads : ++Others;
 	});
-	CHECK(Roads == 1); // the minor road 50 m away is outside
+	CHECK(Roads == 2); // the two near roads; the minor road 50 m away is outside
 	CHECK(Others > 0);
 	CHECK(Segments == Roads + Others);
 }
