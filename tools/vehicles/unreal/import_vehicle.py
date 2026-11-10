@@ -246,7 +246,17 @@ def wheel_anim_blueprint(skeleton, folder, name):
     return abp
 
 
-def make_blueprint(folder, name, mesh, abp, glass):
+def vehicle_spec(vid):
+    """Per-vehicle settings from tools/vehicles/vehicles.json (empty if absent)."""
+    try:
+        with open(os.path.join(REPO, "tools", "vehicles", "vehicles.json")) as f:
+            return json.load(f).get(vid, {})
+    except (OSError, ValueError) as exc:
+        log(f"WARNING: vehicles.json unreadable: {exc!r}")
+        return {}
+
+
+def make_blueprint(folder, name, mesh, abp, glass, mass_kg=None):
     path = f"{folder}/BP_{name}"
     if not eal.does_asset_exist(path):
         factory = unreal.BlueprintFactory()
@@ -261,6 +271,12 @@ def make_blueprint(folder, name, mesh, abp, glass):
         body.set_editor_property("animation_mode", unreal.AnimationMode.ANIMATION_BLUEPRINT)
         body.set_editor_property("anim_class", abp.generated_class())
     cdo.set_editor_property("glass_meshes", {getattr(unreal.GTPDamageZone, ZONES[z]): sm for z, sm in glass.items()})
+    if mass_kg:
+        # Optional "mass_kg" in vehicles.json (a van is heavier than the
+        # 1150 kg default set by AGTPVehicle's constructor).
+        move = cdo.get_editor_property("vehicle_movement_component")
+        move.set_editor_property("mass", float(mass_kg))
+        log(f"mass {move.get_editor_property('mass')} kg")
     unreal.BlueprintEditorLibrary.compile_blueprint(bp)
     eal.save_asset(path, only_if_is_dirty=False)
     log("saved " + path)
@@ -366,7 +382,7 @@ def main():
             log("removed importer material " + path)
 
     abp = wheel_anim_blueprint(skeleton, folder, name)
-    bp_path = make_blueprint(folder, name, mesh, abp, glass)
+    bp_path = make_blueprint(folder, name, mesh, abp, glass, vehicle_spec(vid).get("mass_kg"))
     log(f"DONE {bp_path}.BP_{name}_C")
 
 
