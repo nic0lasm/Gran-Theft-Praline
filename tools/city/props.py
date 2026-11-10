@@ -156,7 +156,10 @@ def main():  # noqa: C901, PLR0915
         p = ft["properties"]
         yaw = facing(x, y)[0]
         grate = add("W1-17", x, y, yaw, "grandlyon:trees", str(p.get("identifiant", "")))
-        if grate and p.get("genre") == "Platanus":  # the plane trees of the Presqu'ile: trunk asset, young ones guarded
+        if grate:
+            # A tree stands in every grate. The catalog only has the Presqu'ile plane tree
+            # (bare, as in November), so other species use it too until wave 15 adds them;
+            # young trees get the guarded sapling.
             young = (p.get("circonference_cm") or 100) < 60
             placed.pop()  # the trunk stands in the grate
             add("W14-64" if young else "W14-63", x, y, yaw, "grandlyon:trees", str(p.get("identifiant", "")))

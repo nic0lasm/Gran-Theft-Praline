@@ -3,10 +3,11 @@
 Input: assets/geo/processed/<zone>/roads.geojson (IGN BD TOPO road centre lines,
 local metres, x east, y north) and gen/<focus>/buildings_gen.csv (extent).
 Output (not committed, like the rest of gen/):
-  gen/<focus>/ground/T_GroundMask.png   RGBA, one texel ~15 cm, Unreal axes:
+  gen/<focus>/ground/T_GroundMask.png   RGB (no alpha), one texel ~15 cm, Unreal axes:
       R = asphalt carriageway, G = pedestrian paving (streets closed to cars, paths, steps),
-      B = road marking, A = kerb stones along the carriageway
-      (everything else is sidewalk paving)
+      B = road marking where R is set, kerb stones where it is not
+      (everything else is sidewalk paving). No alpha channel: the Unreal PNG importer
+      fills the colour of transparent texels, which wiped R and G off the first version.
   gen/<focus>/ground/ground.json        extent in Unreal cm, read by
       tools/city/unreal/apply_city_materials.py to map world X/Y to the mask
 Road widths come from largeur_de_chaussee, else 3 m per lane. A road with
@@ -124,13 +125,13 @@ def build(zone, focus):
     kerb = np.where(asphalt > 0, 0, kerb)
     paving = np.where((asphalt > 0) | (kerb > 0), 0, paving)
     mark = np.where(asphalt > 0, np.asarray(layers["mark"], np.uint8), 0)
-    rgba = np.dstack([asphalt, paving, mark, kerb]).astype(np.uint8)
-    img = Image.fromarray(rgba, "RGBA").filter(ImageFilter.SMOOTH)
+    rgb = np.dstack([asphalt, paving, np.maximum(mark, kerb)]).astype(np.uint8)
+    img = Image.fromarray(rgb, "RGB").filter(ImageFilter.SMOOTH)
     out = os.path.join(gen, "ground")
     os.makedirs(out, exist_ok=True)
     img.save(os.path.join(out, "T_GroundMask.png"), optimize=True)
     meta = {"extent_ue_cm": [x0, y0, x1, y1], "size_px": [w, h], "cm_per_px": round(cm_per_px, 3),
-            "channels": "R asphalt, G pedestrian paving, B marking, A kerb; else sidewalk", "counts": counts,
+            "channels": "R asphalt, G pedestrian paving, B marking (on R) or kerb (off R); else sidewalk", "counts": counts,
             "coverage": {"asphalt": round(float((asphalt > 0).mean()), 3),
                          "paving": round(float((paving > 0).mean()), 3)}}
     with open(os.path.join(out, "ground.json"), "w") as f:

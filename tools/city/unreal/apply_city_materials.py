@@ -10,7 +10,8 @@ tools/city/ground_mask.py).
 Steps (idempotent, only material assets and the mesh slots change, the map is not rebuilt):
   1. import T_GroundMask.png (linear, masks) into /Game/Environment/City/<Zone>/Materials
   2. M_City_Ground: the mask is read at world X/Y (ground.json extent):
-     asphalt carriageway, kerb stones, granite paving on streets closed to cars,
+     asphalt carriageway, kerb stones (mask without alpha: the PNG importer would
+     fill the colour of transparent texels), granite paving on streets closed to cars,
      limestone slabs on sidewalks, dashed centre lines; joints and a slow tone
      variation are procedural (no texture fetch beyond the mask)
   3. M_City_Shell: the building colour the generator wrote in the vertex colours,
@@ -215,11 +216,16 @@ def ground_material(tex, extent):
     sett = g.lerp(g.const(1.0), g.const(0.6), g.joints(xy, 22.0, 0.08))       # granite setts
     col = g.mul(g.const(SIDEWALK), slab)
     col = g.lerp(col, g.mul(g.const(PAVING), sett), s, "G")
-    col = g.lerp(col, g.const(KERB), s, "A")
+    # B is a road marking on the carriageway (R) and a kerb stone off it.
+    on_road = g.mask(s, r=True)
+    b_ch = g.mask(s, b=True)
+    kerb = g.mul(b_ch, g.sub(g.const(1.0), on_road))
+    mark = g.mul(b_ch, on_road)
+    col = g.lerp(col, g.const(KERB), kerb)
     col = g.lerp(col, g.const(ASPHALT), s, "R")
-    col = g.lerp(col, g.const(MARKING), s, "B")
+    col = g.lerp(col, g.const(MARKING), mark)
     col = g.mul(col, tone)
-    rough = g.lerp(g.lerp(g.const(0.78), g.const(0.92), s, "R"), g.const(0.6), s, "B")
+    rough = g.lerp(g.lerp(g.const(0.78), g.const(0.92), s, "R"), g.const(0.6), mark)
     mel.connect_material_property(col, "", unreal.MaterialProperty.MP_BASE_COLOR)
     mel.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS)
     g.done()
