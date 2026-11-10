@@ -366,6 +366,33 @@ def facade_check(report):
             for c in a.get_components_by_class(unreal.HierarchicalInstancedStaticMeshComponent):
                 inst += c.get_instance_count()
     report["facade_actors"], report["facade_instances"] = actors, inst
+    lock_exposure(report, actor_sub, level_sub)
+
+
+def lock_exposure(report, actor_sub, level_sub):
+    """Fix the auto exposure of the map to the art bible's daylight EV100.
+
+    With the default range the eye adaptation brightened the dark ground until the
+    asphalt read mid grey and the paving almost white. min = max = EV100 keeps the
+    albedos readable. GTP_CITY_EV100 (default 14, sunny midday) or 'off'."""
+    ev = os.environ.get("GTP_CITY_EV100", "14")
+    if ev == "off":
+        return
+    ev = float(ev)
+    done = 0
+    for a in actor_sub.get_all_level_actors():
+        if not isinstance(a, unreal.PostProcessVolume):
+            continue
+        st = a.get_editor_property("settings")
+        for k, v in (("auto_exposure_min_brightness", ev), ("auto_exposure_max_brightness", ev)):
+            st.set_editor_property("override_" + k, True)
+            st.set_editor_property(k, v)
+        a.set_editor_property("settings", st)
+        done += 1
+    if done:
+        level_sub.save_current_level()
+    report["exposure_locked_ev100"] = ev if done else None
+    report["post_process_volumes"] = done
 
 
 def main():
