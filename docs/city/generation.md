@@ -329,6 +329,30 @@ runs the after build on the demo route (m1 profile, the game films itself), then
 side-by-side stills at the same times (`compare-stills.swift`, AVFoundation, no ffmpeg) and
 both frame-time summaries.
 
+## Landmarks and cell weights (added 2026-11-10)
+
+`tools/city/landmarks.py` replaces the generic facade kit with a measured volume for the
+monuments people recognise: the Opera (glass vault) and the Hotel de Ville (pavilions, belfry,
+courtyards). OpenStreetMap footprint (Wikidata id), courtyards removed where the LiDAR sees the
+ground, walls on the true outline, roof = LiDAR MNS heightfield joined to the wall tops.
+Opera: 2,072 m², 45 m, 4,261 triangles; Hotel de Ville: 3,764 m² with 1,604 m² of courtyards
+removed, 52 m, 7,856 triangles. The 6 BD TOPO buildings covered leave `generate.py`
+(`left_to_landmarks` in the report) and `import_city.py` places `gen/<focus>/landmarks.glb`
+with collision. `GTP_CITY_LANDMARKS=0` goes back to the generic shells.
+
+Place Bellecour and place des Jacobins: data only (outline, surface, monuments). The Louis XIV
+statue and the Jacobins and Bartholdi fountains have no volume: the LiDAR MNS equals the
+terrain on those squares (above-ground filtered), they will need models. Known limit.
+
+`tools/city/cell_budget.py` estimates each cell's weight (facade instances, signs, furniture)
+calibrated on the measured street (21,299 + 3,400 instances = 14 ms). Worst cell
+p0000-m0500: 8.4 ms; worst 2 × 2 block: 26.1 ms; 3 × 3: 50.4 ms. Upper bounds (no cull
+distance, no occlusion): 2 × 2 exceeds the 14 ms of ADR-0010, hence kit variety at constant
+cost and the 250 m cull to be measured.
+
+Mac slot in one command: `caffeinate -dimsu tools/city/city_slot_mac.sh <before_builds> 0.3`
+(regeneration, package, filmed 60 s M1 test, the realism thread's before/after).
+
 ## Limits and next steps
 
 1. **Editor test**: `tools/city/unreal/import_city.py` imports the greybox and

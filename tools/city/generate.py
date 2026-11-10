@@ -147,6 +147,13 @@ def main():
     to_world = lambda p: (p[0] + origin[0], p[1] + origin[1])  # noqa: E731
 
     buildings = load_buildings(proc)
+    # Landmarks (tools/city/landmarks.py) get a LiDAR volume of their own instead of the kit.
+    replaced = set()
+    lm_path = os.path.join(proc, "landmarks.json")
+    if os.environ.get("GTP_CITY_LANDMARKS", "1") != "0" and os.path.exists(lm_path):
+        with open(lm_path, encoding="utf-8") as f:
+            replaced = set(json.load(f).get("replaced_bdtopo", []))
+        buildings = [b for b in buildings if b["id"] not in replaced]
     roads = load_roads(raw, origin)
     shops = load_shops(proc)
     mnt, mns = raster.Raster.load(raw, "mnt"), raster.Raster.load(raw, "mns")
@@ -290,6 +297,7 @@ def main():
     report = {
         "zone": args.name, "focus": args.focus, "buffer_m": args.buffer, "extra_bbox": args.extra_bbox,
         "bdtopo_buildings": len(selected),
+        "left_to_landmarks": sorted(replaced),
         "skipped_lidar_ground": len(skipped), "building_parts": len(bld_rows),
         "open_courtyards_m2": round(courtyard_m2), "covered_courtyards_m2": round(podium_m2),
         "typologies": typologies, "roof_kinds": roof_kinds, "modules": len(mod_rows), "module_kinds": kinds,

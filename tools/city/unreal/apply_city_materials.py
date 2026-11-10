@@ -561,6 +561,8 @@ def main():
         shell = shell_material()
         report["terrain_meshes"] = assign(ROOT + "/Terrain", ground)
         report["shell_meshes"] = assign(ROOT + "/Buildings/" + CAMEL, shell)
+        if eal.does_directory_exist(ROOT + "/Landmarks/" + CAMEL):
+            report["landmark_meshes"] = assign(ROOT + "/Landmarks/" + CAMEL, shell)
         river_dir = ROOT + "/Riverside/" + CAMEL
         if eal.does_directory_exist(river_dir):
             report["riverside_meshes"] = assign(river_dir, shell, {"SM_River_Water": water_material()})
