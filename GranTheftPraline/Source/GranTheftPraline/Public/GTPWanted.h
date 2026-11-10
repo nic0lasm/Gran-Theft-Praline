@@ -52,7 +52,6 @@ public:
 	static UGTPWantedComponent* Find(const UObject* WorldContext);
 
 	/** Reports a crime at Location. The police learn of it only if a witness could see: always true for now (every crime counts). */
-	UFUNCTION(BlueprintCallable, Category = "Wanted")
 	void ReportCrime(EGTPCrimeKind Kind, const FVector& Location);
 
 	UFUNCTION(BlueprintPure, Category = "Wanted")
