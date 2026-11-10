@@ -59,4 +59,4 @@ table so they can switch to `GTPLoc` when those systems are next touched.
   file back; a second launch with `-UITest=verify` checks they persisted;
   `-UITest=reset` restores the defaults. Results: `Saved/Logs/ui_test.txt`, lines ending
   `UITEST <step> PASS` or `FAIL`.
-- Mini-map cost: the same route with and without `-NoMinimap`.
+- Mini-map cost: the same route with and without `-Minimap=0` (or `-NoMinimap`).

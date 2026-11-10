@@ -20,7 +20,7 @@ class UCanvas;
  *
  * Drawn on the canvas from AGTPHUD::DrawHUD with one call, Draw(); cost is one
  * line item per visible segment (a few hundred), measured in docs/ui/minimap.md.
- * -NoMinimap on the command line switches it off (A/B measurements).
+ * -Minimap=0 (or -NoMinimap) on the command line switches it off (A/B measurements).
  * The player can switch it off and pick its zoom in the settings screen.
  *
  * Blips (police cars, pedestrians, targets): AddBlip(Actor, Colour) from any
@@ -41,6 +41,9 @@ public:
 
 	void AddBlip(AActor* Actor, const FLinearColor& Color, bool bClampToEdge = false);
 	void RemoveBlip(AActor* Actor);
+
+	/** True with -Minimap=0 or -NoMinimap: the subsystem is not created. */
+	static bool IsDisabledOnCommandLine();
 
 	bool HasData() const { return Data.Lines.size() > 0; }
 
