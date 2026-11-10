@@ -1,0 +1,215 @@
+{
+  "wave": "f1",
+  "note": "Free CC0 props from Poly Haven, real-world scale (size_m measured from the source).",
+  "items": [
+    {
+      "id": "F1-01",
+      "slug": "bar_chair_round_01",
+      "name": "Bar chair round 01",
+      "size_m": 0.75,
+      "family": "Terrace",
+      "asset": "Chair_BarRound",
+      "category": "small",
+      "source": "Poly Haven (CC0)",
+      "source_url": "https://polyhaven.com/a/bar_chair_round_01"
+    },
+    {
+      "id": "F1-02",
+      "slug": "cardboard_box_01",
+      "name": "Cardboard box 01",
+      "size_m": 0.52,
+      "family": "Waste",
+      "asset": "Box_Cardboard",
+      "category": "small",
+      "source": "Poly Haven (CC0)",
+      "source_url": "https://polyhaven.com/a/cardboard_box_01"
+    },
+    {
+      "id": "F1-03",
+      "slug": "concrete_road_barrier",
+      "name": "Concrete road barrier",
+      "size_m": 1.55,
+      "family": "Traffic",
+      "asset": "Barrier_ConcreteJersey",
+      "category": "medium",
+      "source": "Poly Haven (CC0)",
+      "source_url": "https://polyhaven.com/a/concrete_road_barrier"
+    },
+    {
+      "id": "F1-04",
+      "slug": "concrete_road_barrier_02",
+      "name": "Concrete road barrier 02",
+      "size_m": 1.57,
+      "family": "Traffic",
+      "asset": "Barrier_ConcreteBlock",
+      "category": "medium",
+      "source": "Poly Haven (CC0)",
+      "source_url": "https://polyhaven.com/a/concrete_road_barrier_02"
+    },
+    {
+      "id": "F1-05",
+      "slug": "metal_trash_can",
+      "name": "Metal trash can",
+      "size_m": 1.78,
+      "family": "Waste",
+      "asset": "Bin_MetalLidded",
+      "category": "medium",
+      "source": "Poly Haven (CC0)",
+      "source_url": "https://polyhaven.com/a/metal_trash_can"
+    },
+    {
+      "id": "F1-06",
+      "slug": "modular_street_seating",
+      "name": "Modular street seating",
+      "size_m": 4.34,
+      "family": "Seating",
+      "asset": "Bench_ModularStreet",
+      "category": "large",
+      "source": "Poly Haven (CC0)",
+      "source_url": "https://polyhaven.com/a/modular_street_seating"
+    },
+    {
+      "id": "F1-07",
+      "slug": "outdoor_table_chair_set_01",
+      "name": "Outdoor table chair set 01",
+      "size_m": 1.72,
+      "family": "Terrace",
+      "asset": "Set_TableChairs",
+      "category": "medium",
+      "source": "Poly Haven (CC0)",
+      "source_url": "https://polyhaven.com/a/outdoor_table_chair_set_01"
+    },
+    {
+      "id": "F1-08",
+      "slug": "planter_box_01",
+      "name": "Planter box 01",
+      "size_m": 0.91,
+      "family": "Greenery",
+      "asset": "Planter_Box01",
+      "category": "small",
+      "source": "Poly Haven (CC0)",
+      "source_url": "https://polyhaven.com/a/planter_box_01"
+    },
+    {
+      "id": "F1-09",
+      "slug": "planter_box_02",
+      "name": "Planter box 02",
+      "size_m": 1.25,
+      "family": "Greenery",
+      "asset": "Planter_Box02",
+      "category": "medium",
+      "source": "Poly Haven (CC0)",
+      "source_url": "https://polyhaven.com/a/planter_box_02"
+    },
+    {
+      "id": "F1-10",
+      "slug": "planter_box_03",
+      "name": "Planter box 03",
+      "size_m": 0.91,
+      "family": "Greenery",
+      "asset": "Planter_Box03",
+      "category": "small",
+      "source": "Poly Haven (CC0)",
+      "source_url": "https://polyhaven.com/a/planter_box_03"
+    },
+    {
+      "id": "F1-11",
+      "slug": "plastic_crate_02",
+      "name": "Plastic crate 02",
+      "size_m": 0.51,
+      "family": "Shop",
+      "asset": "Crate_Plastic02",
+      "category": "small",
+      "source": "Poly Haven (CC0)",
+      "source_url": "https://polyhaven.com/a/plastic_crate_02"
+    },
+    {
+      "id": "F1-12",
+      "slug": "plastic_crate_03",
+      "name": "Plastic crate 03",
+      "size_m": 0.48,
+      "family": "Shop",
+      "asset": "Crate_Plastic03",
+      "category": "small",
+      "source": "Poly Haven (CC0)",
+      "source_url": "https://polyhaven.com/a/plastic_crate_03"
+    },
+    {
+      "id": "F1-13",
+      "slug": "potted_plant_01",
+      "name": "Potted plant 01",
+      "size_m": 1.35,
+      "family": "Greenery",
+      "asset": "Pot_Plant01",
+      "category": "medium",
+      "source": "Poly Haven (CC0)",
+      "source_url": "https://polyhaven.com/a/potted_plant_01"
+    },
+    {
+      "id": "F1-14",
+      "slug": "potted_plant_02",
+      "name": "Potted plant 02",
+      "size_m": 0.84,
+      "family": "Greenery",
+      "asset": "Pot_Plant02",
+      "category": "small",
+      "source": "Poly Haven (CC0)",
+      "source_url": "https://polyhaven.com/a/potted_plant_02"
+    },
+    {
+      "id": "F1-15",
+      "slug": "potted_plant_04",
+      "name": "Potted plant 04",
+      "size_m": 0.27,
+      "family": "Greenery",
+      "asset": "Pot_Succulent",
+      "category": "small",
+      "source": "Poly Haven (CC0)",
+      "source_url": "https://polyhaven.com/a/potted_plant_04"
+    },
+    {
+      "id": "F1-16",
+      "slug": "street_lamp_01",
+      "name": "Street lamp 01",
+      "size_m": 3.87,
+      "family": "StreetLighting",
+      "asset": "Lamp_PostClassic",
+      "category": "large",
+      "source": "Poly Haven (CC0)",
+      "source_url": "https://polyhaven.com/a/street_lamp_01"
+    },
+    {
+      "id": "F1-17",
+      "slug": "street_lamp_02",
+      "name": "Street lamp 02",
+      "size_m": 1.68,
+      "family": "StreetLighting",
+      "asset": "Lamp_PostModern",
+      "category": "medium",
+      "source": "Poly Haven (CC0)",
+      "source_url": "https://polyhaven.com/a/street_lamp_02"
+    },
+    {
+      "id": "F1-18",
+      "slug": "trashbag",
+      "name": "Trashbag",
+      "size_m": 0.57,
+      "family": "Waste",
+      "asset": "Bag_Trash",
+      "category": "small",
+      "source": "Poly Haven (CC0)",
+      "source_url": "https://polyhaven.com/a/trashbag"
+    },
+    {
+      "id": "F1-19",
+      "slug": "water_manhole_cover",
+      "name": "Water manhole cover",
+      "size_m": 0.69,
+      "family": "Utilities",
+      "asset": "Cover_WaterManhole",
+      "category": "small",
+      "source": "Poly Haven (CC0)",
+      "source_url": "https://polyhaven.com/a/water_manhole_cover"
+    }
+  ]
+}
