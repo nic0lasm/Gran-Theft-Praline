@@ -31,7 +31,7 @@ tard du Game Animation Sample ou d'une capture.
 | Conduite physique : accélération, freinage, marche arrière, frein à main, dérapage | Boîte manuelle, réglages par joueur |
 | Caméra de poursuite, vue intérieure (V), regard arrière | Caméra cinématique, caméra capot |
 | Dégâts simples : bosses par zone, vitres cassées, épave | Feu, explosion (0.4), pneus crevés, portes arrachées |
-| 1 à 3 modèles conduisibles | Trafic (0.7), 6 véhicules finaux (0.16) |
+| 1 à 3 modèles conduisibles ; quelques voitures conduites par des PNJ à éjecter (§8.2) | Trafic complet avec feux (0.9), 6 véhicules finaux (0.16) |
 
 ## 3. Entrer et sortir façon GTA
 
@@ -164,6 +164,10 @@ Module `GranTheftPraline`, préfixe `GTP`, branche `feat/vehicles`.
 | `AGTPPlayerController` (modifié) | échange des contextes à pied / au volant à chaque possession ; V bascule aussi la vue de la voiture |
 | `UGTPCameraModeComponent` (modifié) | laisse la voiture gérer sa caméra et lui transmet le choix 1re / 3e personne |
 | `AGTPGameMode` (modifié) | `-TestVehicle` gare une voiture devant le joueur dans n'importe quel niveau |
+| `UGTPEngineSoundComponent`, `UGTPEngineSoundWave` | son moteur synthétisé à partir du régime Chaos et de l'accélérateur (`GTPEngineSynth.h`), sans asset |
+| `AGTPHUD` (modifié) | panneau de conduite : vitesse en km/h, rapport, état de la voiture |
+| `AGTPTrafficNetwork` | voies de circulation de la map, fait apparaître et recycle les voitures conduites par un PNJ |
+| `UGTPAIDriverComponent` | conduit une voiture le long des voies (`GTPDriveLogic.h`), s'arrête devant un obstacle |
 
 Déroulé d'une entrée : touche F → `UGTPVehicleInteractionComponent` →
 `AGTPVehicle::BeginEnter` (personnage figé à la portière, vitre ou
@@ -174,6 +178,44 @@ caméra de la voiture prend la main.
 Réglages : section `[/Script/GranTheftPraline.GTPVehicle]` de
 `Config/DefaultGame.ini` (durées, caméra, dégâts), ou dans chaque Blueprint.
 Le plugin `ChaosVehiclesPlugin` est activé dans le `.uproject`.
+
+### 8.1 Son moteur et panneau de conduite
+
+Le moteur s'entend grâce à un son procédural : un train d'impulsions de
+combustion (trois cylindres pour la Clio V TCe : `tr/min / 60 × 3 / 2` par
+seconde), plus sèches et plus fortes à l'accélération, passées dans un
+filtre « silencieux », avec un bruit d'admission. Il suit le régime du
+moteur Chaos, donc chaque changement de rapport s'entend, et il joue tant
+que quelqu'un est au volant. `tools/vehicles/engine_sound/` le calcule hors
+Unreal et vérifie hauteur, niveau et absence de clics ; des boucles
+enregistrées pourront le remplacer à la passe son (0.18).
+
+Au volant, le bas droit de l'écran montre la vitesse (km/h), le rapport
+(R, N, 1-5) et une barre d'état de la voiture (blanc, orange, rouge) ; les
+aides d'action remontent au-dessus.
+
+### 8.2 Voitures conduites par des PNJ
+
+Juste assez de circulation pour voler une voiture avec quelqu'un dedans (le
+trafic complet avec feux et priorités, c'est la 0.9) :
+
+- `tools/city/traffic.py` construit les voies à partir des axes de route
+  BD TOPO : routes ouvertes aux voitures seulement, sens tirés de
+  `sens_de_circulation`, conduite à droite, liaisons aux carrefours sans
+  demi-tour. Avec `--map <Map>`, il les copie dans
+  `Content/City/Traffic/<Map>.lanes.csv`, embarqué avec le jeu.
+- Le mode de jeu crée un `AGTPTrafficNetwork` quand ce fichier existe. Il
+  pose `NumCars` voitures (6 ; `-Traffic=N`, 0 = aucune) avec un conducteur
+  sur les voies, à plus de 40 m et hors de vue, et retire hors de vue les
+  voitures bloquées en cul-de-sac ou trop loin.
+- `UGTPAIDriverComponent` décide avec `GTPDriveLogic.h` : direction en
+  poursuite pure, vitesse limitée par la voie, réduite avant les virages et
+  pour s'arrêter 4 m derrière ce qui est devant (voitures, gens). Le même
+  en-tête tourne dans `tools/vehicles/traffic_sim/` sur les vraies voies,
+  avec des critères de réussite.
+- Éjection : personne ne monte dans une voiture à plus de 12 km/h ; une
+  voiture s'arrête devant un piéton. La voiture freine pendant qu'on sort
+  son conducteur, qui s'enfuit ensuite à 25 m.
 
 ## 9. Préparer une voiture conduisible
 
