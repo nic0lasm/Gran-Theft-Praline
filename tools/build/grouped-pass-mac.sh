@@ -6,7 +6,7 @@
 # Usage, from the root of the clone, nothing else running:
 #   caffeinate -dimsu tools/build/grouped-pass-mac.sh <version> [duration_s]
 #   caffeinate -dimsu tools/build/grouped-pass-mac.sh <version> --release
-#     playable build of a release (0.3): lanes, one package, one 600 s measure with the
+#     playable build of a release (0.3): run-time data, one package, one 600 s measure with the
 #     default settings and two films towards the river; the path of the app to
 #     launch is written at the top of PASS.md.
 #   tools/build/grouped-pass-mac.sh <version> --compile-only
@@ -102,7 +102,12 @@ if test "$compile_only" = "1"; then
 fi
 
 if test "$release" = "1"; then
+  # Same run-time data as the full pass: every preview system needs its own.
   step lanes python3 tools/city/traffic.py --map "$map"
+  step walkways python3 tools/city/pedestrians.py --map "$map"
+  step minimap python3 tools/ui/minimap.py --map "$map"
+  step environment tools/environment/setup-environment-mac.sh
+  step audio-prepare tools/audio/mac_audio_pass.sh prepare
   if ! step package tools/build/package-mac.sh "$version"; then
     grep -hE ": (fatal )?error:|Error: " "$out/package.log" | head -n 60 > "$out/compile-errors.txt"
     echo "- package failed: first errors in compile-errors.txt" >> "$report"
