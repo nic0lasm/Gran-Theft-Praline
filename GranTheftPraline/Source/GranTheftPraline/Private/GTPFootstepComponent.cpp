@@ -79,7 +79,7 @@ USkeletalMeshComponent* UGTPFootstepComponent::FindBody() const
 bool UGTPFootstepComponent::ShouldListen() const
 {
 	const AActor* Owner = GetOwner();
-	if (!Owner || Owner->IsHidden() || Owner->GetAttachParentActor())
+	if (!bBudgetAllowed || !Owner || Owner->IsHidden() || Owner->GetAttachParentActor())
 	{
 		// Hidden or attached: sitting in a vehicle.
 		return false;
