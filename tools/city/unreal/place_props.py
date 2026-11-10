@@ -61,6 +61,32 @@ def tune_render(comp, mesh, report):
     if mesh.get_num_lods() < 2:
         report.setdefault("meshes_without_lods", []).append(mesh.get_name())   # farther than this from the LiDAR ground: keep the LiDAR height
 
+# Breakable street furniture (docs/gameplay/breakable-street-furniture.md): catalogue id ->
+# (class, mass kg). R topples, C breaks above a threshold; fixed props are not listed. The
+# tags are read at run time by UGTPBreakableSubsystem, which swaps the hit instance for a
+# physics actor; one component per asset, so one mass per asset.
+BREAKABLE = {
+    "W1-07": ("R", 15), "W1-08": ("R", 15), "W1-32": ("R", 25), "W1-33": ("R", 45), "W1-34": ("R", 12),
+    "W1-35": ("R", 4), "W1-36": ("R", 4), "W1-38": ("R", 20), "W1-40": ("R", 6), "W1-41": ("R", 6),
+    "W1-50": ("R", 3), "W8-29": ("R", 5), "W8-30": ("R", 10), "W1-51": ("R", 15), "W8-24": ("R", 8),
+    "W1-14": ("R", 15), "W1-55": ("R", 20), "W1-54": ("R", 110), "W14-05": ("R", 40), "W14-79": ("R", 60),
+    "W14-78": ("R", 25), "W14-73": ("R", 5), "W14-75": ("R", 30), "W1-60": ("R", 3),
+    "W1-04": ("C", 250), "W8-01": ("C", 120), "W8-02": ("C", 80), "W1-57": ("C", 25), "W1-12": ("C", 30),
+    "W1-01": ("C", 90), "W1-13": ("C", 150), "W1-24": ("C", 60), "W1-25": ("C", 80), "W1-27": ("C", 80),
+}
+BREAKABLE.update({"W8-%02d" % k: ("C", 25) for k in range(5, 18)})   # signs on poles
+
+
+def tag_breakable(comp, catalog_id, report):
+    b = BREAKABLE.get(catalog_id)
+    if not b:
+        return
+    comp.set_editor_property("component_tags", [unreal.Name("GTP_Breakable_" + b[0]),
+                                                unreal.Name("GTP_MassKg=%d" % b[1])])
+    tally = report.setdefault("breakable_components", {})
+    tally[b[0]] = tally.get(b[0], 0) + 1
+
+
 eal = unreal.EditorAssetLibrary
 level_sub = unreal.get_editor_subsystem(unreal.LevelEditorSubsystem)
 actor_sub = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
@@ -137,6 +163,7 @@ def main():
                                     mesh) if mesh else None
             if mesh is not None:
                 tune_render(comps[key], mesh, report)
+                tag_breakable(comps[key], r["catalog_id"], report)
             if mesh is None:
                 report["missing_assets"].append(r["catalog_id"])
         comp = comps[key]
