@@ -236,6 +236,32 @@ bool UGTPDemoRoute::Tick(float DeltaTime)
 		const float YawError = FRotator::NormalizeAxis(StreetYaw + Weave - Driven->GetActorRotation().Yaw);
 		const float Steering = FMath::Clamp(YawError / 25.f, -1.f, 1.f);
 		const float Speed = Driven->GetSpeedKmh();
+		// Stuck against something (bench, bollard): back off for a moment with
+		// the wheels turned the other way, then carry on.
+		if (Now < UnstickUntil)
+		{
+			DriveInputs(Driven, 0.f, 0.6f, -UnstickSteer, false);
+			break;
+		}
+		if (T > 4.0 && FMath::Abs(Speed) < 3.f)
+		{
+			if (StuckSince <= 0.0)
+			{
+				StuckSince = Now;
+			}
+			else if (Now - StuckSince > 1.5)
+			{
+				UnstickSteer = YawError >= 0.f ? 1.f : -1.f;
+				UnstickUntil = Now + 2.0;
+				StuckSince = 0.0;
+				UE_LOG(LogGTPDemo, Log, TEXT("Demo route: car stuck, backing off"));
+				break;
+			}
+		}
+		else
+		{
+			StuckSince = 0.0;
+		}
 		const float Throttle = Speed < CruiseKmh ? FMath::Clamp((CruiseKmh - Speed) / 15.f, 0.25f, 0.8f) : 0.f;
 		DriveInputs(Driven, Throttle, 0.f, Steering, false);
 		if (T >= DriveTime)

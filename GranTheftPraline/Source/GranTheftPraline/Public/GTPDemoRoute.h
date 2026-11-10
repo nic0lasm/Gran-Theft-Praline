@@ -62,4 +62,7 @@ private:
 	float StreetYaw = 0.f;
 	float StartControlYaw = 0.f;
 	TWeakObjectPtr<AGTPVehicle> Car;
+	double StuckSince = 0.0;
+	double UnstickUntil = 0.0;
+	float UnstickSteer = 0.f;
 };
