@@ -51,6 +51,10 @@ ACharacter* UGTPRagdollTestSubsystem::SpawnBody(const FVector& Offset)
 
 void UGTPRagdollTestSubsystem::Fail(const FString& Why)
 {
+	if (!UGTPRagdollSubsystem::IsEnabled())
+	{
+		return; // baseline run (-Ragdoll=0): the ragdolls are refused on purpose, only the frame times count
+	}
 	bFailed = true;
 	GTP_TRACE(LogGTPRagdoll, TEXT("GTPRagdollTest: FAIL %s"), *Why);
 }
@@ -58,7 +62,10 @@ void UGTPRagdollTestSubsystem::Fail(const FString& Why)
 void UGTPRagdollTestSubsystem::Finish()
 {
 	const double Avg = FrameCount > 0 ? FrameMsSum / FrameCount : 0.0;
-	GTP_TRACE(LogGTPRagdoll, TEXT("GTPRagdollTest: scenario frames %d, average game-thread frame %.2f ms"), FrameCount, Avg);
+	FrameMs.Sort();
+	const float P95 = FrameMs.Num() > 0 ? FrameMs[FMath::Min(FrameMs.Num() - 1, static_cast<int32>(FrameMs.Num() * 0.95f))] : 0.f;
+	const float Max = FrameMs.Num() > 0 ? FrameMs.Last() : 0.f;
+	GTP_TRACE(LogGTPRagdoll, TEXT("GTPRagdollTest: scenario frames %d, mean %.2f ms, p95 %.2f ms, max %.2f ms (lite %d, enabled %d)"), FrameCount, Avg, P95, Max, UGTPRagdollSubsystem::IsLite() ? 1 : 0, UGTPRagdollSubsystem::IsEnabled() ? 1 : 0);
 	GTP_TRACE(LogGTPRagdoll, TEXT("GTPRagdollTest: %s"), bFailed ? TEXT("FAIL") : TEXT("PASS"));
 	Step = 99;
 	if (FParse::Param(FCommandLine::Get(), TEXT("RagdollTestQuit")))
@@ -78,6 +85,7 @@ void UGTPRagdollTestSubsystem::Tick(float DeltaTime)
 	{
 		FrameMsSum += DeltaTime * 1000.0;
 		++FrameCount;
+		FrameMs.Add(DeltaTime * 1000.f);
 	}
 	if (!Player.IsValid())
 	{

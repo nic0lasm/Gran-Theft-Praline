@@ -152,6 +152,23 @@ int main()
 		CHECK(ChooseToFreeze(A, 0).size() == A.size(), "cap 0 freezes all");
 	}
 
+	// 8b. Lite timings settle sooner than the normal ones.
+	{
+		auto Settle = [](const FRagdollTimings& TT) {
+			FRagdollState St = StartRagdollState(ESeverity::Launch, 50.f);
+			float Time = 0.f;
+			EOutcome O = EOutcome::Simulating;
+			for (; Time < 30.f && O == EOutcome::Simulating; Time += 0.05f)
+			{
+				O = StepRagdoll(St, 3.f, 0.5f, 0.05f, TT);
+			}
+			return Time;
+		};
+		const float Normal = Settle(FRagdollTimings());
+		const float Lite = Settle(LiteTimings());
+		CHECK(Lite < Normal * 0.7f, "lite %.2f vs normal %.2f", Lite, Normal);
+	}
+
 	// 10. Street furniture.
 	{
 		namespace B = GTPBreak;
