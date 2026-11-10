@@ -225,6 +225,7 @@ void UGTPEnvironmentSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 
 	CreateOwnComponents(InWorld);
 	ApplyBudgetForProfile(InWorld);
+	ApplyCloudQuality();
 	SpawnRiverFog(InWorld);
 	LoadNightLights(InWorld);
 	AdoptTaggedLights(InWorld);
@@ -543,6 +544,37 @@ void UGTPEnvironmentSubsystem::ApplyBudgetForProfile(UWorld& World)
 	}
 	Budget = Found ? *Found : FGTPLightBudget();
 	Budget.Profile = Profile;
+}
+
+void UGTPEnvironmentSubsystem::ApplyCloudQuality()
+{
+	// Volumetric clouds are the most expensive part of the sky on the M1 (about 12 ms
+	// measured): quality per profile, values owned by the optimisation work.
+	if (Clouds.IsValid())
+	{
+		if (!Budget.bVolumetricClouds)
+		{
+			Clouds->SetVisibility(false);
+		}
+		else if (!FMath::IsNearlyEqual(Budget.CloudSampleScale, 1.f))
+		{
+			for (const TCHAR* Setter : { TEXT("SetViewSampleCountScale"), TEXT("SetReflectionViewSampleCountScale"), TEXT("SetShadowViewSampleCountScale") })
+			{
+				if (!CallFloatSetter(Clouds.Get(), Setter, Budget.CloudSampleScale))
+				{
+					UE_LOG(LogGTPEnvironment, Warning, TEXT("Cloud setter %s not found"), Setter);
+				}
+			}
+		}
+	}
+	if (Sun.IsValid() && !Budget.bCloudShadows)
+	{
+		if (FBoolProperty* Prop = FindFProperty<FBoolProperty>(UDirectionalLightComponent::StaticClass(), TEXT("bCastCloudShadows")))
+		{
+			Prop->SetPropertyValue_InContainer(Sun.Get(), false);
+			Sun->MarkRenderStateDirty();
+		}
+	}
 }
 
 void UGTPEnvironmentSubsystem::ReadCommandLine()
@@ -869,7 +901,7 @@ void UGTPEnvironmentSubsystem::ApplyAtmosphere()
 			HeightFog->MarkRenderStateDirty();
 		}
 	}
-	if (CloudMaterial)
+	if (CloudMaterial && Budget.bDriveCloudCoverage)
 	{
 		for (const FName& Parameter : CloudCoverageParameters)
 		{

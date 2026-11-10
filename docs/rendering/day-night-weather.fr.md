@@ -75,6 +75,11 @@ sépia). Saturation selon la météo (0,8 sous la pluie).
   (projecteurs 12 000 cd, 5000 K, cône 32°, portée 35 m) et un feu arrière
   rouge, sans ombre ; la nuit, seules les `MaxLitCars` voitures les plus
   proches sont allumées (m1 : 4, fidelity : 6, ultra : 10).
+- **Nuages** : qualité par profil (`bVolumetricClouds`, `CloudSampleScale`,
+  `bCloudShadows`, `bDriveCloudCoverage`). Les nuages volumétriques coûtent
+  ≈ 12 ms GPU en m1 (mesure du 2026-11-10) : en m1, la météo ne change pas
+  leur couverture (le couvert passe par le soleil, le ciel et le brouillard),
+  en attendant la décision sur leur qualité.
 - **Allumage** : entre +2° et −4° de soleil (plus tôt sous les nuages).
 - **Émissifs** : `EmissiveScale` de `MPC_Environment` passe de 1 à 20 la
   nuit ; les matériaux de vitrines et d'enseignes le multiplient.

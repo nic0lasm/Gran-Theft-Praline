@@ -121,6 +121,22 @@ struct FGTPLightBudget
 	/** Cars (traffic, police, the player's) with headlights and tail lights on at night, nearest first. */
 	UPROPERTY()
 	int32 MaxLitCars = 4;
+
+	/** Volumetric clouds drawn at all (sky atmosphere and fog only when false). */
+	UPROPERTY()
+	bool bVolumetricClouds = true;
+
+	/** Ray sample count scale of the clouds (view, reflections, shadows); 1 = map setting. */
+	UPROPERTY()
+	float CloudSampleScale = 1.f;
+
+	/** Sun shadows cast by the clouds. */
+	UPROPERTY()
+	bool bCloudShadows = true;
+
+	/** The weather may change the cloud coverage (denser clouds cost more). */
+	UPROPERTY()
+	bool bDriveCloudCoverage = true;
 };
 
 /**
@@ -199,6 +215,7 @@ private:
 	void AdoptTaggedLights(UWorld& World);
 	void ReadCommandLine();
 	void ApplyBudgetForProfile(UWorld& World);
+	void ApplyCloudQuality();
 
 	void AdvanceTime(float DeltaTime);
 	void UpdateWeather(float DeltaTime);

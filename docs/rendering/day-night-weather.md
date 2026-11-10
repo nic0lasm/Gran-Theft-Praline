@@ -73,6 +73,11 @@ Saturation follows the weather (0.8 in the rain).
   (12,000 cd spots, 5000 K, 32 degree cone, 35 m range) and a red tail light,
   never shadowed; at night only the `MaxLitCars` nearest cars are lit (m1: 4,
   fidelity: 6, ultra: 10).
+- **Clouds**: quality per profile (`bVolumetricClouds`, `CloudSampleScale`,
+  `bCloudShadows`, `bDriveCloudCoverage`). Volumetric clouds cost about 12 ms
+  GPU in m1 (measured 2026-11-10): in m1 the weather does not change their
+  coverage (overcast goes through the sun, sky and fog) until the decision on
+  their quality.
 - **Switch-on**: between +2 and −4 degrees of sun (earlier under cloud).
 - **Emissives**: `EmissiveScale` in `MPC_Environment` goes from 1 to 20 at
   night; shop window and sign materials multiply by it.
