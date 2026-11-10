@@ -33,6 +33,12 @@ public:
 	/** Plays Animation looping at PlayRate (no change when it is already playing). */
 	void PlayLoop(UAnimSequenceBase* Animation, float PlayRate);
 
+	/** Cost switches (ADR-0005): no contact shadow, decals, occlusion, GI or per-bone blur, fixed bounds. */
+	void MakeCheap();
+
+	/** Seconds between animation updates of the body (0 = every frame). */
+	void SetAnimInterval(float Seconds);
+
 	/** Shadow, level of detail and drawing, set by distance from the viewer. */
 	void SetDetail(bool bVisible, bool bCastShadow, int32 ForcedLOD);
 
@@ -55,6 +61,7 @@ private:
 	TObjectPtr<UAnimSequenceBase> CurrentAnimation;
 
 	bool bRagdoll = false;
+	float AnimInterval = 0.f;
 	bool bShadow = true;
 	bool bShown = true;
 	int32 LOD = -1;
@@ -154,6 +161,18 @@ protected:
 	UPROPERTY(Config)
 	float RunAnimationSpeed = 340.f;
 
+	/** Cost levers, each on by default; -PedCheap=0/1, -PedAnimRate=0/1, -PedSpread=0/1 and -PedMaxVisible=N override them for a measurement. */
+	UPROPERTY(Config)
+	bool bCheapRendering = true;
+
+	/** Animation updates less often with distance (every frame < 15 m, 1/20 s < 25 m, 1/12 s < 50 m, 1/8 s beyond). */
+	UPROPERTY(Config)
+	bool bReduceAnimRate = true;
+
+	/** People not drawn are updated 5 times a second instead of every frame. */
+	UPROPERTY(Config)
+	bool bSpreadFarUpdates = true;
+
 	/** Height of a person varies by up to this fraction around 1. */
 	UPROPERTY(Config)
 	float HeightSpread = 0.06f;
@@ -231,6 +250,7 @@ private:
 		bool bDrawn = false;
 		/** Index of the partner this person follows (a pair walking together), -1 = walks alone. */
 		int32 Leader = -1;
+		float FarAccumulated = 0.f;
 		GTPWalk::FStepResult LastResult;
 		GTPWalk::FPoint Pos;
 		GTPWalk::FPoint Dir;

@@ -75,6 +75,26 @@ void AGTPPedestrian::ApplyLook(float HeightScale, const FLinearColor& Clothes, c
 	}
 }
 
+void AGTPPedestrian::MakeCheap()
+{
+	Body->bCastContactShadow = false;
+	Body->bReceivesDecals = false;
+	Body->bUseAsOccluder = false;
+	Body->bAffectDynamicIndirectLighting = false;
+	Body->bAffectDistanceFieldLighting = false;
+	Body->bPerBoneMotionBlur = false;
+	Body->bComponentUseFixedSkelBounds = true;
+}
+
+void AGTPPedestrian::SetAnimInterval(float Seconds)
+{
+	if (!FMath::IsNearlyEqual(Seconds, AnimInterval))
+	{
+		AnimInterval = Seconds;
+		Body->SetComponentTickInterval(Seconds);
+	}
+}
+
 void AGTPPedestrian::PlayLoop(UAnimSequenceBase* Animation, float PlayRate)
 {
 	if (!Animation || bRagdoll)
@@ -307,6 +327,23 @@ void UGTPPedestrianSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 {
 	Super::OnWorldBeginPlay(InWorld);
 	Wanted = ChooseDensity();
+	int32 Override = 0;
+	if (FParse::Value(FCommandLine::Get(), TEXT("PedMaxVisible="), Override))
+	{
+		MaxVisible = Override;
+	}
+	if (FParse::Value(FCommandLine::Get(), TEXT("PedCheap="), Override))
+	{
+		bCheapRendering = Override != 0;
+	}
+	if (FParse::Value(FCommandLine::Get(), TEXT("PedAnimRate="), Override))
+	{
+		bReduceAnimRate = Override != 0;
+	}
+	if (FParse::Value(FCommandLine::Get(), TEXT("PedSpread="), Override))
+	{
+		bSpreadFarUpdates = Override != 0;
+	}
 	if (Wanted <= 0)
 	{
 		GTP_TRACE(LogGTPPedestrians, TEXT("pedestrians: off"));
@@ -391,6 +428,10 @@ void UGTPPedestrianSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 		Actor->ApplyLook(Rng.Range(1.f - HeightSpread, 1.f + HeightSpread), Palette(Rng.Next()), TintParameters);
 		Actor->GetBody()->SetRelativeRotation(FRotator(0.f, MeshYawOffset, 0.f));
 		Actor->SetDetail(false, false, -1);
+		if (bCheapRendering)
+		{
+			Actor->MakeCheap();
+		}
 		P.Actor = Actor;
 	}
 	GTP_TRACE(LogGTPPedestrians, TEXT("pedestrians: on (%d), %d walkway edges, %d visible at most"), Wanted, Edges, MaxVisible);
@@ -732,6 +773,10 @@ void UGTPPedestrianSubsystem::RefreshDetail()
 		const int32 NumLODs = Actor->GetBody()->GetSkeletalMeshAsset() ? Actor->GetBody()->GetSkeletalMeshAsset()->GetLODNum() : 1;
 		const int32 Far = FMath::Clamp(FarLOD, 0, FMath::Max(0, NumLODs - 1));
 		Actor->SetDetail(bDraw, bDraw && bNear, bNear ? -1 : Far);
+		if (bReduceAnimRate)
+		{
+			Actor->SetAnimInterval(P->Distance < 1500.f ? 0.f : P->Distance < 2500.f ? 0.05f : P->Distance < 5000.f ? 0.083f : 0.125f);
+		}
 		P->bDrawn = bDraw;
 	}
 }
@@ -775,10 +820,25 @@ void UGTPPedestrianSubsystem::Tick(float DeltaTime)
 	SeparatePeople();
 	for (FPerson& P : People)
 	{
-		if (P.bActive)
+		if (!P.bActive)
 		{
-			Update(P, DeltaTime);
+			continue;
 		}
+		if (bSpreadFarUpdates && !P.bDrawn)
+		{
+			// Nobody sees this one: move it 5 times a second with the time that went by.
+			P.FarAccumulated += DeltaTime;
+			if (P.FarAccumulated < 0.2f)
+			{
+				continue;
+			}
+			const float Elapsed = P.FarAccumulated;
+			P.FarAccumulated = 0.f;
+			Update(P, Elapsed);
+			continue;
+		}
+		P.FarAccumulated = 0.f;
+		Update(P, DeltaTime);
 	}
 
 	// Ground height: a few people per frame, round robin.
