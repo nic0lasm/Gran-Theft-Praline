@@ -360,6 +360,10 @@ visible, then hiding the details, the furniture, or one detail group at a time (
 Wall-flush details, shelves behind the glass and small items no longer cast shadows (`shadow`
 column); only awnings and chimneys keep theirs.
 
+**Trees in leaf**: `GTP_CITY_LEAFY=1` (or `props.py --leafy`) swaps the bare plane trunks for
+the free Megascans beech (`SM_EuropeanBeech_Field_01`, `_Sapling_01` for young trees) on the same
+Grand Lyon anchors. Off by default until its M1 cost is measured.
+
 ## Limits and next steps
 
 1. **Editor test**: `tools/city/unreal/import_city.py` imports the greybox and
