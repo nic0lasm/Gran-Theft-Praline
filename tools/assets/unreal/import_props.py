@@ -130,6 +130,39 @@ def ensure_master_material():
 
 
 # ---------------------------------------------------------------- import helpers
+GLASS_MASTER = "/Game/Materials/Masters/M_Master_Glass"
+# Catalog ids drawn as glass (bus shelter panes, transparent bag): they use a
+# translucent master and are NOT Nanite, which cannot draw translucency.
+GLASS_IDS = {i.strip().upper() for i in os.environ.get("GTP_GLASS_IDS", "W1-21,W1-07").split(",") if i.strip()}
+
+
+def ensure_glass_master():
+    """Translucent glass: tinted BaseColor texture, constant low roughness, Opacity parameter."""
+    if eal.does_asset_exist(GLASS_MASTER):
+        return unreal.load_asset(GLASS_MASTER)
+    tools = unreal.AssetToolsHelpers.get_asset_tools()
+    folder, name = GLASS_MASTER.rsplit("/", 1)
+    mat = tools.create_asset(name, folder, unreal.Material, unreal.MaterialFactoryNew())
+    mat.set_editor_property("blend_mode", unreal.BlendMode.BLEND_TRANSLUCENT)
+    mat.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_DEFAULT_LIT)
+    mat.set_editor_property("two_sided", True)
+    base = mel.create_material_expression(mat, unreal.MaterialExpressionTextureSampleParameter2D, -500, -200)
+    base.set_editor_property("parameter_name", "BaseColor")
+    base.set_editor_property("texture", default_texture(
+        DEFAULT_MASKS, "/Engine/EngineResources/WhiteSquareTexture", unreal.TextureCompressionSettings.TC_MASKS))
+    opacity = mel.create_material_expression(mat, unreal.MaterialExpressionScalarParameter, -500, 100)
+    opacity.set_editor_property("parameter_name", "Opacity")
+    opacity.set_editor_property("default_value", 0.18)
+    rough = mel.create_material_expression(mat, unreal.MaterialExpressionConstant, -500, 250)
+    rough.set_editor_property("r", 0.05)
+    mel.connect_material_property(base, "RGB", unreal.MaterialProperty.MP_BASE_COLOR)
+    mel.connect_material_property(opacity, "", unreal.MaterialProperty.MP_OPACITY)
+    mel.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS)
+    mel.recompile_material(mat)
+    eal.save_loaded_asset(mat)
+    return mat
+
+
 def import_files(items, dest):
     """items: list of (source file, asset name). Returns list of imported asset paths."""
     tasks = []
@@ -173,7 +206,7 @@ def import_textures(meta, asset_dir, tex_dir):
     return out
 
 
-def make_material_instance(master, meta, slot_info, textures, folder):
+def make_material_instance(master, meta, slot_info, textures, folder, glass=False):
     name = slot_info["instance_name"]
     tools = unreal.AssetToolsHelpers.get_asset_tools()
     path = f"{folder}/{name}"
@@ -183,6 +216,8 @@ def make_material_instance(master, meta, slot_info, textures, folder):
                             unreal.MaterialInstanceConstantFactoryNew())
     mi.set_editor_property("parent", master)
     for pname, kind in (("BaseColor", "base_color"), ("ORM", "orm"), ("Normal", "normal")):
+        if glass and kind != "base_color":
+            continue
         mel.set_material_instance_texture_parameter_value(mi, pname, textures[(slot_info["slot"], kind)])
     eal.save_loaded_asset(mi)
     return mi
@@ -270,13 +305,18 @@ def process(meta_path, master):
     base = f"/Game/Environment/Props/{meta['family']}/{name}"
 
     textures = import_textures(meta, asset_dir, base)
-    mis = [make_material_instance(master, meta, s, textures, base) for s in meta["materials"]]
+    glass = meta["id"].upper() in GLASS_IDS
+    mis = [make_material_instance(ensure_glass_master() if glass else master, meta, s, textures, base,
+                                  glass=glass) for s in meta["materials"]]
 
     mesh = import_mesh(os.path.join(asset_dir, meta["files"]["ultra"]), base, f"SM_{name}_A")
     apply_materials(mesh, mis)
     apply_collision(mesh, meta["collision"])
     tris = meta["triangles"]
-    set_nanite(mesh, True, min(1.0, tris["m1_lod0"] / max(1, tris["ultra"])))
+    if glass:
+        set_nanite(mesh, False)
+    else:
+        set_nanite(mesh, True, min(1.0, tris["m1_lod0"] / max(1, tris["ultra"])))
     build_lods(mesh, meta["lod_plan"])
     # catalog id travels with the asset (art bible section 7)
     eal.set_metadata_tag(mesh, "CatalogId", meta["id"])
