@@ -45,7 +45,7 @@ app="$build_dir/GranTheftPraline.app"
 test -d "$app" || die "no build at $app"
 exe="$(find "$app/Contents/MacOS" -maxdepth 1 -type f -perm -u+x | head -n 1)"
 test -n "$exe" || die "no executable in $app"
-if pgrep -fl "UnrealEditor|GranTheftPraline" > /dev/null; then
+if pgrep -fl "UnrealEditor|GranTheftPraline" | grep -v UnrealEditorServices >/dev/null; then
   die "an Unreal or game process is already running"
 fi
 mkdir -p "$out_dir"

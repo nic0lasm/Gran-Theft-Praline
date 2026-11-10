@@ -13,7 +13,7 @@ editor="$ue_root/Engine/Binaries/Mac/UnrealEditor.app/Contents/MacOS/UnrealEdito
 focus="${GTP_CITY_FOCUS:-rue-de-la-republique}"
 map="/Game/Maps/L_City_$(echo "$focus" | awk -F- '{for(i=1;i<=NF;i++) printf "%s", toupper(substr($i,1,1)) substr($i,2)}')"
 test -x "$editor" || { echo "Unreal Editor not found: $editor" >&2; exit 1; }
-if pgrep -f "UnrealEditor|GranTheftPraline.app" > /dev/null; then
+if pgrep -fl "UnrealEditor|GranTheftPraline.app" | grep -v UnrealEditorServices > /dev/null; then
   echo "profile_details: an Unreal editor or the game is running; one at a time" >&2
   exit 1
 fi
