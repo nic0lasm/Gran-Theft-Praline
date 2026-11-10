@@ -45,3 +45,11 @@ raising the caps.
   ground), pedestrians (return to the pool).
 - `GTPImpact::ClassifyCarHit`, `ClassifyLanding`, `ClassifyBailOut`: pure
   functions, callable from any system.
+
+## Command line and automatic test
+
+- `-Ragdoll=0`: no physical reaction at all (the build logs `ragdoll: on` or `off`).
+- `-MaxRagdolls=N`: overrides the cap of the profile.
+- `-RagdollTest` (+ `-RagdollTestQuit`): scenario without a player: car hits at 20, 40
+  and 70 km/h, falls of 3 and 8 m, four bodies at once against the cap of three;
+  logs `GTPRagdollTest: ... PASS` or `FAIL` and the average frame time.

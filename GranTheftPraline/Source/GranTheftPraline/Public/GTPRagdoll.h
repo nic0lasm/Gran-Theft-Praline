@@ -6,6 +6,8 @@
 #include "Subsystems/WorldSubsystem.h"
 #include "GTPRagdoll.generated.h"
 
+GRANTHEFTPRALINE_API DECLARE_LOG_CATEGORY_EXTERN(LogGTPRagdoll, Log, All);
+
 class UAnimMontage;
 class UCapsuleComponent;
 class USkeletalMeshComponent;
@@ -123,6 +125,9 @@ public:
 	void Unregister(UGTPRagdollComponent* Ragdoll);
 
 	int32 GetActiveCount() const { return Active.Num(); }
+
+	/** -Ragdoll=0 on the command line turns every physical reaction off. */
+	static bool IsEnabled();
 
 	/** Hard limit: false when the cap of simulating ragdolls is reached (the body stays animated). */
 	bool HasRoom() const;
