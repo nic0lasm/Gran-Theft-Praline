@@ -49,3 +49,11 @@ les plafonds.
   piétons (retour au pool).
 - `GTPImpact::ClassifyCarHit`, `ClassifyLanding`, `ClassifyBailOut` : fonctions
   pures, appelables par tout système.
+
+## Ligne de commande et test automatique
+
+- `-Ragdoll=0` : aucune réaction physique (le build journalise `ragdoll: on` ou `off`).
+- `-MaxRagdolls=N` : remplace le plafond du profil.
+- `-RagdollTest` (+ `-RagdollTestQuit`) : scénario sans joueur : chocs à 20, 40 et
+  70 km/h, chutes de 3 et 8 m, quatre corps à la fois face au plafond de trois ;
+  journalise `GTPRagdollTest: ... PASS` ou `FAIL` et le temps d'image moyen.

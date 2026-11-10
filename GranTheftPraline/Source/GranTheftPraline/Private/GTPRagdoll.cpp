@@ -12,7 +12,10 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "GTPGraphicsProfile.h"
+#include "GTPLog.h"
 #include "TimerManager.h"
+
+DEFINE_LOG_CATEGORY(LogGTPRagdoll);
 
 namespace
 {
@@ -40,7 +43,7 @@ USkeletalMeshComponent* UGTPRagdollComponent::FindMesh() const
 
 bool UGTPRagdollComponent::BeginRagdoll(FVector LaunchVelocity, EGTPImpactSeverity Severity, float HealthAfterHit, float SpinRadS)
 {
-	if (bActive)
+	if (bActive || !UGTPRagdollSubsystem::IsEnabled())
 	{
 		return false;
 	}
@@ -221,6 +224,7 @@ void UGTPRagdollComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 void UGTPRagdollSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 {
 	Super::OnWorldBeginPlay(InWorld);
+	GTP_TRACE(LogGTPRagdoll, TEXT("ragdoll: %s (cap %d)"), IsEnabled() ? TEXT("on") : TEXT("off"), ChooseCap());
 	InWorld.GetTimerManager().SetTimer(EnforceTimer, this, &UGTPRagdollSubsystem::Enforce, 0.5f, true);
 }
 
@@ -237,6 +241,13 @@ void UGTPRagdollSubsystem::Deinitialize()
 void UGTPRagdollSubsystem::Register(UGTPRagdollComponent* Ragdoll)
 {
 	Active.AddUnique(Ragdoll);
+}
+
+bool UGTPRagdollSubsystem::IsEnabled()
+{
+	int32 Value = 1;
+	FParse::Value(FCommandLine::Get(), TEXT("-Ragdoll="), Value);
+	return Value != 0;
 }
 
 bool UGTPRagdollSubsystem::HasRoom() const
