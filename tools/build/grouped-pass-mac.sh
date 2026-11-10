@@ -31,6 +31,8 @@ else
   duration="${2:-300}"
 fi
 map="L_City_RueDeLaRepublique"
+# The city tools need shapely: PYTHON=<venv>/bin/python when the system one lacks it.
+python="${PYTHON:-python3}"
 builds_dir="${BUILDS_DIR:-$repo_root/Builds}"
 stamp="$(date +%Y%m%d-%H%M%S)"
 out="$builds_dir/$version/evidence/pass-$stamp"
@@ -103,9 +105,9 @@ fi
 
 if test "$release" = "1"; then
   # Same run-time data as the full pass: every preview system needs its own.
-  step lanes python3 tools/city/traffic.py --map "$map"
-  step walkways python3 tools/city/pedestrians.py --map "$map"
-  step minimap python3 tools/ui/minimap.py --map "$map"
+  step lanes "$python" tools/city/traffic.py --map "$map"
+  step walkways "$python" tools/city/pedestrians.py --map "$map"
+  step minimap "$python" tools/ui/minimap.py --map "$map"
   step environment tools/environment/setup-environment-mac.sh
   step audio-prepare tools/audio/mac_audio_pass.sh prepare
   if ! step package tools/build/package-mac.sh "$version"; then
@@ -127,9 +129,9 @@ if test "$release" = "1"; then
 fi
 
 # 1. Data the game reads at run time (not in Git).
-step lanes python3 tools/city/traffic.py --map "$map"
-step walkways python3 tools/city/pedestrians.py --map "$map"
-step minimap python3 tools/ui/minimap.py --map "$map"
+step lanes "$python" tools/city/traffic.py --map "$map"
+step walkways "$python" tools/city/pedestrians.py --map "$map"
+step minimap "$python" tools/ui/minimap.py --map "$map"
 step environment tools/environment/setup-environment-mac.sh
 step audio-prepare tools/audio/mac_audio_pass.sh prepare
 
