@@ -1,0 +1,3 @@
+scenario,variant,frames,gpu_p50,gpu_p95,frame_p50,frame_p95,within_budget_pct,hitches
+street-fixed,base,4256,18.76,29.14,18.87,29.27,100.0,0
+rain,base,3968,19.95,32.13,20.05,32.38,96.5,0

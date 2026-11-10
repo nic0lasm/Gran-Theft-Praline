@@ -1,0 +1,2 @@
+scenario,variant,frames,gpu_p50,gpu_p95,frame_p50,frame_p95,within_budget_pct,hitches
+rain,lf_rain,4461,17.41,30.12,17.5,30.23,100.0,0

@@ -1,0 +1,3 @@
+scenario,variant,frames,gpu_p50,gpu_p95,frame_p50,frame_p95,within_budget_pct,hitches
+street-fixed,volumetric,3182,25.33,35.61,25.5,35.69,93.3,0
+rain,volumetric,2937,27.54,39.11,27.66,39.21,87.4,0

@@ -1,0 +1,2 @@
+scenario,variant,frames,gpu_p50,gpu_p95,frame_p50,frame_p95,within_budget_pct,hitches
+street-fixed,lf_noon,4625,17.15,27.51,17.2,27.81,100.0,0
