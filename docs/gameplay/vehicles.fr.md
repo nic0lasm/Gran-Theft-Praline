@@ -229,6 +229,14 @@ trafic complet avec feux et priorités, c'est la 0.9) :
 - En voiture : la voiture est noyée (épave, plus de commandes) ; après `SinkSeconds` (2,5 s), le conducteur est sorti par `AGTPVehicle::EjectDriverTo` et ramené au point de sortie le plus proche avec le même fondu. La voiture disparaît `RemoveCarSeconds` (12 s) après sa chute, avec son conducteur non joueur.
 
 Pas de plugin Water ni de volume physique : de simples événements de chevauchement, presque gratuits sur le M1.
+### 8.4 Feux tricolores (version 0.4)
+
+`GTPTrafficLights.h` (sans types moteur, utilisé aussi par `tools/vehicles/traffic_sim`) pose des feux à chaque carrefour du fichier de voies atteint par deux directions qui se croisent. Les voies entrantes à moins de 45° de la première approche (dans un sens ou l'autre) forment le groupe 0, les autres le groupe 1 ; les groupes alternent : vert 12 s, orange 3 s, rouge intégral 2 s, chaque carrefour décalé dans le cycle.
+
+- Les conducteurs PNJ s'arrêtent à la ligne au rouge, et à l'orange s'ils le peuvent en freinant confortablement ; une voiture arrêtée au rouge ne réserve aucun carrefour, donc le trafic transversal continue. Les voitures voient aussi celle qui les précède le long des voies, ce que la sonde droite rate dans les virages.
+- Piétons : `AGTPTrafficNetwork::IsWalkAllowed(Location, WalkDirection)` dit si l'on peut traverser à cet endroit maintenant (toujours vrai loin d'un carrefour à feux).
+- Têtes de feux provisoires (une sphère colorée sur un poteau à chaque ligne d'arrêt, sans ombre ni collision) en attendant le modèle de mobilier urbain. `-TrafficLights=0` coupe les feux, `-SignalHeads=0` masque les têtes.
+- Simulation, 300 s sur les voies de la rue de la République : 3, 6 et 12 voitures, aucun contact, aucun feu grillé.
 
 ## 9. Préparer une voiture conduisible
 
