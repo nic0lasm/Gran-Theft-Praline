@@ -33,7 +33,8 @@ mkdir -p "$out"
 
 # Python scripts run from a copy without spaces (the project folder has one).
 tmp="$(mktemp -d)"
-cp "$repo"/tools/city/unreal/{import_city,place_facades,place_props,shoot_city}.py "$tmp/"
+cp "$repo"/tools/city/unreal/{import_city,place_facades,place_props,apply_city_materials,shoot_city}.py "$tmp/"
+python3 "$repo/tools/city/ground_mask.py" --zone "$zone" --focus "$focus" > /dev/null
 export GTP_CITY_ZONE="$zone" GTP_CITY_FOCUS="$focus" GTP_CITY_LIGHT="${GTP_CITY_LIGHT:-Noon}" GTP_PROFILE="${PROFILE:-m1}"
 cvars="$(python3 "$repo/tools/rendering/reference_scene/profiles.py" "${PROFILE:-m1}")"
 
@@ -48,6 +49,10 @@ grep -q '"errors": \[\]' "$out/facades_report.json" || { cat "$out/facades_repor
 # Street furniture: assets not imported yet are skipped and listed in the report.
 "$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES -ExecutePythonScript="$tmp/place_props.py"
 test -f "$out/props_report.json" || { echo "place_props.py wrote no report" >&2; exit 1; }
+
+# Art bible ground and shell materials in place of the greybox one.
+"$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES -ExecutePythonScript="$tmp/apply_city_materials.py"
+grep -q '"errors": \[\]' "$out/materials_report.json" || { cat "$out/materials_report.json"; exit 1; }
 
 "$editor" "$project" "$map" -game -windowed -ResX=1920 -ResY=1080 -nosound -NoScreenMessages -unattended -NSAppSleepDisabled YES \
   "-ini:Engine:[/Script/Engine.UserInterfaceSettings]:bAllowHighDPIInGameMode=True" \
