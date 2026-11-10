@@ -84,6 +84,8 @@ void AGTPPedestrian::SetDetail(bool bVisible, bool bCastShadow, int32 ForcedLOD)
 	if (bVisible != bShown)
 	{
 		bShown = bVisible;
+		// The actor flag too, so other systems (footsteps) can tell by IsHidden().
+		SetActorHiddenInGame(!bVisible);
 		Body->SetVisibility(bVisible, false);
 	}
 	if (bCastShadow != bShadow)
