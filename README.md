@@ -9,7 +9,7 @@
 <p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
   <a href="https://github.com/nic0lasm/Gran-Theft-Praline/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/nic0lasm/Gran-Theft-Praline/actions/workflows/ci.yml/badge.svg?branch=main"></a>
-  <img alt="Version 0.1" src="https://img.shields.io/badge/version-0.1-success">
+  <img alt="Version 0.2" src="https://img.shields.io/badge/version-0.2-success">
   <img alt="Unreal Engine 5.8" src="https://img.shields.io/badge/Unreal%20Engine-5.8-0e1128?logo=unrealengine">
   <img alt="Platform: macOS" src="https://img.shields.io/badge/platform-macOS%20(Apple%20Silicon)-lightgrey?logo=apple">
 </p>
@@ -77,11 +77,13 @@ with version 0.2.
 
 ## Play in one click
 
-Version **0.1 "Play in one click"** was delivered on **November 9, 2026**,
-18 days ahead of its target date: double-click `GranTheftPraline.app`, press
-*Play*, and you are in rue de la République.
+Version **0.2 "The dressed street"** came out on **November 10, 2026**: rue
+de la République rebuilt from IGN LiDAR with stone façades, real shopfronts
+and signs, street furniture and plane trees, a Renault Clio you can drive,
+and about 30 fps on an M1 Pro. Version 0.1 "Play in one click" came out the
+day before.
 
-**[⬇️ Download version 0.1 for macOS](https://github.com/nic0lasm/Gran-Theft-Praline/releases/tag/v0.1.0)**
+**[⬇️ Download version 0.2 for macOS](https://github.com/nic0lasm/Gran-Theft-Praline/releases/tag/v0.2.0)**
 (Mac with Apple Silicon). The app is not signed by Apple yet: the release
 notes explain how to open it the first time. You can also
 [build the app yourself](#-build-it-yourself) with a single script.
@@ -96,8 +98,13 @@ notes explain how to open it the first time. You can also
 | Crouch | C | C | B / Circle |
 | First / third person | V | V | View / Share |
 | Pause menu | Escape | Escape | Menu / Options |
+| Get in / out of a car | F | F | Y / Triangle |
+| Accelerate / brake, reverse | Z / S | W / S | Right / left trigger |
+| Steer | Q / D | A / D | Left stick |
+| Handbrake | Space | Space | RB / R1 |
 
-Full details: [player character](docs/gameplay/player-character.md).
+Full details: [player character](docs/gameplay/player-character.md),
+[vehicles](docs/gameplay/vehicles.md).
 
 ## Roadmap
 
@@ -107,7 +114,7 @@ double-click and adds something you can see or do.
 | Version | Name | You can… | Target | Status |
 | ---- | ---- | ---- | ---- | ---- |
 | **0.1** | Play in one click | launch the game and walk, run, jump in rue de la République | Nov 2026 | ✅ delivered Nov 9 |
-| 0.2 | The dressed street | stroll down a photorealistic rue de la République at 30 fps | Dec 2026 | 🟡 under way |
+| **0.2** | The dressed street | stroll down a dressed rue de la République at 30 fps | Dec 2026 | ✅ delivered Nov 10 |
 | 0.3 | Behind the wheel | get into a parked car and drive to the Rhône | Jan 2027 | 🟡 design done |
 | 0.4 to 0.6 | Armed, first shop, police | shoot, rob a shop, lose the police | Mar 2027 | ⬜ |
 | 0.7 to 0.13 | The whole district | Bellecour → Terreaux with crowds, traffic, map, economy, day and night, weather | Oct 2027 | ⬜ |
@@ -116,9 +123,8 @@ double-click and adds something you can see or do.
 
 What is cooking right now:
 
-- **0.2**: the rendering settings that hold 30 fps on an M1 laptop, the first
-  wave of 3D models (street furniture: benches, bus shelters, bollards…),
-  and a more faithful 3D rebuild of the Presqu'île (LiDAR terrain and roofs).
+- **0.2 polish**: real road and pavement materials everywhere, more shop
+  fronts with their real logos, golden hour and night lighting.
 - **0.3**: the drivable vehicles, based on cars you actually see in France
   (Clio, 208, Kangoo, Golf, Yaris…), plus TCL buses and Vélo'v bikes.
 

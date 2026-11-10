@@ -9,7 +9,7 @@
 <p align="center">
   <a href="LICENSE"><img alt="Licence : MIT" src="https://img.shields.io/badge/licence-MIT-blue.svg"></a>
   <a href="https://github.com/nic0lasm/Gran-Theft-Praline/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/nic0lasm/Gran-Theft-Praline/actions/workflows/ci.yml/badge.svg?branch=main"></a>
-  <img alt="Version 0.1" src="https://img.shields.io/badge/version-0.1-success">
+  <img alt="Version 0.2" src="https://img.shields.io/badge/version-0.2-success">
   <img alt="Unreal Engine 5.8" src="https://img.shields.io/badge/Unreal%20Engine-5.8-0e1128?logo=unrealengine">
   <img alt="Plateforme : macOS" src="https://img.shields.io/badge/plateforme-macOS%20(Apple%20Silicon)-lightgrey?logo=apple">
 </p>
@@ -78,11 +78,13 @@ l'IGN : le vrai rendu arrive avec la version 0.2.
 
 ## Jouer en un clic
 
-La version **0.1 « Jouer en un clic »** est sortie le **9 novembre 2026**,
-18 jours avant la date prévue : double-clic sur `GranTheftPraline.app`, bouton
-*Jouer*, et vous voilà rue de la République.
+La version **0.2 « La rue habillée »** est sortie le **10 novembre 2026** :
+la rue de la République reconstruite d'après le LiDAR de l'IGN, avec façades en
+pierre, vraies devantures et enseignes, mobilier urbain et platanes, une Renault
+Clio à conduire, et environ 30 i/s sur un M1 Pro. La version 0.1 « Jouer en un
+clic » était sortie la veille.
 
-**[⬇️ Télécharger la version 0.1 pour macOS](https://github.com/nic0lasm/Gran-Theft-Praline/releases/tag/v0.1.0)**
+**[⬇️ Télécharger la version 0.2 pour macOS](https://github.com/nic0lasm/Gran-Theft-Praline/releases/tag/v0.2.0)**
 (Mac Apple Silicon). L'application n'est pas encore signée par Apple : les
 notes de version expliquent comment l'ouvrir la première fois. On peut aussi
 [compiler l'application soi-même](#le-compiler-soi-même) avec un seul script.
@@ -97,8 +99,13 @@ notes de version expliquent comment l'ouvrir la première fois. On peut aussi
 | S'accroupir | C | C | B / Rond |
 | Première / troisième personne | V | V | Vue / Share |
 | Menu pause | Échap | Échap | Menu / Options |
+| Monter / descendre de voiture | F | F | Y / Triangle |
+| Accélérer / freiner, reculer | Z / S | W / S | Gâchette droite / gauche |
+| Tourner | Q / D | A / D | Stick gauche |
+| Frein à main | Espace | Espace | RB / R1 |
 
-Tous les détails : [personnage jouable](docs/gameplay/player-character.fr.md).
+Tous les détails : [personnage jouable](docs/gameplay/player-character.fr.md),
+[véhicules](docs/gameplay/vehicles.fr.md).
 
 ## Feuille de route
 
@@ -108,7 +115,7 @@ et apporte quelque chose qu'on peut voir ou faire.
 | Version | Nom | On peut… | Cible | État |
 | ---- | ---- | ---- | ---- | ---- |
 | **0.1** | Jouer en un clic | lancer le jeu, marcher, courir, sauter rue de la République | nov. 2026 | ✅ sortie le 9 nov. |
-| 0.2 | La rue habillée | flâner dans une rue de la République photoréaliste à 30 i/s | déc. 2026 | 🟡 en cours |
+| **0.2** | La rue habillée | flâner dans une rue de la République habillée à 30 i/s | déc. 2026 | ✅ sortie le 10 nov. |
 | 0.3 | Au volant | monter dans une voiture garée et rouler jusqu'au Rhône | janv. 2027 | 🟡 conception faite |
 | 0.4 à 0.6 | Armé, première boutique, police | tirer, braquer une boutique, semer la police | mars 2027 | ⬜ |
 | 0.7 à 0.13 | Tout le quartier | Bellecour → Terreaux avec foule, circulation, carte, économie, jour et nuit, météo | oct. 2027 | ⬜ |
@@ -117,10 +124,8 @@ et apporte quelque chose qu'on peut voir ou faire.
 
 Ce qui se prépare en ce moment :
 
-- **0.2** : les réglages de rendu qui tiennent 30 i/s sur un portable M1, la
-  première vague de modèles 3D (mobilier urbain : bancs, abribus, potelets…)
-  et une reconstruction 3D plus fidèle de la Presqu'île (relief et toits
-  LiDAR).
+- **Finitions 0.2** : vrais matériaux de chaussée et de trottoir partout, plus
+  de devantures avec leurs vrais logos, éclairages heure dorée et nuit.
 - **0.3** : les véhicules conduisibles, d'après les voitures qu'on croise
   vraiment en France (Clio, 208, Kangoo, Golf, Yaris…), plus les bus TCL et
   les Vélo'v.
