@@ -240,3 +240,13 @@ def test_wave2_manifest_has_names_and_sizes():
         items = parse_catalog(f.read(), "W2")
     assert len(items) == 30
     assert all(i.get("family") and i.get("asset") and i["size_m"] > 0 for i in items)
+
+
+@pytest.mark.parametrize("wave,count", [("W13", 60), ("W14", 80)])
+def test_spec_waves_have_names_and_sizes(wave, count):
+    from gtp_assets.manifest import parse_catalog
+    path = os.path.join(os.path.dirname(__file__), "..", "..", "..", "production", "asset-catalog.md")
+    with open(path, encoding="utf-8") as f:
+        items = parse_catalog(f.read(), wave)
+    assert len(items) == count
+    assert all(i.get("family") and i.get("asset") and i["size_m"] > 0 for i in items)

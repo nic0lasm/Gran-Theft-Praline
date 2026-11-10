@@ -1,0 +1,577 @@
+{
+  "wave": "w13",
+  "items": [
+    {
+      "id": "W13-01",
+      "slug": "stone_balcony_with_iron_railing",
+      "name": "Stone balcony with iron railing",
+      "size_m": 2.5,
+      "family": "Facade",
+      "asset": "Balcony_StoneIron",
+      "pivot": "back_center",
+      "category": "medium"
+    },
+    {
+      "id": "W13-02",
+      "slug": "continuous_iron_balcony",
+      "name": "Continuous iron balcony",
+      "size_m": 8.0,
+      "family": "Facade",
+      "asset": "Balcony_ContinuousIron",
+      "pivot": "back_center",
+      "category": "large"
+    },
+    {
+      "id": "W13-03",
+      "slug": "carved_console_bracket",
+      "name": "Carved console bracket",
+      "size_m": 0.8,
+      "family": "Facade",
+      "asset": "Bracket_CarvedConsole",
+      "pivot": "back_center",
+      "category": "small"
+    },
+    {
+      "id": "W13-04",
+      "slug": "triangular_pediment",
+      "name": "Triangular pediment",
+      "size_m": 2.5,
+      "family": "Facade",
+      "asset": "Pediment_Triangular",
+      "pivot": "back_center",
+      "category": "medium"
+    },
+    {
+      "id": "W13-05",
+      "slug": "curved_pediment_with_keystone",
+      "name": "Curved pediment with keystone",
+      "size_m": 2.5,
+      "family": "Facade",
+      "asset": "Pediment_CurvedKeystone",
+      "pivot": "back_center",
+      "category": "medium"
+    },
+    {
+      "id": "W13-06",
+      "slug": "molded_window_surround",
+      "name": "Molded window surround",
+      "size_m": 2.5,
+      "family": "Facade",
+      "asset": "WindowSurround_Molded",
+      "pivot": "back_center",
+      "category": "medium"
+    },
+    {
+      "id": "W13-07",
+      "slug": "keystone_mascaron",
+      "name": "Keystone mascaron",
+      "size_m": 0.5,
+      "family": "Facade",
+      "asset": "Keystone_Mascaron",
+      "pivot": "back_center",
+      "category": "small"
+    },
+    {
+      "id": "W13-08",
+      "slug": "cornice_with_dentils",
+      "name": "Cornice with dentils",
+      "size_m": 4.0,
+      "family": "Facade",
+      "asset": "Cornice_Dentils",
+      "pivot": "back_center",
+      "category": "large"
+    },
+    {
+      "id": "W13-09",
+      "slug": "corbel_row",
+      "name": "Corbel row",
+      "size_m": 3.0,
+      "family": "Facade",
+      "asset": "Corbel_Row",
+      "pivot": "back_center",
+      "category": "medium"
+    },
+    {
+      "id": "W13-10",
+      "slug": "corinthian_pilaster",
+      "name": "Corinthian pilaster",
+      "size_m": 4.5,
+      "family": "Facade",
+      "asset": "Pilaster_Corinthian",
+      "pivot": "back_center",
+      "category": "large"
+    },
+    {
+      "id": "W13-11",
+      "slug": "ionic_column",
+      "name": "Ionic column",
+      "size_m": 4.5,
+      "family": "Facade",
+      "asset": "Column_Ionic",
+      "category": "large"
+    },
+    {
+      "id": "W13-12",
+      "slug": "corinthian_column",
+      "name": "Corinthian column",
+      "size_m": 5.0,
+      "family": "Facade",
+      "asset": "Column_Corinthian",
+      "category": "large"
+    },
+    {
+      "id": "W13-13",
+      "slug": "balustrade",
+      "name": "Balustrade",
+      "size_m": 3.0,
+      "family": "Facade",
+      "asset": "Balustrade",
+      "category": "medium"
+    },
+    {
+      "id": "W13-14",
+      "slug": "balustrade_end_post",
+      "name": "Balustrade end post",
+      "size_m": 1.0,
+      "family": "Facade",
+      "asset": "Balustrade_EndPost",
+      "category": "medium"
+    },
+    {
+      "id": "W13-15",
+      "slug": "rusticated_block",
+      "name": "Rusticated block",
+      "size_m": 1.0,
+      "family": "Facade",
+      "asset": "Block_Rusticated",
+      "category": "medium"
+    },
+    {
+      "id": "W13-16",
+      "slug": "string_course",
+      "name": "String course",
+      "size_m": 4.0,
+      "family": "Facade",
+      "asset": "StringCourse",
+      "pivot": "back_center",
+      "category": "large"
+    },
+    {
+      "id": "W13-17",
+      "slug": "zinc_mansard_dormer",
+      "name": "Zinc mansard dormer",
+      "size_m": 2.5,
+      "family": "Facade",
+      "asset": "Dormer_ZincMansard",
+      "category": "medium"
+    },
+    {
+      "id": "W13-18",
+      "slug": "oeil_de_boeuf",
+      "name": "Oeil-de-boeuf",
+      "size_m": 1.0,
+      "family": "Facade",
+      "asset": "OeilDeBoeuf",
+      "pivot": "back_center",
+      "category": "medium"
+    },
+    {
+      "id": "W13-19",
+      "slug": "chimney_stack",
+      "name": "Chimney stack",
+      "size_m": 2.0,
+      "family": "Facade",
+      "asset": "Chimney_Stack",
+      "category": "medium"
+    },
+    {
+      "id": "W13-20",
+      "slug": "roof_finial",
+      "name": "Roof finial",
+      "size_m": 1.0,
+      "family": "Facade",
+      "asset": "Finial_Roof",
+      "category": "medium"
+    },
+    {
+      "id": "W13-21",
+      "slug": "zinc_ridge_and_gutter",
+      "name": "Zinc ridge and gutter",
+      "size_m": 4.0,
+      "family": "Facade",
+      "asset": "ZincRidge_Gutter",
+      "category": "large"
+    },
+    {
+      "id": "W13-22",
+      "slug": "cartouche_blank_shield",
+      "name": "Cartouche (blank shield)",
+      "size_m": 0.8,
+      "family": "Facade",
+      "asset": "Cartouche_Blank",
+      "pivot": "back_center",
+      "category": "small"
+    },
+    {
+      "id": "W13-23",
+      "slug": "garland_swag",
+      "name": "Garland swag",
+      "size_m": 1.5,
+      "family": "Facade",
+      "asset": "Garland_Swag",
+      "pivot": "back_center",
+      "category": "medium"
+    },
+    {
+      "id": "W13-24",
+      "slug": "lion_head_relief",
+      "name": "Lion head relief",
+      "size_m": 0.5,
+      "family": "Facade",
+      "asset": "Relief_LionHead",
+      "pivot": "back_center",
+      "category": "small"
+    },
+    {
+      "id": "W13-25",
+      "slug": "rosette_medallion",
+      "name": "Rosette medallion",
+      "size_m": 0.5,
+      "family": "Facade",
+      "asset": "Medallion_Rosette",
+      "pivot": "back_center",
+      "category": "small"
+    },
+    {
+      "id": "W13-26",
+      "slug": "caryatid",
+      "name": "Caryatid",
+      "size_m": 2.5,
+      "family": "Monument",
+      "asset": "Caryatid",
+      "category": "medium"
+    },
+    {
+      "id": "W13-27",
+      "slug": "atlas_figure",
+      "name": "Atlas figure",
+      "size_m": 2.5,
+      "family": "Monument",
+      "asset": "Atlas_Figure",
+      "category": "medium"
+    },
+    {
+      "id": "W13-28",
+      "slug": "allegorical_statue",
+      "name": "Allegorical statue",
+      "size_m": 2.5,
+      "family": "Monument",
+      "asset": "Statue_Allegorical",
+      "category": "medium"
+    },
+    {
+      "id": "W13-29",
+      "slug": "bust_on_pedestal",
+      "name": "Bust on pedestal",
+      "size_m": 1.8,
+      "family": "Monument",
+      "asset": "Bust_Pedestal",
+      "category": "medium"
+    },
+    {
+      "id": "W13-30",
+      "slug": "equestrian_bronze_generic",
+      "name": "Equestrian bronze (generic)",
+      "size_m": 4.5,
+      "family": "Monument",
+      "asset": "Equestrian_Bronze",
+      "category": "large"
+    },
+    {
+      "id": "W13-31",
+      "slug": "standing_bronze_generic",
+      "name": "Standing bronze (generic)",
+      "size_m": 2.5,
+      "family": "Monument",
+      "asset": "Standing_Bronze",
+      "category": "medium"
+    },
+    {
+      "id": "W13-32",
+      "slug": "blank_bronze_plaque",
+      "name": "Blank bronze plaque",
+      "size_m": 0.6,
+      "family": "Monument",
+      "asset": "Plaque_BronzeBlank",
+      "pivot": "back_center",
+      "category": "small"
+    },
+    {
+      "id": "W13-33",
+      "slug": "fountain_basin",
+      "name": "Fountain basin",
+      "size_m": 4.0,
+      "family": "Monument",
+      "asset": "Fountain_Basin",
+      "category": "large"
+    },
+    {
+      "id": "W13-34",
+      "slug": "wall_fountain",
+      "name": "Wall fountain",
+      "size_m": 2.5,
+      "family": "Monument",
+      "asset": "Fountain_Wall",
+      "pivot": "back_center",
+      "category": "medium"
+    },
+    {
+      "id": "W13-35",
+      "slug": "obelisk",
+      "name": "Obelisk",
+      "size_m": 8.0,
+      "family": "Monument",
+      "asset": "Obelisk",
+      "category": "large"
+    },
+    {
+      "id": "W13-36",
+      "slug": "stone_urn",
+      "name": "Stone urn",
+      "size_m": 1.0,
+      "family": "Monument",
+      "asset": "Urn_Stone",
+      "category": "medium"
+    },
+    {
+      "id": "W13-37",
+      "slug": "pedestal",
+      "name": "Pedestal",
+      "size_m": 1.2,
+      "family": "Monument",
+      "asset": "Pedestal",
+      "category": "medium"
+    },
+    {
+      "id": "W13-38",
+      "slug": "ornate_lamp_bracket",
+      "name": "Ornate lamp bracket",
+      "size_m": 1.2,
+      "family": "Facade",
+      "asset": "LampBracket_Ornate",
+      "pivot": "back_center",
+      "category": "medium"
+    },
+    {
+      "id": "W13-39",
+      "slug": "door_knocker",
+      "name": "Door knocker",
+      "size_m": 0.2,
+      "family": "Facade",
+      "asset": "DoorKnocker",
+      "pivot": "back_center",
+      "category": "small"
+    },
+    {
+      "id": "W13-40",
+      "slug": "carved_door_panel",
+      "name": "Carved door panel",
+      "size_m": 2.2,
+      "family": "Facade",
+      "asset": "DoorPanel_Carved",
+      "pivot": "back_center",
+      "category": "medium"
+    },
+    {
+      "id": "W13-41",
+      "slug": "transom_grille",
+      "name": "Transom grille",
+      "size_m": 1.2,
+      "family": "Facade",
+      "asset": "TransomGrille",
+      "pivot": "back_center",
+      "category": "medium"
+    },
+    {
+      "id": "W13-42",
+      "slug": "window_guard_railing",
+      "name": "Window guard railing",
+      "size_m": 1.4,
+      "family": "Facade",
+      "asset": "WindowGuard_Railing",
+      "pivot": "back_center",
+      "category": "medium"
+    },
+    {
+      "id": "W13-43",
+      "slug": "oculus_vent",
+      "name": "Oculus vent",
+      "size_m": 0.6,
+      "family": "Facade",
+      "asset": "OculusVent",
+      "pivot": "back_center",
+      "category": "small"
+    },
+    {
+      "id": "W13-44",
+      "slug": "facade_clock",
+      "name": "Facade clock",
+      "size_m": 1.0,
+      "family": "Facade",
+      "asset": "Clock_Facade",
+      "pivot": "back_center",
+      "category": "medium"
+    },
+    {
+      "id": "W13-45",
+      "slug": "sundial",
+      "name": "Sundial",
+      "size_m": 0.8,
+      "family": "Monument",
+      "asset": "Sundial",
+      "category": "small"
+    },
+    {
+      "id": "W13-46",
+      "slug": "gothic_portal_arch",
+      "name": "Gothic portal arch",
+      "size_m": 6.0,
+      "family": "Monument",
+      "asset": "Portal_GothicArch",
+      "pivot": "back_center",
+      "category": "large"
+    },
+    {
+      "id": "W13-47",
+      "slug": "gargoyle",
+      "name": "Gargoyle",
+      "size_m": 0.8,
+      "family": "Monument",
+      "asset": "Gargoyle",
+      "pivot": "back_center",
+      "category": "small"
+    },
+    {
+      "id": "W13-48",
+      "slug": "gothic_pinnacle",
+      "name": "Gothic pinnacle",
+      "size_m": 2.5,
+      "family": "Monument",
+      "asset": "Pinnacle_Gothic",
+      "category": "medium"
+    },
+    {
+      "id": "W13-49",
+      "slug": "rose_window",
+      "name": "Rose window",
+      "size_m": 3.5,
+      "family": "Monument",
+      "asset": "Window_Rose",
+      "pivot": "back_center",
+      "category": "large"
+    },
+    {
+      "id": "W13-50",
+      "slug": "statue_niche",
+      "name": "Statue niche",
+      "size_m": 2.5,
+      "family": "Monument",
+      "asset": "Niche_Statue",
+      "pivot": "back_center",
+      "category": "medium"
+    },
+    {
+      "id": "W13-51",
+      "slug": "bell_turret",
+      "name": "Bell turret",
+      "size_m": 3.0,
+      "family": "Monument",
+      "asset": "Turret_Bell",
+      "category": "medium"
+    },
+    {
+      "id": "W13-52",
+      "slug": "ornate_iron_gate",
+      "name": "Ornate iron gate",
+      "size_m": 3.0,
+      "family": "Facade",
+      "asset": "Gate_OrnateIron",
+      "pivot": "back_center",
+      "category": "medium"
+    },
+    {
+      "id": "W13-53",
+      "slug": "spiked_iron_fence",
+      "name": "Spiked iron fence",
+      "size_m": 3.0,
+      "family": "Facade",
+      "asset": "Fence_SpikedIron",
+      "category": "medium"
+    },
+    {
+      "id": "W13-54",
+      "slug": "ornate_stone_bollard",
+      "name": "Ornate stone bollard",
+      "size_m": 0.9,
+      "family": "StreetFurniture",
+      "asset": "Bollard_OrnateStone",
+      "category": "small"
+    },
+    {
+      "id": "W13-55",
+      "slug": "bronze_candelabra_lamp",
+      "name": "Bronze candelabra lamp",
+      "size_m": 3.5,
+      "family": "Lighting",
+      "asset": "Lamp_BronzeCandelabra",
+      "category": "large"
+    },
+    {
+      "id": "W13-56",
+      "slug": "theater_arch_bay",
+      "name": "Theater arch bay",
+      "size_m": 4.0,
+      "family": "Monument",
+      "asset": "Arch_TheaterBay",
+      "pivot": "back_center",
+      "category": "large"
+    },
+    {
+      "id": "W13-57",
+      "slug": "small_triumphal_arch",
+      "name": "Small triumphal arch",
+      "size_m": 6.0,
+      "family": "Monument",
+      "asset": "Arch_SmallTriumphal",
+      "category": "large"
+    },
+    {
+      "id": "W13-58",
+      "slug": "monument_steps",
+      "name": "Monument steps",
+      "size_m": 3.0,
+      "family": "Monument",
+      "asset": "Steps_Monument",
+      "category": "medium"
+    },
+    {
+      "id": "W13-59",
+      "slug": "granite_monument_base",
+      "name": "Granite monument base",
+      "size_m": 2.0,
+      "family": "Monument",
+      "asset": "Base_Granite",
+      "category": "medium"
+    },
+    {
+      "id": "W13-60",
+      "slug": "ornate_rainwater_head",
+      "name": "Ornate rainwater head",
+      "size_m": 0.5,
+      "family": "Facade",
+      "asset": "RainwaterHead_Ornate",
+      "pivot": "back_center",
+      "category": "small"
+    }
+  ]
+}

@@ -1,0 +1,775 @@
+{
+  "wave": "w14",
+  "items": [
+    {
+      "id": "W14-01",
+      "slug": "terracotta_pot_with_boxwood_ball",
+      "name": "Terracotta pot with boxwood ball",
+      "size_m": 0.8,
+      "family": "Greenery",
+      "asset": "Pot_BoxwoodBall",
+      "category": "small"
+    },
+    {
+      "id": "W14-02",
+      "slug": "zinc_planter_with_olive_tree",
+      "name": "Zinc planter with olive tree",
+      "size_m": 2.0,
+      "family": "Greenery",
+      "asset": "Planter_ZincOlive",
+      "category": "medium"
+    },
+    {
+      "id": "W14-03",
+      "slug": "window_box_red_geraniums",
+      "name": "Window box red geraniums",
+      "size_m": 1.0,
+      "family": "Greenery",
+      "asset": "WindowBox_Geranium",
+      "pivot": "back_center",
+      "category": "medium"
+    },
+    {
+      "id": "W14-04",
+      "slug": "balcony_planter_lavender",
+      "name": "Balcony planter lavender",
+      "size_m": 0.8,
+      "family": "Greenery",
+      "asset": "BalconyPlanter_Lavender",
+      "pivot": "back_center",
+      "category": "small"
+    },
+    {
+      "id": "W14-05",
+      "slug": "potted_bay_laurel",
+      "name": "Potted bay laurel",
+      "size_m": 1.6,
+      "family": "Greenery",
+      "asset": "Pot_BayLaurel",
+      "category": "medium"
+    },
+    {
+      "id": "W14-06",
+      "slug": "potted_palm",
+      "name": "Potted palm",
+      "size_m": 2.0,
+      "family": "Greenery",
+      "asset": "Pot_Palm",
+      "category": "medium"
+    },
+    {
+      "id": "W14-07",
+      "slug": "hanging_flower_basket",
+      "name": "Hanging flower basket",
+      "size_m": 0.5,
+      "family": "Greenery",
+      "asset": "Basket_HangingFlowers",
+      "category": "small"
+    },
+    {
+      "id": "W14-08",
+      "slug": "climbing_ivy_panel",
+      "name": "Climbing ivy panel",
+      "size_m": 2.0,
+      "family": "Greenery",
+      "asset": "Panel_ClimbingIvy",
+      "pivot": "back_center",
+      "category": "medium"
+    },
+    {
+      "id": "W14-09",
+      "slug": "potted_bamboo",
+      "name": "Potted bamboo",
+      "size_m": 2.0,
+      "family": "Greenery",
+      "asset": "Pot_Bamboo",
+      "category": "medium"
+    },
+    {
+      "id": "W14-10",
+      "slug": "topiary_cone",
+      "name": "Topiary cone",
+      "size_m": 1.5,
+      "family": "Greenery",
+      "asset": "Topiary_Cone",
+      "category": "medium"
+    },
+    {
+      "id": "W14-11",
+      "slug": "cafe_shopfront",
+      "name": "Cafe shopfront",
+      "size_m": 5.0,
+      "family": "Shopfront",
+      "asset": "Front_Cafe",
+      "pivot": "back_center",
+      "category": "large"
+    },
+    {
+      "id": "W14-12",
+      "slug": "bakery_shopfront",
+      "name": "Bakery shopfront",
+      "size_m": 4.5,
+      "family": "Shopfront",
+      "asset": "Front_Bakery",
+      "pivot": "back_center",
+      "category": "large"
+    },
+    {
+      "id": "W14-13",
+      "slug": "pharmacy_shopfront",
+      "name": "Pharmacy shopfront",
+      "size_m": 5.0,
+      "family": "Shopfront",
+      "asset": "Front_Pharmacy",
+      "pivot": "back_center",
+      "category": "large"
+    },
+    {
+      "id": "W14-14",
+      "slug": "clothing_boutique_shopfront",
+      "name": "Clothing boutique shopfront",
+      "size_m": 5.0,
+      "family": "Shopfront",
+      "asset": "Front_ClothingBoutique",
+      "pivot": "back_center",
+      "category": "large"
+    },
+    {
+      "id": "W14-15",
+      "slug": "tobacconist_shopfront",
+      "name": "Tobacconist shopfront",
+      "size_m": 4.0,
+      "family": "Shopfront",
+      "asset": "Front_Tobacconist",
+      "pivot": "back_center",
+      "category": "large"
+    },
+    {
+      "id": "W14-16",
+      "slug": "bank_branch_shopfront",
+      "name": "Bank branch shopfront",
+      "size_m": 6.0,
+      "family": "Shopfront",
+      "asset": "Front_BankBranch",
+      "pivot": "back_center",
+      "category": "large"
+    },
+    {
+      "id": "W14-17",
+      "slug": "shuttered_shop",
+      "name": "Shuttered shop",
+      "size_m": 4.0,
+      "family": "Shopfront",
+      "asset": "Front_Shuttered",
+      "pivot": "back_center",
+      "category": "large"
+    },
+    {
+      "id": "W14-18",
+      "slug": "phone_shop_shopfront",
+      "name": "Phone shop shopfront",
+      "size_m": 4.5,
+      "family": "Shopfront",
+      "asset": "Front_PhoneShop",
+      "pivot": "back_center",
+      "category": "large"
+    },
+    {
+      "id": "W14-19",
+      "slug": "bookshop_shopfront",
+      "name": "Bookshop shopfront",
+      "size_m": 5.0,
+      "family": "Shopfront",
+      "asset": "Front_Bookshop",
+      "pivot": "back_center",
+      "category": "large"
+    },
+    {
+      "id": "W14-20",
+      "slug": "restaurant_shopfront",
+      "name": "Restaurant shopfront",
+      "size_m": 6.0,
+      "family": "Shopfront",
+      "asset": "Front_Restaurant",
+      "pivot": "back_center",
+      "category": "large"
+    },
+    {
+      "id": "W14-21",
+      "slug": "butcher_shopfront",
+      "name": "Butcher shopfront",
+      "size_m": 4.5,
+      "family": "Shopfront",
+      "asset": "Front_Butcher",
+      "pivot": "back_center",
+      "category": "large"
+    },
+    {
+      "id": "W14-22",
+      "slug": "jeweler_shopfront",
+      "name": "Jeweler shopfront",
+      "size_m": 4.0,
+      "family": "Shopfront",
+      "asset": "Front_Jeweler",
+      "pivot": "back_center",
+      "category": "large"
+    },
+    {
+      "id": "W14-23",
+      "slug": "optician_shopfront",
+      "name": "Optician shopfront",
+      "size_m": 4.5,
+      "family": "Shopfront",
+      "asset": "Front_Optician",
+      "pivot": "back_center",
+      "category": "large"
+    },
+    {
+      "id": "W14-24",
+      "slug": "supermarket_entrance",
+      "name": "Supermarket entrance",
+      "size_m": 8.0,
+      "family": "Shopfront",
+      "asset": "Front_SupermarketEntrance",
+      "pivot": "back_center",
+      "category": "large"
+    },
+    {
+      "id": "W14-25",
+      "slug": "hair_salon_shopfront",
+      "name": "Hair salon shopfront",
+      "size_m": 4.5,
+      "family": "Shopfront",
+      "asset": "Front_HairSalon",
+      "pivot": "back_center",
+      "category": "large"
+    },
+    {
+      "id": "W14-26",
+      "slug": "fast_food_shopfront",
+      "name": "Fast food shopfront",
+      "size_m": 5.5,
+      "family": "Shopfront",
+      "asset": "Front_FastFood",
+      "pivot": "back_center",
+      "category": "large"
+    },
+    {
+      "id": "W14-27",
+      "slug": "blade_projecting_sign_blank",
+      "name": "Blade projecting sign (blank)",
+      "size_m": 0.9,
+      "family": "Signage",
+      "asset": "ProjectingSign_BladeBlank",
+      "pivot": "back_center",
+      "category": "small"
+    },
+    {
+      "id": "W14-28",
+      "slug": "pharmacy_cross_sign",
+      "name": "Pharmacy cross sign",
+      "size_m": 0.9,
+      "family": "Signage",
+      "asset": "PharmacyCross_Sign",
+      "pivot": "back_center",
+      "category": "small"
+    },
+    {
+      "id": "W14-29",
+      "slug": "blank_shop_sign_board",
+      "name": "Blank shop sign board",
+      "size_m": 3.0,
+      "family": "Signage",
+      "asset": "ShopSignBoard_Blank",
+      "pivot": "back_center",
+      "category": "medium"
+    },
+    {
+      "id": "W14-30",
+      "slug": "shop_door",
+      "name": "Shop door",
+      "size_m": 2.2,
+      "family": "Shopfront",
+      "asset": "Door_Shop",
+      "pivot": "back_center",
+      "category": "medium"
+    },
+    {
+      "id": "W14-31",
+      "slug": "display_mannequin",
+      "name": "Display mannequin",
+      "size_m": 1.8,
+      "family": "Shopfront",
+      "asset": "Mannequin_Display",
+      "category": "medium"
+    },
+    {
+      "id": "W14-32",
+      "slug": "window_display_shelf",
+      "name": "Window display shelf",
+      "size_m": 1.2,
+      "family": "Shopfront",
+      "asset": "WindowShelf_Display",
+      "category": "medium"
+    },
+    {
+      "id": "W14-33",
+      "slug": "awning_crank",
+      "name": "Awning crank",
+      "size_m": 0.6,
+      "family": "Shopfront",
+      "asset": "AwningCrank",
+      "pivot": "back_center",
+      "category": "small"
+    },
+    {
+      "id": "W14-34",
+      "slug": "doormat",
+      "name": "Doormat",
+      "size_m": 0.7,
+      "family": "Shopfront",
+      "asset": "Doormat",
+      "collision": "none",
+      "category": "small"
+    },
+    {
+      "id": "W14-35",
+      "slug": "intercom_panel",
+      "name": "Intercom panel",
+      "size_m": 0.3,
+      "family": "Facade",
+      "asset": "IntercomPanel",
+      "pivot": "back_center",
+      "category": "small"
+    },
+    {
+      "id": "W14-36",
+      "slug": "mailboxes_wall_unit",
+      "name": "Mailboxes wall unit",
+      "size_m": 0.8,
+      "family": "Facade",
+      "asset": "Mailboxes_WallUnit",
+      "pivot": "back_center",
+      "category": "small"
+    },
+    {
+      "id": "W14-37",
+      "slug": "building_entrance_door",
+      "name": "Building entrance door",
+      "size_m": 3.0,
+      "family": "Facade",
+      "asset": "Door_BuildingEntrance",
+      "pivot": "back_center",
+      "category": "medium"
+    },
+    {
+      "id": "W14-38",
+      "slug": "carriage_gate",
+      "name": "Carriage gate",
+      "size_m": 4.0,
+      "family": "Facade",
+      "asset": "Gate_Carriage",
+      "pivot": "back_center",
+      "category": "large"
+    },
+    {
+      "id": "W14-39",
+      "slug": "doorstep_stone",
+      "name": "Doorstep stone",
+      "size_m": 1.5,
+      "family": "Facade",
+      "asset": "DoorstepStone",
+      "category": "medium"
+    },
+    {
+      "id": "W14-40",
+      "slug": "boot_scraper",
+      "name": "Boot scraper",
+      "size_m": 0.3,
+      "family": "Facade",
+      "asset": "BootScraper",
+      "category": "small"
+    },
+    {
+      "id": "W14-41",
+      "slug": "house_number_plaque_blank",
+      "name": "House number plaque (blank)",
+      "size_m": 0.2,
+      "family": "Facade",
+      "asset": "HouseNumberPlaque_Blank",
+      "pivot": "back_center",
+      "collision": "none",
+      "category": "small"
+    },
+    {
+      "id": "W14-42",
+      "slug": "gutter_downpipe",
+      "name": "Gutter downpipe",
+      "size_m": 6.0,
+      "family": "Facade",
+      "asset": "Downpipe_Gutter",
+      "pivot": "back_center",
+      "category": "large"
+    },
+    {
+      "id": "W14-43",
+      "slug": "wall_lamp_sconce",
+      "name": "Wall lamp sconce",
+      "size_m": 0.4,
+      "family": "Facade",
+      "asset": "WallLamp_Sconce",
+      "pivot": "back_center",
+      "category": "small"
+    },
+    {
+      "id": "W14-44",
+      "slug": "air_vent_grille",
+      "name": "Air vent grille",
+      "size_m": 0.4,
+      "family": "Facade",
+      "asset": "AirVent_Grille",
+      "pivot": "back_center",
+      "category": "small"
+    },
+    {
+      "id": "W14-45",
+      "slug": "cellar_window_grille",
+      "name": "Cellar window grille",
+      "size_m": 0.8,
+      "family": "Facade",
+      "asset": "CellarWindow_Grille",
+      "pivot": "back_center",
+      "category": "small"
+    },
+    {
+      "id": "W14-46",
+      "slug": "meter_cabinet",
+      "name": "Meter cabinet",
+      "size_m": 0.6,
+      "family": "Facade",
+      "asset": "MeterCabinet",
+      "pivot": "back_center",
+      "category": "small"
+    },
+    {
+      "id": "W14-47",
+      "slug": "parcel_locker",
+      "name": "Parcel locker",
+      "size_m": 2.0,
+      "family": "Utilities",
+      "asset": "ParcelLocker",
+      "category": "medium"
+    },
+    {
+      "id": "W14-48",
+      "slug": "satellite_dish",
+      "name": "Satellite dish",
+      "size_m": 0.6,
+      "family": "Facade",
+      "asset": "SatelliteDish",
+      "pivot": "back_center",
+      "category": "small"
+    },
+    {
+      "id": "W14-49",
+      "slug": "window_shutters",
+      "name": "Window shutters",
+      "size_m": 2.0,
+      "family": "Facade",
+      "asset": "Shutters_Window",
+      "pivot": "back_center",
+      "category": "medium"
+    },
+    {
+      "id": "W14-50",
+      "slug": "french_window_with_railing",
+      "name": "French window with railing",
+      "size_m": 2.4,
+      "family": "Facade",
+      "asset": "FrenchWindow_Railing",
+      "pivot": "back_center",
+      "category": "medium"
+    },
+    {
+      "id": "W14-51",
+      "slug": "window_with_lace_curtain",
+      "name": "Window with lace curtain",
+      "size_m": 1.6,
+      "family": "Facade",
+      "asset": "Window_LaceCurtain",
+      "pivot": "back_center",
+      "category": "medium"
+    },
+    {
+      "id": "W14-52",
+      "slug": "flower_pot_on_sill",
+      "name": "Flower pot on sill",
+      "size_m": 0.3,
+      "family": "Facade",
+      "asset": "FlowerPot_Sill",
+      "category": "small"
+    },
+    {
+      "id": "W14-53",
+      "slug": "bicycle_against_wall",
+      "name": "Bicycle against wall",
+      "size_m": 1.8,
+      "family": "Mobility",
+      "asset": "Bicycle_WallLeaning",
+      "category": "medium"
+    },
+    {
+      "id": "W14-54",
+      "slug": "blank_a_board",
+      "name": "Blank A-board",
+      "size_m": 1.0,
+      "family": "Shopfront",
+      "asset": "AFrame_BoardBlank",
+      "category": "medium"
+    },
+    {
+      "id": "W14-55",
+      "slug": "wall_ashtray_bin",
+      "name": "Wall ashtray bin",
+      "size_m": 0.4,
+      "family": "Utilities",
+      "asset": "AshtrayBin_Wall",
+      "pivot": "back_center",
+      "category": "small"
+    },
+    {
+      "id": "W14-56",
+      "slug": "water_valve_cover",
+      "name": "Water valve cover",
+      "size_m": 0.2,
+      "family": "Ground",
+      "asset": "WaterValveCover",
+      "collision": "none",
+      "category": "small"
+    },
+    {
+      "id": "W14-57",
+      "slug": "cobblestone_patch",
+      "name": "Cobblestone patch",
+      "size_m": 1.0,
+      "family": "Ground",
+      "asset": "Cobblestone_Patch",
+      "collision": "none",
+      "category": "medium"
+    },
+    {
+      "id": "W14-58",
+      "slug": "limestone_paving_slabs",
+      "name": "Limestone paving slabs",
+      "size_m": 1.5,
+      "family": "Ground",
+      "asset": "LimestoneSlabs",
+      "collision": "none",
+      "category": "medium"
+    },
+    {
+      "id": "W14-59",
+      "slug": "curb_stone",
+      "name": "Curb stone",
+      "size_m": 1.5,
+      "family": "Ground",
+      "asset": "CurbStone",
+      "category": "medium"
+    },
+    {
+      "id": "W14-60",
+      "slug": "gutter_channel_with_grate",
+      "name": "Gutter channel with grate",
+      "size_m": 1.5,
+      "family": "Ground",
+      "asset": "GutterChannel_Grate",
+      "collision": "none",
+      "category": "medium"
+    },
+    {
+      "id": "W14-61",
+      "slug": "stained_paving_slab",
+      "name": "Stained paving slab",
+      "size_m": 1.0,
+      "family": "Ground",
+      "asset": "PavingSlab_Stained",
+      "collision": "none",
+      "category": "medium"
+    },
+    {
+      "id": "W14-62",
+      "slug": "fallen_leaves_pile",
+      "name": "Fallen leaves pile",
+      "size_m": 0.8,
+      "family": "Ground",
+      "asset": "FallenLeaves_Pile",
+      "collision": "none",
+      "category": "small"
+    },
+    {
+      "id": "W14-63",
+      "slug": "plane_tree_trunk",
+      "name": "Plane tree trunk",
+      "size_m": 8.0,
+      "family": "Greenery",
+      "asset": "PlaneTree_Trunk",
+      "category": "large"
+    },
+    {
+      "id": "W14-64",
+      "slug": "young_plane_tree_with_guard",
+      "name": "Young plane tree with guard",
+      "size_m": 4.0,
+      "family": "Greenery",
+      "asset": "PlaneTree_YoungGuard",
+      "category": "large"
+    },
+    {
+      "id": "W14-65",
+      "slug": "street_litter",
+      "name": "Street litter",
+      "size_m": 0.6,
+      "family": "Ground",
+      "asset": "StreetLitter",
+      "collision": "none",
+      "category": "small"
+    },
+    {
+      "id": "W14-66",
+      "slug": "newspaper_on_ground",
+      "name": "Newspaper on ground",
+      "size_m": 0.4,
+      "family": "Ground",
+      "asset": "Newspaper_Ground",
+      "collision": "none",
+      "category": "small"
+    },
+    {
+      "id": "W14-67",
+      "slug": "rain_puddle",
+      "name": "Rain puddle",
+      "size_m": 1.0,
+      "family": "Ground",
+      "asset": "RainPuddle",
+      "collision": "none",
+      "category": "medium"
+    },
+    {
+      "id": "W14-68",
+      "slug": "pigeon",
+      "name": "Pigeon",
+      "size_m": 0.3,
+      "family": "Fauna",
+      "asset": "Pigeon",
+      "category": "small"
+    },
+    {
+      "id": "W14-69",
+      "slug": "pigeons_group",
+      "name": "Pigeons group",
+      "size_m": 1.0,
+      "family": "Fauna",
+      "asset": "Pigeons_Group",
+      "category": "medium"
+    },
+    {
+      "id": "W14-70",
+      "slug": "street_cat",
+      "name": "Street cat",
+      "size_m": 0.5,
+      "family": "Fauna",
+      "asset": "StreetCat",
+      "category": "small"
+    },
+    {
+      "id": "W14-71",
+      "slug": "dog_water_bowl",
+      "name": "Dog water bowl",
+      "size_m": 0.3,
+      "family": "Props",
+      "asset": "DogWaterBowl",
+      "category": "small"
+    },
+    {
+      "id": "W14-72",
+      "slug": "doorstep_parcel",
+      "name": "Doorstep parcel",
+      "size_m": 0.5,
+      "family": "Props",
+      "asset": "DoorstepParcel",
+      "category": "small"
+    },
+    {
+      "id": "W14-73",
+      "slug": "stacked_fruit_crates",
+      "name": "Stacked fruit crates",
+      "size_m": 0.8,
+      "family": "Props",
+      "asset": "FruitCrates_Stack",
+      "category": "small"
+    },
+    {
+      "id": "W14-74",
+      "slug": "milk_crate",
+      "name": "Milk crate",
+      "size_m": 0.4,
+      "family": "Props",
+      "asset": "MilkCrate",
+      "category": "small"
+    },
+    {
+      "id": "W14-75",
+      "slug": "beer_kegs",
+      "name": "Beer kegs",
+      "size_m": 0.8,
+      "family": "Props",
+      "asset": "BeerKegs",
+      "category": "small"
+    },
+    {
+      "id": "W14-76",
+      "slug": "gas_bottle",
+      "name": "Gas bottle",
+      "size_m": 0.6,
+      "family": "Props",
+      "asset": "GasBottle",
+      "category": "small"
+    },
+    {
+      "id": "W14-77",
+      "slug": "flower_bucket",
+      "name": "Flower bucket",
+      "size_m": 0.6,
+      "family": "Props",
+      "asset": "FlowerBucket",
+      "category": "small"
+    },
+    {
+      "id": "W14-78",
+      "slug": "terrace_heater",
+      "name": "Terrace heater",
+      "size_m": 2.2,
+      "family": "Terrace",
+      "asset": "Heater_Terrace",
+      "category": "medium"
+    },
+    {
+      "id": "W14-79",
+      "slug": "terrace_planter_divider",
+      "name": "Terrace planter divider",
+      "size_m": 1.4,
+      "family": "Terrace",
+      "asset": "Planter_Divider",
+      "category": "medium"
+    },
+    {
+      "id": "W14-80",
+      "slug": "umbrella_stand",
+      "name": "Umbrella stand",
+      "size_m": 0.6,
+      "family": "Terrace",
+      "asset": "UmbrellaStand",
+      "category": "small"
+    }
+  ]
+}

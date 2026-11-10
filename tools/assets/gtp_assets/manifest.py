@@ -80,7 +80,7 @@ WAVE2 = {
     "W2-29": ("Utilities", "GritBin_Yellow", 0.8, {}), "W2-30": ("Roadworks", "Sign_RoadworkTriangle", 1.2, {}),
 }
 
-_ROW = re.compile(r"^\|\s*(W\d+-\d+)\s*\|\s*([^|]+?)\s*\|\s*([^|]*?)\s*\|\s*([^|]*?)\s*\|")
+_ROW = re.compile(r"^\|\s*(W\d+-\d+)\s*\|\s*([^|]+?)\s*\|(?:\s*([^|]*?)\s*\|)?(?:\s*([^|]*?)\s*\|)?")
 
 
 def slugify(text: str) -> str:
@@ -90,14 +90,17 @@ def slugify(text: str) -> str:
 def parse_catalog(md_text: str, wave_prefix: str = "W1") -> list[dict]:
     """Read the asset-catalog.md rows of one wave. Size = longest dimension."""
     items = []
+    specs = _spec_table(wave_prefix)
     for line in md_text.splitlines():
         m = _ROW.match(line)
         if not m or not m.group(1).startswith(wave_prefix + "-"):
             continue
-        asset_id, name, _notes, size = m.groups()
+        asset_id, name, _notes, size = (g or "" for g in m.groups())
         nums = [float(n) for n in re.findall(r"\d+(?:\.\d+)?", size)]
         if asset_id in WAVE2:
             nums = [WAVE2[asset_id][2]]
+        if asset_id in specs:
+            nums = [specs[asset_id][2]]
         if not nums:
             continue
         item = {"id": asset_id, "slug": slugify(name), "name": name,
@@ -108,9 +111,30 @@ def parse_catalog(md_text: str, wave_prefix: str = "W1") -> list[dict]:
         if asset_id in WAVE2:
             item["family"], item["asset"] = WAVE2[asset_id][:2]
             item.update(WAVE2[asset_id][3])
+        if asset_id in specs:
+            item["family"], item["asset"] = specs[asset_id][:2]
+            item.update(specs[asset_id][3])
         item["category"] = category(item["size_m"])
         items.append(item)
     return items
+
+
+def _spec_table(wave_prefix: str) -> dict:
+    """Specs files (tools/assets/gtp_assets/specs/wNN.txt): id|family|asset|size_m|options."""
+    import os
+    path = os.path.join(os.path.dirname(__file__), "specs", f"w{wave_prefix[1:]}.txt")
+    table = {}
+    if not os.path.exists(path):
+        return table
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            asset_id, family, asset, size, opts = (line.split("|") + [""])[:5]
+            extra = dict(o.split("=", 1) for o in opts.split(",") if o)
+            table[asset_id] = (family, asset, float(size), extra)
+    return table
 
 
 def category(size_m: float) -> str:
