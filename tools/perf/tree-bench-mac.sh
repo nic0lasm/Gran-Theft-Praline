@@ -178,6 +178,8 @@ if test -n "${MAP_MD5:-}" && test "$md5_start" != "$MAP_MD5"; then
   exit 1
 fi
 echo "- map md5 at start: $md5_start" >> "$report"
+ini_md5() { if command -v md5 >/dev/null; then md5 -q "$repo_root/GranTheftPraline/Config/DefaultGame.ini"; else md5sum "$repo_root/GranTheftPraline/Config/DefaultGame.ini" | cut -d' ' -f1; fi; }
+ini_md5_start="$(ini_md5)"
 
 pick() {
   GTP_TREE_MODE=pick run_py swap_street_trees.py || return 1
@@ -256,6 +258,12 @@ if test "$md5_end" = "$md5_start"; then
   echo "- map md5 at the end: $md5_end, unchanged" >> "$report"
 else
   echo "- WARNING map md5 changed: $md5_start at start, $md5_end at the end" >> "$report"
+fi
+
+if test "$(ini_md5)" = "$ini_md5_start"; then
+  echo "- DefaultGame.ini md5 at the end: $ini_md5_start, unchanged (cook folders added for the package only, then restored)" >> "$report"
+else
+  echo "- WARNING DefaultGame.ini md5 changed: $ini_md5_start at start, $(ini_md5) at the end" >> "$report"
 fi
 
 # One table: frame p95 per case, its difference to bare and per leafy tree.
