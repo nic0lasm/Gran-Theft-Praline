@@ -272,6 +272,21 @@ def main():
             comp.set_collision_profile_name("NoCollision")
             comp.set_collision_enabled(unreal.CollisionEnabled.NO_COLLISION)
     report["riverside"] = sorted(river)
+    # Fall-in safety (riverside.py "recovery"): tagged trigger boxes over the water and quay
+    # exits at street level; the game swims or fishes out whoever enters them.
+    rec = (river_meta or {}).get("recovery")
+    if rec:
+        for i, b in enumerate(rec["boxes"]):
+            c, h = b["centre_m"], b["half_m"]
+            t = spawn(unreal.TriggerBox, (c[0] * 100.0, -c[1] * 100.0, c[2] * 100.0), None, "RiverRecovery_%03d" % i, "City/Riverside")
+            t.collision_component.set_editor_property("box_extent", unreal.Vector(h[0] * 100, h[1] * 100, h[2] * 100))
+            t.tags = [rec["tag_boxes"]]
+        for i, e in enumerate(rec["exits"]):
+            # Unreal yaw is clockwise from +X with Y south: local yaw (counter-clockwise, y north) flips.
+            t = spawn(unreal.TargetPoint, (e["x_m"] * 100.0, -e["y_m"] * 100.0, (e["z_m"] + 1.0) * 100.0),
+                      unreal.Rotator(0, 0, -e["yaw_deg"]), "RiverExit_%02d" % i, "City/Riverside")
+            t.tags = [rec["tag_exits"]]
+        report["river_recovery"] = {"boxes": len(rec["boxes"]), "exits": len(rec["exits"]), "bed_z_m": rec["bed_z_m"]}
 
     # Player start: Bellecour end of the focus street, looking up the street (morning test map).
     with open(os.path.join(GEN, "report.json"), encoding="utf-8") as f:
