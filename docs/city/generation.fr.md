@@ -385,6 +385,16 @@ sans translucidité ni surcoût de remplissage ; reflets et Fresnel par-dessus, 
 disponibles. Les détails ont des distances d'affichage de 20 à 40 m (colonne `cull_m`, 60 m pour
 cheminées et feux).
 
+### LOD du kit de façades (performance, 2026-11-10)
+
+Les 21 242 modules de la map de rue faisaient 10,2 M de triangles en LOD0 jusqu'à 250 m, redessinés
+par les ombres virtuelles, sans Nanite sur M1 : c'est la première cause des 44,5 ms de p95 en
+package. `place_facades.py` génère maintenant quatre LOD par module (100 %, 50 % sous 0,3 de taille
+d'écran, 15 % sous 0,1, 5 % sous 0,035, soit environ 10, 30 et 85 m) ; rien de visible n'est coupé.
+`GTP_KIT_LODS=0` pour l'avant, `GTP_FACADE_CULL="court=120"` pour tester une distance au banc.
+Banc en une commande : `caffeinate -dimsu tools/city/facade_lods_mac.sh` (rejoue seulement les
+façades et les matériaux, `FACADES_ONLY=1`, puis package dans Builds/facade-lods/).
+
 ## Limites et suite
 
 1. **Test éditeur** : `tools/city/unreal/import_city.py` importe greybox et
