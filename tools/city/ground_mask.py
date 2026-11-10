@@ -30,15 +30,17 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
 MARGIN_CM = 6000.0
 TEXELS_LONG = 8192
-KERB_M = 0.3
+KERB_M = 0.35
+PEDESTRIAN_W_M = 22.0
 DASH_M, GAP_M, MARK_W_M = 3.0, 3.5, 0.15
 
 
 def road_width(p):
-    w = p.get("largeur_de_chaussee") or 0
-    if not w:
-        w = 3.0 * (p.get("nombre_de_voies") or 1)
-    return max(float(w), 2.5)
+    """Carriageway width. BD TOPO often gives the width of the traffic lanes only
+    (3-4 m in the Presqu'ile) while the asphalt runs kerb to kerb, parking lanes
+    included: at least 3.2 m per lane and 6 m in all."""
+    w = float(p.get("largeur_de_chaussee") or 0)
+    return max(w, 3.2 * (p.get("nombre_de_voies") or 1), 6.0)
 
 
 def is_pedestrian(p):
@@ -94,7 +96,9 @@ def build(zone, focus):
                 continue
             wd = road_width(p)
             if is_pedestrian(p):
-                line(draw["paving"], pts, max(wd, 3.0) * 2.0)
+                # Streets closed to cars are paved from facade to facade (the buildings
+                # hide the excess): rue de la Republique is granite all across.
+                line(draw["paving"], pts, PEDESTRIAN_W_M)
                 counts["paving"] += 1
                 continue
             line(draw["asphalt"], pts, wd)

@@ -42,11 +42,13 @@ MAP = "/Game/Maps/L_City_" + CAMEL
 KIT_DIR = "/Game/Environment/Facades/LyonKit"
 
 # Art bible, dry daylight albedos (linear).
-SIDEWALK = (0.34, 0.32, 0.29)      # pale limestone slabs
-PAVING = (0.21, 0.20, 0.19)        # grey granite setts and slabs
-KERB = (0.22, 0.21, 0.20)          # granite kerb
-ASPHALT = (0.045, 0.045, 0.05)
-MARKING = (0.62, 0.62, 0.60)
+# Kept well below the facade stone: under the bright Noon exposure the first values
+# (0.34 / 0.21) read almost white in game and the street lost all contrast.
+SIDEWALK = (0.19, 0.18, 0.165)     # limestone slabs
+PAVING = (0.13, 0.125, 0.12)       # grey granite setts and slabs
+KERB = (0.10, 0.10, 0.10)          # granite kerb
+ASPHALT = (0.025, 0.025, 0.028)
+MARKING = (0.5, 0.5, 0.48)
 # GTP_GROUND_DEBUG=1: loud colours to check the mask in game (asphalt red, paving green,
 # kerb blue, marking yellow, sidewalk white). Rerun without it afterwards.
 if os.environ.get("GTP_GROUND_DEBUG") == "1":
