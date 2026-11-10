@@ -340,17 +340,17 @@ void UGTPAudioMix::LoadBanks()
 		}
 		else if (Parts.Num() >= 2 && Parts[0] == TEXT("Voices"))
 		{
-			Bank = FindNamed(Parts[1], Voices, StaticEnum<EGTPVoiceKind>(), UE_ARRAY_COUNT(Voices));
+			Bank = FindNamed(Parts[1], Voices, StaticEnum<EGTPVoiceKind>(), static_cast<int32>(UE_ARRAY_COUNT(Voices)));
 			Class = GetClass(EGTPAudioCategory::Voice);
 		}
 		else if (Parts.Num() >= 2 && Parts[0] == TEXT("Radio"))
 		{
-			Bank = FindNamed(Parts[1], Radio, StaticEnum<EGTPRadioCall>(), UE_ARRAY_COUNT(Radio));
+			Bank = FindNamed(Parts[1], Radio, StaticEnum<EGTPRadioCall>(), static_cast<int32>(UE_ARRAY_COUNT(Radio)));
 			Class = GetClass(EGTPAudioCategory::Radio);
 		}
 		else if (Parts.Num() >= 2 && Parts[0] == TEXT("UI"))
 		{
-			Bank = FindNamed(Parts[1], Interface, StaticEnum<EGTPUISound>(), UE_ARRAY_COUNT(Interface));
+			Bank = FindNamed(Parts[1], Interface, StaticEnum<EGTPUISound>(), static_cast<int32>(UE_ARRAY_COUNT(Interface)));
 			Class = GetClass(EGTPAudioCategory::Interface);
 		}
 		if (!Bank)
@@ -398,8 +398,8 @@ void UGTPAudioMix::LoadBanks()
 		return Total;
 	};
 	GTP_TRACE(LogGTPAudio, TEXT("[Audio] game audio on (ADR-0009, -Audio=0 turns it off); banks under %s: steps/landings%s; impacts %d (glass %d); voices %d, radio %d, ui %d; %d unsorted"),
-		*Root, *Summary, ImpactCount, Glass.Sounds.Num(), CountOf(Voices, UE_ARRAY_COUNT(Voices)), CountOf(Radio, UE_ARRAY_COUNT(Radio)),
-		CountOf(Interface, UE_ARRAY_COUNT(Interface)), Unsorted);
+		*Root, *Summary, ImpactCount, Glass.Sounds.Num(), CountOf(Voices, static_cast<int32>(UE_ARRAY_COUNT(Voices))), CountOf(Radio, static_cast<int32>(UE_ARRAY_COUNT(Radio))),
+		CountOf(Interface, static_cast<int32>(UE_ARRAY_COUNT(Interface))), Unsorted);
 }
 
 void UGTPAudioMix::LoadSurfaceMap()
@@ -532,19 +532,19 @@ USoundBase* UGTPAudioMix::PickGlass()
 
 USoundBase* UGTPAudioMix::PickVoice(EGTPVoiceKind Kind)
 {
-	FBank& Bank = Voices[FMath::Clamp(static_cast<int32>(Kind), 0, UE_ARRAY_COUNT(Voices) - 1)];
+	FBank& Bank = Voices[FMath::Clamp(static_cast<int32>(Kind), 0, static_cast<int32>(UE_ARRAY_COUNT(Voices)) - 1)];
 	return PickFrom(Bank.Sounds, Bank.Last);
 }
 
 USoundBase* UGTPAudioMix::PickRadio(EGTPRadioCall Call)
 {
-	FBank& Bank = Radio[FMath::Clamp(static_cast<int32>(Call), 0, UE_ARRAY_COUNT(Radio) - 1)];
+	FBank& Bank = Radio[FMath::Clamp(static_cast<int32>(Call), 0, static_cast<int32>(UE_ARRAY_COUNT(Radio)) - 1)];
 	return PickFrom(Bank.Sounds, Bank.Last);
 }
 
 USoundBase* UGTPAudioMix::PickUI(EGTPUISound Sound)
 {
-	FBank& Bank = Interface[FMath::Clamp(static_cast<int32>(Sound), 0, UE_ARRAY_COUNT(Interface) - 1)];
+	FBank& Bank = Interface[FMath::Clamp(static_cast<int32>(Sound), 0, static_cast<int32>(UE_ARRAY_COUNT(Interface)) - 1)];
 	return PickFrom(Bank.Sounds, Bank.Last);
 }
 
