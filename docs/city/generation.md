@@ -390,6 +390,12 @@ pages and 1 logo page (out of Git, CityBrands plugin). `place_facades.py` places
 component per page (plus a shadowless one for the blade signs) with `M_Sign_Atlas`, each sign's
 cell in its instance data. `GTP_SIGN_ATLAS=0` goes back to separate actors (the bench's before).
 
+### Shells merged per cell (performance, 2026-11-10)
+
+`generate.py` also writes `shell_cells.glb`: the shells merged per 250 m cell (ADR-0010 grid),
+376 shells → 8 meshes on the street map. `GTP_SHELL_MERGE=1` makes `import_city.py` place them
+instead of the separate shells (complex collision kept). Off by default.
+
 ## Limits and next steps
 
 1. **Editor test**: `tools/city/unreal/import_city.py` imports the greybox and

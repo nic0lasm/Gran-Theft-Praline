@@ -243,14 +243,33 @@ def main():
             mark_meta = json.load(f)
         marks = import_glb(os.path.join(GEN, "landmarks.glb"), ROOT + "/Landmarks/" + CAMEL)
         solid += [marks[n["name"]] for n in mark_meta["nodes"] if n["name"] in marks]
-    report["collision_meshes"] = set_complex_collision(list(buildings.values()) + list(terrain.values()) + solid)
+    # GTP_SHELL_MERGE=1: the shells merged per 250 m cell (generate.py shell_cells.glb), one
+    # mesh and one draw per cell instead of one per building (ADR-0010, fil optimisation).
+    cells_meta, cells = None, {}
+    if MESH == "shell" and os.environ.get("GTP_SHELL_MERGE", "0") == "1" and \
+            os.path.exists(os.path.join(GEN, "shell_cells.json")):
+        with open(os.path.join(GEN, "shell_cells.json"), encoding="utf-8") as f:
+            cells_meta = json.load(f)
+        cells = import_glb(os.path.join(GEN, "shell_cells.glb"), ROOT + "/Buildings/" + CAMEL + "/Cells")
+    shells = list(cells.values()) if cells_meta else list(buildings.values())
+    report["collision_meshes"] = set_complex_collision(shells + list(terrain.values()) + solid)
     open_level_with_bible_lighting(report)
     unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world() \
         .get_world_settings().set_editor_property("kill_z", KILL_Z)
 
-    for r in rows:
-        pos = (0.0, 0.0, 0.0) if r["baked"] else (float(r["ue_x"]), float(r["ue_y"]), float(r["ue_z"]))
-        place_mesh(buildings[r["mesh_name"]], pos, r["mesh_name"], "City/Buildings")
+    if cells_meta:
+        for n in cells_meta["nodes"]:
+            m = cells.get(n["name"])
+            if m is None:
+                report["errors"].append("shell cell mesh missing: " + n["name"])
+                continue
+            pos = (0.0, 0.0, 0.0) if terrain_baked(m, n) else tuple(n["ue_cm"])
+            place_mesh(m, pos, n["name"], "City/Buildings")
+        report["shell_cells"] = len(cells)
+    else:
+        for r in rows:
+            pos = (0.0, 0.0, 0.0) if r["baked"] else (float(r["ue_x"]), float(r["ue_y"]), float(r["ue_z"]))
+            place_mesh(buildings[r["mesh_name"]], pos, r["mesh_name"], "City/Buildings")
     terrain_check = {"baked": 0, "at_pivot": 0}
     for tile in terrain_meta["mesh_tiles"]:
         m = terrain.get(tile["name"])
