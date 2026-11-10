@@ -25,9 +25,16 @@ replay() {  # $1 shop glass, $2 version
   PATH="$(dirname "$(command -v "$py")"):$PATH" FACADES_ONLY=1 SKIP_PLAY=1 GTP_CITY_RIVERSIDE=0 \
     GTP_SHOP_GLASS="$1" GTP_CITY_DETAILS="${GTP_CITY_DETAILS:-0}" \
     "$repo/tools/city/unreal/run_city_import.sh" > /dev/null
-  grep -o '"kit_lods": {[^}]*}' "$repo/GranTheftPraline/Saved/CityImport/facades_report.json" || \
-    grep -o '"kit_lods": "[a-z]*"' "$repo/GranTheftPraline/Saved/CityImport/facades_report.json"
-  grep -o '"shop_glass": "[a-z]*"' "$repo/GranTheftPraline/Saved/CityImport/materials_report.json"
+  # The reports are pretty-printed JSON: read them with Python, not grep.
+  "$py" -c 'import json, sys
+f = json.load(open(sys.argv[1])); m = json.load(open(sys.argv[2]))
+k = f.get("kit_lods")
+lc = k.get("lod_counts", []) if isinstance(k, dict) else []
+counts = sorted(set(lc.values() if isinstance(lc, dict) else lc)) if lc else k
+print("kit_lods:", counts, "| modules_without_lods:", f.get("modules_without_lods"),
+      "| errors:", f.get("errors"), "| shop_glass:", m.get("shop_glass"))' \
+    "$repo/GranTheftPraline/Saved/CityImport/facades_report.json" \
+    "$repo/GranTheftPraline/Saved/CityImport/materials_report.json" || true
   git -C "$repo" checkout -- assets/geo/processed 2> /dev/null || true   # manifest.json counts drift
   step "package $2"
   BUILDS_DIR="${BUILDS_DIR:-$repo/Builds/facade-lods}" "$repo/tools/build/package-mac.sh" "$2"
