@@ -353,6 +353,13 @@ cost and the 250 m cull to be measured.
 Mac slot in one command: `caffeinate -dimsu tools/city/city_slot_mac.sh <before_builds> 0.3`
 (regeneration, package, filmed 60 s M1 test, the realism thread's before/after).
 
+**GPU cost of the dressing**: `tools/city/unreal/profile_details.sh` measures, in `-game` and
+without rebuilding the map, the frame time at four fixed points of the street with everything
+visible, then hiding the details, the furniture, or one detail group at a time (actor tags
+`GTP_Set_*` and `GTP_Cat_*` set by `place_props.py`). Result: `Saved/CityImport/details_profile.json`.
+Wall-flush details, shelves behind the glass and small items no longer cast shadows (`shadow`
+column); only awnings and chimneys keep theirs.
+
 ## Limits and next steps
 
 1. **Editor test**: `tools/city/unreal/import_city.py` imports the greybox and

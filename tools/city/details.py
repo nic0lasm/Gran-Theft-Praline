@@ -67,6 +67,7 @@ from kit_layout import module_for  # noqa: E402
 
 SHOP_BACK_M = 0.45 + 2.2 - 0.25   # kit.py WALL_DEPTH + shop_interior depth, minus half a shelf
 
+SHADOW_KEEP = {"W1-45", "W1-46", "W13-19"}   # awnings and chimneys throw shadows a player sees
 MAX_INSTANCES = 3000       # agreed with the optimisation pass; above it, ask first
 MIN_GAP_M = 0.35           # wall items sit close together (plaque beside an intercom)
 FOOD_TRADES = {"restaurant", "cafe", "bar", "pub", "fast_food", "ice_cream", "bakery", "pastry",
@@ -203,7 +204,9 @@ def main():  # noqa: C901, PLR0912, PLR0915
                      "x_m": round(x, 2), "y_m": round(y, 2), "z_m": round(z, 2), "ue_x": ux, "ue_y": uy, "ue_z": uz,
                      "ue_yaw": round(yaw % 360.0, 1), "source": source, "ref": ref, "snap": snap,
                      "scale_x": round(scale[0], 3), "scale_y": round(scale[1], 3), "scale_z": round(scale[2], 3),
-                     "collision": "true" if cls != "small" and snap == "ground" else "false"})
+                     "collision": "true" if cls != "small" and snap == "ground" else "false",
+                     # wall-flush items, shelves behind glass and litter: no dynamic shadow (GPU budget)
+                     "shadow": "true" if cid in SHADOW_KEEP or (snap == "ground" and cls != "small") else "false"})
         placed.append((x, y, z))
         return True
 
@@ -460,7 +463,7 @@ def main():  # noqa: C901, PLR0912, PLR0915
     rows.sort(key=lambda r: PRIORITY.get(r["catalog_id"], 5))
     rows = rows[:args.max]
     fields = ["catalog_id", "asset", "family", "asset_path", "x_m", "y_m", "z_m", "ue_x", "ue_y", "ue_z", "ue_yaw",
-              "source", "ref", "snap", "scale_x", "scale_y", "scale_z", "collision"]
+              "source", "ref", "snap", "scale_x", "scale_y", "scale_z", "collision", "shadow"]
     with open(os.path.join(gen, "details_placement.csv"), "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fields)
         w.writeheader()

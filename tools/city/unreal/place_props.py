@@ -123,6 +123,9 @@ def hism_actor(label, mesh):
     actor = actor_sub.spawn_actor_from_class(unreal.StaticMeshActor, unreal.Vector(0, 0, 0))
     actor.set_actor_label(label)
     actor.set_folder_path(FOLDER)
+    # Runtime handles (folders and labels are editor-only): profile_details.py hides sets and
+    # catalogue groups by these tags to measure what each costs.
+    actor.set_editor_property("tags", [unreal.Name("GTP_Set_" + PROPS_SET), unreal.Name("GTP_Cat_" + label.split("_")[1])])
     root = sds.k2_gather_subobject_data_for_instance(actor)[0]
     handle, _ = sds.add_new_subobject(unreal.AddNewSubobjectParams(
         parent_handle=root, new_class=unreal.HierarchicalInstancedStaticMeshComponent))
@@ -160,7 +163,7 @@ def main():
     world = editor_sub.get_editor_world()
     by_id = catalog_index() if eal.does_directory_exist(PROPS_ROOT) else {}
     report["imported_catalog_ids"] = len(by_id)
-    comps, snapped, kept, no_collision = {}, 0, 0, set()
+    comps, snapped, kept, no_collision, no_shadow = {}, 0, 0, set(), set()
     for r in rows:
         p = r["asset_path"] if r["asset_path"] and eal.does_asset_exist(r["asset_path"]) else \
             by_id.get(r["catalog_id"], "")
@@ -177,6 +180,9 @@ def main():
         comp = comps[key]
         if comp is None:
             continue
+        if r.get("shadow") == "false" and key not in no_shadow:
+            comp.set_editor_property("cast_shadow", False)   # flush on a wall: its shadow is invisible
+            no_shadow.add(key)
         if r.get("collision") == "false" and key not in no_collision:
             comp.set_collision_profile_name("NoCollision")   # small details: nothing to walk into
             no_collision.add(key)
