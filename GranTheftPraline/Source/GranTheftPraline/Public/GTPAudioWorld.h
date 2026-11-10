@@ -5,6 +5,7 @@
 #include "GTPAudioWorld.generated.h"
 
 class AActor;
+class UGTPAmbienceBed;
 
 /**
  * Audio of a game world (ADR-0009). Without touching the classes of the
@@ -49,6 +50,12 @@ private:
 	float RecordStartedAt = -1.f;
 	FString RecordDir;
 	bool bRecording = false;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UGTPAmbienceBed> Bed;
+
+	/** Crowd pedestrians seen so far, for the crowd layer of the bed. */
+	TArray<TWeakObjectPtr<AActor>> Pedestrians;
 
 	FDelegateHandle SpawnHandle;
 	bool bDrivingMixOn = false;

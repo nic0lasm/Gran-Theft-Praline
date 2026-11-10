@@ -91,6 +91,8 @@ the ground probes per walker go down first.
 
 ## Not in this step
 
+Added on 2026-11-10: an ambience bed (zones, night, rain, crowd; `UGTPAmbienceBed`).
+
 Reverb of the street canyons and occlusion (0.16), rolling tyre noise per
 surface, scrapes, horn, doors and car radio, police radio, voices, weapons,
-weather (rain on the ground and on the car, 0.6), music.
+rain impacts on surfaces (beyond the bed loops), music.

@@ -51,6 +51,10 @@ def main(folder):
     if "no surface map" in text:
         lines.append("Surface map: **missing** (every ground is stone)")
     lines.append("Counters: " + (stats[-1] if stats else "none"))
+    zones = sorted(set(re.findall(r"zone=(\w+)", text)))
+    lines.append("Ambience zones heard: " + (", ".join(zones) or "none"))
+    if "no zone map" in text:
+        lines.append("Zone grid: **missing** (street loop everywhere)")
 
     walking = [h for _, h, sp, _ in feet if 60 < sp < 700]
     if walking:

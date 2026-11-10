@@ -174,6 +174,8 @@ void UGTPAudioMix::BuildClasses()
 	// Ambience and the interface keep playing over the pause menu.
 	Classes[static_cast<int32>(EGTPAudioCategory::Ambience)]->Properties.bIsUISound = true;
 	Classes[static_cast<int32>(EGTPAudioCategory::Interface)]->Properties.bIsUISound = true;
+	Classes[static_cast<int32>(EGTPAudioCategory::Zones)]->Properties.bIsUISound = true;
+	Classes[static_cast<int32>(EGTPAudioCategory::Weather)]->Properties.bIsUISound = true;
 	if (FAudioDeviceManager* Manager = GEngine ? GEngine->GetAudioDeviceManager() : nullptr)
 	{
 		for (USoundClass* Class : Classes)
@@ -361,6 +363,18 @@ void UGTPAudioMix::LoadBanks()
 void UGTPAudioMix::LoadSurfaceMap()
 {
 	const UGTPAudioSettings* Settings = GetDefault<UGTPAudioSettings>();
+	{
+		const FString ZonePath = FPaths::ProjectContentDir() / Settings->ZoneMapFile;
+		TArray<uint8> ZoneBytes;
+		if (FFileHelper::LoadFileToArray(ZoneBytes, *ZonePath, FILEREAD_Silent) && ZoneMap.Load(ZoneBytes.GetData(), ZoneBytes.Num()))
+		{
+			GTP_TRACE(LogGTPAudio, TEXT("[Audio] zone map %s: %d x %d cells"), *Settings->ZoneMapFile, ZoneMap.GetWidth(), ZoneMap.GetHeight());
+		}
+		else
+		{
+			GTP_TRACE(LogGTPAudio, TEXT("[Audio] no zone map at %s: street ambience everywhere"), *ZonePath);
+		}
+	}
 	const FString Path = FPaths::ProjectContentDir() / Settings->SurfaceMapFile;
 	TArray<uint8> Bytes;
 	if (!FFileHelper::LoadFileToArray(Bytes, *Path, FILEREAD_Silent) || !SurfaceMap.Load(Bytes.GetData(), Bytes.Num()))
@@ -370,6 +384,12 @@ void UGTPAudioMix::LoadSurfaceMap()
 	}
 	GTP_TRACE(LogGTPAudio, TEXT("[Audio] surface map %s: %d x %d cells of %.0f cm"), *Settings->SurfaceMapFile,
 		SurfaceMap.GetWidth(), SurfaceMap.GetHeight(), SurfaceMap.GetCellCm());
+}
+
+EGTPAmbienceZone UGTPAudioMix::SampleZone(const FVector& Location) const
+{
+	const uint8 Id = ZoneMap.Sample(Location.X, Location.Y);
+	return Id < static_cast<uint8>(EGTPAmbienceZone::Count) ? static_cast<EGTPAmbienceZone>(Id) : EGTPAmbienceZone::Street;
 }
 
 USoundClass* UGTPAudioMix::GetClass(EGTPAudioCategory Category) const

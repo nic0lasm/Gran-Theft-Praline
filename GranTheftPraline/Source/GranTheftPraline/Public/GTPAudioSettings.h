@@ -147,6 +147,60 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category = "Sirens")
 	FName SirenActorTag = TEXT("GTPPolice");
 
+	/** Zone grid of the map (tools/audio/zone_map.py), relative to Content/. */
+	UPROPERTY(Config, EditAnywhere, Category = "Ambience bed")
+	FString ZoneMapFile = TEXT("Sound/SurfaceMap/zones-rue-de-la-republique.gtpsurf");
+
+	/** Folder of the bed loops SW_Amb_<Layer> (tools/audio/make_ambiences.py). */
+	UPROPERTY(Config, EditAnywhere, Category = "Ambience bed")
+	FString AmbienceRoot = TEXT("/Game/Sound/Ambience");
+
+	/** Parameter collection of the day-night and weather system (ADR-0008): rain and night are read from it. */
+	UPROPERTY(Config, EditAnywhere, Category = "Ambience bed")
+	FSoftObjectPath EnvironmentCollection = FSoftObjectPath(TEXT("/Game/Environment/Weather/MPC_Environment.MPC_Environment"));
+
+	UPROPERTY(Config, EditAnywhere, Category = "Ambience bed")
+	FName RainParameter = TEXT("RainIntensity");
+
+	/** 0 by day, 1 at night (city lights on). */
+	UPROPERTY(Config, EditAnywhere, Category = "Ambience bed")
+	FName NightParameter = TEXT("CityLights");
+
+	/** Level of the day street loop in each zone, and at night (multiplied). */
+	UPROPERTY(Config, EditAnywhere, Category = "Ambience bed")
+	float StreetLevelPedestrian = 0.45f;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Ambience bed")
+	float StreetLevelQuay = 0.35f;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Ambience bed")
+	float StreetLevelBridge = 0.2f;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Ambience bed")
+	float StreetLevelNight = 0.3f;
+
+	/** Level of the zone, night and crowd layers at full weight. */
+	UPROPERTY(Config, EditAnywhere, Category = "Ambience bed")
+	float ZoneLayerVolume = 0.5f;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Ambience bed")
+	float RainVolume = 0.6f;
+
+	/** Street rain heard from inside a car (the roof drumming takes over). */
+	UPROPERTY(Config, EditAnywhere, Category = "Ambience bed")
+	float RainInCarLevel = 0.3f;
+
+	/** Crowd layer: full with this many visible pedestrians within CrowdRadius (cm). */
+	UPROPERTY(Config, EditAnywhere, Category = "Ambience bed")
+	int32 CrowdFullCount = 10;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Ambience bed")
+	float CrowdRadius = 2500.f;
+
+	/** Crossfade time between layers (s). */
+	UPROPERTY(Config, EditAnywhere, Category = "Ambience bed")
+	float BedFadeSeconds = 2.f;
+
 	/** Writes one line per second with the audio counters (soak tests). */
 	UPROPERTY(Config, EditAnywhere, Category = "Debug")
 	bool bLogStats = false;

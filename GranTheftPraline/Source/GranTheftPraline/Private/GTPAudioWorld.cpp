@@ -5,6 +5,7 @@
 #include "EngineUtils.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/PlayerController.h"
+#include "GTPAmbienceBed.h"
 #include "GTPAudioMix.h"
 #include "GTPAudioSettings.h"
 #include "GTPEngineSoundComponent.h"
@@ -59,11 +60,18 @@ void UGTPAudioWorld::OnWorldBeginPlay(UWorld& InWorld)
 	{
 		UGameplayStatics::PushSoundMixModifier(&InWorld, Mix->GetUserMix());
 	}
-	GTP_TRACE(LogGTPAudioWorld, TEXT("[Audio] world %s: %d actors equipped at start"), *InWorld.GetMapName(), Equipped);
+	Bed = NewObject<UGTPAmbienceBed>(this);
+	Bed->Start(&InWorld);
+	GTP_TRACE(LogGTPAudioWorld, TEXT("[Audio] world %s: %d actors equipped at start; bed %s"), *InWorld.GetMapName(), Equipped, *Bed->Describe());
 }
 
 void UGTPAudioWorld::Deinitialize()
 {
+	if (Bed)
+	{
+		Bed->Stop();
+		Bed = nullptr;
+	}
 	if (UWorld* World = GetWorld())
 	{
 		World->RemoveOnActorSpawnedHandler(SpawnHandle);
@@ -88,7 +96,12 @@ void UGTPAudioWorld::Equip(AActor* Actor)
 		return;
 	}
 	bool bAdded = false;
-	if ((Cast<ACharacter>(Actor) || UGTPAudioMix::IsPedestrian(Actor)) && !Actor->FindComponentByClass<UGTPFootstepComponent>())
+	const bool bPedestrian = UGTPAudioMix::IsPedestrian(Actor);
+	if (bPedestrian)
+	{
+		Pedestrians.AddUnique(Actor);
+	}
+	if ((Cast<ACharacter>(Actor) || bPedestrian) && !Actor->FindComponentByClass<UGTPFootstepComponent>())
 	{
 		UGTPFootstepComponent* Feet = NewObject<UGTPFootstepComponent>(Actor, MakeUniqueObjectName(Actor, UGTPFootstepComponent::StaticClass(), TEXT("GTPFootsteps")));
 		Feet->RegisterComponent();
@@ -147,6 +160,10 @@ void UGTPAudioWorld::Tick(float DeltaTime)
 	}
 	UpdateRecording();
 	UpdateTestSiren(DeltaTime);
+	if (Bed)
+	{
+		Bed->Tick(DeltaTime, Pedestrians);
+	}
 	if (bLogStats)
 	{
 		StatsTimer += DeltaTime;
@@ -250,6 +267,7 @@ void UGTPAudioWorld::LogStats()
 		}
 		Feet += It->FindComponentByClass<UGTPFootstepComponent>() ? 1 : 0;
 	}
-	GTP_TRACE(LogGTPAudioWorld, TEXT("[Audio] steps=%d impacts=%d sirens_on=%d skids_on=%d walkers=%d driving=%d bank=%d"),
-		Mix ? Mix->FootstepsPlayed : 0, Mix ? Mix->ImpactsPlayed : 0, Sirens, Skids, Feet, bDrivingMixOn ? 1 : 0, Mix ? Mix->GetBankSize() : 0);
+	GTP_TRACE(LogGTPAudioWorld, TEXT("[Audio] steps=%d impacts=%d sirens_on=%d skids_on=%d walkers=%d driving=%d bank=%d %s"),
+		Mix ? Mix->FootstepsPlayed : 0, Mix ? Mix->ImpactsPlayed : 0, Sirens, Skids, Feet, bDrivingMixOn ? 1 : 0, Mix ? Mix->GetBankSize() : 0,
+		Bed ? *Bed->Describe() : TEXT("bed=off"));
 }

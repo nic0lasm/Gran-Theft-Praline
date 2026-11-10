@@ -97,6 +97,8 @@ dépassement du game thread, on baisse d'abord les sondes de sol par marcheur.
 
 ## Hors de cette étape
 
+Ajouté le 10/11/2026 : un lit d'ambiance (zones, nuit, pluie, foule ; `UGTPAmbienceBed`).
+
 Réverbération des rues encaissées et occlusion (0.16), roulement des pneus
 selon le sol, frottements de carrosserie, klaxon, portières et autoradio,
 radio de la police, voix, armes, météo (pluie au sol et sur la voiture, 0.6),

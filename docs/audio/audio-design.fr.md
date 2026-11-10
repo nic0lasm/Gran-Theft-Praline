@@ -14,6 +14,8 @@
 | Crissement des pneus | synthèse temps réel (glissement) | idem |
 | Sirène de police « deux tons » et « yelp », avec Doppler | synthèse temps réel | `UGTPSirenComponent` |
 
+| Lit d'ambiance : rue piétonne, quai du Rhône, pont Lafayette, nuit, pluie (rue et toit de voiture), foule | boucles `make_ambiences.py`, grille de zones `zone_map.py` | `UGTPAmbienceBed` |
+
 Au volant, l'ambiance baisse (60 %) et perd ses aigus (6 kHz) : on est dans
 l'habitacle.
 
@@ -25,6 +27,24 @@ Interface. Volumes, limites de voix, distances d'atténuation, seuils
 d'impact, hauteur de pose du pied : section `[/Script/GranTheftPraline.GTPAudioSettings]`
 de `Config/DefaultGame.ini`. Les sons lointains perdent leurs aigus (filtre
 selon la distance) comme dans une rue.
+
+## Lit d'ambiance
+
+La boucle de rue de jour joue toujours ; d'autres boucles se fondent par-dessus
+en 2 s selon l'endroit et le monde :
+
+| Condition | Couche | Boucle de rue |
+|---|---|---|
+| zone « piétonne » (rue de la République, masque G) | `SW_Amb_Pedestrian` : voix, pas, moineaux | 45 % |
+| à moins de 45 m du Rhône | `SW_Amb_Quay` : fleuve, vent, trafic du quai, mouettes | 35 % |
+| au-dessus de l'eau (pont Lafayette) | `SW_Amb_Bridge` : vent, voitures proches, joints de dilatation | 20 % |
+| nuit (`CityLights` du MPC_Environment, ADR-0008) | `SW_Amb_Night` : ville sourde, rares voitures | × 30 % |
+| pluie (`RainIntensity`) | `SW_Amb_Rain`, ou `SW_Amb_RainCar` (toit) en voiture | — |
+| piétons visibles à moins de 25 m | `SW_Amb_Crowd`, plein à 10 piétons | — |
+
+Toutes les boucles ont le même niveau (RMS −24 dBFS), les poids de
+`DefaultGame.ini` font le mixage. Sans grille de zones ni paramètres météo,
+seule la rue joue.
 
 ## Surfaces
 
@@ -78,7 +98,11 @@ UnrealEditor-Cmd GranTheftPraline.uproject -run=pythonscript \
     -script="tools/audio/unreal/import_sounds.py .scratch/audio/sfx"
 ```
 
-`picks.csv` associe un fichier enregistré à une banque
+`tools/audio/pick_sonniss.py <bibliothèque> picks.csv` prépare la liste à
+partir des noms de dossiers et de fichiers (pas + surface, voiture + crash,
+verre + bris…) et coupe les enregistrements de marche en pas isolés ; un
+rapport `picks.csv.txt` dit ce que reçoit chaque banque, à écouter avant
+l'import. `picks.csv` associe un fichier enregistré à une banque
 (`/chemin/Gravel_Walk_03.wav,Footsteps/Gravel`). Pour passer une banque
 entière aux prises de son, supprimer d'abord son dossier dans l'éditeur.
 

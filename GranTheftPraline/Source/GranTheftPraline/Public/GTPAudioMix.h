@@ -66,6 +66,9 @@ public:
 	/** Surface under a trace hit: physical material, then material name, then the street grid. */
 	EGTPSurface ResolveSurface(const FHitResult& Hit) const;
 
+	/** Ambience zone at a world point (Street outside the grid). */
+	EGTPAmbienceZone SampleZone(const FVector& Location) const;
+
 	/** Plays a one-shot at a point through a category (class, attenuation, concurrency). */
 	UAudioComponent* PlayAt(const UObject* WorldContext, USoundBase* Sound, EGTPAudioCategory Category, const FVector& Location, float Volume, float Pitch);
 
@@ -119,5 +122,6 @@ private:
 
 	TMap<EGTPAudioCategory, float> Volumes;
 	FGTPSurfaceMap SurfaceMap;
+	FGTPSurfaceMap ZoneMap;
 	FString GroundKeyword;
 };
