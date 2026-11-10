@@ -47,6 +47,11 @@ PAVING = (0.21, 0.20, 0.19)        # grey granite setts and slabs
 KERB = (0.22, 0.21, 0.20)          # granite kerb
 ASPHALT = (0.045, 0.045, 0.05)
 MARKING = (0.62, 0.62, 0.60)
+# GTP_GROUND_DEBUG=1: loud colours to check the mask in game (asphalt red, paving green,
+# kerb blue, marking yellow, sidewalk white). Rerun without it afterwards.
+if os.environ.get("GTP_GROUND_DEBUG") == "1":
+    SIDEWALK, PAVING, KERB, ASPHALT, MARKING = (0.8, 0.8, 0.8), (0.05, 0.6, 0.05), (0.05, 0.05, 0.8), \
+        (0.8, 0.03, 0.03), (0.9, 0.8, 0.0)
 
 # Facade kit slots (tools/city/facade_kit/kit.py MATERIALS): linear albedo, roughness, metallic.
 # The glTF import gives them Interchange instances that render as the default checker in
