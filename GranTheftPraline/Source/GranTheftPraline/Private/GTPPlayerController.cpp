@@ -366,7 +366,7 @@ bool AGTPPlayerController::InputKey(const FInputKeyEventArgs& Params)
 	// Only reached while gameplay has input focus: open menus consume their own keys.
 	if (Params.Event == IE_Pressed)
 	{
-		const bool bMapKey = Params.Key == EKeys::M || Params.Key == EKeys::Gamepad_Special_Left;
+		const bool bMapKey = Params.Key == EKeys::M || Params.Key == EKeys::Gamepad_DPad_Up;
 		if (bFullMapOpen && (bMapKey || IsPauseKey(Params.Key) || Params.Key == EKeys::Gamepad_FaceButton_Right))
 		{
 			ToggleFullMap();
@@ -426,7 +426,7 @@ void AGTPPlayerController::ToggleFullMap()
 	SetPause(bFullMapOpen);
 }
 
-void AGTPPlayerController::OpenSettingsMenu()
+void AGTPPlayerController::OpenSettingsMenu(bool bControlsScreen)
 {
 	if (SettingsMenu || (!TitleMenu && !PauseMenu))
 	{
@@ -435,7 +435,9 @@ void AGTPPlayerController::OpenSettingsMenu()
 	bSettingsFromTitle = TitleMenu != nullptr;
 	HideMenu(TitleMenu);
 	HideMenu(PauseMenu);
-	SettingsMenu = CreateWidget<UGTPSettingsMenuWidget>(this, UGTPSettingsMenuWidget::StaticClass());
+	SettingsMenu = bControlsScreen
+		? CreateWidget<UGTPMenuWidget>(this, UGTPControlsMenuWidget::StaticClass())
+		: CreateWidget<UGTPMenuWidget>(this, UGTPSettingsMenuWidget::StaticClass());
 	ShowMenu(SettingsMenu);
 }
 

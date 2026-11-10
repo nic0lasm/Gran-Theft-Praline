@@ -1,5 +1,6 @@
 #include "GTPMenuWidgets.h"
 
+#include "GTPControls.h"
 #include "GTPGameInstance.h"
 #include "GTPLocalization.h"
 #include "GTPUserSettings.h"
@@ -158,6 +159,7 @@ void UGTPTitleMenuWidget::BuildButtons()
 {
 	AddButton(GTPLoc("menu.play"))->OnClicked.AddDynamic(this, &UGTPTitleMenuWidget::HandlePlay);
 	AddButton(GTPLoc("menu.settings"))->OnClicked.AddDynamic(this, &UGTPTitleMenuWidget::HandleSettings);
+	AddButton(GTPLoc("menu.controls"))->OnClicked.AddDynamic(this, &UGTPTitleMenuWidget::HandleControls);
 	AddButton(GTPLoc("menu.quit"))->OnClicked.AddDynamic(this, &UGTPTitleMenuWidget::HandleQuit);
 }
 
@@ -174,6 +176,14 @@ void UGTPTitleMenuWidget::HandleSettings()
 	if (AGTPPlayerController* Controller = GetGTPController())
 	{
 		Controller->OpenSettingsMenu();
+	}
+}
+
+void UGTPTitleMenuWidget::HandleControls()
+{
+	if (AGTPPlayerController* Controller = GetGTPController())
+	{
+		Controller->OpenSettingsMenu(true);
 	}
 }
 
@@ -197,6 +207,7 @@ void UGTPPauseMenuWidget::BuildButtons()
 {
 	AddButton(GTPLoc("menu.pause.resume"))->OnClicked.AddDynamic(this, &UGTPPauseMenuWidget::HandleResume);
 	AddButton(GTPLoc("menu.settings"))->OnClicked.AddDynamic(this, &UGTPPauseMenuWidget::HandleSettings);
+	AddButton(GTPLoc("menu.controls"))->OnClicked.AddDynamic(this, &UGTPPauseMenuWidget::HandleControls);
 	AddButton(GTPLoc("menu.pause.quit"))->OnClicked.AddDynamic(this, &UGTPPauseMenuWidget::HandleQuit);
 }
 
@@ -227,11 +238,75 @@ void UGTPPauseMenuWidget::HandleSettings()
 	}
 }
 
+void UGTPPauseMenuWidget::HandleControls()
+{
+	if (AGTPPlayerController* Controller = GetGTPController())
+	{
+		Controller->OpenSettingsMenu(true);
+	}
+}
+
 void UGTPPauseMenuWidget::HandleQuit()
 {
 	if (AGTPPlayerController* Controller = GetGTPController())
 	{
 		Controller->QuitToDesktop();
+	}
+}
+
+// ---------------------------------------------------------------------------
+// UGTPControlsMenuWidget
+
+FText UGTPControlsMenuWidget::GetHeading() const
+{
+	return GTPLoc("controls.heading");
+}
+
+FText UGTPControlsMenuWidget::GetSubtitle() const
+{
+	const AGTPPlayerController* Controller = GetGTPController();
+	const bool bQwerty = Controller && Controller->IsUsingQwerty();
+	FString Keyboard = GTPLocFormat("controls.keyboard_header", {FText::FromString(bQwerty ? TEXT("QWERTY") : TEXT("AZERTY"))}).ToString() + TEXT("\n");
+	FString Gamepad = GTPLoc("controls.gamepad_header").ToString() + TEXT("\n");
+	for (size_t i = 0; i < GTPUI::ControlRowCount; ++i)
+	{
+		const GTPUI::FControlRow& Row = GTPUI::ControlRows[i];
+		const FString Action = GTPLocString(Row.ActionKey);
+		const FString KeyboardKeys = FString(UTF8_TO_TCHAR(bQwerty ? Row.Qwerty : Row.Azerty));
+		const FString GamepadKeys = FString(UTF8_TO_TCHAR(Row.Gamepad));
+		if (KeyboardKeys != TEXT("-"))
+		{
+			Keyboard += FString::Printf(TEXT("%s : %s\n"), *Action, *KeyboardKeys);
+		}
+		if (GamepadKeys != TEXT("-"))
+		{
+			Gamepad += FString::Printf(TEXT("%s : %s\n"), *Action, *GamepadKeys);
+		}
+	}
+	return FText::FromString(Keyboard + TEXT("\n") + Gamepad);
+}
+
+void UGTPControlsMenuWidget::BuildButtons()
+{
+	AddButton(GTPLoc("menu.back"))->OnClicked.AddDynamic(this, &UGTPControlsMenuWidget::HandleBack);
+}
+
+FReply UGTPControlsMenuWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
+{
+	const FKey Key = InKeyEvent.GetKey();
+	if (Key == EKeys::Escape || Key == EKeys::Gamepad_Special_Right || Key == EKeys::Gamepad_FaceButton_Right)
+	{
+		HandleBack();
+		return FReply::Handled();
+	}
+	return Super::NativeOnKeyDown(InGeometry, InKeyEvent);
+}
+
+void UGTPControlsMenuWidget::HandleBack()
+{
+	if (AGTPPlayerController* Controller = GetGTPController())
+	{
+		Controller->CloseSettingsMenu();
 	}
 }
 

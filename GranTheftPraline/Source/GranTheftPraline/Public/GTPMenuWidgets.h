@@ -77,6 +77,9 @@ private:
 	void HandleSettings();
 
 	UFUNCTION()
+	void HandleControls();
+
+	UFUNCTION()
 	void HandleQuit();
 };
 
@@ -99,7 +102,31 @@ private:
 	void HandleSettings();
 
 	UFUNCTION()
+	void HandleControls();
+
+	UFUNCTION()
 	void HandleQuit();
+};
+
+/**
+ * Controls screen: the keyboard keys (AZERTY or QWERTY, as chosen) and the
+ * gamepad buttons of each action, from GTPControls.h. Back, Escape or gamepad
+ * B returns to the menu it was opened from (same route as the settings).
+ */
+UCLASS()
+class GRANTHEFTPRALINE_API UGTPControlsMenuWidget : public UGTPMenuWidget
+{
+	GENERATED_BODY()
+
+protected:
+	virtual void BuildButtons() override;
+	virtual FText GetHeading() const override;
+	virtual FText GetSubtitle() const override;
+	virtual FReply NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) override;
+
+private:
+	UFUNCTION()
+	void HandleBack();
 };
 
 /**

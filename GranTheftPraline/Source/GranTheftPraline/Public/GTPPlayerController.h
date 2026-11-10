@@ -52,11 +52,13 @@ public:
 	void ClosePauseMenu();
 
 	/** Settings screen, from the title screen or the pause menu; Close returns to that menu. */
-	/** Full-screen map (M, gamepad View button): pauses the game; the same key, Escape or B closes it. */
+	/** Full-screen map (M, gamepad D-pad up): pauses the game; the same key, Escape or B closes it. */
 	void ToggleFullMap();
+	/** True when the keyboard keys shown and bound are QWERTY (setting, command line or project default). */
+	bool IsUsingQwerty() const { return UsesQwerty(); }
 	bool IsFullMapOpen() const { return bFullMapOpen; }
 
-	void OpenSettingsMenu();
+	void OpenSettingsMenu(bool bControlsScreen = false);
 	void CloseSettingsMenu();
 
 	/** Leaves the game and returns to the desktop. */

@@ -63,12 +63,16 @@ pre-rendered texture per map rotated by the HUD (one draw call).
 
 ## Full-screen map
 
-**M** (gamepad View button) opens a full-screen map and pauses the game; M, Escape or B
+**M** (gamepad D-pad up) opens a full-screen map and pauses the game; M, Escape or B
 closes it. Same data, north up, centred on the player, 700 m tall, with building outlines,
 water, all roads, **street names** (one label per name, at the middle of its longest
 polyline; names come from the BD TOPO `nom_voie_ban` column, written as the `name` column of
 `minimap.csv`) and the player's arrow turned to where they look. Drawn by
 `UGTPMinimapSubsystem::DrawFullMap`; the HUD hands over to it while it is open.
+
+Map icons: UGTPMinimapSubsystem::AddBlip(Actor, Colour). The car the player takes is
+marked in light blue (`UGTPVehicleInteractionComponent`) on the mini-map and the full map;
+the police system adds its cars the same way.
 
 ## Next (roadmap 0.10)
 

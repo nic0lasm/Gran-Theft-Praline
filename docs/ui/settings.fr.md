@@ -32,6 +32,15 @@ paire AZERTY / QWERTY couvre les deux dispositions ; une réassignation complèt
 par les réglages utilisateur d'Enhanced Input et viendra avec le passage sur les
 commandes), résolution et mode fenêtre, sous-titres. Ils sont dans la roadmap.
 
+## Écran des commandes
+
+Le bouton **Commandes** (menus titre et pause) liste, pour la disposition de clavier
+utilisée (AZERTY ou QWERTY) et pour la manette, la touche de chaque action qui existe
+dans le code : interagir, monter / descendre, changer de vue, recentrer, accélérer,
+freiner, tourner, frein à main, regarder derrière, carte, pause. Les lignes sont dans
+`GTPControls.h` et suivent les assignations (déplacement à pied et saut sont dans les
+assets Enhanced Input et ne sont pas encore listés).
+
 ## Textes
 
 Tous les textes des menus sont dans une seule table,

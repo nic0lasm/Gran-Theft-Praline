@@ -1,5 +1,6 @@
 // Checks the Unreal-free core of the interface: string tables, settings and
 // mini-map maths. Build and run: tools/ui/tests/run_cpp_tests.sh
+#include "GTPControls.h"
 #include "GTPMinimapCore.h"
 #include "GTPSettingsCore.h"
 #include "GTPStringTable.h"
@@ -63,6 +64,16 @@ static void TestStrings()
 	{
 		CHECK(FindEntry(Key) != nullptr);
 	}
+}
+
+static void TestControls()
+{
+	for (std::size_t i = 0; i < ControlRowCount; ++i)
+	{
+		CHECK(FindEntry(ControlRows[i].ActionKey) != nullptr);
+		CHECK(ControlRows[i].Azerty[0] != '\0' && ControlRows[i].Qwerty[0] != '\0' && ControlRows[i].Gamepad[0] != '\0');
+	}
+	CHECK(FindEntry("controls.heading") && FindEntry("menu.controls") && FindEntry("controls.keyboard_header"));
 }
 
 static void TestSettings()
@@ -179,6 +190,7 @@ static void TestMinimap()
 int main()
 {
 	TestStrings();
+	TestControls();
 	TestSettings();
 	TestMinimap();
 	if (Failures == 0)
