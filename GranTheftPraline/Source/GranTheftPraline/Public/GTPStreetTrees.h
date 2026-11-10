@@ -7,12 +7,16 @@
 class UHierarchicalInstancedStaticMeshComponent;
 
 /**
- * Picks which street trees the player sees: the bare plane trees of the city
- * import, or a leafy copy staged next to them by tools/city/unreal/swap_street_trees.py
- * (mode "stage"), with the M1 settings of a variant. One map and one package
- * hold every variant, so tools/perf/bench.sh compares them with game arguments:
+ * Leafy street trees chosen at run time, without changing the city map: every
+ * hierarchical instanced mesh drawing a bare tree mesh gets a leafy twin with
+ * the same instances, and the bare one keeps only the trees the twin does not
+ * show. One map and one package hold every variant, so tools/perf/bench.sh
+ * compares them with game arguments (tools/perf/tree-bench-mac.sh):
  *
- *   -Trees=bare      (default) leafy copy hidden, the map looks as it did
+ *   -TreeSwap=<bare>~<leafy>[+<bare>~<leafy>...]  mesh package paths, e.g.
+ *                    /Game/Environment/Props/W14-63/SM_X~/Game/BlackAlder/Geometry/SimpleWind/SM_BlackAlder_Forest_08
+ *                    (the leafy meshes must be cooked: DirectoriesToAlwaysCook)
+ *   -Trees=bare      (default) nothing happens, the street looks as it did
  *   -Trees=leafy     leafy mesh as it comes from the pack (wind, shadows, all LODs)
  *   -Trees=light     no wind beyond -TreeWindCm (3000), VSM pages not invalidated
  *                    by wind, LOD 0 skipped, culled beyond -TreeCullCm (20000),
@@ -21,10 +25,8 @@ class UHierarchicalInstancedStaticMeshComponent;
  *   -TreeCount=N     only N leafy trees, spread along the street; the others stay bare
  *   -TreeShadows=0   leafy trees cast no shadow
  *
- * Actors: tag GTP_LeafyTrees on the leafy copy, GTP_BareTrees on the bare
- * components; both hold the same instances in the same order, so instance i of
- * one is tree i of the other. Without a leafy copy on the map, nothing happens.
- * Cost: one pass over two actors at BeginPlay.
+ * The twin has no collision: the bare trunk keeps it. Cost: one pass over the
+ * actors at BeginPlay, a hundred instances copied.
  */
 UCLASS()
 class GRANTHEFTPRALINE_API UGTPStreetTreesSubsystem : public UWorldSubsystem

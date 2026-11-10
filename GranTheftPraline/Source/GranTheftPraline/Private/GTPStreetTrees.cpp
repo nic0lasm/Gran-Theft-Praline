@@ -8,32 +8,9 @@
 #include "GameFramework/Actor.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
+#include "Misc/Paths.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogGTPStreetTrees, Log, All);
-
-namespace
-{
-	const FName LeafyTag(TEXT("GTP_LeafyTrees"));
-	const FName BareTag(TEXT("GTP_BareTrees"));
-
-	/** Removes every instance whose index is not in Keep (Keep sorted ascending). */
-	void KeepOnly(UInstancedStaticMeshComponent* Comp, const TArray<int32>& Keep)
-	{
-		TArray<int32> Drop;
-		for (int32 i = 0, k = 0; i < Comp->GetInstanceCount(); ++i)
-		{
-			if (k < Keep.Num() && Keep[k] == i)
-			{
-				++k;
-			}
-			else
-			{
-				Drop.Add(i);
-			}
-		}
-		Comp->RemoveInstances(Drop);
-	}
-}
 
 TArray<int32> UGTPStreetTreesSubsystem::SpreadIndices(int32 Total, int32 Count)
 {
@@ -71,105 +48,99 @@ void UGTPStreetTreesSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 	FString Variant = TEXT("bare");
 	FParse::Value(FCommandLine::Get(), TEXT("Trees="), Variant);
 	Variant = Variant.ToLower();
+	const bool bLeafy = Variant == TEXT("leafy") || Variant == TEXT("light") || Variant == TEXT("impostor");
+	if (!bLeafy)
+	{
+		return;
+	}
+	FString SwapArg;
+	FParse::Value(FCommandLine::Get(), TEXT("TreeSwap="), SwapArg, false);
 	int32 Count = -1;
 	FParse::Value(FCommandLine::Get(), TEXT("TreeCount="), Count);
 
-	TArray<AActor*> LeafyActors;
-	TMap<FString, UHierarchicalInstancedStaticMeshComponent*> BareById;
-	for (TActorIterator<AActor> It(&InWorld); It; ++It)
+	// bare mesh package -> leafy mesh
+	TMap<FString, UStaticMesh*> Swaps;
+	TArray<FString> Pairs;
+	SwapArg.ParseIntoArray(Pairs, TEXT("+"));
+	for (const FString& Pair : Pairs)
 	{
-		if (It->ActorHasTag(LeafyTag))
+		FString Bare, LeafyPath;
+		if (!Pair.Split(TEXT("~"), &Bare, &LeafyPath))
 		{
-			LeafyActors.Add(*It);
+			continue;
 		}
-		else if (It->ActorHasTag(BareTag))
+		const FString ObjectPath = LeafyPath.Contains(TEXT(".")) ? LeafyPath : LeafyPath + TEXT(".") + FPaths::GetBaseFilename(LeafyPath);
+		UStaticMesh* Mesh = LoadObject<UStaticMesh>(nullptr, *ObjectPath);
+		if (!Mesh)
 		{
-			for (const FName& Tag : It->Tags)
-			{
-				const FString S = Tag.ToString();
-				if (S.StartsWith(TEXT("GTP_TreeId_")))
-				{
-					BareById.Add(S.RightChop(11), It->FindComponentByClass<UHierarchicalInstancedStaticMeshComponent>());
-				}
-			}
+			GTP_TRACE(LogGTPStreetTrees, TEXT("street trees: cannot load %s (not cooked?)"), *ObjectPath);
+			continue;
 		}
+		Swaps.Add(Bare, Mesh);
 	}
-	if (LeafyActors.Num() == 0)
+	if (Swaps.Num() == 0)
 	{
-		if (Variant != TEXT("bare"))
-		{
-			GTP_TRACE(LogGTPStreetTrees, TEXT("street trees: -Trees=%s asked but the map has no leafy copy (swap_street_trees.py stage)"), *Variant);
-		}
+		GTP_TRACE(LogGTPStreetTrees, TEXT("street trees: -Trees=%s needs -TreeSwap=<bare>~<leafy>, nothing changed"), *Variant);
 		return;
 	}
 
-	const bool bLeafy = Variant == TEXT("leafy") || Variant == TEXT("light") || Variant == TEXT("impostor");
-	int32 Shown = 0;
-	for (AActor* Actor : LeafyActors)
+	// Every bare tree component, with its leafy mesh.
+	TArray<TPair<UHierarchicalInstancedStaticMeshComponent*, UStaticMesh*>> Found;
+	int32 All = 0;
+	for (TActorIterator<AActor> It(&InWorld); It; ++It)
 	{
-		UHierarchicalInstancedStaticMeshComponent* Leafy = Actor->FindComponentByClass<UHierarchicalInstancedStaticMeshComponent>();
-		if (!Leafy)
+		TArray<UHierarchicalInstancedStaticMeshComponent*> Comps;
+		It->GetComponents(Comps);
+		for (UHierarchicalInstancedStaticMeshComponent* Comp : Comps)
 		{
-			continue;
-		}
-		if (!bLeafy)
-		{
-			Actor->SetActorHiddenInGame(true);
-			Actor->SetActorEnableCollision(false);
-			continue;
-		}
-		FString Id;
-		for (const FName& Tag : Actor->Tags)
-		{
-			if (Tag.ToString().StartsWith(TEXT("GTP_TreeId_")))
+			const UStaticMesh* Mesh = Comp->GetStaticMesh();
+			UStaticMesh* const* Leafy = Mesh ? Swaps.Find(Mesh->GetPackage()->GetName()) : nullptr;
+			if (Leafy)
 			{
-				Id = Tag.ToString().RightChop(11);
+				Found.Emplace(Comp, *Leafy);
+				All += Comp->GetInstanceCount();
 			}
 		}
-		UHierarchicalInstancedStaticMeshComponent* Bare = BareById.FindRef(Id);
-		const int32 Total = Leafy->GetInstanceCount();
-		// TreeCount is shared between the ids in proportion of their trees
-		int32 Want = Total;
-		if (Count >= 0)
-		{
-			int32 All = 0;
-			for (AActor* Other : LeafyActors)
-			{
-				if (const UInstancedStaticMeshComponent* C = Other->FindComponentByClass<UHierarchicalInstancedStaticMeshComponent>())
-				{
-					All += C->GetInstanceCount();
-				}
-			}
-			Want = All > 0 ? FMath::RoundToInt(double(Count) * Total / All) : 0;
-		}
+	}
+
+	int32 Shown = 0;
+	for (const TPair<UHierarchicalInstancedStaticMeshComponent*, UStaticMesh*>& Item : Found)
+	{
+		UHierarchicalInstancedStaticMeshComponent* Bare = Item.Key;
+		AActor* Owner = Bare->GetOwner();
+		const int32 Total = Bare->GetInstanceCount();
+		// TreeCount is shared between the components in proportion of their trees
+		const int32 Want = Count >= 0 && All > 0 ? FMath::RoundToInt(double(Count) * Total / All) : Total;
 		const TArray<int32> Keep = SpreadIndices(Total, Want);
-		KeepOnly(Leafy, Keep);
-		if (Bare && Bare->GetInstanceCount() == Total)
+		if (Keep.Num() == 0)
 		{
-			// the bare copy keeps every tree the leafy one does not show
-			TArray<int32> Others;
-			for (int32 i = 0, k = 0; i < Total; ++i)
-			{
-				if (k < Keep.Num() && Keep[k] == i)
-				{
-					++k;
-				}
-				else
-				{
-					Others.Add(i);
-				}
-			}
-			KeepOnly(Bare, Others);
+			continue;
 		}
-		else if (Bare)
+
+		UHierarchicalInstancedStaticMeshComponent* Leafy = NewObject<UHierarchicalInstancedStaticMeshComponent>(Owner);
+		Leafy->SetMobility(EComponentMobility::Static);
+		Leafy->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Leafy->SetStaticMesh(Item.Value);
+		Leafy->SetupAttachment(Owner->GetRootComponent());
+		Leafy->RegisterComponent();
+		TArray<FTransform> Transforms;
+		for (int32 i : Keep)
 		{
-			GTP_TRACE(LogGTPStreetTrees, TEXT("street trees: %s bare and leafy counts differ (%d vs %d), bare trees left as they are"),
-				*Id, Bare->GetInstanceCount(), Total);
+			FTransform T;
+			Bare->GetInstanceTransform(i, T, true);
+			Transforms.Add(T);
 		}
+		Leafy->AddInstances(Transforms, false, true);
+
+		// the bare component keeps every tree the leafy one does not show
+		TArray<int32> Drop(Keep);
+		Drop.Sort([](int32 A, int32 B) { return A > B; });
+		Bare->RemoveInstances(Drop);
+
 		ApplyVariant(Leafy, Variant);
 		Shown += Keep.Num();
 	}
-	GTP_TRACE(LogGTPStreetTrees, TEXT("street trees: variant %s, %d leafy trees shown"), *Variant, bLeafy ? Shown : 0);
+	GTP_TRACE(LogGTPStreetTrees, TEXT("street trees: variant %s, %d of %d trees leafy"), *Variant, Shown, All);
 }
 
 void UGTPStreetTreesSubsystem::ApplyVariant(UHierarchicalInstancedStaticMeshComponent* Leafy, const FString& Variant) const

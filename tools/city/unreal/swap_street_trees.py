@@ -1,17 +1,15 @@
-"""Stage a leafy copy of the street trees on the city map, or remove it.
+"""Pick the leafy meshes that replace the bare street trees at run time. Read only.
 
 Runs inside the Unreal Editor like place_props.py (no UI, script copied to a path
-without spaces), after place_props.py: it puts every Grand Lyon tree in one
-hierarchical instanced static mesh per catalogue id, W14-63 (bare plane tree) and
-W14-64 (guarded sapling). Stage adds one "Props_LeafyTrees_<id>" actor per id
-with the same instances in the same order and a leafy mesh, without collision,
-and tags both (GTP_LeafyTrees / GTP_BareTrees, GTP_TreeId_<id>). At run time
-UGTPStreetTreesSubsystem shows the bare trees unless -Trees=leafy|light|impostor
-is given (see GTPStreetTrees.h), so one map and one package hold every variant
-and tools/perf/bench.sh compares them with game arguments.
+without spaces). place_props.py puts every Grand Lyon tree in one hierarchical
+instanced static mesh per catalogue id: W14-63 (bare plane tree) and W14-64
+(guarded young tree). This script loads the map without saving it, finds those
+two meshes and picks a leafy mesh for each; the report gives the -TreeSwap game
+argument and the content folders the package must cook. UGTPStreetTreesSubsystem
+does the swap at run time (see GTPStreetTrees.h): the map file never changes.
 
 Environment:
-  GTP_TREE_MODE      stage (default) | unstage | list
+  GTP_TREE_MODE      pick (default) | list
   GTP_TREE_MESH      asset path of the mature tree, or "auto" (default): among the
                      SimpleWind meshes of the pack, the one with the fewest LOD 0
                      triangles that is at least GTP_TREE_MIN_HEIGHT_CM tall (800)
@@ -20,8 +18,8 @@ Environment:
   GTP_TREE_PATTERN   regular expression on asset paths (default: Maple|Acer|Beech|Alder)
   GTP_CITY_FOCUS     as for place_props.py
 
-Report: Saved/CityImport/trees_report.json (mesh, LOD count, triangles per LOD,
-Nanite, height of each picked mesh; list mode gives the same for every candidate).
+Report: Saved/CityImport/trees_report.json (swap_arg, cook_dirs, and for each
+picked mesh its LOD count, triangles per LOD, Nanite and height).
 """
 
 import json
@@ -36,15 +34,12 @@ FOCUS = os.environ.get("GTP_CITY_FOCUS", "rue-de-la-republique")
 MAP = "/Game/Maps/L_City_" + "".join(p.capitalize() for p in FOCUS.split("-"))
 OUT = os.path.join(REPO, "GranTheftPraline", "Saved", "CityImport")
 TREE_IDS = ("W14-63", "W14-64")
-LEAFY_PREFIX = "Props_LeafyTrees_"
 SEARCH_ROOTS = ("/Game/Fab", "/Game/Megascans", "/Game/MSPresets", "/Game")
 
 eal = unreal.EditorAssetLibrary
 level_sub = unreal.get_editor_subsystem(unreal.LevelEditorSubsystem)
 actor_sub = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
 sm_sub = unreal.get_editor_subsystem(unreal.StaticMeshEditorSubsystem)
-sds = unreal.get_engine_subsystem(unreal.SubobjectDataSubsystem)
-sdl = unreal.SubobjectDataBlueprintFunctionLibrary
 
 
 def safe(fn, default=None):
@@ -65,24 +60,6 @@ def bare_components():
                 if comps:
                     out[cid] = comps[0]
     return out
-
-
-def leafy_actors():
-    return [a for a in actor_sub.get_all_level_actors() if a.get_actor_label().startswith(LEAFY_PREFIX)]
-
-
-def hism_actor(label, mesh):
-    actor = actor_sub.spawn_actor_from_class(unreal.StaticMeshActor, unreal.Vector(0, 0, 0))
-    actor.set_actor_label(label)
-    actor.set_folder_path("City/Props")
-    root = sds.k2_gather_subobject_data_for_instance(actor)[0]
-    handle, _ = sds.add_new_subobject(unreal.AddNewSubobjectParams(
-        parent_handle=root, new_class=unreal.HierarchicalInstancedStaticMeshComponent))
-    comp = sdl.get_object(sdl.get_data(handle))
-    comp.set_static_mesh(mesh)
-    comp.set_editor_property("mobility", unreal.ComponentMobility.STATIC)
-    comp.set_collision_profile_name("BlockAll")
-    return comp
 
 
 def candidates(pattern):
@@ -128,21 +105,8 @@ def pick(paths, want_sapling, min_height):
     return lightest(mature, min_height)
 
 
-def tag(actor, *names):
-    tags = [t for t in actor.get_editor_property("tags") if not str(t).startswith("GTP_")]
-    actor.set_editor_property("tags", tags + [unreal.Name(n) for n in names])
-
-
-def unstage(comps, report):
-    for a in leafy_actors():
-        actor_sub.destroy_actor(a)
-        report["removed"].append(a.get_name())
-    for comp in comps.values():
-        tag(comp.get_owner())
-
-
-def stage(comps, report):
-    """Leafy copy of every tree, hidden at run time unless -Trees=leafy|light|impostor."""
+def pick_swaps(comps, report):
+    """Leafy mesh for each bare tree mesh, as -TreeSwap and the folders to cook."""
     pattern = os.environ.get("GTP_TREE_PATTERN", "Maple|Acer|Beech|Alder")
     min_h = int(os.environ.get("GTP_TREE_MIN_HEIGHT_CM", "800"))
     found = candidates(pattern)
@@ -154,17 +118,17 @@ def stage(comps, report):
         report["errors"].append("no tree mesh found (pattern %r); import the Fab packs first" % pattern)
         return
     meshes = {"W14-63": mature, "W14-64": sapling}
+    pairs, dirs = [], set()
     for cid, comp in sorted(comps.items()):
-        mesh = eal.load_asset(meshes[cid])
-        leafy = hism_actor(LEAFY_PREFIX + cid, mesh)
-        # the bare trunk keeps the collision; the copy only draws
-        leafy.set_collision_profile_name("NoCollision")
-        for i in range(comp.get_instance_count()):
-            leafy.add_instance(comp.get_instance_transform(i, True), True)
-        tag(leafy.get_owner(), "GTP_LeafyTrees", "GTP_TreeId_" + cid)
-        tag(comp.get_owner(), "GTP_BareTrees", "GTP_TreeId_" + cid)
-        report["staged"][cid] = {"mesh": meshes[cid], "trees": comp.get_instance_count(),
+        bare = comp.static_mesh.get_outermost().get_name() if comp.static_mesh else ""
+        if not bare:
+            continue
+        pairs.append(bare + "~" + meshes[cid])
+        dirs.add(meshes[cid].rsplit("/", 1)[0])
+        report["picked"][cid] = {"bare": bare, "mesh": meshes[cid], "trees": comp.get_instance_count(),
                                  "mesh_info": mesh_info(meshes[cid])}
+    report["swap_arg"] = "+".join(pairs)
+    report["cook_dirs"] = sorted(dirs)
 
 
 def write(report, t0):
@@ -177,22 +141,19 @@ def write(report, t0):
 
 def main():
     t0 = time.time()
-    mode = os.environ.get("GTP_TREE_MODE", "stage")
-    report = {"map": MAP, "mode": mode, "errors": [], "staged": {}, "removed": []}
+    mode = os.environ.get("GTP_TREE_MODE", "pick")
+    report = {"map": MAP, "mode": mode, "errors": [], "picked": {}}
     if mode == "list":
         found = candidates(os.environ.get("GTP_TREE_PATTERN", "Maple|Acer|Beech|Alder"))
         report["candidates"] = [mesh_info(p) for p in found]
         return write(report, t0)
+    # Read only: the map is loaded to find the bare tree meshes, never saved.
     level_sub.load_level(MAP)
     comps = bare_components()
     if not comps:
         report["errors"].append("no Props_W14-63/64 actor on the map: run place_props.py first")
         return write(report, t0)
-    unstage(comps, report)  # stage always starts from the bare map
-    if mode == "stage":
-        stage(comps, report)
-    report["trees"] = {cid: c.get_instance_count() for cid, c in comps.items()}
-    level_sub.save_current_level()
+    pick_swaps(comps, report)
     write(report, t0)
 
 

@@ -24,7 +24,7 @@ Le banc choisit seul (`GTP_TREE_MESH=auto`) le maillage SimpleWind adulte le plu
 
 ## Les trois variantes (une seule map, un seul package)
 
-`swap_street_trees.py` (mode `stage`) pose une copie feuillue des 112 arbres, mêmes instances dans le même ordre, sans collision (le tronc nu garde la collision). Au lancement, `UGTPStreetTreesSubsystem` montre l'une ou l'autre selon les arguments du jeu ; sans argument, la rue reste comme aujourd'hui.
+La map n'est jamais modifiée. `swap_street_trees.py` (mode `pick`, lecture seule) choisit les maillages feuillus et donne l'argument `-TreeSwap=<nu>~<feuillu>`. Au lancement, `UGTPStreetTreesSubsystem` crée un double feuillu des arbres nus (mêmes instances, sans collision : le tronc nu garde la collision) et retire du maillage nu les arbres montrés feuillus. Sans argument, la rue reste comme aujourd'hui. Les dossiers des maillages feuillus sont ajoutés à la cuisson le temps du package seulement (`DefaultGame.ini` remis à l'identique ensuite).
 
 | Argument | Ce qui change |
 | ---- | ---- |
@@ -55,7 +55,7 @@ Proposition de budget : 1,5 ms p95 pour les 112 arbres, soit 0,013 ms par arbre.
 caffeinate -dimsu tools/perf/tree-bench-mac.sh perf-trees 90
 ```
 
-Étapes : audit des packs (triangles par LOD, Nanite, textures > 2K) ; copie feuillue posée sur la map ; package Shipping ; copie retirée de la map (le package suivant est inchangé) ; puis `tools/perf/bench.sh` pour bare, light10, light, impostor, leafy. Règle du pilote : 10 arbres d'abord ; si light10 coûte plus de 2 ms (`MAX_DELTA_10_MS`) de plus que bare, les cas à 112 arbres sont sautés. Durée : environ 40 min (audit et map 10 min, package 15 à 25, bancs 12). Résultat : `Builds/perf-trees/trees-<date>/TREES.md` (p95 par cas, écart à bare, coût par arbre, maillages choisis) et `mesh_audit.csv`.
+Étapes : audit des packs (triangles par LOD, Nanite, textures > 2K) ; choix des maillages (map ouverte en lecture seule, md5 vérifié au début et à la fin) ; package Shipping avec les dossiers feuillus cuits ; puis `tools/perf/bench.sh` pour bare, light10, light, impostor, leafy. Règle du pilote : 10 arbres d'abord ; si light10 coûte plus de 2 ms (`MAX_DELTA_10_MS`) de plus que bare, les cas à 112 arbres sont sautés. Durée : environ 1 h au plus (audit et choix 12 min, package 15 à 30, bancs 18). Garde-temps : une étape au-delà du double de sa durée prévue est arrêtée, Unreal est fermé et le script sort (code 3) ; signe de vie toutes les 10 min ; essai à blanc `DRY_RUN=1`. Résultat : `Builds/perf-trees/trees-<date>/TREES.md` (p95 par cas, écart à bare, coût par arbre, maillages choisis) et `mesh_audit.csv`.
 
 Pré-requis : dans le clone qui package, les dossiers `Content/EuropeanBeech`, `Content/BlackAlder` et `Content/MSPresets` (liens vers GTAL dans GTAL-build) et le code de cette branche compilé.
 

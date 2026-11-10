@@ -24,7 +24,7 @@ The bench picks by itself (`GTP_TREE_MESH=auto`) the SimpleWind mature mesh with
 
 ## The three variants (one map, one package)
 
-`swap_street_trees.py` (`stage` mode) adds a leafy copy of the 112 trees, same instances in the same order, without collision (the bare trunk keeps it). At start, `UGTPStreetTreesSubsystem` shows one or the other from the game arguments; without arguments the street stays as it is today.
+The map is never changed. `swap_street_trees.py` (`pick` mode, read only) picks the leafy meshes and gives the `-TreeSwap=<bare>~<leafy>` argument. At start, `UGTPStreetTreesSubsystem` creates a leafy twin of the bare trees (same instances, no collision: the bare trunk keeps it) and removes from the bare mesh the trees shown leafy. Without arguments the street stays as it is today. The leafy mesh folders are added to the cook for the package only (`DefaultGame.ini` restored afterwards).
 
 | Argument | What changes |
 | ---- | ---- |
@@ -55,7 +55,7 @@ Proposed budget: 1.5 ms p95 for the 112 trees, i.e. 0.013 ms per tree. Only the 
 caffeinate -dimsu tools/perf/tree-bench-mac.sh perf-trees 90
 ```
 
-Steps: audit of the packs (triangles per LOD, Nanite, textures > 2K); leafy copy staged on the map; Shipping package; copy taken off the map (the next package is unchanged); then `tools/perf/bench.sh` for bare, light10, light, impostor, leafy. Pilot's rule: 10 trees first; if light10 costs more than 2 ms (`MAX_DELTA_10_MS`) over bare, the 112-tree cases are skipped. Length: about 40 min (audit and map 10 min, package 15 to 25, benches 12). Result: `Builds/perf-trees/trees-<date>/TREES.md` (p95 per case, difference to bare, cost per tree, meshes picked) and `mesh_audit.csv`.
+Steps: audit of the packs (triangles per LOD, Nanite, textures > 2K); mesh pick (map opened read only, md5 checked at start and end); Shipping package with the leafy folders cooked; then `tools/perf/bench.sh` for bare, light10, light, impostor, leafy. Pilot's rule: 10 trees first; if light10 costs more than 2 ms (`MAX_DELTA_10_MS`) over bare, the 112-tree cases are skipped. Length: about 1 h at most (audit and pick 12 min, package 15 to 30, benches 18). Watchdog: a step past twice its expected length is stopped, Unreal is closed and the script exits (code 3); heartbeat every 10 min; dry run with `DRY_RUN=1`. Result: `Builds/perf-trees/trees-<date>/TREES.md` (p95 per case, difference to bare, cost per tree, meshes picked) and `mesh_audit.csv`.
 
 Requirements: in the clone that packages, the `Content/EuropeanBeech`, `Content/BlackAlder` and `Content/MSPresets` folders (links to GTAL in GTAL-build) and this branch's code compiled.
 

@@ -5,11 +5,13 @@
 #
 #   1. audit the Fab packs (triangles per LOD, Nanite, textures over 2K)
 #                                         tools/assets/unreal/audit_meshes.py
-#   2. stage a leafy copy of the trees on the city map (hidden by default)
+#   2. pick the leafy meshes, map loaded read only (never saved)
 #                                         tools/city/unreal/swap_street_trees.py
-#   3. package (Shipping)                 tools/build/package-mac.sh
-#   4. take the leafy copy off the map again (the next package is unchanged)
-#   5. bench, one game argument set per case (UGTPStreetTreesSubsystem):
+#   3. package (Shipping) with the leafy mesh folders cooked: added to
+#      Config/DefaultGame.ini for the package only, the file is restored after
+#                                         tools/build/package-mac.sh
+#   4. bench, one game argument set per case (UGTPStreetTreesSubsystem swaps the
+#      trees at run time with -TreeSwap, the map file never changes):
 #        bare      -Trees=bare
 #        light10   -Trees=light -TreeCount=10
 #        light     -Trees=light            (all 112)
@@ -24,8 +26,10 @@
 #   GTP_TREE_MESH, GTP_SAPLING_MESH, GTP_TREE_PATTERN (see swap_street_trees.py;
 #     default: the lightest beech or alder at least 8 m tall)
 #   SCENARIO (default street-demo), CASES (default "bare light10 light impostor leafy")
-#   MAX_DELTA_10_MS (default 2), SKIP_PACKAGE=1 reuses a build already staged,
-#   KEEP_STAGED=1 leaves the leafy copy on the map
+#   MAX_DELTA_10_MS (default 2), SKIP_PACKAGE=1 reuses a build packaged by this
+#     script (the pick step still runs, it gives -TreeSwap)
+#   MAP_MD5: md5 the city map must have before and after (default: none checked,
+#     the md5 at start is compared with the md5 at the end anyway)
 #   DRY_RUN=1 replaces Unreal, the package and the benches by stubs that write
 #     fake outputs: checks the script end to end anywhere (Linux too), in seconds
 #     (DRY_SLEEP stub length, EXPECTED_S forces every expected length: tests the watchdog)
@@ -36,7 +40,7 @@
 # "heartbeat" line with the step and its elapsed time goes to stdout and to
 # <out>/heartbeat.txt, for the session that relays it. Times are Paris time.
 # Output: <BUILDS_DIR>/<version>/trees-<stamp>/TREES.md, mesh_audit.csv, one log per step.
-# Expected length: audit + stage + unstage ~15 min, package 15-30 min, benches ~18 min (about 1 h at most).
+# Expected length: audit + pick ~12 min, package 15-30 min, benches ~18 min (about 1 h at most).
 set -uo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -88,7 +92,7 @@ expected() {
   if test -n "${EXPECTED_S:-}"; then echo "$EXPECTED_S"; return; fi
   case "$1" in
     audit) echo 480 ;;
-    stage|unstage) echo 420 ;;
+    pick) echo 420 ;;
     package) echo 1800 ;;
     bench_*) echo $(( duration + 120 )) ;;
     *) echo 600 ;;
@@ -120,7 +124,7 @@ step() {
       stop_unreal
       {
         echo "- $name: STOPPED by the watchdog after $(( (now - start) / 60 )) min (expected $(( $(expected "$name") / 60 )) min), $(paris)"
-        echo "- Mac libre: every Unreal process stopped. The map may still carry the hidden leafy copy: GTP_TREE_MODE=unstage removes it."
+        echo "- Mac libre: every Unreal process stopped."
       } >> "$report"
       echo "heartbeat $(paris) STOPPED $name, Mac libre" | tee -a "$out/heartbeat.txt"
       exit 3
@@ -147,12 +151,12 @@ if test "$dry" = "1"; then
     case "$1" in
       audit_meshes.py) echo '{"roots": {}, "meshes": []}' > "${GTP_AUDIT_OUT:-$saved/mesh_audit.json}" ;;
       swap_street_trees.py) cat > "$saved/trees_report.json" <<JSON
-{"mode": "$GTP_TREE_MODE", "errors": [], "staged": {"W14-63": {"mesh": "/Game/BlackAlder/SM_Stub", "trees": 104, "mesh_info": {"height_cm": 1200, "nanite": false, "triangles": [9000, 3000, 8]}}, "W14-64": {"mesh": "/Game/BlackAlder/SM_StubSapling", "trees": 8, "mesh_info": {"height_cm": 400, "nanite": false, "triangles": [2000, 600, 8]}}}}
+{"mode": "$GTP_TREE_MODE", "errors": [], "swap_arg": "/Game/Environment/Props/W14-63/SM_Bare~/Game/BlackAlder/Geometry/SimpleWind/SM_Stub+/Game/Environment/Props/W14-64/SM_Young~/Game/BlackAlder/Geometry/SimpleWind/SM_StubSapling", "cook_dirs": ["/Game/BlackAlder/Geometry/SimpleWind"], "picked": {"W14-63": {"bare": "/Game/Environment/Props/W14-63/SM_Bare", "mesh": "/Game/BlackAlder/SM_Stub", "trees": 104, "mesh_info": {"height_cm": 1200, "nanite": false, "triangles": [9000, 3000, 8]}}, "W14-64": {"bare": "/Game/Environment/Props/W14-64/SM_Young", "mesh": "/Game/BlackAlder/SM_StubSapling", "trees": 8, "mesh_info": {"height_cm": 400, "nanite": false, "triangles": [2000, 600, 8]}}}}
 JSON
       ;;
     esac
   }
-  package_cmd() { sleep "${DRY_SLEEP:-1}"; mkdir -p "$build_dir/GranTheftPraline.app"; }
+  package_cmd() { sleep "${DRY_SLEEP:-1}"; grep -c BlackAlder "$game_ini"; mkdir -p "$build_dir/GranTheftPraline.app"; }
   bench_cmd() {
     sleep "${DRY_SLEEP:-1}"
     mkdir -p "$2"
@@ -165,32 +169,66 @@ else
   bench_cmd() { tools/perf/bench.sh "$@"; }
 fi
 
-trees() {
-  GTP_TREE_MODE="$1" run_py swap_street_trees.py || return 1
-  cp "$saved/trees_report.json" "$out/trees_$1.json"
+map_file="$repo_root/GranTheftPraline/Content/Maps/L_City_RueDeLaRepublique.umap"
+map_md5() { if test "$dry" = "1"; then echo dry; elif command -v md5 >/dev/null; then md5 -q "$map_file"; else md5sum "$map_file" | cut -d' ' -f1; fi; }
+md5_start="$(map_md5)"
+if test -n "${MAP_MD5:-}" && test "$md5_start" != "$MAP_MD5"; then
+  echo "- map md5 $md5_start is not the expected $MAP_MD5: stopped before anything ran" >> "$report"
+  echo "tree-bench: map md5 $md5_start, expected $MAP_MD5" >&2
+  exit 1
+fi
+echo "- map md5 at start: $md5_start" >> "$report"
+
+pick() {
+  GTP_TREE_MODE=pick run_py swap_street_trees.py || return 1
+  cp "$saved/trees_report.json" "$out/trees_pick.json"
   grep -q '"errors": \[\]' "$saved/trees_report.json"
+}
+json() { python3 -c 'import json,sys; v=json.load(open(sys.argv[1]))[sys.argv[2]]; print(" ".join(v) if isinstance(v, list) else v)' "$out/trees_pick.json" "$1"; }
+
+# The leafy meshes are referenced by no map: cook their folders, for this package only.
+game_ini="$repo_root/GranTheftPraline/Config/DefaultGame.ini"
+ini_backup="$tmp/DefaultGame.ini"
+restore_ini() { test -f "$ini_backup" && cp "$ini_backup" "$game_ini" && rm -f "$ini_backup"; return 0; }
+trap 'restore_ini; rm -rf "$tmp"' EXIT
+cook_package() {
+  cp "$game_ini" "$ini_backup"
+  local lines="" d
+  for d in $(json cook_dirs); do lines="$lines+DirectoriesToAlwaysCook=(Path=\"$d\")\n"; done
+  python3 - "$game_ini" "$lines" <<'PY'
+import sys
+path, lines = sys.argv[1], sys.argv[2].replace("\\n", "\n")
+s = open(path).read()
+key = "[/Script/UnrealEd.ProjectPackagingSettings]\n"
+assert key in s, "no packaging section in DefaultGame.ini"
+open(path, "w").write(s.replace(key, key + lines, 1))
+PY
+  package_cmd "$version"
+  local status=$?
+  restore_ini
+  return $status
 }
 
 GTP_AUDIT_OUT="$out/mesh_audit.json" step audit run_py audit_meshes.py
+step pick pick || { echo "- pick failed, see trees_pick.json" >> "$report"; exit 1; }
+swap_arg="$(json swap_arg)"
+echo "- trees swapped at run time: -TreeSwap=$swap_arg" >> "$report"
 if test "${SKIP_PACKAGE:-0}" != "1"; then
-  step stage trees stage || { echo "- staging failed, see trees_stage.json" >> "$report"; exit 1; }
-  if ! step package package_cmd "$version"; then
+  if ! step package cook_package; then
     grep -hE ": (fatal )?error:|Error: " "$out/package.log" | sort -u | head -n 80 > "$out/compile-errors.txt"
     echo "- package failed: errors in compile-errors.txt" >> "$report"
-    test "${KEEP_STAGED:-0}" = "1" || step unstage trees unstage
     exit 1
   fi
-  test "${KEEP_STAGED:-0}" = "1" || step unstage trees unstage
 fi
 test -d "$build_dir/GranTheftPraline.app" || { echo "- no build at $build_dir" >> "$report"; exit 1; }
 
 case_args() {
   case "$1" in
     bare)     echo "-Trees=bare" ;;
-    light10)  echo "-Trees=light -TreeCount=10" ;;
-    light)    echo "-Trees=light" ;;
-    impostor) echo "-Trees=impostor" ;;
-    leafy)    echo "-Trees=leafy" ;;
+    light10)  echo "-Trees=light -TreeCount=10 -TreeSwap=$swap_arg" ;;
+    light)    echo "-Trees=light -TreeSwap=$swap_arg" ;;
+    impostor) echo "-Trees=impostor -TreeSwap=$swap_arg" ;;
+    leafy)    echo "-Trees=leafy -TreeSwap=$swap_arg" ;;
     *) echo "unknown" ;;
   esac
 }
@@ -213,8 +251,15 @@ for c in $cases; do
   fi
 done
 
+md5_end="$(map_md5)"
+if test "$md5_end" = "$md5_start"; then
+  echo "- map md5 at the end: $md5_end, unchanged" >> "$report"
+else
+  echo "- WARNING map md5 changed: $md5_start at start, $md5_end at the end" >> "$report"
+fi
+
 # One table: frame p95 per case, its difference to bare and per leafy tree.
-trees_total="$(python3 -c 'import json,sys; print(sum(v["trees"] for v in json.load(open(sys.argv[1]))["staged"].values()))' "$out/trees_stage.json" 2>/dev/null || echo 112)"
+trees_total="$(python3 -c 'import json,sys; print(sum(v["trees"] for v in json.load(open(sys.argv[1]))["picked"].values()))' "$out/trees_pick.json" 2>/dev/null || echo 112)"
 {
   echo
   echo "## Frame p95 per case ($trees_total trees on the street)"
@@ -245,10 +290,10 @@ PY
   echo
   python3 -c '
 import json,sys
-for cid, v in json.load(open(sys.argv[1]))["staged"].items():
+for cid, v in json.load(open(sys.argv[1]))["picked"].items():
     i = v["mesh_info"]
     print("- %s: %s, %d trees, %d cm, Nanite %s, triangles per LOD %s" % (cid, v["mesh"], v["trees"], i["height_cm"], i["nanite"], i["triangles"]))
-' "$out/trees_stage.json" 2>/dev/null || echo "(see trees_stage.json)"
+'  "$out/trees_pick.json" 2>/dev/null || echo "(see trees_pick.json)"
 } >> "$report"
 echo "Done: $report"
 cat "$report"
