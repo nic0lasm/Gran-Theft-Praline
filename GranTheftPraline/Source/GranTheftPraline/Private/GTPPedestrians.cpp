@@ -600,7 +600,7 @@ void UGTPPedestrianSubsystem::RefreshDetail()
 			Order.Add(&P);
 		}
 	}
-	Order.Sort([](const FPerson* A, const FPerson* B) { return A->Distance < B->Distance; });
+	Order.Sort([](const FPerson& A, const FPerson& B) { return A.Distance < B.Distance; });
 	int32 Shown = 0;
 	for (FPerson* P : Order)
 	{
