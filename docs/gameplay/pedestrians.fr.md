@@ -58,7 +58,7 @@ Cause est nulle pour l'instant (la voiture n'est pas encore identifiée).
 
 - `ScareAround(Lieu, Rayon, Cause)` fait fuir tous ceux du voisinage (tirs,
   explosions, police) et diffuse `OnPedestrianScared` pour chacun.
-- `CrossingBlockedQuery` (`TFunction<bool(const FVector&)>`) permet aux feux de
+- `CrossingBlockedQuery` (`TFunction<bool(const FVector& Where, const FVector& WalkDirection)>`) permet aux feux de
   dire qu'un passage est rouge pour les piétons ; sans lui, ils ne surveillent
   que les voitures.
 - Variété avec un seul maillage : la taille varie de `HeightSpread` et les

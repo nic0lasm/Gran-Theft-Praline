@@ -105,9 +105,11 @@ public:
 
 	/**
 	 * Traffic lights hook: return true when people may NOT set off across the crossing at Where
-	 * (their light is red). Unset = they only look out for cars. The lights thread sets it.
+	 * walking along WalkDirection (world, unit): the roads they cross are not red. Unset = they
+	 * only look out for cars. Set by the code that owns the lights (e.g. from
+	 * AGTPTrafficNetwork::IsWalkAllowed).
 	 */
-	TFunction<bool(const FVector& Where)> CrossingBlockedQuery;
+	TFunction<bool(const FVector& Where, const FVector& WalkDirection)> CrossingBlockedQuery;
 
 	/** Police and other systems listen here (a person hit by a car / frightened into running). */
 	FGTPPedestrianEvent OnPedestrianHit;

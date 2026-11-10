@@ -553,8 +553,11 @@ void UGTPPedestrianSubsystem::Update(FPerson& Person, float DeltaTime)
 	if (Edge.Kind == GTPWalk::EKind::Crossing && Person.Walker.S < 30.f)
 	{
 		const FVector Mid(Edge.Points[Edge.Points.size() / 2].X, Edge.Points[Edge.Points.size() / 2].Y, 0.f);
+		const GTPWalk::FPoint& From = Person.Walker.bForward ? Edge.Points.front() : Edge.Points.back();
+		const GTPWalk::FPoint& To = Person.Walker.bForward ? Edge.Points.back() : Edge.Points.front();
+		const FVector CrossingDirection = FVector(To.X - From.X, To.Y - From.Y, 0.f).GetSafeNormal();
 		bCrossingUnsafe = CarNear(Mid, CrossingLookRadius, 150.f)
-			|| (CrossingBlockedQuery && CrossingBlockedQuery(Mid));
+			|| (CrossingBlockedQuery && CrossingBlockedQuery(Mid, CrossingDirection));
 	}
 	FVector CarLocation, CarVelocity;
 	if (Cars.Num() > 0 && CarNear(Person.Location, FleeRadius, FleeCarSpeed, &CarLocation, &CarVelocity))

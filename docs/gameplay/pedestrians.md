@@ -57,7 +57,7 @@ Cause is null for now (the car is not identified yet).
 
 - `ScareAround(Location, Radius, Cause)` makes everybody nearby run away (shots,
   explosions, police). It broadcasts `OnPedestrianScared` for each person.
-- `CrossingBlockedQuery` (a `TFunction<bool(const FVector&)>`) lets the traffic
+- `CrossingBlockedQuery` (a `TFunction<bool(const FVector& Where, const FVector& WalkDirection)>`) lets the traffic
   lights say a crossing is red for people; unset, they only look out for cars.
 - Variety from one mesh: height varies by `HeightSpread` and the body materials
   get a clothing colour from a small city palette through the vector parameters
