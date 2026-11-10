@@ -221,6 +221,15 @@ trafic complet avec feux et priorités, c'est la 0.9) :
   voiture s'arrête devant un piéton. La voiture freine pendant qu'on sort
   son conducteur, qui s'enfuit ensuite à 25 m.
 
+### 8.3 Chute dans le Rhône
+
+`UGTPRiverRecovery` (sous-système du monde) écoute les boîtes de déclenchement marquées `GTP_RiverRecovery` que la génération de la ville pose sur l'eau, et relève les points `GTP_RiverExit` placés sur les deux berges (`tools/city/riverside.py`). Un lit du fleuve avec collision, 2,5 m plus bas, empêche de tomber hors du monde.
+
+- À pied : le joueur flotte `SwimSeconds` (4 s), l'écran passe au noir et le joueur se retrouve au point de sortie le plus proche.
+- En voiture : la voiture est noyée (épave, plus de commandes) ; après `SinkSeconds` (2,5 s), le conducteur est sorti par `AGTPVehicle::EjectDriverTo` et ramené au point de sortie le plus proche avec le même fondu. La voiture disparaît `RemoveCarSeconds` (12 s) après sa chute, avec son conducteur non joueur.
+
+Pas de plugin Water ni de volume physique : de simples événements de chevauchement, presque gratuits sur le M1.
+
 ## 9. Préparer une voiture conduisible
 
 ### 9.1 Première voiture d'essai (sans Tripo)

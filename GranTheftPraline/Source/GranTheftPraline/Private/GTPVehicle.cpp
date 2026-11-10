@@ -727,6 +727,37 @@ bool AGTPVehicle::FindExitLocation(const ACharacter* Character, FVector& OutLoca
 	return false;
 }
 
+ACharacter* AGTPVehicle::EjectDriverTo(const FVector& Location, const FRotator& Rotation)
+{
+	GetWorldTimerManager().ClearTimer(SequenceTimer);
+	ACharacter* Character = Driver;
+	if (!Character)
+	{
+		return nullptr;
+	}
+	AController* Controller = GetController();
+	Driver = nullptr;
+	State = EGTPVehicleState::Parked;
+	ReleaseCharacter(Character, Location, Rotation);
+	if (Controller && Controller->IsPlayerController())
+	{
+		Controller->Possess(Character);
+	}
+	GTP_TRACE(LogGTPVehicle, TEXT("%s: driver taken out to %s"), *GetName(), *Location.ToCompactString());
+	return Character;
+}
+
+void AGTPVehicle::Drown()
+{
+	if (!bWrecked)
+	{
+		Health = 0.f;
+		SetWrecked();
+	}
+	ClearDrivingInput();
+	GTP_TRACE(LogGTPVehicle, TEXT("%s: drowned"), *GetName());
+}
+
 void AGTPVehicle::DoExit(bool bBailOut)
 {
 	GetWorldTimerManager().ClearTimer(SequenceTimer);
