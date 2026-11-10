@@ -106,6 +106,7 @@ fi
 if test "$release" = "1"; then
   # Same run-time data as the full pass: every preview system needs its own.
   step lanes "$python" tools/city/traffic.py --map "$map"
+  step parking "$python" tools/city/parking.py --map "$map"
   step walkways "$python" tools/city/pedestrians.py --map "$map"
   step minimap "$python" tools/ui/minimap.py --map "$map"
   step environment tools/environment/setup-environment-mac.sh
@@ -130,6 +131,7 @@ fi
 
 # 1. Data the game reads at run time (not in Git).
 step lanes "$python" tools/city/traffic.py --map "$map"
+step parking "$python" tools/city/parking.py --map "$map"
 step walkways "$python" tools/city/pedestrians.py --map "$map"
 step minimap "$python" tools/ui/minimap.py --map "$map"
 step environment tools/environment/setup-environment-mac.sh

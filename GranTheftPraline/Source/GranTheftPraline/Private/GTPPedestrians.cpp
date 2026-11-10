@@ -3,7 +3,9 @@
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "Animation/AnimSequence.h"
 #include "Animation/AnimSequenceBase.h"
+#include "Components/InstancedStaticMeshComponent.h"
 #include "Components/SceneComponent.h"
+#include "Engine/StaticMesh.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/SkeletalMesh.h"
@@ -74,6 +76,26 @@ void AGTPPedestrian::ApplyLook(float HeightScale, const FLinearColor& Clothes, c
 				Material->SetVectorParameterValue(Parameter, Clothes);
 			}
 		}
+	}
+}
+
+void AGTPPedestrian::MakeCheap()
+{
+	Body->bCastContactShadow = false;
+	Body->bReceivesDecals = false;
+	Body->bUseAsOccluder = false;
+	Body->bAffectDynamicIndirectLighting = false;
+	Body->bAffectDistanceFieldLighting = false;
+	Body->bPerBoneMotionBlur = false;
+	Body->bComponentUseFixedSkelBounds = true;
+}
+
+void AGTPPedestrian::SetAnimInterval(float Seconds)
+{
+	if (!FMath::IsNearlyEqual(Seconds, AnimInterval))
+	{
+		AnimInterval = Seconds;
+		Body->SetComponentTickInterval(Seconds);
 	}
 }
 
@@ -177,6 +199,7 @@ int32 UGTPPedestrianSubsystem::LoadWalkwaysFromCsv(const FString& Path, GTPWalk:
 		Edge.NodeA = FCString::Atoi(*Fields[3]);
 		Edge.NodeB = FCString::Atoi(*Fields[4]);
 		Edge.Width = FCString::Atof(*Fields[5]) * 100.f;
+		Edge.FacadeSide = Fields.Num() > 7 ? FMath::Clamp(FCString::Atoi(*Fields[7]), -1, 1) : 0;
 		TArray<FString> Points;
 		Fields[6].TrimEnd().ParseIntoArray(Points, TEXT(";"));
 		for (const FString& Point : Points)
@@ -334,6 +357,23 @@ void UGTPPedestrianSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 		});
 	}
 	Wanted = ChooseDensity();
+	int32 Override = 0;
+	if (FParse::Value(FCommandLine::Get(), TEXT("PedMaxVisible="), Override))
+	{
+		MaxVisible = Override;
+	}
+	if (FParse::Value(FCommandLine::Get(), TEXT("PedCheap="), Override))
+	{
+		bCheapRendering = Override != 0;
+	}
+	if (FParse::Value(FCommandLine::Get(), TEXT("PedAnimRate="), Override))
+	{
+		bReduceAnimRate = Override != 0;
+	}
+	if (FParse::Value(FCommandLine::Get(), TEXT("PedSpread="), Override))
+	{
+		bSpreadFarUpdates = Override != 0;
+	}
 	if (Wanted <= 0)
 	{
 		GTP_TRACE(LogGTPPedestrians, TEXT("pedestrians: off"));
@@ -384,6 +424,8 @@ void UGTPPedestrianSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 	Walk = Resolve(WalkAnimation, TEXT("PedWalk="), {TEXT("walk")});
 	Idle = Resolve(IdleAnimation, TEXT("PedIdle="), {TEXT("idle")});
 	Run = Resolve(RunAnimation, TEXT("PedRun="), {TEXT("run"), TEXT("jog")});
+	// Optional: no default search, a phone loop is only played if one is named.
+	Phone = Cast<UAnimSequenceBase>(PhoneAnimation.TryLoad());
 	GTP_TRACE(LogGTPPedestrians, TEXT("animations: walk=%s idle=%s run=%s"),
 		Walk ? *Walk->GetPathName() : TEXT("none"), Idle ? *Idle->GetPathName() : TEXT("none"), Run ? *Run->GetPathName() : TEXT("none"));
 	if (LoadedMeshes.Num() == 0 || !Walk)
@@ -416,9 +458,139 @@ void UGTPPedestrianSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 		Actor->ApplyLook(Rng.Range(1.f - HeightSpread, 1.f + HeightSpread), Palette(Rng.Next()), TintParameters);
 		Actor->GetBody()->SetRelativeRotation(FRotator(0.f, MeshYawOffset, 0.f));
 		Actor->SetDetail(false, false, -1);
+		if (bCheapRendering)
+		{
+			Actor->MakeCheap();
+		}
 		P.Actor = Actor;
 	}
 	GTP_TRACE(LogGTPPedestrians, TEXT("pedestrians: on (%d), %d walkway edges, %d visible at most"), Wanted, Edges, MaxVisible);
+	InitFarCrowd(InWorld);
+}
+
+void UGTPPedestrianSubsystem::InitFarCrowd(UWorld& InWorld)
+{
+	int32 Count = FarCrowdCount;
+	FParse::Value(FCommandLine::Get(), TEXT("PedFar="), Count);
+	UStaticMesh* Mesh = Cast<UStaticMesh>(FarCrowdMesh.TryLoad());
+	if (Count <= 0 || !Mesh)
+	{
+		GTP_TRACE(LogGTPPedestrians, TEXT("far crowd: off (count %d, mesh %s)"), Count, Mesh ? TEXT("set") : TEXT("missing"));
+		return;
+	}
+	AActor* Holder = InWorld.SpawnActor<AActor>();
+	if (!Holder)
+	{
+		return;
+	}
+	FarInstances = NewObject<UInstancedStaticMeshComponent>(Holder, TEXT("FarCrowd"));
+	FarInstances->SetStaticMesh(Mesh);
+	FarInstances->SetMobility(EComponentMobility::Movable);
+	FarInstances->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	FarInstances->SetCastShadow(false);
+	FarInstances->bAffectDynamicIndirectLighting = false;
+	FarInstances->bAffectDistanceFieldLighting = false;
+	FarInstances->bReceivesDecals = false;
+	// Two floats per instance for a vertex animation material: walk cycle phase and speed scale
+	// (the material reads Time itself, so no per-frame cost here). Plain static meshes ignore them.
+	FarInstances->NumCustomDataFloats = 2;
+	FarInstances->SetCullDistances(0, static_cast<int32>(FarMaxDistance));
+	Holder->SetRootComponent(FarInstances);
+	FarInstances->RegisterComponent();
+	FarAgents.SetNum(Count);
+	for (int32 i = 0; i < Count; ++i)
+	{
+		// All instances exist from the start, parked far below the map until their agent is placed.
+		const int32 Instance = FarInstances->AddInstance(FTransform(FRotator::ZeroRotator, FVector(0.f, 0.f, -100000.f), FVector(0.001f)), true);
+		FarInstances->SetCustomDataValue(Instance, 0, Rng.Next(), false);
+		FarInstances->SetCustomDataValue(Instance, 1, Rng.Range(0.9f, 1.1f), false);
+	}
+	GTP_TRACE(LogGTPPedestrians, TEXT("far crowd: on (%d)"), Count);
+}
+
+bool UGTPPedestrianSubsystem::PlaceFarAgent(int32 Index)
+{
+	FFarAgent& Agent = FarAgents[Index];
+	for (int32 Try = 0; Try < 20; ++Try)
+	{
+		GTPWalk::FWalker W;
+		if (!GTPWalk::Place(Graph, W, Rng, Settings))
+		{
+			return false;
+		}
+		GTPWalk::FPoint P, D;
+		GTPWalk::Locate(Graph, W, P, D);
+		const float Distance = FVector::Dist2D(FVector(P.X, P.Y, 0.f), PlayerLocation);
+		if (Distance >= FarMinDistance && Distance <= FarMaxDistance && !IsSeen(FVector(P.X, P.Y, PlayerLocation.Z)))
+		{
+			Agent.Walker = W;
+			Agent.bActive = true;
+			return true;
+		}
+	}
+	return false;
+}
+
+bool UGTPPedestrianSubsystem::PromoteToPool(const GTPWalk::FWalker& Walker, const FVector& Location)
+{
+	for (FPerson& P : People)
+	{
+		if (!P.bActive && P.Actor.IsValid())
+		{
+			P.Walker = Walker;
+			P.Leader = -1;
+			GTPWalk::FPoint Pt, Dir;
+			GTPWalk::Locate(Graph, P.Walker, Pt, Dir);
+			Activate(P, Pt, Dir);
+			return true;
+		}
+	}
+	return false;
+}
+
+void UGTPPedestrianSubsystem::TickFarCrowd(float DeltaTime)
+{
+	if (!FarInstances || FarAgents.Num() == 0)
+	{
+		return;
+	}
+	// Layer 3: simulated 5 times a second, no actor. Updates are spread, never all in one frame.
+	FarAccumulated += DeltaTime;
+	if (FarAccumulated < 0.2f)
+	{
+		return;
+	}
+	const float Elapsed = FarAccumulated;
+	FarAccumulated = 0.f;
+	for (int32 i = 0; i < FarAgents.Num(); ++i)
+	{
+		FFarAgent& Agent = FarAgents[i];
+		if (!Agent.bActive && !PlaceFarAgent(i))
+		{
+			continue;
+		}
+		GTPWalk::Step(Graph, Agent.Walker, Elapsed, Rng, Settings, false);
+		GTPWalk::FPoint P, D;
+		GTPWalk::Locate(Graph, Agent.Walker, P, D);
+		const FVector Location(P.X, P.Y, PlayerLocation.Z);
+		const float Distance = FVector::Dist2D(Location, PlayerLocation);
+		if (Distance < PromoteDistance && PromoteToPool(Agent.Walker, Location))
+		{
+			Agent.bActive = false;
+			Agent.bShown = false;
+			FarInstances->UpdateInstanceTransform(i, FTransform(FRotator::ZeroRotator, FVector(0.f, 0.f, -100000.f), FVector(0.001f)), true, false, true);
+			continue;
+		}
+		if (Distance > FarMaxDistance * 1.1f && !IsSeen(Location))
+		{
+			Agent.bActive = false; // placed again closer, out of sight, next time
+			continue;
+		}
+		const FRotator Facing(0.f, FMath::RadiansToDegrees(FMath::Atan2(D.Y, D.X)) + MeshYawOffset, 0.f);
+		FarInstances->UpdateInstanceTransform(i, FTransform(Facing, Location, FVector::OneVector), true, false, true);
+		Agent.bShown = true;
+	}
+	FarInstances->MarkRenderStateDirty();
 }
 
 void UGTPPedestrianSubsystem::Deinitialize()
@@ -532,27 +704,81 @@ bool UGTPPedestrianSubsystem::TrySpawn(FPerson& Person)
 			continue;
 		}
 		Person.Walker = W;
-		Person.Walker.SpeedScale = W.SpeedScale;
-		Person.Location = Location;
-		Person.GroundZ = PlayerLocation.Z;
-		MoveGroundTo(Person, true);
-		Person.Yaw = FMath::RadiansToDegrees(FMath::Atan2(D.Y, D.X));
-		Person.bActive = true;
-		Person.bRunning = false;
-		Person.bIdle = false;
-		Person.bDrawn = false;
-		Person.RagdollLeft = 0.f;
-		Actor->ResetBody();
-		Actor->SetActorLocationAndRotation(FVector(Location.X, Location.Y, Person.GroundZ), FRotator(0.f, Person.Yaw, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
+		Person.Leader = -1;
+		Activate(Person, P, D);
+		// Sometimes two people walk together: the partner takes a free place beside this one.
+		if (Rng.Next() < Settings.GroupChance)
+		{
+			const int32 LeaderIndex = static_cast<int32>(&Person - People.GetData());
+			for (FPerson& Other : People)
+			{
+				if (!Other.bActive && Other.Actor.IsValid() && &Other != &Person)
+				{
+					Other.Walker = GTPWalk::FWalker();
+					GTPWalk::Follow(Graph, Other.Walker, Person.Walker, Settings);
+					GTPWalk::FPoint OP, OD;
+					GTPWalk::Locate(Graph, Other.Walker, OP, OD);
+					Other.Leader = LeaderIndex;
+					Activate(Other, OP, OD);
+					++SpawnedTotal;
+					break;
+				}
+			}
+		}
 		++SpawnedTotal;
 		return true;
 	}
 	return false;
 }
 
+void UGTPPedestrianSubsystem::Activate(FPerson& Person, const GTPWalk::FPoint& P, const GTPWalk::FPoint& D)
+{
+	AGTPPedestrian* Actor = Person.Actor.Get();
+	Person.Location = FVector(P.X, P.Y, PlayerLocation.Z);
+	Person.GroundZ = PlayerLocation.Z;
+	MoveGroundTo(Person, true);
+	Person.Yaw = FMath::RadiansToDegrees(FMath::Atan2(D.Y, D.X));
+	Person.Pos = P;
+	Person.Dir = D;
+	Person.bActive = true;
+	Person.bRunning = false;
+	Person.bIdle = false;
+	Person.bDrawn = false;
+	Person.RagdollLeft = 0.f;
+	Actor->ResetBody();
+	Actor->SetActorLocationAndRotation(FVector(Person.Location.X, Person.Location.Y, Person.GroundZ), FRotator(0.f, Person.Yaw, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
+}
+
+void UGTPPedestrianSubsystem::SeparatePeople()
+{
+	// Walkers closer than the personal distance step sideways round each other (pairs excepted).
+	for (int32 i = 0; i < People.Num(); ++i)
+	{
+		FPerson& A = People[i];
+		if (!A.bActive || A.Leader >= 0 || (A.Actor.IsValid() && A.Actor->IsRagdoll()) || A.Walker.FleeTimeLeft > 0.f)
+		{
+			continue;
+		}
+		for (int32 j = 0; j < People.Num(); ++j)
+		{
+			const FPerson& B = People[j];
+			if (i != j && B.bActive && B.Leader != i && A.Leader != j)
+			{
+				GTPWalk::Separate(Graph, A.Walker, A.Pos, A.Dir, B.Pos, Settings);
+			}
+		}
+	}
+}
+
 void UGTPPedestrianSubsystem::Retire(FPerson& Person)
 {
 	Person.bActive = false;
+	const int32 Index = static_cast<int32>(&Person - People.GetData());
+	for (FPerson& Other : People)
+	{
+		Other.Leader = Other.Leader == Index ? -1 : Other.Leader;
+	}
+	Person.Leader = -1;
 	if (AGTPPedestrian* A = Person.Actor.Get())
 	{
 		A->ResetBody();
@@ -611,9 +837,34 @@ void UGTPPedestrianSubsystem::Update(FPerson& Person, float DeltaTime)
 		}
 	}
 
-	const GTPWalk::FStepResult R = GTPWalk::Step(Graph, Person.Walker, DeltaTime, Rng, Settings, bCrossingUnsafe);
+	// A car passing close on the same walkway: step away from it towards the facade side.
+	if (Cars.Num() > 0 && Person.Walker.FleeTimeLeft <= 0.f && Person.Leader < 0)
+	{
+		FVector NearCar;
+		if (CarNear(Person.Location, 320.f, 150.f, &NearCar))
+		{
+			GTPWalk::Separate(Graph, Person.Walker, Person.Pos, Person.Dir, {NearCar.X, NearCar.Y}, Settings, 320.f);
+		}
+	}
+
+	GTPWalk::FStepResult R;
+	if (Person.Leader >= 0 && People.IsValidIndex(Person.Leader) && People[Person.Leader].bActive)
+	{
+		// Half of a pair: stays beside the partner and does what the partner does.
+		const FPerson& Partner = People[Person.Leader];
+		GTPWalk::Follow(Graph, Person.Walker, Partner.Walker, Settings);
+		R = Partner.LastResult;
+	}
+	else
+	{
+		Person.Leader = -1;
+		R = GTPWalk::Step(Graph, Person.Walker, DeltaTime, Rng, Settings, bCrossingUnsafe);
+	}
+	Person.LastResult = R;
 	GTPWalk::FPoint P, D;
 	GTPWalk::Locate(Graph, Person.Walker, P, D);
+	Person.Pos = P;
+	Person.Dir = D;
 	FVector Wanted2D(P.X, P.Y, 0.f);
 
 	// Social space: step aside for the player (display only, the walker keeps its line).
@@ -626,7 +877,9 @@ void UGTPPedestrianSubsystem::Update(FPerson& Person, float DeltaTime)
 	Person.Location = FVector(Wanted2D.X, Wanted2D.Y, 0.f);
 	Person.Distance = FVector::Dist2D(Person.Location, PlayerLocation);
 
-	const float TargetYaw = FMath::RadiansToDegrees(FMath::Atan2(D.Y, D.X));
+	// Looking at a window: face the facade; otherwise the way it walks.
+	const GTPWalk::FPoint Facing = GTPWalk::Facing(Graph, Person.Walker);
+	const float TargetYaw = FMath::RadiansToDegrees(FMath::Atan2(Facing.Y, Facing.X));
 	Person.Yaw = FMath::RInterpTo(FRotator(0.f, Person.Yaw, 0.f), FRotator(0.f, TargetYaw, 0.f), DeltaTime, 8.f).Yaw;
 	Actor->SetActorLocationAndRotation(FVector(Person.Location.X, Person.Location.Y, Person.GroundZ), FRotator(0.f, Person.Yaw, 0.f), false, nullptr, ETeleportType::None);
 
@@ -636,7 +889,8 @@ void UGTPPedestrianSubsystem::Update(FPerson& Person, float DeltaTime)
 	{
 		if (bStand)
 		{
-			Actor->PlayLoop(Idle, 1.f);
+			const bool bPhone = Person.Walker.PauseKind == GTPWalk::EPause::Phone && Phone;
+			Actor->PlayLoop(bPhone ? Phone.Get() : Idle.Get(), 1.f);
 		}
 		else if (bRun)
 		{
@@ -675,6 +929,10 @@ void UGTPPedestrianSubsystem::RefreshDetail()
 		const int32 NumLODs = Actor->GetBody()->GetSkeletalMeshAsset() ? Actor->GetBody()->GetSkeletalMeshAsset()->GetLODNum() : 1;
 		const int32 Far = FMath::Clamp(FarLOD, 0, FMath::Max(0, NumLODs - 1));
 		Actor->SetDetail(bDraw, bDraw && bNear, bNear ? -1 : Far);
+		if (bReduceAnimRate)
+		{
+			Actor->SetAnimInterval(P->Distance < 1500.f ? 0.f : P->Distance < 2500.f ? 0.05f : P->Distance < 5000.f ? 0.083f : 0.125f);
+		}
 		P->bDrawn = bDraw;
 	}
 }
@@ -715,12 +973,29 @@ void UGTPPedestrianSubsystem::Tick(float DeltaTime)
 		RefreshCars();
 	}
 
+	SeparatePeople();
+	TickFarCrowd(DeltaTime);
 	for (FPerson& P : People)
 	{
-		if (P.bActive)
+		if (!P.bActive)
 		{
-			Update(P, DeltaTime);
+			continue;
 		}
+		if (bSpreadFarUpdates && !P.bDrawn)
+		{
+			// Nobody sees this one: move it 5 times a second with the time that went by.
+			P.FarAccumulated += DeltaTime;
+			if (P.FarAccumulated < 0.2f)
+			{
+				continue;
+			}
+			const float Elapsed = P.FarAccumulated;
+			P.FarAccumulated = 0.f;
+			Update(P, Elapsed);
+			continue;
+		}
+		P.FarAccumulated = 0.f;
+		Update(P, DeltaTime);
 	}
 
 	// Ground height: a few people per frame, round robin.
@@ -785,6 +1060,11 @@ void UGTPPedestrianSubsystem::LogStats()
 		Active += P.bActive ? 1 : 0;
 		Drawn += (P.bActive && P.bDrawn) ? 1 : 0;
 	}
-	GTP_TRACE(LogGTPPedestrians, TEXT("active=%d drawn=%d wanted=%d spawned=%d fled=%d hit=%d"),
-		Active, Drawn, Wanted, SpawnedTotal, FledTotal, HitTotal);
+	int32 Far = 0;
+	for (const FFarAgent& A : FarAgents)
+	{
+		Far += A.bShown ? 1 : 0;
+	}
+	GTP_TRACE(LogGTPPedestrians, TEXT("active=%d drawn=%d wanted=%d spawned=%d fled=%d hit=%d far=%d"),
+		Active, Drawn, Wanted, SpawnedTotal, FledTotal, HitTotal, Far);
 }

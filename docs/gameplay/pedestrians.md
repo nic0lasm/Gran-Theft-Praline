@@ -31,7 +31,7 @@ Settings are in `DefaultGame.ini`, section `GTPPedestrianSubsystem`:
 |---|---|---|
 | DensityM1 / Fidelity / Ultra | 12 / 24 / 40 | people per graphics profile; `-Pedestrians=N` overrides, 0 = off |
 | MaxVisible | 10 | only the closest ones are drawn |
-| DetailDistance, FarLOD | 25 m, 2 | shadow and full LOD inside, lower LOD outside |
+| DetailDistance, FarLOD | 20 m, 2 | shadow and full LOD inside, lower LOD outside |
 | DrawDistance | 90 m | nothing drawn beyond |
 | WalkAnimation, IdleAnimation, RunAnimation | empty | loops to play; no walk animation = no pedestrians |
 | Meshes | empty | skeletal meshes; empty = the player's character mesh |
@@ -62,6 +62,17 @@ Cause is null for now (the car is not identified yet).
 - Variety from one mesh: height varies by `HeightSpread` and the body materials
   get a clothing colour from a small city palette through the vector parameters
   of `TintParameters` (those a material lacks are ignored). More meshes go in `Meshes`.
+
+- Street behaviour: a quarter of the people walk in pairs (the partner stays beside
+  and a little behind and does what the leader does), and people closer than 90 cm
+  step sideways round each other (`Separate` in `GTPWalkLogic.h`, checked at 12 and
+  60 people by `walk_sim`).
+
+- Pauses: about a third of the stops are phone calls (they stand in place, with
+  `PhoneAnimation` if one is set), the rest are window shopping: they walk over to the
+  facade (`facade_side` of the walkway) and face it. A car passing within 3 m on
+  their walkway makes them step away from it. People are frightened from outside by
+  `ScareAround` (the audio thread calls it for shots, explosions and crashes).
 
 ## Checks
 

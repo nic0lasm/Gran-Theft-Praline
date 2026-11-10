@@ -197,6 +197,8 @@ void UGTPVehicleAudioComponent::TickComponent(float DeltaTime, ELevelTick TickTy
 		Player->GetAudioListenerPosition(Listener, Front, Right);
 		bNear = FVector::DistSquared(Listener, GetComponentLocation()) < FMath::Square(SkidListenDistance);
 	}
+	// Far cars are checked four times a second only (25 cars of traffic).
+	SetComponentTickInterval(bNear ? 0.05f : 0.25f);
 	SkidAmount = bNear ? ComputeSkid() : 0.f;
 	Skid->SetAmount(SkidAmount);
 	if (SkidAmount > 0.02f)

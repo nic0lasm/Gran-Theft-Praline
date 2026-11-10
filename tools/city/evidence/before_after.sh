@@ -21,7 +21,7 @@ version="${3:?version, e.g. 0.2}"
 soak="${4:-180}"
 video="${5:-90}"
 
-if pgrep -f "UnrealEditor|GranTheftPraline" > /dev/null; then
+if pgrep -fl "UnrealEditor|GranTheftPraline" | grep -v UnrealEditorServices >/dev/null; then
   echo "before_after: an Unreal editor or the game is running; one at a time" >&2
   exit 1
 fi

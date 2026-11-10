@@ -2,6 +2,9 @@
 
 #include "GTPLog.h"
 #include "GTPVehicle.h"
+#include "GTPTrafficGhost.h"
+#include "GTPParkedCars.h"
+#include "ChaosWheeledVehicleMovementComponent.h"
 #include "AIController.h"
 #include "CollisionQueryParams.h"
 #include "Components/LightComponent.h"
@@ -132,9 +135,89 @@ void UGTPAIDriverComponent::Start(AGTPTrafficNetwork* InNetwork, int32 Lane, int
 	Route.Add(Lane);
 	Closest = StartPoint;
 	StoppedTime = 0.f;
+	GhostSpeed = 0.f;
+	GhostAlong = 0.f;
 	bAtDeadEnd = false;
 	PlanRoute();
 	SetComponentTickEnabled(true);
+}
+
+void UGTPAIDriverComponent::SetDecisionInterval(float Seconds)
+{
+	Seconds = FMath::Max(0.f, Seconds);
+	if (!FMath::IsNearlyEqual(PrimaryComponentTick.TickInterval, Seconds))
+	{
+		SetComponentTickInterval(Seconds);
+	}
+}
+
+bool UGTPAIDriverComponent::FindGround(const AGTPVehicle* Vehicle, const FVector& Location, float& OutZ) const
+{
+	FHitResult Hit;
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(GTPTrafficGhostGround), false, Vehicle);
+	FCollisionObjectQueryParams Objects(ECC_WorldStatic);
+	if (!GetWorld()->LineTraceSingleByObjectType(Hit, Location + FVector(0.f, 0.f, 300.f), Location - FVector(0.f, 0.f, 1000.f), Objects, Params))
+	{
+		return false;
+	}
+	OutZ = static_cast<float>(Hit.ImpactPoint.Z);
+	return true;
+}
+
+void UGTPAIDriverComponent::SetGhost(bool bInGhost)
+{
+	AGTPVehicle* Vehicle = Cast<AGTPVehicle>(GetOwner());
+	if (bGhost == bInGhost || !Vehicle)
+	{
+		return;
+	}
+	USkeletalMeshComponent* Body = Vehicle->GetMesh();
+	UChaosWheeledVehicleMovementComponent* Movement = Cast<UChaosWheeledVehicleMovementComponent>(Vehicle->GetVehicleMovementComponent());
+	if (bInGhost)
+	{
+		GhostSpeed = FMath::Max(0.f, Vehicle->GetSpeedKmh() / 3.6f);
+		// Where the car is along its current path segment, so it does not jump back.
+		const FVector Location = Vehicle->GetActorLocation();
+		GhostAlong = 0.f;
+		if (Closest >= 0 && Closest + 1 < static_cast<int>(Path.size()))
+		{
+			const FGTPDrivePoint& A = Path[Closest];
+			const FGTPDrivePoint& B = Path[Closest + 1];
+			const FVector2D Segment(B.X - A.X, B.Y - A.Y);
+			const float Length = static_cast<float>(Segment.Size());
+			if (Length > 1e-3f)
+			{
+				const FVector2D From(static_cast<float>(Location.X) * CmToM - A.X, static_cast<float>(Location.Y) * CmToM - A.Y);
+				GhostAlong = FMath::Clamp(static_cast<float>(FVector2D::DotProduct(From, Segment)) / Length, 0.f, Length);
+			}
+		}
+		float GroundZ = 0.f;
+		GhostRideHeight = FindGround(Vehicle, Location, GroundZ) ? static_cast<float>(Location.Z) - GroundZ : 40.f;
+		GhostGroundZ = static_cast<float>(Location.Z) - GhostRideHeight;
+		GhostGroundAge = 0.f;
+		Vehicle->SetAIDriveInput(0.f, 0.f, 0.f, false);
+		if (Movement)
+		{
+			Movement->SetComponentTickEnabled(false);
+		}
+		if (Body)
+		{
+			Body->SetSimulatePhysics(false);
+		}
+	}
+	else
+	{
+		if (Body)
+		{
+			Body->SetSimulatePhysics(true);
+			Body->SetPhysicsLinearVelocity(Vehicle->GetActorForwardVector().GetSafeNormal2D() * GhostSpeed * 100.f);
+		}
+		if (Movement)
+		{
+			Movement->SetComponentTickEnabled(true);
+		}
+	}
+	bGhost = bInGhost;
 }
 
 void UGTPAIDriverComponent::ReleaseJunctions()
@@ -212,7 +295,8 @@ void UGTPAIDriverComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 	}
 	if (!Vehicle->HasAIDriver() || Vehicle->IsWrecked())
 	{
-		// Stolen or destroyed: this driver is done.
+		// Stolen or destroyed: this driver is done, and the car is a real car again.
+		SetGhost(false);
 		ReleaseJunctions();
 		SetComponentTickEnabled(false);
 		return;
@@ -220,7 +304,7 @@ void UGTPAIDriverComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 
 	const FVector Location = Vehicle->GetActorLocation();
 	const float Yaw = FMath::DegreesToRadians(static_cast<float>(Vehicle->GetActorRotation().Yaw));
-	const float Speed = Vehicle->GetSpeedKmh() / 3.6f;
+	const float Speed = bGhost ? GhostSpeed : Vehicle->GetSpeedKmh() / 3.6f;
 	const FGTPTrafficLane& Lane = Network->GetLanes()[Route[0]];
 	const float LaneSpeed = Lane.SpeedKmh / 3.6f;
 	const float X = static_cast<float>(Location.X) * CmToM;
@@ -229,7 +313,8 @@ void UGTPAIDriverComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 
 	// Nearest of: something in front (straight probe, then along the lanes for
 	// queues on bends), a red light, the stop line of a junction another car is crossing.
-	float Obstacle = FindObstacleMetres(Vehicle);
+	// A ghost skips the sweep (the queue along the lanes still sees the cars ahead).
+	float Obstacle = bGhost ? -1.f : FindObstacleMetres(Vehicle);
 	const float Queue = Network->GapAlongLanes(this, 40.f);
 	if (Queue >= 0.f && (Obstacle < 0.f || Queue < Obstacle))
 	{
@@ -260,8 +345,32 @@ void UGTPAIDriverComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 	{
 		Obstacle = StopLine;
 	}
-	const FGTPDriveCommand Command = GTPDrive::Decide(Path, X, Y, Yaw, Speed, LaneSpeed, Obstacle, Settings, Closest);
-	Vehicle->SetAIDriveInput(Command.Throttle, Command.Brake, Command.Steering, Command.Brake >= 1.f && Speed < 0.5f);
+	if (bGhost)
+	{
+		// Same speed limits as a driven car, then a slide along the path at that speed.
+		int DecideClosest = Closest;
+		const FGTPDriveCommand Command = GTPDrive::Decide(Path, X, Y, Yaw, Speed, LaneSpeed, Obstacle, Settings, DecideClosest);
+		GhostSpeed = GTPGhost::NextSpeed(GhostSpeed, Command.TargetSpeed, 2.f, 6.f, DeltaTime);
+		FGTPDrivePoint Position{X, Y};
+		float NewYaw = Yaw;
+		GTPGhost::Advance(Path, Closest, GhostAlong, GhostSpeed * DeltaTime, Position, NewYaw);
+		FVector NewLocation(Position.X / CmToM, Position.Y / CmToM, Location.Z);
+		// Ground height a few times a second: bridge decks and slopes.
+		GhostGroundAge += DeltaTime;
+		float GroundZ = GhostGroundZ;
+		if (GhostGroundAge >= 0.25f && FindGround(Vehicle, NewLocation, GroundZ))
+		{
+			GhostGroundZ = GroundZ;
+			GhostGroundAge = 0.f;
+		}
+		NewLocation.Z = GhostGroundZ + GhostRideHeight;
+		Vehicle->SetActorLocationAndRotation(NewLocation, FRotator(0.f, FMath::RadiansToDegrees(NewYaw), 0.f), false, nullptr, ETeleportType::TeleportPhysics);
+	}
+	else
+	{
+		const FGTPDriveCommand Command = GTPDrive::Decide(Path, X, Y, Yaw, Speed, LaneSpeed, Obstacle, Settings, Closest);
+		Vehicle->SetAIDriveInput(Command.Throttle, Command.Brake, Command.Steering, Command.Brake >= 1.f && Speed < 0.5f);
+	}
 
 	if (Closest >= CurrentLaneLength && Route.Num() > 1)
 	{
@@ -457,6 +566,22 @@ void AGTPTrafficNetwork::UpdateDetail(AGTPVehicle* Car, float DistanceToView) co
 	{
 		Body->SetVisibility(bDrawn, true);
 	}
+	if (bVehicleLod)
+	{
+		// Cost tiers: fewer driver decisions with distance, no pose refresh for a car that is not drawn.
+		if (UGTPAIDriverComponent* Driver = Car->FindComponentByClass<UGTPAIDriverComponent>())
+		{
+			// A ghost moves at each decision: 20 times a second keeps the slide smooth.
+			Driver->SetDecisionInterval(Driver->IsGhost() ? 0.05f
+				: (DistanceToView < LodNearDistance ? 0.f : (DistanceToView < LodMidDistance ? 0.1f : 0.25f)));
+		}
+		const EVisibilityBasedAnimTickOption Option = bNear ? EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones
+			: EVisibilityBasedAnimTickOption::OnlyTickPoseWhenRendered;
+		if (Body->VisibilityBasedAnimTickOption != Option)
+		{
+			Body->VisibilityBasedAnimTickOption = Option;
+		}
+	}
 }
 
 int32 AGTPTrafficNetwork::PickNext(int32 Lane)
@@ -502,6 +627,18 @@ void AGTPTrafficNetwork::BeginPlay()
 		const int32 Count = LoadLanesFromCsv(File);
 		GTP_TRACE(LogGTPTraffic, TEXT("%d lanes from %s"), Count, *File);
 	}
+	int32 ParkedSwitch = bParkedCars ? 1 : 0;
+	FParse::Value(FCommandLine::Get(), TEXT("ParkedCars="), ParkedSwitch);
+	bParkedCars = ParkedSwitch != 0;
+	if (bParkedCars)
+	{
+		FActorSpawnParameters ParkedParams;
+		ParkedParams.Owner = this;
+		if (AGTPParkedCars* Parked = GetWorld()->SpawnActor<AGTPParkedCars>(AGTPParkedCars::StaticClass(), FTransform::Identity, ParkedParams))
+		{
+			Parked->Build(AGTPParkedCars::ParkingFileFor(UGameplayStatics::GetCurrentLevelName(this, true)));
+		}
+	}
 	int32 LightsFlag = bTrafficLights ? 1 : 0;
 	FParse::Value(FCommandLine::Get(), TEXT("TrafficLights="), LightsFlag);
 	bTrafficLights = LightsFlag != 0;
@@ -515,6 +652,19 @@ void AGTPTrafficNetwork::BeginPlay()
 	WantedCars = NumCars;
 	FParse::Value(FCommandLine::Get(), TEXT("Traffic="), WantedCars);
 	WantedCars = FMath::Clamp(WantedCars, 0, 40);
+	int32 VehicleLodSwitch = bVehicleLod ? 1 : 0;
+	FParse::Value(FCommandLine::Get(), TEXT("VehicleLod="), VehicleLodSwitch);
+	bVehicleLod = VehicleLodSwitch != 0;
+	int32 VehicleGhostSwitch = bVehicleGhost ? 1 : 0;
+	FParse::Value(FCommandLine::Get(), TEXT("VehicleGhost="), VehicleGhostSwitch);
+	bVehicleGhost = VehicleGhostSwitch != 0;
+	int32 TrafficPoolSwitch = bTrafficPool ? 1 : 0;
+	FParse::Value(FCommandLine::Get(), TEXT("TrafficPool="), TrafficPoolSwitch);
+	bTrafficPool = TrafficPoolSwitch != 0;
+	GTP_TRACE(LogGTPTraffic, TEXT("traffic: car pool %s"), bTrafficPool ? TEXT("on") : TEXT("off"));
+	GTP_TRACE(LogGTPTraffic, TEXT("traffic: ghost mode %s (past %.0f m, awake inside %.0f m)"),
+		bVehicleGhost ? TEXT("on") : TEXT("off"), GhostDistance / 100.f, GhostWakeDistance / 100.f);
+	GTP_TRACE(LogGTPTraffic, TEXT("traffic: vehicle LOD tiers %s"), bVehicleLod ? TEXT("on") : TEXT("off"));
 
 	for (const FSoftClassPath& Path : VehicleClasses)
 	{
@@ -628,6 +778,22 @@ bool AGTPTrafficNetwork::SpawnCar()
 	{
 		return false;
 	}
+	if (AGTPVehicle* Reused = bTrafficPool ? TakeFromPool(Transform) : nullptr)
+	{
+		if (UGTPAIDriverComponent* ReusedDriver = Reused->FindComponentByClass<UGTPAIDriverComponent>())
+		{
+			ReusedDriver->Start(this, Lane, Point);
+			ReusedDriver->SetGhost(false);
+			if (!AIDrivers.Contains(ReusedDriver))
+			{
+				AIDrivers.Add(ReusedDriver);
+			}
+			Cars.Add(Reused);
+			GTP_TRACE(LogGTPTraffic, TEXT("traffic: %s reused on lane %d"), *Reused->GetName(), Lane);
+			return true;
+		}
+		Reused->Destroy();
+	}
 	FActorSpawnParameters Params;
 	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::DontSpawnIfColliding;
 	TSubclassOf<AGTPVehicle> Class = LoadedVehicleClasses[Random.RandRange(0, LoadedVehicleClasses.Num() - 1)];
@@ -663,9 +829,55 @@ bool AGTPTrafficNetwork::SpawnCar()
 	return true;
 }
 
+bool AGTPTrafficNetwork::PutAway(AGTPVehicle* Car)
+{
+	UGTPAIDriverComponent* AIDriver = Car->FindComponentByClass<UGTPAIDriverComponent>();
+	if (!AIDriver || !Car->HasAIDriver() || Car->IsWrecked())
+	{
+		return false;
+	}
+	AIDriver->ReleaseJunctions();
+	// Physics and the Chaos vehicle off (the ghost switch does both), no decisions, not drawn, no collision.
+	AIDriver->SetGhost(true);
+	AIDriver->SetComponentTickEnabled(false);
+	Car->SetActorHiddenInGame(true);
+	Car->SetActorEnableCollision(false);
+	if (ACharacter* Driver = Car->GetDriver())
+	{
+		Driver->SetActorHiddenInGame(true);
+	}
+	Pool.Add(Car);
+	return true;
+}
+
+AGTPVehicle* AGTPTrafficNetwork::TakeFromPool(const FTransform& Transform)
+{
+	while (Pool.Num() > 0)
+	{
+		AGTPVehicle* Car = Pool.Pop();
+		if (!IsValid(Car))
+		{
+			continue;
+		}
+		Car->SetActorTransform(Transform, false, nullptr, ETeleportType::ResetPhysics);
+		Car->SetActorEnableCollision(true);
+		Car->SetActorHiddenInGame(false);
+		if (ACharacter* Driver = Car->GetDriver())
+		{
+			Driver->SetActorHiddenInGame(false);
+		}
+		return Car;
+	}
+	return nullptr;
+}
+
 void AGTPTrafficNetwork::Recycle(AGTPVehicle* Car)
 {
 	Cars.Remove(Car);
+	if (bTrafficPool && PutAway(Car))
+	{
+		return;
+	}
 	if (UGTPAIDriverComponent* AIDriver = Car->FindComponentByClass<UGTPAIDriverComponent>())
 	{
 		AIDriver->ReleaseJunctions();
@@ -704,7 +916,12 @@ void AGTPTrafficNetwork::Tick(float DeltaSeconds)
 			Cars.RemoveAt(Index);
 			continue;
 		}
-		const UGTPAIDriverComponent* AIDriver = Car->FindComponentByClass<UGTPAIDriverComponent>();
+		UGTPAIDriverComponent* AIDriver = Car->FindComponentByClass<UGTPAIDriverComponent>();
+		if (bVehicleGhost && AIDriver && Player)
+		{
+			const float ToPlayer = static_cast<float>(FVector::Dist2D(Car->GetActorLocation(), Player->GetActorLocation()));
+			AIDriver->SetGhost(GTPGhost::WantsGhost(AIDriver->IsGhost(), ToPlayer, GhostDistance, GhostWakeDistance));
+		}
 		const APlayerController* Viewer = GetWorld()->GetFirstPlayerController();
 		const FVector View = Viewer && Viewer->PlayerCameraManager ? Viewer->PlayerCameraManager->GetCameraLocation()
 			: (Player ? Player->GetActorLocation() : Car->GetActorLocation());

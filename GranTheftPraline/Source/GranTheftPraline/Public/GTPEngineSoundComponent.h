@@ -61,6 +61,15 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category = "Engine Sound")
 	float SilentDistance = 4500.f;
 
+	/**
+	 * Voice budget (UGTPAudioWorld, ADR-0009): only the nearest running engines
+	 * are rendered; the others fade out and stop costing audio-thread time.
+	 * True by default, so without the audio world every engine plays as in 0.3.
+	 */
+	void SetAudible(bool bInAudible);
+	bool IsAudible() const { return bAudible; }
+	bool IsEngineSoundOn() const { return bEngineOn; }
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
@@ -84,5 +93,6 @@ private:
 	int32 LastGear = 0;
 	FString ProfileLabel;
 	bool bEngineOn = false;
+	bool bAudible = true;
 	bool bLoggedFirstAudio = false;
 };

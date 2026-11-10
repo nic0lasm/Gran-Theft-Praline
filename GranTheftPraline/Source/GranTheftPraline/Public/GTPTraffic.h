@@ -105,8 +105,24 @@ public:
 	/** Seconds the car has been standing still. */
 	float GetStoppedTime() const { return StoppedTime; }
 
+	/**
+	 * Seconds between two decisions (0 = every frame). The pedals keep their
+	 * last value in between, so far cars can decide 4 to 10 times a second
+	 * (-VehicleLod=1, docs/performance/vehicle-cost.md).
+	 */
+	void SetDecisionInterval(float Seconds);
+
 	/** Gives back the junctions this car holds (car taken away or stolen). */
 	void ReleaseJunctions();
+
+	/**
+	 * Ghost mode (-VehicleGhost=1, docs/performance/vehicle-cost.md): physics
+	 * and the Chaos vehicle off, the car slides along its path under the same
+	 * stops as a driven car (GTPTrafficGhost.h). Off again: physics back on at
+	 * the ghost's speed.
+	 */
+	void SetGhost(bool bInGhost);
+	bool IsGhost() const { return bGhost; }
 
 	/** Length of the obstacle probe ahead (cm). */
 	UPROPERTY(EditAnywhere, Category = "Traffic")
@@ -119,6 +135,8 @@ public:
 private:
 	void PlanRoute();
 	float FindObstacleMetres(const AGTPVehicle* Vehicle) const;
+	/** Ground height under Location (cm), false if nothing within 10 m below. */
+	bool FindGround(const AGTPVehicle* Vehicle, const FVector& Location, float& OutZ) const;
 
 	UPROPERTY(Transient)
 	TObjectPtr<AGTPTrafficNetwork> Network;
@@ -131,6 +149,13 @@ private:
 	float StoppedTime = 0.f;
 	FGTPDriveSettings Settings;
 	FGTPJunctionClaims Junctions;
+
+	bool bGhost = false;
+	float GhostSpeed = 0.f;      // m/s
+	float GhostAlong = 0.f;      // m past path point Closest
+	float GhostRideHeight = 40.f; // cm from the ground to the actor origin
+	float GhostGroundZ = 0.f;    // last ground height found (cm)
+	float GhostGroundAge = 1.f;  // seconds since that ground trace
 };
 
 /**
@@ -239,6 +264,43 @@ protected:
 	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Cost")
 	float DrawDistance = 15000.f;
 
+	/**
+	 * Distance tiers for the cost of AI cars, only with -VehicleLod=1 (or
+	 * bVehicleLod): the driver decides every frame under LodNearDistance, 10
+	 * times a second under LodMidDistance, 4 times a second beyond; the body
+	 * pose is only refreshed while the car is drawn.
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Cost")
+	bool bVehicleLod = false;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Cost")
+	float LodNearDistance = 3500.f;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Cost")
+	float LodMidDistance = 9000.f;
+
+	/**
+	 * Ghost mode of far AI cars, only with -VehicleGhost=1 (or bVehicleGhost):
+	 * a car turns into a ghost past GhostDistance from the player (cm) and is
+	 * driven again inside GhostWakeDistance. Ghosts move 20 times a second.
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Cost")
+	bool bVehicleGhost = false;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Cost")
+	float GhostDistance = 9000.f;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Cost")
+	float GhostWakeDistance = 7000.f;
+
+	/** Reuse the cars taken away instead of destroying and spawning new ones (-TrafficPool=1): no spawn hitch. */
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Cost")
+	bool bTrafficPool = false;
+
+	/** Parked cars along the kerbs as static instances (-ParkedCars=1, AGTPParkedCars, tools/city/parking.py). */
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Cost")
+	bool bParkedCars = false;
+
 	/** A car standing still this long (gridlock), out of sight, is taken away (seconds); longer than a red light and its queue. */
 	UPROPERTY(Config, EditAnywhere, Category = "Traffic")
 	float StuckSeconds = 35.f;
@@ -278,6 +340,15 @@ private:
 
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<AGTPVehicle>> Cars;
+
+	/** Cars taken away and kept hidden for the next spawn (-TrafficPool=1): no spawn, no destroy. */
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<AGTPVehicle>> Pool;
+
+	/** Puts Car away into Pool; false if it cannot be reused (wrecked, no driver). */
+	bool PutAway(AGTPVehicle* Car);
+	/** A pooled car at Transform, ready to drive; nullptr if the pool is empty. */
+	AGTPVehicle* TakeFromPool(const FTransform& Transform);
 
 	UPROPERTY(Transient)
 	TArray<TSubclassOf<AGTPVehicle>> LoadedVehicleClasses;

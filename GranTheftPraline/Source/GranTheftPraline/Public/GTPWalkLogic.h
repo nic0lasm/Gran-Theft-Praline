@@ -59,6 +59,8 @@ struct FEdge
 	EKind Kind = EKind::Sidewalk;
 	/** Width the walker may spread over (cm). */
 	float Width = 200.f;
+	/** +1: the facade is on the left of the walking direction A to B, -1 on the right, 0 none. */
+	int FacadeSide = 0;
 	std::vector<FPoint> Points;
 	std::vector<float> Cumulative; // distance from Points[0] to each point
 	float Length = 0.f;
@@ -123,9 +125,22 @@ struct FSettings
 	float PauseChancePerSecond = 0.012f; // stops to look at a window, on walkways only
 	float PauseMin = 2.f;
 	float PauseMax = 6.f;
+	float PhoneShare = 0.3f;        // part of the pauses spent on the phone, the rest looking at a window
 	float CrossingWaitMax = 7.f;    // after that they cross anyway: cars give way to people
 	float LateralSpeed = 60.f;      // cm/s sideways drift to the chosen line
 	float CrossingWeight = 0.4f;    // relative chance to take a crossing at a junction
+	float GroupChance = 0.25f;      // chance that a new person is half of a pair walking together
+	float GroupGap = 70.f;          // the follower walks this far behind its partner (cm)
+	float GroupSide = 80.f;         // ...and this far beside (cm)
+	float SeparationDistance = 90.f; // people closer than this step sideways round each other (cm)
+	float SeparationNudge = 70.f;   // how far sideways (cm)
+};
+
+enum class EPause : int
+{
+	None = 0,
+	Window = 1, // faces the facade
+	Phone = 2   // stands where it is
 };
 
 struct FWalker
@@ -137,6 +152,7 @@ struct FWalker
 	float Lateral = 0.f;  // sideways offset from the walkway line (cm, + = left of the direction)
 	float LateralTarget = 0.f;
 	float Pause = 0.f;
+	EPause PauseKind = EPause::None;
 	float CrossingWait = 0.f;
 	float FleeTimeLeft = 0.f;
 	FPoint Threat;
@@ -258,6 +274,19 @@ inline void Locate(const FGraph& G, const FWalker& W, FPoint& OutPos, FPoint& Ou
 	OutDir = D;
 }
 
+/** Direction the walker faces: the facade while looking at a window, else the walking direction. */
+inline FPoint Facing(const FGraph& G, const FWalker& W)
+{
+	FPoint Pos, Dir;
+	Locate(G, W, Pos, Dir);
+	if (W.PauseKind == EPause::Window && W.Pause > 0.f)
+	{
+		const int Side = G.Edges[W.Edge].FacadeSide * (W.bForward ? 1 : -1);
+		return {Dir.Y * Side, -Dir.X * Side}; // left of (dx, dy) is (dy, -dx)
+	}
+	return Dir;
+}
+
 /** Makes the walker run away from Threat along its edge (turns round if it walks towards it). */
 inline void Flee(const FGraph& G, FWalker& W, const FPoint& Threat, const FSettings& S)
 {
@@ -272,6 +301,41 @@ inline void Flee(const FGraph& G, FWalker& W, const FPoint& Threat, const FSetti
 	W.FleeTimeLeft = S.FleeSeconds;
 	W.Threat = Threat;
 	W.Pause = 0.f;
+}
+
+/** Puts Follower beside and a little behind Leader on the same edge (a pair walking together). */
+inline void Follow(const FGraph& G, FWalker& Follower, const FWalker& Leader, const FSettings& S)
+{
+	Follower.Edge = Leader.Edge;
+	Follower.bForward = Leader.bForward;
+	Follower.S = std::max(0.f, Leader.S - S.GroupGap);
+	Follower.SpeedScale = Leader.SpeedScale;
+	const float Half = G.Edges[Leader.Edge].Width * 0.5f;
+	Follower.Lateral = Follower.LateralTarget = std::max(-Half, std::min(Half, Leader.Lateral + (Leader.Lateral < 0.f ? S.GroupSide : -S.GroupSide)));
+	Follower.Pause = Leader.Pause;
+	Follower.PauseKind = Leader.PauseKind;
+	Follower.FleeTimeLeft = Leader.FleeTimeLeft;
+	Follower.Threat = Leader.Threat;
+}
+
+/**
+ * Two people too close to each other: A steps sideways, away from B, on its own line
+ * (its left is (dy, -dx) for the walking direction DirA). Call it for both ways round.
+ */
+inline void Separate(const FGraph& G, FWalker& A, const FPoint& PosA, const FPoint& DirA, const FPoint& PosB, const FSettings& S, float Distance = -1.f)
+{
+	const float Limit = Distance > 0.f ? Distance : S.SeparationDistance;
+	const float Dx = PosA.X - PosB.X;
+	const float Dy = PosA.Y - PosB.Y;
+	const float Dist = std::sqrt(Dx * Dx + Dy * Dy);
+	if (Dist >= Limit || !G.IsValidEdge(A.Edge))
+	{
+		return;
+	}
+	// Exactly on top of each other: pick a side from the position, so the two do not pick the same.
+	const float Side = Dist < 1.f ? ((static_cast<int>(PosA.X) & 1) ? 1.f : -1.f) : ((Dx * DirA.Y - Dy * DirA.X) >= 0.f ? 1.f : -1.f);
+	const float Half = G.Edges[A.Edge].Width * 0.5f;
+	A.LateralTarget = std::max(-Half, std::min(Half, A.Lateral + Side * S.SeparationNudge));
 }
 
 struct FStepResult
@@ -303,6 +367,10 @@ inline FStepResult Step(const FGraph& G, FWalker& W, float Dt, FRng& Rng, const 
 	else if (W.Pause > 0.f)
 	{
 		W.Pause -= Dt;
+		if (W.Pause <= 0.f)
+		{
+			W.PauseKind = EPause::None;
+		}
 		return Result;
 	}
 
@@ -320,6 +388,14 @@ inline FStepResult Step(const FGraph& G, FWalker& W, float Dt, FRng& Rng, const 
 	else if (!bFleeing && Current.Kind != EKind::Crossing && Rng.Next() < S.PauseChancePerSecond * Dt)
 	{
 		W.Pause = Rng.Range(S.PauseMin, S.PauseMax);
+		const bool bWindow = Current.FacadeSide != 0 && Rng.Next() >= S.PhoneShare;
+		W.PauseKind = bWindow ? EPause::Window : EPause::Phone;
+		if (bWindow)
+		{
+			// Walk over to the facade: left is positive, and on a reversed walk the sides swap.
+			const float Side = static_cast<float>(Current.FacadeSide) * (W.bForward ? 1.f : -1.f);
+			W.LateralTarget = Side * Current.Width * 0.45f;
+		}
 		return Result;
 	}
 

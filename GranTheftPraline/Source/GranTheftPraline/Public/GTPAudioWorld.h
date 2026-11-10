@@ -49,6 +49,14 @@ private:
 	void LogStats();
 	void UpdateRecording();
 	void UpdateTestSiren(float DeltaTime);
+	/** Keeps only the nearest engines and walkers audible (UGTPAudioSettings Budget). */
+	void UpdateBudget(float DeltaTime);
+
+	TArray<TWeakObjectPtr<class UGTPFootstepComponent>> Walkers;
+	TArray<TWeakObjectPtr<class UGTPEngineSoundComponent>> Engines;
+	float BudgetTimer = 0.f;
+	int32 EnginesAudible = 0;
+	int32 WalkersHeard = 0;
 
 	/** -TestSiren: the nearest AI car runs a siren (two-tone, then yelp), to hear it pass without the police. */
 	bool bTestSiren = false;

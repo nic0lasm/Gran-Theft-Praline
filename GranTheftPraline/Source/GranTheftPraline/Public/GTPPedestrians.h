@@ -8,6 +8,8 @@
 
 class AGTPVehicle;
 class UAnimSequenceBase;
+class UInstancedStaticMeshComponent;
+class UStaticMesh;
 class USceneComponent;
 class USkeletalMesh;
 class USkeletalMeshComponent;
@@ -33,6 +35,12 @@ public:
 	/** Plays Animation looping at PlayRate (no change when it is already playing). */
 	void PlayLoop(UAnimSequenceBase* Animation, float PlayRate);
 
+	/** Cost switches (ADR-0005): no contact shadow, decals, occlusion, GI or per-bone blur, fixed bounds. */
+	void MakeCheap();
+
+	/** Seconds between animation updates of the body (0 = every frame). */
+	void SetAnimInterval(float Seconds);
+
 	/** Shadow, level of detail and drawing, set by distance from the viewer. */
 	void SetDetail(bool bVisible, bool bCastShadow, int32 ForcedLOD);
 
@@ -55,6 +63,7 @@ private:
 	TObjectPtr<UAnimSequenceBase> CurrentAnimation;
 
 	bool bRagdoll = false;
+	float AnimInterval = 0.f;
 	bool bShadow = true;
 	bool bShown = true;
 	int32 LOD = -1;
@@ -143,12 +152,51 @@ protected:
 	UPROPERTY(Config)
 	FSoftObjectPath RunAnimation;
 
+	/** Optional loop for people on their phone (they stand in the idle pose without it). */
+	UPROPERTY(Config)
+	FSoftObjectPath PhoneAnimation;
+
 	/** Walking speed the walk animation was made for (cm/s): play rate = speed / this. */
 	UPROPERTY(Config)
 	float AnimationWalkSpeed = 140.f;
 
 	UPROPERTY(Config)
 	float RunAnimationSpeed = 340.f;
+
+	/** Cost levers, each on by default; -PedCheap=0/1, -PedAnimRate=0/1, -PedSpread=0/1 and -PedMaxVisible=N override them for a measurement. */
+	UPROPERTY(Config)
+	bool bCheapRendering = true;
+
+	/** Animation updates less often with distance (every frame < 15 m, 1/20 s < 25 m, 1/12 s < 50 m, 1/8 s beyond). */
+	UPROPERTY(Config)
+	bool bReduceAnimRate = true;
+
+	/** People not drawn are updated 5 times a second instead of every frame. */
+	UPROPERTY(Config)
+	bool bSpreadFarUpdates = true;
+
+	/**
+	 * Far crowd (layer 3, ADR-0005): this many extra people are simulated as data only (5 Hz, no
+	 * actor) and drawn as instances of FarCrowdMesh beyond the pool's reach; one coming closer than
+	 * PromoteDistance takes a free place in the pool and becomes a full character. 0 or no mesh = off.
+	 * -PedFar=N overrides the count.
+	 */
+	UPROPERTY(Config)
+	int32 FarCrowdCount = 0;
+
+	/** Static mesh of a person in a walking pose (baked from the skeletal mesh in the editor). */
+	UPROPERTY(Config)
+	FSoftObjectPath FarCrowdMesh = FSoftObjectPath(TEXT("/Game/Characters/Far/SM_PedFar_A.SM_PedFar_A"));
+
+	UPROPERTY(Config)
+	float PromoteDistance = 4000.f;
+
+	/** Far people appear between these distances, out of sight (cm). */
+	UPROPERTY(Config)
+	float FarMinDistance = 4500.f;
+
+	UPROPERTY(Config)
+	float FarMaxDistance = 25000.f;
 
 	/** Height of a person varies by up to this fraction around 1. */
 	UPROPERTY(Config)
@@ -164,7 +212,7 @@ protected:
 
 	/** Closer than this to the viewer: shadow and full detail (cm). */
 	UPROPERTY(Config)
-	float DetailDistance = 2500.f;
+	float DetailDistance = 2000.f;
 
 	/** Beyond DetailDistance the mesh is drawn from this level of detail (0-based, clamped to what the mesh has). */
 	UPROPERTY(Config)
@@ -225,6 +273,12 @@ private:
 		bool bRunning = false;
 		bool bIdle = false;
 		bool bDrawn = false;
+		/** Index of the partner this person follows (a pair walking together), -1 = walks alone. */
+		int32 Leader = -1;
+		float FarAccumulated = 0.f;
+		GTPWalk::FStepResult LastResult;
+		GTPWalk::FPoint Pos;
+		GTPWalk::FPoint Dir;
 	};
 
 	int32 ChooseDensity() const;
@@ -233,6 +287,12 @@ private:
 	void RefreshDetail();
 	bool IsSeen(const FVector& Location) const;
 	bool TrySpawn(FPerson& Person);
+	void Activate(FPerson& Person, const GTPWalk::FPoint& P, const GTPWalk::FPoint& D);
+	void SeparatePeople();
+	void InitFarCrowd(UWorld& InWorld);
+	void TickFarCrowd(float DeltaTime);
+	bool PlaceFarAgent(int32 Index);
+	bool PromoteToPool(const GTPWalk::FWalker& Walker, const FVector& Location);
 	void Retire(FPerson& Person);
 	void MoveGroundTo(FPerson& Person, bool bSnap);
 	void Update(FPerson& Person, float DeltaTime);
@@ -271,6 +331,18 @@ private:
 	int32 FledTotal = 0;
 	int32 HitTotal = 0;
 
+	struct FFarAgent
+	{
+		GTPWalk::FWalker Walker;
+		bool bActive = false;
+		bool bShown = false;
+	};
+	TArray<FFarAgent> FarAgents;
+	float FarAccumulated = 0.f;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UInstancedStaticMeshComponent> FarInstances;
+
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<USkeletalMesh>> LoadedMeshes;
 
@@ -282,5 +354,8 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UAnimSequenceBase> Run;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UAnimSequenceBase> Phone;
 
 };

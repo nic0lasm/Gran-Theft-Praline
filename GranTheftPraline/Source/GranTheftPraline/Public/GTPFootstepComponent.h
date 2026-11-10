@@ -38,6 +38,10 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Audio|Footsteps")
 	int32 GetStepCount() const { return StepCount; }
 
+	/** Voice budget (UGTPAudioWorld): only the nearest walkers look for steps; the crowd layer covers the others. */
+	void SetInBudget(bool bInBudget) { bBudgetAllowed = bInBudget; }
+	bool IsInBudget() const { return bBudgetAllowed; }
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -65,4 +69,5 @@ private:
 	/** Seconds between two ground probes (cheap: about four traces per second). */
 	float GroundProbeInterval = 0.25f;
 	bool bWarnedNoBones = false;
+	bool bBudgetAllowed = true;
 };

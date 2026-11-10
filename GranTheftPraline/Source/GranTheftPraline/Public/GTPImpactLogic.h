@@ -234,6 +234,19 @@ struct FRagdollTimings
 	float PauseLaunch = 2.5f;
 };
 
+/** Cheaper life cycle (ragdoll lite): settles sooner, pauses less, gives up sooner. */
+inline FRagdollTimings LiteTimings()
+{
+	FRagdollTimings T;
+	T.MinSeconds = 1.0f;
+	T.RestSpeedCmS = 50.f;
+	T.RestSeconds = 0.4f;
+	T.MaxSeconds = 5.f;
+	T.PauseKnock = 0.5f;
+	T.PauseLaunch = 1.5f;
+	return T;
+}
+
 struct FRagdollState
 {
 	ESeverity Severity = ESeverity::Knock;

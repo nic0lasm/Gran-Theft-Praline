@@ -582,7 +582,10 @@ void AGTPPoliceDirector::Tick(float DeltaSeconds)
 			continue;
 		}
 		DriveUnit(Unit, *Wanted, *Player, DeltaSeconds);
-		BlinkLights(Unit, Stars > 0, bPhase);
+		// With -VehicleLod=1 the light bar is dark beyond LightBarDistance: two lights nobody can tell apart from far away.
+		const bool bLightsNear = !Network->bVehicleLod
+			|| FVector::Dist(Car->GetActorLocation(), Player->GetActorLocation()) < LightBarDistance;
+		BlinkLights(Unit, Stars > 0 && bLightsNear, bPhase);
 		UpdateSiren(Unit, Stars, Wanted->GetPhase() == EGTPWantedPhase::Pursuit);
 
 		const FVector View = Viewer && Viewer->PlayerCameraManager ? Viewer->PlayerCameraManager->GetCameraLocation() : Player->GetActorLocation();

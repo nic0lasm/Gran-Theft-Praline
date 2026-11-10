@@ -31,7 +31,7 @@ jeu. Réglages dans `DefaultGame.ini`, section `GTPPedestrianSubsystem` :
 |---|---|---|
 | DensityM1 / Fidelity / Ultra | 12 / 24 / 40 | personnes par profil graphique ; `-Pedestrians=N` force, 0 = aucun |
 | MaxVisible | 10 | seuls les plus proches sont dessinés |
-| DetailDistance, FarLOD | 25 m, 2 | ombre et LOD complet en deçà, LOD réduit au-delà |
+| DetailDistance, FarLOD | 20 m, 2 | ombre et LOD complet en deçà, LOD réduit au-delà |
 | DrawDistance | 90 m | rien n'est dessiné au-delà |
 | WalkAnimation, IdleAnimation, RunAnimation | vide | boucles jouées ; sans marche, pas de piétons |
 | Meshes | vide | maillages squelettiques ; vide = celui du personnage joueur |
@@ -65,6 +65,17 @@ Cause est nulle pour l'instant (la voiture n'est pas encore identifiée).
   matériaux du corps reçoivent une couleur de vêtement d'une petite palette
   urbaine via les paramètres vectoriels de `TintParameters` (ceux qu'un matériau
   n'a pas sont ignorés). D'autres maillages vont dans `Meshes`.
+
+- Comportement de rue : un quart des gens marchent par deux (le partenaire reste à
+  côté et un peu derrière et fait comme le meneur), et deux personnes à moins de
+  90 cm se contournent par le côté (`Separate` dans `GTPWalkLogic.h`, vérifié à 12
+  et 60 personnes par `walk_sim`).
+
+- Arrêts : environ un tiers sont des appels téléphoniques (ils restent sur place,
+  avec `PhoneAnimation` si elle est réglée), les autres du lèche-vitrines : ils
+  vont vers la façade (`facade_side` du cheminement) et lui font face. Une voiture
+  qui passe à moins de 3 m sur leur cheminement les fait s'écarter. De l'extérieur,
+  `ScareAround` les effraie (le fil audio l'appelle pour tirs, explosions et chocs).
 
 ## Contrôles
 

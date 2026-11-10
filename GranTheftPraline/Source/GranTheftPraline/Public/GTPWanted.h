@@ -182,6 +182,10 @@ protected:
 	UPROPERTY(Config, EditAnywhere, Category = "Police")
 	FVector LightBarOffset = FVector(0.f, 0.f, 130.f);
 
+	/** With -VehicleLod=1 the light bar is off beyond this distance (cm). */
+	UPROPERTY(Config, EditAnywhere, Category = "Police")
+	float LightBarDistance = 6000.f;
+
 	/** Police light bar blink period (s). */
 	UPROPERTY(Config, EditAnywhere, Category = "Police")
 	float LightPeriod = 0.5f;

@@ -38,4 +38,5 @@ private:
 	TWeakObjectPtr<class ACharacter> Player;
 	double FrameMsSum = 0.0;
 	int32 FrameCount = 0;
+	TArray<float> FrameMs;
 };
