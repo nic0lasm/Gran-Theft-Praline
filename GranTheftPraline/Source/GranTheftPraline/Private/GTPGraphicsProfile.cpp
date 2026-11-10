@@ -49,6 +49,18 @@ void UGTPGraphicsProfile::Initialize(FSubsystemCollectionBase& Collection)
 		Requested = TEXT("ultra");
 	}
 
+	// -GfxCVars=a=1,b=2 applies extra cvars on top of the profile. Shipping
+	// builds ignore -ExecCmds and -DPCVars, so this is how perf sweeps A/B a
+	// single setting on a packaged build.
+	FString Extra;
+	if (FParse::Value(FCommandLine::Get(), TEXT("GfxCVars="), Extra, false))
+	{
+		TArray<FString> Pairs;
+		Extra.ParseIntoArray(Pairs, TEXT(","), true);
+		ApplyCVars(Pairs);
+		UE_LOG(LogGTPGraphics, Log, TEXT("Extra cvars from the command line: %s"), *Extra);
+	}
+
 	ActiveProfile = Requested;
 	UE_LOG(LogGTPGraphics, Log, TEXT("Graphics profile: %s"), *ActiveProfile);
 }

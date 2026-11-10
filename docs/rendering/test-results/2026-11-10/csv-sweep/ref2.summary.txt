@@ -1,0 +1,8 @@
+first frame 2.0 s after launch
+frames 1625 over 55.0 s (warm-up 5 s excluded)
+frame  p50  33.57 ms | p95  42.13 ms | p99  45.84 ms | max  116.69 ms | <= 33.3 ms:  44.8 %
+game   p50   0.90 ms | p95   1.06 ms | p99   1.16 ms | max    3.02 ms | <= 33.3 ms: 100.0 %
+render p50   1.63 ms | p95   2.03 ms | p99   2.21 ms | max    4.44 ms | <= 33.3 ms: 100.0 %
+gpu    p50  33.42 ms | p95  42.04 ms | p99  45.61 ms | max   49.58 ms | <= 33.3 ms:  47.0 %
+gpu samples discarded as timer outliers (> 1000 ms): 0
+graphics profile m1 | viewport 1728x1117 | screen percentage 48.3 %
