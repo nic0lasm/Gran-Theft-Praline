@@ -54,8 +54,9 @@ once on the ground.
 
 ## How it fits without editing the map
 
-`props_placement.csv` and `details_placement.csv` will gain a `breakable` column (R, C or F)
-and a `mass_kg` column, taken from this list by catalogue id. `place_props.py` will put R and
-C props in HISM components with a tag (`GTP_Breakable_R`, `GTP_Breakable_C`). A C++ world
-subsystem, on the ragdoll thread's side, will swap the hit instance for a physics actor on
-impact. The map stays replayable by script, as today.
+`tools/city/unreal/place_props.py` carries this list in its `BREAKABLE` table (catalogue id →
+class, mass) and tags every matching HISM component: `GTP_Breakable_R` or `GTP_Breakable_C`,
+plus `GTP_MassKg=<n>`. Fixed props get no tag. At run time `UGTPBreakableSubsystem` swaps the
+hit instance for a physics actor (thresholds: toppleable from 3 km/h; breakable above 400 J +
+20 J/kg). A broken mesh can be named with a `GTP_BrokenMesh=<path>` tag. The map stays
+replayable by script.

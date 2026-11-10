@@ -55,9 +55,9 @@ projette d'ombre une fois au sol s'il fait moins de 0,5 m.
 
 ## Comment l'intégrer sans toucher à la carte
 
-Les tableaux `props_placement.csv` et `details_placement.csv` gagneront une colonne
-`breakable` (R, C ou F) et une colonne `mass_kg`, tirées de cette liste par catalogue. Le
-script `place_props.py` posera les objets R et C dans des composants HISM marqués par un tag
-(`GTP_Breakable_R`, `GTP_Breakable_C`). Un sous-système de monde C++, côté fil ragdoll,
-remplacera à l'impact l'instance touchée par un acteur physique. La carte reste rejouable par
-script, comme aujourd'hui.
+`tools/city/unreal/place_props.py` reprend cette liste dans sa table `BREAKABLE` (catalogue →
+classe, masse) et tague chaque composant HISM concerné : `GTP_Breakable_R` ou
+`GTP_Breakable_C`, plus `GTP_MassKg=<n>`. Les objets fixes n'ont pas de tag. À l'exécution,
+`UGTPBreakableSubsystem` remplace l'instance touchée par un acteur physique (seuils : renversable
+dès 3 km/h ; cassable au-delà de 400 J + 20 J/kg). Une version cassée du maillage pourra être
+désignée par le tag `GTP_BrokenMesh=<chemin>`. La carte reste rejouable par script.
