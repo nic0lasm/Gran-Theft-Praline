@@ -126,7 +126,7 @@ def main():
     world = editor_sub.get_editor_world()
     by_id = catalog_index() if eal.does_directory_exist(PROPS_ROOT) else {}
     report["imported_catalog_ids"] = len(by_id)
-    comps, snapped, kept = {}, 0, 0
+    comps, snapped, kept, no_collision = {}, 0, 0, set()
     for r in rows:
         p = r["asset_path"] if r["asset_path"] and eal.does_asset_exist(r["asset_path"]) else \
             by_id.get(r["catalog_id"], "")
@@ -142,14 +142,19 @@ def main():
         comp = comps[key]
         if comp is None:
             continue
+        if r.get("collision") == "false" and key not in no_collision:
+            comp.set_collision_profile_name("NoCollision")   # small details: nothing to walk into
+            no_collision.add(key)
         x, y, z = float(r["ue_x"]), float(r["ue_y"]), float(r["ue_z"])
-        gz = ground_z(world, x, y, z)
+        # Wall and roof details (snap=keep) keep their height; everything else drops onto the ground.
+        gz = None if r.get("snap") == "keep" else ground_z(world, x, y, z)
         if gz is None:
             kept += 1
         else:
             z, snapped = gz, snapped + 1
+        scale = unreal.Vector(float(r.get("scale_x") or 1), float(r.get("scale_y") or 1), float(r.get("scale_z") or 1))
         comp.add_instance(unreal.Transform(unreal.Vector(x, y, z), unreal.Rotator(0.0, 0.0, float(r["ue_yaw"])),
-                                           unreal.Vector(1, 1, 1)), True)
+                                           scale), True)
         report["instances"][r["catalog_id"]] = report["instances"].get(r["catalog_id"], 0) + 1
     level_sub.save_current_level()
     report.update({"rows": len(rows), "placed": sum(report["instances"].values()), "snapped_to_ground": snapped,

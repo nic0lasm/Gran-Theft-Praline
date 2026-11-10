@@ -268,6 +268,38 @@ City/Riverside); `apply_city_materials.py` gives them `M_City_Shell` and `M_City
 `build.py` now keeps the street names of the current BD TOPO, `nom_collaboratif_*` and
 `nom_voie_ban_*` (the old `nom_1_*` fields are gone).
 
+## Facade and street details: second dressing pass (added 2026-11-10)
+
+The in-game audit of 0.2 and 0.3 showed a street that reads as a scale model: of about 344
+imported props, only 24 types were placed. `tools/city/details.py` adds the small details, always
+anchored on something real:
+
+* **Facades** (`facade_modules.csv`): one full-height downpipe per building on the party-wall side;
+  cellar grilles under Haussmann ground-floor windows; meter cabinet, house-number plaque and a
+  keystone mascaron over carriage doors (positions computed from the kit); extended awnings over
+  cafés, restaurants and food shops, retracted on every other shop elsewhere, stretched to the bay
+  width; ATMs on banks; ashtrays at bar and tobacconist doors; doormats; window boxes on Lyonnais
+  sills, the odd satellite dish and air conditioner on older buildings.
+* **Corners**: street-name plates on every corner building, on the corner side.
+* **OpenStreetMap**: bollards, pedestrian lights on both kerbs of signalled crossings (real BD TOPO
+  carriageway width), vehicle lights on the right-hand kerb, signs by French code (B1 no entry, AB3a
+  give way, B54 pedestrian zone...) moved onto the Grand Lyon kerb line, street cabinets,
+  advertising columns.
+* **Trees, benches and bins**: fallen plane leaves around every other tree (autumn, the bible's
+  season), litter and newspapers by some bins, pigeons near benches.
+* **Roofs**: chimney stacks on party walls, at ridge height.
+
+Which bay gets a detail is a stable hash of building and bay: every run gives the same street. The
+table has the columns of `props_placement.csv` plus `snap` (`keep` keeps the height of wall and
+roof items), `scale_x/y/z` and `collision` (none on small items). It is capped at 3,000 instances
+(budget of the optimisation pass, 1 ms GPU on m1), by visibility priority; 1,820 for rue de la
+République. `run_city_import.sh` replays `details.py` and places it with `GTP_PROPS_SET=details`
+in the City/Details folder.
+
+Real shop logos did not show: the out-of-Git plugin `Plugins/CityBrands` did not exist on the Mac
+(`citybrands_mounted: false`). `tools/city/unreal/mount_citybrands.sh`, run by
+`run_city_import.sh`, creates the empty content plugin when missing and checks Git ignores it.
+
 ## Limits and next steps
 
 1. **Editor test**: `tools/city/unreal/import_city.py` imports the greybox and
