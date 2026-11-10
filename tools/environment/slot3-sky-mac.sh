@@ -144,7 +144,7 @@ echo "Control: $(wc -l < "$out/control/frames.csv" | tr -d ' ') frames, light fu
 C=gtp.CloudShadowLF
 if test "$dry" = "1"; then
   case_weather Clear "preset:"
-  echo; echo "DRY RUN OK" >> "$report"
+  printf "\nDRY RUN OK\n" >> "$report"
 else
   # Clear: calibrated mean but no visible spots suspected (strength had no effect): more coverage.
   case_weather Clear "preset:" \
