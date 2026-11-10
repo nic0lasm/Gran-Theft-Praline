@@ -370,6 +370,10 @@ def main():
         if not eal.does_directory_exist(MAT_DIR):
             eal.make_directory(MAT_DIR)
         tex = import_mask()
+        if tex is None:
+            raise RuntimeError("T_GroundMask did not import into " + MAT_DIR)
+        report["mask_texture"] = {"path": tex.get_path_name(), "size": [tex.blueprint_get_size_x(), tex.blueprint_get_size_y()],
+                                  "srgb": tex.get_editor_property("srgb")}
         ground = ground_material(tex, meta["extent_ue_cm"])
         shell = shell_material()
         report["terrain_meshes"] = assign(ROOT + "/Terrain", ground)
