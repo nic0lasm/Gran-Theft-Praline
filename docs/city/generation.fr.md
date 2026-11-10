@@ -405,6 +405,12 @@ débordement des mips) : 5 pages de lettrage et 1 page de logos (hors Git, plugi
 avec `M_Sign_Atlas`, la case de chaque enseigne en données d'instance. `GTP_SIGN_ATLAS=0` revient
 aux acteurs séparés (l'avant du banc).
 
+### Coques fusionnées par cellule (performance, 2026-11-10)
+
+`generate.py` écrit aussi `shell_cells.glb` : les coques fusionnées par cellule de 250 m (grille de
+l'ADR-0010), 376 coques → 8 maillages sur la map de rue. `GTP_SHELL_MERGE=1` les fait poser par
+`import_city.py` à la place des coques séparées (collision complexe conservée). Désactivé par défaut.
+
 ## Limites et suite
 
 1. **Test éditeur** : `tools/city/unreal/import_city.py` importe greybox et

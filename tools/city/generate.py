@@ -120,6 +120,30 @@ def ground_height(poly, mnt, to_world, origin_alt):
     return float(np.min(z)) if len(z) else 0.0
 
 
+def write_shell_cells(out, shell_items, cell_m=250.0):
+    """The shells merged per 250 m streaming cell (ADR-0010 grid, cells.py names): one mesh and
+    one draw per cell instead of one per building. import_city.py uses it with GTP_SHELL_MERGE=1.
+    Vertices stay at their place (node origin at the cell's corner, ground 0)."""
+    cells = {}
+    for name, mesh, (cx, cy, _gz) in shell_items:
+        key = (cell_m * math.floor(cx / cell_m), cell_m * math.floor(cy / cell_m))
+        cells.setdefault(key, (meshkit.Mesh(), []))
+        cells[key][0].extend(mesh)
+        cells[key][1].append(name)
+
+    def f(v):
+        return ("p" if v >= 0 else "m") + "%04d" % abs(int(round(v)))
+    items, nodes = [], []
+    for (x0, y0), (mesh, names) in sorted(cells.items()):
+        mname = "SM_ShellCell_%s_%s" % (f(x0), f(y0))
+        items.append((mname, mesh, (x0, y0, 0.0)))
+        nodes.append({"name": mname, "cell": "cell-%s-%s" % (f(x0), f(y0)), "buildings": names,
+                      "triangles": mesh.tris, "ue_cm": list(cl.to_unreal(x0, y0, 0.0))})
+    meshkit.write_glb(os.path.join(out, "shell_cells.glb"), items)
+    with open(os.path.join(out, "shell_cells.json"), "w", encoding="utf-8") as fh:
+        json.dump({"cell_m": cell_m, "nodes": nodes}, fh, indent=1)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--name", required=True)
@@ -286,6 +310,7 @@ def main():
         w.writeheader()
         w.writerows(bld_rows)
     meshkit.write_glb(os.path.join(out, "shell.glb"), shell_items)
+    write_shell_cells(out, shell_items)
     meshkit.write_glb(os.path.join(out, "greybox.glb"), glb_items,
                       extras={"zone": args.name, "focus": args.focus, "origin_lambert93_m": origin,
                               "origin_altitude_m": origin_alt, "node_translation": "building centroid at ground"})
