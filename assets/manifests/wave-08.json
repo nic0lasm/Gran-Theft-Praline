@@ -86,10 +86,10 @@
       "id": "W8-10",
       "slug": "one_way_sign",
       "name": "One way sign",
-      "size_m": 0.9,
+      "size_m": 3.0,
       "family": "Signage",
       "asset": "Sign_OneWay",
-      "category": "small"
+      "category": "medium"
     },
     {
       "id": "W8-11",

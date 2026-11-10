@@ -306,7 +306,7 @@
       "id": "W6-34",
       "slug": "ornamental_pool",
       "name": "Ornamental pool",
-      "size_m": 3.5,
+      "size_m": 6.0,
       "family": "Monument",
       "asset": "Pool_Ornamental",
       "category": "large"
@@ -352,10 +352,10 @@
       "id": "W6-39",
       "slug": "low_stone_wall",
       "name": "Low stone wall",
-      "size_m": 1.4,
+      "size_m": 4.0,
       "family": "Monument",
       "asset": "Wall_LowStone",
-      "category": "medium"
+      "category": "large"
     },
     {
       "id": "W6-40",
