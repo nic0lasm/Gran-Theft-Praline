@@ -254,6 +254,15 @@ sommets, assises de pierre sur les murs, toits moins rugueux), les assigne aux t
 et aux coques, puis vérifie les instances de façade de la map. Il remplace `M_CityGreybox` sans
 reconstruire la map.
 
+Vieillissement, tout en calcul dans le shader (aucune texture, peu coûteux en profil M1) : le
+kit de façades (`M_City_Kit`) et les murs des coques reçoivent une lente dérive de teinte sur
+l'îlot, un soubassement plus sombre sur les 1 à 4 premiers mètres au-dessus du niveau de rue
+du bâtiment (écrit par `place_facades.py` dans la donnée d'instance 3) et des coulures sous
+chaque corniche et appui, dosés par emplacement avec `Weathering` (pierre 1, bois 0,5, verre
+0,1-0,15, intérieurs de boutique 0). L'asphalte reçoit des reprises (tranchées, passages de
+roues). Le masque est dessiné sur des texels carrés puis rééchantillonné : les rues gardent
+leur largeur quel que soit le format de la texture.
+
 ## Quai du Rhône et pont Lafayette (ajouté le 2026-11-10, pour la 0.3)
 
 L'emprise générée s'étend vers l'est pour la boucle en voiture de la 0.3 :
