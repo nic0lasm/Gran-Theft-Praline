@@ -1,6 +1,6 @@
-# ADR-0006 : Textes, réglages et mini-carte de l'interface
+# ADR-0007 : Textes, réglages et mini-carte de l'interface
 
-*English version: [adr-0006-interface-settings-minimap.md](adr-0006-interface-settings-minimap.md)*
+*English version: [adr-0007-interface-settings-minimap.md](adr-0007-interface-settings-minimap.md)*
 
 ## Statut
 

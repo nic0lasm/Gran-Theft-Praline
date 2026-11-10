@@ -2,7 +2,7 @@
 
 *English version: [minimap.md](minimap.md)*
 
-Roadmap : mini-carte (0.5), carte plein écran et GPS (0.10). Décision : [ADR-0006](../adr/adr-0006-interface-settings-minimap.fr.md).
+Roadmap : mini-carte (0.5), carte plein écran et GPS (0.10). Décision : [ADR-0007](../adr/adr-0007-interface-settings-minimap.fr.md).
 
 ## Aspect
 
