@@ -1,6 +1,9 @@
 #include "GTPEngineSoundComponent.h"
 
+#include "GTPLog.h"
 #include "GTPVehicle.h"
+
+DEFINE_LOG_CATEGORY_STATIC(LogGTPEngineSound, Log, All);
 
 namespace
 {
@@ -22,6 +25,7 @@ int32 UGTPEngineSoundWave::GeneratePCMData(uint8* PCMData, const int32 SamplesNe
 	{
 		Out[Index] = static_cast<int16>(FMath::Clamp(Scratch[Index], -1.f, 1.f) * 32767.f);
 	}
+	RenderedSamples.fetch_add(SamplesNeeded, std::memory_order_relaxed);
 	return SamplesNeeded * sizeof(int16);
 }
 
@@ -101,4 +105,11 @@ void UGTPEngineSoundComponent::TickComponent(float DeltaTime, ELevelTick TickTyp
 	}
 	StartEngine();
 	Synth->SetTarget(Vehicle->GetEngineRpm(), Vehicle->GetThrottleAmount());
+	if (!bLoggedFirstAudio && EngineWave && EngineWave->GetRenderedSamples() > 0)
+	{
+		// Proof for the soak test that the mixer pulls the synth, once per car.
+		bLoggedFirstAudio = true;
+		GTP_TRACE(LogGTPEngineSound, TEXT("engine sound: %s playing, %lld samples rendered, %.0f rpm"), *Vehicle->GetName(),
+			static_cast<long long>(EngineWave->GetRenderedSamples()), Vehicle->GetEngineRpm());
+	}
 }

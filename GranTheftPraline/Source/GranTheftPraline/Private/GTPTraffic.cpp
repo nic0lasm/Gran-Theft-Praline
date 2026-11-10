@@ -1,5 +1,6 @@
 #include "GTPTraffic.h"
 
+#include "GTPLog.h"
 #include "GTPVehicle.h"
 #include "AIController.h"
 #include "CollisionQueryParams.h"
@@ -257,7 +258,7 @@ void AGTPTrafficNetwork::BeginPlay()
 	{
 		const FString File = LanesFileFor(UGameplayStatics::GetCurrentLevelName(this, true));
 		const int32 Count = LoadLanesFromCsv(File);
-		UE_LOG(LogGTPTraffic, Log, TEXT("%d lanes from %s"), Count, *File);
+		GTP_TRACE(LogGTPTraffic, TEXT("%d lanes from %s"), Count, *File);
 	}
 	WantedCars = NumCars;
 	FParse::Value(FCommandLine::Get(), TEXT("Traffic="), WantedCars);
@@ -287,7 +288,7 @@ void AGTPTrafficNetwork::BeginPlay()
 		UClass* PawnClass = Mode ? Mode->GetDefaultPawnClassForController(nullptr) : nullptr;
 		LoadedDriverClass = PawnClass && PawnClass->IsChildOf(ACharacter::StaticClass()) ? PawnClass : nullptr;
 	}
-	UE_LOG(LogGTPTraffic, Log, TEXT("traffic: %d cars wanted, %d car classes, driver %s"), WantedCars, LoadedVehicleClasses.Num(),
+	GTP_TRACE(LogGTPTraffic, TEXT("traffic: %d cars wanted, %d car classes, driver %s"), WantedCars, LoadedVehicleClasses.Num(),
 		LoadedDriverClass ? *LoadedDriverClass->GetName() : TEXT("none"));
 	// Let the player and the level settle before the first car.
 	NextSpawnTime = GetWorld()->GetTimeSeconds() + 2.f;
@@ -404,7 +405,7 @@ bool AGTPTrafficNetwork::SpawnCar()
 	AIDriver->RegisterComponent();
 	AIDriver->Start(this, Lane, Point);
 	Cars.Add(Car);
-	UE_LOG(LogGTPTraffic, Log, TEXT("traffic: %s on lane %d at %s"), *Car->GetName(), Lane, *Transform.GetLocation().ToCompactString());
+	GTP_TRACE(LogGTPTraffic, TEXT("traffic: %s on lane %d at %s"), *Car->GetName(), Lane, *Transform.GetLocation().ToCompactString());
 	return true;
 }
 
