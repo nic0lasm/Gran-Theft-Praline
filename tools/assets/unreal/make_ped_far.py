@@ -81,8 +81,31 @@ def finish(mesh):
 
 
 probe()
+def resolve_defaults():
+    """Player mesh from the CDO of BP_PlayerCharacter, walk loop = first forward-walk AnimSequence."""
+    bp = unreal.load_object(None, "/Game/Characters/Player/BP_PlayerCharacter.BP_PlayerCharacter_C")
+    mesh = unreal.get_default_object(bp).get_editor_property("mesh").get_editor_property("skeletal_mesh_asset")
+    reg = unreal.AssetRegistryHelpers.get_asset_registry()
+    best = None
+    for a in reg.get_assets_by_path("/Game/Characters", recursive=True):
+        n = str(a.asset_name).lower()
+        if str(a.asset_class_path.asset_name) != "AnimSequence" or "walk" not in n:
+            continue
+        if any(w in n for w in ("turn", "start", "stop", "left", "right", "_l_", "_r_", "back", "bwd")):
+            continue
+        if "fwd" in n or "_f_" in n or best is None:
+            best = a.get_asset()
+            if "fwd" in n or "_f_" in n:
+                break
+    log(f"resolved mesh={mesh.get_path_name() if mesh else None} anim={best.get_path_name() if best else None}")
+    return mesh, best
+
+
 skm = unreal.load_asset(SKM) if SKM else None
 anim = unreal.load_asset(ANIM) if ANIM else None
+if skm is None or anim is None:
+    r_skm, r_anim = resolve_defaults()
+    skm, anim = skm or r_skm, anim or r_anim
 if skm is None or anim is None:
     raise SystemExit(f"set GTP_PED_SKM and GTP_PED_ANIM (got {SKM!r}, {ANIM!r})")
 done = None
