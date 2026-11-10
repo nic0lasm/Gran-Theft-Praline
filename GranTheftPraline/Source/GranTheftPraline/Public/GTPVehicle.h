@@ -235,8 +235,15 @@ protected:
 	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Camera")
 	float ChaseDistance = 620.f;
 
+	/** Height of the chase arm pivot above the mesh origin (cm). The car's
+	 *  origin is on the ground: a pivot inside the body keeps the arm's
+	 *  collision probe from hitting the road and pulling the camera under the car. */
 	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Camera")
-	float ChaseHeight = 170.f;
+	float ChasePivotHeight = 100.f;
+
+	/** Camera height above the pivot, at the end of the arm (cm). */
+	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Camera")
+	float ChaseHeight = 70.f;
 
 	/** Pitch the camera returns to when recentring (degrees). */
 	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Camera")

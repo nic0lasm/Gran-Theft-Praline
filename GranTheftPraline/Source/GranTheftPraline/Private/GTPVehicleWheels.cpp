@@ -39,6 +39,8 @@ UGTPWheelRear::UGTPWheelRear()
 	bAffectedByEngine = false;
 	bAffectedByHandbrake = true;
 	MaxHandBrakeTorque = 3000.f;
-	FrictionForceMultiplier = 2.6f;
-	CorneringStiffness = 850.f;
+	// More grip at the rear than at the front: the car understeers gently
+	// when pushed instead of spinning (the handbrake still breaks it loose).
+	FrictionForceMultiplier = 3.3f;
+	CorneringStiffness = 1100.f;
 }

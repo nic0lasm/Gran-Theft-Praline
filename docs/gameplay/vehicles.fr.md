@@ -89,7 +89,7 @@ Trois profils de conduite suffisent pour la 0.3 et le trafic :
 
 | Profil | Exemples | Masse | Couple | Transmission | Ressenti |
 | ---- | ---- | ---- | ---- | ---- | ---- |
-| Citadine | Clio, 208, C3, Sandero, Yaris, Polo | 1 150 kg | 220 N·m | traction | vive, légère, survire au frein à main |
+| Citadine | Clio, 208, C3, Sandero, Yaris, Polo | 1 150 kg | 130 N·m (Chaos sans pertes de transmission) | traction | vive, légère, survire au frein à main |
 | Berline / SUV | 308, 3008, Golf, Classe A, Série 3 | 1 400 kg | 300 N·m | traction (propulsion pour BMW) | plus stable, plus rapide |
 | Utilitaire | Kangoo, Berlingo, Trafic, Master | 1 900 kg | 330 N·m | traction | lent, roulis, freine long |
 
