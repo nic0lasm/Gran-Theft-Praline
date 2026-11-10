@@ -53,20 +53,26 @@ fi
 export GTP_CITY_ZONE="$zone" GTP_CITY_FOCUS="$focus" GTP_CITY_LIGHT="${GTP_CITY_LIGHT:-Noon}" GTP_PROFILE="${PROFILE:-m1}"
 cvars="$(python3 "$repo/tools/rendering/reference_scene/profiles.py" "${PROFILE:-m1}")"
 
+# FACADES_ONLY=1: replay only the facade kit (place_facades.py) and the materials on the
+# existing map, ~4 min instead of ~10 (bench of facade LODs).
+if [ "${FACADES_ONLY:-0}" != "1" ]; then
 "$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES -ExecutePythonScript="$tmp/import_city.py"
 test -f "$out/report.json" || { echo "import_city.py wrote no report" >&2; exit 1; }
 grep -q '"errors": \[\]' "$out/report.json" || { cat "$out/report.json"; exit 1; }
+fi
 
 "$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES -ExecutePythonScript="$tmp/place_facades.py"
 test -f "$out/facades_report.json" || { echo "place_facades.py wrote no report" >&2; exit 1; }
 grep -q '"errors": \[\]' "$out/facades_report.json" || { cat "$out/facades_report.json"; exit 1; }
 
 # Street furniture: assets not imported yet are skipped and listed in the report.
+if [ "${FACADES_ONLY:-0}" != "1" ]; then
 "$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES -ExecutePythonScript="$tmp/place_props.py"
 test -f "$out/props_report.json" || { echo "place_props.py wrote no report" >&2; exit 1; }
+fi
 
 # Facade and street details (tools/city/details.py), when the table exists: own folder City/Details.
-if test -f "$gen/details_placement.csv"; then
+if [ "${FACADES_ONLY:-0}" != "1" ] && test -f "$gen/details_placement.csv"; then
   GTP_PROPS_SET=details "$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES -ExecutePythonScript="$tmp/place_props.py"
   test -f "$out/details_report.json" || { echo "place_props.py (details) wrote no report" >&2; exit 1; }
 fi
@@ -82,5 +88,5 @@ if [ "${SKIP_PLAY:-0}" != "1" ]; then
 fi
 rm -rf "$tmp"
 
-cat "$out/report.json" "$out/facades_report.json" "$out/props_report.json"
+for f in report facades_report props_report; do if test -f "$out/$f.json"; then cat "$out/$f.json"; fi; done
 if test -f "$out/play_report.json"; then cat "$out/play_report.json"; fi

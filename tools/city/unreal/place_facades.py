@@ -53,7 +53,19 @@ SIZE_TOLERANCE_CM = 40.0
 # Draw distances per module family, metres (fil optimisation: numbers to tune after the m1
 # measure). Culling starts at CULL_START_SHARE of the end to avoid popping. 0 = never culled.
 CULL_END_M = {"ground": 250.0, "upper": 250.0, "eave": 250.0, "court": 250.0, "sign": 150.0}
+# Bench override without a code change, e.g. GTP_FACADE_CULL="court=80,upper=180".
+for _kv in filter(None, os.environ.get("GTP_FACADE_CULL", "").split(",")):
+    _k, _v = _kv.split("=")
+    CULL_END_M[_k.strip()] = float(_v)
 CULL_START_SHARE = 0.8
+
+# LODs of the kit modules (fil optimisation, 10/11): the 21 242 street-map instances were
+# 10.2 M triangles at LOD0 out to 250 m, drawn again by the virtual shadow maps, with no
+# Nanite on M1. (share of LOD0 triangles, screen size below which the LOD is used); a
+# module is ~4 m wide, so 0.3 ~ 10 m, 0.1 ~ 30 m, 0.035 ~ 85 m away at 90 degrees.
+# GTP_KIT_LODS=0 keeps LOD0 only (bench before/after).
+KIT_LODS = ((1.0, 1.0), (0.5, 0.3), (0.15, 0.1), (0.05, 0.035))
+KIT_LOD_MIN_TRIANGLES = 100
 
 
 def module_family(name):
@@ -115,6 +127,32 @@ def import_kit():
         if isinstance(a, unreal.StaticMesh):
             out[a.get_name()] = a
     return out
+
+
+def add_lods(meshes, manifest, report):
+    if os.environ.get("GTP_KIT_LODS", "1") == "0":
+        report["kit_lods"] = "off"
+        return
+    sm_sub = unreal.get_editor_subsystem(unreal.StaticMeshEditorSubsystem)
+    done = {}
+    for name, mesh in meshes.items():
+        tris = manifest["modules"].get(name, {}).get("triangles", 0)
+        if tris < KIT_LOD_MIN_TRIANGLES:
+            continue
+        opts = unreal.EditorScriptingMeshReductionOptions()
+        opts.set_editor_property("auto_compute_lod_screen_size", False)
+        settings = []
+        for share, screen in KIT_LODS:
+            st = unreal.EditorScriptingMeshReductionSettings()
+            st.set_editor_property("percent_triangles", share)
+            st.set_editor_property("screen_size", screen)
+            settings.append(st)
+        opts.set_editor_property("reduction_settings", settings)
+        n = sm_sub.set_lods(mesh, opts)
+        eal.save_loaded_asset(mesh)
+        done[name] = n
+    report["kit_lods"] = {"levels": [list(l) for l in KIT_LODS], "meshes": len(done),
+                          "lod_counts": sorted(set(done.values()))}
 
 
 def check_sizes(meshes, manifest):
@@ -236,6 +274,8 @@ def main():
         rows = list(csv.DictReader(f))
     meshes = import_kit()
     bad = check_sizes(meshes, manifest)
+    if not bad:
+        add_lods(meshes, manifest, report)
     report["kit_modules"] = len(meshes)
     if bad:
         report["errors"].append("kit size check failed: %s" % (bad[:4],))

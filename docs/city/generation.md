@@ -371,6 +371,16 @@ and no overdraw; reflections and Fresnel on top, emissive scaled by `EmissiveSca
 `translucent` (real glass with W14-32 shelves) and `opaque` stay available. Details draw within
 20 to 40 m (`cull_m` column, 60 m for chimneys and lights).
 
+### Facade kit LODs (performance, 2026-11-10)
+
+The 21,242 modules of the street map were 10.2 M triangles at LOD0 out to 250 m, drawn again by
+the virtual shadow maps, with no Nanite on M1: the first cause of the 44.5 ms packaged p95.
+`place_facades.py` now builds four LODs per module (100 %, 50 % under 0.3 screen size, 15 % under
+0.1, 5 % under 0.035, about 10, 30 and 85 m); nothing visible is cut. `GTP_KIT_LODS=0` for the
+before, `GTP_FACADE_CULL="court=120"` to try a distance on the bench. One-command bench:
+`caffeinate -dimsu tools/city/facade_lods_mac.sh` (replays only the facades and materials,
+`FACADES_ONLY=1`, then packages into Builds/facade-lods/).
+
 ## Limits and next steps
 
 1. **Editor test**: `tools/city/unreal/import_city.py` imports the greybox and
