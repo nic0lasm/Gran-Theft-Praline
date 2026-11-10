@@ -11,6 +11,11 @@
 #   GTP_CAPTURE=<seconds> also films the run (UGTPFrameCapture, frames in
 #   <out>/capture; tools/build/frames-to-movie.swift makes the video). Do not
 #   use the frame times of a filmed run: reading frames back costs GPU time.
+#   GTP_PROFILE=<name> applies a rendering profile of
+#   tools/rendering/reference_scene/profiles.json (m1, fidelity...).
+#   GTP_EXTRA_ARGS adds raw command line arguments (for example
+#   -ini:Game:[/Script/GranTheftPraline.GTPFollowCameraComponent]:bEnabled=False
+#   to measure with the sample camera).
 set -euo pipefail
 
 repo="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -30,15 +35,34 @@ if test -n "${GTP_CAPTURE:-}"; then
   capture=(-CaptureVideo="$GTP_CAPTURE" -CaptureFps=30 -CaptureDelay=12 -CaptureDir="$out/capture")
 fi
 
+profile_cmds=""
+if test -n "${GTP_PROFILE:-}"; then
+  profile_cmds="$(python3 - "$repo/tools/rendering/reference_scene/profiles.json" "$GTP_PROFILE" <<'PY'
+import json, sys
+profiles = json.load(open(sys.argv[1]))
+def cvars(name):
+    p = profiles[name]
+    out = cvars(p["base"]) if "base" in p else {}
+    out.update(p["cvars"])
+    return out
+print("".join("%s %s, " % kv for kv in cvars(sys.argv[2]).items()))
+PY
+)"
+fi
+extra=()
+if test -n "${GTP_EXTRA_ARGS:-}"; then
+  read -r -a extra <<< "$GTP_EXTRA_ARGS"
+fi
+
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 cp "$repo/tools/character/playtest_character.py" "$tmp/playtest_character.py"
 
 GTP_PLAYTEST_OUT="$out" "$editor" "$project" /Game/Maps/L_RueRepublique -game -windowed -ResX=1920 -ResY=1080 \
   -nosound -NoScreenMessages -unattended -SkipTitle -FrameLog -FrameLogWarmup=10 \
-  -FrameLogFile="$tmp/frametimes.csv" -abslog="$tmp/game.log" ${capture[@]+"${capture[@]}"} \
+  -FrameLogFile="$tmp/frametimes.csv" -abslog="$tmp/game.log" ${capture[@]+"${capture[@]}"} ${extra[@]+"${extra[@]}"} \
   "-ini:Engine:[/Script/Engine.UserInterfaceSettings]:bAllowHighDPIInGameMode=True" \
-  -ExecCmds="r.SetRes 1920x1080w, py $tmp/playtest_character.py" || true
+  -ExecCmds="r.SetRes 1920x1080w, ${profile_cmds}py $tmp/playtest_character.py" || true
 
 for f in frametimes.csv frametimes.summary.txt game.log; do
   test -f "$tmp/$f" && cp "$tmp/$f" "$out/$f"
