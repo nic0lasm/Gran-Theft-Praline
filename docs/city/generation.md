@@ -364,6 +364,13 @@ column); only awnings and chimneys keep theirs.
 the free Megascans beech (`SM_EuropeanBeech_Field_01`, `_Sapling_01` for young trees) on the same
 Grand Lyon anchors. Off by default until its M1 cost is measured.
 
+**Fake-depth shop windows** (default, `GTP_SHOP_GLASS=interior`): `M_City_ShopInterior` is opaque
+glass that draws a lit shop by interior mapping (one ray-box test per pixel in the module frame:
+shelved back wall in varied colours, floor, bright ceiling, side walls), with no translucency
+and no overdraw; reflections and Fresnel on top, emissive scaled by `EmissiveScale` at night.
+`translucent` (real glass with W14-32 shelves) and `opaque` stay available. Details draw within
+20 to 40 m (`cull_m` column, 60 m for chimneys and lights).
+
 ## Limits and next steps
 
 1. **Editor test**: `tools/city/unreal/import_city.py` imports the greybox and
