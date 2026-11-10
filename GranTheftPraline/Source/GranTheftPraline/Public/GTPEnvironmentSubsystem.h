@@ -137,6 +137,10 @@ struct FGTPLightBudget
 	/** The weather may change the cloud coverage (denser clouds cost more). */
 	UPROPERTY()
 	bool bDriveCloudCoverage = true;
+
+	/** Cheap fallback: a 2D cloud dome around the camera, when the volumetric clouds are off. */
+	UPROPERTY()
+	bool bCloudDome = false;
 };
 
 /**
@@ -347,6 +351,20 @@ private:
 	UPROPERTY(Config)
 	FVector RainScale = FVector(24.0, 24.0, 16.0);
 
+	/** 2D cloud dome (fallback of the volumetric clouds): mesh, unlit material, scale, brightness. */
+	UPROPERTY(Config)
+	TSoftObjectPtr<UStaticMesh> CloudDomeMesh;
+
+	UPROPERTY(Config)
+	TSoftObjectPtr<UMaterialInterface> CloudDomeMaterial;
+
+	UPROPERTY(Config)
+	FVector CloudDomeScale = FVector(4000.0, 4000.0, 1200.0);
+
+	/** Cloud luminance relative to the middle grey of the current exposure. */
+	UPROPERTY(Config)
+	float CloudDomeBrightness = 1.6f;
+
 	/** Saone mist: local fog volumes (centres in cm, scale of the unit sphere), extinction at 1. */
 	UPROPERTY(Config)
 	TArray<FVector> RiverFogCentres;
@@ -434,6 +452,9 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UStaticMeshComponent> RainLayer;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UStaticMeshComponent> CloudDome;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UMaterialInstanceDynamic> CloudMaterial;

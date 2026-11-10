@@ -29,7 +29,7 @@ FOLDER = "/Game/Environment/Weather"
 MPC_PATH = FOLDER + "/MPC_Environment"
 PUDDLE_TEXTURE = FOLDER + "/T_PuddleNoise"
 SCALARS = (("Wetness", 0.0), ("Puddles", 0.0), ("RainIntensity", 0.0), ("CityLights", 0.0),
-           ("EmissiveScale", 1.0), ("Cloudiness", 0.0), ("TimeOfDay", 12.0))
+           ("EmissiveScale", 1.0), ("Cloudiness", 0.0), ("TimeOfDay", 12.0), ("CloudLuminance", 1000.0))
 WALL_WETNESS = 0.35      # share of the wetness kept on vertical surfaces
 WET_DARKEN = 0.55        # albedo multiplier of a soaked porous surface
 WET_ROUGHNESS = 0.12

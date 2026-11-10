@@ -552,7 +552,7 @@ void UGTPEnvironmentSubsystem::ApplyCloudQuality()
 	// measured): quality per profile, values owned by the optimisation work.
 	if (Clouds.IsValid())
 	{
-		if (!Budget.bVolumetricClouds)
+		if (!Budget.bVolumetricClouds || Budget.bCloudDome)
 		{
 			Clouds->SetVisibility(false);
 		}
@@ -565,6 +565,29 @@ void UGTPEnvironmentSubsystem::ApplyCloudQuality()
 					UE_LOG(LogGTPEnvironment, Warning, TEXT("Cloud setter %s not found"), Setter);
 				}
 			}
+		}
+	}
+	if (Budget.bCloudDome && Holder)
+	{
+		UStaticMesh* Mesh = CloudDomeMesh.LoadSynchronous();
+		UMaterialInterface* Material = CloudDomeMaterial.LoadSynchronous();
+		if (Mesh && Material)
+		{
+			CloudDome = NewObject<UStaticMeshComponent>(Holder, TEXT("CloudDome"));
+			CloudDome->SetMobility(EComponentMobility::Movable);
+			CloudDome->SetStaticMesh(Mesh);
+			CloudDome->SetMaterial(0, Material);
+			CloudDome->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+			CloudDome->SetCastShadow(false);
+			CloudDome->bReceivesDecals = false;
+			CloudDome->SetWorldScale3D(CloudDomeScale);
+			CloudDome->SetupAttachment(Holder->GetRootComponent());
+			CloudDome->RegisterComponent();
+		}
+		else
+		{
+			UE_LOG(LogGTPEnvironment, Warning, TEXT("Cloud dome mesh or material missing (%s, %s)"),
+				*CloudDomeMesh.ToString(), *CloudDomeMaterial.ToString());
 		}
 	}
 	if (Sun.IsValid() && !Budget.bCloudShadows)
@@ -982,10 +1005,20 @@ void UGTPEnvironmentSubsystem::ApplyParameters()
 	Instance->SetScalarParameterValue(TEXT("EmissiveScale"), FMath::Lerp(1.f, NightEmissiveScale, NightFactor));
 	Instance->SetScalarParameterValue(TEXT("Cloudiness"), Weather.CloudCoverage);
 	Instance->SetScalarParameterValue(TEXT("TimeOfDay"), static_cast<float>(LocalHours));
+	// Unlit cloud dome: luminance of the exposure's middle grey (0.125 x 2^EV100 nits), darker in the rain.
+	Instance->SetScalarParameterValue(TEXT("CloudLuminance"),
+		0.125f * FMath::Pow(2.f, ExposureTarget) * CloudDomeBrightness * FMath::Lerp(1.f, 0.5f, Weather.Rain));
 }
 
 void UGTPEnvironmentSubsystem::UpdateRain()
 {
+	if (CloudDome)
+	{
+		if (const APlayerCameraManager* Camera = UGameplayStatics::GetPlayerCameraManager(GetWorld(), 0))
+		{
+			CloudDome->SetWorldLocation(Camera->GetCameraLocation());
+		}
+	}
 	if (!RainLayer)
 	{
 		return;

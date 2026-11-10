@@ -79,7 +79,10 @@ sépia). Saturation selon la météo (0,8 sous la pluie).
   `bCloudShadows`, `bDriveCloudCoverage`). Les nuages volumétriques coûtent
   ≈ 12 ms GPU en m1 (mesure du 2026-11-10) : en m1, la météo ne change pas
   leur couverture (le couvert passe par le soleil, le ciel et le brouillard),
-  en attendant la décision sur leur qualité.
+  en attendant la décision sur leur qualité. Repli bon marché : `bCloudDome`
+  coupe les nuages volumétriques et affiche un dôme de nuages 2D non éclairé
+  autour de la caméra (`M_CloudDome`, couverture `Cloudiness`, luminance
+  calée sur l'exposition par `CloudLuminance`).
 - **Allumage** : entre +2° et −4° de soleil (plus tôt sous les nuages).
 - **Émissifs** : `EmissiveScale` de `MPC_Environment` passe de 1 à 20 la
   nuit ; les matériaux de vitrines et d'enseignes le multiplient.

@@ -77,7 +77,10 @@ Saturation follows the weather (0.8 in the rain).
   `bCloudShadows`, `bDriveCloudCoverage`). Volumetric clouds cost about 12 ms
   GPU in m1 (measured 2026-11-10): in m1 the weather does not change their
   coverage (overcast goes through the sun, sky and fog) until the decision on
-  their quality.
+  their quality. Cheap fallback: `bCloudDome` turns the volumetric clouds
+  off and shows an unlit 2D cloud dome around the camera (`M_CloudDome`,
+  coverage `Cloudiness`, luminance matched to the exposure through
+  `CloudLuminance`).
 - **Switch-on**: between +2 and −4 degrees of sun (earlier under cloud).
 - **Emissives**: `EmissiveScale` in `MPC_Environment` goes from 1 to 20 at
   night; shop window and sign materials multiply by it.
