@@ -245,6 +245,19 @@ coordinates, procedural slab and sett joints and tone variation, a single textur
 on walls, smoother roofs), assigns them to the terrain tiles and shells, and checks the facade
 instances of the map. It replaces `M_CityGreybox` without rebuilding the map.
 
+## Rhone quay and pont Lafayette (added 2026-11-10, for 0.3)
+
+The generated footprint grows east for the 0.3 driving loop:
+`generate.py --extra-bbox 250,-60,700,220` adds the buildings of quai Jules-Courmont, the bridge
+head and a bit of the left bank (233 BD TOPO buildings, 378 parts, instead of 175 / 281).
+`tools/city/riverside.py` builds, as greybox with vertex colours, the Rhone water (a plane at the
+LiDAR water surface, no collision), the pont Lafayette deck (Grand Lyon footprint, gid 41,
+~20 m × 190 m, top ramped between the two quays, parapets) and a quay parapet along the water
+(545 m in the box, cut under the bridge). `import_city.py` places them when present (folder
+City/Riverside); `apply_city_materials.py` gives them `M_City_Shell` and `M_City_Water`.
+`build.py` now keeps the street names of the current BD TOPO, `nom_collaboratif_*` and
+`nom_voie_ban_*` (the old `nom_1_*` fields are gone).
+
 ## Limits and next steps
 
 1. **Editor test**: `tools/city/unreal/import_city.py` imports the greybox and

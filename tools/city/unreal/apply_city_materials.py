@@ -337,13 +337,25 @@ def assign_kit(mics, report):
     report["kit_unknown_slots"] = sorted(unknown)[:20]
 
 
-def assign(folder, mat):
+def water_material():
+    """Dark, glossy river surface (no waves yet)."""
+    mat = new_material("M_City_Water")
+    g = Graph(mat)
+    mel.connect_material_property(g.const((0.012, 0.022, 0.026)), "", unreal.MaterialProperty.MP_BASE_COLOR)
+    mel.connect_material_property(g.const(0.06), "", unreal.MaterialProperty.MP_ROUGHNESS)
+    mel.connect_material_property(g.const(0.6), "", unreal.MaterialProperty.MP_SPECULAR)
+    g.done()
+    return mat
+
+
+def assign(folder, mat, by_name=None):
     n = 0
     for p in eal.list_assets(folder, recursive=True):
         a = eal.load_asset(p)
         if isinstance(a, unreal.StaticMesh):
+            m = (by_name or {}).get(a.get_name(), mat)
             for i in range(len(a.get_editor_property("static_materials"))):
-                a.set_material(i, mat)
+                a.set_material(i, m)
             eal.save_loaded_asset(a)
             n += 1
     return n
@@ -412,6 +424,9 @@ def main():
         shell = shell_material()
         report["terrain_meshes"] = assign(ROOT + "/Terrain", ground)
         report["shell_meshes"] = assign(ROOT + "/Buildings/" + CAMEL, shell)
+        river_dir = ROOT + "/Riverside/" + CAMEL
+        if eal.does_directory_exist(river_dir):
+            report["riverside_meshes"] = assign(river_dir, shell, {"SM_River_Water": water_material()})
         assign_kit(kit_instances(kit_master()), report)
         facade_check(report)
     except Exception as e:  # report, never leave the editor hanging on a dialog
