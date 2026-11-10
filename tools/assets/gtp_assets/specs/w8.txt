@@ -8,7 +8,7 @@ W8-06|Signage|Sign_GiveWay|2.5|
 W8-07|Signage|Sign_NoEntry|2.5|
 W8-08|Signage|Sign_SpeedLimitBlank|2.5|
 W8-09|Signage|Sign_NoParking|2.5|
-W8-10|Signage|Sign_OneWay|0.9|
+W8-10|Signage|Sign_OneWay|3.0|
 W8-11|Signage|Sign_PedestrianCrossing|2.5|
 W8-12|Signage|BusStopPole_Blank|3.0|
 W8-13|Signage|DirectionFingers_Blank|3.5|
