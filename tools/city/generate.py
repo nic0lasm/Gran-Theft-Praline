@@ -130,6 +130,9 @@ def main():
                     help="also take the buildings whose centroid is in this box (local metres, "
                          "x east, y north); repeatable. E.g. the Rhone quays and the Lafayette "
                          "bridge head for the drivable loop of 0.3: 250,-60,700,220")
+    ap.add_argument("--cell", metavar="X0,Y0,X1,Y1",
+                    help="streaming cell mode (tools/city/cells.py): take every building whose centroid "
+                         "is in this box, local metres; --focus is then only the output name")
     ap.add_argument("--geo", default=os.path.join(REPO, "assets", "geo"))
     args = ap.parse_args()
     t0 = time.time()
@@ -157,7 +160,10 @@ def main():
     ridges = procgen.RidgeIndex(ridge_lines)
 
     focus_axis = []
-    if args.focus == "all":
+    if args.cell:
+        cell = box(*[float(v) for v in args.cell.split(",")])
+        selected = [b for b in buildings if cell.contains(b["poly"].centroid)]
+    elif args.focus == "all":
         selected = buildings
     else:
         street = [r[0] for r in roads if r[2] == args.focus]
