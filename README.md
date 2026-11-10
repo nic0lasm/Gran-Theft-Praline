@@ -2,91 +2,113 @@
   <b>English</b> · <a href="README.fr.md">Français</a>
 </p>
 
+<h1 align="center">Gran Theft Praline</h1>
+
 <p align="center">
-  <img src="docs/media/banner.svg" alt="Gran Theft Praline: an open world in Lyon" width="100%">
+  <b>An original open-world game in a faithful Lyon, street by street.</b><br>
+  Walk it, drive it, and soon get chased through it.
 </p>
 
 <p align="center">
-  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
+  <img src="docs/media/readme/hero-cafe-terrace.jpg" alt="In-game: a café terrace and a car driving down rue de la République, version 0.2" width="100%">
+  <br><sub><i>In-game, version 0.2, rue de la République. Filmed by the game itself on a MacBook Pro M1 Pro.</i></sub>
+</p>
+
+<p align="center">
+  <a href="https://github.com/nic0lasm/Gran-Theft-Praline/releases/tag/v0.2.0"><img alt="Download 0.2" src="https://img.shields.io/badge/download-0.2%20for%20macOS-success?logo=apple"></a>
+  <img alt="0.3 in progress" src="https://img.shields.io/badge/next-0.3%20Behind%20the%20wheel-orange">
   <a href="https://github.com/nic0lasm/Gran-Theft-Praline/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/nic0lasm/Gran-Theft-Praline/actions/workflows/ci.yml/badge.svg?branch=main"></a>
-  <img alt="Version 0.2" src="https://img.shields.io/badge/version-0.2-success">
   <img alt="Unreal Engine 5.8" src="https://img.shields.io/badge/Unreal%20Engine-5.8-0e1128?logo=unrealengine">
-  <img alt="Platform: macOS" src="https://img.shields.io/badge/platform-macOS%20(Apple%20Silicon)-lightgrey?logo=apple">
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
 </p>
 
 <p align="center">
-  <a href="#what-is-it">What is it?</a> ·
-  <a href="#see-it-running">See it running</a> ·
+  <a href="#lyon-for-real">Lyon, for real</a> ·
+  <a href="#in-pictures">In pictures</a> ·
   <a href="#play-in-one-click">Play</a> ·
+  <a href="#where-we-are">Where we are</a> ·
   <a href="#roadmap">Roadmap</a> ·
   <a href="#build-it-yourself">Build</a> ·
   <a href="#contributing">Contribute</a> ·
   <a href="#credits-and-licence">Credits</a>
 </p>
 
-# Gran Theft Praline
+---
 
-**An original open-world game set in a faithful, photorealistic Lyon.**
+Gran Theft Praline is a fan-made, open-source, non-commercial project with a
+big goal: the handling, interactions and image quality of today's best
+open-world games, **on the real map of Lyon**. No story yet, on purpose: the
+playground comes first. Everyone is welcome to follow along, try the builds,
+share what they know about the city or lend a hand.
 
-Welcome! This is a fan-made, open-source and non-commercial attempt at
-something big: the handling, interactions and image quality of the best
-modern open-world games, on the real map of Lyon. Everyone is welcome to
-follow along, try the builds, share their knowledge of the city or lend a
-hand.
+## Lyon, for real
 
-## What is it?
+The city is not drawn by hand: it is **rebuilt from public data**. Building
+footprints and heights come from IGN's LiDAR and BD TOPO, trees, kerbs and
+street furniture from the Métropole de Lyon, shop names from OpenStreetMap.
+Every plane tree, bench and shopfront stands where it stands in the real
+street.
 
-- **Lyon, for real.** The city is rebuilt from public geographic data (IGN,
-  Métropole de Lyon, OpenStreetMap): real streets, real building heights,
-  real trees and street furniture, and the **real shop signs** where they
-  actually are.
-- **A complete playground first.** Walking and driving, weapons, shops and
-  buildings you can enter, police, crowds and traffic: at least the
-  interactions players expect from a recent open-world game.
-- **No story yet, on purpose.** The plot, characters and tone will be
-  written once the playable base exists.
-- **Photorealism first.** The visual reference is today's most realistic
-  games; the camera and controls stay classic: third person, with an
-  optional first-person view.
-- **Starting small.** The first area is the **northern Presqu'île**, from
-  Place Bellecour to Place des Terreaux, between the Saône and the Rhône
-  (about 1.5 km²), starting with rue de la République.
+<table>
+  <tr>
+    <th width="50%">The real rue de la République</th>
+    <th width="50%">The same street in the game (0.3 in progress)</th>
+  </tr>
+  <tr>
+    <td><img src="docs/media/readme/real-rue-republique.jpg" alt="Photo of the pedestrian rue de la République in Lyon, stone façades and plane trees" width="100%"></td>
+    <td><img src="docs/media/readme/0.3-rue-republique-wide.jpg" alt="In-game: running down rue de la République between stone façades, shopfronts and plane trees" width="100%"></td>
+  </tr>
+  <tr>
+    <td><sub>Photo: Corentin Eustacchi, <a href="https://commons.wikimedia.org/wiki/File:Rue_de_la_R%C3%A9publique_Nord_pi%C3%A9tonne_(Lyon,_2025).jpg">Wikimedia Commons</a>, CC BY-SA 4.0, cropped.</sub></td>
+    <td><sub>Real building heights from IGN LiDAR (median roof error 0.39 m), 175 buildings, 13,000 façade modules, 112 plane trees.</sub></td>
+  </tr>
+</table>
 
-No real people and no assets taken from other games. Trademarks shown in the
-game belong to their owners: they are not covered by the MIT licence and are
-not stored in this repository.
+What the game still lacks next to the photo, honestly: leaves on the plane
+trees, the real shop logos, people in the street, and a real character model
+(the player is still Epic's white mannequin). They are all on the roadmap.
 
-## See it running
+## In pictures
 
-Version 0.1, filmed by the game itself on a MacBook Pro M1 Pro. The street
-is still a greybox built from 334 real IGN buildings: the real look arrives
-with version 0.2.
+All images below are frames from videos the game records of itself during
+its automated tests, on a MacBook Pro M1 Pro with the everyday **M1**
+quality profile. Nothing is retouched.
 
-<p align="center">
-  <img src="production/evidence/0.1/title.jpg" alt="Title screen of version 0.1" width="49%">
-  <img src="docs/media/0.1-gameplay.jpg" alt="The character walking down rue de la République in version 0.1" width="49%">
-</p>
+<table>
+  <tr>
+    <td width="50%"><img src="docs/media/readme/0.3-driving-rue-republique.jpg" alt="In-game: driving a car down rue de la République in third person" width="100%"><br><sub>Behind the wheel down rue de la République (0.3)</sub></td>
+    <td width="50%"><img src="docs/media/readme/0.2-carjack-approach.jpg" alt="In-game: the character walks up to a parked car to steal it" width="100%"><br><sub>Walking up to a parked car: press F to take it (0.2)</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/media/readme/0.3-square-benches.jpg" alt="In-game: a small square with cast-iron benches, plane trees and a Lyon lamppost" width="100%"><br><sub>Cast-iron benches and a Lyon lamppost, where the real ones are (0.3)</sub></td>
+    <td><img src="docs/media/readme/0.3-plane-trees-lamppost.jpg" alt="In-game: on foot between plane trees and benches, a parked car on the right" width="100%"><br><sub>On foot between the plane trees (0.3)</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/media/readme/0.3-on-foot-crossroads.jpg" alt="In-game: a crossroads with a corner building, benches and a car in the distance" width="100%"><br><sub>A crossroads with traffic in the distance (0.3)</sub></td>
+    <td><img src="docs/media/readme/real-quai-jean-moulin.jpg" alt="Photo of quai Jean-Moulin along the Rhône, plane trees, traffic and the riverside walk" width="100%"><br><sub><b>Next stop:</b> the real quai Jean-Moulin by the Rhône, coming in 0.3 with Pont Lafayette. Photo: Corentin Eustacchi, <a href="https://commons.wikimedia.org/wiki/File:Quai_Jean-Moulin_(Lyon,_2025).jpg">Wikimedia Commons</a>, CC BY-SA 4.0, cropped.</sub></td>
+  </tr>
+</table>
 
-- 🎥 [Two-minute video of version 0.1](production/evidence/0.1/capture.mov)
-  (37 MB)
-- 📊 [Test results](production/evidence/0.1/): 10 minutes fullscreen without
-  a crash, first frame 1.7 s after launch, frame time p50 41 ms / p95 51 ms
-  (30 fps is the target from 0.2 onwards)
-- 🖼️ [Rendering tests](docs/rendering/test-results/2026-11-09/) in four
-  lighting setups (noon, golden hour, rain, night)
+🎥 Videos and measurements: [version 0.1 test](production/evidence/0.1/),
+[rendering tests in four lighting setups](docs/rendering/test-results/2026-11-09/)
+(noon, golden hour, rain, night).
 
 ## Play in one click
 
-Version **0.2 "The dressed street"** came out on **November 10, 2026**: rue
-de la République rebuilt from IGN LiDAR with stone façades, real shopfronts
-and signs, street furniture and plane trees, a Renault Clio you can drive,
-and about 30 fps on an M1 Pro. Version 0.1 "Play in one click" came out the
-day before.
+**[⬇️ Download version 0.2 "The dressed street" for macOS](https://github.com/nic0lasm/Gran-Theft-Praline/releases/tag/v0.2.0)**
+(Mac with Apple Silicon, released November 10, 2026).
 
-**[⬇️ Download version 0.2 for macOS](https://github.com/nic0lasm/Gran-Theft-Praline/releases/tag/v0.2.0)**
-(Mac with Apple Silicon). The app is not signed by Apple yet: the release
-notes explain how to open it the first time. You can also
-[build the app yourself](#-build-it-yourself) with a single script.
+Rue de la République rebuilt from IGN LiDAR, with stone façades, shopfronts
+with their real names, street furniture and plane trees, and a car you can
+get into and drive. Measured over 10 minutes on an M1 Pro: median frame
+29.9 ms (about 33 fps), 95 % of frames under 40.3 ms.
+
+The app is not signed by Apple yet: the release notes explain how to open it
+the first time. You can also [build it yourself](#build-it-yourself) with a
+single script.
+
+<details>
+<summary><b>Controls</b> (keyboard and gamepad)</summary>
 
 | Action | Keyboard (AZERTY) | Keyboard (QWERTY) | Gamepad |
 | ---- | ---- | ---- | ---- |
@@ -106,43 +128,56 @@ notes explain how to open it the first time. You can also
 Full details: [player character](docs/gameplay/player-character.md),
 [vehicles](docs/gameplay/vehicles.md).
 
+</details>
+
+## Where we are
+
+| | Version | What you can do | Status |
+| :--: | ---- | ---- | ---- |
+| ✅ | **0.1** Play in one click | launch the game and walk down rue de la République | released Nov 9, 2026 |
+| ✅ | **0.2** The dressed street | stroll down a faithful, dressed street on an M1 laptop | released Nov 10, 2026 |
+| 🟡 | **0.3** Behind the wheel | steal a car and drive through traffic to the Rhône quay and Pont Lafayette | in progress |
+
+Version 0.3 is being finished right now: three drivable cars (Clio V,
+208 II, Kangoo II) you get in, break into or pull a driver out of, AI
+traffic on lanes taken from IGN road data, a procedural engine sound, the map
+extended to the Rhône quay and Pont Lafayette, and a respawn if you fall into
+the river. It ships once the M1 laptop keeps 95 % of frames under 42 ms with
+traffic. Known issues: the demo car sometimes climbs onto the pavement, and
+the quay and bridge have not been filmed yet.
+
+Already being built in parallel for the next versions: pedestrians who react,
+ragdolls, police with wanted stars, a minimap, day and night with rain, and
+the sound of the street.
+
 ## Roadmap
 
 The game moves forward in **playable versions**: each one launches with a
 double-click and adds something you can see or do.
 
-| Version | Name | You can… | Target | Status |
-| ---- | ---- | ---- | ---- | ---- |
-| **0.1** | Play in one click | launch the game and walk, run, jump in rue de la République | Nov 2026 | ✅ delivered Nov 9 |
-| **0.2** | The dressed street | stroll down a dressed rue de la République at 30 fps | Dec 2026 | ✅ delivered Nov 10 |
-| 0.3 | Behind the wheel | get into a parked car and drive to the Rhône | Jan 2027 | 🟡 design done |
-| 0.4 to 0.6 | Armed, first shop, police | shoot, rob a shop, lose the police | Mar 2027 | ⬜ |
-| 0.7 to 0.13 | The whole district | Bellecour → Terreaux with crowds, traffic, map, economy, day and night, weather | Oct 2027 | ⬜ |
-| 0.14 to 0.19 | Final quality | façades, monuments, interiors, people, cars, the sound of Lyon, polish | May 2028 | ⬜ |
-| **1.0** | Vertical slice | one hour of play across the district, no blocker | **Jun 2028** | ⬜ |
+| Version | You can… | Target |
+| ---- | ---- | ---- |
+| 0.4 The living street | meet pedestrians who react, stop at traffic lights, knock street furniture over | Dec 2026 |
+| 0.5 The police arrive | get wanted (1-2 stars), be chased by car, get arrested or lose the police | Dec 2026 |
+| 0.6 Day and night | drive by day, at dusk, at night and in the rain | Jan 2027 |
+| 0.7 Armed | fight bare-handed and with a pistol, take cover, die and respawn | Feb 2027 |
+| 0.8 City life | enter a shop without loading, buy, rob it, earn money, save | Mar 2027 |
+| 0.9 The whole district | roam from Bellecour to the Terreaux without loading | Apr 2027 |
+| 0.10 to 0.12 | city map and GPS, six weapons, missions, scooter and Vélo'v | summer 2027 |
+| 0.13 to 0.17 | final façades and landmarks, interiors, people and cars, the sound of Lyon, polish | early 2028 |
+| **1.0** Vertical slice | play the whole northern Presqu'île, Bellecour → Terreaux | early 2028 |
 
-What is cooking right now:
-
-- **0.2 polish**: real road and pavement materials everywhere, more shop
-  fronts with their real logos, golden hour and night lighting.
-- **0.3**: the drivable vehicles, based on cars you actually see in France
-  (Clio, 208, Kangoo, Golf, Yaris…), plus TCL buses and Vélo'v bikes.
-
-Follow along:
-
-- [Full roadmap](production/roadmap.md): every version in detail, risks,
-  dependencies
-- [Live dashboard](production/roadmap-status.md): task by task, with the
-  evidence for each one
-- [Game concept](design/gdd/game-concept.md) and
-  [3D model catalogue](production/asset-catalog.md)
+Dates are low-confidence orders of magnitude, reviewed after every version.
+Details: [full roadmap](production/roadmap.md),
+[systems inventory](production/systems-inventory.md),
+[game concept](design/gdd/game-concept.md).
 
 ### Two quality profiles
 
 | Profile | What it is | Target |
 | ---- | ---- | ---- |
 | **Ultra** | The real visual target: full-resolution assets, Nanite, high-quality Lumen | A powerful machine (recent dedicated GPU or high-end Apple Silicon) |
-| **M1** | The everyday playable profile on an Apple M1 Pro laptop | 30 fps at 1080p, 95 % of frames ≤ 33.3 ms |
+| **M1** | The everyday playable profile on an Apple M1 Pro laptop | about 30 fps at 1080p |
 
 The M1 profile only lowers graphics settings; models and materials are never
 simplified. See [ADR-0001](docs/adr/adr-0001-rendering-pipeline.md) and
@@ -164,7 +199,7 @@ installed or regenerated locally:
 | Content | How to get it |
 | ---- | ---- |
 | Epic's Game Animation Sample (character, animations, camera) | Free on Fab, then [`tools/character/install_gasp_content.sh`](tools/character/README.md) |
-| The rue de la République level | Generated from the IGN greybox by [`tools/level`](tools/level/README.md) |
+| The rue de la République level | Generated from public data by [`tools/city`](docs/city/plan.md) and [`tools/level`](tools/level/README.md) |
 | City data (OpenStreetMap tables) | Regenerated by [`tools/city`](docs/city/plan.md) (ODbL, no key needed) |
 | High-quality 3D models | Kept outside Git; prepared for Unreal by [`tools/assets`](docs/assets/import-pipeline.md) |
 | Real brand logos and textures | Kept outside Git in `Plugins/CityBrands/` |
@@ -180,7 +215,7 @@ open Gran-Theft-Praline/GranTheftPraline/GranTheftPraline.uproject
 Then, once the content above is installed:
 
 ```zsh
-tools/build/package-mac.sh        # → Builds/0.1/GranTheftPraline.app
+tools/build/package-mac.sh        # → Builds/<version>/GranTheftPraline.app
 tools/build/test-build-mac.sh     # 10-minute test, video and frame times
 ```
 
@@ -193,9 +228,9 @@ Step-by-step guide: [one-click macOS build](docs/build/one-click-build.md).
 | Engine | Unreal Engine 5.8: Lumen, Virtual Shadow Maps, Substrate, TSR |
 | Code | C++ for the game systems, Blueprint for prototyping |
 | Platform | macOS on Apple Silicon (Metal) first, Windows later |
-| Gameplay foundations | Epic's free building blocks: Game Animation Sample, Gameplay Ability System, Chaos Vehicles, StateTree, Mass |
+| Gameplay foundations | Epic's free building blocks: Game Animation Sample, Gameplay Ability System, Chaos Vehicles, StateTree |
 | City | IGN (BD TOPO, LiDAR HD, RGE ALTI), data.grandlyon.com and OpenStreetMap, processed by [tools/city](tools/city/) and [tools/geo-pipeline](tools/geo-pipeline/) |
-| Art | Quixel Megascans, Tripo for 3D models, Blender; see the [art bible](docs/art/art-bible.md) |
+| Art | Quixel Megascans, Poly Haven and ambientCG (CC0), Blender; see the [art bible](docs/art/art-bible.md) |
 
 ## Contributing
 
@@ -212,7 +247,8 @@ don't need to write code:
 Open an [issue](https://github.com/nic0lasm/Gran-Theft-Praline/issues) to
 start the conversation, especially before a large piece of work.
 
-How the repository works:
+<details>
+<summary><b>How the repository works</b></summary>
 
 - **Branches**: work on `feat/<topic>` or `fix/<topic>`. `next` is the
   pre-release branch, `main` the release branch. History stays linear
@@ -228,15 +264,22 @@ How the repository works:
   [assets/SOURCES.md](assets/SOURCES.md) with its origin and licence. Large
   binaries go through Git LFS ([rules](docs/project/git-lfs.md)).
 
+</details>
+
 ## Credits and licence
 
 - Geographic data: contains data from **IGN** (BD TOPO, LiDAR HD, RGE ALTI)
   and **Métropole de Lyon** (Licence Ouverte / Etalab Open Licence), and
   **© OpenStreetMap contributors** ([ODbL](https://opendatacommons.org/licenses/odbl/)).
+- Photos of the real city in this README: **Corentin Eustacchi**, Wikimedia
+  Commons, [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/),
+  cropped and resized; the two image files keep that licence.
 - **Epic Games**: Unreal Engine and the Game Animation Sample are used under
   the Unreal Engine EULA and are not covered by this repository's licence.
 - Shop signs and brands belong to their owners; they are reproduced for a
-  non-commercial project and are not distributed in this repository.
+  non-commercial project and are not distributed in this repository. No
+  real people are depicted in the game, and no assets are taken from other
+  games.
 - Every asset's source and licence: [assets/SOURCES.md](assets/SOURCES.md).
 
 The code and documentation in this repository are released under the
