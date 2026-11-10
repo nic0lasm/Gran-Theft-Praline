@@ -175,6 +175,7 @@ int32 UGTPPedestrianSubsystem::LoadWalkwaysFromCsv(const FString& Path, GTPWalk:
 		Edge.NodeA = FCString::Atoi(*Fields[3]);
 		Edge.NodeB = FCString::Atoi(*Fields[4]);
 		Edge.Width = FCString::Atof(*Fields[5]) * 100.f;
+		Edge.FacadeSide = Fields.Num() > 7 ? FMath::Clamp(FCString::Atoi(*Fields[7]), -1, 1) : 0;
 		TArray<FString> Points;
 		Fields[6].TrimEnd().ParseIntoArray(Points, TEXT(";"));
 		for (const FString& Point : Points)
@@ -356,6 +357,8 @@ void UGTPPedestrianSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 	Walk = Resolve(WalkAnimation, TEXT("PedWalk="), {TEXT("walk")});
 	Idle = Resolve(IdleAnimation, TEXT("PedIdle="), {TEXT("idle")});
 	Run = Resolve(RunAnimation, TEXT("PedRun="), {TEXT("run"), TEXT("jog")});
+	// Optional: no default search, a phone loop is only played if one is named.
+	Phone = Cast<UAnimSequenceBase>(PhoneAnimation.TryLoad());
 	GTP_TRACE(LogGTPPedestrians, TEXT("animations: walk=%s idle=%s run=%s"),
 		Walk ? *Walk->GetPathName() : TEXT("none"), Idle ? *Idle->GetPathName() : TEXT("none"), Run ? *Run->GetPathName() : TEXT("none"));
 	if (LoadedMeshes.Num() == 0 || !Walk)
@@ -637,6 +640,16 @@ void UGTPPedestrianSubsystem::Update(FPerson& Person, float DeltaTime)
 		}
 	}
 
+	// A car passing close on the same walkway: step away from it towards the facade side.
+	if (Cars.Num() > 0 && Person.Walker.FleeTimeLeft <= 0.f && Person.Leader < 0)
+	{
+		FVector NearCar;
+		if (CarNear(Person.Location, 320.f, 150.f, &NearCar))
+		{
+			GTPWalk::Separate(Graph, Person.Walker, Person.Pos, Person.Dir, {NearCar.X, NearCar.Y}, Settings, 320.f);
+		}
+	}
+
 	GTPWalk::FStepResult R;
 	if (Person.Leader >= 0 && People.IsValidIndex(Person.Leader) && People[Person.Leader].bActive)
 	{
@@ -667,7 +680,9 @@ void UGTPPedestrianSubsystem::Update(FPerson& Person, float DeltaTime)
 	Person.Location = FVector(Wanted2D.X, Wanted2D.Y, 0.f);
 	Person.Distance = FVector::Dist2D(Person.Location, PlayerLocation);
 
-	const float TargetYaw = FMath::RadiansToDegrees(FMath::Atan2(D.Y, D.X));
+	// Looking at a window: face the facade; otherwise the way it walks.
+	const GTPWalk::FPoint Facing = GTPWalk::Facing(Graph, Person.Walker);
+	const float TargetYaw = FMath::RadiansToDegrees(FMath::Atan2(Facing.Y, Facing.X));
 	Person.Yaw = FMath::RInterpTo(FRotator(0.f, Person.Yaw, 0.f), FRotator(0.f, TargetYaw, 0.f), DeltaTime, 8.f).Yaw;
 	Actor->SetActorLocationAndRotation(FVector(Person.Location.X, Person.Location.Y, Person.GroundZ), FRotator(0.f, Person.Yaw, 0.f), false, nullptr, ETeleportType::None);
 
@@ -677,7 +692,8 @@ void UGTPPedestrianSubsystem::Update(FPerson& Person, float DeltaTime)
 	{
 		if (bStand)
 		{
-			Actor->PlayLoop(Idle, 1.f);
+			const bool bPhone = Person.Walker.PauseKind == GTPWalk::EPause::Phone && Phone;
+			Actor->PlayLoop(bPhone ? Phone.Get() : Idle.Get(), 1.f);
 		}
 		else if (bRun)
 		{

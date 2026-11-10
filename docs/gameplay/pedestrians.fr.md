@@ -71,6 +71,12 @@ Cause est nulle pour l'instant (la voiture n'est pas encore identifiée).
   90 cm se contournent par le côté (`Separate` dans `GTPWalkLogic.h`, vérifié à 12
   et 60 personnes par `walk_sim`).
 
+- Arrêts : environ un tiers sont des appels téléphoniques (ils restent sur place,
+  avec `PhoneAnimation` si elle est réglée), les autres du lèche-vitrines : ils
+  vont vers la façade (`facade_side` du cheminement) et lui font face. Une voiture
+  qui passe à moins de 3 m sur leur cheminement les fait s'écarter. De l'extérieur,
+  `ScareAround` les effraie (le fil audio l'appelle pour tirs, explosions et chocs).
+
 ## Contrôles
 
 - `python3 tools/pedestrians/check_walk_logic.py [walkways.csv]` compile

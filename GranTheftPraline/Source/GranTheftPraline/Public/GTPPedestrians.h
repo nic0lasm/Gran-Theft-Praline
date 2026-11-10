@@ -143,6 +143,10 @@ protected:
 	UPROPERTY(Config)
 	FSoftObjectPath RunAnimation;
 
+	/** Optional loop for people on their phone (they stand in the idle pose without it). */
+	UPROPERTY(Config)
+	FSoftObjectPath PhoneAnimation;
+
 	/** Walking speed the walk animation was made for (cm/s): play rate = speed / this. */
 	UPROPERTY(Config)
 	float AnimationWalkSpeed = 140.f;
@@ -289,5 +293,8 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UAnimSequenceBase> Run;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UAnimSequenceBase> Phone;
 
 };

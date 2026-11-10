@@ -68,6 +68,12 @@ Cause is null for now (the car is not identified yet).
   step sideways round each other (`Separate` in `GTPWalkLogic.h`, checked at 12 and
   60 people by `walk_sim`).
 
+- Pauses: about a third of the stops are phone calls (they stand in place, with
+  `PhoneAnimation` if one is set), the rest are window shopping: they walk over to the
+  facade (`facade_side` of the walkway) and face it. A car passing within 3 m on
+  their walkway makes them step away from it. People are frightened from outside by
+  `ScareAround` (the audio thread calls it for shots, explosions and crashes).
+
 ## Checks
 
 - `python3 tools/pedestrians/check_walk_logic.py [walkways.csv]` builds

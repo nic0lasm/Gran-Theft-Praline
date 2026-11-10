@@ -5,7 +5,9 @@ local metres, x east, y north) and gen/<focus>/buildings_gen.csv (area), as
 traffic.py and ground_mask.py.
 Output (not committed, like the rest of gen/):
   gen/<focus>/pedestrians/walkways.csv  one row per walkway edge: id, road, kind,
-                                        node_a, node_b, width, points in Unreal cm
+                                        node_a, node_b, width, points in Unreal cm,
+                                        facade_side (+1 facade on the left of the
+                                        walking direction, -1 right, 0 none)
   gen/<focus>/pedestrians/walkways.json counts and extent
   gen/<focus>/pedestrians/walkways.png  top view for a quick check
 With --map <MapName>, walkways.csv is also copied to
@@ -82,7 +84,7 @@ def resample(coords, step):
 
 def build_walkways(features, extent_m=None):
     """Edges (dicts) from road features in local metres, clipped to extent_m (box or
-    shapely geometry). Each edge: id, road, kind, width_m, points (local metres),
+    shapely geometry). Each edge: id, road, kind, width_m, facade, points (local metres),
     node_a, node_b (ids; ends at one junction on one side of one road share an id
     only through the link edges, see link_junctions)."""
     if extent_m is None:
@@ -119,8 +121,11 @@ def build_walkways(features, extent_m=None):
                     # offset_curve(+) is the left of the drawing; keep the drawing's direction.
                     if Point(pts[0]).distance(Point(part.coords[0])) > Point(pts[-1]).distance(Point(part.coords[0])):
                         pts.reverse()
+                    # Facade on the outer side of a walkway: left of the drawing for a positive
+                    # offset, right for a negative one; none for the line down the middle.
+                    facade = 0 if abs(off) < 1e-3 else (1 if off > 0 else -1)
                     edges.append({"road": p.get("cleabs") or "", "kind": kind, "width_m": round(width, 2),
-                                  "points": pts, "ja": junction_a, "jb": junction_b})
+                                  "points": pts, "ja": junction_a, "jb": junction_b, "facade": facade})
     for i, e in enumerate(edges):
         e["id"] = i
         e["node_a"] = 2 * i
@@ -158,7 +163,7 @@ def link_junctions(edges):
                     continue
                 seen.add(pair)
                 out.append({"id": len(out), "road": "", "kind": kind, "width_m": 2.0,
-                            "points": [pa, pb], "node_a": na, "node_b": nb})
+                            "points": [pa, pb], "node_a": na, "node_b": nb, "facade": 0})
     for i, e in enumerate(out):
         e["id"] = i
     merge_nodes(out)
@@ -192,10 +197,10 @@ def write(edges, out_dir, extent_cm):
     os.makedirs(out_dir, exist_ok=True)
     with open(os.path.join(out_dir, "walkways.csv"), "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
-        w.writerow(["edge_id", "road_id", "kind", "node_a", "node_b", "width_m", "points_ue_cm"])
+        w.writerow(["edge_id", "road_id", "kind", "node_a", "node_b", "width_m", "points_ue_cm", "facade_side"])
         for e in edges:
             pts = ";".join(f"{x * 100.0:.0f} {-y * 100.0:.0f}" for x, y in e["points"])
-            w.writerow([e["id"], e["road"], e["kind"], e["node_a"], e["node_b"], e["width_m"], pts])
+            w.writerow([e["id"], e["road"], e["kind"], e["node_a"], e["node_b"], e["width_m"], pts, e["facade"]])
     meta = {"edges": len(edges),
             "sidewalks": sum(1 for e in edges if e["kind"] in (KIND_SIDEWALK, KIND_PEDESTRIAN)),
             "crossings": sum(1 for e in edges if e["kind"] == KIND_CROSSING),

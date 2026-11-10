@@ -39,6 +39,7 @@ static bool Load(const char* Path, FGraph& G)
 		E.NodeA = std::atoi(F[3].c_str());
 		E.NodeB = std::atoi(F[4].c_str());
 		E.Width = std::atof(F[5].c_str()) * 100.f;
+		E.FacadeSide = F.size() > 7 ? std::atoi(F[7].c_str()) : 0;
 		std::stringstream Pts(F[6]);
 		std::string P;
 		while (std::getline(Pts, P, ';'))
