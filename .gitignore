@@ -72,3 +72,8 @@ assets/geo/processed/*/terrain/
 assets/tripo/**/*.glb
 assets/tripo/**/*.fbx
 assets/tripo/**/*.zip
+
+# Day-night and weather assets and the night lights file, generated on the Mac
+# by tools/environment (the lights come from OpenStreetMap tables, kept out of Git)
+/GranTheftPraline/Content/Environment/Weather/
+/GranTheftPraline/Content/Environment/Data/
