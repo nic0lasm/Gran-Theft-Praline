@@ -31,7 +31,7 @@ later from the Game Animation Sample or a capture.
 | Physical driving: throttle, brakes, reverse, handbrake, slides | Manual gearbox, per-player tuning |
 | Chase camera, interior view (V), look behind | Cinematic camera, bonnet camera |
 | Simple damage: dents per zone, broken glass, wreck | Fire, explosion (0.4), flat tyres, torn-off doors |
-| 1 to 3 drivable models | Traffic (0.7), 6 final vehicles (0.16) |
+| 1 to 3 drivable models; a few cars driven by non-player drivers to pull out (§8.2) | Full traffic with lights (0.9), 6 final vehicles (0.16) |
 
 ## 3. GTA-style entry and exit
 
@@ -162,6 +162,10 @@ Module `GranTheftPraline`, prefix `GTP`, branch `feat/vehicles`.
 | `AGTPPlayerController` (changed) | swaps on-foot / driving contexts on each possession; V also toggles the car's view |
 | `UGTPCameraModeComponent` (changed) | lets the car run its own camera and passes it the first / third person choice |
 | `AGTPGameMode` (changed) | `-TestVehicle` parks a car in front of the player in any level |
+| `UGTPEngineSoundComponent`, `UGTPEngineSoundWave` | engine sound synthesised from the Chaos rpm and the throttle (`GTPEngineSynth.h`), no asset |
+| `AGTPHUD` (changed) | driving panel: speed in km/h, gear, state of the car |
+| `AGTPTrafficNetwork` | driving lanes of the map, spawns and recycles cars with a non-player driver |
+| `UGTPAIDriverComponent` | drives a car along the lanes (`GTPDriveLogic.h`), stops for what is ahead |
 
 Entry flow: F key → `UGTPVehicleInteractionComponent` →
 `AGTPVehicle::BeginEnter` (character frozen at the door, window or driver
@@ -172,6 +176,41 @@ takes over.
 Settings: section `[/Script/GranTheftPraline.GTPVehicle]` of
 `Config/DefaultGame.ini` (timings, camera, damage), or per Blueprint. The
 `ChaosVehiclesPlugin` plugin is enabled in the `.uproject`.
+
+### 8.1 Engine sound and driving panel
+
+The engine is heard from a procedural sound: a train of firing pulses
+(three cylinders for the Clio V TCe: `rpm / 60 × 3 / 2` per second),
+sharper and louder under throttle, through a muffler low-pass, with intake
+noise. It follows the Chaos engine rpm, so every gear change is heard, and
+it plays while someone sits at the wheel. `tools/vehicles/engine_sound/`
+renders it outside Unreal and checks pitch, level and clicks; recorded loops
+can replace it in the sound pass (0.18).
+
+While driving, the bottom right of the screen shows the speed (km/h), the
+gear (R, N, 1-5) and a bar for the state of the car (white, amber, red);
+the action prompts move up above it.
+
+### 8.2 Cars driven by non-player characters
+
+Enough traffic to steal a car with someone inside (the full traffic with
+lights and priorities is 0.9):
+
+- `tools/city/traffic.py` builds the lanes from the BD TOPO road centre
+  lines: car roads only, directions from `sens_de_circulation`, right-hand
+  traffic, links at junctions without U-turns. With `--map <Map>` it copies
+  them to `Content/City/Traffic/<Map>.lanes.csv`, staged with the game.
+- The game mode spawns an `AGTPTrafficNetwork` when that file exists. It
+  puts `NumCars` cars (6; `-Traffic=N`, 0 = none) with a driver on the
+  lanes, at least 40 m away and out of sight, and takes away cars stuck at
+  a dead end or too far, out of sight too.
+- `UGTPAIDriverComponent` decides with `GTPDriveLogic.h`: pure pursuit
+  steering, speed from the lane limit, lowered before bends and to stop
+  4 m behind whatever is in front (cars, people). The same header runs in
+  `tools/vehicles/traffic_sim/` on the real lanes, with pass criteria.
+- Carjack: nobody gets into a car above 12 km/h; a car stops for a person
+  in front of it. The car brakes while its driver is pulled out; the
+  driver then runs 25 m away.
 
 ## 9. Making a drivable car
 
