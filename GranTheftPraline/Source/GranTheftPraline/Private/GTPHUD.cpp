@@ -2,6 +2,7 @@
 
 #include "GTPCameraModeComponent.h"
 #include "GTPInteraction.h"
+#include "GTPMinimap.h"
 #include "GTPPlayerController.h"
 #include "CanvasItem.h"
 #include "RenderUtils.h"
@@ -72,6 +73,11 @@ void AGTPHUD::DrawHUD()
 	}
 	DrawPrompts(Scale, DeltaTime);
 	DrawMessage(Scale);
+	// Bottom left; the driving panel and the prompts sit on the right (UGTPMinimapSubsystem).
+	if (UGTPMinimapSubsystem* Minimap = GetWorld() ? GetWorld()->GetSubsystem<UGTPMinimapSubsystem>() : nullptr)
+	{
+		Minimap->Draw(Canvas, PC, Scale);
+	}
 }
 
 void AGTPHUD::DrawReticle(float Scale, float Opacity)

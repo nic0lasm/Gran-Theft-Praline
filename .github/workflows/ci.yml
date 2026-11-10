@@ -51,3 +51,18 @@ jobs:
         run: python -m pytest tools/assets/tests -q
       - name: Unreal import script compiles
         run: python -m py_compile tools/assets/unreal/import_props.py
+
+  ui-core:
+    name: Interface core tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Mini-map data tool tests
+        run: python -I -m unittest discover -s tools/ui/tests
+      - name: String tables, settings and mini-map maths (C++, no Unreal)
+        run: tools/ui/tests/run_cpp_tests.sh

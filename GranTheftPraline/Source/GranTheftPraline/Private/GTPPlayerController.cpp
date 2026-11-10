@@ -5,6 +5,7 @@
 #include "GTPInteraction.h"
 #include "GTPGameInstance.h"
 #include "GTPMenuWidgets.h"
+#include "GTPUserSettings.h"
 #include "GTPVehicle.h"
 #include "GTPVehicleInput.h"
 #include "GTPVehicleInteractionComponent.h"
@@ -44,7 +45,21 @@ AGTPPlayerController::AGTPPlayerController()
 
 bool AGTPPlayerController::UsesQwerty() const
 {
-	return bQwertyKeyboard || FParse::Param(FCommandLine::Get(), TEXT("Qwerty"));
+	if (FParse::Param(FCommandLine::Get(), TEXT("Qwerty")))
+	{
+		return true;
+	}
+	// The player's choice (settings screen) comes before the project default.
+	if (const UGTPUserSettings* User = UGTPUserSettings::Find(this))
+	{
+		switch (User->Get().Keyboard)
+		{
+		case GTPUI::EKeyboardLayout::Azerty: return false;
+		case GTPUI::EKeyboardLayout::Qwerty: return true;
+		default: break;
+		}
+	}
+	return bQwertyKeyboard;
 }
 
 UGTPVehicleInput* AGTPPlayerController::GetVehicleInput()
@@ -241,7 +256,8 @@ void AGTPPlayerController::OnCameraRecenter()
 
 void AGTPPlayerController::AddYawInput(float Val)
 {
-	Super::AddYawInput(Val);
+	const UGTPUserSettings* User = UGTPUserSettings::Find(this);
+	Super::AddYawInput(User ? Val * User->Get().SensitivityMultiplier() : Val);
 	if (Val != 0.f && !IsLookInputIgnored())
 	{
 		FollowCamera->NotifyLookInput();
@@ -250,7 +266,8 @@ void AGTPPlayerController::AddYawInput(float Val)
 
 void AGTPPlayerController::AddPitchInput(float Val)
 {
-	Super::AddPitchInput(Val);
+	const UGTPUserSettings* User = UGTPUserSettings::Find(this);
+	Super::AddPitchInput(User ? Val * User->Get().SensitivityMultiplier() * (User->Get().bInvertY ? -1.f : 1.f) : Val);
 	if (Val != 0.f && !IsLookInputIgnored())
 	{
 		FollowCamera->NotifyLookInput();
@@ -288,7 +305,7 @@ void AGTPPlayerController::OnEnterExit()
 
 void AGTPPlayerController::OnToggleCameraMode()
 {
-	if (!TitleMenu && !PauseMenu)
+	if (!IsMenuOpen())
 	{
 		CameraMode->ToggleCameraMode();
 	}
@@ -304,6 +321,10 @@ void AGTPPlayerController::BeginPlay()
 	}
 	ApplyViewPitchLimits();
 	StartAmbience();
+	if (UGTPUserSettings* User = UGTPUserSettings::Find(this))
+	{
+		User->OnChanged.AddUObject(this, &AGTPPlayerController::HandleSettingsChanged);
+	}
 
 	const UGTPGameInstance* GameInstance = GetGameInstance<UGTPGameInstance>();
 	if (GameInstance && !GameInstance->HasDismissedTitle())
@@ -319,8 +340,13 @@ void AGTPPlayerController::BeginPlay()
 
 void AGTPPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	if (UGTPUserSettings* User = UGTPUserSettings::Find(this))
+	{
+		User->OnChanged.RemoveAll(this);
+	}
 	HideMenu(TitleMenu);
 	HideMenu(PauseMenu);
+	HideMenu(SettingsMenu);
 	if (Ambience)
 	{
 		Ambience->Stop();
@@ -337,7 +363,7 @@ bool AGTPPlayerController::IsPauseKey(const FKey& Key)
 bool AGTPPlayerController::InputKey(const FInputKeyEventArgs& Params)
 {
 	// Only reached while gameplay has input focus: open menus consume their own keys.
-	if (Params.Event == IE_Pressed && IsPauseKey(Params.Key) && !TitleMenu && !PauseMenu)
+	if (Params.Event == IE_Pressed && IsPauseKey(Params.Key) && !IsMenuOpen())
 	{
 		OpenPauseMenu();
 		return true;
@@ -373,6 +399,45 @@ void AGTPPlayerController::ClosePauseMenu()
 	}
 	HideMenu(PauseMenu);
 	EnterGameplayInput();
+}
+
+void AGTPPlayerController::OpenSettingsMenu()
+{
+	if (SettingsMenu || (!TitleMenu && !PauseMenu))
+	{
+		return;
+	}
+	bSettingsFromTitle = TitleMenu != nullptr;
+	HideMenu(TitleMenu);
+	HideMenu(PauseMenu);
+	SettingsMenu = CreateWidget<UGTPSettingsMenuWidget>(this, UGTPSettingsMenuWidget::StaticClass());
+	ShowMenu(SettingsMenu);
+}
+
+void AGTPPlayerController::CloseSettingsMenu()
+{
+	if (!SettingsMenu)
+	{
+		return;
+	}
+	HideMenu(SettingsMenu);
+	// Back to the menu that opened the screen, rebuilt so it shows the chosen language.
+	if (bSettingsFromTitle)
+	{
+		TitleMenu = CreateWidget<UGTPTitleMenuWidget>(this, UGTPTitleMenuWidget::StaticClass());
+		ShowMenu(TitleMenu);
+	}
+	else
+	{
+		PauseMenu = CreateWidget<UGTPPauseMenuWidget>(this, UGTPPauseMenuWidget::StaticClass());
+		ShowMenu(PauseMenu);
+	}
+}
+
+void AGTPPlayerController::HandleSettingsChanged()
+{
+	// Keyboard layout: put the matching mapping contexts back on the controlled pawn.
+	ApplyInputForPawn();
 }
 
 void AGTPPlayerController::QuitToDesktop()
