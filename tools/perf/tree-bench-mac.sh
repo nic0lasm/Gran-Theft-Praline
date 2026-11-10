@@ -25,6 +25,8 @@
 #   UE_ROOT (default /Users/Shared/Epic Games/UE_5.8), BUILDS_DIR (default <repo>/Builds)
 #   GTP_TREE_MESH, GTP_SAPLING_MESH, GTP_TREE_PATTERN (see swap_street_trees.py;
 #     default: the lightest beech or alder at least 8 m tall)
+#   BASE_ARGS game arguments of every case (default -Sky=lightfunction, as the
+#     "cumul-lf" reference of tools/perf/slot1-cumul-mac.sh)
 #   SCENARIO (default street-demo), CASES (default "bare light10 light impostor leafy")
 #   MAX_DELTA_10_MS (default 2), SKIP_PACKAGE=1 reuses a build packaged by this
 #     script (the pick step still runs, it gives -TreeSwap)
@@ -83,7 +85,7 @@ cp tools/assets/unreal/audit_meshes.py tools/city/unreal/swap_street_trees.py "$
 {
   echo "# Leafy street trees $version, $(TZ=Europe/Paris date '+%Y-%m-%d %H:%M') heure de Paris, commit $(git rev-parse --short HEAD)$( test "$dry" = 1 && echo ', DRY RUN (stubs, numbers are fake)')"
   echo
-  echo "Profile m1, scenario $scenario, ${duration} s per run. Compare runs of this pass with each other only."
+  echo "Profile m1, scenario $scenario, ${duration} s per run, every case with: ${BASE_ARGS--Sky=lightfunction}. Compare runs of this pass with each other only."
   echo
 } > "$report"
 
@@ -243,7 +245,7 @@ for c in $cases; do
     echo "- $c: skipped (light10 too expensive)" >> "$report"
     continue
   fi
-  EXTRA_ARGS="$(case_args "$c")" SCENARIOS="$scenario" DURATION="$duration" \
+  EXTRA_ARGS="${BASE_ARGS--Sky=lightfunction} $(case_args "$c")" SCENARIOS="$scenario" DURATION="$duration" \
     step "bench_$c" bench_cmd "$build_dir" "$out/$c"
   if test "$c" = "light10"; then
     b="$(p95 bare)"; l="$(p95 light10)"
