@@ -215,6 +215,15 @@ lights and priorities is 0.9):
   in front of it. The car brakes while its driver is pulled out; the
   driver then runs 25 m away.
 
+### 8.3 Falling into the Rhône
+
+`UGTPRiverRecovery` (world subsystem) binds the trigger boxes tagged `GTP_RiverRecovery` that the city generation lays on the water, and collects the `GTP_RiverExit` points placed on both embankments (`tools/city/riverside.py`). A riverbed with collision 2.5 m down keeps anything from falling out of the world.
+
+- On foot: the player floats for `SwimSeconds` (4 s), the screen fades to black and the player stands at the nearest exit point.
+- In a car: the car is drowned (wrecked, no input); after `SinkSeconds` (2.5 s) the driver is taken out with `AGTPVehicle::EjectDriverTo` and brought to the nearest exit with the same fade. A car is removed `RemoveCarSeconds` (12 s) after it fell, with its non-player driver.
+
+No water plugin and no physics volume: plain overlap events, nearly free on the M1.
+
 ## 9. Making a drivable car
 
 ### 9.1 First test car (no Tripo)
