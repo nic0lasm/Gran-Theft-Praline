@@ -280,6 +280,8 @@ def main():
             c, h = b["centre_m"], b["half_m"]
             t = spawn(unreal.TriggerBox, (c[0] * 100.0, -c[1] * 100.0, c[2] * 100.0), None, "RiverRecovery_%03d" % i, "City/Riverside")
             t.collision_component.set_editor_property("box_extent", unreal.Vector(h[0] * 100, h[1] * 100, h[2] * 100))
+            t.collision_component.set_collision_profile_name("OverlapAllDynamic")   # pawns and Chaos vehicles
+            t.collision_component.set_editor_property("generate_overlap_events", True)
             t.tags = [rec["tag_boxes"]]
         for i, e in enumerate(rec["exits"]):
             # Unreal yaw is clockwise from +X with Y south: local yaw (counter-clockwise, y north) flips.
