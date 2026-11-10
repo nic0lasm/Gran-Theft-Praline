@@ -67,7 +67,7 @@ et la charge est coupée pendant chaque changement de rapport.
 ## Réactions de la rue
 
 - Un passant renversé crie (`Voices/Hurt`). Un passant effrayé crie ou sursaute une fois sur deux, avec 0,35 s au moins entre deux cris : une foule qui fuit ne devient pas un mur de cris. Chaque voix a sa hauteur (×0,82 à ×1,28).
-- Un choc moyen ou fort diffuse `UGTPAudioWorld::OnLoudSound(lieu, rayon, cause)`, avec un rayon de 8 m (moyen) ou 20 m (fort). Les piétons y branchent `ScareAround`, qui a la même signature.
+- Un choc moyen ou fort diffuse `UGTPAudioWorld::OnLoudSound(lieu, rayon, cause)`, avec un rayon de 8 m (moyen) ou 20 m (fort). Les piétons y branchent `ScareAround` par une lambda.
 - Radio de police, en 2D et sans paroles : tonalités d'alerte puis un appel à chaque étoile gagnée, appel de fin quand la poursuite s'arrête. Entre les deux, un bavardage toutes les 7 à 16 s, plus serré avec les étoiles. Les sons d'étoile du HUD (`StarUp`, `StarDown`) partent au même moment.
 
 ## Surfaces
