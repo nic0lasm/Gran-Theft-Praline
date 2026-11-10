@@ -8,6 +8,7 @@
 #include "GTPVehicle.h"
 #include "GTPVehicleInput.h"
 #include "GTPVehicleInteractionComponent.h"
+#include "GTPWanted.h"
 #include "Blueprint/UserWidget.h"
 #include "Camera/PlayerCameraManager.h"
 #include "EnhancedInputComponent.h"
@@ -40,6 +41,7 @@ AGTPPlayerController::AGTPPlayerController()
 	FollowCamera = CreateDefaultSubobject<UGTPFollowCameraComponent>(TEXT("FollowCamera"));
 	Interaction = CreateDefaultSubobject<UGTPInteractionComponent>(TEXT("Interaction"));
 	VehicleInteraction = CreateDefaultSubobject<UGTPVehicleInteractionComponent>(TEXT("VehicleInteraction"));
+	Wanted = CreateDefaultSubobject<UGTPWantedComponent>(TEXT("Wanted"));
 }
 
 bool AGTPPlayerController::UsesQwerty() const

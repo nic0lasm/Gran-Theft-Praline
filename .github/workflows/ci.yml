@@ -51,3 +51,15 @@ jobs:
         run: python -m pytest tools/assets/tests -q
       - name: Unreal import script compiles
         run: python -m py_compile tools/assets/unreal/import_props.py
+
+  wanted-rules:
+    name: Wanted level rules
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - name: Build and run the wanted level test
+        run: |
+          g++ -O2 -std=c++17 -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/wanted_sim/wanted_test.cpp -o /tmp/wanted_test
+          /tmp/wanted_test
