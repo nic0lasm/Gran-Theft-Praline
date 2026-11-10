@@ -33,6 +33,7 @@ import math
 import os
 import sys
 import time
+import zlib
 
 import unreal
 
@@ -76,6 +77,10 @@ def set_cull(comp, family, report):
     else:
         comp.set_editor_property("ld_max_draw_distance", end)
     report.setdefault("cull_end_m", {})[family] = CULL_END_M[family]
+
+# Projecting blade signs: share of shops, width (m; height follows the 2048x464 sign texture),
+# distance of the panel centre from the facade, from the bay edge, and above the fascia centre.
+BLADE_SHARE_PCT, BLADE_W_M, BLADE_OUT_M, BLADE_EDGE_M, BLADE_ABOVE_M = 50, 1.1, 0.7, 0.3, 0.75
 
 eal = unreal.EditorAssetLibrary
 asset_tools = unreal.AssetToolsHelpers.get_asset_tools()
@@ -272,7 +277,7 @@ def main():
         counts[name] = counts.get(name, 0) + 1
 
     sign_mics = sign_materials(report)
-    signs = logos = 0
+    signs = logos = blades = 0
     for r in rows:
         name = kit_layout.module_for(r["typology"], r["kind"], r["building_id"])
         nominal = manifest["modules"][name]
@@ -306,10 +311,31 @@ def main():
         set_cull(comp, "sign", report)
         signs += 1
         logos += 1 if mic[1] else 0
+        # Projecting blade sign (enseigne drapeau) on about half the shops, at the first bay:
+        # the same texture on two back-to-back panels across the facade, above the fascia.
+        if r["sign_continued"] == "False" and zlib.crc32(r["shop_osm_id"].encode()) % 100 < BLADE_SHARE_PCT:
+            ta = (-math.sin(a), math.cos(a))                       # along the facade
+            edge = (w / 2 - BLADE_EDGE_M) * 100
+            out = BLADE_OUT_M * 100
+            for k, turn in ((-1, 90.0), (1, -90.0)):
+                bl = unreal.Vector(x + math.cos(a) * out + ta[0] * (edge + k * 0.6),
+                                   y + math.sin(a) * out + ta[1] * (edge + k * 0.6), z + (zc + BLADE_ABOVE_M) * 100)
+                blade = actor_sub.spawn_actor_from_class(unreal.StaticMeshActor, bl,
+                                                         unreal.Rotator(0.0, 0.0, yaw + yaw_offset + turn))
+                blade.set_actor_label("Blade_%s_%d" % (r["shop_osm_id"].replace("/", "_"), k))
+                blade.set_folder_path("City/Signs")
+                blade.set_actor_scale3d(unreal.Vector(BLADE_W_M, 1.0, BLADE_W_M * 464.0 / 2048.0))
+                bc = blade.static_mesh_component
+                bc.set_static_mesh(meshes["SM_Sign_Panel"])
+                bc.set_material(0, mic[0])
+                bc.set_editor_property("mobility", unreal.ComponentMobility.STATIC)
+                bc.set_editor_property("cast_shadow", False)
+                set_cull(bc, "sign", report)
+            blades += 1
 
     level_sub.save_current_level()
     report.update({"instances": counts, "instances_total": sum(counts.values()), "signs": signs,
-                   "signs_with_logo": logos})
+                   "signs_with_logo": logos, "blade_signs": blades})
     write(report, t0)
 
 

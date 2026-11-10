@@ -333,6 +333,15 @@ Les vrais logos d'enseignes ne s'affichaient pas : le plugin hors Git `Plugins/C
 pas sur le Mac (`citybrands_mounted: false`). `tools/city/unreal/mount_citybrands.sh`, lancé par
 `run_city_import.sh`, crée le plugin de contenu vide s'il manque et vérifie qu'il est ignoré par Git.
 
+**Enseignes drapeau** (`place_facades.py`) : un commerce sur deux reçoit, sur sa première travée,
+une enseigne perpendiculaire à la façade au-dessus du bandeau (1,1 m, même texture que le bandeau,
+deux panneaux dos à dos, sans ombre).
+
+**Preuve avant/après** : `tools/city/evidence/before_after.sh <builds avant> <builds après> <version>`
+lance le build « après » sur le parcours de démonstration (profil m1, le jeu se filme), puis écrit
+des images côte à côte aux mêmes instants (`compare-stills.swift`, AVFoundation, sans ffmpeg) et les
+deux résumés de temps d'image.
+
 ## Limites et suite
 
 1. **Test éditeur** : `tools/city/unreal/import_city.py` importe greybox et

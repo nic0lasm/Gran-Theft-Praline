@@ -320,6 +320,15 @@ Real shop logos did not show: the out-of-Git plugin `Plugins/CityBrands` did not
 (`citybrands_mounted: false`). `tools/city/unreal/mount_citybrands.sh`, run by
 `run_city_import.sh`, creates the empty content plugin when missing and checks Git ignores it.
 
+**Blade signs** (`place_facades.py`): every other shop gets, on its first bay, a sign
+perpendicular to the facade above the fascia (1.1 m, same texture as the fascia, two
+back-to-back panels, no shadow).
+
+**Before/after evidence**: `tools/city/evidence/before_after.sh <before builds> <after builds> <version>`
+runs the after build on the demo route (m1 profile, the game films itself), then writes
+side-by-side stills at the same times (`compare-stills.swift`, AVFoundation, no ffmpeg) and
+both frame-time summaries.
+
 ## Limits and next steps
 
 1. **Editor test**: `tools/city/unreal/import_city.py` imports the greybox and
