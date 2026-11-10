@@ -7,8 +7,8 @@ W6-05|Monument|Pedestal_Equestrian|3.5|
 W6-06|Lighting|StreetLamp_TripleLantern|4.5|
 W6-07|Lighting|StreetLamp_SingleLantern|4.0|
 W6-08|Ground|PathEdging_Gravel|2.0|
-W6-09|Park|Fence_LowHoop|3.0|
-W6-10|Ground|LawnPatch|3.0|collision=none
+W6-09|Park|Fence_LowHoop|1.2|
+W6-10|Ground|LawnPatch|3.0|collision=none,skip=procedural
 W6-11|Greenery|FlowerBed_Raised|2.5|
 W6-12|Greenery|Tree_MaturePlane|14.0|
 W6-13|Greenery|Tree_ClippedLime|8.0|
@@ -32,12 +32,12 @@ W6-30|Signage|InfoBoard_BlankMap|2.2|
 W6-31|StreetFurniture|Bollard_Chain|1.0|
 W6-32|Park|GrassHoop|1.0|
 W6-33|Ground|Paving_GranitePatch|2.0|collision=none
-W6-34|Monument|Pool_Ornamental|6.0|
+W6-34|Monument|Pool_Ornamental|3.5|
 W6-35|Ground|WaterJets_Floor|3.0|collision=none
 W6-36|Monument|Statue_SeatedBronze|2.5|
 W6-37|Monument|Column_Commemorative|8.0|
 W6-38|Monument|Steps_Handrail|3.0|
-W6-39|Monument|Wall_LowStone|4.0|
+W6-39|Monument|Wall_LowStone|1.4|
 W6-40|Utilities|Toilet_AutomaticPublic|3.0|
 W6-41|Market|Stall_Frame|3.0|
 W6-42|Market|Stall_Vegetables|3.0|
@@ -48,4 +48,4 @@ W6-46|Terrace|TableChairs_Two|1.6|
 W6-47|Mobility|BikeHoops_Row|3.0|skip=procedural
 W6-48|Lighting|Bollard_PathLight|0.9|
 W6-49|Greenery|Hedge_Boxwood|3.0|
-W6-50|Fauna|PigeonFlock|1.5|
+W6-50|Fauna|Pigeon_Single|0.33|

@@ -77,7 +77,7 @@
       "id": "W6-09",
       "slug": "low_hoop_fence",
       "name": "Low hoop fence",
-      "size_m": 3.0,
+      "size_m": 1.2,
       "family": "Park",
       "asset": "Fence_LowHoop",
       "category": "medium"
@@ -90,6 +90,7 @@
       "family": "Ground",
       "asset": "LawnPatch",
       "collision": "none",
+      "skip": "procedural",
       "category": "medium"
     },
     {
@@ -304,7 +305,7 @@
       "id": "W6-34",
       "slug": "ornamental_pool",
       "name": "Ornamental pool",
-      "size_m": 6.0,
+      "size_m": 3.5,
       "family": "Monument",
       "asset": "Pool_Ornamental",
       "category": "large"
@@ -350,10 +351,10 @@
       "id": "W6-39",
       "slug": "low_stone_wall",
       "name": "Low stone wall",
-      "size_m": 4.0,
+      "size_m": 1.4,
       "family": "Monument",
       "asset": "Wall_LowStone",
-      "category": "large"
+      "category": "medium"
     },
     {
       "id": "W6-40",
@@ -450,10 +451,10 @@
       "id": "W6-50",
       "slug": "pigeon_flock",
       "name": "Pigeon flock",
-      "size_m": 1.5,
+      "size_m": 0.33,
       "family": "Fauna",
-      "asset": "PigeonFlock",
-      "category": "medium"
+      "asset": "Pigeon_Single",
+      "category": "small"
     }
   ]
 }
