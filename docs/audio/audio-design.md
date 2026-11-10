@@ -66,7 +66,7 @@ mapped onto the real engine's, and the load is cut during each gear change.
 ## Street reactions
 
 - A person hit by a car cries out (`Voices/Hurt`). A frightened person screams or gasps half the time, with at least 0.35 s between two screams, so a fleeing crowd does not become a wall of screams. Each voice has its own pitch (×0.82 to ×1.28).
-- A medium or heavy crash broadcasts `UGTPAudioWorld::OnLoudSound(location, radius, cause)`, with a radius of 8 m (medium) or 20 m (heavy). Pedestrians bind `ScareAround` to it, which has the same signature.
+- A medium or heavy crash broadcasts `UGTPAudioWorld::OnLoudSound(location, radius, cause)`, with a radius of 8 m (medium) or 20 m (heavy). Pedestrians bind `ScareAround` to it through a lambda.
 - Police radio, 2D and without words: alert tones then a call for each star gained, a closing call when the pursuit ends. In between, chatter every 7 to 16 s, closer together with more stars. The HUD star sounds (`StarUp`, `StarDown`) play at the same time.
 
 ## Surfaces
