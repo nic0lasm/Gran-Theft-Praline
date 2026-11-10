@@ -190,7 +190,12 @@ private:
 		float StoppedTime = 0.f;
 		bool bOnLanes = false;
 		int8 LightState = -1;
+		/** Siren mode last set (EGTPSirenMode as int, -1 = never). */
+		int8 SirenState = -1;
 	};
+
+	/** Siren follows the lights: off without stars, yelp in pursuit, two-tone otherwise. */
+	void UpdateSiren(FUnit& Unit, int32 Stars, bool bPursuit);
 
 	bool SpawnUnit(const FVector& PlayerLocation);
 	bool FindSpawnPoint(const FVector& PlayerLocation, int32& OutLane, int32& OutPoint, FTransform& OutTransform) const;

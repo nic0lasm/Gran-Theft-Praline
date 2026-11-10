@@ -1,5 +1,7 @@
 #include "GTPWanted.h"
 
+#include "GTPSirenComponent.h"
+
 #include "GTPLog.h"
 #include "GTPVehicle.h"
 #include "AIController.h"
@@ -406,6 +408,18 @@ void AGTPPoliceDirector::BlinkLights(FUnit& Unit, bool bOn, bool bPhase)
 	}
 }
 
+void AGTPPoliceDirector::UpdateSiren(FUnit& Unit, int32 Stars, bool bPursuit)
+{
+	const EGTPSirenMode Mode = Stars <= 0 ? EGTPSirenMode::Off : (bPursuit ? EGTPSirenMode::Yelp : EGTPSirenMode::TwoTone);
+	if (Unit.SirenState == static_cast<int8>(Mode))
+	{
+		return;
+	}
+	Unit.SirenState = static_cast<int8>(Mode);
+	// Null when game audio is off (-Audio=0): nothing to do then.
+	UGTPSirenComponent::SetSiren(Unit.Car.Get(), Mode);
+}
+
 bool AGTPPoliceDirector::HasLineOfSight(const AGTPVehicle* Car, const AActor& Player, const FVector& Target) const
 {
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(GTPPoliceLOS), false, Car);
@@ -558,11 +572,13 @@ void AGTPPoliceDirector::Tick(float DeltaSeconds)
 			// Stolen or destroyed: no longer a unit (a wreck stays where it is).
 			Wanted->UnregisterPolice(Car);
 			BlinkLights(Unit, false, false);
+			UpdateSiren(Unit, 0, false);
 			Units.RemoveAtSwap(Index);
 			continue;
 		}
 		DriveUnit(Unit, *Wanted, *Player, DeltaSeconds);
 		BlinkLights(Unit, Stars > 0, bPhase);
+		UpdateSiren(Unit, Stars, Wanted->GetPhase() == EGTPWantedPhase::Pursuit);
 
 		const FVector View = Viewer && Viewer->PlayerCameraManager ? Viewer->PlayerCameraManager->GetCameraLocation() : Player->GetActorLocation();
 		Network->UpdateDetail(Car, static_cast<float>(FVector::Dist(View, Car->GetActorLocation())));

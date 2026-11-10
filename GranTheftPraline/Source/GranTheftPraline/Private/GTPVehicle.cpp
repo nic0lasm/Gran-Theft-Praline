@@ -2,6 +2,7 @@
 
 #include "GTPCameraModeComponent.h"
 #include "GTPLog.h"
+#include "GTPPlayerReaction.h"
 #include "GTPEngineSoundComponent.h"
 #include "GTPPlayerController.h"
 #include "GTPVehicleInput.h"
@@ -820,6 +821,11 @@ void AGTPVehicle::DoExit(bool bBailOut)
 		// Thrown sideways with part of the car's speed; the car rolls on.
 		const FVector Out = (Location - GetActorLocation()).GetSafeNormal2D();
 		Character->LaunchCharacter(Out * BailOutLaunchSpeed + CarVelocity * 0.6f + FVector(0.f, 0.f, 200.f), true, true);
+		// Stumble, fall or be thrown depending on the speed (ADR-0006), when the character reacts.
+		if (UGTPPlayerReactionComponent* Reaction = Character->FindComponentByClass<UGTPPlayerReactionComponent>())
+		{
+			Reaction->ReactToBailOut(CarVelocity);
+		}
 		if (UChaosWheeledVehicleMovementComponent* Move = GetWheeledMovement())
 		{
 			Move->SetHandbrakeInput(false);
