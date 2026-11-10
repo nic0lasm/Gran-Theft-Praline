@@ -28,6 +28,12 @@ GEN = os.path.join(REPO, "assets", "geo", "processed", ZONE, "gen", FOCUS)
 MAP = "/Game/Maps/L_City_" + "".join(p.capitalize() for p in FOCUS.split("-"))
 TRACE_UP_CM, TRACE_DOWN_CM = 300.0, 1500.0
 MAX_SNAP_CM = 250.0
+# One run per placement table: the street furniture (default) and the facade and street
+# details of tools/city/details.py (GTP_PROPS_SET=details). Each set owns its outliner folder,
+# so placing one never removes the other.
+PROPS_SET = os.environ.get("GTP_PROPS_SET", "props")
+FOLDER = "City/" + PROPS_SET.capitalize()
+CSV_NAME = PROPS_SET + "_placement.csv"
 PROPS_ROOT = "/Game/Environment/Props"   # farther than this from the LiDAR ground: keep the LiDAR height
 
 eal = unreal.EditorAssetLibrary
@@ -57,7 +63,7 @@ def ground_z(world, x, y, z):
 def hism_actor(label, mesh):
     actor = actor_sub.spawn_actor_from_class(unreal.StaticMeshActor, unreal.Vector(0, 0, 0))
     actor.set_actor_label(label)
-    actor.set_folder_path("City/Props")
+    actor.set_folder_path(FOLDER)
     root = sds.k2_gather_subobject_data_for_instance(actor)[0]
     handle, _ = sds.add_new_subobject(unreal.AddNewSubobjectParams(
         parent_handle=root, new_class=unreal.HierarchicalInstancedStaticMeshComponent))
@@ -82,15 +88,15 @@ def catalog_index():
 def main():
     t0 = time.time()
     report = {"map": MAP, "errors": [], "missing_assets": [], "instances": {}}
-    path = os.path.join(GEN, "props_placement.csv")
+    path = os.path.join(GEN, CSV_NAME)
     if not os.path.exists(path):
-        report["errors"].append("no props_placement.csv: run tools/city/props.py")
+        report["errors"].append("no %s: run tools/city/%s.py" % (CSV_NAME, PROPS_SET))
         return write(report, t0)
     with open(path, encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
     level_sub.load_level(MAP)
     for a in actor_sub.get_all_level_actors():
-        if str(a.get_folder_path()).startswith("City/Props"):
+        if str(a.get_folder_path()).startswith(FOLDER):
             actor_sub.destroy_actor(a)
     world = editor_sub.get_editor_world()
     by_id = catalog_index() if eal.does_directory_exist(PROPS_ROOT) else {}
@@ -128,7 +134,7 @@ def write(report, t0):
     report["seconds"] = round(time.time() - t0, 1)
     out = os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_saved_dir()), "CityImport")
     os.makedirs(out, exist_ok=True)
-    with open(os.path.join(out, "props_report.json"), "w") as f:
+    with open(os.path.join(out, PROPS_SET + "_report.json"), "w") as f:
         json.dump(report, f, indent=2)
     log("report: " + json.dumps({k: v for k, v in report.items() if k != "instances"}))
 

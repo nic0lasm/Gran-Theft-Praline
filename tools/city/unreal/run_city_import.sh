@@ -55,6 +55,12 @@ grep -q '"errors": \[\]' "$out/facades_report.json" || { cat "$out/facades_repor
 "$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES -ExecutePythonScript="$tmp/place_props.py"
 test -f "$out/props_report.json" || { echo "place_props.py wrote no report" >&2; exit 1; }
 
+# Facade and street details (tools/city/details.py), when the table exists: own folder City/Details.
+if test -f "$gen/details_placement.csv"; then
+  GTP_PROPS_SET=details "$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES -ExecutePythonScript="$tmp/place_props.py"
+  test -f "$out/details_report.json" || { echo "place_props.py (details) wrote no report" >&2; exit 1; }
+fi
+
 # Art bible ground and shell materials in place of the greybox one.
 "$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES -ExecutePythonScript="$tmp/apply_city_materials.py"
 grep -q '"errors": \[\]' "$out/materials_report.json" || { cat "$out/materials_report.json"; exit 1; }
