@@ -261,8 +261,10 @@ L'emprise générée s'étend vers l'est pour la boucle en voiture de la 0.3 :
 du pont et d'un bout de rive gauche (233 bâtiments BD TOPO, 378 parties, au lieu de 175 / 281).
 `tools/city/riverside.py` construit en greybox (couleurs de sommets) l'eau du Rhône (plan au
 niveau LiDAR de la surface, sans collision), le tablier du pont Lafayette (emprise Grand Lyon,
-gid 41, ~20 m × 190 m, dessus en rampe entre les deux quais, parapets) et un parapet de quai le
-long de l'eau (545 m dans la boîte, coupé sous le pont). `import_city.py` le pose s'il existe
+gid 41, ~20 m × 190 m, parapets ; l'emprise s'arrête au-dessus des bas-ports, donc chaque bout
+est prolongé dans l'axe du pont jusqu'à rejoindre la rue à moins de 12 cm, puis posé sur la
+hauteur médiane de la rue : marche mesurée de 7 cm au plus, collision active) et un parapet de
+quai le long de l'eau (519 m dans la boîte, coupé sous le pont). `import_city.py` le pose s'il existe
 (dossier City/Riverside) ; `apply_city_materials.py` y met `M_City_Shell` et `M_City_Water`.
 `build.py` garde maintenant les noms de voies `nom_collaboratif_*` et `nom_voie_ban_*` de la
 BD TOPO actuelle (les anciens `nom_1_*` n'existent plus).
