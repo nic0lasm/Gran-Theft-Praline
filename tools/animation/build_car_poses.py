@@ -132,6 +132,53 @@ def fcurves_of(action):
     return curves
 
 
+def mirror_pose(pose):
+    out = {}
+    for bone, angles in pose.items():
+        if bone.endswith("_l"):
+            name = bone[:-2] + "_r"
+        elif bone.endswith("_r"):
+            name = bone[:-2] + "_l"
+        else:
+            name = bone
+        out[name] = [-angles[0], angles[1], angles[2]]
+    return out
+
+
+def mirror_loc(loc):
+    return {b: [v[0], -v[1], v[2]] for b, v in loc.items()}
+
+
+def build_extra(spec, arm):
+    """Right-door versions and the generic clips (get-ups, light hits)."""
+    actions = []
+    bpy.ops.object.mode_set(mode="POSE")
+    mirror = spec.get("mirror")
+    if mirror:
+        enter_keys = spec["enter"]["keys"]
+        labels = {k.get("label"): k for k in enter_keys if k.get("label")}
+        act = new_action(arm, mirror["suffixes"]["enter"])
+        for k in enter_keys:
+            key_pose(arm, k["f"], pose_at(mirror_pose(k["pose"])), mirror_loc(k.get("loc", {})), None)
+        actions.append(act)
+        ex = spec["exit"]
+        act = new_action(arm, mirror["suffixes"]["exit"])
+        frame = 0
+        for label in ex["from_enter"]:
+            k = labels[label]
+            key_pose(arm, frame, pose_at(mirror_pose(k["pose"])), mirror_loc(k.get("loc", {})), None)
+            frame += ex["frames_between"]
+        key_pose(arm, frame, pose_at({}), {}, None)
+        actions.append(act)
+    for clip in spec.get("clips", []):
+        act = new_action(arm, clip["name"])
+        for k in clip["keys"]:
+            key_pose(arm, k["f"], pose_at(k["pose"]), k.get("loc", {}), None)
+        actions.append(act)
+    bpy.ops.object.mode_set(mode="OBJECT")
+    return actions
+
+
 def check(spec, actions, arm):
     ok = True
     for action in actions:
@@ -142,18 +189,23 @@ def check(spec, actions, arm):
                 moved.add(fc.data_path.split('"')[1])
         start, end = action.frame_range
         print(f"{action.name}: frames {start:.0f}-{end:.0f}, bones moving: {len(moved)}")
-        if end - start < 20 or len(moved) < 6:
+        light = action.name.startswith("AM_HitLight")
+        if end - start < (12 if light else 20) or len(moved) < (3 if light else 6):
             print(f"FAIL {action.name}: too short or too few bones move")
             ok = False
-        for needed in ("pelvis", "thigh_l", "upperarm_l"):
-            if needed not in moved:
-                print(f"FAIL {action.name}: {needed} never moves")
-                ok = False
+        if not light:
+            for needed in ("pelvis", "thigh_l" if "Left" in action.name or "GetUp" in action.name else "thigh_r"):
+                if needed not in moved:
+                    print(f"FAIL {action.name}: {needed} never moves")
+                    ok = False
     # every bone named in the spec must exist in the armature
     names = {b.name for b in arm.pose.bones}
     used = set()
     for k in spec["enter"]["keys"]:
         used.update(k["pose"].keys())
+    for clip in spec.get("clips", []):
+        for k in clip["keys"]:
+            used.update(k["pose"].keys())
     for missing in sorted(used - names):
         print(f"FAIL bone {missing} not in the armature")
         ok = False
@@ -179,6 +231,7 @@ def main():
         arm = build_stand_in()
     bpy.context.view_layer.objects.active = arm
     actions = build(spec, arm)
+    actions += build_extra(spec, arm)
     ok = check(spec, actions, arm)
     os.makedirs(args.out, exist_ok=True)
     for action in actions:

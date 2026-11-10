@@ -18,3 +18,14 @@ Les valeurs sont un premier jet : à regarder sur le vrai mannequin dans Blender
 à régler dans le JSON (sans toucher au code). Puis importer les FBX dans Unreal et
 les affecter à `EnterMontage` et `ExitMontage` de `AGTPVehicle` ; la porte de
 droite est le miroir de la gauche.
+
+## Aussi posées depuis le même fichier
+
+`AM_EnterCar_Right` / `AM_ExitCar_Right` (miroir de la porte gauche : côtés échangés,
+torsion inversée), `AM_GetUp_FaceUp` (2,2 s) et `AM_GetUp_FaceDown` (2,4 s) pour
+`GetUpFaceUp` / `GetUpFaceDown` de `UGTPRagdollComponent`, et quatre réactions
+légères `AM_HitLight_Front/Back/Left/Right` (réflexes de 0,6 s, pour une bousculade).
+Tout est un premier jet à régler à l'œil ; la règle du miroir surtout doit être
+vérifiée sur le vrai mannequin. Les relevés partent de la pose couchée de la
+dernière image du ragdoll : sans fondu depuis un instantané de pose, ils sautent à la
+première clé.
