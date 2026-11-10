@@ -15,6 +15,7 @@
 #include "EngineUtils.h"
 #include "GameFramework/Actor.h"
 #include "GTPGraphicsProfile.h"
+#include "GTPLog.h"
 #include "HAL/IConsoleManager.h"
 #include "Kismet/GameplayStatics.h"
 #include "Materials/MaterialInstanceDynamic.h"
@@ -26,12 +27,6 @@
 #include "Misc/Parse.h"
 #include "Misc/Paths.h"
 
-#if __has_include("GTPLog.h")
-#include "GTPLog.h"
-#endif
-#ifndef GTP_TRACE
-#define GTP_TRACE(CategoryName, Format, ...) UE_LOG(CategoryName, Log, Format, ##__VA_ARGS__)
-#endif
 
 DEFINE_LOG_CATEGORY_STATIC(LogGTPEnvironment, Log, All);
 
