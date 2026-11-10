@@ -91,10 +91,15 @@ Six états qui se fondent en 60 s ; la météo automatique en tire un toutes les
 | Fog | 0,7 | 0,35 | 0,12 | 0 | −1,5 | 1 |
 
 - **Sol mouillé** : `Wetness` monte avec la pluie (≈ 40 s à pluie 1) et
-  sèche en ≈ 7 min ; `Puddles` suit au-delà de 0,55. Les matériaux de rue
-  (`M_City_Ground`, `M_City_Shell`, `M_City_Kit`, `M_Master_Surface`)
-  s'assombrissent (× 0,55) et deviennent brillants (rugosité 0,12), moins sur
-  les murs ; flaques sur le sol plat (rugosité 0,03, bruit de 6 m).
+  sèche en ≈ 7 min ; `Puddles` suit au-delà de 0,55. Les générateurs de
+  matériaux (ville, import des props, habillage) appellent
+  `tools/environment/unreal/gtp_weather.py` `add_weather(mat, rôles)` en fin
+  de graphe : albédo assombri (× 0,55) et rugosité 0,12 avec `Wetness`
+  (moins sur les murs), flaques sur le sol plat (rugosité 0,03, bruit de
+  6 m), émissif × `EmissiveScale`. Le mouillé survit ainsi aux régénérations.
+  En attendant, `GTP_ENV_WET=on` applique les mêmes nœuds aux matériaux
+  existants (`M_City_Ground`, `M_City_Shell`, `M_City_Kit`,
+  `M_Master_Surface`, `M_Sign_Fascia`), une seule fois par matériau.
 - **Pluie** : cylindre translucide éclairé de 24 m autour de la caméra, deux
   couches de traînées qui défilent, opacité × `RainIntensity`, fondu de
   profondeur.
@@ -115,7 +120,7 @@ Console (hors Shipping) : `gtp.Time 18.25`, `gtp.Date 2026-06-21`,
 
 1. `tools/environment/setup-environment-mac.sh` (après l'import de la ville) :
    fichier des lumières, `MPC_Environment`, textures procédurales, pluie,
-   matériaux mouillés. Rapport `Saved/Environment/setup_report.json`, avec
+   matériaux mouillés seulement avec `GTP_ENV_WET=on`. Rapport `Saved/Environment/setup_report.json`, avec
    les paramètres du matériau de nuages à reporter dans
    `CloudCoverageParameters`.
 2. Compiler et packager (`tools/build/package-mac.sh`).

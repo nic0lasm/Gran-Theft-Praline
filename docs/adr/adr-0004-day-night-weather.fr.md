@@ -50,8 +50,8 @@ M1 est tendu (ADR-0002) et MegaLights n'existe pas sur le Mac.
 - Positif : toutes les maps de rue profitent du cycle sans édition ; chaque
   ambiance se reproduit et se mesure par la ligne de commande ; le coût de la
   nuit est plafonné par le budget de lumières.
-- Négatif : les matériaux de rue sont modifiés par un script après chaque
-  régénération de la ville ; les lumières suivent les positions
+- Négatif : chaque générateur de matériaux doit appeler `add_weather()`
+  (`tools/environment/unreal/gtp_weather.py`) ; les lumières suivent les positions
   OpenStreetMap (fichier hors Git) ; la pluie est une couche simple sans
   éclaboussures.
 - Les fils ville et réalisme rue multiplient leurs émissifs par

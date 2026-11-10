@@ -46,8 +46,8 @@ the Mac.
 - Positive: every street map gets the cycle without editing; each ambience
   is reproduced and measured from the command line; the cost of the night is
   capped by the light budget.
-- Negative: the street materials are patched by a script after each city
-  regeneration; the lights follow OpenStreetMap positions (file kept out of
+- Negative: every material generator has to call `add_weather()`
+  (`tools/environment/unreal/gtp_weather.py`); the lights follow OpenStreetMap positions (file kept out of
   Git); the rain is a simple layer without splashes.
 - The city and street dressing work multiply their emissives by
   `EmissiveScale`; the M1 profile cvars stay with the optimisation work.

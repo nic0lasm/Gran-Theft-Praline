@@ -89,10 +89,15 @@ hours, weighted for a Lyon autumn.
 | Fog | 0.7 | 0.35 | 0.12 | 0 | −1.5 | 1 |
 
 - **Wet ground**: `Wetness` rises with the rain (about 40 s at rain 1) and
-  dries in about 7 min; `Puddles` follows above 0.55. The street materials
-  (`M_City_Ground`, `M_City_Shell`, `M_City_Kit`, `M_Master_Surface`) get
-  darker (× 0.55) and glossy (roughness 0.12), less on walls; puddles on
-  flat ground (roughness 0.03, 6 m noise).
+  dries in about 7 min; `Puddles` follows above 0.55. The material
+  generators (city, prop import, street dressing) call
+  `tools/environment/unreal/gtp_weather.py` `add_weather(mat, roles)` at the
+  end of their graph: albedo darker (× 0.55) and roughness 0.12 with
+  `Wetness` (less on walls), puddles on flat ground (roughness 0.03, 6 m
+  noise), emissive × `EmissiveScale`. The wet look thus survives every
+  regeneration. Until then, `GTP_ENV_WET=on` adds the same nodes to the
+  existing materials (`M_City_Ground`, `M_City_Shell`, `M_City_Kit`,
+  `M_Master_Surface`, `M_Sign_Fascia`), once per material.
 - **Rain**: a lit translucent cylinder of 24 m around the camera, two layers
   of scrolling streaks, opacity × `RainIntensity`, depth fade.
 - **Saone mist**: six local fog volumes along the Presqu'ile quays
@@ -111,7 +116,7 @@ Console (not in Shipping): `gtp.Time 18.25`, `gtp.Date 2026-06-21`,
 ## 7. Setup on the Mac and measurement
 
 1. `tools/environment/setup-environment-mac.sh` (after the city import): the
-   lights file, `MPC_Environment`, procedural textures, rain, wet materials.
+   lights file, `MPC_Environment`, procedural textures, rain, wet materials only with `GTP_ENV_WET=on`.
    Report `Saved/Environment/setup_report.json`, with the cloud material
    parameters to copy into `CloudCoverageParameters`.
 2. Build and package (`tools/build/package-mac.sh`).
