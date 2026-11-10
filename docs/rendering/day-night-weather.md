@@ -2,7 +2,7 @@
 
 *French version: [day-night-weather.fr.md](day-night-weather.fr.md)*
 
-Decision: [ADR-0004](../adr/adr-0004-day-night-weather.md). Art values:
+Decision: [ADR-0008](../adr/adr-0008-day-night-weather.md). Art values:
 [art bible](../art/art-bible.md), sections 3 and 9. Budget:
 [ADR-0002](../adr/adr-0002-performance-budget.md).
 

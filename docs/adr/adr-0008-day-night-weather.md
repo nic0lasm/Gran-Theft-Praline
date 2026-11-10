@@ -1,6 +1,6 @@
-# ADR-0004: Code-driven day-night cycle and weather
+# ADR-0008: Code-driven day-night cycle and weather
 
-*French version: [adr-0004-day-night-weather.fr.md](adr-0004-day-night-weather.fr.md)*
+*French version: [adr-0008-day-night-weather.fr.md](adr-0008-day-night-weather.fr.md)*
 
 ## Status
 

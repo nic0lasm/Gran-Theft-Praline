@@ -9,7 +9,7 @@ Proposed. Becomes Accepted once the reference street scene
 passes on the development MacBook Pro (M1 Pro).
 The rue de la République passed in version 0.2 (600 s, m1 profile, p95
 40.3 ms); the last open point, golden hour and night exposure, is handled by
-[ADR-0004](adr-0004-day-night-weather.md) and its ambience measurements.
+[ADR-0008](adr-0008-day-night-weather.md) and its ambience measurements.
 
 ## Date
 

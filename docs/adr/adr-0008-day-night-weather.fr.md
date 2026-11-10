@@ -1,6 +1,6 @@
-# ADR-0004 : Cycle jour/nuit et météo pilotés par code
+# ADR-0008 : Cycle jour/nuit et météo pilotés par code
 
-*Version anglaise : [adr-0004-day-night-weather.md](adr-0004-day-night-weather.md)*
+*Version anglaise : [adr-0008-day-night-weather.md](adr-0008-day-night-weather.md)*
 
 ## Statut
 
