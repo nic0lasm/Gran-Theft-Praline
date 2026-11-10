@@ -60,3 +60,20 @@ plus `GTP_MassKg=<n>`. Fixed props get no tag. At run time `UGTPBreakableSubsyst
 hit instance for a physics actor (thresholds: toppleable from 3 km/h; breakable above 400 J +
 20 J/kg). A broken mesh can be named with a `GTP_BrokenMesh=<path>` tag. The map stays
 replayable by script.
+
+## Broken meshes
+
+`tools/assets/make_broken.py` (geometry in `tools/assets/gtp_assets/broken.py`) writes the
+broken variants into the staging folder, after `prepare_props.py`. They keep the UVs and
+material slots, so the same material instances:
+
+| Items | Variant | What it is |
+| ---- | ---- | ---- |
+| W1-04, W8-01, W8-02, W1-13, W1-27 | `Stump` + `Top` | Torn off at the base (cut at 0.12-0.35 m, ragged top): the stump stays, the top falls |
+| W8-05 to W8-17, W1-57, W1-12 | `Bent` | Pole bent 48° from 0.4 m (hoop: 32° from 0.1 m), gradual knee over 25 cm |
+
+`import_props.py` imports them as `SM_<Asset>_Stump`, `_Top` or `_Bent` next to `SM_<Asset>_A`,
+tagged `BrokenOf` (never `CatalogId`). `place_props.py` adds to the matching components
+`GTP_BrokenMesh=<path>` (the stump or bent pole, which stays in place) and
+`GTP_BrokenTopMesh=<path>` (the falling part). W1-09 bollards stay fixed and bins topple
+whole: neither has a broken version.

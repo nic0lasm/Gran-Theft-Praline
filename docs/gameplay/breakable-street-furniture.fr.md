@@ -61,3 +61,20 @@ classe, masse) et tague chaque composant HISM concerné : `GTP_Breakable_R` ou
 `UGTPBreakableSubsystem` remplace l'instance touchée par un acteur physique (seuils : renversable
 dès 3 km/h ; cassable au-delà de 400 J + 20 J/kg). Une version cassée du maillage pourra être
 désignée par le tag `GTP_BrokenMesh=<chemin>`. La carte reste rejouable par script.
+
+## Versions cassées des maillages
+
+`tools/assets/make_broken.py` (géométrie dans `tools/assets/gtp_assets/broken.py`) écrit les
+variantes cassées dans le dossier de préparation, après `prepare_props.py`. Elles gardent les UV
+et les emplacements de matériau, donc les mêmes instances de matériau :
+
+| Objets | Variante | Ce que c'est |
+| ---- | ---- | ---- |
+| W1-04, W8-01, W8-02, W1-13, W1-27 | `Stump` + `Top` | Arraché à la base (coupe à 0,12-0,35 m, dessus déchiqueté) : le moignon reste, le haut tombe |
+| W8-05 à W8-17, W1-57, W1-12 | `Bent` | Mât plié à 48° à partir de 0,4 m (arceau : 32° à partir de 0,1 m), genou progressif sur 25 cm |
+
+`import_props.py` les importe en `SM_<Asset>_Stump`, `_Top` ou `_Bent` à côté de `SM_<Asset>_A`,
+avec le tag `BrokenOf` (jamais `CatalogId`). `place_props.py` ajoute aux composants concernés
+`GTP_BrokenMesh=<chemin>` (moignon ou mât plié, qui reste en place) et `GTP_BrokenTopMesh=<chemin>`
+(la partie qui tombe). Les potelets W1-09 restent fixes et les poubelles se renversent entières :
+ni les uns ni les autres n'ont de version cassée.
