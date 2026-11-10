@@ -1,6 +1,7 @@
 #include "GTPMinimap.h"
 
 #include "GTPLocalization.h"
+#include "GTPLog.h"
 #include "GTPPlayerController.h"
 #include "GTPUserSettings.h"
 #include "CanvasItem.h"
@@ -97,6 +98,10 @@ bool UGTPMinimapSubsystem::IsDisabledOnCommandLine()
 
 bool UGTPMinimapSubsystem::ShouldCreateSubsystem(UObject* Outer) const
 {
+	if (IsDisabledOnCommandLine() && Cast<UWorld>(Outer) && Cast<UWorld>(Outer)->IsGameWorld())
+	{
+		GTP_TRACE(LogGTPMinimap, TEXT("minimap: off (-Minimap=0)"));
+	}
 	// Game worlds only: no mini-map in editor preview worlds or on a dedicated server.
 	const UWorld* World = Cast<UWorld>(Outer);
 	return World && World->IsGameWorld() && !IsRunningDedicatedServer() && !IsDisabledOnCommandLine() && Super::ShouldCreateSubsystem(Outer);
@@ -120,13 +125,13 @@ void UGTPMinimapSubsystem::LoadData()
 	FString Text;
 	if (!FFileHelper::LoadFileToString(Text, *Path))
 	{
-		UE_LOG(LogGTPMinimap, Log, TEXT("No mini-map data for %s (%s): the mini-map stays hidden. Run tools/ui/minimap.py --map %s"),
+		GTP_TRACE(LogGTPMinimap, TEXT("minimap: on but no data for %s (%s): the mini-map stays hidden. Run tools/ui/minimap.py --map %s"),
 			*MapName, *Path, *MapName);
 		return;
 	}
 	const FTCHARToUTF8 Utf8(*Text);
 	const int32 Kept = Data.ParseCsv(std::string_view(Utf8.Get(), static_cast<size_t>(Utf8.Length())));
-	UE_LOG(LogGTPMinimap, Log, TEXT("Mini-map: %d polylines from %s"), Kept, *Path);
+	GTP_TRACE(LogGTPMinimap, TEXT("minimap: on (%d polylines from %s)"), Kept, *Path);
 }
 
 void UGTPMinimapSubsystem::AddBlip(AActor* Actor, const FLinearColor& Color, bool bClampToEdge)
