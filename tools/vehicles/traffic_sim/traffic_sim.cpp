@@ -2,8 +2,9 @@
 // with a kinematic bicycle model close to the city car tuning, and reports how
 // well they keep to their lane, how fast they go and how often they touch.
 // Build: g++ -O2 -std=c++17 -I ../../../GranTheftPraline/Source/GranTheftPraline/Public traffic_sim.cpp -o traffic_sim
-// Run:   ./traffic_sim lanes.csv [cars] [seconds]   (exit code 1 when a criterion fails)
+// Run:   ./traffic_sim lanes.csv [cars] [seconds] [lights 0|1]   (exit code 1 when a criterion fails)
 #include "GTPDriveLogic.h"
+#include "GTPTrafficLights.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -31,6 +32,15 @@ struct Car
 	std::vector<FGTPDrivePoint> Path;
 	int LaneLength = 0;
 };
+
+/** Length along Points from index A to index B (A <= B). */
+static float PathLength(const std::vector<FGTPDrivePoint>& Points, int A, int B)
+{
+	float L = 0.f;
+	for (int K = std::max(A, 0); K < B && K + 1 < static_cast<int>(Points.size()); ++K)
+		L += std::hypot(Points[K + 1].X - Points[K].X, Points[K + 1].Y - Points[K].Y);
+	return L;
+}
 
 static std::vector<std::string> Split(const std::string& S, char Sep)
 {
@@ -71,6 +81,9 @@ int main(int Argc, char** Argv)
 	if (Argc < 2) { std::fprintf(stderr, "usage: traffic_sim lanes.csv [cars] [seconds]\n"); return 2; }
 	const int NumCars = Argc > 2 ? std::atoi(Argv[2]) : 12;
 	const float Duration = Argc > 3 ? static_cast<float>(std::atof(Argv[3])) : 300.f;
+	const bool bLights = Argc > 4 ? std::atoi(Argv[4]) != 0 : true;
+	// Same as AGTPTrafficNetwork::StuckSeconds: longer than a red light plus its queue.
+	const float StuckSeconds = 35.f;
 
 	std::vector<Lane> Lanes;
 	std::ifstream File(Argv[1]);
@@ -130,6 +143,18 @@ int main(int Argc, char** Argv)
 	};
 	int Respawns = 0;
 	FGTPJunctionTable JunctionTable;
+	FGTPTrafficLights Lights;
+	if (bLights)
+	{
+		for (int Index = 0; Index < static_cast<int>(Lanes.size()); ++Index)
+		{
+			const auto& P = Lanes[Index].Points;
+			if (P.size() >= 2)
+				Lights.AddApproach(Index, Lanes[Index].ToJunction, std::atan2(P.back().Y - P[P.size() - 2].Y, P.back().X - P[P.size() - 2].X));
+		}
+	}
+	Lights.Build(FGTPLightTimings());
+	int RedRuns = 0;
 	auto Spawn = [&](Car& C, int LaneIndex, int PointIndex) {
 		C.LaneIndex = LaneIndex;
 		const auto& P = Lanes[LaneIndex].Points;
@@ -166,8 +191,30 @@ int main(int Argc, char** Argv)
 					if (Obstacle < 0 || Gap < Obstacle) Obstacle = std::max(0.f, Gap);
 				}
 			}
+			// Cars on our own lane or the next one, measured along the lanes: on a bend
+			// the straight look-ahead above misses a queue waiting at a light.
+			for (int J = 0; J < NumCars; ++J)
+			{
+				if (J == I) continue;
+				const Car& O = Cars[J];
+				float Along = -1.f;
+				if (O.LaneIndex == C.LaneIndex && O.Closest > C.Closest)
+					Along = PathLength(Lanes[C.LaneIndex].Points, C.Closest, O.Closest);
+				else if (C.Route.size() > 1 && O.LaneIndex == C.Route[1])
+					Along = PathLength(Lanes[C.LaneIndex].Points, C.Closest, static_cast<int>(Lanes[C.LaneIndex].Points.size()) - 1)
+						+ PathLength(Lanes[O.LaneIndex].Points, 0, O.Closest);
+				if (Along >= 0.f && Along < 40.f)
+				{
+					const float Gap = std::max(0.f, Along - 4.2f);
+					if (Obstacle < 0 || Gap < Obstacle) Obstacle = Gap;
+				}
+			}
 			const Lane& Current = Lanes[C.LaneIndex];
-			const float StopLine = C.Junctions.Update(JunctionTable, I, Current.ToJunction, Current.Points.back(), C.X, C.Y, C.V, S.ComfortDecel, Stopped[I]);
+			// A red light first: a car waiting at it does not claim the junction.
+			const float ToEnd = std::hypot(Current.Points.back().X - C.X, Current.Points.back().Y - C.Y);
+			const float LightStop = Lights.StopDistance(C.LaneIndex, T, ToEnd, C.V, S.ComfortDecel);
+			if (LightStop >= 0.f && (Obstacle < 0.f || LightStop < Obstacle)) Obstacle = LightStop;
+			const float StopLine = C.Junctions.Update(JunctionTable, I, LightStop >= 0.f ? -1 : Current.ToJunction, Current.Points.back(), C.X, C.Y, C.V, S.ComfortDecel, Stopped[I]);
 			if (StopLine >= 0.f && (Obstacle < 0.f || StopLine < Obstacle)) Obstacle = StopLine;
 			const FGTPDriveCommand Cmd = GTPDrive::Decide(C.Path, C.X, C.Y, C.Yaw, C.V, Lanes[C.LaneIndex].Speed, Obstacle, S, C.Closest);
 			const float Accel = Cmd.Throttle * MaxAccel - Cmd.Brake * MaxDecel - 0.2f;
@@ -187,11 +234,13 @@ int main(int Argc, char** Argv)
 
 			Stopped[I] = C.V < 0.3f ? Stopped[I] + Dt : 0.f;
 			bool bStuck = false;
-			if (Stopped[I] > 20.f) { ++StuckEvents; Stopped[I] = 0; bStuck = true; }
+			if (Stopped[I] > StuckSeconds) { ++StuckEvents; Stopped[I] = 0; bStuck = true; }
 
 			// Into the next lane: shift the path.
 			if (C.Closest >= C.LaneLength && C.NextLane >= 0)
 			{
+				// Crossed the line on red (amber is allowed when too close to stop).
+				if (Lights.LightFor(C.LaneIndex, T) == EGTPLight::Red) ++RedRuns;
 				C.Closest -= C.LaneLength;
 				C.Route.erase(C.Route.begin());
 				C.LaneIndex = C.NextLane;
@@ -221,12 +270,13 @@ int main(int Argc, char** Argv)
 	std::sort(CrossTrack.begin(), CrossTrack.end());
 	const float P50 = CrossTrack[CrossTrack.size() / 2], P95 = CrossTrack[CrossTrack.size() * 95 / 100], P99 = CrossTrack[CrossTrack.size() * 99 / 100];
 	const float MeanKmh = static_cast<float>(SpeedSum / SpeedCount * 3.6);
-	std::printf("cars %d, %.0f s: lane offset p50 %.2f m, p95 %.2f m, p99 %.2f m; mean speed %.1f km/h; touching frames %d; stuck 20 s %d; respawns %d\n",
-		NumCars, Duration, P50, P95, P99, MeanKmh, Touches, StuckEvents, Respawns);
+	std::printf("lights: %d signalled junctions, red lights run %d\n", Lights.NumSignalledJunctions(), RedRuns);
+	std::printf("cars %d, %.0f s: lane offset p50 %.2f m, p95 %.2f m, p99 %.2f m; mean speed %.1f km/h; touching frames %d; stuck %.0f s %d; respawns %d\n",
+		NumCars, Duration, P50, P95, P99, MeanKmh, Touches, StuckSeconds, StuckEvents, Respawns);
 	// Lanes are about 3 m wide: 95 % of the time within half a lane. The worst 1 % is at
 	// junction corners, measured against the straight jump between two lane ends (no
 	// drawn curve there yet): under 4 m. No contact at all, few cars stuck.
-	bool Ok = P95 < 1.5f && P99 < 4.0f && MeanKmh > 12.f && StuckEvents <= NumCars / 4 && Touches == 0;
+	bool Ok = P95 < 1.5f && P99 < 4.0f && MeanKmh > (bLights ? 10.f : 12.f) && StuckEvents <= NumCars / 4 && Touches == 0;
 	std::printf(Ok ? "PASS\n" : "FAIL\n");
 	return Ok ? 0 : 1;
 }
