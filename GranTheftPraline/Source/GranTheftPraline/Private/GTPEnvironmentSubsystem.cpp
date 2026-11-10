@@ -546,15 +546,15 @@ void UGTPEnvironmentSubsystem::ApplyBudgetForProfile(UWorld& World)
 	Budget.Profile = Profile;
 
 	// -CloudDome=1 forces the 2D cloud fallback (measurements), -CloudDome=0 forbids it.
-	int32 CloudDome = -1;
-	if (FParse::Value(FCommandLine::Get(), TEXT("CloudDome="), CloudDome) && CloudDome >= 0)
+	int32 CloudDomeFlag = -1;
+	if (FParse::Value(FCommandLine::Get(), TEXT("CloudDome="), CloudDomeFlag) && CloudDomeFlag >= 0)
 	{
-		Budget.bCloudDome = CloudDome != 0;
+		Budget.bCloudDome = CloudDomeFlag != 0;
 	}
-	int32 CloudShadows = -1;
-	if (FParse::Value(FCommandLine::Get(), TEXT("CloudShadows="), CloudShadows) && CloudShadows >= 0)
+	int32 CloudShadowsFlag = -1;
+	if (FParse::Value(FCommandLine::Get(), TEXT("CloudShadows="), CloudShadowsFlag) && CloudShadowsFlag >= 0)
 	{
-		Budget.bCloudShadows = CloudShadows != 0;
+		Budget.bCloudShadows = CloudShadowsFlag != 0;
 	}
 }
 
