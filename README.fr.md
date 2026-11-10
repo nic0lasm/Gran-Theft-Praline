@@ -15,8 +15,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/nic0lasm/Gran-Theft-Praline/releases/tag/v0.2.0"><img alt="Télécharger la 0.2" src="https://img.shields.io/badge/t%C3%A9l%C3%A9charger-0.2%20pour%20macOS-success?logo=apple"></a>
-  <img alt="0.3 en cours" src="https://img.shields.io/badge/prochaine-0.3%20Au%20volant-orange">
+  <a href="https://github.com/nic0lasm/Gran-Theft-Praline/releases/tag/v0.3.0"><img alt="Télécharger la 0.3.0" src="https://img.shields.io/badge/t%C3%A9l%C3%A9charger-0.3.0%20pour%20macOS-success?logo=apple"></a>
+  <img alt="0.4 en cours" src="https://img.shields.io/badge/prochaine-0.4%20La%20rue%20vivante-orange">
   <a href="https://github.com/nic0lasm/Gran-Theft-Praline/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/nic0lasm/Gran-Theft-Praline/actions/workflows/ci.yml/badge.svg?branch=main"></a>
   <img alt="Unreal Engine 5.8" src="https://img.shields.io/badge/Unreal%20Engine-5.8-0e1128?logo=unrealengine">
   <a href="LICENSE"><img alt="Licence : MIT" src="https://img.shields.io/badge/licence-MIT-blue.svg"></a>
@@ -97,14 +97,17 @@ profil de qualité **M1** du quotidien. Aucune retouche.
 
 ## Jouer en un clic
 
-**[⬇️ Télécharger la version 0.2 « La rue habillée » pour macOS](https://github.com/nic0lasm/Gran-Theft-Praline/releases/tag/v0.2.0)**
+**[⬇️ Télécharger la version 0.3.0 « Au volant » pour macOS](https://github.com/nic0lasm/Gran-Theft-Praline/releases/tag/v0.3.0)**
 (Mac Apple Silicon, sortie le 10 novembre 2026).
 
-La rue de la République reconstruite d'après le LiDAR de l'IGN, avec ses
-façades en pierre, ses devantures à leurs vrais noms, son mobilier urbain et
-ses platanes, et une voiture dans laquelle monter pour conduire. Mesuré sur
-10 minutes sur un M1 Pro : image médiane 29,9 ms (environ 33 i/s), 95 % des
-images sous 40,3 ms.
+Voler une voiture et traverser la circulation de la rue de la République
+jusqu'au quai du Rhône et au pont Lafayette. Cette version donne aussi en
+avant-première les systèmes des versions 0.4 à 0.6 : feux tricolores,
+piétons, ragdolls, police et étoiles de recherche, mini-carte et carte
+complète, réglages sauvegardés, jour, nuit et météo, et le son de la rue.
+Mesuré sur 330 s de conduite sur un M1 Pro, tout activé : image médiane
+33,9 ms (environ 30 i/s), 95 % des images sous 44,5 ms.
+[Notes de version](docs/releases/0.3.fr.md).
 
 L'application n'est pas encore signée par Apple : les notes de version
 expliquent comment l'ouvrir la première fois. On peut aussi
@@ -139,21 +142,12 @@ Tous les détails : [personnage](docs/gameplay/player-character.fr.md),
 | :--: | ---- | ---- | ---- |
 | ✅ | **0.1** Jouer en un clic | lancer le jeu et marcher rue de la République | sortie le 9 nov. 2026 |
 | ✅ | **0.2** La rue habillée | flâner dans une rue fidèle et habillée, sur un portable M1 | sortie le 10 nov. 2026 |
-| 🟡 | **0.3** Au volant | voler une voiture et traverser la circulation jusqu'au quai du Rhône et au pont Lafayette | en cours |
+| ✅ | **0.3** Au volant | voler une voiture et traverser la circulation jusqu'au quai du Rhône et au pont Lafayette | sortie le 10 nov. 2026 |
 
-La version 0.3 est en train d'être finalisée : trois voitures pilotables
-(Clio V, 208 II, Kangoo II) dans lesquelles on monte, dont on casse la vitre
-ou dont on sort le conducteur, une circulation de PNJ sur des voies tirées
-des données routières de l'IGN, un son de moteur procédural, la carte
-étendue au quai du Rhône et au pont Lafayette, et un retour sur le quai si on
-tombe dans le fleuve. Elle sort quand le portable M1 garde 95 % des images
-sous 42 ms avec la circulation. Défauts connus : la voiture de démonstration
-monte parfois sur le trottoir, et le quai et le pont n'ont pas encore été
-filmés.
-
-Déjà en construction en parallèle pour les versions suivantes : des piétons
-qui réagissent, des ragdolls, la police et ses étoiles de recherche, une
-mini-carte, le jour, la nuit et la pluie, et le son de la rue.
+La version 0.3.0 est sortie, avec en avant-première les systèmes des
+versions suivantes. Prochaine étape, la 0.4 « La rue vivante » : finir les
+piétons, les feux, les ragdolls et le mobilier cassable, et regagner le
+temps d'image qu'il faut pour garder 95 % des images sous 42 ms sur le M1.
 
 ## Feuille de route
 

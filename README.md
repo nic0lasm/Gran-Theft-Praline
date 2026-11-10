@@ -15,8 +15,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/nic0lasm/Gran-Theft-Praline/releases/tag/v0.2.0"><img alt="Download 0.2" src="https://img.shields.io/badge/download-0.2%20for%20macOS-success?logo=apple"></a>
-  <img alt="0.3 in progress" src="https://img.shields.io/badge/next-0.3%20Behind%20the%20wheel-orange">
+  <a href="https://github.com/nic0lasm/Gran-Theft-Praline/releases/tag/v0.3.0"><img alt="Download 0.3.0" src="https://img.shields.io/badge/download-0.3.0%20for%20macOS-success?logo=apple"></a>
+  <img alt="0.4 in progress" src="https://img.shields.io/badge/next-0.4%20The%20living%20street-orange">
   <a href="https://github.com/nic0lasm/Gran-Theft-Praline/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/nic0lasm/Gran-Theft-Praline/actions/workflows/ci.yml/badge.svg?branch=main"></a>
   <img alt="Unreal Engine 5.8" src="https://img.shields.io/badge/Unreal%20Engine-5.8-0e1128?logo=unrealengine">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
@@ -95,13 +95,16 @@ quality profile. Nothing is retouched.
 
 ## Play in one click
 
-**[⬇️ Download version 0.2 "The dressed street" for macOS](https://github.com/nic0lasm/Gran-Theft-Praline/releases/tag/v0.2.0)**
+**[⬇️ Download version 0.3.0 "Behind the wheel" for macOS](https://github.com/nic0lasm/Gran-Theft-Praline/releases/tag/v0.3.0)**
 (Mac with Apple Silicon, released November 10, 2026).
 
-Rue de la République rebuilt from IGN LiDAR, with stone façades, shopfronts
-with their real names, street furniture and plane trees, and a car you can
-get into and drive. Measured over 10 minutes on an M1 Pro: median frame
-29.9 ms (about 33 fps), 95 % of frames under 40.3 ms.
+Steal a car and drive through traffic from rue de la République to the Rhône
+quay and Pont Lafayette. This version also previews the systems of 0.4 to
+0.6: traffic lights, pedestrians, ragdolls, police with wanted stars, a
+minimap and full map, saved settings, day and night with weather, and the
+sound of the street. Measured over 330 s of driving on an M1 Pro with
+everything on: median frame 33.9 ms (about 30 fps), 95 % of frames under
+44.5 ms. [Release notes](docs/releases/0.3.md).
 
 The app is not signed by Apple yet: the release notes explain how to open it
 the first time. You can also [build it yourself](#build-it-yourself) with a
@@ -136,19 +139,12 @@ Full details: [player character](docs/gameplay/player-character.md),
 | :--: | ---- | ---- | ---- |
 | ✅ | **0.1** Play in one click | launch the game and walk down rue de la République | released Nov 9, 2026 |
 | ✅ | **0.2** The dressed street | stroll down a faithful, dressed street on an M1 laptop | released Nov 10, 2026 |
-| 🟡 | **0.3** Behind the wheel | steal a car and drive through traffic to the Rhône quay and Pont Lafayette | in progress |
+| ✅ | **0.3** Behind the wheel | steal a car and drive through traffic to the Rhône quay and Pont Lafayette | released Nov 10, 2026 |
 
-Version 0.3 is being finished right now: three drivable cars (Clio V,
-208 II, Kangoo II) you get in, break into or pull a driver out of, AI
-traffic on lanes taken from IGN road data, a procedural engine sound, the map
-extended to the Rhône quay and Pont Lafayette, and a respawn if you fall into
-the river. It ships once the M1 laptop keeps 95 % of frames under 42 ms with
-traffic. Known issues: the demo car sometimes climbs onto the pavement, and
-the quay and bridge have not been filmed yet.
-
-Already being built in parallel for the next versions: pedestrians who react,
-ragdolls, police with wanted stars, a minimap, day and night with rain, and
-the sound of the street.
+Version 0.3.0 is out, with the systems of the next versions as previews.
+Next up is 0.4 "The living street": finishing pedestrians, traffic lights,
+ragdolls and breakable street furniture, and winning back the frame time
+needed to keep 95 % of frames under 42 ms on the M1.
 
 ## Roadmap
 
