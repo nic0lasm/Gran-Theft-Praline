@@ -84,11 +84,17 @@ FString UGTPVehicleSetupLibrary::BuildChassisPhysicsAsset(USkeletalMesh* Mesh, U
 
 	// The root bone can sit and turn anywhere (Blender bones point up, so the
 	// imported root is usually rotated): boxes are expressed in its space.
+	// It can also be scaled (a Blender armature exported with FBX unit scale
+	// carries x100 or x0.01): the body is scaled by it, so sizes are divided too.
 	const FTransform RootPose = ComponentSpaceRefPose(Skeleton, RootIndex);
-	auto ToRoot = [&RootPose](FKBoxElem Box)
+	const float RootScale = FMath::Max(RootPose.GetMaximumAxisScale(), UE_KINDA_SMALL_NUMBER);
+	auto ToRoot = [&RootPose, RootScale](FKBoxElem Box)
 	{
 		Box.Center = RootPose.InverseTransformPosition(Box.Center);
 		Box.Rotation = RootPose.GetRotation().Inverse().Rotator();
+		Box.X /= RootScale;
+		Box.Y /= RootScale;
+		Box.Z /= RootScale;
 		return Box;
 	};
 
@@ -115,7 +121,7 @@ FString UGTPVehicleSetupLibrary::BuildChassisPhysicsAsset(USkeletalMesh* Mesh, U
 	PhysicsAsset->MarkPackageDirty();
 	Mesh->MarkPackageDirty();
 
-	return FString::Printf(TEXT("wheels %d, radius %.1f cm, track %.1f cm, wheelbase %.1f cm, lower box %s, cabin box %s"),
-		Wheels.Num(), Radius, 2.f * MaxWheelY, FrontX - RearX,
+	return FString::Printf(TEXT("wheels %d, radius %.1f cm, track %.1f cm, wheelbase %.1f cm, root scale %s, root rotation %s, lower box %s, cabin box %s"),
+		Wheels.Num(), Radius, 2.f * MaxWheelY, FrontX - RearX, *RootPose.GetScale3D().ToString(), *RootPose.Rotator().ToString(),
 		*FVector(Lower.X, Lower.Y, Lower.Z).ToString(), *FVector(Cabin.X, Cabin.Y, Cabin.Z).ToString());
 }
