@@ -135,6 +135,18 @@ public:
 		return ArrestTime >= Settings.ArrestSeconds;
 	}
 
+	/** Sets the level directly (tests, video): Stars 0 to 5. */
+	void ForceStars(int Stars)
+	{
+		Stars = Stars < 0 ? 0 : (Stars > 5 ? 5 : Stars);
+		Heat = Stars == 0 ? 0.f : Settings.StarHeat[Stars - 1];
+		ArrestTime = 0.f;
+		if (Stars > 0)
+		{
+			RestartSearch();
+		}
+	}
+
 	void Clear()
 	{
 		Heat = 0.f;

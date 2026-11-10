@@ -55,7 +55,7 @@ viendront avec l'argent et les armes.
 Une voiture de police coûte comme une voiture de trafic (même mode économe :
 pas d'ombres lointaines, LOD lointain, lumières sans ombres). Unités par
 niveau : 1, 2, 2, 3, 4 étoiles, jamais plus de `MaxUnits` (2 sur M1 tant que le coût du trafic n'est pas mesuré, 
-`-PoliceMax=N` jusqu'à 3 en test). Rampe lumineuse : deux lumières ponctuelles sans ombre par
+`-PoliceMax=N` jusqu'à 3 en test). Ligne de commande : `-Police=0` coupe tout, `-WantedStars=N` force un niveau après 5 s (`-WantedDelay=S`), `-WantedHold` le garde ; une ligne `wanted:` toutes les 2 s dans le journal. Rampe lumineuse : deux lumières ponctuelles sans ombre par
 voiture, commutées seulement au changement de phase. À zéro étoile, rien
 d'autre qu'un test léger. Cible : p95 ≤ 42 ms avec trois voitures de police
 et le trafic ; à mesurer.

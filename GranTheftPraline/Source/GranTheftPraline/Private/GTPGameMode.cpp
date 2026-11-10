@@ -60,8 +60,8 @@ void AGTPGameMode::StartPlay()
 		}
 		GetWorld()->SpawnActor<AGTPTrafficNetwork>();
 	}
-	// Police ride the traffic lanes: no lanes, no police. -NoPolice turns them off.
-	if (!FParse::Param(FCommandLine::Get(), TEXT("NoPolice")) && !TActorIterator<AGTPPoliceDirector>(GetWorld()))
+	// Police ride the traffic lanes: no lanes, no police. -Police=0 turns them off.
+	if (UGTPWantedComponent::IsPoliceEnabled() && !TActorIterator<AGTPPoliceDirector>(GetWorld()))
 	{
 		GetWorld()->SpawnActor<AGTPPoliceDirector>();
 	}
