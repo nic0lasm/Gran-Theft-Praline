@@ -259,7 +259,6 @@ def main():
     with open(os.path.join(out, "materials_report.json"), "w") as f:
         json.dump(report, f, indent=2)
     log("report: " + json.dumps(report))
-    unreal.SystemLibrary.quit_editor()
 
 
 main()
