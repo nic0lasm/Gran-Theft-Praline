@@ -134,9 +134,9 @@ protected:
 	UPROPERTY(Config, EditAnywhere, Category = "Police", meta = (MetaClass = "/Script/GranTheftPraline.GTPVehicle"))
 	FSoftClassPath PoliceVehicleClass;
 
-	/** Most police cars alive at once (frame budget on M1, ADR-0002 and ADR-0004). -PoliceMax=N overrides. */
+	/** Most police cars alive at once, 2 until the 0.3 traffic cost is measured (frame budget on M1, ADR-0002 and ADR-0004). -PoliceMax=N overrides. */
 	UPROPERTY(Config, EditAnywhere, Category = "Police")
-	int32 MaxUnits = 3;
+	int32 MaxUnits = 2;
 
 	/** Spawn ring around the player (cm): far enough to be out of sight, close enough to arrive. */
 	UPROPERTY(Config, EditAnywhere, Category = "Police")
