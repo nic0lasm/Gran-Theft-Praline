@@ -2,7 +2,7 @@
 
 *French version: [pedestrians.fr.md](pedestrians.fr.md)*
 
-Decision and alternatives: [ADR-0004](../adr/adr-0004-pedestrians.md).
+Decision and alternatives: [ADR-0005](../adr/adr-0005-pedestrians.md).
 
 ## What the player sees
 
@@ -43,12 +43,22 @@ loops need no purchase; MetaHuman or Fab meshes can be listed in `Meshes` later.
 Other systems listen to `OnPedestrianHit` and `OnPedestrianScared`
 (location, cause actor).
 
+Stable interface for other systems (the wanted system subscribes, this module
+depends on none of them):
+
+```cpp
+DECLARE_MULTICAST_DELEGATE_TwoParams(FGTPPedestrianEvent, const FVector& Location, AActor* Cause);
+UGTPPedestrianSubsystem::OnPedestrianHit;    // a person was knocked down
+UGTPPedestrianSubsystem::OnPedestrianScared; // a person started running away
+```
+Cause is null for now (the car is not identified yet).
+
 ## Checks
 
 - `python3 tools/pedestrians/check_walk_logic.py [walkways.csv]` builds
   `walk_sim` and runs 200 walkers for 10 minutes (no jumps, they keep walking,
   they flee from a threat). Python tests: `tools/city/tests/test_pedestrians.py`.
-- Cost on the M1 Pro: not yet measured (ADR-0004 validation criteria). The
+- Cost on the M1 Pro: not yet measured (ADR-0005 validation criteria). The
   stats line `LogGTPPedestrians: active=.. drawn=..` appears every 10 s, also in
   Shipping.
 

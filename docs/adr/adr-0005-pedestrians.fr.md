@@ -1,6 +1,6 @@
-# ADR-0004 : Piétons
+# ADR-0005 : Piétons
 
-*Version anglaise : [adr-0004-pedestrians.md](adr-0004-pedestrians.md)*
+*Version anglaise : [adr-0005-pedestrians.md](adr-0005-pedestrians.md)*
 
 ## Statut
 
