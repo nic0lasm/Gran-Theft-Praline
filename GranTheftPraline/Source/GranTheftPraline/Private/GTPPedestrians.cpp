@@ -13,6 +13,7 @@
 #include "GameFramework/PlayerController.h"
 #include "Camera/PlayerCameraManager.h"
 #include "GTPGraphicsProfile.h"
+#include "GTPTraffic.h"
 #include "GTPVehicle.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/CommandLine.h"
@@ -305,6 +306,15 @@ UAnimSequenceBase* UGTPPedestrianSubsystem::FindAnimation(const USkeletalMesh* M
 void UGTPPedestrianSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 {
 	Super::OnWorldBeginPlay(InWorld);
+	// Traffic lights (GTPTrafficLights.h): wait for the red of the roads being crossed.
+	CrossingBlockedQuery = [this](const FVector& Where, const FVector& Direction)
+	{
+		for (TActorIterator<AGTPTrafficNetwork> It(GetWorld()); It; ++It)
+		{
+			return !It->IsWalkAllowed(Where, Direction);
+		}
+		return false;
+	};
 	Wanted = ChooseDensity();
 	if (Wanted <= 0)
 	{
