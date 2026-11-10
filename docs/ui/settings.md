@@ -54,6 +54,9 @@ table so they can switch to `GTPLoc` when those systems are next touched.
 
 - `tools/ui/tests/run_cpp_tests.sh`: string table, settings round trip and damaged
   files, mini-map maths (no Unreal needed, compiler only).
-- In the game (Mac, Shipping build): open Settings, change each line, quit, start
-  again, check the values are back; see the evidence in
-  `docs/ui/test-results/` once recorded.
+- In the game, without a player (`GTPUIAutoTest.h`): `-SkipTitle -UITest=write`
+  opens the pause menu and the settings screen, saves non-default settings and reads the
+  file back; a second launch with `-UITest=verify` checks they persisted;
+  `-UITest=reset` restores the defaults. Results: `Saved/Logs/ui_test.txt`, lines ending
+  `UITEST <step> PASS` or `FAIL`.
+- Mini-map cost: the same route with and without `-NoMinimap`.

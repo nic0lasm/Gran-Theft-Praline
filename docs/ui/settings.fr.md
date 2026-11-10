@@ -57,6 +57,9 @@ déjà dans la table pour passer à `GTPLoc` à la prochaine intervention sur ce
 
 - `tools/ui/tests/run_cpp_tests.sh` : table de chaînes, aller-retour des réglages et
   fichiers abîmés, maths de la mini-carte (sans Unreal, un compilateur suffit).
-- En jeu (Mac, build Shipping) : ouvrir Réglages, changer chaque ligne, quitter,
-  relancer, vérifier que les valeurs reviennent ; preuves dans
-  `docs/ui/test-results/` une fois enregistrées.
+- En jeu, sans joueur (`GTPUIAutoTest.h`) : `-SkipTitle -UITest=write` ouvre le menu
+  pause et l'écran Réglages, enregistre des réglages non par défaut et relit le fichier ;
+  un second lancement avec `-UITest=verify` vérifie qu'ils ont persisté ;
+  `-UITest=reset` remet les valeurs par défaut. Résultats : `Saved/Logs/ui_test.txt`,
+  lignes finissant par `UITEST <étape> PASS` ou `FAIL`.
+- Coût de la mini-carte : même parcours avec et sans `-NoMinimap`.
