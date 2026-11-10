@@ -6,6 +6,7 @@
 #include "Components/PointLightComponent.h"
 #include "Components/PostProcessComponent.h"
 #include "Components/RectLightComponent.h"
+#include "Components/SpotLightComponent.h"
 #include "Components/SkyLightComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/VolumetricCloudComponent.h"
@@ -16,6 +17,7 @@
 #include "GameFramework/Actor.h"
 #include "GTPGraphicsProfile.h"
 #include "GTPLog.h"
+#include "GTPVehicle.h"
 #include "HAL/IConsoleManager.h"
 #include "Kismet/GameplayStatics.h"
 #include "Materials/MaterialInstanceDynamic.h"
@@ -223,6 +225,7 @@ void UGTPEnvironmentSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 
 	CreateOwnComponents(InWorld);
 	ApplyBudgetForProfile(InWorld);
+	ApplyCloudQuality();
 	SpawnRiverFog(InWorld);
 	LoadNightLights(InWorld);
 	AdoptTaggedLights(InWorld);
@@ -232,6 +235,7 @@ void UGTPEnvironmentSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 	ApplyAtmosphere();
 	ApplyExposure();
 	ApplyParameters();
+	FindNewCars();
 	UpdateNightLights();
 	GTP_TRACE(LogGTPEnvironment, TEXT("daynight: on | %s"), *Describe());
 }
@@ -540,6 +544,67 @@ void UGTPEnvironmentSubsystem::ApplyBudgetForProfile(UWorld& World)
 	}
 	Budget = Found ? *Found : FGTPLightBudget();
 	Budget.Profile = Profile;
+
+	// -CloudDome=1 forces the 2D cloud fallback (measurements), -CloudDome=0 forbids it.
+	int32 CloudDome = -1;
+	if (FParse::Value(FCommandLine::Get(), TEXT("CloudDome="), CloudDome) && CloudDome >= 0)
+	{
+		Budget.bCloudDome = CloudDome != 0;
+	}
+}
+
+void UGTPEnvironmentSubsystem::ApplyCloudQuality()
+{
+	// Volumetric clouds are the most expensive part of the sky on the M1 (about 12 ms
+	// measured): quality per profile, values owned by the optimisation work.
+	if (Clouds.IsValid())
+	{
+		if (!Budget.bVolumetricClouds || Budget.bCloudDome)
+		{
+			Clouds->SetVisibility(false);
+		}
+		else if (!FMath::IsNearlyEqual(Budget.CloudSampleScale, 1.f))
+		{
+			for (const TCHAR* Setter : { TEXT("SetViewSampleCountScale"), TEXT("SetReflectionViewSampleCountScale"), TEXT("SetShadowViewSampleCountScale") })
+			{
+				if (!CallFloatSetter(Clouds.Get(), Setter, Budget.CloudSampleScale))
+				{
+					UE_LOG(LogGTPEnvironment, Warning, TEXT("Cloud setter %s not found"), Setter);
+				}
+			}
+		}
+	}
+	if (Budget.bCloudDome && Holder)
+	{
+		UStaticMesh* Mesh = CloudDomeMesh.LoadSynchronous();
+		UMaterialInterface* Material = CloudDomeMaterial.LoadSynchronous();
+		if (Mesh && Material)
+		{
+			CloudDome = NewObject<UStaticMeshComponent>(Holder, TEXT("CloudDome"));
+			CloudDome->SetMobility(EComponentMobility::Movable);
+			CloudDome->SetStaticMesh(Mesh);
+			CloudDome->SetMaterial(0, Material);
+			CloudDome->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+			CloudDome->SetCastShadow(false);
+			CloudDome->bReceivesDecals = false;
+			CloudDome->SetWorldScale3D(CloudDomeScale);
+			CloudDome->SetupAttachment(Holder->GetRootComponent());
+			CloudDome->RegisterComponent();
+		}
+		else
+		{
+			UE_LOG(LogGTPEnvironment, Warning, TEXT("Cloud dome mesh or material missing (%s, %s)"),
+				*CloudDomeMesh.ToString(), *CloudDomeMaterial.ToString());
+		}
+	}
+	if (Sun.IsValid() && !Budget.bCloudShadows)
+	{
+		if (FBoolProperty* Prop = FindFProperty<FBoolProperty>(UDirectionalLightComponent::StaticClass(), TEXT("bCastCloudShadows")))
+		{
+			Prop->SetPropertyValue_InContainer(Sun.Get(), false);
+			Sun->MarkRenderStateDirty();
+		}
+	}
 }
 
 void UGTPEnvironmentSubsystem::ReadCommandLine()
@@ -674,19 +739,23 @@ FString UGTPEnvironmentSubsystem::Describe() const
 {
 	const FDateTime Local = LocalDateTime();
 	const FDateTime Utc = GTPSolar::LocalToUtc(Local);
-	int32 On = 0, Shadowed = 0;
+	int32 On = 0, Shadowed = 0, LitCars = 0;
+	for (const FCarLights& C : CarLights)
+	{
+		LitCars += C.bOn ? 1 : 0;
+	}
 	for (const FManagedLight& L : NightLights)
 	{
 		On += L.bOn ? 1 : 0;
 		Shadowed += L.bShadow ? 1 : 0;
 	}
 	return FString::Printf(
-		TEXT("Lyon %s (UTC+%d) x%.0f | sun %.1f deg az %.0f | moon %.1f deg %.0f %% | weather %s%s%s %.0f %% | wet %.2f | EV100 %.1f | night %.2f | lights %d/%d on, %d shadowed (budget %s %d/%d)"),
+		TEXT("Lyon %s (UTC+%d) x%.0f | sun %.1f deg az %.0f | moon %.1f deg %.0f %% | weather %s%s%s %.0f %% | wet %.2f | EV100 %.1f | night %.2f | lights %d/%d on, %d shadowed (budget %s %d/%d) | cars lit %d/%d"),
 		*Local.ToString(TEXT("%Y-%m-%d %H:%M")), GTPSolar::ParisUtcOffsetHours(Utc), TimeScale,
 		SunPosition.ElevationDeg, SunPosition.AzimuthDeg, MoonPosition.ElevationDeg, MoonIllumination * 100.0,
 		*FromWeather.ToString(), FromWeather == ToWeather ? TEXT("") : TEXT(" -> "), FromWeather == ToWeather ? TEXT("") : *ToWeather.ToString(),
 		WeatherAlpha * 100.f, Wetness, ExposureTarget, NightFactor, On, NightLights.Num(), Shadowed,
-		*Budget.Profile, Budget.MaxLights, Budget.MaxShadowedLights);
+		*Budget.Profile, Budget.MaxLights, Budget.MaxShadowedLights, LitCars, CarLights.Num());
 }
 
 // --------------------------------------------------------------------------- tick
@@ -710,6 +779,13 @@ void UGTPEnvironmentSubsystem::Tick(float DeltaTime)
 	if (LightTimer <= 0.f)
 	{
 		LightTimer = LightUpdateInterval;
+		CarScanTimer -= LightUpdateInterval;
+		if (CarScanTimer <= 0.f)
+		{
+			// Traffic and police spawn and despawn cars: look for new ones every second.
+			CarScanTimer = 1.f;
+			FindNewCars();
+		}
 		UpdateNightLights();
 	}
 }
@@ -855,7 +931,7 @@ void UGTPEnvironmentSubsystem::ApplyAtmosphere()
 			HeightFog->MarkRenderStateDirty();
 		}
 	}
-	if (CloudMaterial)
+	if (CloudMaterial && Budget.bDriveCloudCoverage)
 	{
 		for (const FName& Parameter : CloudCoverageParameters)
 		{
@@ -936,10 +1012,20 @@ void UGTPEnvironmentSubsystem::ApplyParameters()
 	Instance->SetScalarParameterValue(TEXT("EmissiveScale"), FMath::Lerp(1.f, NightEmissiveScale, NightFactor));
 	Instance->SetScalarParameterValue(TEXT("Cloudiness"), Weather.CloudCoverage);
 	Instance->SetScalarParameterValue(TEXT("TimeOfDay"), static_cast<float>(LocalHours));
+	// Unlit cloud dome: luminance of the exposure's middle grey (0.125 x 2^EV100 nits), darker in the rain.
+	Instance->SetScalarParameterValue(TEXT("CloudLuminance"),
+		0.125f * FMath::Pow(2.f, ExposureTarget) * CloudDomeBrightness * FMath::Lerp(1.f, 0.5f, Weather.Rain));
 }
 
 void UGTPEnvironmentSubsystem::UpdateRain()
 {
+	if (CloudDome)
+	{
+		if (const APlayerCameraManager* Camera = UGameplayStatics::GetPlayerCameraManager(GetWorld(), 0))
+		{
+			CloudDome->SetWorldLocation(Camera->GetCameraLocation());
+		}
+	}
 	if (!RainLayer)
 	{
 		return;
@@ -958,18 +1044,118 @@ void UGTPEnvironmentSubsystem::UpdateRain()
 	}
 }
 
+void UGTPEnvironmentSubsystem::FindNewCars()
+{
+	CarLights.RemoveAll([](const FCarLights& C) { return !C.Car.IsValid(); });
+	for (TActorIterator<AGTPVehicle> It(GetWorld()); It; ++It)
+	{
+		AGTPVehicle* Car = *It;
+		if (CarLights.ContainsByPredicate([Car](const FCarLights& C) { return C.Car.Get() == Car; }))
+		{
+			continue;
+		}
+		UPrimitiveComponent* Body = Cast<UPrimitiveComponent>(Car->GetRootComponent());
+		if (!Body)
+		{
+			continue;
+		}
+		// Car frame: +X forward. Lamps at the corners of the body's local bounds.
+		const FBox Box = Body->CalcBounds(FTransform::Identity).GetBox();
+		const FVector Extent = Box.GetExtent();
+		const FVector Centre = Box.GetCenter();
+		const float LampZ = Centre.Z - 0.15f * Extent.Z;
+
+		FCarLights& Entry = CarLights.AddDefaulted_GetRef();
+		Entry.Car = Car;
+		for (int32 Side = -1; Side <= 1; Side += 2)
+		{
+			USpotLightComponent* Head = NewObject<USpotLightComponent>(Car);
+			Head->SetMobility(EComponentMobility::Movable);
+			Head->IntensityUnits = ELightUnits::Candelas;
+			Head->Intensity = HeadlightCandela;
+			Head->bUseTemperature = true;
+			Head->Temperature = HeadlightKelvin;
+			Head->AttenuationRadius = HeadlightRadius;
+			Head->InnerConeAngle = 0.4f * HeadlightOuterCone;
+			Head->OuterConeAngle = HeadlightOuterCone;
+			Head->SourceRadius = 6.f;
+			Head->CastShadows = false;
+			Head->SetVisibility(false);
+			Head->SetupAttachment(Body);
+			Head->SetRelativeLocationAndRotation(FVector(Box.Max.X - 5.f, Centre.Y + Side * 0.65f * Extent.Y, LampZ), FRotator(-3.f, 0.f, 0.f));
+			Head->RegisterComponent();
+			Entry.Lights.Add(Head);
+		}
+		UPointLightComponent* Tail = NewObject<UPointLightComponent>(Car);
+		Tail->SetMobility(EComponentMobility::Movable);
+		Tail->IntensityUnits = ELightUnits::Candelas;
+		Tail->Intensity = TailLightCandela;
+		Tail->AttenuationRadius = TailLightRadius;
+		Tail->SetLightColor(FLinearColor(1.f, 0.05f, 0.03f));
+		Tail->CastShadows = false;
+		Tail->SetVisibility(false);
+		Tail->SetupAttachment(Body);
+		Tail->SetRelativeLocation(FVector(Box.Min.X - 10.f, Centre.Y, LampZ + 0.1f * Extent.Z));
+		Tail->RegisterComponent();
+		Entry.Lights.Add(Tail);
+	}
+}
+
+void UGTPEnvironmentSubsystem::UpdateCarLights(const FVector& CameraLocation)
+{
+	TArray<TPair<float, int32>> Ranked;
+	if (NightFactor > 0.3f)
+	{
+		for (int32 i = 0; i < CarLights.Num(); ++i)
+		{
+			if (const AActor* Car = CarLights[i].Car.Get())
+			{
+				const float Distance = FVector::Dist(Car->GetActorLocation(), CameraLocation);
+				if (Distance <= Budget.MaxDistance)
+				{
+					Ranked.Emplace(Distance, i);
+				}
+			}
+		}
+		Ranked.Sort([](const TPair<float, int32>& A, const TPair<float, int32>& B) { return A.Key < B.Key; });
+	}
+	TArray<bool> Wanted;
+	Wanted.Init(false, CarLights.Num());
+	for (int32 k = 0; k < Ranked.Num() && k < Budget.MaxLitCars; ++k)
+	{
+		Wanted[Ranked[k].Value] = true;
+	}
+	for (int32 i = 0; i < CarLights.Num(); ++i)
+	{
+		FCarLights& Entry = CarLights[i];
+		if (Entry.bOn == Wanted[i])
+		{
+			continue;
+		}
+		Entry.bOn = Wanted[i];
+		for (const TWeakObjectPtr<ULocalLightComponent>& Light : Entry.Lights)
+		{
+			if (Light.IsValid())
+			{
+				Light->SetVisibility(Entry.bOn);
+			}
+		}
+	}
+}
+
 void UGTPEnvironmentSubsystem::UpdateNightLights()
 {
-	if (NightLights.IsEmpty())
-	{
-		return;
-	}
 	FVector CameraLocation = FVector::ZeroVector;
 	FVector CameraForward = FVector::ForwardVector;
 	if (const APlayerCameraManager* Camera = UGameplayStatics::GetPlayerCameraManager(GetWorld(), 0))
 	{
 		CameraLocation = Camera->GetCameraLocation();
 		CameraForward = Camera->GetCameraRotation().Vector();
+	}
+	UpdateCarLights(CameraLocation);
+	if (NightLights.IsEmpty())
+	{
+		return;
 	}
 
 	// Rank the lights in range: nearest first, lights behind the camera count as farther.

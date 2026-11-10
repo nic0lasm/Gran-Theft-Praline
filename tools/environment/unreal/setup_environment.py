@@ -11,6 +11,8 @@ Creates under /Game/Environment/Weather (kept out of Git, regenerated here):
   T_PuddleNoise     procedural tileable noise for the puddle mask
   SM_RainLayer      copy of the engine cylinder, the rain layer around the camera
   M_RainLayer       translucent lit rain, opacity = streaks x RainIntensity
+  SM_CloudDome      copy of the engine sphere, M_CloudDome unlit 2D clouds: the cheap
+                    fallback of the volumetric clouds (bCloudDome of a light budget)
 
 The wet look and the night emissive belong to the material generators of the
 city and asset tools, which call gtp_weather.add_weather() (same folder). As a
@@ -48,6 +50,7 @@ FOLDER = "/Game/Environment/Weather"
 MPC_PATH = FOLDER + "/MPC_Environment"
 CLOUD_MATERIAL = "/Engine/EngineSky/VolumetricClouds/m_SimpleVolumetricCloud_Inst"
 ENGINE_CYLINDER = "/Engine/BasicShapes/Cylinder"
+ENGINE_SPHERE = "/Engine/BasicShapes/Sphere"
 SAVED = os.path.join(PROJECT, "Saved", "Environment")
 
 # Street materials that get wet (name, roles); found anywhere under /Game.
@@ -87,26 +90,9 @@ def parameter_collection():
 
 def texture(name, generator):
     path = FOLDER + "/" + name
-    if eal.does_asset_exist(path):
-        return eal.load_asset(path)
-    os.makedirs(SAVED, exist_ok=True)
-    png = os.path.join(SAVED, name + ".png")
-    w, h, px = generator()
-    textures.write_png(png, w, h, px)
-    task = unreal.AssetImportTask()
-    task.set_editor_property("filename", png)
-    task.set_editor_property("destination_path", FOLDER)
-    task.set_editor_property("destination_name", name)
-    task.set_editor_property("automated", True)
-    task.set_editor_property("replace_existing", True)
-    task.set_editor_property("save", False)
-    asset_tools.import_asset_tasks([task])
-    tex = eal.load_asset(path)
-    tex.set_editor_property("srgb", False)
-    tex.set_editor_property("compression_settings", unreal.TextureCompressionSettings.TC_DEFAULT)
-    eal.save_loaded_asset(tex)
-    report["created"].append(path)
-    return tex
+    if not eal.does_asset_exist(path):
+        report["created"].append(path)
+    return gtp_weather.texture(name, generator)
 
 
 def rain_mesh():
@@ -116,6 +102,47 @@ def rain_mesh():
         report["created"].append(path)
     mesh = eal.load_asset(path)
     return mesh
+
+
+def cloud_dome_mesh():
+    path = FOLDER + "/SM_CloudDome"
+    if not eal.does_asset_exist(path):
+        eal.duplicate_asset(ENGINE_SPHERE, path)
+        report["created"].append(path)
+    return eal.load_asset(path)
+
+
+def cloud_dome_material(mpc, noise):
+    """Unlit 2D clouds seen from inside a large sphere: noise above 1 - Cloudiness, slow drift,
+    luminance CloudLuminance (set from the exposure by the game)."""
+    mat, created = load_or_create("M_CloudDome", unreal.Material, unreal.MaterialFactoryNew())
+    if not created:
+        return mat
+    mat.set_editor_property("blend_mode", unreal.BlendMode.BLEND_TRANSLUCENT)
+    mat.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_UNLIT)
+    mat.set_editor_property("two_sided", True)
+    g = Graph(mat)
+    layers = []
+    for tiling, speed in (((5.0, 2.5), 0.004), ((11.0, 5.5), 0.007)):
+        uv = g.node(unreal.MaterialExpressionTextureCoordinate, u_tiling=tiling[0], v_tiling=tiling[1])
+        pan = g.node(unreal.MaterialExpressionPanner, speed_x=speed, speed_y=0.0)
+        g.link(uv, pan, "Coordinate")
+        tex = g.node(unreal.MaterialExpressionTextureSample, texture=noise,
+                     sampler_type=unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_COLOR)
+        g.link(pan, tex, "UVs")
+        layers.append(tex)
+    detail = g.lerp(layers[0], layers[1], 0.35, a_out="R", b_out="R")
+    level = g.node(unreal.MaterialExpressionSubtract)
+    g.link(detail, level, "A")
+    g.link(g.lerp(1.0, 0.0, g.collection(mpc, "Cloudiness")), level, "B")
+    opacity = g.mul(g.saturate(g.mul(level, 3.0)), 0.95)
+    mel.connect_material_property(opacity, "", unreal.MaterialProperty.MP_OPACITY)
+    shade = g.lerp(0.75, 1.0, detail)  # thicker parts a little darker underneath
+    lum = g.mul(g.collection(mpc, "CloudLuminance"), shade)
+    mel.connect_material_property(lum, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+    mel.recompile_material(mat)
+    eal.save_loaded_asset(mat)
+    return mat
 
 
 def rain_material(mpc, streaks):
@@ -201,6 +228,8 @@ def main():
         puddles = texture("T_PuddleNoise", textures.puddle_noise)
         rain_mesh()
         rain_material(mpc, streaks)
+        cloud_dome_mesh()
+        cloud_dome_material(mpc, puddles)
         patch_street_materials(mpc, puddles)
         report["cloud_material_scalar_parameters"] = cloud_parameters()
     except Exception as exc:

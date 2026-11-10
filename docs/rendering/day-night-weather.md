@@ -69,6 +69,18 @@ Saturation follows the weather (0.8 in the rain).
   | fidelity | 96 | 6 | 120 m | yes |
   | ultra | 160 | 12 | 150 m | yes |
 
+- **Cars**: every vehicle (traffic, police, the player's) gets two headlights
+  (12,000 cd spots, 5000 K, 32 degree cone, 35 m range) and a red tail light,
+  never shadowed; at night only the `MaxLitCars` nearest cars are lit (m1: 4,
+  fidelity: 6, ultra: 10).
+- **Clouds**: quality per profile (`bVolumetricClouds`, `CloudSampleScale`,
+  `bCloudShadows`, `bDriveCloudCoverage`). Volumetric clouds cost about 12 ms
+  GPU in m1 (measured 2026-11-10): in m1 the weather does not change their
+  coverage (overcast goes through the sun, sky and fog) until the decision on
+  their quality. Cheap fallback: `bCloudDome` turns the volumetric clouds
+  off and shows an unlit 2D cloud dome around the camera (`M_CloudDome`,
+  coverage `Cloudiness`, luminance matched to the exposure through
+  `CloudLuminance`).
 - **Switch-on**: between +2 and −4 degrees of sun (earlier under cloud).
 - **Emissives**: `EmissiveScale` in `MPC_Environment` goes from 1 to 20 at
   night; shop window and sign materials multiply by it.
@@ -95,7 +107,8 @@ hours, weighted for a Lyon autumn.
   end of their graph: albedo darker (× 0.55) and roughness 0.12 with
   `Wetness` (less on walls), puddles on flat ground (roughness 0.03, 6 m
   noise), emissive × `EmissiveScale`. The wet look thus survives every
-  regeneration. Until then, `GTP_ENV_WET=on` adds the same nodes to the
+  regeneration; the collection and the puddle texture are created on first
+  use. Until then, `GTP_ENV_WET=on` adds the same nodes to the
   existing materials (`M_City_Ground`, `M_City_Shell`, `M_City_Kit`,
   `M_Master_Surface`, `M_Sign_Fascia`), once per material.
 - **Rain**: a lit translucent cylinder of 24 m around the camera, two layers
@@ -109,7 +122,8 @@ hours, weighted for a Lyon autumn.
 
 Command line: `-TimeOfDay=22 -Date=2027-01-15 -Weather=Rain -TimeScale=0`
 (0 freezes time for measurements), `-Ambience=<noon|golden|dusk|night|rain|night-rain|fog>`
-(frozen test ambience, defined in `Ambiences`), `-DayNight=0` or `-NoEnvironment` (switches the system off). At start a `daynight: on | ...` or `daynight: off` line goes to stdout, Shipping included.
+(frozen test ambience, defined in `Ambiences`), `-CloudDome=1` (2D cloud dome instead of the volumetric clouds, 0 = never),
+`-DayNight=0` or `-NoEnvironment` (switches the system off). At start a `daynight: on | ...` or `daynight: off` line goes to stdout, Shipping included.
 
 Unattended chain: `tools/environment/setup-environment-mac.sh` (non-zero
 exit on error, JSON report), then packaging, then

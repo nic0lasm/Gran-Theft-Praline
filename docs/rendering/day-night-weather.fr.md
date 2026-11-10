@@ -71,6 +71,18 @@ sépia). Saturation selon la météo (0,8 sous la pluie).
   | fidelity | 96 | 6 | 120 m | oui |
   | ultra | 160 | 12 | 150 m | oui |
 
+- **Voitures** : chaque véhicule (trafic, police, joueur) reçoit deux phares
+  (projecteurs 12 000 cd, 5000 K, cône 32°, portée 35 m) et un feu arrière
+  rouge, sans ombre ; la nuit, seules les `MaxLitCars` voitures les plus
+  proches sont allumées (m1 : 4, fidelity : 6, ultra : 10).
+- **Nuages** : qualité par profil (`bVolumetricClouds`, `CloudSampleScale`,
+  `bCloudShadows`, `bDriveCloudCoverage`). Les nuages volumétriques coûtent
+  ≈ 12 ms GPU en m1 (mesure du 2026-11-10) : en m1, la météo ne change pas
+  leur couverture (le couvert passe par le soleil, le ciel et le brouillard),
+  en attendant la décision sur leur qualité. Repli bon marché : `bCloudDome`
+  coupe les nuages volumétriques et affiche un dôme de nuages 2D non éclairé
+  autour de la caméra (`M_CloudDome`, couverture `Cloudiness`, luminance
+  calée sur l'exposition par `CloudLuminance`).
 - **Allumage** : entre +2° et −4° de soleil (plus tôt sous les nuages).
 - **Émissifs** : `EmissiveScale` de `MPC_Environment` passe de 1 à 20 la
   nuit ; les matériaux de vitrines et d'enseignes le multiplient.
@@ -96,7 +108,8 @@ Six états qui se fondent en 60 s ; la météo automatique en tire un toutes les
   `tools/environment/unreal/gtp_weather.py` `add_weather(mat, rôles)` en fin
   de graphe : albédo assombri (× 0,55) et rugosité 0,12 avec `Wetness`
   (moins sur les murs), flaques sur le sol plat (rugosité 0,03, bruit de
-  6 m), émissif × `EmissiveScale`. Le mouillé survit ainsi aux régénérations.
+  6 m), émissif × `EmissiveScale`. Le mouillé survit ainsi aux régénérations ;
+  la collection et la texture de flaques sont créées au premier appel.
   En attendant, `GTP_ENV_WET=on` applique les mêmes nœuds aux matériaux
   existants (`M_City_Ground`, `M_City_Shell`, `M_City_Kit`,
   `M_Master_Surface`, `M_Sign_Fascia`), une seule fois par matériau.
@@ -112,7 +125,8 @@ Six états qui se fondent en 60 s ; la météo automatique en tire un toutes les
 
 Ligne de commande : `-TimeOfDay=22 -Date=2027-01-15 -Weather=Rain
 -TimeScale=0` (0 fige le temps pour mesurer), `-Ambience=<noon|golden|dusk|night|rain|night-rain|fog>`
-(ambiance de test figée, définie dans `Ambiences`), `-DayNight=0` ou `-NoEnvironment` (coupe le système). Au démarrage, une ligne `daynight: on | …` ou `daynight: off` sort sur stdout, Shipping compris.
+(ambiance de test figée, définie dans `Ambiences`), `-CloudDome=1` (dôme de nuages 2D à la place des nuages volumétriques, 0 = jamais),
+`-DayNight=0` ou `-NoEnvironment` (coupe le système). Au démarrage, une ligne `daynight: on | …` ou `daynight: off` sort sur stdout, Shipping compris.
 
 Enchaînement sans intervention : `tools/environment/setup-environment-mac.sh`
 (sortie non nulle en cas d'erreur, rapport JSON), puis le packaging, puis

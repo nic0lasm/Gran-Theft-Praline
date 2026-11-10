@@ -117,6 +117,30 @@ struct FGTPLightBudget
 	/** Volumetric fog allowed with this profile. */
 	UPROPERTY()
 	bool bVolumetricFog = false;
+
+	/** Cars (traffic, police, the player's) with headlights and tail lights on at night, nearest first. */
+	UPROPERTY()
+	int32 MaxLitCars = 4;
+
+	/** Volumetric clouds drawn at all (sky atmosphere and fog only when false). */
+	UPROPERTY()
+	bool bVolumetricClouds = true;
+
+	/** Ray sample count scale of the clouds (view, reflections, shadows); 1 = map setting. */
+	UPROPERTY()
+	float CloudSampleScale = 1.f;
+
+	/** Sun shadows cast by the clouds. */
+	UPROPERTY()
+	bool bCloudShadows = true;
+
+	/** The weather may change the cloud coverage (denser clouds cost more). */
+	UPROPERTY()
+	bool bDriveCloudCoverage = true;
+
+	/** Cheap fallback: a 2D cloud dome around the camera, when the volumetric clouds are off. */
+	UPROPERTY()
+	bool bCloudDome = false;
 };
 
 /**
@@ -133,12 +157,14 @@ struct FGTPLightBudget
  *   - the night lights (street lamps, shop windows): spawned from
  *     Content/<NightLightsFile> plus any actor tagged GTP_StreetLight or
  *     GTP_ShopLight, only the nearest MaxLights on, MaxShadowedLights with shadows;
+ *   - car headlights and tail lights on the nearest MaxLitCars vehicles (no shadows);
  *   - the parameter collection MPC_Environment read by the materials
  *     (Wetness, Puddles, RainIntensity, CityLights, EmissiveScale, Cloudiness).
  *
  * Command line: -TimeOfDay=<hours> -Date=YYYY-MM-DD -TimeScale=<x> (0 freezes)
  * -Weather=<preset> -Ambience=<noon|golden|dusk|night|rain|night-rain|fog>
  * (frozen test ambience, time stopped unless -TimeScale is given)
+ * -CloudDome=1 (2D cloud dome instead of the volumetric clouds, 0 = never)
  * -DayNight=0 or -NoEnvironment (leave the map lighting untouched).
  * Start line on stdout, Shipping included: "daynight: on | ..." or "daynight: off".
  * Console: gtp.Time, gtp.Date, gtp.TimeScale, gtp.Weather, gtp.EnvStatus.
@@ -189,9 +215,12 @@ private:
 	void CreateOwnComponents(UWorld& World);
 	void SpawnRiverFog(UWorld& World);
 	void LoadNightLights(UWorld& World);
+	void FindNewCars();
+	void UpdateCarLights(const FVector& CameraLocation);
 	void AdoptTaggedLights(UWorld& World);
 	void ReadCommandLine();
 	void ApplyBudgetForProfile(UWorld& World);
+	void ApplyCloudQuality();
 
 	void AdvanceTime(float DeltaTime);
 	void UpdateWeather(float DeltaTime);
@@ -323,6 +352,20 @@ private:
 	UPROPERTY(Config)
 	FVector RainScale = FVector(24.0, 24.0, 16.0);
 
+	/** 2D cloud dome (fallback of the volumetric clouds): mesh, unlit material, scale, brightness. */
+	UPROPERTY(Config)
+	TSoftObjectPtr<UStaticMesh> CloudDomeMesh;
+
+	UPROPERTY(Config)
+	TSoftObjectPtr<UMaterialInterface> CloudDomeMaterial;
+
+	UPROPERTY(Config)
+	FVector CloudDomeScale = FVector(4000.0, 4000.0, 1200.0);
+
+	/** Cloud luminance relative to the middle grey of the current exposure. */
+	UPROPERTY(Config)
+	float CloudDomeBrightness = 1.6f;
+
 	/** Saone mist: local fog volumes (centres in cm, scale of the unit sphere), extinction at 1. */
 	UPROPERTY(Config)
 	TArray<FVector> RiverFogCentres;
@@ -344,6 +387,25 @@ private:
 	/** Light budgets; the active graphics profile picks one (m1 when unknown). */
 	UPROPERTY(Config)
 	TArray<FGTPLightBudget> LightBudgets;
+
+	/** Car lights: headlight (candela, K, cm, outer cone degrees) and tail light (candela, cm). */
+	UPROPERTY(Config)
+	float HeadlightCandela = 12000.f;
+
+	UPROPERTY(Config)
+	float HeadlightKelvin = 5000.f;
+
+	UPROPERTY(Config)
+	float HeadlightRadius = 3500.f;
+
+	UPROPERTY(Config)
+	float HeadlightOuterCone = 32.f;
+
+	UPROPERTY(Config)
+	float TailLightCandela = 40.f;
+
+	UPROPERTY(Config)
+	float TailLightRadius = 350.f;
 
 	/** Seconds between two night light updates. */
 	UPROPERTY(Config)
@@ -393,6 +455,9 @@ private:
 	TObjectPtr<UStaticMeshComponent> RainLayer;
 
 	UPROPERTY(Transient)
+	TObjectPtr<UStaticMeshComponent> CloudDome;
+
+	UPROPERTY(Transient)
 	TObjectPtr<UMaterialInstanceDynamic> CloudMaterial;
 
 	UPROPERTY(Transient)
@@ -402,4 +467,14 @@ private:
 	TArray<TObjectPtr<UActorComponent>> RiverFogVolumes;
 
 	TArray<FManagedLight> NightLights;
+
+	/** Headlights and tail lights added to each car (no shadows, ADR-0002). */
+	struct FCarLights
+	{
+		TWeakObjectPtr<AActor> Car;
+		TArray<TWeakObjectPtr<ULocalLightComponent>> Lights;
+		bool bOn = false;
+	};
+	TArray<FCarLights> CarLights;
+	float CarScanTimer = 0.f;
 };
