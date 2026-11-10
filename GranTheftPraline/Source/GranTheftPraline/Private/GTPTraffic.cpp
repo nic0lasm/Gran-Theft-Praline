@@ -4,6 +4,8 @@
 #include "GTPVehicle.h"
 #include "AIController.h"
 #include "CollisionQueryParams.h"
+#include "Components/LightComponent.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "Engine/World.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/GameModeBase.h"
@@ -29,6 +31,84 @@ float FGTPTrafficLane::LengthCm() const
 		Length += static_cast<float>(FVector::Dist2D(Points[Index - 1], Points[Index]));
 	}
 	return Length;
+}
+
+// --- Lane follower (demo driving) -------------------------------------------
+
+bool FGTPLaneFollower::StartNear(AGTPTrafficNetwork* InNetwork, const FVector& Location, float YawDegrees, float MaxDistanceCm)
+{
+	int32 Lane = INDEX_NONE, Point = 0;
+	if (!InNetwork || !InNetwork->FindNearestLane(Location, YawDegrees, MaxDistanceCm, Lane, Point))
+	{
+		return false;
+	}
+	Network = InNetwork;
+	Route.Reset();
+	Route.Add(Lane);
+	Closest = Point;
+	Plan();
+	return true;
+}
+
+void FGTPLaneFollower::Plan()
+{
+	AGTPTrafficNetwork* Net = Network.Get();
+	if (!Net || Route.Num() == 0)
+	{
+		return;
+	}
+	const TArray<FGTPTrafficLane>& Lanes = Net->GetLanes();
+	float AheadM = 0.f;
+	for (int32 Index = 1; Index < Route.Num(); ++Index)
+	{
+		AheadM += Lanes[Route[Index]].LengthCm() * CmToM;
+	}
+	while (AheadM < RouteAheadM)
+	{
+		const int32 Next = Net->PickNext(Route.Last());
+		if (Next == INDEX_NONE)
+		{
+			break;
+		}
+		Route.Add(Next);
+		AheadM += Lanes[Next].LengthCm() * CmToM;
+	}
+	Path.clear();
+	for (const int32 Lane : Route)
+	{
+		for (const FVector& Point : Lanes[Lane].Points)
+		{
+			Path.push_back({static_cast<float>(Point.X) * CmToM, static_cast<float>(Point.Y) * CmToM});
+		}
+	}
+	CurrentLaneLength = Lanes[Route[0]].Points.Num();
+}
+
+bool FGTPLaneFollower::Step(const FVector& Location, float YawDegrees, float SpeedKmh, float MaxSpeedKmh, float ObstacleMetres, FGTPDriveCommand& Out)
+{
+	AGTPTrafficNetwork* Net = Network.Get();
+	if (!Net || Route.Num() == 0)
+	{
+		return false;
+	}
+	const float Speed = SpeedKmh / 3.6f;
+	const float LaneSpeed = FMath::Min(Net->GetLanes()[Route[0]].SpeedKmh, MaxSpeedKmh) / 3.6f;
+	Out = GTPDrive::Decide(Path, static_cast<float>(Location.X) * CmToM, static_cast<float>(Location.Y) * CmToM,
+		FMath::DegreesToRadians(YawDegrees), Speed, LaneSpeed, ObstacleMetres, Settings, Closest);
+	if (Closest >= CurrentLaneLength && Route.Num() > 1)
+	{
+		Closest -= CurrentLaneLength;
+		Route.RemoveAt(0);
+		Plan();
+	}
+	// Route over: standing at the end of a dead-end lane.
+	const bool bDeadEnd = Route.Num() == 1 && Net->GetLanes()[Route[0]].Next.Num() == 0 && Closest >= CurrentLaneLength - 2;
+	if (bDeadEnd && Speed < 0.5f)
+	{
+		Route.Reset();
+		return false;
+	}
+	return true;
 }
 
 // --- AI driver --------------------------------------------------------------
@@ -97,17 +177,22 @@ void UGTPAIDriverComponent::PlanRoute()
 
 float UGTPAIDriverComponent::FindObstacleMetres(const AGTPVehicle* Vehicle) const
 {
-	// A sweep straight ahead at bumper height sees cars and people (the driver rides with collision off).
+	return ProbeAhead(Vehicle, ProbeLength, ProbeRadius);
+}
+
+float UGTPAIDriverComponent::ProbeAhead(const AGTPVehicle* Vehicle, float LengthCm, float RadiusCm)
+{
+	// A sweep straight ahead at bumper height sees cars and people (a seated driver has collision off).
 	const FVector Forward = Vehicle->GetActorForwardVector().GetSafeNormal2D();
 	const FVector Start = Vehicle->GetActorLocation() + FVector(0.f, 0.f, 80.f) + Forward * 230.f;
-	const FVector End = Start + Forward * ProbeLength;
+	const FVector End = Start + Forward * LengthCm;
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(GTPTrafficProbe), false, Vehicle);
 	FCollisionObjectQueryParams Objects;
 	Objects.AddObjectTypesToQuery(ECC_Pawn);
 	Objects.AddObjectTypesToQuery(ECC_Vehicle);
 	Objects.AddObjectTypesToQuery(ECC_PhysicsBody);
 	FHitResult Hit;
-	if (GetWorld()->SweepSingleByObjectType(Hit, Start, End, FQuat::Identity, Objects, FCollisionShape::MakeSphere(ProbeRadius), Params))
+	if (Vehicle->GetWorld()->SweepSingleByObjectType(Hit, Start, End, FQuat::Identity, Objects, FCollisionShape::MakeSphere(RadiusCm), Params))
 	{
 		return static_cast<float>(Hit.Distance) * CmToM;
 	}
@@ -239,6 +324,78 @@ int32 AGTPTrafficNetwork::LoadLanesFromCsv(const FString& Path)
 		Lane.Next.RemoveAll([this](int32 Id) { return !Lanes.IsValidIndex(Id); });
 	}
 	return Lanes.Num();
+}
+
+bool AGTPTrafficNetwork::FindNearestLane(const FVector& Location, float YawDegrees, float MaxDistanceCm, int32& OutLane, int32& OutPoint) const
+{
+	const FVector Heading = FRotator(0.f, YawDegrees, 0.f).Vector();
+	double Best = static_cast<double>(MaxDistanceCm) * MaxDistanceCm;
+	OutLane = INDEX_NONE;
+	for (int32 LaneIndex = 0; LaneIndex < Lanes.Num(); ++LaneIndex)
+	{
+		const TArray<FVector>& Points = Lanes[LaneIndex].Points;
+		for (int32 PointIndex = 0; PointIndex + 1 < Points.Num(); ++PointIndex)
+		{
+			const double D = FVector::DistSquared2D(Points[PointIndex], Location);
+			if (D >= Best)
+			{
+				continue;
+			}
+			const FVector Direction = (Points[PointIndex + 1] - Points[PointIndex]).GetSafeNormal2D();
+			if (FVector::DotProduct(Direction, Heading) < 0.5f)
+			{
+				continue;
+			}
+			Best = D;
+			OutLane = LaneIndex;
+			OutPoint = PointIndex;
+		}
+	}
+	return OutLane != INDEX_NONE;
+}
+
+void AGTPTrafficNetwork::MakeCheap(AGTPVehicle* Car, ACharacter* Driver) const
+{
+	// Lights of AI cars never cast shadows: a shadowed spot light is a full extra shadow pass.
+	TArray<ULightComponent*> Lights;
+	Car->GetComponents<ULightComponent>(Lights);
+	for (ULightComponent* Light : Lights)
+	{
+		Light->SetCastShadows(false);
+	}
+	if (Driver)
+	{
+		// Hidden at the wheel: no pose update, no skinning, until pulled out.
+		if (USkeletalMeshComponent* Mesh = Driver->GetMesh())
+		{
+			Mesh->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::OnlyTickMontagesWhenNotRendered;
+			Mesh->SetCastShadow(false);
+		}
+	}
+}
+
+void AGTPTrafficNetwork::UpdateDetail(AGTPVehicle* Car, float DistanceToView) const
+{
+	USkeletalMeshComponent* Body = Car ? Car->GetMesh() : nullptr;
+	if (!Body)
+	{
+		return;
+	}
+	const bool bNear = DistanceToView < DetailDistance;
+	if (static_cast<bool>(Body->CastShadow) != bNear)
+	{
+		Body->SetCastShadow(bNear);
+	}
+	const int32 Forced = bNear ? 0 : FMath::Clamp(FarLOD + 1, 0, Body->GetNumLODs());
+	if (Body->GetForcedLOD() != Forced)
+	{
+		Body->SetForcedLOD(Forced);
+	}
+	const bool bDrawn = DrawDistance <= 0.f || DistanceToView < DrawDistance;
+	if (Body->IsVisible() != bDrawn)
+	{
+		Body->SetVisibility(bDrawn, true);
+	}
 }
 
 int32 AGTPTrafficNetwork::PickNext(int32 Lane)
@@ -394,6 +551,7 @@ bool AGTPTrafficNetwork::SpawnCar()
 			Driver->AIControllerClass = AAIController::StaticClass();
 			Driver->SpawnDefaultController();
 			Car->SeatOccupant(Driver);
+			MakeCheap(Car, Driver);
 		}
 	}
 	if (!Car->HasAIDriver())
@@ -444,11 +602,17 @@ void AGTPTrafficNetwork::Tick(float DeltaSeconds)
 				{
 					Stolen->ReleaseJunctions();
 				}
+				// The player's car now: full detail again.
+				UpdateDetail(Car, 0.f);
 			}
 			Cars.RemoveAt(Index);
 			continue;
 		}
 		const UGTPAIDriverComponent* AIDriver = Car->FindComponentByClass<UGTPAIDriverComponent>();
+		const APlayerController* Viewer = GetWorld()->GetFirstPlayerController();
+		const FVector View = Viewer && Viewer->PlayerCameraManager ? Viewer->PlayerCameraManager->GetCameraLocation()
+			: (Player ? Player->GetActorLocation() : Car->GetActorLocation());
+		UpdateDetail(Car, static_cast<float>(FVector::Dist(View, Car->GetActorLocation())));
 		const bool bFar = Player && FVector::Dist2D(Car->GetActorLocation(), Player->GetActorLocation()) > MaxCarDistance;
 		const bool bStuck = AIDriver && (AIDriver->IsAtDeadEnd() || AIDriver->GetStoppedTime() > StuckSeconds);
 		if ((bFar || bStuck) && !IsSeenByPlayer(Car->GetActorLocation()))

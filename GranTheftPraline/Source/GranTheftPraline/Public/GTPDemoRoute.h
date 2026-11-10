@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "Containers/Ticker.h"
 #include "Subsystems/GameInstanceSubsystem.h"
+#include "GTPTraffic.h"
 #include "GTPDemoRoute.generated.h"
 
 class AGTPVehicle;
@@ -76,4 +77,7 @@ private:
 	double DriveTime = 45.0;
 	bool bCarjack = false;
 	double CarjackRetarget = 0.0;
+	/** Drives along the traffic lanes once the car is on one (else holds the street heading). */
+	FGTPLaneFollower Follower;
+	double NextLaneSearch = 0.0;
 };
