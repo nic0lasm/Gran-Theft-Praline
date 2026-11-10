@@ -103,6 +103,17 @@ void UGTPAudioMix::Initialize(FSubsystemCollectionBase& Collection)
 	}
 	const UGTPAudioSettings* Settings = GetDefault<UGTPAudioSettings>();
 	Volumes = Settings->CategoryVolumes;
+	// Defaults for the categories the config leaves out (the cook rejects a CategoryVolumes list there).
+	const TPair<EGTPAudioCategory, float> Defaults[] = {
+		{EGTPAudioCategory::Footsteps, 0.9f}, {EGTPAudioCategory::Sirens, 0.9f},
+		{EGTPAudioCategory::Music, 0.8f}, {EGTPAudioCategory::Interface, 0.8f}, {EGTPAudioCategory::Radio, 0.8f}};
+	for (const TPair<EGTPAudioCategory, float>& Default : Defaults)
+	{
+		if (!Volumes.Contains(Default.Key))
+		{
+			Volumes.Add(Default.Key, Default.Value);
+		}
+	}
 	GroundKeyword = Settings->GroundMaterialKeyword;
 	BuildClasses();
 	BuildMixes();
