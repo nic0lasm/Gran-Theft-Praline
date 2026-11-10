@@ -342,6 +342,10 @@ def kit_master():
 # floor windows stay opaque dark glass. Cheapest translucent lighting on Metal.
 SHOP_GLASS = "MI_Glass_Shop"
 SHOP_GLASS_OPACITY = 0.12
+# GTP_SHOP_GLASS=opaque: fallback if the translucent windows cost more than 0.8 ms on m1
+# (fil optimisation): opaque reflective glass with the shop light faked in emissive.
+SHOP_GLASS_MODE = os.environ.get("GTP_SHOP_GLASS", "translucent")
+SHOP_GLASS_FAKE_GLOW = (0.9, 0.78, 0.6, 0.35)
 
 
 def shop_glass_master():
@@ -368,16 +372,19 @@ def shop_glass_master():
 
 def kit_instances(master):
     out = {}
-    glass = shop_glass_master()
+    glass = shop_glass_master() if SHOP_GLASS_MODE == "translucent" else None
     for name, (r, gr, b, rough, metal) in KIT_SLOTS.items():
         path = MAT_DIR + "/" + name.replace("MI_", "MI_City_", 1)
         if eal.does_asset_exist(path):
             eal.delete_asset(path)
         mic = asset_tools.create_asset(path.rsplit("/", 1)[1], MAT_DIR, unreal.MaterialInstanceConstant,
                                        unreal.MaterialInstanceConstantFactoryNew())
-        mel.set_material_instance_parent(mic, glass if name == SHOP_GLASS else master)
+        mel.set_material_instance_parent(mic, glass if (name == SHOP_GLASS and glass) else master)
         mel.set_material_instance_vector_parameter_value(mic, "BaseColor", unreal.LinearColor(r, gr, b, 1.0))
-        if name == SHOP_GLASS:
+        if name == SHOP_GLASS and glass is None:
+            er, eg, eb, k = SHOP_GLASS_FAKE_GLOW
+            mel.set_material_instance_vector_parameter_value(mic, "Emissive", unreal.LinearColor(er * k, eg * k, eb * k, 1.0))
+        if name == SHOP_GLASS and glass:
             mel.set_material_instance_scalar_parameter_value(mic, "Roughness", rough)
             eal.save_loaded_asset(mic)
             out[name] = mic
@@ -541,6 +548,7 @@ def main():
         if eal.does_directory_exist(river_dir):
             report["riverside_meshes"] = assign(river_dir, shell, {"SM_River_Water": water_material()})
         assign_kit(kit_instances(kit_master()), report)
+        report["shop_glass"] = SHOP_GLASS_MODE
         facade_check(report)
     except Exception as e:  # report, never leave the editor hanging on a dialog
         report["errors"].append(repr(e))
