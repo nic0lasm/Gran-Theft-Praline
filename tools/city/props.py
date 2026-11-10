@@ -52,6 +52,9 @@ OSM_TYPES = {
     "amenity=post_box": "W1-24", "amenity=drinking_water": "W1-18", "amenity=bicycle_rental": "W1-13",
     "amenity=recycling": "W1-31",
 }
+# Free Fab/Megascans street trees (free-assets thread), out of Git under /Game/EuropeanBeech.
+LEAFY_TREES = {"mature": "/Game/EuropeanBeech/Geometry/SimpleWind/SM_EuropeanBeech_Field_01",
+               "young": "/Game/EuropeanBeech/Geometry/SimpleWind/SM_EuropeanBeech_Sapling_01"}
 TERRACE_TRADES = {"restaurant", "cafe", "bar", "pub", "fast_food", "ice_cream"}
 MIN_GAP_M = 0.6
 TERRACE_OUT_M = 2.6        # table centres in front of the facade
@@ -77,6 +80,9 @@ def main():  # noqa: C901, PLR0915
     ap.add_argument("--buffer", type=float, default=45.0)
     ap.add_argument("--geo", default=os.path.join(REPO, "assets", "geo"))
     ap.add_argument("--manifest", default=os.path.join(REPO, "assets", "manifests", "wave-01.json"))
+    ap.add_argument("--leafy", action="store_true", default=os.environ.get("GTP_CITY_LEAFY") == "1",
+                    help="street trees in leaf: Megascans European Beech (Fab, free) instead of the bare plane "
+                         "trunks (GTP_CITY_LEAFY=1); only once its M1 cost is measured")
     args = ap.parse_args()
     t0 = time.time()
     raw = os.path.join(args.geo, "raw", args.name)
@@ -163,7 +169,11 @@ def main():  # noqa: C901, PLR0915
             # young trees get the guarded sapling.
             young = (p.get("circonference_cm") or 100) < 60
             placed.pop()  # the trunk stands in the grate
-            add("W14-64" if young else "W14-63", x, y, yaw, "grandlyon:trees", str(p.get("identifiant", "")))
+            if add("W14-64" if young else "W14-63", x, y, yaw, "grandlyon:trees", str(p.get("identifiant", ""))) \
+                    and args.leafy:
+                # same anchor and catalogue id (place_props.py groups by asset path), leafy mesh
+                rows[-1]["asset_path"] = LEAFY_TREES["young" if young else "mature"]
+                rows[-1]["asset"] = rows[-1]["asset_path"].rsplit("/", 1)[1]
 
     with open(os.path.join(proc, "shops.csv"), encoding="utf-8") as f:
         shops = {r["osm_id"]: r for r in csv.DictReader(f)}

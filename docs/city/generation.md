@@ -353,6 +353,24 @@ cost and the 250 m cull to be measured.
 Mac slot in one command: `caffeinate -dimsu tools/city/city_slot_mac.sh <before_builds> 0.3`
 (regeneration, package, filmed 60 s M1 test, the realism thread's before/after).
 
+**GPU cost of the dressing**: `tools/city/unreal/profile_details.sh` measures, in `-game` and
+without rebuilding the map, the frame time at four fixed points of the street with everything
+visible, then hiding the details, the furniture, or one detail group at a time (actor tags
+`GTP_Set_*` and `GTP_Cat_*` set by `place_props.py`). Result: `Saved/CityImport/details_profile.json`.
+Wall-flush details, shelves behind the glass and small items no longer cast shadows (`shadow`
+column); only awnings and chimneys keep theirs.
+
+**Trees in leaf**: `GTP_CITY_LEAFY=1` (or `props.py --leafy`) swaps the bare plane trunks for
+the free Megascans beech (`SM_EuropeanBeech_Field_01`, `_Sapling_01` for young trees) on the same
+Grand Lyon anchors. Off by default until its M1 cost is measured.
+
+**Fake-depth shop windows** (default, `GTP_SHOP_GLASS=interior`): `M_City_ShopInterior` is opaque
+glass that draws a lit shop by interior mapping (one ray-box test per pixel in the module frame:
+shelved back wall in varied colours, floor, bright ceiling, side walls), with no translucency
+and no overdraw; reflections and Fresnel on top, emissive scaled by `EmissiveScale` at night.
+`translucent` (real glass with W14-32 shelves) and `opaque` stay available. Details draw within
+20 to 40 m (`cull_m` column, 60 m for chimneys and lights).
+
 ## Limits and next steps
 
 1. **Editor test**: `tools/city/unreal/import_city.py` imports the greybox and

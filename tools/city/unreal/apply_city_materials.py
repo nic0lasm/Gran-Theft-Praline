@@ -361,7 +361,8 @@ SHOP_GLASS = "MI_Glass_Shop"
 SHOP_GLASS_OPACITY = 0.12
 # GTP_SHOP_GLASS=opaque: fallback if the translucent windows cost more than 0.8 ms on m1
 # (fil optimisation): opaque reflective glass with the shop light faked in emissive.
-SHOP_GLASS_MODE = os.environ.get("GTP_SHOP_GLASS", "translucent")
+# Default "interior" (perf thread, M1): opaque glass with a fake room by interior mapping.
+SHOP_GLASS_MODE = os.environ.get("GTP_SHOP_GLASS", "interior")
 SHOP_GLASS_FAKE_GLOW = (0.9, 0.78, 0.6, 0.35)
 
 
@@ -387,9 +388,77 @@ def shop_glass_master():
     return mat
 
 
+# GTP_SHOP_GLASS=interior: opaque glass showing a fake lit shop room by interior mapping (one
+# ray-box test per pixel in the module's local frame): no translucency, no overdraw, and the
+# kit's room geometry behind it is not needed. Room cell = one shop bay.
+INTERIOR_HLSL = r"""
+float3 d = normalize(-V);                       // view ray, local frame, into the facade
+float3 cell = float3(300.0, 250.0, 300.0);      // bay width, room depth, room height (cm)
+float2 id = floor(float2(P.x + 150.0, P.z - 12.0) / cell.xz);
+float3 u = float3(frac((P.x + 150.0) / cell.x), 0.0, frac((P.z - 12.0) / cell.z));
+float3 dn = float3(d.x / cell.x, abs(d.y) / cell.y, d.z / cell.z);
+float tx = (dn.x > 0 ? 1.0 - u.x : -u.x) / (abs(dn.x) > 1e-5 ? dn.x : 1e-5);
+float tz = (dn.z > 0 ? 1.0 - u.z : -u.z) / (abs(dn.z) > 1e-5 ? dn.z : 1e-5);
+float ty = 1.0 / max(dn.y, 1e-5);
+float t = min(min(tx, tz), ty);
+float3 h = u + dn * t;
+float hash = frac(sin(dot(id, float2(12.9898, 78.233)) + Seed) * 43758.5453);
+float3 wallc = lerp(float3(0.85, 0.80, 0.72), float3(0.75, 0.80, 0.82), hash);
+float3 col;
+if (t == ty) {                                   // back wall: shelves of goods
+    float band = frac(h.z * 5.0);
+    float shelf = step(0.2, h.z) * step(h.z, 0.85) * step(0.08, h.x) * step(h.x, 0.92);
+    float goods = frac(sin(floor(h.x * 14.0) * 7.13 + floor(h.z * 5.0) * 3.7 + hash * 11.0) * 9137.0);
+    float3 item = lerp(float3(0.55, 0.18, 0.12), float3(0.15, 0.30, 0.55), goods) * (0.6 + 0.6 * goods);
+    col = lerp(wallc, band < 0.25 ? float3(0.25, 0.22, 0.2) : item, shelf);
+} else if (t == tz) {
+    col = dn.z < 0 ? float3(0.32, 0.30, 0.28) * (0.7 + 0.3 * h.y) : float3(1.0, 0.97, 0.9);   // floor, lit ceiling
+} else {
+    col = wallc * (0.75 + 0.25 * (1.0 - h.y));    // side walls, darker towards the back
+}
+col *= 0.55 + 0.45 * saturate(1.0 - h.y * 0.6);  // light falls off into the room
+return col * Glow;
+"""
+
+
+def shop_interior_master():
+    mat = new_material("M_City_ShopInterior")
+    mat.set_editor_property("used_with_instanced_static_meshes", True)
+    g = Graph(mat)
+    lp = g.node(unreal.MaterialExpressionTransformPosition,
+                transform_source_type=unreal.MaterialPositionTransformSource.TRANSFORMPOSSOURCE_WORLD,
+                transform_type=unreal.MaterialPositionTransformSource.TRANSFORMPOSSOURCE_LOCAL)
+    g.link(g.world_position(), "", lp, "")
+    cv = g.node(unreal.MaterialExpressionTransform,
+                transform_source_type=unreal.MaterialVectorCoordTransformSource.TRANSFORMSOURCE_WORLD,
+                transform_type=unreal.MaterialVectorCoordTransform.TRANSFORM_LOCAL)
+    g.link(g.node(unreal.MaterialExpressionCameraVectorWS), "", cv, "")
+    glow = g.node(unreal.MaterialExpressionScalarParameter, parameter_name="Glow", default_value=1.4)
+    seed = g.node(unreal.MaterialExpressionScalarParameter, parameter_name="Seed", default_value=0.0)
+    custom = g.node(unreal.MaterialExpressionCustom, code=INTERIOR_HLSL,
+                    output_type=unreal.CustomMaterialOutputType.CMOT_FLOAT3, description="ShopInterior",
+                    inputs=[unreal.CustomInput(input_name=n) for n in ("P", "V", "Glow", "Seed")])
+    for src, name in ((lp, "P"), (cv, "V"), (glow, "Glow"), (seed, "Seed")):
+        g.link(src, "", custom, name)
+    # grazing views read as glass: the room fades behind the reflection
+    fres = g.node(unreal.MaterialExpressionFresnel)
+    room = g.mul(custom, g.sub(g.const(1.0), g.mul(fres, g.const(0.8))))
+    emis = g.mul(room, g.node(unreal.MaterialExpressionScalarParameter, parameter_name="EmissiveScale",
+                              default_value=1.0))
+    mel.connect_material_property(g.const((0.02, 0.022, 0.025)), "", unreal.MaterialProperty.MP_BASE_COLOR)
+    mel.connect_material_property(g.const(0.04), "", unreal.MaterialProperty.MP_ROUGHNESS)
+    mel.connect_material_property(g.const(0.0), "", unreal.MaterialProperty.MP_METALLIC)
+    mel.connect_material_property(g.const(1.0), "", unreal.MaterialProperty.MP_SPECULAR)
+    mel.connect_material_property(emis, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+    weather(mat, ("wet", "emissive"))
+    g.done()
+    return mat
+
+
 def kit_instances(master):
     out = {}
-    glass = shop_glass_master() if SHOP_GLASS_MODE == "translucent" else None
+    glass = shop_glass_master() if SHOP_GLASS_MODE == "translucent" else \
+        shop_interior_master() if SHOP_GLASS_MODE == "interior" else None
     for name, (r, gr, b, rough, metal) in KIT_SLOTS.items():
         path = MAT_DIR + "/" + name.replace("MI_", "MI_City_", 1)
         if eal.does_asset_exist(path):
@@ -402,7 +471,8 @@ def kit_instances(master):
             er, eg, eb, k = SHOP_GLASS_FAKE_GLOW
             mel.set_material_instance_vector_parameter_value(mic, "Emissive", unreal.LinearColor(er * k, eg * k, eb * k, 1.0))
         if name == SHOP_GLASS and glass:
-            mel.set_material_instance_scalar_parameter_value(mic, "Roughness", rough)
+            if SHOP_GLASS_MODE == "translucent":
+                mel.set_material_instance_scalar_parameter_value(mic, "Roughness", rough)
             eal.save_loaded_asset(mic)
             out[name] = mic
             continue
