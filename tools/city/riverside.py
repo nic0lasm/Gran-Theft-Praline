@@ -40,6 +40,10 @@ DECK_THICK_M = 1.2
 PARAPET_H_M, PARAPET_W_M = 1.05, 0.4
 WATER_CELL_M = 4.0
 MAX_STEP_M = 0.12            # deck to quay, a car rolls over it
+BED_DEPTH_M = 2.5            # river bed with collision under the water surface
+RECOVERY_CELL_M = 25.0
+EXIT_EVERY_M = 25.0
+STREET_ABOVE_WATER_M = 5.0   # quays at street level, not the bas-ports
 
 
 def polys(geom):
@@ -182,7 +186,7 @@ def box_between(m, a, b, ia, ib, za, zb, h):
     m.quad(B, IB, IBt, Bt, STONE)
 
 
-def quay_mesh(water, bbox, bridges, mnt, origin, origin_alt):
+def quay_mesh(water, bbox, bridges, mnt, origin, origin_alt, water_level):
     """Parapet along the water's edge inside the box, land side, cut under the bridges.
     water is the unclipped river: the box sides crossing it are not edges."""
     edge = water.boundary.intersection(bbox)
@@ -192,6 +196,7 @@ def quay_mesh(water, bbox, bridges, mnt, origin, origin_alt):
     lines = [g for g in getattr(edge, "geoms", [edge]) if isinstance(g, LineString)]
     m = meshkit.Mesh()
     length = 0.0
+    exits, since = [], EXIT_EVERY_M
     for line in lines:
         pts = list(line.coords)
         dense = []
@@ -216,7 +221,46 @@ def quay_mesh(water, bbox, bridges, mnt, origin, origin_alt):
                 continue
             box_between(m, b, a, ib, ia, za, zb, PARAPET_H_M)
             length += L
-    return m, length
+            since += L
+            if since >= EXIT_EVERY_M:         # where someone fished out of the river stands
+                since = 0.0
+                # Street level, not the lower quay (bas-port) 3-6 m down: walk inland
+                # until the ground stands well above the water.
+                e, ez = None, float("nan")
+                for d_in in np.arange(3.0, 60.0, 1.0):
+                    p_in = mid + n * d_in
+                    z_in = float(ground(mnt, origin, origin_alt, [p_in[0]], [p_in[1]])[0])
+                    if z_in > water_level + STREET_ABOVE_WATER_M:
+                        e = p_in + n * 5.0
+                        ez = float(ground(mnt, origin, origin_alt, [e[0]], [e[1]])[0])
+                        break
+                if e is not None and not np.isnan(ez):
+                    exits.append({"x_m": round(float(e[0]), 2), "y_m": round(float(e[1]), 2), "z_m": round(ez, 2),
+                                  "yaw_deg": round(float(np.degrees(np.arctan2(n[1], n[0]))), 1)})
+    return m, length, exits
+
+
+def river_safety(water, level):
+    """Fall-in safety: a river bed with collision BED_DEPTH_M under the surface (nothing
+    falls through the world) and recovery boxes over the water, which the game uses to
+    swim or fish the player and the cars out to the nearest quay exit."""
+    bed = meshkit.Mesh()
+    for p in polys(water):
+        for a, b, c in triangles(p):
+            pts = [(a[0], a[1], level - BED_DEPTH_M), (b[0], b[1], level - BED_DEPTH_M), (c[0], c[1], level - BED_DEPTH_M)]
+            if np.cross(np.subtract(pts[1], pts[0]), np.subtract(pts[2], pts[0]))[2] < 0:
+                pts[1], pts[2] = pts[2], pts[1]
+            bed.tri(*pts, WATER)
+    boxes = []
+    x0, y0, x1, y1 = water.bounds
+    for x in np.arange(x0, x1, RECOVERY_CELL_M):
+        for y in np.arange(y0, y1, RECOVERY_CELL_M):
+            cell = box(x, y, x + RECOVERY_CELL_M, y + RECOVERY_CELL_M)
+            if water.intersection(cell).area > 0.3 * cell.area:
+                boxes.append({"centre_m": [round(x + RECOVERY_CELL_M / 2, 2), round(y + RECOVERY_CELL_M / 2, 2),
+                                           round(level - BED_DEPTH_M / 2 + 0.3, 2)],
+                              "half_m": [RECOVERY_CELL_M / 2, RECOVERY_CELL_M / 2, BED_DEPTH_M / 2 + 0.6]})
+    return bed, boxes
 
 
 def main():
@@ -263,9 +307,13 @@ def main():
         items.append(("SM_Bridge_" + name, bm, (0.0, 0.0, 0.0)))
         meta.setdefault("bridges", []).append({"name": name, "deck_m2": round(full.area), "end_z_m": [round(z, 2) for z in banks],
                                                "stretched_to_quays_m": ext, "max_step_m": MAX_STEP_M})
-    qm, qlen = quay_mesh(river, bx, fulls, mnt, origin, origin_alt)
+    qm, qlen, exits = quay_mesh(river, bx, fulls, mnt, origin, origin_alt, level)
     items.append(("SM_Quay_Parapet", qm, (0.0, 0.0, 0.0)))
     meta["quay_parapet_m"] = round(qlen)
+    bed, boxes = river_safety(water, level)
+    items.append(("SM_River_Bed", bed, (0.0, 0.0, 0.0)))
+    meta["recovery"] = {"tag_boxes": "GTP_RiverRecovery", "tag_exits": "GTP_RiverExit",
+                        "bed_z_m": round(level - BED_DEPTH_M, 2), "boxes": boxes, "exits": exits}
     for n, m, o in items:
         meta["nodes"].append({"name": n, "triangles": m.tris, "ue_cm": list(cl.to_unreal(*o)),
                               "collision": n != "SM_River_Water"})
