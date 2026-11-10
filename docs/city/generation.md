@@ -245,6 +245,14 @@ coordinates, procedural slab and sett joints and tone variation, a single textur
 on walls, smoother roofs), assigns them to the terrain tiles and shells, and checks the facade
 instances of the map. It replaces `M_CityGreybox` without rebuilding the map.
 
+Weathering, all in shader arithmetic (no texture, cheap on the M1 profile): the facade kit
+(`M_City_Kit`) and the shell walls get a slow tint drift across the block, a darker plinth
+over the first 1-4 m above the building's street level (`place_facades.py` writes it in
+per-instance custom data 3) and rain streaks under each cornice and sill, scaled per slot by
+`Weathering` (stone 1, wood 0.5, glass 0.1-0.15, shop interiors 0). The asphalt gets patches
+(repairs, wheel paths). The mask is drawn on square texels and resampled, so streets keep their
+width whatever the texture aspect.
+
 ## Rhone quay and pont Lafayette (added 2026-11-10, for 0.3)
 
 The generated footprint grows east for the 0.3 driving loop:
