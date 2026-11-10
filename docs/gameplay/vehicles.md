@@ -201,7 +201,7 @@ lights and priorities is 0.9):
   traffic, links at junctions without U-turns. With `--map <Map>` it copies
   them to `Content/City/Traffic/<Map>.lanes.csv`, staged with the game.
 - The game mode spawns an `AGTPTrafficNetwork` when that file exists. It
-  puts `NumCars` cars (6; `-Traffic=N`, 0 = none) with a driver on the
+  puts `NumCars` cars (3, the measured M1 budget: p95 40.4 ms with 3 cars, 45.4 ms with 6; `-Traffic=N`, 0 = none) with a driver on the
   lanes, at least 40 m away and out of sight, and takes away cars stuck at
   a dead end or too far, out of sight too.
 - `UGTPAIDriverComponent` decides with `GTPDriveLogic.h`: pure pursuit

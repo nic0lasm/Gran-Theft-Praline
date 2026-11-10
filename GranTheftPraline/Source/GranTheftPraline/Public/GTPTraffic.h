@@ -155,6 +155,13 @@ public:
 	/** Lane and point closest to Location whose direction is within 60 degrees of YawDegrees. */
 	bool FindNearestLane(const FVector& Location, float YawDegrees, float MaxDistanceCm, int32& OutLane, int32& OutPoint) const;
 
+	/**
+	 * A point to drive to in order to join the nearest lane, whatever its
+	 * direction: AheadCm further along that lane, so the car meets it at an
+	 * angle and can then follow it. False when no lane is within MaxDistanceCm.
+	 */
+	bool FindJoinPoint(const FVector& Location, float MaxDistanceCm, float AheadCm, FVector& OutPoint) const;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Traffic")
 	TArray<FGTPTrafficLane> Lanes;
 
@@ -162,7 +169,7 @@ protected:
 	virtual void BeginPlay() override;
 
 	UPROPERTY(Config, EditAnywhere, Category = "Traffic")
-	int32 NumCars = 6;
+	int32 NumCars = 3;
 
 	/** Cars to pick from (Blueprint children of AGTPVehicle); empty = the game mode's test car. */
 	UPROPERTY(Config, EditAnywhere, Category = "Traffic", meta = (MetaClass = "/Script/GranTheftPraline.GTPVehicle"))

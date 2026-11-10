@@ -354,6 +354,40 @@ bool AGTPTrafficNetwork::FindNearestLane(const FVector& Location, float YawDegre
 	return OutLane != INDEX_NONE;
 }
 
+bool AGTPTrafficNetwork::FindJoinPoint(const FVector& Location, float MaxDistanceCm, float AheadCm, FVector& OutPoint) const
+{
+	double Best = static_cast<double>(MaxDistanceCm) * MaxDistanceCm;
+	int32 BestLane = INDEX_NONE, BestPoint = 0;
+	for (int32 LaneIndex = 0; LaneIndex < Lanes.Num(); ++LaneIndex)
+	{
+		const TArray<FVector>& Points = Lanes[LaneIndex].Points;
+		for (int32 PointIndex = 0; PointIndex < Points.Num(); ++PointIndex)
+		{
+			const double D = FVector::DistSquared2D(Points[PointIndex], Location);
+			if (D < Best)
+			{
+				Best = D;
+				BestLane = LaneIndex;
+				BestPoint = PointIndex;
+			}
+		}
+	}
+	if (BestLane == INDEX_NONE)
+	{
+		return false;
+	}
+	const TArray<FVector>& Points = Lanes[BestLane].Points;
+	OutPoint = Points[BestPoint];
+	double Left = AheadCm;
+	for (int32 PointIndex = BestPoint + 1; PointIndex < Points.Num() && Left > 0.0; ++PointIndex)
+	{
+		const double Seg = FVector::Dist2D(Points[PointIndex - 1], Points[PointIndex]);
+		OutPoint = Seg >= Left ? FMath::Lerp(Points[PointIndex - 1], Points[PointIndex], Left / FMath::Max(Seg, 1.0)) : Points[PointIndex];
+		Left -= Seg;
+	}
+	return true;
+}
+
 void AGTPTrafficNetwork::MakeCheap(AGTPVehicle* Car, ACharacter* Driver) const
 {
 	// Lights of AI cars never cast shadows: a shadowed spot light is a full extra shadow pass.
