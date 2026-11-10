@@ -19,6 +19,8 @@ as lived in, always anchored on something real, never scattered at random over a
                                 traffic lights and signs from the road centre to the kerb
   roofs (buildings.csv)         chimney stacks on the party walls, at roof height
   life                          bins and bags by some entrances, a bicycle against a wall,
+                                bicycles on the surveyed hoops, shared kick scooters,
+                                motorbikes on the OSM two-wheeler parkings,
                                 pigeons near benches, litter near the bins
 
 The choice of which bay gets a detail is a stable hash of its building id and bay, so
@@ -81,7 +83,7 @@ PRIORITY = {"W1-46": 0, "W1-45": 0, "W1-57": 0, "W8-02": 0, "W8-01": 0, "W1-56":
             "W8-11": 1, "W8-14": 1, "W8-15": 1, "W8-16": 1, "W8-17": 1, "W1-59": 1, "W13-19": 2,
             "W14-45": 2, "W14-46": 2, "W14-41": 2, "W14-62": 2, "W13-07": 2, "W14-32": 1, "W1-30": 2, "W1-19": 2,
             "W14-43": 3, "W14-36": 3, "W14-55": 3, "W14-34": 3, "W14-03": 3, "W1-32": 3, "W1-60": 3,
-            "W14-53": 3, "W14-69": 3, "W14-65": 4, "W14-66": 4, "W14-48": 4, "W1-47": 4, "W14-72": 4}
+            "W14-53": 3, "W14-69": 3, "W1-14": 2, "W1-54": 2, "W1-55": 3, "W14-65": 4, "W14-66": 4, "W14-48": 4, "W1-47": 4, "W14-72": 4}
 
 
 def h01(*parts):
@@ -379,6 +381,13 @@ def main():  # noqa: C901, PLR0912, PLR0915
             add("W1-30", x, y, ground_z(x, y), facing(x, y), "osm:street_cabinet", ref)
         elif tags.get("man_made") == "advertising" and tags.get("advertising") == "column":
             add("W1-19", x, y, ground_z(x, y), 0.0, "osm:advertising_column", ref)
+        elif tags.get("amenity") == "motorcycle_parking":   # two-wheelers parked side by side
+            yaw = facing(x, y)
+            a = math.radians(yaw + 90.0)
+            for k in range(2 + int(h01("moto", oid) * 3)):
+                off = (k - 1.5) * 0.9
+                add("W1-54", x + math.cos(a) * off, y - math.sin(a) * off, ground_z(x, y), yaw + 90.0,
+                    "osm:motorcycle_parking", ref)
 
     # --- 5. Grand Lyon trees: autumn leaves; litter and pigeons near benches and bins ----
     for ft in grandlyon.load(raw, "trees"):
@@ -405,6 +414,22 @@ def main():  # noqa: C901, PLR0912, PLR0915
         if u < 0.2:
             add("W14-69", x + 1.6 * math.cos(6.28 * u), y + 1.6 * math.sin(6.28 * u), ground_z(x, y), 360 * u,
                 "osm:bench", "pigeons")
+
+    # --- 5b. Bicycles locked to the surveyed hoops of props.py, shared kick scooters nearby
+    props_csv = os.path.join(gen, "props_placement.csv")
+    if os.path.exists(props_csv):
+        with open(props_csv, encoding="utf-8") as f:
+            hoops = [r for r in csv.DictReader(f) if r["catalog_id"] == "W1-12"]
+        for r in hoops:
+            x, y, yaw = float(r["x_m"]), float(r["y_m"]), float(r["ue_yaw"])
+            u = h01("bike", r["x_m"], r["y_m"])
+            a = math.radians(yaw + 90.0)                       # along the facade, beside the hoop
+            if u < 0.3:
+                add("W1-14", x + math.cos(a) * 0.18, y - math.sin(a) * 0.18, ground_z(x, y), yaw,
+                    "props:bike_hoop", r["ref"])
+            elif u > 0.93:
+                add("W1-55", x + math.cos(a) * 0.6, y - math.sin(a) * 0.6, ground_z(x, y), yaw + 70.0 * (u - 0.9),
+                    "props:bike_hoop", "kick scooter")
 
     # --- 6. Roofs: chimney stacks on the party walls -------------------------------------
     for b in buildings:
