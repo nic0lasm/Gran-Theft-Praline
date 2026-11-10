@@ -90,3 +90,7 @@ assets/tripo/**/*.zip
 /GranTheftPraline/Content/Fab/
 /GranTheftPraline/Content/Megascans/
 /GranTheftPraline/Content/MSPresets/
+# Megascans tree packs added from the Fab library (Epic Games Launcher)
+/GranTheftPraline/Content/EuropeanBeech/
+/GranTheftPraline/Content/BlackAlder/
+/GranTheftPraline/Content/Megaplant_Library/
