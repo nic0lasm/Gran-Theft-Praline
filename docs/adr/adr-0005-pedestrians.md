@@ -1,6 +1,6 @@
-# ADR-0004: Pedestrians
+# ADR-0005: Pedestrians
 
-*French version: [adr-0004-pedestrians.fr.md](adr-0004-pedestrians.fr.md)*
+*French version: [adr-0005-pedestrians.fr.md](adr-0005-pedestrians.fr.md)*
 
 ## Status
 

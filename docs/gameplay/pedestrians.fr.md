@@ -2,7 +2,7 @@
 
 *Version anglaise : [pedestrians.md](pedestrians.md)*
 
-Décision et alternatives : [ADR-0004](../adr/adr-0004-pedestrians.fr.md).
+Décision et alternatives : [ADR-0005](../adr/adr-0005-pedestrians.fr.md).
 
 ## Ce que voit le joueur
 
@@ -44,13 +44,23 @@ boucles de locomotion ne coûtent rien ; MetaHuman ou maillages Fab pourront
 Les autres systèmes écoutent `OnPedestrianHit` et `OnPedestrianScared` (lieu,
 acteur cause).
 
+Interface stable pour les autres systèmes (le système de recherche s'y abonne,
+ce module ne dépend d'aucun d'eux) :
+
+```cpp
+DECLARE_MULTICAST_DELEGATE_TwoParams(FGTPPedestrianEvent, const FVector& Location, AActor* Cause);
+UGTPPedestrianSubsystem::OnPedestrianHit;    // une personne est renversée
+UGTPPedestrianSubsystem::OnPedestrianScared; // une personne se met à fuir
+```
+Cause est nulle pour l'instant (la voiture n'est pas encore identifiée).
+
 ## Contrôles
 
 - `python3 tools/pedestrians/check_walk_logic.py [walkways.csv]` compile
   `walk_sim` et fait marcher 200 personnes 10 minutes (pas de saut, elles
   continuent à marcher, elles fuient une menace). Tests Python :
   `tools/city/tests/test_pedestrians.py`.
-- Coût sur le M1 Pro : pas encore mesuré (critères de l'ADR-0004). La ligne
+- Coût sur le M1 Pro : pas encore mesuré (critères de l'ADR-0005). La ligne
   `LogGTPPedestrians: active=.. drawn=..` sort toutes les 10 s, aussi en Shipping.
 
 ## Limites

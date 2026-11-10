@@ -67,7 +67,7 @@ DECLARE_MULTICAST_DELEGATE_TwoParams(FGTPPedestrianEvent, const FVector& /*Locat
  * tools/city/pedestrians.py, staged with the game). The subsystem keeps a fixed
  * pool of people, sized by the graphics profile, and moves them along the walkway
  * graph with the rules of GTPWalkLogic.h. People appear and disappear only out of
- * sight. Cost limits (ADR-0004): one animation per person and no animation
+ * sight. Cost limits (ADR-0005): one animation per person and no animation
  * blueprint, only MaxVisible people drawn, no shadow and a lower level of detail
  * with distance, nothing drawn beyond DrawDistance.
  *
