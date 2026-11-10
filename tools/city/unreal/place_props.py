@@ -187,6 +187,8 @@ def main():
             culled.add(key)
         if r.get("shadow") == "false" and key not in no_shadow:
             comp.set_editor_property("cast_shadow", False)   # flush on a wall: its shadow is invisible
+            if LEAN_SMALL:
+                lean_small(comp, report)
             no_shadow.add(key)
         if r.get("collision") == "false" and key not in no_collision:
             comp.set_collision_profile_name("NoCollision")   # small details: nothing to walk into
@@ -206,6 +208,25 @@ def main():
     report.update({"rows": len(rows), "placed": sum(report["instances"].values()), "snapped_to_ground": snapped,
                    "kept_lidar_height": kept})
     write(report, t0)
+
+
+# Small and wall-flush details (shadow=false) also stay out of the Lumen distance fields and the
+# ray-tracing scene: a 2 cm plaque or a 30 cm meter adds nothing visible to the bounce light, but
+# each mesh distance field costs GPU time in software Lumen. GTP_DETAILS_LEAN=0 turns it off.
+LEAN_SMALL = os.environ.get("GTP_DETAILS_LEAN", "1") != "0"
+LEAN_OFF = ("affect_distance_field_lighting", "affect_dynamic_indirect_lighting", "visible_in_ray_tracing",
+            "receives_decals")
+
+
+def lean_small(comp, report):
+    for prop in LEAN_OFF:
+        try:
+            comp.set_editor_property(prop, False)
+        except Exception:   # property renamed in this engine version: keep going, report it
+            unknown = report.setdefault("lean_unknown_props", [])
+            if prop not in unknown:
+                unknown.append(prop)
+    report["lean_components"] = report.get("lean_components", 0) + 1
 
 
 def write(report, t0):

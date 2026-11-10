@@ -370,6 +370,9 @@ shelved back wall in varied colours, floor, bright ceiling, side walls), with no
 and no overdraw; reflections and Fresnel on top, emissive scaled by `EmissiveScale` at night.
 `translucent` (real glass with W14-32 shelves) and `opaque` stay available. Details draw within
 20 to 40 m (`cull_m` column, 60 m for chimneys and lights).
+Details without a shadow (small or flush on a wall) also stay out of the Lumen distance fields,
+the ray-tracing scene and decals: nothing visible changes, and software Lumen has fewer mesh
+distance fields to trace (`GTP_DETAILS_LEAN=0` turns it off for a comparison).
 
 ### Facade kit LODs (performance, 2026-11-10)
 
