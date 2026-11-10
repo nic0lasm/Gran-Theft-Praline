@@ -40,7 +40,7 @@ public:
 	/**
 	 * Broadcast for each loud sound of the game (crashes now; horns, shots and
 	 * explosions later). Pedestrians bind UGTPPedestrianSubsystem::ScareAround
-	 * here, which has the same signature.
+	 * here through a lambda (it returns the count of people scared).
 	 */
 	FGTPLoudSoundEvent OnLoudSound;
 
