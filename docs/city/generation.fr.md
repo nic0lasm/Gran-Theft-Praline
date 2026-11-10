@@ -395,6 +395,16 @@ d'écran, 15 % sous 0,1, 5 % sous 0,035, soit environ 10, 30 et 85 m) ; rien de 
 Banc en une commande : `caffeinate -dimsu tools/city/facade_lods_mac.sh` (rejoue seulement les
 façades et les matériaux, `FACADES_ONLY=1`, puis package dans Builds/facade-lods/).
 
+### Atlas des enseignes (performance, 2026-11-10)
+
+Chaque enseigne était son propre acteur avec son matériau et sa texture : environ 600 draw calls
+pour 341 bandeaux et les enseignes drapeau. `tools/city/sign_atlas.py` range les textures dans
+des pages 4096 × 4096 (64 enseignes par page, 1008 × 228 px chacune, bords répétés contre le
+débordement des mips) : 5 pages de lettrage et 1 page de logos (hors Git, plugin CityBrands).
+`place_facades.py` pose une composante instanciée par page (plus une sans ombre pour les drapeaux)
+avec `M_Sign_Atlas`, la case de chaque enseigne en données d'instance. `GTP_SIGN_ATLAS=0` revient
+aux acteurs séparés (l'avant du banc).
+
 ## Limites et suite
 
 1. **Test éditeur** : `tools/city/unreal/import_city.py` importe greybox et

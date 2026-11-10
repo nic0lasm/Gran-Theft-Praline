@@ -45,6 +45,11 @@ fi
 # Real shop logos live in the out-of-Git content plugin Plugins/CityBrands (art bible 3.5);
 # place_facades.py uses them only when the plugin is mounted, so make sure it exists.
 "$repo/tools/city/unreal/mount_citybrands.sh"
+# Shop signs packed into a few atlas pages: one instanced component per page instead of one
+# actor and material per sign (GTP_SIGN_ATLAS=0 keeps the per-sign actors).
+if [ "${GTP_SIGN_ATLAS:-1}" != "0" ] && test -f "$gen/signs/signs.csv"; then
+  python3 "$repo/tools/city/sign_atlas.py" --name "$zone" --focus "$focus" > /dev/null
+fi
 # Rhone riverside (water, quay parapets, pont Lafayette) when GTP_CITY_RIVERSIDE=1; import_city.py
 # picks riverside.json up when it exists.
 if [ "${GTP_CITY_RIVERSIDE:-0}" = "1" ]; then
