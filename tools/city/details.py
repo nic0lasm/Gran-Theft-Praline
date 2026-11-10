@@ -91,6 +91,54 @@ PRIORITY = {"W1-46": 0, "W1-45": 0, "W1-57": 0, "W8-02": 0, "W8-01": 0, "W1-56":
             "W14-53": 3, "W14-69": 3, "W1-14": 2, "W1-54": 2, "W1-55": 3, "W14-65": 4, "W14-66": 4, "W14-48": 4, "W1-47": 4, "W14-72": 4}
 
 
+def _group_map(text, cast):
+    """'W14-42:0.5,Shopfront:0.8' -> {'W14-42': 0.5, 'Shopfront': 0.8}; a bare key maps to None."""
+    out = {}
+    for item in filter(None, (t.strip() for t in (text or "").split(","))):
+        key, _, val = item.partition(":")
+        out[key.strip()] = cast(val) if val else None
+    return out
+
+
+def apply_switches(rows, env):
+    """Per-group switches for the perf passes, each keyed by catalogue id or family:
+
+      GTP_DETAILS_ONLY=W14-42,Shopfront   keep these groups only
+      GTP_DETAILS_DROP=W14-03             remove these groups
+      GTP_DETAILS_THIN=W14-42:0.5         keep a stable share of a group (same instances every run)
+      GTP_DETAILS_CULL=W14-42:25,*:0.8    draw distance in metres, or ``*:<factor>`` for all
+
+    All empty by default: the full dressing. The report lists what was applied."""
+    only = _group_map(env.get("GTP_DETAILS_ONLY"), str)
+    drop = _group_map(env.get("GTP_DETAILS_DROP"), str)
+    thin = _group_map(env.get("GTP_DETAILS_THIN"), float)
+    cull = _group_map(env.get("GTP_DETAILS_CULL"), float)
+
+    def pick(table, r):
+        for k in (r["catalog_id"], r["family"]):
+            if k in table:
+                return k
+        return None
+
+    kept = []
+    for r in rows:
+        if only and pick(only, r) is None or pick(drop, r) is not None:
+            continue
+        k = pick(thin, r)
+        if k is not None and h01("thin", r["catalog_id"], r["x_m"], r["y_m"], r["z_m"]) >= thin[k]:
+            continue
+        k = pick(cull, r)
+        if k is not None:
+            r["cull_m"] = round(cull[k])
+        elif cull.get("*") is not None:
+            r["cull_m"] = round(float(r["cull_m"]) * cull["*"])
+        kept.append(r)
+    switches = {name: env[name] for name in ("GTP_DETAILS_ONLY", "GTP_DETAILS_DROP", "GTP_DETAILS_THIN",
+                                             "GTP_DETAILS_CULL") if env.get(name)}
+    switches["removed"] = len(rows) - len(kept)
+    return kept, switches
+
+
 def h01(*parts):
     """Stable pseudo-random number in [0, 1) from any key (no global seed, run-independent)."""
     d = hashlib.blake2b("|".join(str(p) for p in parts).encode(), digest_size=8).digest()
@@ -464,7 +512,8 @@ def main():  # noqa: C901, PLR0912, PLR0915
             if add("W13-19", cx, cy, top - 0.4, yaw, "roof:party_wall", b["key"], snap="keep", inside_ok=True):
                 n += 1
 
-    # --- cap by priority, write ------------------------------------------------------------
+    # --- per-group switches (perf passes), then cap by priority, write -----------------------
+    rows, switches = apply_switches(rows, os.environ)
     total = len(rows)
     rows.sort(key=lambda r: PRIORITY.get(r["catalog_id"], 5))
     rows = rows[:args.max]
@@ -479,6 +528,7 @@ def main():  # noqa: C901, PLR0912, PLR0915
         k = r["catalog_id"] + " " + r["asset"]
         by[k] = by.get(k, 0) + 1
     report = {"details": len(rows), "before_cap": total, "cap": args.max, "asset_types": len(by),
+              "switches": switches,
               "by_asset": dict(sorted(by.items())), "seconds": round(time.time() - t0, 1)}
     with open(os.path.join(gen, "details_report.json"), "w", encoding="utf-8") as f:
         json.dump(report, f, indent=1)
