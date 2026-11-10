@@ -388,6 +388,18 @@ Les détails sans ombre (petits ou plaqués au mur) sortent aussi des champs de 
 de la scène de lancer de rayons et des décalques : rien ne change à l'image, et Lumen logiciel a moins
 de champs de distance à parcourir (`GTP_DETAILS_LEAN=0` le désactive pour comparer).
 
+**Interrupteurs par groupe** (passes de perf, tous vides par défaut = habillage complet), lus par
+`tools/city/details.py`, par id de catalogue ou famille : `GTP_DETAILS_ONLY=W14-42,Shopfront` ne
+garde que ces groupes, `GTP_DETAILS_DROP=W14-03` en retire, `GTP_DETAILS_THIN=W14-42:0.5` garde une
+part stable d'un groupe (les mêmes instances à chaque passe), `GTP_DETAILS_CULL=W14-42:25,*:0.8`
+fixe une distance d'affichage en mètres ou les multiplie toutes. `details_report.json` liste ce qui
+a été appliqué. **Fusion de matériaux** : avec `GTP_DETAILS_MERGED=1`, `run_city_import.sh` lance
+d'abord `tools/city/unreal/merge_detail_materials.py`, qui cuit chaque détail à plusieurs
+matériaux en `SM_<Asset>_Merged` (un seul matériau atlas, 512 px par défaut, `GTP_MERGE_TEXTURE` ;
+chaîne de LOD d'origine refaite), puis `place_props.py` utilise ces maillages : sans Nanite, chaque
+emplacement de matériau coûte un appel de dessin de plus par passe. Le script écrit de nouveaux
+assets dans Content, il reste donc coupé tant qu'un créneau ne l'a pas validé.
+
 ### LOD du kit de façades (performance, 2026-11-10)
 
 Les 21 242 modules de la map de rue faisaient 10,2 M de triangles en LOD0 jusqu'à 250 m, redessinés

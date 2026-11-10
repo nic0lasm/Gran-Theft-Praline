@@ -28,6 +28,25 @@ class DetailsTests(unittest.TestCase):
         for cid in list(details.PRIORITY) + list(details.SIGNS.values()):
             self.assertIn(cid, items, cid)
 
+    def test_group_switches(self):
+        rows = [{"catalog_id": "W14-42" if i % 2 else "W14-03", "family": "Wall", "x_m": str(i), "y_m": "0",
+                 "z_m": "0", "cull_m": "40"} for i in range(400)]
+        kept, sw = details.apply_switches([dict(r) for r in rows], {})
+        self.assertEqual(len(kept), 400)
+        self.assertEqual(sw["removed"], 0)
+        kept, _ = details.apply_switches([dict(r) for r in rows], {"GTP_DETAILS_DROP": "W14-03"})
+        self.assertTrue(all(r["catalog_id"] == "W14-42" for r in kept))
+        kept, _ = details.apply_switches([dict(r) for r in rows], {"GTP_DETAILS_ONLY": "W14-03"})
+        self.assertEqual(len(kept), 200)
+        thin = {"GTP_DETAILS_THIN": "W14-42:0.5"}
+        a, _ = details.apply_switches([dict(r) for r in rows], thin)
+        b, _ = details.apply_switches([dict(r) for r in rows], thin)
+        self.assertEqual(a, b)                                     # same instances every run
+        self.assertTrue(250 <= len(a) <= 350)
+        kept, _ = details.apply_switches([dict(r) for r in rows], {"GTP_DETAILS_CULL": "W14-42:25,*:0.5"})
+        self.assertEqual({r["cull_m"] for r in kept if r["catalog_id"] == "W14-42"}, {25})
+        self.assertEqual({r["cull_m"] for r in kept if r["catalog_id"] == "W14-03"}, {20})
+
 
 if __name__ == "__main__":
     unittest.main()

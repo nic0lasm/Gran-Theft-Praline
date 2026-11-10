@@ -374,6 +374,18 @@ Details without a shadow (small or flush on a wall) also stay out of the Lumen d
 the ray-tracing scene and decals: nothing visible changes, and software Lumen has fewer mesh
 distance fields to trace (`GTP_DETAILS_LEAN=0` turns it off for a comparison).
 
+**Per-group switches** (perf passes, all empty by default = the full dressing), read by
+`tools/city/details.py` and keyed by catalogue id or family:
+`GTP_DETAILS_ONLY=W14-42,Shopfront` keeps these groups only, `GTP_DETAILS_DROP=W14-03` removes
+groups, `GTP_DETAILS_THIN=W14-42:0.5` keeps a stable share of a group (the same instances on
+every run), `GTP_DETAILS_CULL=W14-42:25,*:0.8` sets a draw distance in metres, or scales them all.
+`details_report.json` lists what was applied. **Material fusion**: with `GTP_DETAILS_MERGED=1`,
+`run_city_import.sh` first runs `tools/city/unreal/merge_detail_materials.py`, which bakes every
+multi-slot detail mesh into `SM_<Asset>_Merged` (one atlas material, 512 px by default,
+`GTP_MERGE_TEXTURE`; source LOD chain rebuilt), and `place_props.py` uses those meshes: without
+Nanite, every material slot is one more draw per pass. It writes new assets in Content, so it
+stays off until a slot approved for it.
+
 ### Facade kit LODs (performance, 2026-11-10)
 
 The 21,242 modules of the street map were 10.2 M triangles at LOD0 out to 250 m, drawn again by
