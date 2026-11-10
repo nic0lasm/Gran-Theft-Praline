@@ -76,3 +76,7 @@ Target: p95 ≤ 42 ms with three police cars and traffic; to be measured.
 - Pedestrian hits: the pedestrian thread calls
   `UGTPWantedComponent::ReportCrime(EGTPCrimeKind::HitPedestrian, Location)`.
 - No map change: everything appears at runtime.
+
+## Next stage: roadblocks
+
+`GTPRoadblockLogic.h` (plain C++, tested in CI, not yet wired into the game) plans two police cars across the lane path ahead of the player, at least 120 m away and about 220 m along the route, and tells when the player has passed them. The engine side (spawning the two cars, removing them) comes after the first measured pass.

@@ -79,3 +79,7 @@ et le trafic ; à mesurer.
 - Piéton heurté : le fil piétons appelle
   `UGTPWantedComponent::ReportCrime(EGTPCrimeKind::HitPedestrian, Position)`.
 - Aucune modification de la carte : tout apparaît au runtime.
+
+## Étape suivante : barrages
+
+`GTPRoadblockLogic.h` (C++ pur, testé en CI, pas encore branché au jeu) place deux voitures de police en travers de la voie devant le joueur, à au moins 120 m et environ 220 m le long de l'itinéraire, et dit quand le joueur les a dépassées. La partie moteur (faire apparaître et retirer les deux voitures) viendra après la première passe mesurée.
