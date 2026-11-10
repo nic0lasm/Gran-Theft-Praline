@@ -52,6 +52,10 @@ public:
 	void OpenPauseMenu();
 	void ClosePauseMenu();
 
+	/** Settings screen, from the title screen or the pause menu; Close returns to that menu. */
+	void OpenSettingsMenu();
+	void CloseSettingsMenu();
+
 	/** Leaves the game and returns to the desktop. */
 	void QuitToDesktop();
 
@@ -60,8 +64,9 @@ public:
 	UGTPInteractionComponent* GetInteraction() const { return Interaction; }
 
 	/** True while the title screen or the pause menu is shown. */
-	bool IsMenuOpen() const { return TitleMenu != nullptr || PauseMenu != nullptr; }
+	bool IsMenuOpen() const { return TitleMenu != nullptr || PauseMenu != nullptr || SettingsMenu != nullptr; }
 
+	/** Look input is scaled by the player's sensitivity setting; pitch can be inverted. */
 	virtual void AddYawInput(float Val) override;
 	virtual void AddPitchInput(float Val) override;
 
@@ -95,6 +100,7 @@ private:
 	void ApplyOnFootInput();
 	void ApplyDrivingInput();
 	bool UsesQwerty() const;
+	void HandleSettingsChanged();
 
 	/**
 	 * Gives the view a level starting rotation (pawn yaw, StartViewPitch) and
@@ -179,4 +185,10 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UGTPMenuWidget> PauseMenu;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UGTPMenuWidget> SettingsMenu;
+
+	/** The settings screen was opened from the title screen (else from the pause menu). */
+	bool bSettingsFromTitle = false;
 };
