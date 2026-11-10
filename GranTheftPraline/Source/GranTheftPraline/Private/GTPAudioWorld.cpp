@@ -13,6 +13,7 @@
 #include "GTPLog.h"
 #include "GTPSirenComponent.h"
 #include "GTPStreetReactions.h"
+#include "GTPVehicle.h"
 #include "GTPVehicleAudioComponent.h"
 #include "AudioMixerBlueprintLibrary.h"
 #include "Kismet/GameplayStatics.h"
@@ -114,6 +115,7 @@ void UGTPAudioWorld::Equip(AActor* Actor)
 	{
 		UGTPFootstepComponent* Feet = NewObject<UGTPFootstepComponent>(Actor, MakeUniqueObjectName(Actor, UGTPFootstepComponent::StaticClass(), TEXT("GTPFootsteps")));
 		Feet->RegisterComponent();
+		Walkers.Add(Feet);
 		bAdded = true;
 	}
 	if (Cast<AWheeledVehiclePawn>(Actor))
@@ -127,11 +129,12 @@ void UGTPAudioWorld::Equip(AActor* Actor)
 		}
 		if (UGTPAudioMix* Mix = UGTPAudioMix::Get(Actor))
 		{
-			TArray<UGTPEngineSoundComponent*> Engines;
-			Actor->GetComponents(Engines);
-			for (UGTPEngineSoundComponent* Engine : Engines)
+			TArray<UGTPEngineSoundComponent*> EngineComponents;
+			Actor->GetComponents(EngineComponents);
+			for (UGTPEngineSoundComponent* Engine : EngineComponents)
 			{
 				Engine->SoundClassOverride = Mix->GetClass(EGTPAudioCategory::Vehicles);
+				Engines.AddUnique(Engine);
 			}
 		}
 	}
@@ -169,6 +172,7 @@ void UGTPAudioWorld::Tick(float DeltaTime)
 	}
 	UpdateRecording();
 	UpdateTestSiren(DeltaTime);
+	UpdateBudget(DeltaTime);
 	if (Bed)
 	{
 		Bed->Tick(DeltaTime, Pedestrians);
@@ -184,6 +188,85 @@ void UGTPAudioWorld::Tick(float DeltaTime)
 		{
 			StatsTimer = 0.f;
 			LogStats();
+		}
+	}
+}
+
+void UGTPAudioWorld::UpdateBudget(float DeltaTime)
+{
+	BudgetTimer -= DeltaTime;
+	if (BudgetTimer > 0.f)
+	{
+		return;
+	}
+	const UGTPAudioSettings* Settings = GetDefault<UGTPAudioSettings>();
+	BudgetTimer = FMath::Max(0.05f, Settings->BudgetInterval);
+	UWorld* World = GetWorld();
+	const APlayerController* Player = World ? World->GetFirstPlayerController() : nullptr;
+	if (!Player)
+	{
+		return;
+	}
+	FVector Listener, Front, Right;
+	Player->GetAudioListenerPosition(Listener, Front, Right);
+	const AActor* PlayerPawn = Player->GetPawn();
+
+	// Nearest first; the player's own pawn or car ranks before everything.
+	auto Rank = [&Listener, PlayerPawn](const UActorComponent* Component)
+	{
+		const AActor* Owner = Component->GetOwner();
+		return Owner == PlayerPawn ? -1.f : FVector::DistSquared(Owner->GetActorLocation(), Listener);
+	};
+
+	{
+		Engines.RemoveAll([](const TWeakObjectPtr<UGTPEngineSoundComponent>& Weak) { return !Weak.IsValid(); });
+		TArray<TPair<float, UGTPEngineSoundComponent*>> Order;
+		Order.Reserve(Engines.Num());
+		for (const TWeakObjectPtr<UGTPEngineSoundComponent>& Weak : Engines)
+		{
+			UGTPEngineSoundComponent* Engine = Weak.Get();
+			const AGTPVehicle* Car = Cast<AGTPVehicle>(Engine->GetOwner());
+			if (Car && Car->IsEngineRunning())
+			{
+				Order.Emplace(Rank(Engine), Engine);
+			}
+			else
+			{
+				// Off engines keep the right to start: their own tick decides.
+				Engine->SetAudible(true);
+			}
+		}
+		Order.Sort([](const TPair<float, UGTPEngineSoundComponent*>& A, const TPair<float, UGTPEngineSoundComponent*>& B) { return A.Key < B.Key; });
+		EnginesAudible = 0;
+		for (const TPair<float, UGTPEngineSoundComponent*>& Entry : Order)
+		{
+			const float Silent = Entry.Value->SilentDistance;
+			const bool bAudible = EnginesAudible < Settings->MaxEngineVoices && Entry.Key < FMath::Square(Silent);
+			Entry.Value->SetAudible(bAudible);
+			EnginesAudible += bAudible ? 1 : 0;
+		}
+	}
+	{
+		Walkers.RemoveAll([](const TWeakObjectPtr<UGTPFootstepComponent>& Weak) { return !Weak.IsValid(); });
+		TArray<TPair<float, UGTPFootstepComponent*>> Order;
+		Order.Reserve(Walkers.Num());
+		for (const TWeakObjectPtr<UGTPFootstepComponent>& Weak : Walkers)
+		{
+			UGTPFootstepComponent* Feet = Weak.Get();
+			if (Feet->GetOwner()->IsHidden())
+			{
+				Feet->SetInBudget(false);
+				continue;
+			}
+			Order.Emplace(Rank(Feet), Feet);
+		}
+		Order.Sort([](const TPair<float, UGTPFootstepComponent*>& A, const TPair<float, UGTPFootstepComponent*>& B) { return A.Key < B.Key; });
+		WalkersHeard = 0;
+		for (const TPair<float, UGTPFootstepComponent*>& Entry : Order)
+		{
+			const bool bHeard = WalkersHeard < Settings->MaxStepWalkers && Entry.Key < FMath::Square(Settings->FootstepMaxDistance);
+			Entry.Value->SetInBudget(bHeard);
+			WalkersHeard += bHeard ? 1 : 0;
 		}
 	}
 }
@@ -280,8 +363,8 @@ void UGTPAudioWorld::LogStats()
 		}
 		Feet += It->FindComponentByClass<UGTPFootstepComponent>() ? 1 : 0;
 	}
-	GTP_TRACE(LogGTPAudioWorld, TEXT("[Audio] steps=%d impacts=%d sirens_on=%d skids_on=%d walkers=%d driving=%d bank=%d voices=%d radio=%d %s; %s"),
-		Mix ? Mix->FootstepsPlayed : 0, Mix ? Mix->ImpactsPlayed : 0, Sirens, Skids, Feet, bDrivingMixOn ? 1 : 0, Mix ? Mix->GetBankSize() : 0,
+	GTP_TRACE(LogGTPAudioWorld, TEXT("[Audio] steps=%d impacts=%d sirens_on=%d skids_on=%d walkers=%d heard=%d engines=%d/%d driving=%d bank=%d voices=%d radio=%d %s; %s"),
+		Mix ? Mix->FootstepsPlayed : 0, Mix ? Mix->ImpactsPlayed : 0, Sirens, Skids, Feet, WalkersHeard, EnginesAudible, Engines.Num(), bDrivingMixOn ? 1 : 0, Mix ? Mix->GetBankSize() : 0,
 		Mix ? Mix->VoicesPlayed : 0, Mix ? Mix->RadioPlayed : 0, Bed ? *Bed->Describe() : TEXT("bed=off"),
 		Reactions ? *Reactions->Describe() : TEXT("reactions=off"));
 }

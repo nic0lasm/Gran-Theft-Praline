@@ -51,6 +51,11 @@ def main(folder):
     if "no surface map" in text:
         lines.append("Surface map: **missing** (every ground is stone)")
     lines.append("Counters: " + (stats[-1] if stats else "none"))
+    heard = [int(v) for v in re.findall(r" heard=(\d+)", text)]
+    engines = [(int(a), int(b)) for a, b in re.findall(r" engines=(\d+)/(\d+)", text)]
+    if heard or engines:
+        lines.append(f"Crowd budget: walkers heard at most {max(heard, default=0)}, engines audible at most "
+                     f"{max((a for a, _ in engines), default=0)} of {max((b for _, b in engines), default=0)}")
     zones = sorted(set(re.findall(r"zone=(\w+)", text)))
     lines.append("Ambience zones heard: " + (", ".join(zones) or "none"))
     if "no zone map" in text:

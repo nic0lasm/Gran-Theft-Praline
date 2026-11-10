@@ -69,6 +69,28 @@ mapped onto the real engine's, and the load is cut during each gear change.
 - A medium or heavy crash broadcasts `UGTPAudioWorld::OnLoudSound(location, radius, cause)`, with a radius of 8 m (medium) or 20 m (heavy). Pedestrians bind `ScareAround` to it through a lambda.
 - Police radio, 2D and without words: alert tones then a call for each star gained, a closing call when the pursuit ends. In between, chatter every 7 to 16 s, closer together with more stars. The HUD star sounds (`StarUp`, `StarDown`) play at the same time.
 
+## Crowd budget (50 pedestrians, 25 cars)
+
+Every 0.25 s `UGTPAudioWorld` ranks the running engines and the walkers by
+distance to the listener. Only the 6 nearest engines within their silent
+distance (45 m) are rendered; the others fade out and stop. Only the 8 nearest
+visible walkers within 25 m look for steps; the crowd layer of the bed covers
+the others. The player's car and the player always count first. Bed layers
+that are silent are stopped instead of playing at zero. Far cars check their
+tyres four times a second instead of twenty.
+
+| Item | Without the budget | With it |
+|---|---|---|
+| Engine synths, audio thread (measured outside Unreal, 2.1 GHz x86 core) | 25 × 0.44 % = 11 % of a core | 6 × 0.44 % = 2.6 % |
+| Walkers looking for steps, game thread | up to 50 | 8 |
+| Bed loops decoded and mixed | 8 | the street and the layers in use (2 to 4) |
+| Voices at most | ~70 | 42: steps 10, impacts 6, sirens 3, skids 4, voices 4, radio 1, interface 3, engines 6, bed 5 |
+
+Estimated game-thread cost at 30 fps with that crowd: about 0.15 ms
+(budget 0.3 ms), to be confirmed on the Mac with `-AudioStats`; the log line
+gives `heard=` (walkers) and `engines=audible/total`. Settings
+`MaxEngineVoices`, `MaxStepWalkers` and `BudgetInterval` in `DefaultGame.ini`.
+
 ## Surfaces
 
 Order of decision at the hit point: physical material (named in the project

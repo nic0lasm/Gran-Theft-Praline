@@ -101,11 +101,26 @@ void UGTPEngineSoundComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 
 void UGTPEngineSoundComponent::StartEngine()
 {
-	if (!bEngineOn && EngineWave)
+	if (!bEngineOn && EngineWave && bAudible)
 	{
 		bEngineOn = true;
 		SetVolumeMultiplier(EngineVolume);
-		Play();
+		// A short fade: the budget brings engines back while they are audible.
+		FadeIn(0.25f);
+	}
+}
+
+void UGTPEngineSoundComponent::SetAudible(bool bInAudible)
+{
+	if (bAudible == bInAudible)
+	{
+		return;
+	}
+	bAudible = bInAudible;
+	if (!bAudible && bEngineOn)
+	{
+		bEngineOn = false;
+		FadeOut(0.3f, 0.f);
 	}
 }
 
