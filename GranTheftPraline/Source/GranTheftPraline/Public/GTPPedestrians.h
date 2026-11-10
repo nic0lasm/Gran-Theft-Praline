@@ -187,7 +187,7 @@ protected:
 
 	/** Closer than this to the viewer: shadow and full detail (cm). */
 	UPROPERTY(Config)
-	float DetailDistance = 2500.f;
+	float DetailDistance = 2000.f;
 
 	/** Beyond DetailDistance the mesh is drawn from this level of detail (0-based, clamped to what the mesh has). */
 	UPROPERTY(Config)

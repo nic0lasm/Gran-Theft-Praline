@@ -31,7 +31,7 @@ Settings are in `DefaultGame.ini`, section `GTPPedestrianSubsystem`:
 |---|---|---|
 | DensityM1 / Fidelity / Ultra | 12 / 24 / 40 | people per graphics profile; `-Pedestrians=N` overrides, 0 = off |
 | MaxVisible | 10 | only the closest ones are drawn |
-| DetailDistance, FarLOD | 25 m, 2 | shadow and full LOD inside, lower LOD outside |
+| DetailDistance, FarLOD | 20 m, 2 | shadow and full LOD inside, lower LOD outside |
 | DrawDistance | 90 m | nothing drawn beyond |
 | WalkAnimation, IdleAnimation, RunAnimation | empty | loops to play; no walk animation = no pedestrians |
 | Meshes | empty | skeletal meshes; empty = the player's character mesh |

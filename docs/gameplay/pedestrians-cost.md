@@ -54,3 +54,10 @@ time with N minus with 0, divided by the people drawn (`LogGTPPedestrians: activ
 drawn=` lines). Needs the packaged build only, no editor.
 
 New behaviours are frozen until these numbers are in.
+
+## Budget (performance thread, 2026-11-10)
+
+Target: 20 drawn people at most 2 ms GPU and 1 ms CPU; shadows only inside 20 m,
+reduced animation rate beyond 25 m, impostors or instanced crowd beyond 40 m.
+The case `n40-vis20` of the bench is that target. The judge is `tools/perf/bench.sh`;
+the crowd bench is the quick per-lever comparison.

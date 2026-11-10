@@ -5,7 +5,7 @@
 # numbers compare with each other (profile m1, demo route, nothing else on).
 #
 # Usage: caffeinate -dimsu tools/pedestrians/bench-crowd-mac.sh <version> [duration_s] [cases...]
-#   cases (default: all)  n0 n12 n30 n60 n30-nocheap n30-noanimrate n30-nospread n30-vis6 n30-vis20
+#   cases (default: all)  n0 n12 n30 n60 n30-nocheap n30-noanimrate n30-nospread n30-vis6 n30-vis20 n40-vis20
 # Output: Builds/<version>/evidence/crowd-<stamp>/SUMMARY.md and one folder per case.
 # A case that fails is recorded and the script goes on. Needs no editor.
 set -uo pipefail
@@ -33,6 +33,7 @@ args_for() {
     n30-nospread)    echo "$off -Pedestrians=30 -PedSpread=0" ;;
     n30-vis6)        echo "$off -Pedestrians=30 -PedMaxVisible=6" ;;
     n30-vis20)       echo "$off -Pedestrians=30 -PedMaxVisible=20" ;;
+    n40-vis20)       echo "$off -Pedestrians=40 -PedMaxVisible=20" ;;
     *) return 1 ;;
   esac
 }
@@ -40,7 +41,7 @@ args_for() {
 if test "$#" -gt 0; then
   cases=("$@")
 else
-  cases=(n0 n12 n30 n60 n30-nocheap n30-noanimrate n30-nospread n30-vis6 n30-vis20)
+  cases=(n0 n12 n30 n60 n30-nocheap n30-noanimrate n30-nospread n30-vis6 n30-vis20 n40-vis20)
 fi
 
 if pgrep -fl "UnrealEditor|GranTheftPraline" | grep -v UnrealEditorServices >/dev/null; then

@@ -31,7 +31,7 @@ jeu. Réglages dans `DefaultGame.ini`, section `GTPPedestrianSubsystem` :
 |---|---|---|
 | DensityM1 / Fidelity / Ultra | 12 / 24 / 40 | personnes par profil graphique ; `-Pedestrians=N` force, 0 = aucun |
 | MaxVisible | 10 | seuls les plus proches sont dessinés |
-| DetailDistance, FarLOD | 25 m, 2 | ombre et LOD complet en deçà, LOD réduit au-delà |
+| DetailDistance, FarLOD | 20 m, 2 | ombre et LOD complet en deçà, LOD réduit au-delà |
 | DrawDistance | 90 m | rien n'est dessiné au-delà |
 | WalkAnimation, IdleAnimation, RunAnimation | vide | boucles jouées ; sans marche, pas de piétons |
 | Meshes | vide | maillages squelettiques ; vide = celui du personnage joueur |

@@ -56,3 +56,11 @@ personne = temps d'image avec N moins avec 0, divisé par les gens dessinés (li
 d'éditeur.
 
 Les nouveaux comportements sont gelés jusqu'à ces chiffres.
+
+## Budget (fil performance, 2026-11-10)
+
+Cible : 20 personnes dessinées au plus à 2 ms de GPU et 1 ms de CPU ; ombres
+seulement à moins de 20 m, cadence d'animation réduite au-delà de 25 m,
+imposteurs ou foule instanciée au-delà de 40 m. Le cas `n40-vis20` du banc est
+cette cible. Le juge est `tools/perf/bench.sh` ; le banc de foule sert à la
+comparaison rapide par levier.
