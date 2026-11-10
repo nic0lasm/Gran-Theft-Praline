@@ -138,11 +138,32 @@ int main(int Argc, char** Argv)
 		}
 	}
 
+	// Waiting at a crossing: while a car is near (and under CrossingWaitMax) nobody steps onto it.
+	int Stepped = 0, Waited = 0;
+	for (size_t e = 0; e < G.Edges.size(); ++e)
+	{
+		if (G.Edges[e].Kind != EKind::Crossing)
+		{
+			continue;
+		}
+		FWalker C;
+		C.Edge = static_cast<int>(e);
+		C.bForward = true;
+		C.S = 0.f;
+		for (float T = 0; T < S.CrossingWaitMax - 1.f; T += Dt)
+		{
+			const FStepResult R = Step(G, C, Dt, Rng, S, true);
+			Waited += R.bWaitingToCross ? 1 : 0;
+		}
+		Stepped += C.S > 30.f ? 1 : 0;
+	}
+	(void)Waited;
+
 	const double Walking = MovingTime / TotalTime;
-	std::printf("edges=%zu nodes=%zu walkers=%d seconds=%.0f visited=%zu walking=%.2f waiting=%.3f max_jump_cm=%.0f teleports=%d flee_ok=%d/%d\n",
+	std::printf("edges=%zu nodes=%zu walkers=%d seconds=%.0f visited=%zu walking=%.2f waiting=%.3f max_jump_cm=%.0f teleports=%d flee_ok=%d/%d crossing_breaches=%d\n",
 		G.Edges.size(), G.NodeEdges.size(), Walkers, Seconds, Visited.size(), Walking, WaitTime / TotalTime,
-		MaxJump, Teleports, FleeOk, FleeTrials);
-	const bool Pass = Teleports == 0 && Walking > 0.8 && FleeOk >= FleeTrials * 0.9 && Visited.size() * 2 >= G.Edges.size();
+		MaxJump, Teleports, FleeOk, FleeTrials, Stepped);
+	const bool Pass = Teleports == 0 && Stepped == 0 && Walking > 0.8 && FleeOk >= FleeTrials * 0.9 && Visited.size() * 2 >= G.Edges.size();
 	std::printf("%s\n", Pass ? "PASS" : "FAIL");
 	return Pass ? 0 : 1;
 }

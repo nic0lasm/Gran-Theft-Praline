@@ -53,6 +53,16 @@ UGTPPedestrianSubsystem::OnPedestrianScared; // a person started running away
 ```
 Cause is null for now (the car is not identified yet).
 
+## Hooks and variety
+
+- `ScareAround(Location, Radius, Cause)` makes everybody nearby run away (shots,
+  explosions, police). It broadcasts `OnPedestrianScared` for each person.
+- `CrossingBlockedQuery` (a `TFunction<bool(const FVector&)>`) lets the traffic
+  lights say a crossing is red for people; unset, they only look out for cars.
+- Variety from one mesh: height varies by `HeightSpread` and the body materials
+  get a clothing colour from a small city palette through the vector parameters
+  of `TintParameters` (those a material lacks are ignored). More meshes go in `Meshes`.
+
 ## Checks
 
 - `python3 tools/pedestrians/check_walk_logic.py [walkways.csv]` builds

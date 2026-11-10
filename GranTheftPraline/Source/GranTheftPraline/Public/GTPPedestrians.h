@@ -27,6 +27,9 @@ public:
 
 	USkeletalMeshComponent* GetBody() const { return Body; }
 
+	/** Height scale and clothing colour of this person (variety from one mesh). */
+	void ApplyLook(float HeightScale, const FLinearColor& Clothes, const TArray<FName>& TintParameters);
+
 	/** Plays Animation looping at PlayRate (no change when it is already playing). */
 	void PlayLoop(UAnimSequenceBase* Animation, float PlayRate);
 
@@ -94,6 +97,18 @@ public:
 
 	int32 GetActiveCount() const;
 
+	/**
+	 * Makes everybody within Radius (cm) of Location run away from it: a shot, an explosion,
+	 * a police charge. Cause is passed on to OnPedestrianScared. Returns how many ran.
+	 */
+	int32 ScareAround(const FVector& Location, float Radius, AActor* Cause = nullptr);
+
+	/**
+	 * Traffic lights hook: return true when people may NOT set off across the crossing at Where
+	 * (their light is red). Unset = they only look out for cars. The lights thread sets it.
+	 */
+	TFunction<bool(const FVector& Where)> CrossingBlockedQuery;
+
 	/** Police and other systems listen here (a person hit by a car / frightened into running). */
 	FGTPPedestrianEvent OnPedestrianHit;
 	FGTPPedestrianEvent OnPedestrianScared;
@@ -132,6 +147,14 @@ protected:
 
 	UPROPERTY(Config)
 	float RunAnimationSpeed = 340.f;
+
+	/** Height of a person varies by up to this fraction around 1. */
+	UPROPERTY(Config)
+	float HeightSpread = 0.06f;
+
+	/** Vector parameters of the body materials set to a clothing colour (those that exist). */
+	UPROPERTY(Config)
+	TArray<FName> TintParameters = {FName(TEXT("Tint")), FName(TEXT("BaseColor")), FName(TEXT("Color"))};
 
 	/** The mannequin faces +Y: yaw applied to the mesh so it faces the walking direction. */
 	UPROPERTY(Config)
@@ -214,6 +237,7 @@ private:
 	void LogStats();
 	bool CarNear(const FVector& Where, float Radius, float MinSpeed, FVector* OutCarLocation = nullptr, FVector* OutCarVelocity = nullptr) const;
 	USkeletalMesh* PickMesh();
+	static FLinearColor Palette(float Pick);
 
 	/** Best animation of the mesh's skeleton whose name has one of Words (walk, idle...). */
 	static UAnimSequenceBase* FindAnimation(const USkeletalMesh* Mesh, const TArray<FString>& Words);
