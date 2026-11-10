@@ -69,6 +69,13 @@ int main()
 		for (int I = 0; I < 10; ++I) S.AddCrime(EGTPCrimeKind::HitPolice, 5.f * I);
 		CHECK(S.GetStars() == 3);
 	}
+	{
+		FGTPWantedState S;
+		S.ForceStars(3);
+		CHECK(S.GetStars() == 3 && S.GetPhase() == EGTPWantedPhase::Pursuit);
+		S.ForceStars(0);
+		CHECK(S.GetStars() == 0);
+	}
 	std::printf(Failures ? "FAILED (%d)\n" : "OK\n", Failures);
 	return Failures ? 1 : 0;
 }

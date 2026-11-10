@@ -36,6 +36,13 @@ UGTPWantedComponent::UGTPWantedComponent()
 	PrimaryComponentTick.TickInterval = 0.1f;
 }
 
+bool UGTPWantedComponent::IsPoliceEnabled()
+{
+	int32 Value = 1;
+	FParse::Value(FCommandLine::Get(), TEXT("Police="), Value);
+	return Value != 0 && !FParse::Param(FCommandLine::Get(), TEXT("NoPolice"));
+}
+
 UGTPWantedComponent* UGTPWantedComponent::Find(const UObject* WorldContext)
 {
 	const APlayerController* PC = UGameplayStatics::GetPlayerController(WorldContext, 0);
@@ -44,7 +51,7 @@ UGTPWantedComponent* UGTPWantedComponent::Find(const UObject* WorldContext)
 
 void UGTPWantedComponent::ReportCrime(EGTPCrimeKind Kind, const FVector& Location)
 {
-	if (BustedBannerLeft > 0.f || !GetWorld())
+	if (BustedBannerLeft > 0.f || !GetWorld() || !IsComponentTickEnabled())
 	{
 		return;
 	}
@@ -58,6 +65,39 @@ void UGTPWantedComponent::ReportCrime(EGTPCrimeKind Kind, const FVector& Locatio
 		LastKnownLocation = Location;
 	}
 	GTP_TRACE(LogGTPWanted, TEXT("wanted: crime %d, heat %.0f, %d stars"), static_cast<int32>(Kind), State.GetHeat(), State.GetStars());
+}
+
+void UGTPWantedComponent::ForceStars(int32 Stars)
+{
+	State.ForceStars(Stars);
+	if (const APlayerController* PC = Cast<APlayerController>(GetOwner()))
+	{
+		if (const APawn* Pawn = PC->GetPawn())
+		{
+			LastKnownLocation = Pawn->GetActorLocation();
+		}
+	}
+	GTP_TRACE(LogGTPWanted, TEXT("wanted: level forced to %d stars"), State.GetStars());
+}
+
+void UGTPWantedComponent::BeginPlay()
+{
+	Super::BeginPlay();
+	if (!IsPoliceEnabled())
+	{
+		GTP_TRACE(LogGTPWanted, TEXT("police: off"));
+		SetComponentTickEnabled(false);
+		return;
+	}
+	int32 Stars = 0;
+	float Delay = 5.f;
+	if (FParse::Value(FCommandLine::Get(), TEXT("WantedStars="), Stars) && Stars > 0)
+	{
+		FParse::Value(FCommandLine::Get(), TEXT("WantedDelay="), Delay);
+		ScriptedStars = Stars;
+		ScriptedTime = static_cast<float>(GetWorld()->GetTimeSeconds()) + Delay;
+	}
+	bHoldLevel = FParse::Param(FCommandLine::Get(), TEXT("WantedHold"));
 }
 
 void UGTPWantedComponent::ClearWanted()
@@ -105,6 +145,12 @@ void UGTPWantedComponent::TickComponent(float DeltaTime, ELevelTick TickType, FA
 	{
 		BustedBannerLeft = FMath::Max(0.f, BustedBannerLeft - DeltaTime);
 	}
+	const float Now = static_cast<float>(GetWorld()->GetTimeSeconds());
+	if (ScriptedStars > 0 && ScriptedTime >= 0.f && Now >= ScriptedTime)
+	{
+		ForceStars(ScriptedStars);
+		ScriptedTime = -1.f;
+	}
 	const APlayerController* PC = Cast<APlayerController>(GetOwner());
 	const APawn* Pawn = PC ? PC->GetPawn() : nullptr;
 	if (!Pawn || State.GetStars() == 0)
@@ -134,7 +180,14 @@ void UGTPWantedComponent::TickComponent(float DeltaTime, ELevelTick TickType, FA
 		LastKnownLocation = PlayerLocation;
 	}
 	// Until the first unit has arrived the level cannot drop: nobody has had the chance to look.
-	const bool bHold = bSeen || (bPoliceAvailable && Police.Num() == 0);
+	const bool bHold = bSeen || bHoldLevel || (bPoliceAvailable && Police.Num() == 0);
+
+	if (Now >= NextTraceTime)
+	{
+		NextTraceTime = Now + 2.f;
+		GTP_TRACE(LogGTPWanted, TEXT("wanted: t=%.0f stars=%d phase=%d units=%d nearest=%.0f m seen=%d arrest=%.2f"), Now, State.GetStars(),
+			static_cast<int32>(State.GetPhase()), Police.Num(), Nearest, bSeen ? 1 : 0, State.GetArrestProgress());
+	}
 
 	const AGTPVehicle* Vehicle = Cast<AGTPVehicle>(Pawn);
 	const float SpeedKmh = Vehicle ? FMath::Abs(Vehicle->GetSpeedKmh()) : 0.f;
@@ -192,7 +245,7 @@ void AGTPPoliceDirector::BeginPlay()
 	MaxUnits = FMath::Clamp(MaxUnits, 0, 6);
 	LoadedPoliceClass = PoliceVehicleClass.TryLoadClass<AGTPVehicle>();
 	NextSpawnTime = GetWorld()->GetTimeSeconds() + 3.f;
-	GTP_TRACE(LogGTPWanted, TEXT("police: up to %d units, class %s"), MaxUnits, LoadedPoliceClass ? *LoadedPoliceClass->GetName() : TEXT("traffic cars"));
+	GTP_TRACE(LogGTPWanted, TEXT("police: on, up to %d units, class %s"), MaxUnits, LoadedPoliceClass ? *LoadedPoliceClass->GetName() : TEXT("traffic cars"));
 }
 
 void AGTPPoliceDirector::EndPlay(const EEndPlayReason::Type EndPlayReason)

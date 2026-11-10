@@ -36,6 +36,18 @@ public:
 
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
+	/**
+	 * Command line (docs/gameplay/wanted.md): -WantedStars=N sets level N
+	 * five seconds after start (-WantedDelay=S changes the delay), -WantedHold
+	 * keeps it (the police never lose the player), -Police=0 (or -NoPolice)
+	 * turns the whole system off. While wanted, one "wanted:" line every 2 s gives the state
+	 * for the soak logs.
+	 */
+	virtual void BeginPlay() override;
+
+	/** False with -Police=0 or -NoPolice: no director, no stars, no hooks. */
+	static bool IsPoliceEnabled();
+
 	/** The wanted component of the first local player, null if there is none. */
 	static UGTPWantedComponent* Find(const UObject* WorldContext);
 
@@ -64,6 +76,9 @@ public:
 	const FVector& GetLastKnownLocation() const { return LastKnownLocation; }
 	bool IsSeenNow() const { return bSeenNow; }
 	EGTPWantedPhase GetPhase() const { return State.GetPhase(); }
+
+	/** Sets the level directly (command line, tests). */
+	void ForceStars(int32 Stars);
 
 	/** Clears the level (arrest, debug). */
 	UFUNCTION(BlueprintCallable, Category = "Wanted")
@@ -97,6 +112,10 @@ private:
 	FGTPWantedState State;
 	TArray<TWeakObjectPtr<AGTPVehicle>> Police;
 	FVector LastKnownLocation = FVector::ZeroVector;
+	int32 ScriptedStars = 0;
+	float ScriptedTime = -1.f;
+	bool bHoldLevel = false;
+	float NextTraceTime = 0.f;
 	bool bSeenNow = false;
 	bool bPoliceAvailable = false;
 	float BustedBannerLeft = 0.f;
