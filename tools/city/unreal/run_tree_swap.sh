@@ -65,11 +65,17 @@ if test "${DRY_RUN:-0}" = "1"; then
 fi
 
 walk bare
+bare="$(p95 bare)"
+echo "bare_p95_ms=$bare"
+if python3 -c 'import sys; sys.exit(0 if float(sys.argv[1]) > float(sys.argv[2]) else 1)' "$bare" "$budget"; then
+  echo "verdict=ABORT (bare map already above budget, trees not tried)" | tee "$out/trees/verdict.txt"
+  rm -rf "$tmp"
+  exit 2
+fi
 swap apply
 cp "$out/trees_report.json" "$out/trees/trees_report.json"
 walk leafy
 
-bare="$(p95 bare)"
 leafy="$(p95 leafy)"
 verdict="$(python3 -c 'import sys; b,l,bud,d=map(float,sys.argv[1:]); print("KEEP" if l<=bud and l-b<=d else "REVERT")' \
   "$bare" "$leafy" "$budget" "$max_delta")"
