@@ -26,7 +26,7 @@ namespace GTPPolice
  * level and sends units. Each tick decides whether police can see the
  * player, which keeps or loses the level, and whether the player is arrested.
  */
-UCLASS(ClassGroup = (Gameplay), meta = (BlueprintSpawnableComponent))
+UCLASS(ClassGroup = (Gameplay), Config = Game, meta = (BlueprintSpawnableComponent))
 class GRANTHEFTPRALINE_API UGTPWantedComponent : public UActorComponent
 {
 	GENERATED_BODY()
@@ -98,6 +98,13 @@ public:
 	/** Police this close notice the player even behind cover (cm). */
 	UPROPERTY(EditAnywhere, Category = "Wanted")
 	float NoticeRange = 1200.f;
+
+	/** Where the player is taken after an arrest (world cm); ignored while ArrestReturnEnabled is false (the player stays where they stand). */
+	UPROPERTY(Config, EditAnywhere, Category = "Wanted")
+	bool ArrestReturnEnabled = false;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Wanted")
+	FVector ArrestReturnLocation = FVector::ZeroVector;
 
 	/** Seconds the "arrested" banner stays and the player cannot move. */
 	UPROPERTY(EditAnywhere, Category = "Wanted")

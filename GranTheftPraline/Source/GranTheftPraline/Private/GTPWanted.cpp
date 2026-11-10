@@ -228,6 +228,11 @@ void UGTPWantedComponent::EndBusted()
 {
 	if (APlayerController* PC = Cast<APlayerController>(GetOwner()))
 	{
+		if (ArrestReturnEnabled && PC->GetPawn())
+		{
+			// Back to the game at the station: the police have taken the player there.
+			PC->GetPawn()->TeleportTo(ArrestReturnLocation, PC->GetPawn()->GetActorRotation());
+		}
 		PC->SetIgnoreMoveInput(false);
 	}
 }

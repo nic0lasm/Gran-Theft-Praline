@@ -30,7 +30,7 @@
 // Crimes of the player at the wheel go to the wanted level (GTPWanted.h).
 namespace
 {
-	void ReportCrime(const AGTPVehicle* Vehicle, EGTPCrimeKind Kind)
+	void ReportPlayerCrime(const AGTPVehicle* Vehicle, EGTPCrimeKind Kind)
 	{
 		if (UGTPWantedComponent* Wanted = UGTPWantedComponent::Find(Vehicle))
 		{
@@ -574,7 +574,7 @@ bool AGTPVehicle::BeginEnter(ACharacter* Character, AController* DriverControlle
 	case EGTPEntryKind::Carjack:
 		if (DriverController && DriverController->IsPlayerController())
 		{
-			ReportCrime(this, EGTPCrimeKind::CarTheft);
+			ReportPlayerCrime(this, EGTPCrimeKind::CarTheft);
 		}
 		// The car stops where it is while its driver is pulled out.
 		ClearDrivingInput();
@@ -602,7 +602,7 @@ bool AGTPVehicle::BeginEnter(ACharacter* Character, AController* DriverControlle
 	case EGTPEntryKind::BreakWindow:
 		if (DriverController && DriverController->IsPlayerController())
 		{
-			ReportCrime(this, EGTPCrimeKind::CarTheft);
+			ReportPlayerCrime(this, EGTPCrimeKind::CarTheft);
 		}
 		BreakGlass(ZoneOfSide(DriverSide));
 		Duration = PlayMontageOr(Character, BreakWindowMontage, BreakWindowDuration);
@@ -852,11 +852,11 @@ void AGTPVehicle::OnBodyHit(UPrimitiveComponent* HitComponent, AActor* OtherActo
 	{
 		if (OtherActor->IsA<ACharacter>())
 		{
-			ReportCrime(this, EGTPCrimeKind::HitPedestrian);
+			ReportPlayerCrime(this, EGTPCrimeKind::HitPedestrian);
 		}
 		else if (OtherActor->IsA<AGTPVehicle>())
 		{
-			ReportCrime(this, OtherActor->ActorHasTag(GTPPolice::PoliceTag) ? EGTPCrimeKind::HitPolice : EGTPCrimeKind::HitVehicle);
+			ReportPlayerCrime(this, OtherActor->ActorHasTag(GTPPolice::PoliceTag) ? EGTPCrimeKind::HitPolice : EGTPCrimeKind::HitVehicle);
 		}
 	}
 	const float Now = GetWorld()->GetTimeSeconds();
