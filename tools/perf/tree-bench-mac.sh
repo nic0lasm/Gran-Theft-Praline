@@ -163,7 +163,7 @@ JSON
     sleep "${DRY_SLEEP:-1}"
     mkdir -p "$2"
     local p=40.0
-    case "$EXTRA_ARGS" in *light*10*) p=40.6 ;; *light*) p=42.9 ;; *impostor*) p=40.4 ;; *leafy*) p=49.0 ;; esac
+    case "$EXTRA_ARGS" in *Trees=light*TreeCount=10*) p=40.6 ;; *Trees=light*) p=42.9 ;; *Trees=impostor*) p=40.4 ;; *Trees=leafy*) p=49.0 ;; esac
     printf '| Scenario | Variant | GPU p50 | GPU p95 | Frame p50 | Frame p95 | %% <= 33.3 ms | Hitches > 100 ms |\n| ---- |\n| %s | base | 30.0 | 38.0 | 31.0 | %s | 70 %% | 1 |\n' "$SCENARIOS" "$p" > "$2/summary.md"
   }
 else
