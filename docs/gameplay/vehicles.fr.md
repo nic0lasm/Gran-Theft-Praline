@@ -205,7 +205,7 @@ trafic complet avec feux et priorités, c'est la 0.9) :
   demi-tour. Avec `--map <Map>`, il les copie dans
   `Content/City/Traffic/<Map>.lanes.csv`, embarqué avec le jeu.
 - Le mode de jeu crée un `AGTPTrafficNetwork` quand ce fichier existe. Il
-  pose `NumCars` voitures (6 ; `-Traffic=N`, 0 = aucune) avec un conducteur
+  pose `NumCars` voitures (3, budget mesuré sur M1 : p95 40,4 ms avec 3 voitures, 45,4 ms avec 6 ; `-Traffic=N`, 0 = aucune) avec un conducteur
   sur les voies, à plus de 40 m et hors de vue, et retire hors de vue les
   voitures bloquées en cul-de-sac ou trop loin.
 - `UGTPAIDriverComponent` décide avec `GTPDriveLogic.h` : direction en

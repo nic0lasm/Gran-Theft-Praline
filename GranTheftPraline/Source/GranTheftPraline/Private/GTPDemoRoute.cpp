@@ -334,9 +334,24 @@ bool UGTPDemoRoute::Tick(float DeltaTime)
 		{
 			NextLaneSearch = Now + 1.0;
 			TActorIterator<AGTPTrafficNetwork> Network(Driven->GetWorld());
-			if (Network && Follower.StartNear(*Network, Driven->GetActorLocation(), static_cast<float>(Driven->GetActorRotation().Yaw), 600.f))
+			if (Network && Follower.StartNear(*Network, Driven->GetActorLocation(), static_cast<float>(Driven->GetActorRotation().Yaw), 900.f))
 			{
 				GTP_TRACE(LogGTPDemo, TEXT("Demo route: following the traffic lanes"));
+			}
+			else if (Network)
+			{
+				// No lane here (pedestrian street of the start): head for the nearest
+				// one, aiming a little further along it so the car meets it at an angle.
+				FVector Join;
+				if (Network->FindJoinPoint(Driven->GetActorLocation(), 60000.f, 1500.f, Join))
+				{
+					const float JoinYaw = static_cast<float>((Join - Driven->GetActorLocation()).Rotation().Yaw);
+					if (FMath::Abs(FRotator::NormalizeAxis(JoinYaw - StreetYaw)) > 2.f)
+					{
+						GTP_TRACE(LogGTPDemo, TEXT("Demo route: heading for the lane at %.0f m"), FVector::Dist2D(Join, Driven->GetActorLocation()) / 100.0);
+					}
+					StreetYaw = JoinYaw;
+				}
 			}
 		}
 		if (Follower.IsActive())
