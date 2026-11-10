@@ -80,7 +80,7 @@ if test "$compile_only" = "1"; then
   step compile-editor "$build_sh" GranTheftPralineEditor Mac Development "-project=$project" -WaitMutex || status=1
   step compile-game "$build_sh" GranTheftPraline Mac Shipping "-project=$project" -WaitMutex || status=1
   # Errors grouped by file, so each thread gets its own lines.
-  grep -hE "(error|fatal error)[ :]" "$out"/compile-*.log | sed -E 's#^.*/Source/GranTheftPraline/##' | sort -u > "$out/compile-errors.txt"
+  grep -hiE "(error|fatal error)[ :]" "$out"/compile-*.log | sed -E 's#^.*/Source/GranTheftPraline/##' | sort -u > "$out/compile-errors.txt"
   {
     echo
     echo "## Errors by file"
