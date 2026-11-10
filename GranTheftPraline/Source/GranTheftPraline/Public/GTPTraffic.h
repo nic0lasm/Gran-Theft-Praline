@@ -27,6 +27,10 @@ struct FGTPTrafficLane
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Traffic")
 	float SpeedKmh = 30.f;
 
+	/** Junction at the end of the lane (one car at a time crosses it), -1 for a plain join. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Traffic")
+	int32 ToJunction = -1;
+
 	float LengthCm() const;
 };
 
@@ -54,6 +58,12 @@ public:
 
 	int32 GetLane() const { return Route.Num() > 0 ? Route[0] : INDEX_NONE; }
 
+	/** Seconds the car has been standing still. */
+	float GetStoppedTime() const { return StoppedTime; }
+
+	/** Gives back the junctions this car holds (car taken away or stolen). */
+	void ReleaseJunctions();
+
 	/** Length of the obstacle probe ahead (cm). */
 	UPROPERTY(EditAnywhere, Category = "Traffic")
 	float ProbeLength = 4000.f;
@@ -74,7 +84,9 @@ private:
 	int32 CurrentLaneLength = 0;
 	int Closest = 0;
 	bool bAtDeadEnd = false;
+	float StoppedTime = 0.f;
 	FGTPDriveSettings Settings;
+	FGTPJunctionClaims Junctions;
 };
 
 /**
@@ -109,6 +121,8 @@ public:
 	/** Picks a random lane among Lane's next lanes, INDEX_NONE at a dead end. */
 	int32 PickNext(int32 Lane);
 
+	FGTPJunctionTable& GetJunctionTable() { return JunctionTable; }
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Traffic")
 	TArray<FGTPTrafficLane> Lanes;
 
@@ -133,6 +147,10 @@ protected:
 	UPROPERTY(Config, EditAnywhere, Category = "Traffic")
 	float MaxCarDistance = 25000.f;
 
+	/** A car standing still this long (gridlock), out of sight, is taken away (seconds). */
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic")
+	float StuckSeconds = 20.f;
+
 private:
 	bool SpawnCar();
 	bool FindSpawnPoint(int32& OutLane, int32& OutPoint, FTransform& OutTransform) const;
@@ -148,6 +166,7 @@ private:
 	UPROPERTY(Transient)
 	TSubclassOf<ACharacter> LoadedDriverClass;
 
+	FGTPJunctionTable JunctionTable;
 	int32 WantedCars = 0;
 	float NextSpawnTime = 0.f;
 	FRandomStream Random;

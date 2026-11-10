@@ -210,7 +210,11 @@ trafic complet avec feux et priorités, c'est la 0.9) :
   voitures bloquées en cul-de-sac ou trop loin.
 - `UGTPAIDriverComponent` décide avec `GTPDriveLogic.h` : direction en
   poursuite pure, vitesse limitée par la voie, réduite avant les virages et
-  pour s'arrêter 4 m derrière ce qui est devant (voitures, gens). Le même
+  pour s'arrêter 4 m derrière ce qui est devant (voitures, gens). Une seule
+  voiture à la fois traverse un carrefour (les nœuds proches d'un grand
+  carrefour comptent pour un) ; les autres attendent à une ligne d'arrêt.
+  Sur une route à plusieurs files, chaque file continue dans celle de même
+  position. Les voies restent à moins de 60 m d'un bâtiment généré. Le même
   en-tête tourne dans `tools/vehicles/traffic_sim/` sur les vraies voies,
   avec des critères de réussite.
 - Éjection : personne ne monte dans une voiture à plus de 12 km/h ; une

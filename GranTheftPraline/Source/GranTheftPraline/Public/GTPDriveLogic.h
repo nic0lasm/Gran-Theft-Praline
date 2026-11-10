@@ -9,8 +9,11 @@
 // - Speed: the lane's limit, lowered before bends (lateral acceleration cap)
 //   and to stop SafeGap metres behind whatever is ahead.
 // - Pedals: proportional throttle, brake when too fast; never both.
+// - Junctions: one car at a time crosses a junction (FGTPJunctionTable);
+//   the others wait at a stop line. Lights and priorities come in 0.9.
 
 #include <cmath>
+#include <unordered_map>
 #include <vector>
 
 struct FGTPDrivePoint
@@ -178,3 +181,116 @@ namespace GTPDrive
 		return Out;
 	}
 }
+
+/** Who is crossing each junction now (shared by all the drivers of a network). */
+class FGTPJunctionTable
+{
+public:
+	/** True when Car may cross Junction (free, or already its own). Junction < 0 is always free. */
+	bool TryClaim(int Junction, int Car)
+	{
+		if (Junction < 0)
+		{
+			return true;
+		}
+		const auto Found = Holder.find(Junction);
+		if (Found == Holder.end() || Found->second == Car)
+		{
+			Holder[Junction] = Car;
+			return true;
+		}
+		return false;
+	}
+
+	void Release(int Junction, int Car)
+	{
+		const auto Found = Holder.find(Junction);
+		if (Found != Holder.end() && Found->second == Car)
+		{
+			Holder.erase(Found);
+		}
+	}
+
+	/** Frees everything Car holds (car taken away, stolen or wrecked). */
+	void ReleaseAll(int Car)
+	{
+		for (auto It = Holder.begin(); It != Holder.end();)
+		{
+			It = It->second == Car ? Holder.erase(It) : std::next(It);
+		}
+	}
+
+private:
+	std::unordered_map<int, int> Holder;
+};
+
+/**
+ * Junction handling of one car. Each tick: Update() with the junction at the
+ * end of the current lane and the distance to it; it returns the distance to
+ * stop at (stop line) when that junction is taken, else a negative value.
+ * Claimed junctions are released once the car is ReleaseDistance past them.
+ */
+struct FGTPJunctionClaims
+{
+	struct FClaim
+	{
+		int Junction;
+		FGTPDrivePoint Point;
+	};
+
+	float ApproachDistance = 12.f;   // claim this far before the junction (plus braking distance)
+	float ReleaseDistance = 10.f;    // release this far past it
+	float StopLineBack = 3.f;        // stop this far before the end of the lane
+	float GiveUpSeconds = 6.f;       // stopped this long past a junction: let the others go (gridlock)
+	std::vector<FClaim> Claims;
+
+	/** StoppedSeconds: how long the car has been standing still. */
+	float Update(FGTPJunctionTable& Table, int Car, int NextJunction, const FGTPDrivePoint& LaneEnd,
+		float X, float Y, float Speed, float ComfortDecel, float StoppedSeconds = 0.f)
+	{
+		for (size_t Index = 0; Index < Claims.size();)
+		{
+			const FClaim& Claim = Claims[Index];
+			const bool bAhead = Claim.Junction == NextJunction;
+			if (!bAhead && (std::hypot(Claim.Point.X - X, Claim.Point.Y - Y) > ReleaseDistance || StoppedSeconds > GiveUpSeconds))
+			{
+				Table.Release(Claim.Junction, Car);
+				Claims.erase(Claims.begin() + static_cast<long>(Index));
+				continue;
+			}
+			++Index;
+		}
+		if (NextJunction < 0)
+		{
+			return -1.f;
+		}
+		const float ToEnd = std::hypot(LaneEnd.X - X, LaneEnd.Y - Y);
+		const float Braking = Speed * Speed / (2.f * ComfortDecel);
+		if (ToEnd > ApproachDistance + Braking)
+		{
+			return -1.f;
+		}
+		if (Table.TryClaim(NextJunction, Car))
+		{
+			bool bKnown = false;
+			for (const FClaim& Claim : Claims)
+			{
+				bKnown = bKnown || Claim.Junction == NextJunction;
+			}
+			if (!bKnown)
+			{
+				Claims.push_back({NextJunction, LaneEnd});
+			}
+			return -1.f;
+		}
+		const float Stop = ToEnd - StopLineBack;
+		return Stop > 0.f ? Stop : 0.f;
+	}
+
+	void Clear(FGTPJunctionTable& Table, int Car)
+	{
+		Table.ReleaseAll(Car);
+		Claims.clear();
+	}
+};
+

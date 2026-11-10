@@ -206,7 +206,10 @@ lights and priorities is 0.9):
   a dead end or too far, out of sight too.
 - `UGTPAIDriverComponent` decides with `GTPDriveLogic.h`: pure pursuit
   steering, speed from the lane limit, lowered before bends and to stop
-  4 m behind whatever is in front (cars, people). The same header runs in
+  4 m behind whatever is in front (cars, people). One car at a time crosses
+  a junction (nearby nodes of a big crossing count as one); the others wait
+  at a stop line. Lanes of a multi-lane road continue into the lane in the
+  same position. Lanes stay within 60 m of a generated building. The same header runs in
   `tools/vehicles/traffic_sim/` on the real lanes, with pass criteria.
 - Carjack: nobody gets into a car above 12 km/h; a car stops for a person
   in front of it. The car brakes while its driver is pulled out; the
