@@ -305,7 +305,9 @@ def main():
         if name not in comps:
             comps[name] = hism_actor("Facade_" + name.replace("SM_Facade_", ""), meshes[name])[1]
             set_cull(comps[name], module_family(name), report)
-            if meshes[name].get_num_lods() < 2:
+            # A 12-triangle blank wall needs no LOD (KIT_LOD_MIN_TRIANGLES): not a defect.
+            if meshes[name].get_num_lods() < 2 and \
+                    manifest["modules"].get(name, {}).get("triangles", 0) >= KIT_LOD_MIN_TRIANGLES:
                 report.setdefault("modules_without_lods", []).append(name)
         t = unreal.Transform(unreal.Vector(x, y, z), unreal.Rotator(0.0, 0.0, yaw + yaw_offset), unreal.Vector(sx, 1.0, sz))
         i = comps[name].add_instance(t, True)
