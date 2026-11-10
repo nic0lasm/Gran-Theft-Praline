@@ -53,7 +53,7 @@ weapons systems.
 
 Police cars cost like traffic cars (same cheap mode: no far shadows, far
 LOD, no shadowed lights). Units per level: 1, 2, 2, 3, 4 stars, never more
-than `MaxUnits` (3 on M1, `-PoliceMax=N`). Light bar: two unshadowed point
+than `MaxUnits` (2 on M1 until the traffic cost is measured, `-PoliceMax=N` up to 3 for tests). Light bar: two unshadowed point
 lights per car, switched only when the blink phase changes. The director and
 the wanted component do nothing at zero stars except one cheap check.
 Target: p95 ≤ 42 ms with three police cars and traffic; to be measured.
