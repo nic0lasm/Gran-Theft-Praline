@@ -38,7 +38,7 @@ mkdir -p "$out"
 report="$out/PASS.md"
 cd "$repo_root" || exit 1
 
-if pgrep -fl "UnrealEditor|GranTheftPraline" >/dev/null; then
+if pgrep -fl "UnrealEditor|GranTheftPraline" | grep -v UnrealEditorServices >/dev/null; then
   echo "grouped-pass: an Unreal process is already running, stop it first" >&2
   exit 1
 fi

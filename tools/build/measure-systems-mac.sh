@@ -49,9 +49,9 @@ else
   cases=(reference traffic police pedestrians ragdoll minimap daynight rain-dome audio all)
 fi
 
-if pgrep -fl "UnrealEditor|GranTheftPraline" >/dev/null; then
+if pgrep -fl "UnrealEditor|GranTheftPraline" | grep -v UnrealEditorServices >/dev/null; then
   echo "measure-systems: an Unreal process is already running, stop it first" >&2
-  pgrep -fl "UnrealEditor|GranTheftPraline" >&2
+  pgrep -fl "UnrealEditor|GranTheftPraline" | grep -v UnrealEditorServices >&2
   exit 1
 fi
 
