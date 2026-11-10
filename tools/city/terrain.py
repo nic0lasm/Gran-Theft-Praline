@@ -77,6 +77,29 @@ def heightmap(mnt, origin, origin_alt, max_spacing_m=1.0):
     return values, z, settings
 
 
+def surface_z(mnt, origin, origin_alt, x, y, step_m=4.0):
+    """Height of the terrain tiles of tiles_mesh() at local points (metres, relative to the
+    zone origin): same 4 m grid and same quad diagonal, so a prop set at this height sits
+    exactly on the ground the game collides with. The 0.5 m LiDAR itself can differ from
+    those tiles by tens of centimetres at kerbs and steps (props floated or sank), and a
+    headless editor cannot trace against the tiles to correct it."""
+    x = np.asarray(x, float) + origin[0]
+    y = np.asarray(y, float) + origin[1]
+    xmin, ymin = mnt.env[0], mnt.env[1]
+    x0 = xmin + np.floor((x - xmin) / step_m) * step_m
+    y0 = ymin + np.floor((y - ymin) / step_m) * step_m
+    u, v = (x - x0) / step_m, (y - y0) / step_m
+
+    def z(ax, ay):
+        return mnt.sample(ax, ay) - origin_alt
+    za, zb = z(x0, y0), z(x0 + step_m, y0)
+    zc, zd = z(x0 + step_m, y0 + step_m), z(x0, y0 + step_m)
+    upper = u >= v      # triangle (a, b, c), else (a, c, d): meshkit.Mesh.quad
+    out = np.where(upper, za + u * (zb - za) + v * (zc - zb), za + v * (zd - za) + u * (zc - zd))
+    raw = z(x, y)
+    return np.where(np.isnan(out), raw, out)
+
+
 def tiles_mesh(mnt, origin, origin_alt, tile_m=256.0, step_m=4.0):
     xmin, ymin, xmax, ymax = mnt.env
     items = []

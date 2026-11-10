@@ -78,9 +78,15 @@ KIT_SLOTS = {
     "MI_Shop_Floor": (0.35, 0.33, 0.31, 0.4, 0.0),
     "MI_Shop_Display": (0.25, 0.22, 0.2, 0.6, 0.0),
     "MI_Sign_Panel": (0.5, 0.5, 0.5, 0.35, 0.0),
-    "MI_Glass_Shop": (0.05, 0.06, 0.065, 0.03, 0.0),   # opaque here: reflective dark glass
+    "MI_Glass_Shop": (0.05, 0.06, 0.065, 0.05, 0.0),   # translucent: M_City_GlassShop
 }
 KIT_EMISSIVE = {"MI_Shop_Interior": (1.0, 0.92, 0.8, 1.2)}
+# Share of the facade weathering each slot takes (1 when not listed).
+KIT_WEATHERING = {"MI_Window_PaintedWood": 0.5, "MI_Shutter_Painted": 0.5, "MI_Door_Wood": 0.5,
+                  "MI_Shopfront_Wood": 0.4, "MI_Ironwork_Painted": 0.3, "MI_Sign_Fascia": 0.3,
+                  "MI_Shopfront_Aluminium": 0.2, "MI_Shopfront_Steel": 0.2, "MI_Shutter_Metal": 0.4,
+                  "MI_Glass_Window": 0.15, "MI_Glass_Shop": 0.1, "MI_Shop_Interior": 0.0,
+                  "MI_Shop_Floor": 0.0, "MI_Shop_Display": 0.0, "MI_Sign_Panel": 0.0}
 # Stone slots take the building colour place_facades.py writes in per-instance custom data 0-2.
 KIT_BUILDING_COLOUR = ("MI_Facade_LimestoneCream", "MI_Facade_Render", "MI_Facade_PierreDoree")
 
@@ -177,6 +183,20 @@ class Graph:
         eal.save_loaded_asset(self.mat)
 
 
+def weather(mat, roles):
+    """Hook of the day/night and weather thread (tools/environment/unreal/gtp_weather.py):
+    wetness, puddles and night emissive scale inserted between our sources and the material
+    pins, neutral by day. Skipped while that module is not in the tree."""
+    path = os.path.join(REPO, "tools", "environment", "unreal")
+    if not os.path.exists(os.path.join(path, "gtp_weather.py")):
+        return
+    import sys
+    if path not in sys.path:
+        sys.path.insert(0, path)
+    import gtp_weather
+    gtp_weather.add_weather(mat, roles)
+
+
 def new_material(name):
     path = MAT_DIR + "/" + name
     if eal.does_asset_exist(path):
@@ -229,12 +249,17 @@ def ground_material(tex, extent):
     kerb = g.mul(b_ch, g.sub(g.const(1.0), on_road))
     mark = g.mul(b_ch, on_road)
     col = g.lerp(col, g.const(KERB), kerb)
-    col = g.lerp(col, g.const(ASPHALT), s, "R")
+    # Asphalt patches (trench repairs, worn wheel paths): two shorter sines, asphalt only.
+    px_ = g.unary(unreal.MaterialExpressionSine, g.mul(g.mask(wp, r=True), g.const(1.0 / 230.0)))
+    py_ = g.unary(unreal.MaterialExpressionSine, g.add(g.mul(g.mask(wp, g=True), g.const(1.0 / 310.0)), g.const(0.7)))
+    patch = g.add(g.const(1.0), g.mul(g.mul(px_, py_), g.const(0.22)))
+    col = g.lerp(col, g.mul(g.const(ASPHALT), patch), s, "R")
     col = g.lerp(col, g.const(MARKING), mark)
     col = g.mul(col, tone)
     rough = g.lerp(g.lerp(g.const(0.78), g.const(0.92), s, "R"), g.const(0.6), mark)
     mel.connect_material_property(col, "", unreal.MaterialProperty.MP_BASE_COLOR)
     mel.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS)
+    weather(mat, ("wet", "puddles"))
     g.done()
     return mat
 
@@ -252,11 +277,55 @@ def shell_material():
     course = g.unary(unreal.MaterialExpressionSaturate, g.mul(g.sub(d, g.const(0.46)), g.const(25.0)))
     shade = g.lerp(g.const(1.0), g.const(0.82), g.mul(course, wall))
     col = g.mul(g.mask(vc, r=True, g=True, b=True), shade)
+    weathered, _ = weathering(g, col, per_instance=False)
+    col = g.lerp(col, weathered, wall)                     # walls only, not the roofs
     rough = g.lerp(g.const(0.55), g.const(0.88), wall)
     mel.connect_material_property(col, "", unreal.MaterialProperty.MP_BASE_COLOR)
     mel.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS)
+    weather(mat, ("wet",))
     g.done()
     return mat
+
+
+def street_level(g):
+    """Street level of the building in cm, written by place_facades.py in custom data 3."""
+    cls = getattr(unreal, "MaterialExpressionPerInstanceCustomData", None)
+    if cls is None:
+        return g.const(0.0)
+    e = g.node(cls, data_index=3)
+    for prop in ("const_default_value", "default_value"):
+        try:
+            e.set_editor_property(prop, 0.0)
+            break
+        except Exception:  # noqa: BLE001  property name differs between versions
+            continue
+    return e
+
+
+def weathering(g, col, per_instance=True):
+    """Art bible weathering, all ALU (no texture, cheap on M1): slow tint drift across
+    the block, a darker plinth over the first 1-4 m (splashes, traffic soot) and rain
+    streaks running down from each cornice and sill, strongest just below them.
+    Scaled per slot by the Weathering parameter (stone 1, glass and interiors ~0)."""
+    w = g.node(unreal.MaterialExpressionScalarParameter, parameter_name="Weathering", default_value=1.0)
+    wp = g.world_position()
+    x, y, z = g.mask(wp, r=True), g.mask(wp, g=True), g.mask(wp, b=True)
+    h = g.sub(z, street_level(g)) if per_instance else z   # shells: the zone is flat near 0
+    sat = unreal.MaterialExpressionSaturate
+    one = g.const(1.0)
+    plinth = g.add(g.mul(g.unary(sat, g.sub(one, g.div(h, g.const(120.0)))), g.const(0.30)),
+                   g.mul(g.unary(sat, g.sub(one, g.div(h, g.const(400.0)))), g.const(0.10)))
+    along = g.add(x, y)
+    s1 = g.unary(unreal.MaterialExpressionSine, g.div(along, g.const(37.0)))
+    s2 = g.unary(unreal.MaterialExpressionSine, g.add(g.div(along, g.const(83.0)), g.const(1.3)))
+    streak = g.unary(sat, g.sub(g.mul(g.mul(s1, s2), g.const(2.0)), g.const(0.6)))
+    t = g.unary(unreal.MaterialExpressionFrac, g.div(h, g.const(330.0)))     # storey height
+    streak = g.mul(g.mul(streak, g.mul(t, t)), g.const(0.18))
+    grime = g.mul(g.add(plinth, streak), w)
+    vx = g.unary(unreal.MaterialExpressionSine, g.div(x, g.const(1700.0)))
+    vy = g.unary(unreal.MaterialExpressionSine, g.div(y, g.const(2300.0)))
+    tone = g.add(one, g.mul(g.mul(g.mul(vx, vy), g.const(0.06)), w))
+    return g.mul(g.mul(col, tone), g.sub(one, grime)), grime
 
 
 def kit_master():
@@ -270,7 +339,9 @@ def kit_master():
                  const_default_value=unreal.LinearColor(0.66, 0.60, 0.50, 1.0))
     # Keep the slot's value contrast (cream stone vs plinth) and take the building's hue.
     col = g.lerp(g.mask(base, r=True, g=True, b=True), pic, use)
+    col, grime = weathering(g, col)
     rough = g.node(unreal.MaterialExpressionScalarParameter, parameter_name="Roughness", default_value=0.8)
+    rough = g.add(rough, g.mul(grime, g.const(0.1)))
     metal = g.node(unreal.MaterialExpressionScalarParameter, parameter_name="Metallic", default_value=0.0)
     emis = g.node(unreal.MaterialExpressionVectorParameter, parameter_name="Emissive",
                   default_value=unreal.LinearColor(0.0, 0.0, 0.0, 1.0))
@@ -279,24 +350,67 @@ def kit_master():
     mel.connect_material_property(metal, "", unreal.MaterialProperty.MP_METALLIC)
     mel.connect_material_property(g.mask(emis, r=True, g=True, b=True), "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
     mat.set_editor_property("used_with_instanced_static_meshes", True)
+    weather(mat, ("wet", "emissive"))
+    g.done()
+    return mat
+
+
+# Shop windows show the lit shop room behind them (~370 on the street side); the upper
+# floor windows stay opaque dark glass. Cheapest translucent lighting on Metal.
+SHOP_GLASS = "MI_Glass_Shop"
+SHOP_GLASS_OPACITY = 0.12
+# GTP_SHOP_GLASS=opaque: fallback if the translucent windows cost more than 0.8 ms on m1
+# (fil optimisation): opaque reflective glass with the shop light faked in emissive.
+SHOP_GLASS_MODE = os.environ.get("GTP_SHOP_GLASS", "translucent")
+SHOP_GLASS_FAKE_GLOW = (0.9, 0.78, 0.6, 0.35)
+
+
+def shop_glass_master():
+    mat = new_material("M_City_GlassShop")
+    mat.set_editor_property("blend_mode", unreal.BlendMode.BLEND_TRANSLUCENT)
+    mat.set_editor_property("translucency_lighting_mode",
+                            unreal.TranslucencyLightingMode.TLM_VOLUMETRIC_NON_DIRECTIONAL)
+    mat.set_editor_property("used_with_instanced_static_meshes", True)
+    g = Graph(mat)
+    base = g.node(unreal.MaterialExpressionVectorParameter, parameter_name="BaseColor",
+                  default_value=unreal.LinearColor(0.05, 0.06, 0.065, 1.0))
+    op = g.node(unreal.MaterialExpressionScalarParameter, parameter_name="Opacity", default_value=SHOP_GLASS_OPACITY)
+    # A touch of Fresnel: grazing views read as glass, straight-on views see the shop.
+    fres = g.node(unreal.MaterialExpressionFresnel)
+    opacity = g.unary(unreal.MaterialExpressionSaturate, g.add(op, g.mul(fres, g.const(0.5))))
+    rough = g.node(unreal.MaterialExpressionScalarParameter, parameter_name="Roughness", default_value=0.05)
+    mel.connect_material_property(g.mask(base, r=True, g=True, b=True), "", unreal.MaterialProperty.MP_BASE_COLOR)
+    mel.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS)
+    mel.connect_material_property(g.const(0.9), "", unreal.MaterialProperty.MP_SPECULAR)
+    mel.connect_material_property(opacity, "", unreal.MaterialProperty.MP_OPACITY)
     g.done()
     return mat
 
 
 def kit_instances(master):
     out = {}
+    glass = shop_glass_master() if SHOP_GLASS_MODE == "translucent" else None
     for name, (r, gr, b, rough, metal) in KIT_SLOTS.items():
         path = MAT_DIR + "/" + name.replace("MI_", "MI_City_", 1)
         if eal.does_asset_exist(path):
             eal.delete_asset(path)
         mic = asset_tools.create_asset(path.rsplit("/", 1)[1], MAT_DIR, unreal.MaterialInstanceConstant,
                                        unreal.MaterialInstanceConstantFactoryNew())
-        mel.set_material_instance_parent(mic, master)
+        mel.set_material_instance_parent(mic, glass if (name == SHOP_GLASS and glass) else master)
         mel.set_material_instance_vector_parameter_value(mic, "BaseColor", unreal.LinearColor(r, gr, b, 1.0))
+        if name == SHOP_GLASS and glass is None:
+            er, eg, eb, k = SHOP_GLASS_FAKE_GLOW
+            mel.set_material_instance_vector_parameter_value(mic, "Emissive", unreal.LinearColor(er * k, eg * k, eb * k, 1.0))
+        if name == SHOP_GLASS and glass:
+            mel.set_material_instance_scalar_parameter_value(mic, "Roughness", rough)
+            eal.save_loaded_asset(mic)
+            out[name] = mic
+            continue
         mel.set_material_instance_scalar_parameter_value(mic, "Roughness", rough)
         mel.set_material_instance_scalar_parameter_value(mic, "Metallic", metal)
         mel.set_material_instance_scalar_parameter_value(mic, "UseBuildingColour",
                                                          1.0 if name in KIT_BUILDING_COLOUR else 0.0)
+        mel.set_material_instance_scalar_parameter_value(mic, "Weathering", KIT_WEATHERING.get(name, 1.0))
         if name in KIT_EMISSIVE:
             er, eg, eb, k = KIT_EMISSIVE[name]
             mel.set_material_instance_vector_parameter_value(mic, "Emissive", unreal.LinearColor(er * k, eg * k, eb * k, 1.0))
@@ -337,13 +451,48 @@ def assign_kit(mics, report):
     report["kit_unknown_slots"] = sorted(unknown)[:20]
 
 
-def assign(folder, mat):
+def water_material():
+    """Dark, glossy river surface with small moving waves: a world-space normal from three
+    sines drifting downstream (the Rhone flows south, +Y in Unreal). Opaque and texture
+    free: a few ALU, no extra pass, unlike the Water plugin."""
+    mat = new_material("M_City_Water")
+    mat.set_editor_property("tangent_space_normal", False)
+    g = Graph(mat)
+    wp = g.world_position()
+    x, y = g.mask(wp, r=True), g.mask(wp, g=True)
+    t = g.node(unreal.MaterialExpressionTime)
+    sin, cos = unreal.MaterialExpressionSine, unreal.MaterialExpressionCosine
+    # (wavelength cm, direction x, direction y, speed cm/s, slope)
+    dx, dy = g.const(0.0), g.const(0.0)
+    for lam, ux, uy, speed, slope in ((340.0, 0.2, 1.0, 60.0, 0.05), (130.0, -0.6, 0.8, 35.0, 0.035),
+                                      (55.0, 0.9, 0.45, 20.0, 0.02)):
+        k = 6.2832 / lam
+        ph = g.mul(g.sub(g.add(g.mul(x, g.const(ux)), g.mul(y, g.const(uy))), g.mul(t, g.const(speed))), g.const(k))
+        c = g.mul(g.unary(cos, ph), g.const(slope))
+        dx = g.add(dx, g.mul(c, g.const(ux)))
+        dy = g.add(dy, g.mul(c, g.const(uy)))
+    n = g.node(unreal.MaterialExpressionAppendVector)
+    g.link(g.sub(g.const(0.0), dx), "", n, "A")
+    g.link(g.sub(g.const(0.0), dy), "", n, "B")
+    n3 = g.node(unreal.MaterialExpressionAppendVector)
+    g.link(n, "", n3, "A")
+    g.link(g.const(1.0), "", n3, "B")
+    mel.connect_material_property(g.unary(unreal.MaterialExpressionNormalize, n3), "", unreal.MaterialProperty.MP_NORMAL)
+    mel.connect_material_property(g.const((0.012, 0.022, 0.026)), "", unreal.MaterialProperty.MP_BASE_COLOR)
+    mel.connect_material_property(g.const(0.06), "", unreal.MaterialProperty.MP_ROUGHNESS)
+    mel.connect_material_property(g.const(0.6), "", unreal.MaterialProperty.MP_SPECULAR)
+    g.done()
+    return mat
+
+
+def assign(folder, mat, by_name=None):
     n = 0
     for p in eal.list_assets(folder, recursive=True):
         a = eal.load_asset(p)
         if isinstance(a, unreal.StaticMesh):
+            m = (by_name or {}).get(a.get_name(), mat)
             for i in range(len(a.get_editor_property("static_materials"))):
-                a.set_material(i, mat)
+                a.set_material(i, m)
             eal.save_loaded_asset(a)
             n += 1
     return n
@@ -412,7 +561,13 @@ def main():
         shell = shell_material()
         report["terrain_meshes"] = assign(ROOT + "/Terrain", ground)
         report["shell_meshes"] = assign(ROOT + "/Buildings/" + CAMEL, shell)
+        if eal.does_directory_exist(ROOT + "/Landmarks/" + CAMEL):
+            report["landmark_meshes"] = assign(ROOT + "/Landmarks/" + CAMEL, shell)
+        river_dir = ROOT + "/Riverside/" + CAMEL
+        if eal.does_directory_exist(river_dir):
+            report["riverside_meshes"] = assign(river_dir, shell, {"SM_River_Water": water_material()})
         assign_kit(kit_instances(kit_master()), report)
+        report["shop_glass"] = SHOP_GLASS_MODE
         facade_check(report)
     except Exception as e:  # report, never leave the editor hanging on a dialog
         report["errors"].append(repr(e))

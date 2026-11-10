@@ -35,6 +35,21 @@ mkdir -p "$out"
 tmp="$(mktemp -d)"
 cp "$repo"/tools/city/unreal/{import_city,place_facades,place_props,apply_city_materials,shoot_city}.py "$tmp/"
 python3 "$repo/tools/city/ground_mask.py" --zone "$zone" --focus "$focus" > /dev/null
+# Facade and street details table (tools/city/details.py), replayed on every run.
+# GTP_CITY_DETAILS=0 leaves them out (M1 budget fallback).
+if test "${GTP_CITY_DETAILS:-1}" = "0"; then
+  rm -f "$gen/details_placement.csv"
+else
+  python3 "$repo/tools/city/details.py" --name "$zone" --focus "$focus" > /dev/null
+fi
+# Real shop logos live in the out-of-Git content plugin Plugins/CityBrands (art bible 3.5);
+# place_facades.py uses them only when the plugin is mounted, so make sure it exists.
+"$repo/tools/city/unreal/mount_citybrands.sh"
+# Rhone riverside (water, quay parapets, pont Lafayette) when GTP_CITY_RIVERSIDE=1; import_city.py
+# picks riverside.json up when it exists.
+if [ "${GTP_CITY_RIVERSIDE:-0}" = "1" ]; then
+  python3 "$repo/tools/city/riverside.py" --name "$zone" --focus "$focus" --bridge 41:Lafayette > /dev/null
+fi
 export GTP_CITY_ZONE="$zone" GTP_CITY_FOCUS="$focus" GTP_CITY_LIGHT="${GTP_CITY_LIGHT:-Noon}" GTP_PROFILE="${PROFILE:-m1}"
 cvars="$(python3 "$repo/tools/rendering/reference_scene/profiles.py" "${PROFILE:-m1}")"
 
@@ -50,13 +65,22 @@ grep -q '"errors": \[\]' "$out/facades_report.json" || { cat "$out/facades_repor
 "$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES -ExecutePythonScript="$tmp/place_props.py"
 test -f "$out/props_report.json" || { echo "place_props.py wrote no report" >&2; exit 1; }
 
+# Facade and street details (tools/city/details.py), when the table exists: own folder City/Details.
+if test -f "$gen/details_placement.csv"; then
+  GTP_PROPS_SET=details "$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES -ExecutePythonScript="$tmp/place_props.py"
+  test -f "$out/details_report.json" || { echo "place_props.py (details) wrote no report" >&2; exit 1; }
+fi
+
 # Art bible ground and shell materials in place of the greybox one.
 "$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES -ExecutePythonScript="$tmp/apply_city_materials.py"
 grep -q '"errors": \[\]' "$out/materials_report.json" || { cat "$out/materials_report.json"; exit 1; }
 
+if [ "${SKIP_PLAY:-0}" != "1" ]; then
 "$editor" "$project" "$map" -game -windowed -ResX=1920 -ResY=1080 -nosound -NoScreenMessages -unattended -NSAppSleepDisabled YES \
   "-ini:Engine:[/Script/Engine.UserInterfaceSettings]:bAllowHighDPIInGameMode=True" \
   -ExecCmds="r.SetRes 1920x1080w, $cvars, py $tmp/shoot_city.py"
+fi
 rm -rf "$tmp"
 
-cat "$out/report.json" "$out/facades_report.json" "$out/props_report.json" "$out/play_report.json"
+cat "$out/report.json" "$out/facades_report.json" "$out/props_report.json"
+if test -f "$out/play_report.json"; then cat "$out/play_report.json"; fi

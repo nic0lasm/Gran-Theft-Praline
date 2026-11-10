@@ -263,3 +263,51 @@ def test_rotate_x_lays_a_standing_master_flat():
     normalize(a, 2.0, rotate_x_deg=90)
     lo, hi = a.bounds()
     assert (hi - lo)[1] < 1e-4
+
+
+def _pole():
+    from gtp_assets.geometry import Asset, Part
+    segs = []
+    for k in range(30):  # dense like a prepared master: 30 stacked 10 cm rings
+        c = trimesh.creation.cylinder(radius=0.06, height=0.1, sections=12)
+        c.apply_translation([0, 0, 0.05 + 0.1 * k])
+        segs.append(c)
+    m = trimesh.util.concatenate(segs)
+    m.apply_transform(trimesh.transformations.rotation_matrix(-np.pi / 2, [1, 0, 0]))  # Z up -> Y up
+    return Asset([Part(vertices=np.asarray(m.vertices, np.float32), faces=np.asarray(m.faces, np.uint32),
+                       uv=np.zeros((len(m.vertices), 2), np.float32),
+                       normals=np.asarray(m.vertex_normals, np.float32))])
+
+
+def test_broken_snap_keeps_a_capped_stump():
+    from gtp_assets.broken import snap
+    out = snap(_pole(), 0.35)
+    stump, top = out["Stump"][0], out["Top"][0]
+    assert stump.bounds()[1][1] < 0.35 + 0.1
+    assert top.bounds()[0][1] > 0.2 and top.bounds()[1][1] == pytest.approx(3.0, abs=0.01)
+    assert out["Stump"][1] == [0] and out["Top"][1] == [0]
+
+
+def test_broken_bend_turns_the_top_only():
+    from gtp_assets.broken import bend
+    pole = _pole()
+    bent = bend(pole, 0.4, 45.0)["Bent"][0]
+    v0, v1 = pole.parts[0].vertices, bent.parts[0].vertices
+    low = v0[:, 1] < 0.4
+    assert np.allclose(v0[low], v1[low])
+    assert bent.bounds()[1][1] < 3.0 - 0.5          # the top leans over
+    assert abs(bent.bounds()[1][2]) > 1.0 or abs(bent.bounds()[0][2]) > 1.0
+
+
+def test_make_broken_writes_variants(tmp_path):
+    import subprocess
+    from gtp_assets.geometry import export_geometry_glb
+    d = tmp_path / "W1-04"
+    d.mkdir()
+    export_geometry_glb(_pole(), str(d / "W1-04_ultra.glb"), ["M_Imported_W1-04_0"])
+    (d / "asset.json").write_text(json.dumps({"id": "W1-04", "files": {"ultra": "W1-04_ultra.glb"}}))
+    subprocess.run([sys.executable, os.path.join(ROOT, "tools", "assets", "make_broken.py"), "--staging",
+                    str(tmp_path), "--ids", "W1-04"], check=True)
+    meta = json.loads((d / "asset.json").read_text())
+    assert set(meta["broken"]) == {"Stump", "Top"}
+    assert (d / meta["broken"]["Stump"]["file"]).exists()

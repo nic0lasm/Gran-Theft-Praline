@@ -28,7 +28,72 @@ GEN = os.path.join(REPO, "assets", "geo", "processed", ZONE, "gen", FOCUS)
 MAP = "/Game/Maps/L_City_" + "".join(p.capitalize() for p in FOCUS.split("-"))
 TRACE_UP_CM, TRACE_DOWN_CM = 300.0, 1500.0
 MAX_SNAP_CM = 250.0
-PROPS_ROOT = "/Game/Environment/Props"   # farther than this from the LiDAR ground: keep the LiDAR height
+# One run per placement table: the street furniture (default) and the facade and street
+# details of tools/city/details.py (GTP_PROPS_SET=details). Each set owns its outliner folder,
+# so placing one never removes the other.
+PROPS_SET = os.environ.get("GTP_PROPS_SET", "props")
+FOLDER = "City/" + PROPS_SET.capitalize()
+CSV_NAME = PROPS_SET + "_placement.csv"
+PROPS_ROOT = "/Game/Environment/Props"
+
+# Draw distances by prop size (largest bounding box side), metres, and per set (fil
+# optimisation: numbers to tune after the m1 measure). Culling starts at CULL_START_SHARE of
+# the end. Props smaller than NO_SHADOW_BELOW_M cast no dynamic shadow.
+CULL_END_M = {"props": {"small": 30.0, "medium": 60.0, "large": 120.0},   # fil optimisation 10/11
+              "details": {"small": 40.0, "medium": 60.0, "large": 120.0}}
+SIZE_CLASSES_M = (("small", 1.0), ("medium", 3.0))   # up to 1 m small, up to 3 m medium
+CULL_START_SHARE = 0.8
+NO_SHADOW_BELOW_M = 0.5
+
+
+def tune_render(comp, mesh, report):
+    """Cull distance and shadows from the mesh size; LOD check for the optimisation thread."""
+    ext = mesh.get_bounds().box_extent
+    size_m = 2.0 * max(ext.x, ext.y, ext.z) / 100.0
+    cls = next((c for c, lim in SIZE_CLASSES_M if size_m <= lim), "large")
+    end = CULL_END_M.get(PROPS_SET, CULL_END_M["props"])[cls] * 100.0
+    comp.set_editor_property("instance_start_cull_distance", int(end * CULL_START_SHARE))
+    comp.set_editor_property("instance_end_cull_distance", int(end))
+    if size_m < NO_SHADOW_BELOW_M:
+        comp.set_editor_property("cast_shadow", False)
+    tally = report.setdefault("cull_classes", {})
+    tally[cls] = tally.get(cls, 0) + 1
+    if mesh.get_num_lods() < 2:
+        report.setdefault("meshes_without_lods", []).append(mesh.get_name())   # farther than this from the LiDAR ground: keep the LiDAR height
+
+# Breakable street furniture (docs/gameplay/breakable-street-furniture.md): catalogue id ->
+# (class, mass kg). R topples, C breaks above a threshold; fixed props are not listed. The
+# tags are read at run time by UGTPBreakableSubsystem, which swaps the hit instance for a
+# physics actor; one component per asset, so one mass per asset.
+BREAKABLE = {
+    "W1-07": ("R", 15), "W1-08": ("R", 15), "W1-32": ("R", 25), "W1-33": ("R", 45), "W1-34": ("R", 12),
+    "W1-35": ("R", 4), "W1-36": ("R", 4), "W1-38": ("R", 20), "W1-40": ("R", 6), "W1-41": ("R", 6),
+    "W1-50": ("R", 3), "W8-29": ("R", 5), "W8-30": ("R", 10), "W1-51": ("R", 15), "W8-24": ("R", 8),
+    "W1-14": ("R", 15), "W1-55": ("R", 20), "W1-54": ("R", 110), "W14-05": ("R", 40), "W14-79": ("R", 60),
+    "W14-78": ("R", 25), "W14-73": ("R", 5), "W14-75": ("R", 30), "W1-60": ("R", 3),
+    "W1-04": ("C", 250), "W8-01": ("C", 120), "W8-02": ("C", 80), "W1-57": ("C", 25), "W1-12": ("C", 30),
+    "W1-01": ("C", 90), "W1-13": ("C", 150), "W1-24": ("C", 60), "W1-25": ("C", 80), "W1-27": ("C", 80),
+}
+BREAKABLE.update({"W8-%02d" % k: ("C", 25) for k in range(5, 18)})   # signs on poles
+
+
+def tag_breakable(comp, catalog_id, report, mesh=None):
+    b = BREAKABLE.get(catalog_id)
+    if not b:
+        return
+    tags = [unreal.Name("GTP_Breakable_" + b[0]), unreal.Name("GTP_MassKg=%d" % b[1])]
+    # Broken variants next to the intact mesh (tools/assets/make_broken.py): what stays in
+    # place (stump or bent pole) and, for a snapped post, the part that falls.
+    if mesh is not None:
+        base = mesh.get_path_name().split(".")[0].rsplit("_A", 1)[0]
+        for variant, key in (("Stump", "GTP_BrokenMesh"), ("Bent", "GTP_BrokenMesh"), ("Top", "GTP_BrokenTopMesh")):
+            if eal.does_asset_exist(base + "_" + variant):
+                tags.append(unreal.Name("%s=%s_%s" % (key, base, variant)))
+                report.setdefault("broken_meshes", []).append(catalog_id + " " + variant)
+    comp.set_editor_property("component_tags", tags)
+    tally = report.setdefault("breakable_components", {})
+    tally[b[0]] = tally.get(b[0], 0) + 1
+
 
 eal = unreal.EditorAssetLibrary
 level_sub = unreal.get_editor_subsystem(unreal.LevelEditorSubsystem)
@@ -57,7 +122,7 @@ def ground_z(world, x, y, z):
 def hism_actor(label, mesh):
     actor = actor_sub.spawn_actor_from_class(unreal.StaticMeshActor, unreal.Vector(0, 0, 0))
     actor.set_actor_label(label)
-    actor.set_folder_path("City/Props")
+    actor.set_folder_path(FOLDER)
     root = sds.k2_gather_subobject_data_for_instance(actor)[0]
     handle, _ = sds.add_new_subobject(unreal.AddNewSubobjectParams(
         parent_handle=root, new_class=unreal.HierarchicalInstancedStaticMeshComponent))
@@ -82,20 +147,20 @@ def catalog_index():
 def main():
     t0 = time.time()
     report = {"map": MAP, "errors": [], "missing_assets": [], "instances": {}}
-    path = os.path.join(GEN, "props_placement.csv")
+    path = os.path.join(GEN, CSV_NAME)
     if not os.path.exists(path):
-        report["errors"].append("no props_placement.csv: run tools/city/props.py")
+        report["errors"].append("no %s: run tools/city/%s.py" % (CSV_NAME, PROPS_SET))
         return write(report, t0)
     with open(path, encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
     level_sub.load_level(MAP)
     for a in actor_sub.get_all_level_actors():
-        if str(a.get_folder_path()).startswith("City/Props"):
+        if str(a.get_folder_path()).startswith(FOLDER):
             actor_sub.destroy_actor(a)
     world = editor_sub.get_editor_world()
     by_id = catalog_index() if eal.does_directory_exist(PROPS_ROOT) else {}
     report["imported_catalog_ids"] = len(by_id)
-    comps, snapped, kept = {}, 0, 0
+    comps, snapped, kept, no_collision = {}, 0, 0, set()
     for r in rows:
         p = r["asset_path"] if r["asset_path"] and eal.does_asset_exist(r["asset_path"]) else \
             by_id.get(r["catalog_id"], "")
@@ -104,19 +169,27 @@ def main():
             mesh = eal.load_asset(p) if p else None
             comps[key] = hism_actor("Props_" + r["catalog_id"] + "_" + (r["asset"] or mesh.get_name() if mesh else ""),
                                     mesh) if mesh else None
+            if mesh is not None:
+                tune_render(comps[key], mesh, report)
+                tag_breakable(comps[key], r["catalog_id"], report, mesh)
             if mesh is None:
                 report["missing_assets"].append(r["catalog_id"])
         comp = comps[key]
         if comp is None:
             continue
+        if r.get("collision") == "false" and key not in no_collision:
+            comp.set_collision_profile_name("NoCollision")   # small details: nothing to walk into
+            no_collision.add(key)
         x, y, z = float(r["ue_x"]), float(r["ue_y"]), float(r["ue_z"])
-        gz = ground_z(world, x, y, z)
+        # Wall and roof details (snap=keep) keep their height; everything else drops onto the ground.
+        gz = None if r.get("snap") == "keep" else ground_z(world, x, y, z)
         if gz is None:
             kept += 1
         else:
             z, snapped = gz, snapped + 1
+        scale = unreal.Vector(float(r.get("scale_x") or 1), float(r.get("scale_y") or 1), float(r.get("scale_z") or 1))
         comp.add_instance(unreal.Transform(unreal.Vector(x, y, z), unreal.Rotator(0.0, 0.0, float(r["ue_yaw"])),
-                                           unreal.Vector(1, 1, 1)), True)
+                                           scale), True)
         report["instances"][r["catalog_id"]] = report["instances"].get(r["catalog_id"], 0) + 1
     level_sub.save_current_level()
     report.update({"rows": len(rows), "placed": sum(report["instances"].values()), "snapped_to_ground": snapped,
@@ -128,7 +201,7 @@ def write(report, t0):
     report["seconds"] = round(time.time() - t0, 1)
     out = os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_saved_dir()), "CityImport")
     os.makedirs(out, exist_ok=True)
-    with open(os.path.join(out, "props_report.json"), "w") as f:
+    with open(os.path.join(out, PROPS_SET + "_report.json"), "w") as f:
         json.dump(report, f, indent=2)
     log("report: " + json.dumps({k: v for k, v in report.items() if k != "instances"}))
 

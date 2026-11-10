@@ -28,7 +28,7 @@ import time
 
 import numpy as np
 import shapely
-from shapely.geometry import LineString, Point, Polygon
+from shapely.geometry import box, LineString, Point, Polygon
 from shapely.ops import unary_union
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -126,6 +126,13 @@ def main():
     ap.add_argument("--focus", default="Rue de la République",
                     help="street name (BAN spelling) whose buildings are generated, or 'all'")
     ap.add_argument("--buffer", type=float, default=45.0, help="metres around the focus street")
+    ap.add_argument("--extra-bbox", action="append", default=[], metavar="X0,Y0,X1,Y1",
+                    help="also take the buildings whose centroid is in this box (local metres, "
+                         "x east, y north); repeatable. E.g. the Rhone quays and the Lafayette "
+                         "bridge head for the drivable loop of 0.3: 250,-60,700,220")
+    ap.add_argument("--cell", metavar="X0,Y0,X1,Y1",
+                    help="streaming cell mode (tools/city/cells.py): take every building whose centroid "
+                         "is in this box, local metres; --focus is then only the output name")
     ap.add_argument("--geo", default=os.path.join(REPO, "assets", "geo"))
     args = ap.parse_args()
     t0 = time.time()
@@ -140,6 +147,13 @@ def main():
     to_world = lambda p: (p[0] + origin[0], p[1] + origin[1])  # noqa: E731
 
     buildings = load_buildings(proc)
+    # Landmarks (tools/city/landmarks.py) get a LiDAR volume of their own instead of the kit.
+    replaced = set()
+    lm_path = os.path.join(proc, "landmarks.json")
+    if os.environ.get("GTP_CITY_LANDMARKS", "1") != "0" and os.path.exists(lm_path):
+        with open(lm_path, encoding="utf-8") as f:
+            replaced = set(json.load(f).get("replaced_bdtopo", []))
+        buildings = [b for b in buildings if b["id"] not in replaced]
     roads = load_roads(raw, origin)
     shops = load_shops(proc)
     mnt, mns = raster.Raster.load(raw, "mnt"), raster.Raster.load(raw, "mns")
@@ -153,7 +167,10 @@ def main():
     ridges = procgen.RidgeIndex(ridge_lines)
 
     focus_axis = []
-    if args.focus == "all":
+    if args.cell:
+        cell = box(*[float(v) for v in args.cell.split(",")])
+        selected = [b for b in buildings if cell.contains(b["poly"].centroid)]
+    elif args.focus == "all":
         selected = buildings
     else:
         street = [r[0] for r in roads if r[2] == args.focus]
@@ -161,6 +178,11 @@ def main():
             sys.exit(f"no road named {args.focus!r} in BD TOPO for this zone")
         zone = unary_union(street).buffer(args.buffer)
         selected = [b for b in buildings if zone.intersects(b["poly"].centroid.buffer(1.0))]
+        if args.extra_bbox:
+            boxes = [box(*[float(v) for v in e.split(",")]) for e in args.extra_bbox]
+            have = {id(b) for b in selected}
+            selected += [b for b in buildings if id(b) not in have
+                         and any(bx.contains(b["poly"].centroid) for bx in boxes)]
         merged = shapely.line_merge(unary_union(street))
         longest = max(getattr(merged, "geoms", [merged]), key=lambda g: g.length)
         for d in np.arange(0, longest.length, 10.0):
@@ -273,7 +295,9 @@ def main():
     for r in mod_rows:
         kinds[r["kind"]] = kinds.get(r["kind"], 0) + 1
     report = {
-        "zone": args.name, "focus": args.focus, "buffer_m": args.buffer, "bdtopo_buildings": len(selected),
+        "zone": args.name, "focus": args.focus, "buffer_m": args.buffer, "extra_bbox": args.extra_bbox,
+        "bdtopo_buildings": len(selected),
+        "left_to_landmarks": sorted(replaced),
         "skipped_lidar_ground": len(skipped), "building_parts": len(bld_rows),
         "open_courtyards_m2": round(courtyard_m2), "covered_courtyards_m2": round(podium_m2),
         "typologies": typologies, "roof_kinds": roof_kinds, "modules": len(mod_rows), "module_kinds": kinds,

@@ -254,6 +254,118 @@ sommets, assises de pierre sur les murs, toits moins rugueux), les assigne aux t
 et aux coques, puis vérifie les instances de façade de la map. Il remplace `M_CityGreybox` sans
 reconstruire la map.
 
+Vieillissement, tout en calcul dans le shader (aucune texture, peu coûteux en profil M1) : le
+kit de façades (`M_City_Kit`) et les murs des coques reçoivent une lente dérive de teinte sur
+l'îlot, un soubassement plus sombre sur les 1 à 4 premiers mètres au-dessus du niveau de rue
+du bâtiment (écrit par `place_facades.py` dans la donnée d'instance 3) et des coulures sous
+chaque corniche et appui, dosés par emplacement avec `Weathering` (pierre 1, bois 0,5, verre
+0,1-0,15, intérieurs de boutique 0). L'asphalte reçoit des reprises (tranchées, passages de
+roues). Le masque est dessiné sur des texels carrés puis rééchantillonné : les rues gardent
+leur largeur quel que soit le format de la texture.
+
+### Chaussées recalées sur les bordures et régénération en une commande
+
+Les axes BD TOPO sont à 0,8 m du milieu de la chaussée (2,2 m au 90e centile) et les voitures
+sur des voies tirées de ces axes roulaient sur les bordures du terrain LiDAR.
+`tools/city/carriageway.py` recale chaque voie carrossable sur les bordures Grand Lyon (rayons
+tous les 2 m, lissés ; 79 % des échantillons trouvent une vraie bordure) et écrit
+`processed/<zone>/carriageway.geojson` : un polygone, un axe corrigé et les demi-largeurs par
+voie. `ground_mask.py` y dessine l'asphalte et les bordures ; `traffic.py` peut y poser ses voies.
+
+`tools/city/regen_city.sh` régénère tout en une commande (données géo, génération avec la boîte
+du Rhône, enseignes, chaussées, mobilier, détails, Rhône, import Unreal, façades, mobilier,
+détails, matériaux, voiture garée, voies de trafic) : `caffeinate -dimsu tools/city/regen_city.sh`.
+
+## Quai du Rhône et pont Lafayette (ajouté le 2026-11-10, pour la 0.3)
+
+L'emprise générée s'étend vers l'est pour la boucle en voiture de la 0.3 :
+`generate.py --extra-bbox 250,-60,700,220` ajoute les bâtiments du quai Jules-Courmont, de la tête
+du pont et d'un bout de rive gauche (233 bâtiments BD TOPO, 378 parties, au lieu de 175 / 281).
+`tools/city/riverside.py` construit en greybox (couleurs de sommets) l'eau du Rhône (plan au
+niveau LiDAR de la surface, sans collision), le tablier du pont Lafayette (emprise Grand Lyon,
+gid 41, ~20 m × 190 m, parapets ; l'emprise s'arrête au-dessus des bas-ports, donc chaque bout
+est prolongé dans l'axe du pont jusqu'à rejoindre la rue à moins de 12 cm, puis posé sur la
+hauteur médiane de la rue : marche mesurée de 7 cm au plus, collision active) et un parapet de
+quai le long de l'eau (519 m dans la boîte, coupé sous le pont). `import_city.py` le pose s'il existe
+(dossier City/Riverside) ; `apply_city_materials.py` y met `M_City_Shell` et `M_City_Water`.
+La surface du fleuve est notre propre maillage avec `M_City_Water` (petites vagues mobiles,
+opaque), pas le plugin Water du moteur : il exige un paysage et des passes en plus que le budget
+M1 ne permet pas.
+Chute dans le Rhône : un lit avec collision 2,5 m sous la surface (rien ne traverse le monde),
+des boîtes de déclenchement de 25 m marquées `GTP_RiverRecovery` sur l'eau et des sorties de
+quai au niveau de la rue tous les 25 m, marquées `GTP_RiverExit` (points tournés vers la terre,
+jamais sur les bas-ports) : le jeu s'en sert pour faire nager ou repêcher le joueur et les
+voitures.
+`build.py` garde maintenant les noms de voies `nom_collaboratif_*` et `nom_voie_ban_*` de la
+BD TOPO actuelle (les anciens `nom_1_*` n'existent plus).
+
+## Détails de façade et de rue : deuxième passe d'habillage (ajouté le 2026-11-10)
+
+L'audit en jeu de la 0.2 et de la 0.3 montre une rue « maquette » : sur environ 344 objets
+importés, seuls 24 types étaient posés. `tools/city/details.py` ajoute les petits détails, toujours
+accrochés à quelque chose de réel :
+
+* **Façades** (`facade_modules.csv`) : une descente d'eau par immeuble côté mitoyen, sur toute la
+  hauteur ; soupiraux sous les fenêtres du rez-de-chaussée haussmannien ; coffret de compteurs,
+  plaque de numéro et mascaron sur la clé des portes cochères (positions calculées sur le kit) ;
+  stores bannes déroulés sur les cafés, restaurants et commerces de bouche, repliés sur un commerce
+  sur deux ailleurs, étirés à la largeur de la travée ; distributeur sur les banques ; cendrier aux
+  portes des bars et tabacs ; paillassons ; jardinières sur l'appui des fenêtres lyonnaises,
+  quelques paraboles et climatiseurs sur les immeubles anciens ; un présentoir contre le fond de chaque
+  vitrine ouverte de la rue (rien à voir derrière la vitre sinon).
+* **Angles** : plaques de rue sur chaque immeuble d'angle, côté de l'angle.
+* **OpenStreetMap** : potelets, feux piétons des deux côtés des traversées à feux (largeur réelle de
+  la chaussée BD TOPO), feux de circulation sur la bordure de droite, panneaux par code français
+  (B1 sens interdit, AB3a cédez le passage, B54 zone piétonne...) ramenés sur la bordure Grand Lyon,
+  armoires techniques, colonnes d'affichage.
+* **Arbres, bancs et corbeilles** : feuilles mortes de platane autour d'un arbre sur deux (automne,
+  saison de la bible), déchets et journaux près de certaines corbeilles, pigeons près des bancs.
+* **Toits** : souches de cheminée sur les murs mitoyens, à la hauteur du faîtage.
+
+Le choix d'une travée est un hachage stable de l'immeuble et de la travée : chaque passage donne la
+même rue. Le tableau a les colonnes de `props_placement.csv` plus `snap` (`keep` garde la hauteur des
+objets muraux et de toit), `scale_x/y/z` et `collision` (aucune sur les petits objets). Plafond de
+3 000 instances (budget du fil optimisation, 1 ms GPU sur m1), par priorité de visibilité ;
+environ 2 100 pour la rue de la République. `run_city_import.sh` rejoue `details.py` puis le pose avec
+`GTP_PROPS_SET=details` dans le dossier City/Details.
+
+Les vrais logos d'enseignes ne s'affichaient pas : le plugin hors Git `Plugins/CityBrands` n'existait
+pas sur le Mac (`citybrands_mounted: false`). `tools/city/unreal/mount_citybrands.sh`, lancé par
+`run_city_import.sh`, crée le plugin de contenu vide s'il manque et vérifie qu'il est ignoré par Git.
+
+**Enseignes drapeau** (`place_facades.py`) : un commerce sur deux reçoit, sur sa première travée,
+une enseigne perpendiculaire à la façade au-dessus du bandeau (1,1 m, même texture que le bandeau,
+deux panneaux dos à dos, sans ombre).
+
+**Preuve avant/après** : `tools/city/evidence/before_after.sh <builds avant> <builds après> <version>`
+lance le build « après » sur le parcours de démonstration (profil m1, le jeu se filme), puis écrit
+des images côte à côte aux mêmes instants (`compare-stills.swift`, AVFoundation, sans ffmpeg) et les
+deux résumés de temps d'image.
+
+## Monuments repères et poids des cellules (ajouté le 2026-11-10)
+
+`tools/city/landmarks.py` remplace le kit de façades générique par un volume mesuré pour les
+monuments qu'on reconnaît : l'Opéra (voûte de verre) et l'Hôtel de Ville (pavillons, beffroi,
+cours). Emprise OpenStreetMap (identifiant Wikidata), cours retirées là où le LiDAR voit le sol,
+murs sur le vrai contour, toit = champ de hauteur du MNS LiDAR raccordé au haut des murs.
+Opéra : 2 072 m², 45 m, 4 261 triangles ; Hôtel de Ville : 3 764 m² dont 1 604 m² de cours
+retirés, 52 m, 7 856 triangles. Les 6 bâtiments BD TOPO couverts sortent de `generate.py`
+(`left_to_landmarks` dans le rapport) et `import_city.py` pose `gen/<focus>/landmarks.glb`
+avec collision. `GTP_CITY_LANDMARKS=0` revient aux coques génériques.
+
+Places Bellecour et Jacobins : données seulement (contour, revêtement, monuments). La statue
+de Louis XIV et les fontaines des Jacobins et Bartholdi n'ont pas de volume : le MNS LiDAR
+est égal au terrain sur ces places (sursol filtré), il faudra des modèles. Limite connue.
+
+`tools/city/cell_budget.py` estime le poids de chaque cellule (instances de façade, enseignes,
+mobilier) calibré sur la rue mesurée (21 299 + 3 400 instances = 14 ms). Pire cellule
+p0000-m0500 : 8,4 ms ; pire bloc 2 × 2 : 26,1 ms ; 3 × 3 : 50,4 ms. Bornes hautes (ni
+distance de coupe ni occlusion) : 2 × 2 dépasse les 14 ms de l'ADR-0010, d'où la variété du
+kit à coût constant et la coupe à 250 m à mesurer.
+
+Créneau Mac en une commande : `caffeinate -dimsu tools/city/city_slot_mac.sh <builds_avant> 0.3`
+(régénération, package, test M1 60 s filmé, avant/après du fil réalisme).
+
 ## Limites et suite
 
 1. **Test éditeur** : `tools/city/unreal/import_city.py` importe greybox et

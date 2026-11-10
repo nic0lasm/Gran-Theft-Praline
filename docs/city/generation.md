@@ -245,6 +245,114 @@ coordinates, procedural slab and sett joints and tone variation, a single textur
 on walls, smoother roofs), assigns them to the terrain tiles and shells, and checks the facade
 instances of the map. It replaces `M_CityGreybox` without rebuilding the map.
 
+Weathering, all in shader arithmetic (no texture, cheap on the M1 profile): the facade kit
+(`M_City_Kit`) and the shell walls get a slow tint drift across the block, a darker plinth
+over the first 1-4 m above the building's street level (`place_facades.py` writes it in
+per-instance custom data 3) and rain streaks under each cornice and sill, scaled per slot by
+`Weathering` (stone 1, wood 0.5, glass 0.1-0.15, shop interiors 0). The asphalt gets patches
+(repairs, wheel paths). The mask is drawn on square texels and resampled, so streets keep their
+width whatever the texture aspect.
+
+### Carriageways fitted to the kerbs and one-command regeneration
+
+The BD TOPO centre lines sit 0.8 m off the middle of the carriageway (2.2 m at the 90th
+percentile) and cars on lanes drawn from them rode on the kerbs of the LiDAR terrain.
+`tools/city/carriageway.py` fits each car road to the Grand Lyon kerb lines (rays every 2 m,
+smoothed; 79 % of samples find a real kerb) and writes `processed/<zone>/carriageway.geojson`:
+one polygon, a corrected centre line and half widths per road. `ground_mask.py` draws the
+asphalt and kerbs from it; `traffic.py` can place its lanes on it.
+
+`tools/city/regen_city.sh` regenerates everything in one command (geo data, generation with
+the Rhone box, signs, carriageways, props, details, riverside, Unreal import, facades, props,
+details, materials, parked car, traffic lanes): `caffeinate -dimsu tools/city/regen_city.sh`.
+
+## Rhone quay and pont Lafayette (added 2026-11-10, for 0.3)
+
+The generated footprint grows east for the 0.3 driving loop:
+`generate.py --extra-bbox 250,-60,700,220` adds the buildings of quai Jules-Courmont, the bridge
+head and a bit of the left bank (233 BD TOPO buildings, 378 parts, instead of 175 / 281).
+`tools/city/riverside.py` builds, as greybox with vertex colours, the Rhone water (a plane at the
+LiDAR water surface, no collision), the pont Lafayette deck (Grand Lyon footprint, gid 41,
+~20 m × 190 m, parapets; the footprint stops over the lower quays, so each end is stretched
+along the bridge axis until it meets the street within 12 cm and settles on the median street
+height, measured step at most 7 cm, collision on) and a quay parapet along the water
+(519 m in the box, cut under the bridge). `import_city.py` places them when present (folder
+City/Riverside); `apply_city_materials.py` gives them `M_City_Shell` and `M_City_Water`.
+The river surface is our own mesh with `M_City_Water` (small moving waves, opaque), not the
+engine Water plugin: it needs a landscape and extra passes the M1 budget cannot afford.
+Falling in: a river bed with collision 2.5 m under the surface (nothing falls through the
+world), 25 m trigger boxes tagged `GTP_RiverRecovery` over the water and quay exits at street
+level every 25 m, tagged `GTP_RiverExit` (target points facing the land, never on the lower
+quays): the game swims or fishes out the player and the cars from them.
+`build.py` now keeps the street names of the current BD TOPO, `nom_collaboratif_*` and
+`nom_voie_ban_*` (the old `nom_1_*` fields are gone).
+
+## Facade and street details: second dressing pass (added 2026-11-10)
+
+The in-game audit of 0.2 and 0.3 showed a street that reads as a scale model: of about 344
+imported props, only 24 types were placed. `tools/city/details.py` adds the small details, always
+anchored on something real:
+
+* **Facades** (`facade_modules.csv`): one full-height downpipe per building on the party-wall side;
+  cellar grilles under Haussmann ground-floor windows; meter cabinet, house-number plaque and a
+  keystone mascaron over carriage doors (positions computed from the kit); extended awnings over
+  cafés, restaurants and food shops, retracted on every other shop elsewhere, stretched to the bay
+  width; ATMs on banks; ashtrays at bar and tobacconist doors; doormats; window boxes on Lyonnais
+  sills, the odd satellite dish and air conditioner on older buildings; a display shelf against the back
+  of every open shop window of the street (nothing to see behind the glass otherwise).
+* **Corners**: street-name plates on every corner building, on the corner side.
+* **OpenStreetMap**: bollards, pedestrian lights on both kerbs of signalled crossings (real BD TOPO
+  carriageway width), vehicle lights on the right-hand kerb, signs by French code (B1 no entry, AB3a
+  give way, B54 pedestrian zone...) moved onto the Grand Lyon kerb line, street cabinets,
+  advertising columns.
+* **Trees, benches and bins**: fallen plane leaves around every other tree (autumn, the bible's
+  season), litter and newspapers by some bins, pigeons near benches.
+* **Roofs**: chimney stacks on party walls, at ridge height.
+
+Which bay gets a detail is a stable hash of building and bay: every run gives the same street. The
+table has the columns of `props_placement.csv` plus `snap` (`keep` keeps the height of wall and
+roof items), `scale_x/y/z` and `collision` (none on small items). It is capped at 3,000 instances
+(budget of the optimisation pass, 1 ms GPU on m1), by visibility priority; about 2,100 for rue de la
+République. `run_city_import.sh` replays `details.py` and places it with `GTP_PROPS_SET=details`
+in the City/Details folder.
+
+Real shop logos did not show: the out-of-Git plugin `Plugins/CityBrands` did not exist on the Mac
+(`citybrands_mounted: false`). `tools/city/unreal/mount_citybrands.sh`, run by
+`run_city_import.sh`, creates the empty content plugin when missing and checks Git ignores it.
+
+**Blade signs** (`place_facades.py`): every other shop gets, on its first bay, a sign
+perpendicular to the facade above the fascia (1.1 m, same texture as the fascia, two
+back-to-back panels, no shadow).
+
+**Before/after evidence**: `tools/city/evidence/before_after.sh <before builds> <after builds> <version>`
+runs the after build on the demo route (m1 profile, the game films itself), then writes
+side-by-side stills at the same times (`compare-stills.swift`, AVFoundation, no ffmpeg) and
+both frame-time summaries.
+
+## Landmarks and cell weights (added 2026-11-10)
+
+`tools/city/landmarks.py` replaces the generic facade kit with a measured volume for the
+monuments people recognise: the Opera (glass vault) and the Hotel de Ville (pavilions, belfry,
+courtyards). OpenStreetMap footprint (Wikidata id), courtyards removed where the LiDAR sees the
+ground, walls on the true outline, roof = LiDAR MNS heightfield joined to the wall tops.
+Opera: 2,072 m², 45 m, 4,261 triangles; Hotel de Ville: 3,764 m² with 1,604 m² of courtyards
+removed, 52 m, 7,856 triangles. The 6 BD TOPO buildings covered leave `generate.py`
+(`left_to_landmarks` in the report) and `import_city.py` places `gen/<focus>/landmarks.glb`
+with collision. `GTP_CITY_LANDMARKS=0` goes back to the generic shells.
+
+Place Bellecour and place des Jacobins: data only (outline, surface, monuments). The Louis XIV
+statue and the Jacobins and Bartholdi fountains have no volume: the LiDAR MNS equals the
+terrain on those squares (above-ground filtered), they will need models. Known limit.
+
+`tools/city/cell_budget.py` estimates each cell's weight (facade instances, signs, furniture)
+calibrated on the measured street (21,299 + 3,400 instances = 14 ms). Worst cell
+p0000-m0500: 8.4 ms; worst 2 × 2 block: 26.1 ms; 3 × 3: 50.4 ms. Upper bounds (no cull
+distance, no occlusion): 2 × 2 exceeds the 14 ms of ADR-0010, hence kit variety at constant
+cost and the 250 m cull to be measured.
+
+Mac slot in one command: `caffeinate -dimsu tools/city/city_slot_mac.sh <before_builds> 0.3`
+(regeneration, package, filmed 60 s M1 test, the realism thread's before/after).
+
 ## Limits and next steps
 
 1. **Editor test**: `tools/city/unreal/import_city.py` imports the greybox and

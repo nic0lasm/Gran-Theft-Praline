@@ -20,6 +20,8 @@ Steps (idempotent, the map is rebuilt each run; nothing else is touched):
      /Game/Maps/L_City_<Focus> with the lighting of the reference scene
      (GTP_CITY_LIGHT = Noon | GoldenHour | Rain | Night, art bible states), buildings
      and terrain at their Lambert-93 positions, a PlayerStart at the Bellecour end
+  3b. optional Rhone riverside (riverside.glb + riverside.json from tools/city/riverside.py):
+     water without collision, bridge deck and quay parapets with collision, folder City/Riverside
   4. report in Saved/CityImport/report.json
 The facade module list (facade_modules.csv) is left for the facade kit / PCG
 graph; this script only builds the greybox that already contains the modules.
@@ -226,7 +228,22 @@ def main():
         write_report(report, t0)
         return
 
-    report["collision_meshes"] = set_complex_collision(list(buildings.values()) + list(terrain.values()))
+    # Optional Rhone riverside (tools/city/riverside.py): water, bridge deck, quay parapets.
+    river_meta, river = None, {}
+    if os.path.exists(os.path.join(GEN, "riverside.json")):
+        with open(os.path.join(GEN, "riverside.json")) as f:
+            river_meta = json.load(f)
+        river = import_glb(os.path.join(GEN, "riverside.glb"), ROOT + "/Riverside/" + CAMEL)
+    solid = [river[n["name"]] for n in (river_meta or {}).get("nodes", []) if n["collision"] and n["name"] in river]
+    # Optional landmarks (tools/city/landmarks.py): Opera, Hotel de Ville... LiDAR volumes that
+    # replace the generic shells of their BD TOPO buildings. Origin at the zone origin.
+    mark_meta, marks = None, {}
+    if os.path.exists(os.path.join(GEN, "landmarks.json")):
+        with open(os.path.join(GEN, "landmarks.json"), encoding="utf-8") as f:
+            mark_meta = json.load(f)
+        marks = import_glb(os.path.join(GEN, "landmarks.glb"), ROOT + "/Landmarks/" + CAMEL)
+        solid += [marks[n["name"]] for n in mark_meta["nodes"] if n["name"] in marks]
+    report["collision_meshes"] = set_complex_collision(list(buildings.values()) + list(terrain.values()) + solid)
     open_level_with_bible_lighting(report)
     unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world() \
         .get_world_settings().set_editor_property("kill_z", KILL_Z)
@@ -248,6 +265,45 @@ def main():
             pos = tuple(tile["ue_cm"])
         place_mesh(m, pos, tile["name"], "City/Terrain")
     report["terrain_bounds_check"] = terrain_check
+    # Riverside nodes are written with their origin at the zone origin: placed at 0 either way.
+    for n in (river_meta or {}).get("nodes", []):
+        m = river.get(n["name"])
+        if m is None:
+            report["errors"].append("riverside mesh missing: " + n["name"])
+            continue
+        a = place_mesh(m, (0.0, 0.0, 0.0), n["name"], "City/Riverside")
+        if not n["collision"]:
+            # set_collision_enabled alone is runtime state and was not saved with the map:
+            # write the profile on the component's body instance so it persists.
+            comp = a.static_mesh_component
+            comp.modify()
+            comp.set_collision_profile_name("NoCollision")
+            comp.set_collision_enabled(unreal.CollisionEnabled.NO_COLLISION)
+    report["riverside"] = sorted(river)
+    for n in (mark_meta or {}).get("nodes", []):
+        m = marks.get(n["name"])
+        if m is None:
+            report["errors"].append("landmark mesh missing: " + n["name"])
+            continue
+        place_mesh(m, (0.0, 0.0, 0.0), n["name"], "City/Landmarks")
+    report["landmarks"] = sorted(marks)
+    # Fall-in safety (riverside.py "recovery"): tagged trigger boxes over the water and quay
+    # exits at street level; the game swims or fishes out whoever enters them.
+    rec = (river_meta or {}).get("recovery")
+    if rec:
+        for i, b in enumerate(rec["boxes"]):
+            c, h = b["centre_m"], b["half_m"]
+            t = spawn(unreal.TriggerBox, (c[0] * 100.0, -c[1] * 100.0, c[2] * 100.0), None, "RiverRecovery_%03d" % i, "City/Riverside")
+            t.collision_component.set_editor_property("box_extent", unreal.Vector(h[0] * 100, h[1] * 100, h[2] * 100))
+            t.collision_component.set_collision_profile_name("OverlapAllDynamic")   # pawns and Chaos vehicles
+            t.collision_component.set_editor_property("generate_overlap_events", True)
+            t.tags = [rec["tag_boxes"]]
+        for i, e in enumerate(rec["exits"]):
+            # Unreal yaw is clockwise from +X with Y south: local yaw (counter-clockwise, y north) flips.
+            t = spawn(unreal.TargetPoint, (e["x_m"] * 100.0, -e["y_m"] * 100.0, (e["z_m"] + 1.0) * 100.0),
+                      unreal.Rotator(0, 0, -e["yaw_deg"]), "RiverExit_%02d" % i, "City/Riverside")
+            t.tags = [rec["tag_exits"]]
+        report["river_recovery"] = {"boxes": len(rec["boxes"]), "exits": len(rec["exits"]), "bed_z_m": rec["bed_z_m"]}
 
     # Player start: Bellecour end of the focus street, looking up the street (morning test map).
     with open(os.path.join(GEN, "report.json"), encoding="utf-8") as f:

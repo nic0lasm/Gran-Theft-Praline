@@ -282,6 +282,21 @@ def process(meta_path, master):
     eal.set_metadata_tag(mesh, "CatalogId", meta["id"])
     eal.save_loaded_asset(mesh)
 
+    # Broken variants for the physics subsystem (tools/assets/make_broken.py): same material
+    # instances, no CatalogId tag (place_props.py finds the intact mesh by that tag).
+    for variant, info in sorted(meta.get("broken", {}).items()):
+        vmesh = import_mesh(os.path.join(asset_dir, info["file"]), base, f"SM_{name}_{variant}")
+        apply_materials(vmesh, [mis[i] for i in info["slots"]])
+        apply_collision(vmesh, meta["collision"])
+        set_nanite(vmesh, True, min(1.0, tris["m1_lod0"] / max(1, tris["ultra"])))
+        build_lods(vmesh, meta["lod_plan"])
+        eal.set_metadata_tag(vmesh, "BrokenOf", meta["id"])
+        eal.save_loaded_asset(vmesh)
+        leftover_v = f"{base}/{os.path.splitext(os.path.basename(info['file']))[0]}"
+        if eal.does_directory_exist(leftover_v):
+            eal.delete_directory(leftover_v)
+        log(f"{meta['id']}: SM_{name}_{variant} ({info['triangles']} tris, broken variant)")
+
     drop_importer_materials(base)
     leftover = f"{base}/{os.path.splitext(meta['files']['ultra'])[0]}"
     if eal.does_directory_exist(leftover):  # importer's per-file folder, now empty
