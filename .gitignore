@@ -72,3 +72,7 @@ assets/geo/processed/*/terrain/
 assets/tripo/**/*.glb
 assets/tripo/**/*.fbx
 assets/tripo/**/*.zip
+# Fab and Megascans content added through the editor Fab window
+/GranTheftPraline/Content/Fab/
+/GranTheftPraline/Content/Megascans/
+/GranTheftPraline/Content/MSPresets/
