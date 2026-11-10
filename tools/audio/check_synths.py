@@ -90,6 +90,30 @@ def main(folder):
     if rms(x[int(3.6 * rate):]) > 2e-3:
         failures.append("skid: not silent after the slide")
 
+    # Engines per car model (DefaultGame.ini EngineProfiles): louder under load,
+    # the diesel clatters at idle, turbos hiss when the throttle is lifted.
+    def band(y, lo, hi):
+        spec = np.abs(np.fft.rfft(y)) ** 2
+        f = np.fft.rfftfreq(len(y), 1 / rate)
+        return float(spec[(f >= lo) & (f < hi)].sum() / (spec.sum() + 1e-12))
+
+    idle_hf = {}
+    for name in ("clio", "208", "kangoo"):
+        x, rate = read(folder / f"engine_{name}.wav")
+        common(f"engine_{name}", x, failures)
+        idle, full = x[rate // 2: 2 * rate], x[6 * rate: 7 * rate]
+        lift, cruise = x[12 * rate: int(12.4 * rate)], x[16 * rate: 17 * rate]
+        gain = 20 * np.log10(rms(full) / (rms(idle) + 1e-12))
+        idle_hf[name] = band(idle, 2000, 8000)
+        print(f"engine {name}: full load +{gain:.1f} dB over idle, idle clatter {idle_hf[name]:.3f}, "
+              f"lift hiss {band(lift, 3000, 9000):.3f} vs cruise {band(cruise, 3000, 9000):.3f}")
+        if gain < 4.0:
+            failures.append(f"engine {name}: full load not louder than idle")
+        if band(lift, 3000, 9000) <= band(cruise, 3000, 9000):
+            failures.append(f"engine {name}: no turbo hiss when the throttle is lifted")
+    if idle_hf["kangoo"] < 5 * max(idle_hf["clio"], idle_hf["208"], 1e-4):
+        failures.append("engine kangoo: the diesel does not clatter at idle")
+
     for f in failures:
         print("FAIL", f)
     if failures:

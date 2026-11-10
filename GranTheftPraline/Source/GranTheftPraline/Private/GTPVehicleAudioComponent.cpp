@@ -8,6 +8,7 @@
 #include "GameFramework/PlayerController.h"
 #include "GTPAudioMix.h"
 #include "GTPAudioSettings.h"
+#include "GTPAudioWorld.h"
 #include "GTPSurfaceLogic.h"
 #include "GTPSynthSoundWave.h"
 #include "WheeledVehiclePawn.h"
@@ -130,6 +131,14 @@ void UGTPVehicleAudioComponent::PlayImpact(EGTPImpactKind Kind, int32 Tier, cons
 	const UGTPAudioSettings* Settings = GetDefault<UGTPAudioSettings>();
 	const float Volume = Settings->ImpactVolume * (Tier == 1 ? 0.55f : (Tier == 2 ? 0.8f : 1.f));
 	Mix->PlayAt(this, Mix->PickImpact(Kind, Tier), EGTPAudioCategory::Impacts, Location, Volume, FMath::FRandRange(0.94f, 1.06f));
+	// A real crash frightens the people around (they listen through OnLoudSound).
+	if (Tier >= 2)
+	{
+		if (UGTPAudioWorld* AudioWorld = GetWorld() ? GetWorld()->GetSubsystem<UGTPAudioWorld>() : nullptr)
+		{
+			AudioWorld->OnLoudSound.Broadcast(Location, Tier >= 3 ? Settings->CrashScareRadius.Y : Settings->CrashScareRadius.X, GetOwner());
+		}
+	}
 	const float Now = GetWorld()->GetTimeSeconds();
 	if (Tier >= 3 && Kind != EGTPImpactKind::Body && Now - LastGlassTime > 1.5f && FMath::FRand() < 0.6f)
 	{

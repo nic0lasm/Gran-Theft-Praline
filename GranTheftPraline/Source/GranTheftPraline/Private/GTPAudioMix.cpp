@@ -46,6 +46,7 @@ namespace
 		case EGTPAudioCategory::Vehicles:
 		case EGTPAudioCategory::Impacts:
 		case EGTPAudioCategory::Sirens:
+		case EGTPAudioCategory::Voice:
 			return EGTPAudioCategory::Effects;
 		case EGTPAudioCategory::Zones:
 			// Zone layers of the bed follow the ambience (driving mix: lower and duller in a car).
@@ -237,6 +238,9 @@ void UGTPAudioMix::BuildConcurrencyAndAttenuation()
 	MakeConcurrency(EGTPAudioCategory::Sirens, Settings->MaxSirenVoices);
 	// Tyre squeal loops share the vehicle category budget with nothing else.
 	MakeConcurrency(EGTPAudioCategory::Vehicles, Settings->MaxSkidVoices);
+	MakeConcurrency(EGTPAudioCategory::Voice, Settings->MaxVoiceVoices);
+	MakeConcurrency(EGTPAudioCategory::Radio, 1);
+	MakeConcurrency(EGTPAudioCategory::Interface, 3);
 
 	auto MakeAttenuation = [this](EGTPAudioCategory Category, const FVector2D& Range, float FarLowPass)
 	{
@@ -260,6 +264,7 @@ void UGTPAudioMix::BuildConcurrencyAndAttenuation()
 	MakeAttenuation(EGTPAudioCategory::Impacts, Settings->ImpactRange, 2500.f);
 	MakeAttenuation(EGTPAudioCategory::Sirens, Settings->SirenRange, 2000.f);
 	MakeAttenuation(EGTPAudioCategory::Vehicles, Settings->SkidRange, 3000.f);
+	MakeAttenuation(EGTPAudioCategory::Voice, Settings->VoiceRange, 3000.f);
 }
 
 void UGTPAudioMix::LoadBanks()
@@ -281,6 +286,13 @@ void UGTPAudioMix::LoadBanks()
 	{
 		KindByName.Add(EnumName(static_cast<EGTPImpactKind>(Index)), Index);
 	}
+
+	// Folders of one bank per enum value: Voices/Scream, Radio/Chatter, UI/Confirm...
+	auto FindNamed = [](const FString& Name, FBank* Banks, const UEnum* Enum, int32 Count) -> FBank*
+	{
+		const int64 Value = Enum->GetValueByNameString(Name);
+		return Value >= 0 && Value < Count ? &Banks[Value] : nullptr;
+	};
 
 	USoundClass* FootstepClass = GetClass(EGTPAudioCategory::Footsteps);
 	USoundClass* ImpactClass = GetClass(EGTPAudioCategory::Impacts);
@@ -326,6 +338,21 @@ void UGTPAudioMix::LoadBanks()
 			}
 			Class = ImpactClass;
 		}
+		else if (Parts.Num() >= 2 && Parts[0] == TEXT("Voices"))
+		{
+			Bank = FindNamed(Parts[1], Voices, StaticEnum<EGTPVoiceKind>(), UE_ARRAY_COUNT(Voices));
+			Class = GetClass(EGTPAudioCategory::Voice);
+		}
+		else if (Parts.Num() >= 2 && Parts[0] == TEXT("Radio"))
+		{
+			Bank = FindNamed(Parts[1], Radio, StaticEnum<EGTPRadioCall>(), UE_ARRAY_COUNT(Radio));
+			Class = GetClass(EGTPAudioCategory::Radio);
+		}
+		else if (Parts.Num() >= 2 && Parts[0] == TEXT("UI"))
+		{
+			Bank = FindNamed(Parts[1], Interface, StaticEnum<EGTPUISound>(), UE_ARRAY_COUNT(Interface));
+			Class = GetClass(EGTPAudioCategory::Interface);
+		}
 		if (!Bank)
 		{
 			++Unsorted;
@@ -361,8 +388,18 @@ void UGTPAudioMix::LoadBanks()
 	{
 		ImpactCount += Bank.Sounds.Num();
 	}
-	GTP_TRACE(LogGTPAudio, TEXT("[Audio] game audio on (ADR-0009, -Audio=0 turns it off); banks under %s: steps/landings%s; impacts %d (glass %d); %d unsorted"),
-		*Root, *Summary, ImpactCount, Glass.Sounds.Num(), Unsorted);
+	auto CountOf = [](const FBank* Banks, int32 Count)
+	{
+		int32 Total = 0;
+		for (int32 Index = 0; Index < Count; ++Index)
+		{
+			Total += Banks[Index].Sounds.Num();
+		}
+		return Total;
+	};
+	GTP_TRACE(LogGTPAudio, TEXT("[Audio] game audio on (ADR-0009, -Audio=0 turns it off); banks under %s: steps/landings%s; impacts %d (glass %d); voices %d, radio %d, ui %d; %d unsorted"),
+		*Root, *Summary, ImpactCount, Glass.Sounds.Num(), CountOf(Voices, UE_ARRAY_COUNT(Voices)), CountOf(Radio, UE_ARRAY_COUNT(Radio)),
+		CountOf(Interface, UE_ARRAY_COUNT(Interface)), Unsorted);
 }
 
 void UGTPAudioMix::LoadSurfaceMap()
@@ -493,6 +530,49 @@ USoundBase* UGTPAudioMix::PickGlass()
 	return PickFrom(Glass.Sounds, Glass.Last);
 }
 
+USoundBase* UGTPAudioMix::PickVoice(EGTPVoiceKind Kind)
+{
+	FBank& Bank = Voices[FMath::Clamp(static_cast<int32>(Kind), 0, UE_ARRAY_COUNT(Voices) - 1)];
+	return PickFrom(Bank.Sounds, Bank.Last);
+}
+
+USoundBase* UGTPAudioMix::PickRadio(EGTPRadioCall Call)
+{
+	FBank& Bank = Radio[FMath::Clamp(static_cast<int32>(Call), 0, UE_ARRAY_COUNT(Radio) - 1)];
+	return PickFrom(Bank.Sounds, Bank.Last);
+}
+
+USoundBase* UGTPAudioMix::PickUI(EGTPUISound Sound)
+{
+	FBank& Bank = Interface[FMath::Clamp(static_cast<int32>(Sound), 0, UE_ARRAY_COUNT(Interface) - 1)];
+	return PickFrom(Bank.Sounds, Bank.Last);
+}
+
+void UGTPAudioMix::PlayUI(const UObject* WorldContext, EGTPUISound Sound)
+{
+	if (!IsGameAudioEnabled())
+	{
+		return;
+	}
+	if (UGTPAudioMix* Mix = Get(WorldContext))
+	{
+		if (Mix->Play2D(WorldContext, Mix->PickUI(Sound), EGTPAudioCategory::Interface, GetDefault<UGTPAudioSettings>()->InterfaceVolume, 1.f))
+		{
+			++Mix->UIPlayed;
+		}
+	}
+}
+
+UAudioComponent* UGTPAudioMix::Play2D(const UObject* WorldContext, USoundBase* Sound, EGTPAudioCategory Category, float Volume, float Pitch)
+{
+	if (!Sound || !WorldContext)
+	{
+		return nullptr;
+	}
+	RadioPlayed += Category == EGTPAudioCategory::Radio ? 1 : 0;
+	return UGameplayStatics::SpawnSound2D(WorldContext, Sound, Volume, Pitch, 0.f, GetConcurrency(Category), /*bPersistAcrossLevelTransition*/ false, /*bAutoDestroy*/ true);
+}
+
 EGTPSurface UGTPAudioMix::ResolveSurface(const FHitResult& Hit) const
 {
 	const UGTPAudioSettings* Settings = GetDefault<UGTPAudioSettings>();
@@ -568,6 +648,10 @@ UAudioComponent* UGTPAudioMix::PlayAt(const UObject* WorldContext, USoundBase* S
 	else if (Category == EGTPAudioCategory::Impacts)
 	{
 		++ImpactsPlayed;
+	}
+	else if (Category == EGTPAudioCategory::Voice)
+	{
+		++VoicesPlayed;
 	}
 	return UGameplayStatics::SpawnSoundAtLocation(WorldContext, Sound, Location, FRotator::ZeroRotator, Volume, Pitch, 0.f,
 		GetAttenuation(Category), GetConcurrency(Category), /*bAutoDestroy*/ true);

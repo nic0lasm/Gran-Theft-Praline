@@ -62,6 +62,19 @@ public:
 	USoundBase* PickFootstep(EGTPSurface Surface, bool bLanding);
 	USoundBase* PickImpact(EGTPImpactKind Kind, int32 Tier);
 	USoundBase* PickGlass();
+	USoundBase* PickVoice(EGTPVoiceKind Kind);
+	USoundBase* PickRadio(EGTPRadioCall Call);
+	USoundBase* PickUI(EGTPUISound Sound);
+
+	/**
+	 * Plays an interface sound (menus, map, HUD): 2D, Interface class, heard over
+	 * the pause menu. Does nothing when the UI/<Name> folder is empty or with -Audio=0.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Audio", meta = (WorldContext = "WorldContext"))
+	static void PlayUI(const UObject* WorldContext, EGTPUISound Sound);
+
+	/** Plays a non-spatial one-shot through a category. */
+	UAudioComponent* Play2D(const UObject* WorldContext, USoundBase* Sound, EGTPAudioCategory Category, float Volume, float Pitch);
 
 	/** Surface under a trace hit: physical material, then material name, then the street grid. */
 	EGTPSurface ResolveSurface(const FHitResult& Hit) const;
@@ -76,6 +89,8 @@ public:
 	int32 GetBankSize() const;
 	int32 FootstepsPlayed = 0;
 	int32 ImpactsPlayed = 0;
+	int32 VoicesPlayed = 0;
+	int32 RadioPlayed = 0;
 
 private:
 	void BuildClasses();
@@ -110,6 +125,11 @@ private:
 	FBank Lands[static_cast<int32>(EGTPSurface::Count)];
 	FBank Impacts[static_cast<int32>(EGTPImpactKind::Count) * 3];
 	FBank Glass;
+	/** Voices/<Kind>, Radio/<Call>, UI/<Sound>: one bank per folder name. */
+	FBank Voices[static_cast<int32>(EGTPVoiceKind::Count)];
+	FBank Radio[static_cast<int32>(EGTPRadioCall::Count)];
+	FBank Interface[static_cast<int32>(EGTPUISound::Count)];
+	int32 UIPlayed = 0;
 
 	/** Keeps the bank sounds loaded (the FBank arrays are not seen by the garbage collector). */
 	UPROPERTY(Transient)

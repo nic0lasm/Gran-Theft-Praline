@@ -15,6 +15,9 @@
 | Sirène de police « deux tons » et « yelp », avec Doppler | synthèse temps réel | `UGTPSirenComponent` |
 
 | Lit d'ambiance : rue piétonne, quai du Rhône, pont Lafayette, nuit, pluie (rue et toit de voiture), foule | boucles `make_ambiences.py`, grille de zones `zone_map.py` | `UGTPAmbienceBed` |
+| Cris des passants : blessé, peur, sursaut | banques `Voices/<Scream|Hurt|Gasp>` (`make_voices_ui.py`) | `UGTPStreetReactions` (écoute `OnPedestrianHit` / `OnPedestrianScared`) |
+| Radio de police quand le joueur est recherché : alerte à chaque étoile, fin de poursuite, bavardage | banques `Radio/<Chatter|Alert|Clear>` | même |
+| Interface : menus, carte, étoiles | banques `UI/<Nom>` | `UGTPAudioMix::PlayUI(Monde, EGTPUISound::Confirm)` |
 
 Au volant, l'ambiance baisse (60 %) et perd ses aigus (6 kHz) : on est dans
 l'habitacle.
@@ -46,6 +49,27 @@ Toutes les boucles ont le même niveau (RMS −24 dBFS), les poids de
 `DefaultGame.ini` font le mixage. Sans grille de zones ni paramètres météo,
 seule la rue joue.
 
+## Moteurs par modèle
+
+Le synthé de moteur de la 0.3 reçoit un profil par modèle (`EngineProfiles` de
+`DefaultGame.ini`, choisi par un mot du nom de classe) : nombre de cylindres,
+plage de régime, résonance, cliquetis diesel, sifflement et soupir du turbo.
+La plage de régime de la physique Chaos est ramenée sur celle du vrai moteur,
+et la charge est coupée pendant chaque changement de rapport.
+
+| Modèle | Moteur | Caractère |
+|---|---|---|
+| Clio V | TCe 90, 1.0 3 cylindres turbo essence | ronronnement de 3 cylindres, sifflement léger |
+| 208 II | PureTech 100, 1.2 3 cylindres turbo essence | plus rugueux, plus grave au ralenti |
+| Kangoo II | dCi 90, 1.5 4 cylindres turbo diesel | cliquetis au ralenti, monte moins haut (4 500 tr/min) |
+| autres | 1.6 4 cylindres essence | neutre |
+
+## Réactions de la rue
+
+- Un passant renversé crie (`Voices/Hurt`). Un passant effrayé crie ou sursaute une fois sur deux, avec 0,35 s au moins entre deux cris : une foule qui fuit ne devient pas un mur de cris. Chaque voix a sa hauteur (×0,82 à ×1,28).
+- Un choc moyen ou fort diffuse `UGTPAudioWorld::OnLoudSound(lieu, rayon, cause)`, avec un rayon de 8 m (moyen) ou 20 m (fort). Les piétons y branchent `ScareAround`, qui a la même signature.
+- Radio de police, en 2D et sans paroles : tonalités d'alerte puis un appel à chaque étoile gagnée, appel de fin quand la poursuite s'arrête. Entre les deux, un bavardage toutes les 7 à 16 s, plus serré avec les étoiles. Les sons d'étoile du HUD (`StarUp`, `StarDown`) partent au même moment.
+
 ## Surfaces
 
 Ordre de décision au point touché : matériau physique (nommé dans les
@@ -63,7 +87,7 @@ matériau du sol les montre.
 
 | Source | Licence | Usage prévu | Où |
 |---|---|---|---|
-| Nos synthèses (`make_sfx.py`, `make_street_ambience.py`) | MIT, originales | base de travail de toutes les banques | générées, hors Git |
+| Nos synthèses (`make_sfx.py`, `make_voices_ui.py`, `make_ambiences.py`, `make_street_ambience.py`) | MIT, originales | base de travail de toutes les banques | générées, hors Git |
 | Pack Sonniss « GDC Game Audio Bundle » (≈ 7,5 Go) | libre de droits, usage commercial permis, sans attribution, interdiction de revendre les sons bruts (à relire au téléchargement) | pas, chocs de voiture, verre, pneus, ambiances urbaines | Mac, `GTAL/assets/audio/sonniss/`, hors Git |
 | Packs CC0 (Kenney « Impact Sounds », OpenGameArt, Freesound filtré CC0) | CC0 | compléments ponctuels | Mac, hors Git |
 | Prises de son à Lyon (0.16) | les nôtres | ambiances par rue | plus tard |

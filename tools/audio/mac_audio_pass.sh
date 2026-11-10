@@ -2,7 +2,7 @@
 # Audio steps of a Mac pass (ADR-0009), unattended. Two stages:
 #
 #   tools/audio/mac_audio_pass.sh prepare
-#       before packaging, editor CLOSED: generates the banks (make_sfx.py) and
+#       before packaging, editor CLOSED: generates the banks (make_sfx.py, make_voices_ui.py) and
 #       the surface grid (surface_map.py), the ambience bed loops
 #       (make_ambiences.py) and the zone grid (zone_map.py), imports them headless
 #       into Content/Sound/SFX and Content/Sound/Ambience, and reports whether the Game Animation Sample
@@ -74,6 +74,7 @@ prepare() {
   echo "== banks"
   rm -rf "$stage/sfx"
   "$py" -I "$repo/tools/audio/make_sfx.py" "$stage/sfx"
+  "$py" -I "$repo/tools/audio/make_voices_ui.py" "$stage/sfx"
 
   echo "== surface grid"
   local ground="${GROUND_DIR:-$repo/assets/geo/processed/presqu-ile/gen/$focus/ground}"
