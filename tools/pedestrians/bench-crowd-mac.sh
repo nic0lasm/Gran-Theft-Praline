@@ -5,7 +5,7 @@
 # numbers compare with each other (profile m1, demo route, nothing else on).
 #
 # Usage: caffeinate -dimsu tools/pedestrians/bench-crowd-mac.sh <version> [duration_s] [cases...]
-#   cases (default: all)  n0 n12 n30 n60 n30-nocheap n30-noanimrate n30-nospread n30-vis6 n30-vis20 n40-vis20
+#   cases (default: all)  n0 n12 n30 n60 n30-nocheap n30-noanimrate n30-nospread n30-vis6 n30-vis20 n40-vis20 n30-vis30 n60-vis60
 # Output: Builds/<version>/evidence/crowd-<stamp>/SUMMARY.md and one folder per case.
 # A case that fails is recorded and the script goes on. Needs no editor.
 set -uo pipefail
@@ -35,6 +35,8 @@ args_for() {
     n30-vis20)       echo "$off -Pedestrians=30 -PedMaxVisible=20" ;;
     n40-vis20)       echo "$off -Pedestrians=40 -PedMaxVisible=20" ;;
     n20-far60)       echo "$off -Pedestrians=20 -PedFar=60" ;;
+    n30-vis30)       echo "$off -Pedestrians=30 -PedMaxVisible=30" ;;
+    n60-vis60)       echo "$off -Pedestrians=60 -PedMaxVisible=60" ;;
     *) return 1 ;;
   esac
 }
