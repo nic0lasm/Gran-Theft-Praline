@@ -463,6 +463,9 @@ void UGTPPedestrianSubsystem::InitFarCrowd(UWorld& InWorld)
 	FarInstances->bAffectDynamicIndirectLighting = false;
 	FarInstances->bAffectDistanceFieldLighting = false;
 	FarInstances->bReceivesDecals = false;
+	// Two floats per instance for a vertex animation material: walk cycle phase and speed scale
+	// (the material reads Time itself, so no per-frame cost here). Plain static meshes ignore them.
+	FarInstances->NumCustomDataFloats = 2;
 	FarInstances->SetCullDistances(0, static_cast<int32>(FarMaxDistance));
 	Holder->SetRootComponent(FarInstances);
 	FarInstances->RegisterComponent();
@@ -470,7 +473,9 @@ void UGTPPedestrianSubsystem::InitFarCrowd(UWorld& InWorld)
 	for (int32 i = 0; i < Count; ++i)
 	{
 		// All instances exist from the start, parked far below the map until their agent is placed.
-		FarInstances->AddInstance(FTransform(FRotator::ZeroRotator, FVector(0.f, 0.f, -100000.f), FVector(0.001f)), true);
+		const int32 Instance = FarInstances->AddInstance(FTransform(FRotator::ZeroRotator, FVector(0.f, 0.f, -100000.f), FVector(0.001f)), true);
+		FarInstances->SetCustomDataValue(Instance, 0, Rng.Next(), false);
+		FarInstances->SetCustomDataValue(Instance, 1, Rng.Range(0.9f, 1.1f), false);
 	}
 	GTP_TRACE(LogGTPPedestrians, TEXT("far crowd: on (%d)"), Count);
 }
