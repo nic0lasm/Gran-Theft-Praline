@@ -35,6 +35,11 @@ mkdir -p "$out"
 tmp="$(mktemp -d)"
 cp "$repo"/tools/city/unreal/{import_city,place_facades,place_props,apply_city_materials,shoot_city}.py "$tmp/"
 python3 "$repo/tools/city/ground_mask.py" --zone "$zone" --focus "$focus" > /dev/null
+# Facade and street details table (tools/city/details.py), replayed on every run.
+python3 "$repo/tools/city/details.py" --name "$zone" --focus "$focus" > /dev/null
+# Real shop logos live in the out-of-Git content plugin Plugins/CityBrands (art bible 3.5);
+# place_facades.py uses them only when the plugin is mounted, so make sure it exists.
+"$repo/tools/city/unreal/mount_citybrands.sh"
 # Rhone riverside (water, quay parapets, pont Lafayette) when GTP_CITY_RIVERSIDE=1; import_city.py
 # picks riverside.json up when it exists.
 if [ "${GTP_CITY_RIVERSIDE:-0}" = "1" ]; then

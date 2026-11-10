@@ -278,6 +278,39 @@ quai le long de l'eau (519 m dans la boîte, coupé sous le pont). `import_city.
 `build.py` garde maintenant les noms de voies `nom_collaboratif_*` et `nom_voie_ban_*` de la
 BD TOPO actuelle (les anciens `nom_1_*` n'existent plus).
 
+## Détails de façade et de rue : deuxième passe d'habillage (ajouté le 2026-11-10)
+
+L'audit en jeu de la 0.2 et de la 0.3 montre une rue « maquette » : sur environ 344 objets
+importés, seuls 24 types étaient posés. `tools/city/details.py` ajoute les petits détails, toujours
+accrochés à quelque chose de réel :
+
+* **Façades** (`facade_modules.csv`) : une descente d'eau par immeuble côté mitoyen, sur toute la
+  hauteur ; soupiraux sous les fenêtres du rez-de-chaussée haussmannien ; coffret de compteurs,
+  plaque de numéro et mascaron sur la clé des portes cochères (positions calculées sur le kit) ;
+  stores bannes déroulés sur les cafés, restaurants et commerces de bouche, repliés sur un commerce
+  sur deux ailleurs, étirés à la largeur de la travée ; distributeur sur les banques ; cendrier aux
+  portes des bars et tabacs ; paillassons ; jardinières sur l'appui des fenêtres lyonnaises,
+  quelques paraboles et climatiseurs sur les immeubles anciens.
+* **Angles** : plaques de rue sur chaque immeuble d'angle, côté de l'angle.
+* **OpenStreetMap** : potelets, feux piétons des deux côtés des traversées à feux (largeur réelle de
+  la chaussée BD TOPO), feux de circulation sur la bordure de droite, panneaux par code français
+  (B1 sens interdit, AB3a cédez le passage, B54 zone piétonne...) ramenés sur la bordure Grand Lyon,
+  armoires techniques, colonnes d'affichage.
+* **Arbres, bancs et corbeilles** : feuilles mortes de platane autour d'un arbre sur deux (automne,
+  saison de la bible), déchets et journaux près de certaines corbeilles, pigeons près des bancs.
+* **Toits** : souches de cheminée sur les murs mitoyens, à la hauteur du faîtage.
+
+Le choix d'une travée est un hachage stable de l'immeuble et de la travée : chaque passage donne la
+même rue. Le tableau a les colonnes de `props_placement.csv` plus `snap` (`keep` garde la hauteur des
+objets muraux et de toit), `scale_x/y/z` et `collision` (aucune sur les petits objets). Plafond de
+3 000 instances (budget du fil optimisation, 1 ms GPU sur m1), par priorité de visibilité ;
+1 820 pour la rue de la République. `run_city_import.sh` rejoue `details.py` puis le pose avec
+`GTP_PROPS_SET=details` dans le dossier City/Details.
+
+Les vrais logos d'enseignes ne s'affichaient pas : le plugin hors Git `Plugins/CityBrands` n'existait
+pas sur le Mac (`citybrands_mounted: false`). `tools/city/unreal/mount_citybrands.sh`, lancé par
+`run_city_import.sh`, crée le plugin de contenu vide s'il manque et vérifie qu'il est ignoré par Git.
+
 ## Limites et suite
 
 1. **Test éditeur** : `tools/city/unreal/import_city.py` importe greybox et
