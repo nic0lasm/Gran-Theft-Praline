@@ -254,6 +254,19 @@ sommets, assises de pierre sur les murs, toits moins rugueux), les assigne aux t
 et aux coques, puis vérifie les instances de façade de la map. Il remplace `M_CityGreybox` sans
 reconstruire la map.
 
+## Quai du Rhône et pont Lafayette (ajouté le 2026-11-10, pour la 0.3)
+
+L'emprise générée s'étend vers l'est pour la boucle en voiture de la 0.3 :
+`generate.py --extra-bbox 250,-60,700,220` ajoute les bâtiments du quai Jules-Courmont, de la tête
+du pont et d'un bout de rive gauche (233 bâtiments BD TOPO, 378 parties, au lieu de 175 / 281).
+`tools/city/riverside.py` construit en greybox (couleurs de sommets) l'eau du Rhône (plan au
+niveau LiDAR de la surface, sans collision), le tablier du pont Lafayette (emprise Grand Lyon,
+gid 41, ~20 m × 190 m, dessus en rampe entre les deux quais, parapets) et un parapet de quai le
+long de l'eau (545 m dans la boîte, coupé sous le pont). `import_city.py` le pose s'il existe
+(dossier City/Riverside) ; `apply_city_materials.py` y met `M_City_Shell` et `M_City_Water`.
+`build.py` garde maintenant les noms de voies `nom_collaboratif_*` et `nom_voie_ban_*` de la
+BD TOPO actuelle (les anciens `nom_1_*` n'existent plus).
+
 ## Limites et suite
 
 1. **Test éditeur** : `tools/city/unreal/import_city.py` importe greybox et

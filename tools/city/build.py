@@ -263,8 +263,9 @@ def main():
 
     layers = {
         "roads": ("troncon_de_route", ["cleabs", "nature", "importance", "nombre_de_voies", "largeur_de_chaussee",
-                                       "sens_de_circulation", "position_par_rapport_au_sol", "nom_1_gauche",
-                                       "nom_1_droite", "vitesse_moyenne_vl", "urbain", "restriction_de_poids_total"]),
+                                       "sens_de_circulation", "position_par_rapport_au_sol", "nom_collaboratif_gauche",
+                                       "nom_collaboratif_droite", "nom_voie_ban_gauche", "nom_voie_ban_droite",
+                                       "vitesse_moyenne_vl", "urbain", "restriction_de_poids_total"]),
         "vegetation": ("zone_de_vegetation", ["cleabs", "nature"]),
         "water": ("surface_hydrographique", ["cleabs", "nature", "persistance"]),
         "structures": ("construction_surfacique", ["cleabs", "nature"]),

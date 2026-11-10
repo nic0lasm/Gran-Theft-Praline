@@ -35,6 +35,11 @@ mkdir -p "$out"
 tmp="$(mktemp -d)"
 cp "$repo"/tools/city/unreal/{import_city,place_facades,place_props,apply_city_materials,shoot_city}.py "$tmp/"
 python3 "$repo/tools/city/ground_mask.py" --zone "$zone" --focus "$focus" > /dev/null
+# Rhone riverside (water, quay parapets, pont Lafayette) when GTP_CITY_RIVERSIDE=1; import_city.py
+# picks riverside.json up when it exists.
+if [ "${GTP_CITY_RIVERSIDE:-0}" = "1" ]; then
+  python3 "$repo/tools/city/riverside.py" --name "$zone" --focus "$focus" --bridge 41:Lafayette > /dev/null
+fi
 export GTP_CITY_ZONE="$zone" GTP_CITY_FOCUS="$focus" GTP_CITY_LIGHT="${GTP_CITY_LIGHT:-Noon}" GTP_PROFILE="${PROFILE:-m1}"
 cvars="$(python3 "$repo/tools/rendering/reference_scene/profiles.py" "${PROFILE:-m1}")"
 
