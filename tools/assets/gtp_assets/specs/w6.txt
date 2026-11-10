@@ -23,7 +23,7 @@ W6-21|Play|SwingSet|3.5|
 W6-22|Play|SpringRider|1.0|
 W6-23|Play|Sandbox|2.5|
 W6-24|Play|PingPongTable_Concrete|2.7|
-W6-25|Ground|PetanqueCourt_Border|1.6|rotate_y_deg=-7
+W6-25|Ground|PetanqueCourt_Border|1.6|rotate_y_deg=3.5
 W6-26|Props|Petanque_Boules|0.3|
 W6-27|Utilities|DrinkingFountain_Steel|1.1|
 W6-28|Utilities|TrashBin_Square|1.0|
