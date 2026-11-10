@@ -43,6 +43,21 @@ enum class EGTPAudioCategory : uint8
 	Music,
 	Voice,
 	Interface,
+	/** Zone layers of the ambience bed (pedestrian street, quay, bridge, night, crowd). */
+	Zones,
+	/** Rain on the street and on the car roof. */
+	Weather,
+	Count UMETA(Hidden)
+};
+
+/** Ambience zone of the zone grid (tools/audio/zone_map.py), same byte values. */
+UENUM(BlueprintType)
+enum class EGTPAmbienceZone : uint8
+{
+	Street,
+	Pedestrian,
+	Quay,
+	Bridge,
 	Count UMETA(Hidden)
 };
 

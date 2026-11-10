@@ -14,6 +14,8 @@
 | Tyre squeal | real-time synthesis (slide) | same |
 | Police siren « deux tons » and yelp, with Doppler | real-time synthesis | `UGTPSirenComponent` |
 
+| Ambience bed: pedestrian street, quai du Rhône, pont Lafayette, night, rain (street and car roof), crowd | loops `make_ambiences.py`, zone grid `zone_map.py` | `UGTPAmbienceBed` |
+
 At the wheel, the ambience goes down (60 %) and loses its highs (6 kHz): you
 are inside the car.
 
@@ -25,6 +27,24 @@ Interface. Volumes, voice limits, attenuation distances, impact thresholds,
 foot plant height: section `[/Script/GranTheftPraline.GTPAudioSettings]` of
 `Config/DefaultGame.ini`. Far sounds lose their highs (distance low-pass), as
 in a street.
+
+## Ambience bed
+
+The day street loop always plays; other loops fade in over it in 2 s from
+where the listener is and what the world does:
+
+| Condition | Layer | Street loop |
+|---|---|---|
+| "pedestrian" zone (rue de la République, mask G) | `SW_Amb_Pedestrian`: voices, steps, sparrows | 45 % |
+| within 45 m of the Rhône | `SW_Amb_Quay`: river, wind, quay traffic, gulls | 35 % |
+| above the water (pont Lafayette) | `SW_Amb_Bridge`: wind, close cars, expansion joints | 20 % |
+| night (`CityLights` of MPC_Environment, ADR-0008) | `SW_Amb_Night`: muffled city, rare cars | × 30 % |
+| rain (`RainIntensity`) | `SW_Amb_Rain`, or `SW_Amb_RainCar` (roof) in a car | — |
+| visible pedestrians within 25 m | `SW_Amb_Crowd`, full at 10 pedestrians | — |
+
+Every loop has the same level (RMS −24 dBFS); the weights in
+`DefaultGame.ini` are the mix. Without the zone grid or the weather
+parameters, only the street plays.
 
 ## Surfaces
 
@@ -78,7 +98,10 @@ UnrealEditor-Cmd GranTheftPraline.uproject -run=pythonscript \
     -script="tools/audio/unreal/import_sounds.py .scratch/audio/sfx"
 ```
 
-`picks.csv` maps a recorded file to a bank
+`tools/audio/pick_sonniss.py <library> picks.csv` builds the list from the
+folder and file names (footstep + surface, car + crash, glass + break…) and
+cuts walk recordings into single steps; a report `picks.csv.txt` says what
+each bank gets, to listen to before importing. `picks.csv` maps a recorded file to a bank
 (`/path/Gravel_Walk_03.wav,Footsteps/Gravel`). To switch a whole bank to
 recordings, delete its folder in the editor first.
 

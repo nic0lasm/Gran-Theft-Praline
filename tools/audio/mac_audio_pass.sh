@@ -3,8 +3,9 @@
 #
 #   tools/audio/mac_audio_pass.sh prepare
 #       before packaging, editor CLOSED: generates the banks (make_sfx.py) and
-#       the surface grid (surface_map.py), imports the banks headless into
-#       Content/Sound/SFX, and reports whether the Game Animation Sample
+#       the surface grid (surface_map.py), the ambience bed loops
+#       (make_ambiences.py) and the zone grid (zone_map.py), imports them headless
+#       into Content/Sound/SFX and Content/Sound/Ambience, and reports whether the Game Animation Sample
 #       already plays footsteps (Saved/gasp_foley.json).
 #
 #   tools/audio/mac_audio_pass.sh check [version]
@@ -18,7 +19,7 @@
 #
 # Environment: UE_ROOT (default /Users/Shared/Epic Games/UE_5.8), PYTHON (needs
 # numpy and pillow; default: the repo venv .scratch/venv, made if missing),
-# GROUND_DIR (gen/<focus>/ground of the city pipeline), GAME_ARGS (extra game
+# GROUND_DIR (gen/<focus>/ground of the city pipeline), WATER_GEOJSON (BD TOPO water), GAME_ARGS (extra game
 # arguments, e.g. "-PoliceMax=2"), AB_SECONDS (default 120), VIDEO_SECONDS (default 60).
 # Output of check: Builds/<version>/evidence/audio-<timestamp>/
 set -euo pipefail
@@ -82,9 +83,21 @@ prepare() {
   fi
   "$py" -I "$repo/tools/audio/surface_map.py" --ground "$ground" --focus "$focus"
 
-  echo "== import into /Game/Sound/SFX"
+  echo "== ambience bed loops and zone grid"
+  rm -rf "$stage/ambience"
+  "$py" -I "$repo/tools/audio/make_ambiences.py" "$stage/ambience"
+  local water="${WATER_GEOJSON:-$repo/assets/geo/processed/presqu-ile/water.geojson}"
+  if test -f "$water"; then
+    "$py" -I "$repo/tools/audio/zone_map.py" --ground "$ground" --water "$water" --focus "$focus"
+  else
+    echo "no $water: no zone grid, the street loop plays everywhere"
+  fi
+
+  echo "== import into /Game/Sound/SFX and /Game/Sound/Ambience"
   GTP_AUDIO_SRC="$stage/sfx" run_commandlet "$repo/tools/audio/unreal/import_sounds.py" | tee "$stage/import.log"
   grep -q "\[Audio\] imported" "$stage/import.log" || die "import did not finish (see $stage/import.log)"
+  GTP_AUDIO_SRC="$stage/ambience" GTP_AUDIO_ROOT="/Game/Sound/Ambience" run_commandlet "$repo/tools/audio/unreal/import_sounds.py" | tee "$stage/import-ambience.log"
+  grep -q "\[Audio\] imported" "$stage/import-ambience.log" || die "ambience import did not finish (see $stage/import-ambience.log)"
 
   echo "== GASP foley"
   GTP_AUDIO_REPORT="$stage/gasp_foley.json" run_commandlet "$repo/tools/audio/unreal/report_gasp_foley.py" | tee "$stage/foley.log"
