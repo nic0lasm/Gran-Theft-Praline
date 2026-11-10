@@ -7,24 +7,38 @@
 # Read: A freezes -> the code; A runs and B freezes -> the replay; only C freezes -> the atlas.
 # Development packages, so the game writes ~/Library/Logs/GranTheftPraline/GranTheftPraline.log.
 #
+# Mac slot rules (Nico, 10/11): tried dry first (DRY_RUN=1, no Unreal), a time guard per step
+# (a step over twice its expected time is stopped and the run ends with its cause), a sign of
+# life every 10 min (HEARTBEAT lines on stdout and in heartbeat.log), times in Paris time.
+# The map and city content found at the start are restored at the end, checked by md5.
+#
 # Usage: caffeinate -dimsu tools/city/evidence/freeze_bisect_mac.sh [steps=ABC]
-#   PYTHON (venv with numpy, scipy, shapely, PIL), BUILDS_DIR (default <repo>/Builds/freeze-bisect).
-# Writes <BUILDS_DIR>/FREEZE.md. One Unreal or game process at a time. The map and city
-# content found at the start are restored at the end (checked by md5).
+#   PYTHON (venv with numpy, scipy, shapely, PIL), BUILDS_DIR (default <repo>/Builds/freeze-bisect),
+#   DRY_RUN=1 (every Unreal step replaced by a short sleep; DRY_SLOW=<step> makes that one hang).
+# Writes <BUILDS_DIR>/FREEZE.md. One Unreal or game process at a time.
 set -euo pipefail
 repo="$(cd "$(dirname "$0")/../../.." && pwd)"
 steps="${1:-ABC}"
 out="${BUILDS_DIR:-$repo/Builds/freeze-bisect}"
+dry="${DRY_RUN:-0}"
 mkdir -p "$out"
 report="$out/FREEZE.md"
-echo "# Freeze bisect, $(date -u +%FT%TZ), commit $(git -C "$repo" rev-parse --short HEAD)" > "$report"
-# Everything the city scripts write in the project is saved first and put back at the end,
-# even on error, then checked by checksum: the map left by the threads before stays as it was.
+paris() { TZ=Europe/Paris date +%H:%M; }
+t0=$(date +%s)
+echo "# Freeze bisect, started $(paris) Paris time, commit $(git -C "$repo" rev-parse --short HEAD)$(test "$dry" = 1 && echo ', DRY RUN')" > "$report"
+if test "$dry" != 1 && pgrep -f "UnrealEditor |UnrealEditor$|GranTheftPraline.app" > /dev/null; then
+  echo "an Unreal editor or the game is running: one at a time" >&2
+  exit 1
+fi
+
+# --- save the map and city content, restore on exit ------------------------------------
 proj="$repo/GranTheftPraline"
 kept=(Content/Maps/L_City_RueDeLaRepublique.umap Content/Environment/City Content/Environment/Facades/LyonKit
       Content/City Plugins/CityBrands/Content)
 backup="$out/backup"
-sums() { (cd "$1" && for k in "${kept[@]}"; do test -e "$k" && find "$k" -type f -print0; done | sort -z | xargs -0 md5 -r) ; }
+if command -v md5 > /dev/null; then md5r=(md5 -r); else md5r=(md5sum); fi
+sums() { (cd "$1" && for k in "${kept[@]}"; do if test -e "$k"; then find "$k" -type f -print0; fi; done \
+          | sort -z | xargs -0 -r "${md5r[@]}") ; }
 rm -rf "$backup"; mkdir -p "$backup"
 for k in "${kept[@]}"; do
   if test -e "$proj/$k"; then mkdir -p "$backup/$(dirname "$k")"; cp -Rp "$proj/$k" "$backup/$k"; fi
@@ -35,36 +49,74 @@ restore() {
     if test -e "$backup/$k"; then rm -rf "${proj:?}/$k"; mkdir -p "$proj/$(dirname "$k")"; cp -Rp "$backup/$k" "$proj/$k"; fi
   done
   sums "$proj" > "$out/after.md5"
-  if cmp -s "$out/before.md5" "$out/after.md5"; then echo "- restore: map and city content identical to before (md5)" >> "$report"
-  else echo "- restore: MISMATCH, see before.md5 / after.md5" >> "$report"; fi
+  if cmp -s "$out/before.md5" "$out/after.md5"; then
+    echo "- $(paris) restore: map and city content identical to the start (md5, $(wc -l < "$out/before.md5") files)" >> "$report"
+  else
+    echo "- $(paris) restore: MISMATCH, see before.md5 / after.md5" >> "$report"
+  fi
   git -C "$repo" checkout -- assets/geo/processed 2> /dev/null || true
+  echo "== $(paris) Mac libre: $(( ($(date +%s) - t0) / 60 )) min, report $report"
+  cat "$report"
 }
 trap restore EXIT
+
+# --- one guarded step -------------------------------------------------------------------
+heartbeat() { echo "HEARTBEAT $(paris) Paris: $1, $(( ($(date +%s) - t0) / 60 )) min since start" | tee -a "$out/heartbeat.log"; }
+step() {  # step <name> <expected_s> <log> <command...>
+  local name="$1" expected="$2" log="$3"; shift 3
+  if test "$dry" = 1; then   # minutes become seconds, so the guard is tried in a few seconds
+    expected=$(( expected / 60 > 2 ? expected / 60 : 2 ))
+    if test "${DRY_SLOW:-}" = "$name"; then set -- sleep $(( expected * 3 ))
+    else set -- sh -c 'echo dry > "$1/Content/Maps/L_City_RueDeLaRepublique.umap"' sh "$proj"; fi
+  fi
+  echo "== $(paris) $name (expected $(( expected / 60 )) min, stopped at $(( 2 * expected / 60 )) min)"
+  local s; s=$(date +%s)
+  set -m; "$@" > "$out/$log" 2>&1 & local pid=$!; set +m
+  local last_beat="$s"
+  while kill -0 "$pid" 2> /dev/null; do
+    sleep $(test "$dry" = 1 && echo 1 || echo 5)
+    local now; now=$(date +%s)
+    if (( now - s > 2 * expected )); then
+      kill -TERM -- "-$pid" 2> /dev/null || kill -TERM "$pid" 2> /dev/null || true
+      sleep 5; kill -KILL -- "-$pid" 2> /dev/null || true
+      pkill -f "UnrealEditor |UnrealEditor$|GranTheftPraline.app|ShaderCompileWorker" 2> /dev/null || true
+      echo "- $(paris) STOPPED: $name over twice its expected $(( expected / 60 )) min; last lines of $log:" >> "$report"
+      tail -n 15 "$out/$log" | sed 's/^/    /' >> "$report"
+      exit 3
+    fi
+    if (( now - last_beat >= 600 )); then heartbeat "$name running for $(( (now - s) / 60 )) min"; last_beat=$now; fi
+  done
+  local rc=0; wait "$pid" || rc=$?
+  echo "- $(paris) $name: exit $rc in $(( ($(date +%s) - s) / 60 )) min ($log)" >> "$report"
+  return "$rc"
+}
+
 export PATH="$(dirname "$(command -v "${PYTHON:-python3}")"):$PATH"   # run_city_import.sh calls python3
 common=(GTP_SHOP_GLASS=opaque GTP_CITY_DETAILS=0 SKIP_PLAY=1)
 
-launch() {  # $1 version
-  BUILDS_DIR="$out" "$repo/tools/build/package-mac.sh" "$1" Development > "$out/$1-package.log" 2>&1
-  rc=0
-  BUILDS_DIR="$out" "$repo/tools/build/test-build-mac.sh" "$1" 30 0 > "$out/$1-test.log" 2>&1 || rc=$?
-  verdict="$(grep -m1 '^verdict=' "$out/$1-test.log" || echo "verdict=none")"
-  frames="$(grep -m1 '^frame ' "$out/$1-test.log" || echo "no frame times")"
-  cp ~/Library/Logs/GranTheftPraline/GranTheftPraline.log "$out/$1-game.log" 2> /dev/null || true
-  echo "- $1: $verdict (test exit $rc); $frames; game log $1-game.log" >> "$report"
+launch() {  # launch <tag>: package Development, 30 s launch, verdict
+  local v="freeze-$1"
+  step "package $1" 900 "$v-package.log" env BUILDS_DIR="$out" "$repo/tools/build/package-mac.sh" "$v" Development
+  step "launch $1" 150 "$v-test.log" env BUILDS_DIR="$out" "$repo/tools/build/test-build-mac.sh" "$v" 30 0 || true
+  local verdict frames
+  verdict="$(grep -m1 '^verdict=' "$out/$v-test.log" || echo "verdict=none")"
+  frames="$(grep -m1 '^frame ' "$out/$v-test.log" || echo "no frame times")"
+  cp ~/Library/Logs/GranTheftPraline/GranTheftPraline.log "$out/$v-game.log" 2> /dev/null || true
+  echo "- **$1: $verdict**; $frames; game log $v-game.log" >> "$report"
   git -C "$repo" checkout -- assets/geo/processed 2> /dev/null || true
 }
 
+heartbeat "start, steps $steps"
 case "$steps" in *A*|*B*)
-  env "${common[@]}" GTP_SIGN_ATLAS=0 "$repo/tools/city/regen_city.sh" > "$out/A-regen.log" 2>&1
-  case "$steps" in *A*) launch freeze-A ;; esac
+  step "regen A" 600 "A-regen.log" env "${common[@]}" GTP_SIGN_ATLAS=0 "$repo/tools/city/regen_city.sh"
+  case "$steps" in *A*) launch A ;; esac
   case "$steps" in *B*)
-    env "${common[@]}" GTP_SIGN_ATLAS=0 FACADES_ONLY=1 GTP_CITY_RIVERSIDE=0 \
-      "$repo/tools/city/unreal/run_city_import.sh" > "$out/B-replay.log" 2>&1
-    launch freeze-B ;;
+    step "replay B" 300 "B-replay.log" env "${common[@]}" GTP_SIGN_ATLAS=0 FACADES_ONLY=1 GTP_CITY_RIVERSIDE=0 \
+      "$repo/tools/city/unreal/run_city_import.sh"
+    launch B ;;
   esac ;;
 esac
 case "$steps" in *C*)
-  env "${common[@]}" GTP_SIGN_ATLAS=1 "$repo/tools/city/regen_city.sh" > "$out/C-regen.log" 2>&1
-  launch freeze-C ;;
+  step "regen C" 600 "C-regen.log" env "${common[@]}" GTP_SIGN_ATLAS=1 "$repo/tools/city/regen_city.sh"
+  launch C ;;
 esac
-cat "$report"
