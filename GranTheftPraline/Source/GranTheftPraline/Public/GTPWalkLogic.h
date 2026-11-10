@@ -1,0 +1,353 @@
+#pragma once
+
+// Walking decisions of the pedestrians: a graph of walkway edges and the rules a
+// walker follows on it. No Unreal types, so tools/pedestrians/walk_sim checks it
+// on the real walkways outside the editor (same approach as GTPDriveLogic.h).
+// Units: centimetres and seconds, x east and y south as in Unreal.
+
+#include <algorithm>
+#include <cmath>
+#include <cstdint>
+#include <vector>
+
+namespace GTPWalk
+{
+struct FPoint
+{
+	float X = 0.f;
+	float Y = 0.f;
+};
+
+inline float Distance(const FPoint& A, const FPoint& B)
+{
+	return std::sqrt((A.X - B.X) * (A.X - B.X) + (A.Y - B.Y) * (A.Y - B.Y));
+}
+
+/** Small deterministic generator, so a run can be repeated exactly. */
+struct FRng
+{
+	uint32_t State = 2463534242u;
+
+	explicit FRng(uint32_t Seed = 1u) : State(Seed ? Seed : 1u) {}
+
+	uint32_t NextU32()
+	{
+		State ^= State << 13;
+		State ^= State >> 17;
+		State ^= State << 5;
+		return State;
+	}
+
+	/** [0, 1) */
+	float Next() { return (NextU32() >> 8) * (1.0f / 16777216.0f); }
+
+	float Range(float Min, float Max) { return Min + (Max - Min) * Next(); }
+};
+
+enum class EKind : int
+{
+	Sidewalk = 0,
+	Pedestrian = 1,
+	Crossing = 2,
+	Join = 3
+};
+
+struct FEdge
+{
+	int NodeA = -1;
+	int NodeB = -1;
+	EKind Kind = EKind::Sidewalk;
+	/** Width the walker may spread over (cm). */
+	float Width = 200.f;
+	std::vector<FPoint> Points;
+	std::vector<float> Cumulative; // distance from Points[0] to each point
+	float Length = 0.f;
+};
+
+struct FGraph
+{
+	std::vector<FEdge> Edges;
+	std::vector<std::vector<int>> NodeEdges;
+
+	/** Computes lengths and the edges of each node; call once after filling Edges. */
+	void Finalize()
+	{
+		int Nodes = 0;
+		for (FEdge& E : Edges)
+		{
+			E.Cumulative.assign(E.Points.size(), 0.f);
+			for (size_t i = 1; i < E.Points.size(); ++i)
+			{
+				E.Cumulative[i] = E.Cumulative[i - 1] + Distance(E.Points[i - 1], E.Points[i]);
+			}
+			E.Length = E.Cumulative.empty() ? 0.f : E.Cumulative.back();
+			Nodes = std::max(Nodes, std::max(E.NodeA, E.NodeB) + 1);
+		}
+		NodeEdges.assign(Nodes, {});
+		for (size_t i = 0; i < Edges.size(); ++i)
+		{
+			NodeEdges[Edges[i].NodeA].push_back(static_cast<int>(i));
+			if (Edges[i].NodeB != Edges[i].NodeA)
+			{
+				NodeEdges[Edges[i].NodeB].push_back(static_cast<int>(i));
+			}
+		}
+	}
+
+	bool IsValidEdge(int Edge) const { return Edge >= 0 && Edge < static_cast<int>(Edges.size()) && Edges[Edge].Length > 1.f; }
+};
+
+/** Position and heading at distance S along an edge from its A end. */
+inline void SampleEdge(const FEdge& E, float S, FPoint& OutPos, FPoint& OutDir)
+{
+	S = std::max(0.f, std::min(S, E.Length));
+	size_t i = 1;
+	while (i + 1 < E.Points.size() && E.Cumulative[i] < S)
+	{
+		++i;
+	}
+	const FPoint& A = E.Points[i - 1];
+	const FPoint& B = E.Points[i];
+	const float Seg = std::max(1e-3f, E.Cumulative[i] - E.Cumulative[i - 1]);
+	const float T = std::max(0.f, std::min(1.f, (S - E.Cumulative[i - 1]) / Seg));
+	OutPos = {A.X + (B.X - A.X) * T, A.Y + (B.Y - A.Y) * T};
+	OutDir = {(B.X - A.X) / Seg, (B.Y - A.Y) / Seg};
+}
+
+struct FSettings
+{
+	float WalkSpeed = 140.f;        // cm/s, a relaxed walk
+	float WalkSpeedSpread = 0.2f;   // +/- fraction between people
+	float FleeSpeedScale = 2.3f;    // a run
+	float FleeSeconds = 4.f;
+	float PauseChancePerSecond = 0.012f; // stops to look at a window, on walkways only
+	float PauseMin = 2.f;
+	float PauseMax = 6.f;
+	float CrossingWaitMax = 7.f;    // after that they cross anyway: cars give way to people
+	float LateralSpeed = 60.f;      // cm/s sideways drift to the chosen line
+	float CrossingWeight = 0.4f;    // relative chance to take a crossing at a junction
+};
+
+struct FWalker
+{
+	int Edge = -1;
+	bool bForward = true; // true: from NodeA to NodeB
+	float S = 0.f;        // distance walked on the edge in the walking direction
+	float SpeedScale = 1.f;
+	float Lateral = 0.f;  // sideways offset from the walkway line (cm, + = left of the direction)
+	float LateralTarget = 0.f;
+	float Pause = 0.f;
+	float CrossingWait = 0.f;
+	float FleeTimeLeft = 0.f;
+	FPoint Threat;
+};
+
+inline int NodeAhead(const FGraph& G, const FWalker& W)
+{
+	const FEdge& E = G.Edges[W.Edge];
+	return W.bForward ? E.NodeB : E.NodeA;
+}
+
+inline void PickLateral(const FGraph& G, FWalker& W, FRng& Rng)
+{
+	const float Half = G.Edges[W.Edge].Width * 0.5f;
+	W.LateralTarget = Rng.Range(-Half, Half);
+}
+
+/** Edge to take at Node after arriving by FromEdge (turning back only at a dead end). */
+inline int ChooseNext(const FGraph& G, int Node, int FromEdge, FRng& Rng, const FSettings& S,
+	bool bFleeing = false, const FPoint& Threat = FPoint())
+{
+	const std::vector<int>& Options = G.NodeEdges[Node];
+	float Total = 0.f;
+	std::vector<float> Weights(Options.size(), 0.f);
+	int Best = -1;
+	float BestDistance = -1.f;
+	for (size_t i = 0; i < Options.size(); ++i)
+	{
+		const int Id = Options[i];
+		if (Id == FromEdge || !G.IsValidEdge(Id))
+		{
+			continue;
+		}
+		const FEdge& E = G.Edges[Id];
+		const FPoint FarPoint = E.NodeA == Node ? E.Points.back() : E.Points.front();
+		if (bFleeing)
+		{
+			const float D = Distance(FarPoint, Threat);
+			if (D > BestDistance)
+			{
+				BestDistance = D;
+				Best = Id;
+			}
+			continue;
+		}
+		Weights[i] = E.Kind == EKind::Crossing ? S.CrossingWeight : 1.f;
+		Total += Weights[i];
+	}
+	if (bFleeing && Best >= 0)
+	{
+		return Best;
+	}
+	if (Total <= 0.f)
+	{
+		return G.IsValidEdge(FromEdge) ? FromEdge : -1;
+	}
+	float Pick = Rng.Next() * Total;
+	for (size_t i = 0; i < Options.size(); ++i)
+	{
+		Pick -= Weights[i];
+		if (Weights[i] > 0.f && Pick <= 0.f)
+		{
+			return Options[i];
+		}
+	}
+	for (size_t i = Options.size(); i-- > 0;)
+	{
+		if (Weights[i] > 0.f)
+		{
+			return Options[i];
+		}
+	}
+	return -1;
+}
+
+/** Puts a walker at a random place on a walkway (not a crossing). False if the graph has none. */
+inline bool Place(const FGraph& G, FWalker& W, FRng& Rng, const FSettings& S)
+{
+	std::vector<int> Candidates;
+	for (size_t i = 0; i < G.Edges.size(); ++i)
+	{
+		const EKind K = G.Edges[i].Kind;
+		if (G.IsValidEdge(static_cast<int>(i)) && (K == EKind::Sidewalk || K == EKind::Pedestrian))
+		{
+			Candidates.push_back(static_cast<int>(i));
+		}
+	}
+	if (Candidates.empty())
+	{
+		return false;
+	}
+	W = FWalker();
+	W.Edge = Candidates[std::min<size_t>(Candidates.size() - 1, static_cast<size_t>(Rng.Next() * Candidates.size()))];
+	W.bForward = Rng.Next() < 0.5f;
+	W.S = Rng.Range(0.f, G.Edges[W.Edge].Length);
+	W.SpeedScale = 1.f + Rng.Range(-S.WalkSpeedSpread, S.WalkSpeedSpread);
+	PickLateral(G, W, Rng);
+	W.Lateral = W.LateralTarget;
+	return true;
+}
+
+/** Position of a walker in the world, sideways drift included; Dir is the walking direction. */
+inline void Locate(const FGraph& G, const FWalker& W, FPoint& OutPos, FPoint& OutDir)
+{
+	const FEdge& E = G.Edges[W.Edge];
+	FPoint P, D;
+	SampleEdge(E, W.bForward ? W.S : E.Length - W.S, P, D);
+	if (!W.bForward)
+	{
+		D = {-D.X, -D.Y};
+	}
+	// The sideways drift fades out over the last metres of an edge, so walkers meet at the nodes
+	// whatever the angle between two edges (no jump at a corner).
+	const float Ramp = 300.f;
+	const float Fade = std::max(0.f, std::min(1.f, std::min(W.S, E.Length - W.S) / Ramp));
+	const float Side = W.Lateral * Fade;
+	// Unreal: x forward (east), y right (south). The left of (dx, dy) is (dy, -dx).
+	OutPos = {P.X + D.Y * Side, P.Y - D.X * Side};
+	OutDir = D;
+}
+
+/** Makes the walker run away from Threat along its edge (turns round if it walks towards it). */
+inline void Flee(const FGraph& G, FWalker& W, const FPoint& Threat, const FSettings& S)
+{
+	FPoint Pos, Dir;
+	Locate(G, W, Pos, Dir);
+	const float Away = (Pos.X - Threat.X) * Dir.X + (Pos.Y - Threat.Y) * Dir.Y;
+	if (Away < 0.f)
+	{
+		W.bForward = !W.bForward;
+		W.S = G.Edges[W.Edge].Length - W.S;
+	}
+	W.FleeTimeLeft = S.FleeSeconds;
+	W.Threat = Threat;
+	W.Pause = 0.f;
+}
+
+struct FStepResult
+{
+	bool bMoving = false;
+	bool bFleeing = false;
+	bool bWaitingToCross = false;
+	/** Walking speed after this step (cm/s). */
+	float Speed = 0.f;
+};
+
+/**
+ * One decision. bCrossingUnsafe: a car is coming at the crossing the walker is
+ * about to use (the caller looks, the graph does not know about cars).
+ */
+inline FStepResult Step(const FGraph& G, FWalker& W, float Dt, FRng& Rng, const FSettings& S, bool bCrossingUnsafe)
+{
+	FStepResult Result;
+	if (!G.IsValidEdge(W.Edge))
+	{
+		return Result;
+	}
+	W.Lateral += std::max(-S.LateralSpeed * Dt, std::min(S.LateralSpeed * Dt, W.LateralTarget - W.Lateral));
+	if (W.FleeTimeLeft > 0.f)
+	{
+		W.FleeTimeLeft -= Dt;
+		Result.bFleeing = true;
+	}
+	else if (W.Pause > 0.f)
+	{
+		W.Pause -= Dt;
+		return Result;
+	}
+
+	const FEdge& Current = G.Edges[W.Edge];
+	const bool bFleeing = W.FleeTimeLeft > 0.f;
+	if (Current.Kind == EKind::Crossing && W.S < 30.f && !bFleeing)
+	{
+		if (bCrossingUnsafe && W.CrossingWait < S.CrossingWaitMax)
+		{
+			W.CrossingWait += Dt;
+			Result.bWaitingToCross = true;
+			return Result;
+		}
+	}
+	else if (!bFleeing && Current.Kind != EKind::Crossing && Rng.Next() < S.PauseChancePerSecond * Dt)
+	{
+		W.Pause = Rng.Range(S.PauseMin, S.PauseMax);
+		return Result;
+	}
+
+	const float Speed = S.WalkSpeed * W.SpeedScale * (bFleeing ? S.FleeSpeedScale : 1.f);
+	W.S += Speed * Dt;
+	Result.bMoving = true;
+	Result.Speed = Speed;
+	while (W.Edge >= 0 && W.S >= G.Edges[W.Edge].Length)
+	{
+		const float Over = W.S - G.Edges[W.Edge].Length;
+		const int Node = NodeAhead(G, W);
+		const int Next = ChooseNext(G, Node, W.Edge, Rng, S, bFleeing, W.Threat);
+		if (Next < 0)
+		{
+			W.S = G.Edges[W.Edge].Length;
+			break;
+		}
+		const bool bTurningBack = Next == W.Edge;
+		W.bForward = bTurningBack ? !W.bForward : (G.Edges[Next].NodeA == Node);
+		W.Edge = Next;
+		W.S = std::min(Over, G.Edges[Next].Length);
+		W.CrossingWait = 0.f;
+		PickLateral(G, W, Rng);
+		if (G.Edges[Next].Kind == EKind::Crossing)
+		{
+			W.LateralTarget = 0.f;
+		}
+	}
+	return Result;
+}
+} // namespace GTPWalk
