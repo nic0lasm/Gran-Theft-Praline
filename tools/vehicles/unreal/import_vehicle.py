@@ -295,10 +295,16 @@ def build_lods(mesh, folder, name):
         settings.set_editor_property("lod_groups", groups)
         eal.save_loaded_asset(settings)
         mesh.set_editor_property("lod_settings", settings)
+        # Assigning the LOD settings already rebuilds the reduced LODs on 5.8;
+        # regenerate only when that did not happen (each pass takes minutes).
         sub = unreal.get_editor_subsystem(unreal.SkeletalMeshEditorSubsystem)
-        ok = sub.regenerate_lod(mesh, len(groups), True, False)
-        log(f"LODs regenerated {ok}: {mesh.get_editor_property('lod_settings')} "
-            f"count {unreal.SkeletalMeshEditorSubsystem.get_lod_count(mesh) if hasattr(unreal.SkeletalMeshEditorSubsystem, 'get_lod_count') else '?'}")
+        count = sub.get_lod_count(mesh)
+        ok = True
+        if count < len(groups):
+            ok = sub.regenerate_lod(mesh, len(groups), True, False)
+            count = sub.get_lod_count(mesh)
+        verts = [sub.get_num_verts(mesh, i) for i in range(count)]
+        log(f"LODs regenerated {ok}: count {count}, vertices per LOD {verts}")
     except Exception as exc:  # noqa: BLE001 - report, keep the drivable LOD0
         log(f"WARNING: LOD generation failed: {exc!r}")
 
