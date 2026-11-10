@@ -77,12 +77,20 @@ BREAKABLE = {
 BREAKABLE.update({"W8-%02d" % k: ("C", 25) for k in range(5, 18)})   # signs on poles
 
 
-def tag_breakable(comp, catalog_id, report):
+def tag_breakable(comp, catalog_id, report, mesh=None):
     b = BREAKABLE.get(catalog_id)
     if not b:
         return
-    comp.set_editor_property("component_tags", [unreal.Name("GTP_Breakable_" + b[0]),
-                                                unreal.Name("GTP_MassKg=%d" % b[1])])
+    tags = [unreal.Name("GTP_Breakable_" + b[0]), unreal.Name("GTP_MassKg=%d" % b[1])]
+    # Broken variants next to the intact mesh (tools/assets/make_broken.py): what stays in
+    # place (stump or bent pole) and, for a snapped post, the part that falls.
+    if mesh is not None:
+        base = mesh.get_path_name().split(".")[0].rsplit("_A", 1)[0]
+        for variant, key in (("Stump", "GTP_BrokenMesh"), ("Bent", "GTP_BrokenMesh"), ("Top", "GTP_BrokenTopMesh")):
+            if eal.does_asset_exist(base + "_" + variant):
+                tags.append(unreal.Name("%s=%s_%s" % (key, base, variant)))
+                report.setdefault("broken_meshes", []).append(catalog_id + " " + variant)
+    comp.set_editor_property("component_tags", tags)
     tally = report.setdefault("breakable_components", {})
     tally[b[0]] = tally.get(b[0], 0) + 1
 
@@ -163,7 +171,7 @@ def main():
                                     mesh) if mesh else None
             if mesh is not None:
                 tune_render(comps[key], mesh, report)
-                tag_breakable(comps[key], r["catalog_id"], report)
+                tag_breakable(comps[key], r["catalog_id"], report, mesh)
             if mesh is None:
                 report["missing_assets"].append(r["catalog_id"])
         comp = comps[key]
