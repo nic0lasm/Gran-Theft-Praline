@@ -49,6 +49,34 @@ SIGN_DIR = "/Game/Environment/City/Signs/" + "".join(p.capitalize() for p in FOC
 BRAND_SIGN_DIR = "/CityBrands/Signs/" + "".join(p.capitalize() for p in FOCUS.split("-"))
 SIZE_TOLERANCE_CM = 40.0
 
+# Draw distances per module family, metres (fil optimisation: numbers to tune after the m1
+# measure). Culling starts at CULL_START_SHARE of the end to avoid popping. 0 = never culled.
+CULL_END_M = {"ground": 250.0, "upper": 250.0, "eave": 250.0, "court": 250.0, "sign": 150.0}
+CULL_START_SHARE = 0.8
+
+
+def module_family(name):
+    n = name.lower()
+    if "cornice" in n or "genoise" in n:
+        return "eave"
+    if "court" in n:
+        return "court"
+    if any(k in n for k in ("shop", "entrance", "groundwindow", "entresol")):
+        return "ground"
+    return "upper"
+
+
+def set_cull(comp, family, report):
+    end = CULL_END_M[family] * 100.0
+    if not end:
+        return
+    if isinstance(comp, unreal.InstancedStaticMeshComponent):
+        comp.set_editor_property("instance_start_cull_distance", int(end * CULL_START_SHARE))
+        comp.set_editor_property("instance_end_cull_distance", int(end))
+    else:
+        comp.set_editor_property("ld_max_draw_distance", end)
+    report.setdefault("cull_end_m", {})[family] = CULL_END_M[family]
+
 eal = unreal.EditorAssetLibrary
 asset_tools = unreal.AssetToolsHelpers.get_asset_tools()
 level_sub = unreal.get_editor_subsystem(unreal.LevelEditorSubsystem)
@@ -231,6 +259,9 @@ def main():
     def add(name, x, y, z, yaw, sx, sz, colour, ground):  # noqa: PLR0913
         if name not in comps:
             comps[name] = hism_actor("Facade_" + name.replace("SM_Facade_", ""), meshes[name])[1]
+            set_cull(comps[name], module_family(name), report)
+            if meshes[name].get_num_lods() < 2:
+                report.setdefault("modules_without_lods", []).append(name)
         t = unreal.Transform(unreal.Vector(x, y, z), unreal.Rotator(0.0, 0.0, yaw + yaw_offset), unreal.Vector(sx, 1.0, sz))
         i = comps[name].add_instance(t, True)
         rgb = [srgb_to_linear(int(colour.lstrip("#")[k:k + 2], 16) / 255.0) for k in (0, 2, 4)]
@@ -272,6 +303,7 @@ def main():
         comp.set_static_mesh(meshes["SM_Sign_Panel"])
         comp.set_material(0, mic[0])
         comp.set_editor_property("mobility", unreal.ComponentMobility.STATIC)
+        set_cull(comp, "sign", report)
         signs += 1
         logos += 1 if mic[1] else 0
 
