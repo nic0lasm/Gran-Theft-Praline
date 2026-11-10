@@ -70,4 +70,6 @@ Avant d'en placer un seul dans la rue :
 3. plafonner les textures à 2048 (le profil M1 ne charge pas plus) ;
 4. les placer en HISM par type, ombres coupées au-delà de 30 m, coupés au-delà de 80 m.
 
+Script prêt : `tools/assets/unreal/prepare_roadside.py` (mode `list` par défaut, rapport seul ; `GTP_ROADSIDE_MODE=apply` coupe Nanite, reconstruit les 3 LOD depuis le scan et plafonne les textures à 2048, uniquement sur les assets du pack, sans toucher de map ; un nouveau téléchargement Fab rend le pack d'origine).
+
 Rien de cela n'est fait tant que le chantier gèle les nouveaux assets : c'est la recette pour le jour où un fil en a besoin.
