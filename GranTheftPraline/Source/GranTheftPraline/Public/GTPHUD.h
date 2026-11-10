@@ -11,7 +11,9 @@ class UFont;
  * - a small centre dot, faint in third person, clearer in first person;
  * - contextual help at the bottom right, one line per action: the key in a
  *   light box, then the verb ("E  Entrer", "F  Monter"), fading in and out;
- * - a subtitle line at the bottom centre for short messages.
+ * - a subtitle line at the bottom centre for short messages;
+ * - while driving: speed in km/h, gear and the state of the car, bottom right
+ *   (the prompts move up above it).
  * Hidden while a menu is open. Sizes are given for 1080 lines and scaled.
  */
 UCLASS(Config = Game)
@@ -44,9 +46,15 @@ protected:
 	UPROPERTY(Config, EditAnywhere, Category = "Prompts")
 	float PromptTextHeight = 22.f;
 
+	/** Height of the speed digits in pixels at 1080 lines. */
+	UPROPERTY(Config, EditAnywhere, Category = "Driving")
+	float SpeedTextHeight = 58.f;
+
 private:
+	/** Draws the driving panel and returns its height, 0 when on foot. */
+	float DrawDriving(float Scale);
 	void DrawReticle(float Scale, float Opacity);
-	void DrawPrompts(float Scale, float DeltaTime);
+	void DrawPrompts(float Scale, float DeltaTime, float BottomOffset);
 	void DrawMessage(float Scale);
 	float TextScaleFor(const UFont* Font, float Scale) const;
 	FVector2D MeasureText(const UFont* Font, const FText& Text, float TextScale) const;

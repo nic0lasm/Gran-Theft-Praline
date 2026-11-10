@@ -1,6 +1,7 @@
 #include "GTPVehicle.h"
 
 #include "GTPCameraModeComponent.h"
+#include "GTPEngineSoundComponent.h"
 #include "GTPPlayerController.h"
 #include "GTPVehicleInput.h"
 #include "GTPVehicleWheels.h"
@@ -82,6 +83,11 @@ AGTPVehicle::AGTPVehicle(const FObjectInitializer& ObjectInitializer)
 	InteriorCamera->SetupAttachment(GetMesh());
 	InteriorCamera->bUsePawnControlRotation = true;
 	InteriorCamera->bAutoActivate = false;
+
+	EngineSound = CreateDefaultSubobject<UGTPEngineSoundComponent>(TEXT("EngineSound"));
+	EngineSound->SetupAttachment(GetMesh());
+	// Engine bay, front of the car.
+	EngineSound->SetRelativeLocation(FVector(150.f, 0.f, 60.f));
 
 	DentMorphTargets.Add(EGTPDamageZone::Front, TEXT("Dent_Front"));
 	DentMorphTargets.Add(EGTPDamageZone::Rear, TEXT("Dent_Rear"));
@@ -223,6 +229,32 @@ float AGTPVehicle::GetSpeedKmh() const
 	return Move ? Move->GetForwardSpeed() * CmPerSecToKmh : 0.f;
 }
 
+float AGTPVehicle::GetEngineRpm() const
+{
+	UChaosWheeledVehicleMovementComponent* Move = GetWheeledMovement();
+	return Move ? Move->GetEngineRotationSpeed() : 0.f;
+}
+
+int32 AGTPVehicle::GetGear() const
+{
+	UChaosWheeledVehicleMovementComponent* Move = GetWheeledMovement();
+	return Move ? Move->GetCurrentGear() : 0;
+}
+
+void AGTPVehicle::SetAIDriveInput(float Throttle, float Brake, float Steering, bool bHandbrake)
+{
+	UChaosWheeledVehicleMovementComponent* Move = GetWheeledMovement();
+	if (!Move || !HasAIDriver() || bWrecked)
+	{
+		return;
+	}
+	ThrottleAmount = FMath::Clamp(Throttle, 0.f, 1.f);
+	Move->SetThrottleInput(ThrottleAmount);
+	Move->SetBrakeInput(FMath::Clamp(Brake, 0.f, 1.f));
+	Move->SetSteeringInput(FMath::Clamp(Steering, -1.f, 1.f));
+	Move->SetHandbrakeInput(bHandbrake);
+}
+
 // --- Input -----------------------------------------------------------------
 
 void AGTPVehicle::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -256,12 +288,14 @@ void AGTPVehicle::OnThrottle(const FInputActionValue& Value)
 	UChaosWheeledVehicleMovementComponent* Move = GetWheeledMovement();
 	if (Move && State == EGTPVehicleState::Driven && !bWrecked)
 	{
-		Move->SetThrottleInput(FMath::Clamp(Value.Get<float>(), 0.f, 1.f));
+		ThrottleAmount = FMath::Clamp(Value.Get<float>(), 0.f, 1.f);
+		Move->SetThrottleInput(ThrottleAmount);
 	}
 }
 
 void AGTPVehicle::OnThrottleReleased()
 {
+	ThrottleAmount = 0.f;
 	if (UChaosWheeledVehicleMovementComponent* Move = GetWheeledMovement())
 	{
 		Move->SetThrottleInput(0.f);
@@ -349,6 +383,7 @@ void AGTPVehicle::OnLookBehindCompleted()
 
 void AGTPVehicle::ClearDrivingInput()
 {
+	ThrottleAmount = 0.f;
 	if (UChaosWheeledVehicleMovementComponent* Move = GetWheeledMovement())
 	{
 		Move->SetThrottleInput(0.f);
@@ -829,6 +864,7 @@ void AGTPVehicle::BreakGlass(EGTPDamageZone Zone)
 void AGTPVehicle::SetWrecked()
 {
 	bWrecked = true;
+	ThrottleAmount = 0.f;
 	if (UChaosWheeledVehicleMovementComponent* Move = GetWheeledMovement())
 	{
 		Move->SetThrottleInput(0.f);

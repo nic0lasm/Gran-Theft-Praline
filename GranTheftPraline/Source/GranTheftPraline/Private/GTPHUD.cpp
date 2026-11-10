@@ -3,6 +3,7 @@
 #include "GTPCameraModeComponent.h"
 #include "GTPInteraction.h"
 #include "GTPPlayerController.h"
+#include "GTPVehicle.h"
 #include "CanvasItem.h"
 #include "RenderUtils.h"
 #include "Engine/Canvas.h"
@@ -70,8 +71,60 @@ void AGTPHUD::DrawHUD()
 		const bool bFirstPerson = PC->GetCameraMode() && PC->GetCameraMode()->IsFirstPerson();
 		DrawReticle(Scale, bFirstPerson ? ReticleOpacityFirstPerson : ReticleOpacityThirdPerson);
 	}
-	DrawPrompts(Scale, DeltaTime);
+	const float DrivingHeight = DrawDriving(Scale);
+	DrawPrompts(Scale, DeltaTime, DrivingHeight);
 	DrawMessage(Scale);
+}
+
+float AGTPHUD::DrawDriving(float Scale)
+{
+	const AGTPPlayerController* PC = Cast<AGTPPlayerController>(GetOwningPlayerController());
+	const AGTPVehicle* Vehicle = PC ? Cast<AGTPVehicle>(PC->GetPawn()) : nullptr;
+	const UFont* Font = GEngine ? GEngine->GetLargeFont() : nullptr;
+	const UFont* SmallFont = GEngine ? GEngine->GetMediumFont() : nullptr;
+	if (!Vehicle || !Font || !SmallFont)
+	{
+		return 0.f;
+	}
+
+	const float Margin = 48.f * Scale;
+	const float Pad = 14.f * Scale;
+	const float SpeedHeight = FMath::Max(1.f, static_cast<float>(MeasureText(Font, FText::FromString(TEXT("0")), 1.f).Y));
+	const float SpeedScale = SpeedTextHeight * Scale / SpeedHeight;
+	const float SmallScale = TextScaleFor(SmallFont, Scale);
+
+	const int32 Speed = FMath::RoundToInt(FMath::Abs(Vehicle->GetSpeedKmh()));
+	const int32 Gear = Vehicle->GetGear();
+	const FText SpeedText = FText::AsNumber(Speed);
+	const FText UnitText = FText::FromString(TEXT("km/h"));
+	const FText GearText = FText::FromString(Gear < 0 ? TEXT("R") : (Gear == 0 ? TEXT("N") : FString::FromInt(Gear)));
+
+	const FVector2D SpeedSize = MeasureText(Font, SpeedText, SpeedScale);
+	const FVector2D UnitSize = MeasureText(SmallFont, UnitText, SmallScale);
+	const FVector2D GearSize = MeasureText(SmallFont, GearText, SmallScale);
+	// Width fixed for three digits, so the panel does not jump with the speed.
+	const float DigitsWidth = MeasureText(Font, FText::FromString(TEXT("888")), SpeedScale).X;
+	const float BarHeight = 5.f * Scale;
+	const float Width = DigitsWidth + Pad + FMath::Max(UnitSize.X, GearSize.X) + 2.f * Pad;
+	const float Height = SpeedSize.Y + BarHeight + 3.f * Pad;
+	const FVector2D TopLeft(Canvas->ClipX - Margin - Width, Canvas->ClipY - Margin - Height);
+
+	GTPDrawRect(Canvas, TopLeft, FVector2D(Width, Height), PanelColor);
+	const float DigitsRight = TopLeft.X + Pad + DigitsWidth;
+	GTPDrawText(Canvas, Font, SpeedText, FVector2D(DigitsRight - SpeedSize.X, TopLeft.Y + Pad), SpeedScale, TextColor, true);
+	GTPDrawText(Canvas, SmallFont, GearText, FVector2D(DigitsRight + Pad, TopLeft.Y + Pad), SmallScale, TextColor, true);
+	GTPDrawText(Canvas, SmallFont, UnitText, FVector2D(DigitsRight + Pad, TopLeft.Y + Pad + SpeedSize.Y - UnitSize.Y), SmallScale,
+		FLinearColor(TextColor.R, TextColor.G, TextColor.B, 0.7f), true);
+
+	// State of the car: white, then amber, then red as it gets damaged.
+	const float Health = FMath::Clamp(Vehicle->GetHealthRatio(), 0.f, 1.f);
+	const FLinearColor BarColor = Health > 0.6f ? FLinearColor(0.9f, 0.9f, 0.88f, 0.85f)
+		: (Health > 0.35f ? FLinearColor(1.f, 0.65f, 0.15f, 0.9f) : FLinearColor(0.95f, 0.2f, 0.15f, 0.95f));
+	const FVector2D BarPos(TopLeft.X + Pad, TopLeft.Y + Height - Pad - BarHeight);
+	const float BarWidth = Width - 2.f * Pad;
+	GTPDrawRect(Canvas, BarPos, FVector2D(BarWidth, BarHeight), FLinearColor(1.f, 1.f, 1.f, 0.15f));
+	GTPDrawRect(Canvas, BarPos, FVector2D(BarWidth * Health, BarHeight), BarColor);
+	return Height + 12.f * Scale;
 }
 
 void AGTPHUD::DrawReticle(float Scale, float Opacity)
@@ -87,7 +140,7 @@ void AGTPHUD::DrawReticle(float Scale, float Opacity)
 	Canvas->DrawItem(Dot);
 }
 
-void AGTPHUD::DrawPrompts(float Scale, float DeltaTime)
+void AGTPHUD::DrawPrompts(float Scale, float DeltaTime, float BottomOffset)
 {
 	const AGTPPlayerController* PC = Cast<AGTPPlayerController>(GetOwningPlayerController());
 	const UGTPInteractionComponent* Interaction = PC ? PC->GetInteraction() : nullptr;
@@ -122,7 +175,7 @@ void AGTPHUD::DrawPrompts(float Scale, float DeltaTime)
 
 	// Bottom right, stacked upwards, slightly sliding in with the fade.
 	const float Slide = (1.f - PromptAlpha) * 14.f * Scale;
-	float Bottom = Canvas->ClipY - Margin;
+	float Bottom = Canvas->ClipY - Margin - BottomOffset;
 	for (int32 Index = ShownPrompts.Num() - 1; Index >= 0; --Index)
 	{
 		const FText& Key = ShownPrompts[Index].Key;
