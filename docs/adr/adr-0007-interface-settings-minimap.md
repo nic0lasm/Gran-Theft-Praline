@@ -1,6 +1,6 @@
-# ADR-0006: Interface texts, settings and mini-map
+# ADR-0007: Interface texts, settings and mini-map
 
-*French version: [adr-0006-interface-settings-minimap.fr.md](adr-0006-interface-settings-minimap.fr.md)*
+*French version: [adr-0007-interface-settings-minimap.fr.md](adr-0007-interface-settings-minimap.fr.md)*
 
 ## Status
 

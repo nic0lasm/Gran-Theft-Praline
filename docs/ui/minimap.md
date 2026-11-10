@@ -2,7 +2,7 @@
 
 *French version: [minimap.fr.md](minimap.fr.md)*
 
-Roadmap: mini-map (0.5), full-screen map and GPS (0.10). Decision record: [ADR-0006](../adr/adr-0006-interface-settings-minimap.md).
+Roadmap: mini-map (0.5), full-screen map and GPS (0.10). Decision record: [ADR-0007](../adr/adr-0007-interface-settings-minimap.md).
 
 ## Look
 

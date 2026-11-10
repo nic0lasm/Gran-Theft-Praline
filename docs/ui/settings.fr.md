@@ -2,7 +2,7 @@
 
 *English version: [settings.md](settings.md)*
 
-Roadmap : textes en français et anglais (0.4), réglages sauvegardés (0.5). Décision : [ADR-0006](../adr/adr-0006-interface-settings-minimap.fr.md).
+Roadmap : textes en français et anglais (0.4), réglages sauvegardés (0.5). Décision : [ADR-0007](../adr/adr-0007-interface-settings-minimap.fr.md).
 
 ## Ce que voit le joueur
 
