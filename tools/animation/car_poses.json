@@ -1,0 +1,29 @@
+{
+  "_doc": "Hand-keyed enter and exit poses for the driver's door (left side, France). Rotations are Euler XYZ degrees added to the rest pose of UE mannequin bones, bone-local axes; 'loc' is a pelvis offset in centimetres (x forward, y right, z up). Values are a first pass to tune by eye on the real mannequin (Blender, then GASP retarget); they are data, not code, so tuning never touches the script.",
+  "fps": 30,
+  "enter": {
+    "name": "AM_EnterCar_Left",
+    "keys": [
+      {"f": 0,  "pose": {}},
+      {"f": 10, "label": "reach", "loc": {"pelvis": [4, 0, 0]},
+       "pose": {"spine_02": [0, 6, -8], "clavicle_l": [0, 0, 12], "upperarm_l": [-20, 35, 25], "lowerarm_l": [0, 0, 28], "hand_l": [0, 0, -10]}},
+      {"f": 20, "label": "door-open", "loc": {"pelvis": [-6, 0, -2]},
+       "pose": {"spine_02": [0, 8, -14], "upperarm_l": [-10, 20, 50], "lowerarm_l": [0, 0, 55], "head": [0, 6, -10]}},
+      {"f": 30, "label": "turn-and-lower", "loc": {"pelvis": [-14, 18, -24]},
+       "pose": {"pelvis": [0, 0, 28], "spine_02": [0, 10, 0], "thigh_l": [0, 0, 70], "calf_l": [0, 0, -75], "thigh_r": [0, 0, 55], "calf_r": [0, 0, -50], "upperarm_l": [-10, 20, 40], "lowerarm_l": [0, 0, 45], "head": [0, 4, 0]}},
+      {"f": 42, "label": "seated", "loc": {"pelvis": [-20, 32, -36]},
+       "pose": {"pelvis": [0, 0, 70], "thigh_l": [0, 0, 80], "calf_l": [0, 0, -85], "thigh_r": [0, 0, 80], "calf_r": [0, 0, -85], "upperarm_l": [0, 40, 10], "lowerarm_l": [0, 0, 40], "upperarm_r": [0, 40, -10], "lowerarm_r": [0, 0, 40]}},
+      {"f": 52, "label": "close-door", "loc": {"pelvis": [-20, 32, -36]},
+       "pose": {"pelvis": [0, 0, 70], "thigh_l": [0, 0, 80], "calf_l": [0, 0, -85], "thigh_r": [0, 0, 80], "calf_r": [0, 0, -85], "spine_02": [0, 0, 10], "upperarm_l": [-25, 25, 45], "lowerarm_l": [0, 0, 20], "upperarm_r": [0, 40, -10], "lowerarm_r": [0, 0, 40]}},
+      {"f": 62, "label": "hands-on-wheel", "loc": {"pelvis": [-20, 32, -36]},
+       "pose": {"pelvis": [0, 0, 70], "thigh_l": [0, 0, 80], "calf_l": [0, 0, -85], "thigh_r": [0, 0, 80], "calf_r": [0, 0, -85], "upperarm_l": [0, 40, 10], "lowerarm_l": [0, 0, 40], "upperarm_r": [0, 40, -10], "lowerarm_r": [0, 0, 40]}}
+    ]
+  },
+  "exit": {
+    "name": "AM_ExitCar_Left",
+    "note": "The enter poses played in reverse from 'seated' (open the door, swing the legs out, stand), without the close-door and hands-on-wheel keys.",
+    "from_enter": ["seated", "door-open", "turn-and-lower", "reach"],
+    "end_pose": {},
+    "frames_between": 10
+  }
+}
