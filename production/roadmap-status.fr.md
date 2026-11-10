@@ -17,7 +17,7 @@ attendre les autres chantiers.
 | 3 | Trafic sur 112 voies, conducteurs PNJ | 0.3 | 🟡 | branche `feat/traffic-drivers` |
 | 4 | Son moteur et panneau de conduite | 0.3 | 🟡 | branche `feat/vehicle-hud-sound` |
 | 5 | Carte étendue : quai du Rhône, pont Lafayette, transversales de 6 m | Ville v2 | ✅ | build `0.3-city`, test 60 s |
-| 6 | Chute dans le Rhône : réapparition sur le quai, surface d'eau | Ville v2 | ⬜ | |
+| 6 | Chute dans le Rhône : lit, volumes `GTP_RiverRecovery`, sorties `GTP_RiverExit` (ville v2) ; réaction en jeu (0.3) | Ville v2, 0.3 | 🟡 | branche `feat/city-rhone-2` |
 | 7 | Coût GPU des PNJ réduit (ombres, LOD, conducteurs sans animation) | 0.3 | 🟡 | créneau Mac du 2026-11-10 |
 | 8 | Budget de la carte étendue (culling, ombres, Lumen) | Optimisation | 🟡 | au créneau Mac |
 | 9 | Enveloppes GPU par système mesurées une première fois | Optimisation | ⬜ | |

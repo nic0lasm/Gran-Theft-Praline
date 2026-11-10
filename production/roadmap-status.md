@@ -17,7 +17,7 @@ traffic, without waiting for the other workstreams.
 | 3 | Traffic on 112 lanes, NPC drivers | 0.3 | 🟡 | branch `feat/traffic-drivers` |
 | 4 | Engine sound and driving panel | 0.3 | 🟡 | branch `feat/vehicle-hud-sound` |
 | 5 | Extended map: Rhône quay, Pont Lafayette, 6 m cross streets | City v2 | ✅ | `0.3-city` build, 60 s test |
-| 6 | Falling into the Rhône: respawn on the quay, water surface | City v2 | ⬜ | |
+| 6 | Falling into the Rhône: river bed, `GTP_RiverRecovery` volumes, `GTP_RiverExit` exits (City v2); in-game reaction (0.3) | City v2, 0.3 | 🟡 | branch `feat/city-rhone-2` |
 | 7 | NPC GPU cost reduced (shadows, LODs, drivers without animation) | 0.3 | 🟡 | Mac slot of 2026-11-10 |
 | 8 | Extended map budget (culling, shadows, Lumen) | Optimisation | 🟡 | at the Mac slot |
 | 9 | Per-system GPU envelopes measured a first time | Optimisation | ⬜ | |

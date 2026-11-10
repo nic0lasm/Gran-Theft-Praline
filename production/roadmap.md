@@ -191,8 +191,9 @@ Rhône quay and Pont Lafayette.
 - NPC traffic on lanes from BD TOPO; engine sound; driving panel.
 - Map extended to the Rhône quay and Pont Lafayette, with collision.
 - **Falling into the Rhône handled**: a player or car that falls into the
-  water respawns on the quay (swimming stays in 1.x). Water surface from the
-  native Water plugin, without simulation.
+  water respawns on the quay (swimming stays in 1.x). Water surface: our own mesh with
+  the `M_City_Water` material (small waves, opaque); the native Water plugin is
+  ruled out (extra landscape and passes, over the M1 budget).
 - Video of a 3-minute drive; **p95 ≤ 42 ms** on the M1 profile with traffic
   (threshold set to ship 0.3 without waiting for the rest).
 - §3 GPU envelopes measured a first time.

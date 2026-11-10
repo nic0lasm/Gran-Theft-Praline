@@ -194,8 +194,9 @@ République jusqu'au quai du Rhône et au pont Lafayette.
   conduite.
 - Carte étendue au quai du Rhône et au pont Lafayette, avec collision.
 - **Chute dans le Rhône gérée** : le joueur ou la voiture qui tombe à l'eau
-  réapparaît sur le quai (la nage reste en 1.x). Surface d'eau du plugin
-  Water natif, sans simulation.
+  réapparaît sur le quai (la nage reste en 1.x). Surface d'eau : notre maillage avec le matériau `M_City_Water` (petites
+  vagues, opaque) ; le plugin Water natif est écarté (paysage et passes en
+  plus, hors budget M1).
 - Vidéo d'un trajet de 3 minutes ; **p95 ≤ 42 ms** en profil M1 avec le
   trafic (seuil fixé pour sortir la 0.3 sans attendre le reste).
 - Enveloppes GPU du §3 mesurées une première fois.

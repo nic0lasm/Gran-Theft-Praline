@@ -104,7 +104,7 @@ from the [concept](../design/gdd/game-concept.md).
 | Whole Bellecour → Terreaux district | P0 | 📅 | 0.9 | |
 | World streaming (World Partition, HLOD, data layers) | P0 | 📅 | 0.8, 0.9 | |
 | Landmarks (Hôtel de Ville, Opéra, Bellecour) | P0 | 📅 | 0.13 | |
-| River water (surface, lower quays) | P0 | ❗ | 0.3 | native Water plugin without simulation; no workstream |
+| River water (surface, lower quays) | P0 | 🟡 | 0.3 | own mesh and `M_City_Water` (Water plugin ruled out, over the M1 budget); river bed, recovery volumes and quay exits done (City v2), in-game reaction in the 0.3 thread |
 | Shops without loading screens, hold-ups | P0 | 📅 | 0.8 | |
 | Halls, stairwells, courtyards, roofs, car parks | P0 (selection) | 📅 | 0.8, 0.14 | |
 | Safe houses | P0 | 📅 | 0.8 | |

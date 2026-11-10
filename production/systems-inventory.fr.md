@@ -104,7 +104,7 @@ tard ; reprise du [concept](../design/gdd/game-concept.fr.md).
 | Tout le quartier Bellecour → Terreaux | P0 | 📅 | 0.9 | |
 | Streaming du monde (World Partition, HLOD, data layers) | P0 | 📅 | 0.8, 0.9 | |
 | Monuments (Hôtel de Ville, Opéra, Bellecour) | P0 | 📅 | 0.13 | |
-| Eau des fleuves (surface, quais bas) | P0 | ❗ | 0.3 | plugin Water natif sans simulation ; aucun chantier |
+| Eau des fleuves (surface, quais bas) | P0 | 🟡 | 0.3 | maillage maison et `M_City_Water` (plugin Water écarté, hors budget M1) ; lit, volumes de récupération et sorties de quai faits (ville v2), réaction en jeu au fil 0.3 |
 | Boutiques sans chargement, braquage | P0 | 📅 | 0.8 | |
 | Halls, cages d'escalier, cours, toits, parkings | P0 (sélection) | 📅 | 0.8, 0.14 | |
 | Planques | P0 | 📅 | 0.8 | |
