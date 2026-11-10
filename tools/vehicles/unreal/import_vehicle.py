@@ -267,6 +267,42 @@ def make_blueprint(folder, name, mesh, abp, glass):
     return path
 
 
+# Art bible budgets for a hero car: LOD0 = prepared mesh (~1.5 M tri, Ultra),
+# LOD1 ~120 k (M1 profile at driving distance), LOD2 ~40 k, LOD3 ~12 k.
+LODS = ((0.08, 0.45), (0.027, 0.2), (0.008, 0.07))  # (share of LOD0 triangles, screen size)
+
+
+def build_lods(mesh, folder, name):
+    """Reduced LODs from Unreal's skeletal mesh reduction (Blender's decimation
+    breaks the shading of these dense surfaces). Logs and goes on if the 5.8
+    Python API refuses a step: the car stays drivable on LOD0."""
+    try:
+        path = f"{folder}/LODS_{name}"
+        if eal.does_asset_exist(path):
+            eal.delete_asset(path)
+        settings = tools.create_asset(f"LODS_{name}", folder, unreal.SkeletalMeshLODSettings, None)
+        groups = []
+        base = unreal.SkeletalMeshLODGroupSettings()
+        base.set_editor_property("screen_size", unreal.PerPlatformFloat(1.0))
+        groups.append(base)
+        for share, screen in LODS:
+            g = unreal.SkeletalMeshLODGroupSettings()
+            g.set_editor_property("screen_size", unreal.PerPlatformFloat(screen))
+            r = g.get_editor_property("reduction_settings")
+            r.set_editor_property("num_of_triangles_percentage", share)
+            g.set_editor_property("reduction_settings", r)
+            groups.append(g)
+        settings.set_editor_property("lod_groups", groups)
+        eal.save_loaded_asset(settings)
+        mesh.set_editor_property("lod_settings", settings)
+        sub = unreal.get_editor_subsystem(unreal.SkeletalMeshEditorSubsystem)
+        ok = sub.regenerate_lod(mesh, len(groups), True, False)
+        log(f"LODs regenerated {ok}: {mesh.get_editor_property('lod_settings')} "
+            f"count {unreal.SkeletalMeshEditorSubsystem.get_lod_count(mesh) if hasattr(unreal.SkeletalMeshEditorSubsystem, 'get_lod_count') else '?'}")
+    except Exception as exc:  # noqa: BLE001 - report, keep the drivable LOD0
+        log(f"WARNING: LOD generation failed: {exc!r}")
+
+
 def main():
     vid = os.environ.get("GTP_VEHICLE_ID", "V-01")
     src = os.path.join(STAGING, vid)
@@ -298,6 +334,7 @@ def main():
     if not summary:
         raise RuntimeError("chassis physics asset failed (root bone or wheel bones missing?)")
     log("chassis " + summary)
+    build_lods(mesh, folder, name)
     eal.save_loaded_asset(pa)
     eal.save_loaded_asset(mesh)
 
