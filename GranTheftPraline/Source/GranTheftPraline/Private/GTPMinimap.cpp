@@ -10,7 +10,9 @@
 #include "Engine/World.h"
 #include "GameFramework/Pawn.h"
 #include "Kismet/GameplayStatics.h"
+#include "Misc/CommandLine.h"
 #include "Misc/FileHelper.h"
+#include "Misc/Parse.h"
 #include "Misc/Paths.h"
 #include "RenderUtils.h"
 
@@ -142,7 +144,8 @@ void UGTPMinimapSubsystem::RemoveBlip(AActor* Actor)
 void UGTPMinimapSubsystem::Draw(UCanvas* Canvas, const AGTPPlayerController* Controller, float Scale)
 {
 	const UGTPUserSettings* User = UGTPUserSettings::Find(this);
-	if (!Canvas || !Controller || !HasData() || (User && !User->Get().bMinimap))
+	static const bool bDisabledOnCommandLine = FParse::Param(FCommandLine::Get(), TEXT("NoMinimap"));
+	if (bDisabledOnCommandLine || !Canvas || !Controller || !HasData() || (User && !User->Get().bMinimap))
 	{
 		return;
 	}
