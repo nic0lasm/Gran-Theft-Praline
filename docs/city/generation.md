@@ -279,7 +279,8 @@ anchored on something real:
   keystone mascaron over carriage doors (positions computed from the kit); extended awnings over
   cafés, restaurants and food shops, retracted on every other shop elsewhere, stretched to the bay
   width; ATMs on banks; ashtrays at bar and tobacconist doors; doormats; window boxes on Lyonnais
-  sills, the odd satellite dish and air conditioner on older buildings.
+  sills, the odd satellite dish and air conditioner on older buildings; a display shelf against the back
+  of every open shop window of the street (nothing to see behind the glass otherwise).
 * **Corners**: street-name plates on every corner building, on the corner side.
 * **OpenStreetMap**: bollards, pedestrian lights on both kerbs of signalled crossings (real BD TOPO
   carriageway width), vehicle lights on the right-hand kerb, signs by French code (B1 no entry, AB3a
@@ -292,7 +293,7 @@ anchored on something real:
 Which bay gets a detail is a stable hash of building and bay: every run gives the same street. The
 table has the columns of `props_placement.csv` plus `snap` (`keep` keeps the height of wall and
 roof items), `scale_x/y/z` and `collision` (none on small items). It is capped at 3,000 instances
-(budget of the optimisation pass, 1 ms GPU on m1), by visibility priority; 1,820 for rue de la
+(budget of the optimisation pass, 1 ms GPU on m1), by visibility priority; about 2,100 for rue de la
 République. `run_city_import.sh` replays `details.py` and places it with `GTP_PROPS_SET=details`
 in the City/Details folder.
 
