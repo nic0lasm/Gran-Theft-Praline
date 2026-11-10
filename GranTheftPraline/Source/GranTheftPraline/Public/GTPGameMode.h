@@ -17,6 +17,10 @@
  * Driving test (version 0.3): with -TestVehicle on the command line, one
  * TestVehicleClass car is parked TestVehicleOffset in front of the first
  * spawned player, so a car can be tried in any level without editing it.
+ *
+ * Traffic (version 0.3): when the map has no AGTPTrafficNetwork but
+ * Content/City/Traffic/<MapName>.lanes.csv exists, one is spawned at start
+ * (cars with a driver to pull out; -Traffic=N sets how many, 0 for none).
  */
 UCLASS(Config = Game)
 class GRANTHEFTPRALINE_API AGTPGameMode : public AGameModeBase
@@ -28,6 +32,7 @@ public:
 
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
 	virtual void RestartPlayer(AController* NewPlayer) override;
+	virtual void StartPlay() override;
 
 protected:
 	UPROPERTY(Config, EditDefaultsOnly, Category = "Classes", meta = (MetaClass = "/Script/Engine.Pawn"))

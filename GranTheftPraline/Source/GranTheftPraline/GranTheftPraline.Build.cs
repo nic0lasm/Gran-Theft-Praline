@@ -15,6 +15,7 @@ public class GranTheftPraline : ModuleRules
 			"EnhancedInput",
 			"UMG",
 			"ChaosVehicles",
+			"AIModule",
 			"PhysicsCore"
 		});
 
