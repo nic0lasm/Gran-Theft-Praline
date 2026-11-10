@@ -41,6 +41,10 @@ protected:
 	/** Re-reads GetHeading() and GetSubtitle() (language change). */
 	void RefreshHeadings();
 
+	/** Focus sound when the pointer moves onto a button (ADR-0009). */
+	UFUNCTION()
+	void HandleButtonHovered();
+
 private:
 	void BuildTree();
 

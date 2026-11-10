@@ -1,5 +1,6 @@
 #include "GTPPlayerController.h"
 
+#include "GTPAudioMix.h"
 #include "GTPCameraModeComponent.h"
 #include "GTPFollowCameraComponent.h"
 #include "GTPInteraction.h"
@@ -431,6 +432,7 @@ void AGTPPlayerController::ToggleFullMap()
 		}
 	}
 	bFullMapOpen = !bFullMapOpen;
+	UGTPAudioMix::PlayUI(this, bFullMapOpen ? EGTPUISound::Open : EGTPUISound::Close);
 	SetPause(bFullMapOpen);
 }
 
@@ -487,6 +489,7 @@ void AGTPPlayerController::ShowMenu(UGTPMenuWidget* Menu)
 		return;
 	}
 	Menu->AddToViewport(100);
+	UGTPAudioMix::PlayUI(this, EGTPUISound::Open);
 	SetPause(true);
 
 	FInputModeUIOnly InputMode;
@@ -507,6 +510,7 @@ void AGTPPlayerController::HideMenu(TObjectPtr<UGTPMenuWidget>& Menu)
 {
 	if (Menu)
 	{
+		UGTPAudioMix::PlayUI(this, EGTPUISound::Close);
 		Menu->RemoveFromParent();
 		Menu = nullptr;
 	}

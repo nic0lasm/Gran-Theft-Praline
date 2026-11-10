@@ -1,5 +1,7 @@
 #include "GTPMenuWidgets.h"
 
+#include "GTPAudioMix.h"
+
 #include "GTPControls.h"
 #include "GTPGameInstance.h"
 #include "GTPLocalization.h"
@@ -100,6 +102,11 @@ void UGTPMenuWidget::RefreshHeadings()
 	}
 }
 
+void UGTPMenuWidget::HandleButtonHovered()
+{
+	UGTPAudioMix::PlayUI(this, EGTPUISound::Navigate);
+}
+
 UButton* UGTPMenuWidget::AddButton(const FText& Label, TObjectPtr<UTextBlock>* OutLabel)
 {
 	check(ButtonColumn);
@@ -120,6 +127,8 @@ UButton* UGTPMenuWidget::AddButton(const FText& Label, TObjectPtr<UTextBlock>* O
 	{
 		*OutLabel = Text;
 	}
+
+	Button->OnHovered.AddDynamic(this, &UGTPMenuWidget::HandleButtonHovered);
 
 	UVerticalBoxSlot* ButtonSlot = ButtonColumn->AddChildToVerticalBox(Size);
 	ButtonSlot->SetPadding(FMargin(0.f, 8.f));
@@ -165,6 +174,7 @@ void UGTPTitleMenuWidget::BuildButtons()
 
 void UGTPTitleMenuWidget::HandlePlay()
 {
+	UGTPAudioMix::PlayUI(this, EGTPUISound::Confirm);
 	if (AGTPPlayerController* Controller = GetGTPController())
 	{
 		Controller->StartGameFromTitle();
@@ -173,6 +183,7 @@ void UGTPTitleMenuWidget::HandlePlay()
 
 void UGTPTitleMenuWidget::HandleSettings()
 {
+	UGTPAudioMix::PlayUI(this, EGTPUISound::Confirm);
 	if (AGTPPlayerController* Controller = GetGTPController())
 	{
 		Controller->OpenSettingsMenu();
@@ -181,6 +192,7 @@ void UGTPTitleMenuWidget::HandleSettings()
 
 void UGTPTitleMenuWidget::HandleControls()
 {
+	UGTPAudioMix::PlayUI(this, EGTPUISound::Confirm);
 	if (AGTPPlayerController* Controller = GetGTPController())
 	{
 		Controller->OpenSettingsMenu(true);
@@ -189,6 +201,7 @@ void UGTPTitleMenuWidget::HandleControls()
 
 void UGTPTitleMenuWidget::HandleQuit()
 {
+	UGTPAudioMix::PlayUI(this, EGTPUISound::Confirm);
 	if (AGTPPlayerController* Controller = GetGTPController())
 	{
 		Controller->QuitToDesktop();
@@ -224,6 +237,7 @@ FReply UGTPPauseMenuWidget::NativeOnKeyDown(const FGeometry& InGeometry, const F
 
 void UGTPPauseMenuWidget::HandleResume()
 {
+	UGTPAudioMix::PlayUI(this, EGTPUISound::Back);
 	if (AGTPPlayerController* Controller = GetGTPController())
 	{
 		Controller->ClosePauseMenu();
@@ -232,6 +246,7 @@ void UGTPPauseMenuWidget::HandleResume()
 
 void UGTPPauseMenuWidget::HandleSettings()
 {
+	UGTPAudioMix::PlayUI(this, EGTPUISound::Confirm);
 	if (AGTPPlayerController* Controller = GetGTPController())
 	{
 		Controller->OpenSettingsMenu();
@@ -240,6 +255,7 @@ void UGTPPauseMenuWidget::HandleSettings()
 
 void UGTPPauseMenuWidget::HandleControls()
 {
+	UGTPAudioMix::PlayUI(this, EGTPUISound::Confirm);
 	if (AGTPPlayerController* Controller = GetGTPController())
 	{
 		Controller->OpenSettingsMenu(true);
@@ -248,6 +264,7 @@ void UGTPPauseMenuWidget::HandleControls()
 
 void UGTPPauseMenuWidget::HandleQuit()
 {
+	UGTPAudioMix::PlayUI(this, EGTPUISound::Confirm);
 	if (AGTPPlayerController* Controller = GetGTPController())
 	{
 		Controller->QuitToDesktop();
@@ -304,6 +321,7 @@ FReply UGTPControlsMenuWidget::NativeOnKeyDown(const FGeometry& InGeometry, cons
 
 void UGTPControlsMenuWidget::HandleBack()
 {
+	UGTPAudioMix::PlayUI(this, EGTPUISound::Back);
 	if (AGTPPlayerController* Controller = GetGTPController())
 	{
 		Controller->CloseSettingsMenu();
@@ -401,48 +419,56 @@ void UGTPSettingsMenuWidget::RefreshRows()
 
 void UGTPSettingsMenuWidget::HandleLanguage()
 {
+	UGTPAudioMix::PlayUI(this, EGTPUISound::Toggle);
 	ChangeSetting(this, [](GTPUI::FUserSettings& S) { S.CycleLanguage(); });
 	RefreshRows();
 }
 
 void UGTPSettingsMenuWidget::HandleGraphics()
 {
+	UGTPAudioMix::PlayUI(this, EGTPUISound::Toggle);
 	ChangeSetting(this, [](GTPUI::FUserSettings& S) { S.CycleGraphics(); });
 	RefreshRows();
 }
 
 void UGTPSettingsMenuWidget::HandleVolume()
 {
+	UGTPAudioMix::PlayUI(this, EGTPUISound::Toggle);
 	ChangeSetting(this, [](GTPUI::FUserSettings& S) { S.CycleVolume(); });
 	RefreshRows();
 }
 
 void UGTPSettingsMenuWidget::HandleSensitivity()
 {
+	UGTPAudioMix::PlayUI(this, EGTPUISound::Toggle);
 	ChangeSetting(this, [](GTPUI::FUserSettings& S) { S.CycleSensitivity(); });
 	RefreshRows();
 }
 
 void UGTPSettingsMenuWidget::HandleInvertY()
 {
+	UGTPAudioMix::PlayUI(this, EGTPUISound::Toggle);
 	ChangeSetting(this, [](GTPUI::FUserSettings& S) { S.bInvertY = !S.bInvertY; });
 	RefreshRows();
 }
 
 void UGTPSettingsMenuWidget::HandleKeyboard()
 {
+	UGTPAudioMix::PlayUI(this, EGTPUISound::Toggle);
 	ChangeSetting(this, [](GTPUI::FUserSettings& S) { S.CycleKeyboard(); });
 	RefreshRows();
 }
 
 void UGTPSettingsMenuWidget::HandleMinimap()
 {
+	UGTPAudioMix::PlayUI(this, EGTPUISound::Toggle);
 	ChangeSetting(this, [](GTPUI::FUserSettings& S) { S.bMinimap = !S.bMinimap; });
 	RefreshRows();
 }
 
 void UGTPSettingsMenuWidget::HandleMinimapZoom()
 {
+	UGTPAudioMix::PlayUI(this, EGTPUISound::Toggle);
 	ChangeSetting(this, [](GTPUI::FUserSettings& S) { S.CycleMinimapZoom(); });
 	RefreshRows();
 }
@@ -460,6 +486,7 @@ FReply UGTPSettingsMenuWidget::NativeOnKeyDown(const FGeometry& InGeometry, cons
 
 void UGTPSettingsMenuWidget::HandleBack()
 {
+	UGTPAudioMix::PlayUI(this, EGTPUISound::Back);
 	if (AGTPPlayerController* Controller = GetGTPController())
 	{
 		Controller->CloseSettingsMenu();
