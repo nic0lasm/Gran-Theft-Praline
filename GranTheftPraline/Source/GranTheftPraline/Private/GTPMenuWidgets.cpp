@@ -304,8 +304,7 @@ void UGTPSettingsMenuWidget::BuildButtons()
 	AddButton(FText::GetEmpty(), &KeyboardLabel)->OnClicked.AddDynamic(this, &UGTPSettingsMenuWidget::HandleKeyboard);
 	AddButton(FText::GetEmpty(), &MinimapLabel)->OnClicked.AddDynamic(this, &UGTPSettingsMenuWidget::HandleMinimap);
 	AddButton(FText::GetEmpty(), &MinimapZoomLabel)->OnClicked.AddDynamic(this, &UGTPSettingsMenuWidget::HandleMinimapZoom);
-	UTextBlock* BackLabel = nullptr;
-	AddButton(GTPLoc("menu.back"), &BackLabel)->OnClicked.AddDynamic(this, &UGTPSettingsMenuWidget::HandleBack);
+	AddButton(GTPLoc("menu.back"))->OnClicked.AddDynamic(this, &UGTPSettingsMenuWidget::HandleBack);
 	RefreshRows();
 }
 
