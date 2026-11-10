@@ -25,7 +25,7 @@ namespace GTPPolice
 
 namespace
 {
-	constexpr float CmToM = 0.01f;
+	constexpr float WantedCmToM = 0.01f;
 }
 
 // --- Wanted component ---------------------------------------------------------
@@ -170,7 +170,7 @@ void UGTPWantedComponent::TickComponent(float DeltaTime, ELevelTick TickType, FA
 			Police.RemoveAt(Index);
 			continue;
 		}
-		const float Metres = static_cast<float>(FVector::Dist(Car->GetActorLocation(), PlayerLocation)) * CmToM;
+		const float Metres = static_cast<float>(FVector::Dist(Car->GetActorLocation(), PlayerLocation)) * WantedCmToM;
 		Nearest = Nearest < 0.f ? Metres : FMath::Min(Nearest, Metres);
 		bSeen = bSeen || CanSeePlayer(Car, PlayerLocation);
 	}
@@ -421,9 +421,9 @@ void AGTPPoliceDirector::DriveStraight(FUnit& Unit, const FVector& Target, float
 	const FVector Location = Car->GetActorLocation();
 	const FVector Direction = (Target - Location).GetSafeNormal2D();
 	std::vector<FGTPDrivePoint> Path;
-	Path.push_back({static_cast<float>(Location.X) * CmToM, static_cast<float>(Location.Y) * CmToM});
+	Path.push_back({static_cast<float>(Location.X) * WantedCmToM, static_cast<float>(Location.Y) * WantedCmToM});
 	const FVector End = Target + Direction * 2000.f;
-	Path.push_back({static_cast<float>(End.X) * CmToM, static_cast<float>(End.Y) * CmToM});
+	Path.push_back({static_cast<float>(End.X) * WantedCmToM, static_cast<float>(End.Y) * WantedCmToM});
 	int Closest = 0;
 	const float Obstacle = UGTPAIDriverComponent::ProbeAhead(Car, 4000.f, 100.f);
 	const float Speed = Car->GetSpeedKmh() / 3.6f;
