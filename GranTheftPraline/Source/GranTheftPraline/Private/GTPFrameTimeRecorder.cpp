@@ -64,8 +64,9 @@ void UGTPFrameTimeRecorder::Initialize(FSubsystemCollectionBase& Collection)
 
 	const TCHAR* CommandLine = FCommandLine::Get();
 	FString RequestedPath;
-	const bool bWantsLog = FParse::Param(CommandLine, TEXT("FrameLog"))
-		|| FParse::Value(CommandLine, TEXT("FrameLogFile="), RequestedPath);
+	// Parse both: -FrameLogFile= must win even when -FrameLog is also given.
+	const bool bHasPath = FParse::Value(CommandLine, TEXT("FrameLogFile="), RequestedPath);
+	const bool bWantsLog = bHasPath || FParse::Param(CommandLine, TEXT("FrameLog"));
 
 	FParse::Value(CommandLine, TEXT("FrameLogWarmup="), WarmupSeconds);
 	FParse::Value(CommandLine, TEXT("ExitAfter="), ExitAfterSeconds);
