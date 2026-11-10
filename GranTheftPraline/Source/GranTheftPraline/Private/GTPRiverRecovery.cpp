@@ -129,7 +129,8 @@ void UGTPRiverRecovery::BringAshore(TWeakObjectPtr<APawn> Pawn)
 		{
 			return;
 		}
-		const FVector Ashore = Exit.GetLocation() + FVector(0.f, 0.f, 100.f);
+		// Exit points sit 1 m above the street: about the capsule centre of a standing character.
+		const FVector Ashore = Exit.GetLocation();
 		const FRotator Facing(0.f, Exit.Rotator().Yaw, 0.f);
 		ACharacter* Character = Cast<ACharacter>(Current);
 		if (AGTPVehicle* Car = Cast<AGTPVehicle>(Current))
