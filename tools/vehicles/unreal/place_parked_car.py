@@ -7,14 +7,15 @@ Rerunning replaces the cars this script placed (label ParkedCar_*).
 Without the UI, from a copy in a folder without spaces (the editor quits at the end):
     UnrealEditor GranTheftPraline.uproject -unattended -nosplash \
         -ExecutePythonScript=/tmp/place_parked_car.py
-GTP_PARKED_CAR picks another Blueprint (default: the Clio V).
+GTP_PARKED_CAR picks another Blueprint (default: the Clio V), GTP_PARKED_MAP another map
+(e.g. /Game/Maps/L_City_RueDeLaRepublique, the dressed street of build 0.2).
 """
 
 import os
 
 import unreal
 
-MAP = "/Game/Maps/L_RueRepublique"
+MAP = os.environ.get("GTP_PARKED_MAP", "/Game/Maps/L_RueRepublique")
 CAR = os.environ.get("GTP_PARKED_CAR", "/Game/Vehicles/Cars/Renault_ClioV/BP_Renault_ClioV")
 # From the PlayerStart, in its frame: 14 m down the street, 1.8 m to the right
 # (2.5 m puts its side in the facades; the -TestVehicle spot is 2.8 m ahead,
