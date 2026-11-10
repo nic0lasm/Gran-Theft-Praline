@@ -76,6 +76,9 @@ file_size() {
   stat -f %z "$1" 2>/dev/null || echo 0
 }
 
+# One BuildCookRun attempt under a watchdog. The editor target is built too
+# (no -nocompileeditor): the cook loads the project module from the editor
+# binaries, and a stale one silently drops new classes and their assets.
 # One BuildCookRun attempt under a watchdog.
 # Returns 0 on success, 1 on failure, 2 on a stall or time-out.
 run_build_cook() {
@@ -86,7 +89,7 @@ run_build_cook() {
     -clientconfig="$config" \
     -build -cook -stage -pak -iostore -package -archive \
     -archivedirectory="$staging_dir" \
-    -compressed -prereqs -nop4 -utf8output -unattended -nocompileeditor \
+    -compressed -prereqs -nop4 -utf8output -unattended \
     > "$attempt_log" 2>&1 &
   pid=$!
   started="$(date +%s)"
