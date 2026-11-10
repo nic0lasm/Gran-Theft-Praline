@@ -564,7 +564,9 @@ void UGTPEnvironmentSubsystem::ApplyBudgetForProfile(UWorld& World)
 			Budget.bVolumetricClouds = true;
 			Budget.bCloudDome = bCheap;
 			Budget.bCloudDomeWhenOvercast = false;
-			Budget.bCloudShadows = bVolumetric;
+			// Kept on: a loaded light function turns it off in ApplyCloudQuality, a missing one
+			// falls back to the volumetric shadow instead of no cloud shadow at all.
+			Budget.bCloudShadows = true;
 			Budget.bCloudShadowLightFunction = !bVolumetric;
 		}
 		else
