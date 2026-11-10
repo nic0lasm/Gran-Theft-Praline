@@ -8,6 +8,22 @@
 class USoundBase;
 
 /**
+ * Volume of one mixing category. A list of structs (+CategoryVolumes=(Category=...,Volume=...)
+ * lines), not a TMap: the 0.3.0 cook rejected the last "+Key=(Name, Value)" line of a map.
+ */
+USTRUCT()
+struct FGTPCategoryVolume
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, Category = "Mix")
+	EGTPAudioCategory Category = EGTPAudioCategory::Master;
+
+	UPROPERTY(EditAnywhere, Category = "Mix", meta = (ClampMin = "0", ClampMax = "1"))
+	float Volume = 1.f;
+};
+
+/**
  * Engine sound of a car model (GTPEngineSynth.h), chosen by a word of the car
  * class name (BP_Renault_ClioV -> "ClioV"). The Chaos rpm range of the car is
  * mapped onto IdleRpm..MaxRpm, so a diesel sounds like one even when its
@@ -96,9 +112,9 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category = "Banks")
 	TArray<FString> MutedSoundFolders;
 
-	/** Volume of each category, 0..1 (future options menu writes these). */
+	/** Volume of each category, 0..1; a category left out plays at 1 (future options menu writes these). */
 	UPROPERTY(Config, EditAnywhere, Category = "Mix")
-	TMap<EGTPAudioCategory, float> CategoryVolumes;
+	TArray<FGTPCategoryVolume> CategoryVolumes;
 
 	/** While the player drives: ambience level and its low-pass (Hz), fade (s). */
 	UPROPERTY(Config, EditAnywhere, Category = "Mix")
