@@ -183,6 +183,20 @@ class Graph:
         eal.save_loaded_asset(self.mat)
 
 
+def weather(mat, roles):
+    """Hook of the day/night and weather thread (tools/environment/unreal/gtp_weather.py):
+    wetness, puddles and night emissive scale inserted between our sources and the material
+    pins, neutral by day. Skipped while that module is not in the tree."""
+    path = os.path.join(REPO, "tools", "environment", "unreal")
+    if not os.path.exists(os.path.join(path, "gtp_weather.py")):
+        return
+    import sys
+    if path not in sys.path:
+        sys.path.insert(0, path)
+    import gtp_weather
+    gtp_weather.add_weather(mat, roles)
+
+
 def new_material(name):
     path = MAT_DIR + "/" + name
     if eal.does_asset_exist(path):
@@ -245,6 +259,7 @@ def ground_material(tex, extent):
     rough = g.lerp(g.lerp(g.const(0.78), g.const(0.92), s, "R"), g.const(0.6), mark)
     mel.connect_material_property(col, "", unreal.MaterialProperty.MP_BASE_COLOR)
     mel.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS)
+    weather(mat, ("wet", "puddles"))
     g.done()
     return mat
 
@@ -267,6 +282,7 @@ def shell_material():
     rough = g.lerp(g.const(0.55), g.const(0.88), wall)
     mel.connect_material_property(col, "", unreal.MaterialProperty.MP_BASE_COLOR)
     mel.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS)
+    weather(mat, ("wet",))
     g.done()
     return mat
 
@@ -334,6 +350,7 @@ def kit_master():
     mel.connect_material_property(metal, "", unreal.MaterialProperty.MP_METALLIC)
     mel.connect_material_property(g.mask(emis, r=True, g=True, b=True), "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
     mat.set_editor_property("used_with_instanced_static_meshes", True)
+    weather(mat, ("wet", "emissive"))
     g.done()
     return mat
 
