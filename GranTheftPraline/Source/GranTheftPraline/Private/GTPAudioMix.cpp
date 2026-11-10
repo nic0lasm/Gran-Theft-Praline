@@ -570,7 +570,15 @@ UAudioComponent* UGTPAudioMix::Play2D(const UObject* WorldContext, USoundBase* S
 		return nullptr;
 	}
 	RadioPlayed += Category == EGTPAudioCategory::Radio ? 1 : 0;
-	return UGameplayStatics::SpawnSound2D(WorldContext, Sound, Volume, Pitch, 0.f, GetConcurrency(Category), /*bPersistAcrossLevelTransition*/ false, /*bAutoDestroy*/ true);
+	UAudioComponent* Component = UGameplayStatics::CreateSound2D(WorldContext, Sound, Volume, Pitch, 0.f, GetConcurrency(Category),
+		/*bPersistAcrossLevelTransition*/ false, /*bAutoDestroy*/ true);
+	if (Component)
+	{
+		// Menus pause the game: their sounds must still play.
+		Component->bIsUISound = Category == EGTPAudioCategory::Interface;
+		Component->Play();
+	}
+	return Component;
 }
 
 EGTPSurface UGTPAudioMix::ResolveSurface(const FHitResult& Hit) const
