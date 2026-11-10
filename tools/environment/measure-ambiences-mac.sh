@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Measure and film every ambience of the day-night cycle and weather in a packaged build.
-# Each ambience is a frozen time and weather (-TimeScale=0) passed to
+# Each ambience is a frozen time and weather (-Ambience=<name>) passed to
 # tools/build/test-build-mac.sh, which plays the demo route, films it and records frame times.
 #
 # Usage: tools/environment/measure-ambiences-mac.sh [version] [duration_s] [video_s] [ambience ...]
@@ -21,16 +21,10 @@ shift $(( $# > 3 ? 3 : $# ))
 builds_dir="${BUILDS_DIR:-$repo/Builds}"
 evidence="$builds_dir/$version/evidence"
 
-# name | arguments (art bible section 3.2 states, plus dusk, night rain and the Saone fog)
+# Ambiences are defined in DefaultGame.ini (Ambiences of GTPEnvironmentSubsystem).
 ambience_args() {
   case "$1" in
-    noon)       echo "-Date=2026-06-21 -TimeOfDay=13.5 -Weather=Clear" ;;
-    golden)     echo "-Date=2026-10-15 -TimeOfDay=18.25 -Weather=Clear" ;;
-    dusk)       echo "-Date=2026-10-15 -TimeOfDay=19.1 -Weather=Cloudy" ;;
-    night)      echo "-Date=2027-01-15 -TimeOfDay=22.0 -Weather=Clear" ;;
-    rain)       echo "-Date=2026-11-09 -TimeOfDay=11.0 -Weather=Rain" ;;
-    night-rain) echo "-Date=2026-11-09 -TimeOfDay=22.0 -Weather=Rain" ;;
-    fog)        echo "-Date=2026-11-20 -TimeOfDay=8.0 -Weather=Fog" ;;
+    noon|golden|dusk|night|rain|night-rain|fog) echo "-Ambience=$1" ;;
     *) return 1 ;;
   esac
 }
@@ -47,7 +41,7 @@ for name in "${list[@]}"; do
   echo "== $name: $args"
   before="$(ls -1 "$evidence" | sort)"
   status="PASS"
-  GAME_ARGS="${GAME_ARGS:-} -TimeScale=0 $args" "$repo/tools/build/test-build-mac.sh" "$version" "$duration" "$video" || status="FAIL"
+  GAME_ARGS="${GAME_ARGS:-} $args" "$repo/tools/build/test-build-mac.sh" "$version" "$duration" "$video" || status="FAIL"
   run="$(comm -13 <(printf '%s\n' "$before") <(ls -1 "$evidence" | sort) | grep -v '^ambiences-' | tail -n 1 || true)"
   summary="no summary"
   if test -n "$run" && test -f "$evidence/$run/frametimes.summary.txt"; then
