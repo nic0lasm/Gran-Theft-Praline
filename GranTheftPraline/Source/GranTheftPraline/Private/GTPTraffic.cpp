@@ -236,13 +236,24 @@ void UGTPAIDriverComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 		Obstacle = Queue;
 	}
 	const FVector& LaneEnd = Lane.Points.Last();
-	const float ToLaneEnd = FMath::Sqrt(FMath::Square(static_cast<float>(LaneEnd.X) * CmToM - X) + FMath::Square(static_cast<float>(LaneEnd.Y) * CmToM - Y));
+	// Signed distance to the end of the lane along its last segment: negative once past
+	// the line, so a car already in the junction when the light turns red carries on.
+	const FVector& LaneBeforeEnd = Lane.Points.Num() >= 2 ? Lane.Points[Lane.Points.Num() - 2] : LaneEnd;
+	const FVector2D EndDir = FVector2D(LaneEnd - LaneBeforeEnd).GetSafeNormal();
+	const float ToLaneEnd = EndDir.IsNearlyZero()
+		? FMath::Sqrt(FMath::Square(static_cast<float>(LaneEnd.X) * CmToM - X) + FMath::Square(static_cast<float>(LaneEnd.Y) * CmToM - Y))
+		: static_cast<float>(FVector2D::DotProduct(FVector2D(LaneEnd.X * CmToM - X, LaneEnd.Y * CmToM - Y), EndDir));
 	const float LightStop = Network->GetTrafficLights().StopDistance(Route[0], Network->GetLightTime(), ToLaneEnd, Speed, Settings.ComfortDecel);
 	if (LightStop >= 0.f && (Obstacle < 0.f || LightStop < Obstacle))
 	{
 		Obstacle = LightStop;
 	}
-	// A car waiting at a red light claims no junction (the crossing traffic has green).
+	// A car waiting at a red light claims no junction (the crossing traffic has green):
+	// one claimed on green just before the light changed is given back.
+	if (LightStop >= 0.f)
+	{
+		Junctions.Drop(Network->GetJunctionTable(), static_cast<int>(Vehicle->GetUniqueID()), Lane.ToJunction);
+	}
 	const float StopLine = Junctions.Update(Network->GetJunctionTable(), static_cast<int>(Vehicle->GetUniqueID()), LightStop >= 0.f ? -1 : Lane.ToJunction,
 		{static_cast<float>(LaneEnd.X) * CmToM, static_cast<float>(LaneEnd.Y) * CmToM}, X, Y, Speed, Settings.ComfortDecel, StoppedTime);
 	if (StopLine >= 0.f && (Obstacle < 0.f || StopLine < Obstacle))
@@ -644,6 +655,7 @@ bool AGTPTrafficNetwork::SpawnCar()
 		return false;
 	}
 	UGTPAIDriverComponent* AIDriver = NewObject<UGTPAIDriverComponent>(Car, TEXT("AIDriver"));
+	AIDrivers.Add(AIDriver);
 	AIDriver->RegisterComponent();
 	AIDriver->Start(this, Lane, Point);
 	Cars.Add(Car);
@@ -705,6 +717,7 @@ void AGTPTrafficNetwork::Tick(float DeltaSeconds)
 		}
 	}
 	UpdateSignalHeads();
+	AIDrivers.RemoveAll([](const TWeakObjectPtr<UGTPAIDriverComponent>& Weak) { return !Weak.IsValid(); });
 
 	// One new car at a time, so spawns never come in a burst.
 	if (Cars.Num() < WantedCars && GetWorld()->GetTimeSeconds() >= NextSpawnTime)
@@ -911,10 +924,10 @@ float AGTPTrafficNetwork::GapAlongLanes(const UGTPAIDriverComponent* Driver, flo
 	const int32 Next = Driver->GetNextLane();
 	const int32 Mine = Driver->GetLanePoint();
 	float Best = -1.f;
-	for (const TObjectPtr<AGTPVehicle>& Car : Cars)
+	for (const TWeakObjectPtr<UGTPAIDriverComponent>& Weak : AIDrivers)
 	{
-		const UGTPAIDriverComponent* Other = IsValid(Car) ? Car->FindComponentByClass<UGTPAIDriverComponent>() : nullptr;
-		if (!Other || Other == Driver)
+		const UGTPAIDriverComponent* Other = Weak.Get();
+		if (!Other || Other == Driver || !Other->IsComponentTickEnabled())
 		{
 			continue;
 		}

@@ -307,13 +307,21 @@ void UGTPPedestrianSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 {
 	Super::OnWorldBeginPlay(InWorld);
 	// Traffic lights (GTPTrafficLights.h): wait for the red of the roads being crossed.
-	CrossingBlockedQuery = [this](const FVector& Where, const FVector& Direction)
+	TSharedRef<TWeakObjectPtr<AGTPTrafficNetwork>> Cached = MakeShared<TWeakObjectPtr<AGTPTrafficNetwork>>();
+	CrossingBlockedQuery = [this, Cached](const FVector& Where, const FVector& Direction)
 	{
-		for (TActorIterator<AGTPTrafficNetwork> It(GetWorld()); It; ++It)
+		TWeakObjectPtr<AGTPTrafficNetwork>& Network = *Cached;
+		if (!Network.IsValid())
 		{
-			return !It->IsWalkAllowed(Where, Direction);
+			// Found once (the game mode spawns it at start), again only if it goes away.
+			TActorIterator<AGTPTrafficNetwork> It(GetWorld());
+			if (!It)
+			{
+				return false;
+			}
+			Network = *It;
 		}
-		return false;
+		return !Network->IsWalkAllowed(Where, Direction);
 	};
 	Wanted = ChooseDensity();
 	if (Wanted <= 0)

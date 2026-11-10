@@ -287,6 +287,24 @@ struct FGTPJunctionClaims
 		return Stop > 0.f ? Stop : 0.f;
 	}
 
+	/** Gives back one junction (the car now waits at a red light before it). */
+	void Drop(FGTPJunctionTable& Table, int Car, int Junction)
+	{
+		if (Junction < 0)
+		{
+			return;
+		}
+		Table.Release(Junction, Car);
+		for (size_t Index = 0; Index < Claims.size(); ++Index)
+		{
+			if (Claims[Index].Junction == Junction)
+			{
+				Claims.erase(Claims.begin() + static_cast<long>(Index));
+				break;
+			}
+		}
+	}
+
 	void Clear(FGTPJunctionTable& Table, int Car)
 	{
 		Table.ReleaseAll(Car);

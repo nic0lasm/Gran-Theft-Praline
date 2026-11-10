@@ -301,6 +301,8 @@ private:
 	FGTPJunctionTable JunctionTable;
 	FGTPTrafficLights Lights;
 	TArray<FSignalHead> SignalHeads;
+	/** AI drivers of the cars spawned here (stolen ones stop ticking), for GapAlongLanes. */
+	TArray<TWeakObjectPtr<UGTPAIDriverComponent>> AIDrivers;
 	/** Centre of each signalled junction (mean of its stop lines), by junction id. */
 	TMap<int32, FVector> JunctionCentres;
 	/** Heading (radians) of group 0 at each signalled junction. */
