@@ -95,6 +95,10 @@ void UGTPBreakableSubsystem::Collect()
 				{
 					Group.BrokenMesh = FSoftObjectPath(Text.RightChop(15));
 				}
+				else if (Text.StartsWith(TEXT("GTP_BrokenTopMesh=")))
+				{
+					Group.TopMesh = FSoftObjectPath(Text.RightChop(18));
+				}
 			}
 			Groups.Add(Group);
 		}
@@ -183,6 +187,27 @@ void UGTPBreakableSubsystem::Check()
 	}
 }
 
+void UGTPBreakableSubsystem::SpawnFixed(UHierarchicalInstancedStaticMeshComponent* Source, UStaticMesh* Mesh, const FTransform& Transform)
+{
+	FActorSpawnParameters Params;
+	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	AStaticMeshActor* Actor = GetWorld()->SpawnActor<AStaticMeshActor>(Transform.GetLocation(), Transform.Rotator(), Params);
+	if (!Actor)
+	{
+		return;
+	}
+	Actor->SetMobility(EComponentMobility::Movable);
+	UStaticMeshComponent* Visual = Actor->GetStaticMeshComponent();
+	Visual->SetStaticMesh(Mesh);
+	Visual->SetWorldScale3D(Transform.GetScale3D());
+	for (int32 Slot = 0; Slot < Source->GetNumMaterials(); ++Slot)
+	{
+		Visual->SetMaterial(Slot, Source->GetMaterial(Slot));
+	}
+	Visual->SetCollisionProfileName(TEXT("BlockAll"));
+	Actor->SetMobility(EComponentMobility::Static);
+}
+
 void UGTPBreakableSubsystem::Hit(FGroup& Group, int32 InstanceIndex, const FVector& Direction, float ClosingCmS, float ImpactorMassKg, AActor* Impactor)
 {
 	UHierarchicalInstancedStaticMeshComponent* Component = Group.Component.Get();
@@ -197,11 +222,23 @@ void UGTPBreakableSubsystem::Hit(FGroup& Group, int32 InstanceIndex, const FVect
 		return;
 	}
 	UStaticMesh* Mesh = Component->GetStaticMesh();
+	bool bInstanceStillThere = true;
 	if (R.Outcome == GTPBreak::EOutcome::Break && Group.BrokenMesh.IsValid())
 	{
-		if (UStaticMesh* Broken = Cast<UStaticMesh>(Group.BrokenMesh.TryLoad()))
+		// A stump or a bent pole stays in place; the top (if any) falls, else nothing falls.
+		UStaticMesh* Stays = Cast<UStaticMesh>(Group.BrokenMesh.TryLoad());
+		if (Stays)
 		{
-			Mesh = Broken;
+			SpawnFixed(Component, Stays, Transform);
+			UStaticMesh* Top = Group.TopMesh.IsValid() ? Cast<UStaticMesh>(Group.TopMesh.TryLoad()) : nullptr;
+			Component->RemoveInstance(InstanceIndex);
+			++TotalHit;
+			bInstanceStillThere = false;
+			if (!Top)
+			{
+				return;
+			}
+			Mesh = Top;
 		}
 	}
 
@@ -227,8 +264,11 @@ void UGTPBreakableSubsystem::Hit(FGroup& Group, int32 InstanceIndex, const FVect
 	Visual->SetPhysicsLinearVelocity(Throw);
 	Visual->SetPhysicsAngularVelocityInRadians(FVector::CrossProduct(FVector::UpVector, Direction) * 4.f);
 	Body->SetLifeSpan(ThrownLifetime);
-	Component->RemoveInstance(InstanceIndex);
-	++TotalHit;
+	if (bInstanceStillThere)
+	{
+		Component->RemoveInstance(InstanceIndex);
+		++TotalHit;
+	}
 
 	Thrown.Add(Body);
 	Thrown.RemoveAll([](const TWeakObjectPtr<AStaticMeshActor>& P) { return !P.IsValid(); });

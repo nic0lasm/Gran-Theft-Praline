@@ -24,7 +24,9 @@ GRANTHEFTPRALINE_API DECLARE_LOG_CATEGORY_EXTERN(LogGTPBreakables, Log, All);
  *   GTP_Breakable_R   tips over (bins, tables, chairs, bikes, pots)
  *   GTP_Breakable_C   breaks above an energy threshold (lamps, signs, hydrants)
  *   GTP_MassKg=<n>    mass of one object, kilograms (default 20 for R, 100 for C)
- *   GTP_BrokenMesh=<asset path>   optional broken version used for the thrown body
+ *   GTP_BrokenMesh=<asset path>   optional: what stays in place once broken (stump, bent pole), fixed
+ *   GTP_BrokenTopMesh=<asset path> optional: the part that falls, thrown as a physics body
+ *   (with BrokenMesh alone, e.g. a bent sign, the instance is only replaced, no body)
  * Nothing runs when no component carries a tag. -Breakables=0 turns it off.
  */
 UCLASS(Config = Game)
@@ -69,11 +71,13 @@ private:
 		GTPBreak::EKind Kind = GTPBreak::EKind::Tippable;
 		float MassKg = 20.f;
 		FSoftObjectPath BrokenMesh;
+	FSoftObjectPath TopMesh;
 	};
 
 	void Collect();
 	void RefreshImpactors();
 	void Check();
+	void SpawnFixed(UHierarchicalInstancedStaticMeshComponent* Source, UStaticMesh* Mesh, const FTransform& Transform);
 	void Hit(FGroup& Group, int32 InstanceIndex, const FVector& Direction, float ClosingCmS, float ImpactorMassKg, AActor* Impactor);
 	int32 MaxLive() const;
 

@@ -64,7 +64,7 @@ les plafonds.
 un acteur par asset, donc le sous-système remplace l'instance touchée par un acteur
 physique). Tags sur les composants instanciés, posés depuis les tableaux de
 placement par le script de la rue : `GTP_Breakable_R` (se renverse),
-`GTP_Breakable_C` (casse), `GTP_MassKg=<n>`, option `GTP_BrokenMesh=<chemin>`. Les
+`GTP_Breakable_C` (casse), `GTP_MassKg=<n>`, option `GTP_BrokenMesh=<chemin>` (moignon ou mât plié qui reste en place) et `GTP_BrokenTopMesh=<chemin>` (la partie qui tombe ; absente pour un panneau plié : simple remplacement). Les
 objets fixes (potelets) n'ont pas besoin de tag. Règles : un renversable tombe dès
 une poussée de 3 km/h ; un cassable demande 400 J + 20 J par kg, au moins 225 J par kg dès 100 kg (un lampadaire de
 250 kg casse sous une voiture vers 35 km/h, un panneau de 25 kg vers 5 km/h ; une

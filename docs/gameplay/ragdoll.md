@@ -60,7 +60,7 @@ raising the caps.
 actor per asset, so the subsystem swaps the hit instance for a physics actor).
 Tags on the instanced components, set from the placement tables by the street
 script: `GTP_Breakable_R` (tips over), `GTP_Breakable_C` (breaks), `GTP_MassKg=<n>`,
-optional `GTP_BrokenMesh=<asset path>`. Fixed objects (bollards) need no tag.
+optional `GTP_BrokenMesh=<asset path>` (stump or bent pole that stays in place) and `GTP_BrokenTopMesh=<asset path>` (the part that falls; absent for a bent sign: only replaced). Fixed objects (bollards) need no tag.
 Rules: a tippable falls from a 3 km/h push; a breakable needs 400 J + 20 J per kg, at least 225 J per kg from 100 kg
 (a 250 kg lamp breaks under a car at about 35 km/h, a 25 kg sign at 5 km/h; a person
 cannot break a lamp). The body is thrown with a share of the impactor's speed and the
