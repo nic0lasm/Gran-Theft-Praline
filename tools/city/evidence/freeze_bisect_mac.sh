@@ -9,7 +9,8 @@
 #
 # Usage: caffeinate -dimsu tools/city/evidence/freeze_bisect_mac.sh [steps=ABC]
 #   PYTHON (venv with numpy, scipy, shapely, PIL), BUILDS_DIR (default <repo>/Builds/freeze-bisect).
-# Writes <BUILDS_DIR>/FREEZE.md. One Unreal or game process at a time.
+# Writes <BUILDS_DIR>/FREEZE.md. One Unreal or game process at a time. The map and city
+# content found at the start are restored at the end (checked by md5).
 set -euo pipefail
 repo="$(cd "$(dirname "$0")/../../.." && pwd)"
 steps="${1:-ABC}"
@@ -17,6 +18,28 @@ out="${BUILDS_DIR:-$repo/Builds/freeze-bisect}"
 mkdir -p "$out"
 report="$out/FREEZE.md"
 echo "# Freeze bisect, $(date -u +%FT%TZ), commit $(git -C "$repo" rev-parse --short HEAD)" > "$report"
+# Everything the city scripts write in the project is saved first and put back at the end,
+# even on error, then checked by checksum: the map left by the threads before stays as it was.
+proj="$repo/GranTheftPraline"
+kept=(Content/Maps/L_City_RueDeLaRepublique.umap Content/Environment/City Content/Environment/Facades/LyonKit
+      Content/City Plugins/CityBrands/Content)
+backup="$out/backup"
+sums() { (cd "$1" && for k in "${kept[@]}"; do test -e "$k" && find "$k" -type f -print0; done | sort -z | xargs -0 md5 -r) ; }
+rm -rf "$backup"; mkdir -p "$backup"
+for k in "${kept[@]}"; do
+  if test -e "$proj/$k"; then mkdir -p "$backup/$(dirname "$k")"; cp -Rp "$proj/$k" "$backup/$k"; fi
+done
+sums "$proj" > "$out/before.md5"
+restore() {
+  for k in "${kept[@]}"; do
+    if test -e "$backup/$k"; then rm -rf "${proj:?}/$k"; mkdir -p "$proj/$(dirname "$k")"; cp -Rp "$backup/$k" "$proj/$k"; fi
+  done
+  sums "$proj" > "$out/after.md5"
+  if cmp -s "$out/before.md5" "$out/after.md5"; then echo "- restore: map and city content identical to before (md5)" >> "$report"
+  else echo "- restore: MISMATCH, see before.md5 / after.md5" >> "$report"; fi
+  git -C "$repo" checkout -- assets/geo/processed 2> /dev/null || true
+}
+trap restore EXIT
 export PATH="$(dirname "$(command -v "${PYTHON:-python3}")"):$PATH"   # run_city_import.sh calls python3
 common=(GTP_SHOP_GLASS=opaque GTP_CITY_DETAILS=0 SKIP_PLAY=1)
 
