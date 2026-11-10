@@ -10,7 +10,21 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets"))
 
-from gtp_assets.geometry import decimate, export_geometry_glb, load_glb  # noqa: E402
+import numpy as np  # noqa: E402
+import meshoptimizer  # noqa: E402
+from gtp_assets.geometry import Asset, Part, _compact, decimate, export_geometry_glb, load_glb  # noqa: E402
+
+
+def sloppy(part, target):
+    """Topology-blind fallback when the attribute-aware pass hits its floor (UV seams): it keeps
+    the original vertices, so UVs and normals stay valid; the body texture is coarse paint,
+    a little UV smear on a car seen from the pavement is acceptable."""
+    v = np.ascontiguousarray(part.vertices, dtype=np.float32)
+    f = np.ascontiguousarray(part.faces.reshape(-1), dtype=np.uint32)
+    dest = np.zeros_like(f)
+    n = meshoptimizer.simplify_sloppy(dest, f, v, target_index_count=target * 3, target_error=1.0)
+    vv, uu, nn, ff = _compact(part.vertices, part.uv, part.normals, dest[:n].reshape(-1, 3))
+    return Part(vv, ff, uu, nn, part.material, part.name)
 
 
 def main():
@@ -21,6 +35,10 @@ def main():
     asset = load_glb(os.path.join(a.folder, "_raw.glb"))
     print(f"[parked] raw: {asset.tri_count} tris in {len(asset.parts)} part(s)", flush=True)
     out = decimate(asset, a.tris)
+    if out.tri_count > a.tris * 1.1:
+        print(f"[parked] attribute-aware floor at {out.tri_count} tris: topology-blind pass", flush=True)
+        total = out.tri_count
+        out = Asset([sloppy(p, max(64, int(a.tris * len(p.faces) / total))) for p in out.parts])
     export_geometry_glb(out, os.path.join(a.folder, "_dec.glb"), ["M_Parked"] * len(out.parts))
     print(f"[parked] decimated to {out.tri_count} tris", flush=True)
     if out.tri_count > a.tris * 1.1:
