@@ -37,9 +37,9 @@ protected:
 	UPROPERTY(Config, EditDefaultsOnly, Category = "Classes", meta = (MetaClass = "/Script/GranTheftPraline.GTPVehicle"))
 	FSoftClassPath TestVehicleClass;
 
-	/** Where the test car is parked, in the player's frame (cm, X forward). */
+	/** Where the test car is parked, in the player's frame (cm, X forward): straight ahead in the street, its driver door within reach. */
 	UPROPERTY(Config, EditDefaultsOnly, Category = "Classes")
-	FVector TestVehicleOffset = FVector(600.f, 250.f, 50.f);
+	FVector TestVehicleOffset = FVector(280.f, 0.f, 30.f);
 
 private:
 	bool bTestVehicleSpawned = false;
