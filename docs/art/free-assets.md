@@ -106,12 +106,13 @@ Nothing to click for water (own mesh) or for Poly Haven / ambientCG.
 - Fetch the Poly Haven and ambientCG models and textures above by script,
   run them through `tools/assets` (normalisation, triangle caps, M1 LODs),
   out of Git.
-- Once the trees are in the project: give leaves back to the street's 112
-  trees with `tools/city/unreal/run_tree_swap.sh` (street walk with bare
-  then leafy trees, automatic return to the bare trees if the M1 p95 goes
-  above 42 ms or rises by more than 4 ms). Megaplants are PVE presets that
-  must be turned into a mesh first; the "Field" beech is the first try. If it holds the budget, offer Nico the
-  Greenleaf plane trees (USD 29.99) on a card.
+- Once the trees are in the project: measure the street's 112 trees with
+  leaves using `tools/perf/tree-bench-mac.sh` (bare trees, 10 light trees,
+  112 light, impostors, raw pack; one package, variants picked by game
+  arguments). Analysis and estimated cost:
+  [leafy-trees-m1.md](../rendering/leafy-trees-m1.md). Megaplants are PVE
+  presets that must be turned into a mesh first. If it holds the budget, offer
+  Nico the Greenleaf plane trees (USD 29.99) on a card.
 - Cross the remaining Tripo catalogue with Megascans and Poly Haven and drop
   what already exists for free.
 

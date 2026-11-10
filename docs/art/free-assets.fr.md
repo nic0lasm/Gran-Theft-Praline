@@ -108,13 +108,13 @@ Rien à cliquer pour l'eau (maillage maison) ni pour Poly Haven / ambientCG.
 - Récupérer par script les modèles et textures Poly Haven et ambientCG
   listés plus haut, les faire passer par `tools/assets` (normalisation,
   plafonds de triangles, LOD M1), hors Git.
-- Une fois les arbres dans le projet : remettre des feuilles aux 112 arbres
-  de la rue avec `tools/city/unreal/run_tree_swap.sh` (parcours de la rue
-  arbres nus puis feuillus, retour automatique aux arbres nus si le p95 M1
-  dépasse 42 ms ou monte de plus de 4 ms). Les Megaplants sont des
-  préréglages PVE à générer en maillage d'abord ; le hêtre « Field » sert de
-  premier essai. Si le résultat tient le budget, proposer
-  à Nico l'achat des platanes Greenleaf (29,99 $) par carte.
+- Une fois les arbres dans le projet : mesurer les 112 arbres de la rue
+  feuillus avec `tools/perf/tree-bench-mac.sh` (arbres nus, 10 arbres légers,
+  112 légers, impostors, pack brut ; un seul package, variantes choisies par
+  arguments du jeu). Analyse et coût estimé :
+  [leafy-trees-m1.fr.md](../rendering/leafy-trees-m1.fr.md). Les Megaplants
+  sont des préréglages PVE à générer en maillage d'abord. Si le résultat tient
+  le budget, proposer à Nico l'achat des platanes Greenleaf (29,99 $) par carte.
 - Croiser le catalogue Tripo restant avec Megascans et Poly Haven et retirer
   du catalogue ce qui existe déjà gratuitement.
 
