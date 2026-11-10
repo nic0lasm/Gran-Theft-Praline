@@ -215,6 +215,15 @@ lights and priorities is 0.9):
   in front of it. The car brakes while its driver is pulled out; the
   driver then runs 25 m away.
 
+### 8.3 Traffic lights (version 0.4)
+
+`GTPTrafficLights.h` (no engine types, also used by `tools/vehicles/traffic_sim`) puts lights on every junction of the lane file reached from two crossing directions. Incoming lanes within 45° of the first approach (either way) form group 0, the others group 1; the groups take turns: green 12 s, amber 3 s, all red 2 s, each junction at its own point of the cycle.
+
+- AI drivers stop at the line on red, and on amber when they can do so at comfortable braking; a car waiting at a red light claims no junction, so the crossing traffic keeps moving. Cars also see the car ahead along their lanes, which the straight probe misses on bends.
+- Pedestrians: `AGTPTrafficNetwork::IsWalkAllowed(Location, WalkDirection)` says whether someone may cross there now (always true away from a signalled junction).
+- Stand-in signal heads (a coloured sphere on a pole at each stop line, no shadow, no collision) until the street furniture model exists. `-TrafficLights=0` turns the lights off, `-SignalHeads=0` hides the heads.
+- Simulation, 300 s on the rue de la République lanes: 3, 6 and 12 cars, no contact, no red light run.
+
 ## 9. Making a drivable car
 
 ### 9.1 First test car (no Tripo)

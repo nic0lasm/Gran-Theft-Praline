@@ -221,6 +221,15 @@ trafic complet avec feux et priorités, c'est la 0.9) :
   voiture s'arrête devant un piéton. La voiture freine pendant qu'on sort
   son conducteur, qui s'enfuit ensuite à 25 m.
 
+### 8.3 Feux tricolores (version 0.4)
+
+`GTPTrafficLights.h` (sans types moteur, utilisé aussi par `tools/vehicles/traffic_sim`) pose des feux à chaque carrefour du fichier de voies atteint par deux directions qui se croisent. Les voies entrantes à moins de 45° de la première approche (dans un sens ou l'autre) forment le groupe 0, les autres le groupe 1 ; les groupes alternent : vert 12 s, orange 3 s, rouge intégral 2 s, chaque carrefour décalé dans le cycle.
+
+- Les conducteurs PNJ s'arrêtent à la ligne au rouge, et à l'orange s'ils le peuvent en freinant confortablement ; une voiture arrêtée au rouge ne réserve aucun carrefour, donc le trafic transversal continue. Les voitures voient aussi celle qui les précède le long des voies, ce que la sonde droite rate dans les virages.
+- Piétons : `AGTPTrafficNetwork::IsWalkAllowed(Location, WalkDirection)` dit si l'on peut traverser à cet endroit maintenant (toujours vrai loin d'un carrefour à feux).
+- Têtes de feux provisoires (une sphère colorée sur un poteau à chaque ligne d'arrêt, sans ombre ni collision) en attendant le modèle de mobilier urbain. `-TrafficLights=0` coupe les feux, `-SignalHeads=0` masque les têtes.
+- Simulation, 300 s sur les voies de la rue de la République : 3, 6 et 12 voitures, aucun contact, aucun feu grillé.
+
 ## 9. Préparer une voiture conduisible
 
 ### 9.1 Première voiture d'essai (sans Tripo)
