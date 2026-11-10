@@ -275,6 +275,9 @@ est prolongé dans l'axe du pont jusqu'à rejoindre la rue à moins de 12 cm, pu
 hauteur médiane de la rue : marche mesurée de 7 cm au plus, collision active) et un parapet de
 quai le long de l'eau (519 m dans la boîte, coupé sous le pont). `import_city.py` le pose s'il existe
 (dossier City/Riverside) ; `apply_city_materials.py` y met `M_City_Shell` et `M_City_Water`.
+La surface du fleuve est notre propre maillage avec `M_City_Water` (petites vagues mobiles,
+opaque), pas le plugin Water du moteur : il exige un paysage et des passes en plus que le budget
+M1 ne permet pas.
 Chute dans le Rhône : un lit avec collision 2,5 m sous la surface (rien ne traverse le monde),
 des boîtes de déclenchement de 25 m marquées `GTP_RiverRecovery` sur l'eau et des sorties de
 quai au niveau de la rue tous les 25 m, marquées `GTP_RiverExit` (points tournés vers la terre,
