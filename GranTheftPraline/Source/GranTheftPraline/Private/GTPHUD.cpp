@@ -4,6 +4,7 @@
 #include "GTPInteraction.h"
 #include "GTPPlayerController.h"
 #include "GTPVehicle.h"
+#include "GTPWanted.h"
 #include "CanvasItem.h"
 #include "RenderUtils.h"
 #include "Engine/Canvas.h"
@@ -73,6 +74,7 @@ void AGTPHUD::DrawHUD()
 	}
 	const float DrivingHeight = DrawDriving(Scale);
 	DrawPrompts(Scale, DeltaTime, DrivingHeight);
+	DrawWanted(Scale);
 	DrawMessage(Scale);
 }
 
@@ -215,4 +217,81 @@ void AGTPHUD::DrawMessage(float Scale)
 	const float Pad = 10.f * Scale;
 	GTPDrawRect(Canvas, Position - FVector2D(Pad * 1.5f, Pad), Size + FVector2D(Pad * 3.f, Pad * 2.f), PanelColor);
 	GTPDrawText(Canvas, Font, Message, Position, TextScale, TextColor, true);
+}
+
+void AGTPHUD::DrawWanted(float Scale)
+{
+	const AGTPPlayerController* PC = Cast<AGTPPlayerController>(GetOwningPlayerController());
+	const UGTPWantedComponent* Wanted = PC ? PC->GetWanted() : nullptr;
+	const UFont* Font = GEngine ? GEngine->GetLargeFont() : nullptr;
+	if (!Wanted || !Font)
+	{
+		return;
+	}
+
+	// "Arrested" banner, centred.
+	if (Wanted->GetBustedBannerTime() > 0.f)
+	{
+		const FText Banner = FText::FromString(TEXT("ARRÊTÉ"));
+		const float FontHeight = FMath::Max(1.f, static_cast<float>(MeasureText(Font, FText::FromString(TEXT("Ag")), 1.f).Y));
+		const float TextScale = 72.f * Scale / FontHeight;
+		const FVector2D Size = MeasureText(Font, Banner, TextScale);
+		GTPDrawText(Canvas, Font, Banner, FVector2D((Canvas->ClipX - Size.X) * 0.5f, Canvas->ClipY * 0.4f), TextScale, FLinearColor(0.95f, 0.25f, 0.2f), true);
+	}
+
+	const int32 Stars = Wanted->GetStars();
+	if (Stars <= 0)
+	{
+		return;
+	}
+	const bool bSearching = Wanted->GetPhaseIndex() == 2;
+	// While searching the stars flash (about 2 Hz); in pursuit they are solid.
+	const float Time = GetWorld() ? static_cast<float>(GetWorld()->GetTimeSeconds()) : 0.f;
+	const bool bFlashOff = bSearching && FMath::Fmod(Time, 0.5f) < 0.25f;
+
+	const float Margin = 48.f * Scale;
+	const float Outer = 20.f * Scale;
+	const float Inner = Outer * 0.42f;
+	const float Step = Outer * 2.25f;
+	const float CentreY = Margin + Outer;
+	for (int32 Index = 0; Index < 5; ++Index)
+	{
+		const bool bOn = Index < Stars;
+		const FVector2D Centre(Canvas->ClipX - Margin - Outer - static_cast<float>(4 - Index) * Step, CentreY);
+		const FLinearColor Color = bOn ? (bFlashOff ? FLinearColor(1.f, 1.f, 1.f, 0.12f) : FLinearColor(1.f, 0.86f, 0.2f, 1.f))
+			: FLinearColor(1.f, 1.f, 1.f, 0.18f);
+		FVector2D Ring[10];
+		for (int32 Vertex = 0; Vertex < 10; ++Vertex)
+		{
+			const float Angle = PI * (-0.5f + static_cast<float>(Vertex) * 0.2f);
+			const float Radius = (Vertex % 2 == 0) ? Outer : Inner;
+			Ring[Vertex] = Centre + FVector2D(FMath::Cos(Angle), FMath::Sin(Angle)) * Radius;
+		}
+		for (int32 Vertex = 0; Vertex < 10; ++Vertex)
+		{
+			FCanvasTriangleItem Triangle(Centre, Ring[Vertex], Ring[(Vertex + 1) % 10], GWhiteTexture);
+			Triangle.SetColor(Color);
+			Triangle.BlendMode = SE_BLEND_Translucent;
+			Canvas->DrawItem(Triangle);
+		}
+	}
+
+	// Bars under the stars: the search running out (blue), the arrest filling up (red).
+	const float BarWidth = Step * 5.f - (Step - 2.f * Outer);
+	const float BarLeft = Canvas->ClipX - Margin - BarWidth;
+	const float BarHeight = 5.f * Scale;
+	float BarTop = CentreY + Outer + 10.f * Scale;
+	if (bSearching)
+	{
+		GTPDrawRect(Canvas, FVector2D(BarLeft, BarTop), FVector2D(BarWidth, BarHeight), FLinearColor(1.f, 1.f, 1.f, 0.15f));
+		GTPDrawRect(Canvas, FVector2D(BarLeft, BarTop), FVector2D(BarWidth * (1.f - FMath::Clamp(Wanted->GetSearchProgress(), 0.f, 1.f)), BarHeight),
+			FLinearColor(0.3f, 0.5f, 1.f, 0.9f));
+		BarTop += BarHeight + 6.f * Scale;
+	}
+	if (Wanted->GetArrestProgress() > 0.01f)
+	{
+		GTPDrawRect(Canvas, FVector2D(BarLeft, BarTop), FVector2D(BarWidth, BarHeight), FLinearColor(1.f, 1.f, 1.f, 0.15f));
+		GTPDrawRect(Canvas, FVector2D(BarLeft, BarTop), FVector2D(BarWidth * FMath::Clamp(Wanted->GetArrestProgress(), 0.f, 1.f), BarHeight),
+			FLinearColor(0.95f, 0.2f, 0.15f, 0.95f));
+	}
 }

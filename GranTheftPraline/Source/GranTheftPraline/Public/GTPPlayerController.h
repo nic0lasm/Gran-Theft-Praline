@@ -12,6 +12,7 @@ class UGTPInteractionComponent;
 class UGTPMenuWidget;
 class UGTPVehicleInput;
 class UGTPVehicleInteractionComponent;
+class UGTPWantedComponent;
 class UInputAction;
 class UInputMappingContext;
 class USoundBase;
@@ -71,6 +72,8 @@ public:
 	UGTPVehicleInput* GetVehicleInput();
 
 	UGTPVehicleInteractionComponent* GetVehicleInteraction() const { return VehicleInteraction; }
+
+	UGTPWantedComponent* GetWanted() const { return Wanted; }
 
 protected:
 	virtual void BeginPlay() override;
@@ -161,6 +164,9 @@ private:
 
 	UPROPERTY(VisibleAnywhere, Category = "Vehicle")
 	TObjectPtr<UGTPVehicleInteractionComponent> VehicleInteraction;
+
+	UPROPERTY()
+	TObjectPtr<UGTPWantedComponent> Wanted;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UAudioComponent> Ambience;

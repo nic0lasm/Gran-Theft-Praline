@@ -3,6 +3,7 @@
 #include "GTPHUD.h"
 #include "GTPPlayerController.h"
 #include "GTPTraffic.h"
+#include "GTPWanted.h"
 #include "GTPVehicle.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
@@ -45,17 +46,25 @@ void AGTPGameMode::StartPlay()
 	Super::StartPlay();
 	int32 Traffic = -1;
 	FParse::Value(FCommandLine::Get(), TEXT("Traffic="), Traffic);
-	if (Traffic == 0 || TActorIterator<AGTPTrafficNetwork>(GetWorld()))
+	if (Traffic == 0)
 	{
 		return;
 	}
-	const FString File = AGTPTrafficNetwork::LanesFileFor(UGameplayStatics::GetCurrentLevelName(this, true));
-	if (!FPaths::FileExists(File))
+	if (!TActorIterator<AGTPTrafficNetwork>(GetWorld()))
 	{
-		UE_LOG(LogGTPGameMode, Log, TEXT("No traffic: %s not found"), *File);
-		return;
+		const FString File = AGTPTrafficNetwork::LanesFileFor(UGameplayStatics::GetCurrentLevelName(this, true));
+		if (!FPaths::FileExists(File))
+		{
+			UE_LOG(LogGTPGameMode, Log, TEXT("No traffic: %s not found"), *File);
+			return;
+		}
+		GetWorld()->SpawnActor<AGTPTrafficNetwork>();
 	}
-	GetWorld()->SpawnActor<AGTPTrafficNetwork>();
+	// Police ride the traffic lanes: no lanes, no police. -NoPolice turns them off.
+	if (!FParse::Param(FCommandLine::Get(), TEXT("NoPolice")) && !TActorIterator<AGTPPoliceDirector>(GetWorld()))
+	{
+		GetWorld()->SpawnActor<AGTPPoliceDirector>();
+	}
 }
 
 void AGTPGameMode::RestartPlayer(AController* NewPlayer)

@@ -14,6 +14,8 @@ class UFont;
  * - a subtitle line at the bottom centre for short messages;
  * - while driving: speed in km/h, gear and the state of the car, bottom right
  *   (the prompts move up above it).
+ * - wanted level: five stars top right (solid in pursuit, flashing while
+ *   the police search), a bar for the arrest.
  * Hidden while a menu is open. Sizes are given for 1080 lines and scaled.
  */
 UCLASS(Config = Game)
@@ -54,6 +56,8 @@ private:
 	/** Draws the driving panel and returns its height, 0 when on foot. */
 	float DrawDriving(float Scale);
 	void DrawReticle(float Scale, float Opacity);
+	/** Wanted stars top right, search and arrest bars, "arrested" banner (docs/gameplay/wanted.md). */
+	void DrawWanted(float Scale);
 	void DrawPrompts(float Scale, float DeltaTime, float BottomOffset);
 	void DrawMessage(float Scale);
 	float TextScaleFor(const UFont* Font, float Scale) const;

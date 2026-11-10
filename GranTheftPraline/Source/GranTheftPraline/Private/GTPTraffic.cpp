@@ -65,7 +65,7 @@ void FGTPLaneFollower::Plan()
 	}
 	while (AheadM < RouteAheadM)
 	{
-		const int32 Next = Net->PickNext(Route.Last());
+		const int32 Next = bHasGoal ? Net->PickNextToward(Route.Last(), Goal) : Net->PickNext(Route.Last());
 		if (Next == INDEX_NONE)
 		{
 			break;
@@ -406,6 +406,30 @@ int32 AGTPTrafficNetwork::PickNext(int32 Lane)
 	}
 	const TArray<int32>& Next = Lanes[Lane].Next;
 	return Next[Random.RandRange(0, Next.Num() - 1)];
+}
+
+int32 AGTPTrafficNetwork::PickNextToward(int32 Lane, const FVector& Target) const
+{
+	if (!Lanes.IsValidIndex(Lane) || Lanes[Lane].Next.Num() == 0)
+	{
+		return INDEX_NONE;
+	}
+	int32 Best = INDEX_NONE;
+	double BestDistance = TNumericLimits<double>::Max();
+	for (const int32 Id : Lanes[Lane].Next)
+	{
+		if (!Lanes.IsValidIndex(Id) || Lanes[Id].Points.Num() == 0)
+		{
+			continue;
+		}
+		const double Distance = FVector::DistSquared2D(Lanes[Id].Points.Last(), Target);
+		if (Distance < BestDistance)
+		{
+			BestDistance = Distance;
+			Best = Id;
+		}
+	}
+	return Best;
 }
 
 void AGTPTrafficNetwork::BeginPlay()
