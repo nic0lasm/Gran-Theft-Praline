@@ -269,7 +269,7 @@ windows and windows), Optimisation.
 respawn; police shoot at level 2.
 
 **Done when:**
-- ADR-0004 (gameplay framework: Gameplay Ability System, StateTree).
+- ADR-0008 (gameplay framework: Gameplay Ability System, StateTree).
 - Melee (punches, dodge, takedown); pistol (aim, shoot, reload, recoil),
   **gamepad aim assist**, shoulder swap.
 - Cover against walls and cars, moving between covers, blind fire.

@@ -2,7 +2,7 @@
 
 *Version anglaise : [day-night-weather.md](day-night-weather.md)*
 
-Décision : [ADR-0004](../adr/adr-0004-day-night-weather.fr.md). Valeurs
+Décision : [ADR-0008](../adr/adr-0008-day-night-weather.fr.md). Valeurs
 artistiques : [bible artistique](../art/art-bible.fr.md), sections 3 et 9.
 Budget : [ADR-0002](../adr/adr-0002-performance-budget.fr.md).
 

@@ -275,7 +275,7 @@ Animations.
 réapparition ; la police tire au niveau 2.
 
 **Fait quand :**
-- ADR-0004 (framework gameplay : Gameplay Ability System, StateTree).
+- ADR-0008 (framework gameplay : Gameplay Ability System, StateTree).
 - Corps à corps (coups, esquive, neutralisation) ; pistolet (viser, tirer,
   recharger, recul), **aide à la visée** à la manette, changement d'épaule.
 - Couverture contre murs et voitures, passage d'un abri à l'autre, tir à

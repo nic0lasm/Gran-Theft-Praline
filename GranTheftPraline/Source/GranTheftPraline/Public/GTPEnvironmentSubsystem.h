@@ -122,7 +122,7 @@ struct FGTPLightBudget
 /**
  * Day-night cycle and weather of the street maps, driven at run time so no
  * map has to be edited (the map's own sun, sky, fog and clouds are reused;
- * see docs/rendering/day-night-weather.md and ADR-0004).
+ * see docs/rendering/day-night-weather.md and ADR-0008).
  *
  * Every frame or a few times per second it sets:
  *   - sun and moon from the date, the time and Lyon's position (45.76 N, 4.83 E);

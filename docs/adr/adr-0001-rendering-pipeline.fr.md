@@ -9,7 +9,7 @@ Proposé. Passe à Accepté quand la scène témoin
 réussit sur le MacBook Pro de développement (M1 Pro).
 La rue de la République est passée en 0.2 (600 s, profil m1, p95
 40,3 ms) ; le dernier point ouvert, l'exposition de l'heure dorée et de la
-nuit, est traité par [ADR-0004](adr-0004-day-night-weather.fr.md) et ses
+nuit, est traité par [ADR-0008](adr-0008-day-night-weather.fr.md) et ses
 mesures d'ambiances.
 
 ## Date
