@@ -42,6 +42,7 @@ back() {
 trap back EXIT
 git -C "$root" fetch -q origin feat/facade-lods
 git -C "$root" checkout -q --detach "${REF:-origin/feat/facade-lods}"
+mkdir -p "$root/Builds"
 echo "== $(paris) on $(git -C "$root" log -1 --format='%h %s')"
 BUILDS_DIR="$root/Builds/city slot6 dry" DRY_RUN=1 "$root/tools/city/evidence/freeze_bisect_mac.sh" "${STEPS:-ABCD}" \
   > "$root/Builds/city-slot6-dry.log" 2>&1
