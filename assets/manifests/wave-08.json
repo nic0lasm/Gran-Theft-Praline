@@ -1,0 +1,373 @@
+{
+  "wave": "w8",
+  "items": [
+    {
+      "id": "W8-01",
+      "slug": "vehicle_traffic_light",
+      "name": "Vehicle traffic light",
+      "size_m": 3.5,
+      "family": "Signals",
+      "asset": "TrafficLight_Vehicle",
+      "category": "large"
+    },
+    {
+      "id": "W8-02",
+      "slug": "pedestrian_light",
+      "name": "Pedestrian light",
+      "size_m": 3.0,
+      "family": "Signals",
+      "asset": "TrafficLight_Pedestrian",
+      "category": "medium"
+    },
+    {
+      "id": "W8-03",
+      "slug": "light_on_arm_pole",
+      "name": "Light on arm pole",
+      "size_m": 6.0,
+      "family": "Signals",
+      "asset": "TrafficLight_ArmPole",
+      "category": "large"
+    },
+    {
+      "id": "W8-04",
+      "slug": "push_button_box",
+      "name": "Push-button box",
+      "size_m": 0.5,
+      "family": "Signals",
+      "asset": "PushButtonBox",
+      "category": "small"
+    },
+    {
+      "id": "W8-05",
+      "slug": "stop_sign_no_letters",
+      "name": "Stop sign (no letters)",
+      "size_m": 2.5,
+      "family": "Signage",
+      "asset": "Sign_Stop",
+      "category": "medium"
+    },
+    {
+      "id": "W8-06",
+      "slug": "give_way_sign",
+      "name": "Give way sign",
+      "size_m": 2.5,
+      "family": "Signage",
+      "asset": "Sign_GiveWay",
+      "category": "medium"
+    },
+    {
+      "id": "W8-07",
+      "slug": "no_entry_sign",
+      "name": "No entry sign",
+      "size_m": 2.5,
+      "family": "Signage",
+      "asset": "Sign_NoEntry",
+      "category": "medium"
+    },
+    {
+      "id": "W8-08",
+      "slug": "speed_limit_sign_blank",
+      "name": "Speed limit sign (blank)",
+      "size_m": 2.5,
+      "family": "Signage",
+      "asset": "Sign_SpeedLimitBlank",
+      "category": "medium"
+    },
+    {
+      "id": "W8-09",
+      "slug": "no_parking_sign",
+      "name": "No parking sign",
+      "size_m": 2.5,
+      "family": "Signage",
+      "asset": "Sign_NoParking",
+      "category": "medium"
+    },
+    {
+      "id": "W8-10",
+      "slug": "one_way_sign",
+      "name": "One way sign",
+      "size_m": 2.5,
+      "family": "Signage",
+      "asset": "Sign_OneWay",
+      "category": "medium"
+    },
+    {
+      "id": "W8-11",
+      "slug": "pedestrian_crossing_sign",
+      "name": "Pedestrian crossing sign",
+      "size_m": 2.5,
+      "family": "Signage",
+      "asset": "Sign_PedestrianCrossing",
+      "category": "medium"
+    },
+    {
+      "id": "W8-12",
+      "slug": "bus_stop_pole_blank",
+      "name": "Bus stop pole (blank)",
+      "size_m": 3.0,
+      "family": "Signage",
+      "asset": "BusStopPole_Blank",
+      "category": "medium"
+    },
+    {
+      "id": "W8-13",
+      "slug": "direction_finger_signs_blank",
+      "name": "Direction finger signs (blank)",
+      "size_m": 3.5,
+      "family": "Signage",
+      "asset": "DirectionFingers_Blank",
+      "category": "large"
+    },
+    {
+      "id": "W8-14",
+      "slug": "bike_lane_sign",
+      "name": "Bike lane sign",
+      "size_m": 2.5,
+      "family": "Signage",
+      "asset": "Sign_BikeLane",
+      "category": "medium"
+    },
+    {
+      "id": "W8-15",
+      "slug": "roundabout_sign",
+      "name": "Roundabout sign",
+      "size_m": 2.5,
+      "family": "Signage",
+      "asset": "Sign_Roundabout",
+      "category": "medium"
+    },
+    {
+      "id": "W8-16",
+      "slug": "warning_triangle",
+      "name": "Warning triangle",
+      "size_m": 2.5,
+      "family": "Signage",
+      "asset": "Sign_WarningTriangle",
+      "category": "medium"
+    },
+    {
+      "id": "W8-17",
+      "slug": "parking_sign",
+      "name": "Parking sign",
+      "size_m": 2.5,
+      "family": "Signage",
+      "asset": "Sign_Parking",
+      "category": "medium"
+    },
+    {
+      "id": "W8-18",
+      "slug": "pole_with_two_signs",
+      "name": "Pole with two signs",
+      "size_m": 3.0,
+      "family": "Signage",
+      "asset": "Pole_TwoSigns",
+      "category": "medium"
+    },
+    {
+      "id": "W8-19",
+      "slug": "sign_gantry_blank",
+      "name": "Sign gantry (blank)",
+      "size_m": 8.0,
+      "family": "Signage",
+      "asset": "SignGantry_Blank",
+      "category": "large"
+    },
+    {
+      "id": "W8-20",
+      "slug": "guardrail",
+      "name": "Guardrail",
+      "size_m": 3.0,
+      "family": "Roadworks",
+      "asset": "Guardrail",
+      "category": "medium"
+    },
+    {
+      "id": "W8-21",
+      "slug": "guardrail_end",
+      "name": "Guardrail end",
+      "size_m": 1.5,
+      "family": "Roadworks",
+      "asset": "Guardrail_End",
+      "category": "medium"
+    },
+    {
+      "id": "W8-22",
+      "slug": "pedestrian_railing",
+      "name": "Pedestrian railing",
+      "size_m": 2.0,
+      "family": "Roadworks",
+      "asset": "Railing_Pedestrian",
+      "category": "medium"
+    },
+    {
+      "id": "W8-23",
+      "slug": "concrete_barrier",
+      "name": "Concrete barrier",
+      "size_m": 2.0,
+      "family": "Roadworks",
+      "asset": "Barrier_Concrete",
+      "category": "medium"
+    },
+    {
+      "id": "W8-24",
+      "slug": "plastic_barrier",
+      "name": "Plastic barrier",
+      "size_m": 1.5,
+      "family": "Roadworks",
+      "asset": "Barrier_Plastic",
+      "category": "medium"
+    },
+    {
+      "id": "W8-25",
+      "slug": "barrier_gate_arm",
+      "name": "Barrier gate arm",
+      "size_m": 4.0,
+      "family": "Roadworks",
+      "asset": "BarrierGate_Arm",
+      "pivot": "back_center",
+      "category": "large"
+    },
+    {
+      "id": "W8-26",
+      "slug": "island_bollard",
+      "name": "Island bollard",
+      "size_m": 0.8,
+      "family": "Roadworks",
+      "asset": "Bollard_Island",
+      "category": "small"
+    },
+    {
+      "id": "W8-27",
+      "slug": "road_stud",
+      "name": "Road stud",
+      "size_m": 0.12,
+      "family": "Roadworks",
+      "asset": "RoadStud",
+      "collision": "none",
+      "category": "small"
+    },
+    {
+      "id": "W8-28",
+      "slug": "lane_separator",
+      "name": "Lane separator",
+      "size_m": 1.0,
+      "family": "Roadworks",
+      "asset": "LaneSeparator",
+      "category": "medium"
+    },
+    {
+      "id": "W8-29",
+      "slug": "tall_cone",
+      "name": "Tall cone",
+      "size_m": 1.0,
+      "family": "Roadworks",
+      "asset": "Cone_Tall",
+      "category": "medium"
+    },
+    {
+      "id": "W8-30",
+      "slug": "traffic_drum",
+      "name": "Traffic drum",
+      "size_m": 1.0,
+      "family": "Roadworks",
+      "asset": "Drum_Traffic",
+      "category": "medium"
+    },
+    {
+      "id": "W8-31",
+      "slug": "road_works_light",
+      "name": "Road works light",
+      "size_m": 0.5,
+      "family": "Roadworks",
+      "asset": "RoadWorksLight",
+      "category": "small"
+    },
+    {
+      "id": "W8-32",
+      "slug": "vms_trailer_blank",
+      "name": "VMS trailer (blank)",
+      "size_m": 4.0,
+      "family": "Roadworks",
+      "asset": "Trailer_VMS",
+      "category": "large"
+    },
+    {
+      "id": "W8-33",
+      "slug": "traffic_camera_pole",
+      "name": "Traffic camera pole",
+      "size_m": 6.0,
+      "family": "Signals",
+      "asset": "CameraPole_Traffic",
+      "category": "large"
+    },
+    {
+      "id": "W8-34",
+      "slug": "signal_controller_cabinet",
+      "name": "Signal controller cabinet",
+      "size_m": 1.3,
+      "family": "Signals",
+      "asset": "Cabinet_SignalController",
+      "category": "medium"
+    },
+    {
+      "id": "W8-35",
+      "slug": "zebra_crossing_patch",
+      "name": "Zebra crossing patch",
+      "size_m": 4.0,
+      "family": "Ground",
+      "asset": "ZebraCrossing_Patch",
+      "collision": "none",
+      "category": "large"
+    },
+    {
+      "id": "W8-36",
+      "slug": "painted_speed_bump",
+      "name": "Painted speed bump",
+      "size_m": 3.0,
+      "family": "Ground",
+      "asset": "SpeedBump_Painted",
+      "collision": "none",
+      "category": "medium"
+    },
+    {
+      "id": "W8-37",
+      "slug": "manhole_in_asphalt",
+      "name": "Manhole in asphalt",
+      "size_m": 0.9,
+      "family": "Ground",
+      "asset": "Manhole_Asphalt",
+      "collision": "none",
+      "category": "small"
+    },
+    {
+      "id": "W8-38",
+      "slug": "road_arrow_marking",
+      "name": "Road arrow marking",
+      "size_m": 3.0,
+      "family": "Ground",
+      "asset": "RoadArrow_Marking",
+      "collision": "none",
+      "category": "medium"
+    },
+    {
+      "id": "W8-39",
+      "slug": "curb_ramp_tactile",
+      "name": "Curb ramp tactile",
+      "size_m": 1.5,
+      "family": "Ground",
+      "asset": "CurbRamp_Tactile",
+      "collision": "none",
+      "category": "medium"
+    },
+    {
+      "id": "W8-40",
+      "slug": "tactile_paving_tile",
+      "name": "Tactile paving tile",
+      "size_m": 0.4,
+      "family": "Ground",
+      "asset": "TactilePaving_Tile",
+      "collision": "none",
+      "category": "small"
+    }
+  ]
+}

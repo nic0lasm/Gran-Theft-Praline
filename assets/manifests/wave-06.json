@@ -1,0 +1,458 @@
+{
+  "wave": "w6",
+  "items": [
+    {
+      "id": "W6-01",
+      "slug": "classic_square_bench",
+      "name": "Classic square bench",
+      "size_m": 1.8,
+      "family": "StreetFurniture",
+      "asset": "Bench_SquareClassic",
+      "category": "medium"
+    },
+    {
+      "id": "W6-02",
+      "slug": "backless_stone_and_wood_bench",
+      "name": "Backless stone and wood bench",
+      "size_m": 1.8,
+      "family": "StreetFurniture",
+      "asset": "Bench_StoneWoodBackless",
+      "category": "medium"
+    },
+    {
+      "id": "W6-03",
+      "slug": "circular_tree_bench",
+      "name": "Circular tree bench",
+      "size_m": 3.0,
+      "family": "StreetFurniture",
+      "asset": "Bench_TreeCircular",
+      "category": "medium"
+    },
+    {
+      "id": "W6-04",
+      "slug": "large_square_fountain",
+      "name": "Large square fountain",
+      "size_m": 6.0,
+      "family": "Monument",
+      "asset": "Fountain_SquareLarge",
+      "category": "large"
+    },
+    {
+      "id": "W6-05",
+      "slug": "equestrian_monument_pedestal",
+      "name": "Equestrian monument pedestal",
+      "size_m": 3.5,
+      "family": "Monument",
+      "asset": "Pedestal_Equestrian",
+      "category": "large"
+    },
+    {
+      "id": "W6-06",
+      "slug": "triple_lantern_lamp_post",
+      "name": "Triple-lantern lamp post",
+      "size_m": 4.5,
+      "family": "Lighting",
+      "asset": "StreetLamp_TripleLantern",
+      "category": "large"
+    },
+    {
+      "id": "W6-07",
+      "slug": "single_lantern_lamp_post",
+      "name": "Single-lantern lamp post",
+      "size_m": 4.0,
+      "family": "Lighting",
+      "asset": "StreetLamp_SingleLantern",
+      "category": "large"
+    },
+    {
+      "id": "W6-08",
+      "slug": "gravel_path_edging",
+      "name": "Gravel path edging",
+      "size_m": 2.0,
+      "family": "Ground",
+      "asset": "PathEdging_Gravel",
+      "category": "medium"
+    },
+    {
+      "id": "W6-09",
+      "slug": "low_hoop_fence",
+      "name": "Low hoop fence",
+      "size_m": 3.0,
+      "family": "Park",
+      "asset": "Fence_LowHoop",
+      "category": "medium"
+    },
+    {
+      "id": "W6-10",
+      "slug": "lawn_patch",
+      "name": "Lawn patch",
+      "size_m": 3.0,
+      "family": "Ground",
+      "asset": "LawnPatch",
+      "collision": "none",
+      "category": "medium"
+    },
+    {
+      "id": "W6-11",
+      "slug": "raised_flower_bed",
+      "name": "Raised flower bed",
+      "size_m": 2.5,
+      "family": "Greenery",
+      "asset": "FlowerBed_Raised",
+      "category": "medium"
+    },
+    {
+      "id": "W6-12",
+      "slug": "mature_plane_tree",
+      "name": "Mature plane tree",
+      "size_m": 14.0,
+      "family": "Greenery",
+      "asset": "Tree_MaturePlane",
+      "category": "large"
+    },
+    {
+      "id": "W6-13",
+      "slug": "clipped_lime_tree",
+      "name": "Clipped lime tree",
+      "size_m": 8.0,
+      "family": "Greenery",
+      "asset": "Tree_ClippedLime",
+      "category": "large"
+    },
+    {
+      "id": "W6-14",
+      "slug": "horse_chestnut",
+      "name": "Horse chestnut",
+      "size_m": 14.0,
+      "family": "Greenery",
+      "asset": "Tree_HorseChestnut",
+      "category": "large"
+    },
+    {
+      "id": "W6-15",
+      "slug": "tree_guard_grille",
+      "name": "Tree guard grille",
+      "size_m": 2.0,
+      "family": "Greenery",
+      "asset": "TreeGuard_Grille",
+      "category": "medium"
+    },
+    {
+      "id": "W6-16",
+      "slug": "bandstand",
+      "name": "Bandstand",
+      "size_m": 8.0,
+      "family": "Monument",
+      "asset": "Bandstand",
+      "category": "large"
+    },
+    {
+      "id": "W6-17",
+      "slug": "morris_style_kiosk_blank",
+      "name": "Morris-style kiosk (blank)",
+      "size_m": 3.5,
+      "family": "Market",
+      "asset": "Kiosk_MorrisBlank",
+      "category": "large"
+    },
+    {
+      "id": "W6-18",
+      "slug": "refreshment_kiosk",
+      "name": "Refreshment kiosk",
+      "size_m": 3.0,
+      "family": "Market",
+      "asset": "Kiosk_Refreshment",
+      "category": "medium"
+    },
+    {
+      "id": "W6-19",
+      "slug": "carousel",
+      "name": "Carousel",
+      "size_m": 6.0,
+      "family": "Play",
+      "asset": "Carousel",
+      "category": "large"
+    },
+    {
+      "id": "W6-20",
+      "slug": "playground_slide",
+      "name": "Playground slide",
+      "size_m": 3.5,
+      "family": "Play",
+      "asset": "Slide",
+      "category": "large"
+    },
+    {
+      "id": "W6-21",
+      "slug": "swing_set",
+      "name": "Swing set",
+      "size_m": 3.5,
+      "family": "Play",
+      "asset": "SwingSet",
+      "category": "large"
+    },
+    {
+      "id": "W6-22",
+      "slug": "spring_rider",
+      "name": "Spring rider",
+      "size_m": 1.0,
+      "family": "Play",
+      "asset": "SpringRider",
+      "category": "medium"
+    },
+    {
+      "id": "W6-23",
+      "slug": "sandbox",
+      "name": "Sandbox",
+      "size_m": 2.5,
+      "family": "Play",
+      "asset": "Sandbox",
+      "category": "medium"
+    },
+    {
+      "id": "W6-24",
+      "slug": "concrete_ping_pong_table",
+      "name": "Concrete ping pong table",
+      "size_m": 2.7,
+      "family": "Play",
+      "asset": "PingPongTable_Concrete",
+      "category": "medium"
+    },
+    {
+      "id": "W6-25",
+      "slug": "petanque_court_border",
+      "name": "Petanque court border",
+      "size_m": 4.0,
+      "family": "Ground",
+      "asset": "PetanqueCourt_Border",
+      "category": "large"
+    },
+    {
+      "id": "W6-26",
+      "slug": "petanque_boules",
+      "name": "Petanque boules",
+      "size_m": 0.3,
+      "family": "Props",
+      "asset": "Petanque_Boules",
+      "category": "small"
+    },
+    {
+      "id": "W6-27",
+      "slug": "steel_drinking_fountain",
+      "name": "Steel drinking fountain",
+      "size_m": 1.1,
+      "family": "Utilities",
+      "asset": "DrinkingFountain_Steel",
+      "category": "medium"
+    },
+    {
+      "id": "W6-28",
+      "slug": "square_trash_bin",
+      "name": "Square trash bin",
+      "size_m": 1.0,
+      "family": "Utilities",
+      "asset": "TrashBin_Square",
+      "category": "medium"
+    },
+    {
+      "id": "W6-29",
+      "slug": "recycling_column",
+      "name": "Recycling column",
+      "size_m": 1.6,
+      "family": "Utilities",
+      "asset": "RecyclingColumn",
+      "category": "medium"
+    },
+    {
+      "id": "W6-30",
+      "slug": "info_board_blank_map",
+      "name": "Info board (blank map)",
+      "size_m": 2.2,
+      "family": "Signage",
+      "asset": "InfoBoard_BlankMap",
+      "category": "medium"
+    },
+    {
+      "id": "W6-31",
+      "slug": "bollard_with_chain",
+      "name": "Bollard with chain",
+      "size_m": 1.0,
+      "family": "StreetFurniture",
+      "asset": "Bollard_Chain",
+      "category": "medium"
+    },
+    {
+      "id": "W6-32",
+      "slug": "grass_hoop",
+      "name": "Grass hoop",
+      "size_m": 1.0,
+      "family": "Park",
+      "asset": "GrassHoop",
+      "category": "medium"
+    },
+    {
+      "id": "W6-33",
+      "slug": "granite_paving_patch",
+      "name": "Granite paving patch",
+      "size_m": 2.0,
+      "family": "Ground",
+      "asset": "Paving_GranitePatch",
+      "collision": "none",
+      "category": "medium"
+    },
+    {
+      "id": "W6-34",
+      "slug": "ornamental_pool",
+      "name": "Ornamental pool",
+      "size_m": 6.0,
+      "family": "Monument",
+      "asset": "Pool_Ornamental",
+      "category": "large"
+    },
+    {
+      "id": "W6-35",
+      "slug": "floor_water_jets",
+      "name": "Floor water jets",
+      "size_m": 3.0,
+      "family": "Ground",
+      "asset": "WaterJets_Floor",
+      "collision": "none",
+      "category": "medium"
+    },
+    {
+      "id": "W6-36",
+      "slug": "seated_bronze_statue_generic",
+      "name": "Seated bronze statue (generic)",
+      "size_m": 2.5,
+      "family": "Monument",
+      "asset": "Statue_SeatedBronze",
+      "category": "medium"
+    },
+    {
+      "id": "W6-37",
+      "slug": "commemorative_column",
+      "name": "Commemorative column",
+      "size_m": 8.0,
+      "family": "Monument",
+      "asset": "Column_Commemorative",
+      "category": "large"
+    },
+    {
+      "id": "W6-38",
+      "slug": "steps_with_handrail",
+      "name": "Steps with handrail",
+      "size_m": 3.0,
+      "family": "Monument",
+      "asset": "Steps_Handrail",
+      "category": "medium"
+    },
+    {
+      "id": "W6-39",
+      "slug": "low_stone_wall",
+      "name": "Low stone wall",
+      "size_m": 4.0,
+      "family": "Monument",
+      "asset": "Wall_LowStone",
+      "category": "large"
+    },
+    {
+      "id": "W6-40",
+      "slug": "automatic_public_toilet",
+      "name": "Automatic public toilet",
+      "size_m": 3.0,
+      "family": "Utilities",
+      "asset": "Toilet_AutomaticPublic",
+      "category": "medium"
+    },
+    {
+      "id": "W6-41",
+      "slug": "market_stall_frame",
+      "name": "Market stall frame",
+      "size_m": 3.0,
+      "family": "Market",
+      "asset": "Stall_Frame",
+      "category": "medium"
+    },
+    {
+      "id": "W6-42",
+      "slug": "market_stall_with_vegetables",
+      "name": "Market stall with vegetables",
+      "size_m": 3.0,
+      "family": "Market",
+      "asset": "Stall_Vegetables",
+      "category": "medium"
+    },
+    {
+      "id": "W6-43",
+      "slug": "wooden_market_chalet",
+      "name": "Wooden market chalet",
+      "size_m": 4.0,
+      "family": "Market",
+      "asset": "Chalet_Wooden",
+      "category": "large"
+    },
+    {
+      "id": "W6-44",
+      "slug": "generic_food_truck",
+      "name": "Generic food truck",
+      "size_m": 5.5,
+      "family": "Market",
+      "asset": "FoodTruck_Generic",
+      "category": "large"
+    },
+    {
+      "id": "W6-45",
+      "slug": "square_cafe_umbrella",
+      "name": "Square cafe umbrella",
+      "size_m": 3.0,
+      "family": "Terrace",
+      "asset": "Umbrella_SquareCafe",
+      "category": "medium"
+    },
+    {
+      "id": "W6-46",
+      "slug": "terrace_table_with_two_chairs",
+      "name": "Terrace table with two chairs",
+      "size_m": 1.6,
+      "family": "Terrace",
+      "asset": "TableChairs_Two",
+      "category": "medium"
+    },
+    {
+      "id": "W6-47",
+      "slug": "bike_hoop_row",
+      "name": "Bike hoop row",
+      "size_m": 3.0,
+      "family": "Mobility",
+      "asset": "BikeHoops_Row",
+      "category": "medium"
+    },
+    {
+      "id": "W6-48",
+      "slug": "path_light_bollard",
+      "name": "Path light bollard",
+      "size_m": 0.9,
+      "family": "Lighting",
+      "asset": "Bollard_PathLight",
+      "category": "small"
+    },
+    {
+      "id": "W6-49",
+      "slug": "boxwood_hedge",
+      "name": "Boxwood hedge",
+      "size_m": 3.0,
+      "family": "Greenery",
+      "asset": "Hedge_Boxwood",
+      "category": "medium"
+    },
+    {
+      "id": "W6-50",
+      "slug": "pigeon_flock",
+      "name": "Pigeon flock",
+      "size_m": 1.5,
+      "family": "Fauna",
+      "asset": "PigeonFlock",
+      "category": "medium"
+    }
+  ]
+}
