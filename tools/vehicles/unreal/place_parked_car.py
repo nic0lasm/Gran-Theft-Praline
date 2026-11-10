@@ -52,6 +52,12 @@ def main():
         unreal.TraceTypeQuery.TRACE_TYPE_QUERY1, False, [], unreal.DrawDebugTrace.NONE, True)
     if hit:
         loc.z = hit.to_tuple()[4].z + 30.0  # location of the hit on the ground
+        log("ground from trace: %.1f" % loc.z)
+    else:
+        # Headless (-unattended) editors often have no physics scene to trace against.
+        # import_city.py puts the PlayerStart 120 cm above the ground of the street axis.
+        loc.z = start.get_actor_location().z - 120.0 + 30.0
+        log("no trace hit, ground from the PlayerStart: %.1f" % loc.z)
 
     cls = unreal.EditorAssetLibrary.load_blueprint_class(CAR)
     if cls is None:
