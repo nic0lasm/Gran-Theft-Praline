@@ -47,8 +47,9 @@ GranTheftPraline/Plugins/FabContent/
 # Real shop signs and brands: kept locally, not covered by the MIT licence
 GranTheftPraline/Plugins/CityBrands/
 
-# Generated street ambience (tools/audio/make_street_ambience.py + import_ambience.py)
-/GranTheftPraline/Content/Sound/Ambience/
+# Game audio: generated (tools/audio) or recorded (Sonniss GDC, CC0) sounds and the
+# surface maps derived from OSM/BD TOPO, imported on the Mac, never versioned
+/GranTheftPraline/Content/Sound/
 
 # Python
 __pycache__/
