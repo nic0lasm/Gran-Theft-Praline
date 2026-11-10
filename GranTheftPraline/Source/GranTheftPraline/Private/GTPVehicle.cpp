@@ -58,13 +58,19 @@ AGTPVehicle::AGTPVehicle(const FObjectInitializer& ObjectInitializer)
 	bUseControllerRotationYaw = false;
 	bUseControllerRotationRoll = false;
 
+	// AWheeledVehiclePawn leaves the body kinematic (Epic's template turns
+	// physics on in its Blueprint): without it Chaos never moves the car.
+	GetMesh()->SetSimulatePhysics(true);
+
 	ChaseArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("ChaseArm"));
 	ChaseArm->SetupAttachment(GetMesh());
 	ChaseArm->bUsePawnControlRotation = true;
 	ChaseArm->bInheritRoll = false;
 	ChaseArm->bDoCollisionTest = true;
 	ChaseArm->bEnableCameraLag = true;
-	ChaseArm->CameraLagSpeed = 8.f;
+	// Tight lag, capped: the car stays the same size on screen at speed.
+	ChaseArm->CameraLagSpeed = 14.f;
+	ChaseArm->CameraLagMaxDistance = 150.f;
 	ChaseArm->bEnableCameraRotationLag = true;
 	ChaseArm->CameraRotationLagSpeed = 10.f;
 
@@ -118,7 +124,9 @@ void AGTPVehicle::ApplyCityCarTuning()
 	Move->WheelSetups[3].WheelClass = UGTPWheelRear::StaticClass();
 	Move->WheelSetups[3].BoneName = TEXT("Phys_Wheel_BR");
 
-	Move->EngineSetup.MaxTorque = 220.f;
+	// Chaos has no drivetrain losses: about 130 Nm at the wheels' input gives
+	// a real 100 hp city car's pace (0-50 km/h in about 4 s, 0-100 in about 11 s).
+	Move->EngineSetup.MaxTorque = 130.f;
 	Move->EngineSetup.MaxRPM = 6000.f;
 	Move->EngineSetup.EngineIdleRPM = 850.f;
 	Move->EngineSetup.EngineBrakeEffect = 0.2f;
@@ -148,7 +156,8 @@ void AGTPVehicle::ApplyCityCarTuning()
 		Steering->Reset();
 		Steering->AddKey(0.f, 1.f);
 		Steering->AddKey(30.f, 0.75f);
-		Steering->AddKey(80.f, 0.4f);
+		Steering->AddKey(80.f, 0.3f);
+		Steering->AddKey(120.f, 0.22f);
 	}
 }
 
@@ -188,6 +197,7 @@ void AGTPVehicle::BeginPlay()
 	Super::BeginPlay();
 	Health = MaxHealth;
 
+	ChaseArm->SetRelativeLocation(FVector(0.f, 0.f, ChasePivotHeight));
 	ChaseArm->TargetArmLength = ChaseDistance;
 	ChaseArm->SocketOffset = FVector(0.f, 0.f, ChaseHeight);
 	ChaseCamera->SetFieldOfView(BaseFOV);

@@ -88,7 +88,7 @@ Three driving profiles cover 0.3 and traffic:
 
 | Profile | Examples | Mass | Torque | Drive | Feel |
 | ---- | ---- | ---- | ---- | ---- | ---- |
-| City car | Clio, 208, C3, Sandero, Yaris, Polo | 1,150 kg | 220 N·m | front | lively, light, oversteers on the handbrake |
+| City car | Clio, 208, C3, Sandero, Yaris, Polo | 1,150 kg | 130 N·m (Chaos has no drivetrain losses) | front | lively, light, oversteers on the handbrake |
 | Family car / SUV | 308, 3008, Golf, A-Class, 3 Series | 1,400 kg | 300 N·m | front (rear for BMW) | steadier, faster |
 | Van | Kangoo, Berlingo, Trafic, Master | 1,900 kg | 330 N·m | front | slow, rolls, long braking |
 
