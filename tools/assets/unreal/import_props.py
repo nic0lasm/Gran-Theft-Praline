@@ -51,6 +51,9 @@ DEFAULT_NORMAL = f"{MASTER_FOLDER}/T_Default_Normal"
 def default_texture(path, source, compression):
     """Linear copy of an engine texture, so a parameter's default matches its sampler type."""
     if not eal.does_asset_exist(path):
+        # Under -run=pythonscript the asset registry has not scanned the engine folders yet.
+        unreal.AssetRegistryHelpers.get_asset_registry().scan_paths_synchronous(
+            ["/Engine/EngineMaterials", "/Engine/EngineResources"], True)
         if eal.duplicate_asset(source, path) is None:
             raise RuntimeError(f"cannot duplicate {source} to {path}")
     tex = unreal.load_asset(path)
@@ -61,11 +64,12 @@ def default_texture(path, source, compression):
 
 
 def set_master_defaults(orm, normal):
-    """Without these defaults the master fails to compile on Metal
+    """Fallbacks only: every prop instance sets its own ORM and Normal (a white
+    ORM default would read as fully metallic). Without these defaults the master fails to compile on Metal
     ("Sampler type is Normal/Masks, should be Color") and every prop falls
     back to the engine checker material in packaged builds."""
     orm.set_editor_property("texture", default_texture(
-        DEFAULT_MASKS, "/Engine/EngineMaterials/DefaultWhite", unreal.TextureCompressionSettings.TC_MASKS))
+        DEFAULT_MASKS, "/Engine/EngineResources/WhiteSquareTexture", unreal.TextureCompressionSettings.TC_MASKS))
     normal.set_editor_property("texture", default_texture(
         DEFAULT_NORMAL, "/Engine/EngineMaterials/DefaultNormal", unreal.TextureCompressionSettings.TC_NORMALMAP))
 
