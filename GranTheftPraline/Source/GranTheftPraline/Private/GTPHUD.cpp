@@ -61,6 +61,15 @@ void AGTPHUD::DrawHUD()
 {
 	Super::DrawHUD();
 	const AGTPPlayerController* PC = Cast<AGTPPlayerController>(GetOwningPlayerController());
+	if (Canvas && PC && PC->IsFullMapOpen())
+	{
+		// The full-screen map replaces the HUD while the game is paused on it.
+		if (UGTPMinimapSubsystem* Minimap = GetWorld() ? GetWorld()->GetSubsystem<UGTPMinimapSubsystem>() : nullptr)
+		{
+			Minimap->DrawFullMap(Canvas, PC);
+		}
+		return;
+	}
 	if (!Canvas || !PC || PC->IsPaused() || PC->IsMenuOpen())
 	{
 		return;

@@ -39,6 +39,13 @@ public:
 	/** Draws the mini-map; does nothing when disabled in the settings or when the map has no data. */
 	void Draw(UCanvas* Canvas, const AGTPPlayerController* Controller, float Scale);
 
+	/**
+	 * Full-screen map: the same data north up, centred on the player, a few
+	 * hundred metres tall, with the street names. Opened by M (gamepad View
+	 * button) through AGTPPlayerController::ToggleFullMap; the game is paused.
+	 */
+	void DrawFullMap(UCanvas* Canvas, const AGTPPlayerController* Controller);
+
 	void AddBlip(AActor* Actor, const FLinearColor& Color, bool bClampToEdge = false);
 	void RemoveBlip(AActor* Actor);
 
@@ -58,10 +65,14 @@ private:
 	};
 
 	GTPUI::FMapData Data;
+	TArray<GTPUI::FMapLabel> Labels;
 	TArray<FBlip> Blips;
 	bool bLoaded = false;
 
 	/** Disc radius in pixels at 1080 lines, and its distance to the screen corner. */
+	/** Height of the full-screen map in world cm (700 m). */
+	static constexpr float FullMapHeightCm = 70000.f;
+
 	static constexpr float RadiusAt1080 = 120.f;
 	static constexpr float MarginAt1080 = 36.f;
 };

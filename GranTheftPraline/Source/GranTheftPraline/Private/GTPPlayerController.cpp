@@ -349,6 +349,7 @@ void AGTPPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	HideMenu(TitleMenu);
 	HideMenu(PauseMenu);
 	HideMenu(SettingsMenu);
+	bFullMapOpen = false;
 	if (Ambience)
 	{
 		Ambience->Stop();
@@ -365,6 +366,20 @@ bool AGTPPlayerController::IsPauseKey(const FKey& Key)
 bool AGTPPlayerController::InputKey(const FInputKeyEventArgs& Params)
 {
 	// Only reached while gameplay has input focus: open menus consume their own keys.
+	if (Params.Event == IE_Pressed)
+	{
+		const bool bMapKey = Params.Key == EKeys::M || Params.Key == EKeys::Gamepad_Special_Left;
+		if (bFullMapOpen && (bMapKey || IsPauseKey(Params.Key) || Params.Key == EKeys::Gamepad_FaceButton_Right))
+		{
+			ToggleFullMap();
+			return true;
+		}
+		if (bMapKey && !IsMenuOpen())
+		{
+			ToggleFullMap();
+			return true;
+		}
+	}
 	if (Params.Event == IE_Pressed && IsPauseKey(Params.Key) && !IsMenuOpen())
 	{
 		OpenPauseMenu();
@@ -401,6 +416,16 @@ void AGTPPlayerController::ClosePauseMenu()
 	}
 	HideMenu(PauseMenu);
 	EnterGameplayInput();
+}
+
+void AGTPPlayerController::ToggleFullMap()
+{
+	if (!bFullMapOpen && IsMenuOpen())
+	{
+		return;
+	}
+	bFullMapOpen = !bFullMapOpen;
+	SetPause(bFullMapOpen);
 }
 
 void AGTPPlayerController::OpenSettingsMenu()

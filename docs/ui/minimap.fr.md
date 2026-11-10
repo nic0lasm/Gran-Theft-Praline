@@ -23,7 +23,7 @@ rue de la République : `/mnt/project-files/ui/minimap-preview-*.png` (faites pa
 
 `tools/ui/minimap.py` transforme les tables de la ville (`roads.geojson`,
 `water.geojson`, `buildings.geojson` de la zone : IGN BD TOPO, Licence Ouverte Etalab
-2.0) en `minimap.csv` : une ligne par polyligne, `kind,width_m,points_ue_cm`, simplifiée
+2.0) en `minimap.csv` : une ligne par polyligne, `kind,width_m,points_ue_cm,name`, simplifiée
 à 1,5 m et en centimètres Unreal comme les voies du trafic. Presqu'île : 3 497
 polylignes, 295 Ko. Avec `--map <Map>` il est copié dans
 `GranTheftPraline/Content/City/Minimap/<Map>.minimap.csv`, **non versionné** (données de
@@ -61,8 +61,17 @@ texture ni render target. Le coût mesuré sur le M1 Pro ira dans `docs/ui/test-
 optimisation : 0,3 ms CPU et 0,2 ms GPU. S'il ne tient pas, repli : une texture statique
 pré-rendue par map, tournée par le HUD (un seul appel de dessin).
 
+## Carte plein écran
+
+**M** (bouton Vue de la manette) ouvre une carte plein écran et met le jeu en pause ; M,
+Échap ou B la ferme. Mêmes données, nord en haut, centrée sur le joueur, 700 m de haut,
+avec contours des bâtiments, eau, toutes les routes, **noms de voies** (une étiquette par
+nom, au milieu de sa polyligne la plus longue ; les noms viennent de la colonne BD TOPO
+`nom_voie_ban`, écrite dans la colonne `name` de `minimap.csv`) et la flèche du joueur
+tournée vers où il regarde. Dessinée par `UGTPMinimapSubsystem::DrawFullMap` ; le HUD lui
+cède la place tant qu'elle est ouverte.
+
 ## Suite (roadmap 0.10)
 
-Carte plein écran avec les mêmes données et une vue plus large, point de passage posé
-par le joueur, itinéraire GPS tracé sur les voies (`lanes.csv` du trafic), noms de
-quartiers.
+Point de passage posé par le joueur, itinéraire GPS tracé sur les voies (`lanes.csv` du
+trafic), déplacement et zoom de la carte plein écran, noms de quartiers.

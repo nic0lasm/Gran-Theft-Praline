@@ -9,7 +9,7 @@ import minimap  # noqa: E402
 
 def road(nature="Route à 1 chaussée", importance="3", pos="0", coords=((0, 0), (10, 0))):
     return {"properties": {"nature": nature, "importance": importance, "position_par_rapport_au_sol": pos,
-                           "largeur_de_chaussee": 6},
+                           "largeur_de_chaussee": 6, "nom_voie_ban_gauche": "Rue de la République"},
             "geometry": {"type": "LineString", "coordinates": [list(c) for c in coords]}}
 
 
@@ -41,8 +41,8 @@ class MinimapTests(unittest.TestCase):
             p = os.path.join(d, "m.csv")
             minimap.write_rows(rows, p)
             text = open(p, encoding="utf-8").read().splitlines()
-        self.assertEqual(text[0], "kind,width_m,points_ue_cm")
-        self.assertEqual(text[1], "road_major,6,0 0;1000 0")
+        self.assertEqual(text[0], "kind,width_m,points_ue_cm,name")
+        self.assertEqual(text[1], "road_major,6,0 0;1000 0,Rue de la République")
 
 
 if __name__ == "__main__":

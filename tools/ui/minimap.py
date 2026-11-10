@@ -6,11 +6,13 @@ Output (not committed, derived data like the rest of the city tables):
   assets/geo/processed/<zone>/gen/minimap/minimap.csv   one row per polyline
   GranTheftPraline/Content/City/Minimap/<Map>.minimap.csv   with --map, staged with the game
 
-Row format, UTF-8 CSV with a header: kind,width_m,points_ue_cm
+Row format, UTF-8 CSV with a header: kind,width_m,points_ue_cm,name
   kind        road_major | road_minor | path | tunnel | water | building
   width_m     carriageway width (0 for water and buildings)
   points      "x y;x y;..." in Unreal cm (X east, Y south), integers; a closed
               ring repeats its first point.
+  name        street name (BD TOPO nom_voie_ban), commas removed; empty for
+              water, buildings and unnamed roads.
 The game (GTPMinimap.h) reads it at start; see docs/ui/minimap.md.
 
   python3 tools/ui/minimap.py [--zone presqu-ile] [--map L_City_RueDeLaRepublique] \
@@ -113,6 +115,11 @@ def _rings(geom):
     return []
 
 
+def road_name(props):
+    name = props.get("nom_voie_ban_gauche") or props.get("nom_voie_ban_droite") or ""
+    return " ".join(str(name).replace(",", " ").replace('"', "").split())
+
+
 def build_rows(roads, water, buildings, tol=1.5):
     """Rows (kind, width_m, points in UE cm) from the three feature lists."""
     rows = []
@@ -120,15 +127,16 @@ def build_rows(roads, water, buildings, tol=1.5):
         props = feat["properties"]
         kind = road_kind(props)
         width = road_width(props)
+        name = road_name(props) if kind in ("road_major", "road_minor") else ""
         for line in _lines(feat["geometry"]):
             pts = simplify([(p[0], p[1]) for p in line], tol)
             if len(pts) >= 2:
-                rows.append((kind, width, to_ue_cm(pts)))
+                rows.append((kind, width, to_ue_cm(pts), name))
     for feat in water:
         for ring in _rings(feat["geometry"]):
             pts = simplify([(p[0], p[1]) for p in ring], tol * 2)
             if len(pts) >= 4:
-                rows.append(("water", 0.0, to_ue_cm(pts)))
+                rows.append(("water", 0.0, to_ue_cm(pts), ""))
     for feat in buildings:
         for ring in _rings(feat["geometry"]):
             pts = [(p[0], p[1]) for p in ring]
@@ -136,7 +144,7 @@ def build_rows(roads, water, buildings, tol=1.5):
                 continue
             pts = simplify(pts, tol)
             if len(pts) >= 4:
-                rows.append(("building", 0.0, to_ue_cm(pts)))
+                rows.append(("building", 0.0, to_ue_cm(pts), ""))
     return rows
 
 
@@ -144,9 +152,9 @@ def write_rows(rows, path):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
-        w.writerow(["kind", "width_m", "points_ue_cm"])
-        for kind, width, pts in rows:
-            w.writerow([kind, "%g" % width, ";".join("%d %d" % p for p in pts)])
+        w.writerow(["kind", "width_m", "points_ue_cm", "name"])
+        for kind, width, pts, name in rows:
+            w.writerow([kind, "%g" % width, ";".join("%d %d" % p for p in pts), name])
 
 
 def _load(path):
@@ -174,7 +182,7 @@ def main():
     out = os.path.join(base, "gen", "minimap", "minimap.csv")
     write_rows(rows, out)
     counts = {}
-    for kind, _, _ in rows:
+    for kind, _, _, _ in rows:
         counts[kind] = counts.get(kind, 0) + 1
     print("%d polylines %s -> %s" % (len(rows), counts, out))
     if args.map:

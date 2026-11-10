@@ -75,6 +75,8 @@ inline constexpr FStringEntry Entries[] = {
 	{"prompt.enter_vehicle", "Monter", "Get in"},
 	{"prompt.exit_vehicle", "Descendre", "Get out"},
 	{"minimap.north", "N", "N"},
+	{"fullmap.title", "Carte de Lyon", "Map of Lyon"},
+	{"fullmap.hint", "M ou Retour : fermer la carte", "M or Back: close the map"},
 };
 
 inline constexpr std::size_t EntryCount = sizeof(Entries) / sizeof(Entries[0]);
