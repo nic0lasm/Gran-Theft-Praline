@@ -384,6 +384,9 @@ sans translucidité ni surcoût de remplissage ; reflets et Fresnel par-dessus, 
 `EmissiveScale` pour la nuit. `translucent` (vraie vitre et présentoirs W14-32) et `opaque` restent
 disponibles. Les détails ont des distances d'affichage de 20 à 40 m (colonne `cull_m`, 60 m pour
 cheminées et feux).
+Les détails sans ombre (petits ou plaqués au mur) sortent aussi des champs de distance de Lumen,
+de la scène de lancer de rayons et des décalques : rien ne change à l'image, et Lumen logiciel a moins
+de champs de distance à parcourir (`GTP_DETAILS_LEAN=0` le désactive pour comparer).
 
 ### LOD du kit de façades (performance, 2026-11-10)
 
