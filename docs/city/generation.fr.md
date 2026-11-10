@@ -377,6 +377,14 @@ plaqués au mur, les présentoirs derrière les vitres et les petits objets ne p
 Grand Lyon, les troncs nus de platane par le hêtre Megascans gratuit (`SM_EuropeanBeech_Field_01`,
 `_Sapling_01` pour les jeunes arbres). Désactivé par défaut tant que son coût M1 n'est pas mesuré.
 
+**Vitrines à fausse profondeur** (défaut, `GTP_SHOP_GLASS=interior`) : `M_City_ShopInterior` est un verre
+opaque qui dessine une boutique éclairée par « interior mapping » (un test rayon-boîte par pixel dans
+le repère du module : fond garni d'étagères aux couleurs variées, sol, plafond lumineux, murs),
+sans translucidité ni surcoût de remplissage ; reflets et Fresnel par-dessus, émissif multiplié par
+`EmissiveScale` pour la nuit. `translucent` (vraie vitre et présentoirs W14-32) et `opaque` restent
+disponibles. Les détails ont des distances d'affichage de 20 à 40 m (colonne `cull_m`, 60 m pour
+cheminées et feux).
+
 ## Limites et suite
 
 1. **Test éditeur** : `tools/city/unreal/import_city.py` importe greybox et

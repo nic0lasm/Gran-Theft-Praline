@@ -163,7 +163,7 @@ def main():
     world = editor_sub.get_editor_world()
     by_id = catalog_index() if eal.does_directory_exist(PROPS_ROOT) else {}
     report["imported_catalog_ids"] = len(by_id)
-    comps, snapped, kept, no_collision, no_shadow = {}, 0, 0, set(), set()
+    comps, snapped, kept, no_collision, no_shadow, culled = {}, 0, 0, set(), set(), set()
     for r in rows:
         p = r["asset_path"] if r["asset_path"] and eal.does_asset_exist(r["asset_path"]) else \
             by_id.get(r["catalog_id"], "")
@@ -180,6 +180,11 @@ def main():
         comp = comps[key]
         if comp is None:
             continue
+        if r.get("cull_m") and key not in culled:
+            end = float(r["cull_m"]) * 100.0   # per-table override of the size-class distance
+            comp.set_editor_property("instance_start_cull_distance", int(end * CULL_START_SHARE))
+            comp.set_editor_property("instance_end_cull_distance", int(end))
+            culled.add(key)
         if r.get("shadow") == "false" and key not in no_shadow:
             comp.set_editor_property("cast_shadow", False)   # flush on a wall: its shadow is invisible
             no_shadow.add(key)
