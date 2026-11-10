@@ -25,6 +25,9 @@
 #              -GfxCVars, default "base=" (no override), e.g.
 #              VARIANTS="base=;noclouds=r.VolumetricCloud=0;res45=r.ScreenPercentage=45"
 #   EXTRA_ARGS extra game arguments for every run
+#   CAPTURE    1: after each street-fixed run, keep one still of the fixed
+#              camera as still.jpg (CAPTURE_AT s in, default 30; before ~25 s
+#              the frame can still be black), for before/after comparisons
 #   MAX_LOAD   refuse to start while the 1-minute load average is above it
 #              (default 4; Spotlight indexing after a reboot ruins numbers)
 #
@@ -56,6 +59,25 @@ if pgrep -f "UnrealEditor( |$)|GranTheftPraline-Mac" > /dev/null; then
   die "an Unreal or game process is already running"
 fi
 mkdir -p "$out_dir"
+
+# Run the game with a watchdog: kill it when it outlives its limit by 60 s
+# (a capture once hung for 94 minutes), then go on with the next run.
+run_game() {
+  local limit="$1" log="$2"; shift 2
+  "$@" > "$log" 2>&1 &
+  local pid=$! waited=0
+  while kill -0 "$pid" 2> /dev/null; do
+    if test "$waited" -gt $((limit + 60)); then
+      echo "  watchdog: still running after ${waited}s, killed" | tee -a "$log"
+      pkill -9 -P "$pid" 2> /dev/null || true
+      kill -9 "$pid" 2> /dev/null || true
+      break
+    fi
+    sleep 2
+    waited=$((waited + 2))
+  done
+  wait "$pid" 2> /dev/null || echo "  exit status $?"
+}
 
 wait_for_calm() {
   local tries=0 load
@@ -106,8 +128,19 @@ for scenario in $scenarios; do
       extra+=(-csvGpuStats -CsvMetadata="scenario=$scenario,variant=$label" -csvCaptureFrames=1800)
     fi
     # shellcheck disable=SC2086
-    caffeinate -dimsu "$exe" ${sargs[@]+"${sargs[@]}"} ${EXTRA_ARGS:-} ${vargs[@]+"${vargs[@]}"} ${extra[@]+"${extra[@]}"} \
-      -SkipTitle -FrameLogFile="$run/frametimes.csv" -ExitAfter="$duration" > "$run/stdout.log" 2>&1 || echo "  exit status $?"
+    run_game "$duration" "$run/stdout.log" caffeinate -dimsu "$exe" ${sargs[@]+"${sargs[@]}"} ${EXTRA_ARGS:-} \
+      ${vargs[@]+"${vargs[@]}"} ${extra[@]+"${extra[@]}"} -SkipTitle -FrameLogFile="$run/frametimes.csv" -ExitAfter="$duration"
+    if test "${CAPTURE:-0}" = "1" && test "$scenario" = "street-fixed"; then
+      at="${CAPTURE_AT:-30}"
+      # shellcheck disable=SC2086
+      run_game "$((at + 6))" "$run/still.log" caffeinate -dimsu "$exe" ${sargs[@]+"${sargs[@]}"} ${EXTRA_ARGS:-} \
+        ${vargs[@]+"${vargs[@]}"} -SkipTitle -CaptureVideo=1 -CaptureFps=1 -CaptureDelay="$at" \
+        -CaptureDir="$run/still" -ExitAfter="$((at + 6))"
+      if test -f "$run/still/frame_00000.jpg"; then
+        mv "$run/still/frame_00000.jpg" "$run/still.jpg"
+        rm -rf "$run/still"
+      fi
+    fi
     if test -s "$run/frametimes.summary.txt"; then
       cp "$run/frametimes.summary.txt" "$run/summary.txt"
     fi
