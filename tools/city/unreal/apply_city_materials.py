@@ -144,6 +144,14 @@ class Graph:
         self.link(src, src_out, e, "")
         return e
 
+    def world_position(self):
+        """Absolute world position as plain floats. The raw node is a large-world (LWC)
+        double; fed into texture UVs, Frac or Sine it can make the material fall back to
+        the engine's grey grid in the cooked game. The city spans ~1.4 km: floats suffice."""
+        wp = self.node(unreal.MaterialExpressionWorldPosition)
+        cls = getattr(unreal, "MaterialExpressionTruncateLWC", None)
+        return self.unary(cls, wp) if cls else wp
+
     def mask(self, a, r=False, g=False, b=False):
         return self.unary(unreal.MaterialExpressionComponentMask, a, r=r, g=g, b=b, a=False)
 
@@ -191,7 +199,7 @@ def ground_material(tex, extent):
     x0, y0, x1, y1 = extent
     mat = new_material("M_City_Ground")
     g = Graph(mat)
-    wp = g.node(unreal.MaterialExpressionWorldPosition)
+    wp = g.world_position()
     xy = g.mask(wp, r=True, g=True)
     uv = g.div(g.sub(xy, g.const((x0, y0))), g.const((x1 - x0, y1 - y0)))
     s = g.node(unreal.MaterialExpressionTextureSample, texture=tex,
@@ -225,7 +233,7 @@ def shell_material():
     vc = g.node(unreal.MaterialExpressionVertexColor)
     nz = g.unary(unreal.MaterialExpressionAbs, g.mask(g.node(unreal.MaterialExpressionVertexNormalWS), b=True))
     wall = g.unary(unreal.MaterialExpressionSaturate, g.mul(g.sub(g.const(0.8), nz), g.const(2.0)))
-    wp = g.node(unreal.MaterialExpressionWorldPosition)
+    wp = g.world_position()
     f = g.unary(unreal.MaterialExpressionFrac, g.div(g.mask(wp, b=True), g.const(42.0)))   # stone courses
     d = g.unary(unreal.MaterialExpressionAbs, g.sub(f, g.const(0.5)))
     course = g.unary(unreal.MaterialExpressionSaturate, g.mul(g.sub(d, g.const(0.46)), g.const(25.0)))
@@ -244,8 +252,9 @@ def kit_master():
     base = g.node(unreal.MaterialExpressionVectorParameter, parameter_name="BaseColor",
                   default_value=unreal.LinearColor(0.5, 0.5, 0.5, 1.0))
     use = g.node(unreal.MaterialExpressionScalarParameter, parameter_name="UseBuildingColour", default_value=0.0)
+    # UE 5.8: the default is an input pin; the constant fallback is const_default_value.
     pic = g.node(unreal.MaterialExpressionPerInstanceCustomData3Vector, data_index=0,
-                 default_value=unreal.LinearColor(0.66, 0.60, 0.50, 1.0))
+                 const_default_value=unreal.LinearColor(0.66, 0.60, 0.50, 1.0))
     # Keep the slot's value contrast (cream stone vs plinth) and take the building's hue.
     col = g.lerp(g.mask(base, r=True, g=True, b=True), pic, use)
     rough = g.node(unreal.MaterialExpressionScalarParameter, parameter_name="Roughness", default_value=0.8)
