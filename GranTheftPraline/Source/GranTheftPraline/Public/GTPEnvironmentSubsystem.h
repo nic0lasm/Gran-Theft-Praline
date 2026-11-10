@@ -164,6 +164,7 @@ struct FGTPLightBudget
  * Command line: -TimeOfDay=<hours> -Date=YYYY-MM-DD -TimeScale=<x> (0 freezes)
  * -Weather=<preset> -Ambience=<noon|golden|dusk|night|rain|night-rain|fog>
  * (frozen test ambience, time stopped unless -TimeScale is given)
+ * -CloudDome=1 (2D cloud dome instead of the volumetric clouds, 0 = never)
  * -DayNight=0 or -NoEnvironment (leave the map lighting untouched).
  * Start line on stdout, Shipping included: "daynight: on | ..." or "daynight: off".
  * Console: gtp.Time, gtp.Date, gtp.TimeScale, gtp.Weather, gtp.EnvStatus.

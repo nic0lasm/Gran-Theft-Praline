@@ -125,7 +125,8 @@ Six états qui se fondent en 60 s ; la météo automatique en tire un toutes les
 
 Ligne de commande : `-TimeOfDay=22 -Date=2027-01-15 -Weather=Rain
 -TimeScale=0` (0 fige le temps pour mesurer), `-Ambience=<noon|golden|dusk|night|rain|night-rain|fog>`
-(ambiance de test figée, définie dans `Ambiences`), `-DayNight=0` ou `-NoEnvironment` (coupe le système). Au démarrage, une ligne `daynight: on | …` ou `daynight: off` sort sur stdout, Shipping compris.
+(ambiance de test figée, définie dans `Ambiences`), `-CloudDome=1` (dôme de nuages 2D à la place des nuages volumétriques, 0 = jamais),
+`-DayNight=0` ou `-NoEnvironment` (coupe le système). Au démarrage, une ligne `daynight: on | …` ou `daynight: off` sort sur stdout, Shipping compris.
 
 Enchaînement sans intervention : `tools/environment/setup-environment-mac.sh`
 (sortie non nulle en cas d'erreur, rapport JSON), puis le packaging, puis

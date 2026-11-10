@@ -544,6 +544,13 @@ void UGTPEnvironmentSubsystem::ApplyBudgetForProfile(UWorld& World)
 	}
 	Budget = Found ? *Found : FGTPLightBudget();
 	Budget.Profile = Profile;
+
+	// -CloudDome=1 forces the 2D cloud fallback (measurements), -CloudDome=0 forbids it.
+	int32 CloudDome = -1;
+	if (FParse::Value(FCommandLine::Get(), TEXT("CloudDome="), CloudDome) && CloudDome >= 0)
+	{
+		Budget.bCloudDome = CloudDome != 0;
+	}
 }
 
 void UGTPEnvironmentSubsystem::ApplyCloudQuality()
