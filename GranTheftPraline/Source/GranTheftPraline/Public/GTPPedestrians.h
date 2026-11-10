@@ -8,6 +8,8 @@
 
 class AGTPVehicle;
 class UAnimSequenceBase;
+class UInstancedStaticMeshComponent;
+class UStaticMesh;
 class USceneComponent;
 class USkeletalMesh;
 class USkeletalMeshComponent;
@@ -173,6 +175,29 @@ protected:
 	UPROPERTY(Config)
 	bool bSpreadFarUpdates = true;
 
+	/**
+	 * Far crowd (layer 3, ADR-0005): this many extra people are simulated as data only (5 Hz, no
+	 * actor) and drawn as instances of FarCrowdMesh beyond the pool's reach; one coming closer than
+	 * PromoteDistance takes a free place in the pool and becomes a full character. 0 or no mesh = off.
+	 * -PedFar=N overrides the count.
+	 */
+	UPROPERTY(Config)
+	int32 FarCrowdCount = 0;
+
+	/** Static mesh of a person in a walking pose (baked from the skeletal mesh in the editor). */
+	UPROPERTY(Config)
+	FSoftObjectPath FarCrowdMesh;
+
+	UPROPERTY(Config)
+	float PromoteDistance = 4000.f;
+
+	/** Far people appear between these distances, out of sight (cm). */
+	UPROPERTY(Config)
+	float FarMinDistance = 4500.f;
+
+	UPROPERTY(Config)
+	float FarMaxDistance = 25000.f;
+
 	/** Height of a person varies by up to this fraction around 1. */
 	UPROPERTY(Config)
 	float HeightSpread = 0.06f;
@@ -264,6 +289,10 @@ private:
 	bool TrySpawn(FPerson& Person);
 	void Activate(FPerson& Person, const GTPWalk::FPoint& P, const GTPWalk::FPoint& D);
 	void SeparatePeople();
+	void InitFarCrowd(UWorld& InWorld);
+	void TickFarCrowd(float DeltaTime);
+	bool PlaceFarAgent(int32 Index);
+	bool PromoteToPool(const GTPWalk::FWalker& Walker, const FVector& Location);
 	void Retire(FPerson& Person);
 	void MoveGroundTo(FPerson& Person, bool bSnap);
 	void Update(FPerson& Person, float DeltaTime);
@@ -301,6 +330,18 @@ private:
 	int32 SpawnedTotal = 0;
 	int32 FledTotal = 0;
 	int32 HitTotal = 0;
+
+	struct FFarAgent
+	{
+		GTPWalk::FWalker Walker;
+		bool bActive = false;
+		bool bShown = false;
+	};
+	TArray<FFarAgent> FarAgents;
+	float FarAccumulated = 0.f;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UInstancedStaticMeshComponent> FarInstances;
 
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<USkeletalMesh>> LoadedMeshes;

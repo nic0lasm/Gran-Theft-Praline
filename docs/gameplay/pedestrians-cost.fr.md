@@ -57,6 +57,27 @@ d'éditeur.
 
 Les nouveaux comportements sont gelés jusqu'à ces chiffres.
 
+## Couches pour 50 puis 100+ personnes (palier C et après)
+
+La foule est construite en couches, chacune moins chère que la précédente, de
+sorte que la qualité près du joueur ne baisse jamais :
+
+| Couche | Distance | Simulation | Dessin | État |
+|---|---|---|---|---|
+| 1 Personnage complet | < 20 m | à chaque image, réactions, évitement, couples | maillage squelettique, animation propre, ombre | fait |
+| 2 Personnage réduit | 20-90 m | 5 Hz hors champ ; animation 1/20-1/8 s | maillage squelettique, LOD réduit, sans ombre | fait |
+| 3 Foule lointaine | 45-250 m | données seules, 5 Hz, pas d'acteur | instances d'un maillage statique cuit, un appel de dessin | dans le code, coupée tant qu'aucun maillage n'est réglé |
+| 4 Imposteurs / animation de sommets | au-delà de 60 m | comme la couche 3 | billboards animés ou textures d'animation de sommets | à faire, après le banc |
+
+La couche 3 compte `FarCrowdCount` personnes (`-PedFar=N`) dessinées en instances
+de `FarCrowdMesh` (un maillage statique d'une personne en pose de marche : dans
+l'éditeur, Créer un maillage statique depuis la pose du maillage squelettique).
+Une personne lointaine qui passe sous `PromoteDistance` (40 m) est confiée au
+pool et devient un personnage complet ; les lointains apparaissent hors champ et
+sont recyclés au-delà de `FarMaxDistance`. La hauteur du sol est celle du joueur
+(les lointains sont petits ; la vraie hauteur viendra plus tard). Sans maillage
+réglé, la couche est coupée et ne coûte rien.
+
 ## Budget (fil performance, 2026-11-10)
 
 Cible : 20 personnes dessinées au plus à 2 ms de GPU et 1 ms de CPU ; ombres

@@ -55,6 +55,26 @@ drawn=` lines). Needs the packaged build only, no editor.
 
 New behaviours are frozen until these numbers are in.
 
+## Layers for 50 then 100+ people (palier C and after)
+
+The crowd is built as layers, each cheaper than the one before, so quality near
+the player never drops:
+
+| Layer | Distance | Simulation | Drawing | State |
+|---|---|---|---|---|
+| 1 Full character | < 20 m | every frame, reactions, avoidance, pairs | skeletal mesh, own animation, shadow | done |
+| 2 Reduced character | 20-90 m | 5 Hz when not drawn; animation 1/20-1/8 s | skeletal mesh, lower LOD, no shadow | done |
+| 3 Far crowd | 45-250 m | data only, 5 Hz, no actor | instances of one baked static mesh, one draw call | in code, off until a mesh is set |
+| 4 Impostors / vertex animation | beyond 60 m | same as layer 3 | animated billboards or vertex animation textures | to do, after the bench |
+
+Layer 3 is `FarCrowdCount` people (`-PedFar=N`) drawn as instances of `FarCrowdMesh`
+(a static mesh of a person in a walking pose: in the editor, Create Static Mesh from the
+skeletal mesh pose). A far person coming closer than `PromoteDistance` (40 m) is handed
+to the pool and becomes a full character; far people are placed out of sight and
+recycled when they stray beyond `FarMaxDistance`. Ground height is the player's
+(far people are small; the bake of the real height is for later). With no mesh set
+the layer is off and costs nothing.
+
 ## Budget (performance thread, 2026-11-10)
 
 Target: 20 drawn people at most 2 ms GPU and 1 ms CPU; shadows only inside 20 m,

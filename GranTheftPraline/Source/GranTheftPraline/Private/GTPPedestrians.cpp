@@ -3,7 +3,9 @@
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "Animation/AnimSequence.h"
 #include "Animation/AnimSequenceBase.h"
+#include "Components/InstancedStaticMeshComponent.h"
 #include "Components/SceneComponent.h"
+#include "Engine/StaticMesh.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/SkeletalMesh.h"
@@ -435,6 +437,127 @@ void UGTPPedestrianSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 		P.Actor = Actor;
 	}
 	GTP_TRACE(LogGTPPedestrians, TEXT("pedestrians: on (%d), %d walkway edges, %d visible at most"), Wanted, Edges, MaxVisible);
+	InitFarCrowd(InWorld);
+}
+
+void UGTPPedestrianSubsystem::InitFarCrowd(UWorld& InWorld)
+{
+	int32 Count = FarCrowdCount;
+	FParse::Value(FCommandLine::Get(), TEXT("PedFar="), Count);
+	UStaticMesh* Mesh = Cast<UStaticMesh>(FarCrowdMesh.TryLoad());
+	if (Count <= 0 || !Mesh)
+	{
+		GTP_TRACE(LogGTPPedestrians, TEXT("far crowd: off (count %d, mesh %s)"), Count, Mesh ? TEXT("set") : TEXT("missing"));
+		return;
+	}
+	AActor* Holder = InWorld.SpawnActor<AActor>();
+	if (!Holder)
+	{
+		return;
+	}
+	FarInstances = NewObject<UInstancedStaticMeshComponent>(Holder, TEXT("FarCrowd"));
+	FarInstances->SetStaticMesh(Mesh);
+	FarInstances->SetMobility(EComponentMobility::Movable);
+	FarInstances->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	FarInstances->SetCastShadow(false);
+	FarInstances->bAffectDynamicIndirectLighting = false;
+	FarInstances->bAffectDistanceFieldLighting = false;
+	FarInstances->bReceivesDecals = false;
+	FarInstances->SetCullDistances(0, static_cast<int32>(FarMaxDistance));
+	Holder->SetRootComponent(FarInstances);
+	FarInstances->RegisterComponent();
+	FarAgents.SetNum(Count);
+	for (int32 i = 0; i < Count; ++i)
+	{
+		// All instances exist from the start, parked far below the map until their agent is placed.
+		FarInstances->AddInstance(FTransform(FRotator::ZeroRotator, FVector(0.f, 0.f, -100000.f), FVector(0.001f)), true);
+	}
+	GTP_TRACE(LogGTPPedestrians, TEXT("far crowd: on (%d)"), Count);
+}
+
+bool UGTPPedestrianSubsystem::PlaceFarAgent(int32 Index)
+{
+	FFarAgent& Agent = FarAgents[Index];
+	for (int32 Try = 0; Try < 20; ++Try)
+	{
+		GTPWalk::FWalker W;
+		if (!GTPWalk::Place(Graph, W, Rng, Settings))
+		{
+			return false;
+		}
+		GTPWalk::FPoint P, D;
+		GTPWalk::Locate(Graph, W, P, D);
+		const float Distance = FVector::Dist2D(FVector(P.X, P.Y, 0.f), PlayerLocation);
+		if (Distance >= FarMinDistance && Distance <= FarMaxDistance && !IsSeen(FVector(P.X, P.Y, PlayerLocation.Z)))
+		{
+			Agent.Walker = W;
+			Agent.bActive = true;
+			return true;
+		}
+	}
+	return false;
+}
+
+bool UGTPPedestrianSubsystem::PromoteToPool(const GTPWalk::FWalker& Walker, const FVector& Location)
+{
+	for (FPerson& P : People)
+	{
+		if (!P.bActive && P.Actor.IsValid())
+		{
+			P.Walker = Walker;
+			P.Leader = -1;
+			GTPWalk::FPoint Pt, Dir;
+			GTPWalk::Locate(Graph, P.Walker, Pt, Dir);
+			Activate(P, Pt, Dir);
+			return true;
+		}
+	}
+	return false;
+}
+
+void UGTPPedestrianSubsystem::TickFarCrowd(float DeltaTime)
+{
+	if (!FarInstances || FarAgents.Num() == 0)
+	{
+		return;
+	}
+	// Layer 3: simulated 5 times a second, no actor. Updates are spread, never all in one frame.
+	FarAccumulated += DeltaTime;
+	if (FarAccumulated < 0.2f)
+	{
+		return;
+	}
+	const float Elapsed = FarAccumulated;
+	FarAccumulated = 0.f;
+	for (int32 i = 0; i < FarAgents.Num(); ++i)
+	{
+		FFarAgent& Agent = FarAgents[i];
+		if (!Agent.bActive && !PlaceFarAgent(i))
+		{
+			continue;
+		}
+		GTPWalk::Step(Graph, Agent.Walker, Elapsed, Rng, Settings, false);
+		GTPWalk::FPoint P, D;
+		GTPWalk::Locate(Graph, Agent.Walker, P, D);
+		const FVector Location(P.X, P.Y, PlayerLocation.Z);
+		const float Distance = FVector::Dist2D(Location, PlayerLocation);
+		if (Distance < PromoteDistance && PromoteToPool(Agent.Walker, Location))
+		{
+			Agent.bActive = false;
+			Agent.bShown = false;
+			FarInstances->UpdateInstanceTransform(i, FTransform(FRotator::ZeroRotator, FVector(0.f, 0.f, -100000.f), FVector(0.001f)), true, false, true);
+			continue;
+		}
+		if (Distance > FarMaxDistance * 1.1f && !IsSeen(Location))
+		{
+			Agent.bActive = false; // placed again closer, out of sight, next time
+			continue;
+		}
+		const FRotator Facing(0.f, FMath::RadiansToDegrees(FMath::Atan2(D.Y, D.X)) + MeshYawOffset, 0.f);
+		FarInstances->UpdateInstanceTransform(i, FTransform(Facing, Location, FVector::OneVector), true, false, true);
+		Agent.bShown = true;
+	}
+	FarInstances->MarkRenderStateDirty();
 }
 
 void UGTPPedestrianSubsystem::Deinitialize()
@@ -818,6 +941,7 @@ void UGTPPedestrianSubsystem::Tick(float DeltaTime)
 	}
 
 	SeparatePeople();
+	TickFarCrowd(DeltaTime);
 	for (FPerson& P : People)
 	{
 		if (!P.bActive)
@@ -903,6 +1027,11 @@ void UGTPPedestrianSubsystem::LogStats()
 		Active += P.bActive ? 1 : 0;
 		Drawn += (P.bActive && P.bDrawn) ? 1 : 0;
 	}
-	GTP_TRACE(LogGTPPedestrians, TEXT("active=%d drawn=%d wanted=%d spawned=%d fled=%d hit=%d"),
-		Active, Drawn, Wanted, SpawnedTotal, FledTotal, HitTotal);
+	int32 Far = 0;
+	for (const FFarAgent& A : FarAgents)
+	{
+		Far += A.bShown ? 1 : 0;
+	}
+	GTP_TRACE(LogGTPPedestrians, TEXT("active=%d drawn=%d wanted=%d spawned=%d fled=%d hit=%d far=%d"),
+		Active, Drawn, Wanted, SpawnedTotal, FledTotal, HitTotal, Far);
 }
