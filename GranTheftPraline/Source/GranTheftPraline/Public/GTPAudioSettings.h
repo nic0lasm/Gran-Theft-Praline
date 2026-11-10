@@ -8,6 +8,63 @@
 class USoundBase;
 
 /**
+ * Engine sound of a car model (GTPEngineSynth.h), chosen by a word of the car
+ * class name (BP_Renault_ClioV -> "ClioV"). The Chaos rpm range of the car is
+ * mapped onto IdleRpm..MaxRpm, so a diesel sounds like one even when its
+ * physics share the petrol curve.
+ */
+USTRUCT()
+struct FGTPEngineProfile
+{
+	GENERATED_BODY()
+
+	/** Word looked for in the car class name; "" = every other car. */
+	UPROPERTY(EditAnywhere, Category = "Engine")
+	FString Match;
+
+	/** For the log and the docs, e.g. "Renault TCe 90, 3 cylinders". */
+	UPROPERTY(EditAnywhere, Category = "Engine")
+	FString Label;
+
+	UPROPERTY(EditAnywhere, Category = "Engine")
+	int32 Cylinders = 3;
+
+	UPROPERTY(EditAnywhere, Category = "Engine")
+	float IdleRpm = 850.f;
+
+	UPROPERTY(EditAnywhere, Category = "Engine")
+	float MaxRpm = 6000.f;
+
+	UPROPERTY(EditAnywhere, Category = "Engine")
+	float IdleGain = 0.22f;
+
+	UPROPERTY(EditAnywhere, Category = "Engine")
+	float FullLoadGain = 0.6f;
+
+	UPROPERTY(EditAnywhere, Category = "Engine")
+	float NoiseAmount = 0.18f;
+
+	UPROPERTY(EditAnywhere, Category = "Engine")
+	float Jitter = 0.12f;
+
+	UPROPERTY(EditAnywhere, Category = "Engine")
+	float RingHarmonic = 4.f;
+
+	UPROPERTY(EditAnywhere, Category = "Engine")
+	float Diesel = 0.f;
+
+	UPROPERTY(EditAnywhere, Category = "Engine")
+	float Turbo = 0.f;
+
+	UPROPERTY(EditAnywhere, Category = "Engine")
+	float TurboPitchHz = 5200.f;
+
+	/** Throttle cut while the gearbox changes gear (s): the drop you hear between gears. */
+	UPROPERTY(EditAnywhere, Category = "Engine")
+	float ShiftCutSeconds = 0.2f;
+};
+
+/**
  * Audio mix of the game (ADR-0009), section [/Script/GranTheftPraline.GTPAudioSettings]
  * of Config/DefaultGame.ini. Sound classes, mixes, concurrency and
  * attenuation are built in code at start-up from these values, so the mix
@@ -146,6 +203,59 @@ public:
 	/** Actors with this tag get a siren component (police cars, ADR-0004). */
 	UPROPERTY(Config, EditAnywhere, Category = "Sirens")
 	FName SirenActorTag = TEXT("GTPPolice");
+
+	/** Engine sound per car model; the first whose Match is in the class name wins. */
+	UPROPERTY(Config, EditAnywhere, Category = "Engines")
+	TArray<FGTPEngineProfile> EngineProfiles;
+
+	/** Profile for a car class name (the last entry with an empty Match, else null). */
+	const FGTPEngineProfile* FindEngineProfile(const FString& ClassName) const
+	{
+		const FGTPEngineProfile* Fallback = nullptr;
+		for (const FGTPEngineProfile& Profile : EngineProfiles)
+		{
+			if (Profile.Match.IsEmpty())
+			{
+				Fallback = &Profile;
+			}
+			else if (ClassName.Contains(Profile.Match))
+			{
+				return &Profile;
+			}
+		}
+		return Fallback;
+	}
+
+	/** Street voices: most at once, level, range (cm), gap between two screams (s), share of scared people who scream. */
+	UPROPERTY(Config, EditAnywhere, Category = "Voices")
+	int32 MaxVoiceVoices = 4;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Voices")
+	float VoiceVolume = 0.9f;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Voices")
+	FVector2D VoiceRange = FVector2D(200.f, 3500.f);
+
+	UPROPERTY(Config, EditAnywhere, Category = "Voices")
+	float ScreamCooldown = 0.35f;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Voices")
+	float ScreamChance = 0.5f;
+
+	/** Loud sounds frighten people around (UGTPAudioWorld::OnLoudSound): radius of a heavy and a medium crash (cm). */
+	UPROPERTY(Config, EditAnywhere, Category = "Voices")
+	FVector2D CrashScareRadius = FVector2D(800.f, 2000.f);
+
+	/** Police radio while wanted: level, random gap between two chatters (s). */
+	UPROPERTY(Config, EditAnywhere, Category = "Radio")
+	float RadioVolume = 0.45f;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Radio")
+	FVector2D RadioChatterGap = FVector2D(7.f, 16.f);
+
+	/** Level of the interface sounds. */
+	UPROPERTY(Config, EditAnywhere, Category = "Interface")
+	float InterfaceVolume = 0.6f;
 
 	/** Zone grid of the map (tools/audio/zone_map.py), relative to Content/. */
 	UPROPERTY(Config, EditAnywhere, Category = "Ambience bed")

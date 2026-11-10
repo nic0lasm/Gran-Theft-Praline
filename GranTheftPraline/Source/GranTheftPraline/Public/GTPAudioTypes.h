@@ -47,6 +47,58 @@ enum class EGTPAudioCategory : uint8
 	Zones,
 	/** Rain on the street and on the car roof. */
 	Weather,
+	/** Police radio heard by the player while wanted (2D). */
+	Radio,
+	Count UMETA(Hidden)
+};
+
+/**
+ * Interface sounds, folder /Game/Sound/SFX/UI/<Name>/ each
+ * (UGTPAudioMix::PlayUI, menus and HUD of ADR-0007).
+ */
+UENUM(BlueprintType)
+enum class EGTPUISound : uint8
+{
+	/** Focus moves to another button or tab. */
+	Navigate,
+	Confirm,
+	Back,
+	/** A setting changes value (slider step, on/off). */
+	Toggle,
+	/** A menu or the big map opens, or closes. */
+	Open,
+	Close,
+	/** A wanted star is gained, or the last one is lost. */
+	StarUp,
+	StarDown,
+	/** Zoom step of the map. */
+	MapZoom,
+	Count UMETA(Hidden)
+};
+
+/** Voice reactions of people in the street, folder /Game/Sound/SFX/Voices/<Name>/. */
+UENUM(BlueprintType)
+enum class EGTPVoiceKind : uint8
+{
+	/** Frightened: a car or a crash close by, running away. */
+	Scream,
+	/** Hit by a car or knocked over. */
+	Hurt,
+	/** Short surprise (near miss). */
+	Gasp,
+	Count UMETA(Hidden)
+};
+
+/** Police radio calls, folder /Game/Sound/SFX/Radio/<Name>/ (no words: tones and squelched chatter). */
+UENUM(BlueprintType)
+enum class EGTPRadioCall : uint8
+{
+	/** Background traffic of the channel while the player is wanted. */
+	Chatter,
+	/** Alert tones then a call: a star more. */
+	Alert,
+	/** End of a pursuit. */
+	Clear,
 	Count UMETA(Hidden)
 };
 

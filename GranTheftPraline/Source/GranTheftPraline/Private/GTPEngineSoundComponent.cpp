@@ -1,7 +1,10 @@
 #include "GTPEngineSoundComponent.h"
 
+#include "GTPAudioMix.h"
+#include "GTPAudioSettings.h"
 #include "GTPLog.h"
 #include "GTPVehicle.h"
+#include "ChaosWheeledVehicleMovementComponent.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogGTPEngineSound, Log, All);
 
@@ -52,6 +55,31 @@ void UGTPEngineSoundComponent::BeginPlay()
 
 	FGTPEngineSynthSettings Settings;
 	Settings.Cylinders = FMath::Max(1, Cylinders);
+	// Sound of the car model (ADR-0009); -Audio=0 keeps the plain synth of version 0.3.
+	const FGTPEngineProfile* Profile = UGTPAudioMix::IsGameAudioEnabled() && GetOwner()
+		? GetDefault<UGTPAudioSettings>()->FindEngineProfile(GetOwner()->GetClass()->GetName()) : nullptr;
+	const AGTPVehicle* Vehicle = Cast<AGTPVehicle>(GetOwner());
+	const UChaosWheeledVehicleMovementComponent* Move = Vehicle ? Cast<UChaosWheeledVehicleMovementComponent>(Vehicle->GetVehicleMovementComponent()) : nullptr;
+	if (Profile && Move)
+	{
+		Settings.Cylinders = FMath::Max(1, Profile->Cylinders);
+		Settings.IdleRpm = Profile->IdleRpm;
+		Settings.MaxRpm = FMath::Max(Profile->IdleRpm + 500.f, Profile->MaxRpm);
+		Settings.IdleGain = Profile->IdleGain;
+		Settings.FullLoadGain = Profile->FullLoadGain;
+		Settings.NoiseAmount = Profile->NoiseAmount;
+		Settings.Jitter = Profile->Jitter;
+		Settings.RingHarmonic = Profile->RingHarmonic;
+		Settings.Diesel = Profile->Diesel;
+		Settings.Turbo = Profile->Turbo;
+		Settings.TurboPitchHz = Profile->TurboPitchHz;
+		PhysicsIdleRpm = Move->EngineSetup.EngineIdleRPM;
+		PhysicsMaxRpm = FMath::Max(PhysicsIdleRpm + 500.f, Move->EngineSetup.MaxRPM);
+		SoundIdleRpm = Settings.IdleRpm;
+		SoundMaxRpm = Settings.MaxRpm;
+		ShiftCutSeconds = Profile->ShiftCutSeconds;
+		ProfileLabel = Profile->Label.IsEmpty() ? Profile->Match : Profile->Label;
+	}
 	Synth = MakeShared<FGTPEngineSynth, ESPMode::ThreadSafe>();
 	Synth->Init(EngineSampleRate, Settings);
 
@@ -104,12 +132,31 @@ void UGTPEngineSoundComponent::TickComponent(float DeltaTime, ELevelTick TickTyp
 		return;
 	}
 	StartEngine();
-	Synth->SetTarget(Vehicle->GetEngineRpm(), Vehicle->GetThrottleAmount());
+	float Rpm = Vehicle->GetEngineRpm();
+	float Load = Vehicle->GetThrottleAmount();
+	if (SoundMaxRpm > 0.f)
+	{
+		// Physics rpm range -> the model's own range (a diesel revs lower than the shared curve).
+		const float Alpha = (Rpm - PhysicsIdleRpm) / (PhysicsMaxRpm - PhysicsIdleRpm);
+		Rpm = SoundIdleRpm + Alpha * (SoundMaxRpm - SoundIdleRpm);
+		const int32 Gear = Vehicle->GetGear();
+		if (Gear != LastGear && LastGear > 0 && Gear > 0)
+		{
+			ShiftCutLeft = ShiftCutSeconds;
+		}
+		LastGear = Gear;
+		if (ShiftCutLeft > 0.f)
+		{
+			ShiftCutLeft -= DeltaTime;
+			Load = 0.f;
+		}
+	}
+	Synth->SetTarget(Rpm, Load);
 	if (!bLoggedFirstAudio && EngineWave && EngineWave->GetRenderedSamples() > 0)
 	{
 		// Proof for the soak test that the mixer pulls the synth, once per car.
 		bLoggedFirstAudio = true;
-		GTP_TRACE(LogGTPEngineSound, TEXT("engine sound: %s playing, %lld samples rendered, %.0f rpm"), *Vehicle->GetName(),
-			static_cast<long long>(EngineWave->GetRenderedSamples()), Vehicle->GetEngineRpm());
+		GTP_TRACE(LogGTPEngineSound, TEXT("engine sound: %s playing, %lld samples rendered, %.0f rpm, profile %s"), *Vehicle->GetName(),
+			static_cast<long long>(EngineWave->GetRenderedSamples()), Vehicle->GetEngineRpm(), ProfileLabel.IsEmpty() ? TEXT("none") : *ProfileLabel);
 	}
 }

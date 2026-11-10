@@ -4,6 +4,7 @@
 // Build: g++ -O2 -std=c++17 -I GranTheftPraline/Source/GranTheftPraline/Public tools/audio/audio_logic_test.cpp -o audio_logic_test
 // Run:   ./audio_logic_test <output folder>
 #include "GTPAudioSynths.h"
+#include "GTPEngineSynth.h"
 #include "GTPSurfaceLogic.h"
 
 #include <cstdio>
@@ -182,6 +183,122 @@ static void RenderSynths(const std::string& Folder)
 	WriteWav(Folder + "/skid_ramp.wav", SkidOut, Rate);
 }
 
+// Engine profiles of DefaultGame.ini (EngineProfiles), driven through a short
+// scripted run: idle, a blip, three gears at full throttle with the gear-change
+// cut, a lift-off (turbo hiss), a cruise and back to idle.
+struct FProfileCase
+{
+	const char* Name;
+	FGTPEngineSynthSettings Settings;
+	float ShiftCut;
+};
+
+static std::vector<float> DriveRun(const FProfileCase& Case, int Rate)
+{
+	FGTPEngineSynth Synth;
+	Synth.Init(Rate, Case.Settings);
+	const float Idle = Case.Settings.IdleRpm;
+	const float Max = Case.Settings.MaxRpm;
+	std::vector<float> Out;
+	const int Block = Rate / 100;
+	std::vector<float> Buffer(Block);
+	float Rpm = Idle;
+	float T = 0.f;
+	int Gear = 0;
+	float Cut = 0.f;
+	const float Total = 20.f;
+	while (T < Total)
+	{
+		float Load = 0.05f;
+		if (T < 2.f)
+		{
+			Rpm = Idle;
+		}
+		else if (T < 3.f)
+		{
+			// Blip: up to half the range and back.
+			const float A = (T - 2.f) < 0.3f ? (T - 2.f) / 0.3f : 1.f - (T - 2.3f) / 0.7f;
+			Rpm = Idle + (Max * 0.5f - Idle) * (A > 0.f ? A : 0.f);
+			Load = T < 2.3f ? 1.f : 0.f;
+		}
+		else if (T < 12.f)
+		{
+			if (Gear == 0)
+			{
+				Gear = 1;
+				Rpm = Idle * 1.4f;
+			}
+			if (Cut > 0.f)
+			{
+				Cut -= 0.01f;
+				Load = 0.f;
+				Rpm -= (Rpm - Max * 0.55f) * 0.08f;
+			}
+			else
+			{
+				Load = 1.f;
+				Rpm += (Max - Idle) * 0.01f / (1.2f + 0.9f * Gear);
+				if (Rpm > Max * 0.88f && Gear < 3)
+				{
+					++Gear;
+					Cut = Case.ShiftCut;
+				}
+				Rpm = Rpm > Max * 0.95f ? Max * 0.95f : Rpm;
+			}
+		}
+		else if (T < 15.f)
+		{
+			Load = 0.f;
+			Rpm += (Idle * 1.8f - Rpm) * 0.02f;
+		}
+		else if (T < 18.f)
+		{
+			Load = 0.3f;
+			Rpm += (Idle * 2.6f - Rpm) * 0.05f;
+		}
+		else
+		{
+			Rpm += (Idle - Rpm) * 0.05f;
+		}
+		Synth.SetTarget(Rpm, Load);
+		Synth.Render(Buffer.data(), Block);
+		Out.insert(Out.end(), Buffer.begin(), Buffer.end());
+		T += 0.01f;
+	}
+	return Out;
+}
+
+static void RenderEngines(const std::string& Folder)
+{
+	const int Rate = 48000;
+	FProfileCase Cases[3];
+	Cases[0].Name = "engine_clio";
+	Cases[0].Settings.Cylinders = 3; Cases[0].Settings.IdleRpm = 850.f; Cases[0].Settings.MaxRpm = 6000.f;
+	Cases[0].Settings.IdleGain = 0.22f; Cases[0].Settings.FullLoadGain = 0.6f; Cases[0].Settings.NoiseAmount = 0.18f;
+	Cases[0].Settings.Jitter = 0.12f; Cases[0].Settings.RingHarmonic = 4.f; Cases[0].Settings.Turbo = 0.6f; Cases[0].Settings.TurboPitchHz = 5200.f;
+	Cases[0].ShiftCut = 0.2f;
+	Cases[1].Name = "engine_208";
+	Cases[1].Settings.Cylinders = 3; Cases[1].Settings.IdleRpm = 750.f; Cases[1].Settings.MaxRpm = 6200.f;
+	Cases[1].Settings.IdleGain = 0.2f; Cases[1].Settings.FullLoadGain = 0.62f; Cases[1].Settings.NoiseAmount = 0.2f;
+	Cases[1].Settings.Jitter = 0.16f; Cases[1].Settings.RingHarmonic = 3.5f; Cases[1].Settings.Turbo = 0.5f; Cases[1].Settings.TurboPitchHz = 4600.f;
+	Cases[1].ShiftCut = 0.18f;
+	Cases[2].Name = "engine_kangoo";
+	Cases[2].Settings.Cylinders = 4; Cases[2].Settings.IdleRpm = 800.f; Cases[2].Settings.MaxRpm = 4500.f;
+	Cases[2].Settings.IdleGain = 0.28f; Cases[2].Settings.FullLoadGain = 0.58f; Cases[2].Settings.NoiseAmount = 0.24f;
+	Cases[2].Settings.Jitter = 0.1f; Cases[2].Settings.RingHarmonic = 5.f; Cases[2].Settings.Diesel = 0.8f; Cases[2].Settings.Turbo = 0.7f;
+	Cases[2].Settings.TurboPitchHz = 4000.f;
+	Cases[2].ShiftCut = 0.3f;
+	for (const FProfileCase& Case : Cases)
+	{
+		const std::vector<float> Out = DriveRun(Case, Rate);
+		for (float V : Out)
+		{
+			CHECK(V == V && V >= -1.f && V <= 1.f);
+		}
+		WriteWav(Folder + "/" + Case.Name + ".wav", Out, Rate);
+	}
+}
+
 int main(int Argc, char** Argv)
 {
 	TestSurfaceMap();
@@ -190,6 +307,7 @@ int main(int Argc, char** Argv)
 	if (Argc > 1)
 	{
 		RenderSynths(Argv[1]);
+		RenderEngines(Argv[1]);
 	}
 	if (Failures)
 	{

@@ -15,6 +15,9 @@
 | Police siren « deux tons » and yelp, with Doppler | real-time synthesis | `UGTPSirenComponent` |
 
 | Ambience bed: pedestrian street, quai du Rhône, pont Lafayette, night, rain (street and car roof), crowd | loops `make_ambiences.py`, zone grid `zone_map.py` | `UGTPAmbienceBed` |
+| Cries of passers-by: hurt, fear, surprise | banks `Voices/<Scream|Hurt|Gasp>` (`make_voices_ui.py`) | `UGTPStreetReactions` (listens to `OnPedestrianHit` / `OnPedestrianScared`) |
+| Police radio while wanted: alert for each star, end of pursuit, chatter | banks `Radio/<Chatter|Alert|Clear>` | same |
+| Interface: menus, map, stars | banks `UI/<Name>` | `UGTPAudioMix::PlayUI(World, EGTPUISound::Confirm)` |
 
 At the wheel, the ambience goes down (60 %) and loses its highs (6 kHz): you
 are inside the car.
@@ -46,6 +49,26 @@ Every loop has the same level (RMS −24 dBFS); the weights in
 `DefaultGame.ini` are the mix. Without the zone grid or the weather
 parameters, only the street plays.
 
+## Engines per model
+
+The 0.3 engine synth gets a profile per car model (`EngineProfiles` in
+`DefaultGame.ini`, chosen by a word of the class name): cylinders, rpm range,
+resonance, diesel clatter, turbo whistle and hiss. The Chaos rpm range is
+mapped onto the real engine's, and the load is cut during each gear change.
+
+| Model | Engine | Character |
+|---|---|---|
+| Clio V | TCe 90, 1.0 3-cylinder turbo petrol | three-cylinder thrum, light whistle |
+| 208 II | PureTech 100, 1.2 3-cylinder turbo petrol | rougher, lower at idle |
+| Kangoo II | dCi 90, 1.5 4-cylinder turbo diesel | clatter at idle, revs lower (4,500 rpm) |
+| others | 1.6 4-cylinder petrol | neutral |
+
+## Street reactions
+
+- A person hit by a car cries out (`Voices/Hurt`). A frightened person screams or gasps half the time, with at least 0.35 s between two screams, so a fleeing crowd does not become a wall of screams. Each voice has its own pitch (×0.82 to ×1.28).
+- A medium or heavy crash broadcasts `UGTPAudioWorld::OnLoudSound(location, radius, cause)`, with a radius of 8 m (medium) or 20 m (heavy). Pedestrians bind `ScareAround` to it, which has the same signature.
+- Police radio, 2D and without words: alert tones then a call for each star gained, a closing call when the pursuit ends. In between, chatter every 7 to 16 s, closer together with more stars. The HUD star sounds (`StarUp`, `StarDown`) play at the same time.
+
 ## Surfaces
 
 Order of decision at the hit point: physical material (named in the project
@@ -63,7 +86,7 @@ shows them.
 
 | Source | Licence | Planned use | Where |
 |---|---|---|---|
-| Our syntheses (`make_sfx.py`, `make_street_ambience.py`) | MIT, original | working base of every bank | generated, out of Git |
+| Our syntheses (`make_sfx.py`, `make_voices_ui.py`, `make_ambiences.py`, `make_street_ambience.py`) | MIT, original | working base of every bank | generated, out of Git |
 | Sonniss "GDC Game Audio Bundle" (≈ 7.5 GB) | royalty-free, commercial use allowed, no attribution, raw sounds may not be resold (re-read on download) | footsteps, car crashes, glass, tyres, city ambiences | Mac, `GTAL/assets/audio/sonniss/`, out of Git |
 | CC0 packs (Kenney "Impact Sounds", OpenGameArt, Freesound filtered on CC0) | CC0 | occasional additions | Mac, out of Git |
 | Field recordings in Lyon (0.16) | ours | per-street ambiences | later |

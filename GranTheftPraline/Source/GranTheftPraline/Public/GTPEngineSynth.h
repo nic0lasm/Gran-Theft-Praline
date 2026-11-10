@@ -29,6 +29,14 @@ struct FGTPEngineSynthSettings
 	float Jitter = 0.12f;
 	/** Smoothing time of rpm and load changes, seconds. */
 	float SmoothingSeconds = 0.06f;
+	/** Firing harmonic the pressure pulse rings at (body and exhaust resonance). */
+	float RingHarmonic = 4.f;
+	/** Diesel clatter: a short bright knock at each firing, strongest at low load (0 = petrol). */
+	float Diesel = 0.f;
+	/** Turbo: whistle that spools up with load and revs, and a hiss when the throttle is lifted (0 = none). */
+	float Turbo = 0.f;
+	/** Whistle pitch, Hz at the maximum rpm with the turbo fully spooled. */
+	float TurboPitchHz = 5200.f;
 };
 
 class FGTPEngineSynth
@@ -50,8 +58,15 @@ public:
 		PulseEnv = 0.f;
 		PulseAmp = 1.f;
 		LowPass = LowPass1 = HighPassIn = HighPassOut = NoiseLp = 0.f;
+		KnockEnv = KnockHp = KnockIn = Spool = WhistlePhase = BlowOff = BlowLp = 0.f;
 		Seed = 0x2545F491u;
 		Smoothing = 1.f - std::exp(-1.f / (Settings.SmoothingSeconds * static_cast<float>(SampleRate)));
+		const float Rate = static_cast<float>(SampleRate);
+		KnockDecay = std::exp(-1.f / (0.004f * Rate));
+		SpoolUp = 1.f - std::exp(-1.f / (0.9f * Rate));
+		SpoolDown = 1.f - std::exp(-1.f / (0.5f * Rate));
+		BlowOffDecay = std::exp(-1.f / (0.25f * Rate));
+		LastLoad = 0.f;
 	}
 
 	/** Target values, read by the next Render call (safe to call from another thread). */
@@ -86,6 +101,7 @@ public:
 				// New firing: strength varies a little from one to the next.
 				PulseAmp = 1.f + Settings.Jitter * (NextRandom() * 2.f - 1.f);
 				PulseEnv = PulseAmp;
+				KnockEnv = PulseAmp;
 			}
 
 			// Pulse decay: sharper (shorter) under load, a fraction of the firing period.
@@ -94,7 +110,7 @@ public:
 			PulseEnv *= std::exp(-Dt / DecayTime);
 
 			// Pressure pulse rings at a body resonance (~ 4th firing harmonic, capped).
-			const float Ring = std::sin(6.2831853f * Phase * 4.f);
+			const float Ring = std::sin(6.2831853f * Phase * Settings.RingHarmonic);
 			float Sample = PulseEnv * (0.65f + 0.35f * Ring);
 
 			// Intake / mechanical noise, low-passed, louder with load and revs.
@@ -111,8 +127,40 @@ public:
 			HighPassOut = 0.995f * (HighPassOut + LowPass - HighPassIn);
 			HighPassIn = LowPass;
 
+			float Sample2 = HighPassOut;
+
+			// Diesel knock: bright noise burst of a few ms after each firing, after the muffler.
+			if (Settings.Diesel > 0.f)
+			{
+				KnockEnv *= KnockDecay;
+				const float Noise = NextRandom() * 2.f - 1.f;
+				KnockHp = 0.6f * (KnockHp + Noise - KnockIn);
+				KnockIn = Noise;
+				Sample2 += KnockHp * KnockEnv * Settings.Diesel * (1.f - 0.5f * Load) * 1.2f;
+			}
+
+			// Turbo: spool follows load times revs slowly; lifting off a spooled turbo hisses.
+			if (Settings.Turbo > 0.f)
+			{
+				const float Goal = Load * Clamp(Revs * 1.4f, 0.f, 1.f);
+				const float Before = Spool;
+				Spool += (Goal - Spool) * (Goal > Spool ? SpoolUp : SpoolDown);
+				if (Before > 0.45f && Load < 0.15f && BlowOff < 0.05f && LastLoad >= 0.15f)
+				{
+					BlowOff = Before;
+				}
+				LastLoad = Load;
+				WhistlePhase += Settings.TurboPitchHz * (0.35f + 0.65f * Clamp(Rpm / Settings.MaxRpm, 0.f, 1.f)) * Spool * Dt;
+				WhistlePhase -= std::floor(WhistlePhase);
+				Sample2 += std::sin(6.2831853f * WhistlePhase) * Spool * Spool * Settings.Turbo * 0.04f;
+				BlowOff *= BlowOffDecay;
+				const float Hiss = NextRandom() * 2.f - 1.f;
+				BlowLp += (Hiss - BlowLp) * 0.5f;
+				Sample2 += (Hiss - BlowLp) * BlowOff * Settings.Turbo * 0.25f;
+			}
+
 			const float Gain = Settings.IdleGain + (Settings.FullLoadGain - Settings.IdleGain) * Load;
-			Out[Index] = SoftLimit(HighPassOut * Gain * 2.f);
+			Out[Index] = SoftLimit(Sample2 * Gain * 2.f);
 		}
 	}
 
@@ -155,5 +203,17 @@ private:
 	float HighPassIn = 0.f;
 	float HighPassOut = 0.f;
 	float NoiseLp = 0.f;
+	float KnockEnv = 0.f;
+	float KnockHp = 0.f;
+	float KnockIn = 0.f;
+	float KnockDecay = 0.99f;
+	float Spool = 0.f;
+	float SpoolUp = 0.0001f;
+	float SpoolDown = 0.0001f;
+	float WhistlePhase = 0.f;
+	float BlowOff = 0.f;
+	float BlowOffDecay = 0.999f;
+	float BlowLp = 0.f;
+	float LastLoad = 0.f;
 	uint32_t Seed = 0x2545F491u;
 };

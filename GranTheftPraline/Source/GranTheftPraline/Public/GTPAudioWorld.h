@@ -6,6 +6,10 @@
 
 class AActor;
 class UGTPAmbienceBed;
+class UGTPStreetReactions;
+
+/** A loud sound at Location that frightens people within Radius (cm); Cause may be null. */
+DECLARE_MULTICAST_DELEGATE_ThreeParams(FGTPLoudSoundEvent, const FVector& /*Location*/, float /*Radius*/, AActor* /*Cause*/);
 
 /**
  * Audio of a game world (ADR-0009). Without touching the classes of the
@@ -33,6 +37,13 @@ public:
 	/** Gives sounds to an actor if it needs some (called for every spawned actor). */
 	void Equip(AActor* Actor);
 
+	/**
+	 * Broadcast for each loud sound of the game (crashes now; horns, shots and
+	 * explosions later). Pedestrians bind UGTPPedestrianSubsystem::ScareAround
+	 * here, which has the same signature.
+	 */
+	FGTPLoudSoundEvent OnLoudSound;
+
 private:
 	void OnActorSpawned(AActor* Actor);
 	void LogStats();
@@ -53,6 +64,9 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UGTPAmbienceBed> Bed;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UGTPStreetReactions> Reactions;
 
 	/** Crowd pedestrians seen so far, for the crowd layer of the bed. */
 	TArray<TWeakObjectPtr<AActor>> Pedestrians;
