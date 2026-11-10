@@ -381,6 +381,15 @@ before, `GTP_FACADE_CULL="court=120"` to try a distance on the bench. One-comman
 `caffeinate -dimsu tools/city/facade_lods_mac.sh` (replays only the facades and materials,
 `FACADES_ONLY=1`, then packages into Builds/facade-lods/).
 
+### Shop sign atlas (performance, 2026-11-10)
+
+Each sign was its own actor with its own material and texture: about 600 draw calls for 341
+fascia panels and the blade signs. `tools/city/sign_atlas.py` packs the textures into 4096 × 4096
+pages (64 signs per page, 1008 × 228 px each, edges repeated against mip bleeding): 5 lettering
+pages and 1 logo page (out of Git, CityBrands plugin). `place_facades.py` places one instanced
+component per page (plus a shadowless one for the blade signs) with `M_Sign_Atlas`, each sign's
+cell in its instance data. `GTP_SIGN_ATLAS=0` goes back to separate actors (the bench's before).
+
 ## Limits and next steps
 
 1. **Editor test**: `tools/city/unreal/import_city.py` imports the greybox and
