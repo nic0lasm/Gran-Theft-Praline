@@ -1,6 +1,6 @@
 # ADR-0010 : charger le quartier par cellules
 
-- Statut : proposé (2026-11-10), à accepter après la mesure M1 du fil optimisation
+- Statut : proposé (2026-11-10) ; principe validé par le fil optimisation, accepté quand sa mesure M1 tient les conditions ci-dessous
 - Responsables : génération de la ville (Ville v2), optimisation, streaming du monde
 - Liens : ADR-0002 (budget de performance), roadmap 0.9 « Tout le quartier »
 
@@ -57,17 +57,25 @@ aucun gain à notre échelle.
 
 **B : un niveau en streaming par cellule, avec un substitut lointain généré par cellule**,
 pour la 0.9. On garde la régénération en une commande par cellule, tout tourne sans interface
-et le coût est prévisible : au plus les 3 × 3 cellules autour du joueur en détail (environ
-750 m de côté, plus que la distance de vue de la rue avec les tables de culling de
-`place_facades.py` / `place_props.py`), le reste en substituts.
+et le coût est prévisible : les 2 × 2 cellules autour du joueur en détail (conditions
+ci-dessous), le reste en substituts.
 
-À mesurer par le fil optimisation avant acceptation :
+Conditions de budget (fil optimisation, 2026-11-10), à tenir pour l'acceptation :
 
-- GPU et mémoire de 9 cellules détaillées + tous les substituts sur M1 (cible de l'ADR-0002) ;
-- les à-coups de chargement quand une cellule arrive en conduisant (50 km/h ≈ 14 m/s : une
-  cellule de 250 m toutes les ~18 s) ; le chargement asynchrone doit rester sous une image
-  d'à-coup ;
-- si 250 m est la bonne taille de cellule (plus petites : à-coups plus courts, plus de niveaux).
+1. **2 × 2 cellules détaillées autour du joueur par défaut** (les façades sont coupées à
+   250 m, un rayon d'environ 300 m suffit) ; 3 × 3 seulement si la mesure le permet. Budget
+   ville inchangé : **≤ 14 ms GPU**, à peu près la rue étendue d'aujourd'hui, pas huit fois plus.
+2. **Substituts lointains** : coques générées sans ombre dynamique, sans cartes Lumen, sans
+   collision, un seul matériau par cellule, **≤ 100 draw calls** pour l'ensemble.
+3. **Aucun à-coup** : chargement asynchrone, jamais de construction d'acteurs ou d'instances
+   d'un bloc sur le game thread (instances HISM sérialisées dans le niveau de la cellule, ou
+   ajoutées par lots de ≤ 2 000 par image), pas de construction script Blueprint, PSO
+   précalculés ; **aucune image au-delà de 100 ms** au passage d'une cellule à 50 km/h.
+4. **Mémoire** : ≤ 1,5 Go pour 4 cellules détaillées et tous les substituts.
+
+Mesure par le fil optimisation sur une build packagée, avec un `-DemoRoute` qui franchit au
+moins deux frontières de cellule ; la taille de 250 m reste sauf si cette mesure dit le
+contraire.
 
 On revient sur World Partition (A) si les à-coups ne tiennent pas ou si le quartier dépasse
 ce que des niveaux par cellule permettent de gérer.

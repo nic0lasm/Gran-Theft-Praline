@@ -1,6 +1,6 @@
 # ADR-0010: Loading the quarter by cells
 
-- Status: Proposed (2026-11-10), to be accepted after the optimisation thread's M1 measure
+- Status: Proposed (2026-11-10); principle approved by the optimisation thread, accepted once its M1 measure meets the conditions below
 - Context owners: city generation (Ville v2), optimisation, world streaming
 - Related: ADR-0002 (performance budget), roadmap 0.9 "Tout le quartier"
 
@@ -53,17 +53,24 @@ our scale.
 ## Decision (proposed)
 
 **B: one streaming level per cell, with a generated far proxy per cell**, for 0.9. It keeps
-the one-command regeneration per cell, runs headless, and its cost is predictable: at most
-the 3 × 3 cells around the player in detail (~750 m across, more than the street's view
-distance with the culling tables of `place_facades.py` / `place_props.py`), the rest as
-proxies.
+the one-command regeneration per cell, runs headless, and its cost is predictable: the 2 × 2
+cells around the player in detail (conditions below), the rest as proxies.
 
-To be measured by the optimisation thread before acceptance:
+Budget conditions (optimisation thread, 2026-11-10), to be met for acceptance:
 
-- GPU and memory of 9 detailed cells + all proxies on M1 (target from ADR-0002);
-- load hitches when a cell streams in at driving speed (50 km/h ≈ 14 m/s: a 250 m cell
-  every ~18 s); async loading must stay under one frame of hitch;
-- whether 250 m is the right cell size (smaller cells: smaller hitches, more levels).
+1. **2 × 2 detailed cells around the player by default** (facades cull at 250 m, so a
+   ~300 m radius is enough); 3 × 3 only if the measure allows it. City budget unchanged:
+   **≤ 14 ms GPU**, about today's extended street, not eight times it.
+2. **Far proxies**: generated shells with no dynamic shadow, no Lumen mesh cards, no
+   collision, one material per cell, **≤ 100 draw calls** for all of them.
+3. **No hitch**: asynchronous loading, never building actors or instances on the game thread
+   in one block (HISM instances serialised in the cell level, or added in batches of
+   ≤ 2 000 per frame), no Blueprint construction scripts, PSOs precached; **no frame over
+   100 ms** when crossing cells at 50 km/h.
+4. **Memory**: ≤ 1.5 GB for 4 detailed cells and all proxies.
+
+Measured by the optimisation thread on a packaged build with a `-DemoRoute` that crosses at
+least two cell borders; 250 m stays the cell size unless that measure says otherwise.
 
 Revisit World Partition (A) if the hitches cannot be held or if the quarter grows past what
 per-cell levels can manage.
