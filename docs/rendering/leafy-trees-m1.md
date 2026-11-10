@@ -70,4 +70,6 @@ Before placing a single one in the street:
 3. cap textures at 2048 (the M1 profile loads no more);
 4. place them as one HISM per type, shadows off beyond 30 m, culled beyond 80 m.
 
+Script ready: `tools/assets/unreal/prepare_roadside.py` (`list` mode by default, report only; `GTP_ROADSIDE_MODE=apply` turns Nanite off, rebuilds the 3 LODs from the scan and caps textures at 2048, on the pack's own assets only, no map touched; a fresh Fab download restores the pack as it came).
+
 None of this is done while the push freezes new assets: it is the recipe for the day a thread needs it.
