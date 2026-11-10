@@ -149,12 +149,20 @@ def cloud_dome_material(mpc, noise):
 
 def cloud_shadow_material(mpc, noise):
     """Light function of the sun: drifting cloud shadows from two octaves of noise on the
-    ground plane, coverage from Cloudiness. Replaces the volumetric cloud shadow map."""
+    ground plane. Parameters set per weather by GTPEnvironmentSubsystem (MID):
+    Coverage (share of ground under cloud), Strength (sun removed under a cloud),
+    Mean (multiplier of the whole function), Contrast (edge sharpness).
+    light = Mean * (1 - Strength * saturate((density - (1 - Coverage)) * Contrast))
+    The graph is rebuilt on every run so an older version on disk is replaced."""
     mat, created = load_or_create("M_CloudShadowLF", unreal.Material, unreal.MaterialFactoryNew())
     if not created:
-        return mat
+        mel.delete_all_material_expressions(mat)
     mat.set_editor_property("material_domain", unreal.MaterialDomain.MD_LIGHT_FUNCTION)
     g = Graph(mat)
+
+    def param(name, value):
+        return g.node(unreal.MaterialExpressionScalarParameter, parameter_name=name, default_value=value)
+
     pos = g.node(unreal.MaterialExpressionWorldPosition)
     xy = g.node(unreal.MaterialExpressionComponentMask, r=True, g=True, b=False, a=False)
     g.link(pos, xy)
@@ -170,9 +178,12 @@ def cloud_shadow_material(mpc, noise):
     density = g.lerp(layers[0], layers[1], 0.35, a_out="R", b_out="R")
     level = g.node(unreal.MaterialExpressionSubtract)
     g.link(density, level, "A")
-    g.link(g.lerp(1.0, 0.0, g.collection(mpc, "Cloudiness")), level, "B")
-    cover = g.saturate(g.mul(level, 3.0))
-    light = g.lerp(1.0, 0.25, cover)  # a cloud shadow keeps a quarter of the sun
+    g.link(g.lerp(1.0, 0.0, param("Coverage", 0.3)), level, "B")
+    cover = g.saturate(g.mul(level, param("Contrast", 3.0)))
+    loss = g.mul(cover, param("Strength", 0.75))
+    keep = g.node(unreal.MaterialExpressionOneMinus)
+    g.link(loss, keep)
+    light = g.mul(keep, param("Mean", 1.0))
     mel.connect_material_property(light, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
     mel.recompile_material(mat)
     eal.save_loaded_asset(mat)

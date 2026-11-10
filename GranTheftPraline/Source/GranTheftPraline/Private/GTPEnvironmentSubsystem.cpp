@@ -32,6 +32,17 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogGTPEnvironment, Log, All);
 
+// Overrides of the light function cloud shadow for calibration sweeps (-GfxCVars=...).
+// Negative = the weather preset value.
+static TAutoConsoleVariable<float> CVarCloudShadowMean(TEXT("gtp.CloudShadowLF.Mean"), -1.f,
+	TEXT("Multiplier of the light function cloud shadow (negative: weather preset CloudShadowMean)"));
+static TAutoConsoleVariable<float> CVarCloudShadowStrength(TEXT("gtp.CloudShadowLF.Strength"), -1.f,
+	TEXT("Share of the sun removed under a cloud (negative: weather preset CloudShadowStrength)"));
+static TAutoConsoleVariable<float> CVarCloudShadowCoverage(TEXT("gtp.CloudShadowLF.Coverage"), -1.f,
+	TEXT("Share of the ground under cloud (negative: weather preset CloudShadowCoverage)"));
+static TAutoConsoleVariable<float> CVarCloudShadowContrast(TEXT("gtp.CloudShadowLF.Contrast"), 3.f,
+	TEXT("Sharpness of the cloud shadow edges"));
+
 namespace
 {
 	const FName StreetLightTag(TEXT("GTP_StreetLight"));
@@ -120,6 +131,7 @@ namespace
 			{
 				Env->SetTimeOfDay(FCString::Atod(*Args[0]));
 				UE_LOG(LogGTPEnvironment, Display, TEXT("%s"), *Env->Describe());
+				Env->WriteStatusFile();
 			}
 		}));
 
@@ -238,6 +250,7 @@ void UGTPEnvironmentSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 	FindNewCars();
 	UpdateNightLights();
 	GTP_TRACE(LogGTPEnvironment, TEXT("daynight: on | %s"), *Describe());
+	WriteStatusFile();
 }
 
 void UGTPEnvironmentSubsystem::Deinitialize()
@@ -619,11 +632,19 @@ void UGTPEnvironmentSubsystem::ApplyCloudQuality()
 	{
 		if (UMaterialInterface* Material = CloudShadowMaterial.LoadSynchronous())
 		{
-			Sun->SetLightFunctionMaterial(Material);
+			CloudShadowInstance = UMaterialInstanceDynamic::Create(Material, this);
+			Sun->SetLightFunctionMaterial(CloudShadowInstance);
+			// Beyond this distance a light function falls back to DisabledBrightness (0.5 by
+			// default): keep the whole city inside it and neutral outside.
+			Sun->LightFunctionFadeDistance = 1000000.f;
+			Sun->DisabledBrightness = 1.f;
+			Sun->MarkRenderStateDirty();
 			Budget.bCloudShadows = false;
+			CloudShadowState = TEXT("loaded");
 		}
 		else
 		{
+			CloudShadowState = TEXT("missing");
 			UE_LOG(LogGTPEnvironment, Warning, TEXT("Cloud shadow light function %s missing"), *CloudShadowMaterial.ToString());
 		}
 	}
@@ -792,6 +813,11 @@ FGTPWeatherPreset UGTPEnvironmentSubsystem::BlendedWeather() const
 	Out.ExposureOffset = FMath::Lerp(A->ExposureOffset, B->ExposureOffset, T);
 	Out.Saturation = FMath::Lerp(A->Saturation, B->Saturation, T);
 	Out.CloudSampleScale = FMath::Lerp(A->CloudSampleScale, B->CloudSampleScale, T);
+	const float CoverA = A->CloudShadowCoverage >= 0.f ? A->CloudShadowCoverage : A->CloudCoverage;
+	const float CoverB = B->CloudShadowCoverage >= 0.f ? B->CloudShadowCoverage : B->CloudCoverage;
+	Out.CloudShadowCoverage = FMath::Lerp(CoverA, CoverB, T);
+	Out.CloudShadowStrength = FMath::Lerp(A->CloudShadowStrength, B->CloudShadowStrength, T);
+	Out.CloudShadowMean = FMath::Lerp(A->CloudShadowMean, B->CloudShadowMean, T);
 	return Out;
 }
 
@@ -821,6 +847,32 @@ FString UGTPEnvironmentSubsystem::Describe() const
 		*FromWeather.ToString(), FromWeather == ToWeather ? TEXT("") : TEXT(" -> "), FromWeather == ToWeather ? TEXT("") : *ToWeather.ToString(),
 		WeatherAlpha * 100.f, Wetness, ExposureTarget, NightFactor, On, NightLights.Num(), Shadowed,
 		*Budget.Profile, Budget.MaxLights, Budget.MaxShadowedLights, LitCars, CarLights.Num());
+}
+
+void UGTPEnvironmentSubsystem::WriteStatusFile() const
+{
+	FString Path;
+	if (!FParse::Value(FCommandLine::Get(), TEXT("EnvReport="), Path))
+	{
+		Path = FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("Environment"), TEXT("status.txt"));
+	}
+	const FGTPWeatherPreset Weather = BlendedWeather();
+	FString Text = FString::Printf(TEXT("daynight=on\nprofile=%s\nvolumetric_clouds=%d\ncloud_dome=%d\ncloud_dome_when_overcast=%d\n")
+		TEXT("cloud_shadow_map=%d\ncloud_shadow_light_function=%s\nlf_mean=%.3f\nlf_strength=%.3f\nlf_coverage=%.3f\nlf_contrast=%.2f\n")
+		TEXT("cvar_mean=%.3f\ncvar_strength=%.3f\ncvar_coverage=%.3f\nstatus=%s\n"),
+		*Budget.Profile, Budget.bVolumetricClouds ? 1 : 0, Budget.bCloudDome ? 1 : 0, Budget.bCloudDomeWhenOvercast ? 1 : 0,
+		Budget.bCloudShadows ? 1 : 0, *CloudShadowState, Weather.CloudShadowMean, Weather.CloudShadowStrength,
+		Weather.CloudShadowCoverage, CVarCloudShadowContrast.GetValueOnGameThread(),
+		CVarCloudShadowMean.GetValueOnGameThread(), CVarCloudShadowStrength.GetValueOnGameThread(),
+		CVarCloudShadowCoverage.GetValueOnGameThread(), *Describe());
+	if (!FFileHelper::SaveStringToFile(Text, *Path))
+	{
+		GTP_TRACE(LogGTPEnvironment, TEXT("daynight: cannot write %s"), *Path);
+	}
+	else
+	{
+		GTP_TRACE(LogGTPEnvironment, TEXT("daynight: status in %s"), *FPaths::ConvertRelativePathToFull(Path));
+	}
 }
 
 // --------------------------------------------------------------------------- tick
@@ -1082,6 +1134,18 @@ void UGTPEnvironmentSubsystem::ApplyParameters()
 	Instance->SetScalarParameterValue(TEXT("EmissiveScale"), FMath::Lerp(1.f, NightEmissiveScale, NightFactor));
 	Instance->SetScalarParameterValue(TEXT("Cloudiness"), Weather.CloudCoverage);
 	Instance->SetScalarParameterValue(TEXT("TimeOfDay"), static_cast<float>(LocalHours));
+	if (CloudShadowInstance)
+	{
+		auto Pick = [](float Override, float Preset) { return Override >= 0.f ? Override : Preset; };
+		const float Coverage = Pick(CVarCloudShadowCoverage.GetValueOnGameThread(),
+			Weather.CloudShadowCoverage >= 0.f ? Weather.CloudShadowCoverage : Weather.CloudCoverage);
+		CloudShadowInstance->SetScalarParameterValue(TEXT("Coverage"), FMath::Clamp(Coverage, 0.f, 1.f));
+		CloudShadowInstance->SetScalarParameterValue(TEXT("Strength"),
+			FMath::Clamp(Pick(CVarCloudShadowStrength.GetValueOnGameThread(), Weather.CloudShadowStrength), 0.f, 1.f));
+		CloudShadowInstance->SetScalarParameterValue(TEXT("Mean"),
+			FMath::Max(0.f, Pick(CVarCloudShadowMean.GetValueOnGameThread(), Weather.CloudShadowMean)));
+		CloudShadowInstance->SetScalarParameterValue(TEXT("Contrast"), FMath::Max(0.1f, CVarCloudShadowContrast.GetValueOnGameThread()));
+	}
 	// Unlit cloud dome: luminance of the exposure's middle grey (0.125 x 2^EV100 nits), darker in the rain.
 	Instance->SetScalarParameterValue(TEXT("CloudLuminance"),
 		0.125f * FMath::Pow(2.f, ExposureTarget) * CloudDomeBrightness * FMath::Lerp(1.f, 0.5f, Weather.Rain));

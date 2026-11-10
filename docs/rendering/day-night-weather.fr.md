@@ -94,6 +94,15 @@ refait ces calculs hors Unreal et les tests vérifient chaque état contre la bi
   12 ms des nuages sur le M1) : coût attendu 0,3 à 0,5 ms, à confirmer au banc.
   A/B en une commande : `tools/environment/sky-ab-test-mac.sh <dossier_build>`
   (temps d'image du banc et images fixes par mode, `index.html` côte à côte).
+  La light function suit la météo : `CloudShadowCoverage`, `CloudShadowStrength` et
+  `CloudShadowMean` de chaque préréglage (cvars de forçage `gtp.CloudShadowLF.Mean`,
+  `.Strength`, `.Coverage`, `.Contrast`). Ils se calent par luminance d'image sur l'ombre
+  volumétrique, sans toucher à l'exposition : `tools/environment/calibrate-cloud-shadow-mac.sh
+  <dossier_build>` (cible ±3 de la référence à midi et sous la pluie).
+- **Fichier d'état** : au démarrage (et sur `gtp.EnvStatus`), le système écrit
+  `Saved/Environment/status.txt` (ou `-EnvReport=<chemin>`) : profil, interrupteurs du
+  ciel, light function `loaded`/`missing`/`off`, ses valeurs et `Describe()`. Shipping
+  n'écrit aucun log.
 - **Allumage** : entre +2° et −4° de soleil (plus tôt sous les nuages).
 - **Émissifs** : `EmissiveScale` de `MPC_Environment` passe de 1 à 20 la
   nuit ; les matériaux de vitrines et d'enseignes le multiplient.

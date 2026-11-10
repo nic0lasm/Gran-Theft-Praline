@@ -79,6 +79,21 @@ struct FGTPWeatherPreset
 	 *  clouds when the profile sets bCloudDomeWhenOvercast. */
 	UPROPERTY()
 	bool bPreferCloudDome = false;
+
+	/** Light function cloud shadow (M_CloudShadowLF): share of the ground under cloud,
+	 *  0..1 (negative = CloudCoverage). The volumetric clouds of the map are not driven by
+	 *  the weather in m1, so this is set per weather to match their shadow. */
+	UPROPERTY()
+	float CloudShadowCoverage = -1.f;
+
+	/** Share of the sun removed under a cloud by the light function, 0..1. */
+	UPROPERTY()
+	float CloudShadowStrength = 0.75f;
+
+	/** Multiplier of the whole light function: the average sun loss of the volumetric
+	 *  cloud shadow, matched by image luminance (tools/environment/calibrate-cloud-shadow-mac.sh). */
+	UPROPERTY()
+	float CloudShadowMean = 1.f;
 };
 
 /** A named, frozen test ambience (-Ambience=<Name>): date, time and weather. */
@@ -493,6 +508,17 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UMaterialInstanceDynamic> CloudMaterial;
+
+	/** Instance of CloudShadowMaterial on the sun, null when the light function is off. */
+	UPROPERTY(Transient)
+	TObjectPtr<UMaterialInstanceDynamic> CloudShadowInstance;
+
+	/** off, loaded or missing: reported in the status file. */
+	FString CloudShadowState = TEXT("off");
+
+	/** Writes Describe() and the sky state to Saved/Environment/status.txt (or -EnvReport=<path>):
+	 *  Shipping writes no log, this is how a test run checks what was loaded. */
+	void WriteStatusFile() const;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UMaterialParameterCollection> LoadedCollection;

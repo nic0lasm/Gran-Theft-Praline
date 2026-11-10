@@ -91,6 +91,14 @@ redoes these computations outside Unreal and the tests check every state against
   clouds on the M1): expected cost 0.3 to 0.5 ms, to be confirmed on the bench.
   A/B in one command: `tools/environment/sky-ab-test-mac.sh <build_dir>`
   (bench frame times and stills per mode, `index.html` side by side).
+  The light function follows the weather: `CloudShadowCoverage`, `CloudShadowStrength`
+  and `CloudShadowMean` of each preset (cvar overrides `gtp.CloudShadowLF.Mean`,
+  `.Strength`, `.Coverage`, `.Contrast`). They are calibrated by image luminance against
+  the volumetric shadow, exposure untouched: `tools/environment/calibrate-cloud-shadow-mac.sh
+  <build_dir>` (target ±3 of the reference at noon and in the rain).
+- **Status file**: at start (and on `gtp.EnvStatus`) the system writes
+  `Saved/Environment/status.txt` (or `-EnvReport=<path>`): profile, sky switches, light
+  function `loaded`/`missing`/`off`, its values and `Describe()`. Shipping writes no log.
 - **Switch-on**: between +2 and −4 degrees of sun (earlier under cloud).
 - **Emissives**: `EmissiveScale` in `MPC_Environment` goes from 1 to 20 at
   night; shop window and sign materials multiply by it.
