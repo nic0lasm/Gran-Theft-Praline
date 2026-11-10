@@ -1,0 +1,156 @@
+// Checks the hit, fall and ragdoll rules (GTPImpactLogic.h) without Unreal.
+// Build and run: python3 tools/ragdoll/check_impact_logic.py
+#include <cmath>
+#include <cstdio>
+
+#include "../../GranTheftPraline/Source/GranTheftPraline/Public/GTPImpactLogic.h"
+
+using namespace GTPImpact;
+
+static int Failures = 0;
+#define CHECK(Cond, ...)                         \
+	do                                           \
+	{                                            \
+		if (!(Cond))                             \
+		{                                        \
+			++Failures;                          \
+			std::printf("FAIL %s: ", #Cond);     \
+			std::printf(__VA_ARGS__);            \
+			std::printf("\n");                   \
+		}                                        \
+	} while (0)
+
+static FCarHitResult Hit(float Kmh, float PersonKmhToward = 0.f)
+{
+	FCarHitInput In;
+	In.CarVelocity = {CmSFromKmh(Kmh), 0.f, 0.f}; // car drives east
+	In.PersonVelocity = {-CmSFromKmh(PersonKmhToward), 0.f, 0.f};
+	In.ToCar = {-100.f, 0.f, 0.f}; // car is west of the person
+	return ClassifyCarHit(In, FSettings());
+}
+
+int main()
+{
+	const FSettings S;
+
+	// 1. Severity and damage never decrease with speed.
+	ESeverity Prev = ESeverity::None;
+	float PrevDamage = 0.f;
+	for (float K = 0.f; K <= 120.f; K += 0.5f)
+	{
+		const FCarHitResult R = Hit(K);
+		CHECK(R.Severity >= Prev, "severity decreased at %.1f km/h", K);
+		CHECK(R.Damage + 1e-3f >= PrevDamage, "damage decreased at %.1f km/h", K);
+		CHECK(R.Damage >= 0.f && R.Damage <= 100.f, "damage out of range at %.1f km/h", K);
+		CHECK(std::isfinite(R.LaunchVelocity.X) && std::isfinite(R.LaunchVelocity.Z), "nan at %.1f", K);
+		Prev = R.Severity;
+		PrevDamage = R.Damage;
+	}
+
+	// 2. Reference points: crawl = nothing, 10 = bump, 20 = knock, 40 = launch, 70 = heavy and fatal.
+	CHECK(Hit(2.f).Severity == ESeverity::None, "2 km/h");
+	CHECK(Hit(8.f).Severity == ESeverity::Bump, "8 km/h");
+	CHECK(Hit(20.f).Severity == ESeverity::Knock, "20 km/h");
+	CHECK(Hit(40.f).Severity == ESeverity::Launch, "40 km/h");
+	CHECK(Hit(70.f).Severity == ESeverity::Heavy, "70 km/h");
+	CHECK(Hit(70.f).Damage >= 100.f - 1e-3f, "70 km/h must kill");
+	CHECK(Hit(20.f).Damage < 40.f, "20 km/h must not kill");
+	CHECK(Hit(40.f).Damage > 40.f && Hit(40.f).Damage < 100.f, "40 km/h hurts, does not kill");
+
+	// 3. Launch goes the way the car drives, upward for launches, bounded.
+	const FCarHitResult L = Hit(50.f);
+	CHECK(L.LaunchVelocity.X > 0.f && std::fabs(L.LaunchVelocity.Y) < 1e-3f, "launch direction");
+	CHECK(L.LaunchVelocity.Z > 0.f, "launch lift");
+	CHECK(Length(L.LaunchVelocity) <= S.MaxLaunchCmS * 1.5f, "launch bound");
+	CHECK(L.LaunchVelocity.X < CmSFromKmh(50.f), "the body leaves slower than the car");
+	CHECK(L.CarSpeedLossKmh > 0.f && L.CarSpeedLossKmh < 5.f, "car loses a little: %.2f", L.CarSpeedLossKmh);
+
+	// 4. A car backing away, or a person running away as fast, hurts no one.
+	FCarHitInput Away;
+	Away.CarVelocity = {CmSFromKmh(-30.f), 0.f, 0.f};
+	Away.ToCar = {-100.f, 0.f, 0.f};
+	CHECK(ClassifyCarHit(Away, S).Severity == ESeverity::None, "car moving away");
+	CHECK(Hit(30.f, 30.f).RelativeKmh > Hit(30.f, 0.f).RelativeKmh, "a person walking into the car makes it worse");
+	FCarHitInput Still;
+	CHECK(ClassifyCarHit(Still, S).Severity == ESeverity::None, "nothing moves");
+
+	// 5. A glancing hit is milder than a head-on one.
+	FCarHitInput Glance;
+	Glance.CarVelocity = {CmSFromKmh(40.f), 0.f, 0.f};
+	Glance.ToCar = {-10.f, -100.f, 0.f}; // contact point mostly to the side
+	CHECK(ClassifyCarHit(Glance, S).RelativeKmh <= Hit(40.f).RelativeKmh, "glancing is milder");
+
+	// 6. Landings.
+	CHECK(ClassifyLanding(400.f, false, S).Kind == ELanding::None, "small drop");
+	CHECK(ClassifyLanding(750.f, false, S).Kind == ELanding::Stumble, "stumble");
+	CHECK(ClassifyLanding(1000.f, false, S).Kind == ELanding::Roll, "roll");
+	CHECK(ClassifyLanding(1500.f, false, S).Kind == ELanding::Ragdoll, "ragdoll");
+	CHECK(ClassifyLanding(1000.f, true, S).Kind < ClassifyLanding(1000.f, false, S).Kind, "crouch helps");
+	CHECK(ClassifyLanding(1500.f, false, S).Damage > ClassifyLanding(750.f, false, S).Damage, "more speed, more damage");
+
+	// 7. Bailing out of a car.
+	CHECK(ClassifyBailOut(5.f) == ESeverity::None, "bail 5");
+	CHECK(ClassifyBailOut(35.f) == ESeverity::Knock, "bail 35");
+	CHECK(ClassifyBailOut(70.f) == ESeverity::Launch, "bail 70");
+
+	// 8. Ragdoll lifecycle: a knocked person falls, settles, pauses and gets up; a heavy hit stays down.
+	const FRagdollTimings T;
+	{
+		FRagdollState St = StartRagdollState(ESeverity::Knock, 80.f);
+		EOutcome O = EOutcome::Simulating;
+		float Time = 0.f;
+		while (O == EOutcome::Simulating && Time < 30.f)
+		{
+			const float Speed = Time < 1.f ? 400.f : 5.f; // moving for 1 s, then still
+			O = StepRagdoll(St, Speed, 0.7f, 0.05f, T);
+			Time += 0.05f;
+		}
+		CHECK(O == EOutcome::GetUpFaceUp, "knock gets up face up");
+		CHECK(Time >= T.MinSeconds, "never earlier than the minimum: %.2f", Time);
+		CHECK(Time < T.MinSeconds + T.RestSeconds + T.PauseKnock + 1.f, "gets up soon enough: %.2f", Time);
+	}
+	{
+		FRagdollState St = StartRagdollState(ESeverity::Launch, 40.f);
+		EOutcome O = EOutcome::Simulating;
+		for (float Time = 0.f; Time < 30.f && O == EOutcome::Simulating; Time += 0.05f)
+		{
+			O = StepRagdoll(St, 3.f, -0.4f, 0.05f, T);
+		}
+		CHECK(O == EOutcome::GetUpFaceDown, "face down get-up");
+	}
+	{
+		FRagdollState St = StartRagdollState(ESeverity::Heavy, 0.f);
+		EOutcome O = EOutcome::Simulating;
+		for (float Time = 0.f; Time < 30.f && O == EOutcome::Simulating; Time += 0.05f)
+		{
+			O = StepRagdoll(St, 3.f, 0.5f, 0.05f, T);
+		}
+		CHECK(O == EOutcome::StayDown, "heavy hit stays down");
+	}
+	{
+		// A body that never stops sliding is decided at MaxSeconds (+ pause).
+		FRagdollState St = StartRagdollState(ESeverity::Knock, 90.f);
+		EOutcome O = EOutcome::Simulating;
+		float Time = 0.f;
+		for (; Time < 40.f && O == EOutcome::Simulating; Time += 0.05f)
+		{
+			O = StepRagdoll(St, 500.f, 0.5f, 0.05f, T);
+		}
+		CHECK(O != EOutcome::Simulating && Time <= T.MaxSeconds + T.PauseKnock + 0.2f, "sliding body decided in time: %.2f", Time);
+	}
+
+	// 9. Ragdoll cap freezes the farthest.
+	{
+		std::vector<FRagdollEntry> A = {{500.f, 3.f}, {4000.f, 1.f}, {900.f, 8.f}, {1500.f, 2.f}, {200.f, 0.5f}};
+		const std::vector<int> F = ChooseToFreeze(A, 3);
+		CHECK(F.size() == 2, "freeze count %zu", F.size());
+		bool Has1 = false, Has3 = false;
+		for (int I : F) { Has1 |= (I == 1); Has3 |= (I == 3); }
+		CHECK(Has1 && Has3, "freezes the two farthest");
+		CHECK(ChooseToFreeze(A, 10).empty(), "under the cap, nothing frozen");
+		CHECK(ChooseToFreeze(A, 0).size() == A.size(), "cap 0 freezes all");
+	}
+
+	std::printf(Failures == 0 ? "PASS impact logic\n" : "FAILED %d checks\n", Failures);
+	return Failures == 0 ? 0 : 1;
+}
