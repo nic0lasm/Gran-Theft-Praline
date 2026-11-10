@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cstdio>
 
+#include "../../GranTheftPraline/Source/GranTheftPraline/Public/GTPBreakableLogic.h"
 #include "../../GranTheftPraline/Source/GranTheftPraline/Public/GTPImpactLogic.h"
 
 using namespace GTPImpact;
@@ -149,6 +150,36 @@ int main()
 		CHECK(Has1 && Has3, "freezes the two farthest");
 		CHECK(ChooseToFreeze(A, 10).empty(), "under the cap, nothing frozen");
 		CHECK(ChooseToFreeze(A, 0).size() == A.size(), "cap 0 freezes all");
+	}
+
+	// 10. Street furniture.
+	{
+		namespace B = GTPBreak;
+		const float Car = 1200.f;
+		const float Walk = CmSFromKmh(5.f);
+		const float Slow = CmSFromKmh(2.f);
+		CHECK(B::Resolve(B::EKind::Tippable, 15.f, 80.f, Slow).Outcome == B::EOutcome::None, "bin ignores a 2 km/h touch");
+		CHECK(B::Resolve(B::EKind::Tippable, 15.f, 80.f, Walk).Outcome == B::EOutcome::Topple, "a jogger tips a bin");
+		CHECK(B::Resolve(B::EKind::Tippable, 110.f, Car, CmSFromKmh(20.f)).Outcome == B::EOutcome::Topple, "a car tips a scooter");
+		CHECK(B::Resolve(B::EKind::Fixed, 500.f, Car, CmSFromKmh(30.f)).Outcome == B::EOutcome::Stop, "bollards stop the car");
+		CHECK(B::Resolve(B::EKind::Fixed, 500.f, 80.f, Slow).Outcome == B::EOutcome::None, "no stop at 2 km/h");
+		// A 250 kg street lamp: a walking person does not break it, a car at 20 km/h does.
+		CHECK(B::Resolve(B::EKind::Breakable, 250.f, 80.f, Walk).Outcome == B::EOutcome::None, "person cannot break a lamp");
+		CHECK(B::Resolve(B::EKind::Breakable, 250.f, Car, CmSFromKmh(5.f)).Outcome == B::EOutcome::None, "5 km/h does not break a lamp");
+		CHECK(B::Resolve(B::EKind::Breakable, 250.f, Car, CmSFromKmh(20.f)).Outcome == B::EOutcome::Break, "a car at 20 km/h breaks a lamp");
+		// A 25 kg sign breaks at a low car speed; a light breakable only tips when walked into.
+		CHECK(B::Resolve(B::EKind::Breakable, 25.f, Car, CmSFromKmh(8.f)).Outcome == B::EOutcome::Break, "sign breaks at 8 km/h");
+		CHECK(B::Resolve(B::EKind::Breakable, 25.f, 80.f, Walk).Outcome == B::EOutcome::Topple, "a person tips a sign");
+		// The harder the hit, the longer the throw, bounded; the car slows a little, never stops.
+		float Prev = 0.f;
+		for (float K = 5.f; K <= 80.f; K += 5.f)
+		{
+			const B::FResult R = B::Resolve(B::EKind::Breakable, 80.f, Car, CmSFromKmh(K));
+			CHECK(R.ThrowCmS + 1e-3f >= Prev, "throw decreased at %.0f", K);
+			CHECK(R.ThrowCmS <= B::FSettings().MaxThrowCmS + 1e-3f, "throw bound");
+			CHECK(R.ImpactorLossKmh < K * 0.3f, "car loses too much at %.0f km/h: %.2f", K, R.ImpactorLossKmh);
+			Prev = R.ThrowCmS;
+		}
 	}
 
 	std::printf(Failures == 0 ? "PASS impact logic\n" : "FAILED %d checks\n", Failures);

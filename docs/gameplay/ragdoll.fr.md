@@ -57,3 +57,18 @@ les plafonds.
 - `-RagdollTest` (+ `-RagdollTestQuit`) : scénario sans joueur : chocs à 20, 40 et
   70 km/h, chutes de 3 et 8 m, quatre corps à la fois face au plafond de trois ;
   journalise `GTPRagdollTest: ... PASS` ou `FAIL` et le temps d'image moyen.
+
+## Mobilier de rue cassable
+
+`GTPBreakableLogic.h` et `UGTPBreakableSubsystem` (les props de rue sont instanciés :
+un acteur par asset, donc le sous-système remplace l'instance touchée par un acteur
+physique). Tags sur les composants instanciés, posés depuis les tableaux de
+placement par le script de la rue : `GTP_Breakable_R` (se renverse),
+`GTP_Breakable_C` (casse), `GTP_MassKg=<n>`, option `GTP_BrokenMesh=<chemin>`. Les
+objets fixes (potelets) n'ont pas besoin de tag. Règles : un renversable tombe dès
+une poussée de 3 km/h ; un cassable demande 400 J + 20 J par kg (un lampadaire de
+250 kg casse sous une voiture vers 11 km/h, un panneau de 25 kg vers 5 km/h ; une
+personne ne casse pas un lampadaire). Le corps est lancé avec une part de la vitesse
+de l'impacteur et la voiture perd un peu. Au plus 6 corps vivants en m1 (16
+ailleurs), 25 s chacun. `-Breakables=0` coupe tout. Liste des objets :
+docs/gameplay/breakable-street-furniture.fr.md (fil réalisme de la rue).

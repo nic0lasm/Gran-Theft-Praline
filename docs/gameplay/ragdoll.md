@@ -53,3 +53,17 @@ raising the caps.
 - `-RagdollTest` (+ `-RagdollTestQuit`): scenario without a player: car hits at 20, 40
   and 70 km/h, falls of 3 and 8 m, four bodies at once against the cap of three;
   logs `GTPRagdollTest: ... PASS` or `FAIL` and the average frame time.
+
+## Breakable street furniture
+
+`GTPBreakableLogic.h` and `UGTPBreakableSubsystem` (street props are instanced: one
+actor per asset, so the subsystem swaps the hit instance for a physics actor).
+Tags on the instanced components, set from the placement tables by the street
+script: `GTP_Breakable_R` (tips over), `GTP_Breakable_C` (breaks), `GTP_MassKg=<n>`,
+optional `GTP_BrokenMesh=<asset path>`. Fixed objects (bollards) need no tag.
+Rules: a tippable falls from a 3 km/h push; a breakable needs 400 J + 20 J per kg
+(a 250 kg lamp breaks under a car at about 11 km/h, a 25 kg sign at 5 km/h; a person
+cannot break a lamp). The body is thrown with a share of the impactor's speed and the
+car loses a little. At most 6 bodies live on m1 (16 elsewhere), 25 s each.
+`-Breakables=0` turns it off. List of objects: docs/gameplay/breakable-street-furniture.md
+(street realism thread).
