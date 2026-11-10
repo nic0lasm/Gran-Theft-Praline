@@ -233,6 +233,18 @@ then `python3 tools/city/signs.py --name presqu-ile`, then `assemble.py` (add
   far end, recording every frame time (p50, p95, p99, hitches over 100 ms) and
   five screenshots.
 
+## Ground and shells: art bible materials (added 2026-11-10)
+
+`tools/city/ground_mask.py` draws a ground mask from the BD TOPO road centre lines
+(2048 × 8192, ~15 cm per texel, not committed): asphalt carriageway (real width), granite
+kerbs, granite setts on streets closed to cars (zero speed: rue de la République, paths,
+steps), dashed centre lines on two-way roads, limestone slabs everywhere else.
+`tools/city/unreal/apply_city_materials.py` creates `M_City_Ground` (mask read at world
+coordinates, procedural slab and sett joints and tone variation, a single texture) and
+`M_City_Shell` (building colour written by the generator in the vertex colours, stone courses
+on walls, smoother roofs), assigns them to the terrain tiles and shells, and checks the facade
+instances of the map. It replaces `M_CityGreybox` without rebuilding the map.
+
 ## Limits and next steps
 
 1. **Editor test**: `tools/city/unreal/import_city.py` imports the greybox and

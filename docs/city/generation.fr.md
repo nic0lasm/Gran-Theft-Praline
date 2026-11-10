@@ -241,6 +241,19 @@ puis `python3 tools/city/signs.py --name presqu-ile`, puis `assemble.py`
   la rue, en relevant chaque temps d'image (p50, p95, p99, saccades de plus de
   100 ms) et cinq captures.
 
+## Sol et coques : matériaux de la bible (ajouté le 2026-11-10)
+
+`tools/city/ground_mask.py` dessine, à partir des axes de voies BD TOPO, un masque du sol
+(2048 × 8192, ~15 cm par texel, hors Git) : chaussée en asphalte (largeur réelle), bordures en
+granit, pavés de granit sur les rues fermées aux voitures (vitesse nulle : rue de la République,
+sentiers, escaliers), lignes axiales pointillées sur les voies à double sens, dalles de calcaire
+partout ailleurs. `tools/city/unreal/apply_city_materials.py` crée `M_City_Ground` (masque lu
+en coordonnées monde, joints de dalles et de pavés et variation de teinte procéduraux, une seule
+texture) et `M_City_Shell` (couleur du bâtiment écrite par le générateur dans les couleurs de
+sommets, assises de pierre sur les murs, toits moins rugueux), les assigne aux tuiles de terrain
+et aux coques, puis vérifie les instances de façade de la map. Il remplace `M_CityGreybox` sans
+reconstruire la map.
+
 ## Limites et suite
 
 1. **Test éditeur** : `tools/city/unreal/import_city.py` importe greybox et
