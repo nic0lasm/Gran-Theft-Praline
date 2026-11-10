@@ -24,6 +24,12 @@ class APlayerController;
  * control rotation for the view, the vehicle interaction component to get
  * in and out, and the vehicle movement inputs to drive. Phase changes are
  * logged (LogGTPDemo) with their time, to match them with the frame times.
+ *
+ * -DemoDriveTime=<s> sets how long step 4 drives (default 45 s).
+ * -DemoCarjack replaces steps 2 and 3: after looking around, the player walks
+ * to the nearest car with a non-player driver, steps in front of it so that
+ * it stops, presses the enter action at the driver door (the driver is pulled
+ * out) and drives on. Each step is logged.
  */
 UCLASS()
 class GRANTHEFTPRALINE_API UGTPDemoRoute : public UGameInstanceSubsystem
@@ -46,12 +52,14 @@ private:
 		Drive,
 		Stop,
 		Exit,
-		Done
+		Done,
+		Carjack
 	};
 
 	bool Tick(float DeltaTime);
 	void SetPhase(EPhase NewPhase);
 	AGTPVehicle* FindCar() const;
+	AGTPVehicle* FindTrafficCar() const;
 	void DriveInputs(AGTPVehicle* Car, float Throttle, float Brake, float Steering, bool bHandbrake) const;
 	APlayerController* GetController() const;
 
@@ -65,4 +73,7 @@ private:
 	double StuckSince = 0.0;
 	double UnstickUntil = 0.0;
 	float UnstickSteer = 0.f;
+	double DriveTime = 45.0;
+	bool bCarjack = false;
+	double CarjackRetarget = 0.0;
 };

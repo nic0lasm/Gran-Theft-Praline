@@ -6,6 +6,7 @@
 #include "EngineUtils.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/PlayerController.h"
+#include "GTPLog.h"
 #include "GTPPlayerController.h"
 #include "GTPVehicle.h"
 #include "GTPVehicleInteractionComponent.h"
@@ -23,7 +24,10 @@ namespace
 	constexpr double TurnBackTime = 2.0;
 	constexpr double WalkToCarMaxTime = 40.0;
 	constexpr double EnterMaxTime = 8.0;
-	constexpr double DriveTime = 45.0;
+	constexpr double CarjackMaxTime = 240.0;
+	constexpr double CarjackRetargetTime = 10.0;
+	constexpr float CarjackStoppedKmh = 5.f;
+	constexpr float CarjackLeadCm = 900.f;
 	constexpr double StopMaxTime = 8.0;
 	constexpr double ExitMaxTime = 6.0;
 	constexpr float CruiseKmh = 40.f;
@@ -32,7 +36,8 @@ namespace
 	const TCHAR* PhaseName(int32 Phase)
 	{
 		static const TCHAR* Names[] = { TEXT("wait for pawn"), TEXT("look around"), TEXT("walk street"), TEXT("turn back"),
-			TEXT("walk to car"), TEXT("enter"), TEXT("drive"), TEXT("stop"), TEXT("exit"), TEXT("done") };
+			TEXT("walk to car"), TEXT("enter"), TEXT("drive"), TEXT("stop"), TEXT("exit"), TEXT("done"),
+			TEXT("carjack") };
 		return (Phase >= 0 && Phase < static_cast<int32>(UE_ARRAY_COUNT(Names))) ? Names[Phase] : TEXT("?");
 	}
 }
@@ -40,14 +45,17 @@ namespace
 void UGTPDemoRoute::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
-	if (!FParse::Param(FCommandLine::Get(), TEXT("DemoRoute")))
+	bCarjack = FParse::Param(FCommandLine::Get(), TEXT("DemoCarjack"));
+	if (!bCarjack && !FParse::Param(FCommandLine::Get(), TEXT("DemoRoute")))
 	{
 		return;
 	}
+	FParse::Value(FCommandLine::Get(), TEXT("DemoDriveTime="), DriveTime);
+	DriveTime = FMath::Clamp(DriveTime, 5.0, 3600.0);
 	RouteStart = FPlatformTime::Seconds();
 	PhaseStart = RouteStart;
 	TickHandle = FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateUObject(this, &UGTPDemoRoute::Tick));
-	UE_LOG(LogGTPDemo, Log, TEXT("Demo route enabled"));
+	GTP_TRACE(LogGTPDemo, TEXT("Demo route enabled (drive %.0f s%s)"), DriveTime, bCarjack ? TEXT(", carjack") : TEXT(""));
 }
 
 void UGTPDemoRoute::Deinitialize()
@@ -70,7 +78,7 @@ void UGTPDemoRoute::SetPhase(EPhase NewPhase)
 {
 	Phase = NewPhase;
 	PhaseStart = FPlatformTime::Seconds();
-	UE_LOG(LogGTPDemo, Log, TEXT("Demo route %.1f s: %s"), static_cast<float>(PhaseStart - RouteStart), PhaseName(static_cast<int32>(NewPhase)));
+	GTP_TRACE(LogGTPDemo, TEXT("Demo route %.1f s: %s"), static_cast<float>(PhaseStart - RouteStart), PhaseName(static_cast<int32>(NewPhase)));
 }
 
 AGTPVehicle* UGTPDemoRoute::FindCar() const
@@ -87,6 +95,33 @@ AGTPVehicle* UGTPDemoRoute::FindCar() const
 	for (TActorIterator<AGTPVehicle> It(World); It; ++It)
 	{
 		if (It->IsWrecked() || It->GetDriver() != nullptr)
+		{
+			continue;
+		}
+		const float Dist = FVector::DistSquared(It->GetActorLocation(), Pawn->GetActorLocation());
+		if (Dist < BestDist)
+		{
+			BestDist = Dist;
+			Best = *It;
+		}
+	}
+	return Best;
+}
+
+AGTPVehicle* UGTPDemoRoute::FindTrafficCar() const
+{
+	const APlayerController* PC = GetController();
+	const APawn* Pawn = PC ? PC->GetPawn() : nullptr;
+	UWorld* World = PC ? PC->GetWorld() : nullptr;
+	if (!Pawn || !World)
+	{
+		return nullptr;
+	}
+	AGTPVehicle* Best = nullptr;
+	float BestDist = TNumericLimits<float>::Max();
+	for (TActorIterator<AGTPVehicle> It(World); It; ++It)
+	{
+		if (It->IsWrecked() || !It->HasAIDriver())
 		{
 			continue;
 		}
@@ -141,7 +176,7 @@ bool UGTPDemoRoute::Tick(float DeltaTime)
 		PC->SetControlRotation(FRotator(-8.f, StartControlYaw + Pan, 0.f));
 		if (T >= LookAroundTime)
 		{
-			SetPhase(EPhase::WalkStreet);
+			SetPhase(bCarjack ? EPhase::Carjack : EPhase::WalkStreet);
 		}
 		break;
 	}
@@ -209,9 +244,71 @@ bool UGTPDemoRoute::Tick(float DeltaTime)
 		break;
 	}
 
+	case EPhase::Carjack:
+	{
+		AGTPVehicle* Target = Car.Get();
+		if (!Target || !Target->HasAIDriver() || Now - CarjackRetarget > CarjackRetargetTime)
+		{
+			AGTPVehicle* Nearest = FindTrafficCar();
+			CarjackRetarget = Now;
+			if (Nearest && Nearest != Target)
+			{
+				GTP_TRACE(LogGTPDemo, TEXT("Demo carjack: heading for %s, %.0f m away, %.0f km/h"), *Nearest->GetName(),
+					FVector::Dist(Nearest->GetActorLocation(), Pawn->GetActorLocation()) / 100.f, Nearest->GetSpeedKmh());
+			}
+			Car = Nearest;
+			Target = Nearest;
+		}
+		if (!Target)
+		{
+			if (T >= CarjackMaxTime)
+			{
+				GTP_TRACE(LogGTPDemo, TEXT("Demo carjack: no car with a driver in %.0f s; staying on foot"), CarjackMaxTime);
+				SetPhase(EPhase::Done);
+			}
+			break;
+		}
+		// A moving car: stand on its way ahead of it, so that it stops for the
+		// pedestrian. A stopped one: walk to the driver door.
+		const float TargetSpeed = FMath::Abs(Target->GetSpeedKmh());
+		const FVector Door = Target->GetDoorLocation(EGTPVehicleSide::Left);
+		const FVector Goal = TargetSpeed > CarjackStoppedKmh
+			? Target->GetActorLocation() + Target->GetActorForwardVector() * CarjackLeadCm
+			: Door;
+		FVector ToGoal = Goal - Pawn->GetActorLocation();
+		ToGoal.Z = 0.f;
+		const FRotator Desired(-8.f, ToGoal.Rotation().Yaw, 0.f);
+		PC->SetControlRotation(FMath::RInterpTo(PC->GetControlRotation(), Desired, DeltaTime, 3.f));
+		if (ToGoal.Size() > 60.f)
+		{
+			Pawn->AddMovementInput(ToGoal.GetSafeNormal(), 1.f);
+		}
+		FVector ToDoor = Door - Pawn->GetActorLocation();
+		ToDoor.Z = 0.f;
+		const AGTPPlayerController* GTPController = Cast<AGTPPlayerController>(PC);
+		UGTPVehicleInteractionComponent* Interaction = GTPController ? GTPController->GetVehicleInteraction() : nullptr;
+		if (Interaction && TargetSpeed <= CarjackStoppedKmh && ToDoor.Size() <= DoorReachCm && Interaction->FindBestVehicle() == Target)
+		{
+			GTP_TRACE(LogGTPDemo, TEXT("Demo carjack: %s stopped (%.1f km/h), at the driver door, pressing enter"), *Target->GetName(),
+				TargetSpeed);
+			Interaction->HandleEnterExit();
+			SetPhase(EPhase::Enter);
+		}
+		else if (T >= CarjackMaxTime)
+		{
+			GTP_TRACE(LogGTPDemo, TEXT("Demo carjack: no car taken in %.0f s; staying on foot"), CarjackMaxTime);
+			SetPhase(EPhase::Done);
+		}
+		break;
+	}
+
 	case EPhase::Enter:
 		if (Pawn == Car.Get())
 		{
+			if (bCarjack)
+			{
+				GTP_TRACE(LogGTPDemo, TEXT("Demo carjack: driver pulled out, player at the wheel of %s, driving off"), *Pawn->GetName());
+			}
 			StreetYaw = Pawn->GetActorRotation().Yaw;
 			SetPhase(EPhase::Drive);
 		}
@@ -254,7 +351,7 @@ bool UGTPDemoRoute::Tick(float DeltaTime)
 				UnstickSteer = YawError >= 0.f ? 1.f : -1.f;
 				UnstickUntil = Now + 2.0;
 				StuckSince = 0.0;
-				UE_LOG(LogGTPDemo, Log, TEXT("Demo route: car stuck, backing off"));
+				GTP_TRACE(LogGTPDemo, TEXT("Demo route: car stuck, backing off"));
 				break;
 			}
 		}
@@ -296,7 +393,7 @@ bool UGTPDemoRoute::Tick(float DeltaTime)
 	case EPhase::Exit:
 		if (Cast<ACharacter>(Pawn))
 		{
-			UE_LOG(LogGTPDemo, Log, TEXT("Demo route: back on foot"));
+			GTP_TRACE(LogGTPDemo, TEXT("Demo route: back on foot"));
 			SetPhase(EPhase::Done);
 		}
 		else if (T >= ExitMaxTime)
