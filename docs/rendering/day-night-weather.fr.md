@@ -71,6 +71,10 @@ sépia). Saturation selon la météo (0,8 sous la pluie).
   | fidelity | 96 | 6 | 120 m | oui |
   | ultra | 160 | 12 | 150 m | oui |
 
+- **Voitures** : chaque véhicule (trafic, police, joueur) reçoit deux phares
+  (projecteurs 12 000 cd, 5000 K, cône 32°, portée 35 m) et un feu arrière
+  rouge, sans ombre ; la nuit, seules les `MaxLitCars` voitures les plus
+  proches sont allumées (m1 : 4, fidelity : 6, ultra : 10).
 - **Allumage** : entre +2° et −4° de soleil (plus tôt sous les nuages).
 - **Émissifs** : `EmissiveScale` de `MPC_Environment` passe de 1 à 20 la
   nuit ; les matériaux de vitrines et d'enseignes le multiplient.
@@ -96,7 +100,8 @@ Six états qui se fondent en 60 s ; la météo automatique en tire un toutes les
   `tools/environment/unreal/gtp_weather.py` `add_weather(mat, rôles)` en fin
   de graphe : albédo assombri (× 0,55) et rugosité 0,12 avec `Wetness`
   (moins sur les murs), flaques sur le sol plat (rugosité 0,03, bruit de
-  6 m), émissif × `EmissiveScale`. Le mouillé survit ainsi aux régénérations.
+  6 m), émissif × `EmissiveScale`. Le mouillé survit ainsi aux régénérations ;
+  la collection et la texture de flaques sont créées au premier appel.
   En attendant, `GTP_ENV_WET=on` applique les mêmes nœuds aux matériaux
   existants (`M_City_Ground`, `M_City_Shell`, `M_City_Kit`,
   `M_Master_Surface`, `M_Sign_Fascia`), une seule fois par matériau.

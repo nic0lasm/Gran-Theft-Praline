@@ -87,26 +87,9 @@ def parameter_collection():
 
 def texture(name, generator):
     path = FOLDER + "/" + name
-    if eal.does_asset_exist(path):
-        return eal.load_asset(path)
-    os.makedirs(SAVED, exist_ok=True)
-    png = os.path.join(SAVED, name + ".png")
-    w, h, px = generator()
-    textures.write_png(png, w, h, px)
-    task = unreal.AssetImportTask()
-    task.set_editor_property("filename", png)
-    task.set_editor_property("destination_path", FOLDER)
-    task.set_editor_property("destination_name", name)
-    task.set_editor_property("automated", True)
-    task.set_editor_property("replace_existing", True)
-    task.set_editor_property("save", False)
-    asset_tools.import_asset_tasks([task])
-    tex = eal.load_asset(path)
-    tex.set_editor_property("srgb", False)
-    tex.set_editor_property("compression_settings", unreal.TextureCompressionSettings.TC_DEFAULT)
-    eal.save_loaded_asset(tex)
-    report["created"].append(path)
-    return tex
+    if not eal.does_asset_exist(path):
+        report["created"].append(path)
+    return gtp_weather.texture(name, generator)
 
 
 def rain_mesh():

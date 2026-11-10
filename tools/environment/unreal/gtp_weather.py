@@ -13,11 +13,17 @@ wet look and the night emissive survive every regeneration:
 Roles: "wet" darkens the albedo and lowers the roughness with Wetness (less on
 walls), "puddles" adds puddles on flat ground with Puddles, "emissive"
 multiplies the emissive by EmissiveScale (1 by day, about 20 at night).
-Collection and puddle texture are created by setup_environment.py; if they are
-missing, add_weather() creates the collection and skips the puddles.
+The collection and the puddle texture are created on first use, so the city
+import can run before or after tools/environment/setup-environment-mac.sh.
 """
 
+import os
+import sys
+
 import unreal
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+import textures  # noqa: E402
 
 FOLDER = "/Game/Environment/Weather"
 MPC_PATH = FOLDER + "/MPC_Environment"
@@ -55,6 +61,31 @@ def collection():
     mpc.set_editor_property("scalar_parameters", params)
     eal.save_loaded_asset(mpc)
     return mpc
+
+
+def texture(name, generator):
+    """Load a procedural texture of FOLDER, generating and importing it when missing."""
+    path = FOLDER + "/" + name
+    if eal.does_asset_exist(path):
+        return eal.load_asset(path)
+    saved = os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_saved_dir()), "Environment")
+    os.makedirs(saved, exist_ok=True)
+    png = os.path.join(saved, name + ".png")
+    w, h, px = generator()
+    textures.write_png(png, w, h, px)
+    task = unreal.AssetImportTask()
+    task.set_editor_property("filename", png)
+    task.set_editor_property("destination_path", FOLDER)
+    task.set_editor_property("destination_name", name)
+    task.set_editor_property("automated", True)
+    task.set_editor_property("replace_existing", True)
+    task.set_editor_property("save", False)
+    unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks([task])
+    tex = eal.load_asset(path)
+    tex.set_editor_property("srgb", False)
+    tex.set_editor_property("compression_settings", unreal.TextureCompressionSettings.TC_DEFAULT)
+    eal.save_loaded_asset(tex)
+    return tex
 
 
 class Graph:
@@ -110,10 +141,8 @@ def input_of(mat, prop):
 def add_weather(mat, roles, mpc=None, puddle_tex=None):
     """Insert the weather nodes between the material's current inputs and its pins."""
     mpc = mpc or collection()
-    if puddle_tex is None and eal.does_asset_exist(PUDDLE_TEXTURE):
-        puddle_tex = eal.load_asset(PUDDLE_TEXTURE)
-    if puddle_tex is None:
-        roles = tuple(r for r in roles if r != "puddles")
+    if puddle_tex is None and "puddles" in roles:
+        puddle_tex = texture(PUDDLE_TEXTURE.rsplit("/", 1)[1], textures.puddle_noise)
     g = Graph(mat, x=-2200)
     if "wet" in roles:
         normal = g.node(unreal.MaterialExpressionVertexNormalWS)

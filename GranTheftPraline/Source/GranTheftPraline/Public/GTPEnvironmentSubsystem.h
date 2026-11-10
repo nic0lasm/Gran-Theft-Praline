@@ -117,6 +117,10 @@ struct FGTPLightBudget
 	/** Volumetric fog allowed with this profile. */
 	UPROPERTY()
 	bool bVolumetricFog = false;
+
+	/** Cars (traffic, police, the player's) with headlights and tail lights on at night, nearest first. */
+	UPROPERTY()
+	int32 MaxLitCars = 4;
 };
 
 /**
@@ -133,6 +137,7 @@ struct FGTPLightBudget
  *   - the night lights (street lamps, shop windows): spawned from
  *     Content/<NightLightsFile> plus any actor tagged GTP_StreetLight or
  *     GTP_ShopLight, only the nearest MaxLights on, MaxShadowedLights with shadows;
+ *   - car headlights and tail lights on the nearest MaxLitCars vehicles (no shadows);
  *   - the parameter collection MPC_Environment read by the materials
  *     (Wetness, Puddles, RainIntensity, CityLights, EmissiveScale, Cloudiness).
  *
@@ -189,6 +194,8 @@ private:
 	void CreateOwnComponents(UWorld& World);
 	void SpawnRiverFog(UWorld& World);
 	void LoadNightLights(UWorld& World);
+	void FindNewCars();
+	void UpdateCarLights(const FVector& CameraLocation);
 	void AdoptTaggedLights(UWorld& World);
 	void ReadCommandLine();
 	void ApplyBudgetForProfile(UWorld& World);
@@ -345,6 +352,25 @@ private:
 	UPROPERTY(Config)
 	TArray<FGTPLightBudget> LightBudgets;
 
+	/** Car lights: headlight (candela, K, cm, outer cone degrees) and tail light (candela, cm). */
+	UPROPERTY(Config)
+	float HeadlightCandela = 12000.f;
+
+	UPROPERTY(Config)
+	float HeadlightKelvin = 5000.f;
+
+	UPROPERTY(Config)
+	float HeadlightRadius = 3500.f;
+
+	UPROPERTY(Config)
+	float HeadlightOuterCone = 32.f;
+
+	UPROPERTY(Config)
+	float TailLightCandela = 40.f;
+
+	UPROPERTY(Config)
+	float TailLightRadius = 350.f;
+
 	/** Seconds between two night light updates. */
 	UPROPERTY(Config)
 	float LightUpdateInterval = 0.2f;
@@ -402,4 +428,14 @@ private:
 	TArray<TObjectPtr<UActorComponent>> RiverFogVolumes;
 
 	TArray<FManagedLight> NightLights;
+
+	/** Headlights and tail lights added to each car (no shadows, ADR-0002). */
+	struct FCarLights
+	{
+		TWeakObjectPtr<AActor> Car;
+		TArray<TWeakObjectPtr<ULocalLightComponent>> Lights;
+		bool bOn = false;
+	};
+	TArray<FCarLights> CarLights;
+	float CarScanTimer = 0.f;
 };
