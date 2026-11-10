@@ -54,6 +54,18 @@ UGTPPedestrianSubsystem::OnPedestrianScared; // une personne se met à fuir
 ```
 Cause est nulle pour l'instant (la voiture n'est pas encore identifiée).
 
+## Crochets et variété
+
+- `ScareAround(Lieu, Rayon, Cause)` fait fuir tous ceux du voisinage (tirs,
+  explosions, police) et diffuse `OnPedestrianScared` pour chacun.
+- `CrossingBlockedQuery` (`TFunction<bool(const FVector& Where, const FVector& WalkDirection)>`) permet aux feux de
+  dire qu'un passage est rouge pour les piétons ; sans lui, ils ne surveillent
+  que les voitures.
+- Variété avec un seul maillage : la taille varie de `HeightSpread` et les
+  matériaux du corps reçoivent une couleur de vêtement d'une petite palette
+  urbaine via les paramètres vectoriels de `TintParameters` (ceux qu'un matériau
+  n'a pas sont ignorés). D'autres maillages vont dans `Meshes`.
+
 ## Contrôles
 
 - `python3 tools/pedestrians/check_walk_logic.py [walkways.csv]` compile

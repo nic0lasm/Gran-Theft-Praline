@@ -4,6 +4,7 @@
 #include "Animation/AnimSequence.h"
 #include "Animation/AnimSequenceBase.h"
 #include "Components/SceneComponent.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/SkeletalMesh.h"
 #include "Engine/World.h"
@@ -56,6 +57,22 @@ AGTPPedestrian::AGTPPedestrian()
 	Body->SetAnimationMode(EAnimationMode::AnimationSingleNode);
 	// Nothing to pose while nobody sees the body.
 	Body->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::OnlyTickPoseWhenRendered;
+}
+
+void AGTPPedestrian::ApplyLook(float HeightScale, const FLinearColor& Clothes, const TArray<FName>& TintParameters)
+{
+	SetActorScale3D(FVector(HeightScale));
+	for (int32 Slot = 0; Slot < Body->GetNumMaterials(); ++Slot)
+	{
+		if (UMaterialInstanceDynamic* Material = Body->CreateAndSetMaterialInstanceDynamic(Slot))
+		{
+			// A parameter the material does not have is ignored.
+			for (const FName& Parameter : TintParameters)
+			{
+				Material->SetVectorParameterValue(Parameter, Clothes);
+			}
+		}
+	}
 }
 
 void AGTPPedestrian::PlayLoop(UAnimSequenceBase* Animation, float PlayRate)
@@ -220,6 +237,16 @@ int32 UGTPPedestrianSubsystem::ChooseDensity() const
 	return Profile == TEXT("fidelity") ? DensityFidelity : DensityM1;
 }
 
+FLinearColor UGTPPedestrianSubsystem::Palette(float Pick)
+{
+	// Everyday clothes of a French city street: dark, navy, grey, beige, olive, brick, denim, white.
+	static const FLinearColor Colours[] = {
+		FLinearColor(0.02f, 0.02f, 0.025f), FLinearColor(0.02f, 0.035f, 0.10f), FLinearColor(0.18f, 0.18f, 0.19f),
+		FLinearColor(0.42f, 0.34f, 0.24f), FLinearColor(0.12f, 0.14f, 0.06f), FLinearColor(0.30f, 0.07f, 0.04f),
+		FLinearColor(0.07f, 0.12f, 0.25f), FLinearColor(0.70f, 0.70f, 0.68f)};
+	return Colours[FMath::Min(UE_ARRAY_COUNT(Colours) - 1, static_cast<int32>(Pick * UE_ARRAY_COUNT(Colours)))];
+}
+
 USkeletalMesh* UGTPPedestrianSubsystem::PickMesh()
 {
 	if (LoadedMeshes.Num() == 0)
@@ -358,6 +385,7 @@ void UGTPPedestrianSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 			continue;
 		}
 		Actor->GetBody()->SetSkeletalMesh(PickMesh());
+		Actor->ApplyLook(Rng.Range(1.f - HeightSpread, 1.f + HeightSpread), Palette(Rng.Next()), TintParameters);
 		Actor->GetBody()->SetRelativeRotation(FRotator(0.f, MeshYawOffset, 0.f));
 		Actor->SetDetail(false, false, -1);
 		P.Actor = Actor;
@@ -525,7 +553,11 @@ void UGTPPedestrianSubsystem::Update(FPerson& Person, float DeltaTime)
 	if (Edge.Kind == GTPWalk::EKind::Crossing && Person.Walker.S < 30.f)
 	{
 		const FVector Mid(Edge.Points[Edge.Points.size() / 2].X, Edge.Points[Edge.Points.size() / 2].Y, 0.f);
-		bCrossingUnsafe = CarNear(Mid, CrossingLookRadius, 150.f);
+		const GTPWalk::FPoint& From = Person.Walker.bForward ? Edge.Points.front() : Edge.Points.back();
+		const GTPWalk::FPoint& To = Person.Walker.bForward ? Edge.Points.back() : Edge.Points.front();
+		const FVector CrossingDirection = FVector(To.X - From.X, To.Y - From.Y, 0.f).GetSafeNormal();
+		bCrossingUnsafe = CarNear(Mid, CrossingLookRadius, 150.f)
+			|| (CrossingBlockedQuery && CrossingBlockedQuery(Mid, CrossingDirection));
 	}
 	FVector CarLocation, CarVelocity;
 	if (Cars.Num() > 0 && CarNear(Person.Location, FleeRadius, FleeCarSpeed, &CarLocation, &CarVelocity))
@@ -617,6 +649,23 @@ void UGTPPedestrianSubsystem::RefreshDetail()
 		Actor->SetDetail(bDraw, bDraw && bNear, bNear ? -1 : Far);
 		P->bDrawn = bDraw;
 	}
+}
+
+int32 UGTPPedestrianSubsystem::ScareAround(const FVector& Location, float Radius, AActor* Cause)
+{
+	int32 Count = 0;
+	for (FPerson& P : People)
+	{
+		if (!P.bActive || (P.Actor.IsValid() && P.Actor->IsRagdoll()) || FVector::Dist2D(P.Location, Location) > Radius)
+		{
+			continue;
+		}
+		GTPWalk::Flee(Graph, P.Walker, {Location.X, Location.Y}, Settings);
+		++FledTotal;
+		++Count;
+		OnPedestrianScared.Broadcast(P.Location, Cause);
+	}
+	return Count;
 }
 
 void UGTPPedestrianSubsystem::Tick(float DeltaTime)
