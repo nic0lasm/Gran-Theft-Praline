@@ -7,6 +7,7 @@
 #include "GTPVehicleWheels.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
+#include "AIController.h"
 #include "Animation/AnimMontage.h"
 #include "Camera/CameraComponent.h"
 #include "ChaosWheeledVehicleMovementComponent.h"
@@ -490,6 +491,11 @@ bool AGTPVehicle::CanEnter(const ACharacter* Character) const
 	{
 		return false;
 	}
+	// A moving car cannot be boarded (a driven one stops for a person in front of it).
+	if (FMath::Abs(GetSpeedKmh()) > MaxEntrySpeedKmh)
+	{
+		return false;
+	}
 	// Never take the car from another player.
 	const AController* Current = GetController();
 	return !(Current && Current->IsPlayerController());
@@ -550,6 +556,13 @@ bool AGTPVehicle::BeginEnter(ACharacter* Character, AController* DriverControlle
 	switch (PendingEntry)
 	{
 	case EGTPEntryKind::Carjack:
+		// The car stops where it is while its driver is pulled out.
+		ClearDrivingInput();
+		if (UChaosWheeledVehicleMovementComponent* Move = GetWheeledMovement())
+		{
+			Move->SetBrakeInput(1.f);
+			Move->SetHandbrakeInput(true);
+		}
 		if (ACharacter* Victim = Driver)
 		{
 			// Pulled out through the driver door, thrown a little further out.
@@ -557,6 +570,12 @@ bool AGTPVehicle::BeginEnter(ACharacter* Character, AController* DriverControlle
 			const FVector Out = (Door - GetActorLocation()).GetSafeNormal2D();
 			ReleaseCharacter(Victim, Door + Out * 110.f + FVector(0.f, 0.f, Victim->GetSimpleCollisionHalfHeight()), Facing);
 			Victim->LaunchCharacter(Out * 250.f, true, false);
+			// A non-player driver runs off, away from the car (no navigation mesh needed).
+			if (AAIController* VictimAI = Cast<AAIController>(Victim->GetController()))
+			{
+				const FVector FleeTo = Door + Out * VictimFleeDistance + GetActorForwardVector() * (VictimFleeDistance * 0.5f);
+				VictimAI->MoveToLocation(FleeTo, 50.f, false, false);
+			}
 		}
 		Duration = PlayMontageOr(Character, CarjackMontage, CarjackDuration);
 		break;

@@ -2,8 +2,12 @@
 
 #include "GTPHUD.h"
 #include "GTPPlayerController.h"
+#include "GTPTraffic.h"
 #include "GTPVehicle.h"
 #include "Engine/World.h"
+#include "EngineUtils.h"
+#include "Kismet/GameplayStatics.h"
+#include "Misc/Paths.h"
 #include "GameFramework/Pawn.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
@@ -34,6 +38,24 @@ void AGTPGameMode::InitGame(const FString& MapName, const FString& Options, FStr
 		UE_LOG(LogGTPGameMode, Warning, TEXT("PlayerPawnClass '%s' could not be loaded, using the default pawn."),
 			*PlayerPawnClass.ToString());
 	}
+}
+
+void AGTPGameMode::StartPlay()
+{
+	Super::StartPlay();
+	int32 Traffic = -1;
+	FParse::Value(FCommandLine::Get(), TEXT("Traffic="), Traffic);
+	if (Traffic == 0 || TActorIterator<AGTPTrafficNetwork>(GetWorld()))
+	{
+		return;
+	}
+	const FString File = AGTPTrafficNetwork::LanesFileFor(UGameplayStatics::GetCurrentLevelName(this, true));
+	if (!FPaths::FileExists(File))
+	{
+		UE_LOG(LogGTPGameMode, Log, TEXT("No traffic: %s not found"), *File);
+		return;
+	}
+	GetWorld()->SpawnActor<AGTPTrafficNetwork>();
 }
 
 void AGTPGameMode::RestartPlayer(AController* NewPlayer)

@@ -261,6 +261,14 @@ protected:
 	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Seats")
 	float StoppedSpeedKmh = 4.f;
 
+	/** Above this speed nobody can get in (km/h). */
+	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Seats")
+	float MaxEntrySpeedKmh = 12.f;
+
+	/** How far a driver pulled out of the car runs off (cm). */
+	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Seats")
+	float VictimFleeDistance = 2500.f;
+
 	/** Sideways launch speed of a bail out (cm/s). */
 	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Seats")
 	float BailOutLaunchSpeed = 450.f;
