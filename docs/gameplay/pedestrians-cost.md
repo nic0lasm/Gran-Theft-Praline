@@ -75,6 +75,17 @@ recycled when they stray beyond `FarMaxDistance`. Ground height is the player's
 (far people are small; the bake of the real height is for later). With no mesh set
 the layer is off and costs nothing.
 
+Animated far crowd (layer 3 with vertex animation, the 100+ target): bake the walking
+character into a vertex animation texture with `tools/pedestrians/make_far_vat.py`
+(editor Python, replayable, uses the engine's AnimToTexture plugin and logs each step),
+then set `FarCrowdMesh` to the static mesh it makes. Every far instance carries two custom
+data floats, walk phase and speed scale, for the material (animation time = Time x speed
++ phase), so all the walking costs no CPU. Switch: no animated mesh, no animation; the
+still pose from `make_ped_far.py` is the fallback; `-PedFar=0` turns the layer off.
+`FarCrowdMesh` defaults to `/Game/Characters/Far/SM_PedFar_A`, so `-PedFar=N` alone is
+enough once that mesh is imported. Impostor sprites stay a fallback if the vertex
+animation proves too dear on Metal.
+
 ## Budget (performance thread, 2026-11-10)
 
 Target: 20 drawn people at most 2 ms GPU and 1 ms CPU; shadows only inside 20 m,

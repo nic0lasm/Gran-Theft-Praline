@@ -78,6 +78,19 @@ sont recyclés au-delà de `FarMaxDistance`. La hauteur du sol est celle du joue
 (les lointains sont petits ; la vraie hauteur viendra plus tard). Sans maillage
 réglé, la couche est coupée et ne coûte rien.
 
+Foule lointaine animée (couche 3 avec animation de sommets, cible 100+) : cuire le
+personnage qui marche dans une texture d'animation de sommets avec
+`tools/pedestrians/make_far_vat.py` (Python d'éditeur, rejouable, utilise le
+plugin AnimToTexture du moteur et journalise chaque étape), puis régler
+`FarCrowdMesh` sur le maillage statique qu'il crée. Chaque instance lointaine porte
+deux flottants de données (phase de marche et échelle de vitesse) pour le matériau
+(temps d'animation = Time x vitesse + phase) : la marche ne coûte aucun CPU.
+Interrupteur : sans maillage animé, pas d'animation ; la pose figée de
+`make_ped_far.py` est le repli ; `-PedFar=0` coupe la couche. `FarCrowdMesh` vaut
+par défaut `/Game/Characters/Far/SM_PedFar_A`, donc `-PedFar=N` suffit une fois ce
+maillage importé. Les sprites imposteurs restent un repli si l'animation de sommets
+coûte trop cher sur Metal.
+
 ## Budget (fil performance, 2026-11-10)
 
 Cible : 20 personnes dessinées au plus à 2 ms de GPU et 1 ms de CPU ; ombres

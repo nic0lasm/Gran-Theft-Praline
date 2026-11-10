@@ -186,7 +186,7 @@ protected:
 
 	/** Static mesh of a person in a walking pose (baked from the skeletal mesh in the editor). */
 	UPROPERTY(Config)
-	FSoftObjectPath FarCrowdMesh;
+	FSoftObjectPath FarCrowdMesh = FSoftObjectPath(TEXT("/Game/Characters/Far/SM_PedFar_A.SM_PedFar_A"));
 
 	UPROPERTY(Config)
 	float PromoteDistance = 4000.f;
