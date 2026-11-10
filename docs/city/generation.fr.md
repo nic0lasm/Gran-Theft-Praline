@@ -366,6 +366,13 @@ kit à coût constant et la coupe à 250 m à mesurer.
 Créneau Mac en une commande : `caffeinate -dimsu tools/city/city_slot_mac.sh <builds_avant> 0.3`
 (régénération, package, test M1 60 s filmé, avant/après du fil réalisme).
 
+**Coût GPU de l'habillage** : `tools/city/unreal/profile_details.sh` mesure, en `-game` et sans
+reconstruire la map, le temps d'image à quatre points fixes de la rue, avec tout visible puis en
+masquant les détails, le mobilier, ou un groupe de détails à la fois (tags d'acteur `GTP_Set_*` et
+`GTP_Cat_*` posés par `place_props.py`). Résultat : `Saved/CityImport/details_profile.json`. Les détails
+plaqués au mur, les présentoirs derrière les vitres et les petits objets ne projettent plus d'ombre
+(colonne `shadow`) ; seuls les stores et les cheminées gardent la leur.
+
 ## Limites et suite
 
 1. **Test éditeur** : `tools/city/unreal/import_city.py` importe greybox et
