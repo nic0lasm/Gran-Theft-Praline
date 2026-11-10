@@ -16,9 +16,10 @@ import unreal
 
 MAP = "/Game/Maps/L_RueRepublique"
 CAR = os.environ.get("GTP_PARKED_CAR", "/Game/Vehicles/Cars/Renault_ClioV/BP_Renault_ClioV")
-# From the PlayerStart, in its frame: 14 m down the street, 2.8 m to the right
-# (away from the -TestVehicle spot, 6 m ahead and 2.5 m right), 30 cm up to settle.
-OFFSET = unreal.Vector(1400.0, 280.0, 30.0)
+# From the PlayerStart, in its frame: 14 m down the street, 1.8 m to the right
+# (2.5 m puts its side in the facades; the -TestVehicle spot is 2.8 m ahead,
+# in the middle of the street), 30 cm up to settle.
+OFFSET = unreal.Vector(1400.0, 180.0, 30.0)
 
 level_sub = unreal.get_editor_subsystem(unreal.LevelEditorSubsystem)
 actor_sub = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
@@ -42,7 +43,7 @@ def main():
     start = starts[0]
     yaw = start.get_actor_rotation().yaw
     rot = unreal.Rotator(roll=0.0, pitch=0.0, yaw=yaw)
-    loc = start.get_actor_location() + rot.rotate_vector(OFFSET)
+    loc = start.get_actor_location() + unreal.MathLibrary.greater_greater_vector_rotator(OFFSET, rot)
 
     # Rest on the ground: trace down from 5 m above.
     hit = unreal.SystemLibrary.line_trace_single(

@@ -55,10 +55,20 @@ def pawn():
 
 
 def vehicle():
-    for v in unreal.ObjectIterator(unreal.GTPVehicle):
-        if v.get_world() is not None and v.get_world() == world():
-            return v
-    return None
+    """The car nearest the player when first asked (the -TestVehicle one, next
+    to the player; the level may also hold parked cars further away), then the
+    same car for the whole run."""
+    v = state.get("vehicle")
+    if v is not None:
+        return v
+    p = pawn()
+    cars = [c for c in unreal.ObjectIterator(unreal.GTPVehicle)
+            if c.get_world() is not None and c.get_world() == world()]
+    if not cars or p is None:
+        return cars[0] if cars else None
+    v = min(cars, key=lambda c: c.get_actor_location().distance(p.get_actor_location()))
+    state["vehicle"] = v
+    return v
 
 
 def movement(v):
