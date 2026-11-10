@@ -39,8 +39,7 @@ GAME_ARGS="-GfxProfile=ultra" tools/build/test-build-mac.sh 0.2 300 0
 
 Launches the packaged game straight into gameplay, records every frame and
 checks that it quits cleanly after the requested time, with no crash report.
-By default the video and soak runs play the demo route (`-TestVehicle
--DemoRoute`) so walking and driving are filmed and measured; `DEMO_ROUTE=0`
+By default the video and soak runs play the demo route (`-DemoRoute`) so walking and driving are filmed and measured; `DEMO_ROUTE=0`
 keeps the player still.
 Evidence goes to `Builds/<version>/evidence/<timestamp>/`: `frametimes.csv`,
 `frametimes.summary.txt` (p50, p95, p99, share of frames within 33.3 ms,
@@ -60,7 +59,7 @@ version is copied to `production/evidence/<version>/` (video through Git LFS).
 | `-ExitAfter=<s>` | Quit cleanly after this many seconds |
 | `-CaptureVideo=<s>` | Save rendered frames as JPEG for this many seconds (`-CaptureFps`, default 10; `-CaptureDelay`, default 3; `-CaptureDir`) |
 | `-GfxProfile=<name>` | Rendering profile from ADR-0002: `m1` (default), `fidelity` or `ultra` (project settings only) |
-| `-DemoRoute` | Plays a fixed route by itself (look around, walk, get in the test car, drive, get out) to film and measure without a player; use with `-SkipTitle -TestVehicle` |
+| `-DemoRoute` | Plays a fixed route by itself (look around, walk, get in the nearest parked car, drive, get out) to film and measure without a player; use with `-SkipTitle` (and `-TestVehicle` on a map with no parked car) |
 
 The recorder works in Shipping builds too: it uses the engine thread
 timings (`frame`, `game`, `render`, `gpu`), not the profiler. The Metal GPU

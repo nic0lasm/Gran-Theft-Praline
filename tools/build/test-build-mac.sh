@@ -15,8 +15,9 @@
 #   GAME_ARGS   extra game arguments for every run, e.g. "-GfxProfile=ultra"
 #               (the default profile is m1, see GTPGraphicsProfile.h)
 #   DEMO_ROUTE  1 (default): the video and soak runs play the demo route
-#               (look around, walk, get in the test car, drive, get out;
-#               see GTPDemoRoute.h); 0: the player stands still
+#               (look around, walk, get in the nearest parked car, drive, get
+#               out; see GTPDemoRoute.h); 0: the player stands still. Add
+#               -TestVehicle to GAME_ARGS on a map with no parked car.
 #
 # Output: Builds/<version>/evidence/<timestamp>/
 #   title.jpg, capture.mov, frametimes.csv, frametimes.summary.txt, result.txt
@@ -30,7 +31,7 @@ version="${1:-$(printf '%s' "$project_version" | cut -d. -f1-2)}"
 # shellcheck disable=SC2206
 game_args=(${GAME_ARGS:-})
 if test "${DEMO_ROUTE:-1}" = "1"; then
-  game_args+=(-TestVehicle -DemoRoute)
+  game_args+=(-DemoRoute)
 fi
 duration="${2:-600}"
 video="${3:-120}"

@@ -41,7 +41,7 @@ GAME_ARGS="-GfxProfile=ultra" tools/build/test-build-mac.sh 0.2 300 0
 Lance le jeu empaqueté directement en jeu, enregistre chaque image et
 vérifie qu'il se ferme proprement au bout du temps demandé, sans rapport de
 plantage. Par défaut, les passes vidéo et endurance jouent le parcours
-automatique (`-TestVehicle -DemoRoute`) pour filmer et mesurer marche et
+automatique (`-DemoRoute`) pour filmer et mesurer marche et
 conduite ; `DEMO_ROUTE=0` laisse le joueur immobile. Les preuves vont dans `Builds/<version>/evidence/<horodatage>/` :
 `frametimes.csv`, `frametimes.summary.txt` (p50, p95, p99, part des images
 sous 33,3 ms, délai avant la première image), `title.jpg`, `capture.mov`,
@@ -62,7 +62,7 @@ Les preuves retenues pour une version sont copiées dans
 | `-ExitAfter=<s>` | Quitte proprement après ce nombre de secondes |
 | `-CaptureVideo=<s>` | Enregistre les images rendues en JPEG pendant ce nombre de secondes (`-CaptureFps`, 10 par défaut ; `-CaptureDelay`, 3 par défaut ; `-CaptureDir`) |
 | `-GfxProfile=<nom>` | Profil de rendu de l'ADR-0002 : `m1` (par défaut), `fidelity` ou `ultra` (réglages du projet seuls) |
-| `-DemoRoute` | Joue seul un parcours fixe (regard circulaire, marche, montée dans la voiture de test, conduite, descente) pour filmer et mesurer sans joueur ; avec `-SkipTitle -TestVehicle` |
+| `-DemoRoute` | Joue seul un parcours fixe (regard circulaire, marche, montée dans la voiture garée la plus proche, conduite, descente) pour filmer et mesurer sans joueur ; avec `-SkipTitle` (et `-TestVehicle` sur une map sans voiture garée) |
 
 L'enregistreur fonctionne aussi en Shipping : il lit les temps des fils du
 moteur (`frame`, `game`, `render`, `gpu`), pas le profileur. La minuterie GPU

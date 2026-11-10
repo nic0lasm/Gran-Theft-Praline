@@ -12,10 +12,10 @@ class APlayerController;
  * Plays a fixed route by itself, so a packaged build can film and measure
  * walking and driving with nobody at the keyboard.
  *
- * Command line: -DemoRoute (with -SkipTitle -TestVehicle so a car is parked
- * in front of the player). The route:
+ * Command line: -DemoRoute (with -SkipTitle; add -TestVehicle on a map with
+ * no parked car). The route:
  *   1. looks around the street,
- *   2. walks down the street, turns back and walks to the test car,
+ *   2. walks down the street, turns back and walks to the nearest free car,
  *   3. gets in with the normal enter action,
  *   4. drives down the street at city speed, keeping the street heading,
  *   5. stops, gets out and stays on foot.
