@@ -20,6 +20,8 @@ Steps (idempotent, the map is rebuilt each run; nothing else is touched):
      /Game/Maps/L_City_<Focus> with the lighting of the reference scene
      (GTP_CITY_LIGHT = Noon | GoldenHour | Rain | Night, art bible states), buildings
      and terrain at their Lambert-93 positions, a PlayerStart at the Bellecour end
+  3b. optional Rhone riverside (riverside.glb + riverside.json from tools/city/riverside.py):
+     water without collision, bridge deck and quay parapets with collision, folder City/Riverside
   4. report in Saved/CityImport/report.json
 The facade module list (facade_modules.csv) is left for the facade kit / PCG
 graph; this script only builds the greybox that already contains the modules.
@@ -226,7 +228,14 @@ def main():
         write_report(report, t0)
         return
 
-    report["collision_meshes"] = set_complex_collision(list(buildings.values()) + list(terrain.values()))
+    # Optional Rhone riverside (tools/city/riverside.py): water, bridge deck, quay parapets.
+    river_meta, river = None, {}
+    if os.path.exists(os.path.join(GEN, "riverside.json")):
+        with open(os.path.join(GEN, "riverside.json")) as f:
+            river_meta = json.load(f)
+        river = import_glb(os.path.join(GEN, "riverside.glb"), ROOT + "/Riverside/" + CAMEL)
+    solid = [river[n["name"]] for n in (river_meta or {}).get("nodes", []) if n["collision"] and n["name"] in river]
+    report["collision_meshes"] = set_complex_collision(list(buildings.values()) + list(terrain.values()) + solid)
     open_level_with_bible_lighting(report)
     unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world() \
         .get_world_settings().set_editor_property("kill_z", KILL_Z)
@@ -248,6 +257,16 @@ def main():
             pos = tuple(tile["ue_cm"])
         place_mesh(m, pos, tile["name"], "City/Terrain")
     report["terrain_bounds_check"] = terrain_check
+    # Riverside nodes are written with their origin at the zone origin: placed at 0 either way.
+    for n in (river_meta or {}).get("nodes", []):
+        m = river.get(n["name"])
+        if m is None:
+            report["errors"].append("riverside mesh missing: " + n["name"])
+            continue
+        a = place_mesh(m, (0.0, 0.0, 0.0), n["name"], "City/Riverside")
+        if not n["collision"]:
+            a.static_mesh_component.set_collision_enabled(unreal.CollisionEnabled.NO_COLLISION)
+    report["riverside"] = sorted(river)
 
     # Player start: Bellecour end of the focus street, looking up the street (morning test map).
     with open(os.path.join(GEN, "report.json"), encoding="utf-8") as f:
