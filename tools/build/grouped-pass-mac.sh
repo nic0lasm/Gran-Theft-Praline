@@ -5,13 +5,23 @@
 #
 # Usage, from the root of the clone, nothing else running:
 #   caffeinate -dimsu tools/build/grouped-pass-mac.sh <version> [duration_s]
+#   tools/build/grouped-pass-mac.sh <version> --compile-only
+#     builds the editor and the Shipping game only (about 20 min), no data,
+#     no package, no measure; errors grouped per source file in
+#     compile-errors.txt so each thread gets its own.
 # Output: Builds/<version>/evidence/pass-<stamp>/PASS.md and one log per step.
 set -uo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/../.." && pwd)"
-version="${1:?usage: grouped-pass-mac.sh <version> [duration_s]}"
-duration="${2:-300}"
+version="${1:?usage: grouped-pass-mac.sh <version> [duration_s|--compile-only]}"
+compile_only=0
+if test "${2:-}" = "--compile-only"; then
+  compile_only=1
+  duration=0
+else
+  duration="${2:-300}"
+fi
 map="L_City_RueDeLaRepublique"
 builds_dir="${BUILDS_DIR:-$repo_root/Builds}"
 stamp="$(date +%Y%m%d-%H%M%S)"
@@ -61,6 +71,27 @@ limited() {
   done
   wait "$pid"
 }
+
+if test "$compile_only" = "1"; then
+  ue_root="${UE_ROOT:-/Users/Shared/Epic Games/UE_5.8}"
+  build_sh="$ue_root/Engine/Build/BatchFiles/Mac/Build.sh"
+  project="$repo_root/GranTheftPraline/GranTheftPraline.uproject"
+  status=0
+  step compile-editor "$build_sh" GranTheftPralineEditor Mac Development "-project=$project" -WaitMutex || status=1
+  step compile-game "$build_sh" GranTheftPraline Mac Shipping "-project=$project" -WaitMutex || status=1
+  # Errors grouped by file, so each thread gets its own lines.
+  grep -hE "(error|fatal error)[ :]" "$out"/compile-*.log | sed -E 's#^.*/Source/GranTheftPraline/##' | sort -u > "$out/compile-errors.txt"
+  {
+    echo
+    echo "## Errors by file"
+    echo
+    echo '```'
+    cut -d'(' -f1 "$out/compile-errors.txt" | cut -d: -f1 | sort | uniq -c
+    echo '```'
+  } >> "$report"
+  echo "Done ($( test $status -eq 0 && echo compiled || echo errors )): $report"
+  exit "$status"
+fi
 
 # 1. Data the game reads at run time (not in Git).
 step lanes python3 tools/city/traffic.py --map "$map"
