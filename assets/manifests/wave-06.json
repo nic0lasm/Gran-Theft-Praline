@@ -223,10 +223,11 @@
       "id": "W6-25",
       "slug": "petanque_court_border",
       "name": "Petanque court border",
-      "size_m": 4.0,
+      "size_m": 1.6,
       "family": "Ground",
       "asset": "PetanqueCourt_Border",
-      "category": "large"
+      "rotate_y_deg": -7.0,
+      "category": "medium"
     },
     {
       "id": "W6-26",
