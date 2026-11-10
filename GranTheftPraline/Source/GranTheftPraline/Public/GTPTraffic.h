@@ -35,6 +35,32 @@ struct FGTPTrafficLane
 };
 
 /**
+ * Follows lanes of a network for a driver that is not an AI car of that
+ * network (the demo route driving the player's car): same decisions as the
+ * AI drivers, no junction claims. Plain C++, owned by its user.
+ */
+struct GRANTHEFTPRALINE_API FGTPLaneFollower
+{
+	/** Starts on the lane closest to Location heading like Yaw (degrees); false if none within MaxDistanceCm. */
+	bool StartNear(AGTPTrafficNetwork* InNetwork, const FVector& Location, float YawDegrees, float MaxDistanceCm);
+
+	/** One decision; false when the route ended (dead end) or there is none. */
+	bool Step(const FVector& Location, float YawDegrees, float SpeedKmh, float MaxSpeedKmh, float ObstacleMetres, FGTPDriveCommand& Out);
+
+	bool IsActive() const { return Network.IsValid() && Route.Num() > 0; }
+
+private:
+	void Plan();
+
+	TWeakObjectPtr<AGTPTrafficNetwork> Network;
+	TArray<int32> Route;
+	std::vector<FGTPDrivePoint> Path;
+	int32 CurrentLaneLength = 0;
+	int Closest = 0;
+	FGTPDriveSettings Settings;
+};
+
+/**
  * Drives a car along the lanes of the traffic network (GTPDriveLogic.h, the
  * same decisions as tools/vehicles/traffic_sim). Stops for anything ahead,
  * the player on foot included. Switches itself off when the AI driver
@@ -57,6 +83,9 @@ public:
 	bool IsAtDeadEnd() const { return bAtDeadEnd; }
 
 	int32 GetLane() const { return Route.Num() > 0 ? Route[0] : INDEX_NONE; }
+
+	/** Free distance in front of Vehicle (m) to the nearest car or person, negative if none within LengthCm. */
+	static float ProbeAhead(const AGTPVehicle* Vehicle, float LengthCm, float RadiusCm);
 
 	/** Seconds the car has been standing still. */
 	float GetStoppedTime() const { return StoppedTime; }
@@ -123,6 +152,9 @@ public:
 
 	FGTPJunctionTable& GetJunctionTable() { return JunctionTable; }
 
+	/** Lane and point closest to Location whose direction is within 60 degrees of YawDegrees. */
+	bool FindNearestLane(const FVector& Location, float YawDegrees, float MaxDistanceCm, int32& OutLane, int32& OutPoint) const;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Traffic")
 	TArray<FGTPTrafficLane> Lanes;
 
@@ -147,6 +179,21 @@ protected:
 	UPROPERTY(Config, EditAnywhere, Category = "Traffic")
 	float MaxCarDistance = 25000.f;
 
+	/**
+	 * Cheaper AI cars (frame budget, ADR-0002): beyond DetailDistance a car casts no
+	 * shadow (moving shadow casters redraw virtual shadow map pages every frame),
+	 * its lights cast no shadow at all, and it is drawn from FarLOD (0-based).
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Cost")
+	float DetailDistance = 2500.f;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Cost")
+	int32 FarLOD = 2;
+
+	/** Beyond this distance an AI car is not drawn at all (cm, 0 = always drawn). */
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Cost")
+	float DrawDistance = 15000.f;
+
 	/** A car standing still this long (gridlock), out of sight, is taken away (seconds). */
 	UPROPERTY(Config, EditAnywhere, Category = "Traffic")
 	float StuckSeconds = 20.f;
@@ -156,6 +203,8 @@ private:
 	bool FindSpawnPoint(int32& OutLane, int32& OutPoint, FTransform& OutTransform) const;
 	bool IsSeenByPlayer(const FVector& Location) const;
 	void Recycle(AGTPVehicle* Car);
+	void MakeCheap(AGTPVehicle* Car, ACharacter* Driver) const;
+	void UpdateDetail(AGTPVehicle* Car, float DistanceToView) const;
 
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<AGTPVehicle>> Cars;

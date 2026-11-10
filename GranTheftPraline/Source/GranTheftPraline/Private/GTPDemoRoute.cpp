@@ -327,6 +327,34 @@ bool UGTPDemoRoute::Tick(float DeltaTime)
 			SetPhase(EPhase::Done);
 			break;
 		}
+		// On a traffic lane: drive it like the AI drivers do (bends, junctions turned
+		// at random, stop behind whatever is in front). The street of the start is
+		// closed to cars and has no lane: hold its heading until a lane is near.
+		if (!Follower.IsActive() && Now >= NextLaneSearch)
+		{
+			NextLaneSearch = Now + 1.0;
+			TActorIterator<AGTPTrafficNetwork> Network(Driven->GetWorld());
+			if (Network && Follower.StartNear(*Network, Driven->GetActorLocation(), static_cast<float>(Driven->GetActorRotation().Yaw), 600.f))
+			{
+				GTP_TRACE(LogGTPDemo, TEXT("Demo route: following the traffic lanes"));
+			}
+		}
+		if (Follower.IsActive())
+		{
+			FGTPDriveCommand Command;
+			if (Follower.Step(Driven->GetActorLocation(), static_cast<float>(Driven->GetActorRotation().Yaw), Driven->GetSpeedKmh(), CruiseKmh,
+				UGTPAIDriverComponent::ProbeAhead(Driven, 4000.f, 90.f), Command))
+			{
+				DriveInputs(Driven, Command.Throttle, Command.Brake, Command.Steering, false);
+				if (T >= DriveTime)
+				{
+					SetPhase(EPhase::Stop);
+				}
+				break;
+			}
+			GTP_TRACE(LogGTPDemo, TEXT("Demo route: end of the lanes, holding the heading"));
+			StreetYaw = static_cast<float>(Driven->GetActorRotation().Yaw);
+		}
 		// Hold the street heading with a light steering correction and keep a
 		// city speed; a gentle weave in the middle shows the handling.
 		const float Weave = (T > 15.0 && T < 30.0) ? 10.f * static_cast<float>(FMath::Sin(2.0 * UE_DOUBLE_PI * (T - 15.0) / 7.5)) : 0.f;
