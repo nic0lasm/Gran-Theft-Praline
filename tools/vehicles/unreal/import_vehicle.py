@@ -44,21 +44,28 @@ def log(msg):
 
 
 # ---------------------------------------------------------------- materials
-def tex_param(mat, name, x, y, sampler):
+def tex_param(mat, name, x, y, sampler, texture=None):
     node = mel.create_material_expression(mat, unreal.MaterialExpressionTextureSampleParameter2D, x, y)
     node.set_editor_property("parameter_name", name)
+    # The default texture must match the sampler type or the master fails to compile.
+    if texture is not None:
+        node.set_editor_property("texture", texture)
     node.set_editor_property("sampler_type", sampler)
     return node
 
 
-def ensure_body_master():
+def ensure_body_master(textures):
+    """Car paint master. Its default textures are the first imported car's
+    (a Masks or Normal sampler needs a texture of that kind to compile)."""
     path = MASTERS + "/M_Vehicle_Body"
     if eal.does_asset_exist(path):
         return unreal.load_asset(path)
     mat = tools.create_asset("M_Vehicle_Body", MASTERS, unreal.Material, unreal.MaterialFactoryNew())
-    base = tex_param(mat, "BaseColor", -900, -300, unreal.MaterialSamplerType.SAMPLERTYPE_COLOR)
-    orm = tex_param(mat, "ORM", -900, 0, unreal.MaterialSamplerType.SAMPLERTYPE_MASKS)
-    normal = tex_param(mat, "Normal", -900, 300, unreal.MaterialSamplerType.SAMPLERTYPE_NORMAL)
+    base = tex_param(mat, "BaseColor", -900, -300, unreal.MaterialSamplerType.SAMPLERTYPE_COLOR,
+                     textures.get("BaseColor"))
+    orm = tex_param(mat, "ORM", -900, 0, unreal.MaterialSamplerType.SAMPLERTYPE_MASKS, textures.get("ORM"))
+    normal = tex_param(mat, "Normal", -900, 300, unreal.MaterialSamplerType.SAMPLERTYPE_NORMAL,
+                       textures.get("Normal") or unreal.load_asset("/Engine/EngineMaterials/DefaultNormal"))
     coat_rough = mel.create_material_expression(mat, unreal.MaterialExpressionScalarParameter, -900, 550)
     coat_rough.set_editor_property("parameter_name", "ClearCoatRoughness")
     coat_rough.set_editor_property("default_value", 0.06)
@@ -269,8 +276,8 @@ def main():
     folder = f"/Game/Vehicles/Cars/{name}"
     log(f"{vid} {name} from {src} to {folder}")
 
-    body_master, glass_master = ensure_body_master(), ensure_glass_master()
     textures = import_textures(src, name, folder + "/Textures")
+    body_master, glass_master = ensure_body_master(textures), ensure_glass_master()
     body_mi = make_instance(f"MI_{name}_Body", folder, body_master, textures)
     glass_mi = make_instance(f"MI_{name}_Glass", folder, glass_master)
 

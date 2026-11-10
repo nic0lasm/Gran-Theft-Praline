@@ -380,14 +380,18 @@ def build_armature(wheels, spec):
     bpy.context.view_layer.objects.active = arm
     bpy.ops.object.mode_set(mode="EDIT")
     root = arm_data.edit_bones.new("root")
-    root.head, root.tail = (0, 0, 0), (0, 0, 0.3)
+    # Bones point along +Y with no roll: Blender's bone frame then equals the
+    # armature frame and Unreal imports an identity root. A root turned 90
+    # degrees (bones pointing up) turns Chaos' vehicle frame with it: the
+    # suspension traces miss the ground and the car never moves.
+    root.head, root.tail = (0, 0, 0), (0, 0.3, 0)
     for key, bone_name in WHEEL_BONES.items():
         c = Vector(wheels[key]["centre"])
         b = arm_data.edit_bones.new(bone_name)
-        b.head, b.tail, b.parent = c, c + Vector((0, 0, 0.15)), root
+        b.head, b.tail, b.parent = c, c + Vector((0, 0.15, 0)), root
     seat = arm_data.edit_bones.new("seat_driver")
     s = Vector(spec.get("seat_driver", [-0.15, 0.37, 0.45]))
-    seat.head, seat.tail, seat.parent = s, s + Vector((0, 0, 0.1)), root
+    seat.head, seat.tail, seat.parent = s, s + Vector((0, 0.1, 0)), root
     bpy.ops.object.mode_set(mode="OBJECT")
     return arm
 
@@ -451,12 +455,24 @@ def export_fbx(objects, path, with_armature):
     for o in objects:
         o.select_set(True)
     bpy.context.view_layer.objects.active = objects[0]
+    scene = bpy.context.scene
+    unit = scene.unit_settings.scale_length
+    if with_armature:
+        # Exported in metres, the armature node carries a x100 unit scale that
+        # Unreal folds into the root bone (a scaled physics body). Working in
+        # centimetres (unit 0.01, everything scaled x100 and applied) gives a
+        # unit root bone at the same size in Unreal.
+        arm = next(o for o in objects if o.type == "ARMATURE")
+        scene.unit_settings.scale_length = 0.01
+        arm.scale = (100.0, 100.0, 100.0)
+        bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
     bpy.ops.export_scene.fbx(
         filepath=path, use_selection=True, apply_unit_scale=True, apply_scale_options="FBX_SCALE_UNITS",
         object_types={"ARMATURE", "MESH"} if with_armature else {"MESH"},
         add_leaf_bones=False, use_armature_deform_only=False, bake_anim=False,
  mesh_smooth_type="OFF", use_tspace=True, path_mode="STRIP",
         axis_forward="-Z", axis_up="Y")
+    scene.unit_settings.scale_length = unit
 
 
 def render_preview(path, objects_colours):
