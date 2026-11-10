@@ -78,3 +78,25 @@ jobs:
         run: python -I -m unittest discover -s tools/ui/tests
       - name: String tables, settings and mini-map maths (C++, no Unreal)
         run: tools/ui/tests/run_cpp_tests.sh
+
+  audio-tools:
+    name: Audio tools tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install numpy pillow
+      - name: Unit tests (banks, surface map, recorded picks)
+        run: python -I -m unittest discover -s tools/audio/tests
+      - name: Footstep rules and procedural sirens outside Unreal
+        run: |
+          g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/audio/audio_logic_test.cpp -o audio_logic_test
+          mkdir -p synth-out
+          ./audio_logic_test synth-out
+          python -I tools/audio/check_synths.py synth-out
+      - name: Unreal import scripts compile
+        run: python -m py_compile tools/audio/unreal/import_sounds.py tools/audio/unreal/report_gasp_foley.py tools/audio/import_ambience.py tools/audio/analyze_audio_run.py && bash -n tools/audio/mac_audio_pass.sh
