@@ -610,7 +610,7 @@
       "id": "W14-63",
       "slug": "plane_tree_trunk",
       "name": "Plane tree trunk",
-      "size_m": 8.0,
+      "size_m": 3.5,
       "family": "Greenery",
       "asset": "PlaneTree_Trunk",
       "category": "large"

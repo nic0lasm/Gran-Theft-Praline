@@ -61,7 +61,7 @@ W14-59|Ground|CurbStone|1.5|
 W14-60|Ground|GutterChannel_Grate|1.5|collision=none
 W14-61|Ground|PavingSlab_Stained|1.0|collision=none
 W14-62|Ground|FallenLeaves_Pile|0.8|collision=none
-W14-63|Greenery|PlaneTree_Trunk|8.0|
+W14-63|Greenery|PlaneTree_Trunk|3.5|
 W14-64|Greenery|PlaneTree_YoungGuard|4.0|
 W14-65|Ground|StreetLitter|0.6|collision=none
 W14-66|Ground|Newspaper_Ground|0.4|collision=none
