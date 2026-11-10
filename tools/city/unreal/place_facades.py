@@ -113,7 +113,7 @@ def hism_actor(label, mesh):
     handle, fail = sds.add_new_subobject(params)
     comp = sdl.get_object(sdl.get_data(handle))
     comp.set_static_mesh(mesh)
-    comp.set_editor_property("num_custom_data_floats", 3)
+    comp.set_editor_property("num_custom_data_floats", 4)  # building colour, street level
     comp.set_editor_property("mobility", unreal.ComponentMobility.STATIC)
     return actor, comp
 
@@ -222,12 +222,13 @@ def main():
         if str(a.get_folder_path()).startswith(("City/Facades", "City/Signs")):
             actor_sub.destroy_actor(a)
 
-    top = {}
+    top, base = {}, {}
     for r in rows:
         top[r["building_id"]] = max(top.get(r["building_id"], 0), int(r["storey"]))
+        base[r["building_id"]] = min(base.get(r["building_id"], 1e9), float(r["ue_z"]))
     comps, counts = {}, {}
 
-    def add(name, x, y, z, yaw, sx, sz, colour):  # noqa: PLR0913
+    def add(name, x, y, z, yaw, sx, sz, colour, ground):  # noqa: PLR0913
         if name not in comps:
             comps[name] = hism_actor("Facade_" + name.replace("SM_Facade_", ""), meshes[name])[1]
         t = unreal.Transform(unreal.Vector(x, y, z), unreal.Rotator(0.0, 0.0, yaw + yaw_offset), unreal.Vector(sx, 1.0, sz))
@@ -235,6 +236,8 @@ def main():
         rgb = [srgb_to_linear(int(colour.lstrip("#")[k:k + 2], 16) / 255.0) for k in (0, 2, 4)]
         for k, v in enumerate(rgb):
             comps[name].set_custom_data_value(i, k, v, False)
+        # Street level of the building (cm): M_City_Kit darkens the plinth from it.
+        comps[name].set_custom_data_value(i, 3, ground, False)
         counts[name] = counts.get(name, 0) + 1
 
     sign_mics = sign_materials(report)
@@ -244,11 +247,13 @@ def main():
         nominal = manifest["modules"][name]
         x, y, z, yaw = float(r["ue_x"]), float(r["ue_y"]), float(r["ue_z"]), float(r["ue_yaw"])
         w, h = float(r["width_m"]), float(r["height_m"])
-        add(name, x, y, z, yaw, w / nominal["nominal_width_m"], h / nominal["nominal_height_m"], r["colour"])
+        add(name, x, y, z, yaw, w / nominal["nominal_width_m"], h / nominal["nominal_height_m"], r["colour"],
+            base[r["building_id"]])
         fam = kit_layout.FAMILY_OF_TYPOLOGY[r["typology"]]
         if r["side"] == "street" and int(r["storey"]) == top[r["building_id"]]:
             eave = kit_layout.KIND_TO_MODULE[fam]["_eave"]
-            add(eave, x, y, z + h * 100, yaw, w / manifest["modules"][eave]["nominal_width_m"], 1.0, r["colour"])
+            add(eave, x, y, z + h * 100, yaw, w / manifest["modules"][eave]["nominal_width_m"], 1.0, r["colour"],
+                base[r["building_id"]])
         mic = sign_mics.get(r["shop_osm_id"]) if r["kind"] == "shop" else None
         if mic is None:
             continue

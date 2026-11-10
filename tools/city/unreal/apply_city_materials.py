@@ -81,6 +81,12 @@ KIT_SLOTS = {
     "MI_Glass_Shop": (0.05, 0.06, 0.065, 0.03, 0.0),   # opaque here: reflective dark glass
 }
 KIT_EMISSIVE = {"MI_Shop_Interior": (1.0, 0.92, 0.8, 1.2)}
+# Share of the facade weathering each slot takes (1 when not listed).
+KIT_WEATHERING = {"MI_Window_PaintedWood": 0.5, "MI_Shutter_Painted": 0.5, "MI_Door_Wood": 0.5,
+                  "MI_Shopfront_Wood": 0.4, "MI_Ironwork_Painted": 0.3, "MI_Sign_Fascia": 0.3,
+                  "MI_Shopfront_Aluminium": 0.2, "MI_Shopfront_Steel": 0.2, "MI_Shutter_Metal": 0.4,
+                  "MI_Glass_Window": 0.15, "MI_Glass_Shop": 0.1, "MI_Shop_Interior": 0.0,
+                  "MI_Shop_Floor": 0.0, "MI_Shop_Display": 0.0, "MI_Sign_Panel": 0.0}
 # Stone slots take the building colour place_facades.py writes in per-instance custom data 0-2.
 KIT_BUILDING_COLOUR = ("MI_Facade_LimestoneCream", "MI_Facade_Render", "MI_Facade_PierreDoree")
 
@@ -229,7 +235,11 @@ def ground_material(tex, extent):
     kerb = g.mul(b_ch, g.sub(g.const(1.0), on_road))
     mark = g.mul(b_ch, on_road)
     col = g.lerp(col, g.const(KERB), kerb)
-    col = g.lerp(col, g.const(ASPHALT), s, "R")
+    # Asphalt patches (trench repairs, worn wheel paths): two shorter sines, asphalt only.
+    px_ = g.unary(unreal.MaterialExpressionSine, g.mul(g.mask(wp, r=True), g.const(1.0 / 230.0)))
+    py_ = g.unary(unreal.MaterialExpressionSine, g.add(g.mul(g.mask(wp, g=True), g.const(1.0 / 310.0)), g.const(0.7)))
+    patch = g.add(g.const(1.0), g.mul(g.mul(px_, py_), g.const(0.22)))
+    col = g.lerp(col, g.mul(g.const(ASPHALT), patch), s, "R")
     col = g.lerp(col, g.const(MARKING), mark)
     col = g.mul(col, tone)
     rough = g.lerp(g.lerp(g.const(0.78), g.const(0.92), s, "R"), g.const(0.6), mark)
@@ -252,11 +262,54 @@ def shell_material():
     course = g.unary(unreal.MaterialExpressionSaturate, g.mul(g.sub(d, g.const(0.46)), g.const(25.0)))
     shade = g.lerp(g.const(1.0), g.const(0.82), g.mul(course, wall))
     col = g.mul(g.mask(vc, r=True, g=True, b=True), shade)
+    weathered, _ = weathering(g, col, per_instance=False)
+    col = g.lerp(col, weathered, wall)                     # walls only, not the roofs
     rough = g.lerp(g.const(0.55), g.const(0.88), wall)
     mel.connect_material_property(col, "", unreal.MaterialProperty.MP_BASE_COLOR)
     mel.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS)
     g.done()
     return mat
+
+
+def street_level(g):
+    """Street level of the building in cm, written by place_facades.py in custom data 3."""
+    cls = getattr(unreal, "MaterialExpressionPerInstanceCustomData", None)
+    if cls is None:
+        return g.const(0.0)
+    e = g.node(cls, data_index=3)
+    for prop in ("const_default_value", "default_value"):
+        try:
+            e.set_editor_property(prop, 0.0)
+            break
+        except Exception:  # noqa: BLE001  property name differs between versions
+            continue
+    return e
+
+
+def weathering(g, col, per_instance=True):
+    """Art bible weathering, all ALU (no texture, cheap on M1): slow tint drift across
+    the block, a darker plinth over the first 1-4 m (splashes, traffic soot) and rain
+    streaks running down from each cornice and sill, strongest just below them.
+    Scaled per slot by the Weathering parameter (stone 1, glass and interiors ~0)."""
+    w = g.node(unreal.MaterialExpressionScalarParameter, parameter_name="Weathering", default_value=1.0)
+    wp = g.world_position()
+    x, y, z = g.mask(wp, r=True), g.mask(wp, g=True), g.mask(wp, b=True)
+    h = g.sub(z, street_level(g)) if per_instance else z   # shells: the zone is flat near 0
+    sat = unreal.MaterialExpressionSaturate
+    one = g.const(1.0)
+    plinth = g.add(g.mul(g.unary(sat, g.sub(one, g.div(h, g.const(120.0)))), g.const(0.30)),
+                   g.mul(g.unary(sat, g.sub(one, g.div(h, g.const(400.0)))), g.const(0.10)))
+    along = g.add(x, y)
+    s1 = g.unary(unreal.MaterialExpressionSine, g.div(along, g.const(37.0)))
+    s2 = g.unary(unreal.MaterialExpressionSine, g.add(g.div(along, g.const(83.0)), g.const(1.3)))
+    streak = g.unary(sat, g.sub(g.mul(g.mul(s1, s2), g.const(2.0)), g.const(0.6)))
+    t = g.unary(unreal.MaterialExpressionFrac, g.div(h, g.const(330.0)))     # storey height
+    streak = g.mul(g.mul(streak, g.mul(t, t)), g.const(0.18))
+    grime = g.mul(g.add(plinth, streak), w)
+    vx = g.unary(unreal.MaterialExpressionSine, g.div(x, g.const(1700.0)))
+    vy = g.unary(unreal.MaterialExpressionSine, g.div(y, g.const(2300.0)))
+    tone = g.add(one, g.mul(g.mul(g.mul(vx, vy), g.const(0.06)), w))
+    return g.mul(g.mul(col, tone), g.sub(one, grime)), grime
 
 
 def kit_master():
@@ -270,7 +323,9 @@ def kit_master():
                  const_default_value=unreal.LinearColor(0.66, 0.60, 0.50, 1.0))
     # Keep the slot's value contrast (cream stone vs plinth) and take the building's hue.
     col = g.lerp(g.mask(base, r=True, g=True, b=True), pic, use)
+    col, grime = weathering(g, col)
     rough = g.node(unreal.MaterialExpressionScalarParameter, parameter_name="Roughness", default_value=0.8)
+    rough = g.add(rough, g.mul(grime, g.const(0.1)))
     metal = g.node(unreal.MaterialExpressionScalarParameter, parameter_name="Metallic", default_value=0.0)
     emis = g.node(unreal.MaterialExpressionVectorParameter, parameter_name="Emissive",
                   default_value=unreal.LinearColor(0.0, 0.0, 0.0, 1.0))
@@ -297,6 +352,7 @@ def kit_instances(master):
         mel.set_material_instance_scalar_parameter_value(mic, "Metallic", metal)
         mel.set_material_instance_scalar_parameter_value(mic, "UseBuildingColour",
                                                          1.0 if name in KIT_BUILDING_COLOUR else 0.0)
+        mel.set_material_instance_scalar_parameter_value(mic, "Weathering", KIT_WEATHERING.get(name, 1.0))
         if name in KIT_EMISSIVE:
             er, eg, eb, k = KIT_EMISSIVE[name]
             mel.set_material_instance_vector_parameter_value(mic, "Emissive", unreal.LinearColor(er * k, eg * k, eb * k, 1.0))
