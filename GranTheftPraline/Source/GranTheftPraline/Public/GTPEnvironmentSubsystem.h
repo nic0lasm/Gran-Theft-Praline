@@ -159,6 +159,11 @@ struct FGTPLightBudget
 	/** The 2D dome replaces the volumetric clouds in the weathers that prefer it (overcast, rain...). */
 	UPROPERTY()
 	bool bCloudDomeWhenOvercast = false;
+
+	/** Cheap cloud shadows: a scrolling light function on the sun instead of the volumetric
+	 *  cloud shadow map (about 8.6 ms in m1). Turns the volumetric cloud shadows off. */
+	UPROPERTY()
+	bool bCloudShadowLightFunction = false;
 };
 
 /**
@@ -182,6 +187,9 @@ struct FGTPLightBudget
  * Command line: -TimeOfDay=<hours> -Date=YYYY-MM-DD -TimeScale=<x> (0 freezes)
  * -Weather=<preset> -Ambience=<noon|golden|dusk|night|rain|night-rain|fog>
  * (frozen test ambience, time stopped unless -TimeScale is given)
+ * -Sky=volumetric|lightfunction|cheap (A/B test of the sky: volumetric clouds and their
+ *  shadow map; volumetric clouds with light function shadows; 2D dome with light function shadows)
+ * -CloudShadowLF=0|1 (cheap light function cloud shadows)
  * -CloudShadows=0 (no cloud shadows, exposure compensated by NoCloudShadowExposureOffset)
  * -CloudDome=1 (2D cloud dome instead of the volumetric clouds, 0 = never)
  * -DayNight=0 or -NoEnvironment (leave the map lighting untouched).
@@ -385,6 +393,10 @@ private:
 	/** Cloud luminance relative to the middle grey of the current exposure. */
 	UPROPERTY(Config)
 	float CloudDomeBrightness = 1.6f;
+
+	/** Light function material of the cheap cloud shadows (reads Cloudiness from MPC_Environment). */
+	UPROPERTY(Config)
+	TSoftObjectPtr<UMaterialInterface> CloudShadowMaterial;
 
 	/** Saone mist: local fog volumes (centres in cm, scale of the unit sphere), extinction at 1. */
 	UPROPERTY(Config)

@@ -13,6 +13,8 @@ Creates under /Game/Environment/Weather (kept out of Git, regenerated here):
   M_RainLayer       translucent lit rain, opacity = streaks x RainIntensity
   SM_CloudDome      copy of the engine sphere, M_CloudDome unlit 2D clouds: the cheap
                     fallback of the volumetric clouds (bCloudDome of a light budget)
+  M_CloudShadowLF   light function of the sun: cheap drifting cloud shadows
+                    (bCloudShadowLightFunction, -Sky=lightfunction)
 
 The wet look and the night emissive belong to the material generators of the
 city and asset tools, which call gtp_weather.add_weather() (same folder). As a
@@ -145,6 +147,38 @@ def cloud_dome_material(mpc, noise):
     return mat
 
 
+def cloud_shadow_material(mpc, noise):
+    """Light function of the sun: drifting cloud shadows from two octaves of noise on the
+    ground plane, coverage from Cloudiness. Replaces the volumetric cloud shadow map."""
+    mat, created = load_or_create("M_CloudShadowLF", unreal.Material, unreal.MaterialFactoryNew())
+    if not created:
+        return mat
+    mat.set_editor_property("material_domain", unreal.MaterialDomain.MD_LIGHT_FUNCTION)
+    g = Graph(mat)
+    pos = g.node(unreal.MaterialExpressionWorldPosition)
+    xy = g.node(unreal.MaterialExpressionComponentMask, r=True, g=True, b=False, a=False)
+    g.link(pos, xy)
+    layers = []
+    for tile_cm, speed in ((250000.0, 0.0006), (90000.0, 0.0011)):
+        uv = g.mul(xy, 1.0 / tile_cm)
+        pan = g.node(unreal.MaterialExpressionPanner, speed_x=speed, speed_y=speed * 0.4)
+        g.link(uv, pan, "Coordinate")
+        tex = g.node(unreal.MaterialExpressionTextureSample, texture=noise,
+                     sampler_type=unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_COLOR)
+        g.link(pan, tex, "UVs")
+        layers.append(tex)
+    density = g.lerp(layers[0], layers[1], 0.35, a_out="R", b_out="R")
+    level = g.node(unreal.MaterialExpressionSubtract)
+    g.link(density, level, "A")
+    g.link(g.lerp(1.0, 0.0, g.collection(mpc, "Cloudiness")), level, "B")
+    cover = g.saturate(g.mul(level, 3.0))
+    light = g.lerp(1.0, 0.25, cover)  # a cloud shadow keeps a quarter of the sun
+    mel.connect_material_property(light, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+    mel.recompile_material(mat)
+    eal.save_loaded_asset(mat)
+    return mat
+
+
 def rain_material(mpc, streaks):
     mat, created = load_or_create("M_RainLayer", unreal.Material, unreal.MaterialFactoryNew())
     if not created:
@@ -230,6 +264,7 @@ def main():
         rain_material(mpc, streaks)
         cloud_dome_mesh()
         cloud_dome_material(mpc, puddles)
+        cloud_shadow_material(mpc, puddles)
         patch_street_materials(mpc, puddles)
         report["cloud_material_scalar_parameters"] = cloud_parameters()
     except Exception as exc:

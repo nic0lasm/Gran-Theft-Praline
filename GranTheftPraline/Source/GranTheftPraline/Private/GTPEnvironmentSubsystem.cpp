@@ -551,6 +551,32 @@ void UGTPEnvironmentSubsystem::ApplyBudgetForProfile(UWorld& World)
 	{
 		Budget.bCloudDome = CloudDomeFlag != 0;
 	}
+	// -Sky= sets the three sky switches at once for A/B measurements.
+	FString Sky;
+	if (FParse::Value(FCommandLine::Get(), TEXT("Sky="), Sky))
+	{
+		Sky = Sky.ToLower();
+		const bool bVolumetric = Sky == TEXT("volumetric");
+		const bool bLightFunction = Sky == TEXT("lightfunction");
+		const bool bCheap = Sky == TEXT("cheap");
+		if (bVolumetric || bLightFunction || bCheap)
+		{
+			Budget.bVolumetricClouds = true;
+			Budget.bCloudDome = bCheap;
+			Budget.bCloudDomeWhenOvercast = false;
+			Budget.bCloudShadows = bVolumetric;
+			Budget.bCloudShadowLightFunction = !bVolumetric;
+		}
+		else
+		{
+			UE_LOG(LogGTPEnvironment, Warning, TEXT("Unknown -Sky=%s (volumetric, lightfunction, cheap)"), *Sky);
+		}
+	}
+	int32 LightFunctionFlag = -1;
+	if (FParse::Value(FCommandLine::Get(), TEXT("CloudShadowLF="), LightFunctionFlag) && LightFunctionFlag >= 0)
+	{
+		Budget.bCloudShadowLightFunction = LightFunctionFlag != 0;
+	}
 	int32 CloudShadowsFlag = -1;
 	if (FParse::Value(FCommandLine::Get(), TEXT("CloudShadows="), CloudShadowsFlag) && CloudShadowsFlag >= 0)
 	{
@@ -585,6 +611,18 @@ void UGTPEnvironmentSubsystem::ApplyCloudQuality()
 		{
 			UE_LOG(LogGTPEnvironment, Warning, TEXT("Cloud dome mesh or material missing (%s, %s)"),
 				*CloudDomeMesh.ToString(), *CloudDomeMaterial.ToString());
+		}
+	}
+	if (Sun.IsValid() && Budget.bCloudShadowLightFunction)
+	{
+		if (UMaterialInterface* Material = CloudShadowMaterial.LoadSynchronous())
+		{
+			Sun->SetLightFunctionMaterial(Material);
+			Budget.bCloudShadows = false;
+		}
+		else
+		{
+			UE_LOG(LogGTPEnvironment, Warning, TEXT("Cloud shadow light function %s missing"), *CloudShadowMaterial.ToString());
 		}
 	}
 	if (Sun.IsValid() && !Budget.bCloudShadows)

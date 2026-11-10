@@ -87,6 +87,13 @@ refait ces calculs hors Unreal et les tests vérifient chaque état contre la bi
   coupe les nuages volumétriques et affiche un dôme de nuages 2D non éclairé
   autour de la caméra (`M_CloudDome`, couverture `Cloudiness`, luminance
   calée sur l'exposition par `CloudLuminance`).
+- **Ombres de nuages bon marché** : `bCloudShadowLightFunction` (coupé par défaut)
+  pose la light function `M_CloudShadowLF` sur le soleil : deux octaves de bruit
+  qui défilent sur le sol, couverture par `Cloudiness`, une zone à l'ombre garde
+  25 % du soleil. Elle remplace la shadow map volumétrique des nuages (8,6 ms des
+  12 ms des nuages sur le M1) : coût attendu 0,3 à 0,5 ms, à confirmer au banc.
+  A/B en une commande : `tools/environment/sky-ab-test-mac.sh <dossier_build>`
+  (temps d'image du banc et images fixes par mode, `index.html` côte à côte).
 - **Allumage** : entre +2° et −4° de soleil (plus tôt sous les nuages).
 - **Émissifs** : `EmissiveScale` de `MPC_Environment` passe de 1 à 20 la
   nuit ; les matériaux de vitrines et d'enseignes le multiplient.
@@ -131,6 +138,7 @@ Ligne de commande : `-TimeOfDay=22 -Date=2027-01-15 -Weather=Rain
 -TimeScale=0` (0 fige le temps pour mesurer), `-Ambience=<noon|golden|dusk|night|rain|night-rain|fog>`
 (ambiance de test figée, définie dans `Ambiences`), `-CloudShadows=0` (sans ombres de nuages, exposition compensée de
 `NoCloudShadowExposureOffset` EV), `-CloudDome=1` (dôme de nuages 2D à la place des nuages volumétriques, 0 = jamais),
+`-Sky=volumetric|lightfunction|cheap` (règle les trois interrupteurs du ciel pour l'A/B), `-CloudShadowLF=0/1` (ombre de nuages en light function),
 `-DayNight=0` ou `-NoEnvironment` (coupe le système). Au démarrage, une ligne `daynight: on | …` ou `daynight: off` sort sur stdout, Shipping compris.
 
 Enchaînement sans intervention : `tools/environment/setup-environment-mac.sh`

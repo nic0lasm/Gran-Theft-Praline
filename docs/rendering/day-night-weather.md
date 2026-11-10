@@ -84,6 +84,13 @@ redoes these computations outside Unreal and the tests check every state against
   off and shows an unlit 2D cloud dome around the camera (`M_CloudDome`,
   coverage `Cloudiness`, luminance matched to the exposure through
   `CloudLuminance`).
+- **Cheap cloud shadows**: `bCloudShadowLightFunction` (off by default) puts the
+  `M_CloudShadowLF` light function on the sun: two octaves of drifting noise on
+  the ground plane, coverage from `Cloudiness`, a shadowed spot keeps 25 % of the
+  sun. It replaces the volumetric cloud shadow map (8.6 ms of the 12 ms of the
+  clouds on the M1): expected cost 0.3 to 0.5 ms, to be confirmed on the bench.
+  A/B in one command: `tools/environment/sky-ab-test-mac.sh <build_dir>`
+  (bench frame times and stills per mode, `index.html` side by side).
 - **Switch-on**: between +2 and −4 degrees of sun (earlier under cloud).
 - **Emissives**: `EmissiveScale` in `MPC_Environment` goes from 1 to 20 at
   night; shop window and sign materials multiply by it.
@@ -127,6 +134,7 @@ Command line: `-TimeOfDay=22 -Date=2027-01-15 -Weather=Rain -TimeScale=0`
 (0 freezes time for measurements), `-Ambience=<noon|golden|dusk|night|rain|night-rain|fog>`
 (frozen test ambience, defined in `Ambiences`), `-CloudShadows=0` (no cloud shadows, exposure compensated by
 `NoCloudShadowExposureOffset` EV), `-CloudDome=1` (2D cloud dome instead of the volumetric clouds, 0 = never),
+`-Sky=volumetric|lightfunction|cheap` (sets the three sky switches for A/B), `-CloudShadowLF=0/1` (light function cloud shadow),
 `-DayNight=0` or `-NoEnvironment` (switches the system off). At start a `daynight: on | ...` or `daynight: off` line goes to stdout, Shipping included.
 
 Unattended chain: `tools/environment/setup-environment-mac.sh` (non-zero
