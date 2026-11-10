@@ -34,6 +34,7 @@ args_for() {
     n30-vis6)        echo "$off -Pedestrians=30 -PedMaxVisible=6" ;;
     n30-vis20)       echo "$off -Pedestrians=30 -PedMaxVisible=20" ;;
     n40-vis20)       echo "$off -Pedestrians=40 -PedMaxVisible=20" ;;
+    n20-far60)       echo "$off -Pedestrians=20 -PedFar=60" ;;
     *) return 1 ;;
   esac
 }

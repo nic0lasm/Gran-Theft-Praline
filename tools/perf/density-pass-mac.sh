@@ -12,7 +12,7 @@
 # Usage, from the root of the clone, nothing else running:
 #   caffeinate -dimsu tools/perf/density-pass-mac.sh [version=perf-density] [duration_s=90]
 # Environment: BUILDS_DIR (default <repo>/Builds), SKIP_PACKAGE=1 to reuse a build,
-#   CROWD_CASES (default "n0 n12 n30 n60"), COUNTS (default "3 6 12").
+#   CROWD_CASES (default "n0 n12 n30 n60 n20-far60"), COUNTS (default "3 6 12").
 # Output: <BUILDS_DIR>/<version>/density-<stamp>/DENSITY.md and one log per step.
 # Expected length: package 15-25 min, cars ~25 min (3 counts x 3 tiers), crowd ~10 min,
 #   parked ~4 min, ragdolls ~5 min.
@@ -40,6 +40,8 @@ fi
   echo "# Density pass $version, $(date '+%Y-%m-%d %H:%M %Z'), commit $(git rev-parse --short HEAD)"
   echo
   echo "Profile m1, ${duration} s per run. Compare runs of this pass with each other only."
+  echo
+  echo "Base: ${DENSITY_BASE:-main 0.3.0 rendering (volumetric cloud shadow, facade kit without LODs): not the optimised base yet}."
   echo
 } > "$report"
 
@@ -70,7 +72,7 @@ test -d "$build_dir/GranTheftPraline.app" || { echo "- no build at $build_dir" >
 
 COUNTS="${COUNTS:-3 6 12}" DURATION="$duration" step cars tools/perf/vehicle-count-bench.sh "$build_dir" "$out/cars"
 # shellcheck disable=SC2086
-step crowd tools/pedestrians/bench-crowd-mac.sh "$version" "$duration" ${CROWD_CASES:-n0 n12 n30 n60}
+step crowd tools/pedestrians/bench-crowd-mac.sh "$version" "$duration" ${CROWD_CASES:-n0 n12 n30 n60 n20-far60}
 # Parked cars as instances (needs /Game/Vehicles/Parked from import_parked_static.py before the package).
 for parked in 0 1; do
   EXTRA_ARGS="-Traffic=6 -VehicleLod=1 -ParkedCars=$parked" SCENARIOS="street-demo" DURATION="$duration" \
