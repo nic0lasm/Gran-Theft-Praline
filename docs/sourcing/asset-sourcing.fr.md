@@ -5,6 +5,7 @@
 licence sur la fiche au moment du téléchargement et l'inscrire dans
 [`assets/SOURCES.md`](../../assets/SOURCES.md).*
 *Utilisé par : [roadmap](../../production/roadmap.fr.md), [stratégie de rendu](../rendering/rendering-strategy.fr.md).*
+*Packs d'assets gratuits (Megascans, arbres, eau, sources CC0), vérifiés le 2026-11-10 : [free-assets.fr.md](../art/free-assets.fr.md).*
 
 But : lister ce qui existe déjà pour ne pas le refaire, et dire pour chaque
 élément si on l'utilise.
