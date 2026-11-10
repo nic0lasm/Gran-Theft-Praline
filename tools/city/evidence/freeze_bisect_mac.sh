@@ -4,6 +4,7 @@
 #   A  full regeneration, sign atlas off   (code of the head, like 799c8d5 otherwise)
 #   B  A then one FACADES_ONLY replay, atlas off   (the replay the bench used)
 #   C  full regeneration, sign atlas on
+#   D  full regeneration, sign atlas on and shells merged per cell (GTP_SHELL_MERGE=1)
 # Read: A freezes -> the code; A runs and B freezes -> the replay; only C freezes -> the atlas.
 # Development packages, so the game writes ~/Library/Logs/GranTheftPraline/GranTheftPraline.log.
 #
@@ -12,7 +13,8 @@
 # life every 10 min (HEARTBEAT lines on stdout and in heartbeat.log), times in Paris time.
 # The map and city content found at the start are restored at the end, checked by md5.
 #
-# Usage: caffeinate -dimsu tools/city/evidence/freeze_bisect_mac.sh [steps=ABC]
+# Usage: caffeinate -dimsu tools/city/evidence/freeze_bisect_mac.sh [steps=ABC, or ABCD]
+#   LAUNCH_S (default 30): length of each launch; 90 gives frame times worth comparing.
 #   PYTHON (venv with numpy, scipy, shapely, PIL), BUILDS_DIR (default <repo>/Builds/freeze-bisect),
 #   DRY_RUN=1 (every Unreal step replaced by a short sleep; DRY_SLOW=<step> makes that one hang).
 # Dry run outside the Mac: run it from a scratch copy of the repo, never commit what it writes.
@@ -99,7 +101,8 @@ common=(GTP_SHOP_GLASS=opaque GTP_CITY_DETAILS=0 SKIP_PLAY=1)
 launch() {  # launch <tag>: package Development, 30 s launch, verdict
   local v="freeze-$1"
   step "package $1" 900 "$v-package.log" env BUILDS_DIR="$out" "$repo/tools/build/package-mac.sh" "$v" Development
-  step "launch $1" 150 "$v-test.log" env BUILDS_DIR="$out" "$repo/tools/build/test-build-mac.sh" "$v" 30 0 || true
+  step "launch $1" $(( ${LAUNCH_S:-30} + 120 )) "$v-test.log" \
+    env BUILDS_DIR="$out" "$repo/tools/build/test-build-mac.sh" "$v" "${LAUNCH_S:-30}" 0 || true
   local verdict frames
   verdict="$(grep -m1 '^verdict=' "$out/$v-test.log" || echo "verdict=none")"
   frames="$(grep -m1 '^frame ' "$out/$v-test.log" || echo "no frame times")"
@@ -121,4 +124,8 @@ esac
 case "$steps" in *C*)
   step "regen C" 600 "C-regen.log" env "${common[@]}" GTP_SIGN_ATLAS=1 "$repo/tools/city/regen_city.sh"
   launch C ;;
+esac
+case "$steps" in *D*)
+  step "regen D" 600 "D-regen.log" env "${common[@]}" GTP_SIGN_ATLAS=1 GTP_SHELL_MERGE=1 "$repo/tools/city/regen_city.sh"
+  launch D ;;
 esac
