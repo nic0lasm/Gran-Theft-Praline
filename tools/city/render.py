@@ -175,6 +175,9 @@ def main():
     mnt = raster.Raster.load(raw, "mnt")
     parts = [(V, C, I), ground_mesh(mnt, origin, origin_alt, b),
              tree_mesh(grandlyon.load(raw, "trees"), origin, origin_alt, mnt, b)]
+    if os.path.exists(os.path.join(out, "riverside.glb")):   # tools/city/riverside.py
+        rv, rc, ri, _ = read_glb(os.path.join(out, "riverside.glb"))
+        parts.append((rv, rc, ri))
     Vs, Cs, Is, base = [], [], [], 0
     for v, c, i in parts:
         Vs.append(v)
