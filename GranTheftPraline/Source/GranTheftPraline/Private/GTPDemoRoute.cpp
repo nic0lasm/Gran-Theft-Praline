@@ -51,6 +51,7 @@ void UGTPDemoRoute::Initialize(FSubsystemCollectionBase& Collection)
 		return;
 	}
 	FParse::Value(FCommandLine::Get(), TEXT("DemoDriveTime="), DriveTime);
+	bToRiver = FParse::Param(FCommandLine::Get(), TEXT("DemoToRiver"));
 	DriveTime = FMath::Clamp(DriveTime, 5.0, 3600.0);
 	RouteStart = FPlatformTime::Seconds();
 	PhaseStart = RouteStart;
@@ -337,6 +338,26 @@ bool UGTPDemoRoute::Tick(float DeltaTime)
 			if (Network && Follower.StartNear(*Network, Driven->GetActorLocation(), static_cast<float>(Driven->GetActorRotation().Yaw), 900.f))
 			{
 				GTP_TRACE(LogGTPDemo, TEXT("Demo route: following the traffic lanes"));
+				if (bToRiver && !bGoalSet)
+				{
+					// The Rhône is east of the Presqu'île: the lane point farthest east is on the bridge.
+					for (const FGTPTrafficLane& Lane : Network->GetLanes())
+					{
+						for (const FVector& Point : Lane.Points)
+						{
+							if (!bGoalSet || Point.X > RiverGoal.X)
+							{
+								RiverGoal = Point;
+								bGoalSet = true;
+							}
+						}
+					}
+					if (bGoalSet)
+					{
+						Follower.SetGoal(RiverGoal);
+						GTP_TRACE(LogGTPDemo, TEXT("Demo route: heading for the river at %s"), *RiverGoal.ToCompactString());
+					}
+				}
 			}
 			else if (Network)
 			{
@@ -353,6 +374,13 @@ bool UGTPDemoRoute::Tick(float DeltaTime)
 					StreetYaw = JoinYaw;
 				}
 			}
+		}
+		if (Follower.IsActive() && bGoalSet && bToRiver && FVector::Dist2D(Driven->GetActorLocation(), RiverGoal) < 3000.f)
+		{
+			// Across the bridge: roam from here (back over it at the next junctions).
+			Follower.ClearGoal();
+			bToRiver = false;
+			GTP_TRACE(LogGTPDemo, TEXT("Demo route: reached the river, roaming"));
 		}
 		if (Follower.IsActive())
 		{

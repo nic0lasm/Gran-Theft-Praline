@@ -49,8 +49,15 @@ struct GRANTHEFTPRALINE_API FGTPLaneFollower
 
 	bool IsActive() const { return Network.IsValid() && Route.Num() > 0; }
 
+	/** From now on, junction choices lead towards Goal (world cm) instead of being random. */
+	void SetGoal(const FVector& InGoal) { Goal = InGoal; bHasGoal = true; }
+	void ClearGoal() { bHasGoal = false; }
+
 private:
 	void Plan();
+
+	FVector Goal = FVector::ZeroVector;
+	bool bHasGoal = false;
 
 	TWeakObjectPtr<AGTPTrafficNetwork> Network;
 	TArray<int32> Route;
@@ -149,6 +156,9 @@ public:
 
 	/** Picks a random lane among Lane's next lanes, INDEX_NONE at a dead end. */
 	int32 PickNext(int32 Lane);
+
+	/** Next lane of Lane whose end is closest to Target (world cm); INDEX_NONE at a dead end. */
+	int32 PickNextToward(int32 Lane, const FVector& Target) const;
 
 	FGTPJunctionTable& GetJunctionTable() { return JunctionTable; }
 
