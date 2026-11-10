@@ -80,4 +80,8 @@ private:
 	/** Drives along the traffic lanes once the car is on one (else holds the street heading). */
 	FGTPLaneFollower Follower;
 	double NextLaneSearch = 0.0;
+	/** -DemoToRiver: drive to the east end of the lanes (quai du Rhône, pont Lafayette), then roam. */
+	bool bToRiver = false;
+	bool bGoalSet = false;
+	FVector RiverGoal = FVector::ZeroVector;
 };

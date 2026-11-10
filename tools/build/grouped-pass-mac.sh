@@ -5,6 +5,10 @@
 #
 # Usage, from the root of the clone, nothing else running:
 #   caffeinate -dimsu tools/build/grouped-pass-mac.sh <version> [duration_s]
+#   caffeinate -dimsu tools/build/grouped-pass-mac.sh <version> --release
+#     playable build of a release (0.3): lanes, one package, one 600 s measure with the
+#     default settings and two films towards the river; the path of the app to
+#     launch is written at the top of PASS.md.
 #   tools/build/grouped-pass-mac.sh <version> --compile-only
 #     builds the editor and the Shipping game only (about 20 min), no data,
 #     no package, no measure; errors grouped per source file in
@@ -16,9 +20,13 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/../.." && pwd)"
 version="${1:?usage: grouped-pass-mac.sh <version> [duration_s|--compile-only]}"
 compile_only=0
+release=0
 if test "${2:-}" = "--compile-only"; then
   compile_only=1
   duration=0
+elif test "${2:-}" = "--release"; then
+  release=1
+  duration=600
 else
   duration="${2:-300}"
 fi
@@ -93,6 +101,26 @@ if test "$compile_only" = "1"; then
   exit "$status"
 fi
 
+if test "$release" = "1"; then
+  step lanes python3 tools/city/traffic.py --map "$map"
+  if ! step package tools/build/package-mac.sh "$version"; then
+    grep -hE ": (fatal )?error:|Error: " "$out/package.log" | head -n 60 > "$out/compile-errors.txt"
+    echo "- package failed: first errors in compile-errors.txt" >> "$report"
+    exit 1
+  fi
+  app="$builds_dir/$version/GranTheftPraline.app"
+  # The line to read first tomorrow morning.
+  { echo; echo "**Build to play: \`$app\`** (double-click, or \`open \"$app\"\`)"; echo; } >> "$report"
+  step measure tools/build/test-build-mac.sh "$version" "$duration" 0
+  GAME_ARGS="-DemoCarjack -DemoToRiver -DemoDriveTime=180" step film-carjack-river tools/build/test-build-mac.sh "$version" 30 200
+  GAME_ARGS="-DemoToRiver -DemoDriveTime=180" step film-drive-river tools/build/test-build-mac.sh "$version" 30 200
+  for log in measure film-carjack-river film-drive-river; do
+    { echo; echo "### $log"; echo '```'; grep -E "^(verdict|p50|p95|frames|game_args)|ms" "$out/$log.log" | head -n 12; echo '```'; } >> "$report"
+  done
+  echo "Done: $report"
+  exit 0
+fi
+
 # 1. Data the game reads at run time (not in Git).
 step lanes python3 tools/city/traffic.py --map "$map"
 step walkways python3 tools/city/pedestrians.py --map "$map"
@@ -101,6 +129,8 @@ step environment tools/environment/setup-environment-mac.sh
 step audio-prepare tools/audio/mac_audio_pass.sh prepare
 
 # 2. One package.
+app="$builds_dir/$version/GranTheftPraline.app"
+{ echo; echo "**Build: \`$app\`**"; echo; } >> "$report"
 if ! step package tools/build/package-mac.sh "$version"; then
   grep -nE "error|Error" "$out/package.log" | head -n 60 > "$out/compile-errors.txt"
   echo "- package failed: first errors in compile-errors.txt" >> "$report"

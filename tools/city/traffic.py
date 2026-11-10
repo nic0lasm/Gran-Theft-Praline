@@ -50,6 +50,8 @@ STEP_M = 4.0           # spacing of lane points
 NODE_SNAP_M = 0.5      # road ends closer than this are the same junction
 MIN_LANE_M = 3.0       # shorter lanes (clipping slivers) are dropped
 MIN_TWO_WAY_OFFSET_M = 1.4
+LANE_W_M = 3.2         # one traffic lane on a measured carriageway (parking lanes take the rest)
+KERB_CLEAR_M = 1.2     # a lane centre stays this far from the kerb (half a car plus margin)
 JUNCTION_MERGE_M = 18.0
 AREA_BUFFER_M = 60.0
 MAX_TURN_DEG = 135.0   # sharper turns at a junction count as U-turns
@@ -98,9 +100,53 @@ def node_key(pt):
     return (round(pt[0] / NODE_SNAP_M), round(pt[1] / NODE_SNAP_M))
 
 
-def build_lanes(features, extent_m=None):
+def load_carriageways(path):
+    """Measured carriageways (tools/city/carriageway.py): road_id -> (centre, half widths).
+    The centre runs in the drawing direction of the BD TOPO road, every 2 m."""
+    if not path or not os.path.exists(path):
+        return {}
+    with open(path, encoding="utf-8") as f:
+        feats = json.load(f)["features"]
+    out = {}
+    for feat in feats:
+        p = feat["properties"]
+        centre, half = p.get("centre") or [], p.get("half_width_m") or []
+        if len(centre) >= 2 and len(half) == len(centre):
+            out[p["road_id"]] = ([tuple(c[:2]) for c in centre], [float(h) for h in half])
+    return out
+
+
+def offset_points(centre, offsets):
+    """Centre line moved sideways point by point (positive = right of travel)."""
+    out = []
+    n = len(centre)
+    for i, (x, y) in enumerate(centre):
+        (ax, ay), (bx, by) = centre[max(i - 1, 0)], centre[min(i + 1, n - 1)]
+        dx, dy = bx - ax, by - ay
+        length = math.hypot(dx, dy) or 1.0
+        # Right-hand normal of the direction of travel (x east, y north).
+        rx, ry = dy / length, -dx / length
+        out.append((x + rx * offsets[i], y + ry * offsets[i]))
+    return out
+
+
+def measured_offset(k, per_dir, two_way, half):
+    """Offset of lane k (right of the centre, metres) on a carriageway of half width half."""
+    room = max(half - KERB_CLEAR_M, 0.0)
+    if two_way:
+        want = max((k + 0.5) * LANE_W_M, MIN_TWO_WAY_OFFSET_M)
+        # Very narrow two-way street: halfway between the centre and the kerb.
+        return min(want, room) if room >= MIN_TWO_WAY_OFFSET_M else max(half / 2.0, 0.0)
+    want = (k + 0.5 - per_dir / 2.0) * LANE_W_M
+    return max(-room, min(room, want))
+
+
+def build_lanes(features, extent_m=None, carriageways=None):
     """Lanes (dicts) from road features in local metres, clipped to extent_m:
-    a box (x0, y0, x1, y1) or any shapely geometry."""
+    a box (x0, y0, x1, y1) or any shapely geometry. With carriageways (from
+    load_carriageways), lanes follow the measured carriageway centre and stay
+    KERB_CLEAR_M from its kerbs; junctions still come from the BD TOPO ends."""
+    carriageways = carriageways or {}
     if extent_m is None:
         clip = None
     elif isinstance(extent_m, tuple):
@@ -132,17 +178,32 @@ def build_lanes(features, extent_m=None):
                     continue
                 # Junctions are the ends of the drawn centre line, before any offset.
                 start, end = part.coords[0], part.coords[-1]
+                measured = carriageways.get(p.get("cleabs") or "")
+                if measured is not None:
+                    # Measured centre, cut to this part of the road (same clip as the BD TOPO line).
+                    m_centre, m_half = measured
+                    # Measured points belonging to this part (its centre is at most a few metres off).
+                    zone = part.buffer(6.0)
+                    keep = [i for i, c in enumerate(m_centre) if zone.contains(Point(c))]
+                    if len(keep) < 2 or LineString([m_centre[i] for i in keep]).length < MIN_LANE_M:
+                        measured = None
                 for d in dirs:
                     base = part if d == 1 else LineString(list(part.coords)[::-1])
                     a, b = (start, end) if d == 1 else (end, start)
                     for k in range(per_dir):
-                        if len(dirs) == 2:
-                            # Narrow two-way streets: keep oncoming cars 2.8 m apart, so they pass.
-                            offset = max((k + 0.5) * lane_w, MIN_TWO_WAY_OFFSET_M)
+                        if measured is not None:
+                            idx = keep if d == 1 else keep[::-1]
+                            c_pts = [m_centre[i] for i in idx]
+                            offs = [measured_offset(k, per_dir, len(dirs) == 2, m_half[i]) for i in idx]
+                            lane_line = LineString(offset_points(c_pts, offs))
                         else:
-                            offset = -width / 2.0 + (k + 0.5) * lane_w
-                        # shapely: positive offset = left side; France drives on the right.
-                        lane_line = base.offset_curve(-offset) if abs(offset) > 1e-3 else base
+                            if len(dirs) == 2:
+                                # Narrow two-way streets: keep oncoming cars 2.8 m apart, so they pass.
+                                offset = max((k + 0.5) * lane_w, MIN_TWO_WAY_OFFSET_M)
+                            else:
+                                offset = -width / 2.0 + (k + 0.5) * lane_w
+                            # shapely: positive offset = left side; France drives on the right.
+                            lane_line = base.offset_curve(-offset) if abs(offset) > 1e-3 else base
                         if lane_line.is_empty or lane_line.geom_type != "LineString" or lane_line.length < MIN_LANE_M:
                             continue
                         lanes.append({
@@ -280,13 +341,15 @@ def main():
     ap.add_argument("--focus", default="rue-de-la-republique")
     ap.add_argument("--roads", help="roads.geojson to read instead of the zone's")
     ap.add_argument("--map", help="map name: copy the lanes into the game for this map")
+    ap.add_argument("--carriageway", help="measured carriageways (tools/city/carriageway.py); default: the zone's carriageway.geojson, if any")
     args = ap.parse_args()
     base = os.path.join(REPO, "assets", "geo", "processed", args.zone)
     gen = os.path.join(base, "gen", args.focus)
     with open(args.roads or os.path.join(base, "roads.geojson"), encoding="utf-8") as f:
         roads = json.load(f)["features"]
     _, extent_cm = focus_extent_m(gen)
-    lanes = build_lanes(roads, focus_area_m(gen))
+    carriageways = load_carriageways(args.carriageway or os.path.join(base, "carriageway.geojson"))
+    lanes = build_lanes(roads, focus_area_m(gen), carriageways)
     out = os.path.join(gen, "traffic")
     meta = write(lanes, out, extent_cm)
     preview(lanes, os.path.join(out, "lanes.png"))
