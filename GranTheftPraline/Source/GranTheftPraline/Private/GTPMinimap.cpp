@@ -84,11 +84,22 @@ namespace
 	}
 }
 
+bool UGTPMinimapSubsystem::IsDisabledOnCommandLine()
+{
+	// -Minimap=0 or -NoMinimap: not created, not drawn (isolates its cost in measurements).
+	static const bool bDisabled = []()
+	{
+		int32 Value = 1;
+		return FParse::Param(FCommandLine::Get(), TEXT("NoMinimap")) || (FParse::Value(FCommandLine::Get(), TEXT("Minimap="), Value) && Value == 0);
+	}();
+	return bDisabled;
+}
+
 bool UGTPMinimapSubsystem::ShouldCreateSubsystem(UObject* Outer) const
 {
 	// Game worlds only: no mini-map in editor preview worlds or on a dedicated server.
 	const UWorld* World = Cast<UWorld>(Outer);
-	return World && (World->IsGameWorld()) && !IsRunningDedicatedServer() && Super::ShouldCreateSubsystem(Outer);
+	return World && World->IsGameWorld() && !IsRunningDedicatedServer() && !IsDisabledOnCommandLine() && Super::ShouldCreateSubsystem(Outer);
 }
 
 void UGTPMinimapSubsystem::OnWorldBeginPlay(UWorld& InWorld)
@@ -144,8 +155,7 @@ void UGTPMinimapSubsystem::RemoveBlip(AActor* Actor)
 void UGTPMinimapSubsystem::Draw(UCanvas* Canvas, const AGTPPlayerController* Controller, float Scale)
 {
 	const UGTPUserSettings* User = UGTPUserSettings::Find(this);
-	static const bool bDisabledOnCommandLine = FParse::Param(FCommandLine::Get(), TEXT("NoMinimap"));
-	if (bDisabledOnCommandLine || !Canvas || !Controller || !HasData() || (User && !User->Get().bMinimap))
+	if (IsDisabledOnCommandLine() || !Canvas || !Controller || !HasData() || (User && !User->Get().bMinimap))
 	{
 		return;
 	}

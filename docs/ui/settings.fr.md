@@ -62,4 +62,4 @@ déjà dans la table pour passer à `GTPLoc` à la prochaine intervention sur ce
   un second lancement avec `-UITest=verify` vérifie qu'ils ont persisté ;
   `-UITest=reset` remet les valeurs par défaut. Résultats : `Saved/Logs/ui_test.txt`,
   lignes finissant par `UITEST <étape> PASS` ou `FAIL`.
-- Coût de la mini-carte : même parcours avec et sans `-NoMinimap`.
+- Coût de la mini-carte : même parcours avec et sans `-Minimap=0` (ou `-NoMinimap`).
