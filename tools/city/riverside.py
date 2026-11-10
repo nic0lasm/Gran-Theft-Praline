@@ -39,6 +39,7 @@ STONE = (0.60, 0.57, 0.52)
 DECK_THICK_M = 1.2
 PARAPET_H_M, PARAPET_W_M = 1.05, 0.4
 WATER_CELL_M = 4.0
+MAX_STEP_M = 0.12            # deck to quay, a car rolls over it
 
 
 def polys(geom):
@@ -86,27 +87,53 @@ def water_mesh(water, mnt, origin, origin_alt):
     return m, level
 
 
-def deck_height_fn(deck, mnt, origin, origin_alt):
-    """Deck top as a linear ramp between the two banks along the deck's long axis."""
+def deck_geometry(deck, mnt, mns, origin, origin_alt):
+    """Deck footprint stretched to meet the quays, and its top height.
+
+    The Grand Lyon footprint stops where the deck leaves the lower quays (bas-ports,
+    3-7 m down), not where it meets the street. The top follows the LiDAR surface
+    (MNS, the deck itself) at both ends; each end is stretched along the axis until
+    the ground (MNT) is within MAX_STEP_M of it, so cars roll on without a step."""
     rect = deck.minimum_rotated_rectangle
     c = list(rect.exterior.coords)[:4]
     e = [np.subtract(c[(i + 1) % 4], c[i]) for i in range(4)]
     i = int(np.argmax([np.linalg.norm(v) for v in e[:2]]))
     axis = e[i] / np.linalg.norm(e[i])
-    cen = np.array(deck.centroid.coords[0])
+    side = np.array([-axis[1], axis[0]])
+    width = np.linalg.norm(e[(i + 1) % 4])
+    cen = np.array(rect.centroid.coords[0])
     half = np.linalg.norm(e[i]) / 2
-    ends = [cen - axis * (half + 4.0), cen + axis * (half + 4.0)]
-    z = [float(np.nanmedian(ground(mnt, origin, origin_alt, [p[0] + dx for dx in (-1, 0, 1)],
-                                   [p[1] + dy for dy in (-1, 0, 1)]))) for p in ends]
+
+    def sample(r, p):
+        return float(np.nanmedian(r.sample(np.array([p[0] + d for d in (-1, 0, 1)]) + origin[0],
+                                           np.array([p[1] + d for d in (-1, 0, 1)]) + origin[1]) - origin_alt))
+    z_end, ext = [], []
+    for sgn in (-1, 1):
+        z = sample(mns, cen + sgn * axis * (half - 3.0))
+        d_ok = 0.0
+        for d in np.arange(0.0, 20.0, 0.5):
+            if abs(sample(mnt, cen + sgn * axis * (half + d)) - z) < MAX_STEP_M:
+                d_ok = d + 1.0
+                break
+        # Settle the end on the street it meets: median ground across the deck width.
+        tip = cen + sgn * axis * (half + d_ok + 1.0)
+        line = [sample(mnt, tip + side * w) for w in np.linspace(-width / 2 + 1, width / 2 - 1, 9)]
+        z_end.append(float(np.median(line)) if d_ok else z)
+        ext.append(d_ok)
+    a0, a1 = -(half + ext[0]), half + ext[1]
+    corners = [cen + axis * a + side * w for a, w in ((a0, -width / 2), (a1, -width / 2), (a1, width / 2), (a0, width / 2))]
+    full = shapely.geometry.polygon.orient(deck.union(Polygon(corners)).buffer(0), 1.0)
+    if not isinstance(full, Polygon):
+        full = max(polys(full), key=lambda p: p.area)
 
     def at(x, y):
-        t = (np.dot(np.subtract((x, y), cen), axis) + half) / (2 * half)
-        return z[0] + (z[1] - z[0]) * min(1.0, max(0.0, t))
-    return at, axis, z
+        t = (np.dot(np.subtract((x, y), cen), axis) - a0) / (a1 - a0)
+        return z_end[0] + (z_end[1] - z_end[0]) * min(1.0, max(0.0, t))
+    return full, at, axis, z_end, ext
 
 
-def bridge_mesh(deck, mnt, origin, origin_alt):
-    at, axis, banks = deck_height_fn(deck, mnt, origin, origin_alt)
+def bridge_mesh(deck, mnt, mns, origin, origin_alt):
+    deck, at, axis, banks, ext = deck_geometry(deck, mnt, mns, origin, origin_alt)
     m = meshkit.Mesh()
     for a, b, c in triangles(deck):
         top = [(p[0], p[1], at(*p)) for p in (a, b, c)]
@@ -139,7 +166,7 @@ def bridge_mesh(deck, mnt, origin, origin_alt):
             ia, ib = a - n * PARAPET_W_M, b - n * PARAPET_W_M
             box_between(m, a, b, ia, ib, za, zb, PARAPET_H_M)
     del band
-    return m, banks
+    return m, banks, ext, deck
 
 
 def box_between(m, a, b, ia, ib, za, zb, h):
@@ -208,6 +235,7 @@ def main():
         man = json.load(f)
     origin, origin_alt = man["origin_lambert93_m"], man["origin_altitude_m"]
     mnt = raster.Raster.load(raw, "mnt")
+    mns = raster.Raster.load(raw, "mns")
     bx = box(*[float(v) for v in a.bbox.split(",")])
 
     with open(os.path.join(proc, "water.geojson"), encoding="utf-8") as f:
@@ -220,7 +248,7 @@ def main():
     for spec in a.bridge or ["41:Lafayette"]:
         gid, name = spec.split(":", 1)
         g = shape(by_gid[gid]["geometry"])
-        g = shapely.ops.transform(lambda x, y, z=None: (x - origin[0], y - origin[1]), g)
+        g = shapely.transform(g, lambda xy: xy - np.array(origin[:2]))
         g = max(polys(g), key=lambda p: p.area).buffer(0)
         decks.append((name, shapely.geometry.polygon.orient(g, 1.0)))
 
@@ -228,12 +256,14 @@ def main():
     wm, level = water_mesh(water, mnt, origin, origin_alt)
     items.append(("SM_River_Water", wm, (0.0, 0.0, 0.0)))
     meta["water_level_m"] = round(level, 2)
+    fulls = []
     for name, deck in decks:
-        bm, banks = bridge_mesh(deck, mnt, origin, origin_alt)
+        bm, banks, ext, full = bridge_mesh(deck, mnt, mns, origin, origin_alt)
+        fulls.append(full)
         items.append(("SM_Bridge_" + name, bm, (0.0, 0.0, 0.0)))
-        meta.setdefault("bridges", []).append({"name": name, "deck_m2": round(deck.area), "bank_z_m": [round(z, 2) for z in banks],
-                                               "length_m": round(deck.minimum_rotated_rectangle.length / 2)})
-    qm, qlen = quay_mesh(river, bx, [d for _, d in decks], mnt, origin, origin_alt)
+        meta.setdefault("bridges", []).append({"name": name, "deck_m2": round(full.area), "end_z_m": [round(z, 2) for z in banks],
+                                               "stretched_to_quays_m": ext, "max_step_m": MAX_STEP_M})
+    qm, qlen = quay_mesh(river, bx, fulls, mnt, origin, origin_alt)
     items.append(("SM_Quay_Parapet", qm, (0.0, 0.0, 0.0)))
     meta["quay_parapet_m"] = round(qlen)
     for n, m, o in items:

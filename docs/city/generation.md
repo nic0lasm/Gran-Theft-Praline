@@ -252,8 +252,10 @@ The generated footprint grows east for the 0.3 driving loop:
 head and a bit of the left bank (233 BD TOPO buildings, 378 parts, instead of 175 / 281).
 `tools/city/riverside.py` builds, as greybox with vertex colours, the Rhone water (a plane at the
 LiDAR water surface, no collision), the pont Lafayette deck (Grand Lyon footprint, gid 41,
-~20 m × 190 m, top ramped between the two quays, parapets) and a quay parapet along the water
-(545 m in the box, cut under the bridge). `import_city.py` places them when present (folder
+~20 m × 190 m, parapets; the footprint stops over the lower quays, so each end is stretched
+along the bridge axis until it meets the street within 12 cm and settles on the median street
+height, measured step at most 7 cm, collision on) and a quay parapet along the water
+(519 m in the box, cut under the bridge). `import_city.py` places them when present (folder
 City/Riverside); `apply_city_materials.py` gives them `M_City_Shell` and `M_City_Water`.
 `build.py` now keeps the street names of the current BD TOPO, `nom_collaboratif_*` and
 `nom_voie_ban_*` (the old `nom_1_*` fields are gone).
