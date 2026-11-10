@@ -65,15 +65,20 @@ def build(zone, focus):
         h = 2 ** int(round(math.log2(TEXELS_LONG * (y1 - y0) / long_cm)))
     sx, sy = (x1 - x0) / w, (y1 - y0) / h
     cm_per_px = max(sx, sy)
+    # Draw on square texels (the finer axis) and resample to (w, h) at the end:
+    # PIL widths are in pixels, so drawing straight onto non-square texels made the
+    # streets across the short axis too narrow (6 m carriageways came out 3.6 m).
+    s = min(sx, sy)
+    cw, ch = int(math.ceil((x1 - x0) / s)), int(math.ceil((y1 - y0) / s))
 
-    def px(pt):  # local metres (y north) -> pixel (Unreal Y = -north)
-        return ((pt[0] * 100.0 - x0) / sx, (-pt[1] * 100.0 - y0) / sy)
+    def px(pt):  # local metres (y north) -> canvas pixel (Unreal Y = -north)
+        return ((pt[0] * 100.0 - x0) / s, (-pt[1] * 100.0 - y0) / s)
 
     with open(os.path.join(base, "roads.geojson"), encoding="utf-8") as f:
         roads = json.load(f)["features"]
-    layers = {k: Image.new("L", (w, h), 0) for k in ("asphalt", "kerb", "paving", "mark")}
+    layers = {k: Image.new("L", (cw, ch), 0) for k in ("asphalt", "kerb", "paving", "mark")}
     draw = {k: ImageDraw.Draw(v) for k, v in layers.items()}
-    m2px = 100.0 / cm_per_px  # widths: the coarser axis, a few cm off at most
+    m2px = 100.0 / s
     counts = {"asphalt": 0, "paving": 0, "marked": 0, "tunnel": 0}
 
     def line(d, pts, width_m):
@@ -123,6 +128,7 @@ def build(zone, focus):
                         t += period
                     carry = (seg + carry) % period
 
+    layers = {k: v.resize((w, h), Image.BILINEAR, box=(0, 0, w * sx / s, h * sy / s)) for k, v in layers.items()}
     asphalt = np.asarray(layers["asphalt"], np.uint8)
     kerb = np.asarray(layers["kerb"], np.uint8)
     paving = np.asarray(layers["paving"], np.uint8)
