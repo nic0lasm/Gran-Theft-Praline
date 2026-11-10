@@ -32,7 +32,7 @@ def file_sha256(path: str) -> str:
 
 
 def settings_key(item: dict) -> str:
-    keys = {k: item.get(k) for k in ("size_m", "pivot", "rotate_y_deg", "collision",
+    keys = {k: item.get(k) for k in ("size_m", "pivot", "rotate_y_deg", "rotate_x_deg", "collision",
                                      "m1_tris", "ultra_tris", "family", "asset")}
     return json.dumps(keys, sort_keys=True) + __version__
 
@@ -56,7 +56,8 @@ def prepare_asset(src_glb: str, item: dict, staging_root: str, wave: str = "w1",
     master_tris = asset.tri_count
     size_m = float(item["size_m"])
     scale = normalize(asset, size_m, item.get("pivot", "bottom_center"),
-                      float(item.get("rotate_y_deg", 0.0)))
+                      float(item.get("rotate_y_deg", 0.0)),
+                      float(item.get("rotate_x_deg", 0.0)))
 
     cat = category(size_m)
     budget = BUDGETS[cat]

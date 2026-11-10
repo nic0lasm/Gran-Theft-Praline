@@ -250,3 +250,16 @@ def test_spec_waves_have_names_and_sizes(wave, count):
         items = parse_catalog(f.read(), wave)
     assert len(items) == count
     assert all(i.get("family") and i.get("asset") and i["size_m"] > 0 for i in items)
+
+
+def test_rotate_x_lays_a_standing_master_flat():
+    import numpy as np
+    from gtp_assets.geometry import Asset, Part, normalize
+    v = np.array([[-1, 0, 0], [1, 0, 0], [1, 2, 0], [-1, 2, 0]], dtype=np.float32)
+    part = Part(vertices=v, faces=np.array([[0, 1, 2], [0, 2, 3]], dtype=np.uint32),
+                uv=np.zeros((4, 2), np.float32), normals=np.tile([0, 0, 1], (4, 1)).astype(np.float32),
+                material=None, name="p")
+    a = Asset(parts=[part])
+    normalize(a, 2.0, rotate_x_deg=90)
+    lo, hi = a.bounds()
+    assert (hi - lo)[1] < 1e-4

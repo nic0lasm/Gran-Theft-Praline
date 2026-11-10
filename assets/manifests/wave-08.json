@@ -347,6 +347,7 @@
       "family": "Ground",
       "asset": "RoadArrow_Marking",
       "collision": "none",
+      "rotate_x_deg": 90.0,
       "category": "medium"
     },
     {

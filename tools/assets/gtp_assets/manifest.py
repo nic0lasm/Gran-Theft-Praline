@@ -133,6 +133,9 @@ def _spec_table(wave_prefix: str) -> dict:
                 continue
             asset_id, family, asset, size, opts = (line.split("|") + [""])[:5]
             extra = dict(o.split("=", 1) for o in opts.split(",") if o)
+            for k in ("rotate_x_deg", "rotate_y_deg"):
+                if k in extra:
+                    extra[k] = float(extra[k])
             table[asset_id] = (family, asset, float(size), extra)
     return table
 

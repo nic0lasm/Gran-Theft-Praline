@@ -36,6 +36,6 @@ W8-34|Signals|Cabinet_SignalController|1.3|
 W8-35|Ground|ZebraCrossing_Patch|4.0|collision=none
 W8-36|Ground|SpeedBump_Painted|3.0|collision=none
 W8-37|Ground|Manhole_Asphalt|0.9|collision=none
-W8-38|Ground|RoadArrow_Marking|3.0|collision=none
+W8-38|Ground|RoadArrow_Marking|3.0|collision=none,rotate_x_deg=90
 W8-39|Ground|CurbRamp_Tactile|1.5|collision=none
 W8-40|Ground|TactilePaving_Tile|0.4|collision=none

@@ -87,11 +87,17 @@ def _rot_y(deg: float) -> np.ndarray:
     return np.array([[c, 0, s], [0, 1, 0], [-s, 0, c]], dtype=np.float32)
 
 
+def _rot_x(deg: float) -> np.ndarray:
+    a = np.radians(deg)
+    c, s = np.cos(a), np.sin(a)
+    return np.array([[1, 0, 0], [0, c, -s], [0, s, c]], dtype=np.float32)
+
+
 PIVOTS = ("bottom_center", "center", "back_center")
 
 
 def normalize(asset: Asset, size_m: float, pivot: str = "bottom_center",
-              rotate_y_deg: float = 0.0) -> float:
+              rotate_y_deg: float = 0.0, rotate_x_deg: float = 0.0) -> float:
     """Rotate about Y, scale so the longest extent equals ``size_m``, move the pivot.
 
     Returns the uniform scale factor applied. Works in place.
@@ -100,6 +106,11 @@ def normalize(asset: Asset, size_m: float, pivot: str = "bottom_center",
         raise ValueError(f"pivot must be one of {PIVOTS}")
     if size_m <= 0:
         raise ValueError("size_m must be positive")
+    if rotate_x_deg:  # lay a master that was generated standing up flat on the ground
+        r = _rot_x(rotate_x_deg)
+        for p in asset.parts:
+            p.vertices = p.vertices @ r.T
+            p.normals = p.normals @ r.T
     if rotate_y_deg:
         r = _rot_y(rotate_y_deg)
         for p in asset.parts:
