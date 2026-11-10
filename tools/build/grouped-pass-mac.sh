@@ -6,7 +6,7 @@
 # Usage, from the root of the clone, nothing else running:
 #   caffeinate -dimsu tools/build/grouped-pass-mac.sh <version> [duration_s]
 #   caffeinate -dimsu tools/build/grouped-pass-mac.sh <version> --release
-#     playable build of a release (0.3): lanes, one package, one measure with the
+#     playable build of a release (0.3): lanes, one package, one 600 s measure with the
 #     default settings and two films towards the river; the path of the app to
 #     launch is written at the top of PASS.md.
 #   tools/build/grouped-pass-mac.sh <version> --compile-only
@@ -26,7 +26,7 @@ if test "${2:-}" = "--compile-only"; then
   duration=0
 elif test "${2:-}" = "--release"; then
   release=1
-  duration=300
+  duration=600
 else
   duration="${2:-300}"
 fi
