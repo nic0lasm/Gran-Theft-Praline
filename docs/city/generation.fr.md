@@ -263,6 +263,19 @@ chaque corniche et appui, dosés par emplacement avec `Weathering` (pierre 1, bo
 roues). Le masque est dessiné sur des texels carrés puis rééchantillonné : les rues gardent
 leur largeur quel que soit le format de la texture.
 
+### Chaussées recalées sur les bordures et régénération en une commande
+
+Les axes BD TOPO sont à 0,8 m du milieu de la chaussée (2,2 m au 90e centile) et les voitures
+sur des voies tirées de ces axes roulaient sur les bordures du terrain LiDAR.
+`tools/city/carriageway.py` recale chaque voie carrossable sur les bordures Grand Lyon (rayons
+tous les 2 m, lissés ; 79 % des échantillons trouvent une vraie bordure) et écrit
+`processed/<zone>/carriageway.geojson` : un polygone, un axe corrigé et les demi-largeurs par
+voie. `ground_mask.py` y dessine l'asphalte et les bordures ; `traffic.py` peut y poser ses voies.
+
+`tools/city/regen_city.sh` régénère tout en une commande (données géo, génération avec la boîte
+du Rhône, enseignes, chaussées, mobilier, détails, Rhône, import Unreal, façades, mobilier,
+détails, matériaux, voiture garée, voies de trafic) : `caffeinate -dimsu tools/city/regen_city.sh`.
+
 ## Quai du Rhône et pont Lafayette (ajouté le 2026-11-10, pour la 0.3)
 
 L'emprise générée s'étend vers l'est pour la boucle en voiture de la 0.3 :

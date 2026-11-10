@@ -23,6 +23,7 @@ import json
 import math
 import os
 
+from shapely.geometry import shape
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 
@@ -88,6 +89,21 @@ def build(zone, focus):
         for x, y in (pts[0], pts[-1]):
             d.ellipse((x - r, y - r, x + r, y + r), fill=255)
 
+    # Carriageways fitted to the Grand Lyon kerbs (carriageway.py), where available: the
+    # asphalt and kerbs then match the LiDAR kerbs the cars drive on.
+    fitted = {}
+    cw_path = os.path.join(base, "carriageway.geojson")
+    if os.path.exists(cw_path):
+        with open(cw_path, encoding="utf-8") as f:
+            for ft in json.load(f)["features"]:
+                fitted.setdefault(ft["properties"]["road_id"], []).append(ft)
+    counts["fitted_to_kerbs"] = 0
+
+    def poly_px(geom):
+        for g in getattr(geom, "geoms", [geom]):
+            if g.geom_type == "Polygon" and not g.is_empty:
+                yield [px(c) for c in g.exterior.coords]
+
     for feat in roads:
         p = feat["properties"]
         if (p.get("position_par_rapport_au_sol") or "0") not in ("0", 0):
@@ -95,19 +111,41 @@ def build(zone, focus):
             continue
         if p.get("nature") == "Bac ou liaison maritime":
             continue
-        for coords in feat["geometry"]["coordinates"]:
-            pts = [px(c) for c in coords]
+        fit = fitted.get(p.get("cleabs")) if not is_pedestrian(p) else None
+        if fit:
+            counts["fitted_to_kerbs"] += 1
+            for ft in fit:
+                g = shape(ft["geometry"])
+                for ring in poly_px(g.buffer(KERB_M)):
+                    draw["kerb"].polygon(ring, fill=255)
+                for ring in poly_px(g):
+                    draw["asphalt"].polygon(ring, fill=255)
+                # Round caps at both ends close the joints between pieces at junctions.
+                hw = ft["properties"]["half_width_m"]
+                cen = [px(c) for c in ft["properties"]["centre"]]
+                for (x, y), half_m in ((cen[0], hw[0]), (cen[-1], hw[-1])):
+                    r = half_m * m2px
+                    draw["asphalt"].ellipse((x - r, y - r, x + r, y + r), fill=255)
+                    rk = r + KERB_M * m2px
+                    draw["kerb"].ellipse((x - rk, y - rk, x + rk, y + rk), fill=255)
+            centres = [[px(c) for c in ft["properties"]["centre"]] for ft in fit]
+            wd = 2.0 * min(min(ft["properties"]["half_width_m"]) for ft in fit)
+        else:
+            centres = None
+        for pts in (centres or [[px(c) for c in coords] for coords in feat["geometry"]["coordinates"]]):
             if len(pts) < 2:
                 continue
-            wd = road_width(p)
+            if centres is None:
+                wd = road_width(p)
             if is_pedestrian(p):
                 # Streets closed to cars are paved from facade to facade (the buildings
                 # hide the excess): rue de la Republique is granite all across.
                 line(draw["paving"], pts, PEDESTRIAN_W_M)
                 counts["paving"] += 1
                 continue
-            line(draw["asphalt"], pts, wd)
-            line(draw["kerb"], pts, wd + 2 * KERB_M)
+            if centres is None:
+                line(draw["asphalt"], pts, wd)
+                line(draw["kerb"], pts, wd + 2 * KERB_M)
             counts["asphalt"] += 1
             if (p.get("nombre_de_voies") or 1) >= 2 and wd >= 6 and p.get("sens_de_circulation") == "Double sens":
                 counts["marked"] += 1
