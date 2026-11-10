@@ -49,6 +49,14 @@ bool UGTPRagdollComponent::BeginRagdoll(FVector LaunchVelocity, EGTPImpactSeveri
 	{
 		return false;
 	}
+	if (const UWorld* World = GetWorld())
+	{
+		const UGTPRagdollSubsystem* Subsystem = World->GetSubsystem<UGTPRagdollSubsystem>();
+		if (Subsystem && !Subsystem->HasRoom())
+		{
+			return false;
+		}
+	}
 
 	State = GTPImpact::StartRagdollState(ToLogic(Severity), HealthAfterHit);
 	bActive = true;
@@ -229,6 +237,16 @@ void UGTPRagdollSubsystem::Deinitialize()
 void UGTPRagdollSubsystem::Register(UGTPRagdollComponent* Ragdoll)
 {
 	Active.AddUnique(Ragdoll);
+}
+
+bool UGTPRagdollSubsystem::HasRoom() const
+{
+	int32 Running = 0;
+	for (const TWeakObjectPtr<UGTPRagdollComponent>& P : Active)
+	{
+		Running += P.IsValid() ? 1 : 0;
+	}
+	return Running < ChooseCap();
 }
 
 void UGTPRagdollSubsystem::Unregister(UGTPRagdollComponent* Ragdoll)
