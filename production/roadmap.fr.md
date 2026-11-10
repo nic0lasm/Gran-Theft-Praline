@@ -141,6 +141,8 @@ faible** et revus à chaque fin de version.
 
 ### Pourquoi cet ordre
 
+*Décidé par Nico le 2026-11-10 (carte) : la rue vivante d'abord.*
+
 1. **La rue vivante avant les armes.** Trafic, piétons, police et jour/nuit
    ont déjà un chantier ouvert ; les intégrer d'abord utilise ce travail tout
    de suite et mesure tôt les postes les plus chers pour le GPU (foule,

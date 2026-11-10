@@ -71,4 +71,4 @@ attendre les autres chantiers.
 
 ## Décisions en attente de Nico
 
-- Ordre des versions 0.4 à 0.7 (carte dans le fil de revue de la roadmap).
+- Aucune. Ordre des versions 0.4 à 0.7 décidé par Nico le 2026-11-10 : la rue vivante d'abord.

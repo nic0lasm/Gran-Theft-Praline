@@ -140,6 +140,8 @@ at the end of every version.
 
 ### Why this order
 
+*Decided by Nico on 2026-11-10 (card): the living street first.*
+
 1. **The living street before weapons.** Traffic, pedestrians, police and
    day/night already have open workstreams; integrating them first uses that
    work right away and measures early the most GPU-hungry items (crowd,

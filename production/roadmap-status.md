@@ -71,4 +71,4 @@ traffic, without waiting for the other workstreams.
 
 ## Decisions awaiting Nico
 
-- Order of versions 0.4 to 0.7 (card in the roadmap review thread).
+- None. Order of versions 0.4 to 0.7 decided by Nico on 2026-11-10: the living street first.
