@@ -37,6 +37,8 @@ def main(argv=None) -> int:
     for item in items:
         if wanted and item["id"].upper() not in wanted:
             continue
+        if item.get("skip") and not wanted:  # to be built procedurally or as a decal
+            continue
         src = find_master(args.masters, item["id"])
         if src is None:
             missing.append(item["id"])

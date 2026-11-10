@@ -425,6 +425,7 @@
       "size_m": 3.0,
       "family": "Mobility",
       "asset": "BikeHoops_Row",
+      "skip": "procedural",
       "category": "medium"
     },
     {

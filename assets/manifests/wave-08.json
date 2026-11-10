@@ -86,10 +86,10 @@
       "id": "W8-10",
       "slug": "one_way_sign",
       "name": "One way sign",
-      "size_m": 2.5,
+      "size_m": 0.9,
       "family": "Signage",
       "asset": "Sign_OneWay",
-      "category": "medium"
+      "category": "small"
     },
     {
       "id": "W8-11",
@@ -188,16 +188,17 @@
       "size_m": 1.5,
       "family": "Roadworks",
       "asset": "Guardrail_End",
+      "skip": "procedural",
       "category": "medium"
     },
     {
       "id": "W8-22",
       "slug": "pedestrian_railing",
       "name": "Pedestrian railing",
-      "size_m": 2.0,
+      "size_m": 4.0,
       "family": "Roadworks",
       "asset": "Railing_Pedestrian",
-      "category": "medium"
+      "category": "large"
     },
     {
       "id": "W8-23",
@@ -317,6 +318,7 @@
       "family": "Ground",
       "asset": "ZebraCrossing_Patch",
       "collision": "none",
+      "skip": "procedural",
       "category": "large"
     },
     {
@@ -337,6 +339,7 @@
       "family": "Ground",
       "asset": "Manhole_Asphalt",
       "collision": "none",
+      "skip": "procedural",
       "category": "small"
     },
     {
@@ -347,7 +350,7 @@
       "family": "Ground",
       "asset": "RoadArrow_Marking",
       "collision": "none",
-      "rotate_x_deg": 90.0,
+      "skip": "procedural",
       "category": "medium"
     },
     {

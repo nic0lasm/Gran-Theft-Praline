@@ -45,7 +45,7 @@ W6-43|Market|Chalet_Wooden|4.0|
 W6-44|Market|FoodTruck_Generic|5.5|
 W6-45|Terrace|Umbrella_SquareCafe|3.0|
 W6-46|Terrace|TableChairs_Two|1.6|
-W6-47|Mobility|BikeHoops_Row|3.0|
+W6-47|Mobility|BikeHoops_Row|3.0|skip=procedural
 W6-48|Lighting|Bollard_PathLight|0.9|
 W6-49|Greenery|Hedge_Boxwood|3.0|
 W6-50|Fauna|PigeonFlock|1.5|
