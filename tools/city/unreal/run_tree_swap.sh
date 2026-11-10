@@ -25,7 +25,7 @@ budget="${BUDGET_P95_MS:-42}"
 max_delta="${MAX_DELTA_MS:-4}"
 
 test -x "$editor" || { echo "Unreal Editor not found: $editor" >&2; exit 1; }
-if pgrep -f "UnrealEditor|GranTheftPraline.app" > /dev/null; then
+if pgrep -f "MacOS/UnrealEditor( |$)|GranTheftPraline.app" > /dev/null; then
   echo "another Unreal or game process is running; wait for the Mac to be free" >&2
   exit 1
 fi
