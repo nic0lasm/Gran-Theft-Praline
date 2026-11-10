@@ -39,6 +39,7 @@ static bool Load(const char* Path, FGraph& G)
 		E.NodeA = std::atoi(F[3].c_str());
 		E.NodeB = std::atoi(F[4].c_str());
 		E.Width = std::atof(F[5].c_str()) * 100.f;
+		E.FacadeSide = F.size() > 7 ? std::atoi(F[7].c_str()) : 0;
 		std::stringstream Pts(F[6]);
 		std::string P;
 		while (std::getline(Pts, P, ';'))
@@ -54,6 +55,83 @@ static bool Load(const char* Path, FGraph& G)
 	}
 	G.Finalize();
 	return !G.Edges.empty();
+}
+
+// Fraction of walker-pair samples closer than OverlapCm, with or without the sideways avoidance.
+static double Overlap(const FGraph& G, int Count, bool bAvoid, bool bGroups, double* OutPairSpread)
+{
+	FSettings S;
+	FRng Rng(11);
+	std::vector<FWalker> W(Count);
+	std::vector<int> Leader(Count, -1);
+	for (int i = 0; i < Count; ++i)
+	{
+		Place(G, W[i], Rng, S);
+		if (bGroups && i > 0 && Leader[i - 1] < 0 && Rng.Next() < S.GroupChance * 2.f)
+		{
+			Leader[i] = i - 1;
+			Follow(G, W[i], W[i - 1], S);
+		}
+	}
+	const float Dt = 1.f / 15.f;
+	long Close = 0, Total = 0;
+	double Spread = 0;
+	long SpreadN = 0;
+	std::vector<FPoint> P(Count), D(Count);
+	for (float T = 0; T < 300.f; T += Dt)
+	{
+		for (int i = 0; i < Count; ++i)
+		{
+			if (Leader[i] < 0)
+			{
+				Step(G, W[i], Dt, Rng, S, false);
+			}
+		}
+		for (int i = 0; i < Count; ++i)
+		{
+			if (Leader[i] >= 0)
+			{
+				Follow(G, W[i], W[Leader[i]], S);
+			}
+			Locate(G, W[i], P[i], D[i]);
+		}
+		for (int i = 0; i < Count; ++i)
+		{
+			for (int j = 0; j < Count; ++j)
+			{
+				if (i == j || Leader[i] == j || Leader[j] == i)
+				{
+					continue;
+				}
+				if (bAvoid && Leader[i] < 0)
+				{
+					Separate(G, W[i], P[i], D[i], P[j], S);
+				}
+			}
+		}
+		for (int i = 0; i < Count; ++i)
+		{
+			for (int j = i + 1; j < Count; ++j)
+			{
+				if (Leader[i] == j || Leader[j] == i)
+				{
+					if (OutPairSpread)
+					{
+						Spread = std::max(Spread, static_cast<double>(Distance(P[i], P[j])));
+						++SpreadN;
+					}
+					continue;
+				}
+				++Total;
+				Close += Distance(P[i], P[j]) < 40.f ? 1 : 0;
+			}
+		}
+	}
+	if (OutPairSpread)
+	{
+		*OutPairSpread = SpreadN ? Spread : 0.0;
+	}
+	return Total ? static_cast<double>(Close) / Total : 0.0;
 }
 
 int main(int Argc, char** Argv)
@@ -159,11 +237,21 @@ int main(int Argc, char** Argv)
 	}
 	(void)Waited;
 
+	// Density of the M1 profile (12 people) on the real graph, with and without avoidance, and pairs.
+	// A crowd five times the density too, where overlaps are frequent enough to compare.
+	double PairSpread = 0;
+	const double Plain = Overlap(G, 60, false, true, nullptr);
+	const double Avoiding = Overlap(G, 60, true, true, &PairSpread);
+	const double Plain12 = Overlap(G, 12, false, true, nullptr);
+	const double Avoiding12 = Overlap(G, 12, true, true, nullptr);
+	std::printf("overlap: 60 people plain=%.5f avoiding=%.5f; 12 people plain=%.5f avoiding=%.5f; max_pair_distance_cm=%.0f\n",
+		Plain, Avoiding, Plain12, Avoiding12, PairSpread);
+
 	const double Walking = MovingTime / TotalTime;
 	std::printf("edges=%zu nodes=%zu walkers=%d seconds=%.0f visited=%zu walking=%.2f waiting=%.3f max_jump_cm=%.0f teleports=%d flee_ok=%d/%d crossing_breaches=%d\n",
 		G.Edges.size(), G.NodeEdges.size(), Walkers, Seconds, Visited.size(), Walking, WaitTime / TotalTime,
 		MaxJump, Teleports, FleeOk, FleeTrials, Stepped);
-	const bool Pass = Teleports == 0 && Stepped == 0 && Walking > 0.8 && FleeOk >= FleeTrials * 0.9 && Visited.size() * 2 >= G.Edges.size();
+	const bool Pass = Teleports == 0 && Stepped == 0 && Avoiding <= Plain && Avoiding12 <= Plain12 + 0.0005 && PairSpread < 500.0 && Walking > 0.8 && FleeOk >= FleeTrials * 0.9 && Visited.size() * 2 >= G.Edges.size();
 	std::printf("%s\n", Pass ? "PASS" : "FAIL");
 	return Pass ? 0 : 1;
 }

@@ -29,6 +29,15 @@ class PedestrianTests(unittest.TestCase):
         # Same direction as the drawing (south to north).
         self.assertTrue(all(e["points"][-1][1] > e["points"][0][1] for e in w))
 
+    def test_facade_side_is_the_outer_side(self):
+        edges = walks(pedestrians.build_walkways([road("A", [[0, 0], [0, 100]])]))
+        east = next(e for e in edges if e["points"][0][0] > 0)  # drawn northwards: east is the right
+        west = next(e for e in edges if e["points"][0][0] < 0)
+        self.assertEqual(east["facade"], -1)
+        self.assertEqual(west["facade"], 1)
+        mid = [e for e in walks(pedestrians.build_walkways([road("P", [[0, 0], [0, 100]], vitesse=0)])) if abs(e["points"][0][0]) < 1e-3]
+        self.assertEqual(mid[0]["facade"], 0)
+
     def test_pedestrian_street_gets_three_lines(self):
         edges = pedestrians.build_walkways([road("P", [[0, 0], [0, 100]], vitesse=0)])
         w = walks(edges)
