@@ -1,64 +1,74 @@
 # Dashboard: where the game stands
 
-*French version: [roadmap-status.fr.md](roadmap-status.fr.md). Detailed roadmap: [roadmap.md](roadmap.md).*
-*Updated by the threads whenever a task is finished. Last update: 2026-11-09.*
+*French version: [roadmap-status.fr.md](roadmap-status.fr.md). Roadmap: [roadmap.md](roadmap.md). Systems: [systems-inventory.md](systems-inventory.md).*
+*Updated by the threads whenever a task is done. Last update: 2026-11-10.*
 
 Legend: ✅ done · 🟡 in progress · ⬜ to do · ⛔ blocked
 
-## Current version: 0.1 "Play in one click"
+## Current version: 0.3 "Behind the wheel"
 
-Target: 2026-11-27. Progress: 7 / 8 tasks.
+Ships as soon as the 95th percentile is ≤ 42 ms on the M1 profile with
+traffic, without waiting for the other workstreams.
 
-| # | Task | Thread | Status | Evidence |
+| # | Task | Workstream | Status | Evidence |
 | ---- | ---- | ---- | ---- | ---- |
-| 1 | Project switched to C++ (GameMode, PlayerController, GameInstance) | Build and one-click launch | ✅ | compiles with no error or warning on the M1 Pro, Shipping build launches |
-| 2 | Git LFS rules set up, quota checked | Build and one-click launch | ✅ | [rules](../docs/project/git-lfs.md); ~30 MB in LFS out of 10 GiB |
-| 3 | Game Animation Sample integrated (character, motion matching, camera) | Playable character | ✅ GTA-style third-person camera + first-person toggle (V / View) | 50 s playtest passed in `L_RueRepublique`, Mac cook with no error, third/first-person screenshots ([plan §9](../docs/gameplay/player-character.md)) |
-| 4 | Enhanced Input for keyboard-mouse and gamepad | Playable character | ✅ ZQSD by default, WASD option, gamepad | [plan §5](../docs/gameplay/player-character.md); physical keys and gamepad to confirm in play |
-| 5 | Playable `L_RueRepublique` level (collisions, PlayerStart, boundaries) | Playable rue de la République | ✅ | Tested on the M1 Pro on 2026-11-09 ([scripts](../tools/level/README.md)): simple collision on 336 meshes, facades block at 76 % of the samples (side streets), 410 × 562 m area, kill-Z -30 m; in game the pawn stops 35 cm short of the facade and 36 cm short of the north wall |
-| 6 | Title screen and pause menu | Build and one-click launch | 🟡 | title screen filmed in the build ([title.jpg](evidence/0.1/title.jpg)); pause menu compiled, not filmed yet |
-| 7 | macOS packaging script → `GTAL/Builds/0.1/` | Build and one-click launch | ✅ | [package-mac.sh](../tools/build/package-mac.sh): final build 714 s, 1.1 GB (Metal SM5 + SM6 cooked for the M1) |
-| 8 | Build tested: 2 min video, frame-time CSV, 10 min without a crash | Build and one-click launch | ✅ | [evidence](evidence/0.1/): 10 min fullscreen with no crash, 2 min video (street and character), CSV; frame p50 41.0 ms, p95 51.0 ms (30 fps required from 0.2) |
+| 1 | Drivable Clio V, 208 II, Kangoo II with LODs | Vehicles | ✅ | `assets/staging/vehicles/evidence-lods/` on the Mac |
+| 2 | Get in, get out, break the window, pull out an NPC driver | 0.3 | ✅ | videos `GTAL/Builds/0.3-dev/evidence` |
+| 3 | Traffic on 112 lanes, NPC drivers | 0.3 | 🟡 | branch `feat/traffic-drivers` |
+| 4 | Engine sound and driving panel | 0.3 | 🟡 | branch `feat/vehicle-hud-sound` |
+| 5 | Extended map: Rhône quay, Pont Lafayette, 6 m cross streets | City v2 | ✅ | `0.3-city` build, 60 s test |
+| 6 | Falling into the Rhône: respawn on the quay, water surface | City v2 | ⬜ | |
+| 7 | NPC GPU cost reduced (shadows, LODs, drivers without animation) | 0.3 | 🟡 | Mac slot of 2026-11-10 |
+| 8 | Extended map budget (culling, shadows, Lumen) | Optimisation | 🟡 | at the Mac slot |
+| 9 | Per-system GPU envelopes measured a first time | Optimisation | ⬜ | |
+| 10 | 600 s measurement: p95 ≤ 42 ms with traffic | 0.3 | ⬜ | |
+| 11 | Release archive: split if > 2 GiB | 0.3 | ⬜ | |
 
-In parallel (for 0.2): Tripo wave 1, street furniture, 0 / 60 models
-(see [catalog](asset-catalog.md)).
+## Open workstreams
+
+| Workstream | Targets | State |
+| ---- | ---- | ---- |
+| Pedestrians (Mass + StateTree) | 0.4 | cloud preparation |
+| Police and stars | 0.5 | cloud preparation |
+| Day/night + weather | 0.6 | cloud preparation |
+| M1 optimisation | ongoing | Mac slot queued |
+| Street realism | ongoing | audit against photos |
+| City v2 | ongoing | quay and bridge done |
+| Import, free packs, Tripo | ongoing | 84 models imported; Megaplants maple to measure |
 
 ## All versions
 
-| Version | Name | Target | Status |
-| ---- | ---- | ---- | ---- |
-| 0.1 | Play in one click | 2026-11-27 | 🟡 |
-| 0.2 | The dressed street | 2026-12-18 | ⬜ (performance measurements already under way) |
-| 0.3 | Behind the wheel | 2027-01-15 | ⬜ |
-| 0.4 | Armed | 2027-02-05 | ⬜ |
-| 0.5 | First shop | 2027-02-19 | ⬜ |
-| 0.6 | The police arrive | 2027-03-05 | ⬜ |
-| 0.7 | The whole district | 2027-04-09 | ⬜ |
-| 0.8 | The crowd | 2027-05-14 | ⬜ |
-| 0.9 | Traffic | 2027-06-25 | ⬜ |
-| 0.10 | The arsenal | 2027-07-30 | ⬜ |
-| 0.11 | City life | 2027-09-03 | ⬜ |
-| 0.12 | The map | 2027-09-24 | ⬜ |
-| 0.13 | Time passing | 2027-10-29 | ⬜ |
-| 0.14 | Façades and monuments | 2027-12-17 | ⬜ |
-| 0.15 | The lived-in district | 2028-01-28 | ⬜ |
-| 0.16 | People and cars | 2028-02-25 | ⬜ |
-| 0.17 | Interiors | 2028-03-31 | ⬜ |
-| 0.18 | The sound of Lyon | 2028-04-28 | ⬜ |
-| 0.19 | Polish | 2028-05-26 | ⬜ |
-| 1.0 | Vertical slice | 2028-06-16 | ⬜ |
+| Version | Name | Status |
+| ---- | ---- | ---- |
+| 0.1 | Play in one click | ✅ 2026-11-09 |
+| 0.2 | The dressed street | ✅ 2026-11-10 |
+| 0.3 | Behind the wheel | 🟡 |
+| 0.4 | The living street | ⬜ (pedestrians in preparation) |
+| 0.5 | The police arrive | ⬜ (police in preparation) |
+| 0.6 | Day and night | ⬜ (day/night in preparation) |
+| 0.7 | Armed | ⬜ |
+| 0.8 | City life | ⬜ |
+| 0.9 | The whole district | ⬜ |
+| 0.10 | Map and comfort | ⬜ |
+| 0.11 | The arsenal | ⬜ |
+| 0.12 | Your own city | ⬜ |
+| 0.13 | Facades and landmarks | ⬜ |
+| 0.14 | Interiors | ⬜ |
+| 0.15 | People and cars | ⬜ |
+| 0.16 | The sound of Lyon | ⬜ |
+| 0.17 | Polish | ⬜ |
+| 1.0 | Vertical slice | ⬜ |
 
 ## Indicators
 
 | Indicator | Value | Target | Source |
 | ---- | ---- | ---- | ---- |
-| GPU frame time, 95th percentile (reference scene, editor, before profiles) | 43.0 to 50.7 ms | ≤ 33.3 ms in the M1 profile | Measurement of 2026-11-09, 4 lighting setups |
-| Tripo models generated / integrated | 0 / 0 | ~800 by 0.17 | [catalog](asset-catalog.md) |
-| Tripo Studio credits remaining | 25,200 | to be used before expiry | Studio interface |
-| Frame time, 95th percentile (0.1 Shipping build, fullscreen, 10 min) | 51.0 ms (GPU 50.9 ms) | ≤ 33.3 ms in the M1 profile | [0.1 evidence](evidence/0.1/frametimes.summary.txt) |
-| Most recent playable build | 0.1 Shipping, 2026-11-09 (rue de la République, character, commit 76cddbd) | one per version | `GTAL/Builds/` |
+| Frame time, 0.2 build, 600 s, M1 profile | p50 29.9 ms, p95 40.3 ms, 84.9 % ≤ 33 ms | p95 ≤ 42 ms (provisional), 95 % ≤ 33.3 ms (aim) | 0.2 evidence on the Mac |
+| Extended 0.3 map, 60 s | 65 % of frames < 33 ms, GPU p50 32 ms | same | `0.3-city` build |
+| Cost of 6 NPC drivers | about +10 ms GPU | 2 ms for all traffic (roadmap §3) | slot of 2026-11-10 |
+| Release archive size | 1.36 GB (0.2) | < 2 GiB per file | release v0.2.0 |
+| Models imported into Unreal | 84 (284 meshes) | | Import thread |
 
 ## Decisions awaiting Nico
 
-- M1 profile levers to hold 30 fps (during 0.2).
-- Where to store the high-quality Tripo masters, out of Git (before the end of wave 1).
+- Order of versions 0.4 to 0.7 (card in the roadmap review thread).

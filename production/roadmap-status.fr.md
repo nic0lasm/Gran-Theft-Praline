@@ -1,64 +1,74 @@
 # Tableau de bord : où en est le jeu
 
-*Version anglaise : [roadmap-status.md](roadmap-status.md). Roadmap détaillée : [roadmap.fr.md](roadmap.fr.md).*
-*Mis à jour par les fils à chaque tâche terminée. Dernière mise à jour : 2026-11-09.*
+*Version anglaise : [roadmap-status.md](roadmap-status.md). Roadmap : [roadmap.fr.md](roadmap.fr.md). Systèmes : [systems-inventory.fr.md](systems-inventory.fr.md).*
+*Mis à jour par les fils à chaque tâche terminée. Dernière mise à jour : 2026-11-10.*
 
 Légende : ✅ fait · 🟡 en cours · ⬜ à faire · ⛔ bloqué
 
-## Version en cours : 0.1 « Jouer en un clic »
+## Version en cours : 0.3 « Au volant »
 
-Cible : 2026-11-27. Avancement : 7 / 8 tâches.
+Sort dès que le 95e centile est ≤ 42 ms en profil M1 avec le trafic, sans
+attendre les autres chantiers.
 
-| # | Tâche | Fil | Statut | Preuve |
+| # | Tâche | Chantier | Statut | Preuve |
 | ---- | ---- | ---- | ---- | ---- |
-| 1 | Projet passé en C++ (GameMode, PlayerController, GameInstance) | Build et lancement en un clic | ✅ | compile sans erreur ni avertissement sur le M1 Pro, build Shipping lancée |
-| 2 | Règles Git LFS posées, quota vérifié | Build et lancement en un clic | ✅ | [règles](../docs/project/git-lfs.fr.md) ; ~30 Mo en LFS sur 10 Gio |
-| 3 | Game Animation Sample intégré (personnage, motion matching, caméra) | Personnage jouable | ✅ caméra GTA 3e personne + bascule 1re personne (V / Vue) | Playtest 50 s réussi dans `L_RueRepublique`, cook Mac sans erreur, captures 3e/1re personne ([§9 du plan](../docs/gameplay/player-character.fr.md)) |
-| 4 | Enhanced Input clavier-souris et manette | Personnage jouable | ✅ ZQSD par défaut, WASD en option, manette | [§5 du plan](../docs/gameplay/player-character.fr.md) ; touches réelles et manette à confirmer en jouant |
-| 5 | Niveau `L_RueRepublique` jouable (collisions, PlayerStart, limites) | Rue de la République jouable | ✅ | Testé sur le M1 Pro le 2026-11-09 ([scripts](../tools/level/README.md)) : collision simple sur 336 meshes, façades bloquantes sur 76 % des points (rues transversales), zone 410 × 562 m, kill-Z -30 m ; en jeu le pion s'arrête 35 cm avant la façade et 36 cm avant le mur nord |
-| 6 | Écran titre et menu pause | Build et lancement en un clic | 🟡 | écran titre filmé dans la build ([title.jpg](evidence/0.1/title.jpg)) ; menu pause compilé, pas encore filmé |
-| 7 | Script de packaging macOS → `GTAL/Builds/0.1/` | Build et lancement en un clic | ✅ | [package-mac.sh](../tools/build/package-mac.sh) : build finale 714 s, 1,1 Go (cuisson Metal SM5 + SM6 pour le M1) |
-| 8 | Build testée : vidéo 2 min, CSV de temps d'image, 10 min sans plantage | Build et lancement en un clic | ✅ | [preuves](evidence/0.1/) : 10 min plein écran sans plantage, vidéo 2 min (rue et personnage), CSV ; image p50 41,0 ms, p95 51,0 ms (30 i/s exigé à partir de la 0.2) |
+| 1 | Clio V, 208 II, Kangoo II conduisibles avec LOD | Véhicules | ✅ | `assets/staging/vehicles/evidence-lods/` sur le Mac |
+| 2 | Entrer, sortir, casser la vitre, éjecter un conducteur PNJ | 0.3 | ✅ | vidéos `GTAL/Builds/0.3-dev/evidence` |
+| 3 | Trafic sur 112 voies, conducteurs PNJ | 0.3 | 🟡 | branche `feat/traffic-drivers` |
+| 4 | Son moteur et panneau de conduite | 0.3 | 🟡 | branche `feat/vehicle-hud-sound` |
+| 5 | Carte étendue : quai du Rhône, pont Lafayette, transversales de 6 m | Ville v2 | ✅ | build `0.3-city`, test 60 s |
+| 6 | Chute dans le Rhône : réapparition sur le quai, surface d'eau | Ville v2 | ⬜ | |
+| 7 | Coût GPU des PNJ réduit (ombres, LOD, conducteurs sans animation) | 0.3 | 🟡 | créneau Mac du 2026-11-10 |
+| 8 | Budget de la carte étendue (culling, ombres, Lumen) | Optimisation | 🟡 | au créneau Mac |
+| 9 | Enveloppes GPU par système mesurées une première fois | Optimisation | ⬜ | |
+| 10 | Mesure 600 s : p95 ≤ 42 ms avec trafic | 0.3 | ⬜ | |
+| 11 | Archive de release : découpage si > 2 Gio | 0.3 | ⬜ | |
 
-En parallèle (pour la 0.2) : vague Tripo 1, mobilier urbain, 0 / 60 modèles
-(voir [catalogue](asset-catalog.fr.md)).
+## Chantiers ouverts
+
+| Chantier | Vise | État |
+| ---- | ---- | ---- |
+| Piétons (Mass + StateTree) | 0.4 | préparation cloud |
+| Police et étoiles | 0.5 | préparation cloud |
+| Jour/nuit + météo | 0.6 | préparation cloud |
+| Optimisation M1 | continu | créneau Mac en file |
+| Réalisme de la rue | continu | audit face aux photos |
+| Ville v2 | continu | quai et pont faits |
+| Import, packs gratuits, Tripo | continu | 84 modèles importés ; érable Megaplants à mesurer |
 
 ## Toutes les versions
 
-| Version | Nom | Cible | Statut |
-| ---- | ---- | ---- | ---- |
-| 0.1 | Jouer en un clic | 2026-11-27 | 🟡 |
-| 0.2 | La rue habillée | 2026-12-18 | ⬜ (mesures de perf déjà en cours) |
-| 0.3 | Au volant | 2027-01-15 | ⬜ |
-| 0.4 | Armé | 2027-02-05 | ⬜ |
-| 0.5 | Première boutique | 2027-02-19 | ⬜ |
-| 0.6 | La police arrive | 2027-03-05 | ⬜ |
-| 0.7 | Tout le quartier | 2027-04-09 | ⬜ |
-| 0.8 | La foule | 2027-05-14 | ⬜ |
-| 0.9 | Le trafic | 2027-06-25 | ⬜ |
-| 0.10 | L'arsenal | 2027-07-30 | ⬜ |
-| 0.11 | Vivre en ville | 2027-09-03 | ⬜ |
-| 0.12 | La carte | 2027-09-24 | ⬜ |
-| 0.13 | Le temps qui passe | 2027-10-29 | ⬜ |
-| 0.14 | Façades et monuments | 2027-12-17 | ⬜ |
-| 0.15 | Le quartier habité | 2028-01-28 | ⬜ |
-| 0.16 | Les gens et les voitures | 2028-02-25 | ⬜ |
-| 0.17 | Les intérieurs | 2028-03-31 | ⬜ |
-| 0.18 | Le son de Lyon | 2028-04-28 | ⬜ |
-| 0.19 | Finition | 2028-05-26 | ⬜ |
-| 1.0 | Tranche verticale | 2028-06-16 | ⬜ |
+| Version | Nom | Statut |
+| ---- | ---- | ---- |
+| 0.1 | Jouer en un clic | ✅ 2026-11-09 |
+| 0.2 | La rue habillée | ✅ 2026-11-10 |
+| 0.3 | Au volant | 🟡 |
+| 0.4 | La rue vivante | ⬜ (piétons en préparation) |
+| 0.5 | La police arrive | ⬜ (police en préparation) |
+| 0.6 | Jour et nuit | ⬜ (jour/nuit en préparation) |
+| 0.7 | Armé | ⬜ |
+| 0.8 | Vivre en ville | ⬜ |
+| 0.9 | Tout le quartier | ⬜ |
+| 0.10 | La carte et le confort | ⬜ |
+| 0.11 | L'arsenal | ⬜ |
+| 0.12 | La ville à soi | ⬜ |
+| 0.13 | Façades et monuments | ⬜ |
+| 0.14 | Les intérieurs | ⬜ |
+| 0.15 | Les gens et les voitures | ⬜ |
+| 0.16 | Le son de Lyon | ⬜ |
+| 0.17 | Finition | ⬜ |
+| 1.0 | Tranche verticale | ⬜ |
 
 ## Indicateurs
 
 | Indicateur | Valeur | Cible | Source |
 | ---- | ---- | ---- | ---- |
-| Temps d'image GPU, 95e centile (scène témoin, éditeur, avant profils) | 43,0 à 50,7 ms | ≤ 33,3 ms en profil M1 | Mesure du 2026-11-09, 4 éclairages |
-| Modèles Tripo générés / intégrés | 0 / 0 | ~800 d'ici la 0.17 | [catalogue](asset-catalog.fr.md) |
-| Crédits Tripo Studio restants | 25 200 | à consommer avant expiration | Interface Studio |
-| Temps d'image, 95e centile (build 0.1 Shipping, plein écran, 10 min) | 51,0 ms (GPU 50,9 ms) | ≤ 33,3 ms en profil M1 | [preuves 0.1](evidence/0.1/frametimes.summary.txt) |
-| Build jouable la plus récente | 0.1 Shipping du 2026-11-09 (rue de la République, personnage, commit 76cddbd) | une par version | `GTAL/Builds/` |
+| Temps d'image, build 0.2, 600 s, profil M1 | p50 29,9 ms, p95 40,3 ms, 84,9 % ≤ 33 ms | p95 ≤ 42 ms (provisoire), 95 % ≤ 33,3 ms (visé) | preuves de la 0.2 sur le Mac |
+| Carte étendue 0.3, 60 s | 65 % d'images < 33 ms, GPU p50 32 ms | idem | build `0.3-city` |
+| Coût de 6 PNJ conducteurs | environ +10 ms GPU | 2 ms pour tout le trafic (§3 de la roadmap) | créneau du 2026-11-10 |
+| Taille de l'archive de release | 1,36 Go (0.2) | < 2 Gio par fichier | release v0.2.0 |
+| Modèles importés dans Unreal | 84 (284 meshes) | | fil Import |
 
 ## Décisions en attente de Nico
 
-- Leviers du profil M1 pour tenir 30 i/s (pendant la 0.2).
-- Où stocker les masters Tripo haute qualité, hors Git (avant la fin de la vague 1).
+- Ordre des versions 0.4 à 0.7 (carte dans le fil de revue de la roadmap).

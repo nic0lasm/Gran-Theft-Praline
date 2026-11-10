@@ -1,11 +1,11 @@
 # Roadmap de développement : Gran Theft Praline
 
 *Version anglaise : [roadmap.md](roadmap.md)*
-*Version 2, 2026-11-09 : roadmap découpée en versions jouables numérotées (0.1 → 1.0).*
-*Suivi au jour le jour : [roadmap-status.fr.md](roadmap-status.fr.md). Assets à générer : [asset-catalog.fr.md](asset-catalog.fr.md).*
+*Version 3, 2026-11-10 : revue après la 0.2. Versions réordonnées selon les chantiers ouverts, budget de performance par système, oublis ajoutés.*
+*Liste de contrôle des systèmes : [systems-inventory.fr.md](systems-inventory.fr.md). Suivi : [roadmap-status.fr.md](roadmap-status.fr.md). Assets : [asset-catalog.fr.md](asset-catalog.fr.md).*
 *Entrées : [concept](../design/gdd/game-concept.fr.md), [stratégie de rendu](../docs/rendering/rendering-strategy.fr.md),
 [ADR-0001](../docs/adr/adr-0001-rendering-pipeline.fr.md), [ADR-0002](../docs/adr/adr-0002-performance-budget.fr.md),
-[recensement des assets](../docs/sourcing/asset-sourcing.fr.md).*
+[bible artistique](../docs/art/art-bible.fr.md).*
 
 ---
 
@@ -14,545 +14,358 @@
 - Le jeu avance par **versions jouables** : 0.1, 0.2, 0.3… jusqu'à la
   **1.0 = tranche verticale** (nord de la Presqu'île, Bellecour → Terreaux,
   toutes les fonctions P0 du concept en qualité finale).
-- **Chaque version se lance en un clic** sur le Mac (application macOS
-  empaquetée) et apporte quelque chose qu'on peut voir ou faire en jouant.
-- Chaque version a la même fiche : **objectif** en une phrase, critère
-  **« fait quand »** vérifiable (mesure, capture ou vidéo), **tâches**
-  courtes, **dépendances**, **fils** qui peuvent travailler en parallèle,
-  **assets** à générer, **estimation**.
-- Une version est terminée quand son critère est vérifié par une mesure ou
-  une capture, que la CI est verte et que le commit est avancé sur `next`
-  puis `main`. Le build de la version est rangé dans
-  `GTAL/Builds/<version>/` sur le Mac.
-- Les dates sont des cibles, revues à la fin de chaque version.
+- **Chaque version se lance en un clic** sur le Mac et apporte quelque chose
+  qu'on voit ou qu'on fait en jouant.
+- Une version sort quand son critère « fait quand » est vérifié par une
+  mesure ou une vidéo, que son **budget de performance** est tenu (§3), que
+  la CI est verte et que le commit est avancé sur `next` puis `main`.
+  Une version ne retarde pas la suivante pour un système qui n'est pas prêt :
+  il passe à la version d'après.
+- **Ce qui rythme le projet n'est plus le calendrier mais le Mac.** Le code,
+  les données, les assets et la documentation se préparent en parallèle
+  dans le cloud ; tout ce qui demande Unreal (import, cuisson, packaging,
+  mesure) passe sur un seul MacBook Pro, l'un après l'autre. Les versions
+  sont donc ordonnées par **priorité d'accès au Mac**, et les cibles sont
+  des ordres de grandeur, revus à chaque version.
 
 ### Deux niveaux de qualité : le photoréalisme d'abord
 
-Le but reste le **photoréalisme**, même si le jeu devient lourd en poids et
-en calcul. Le MacBook Pro M1 ne fera donc pas tourner la version la plus
-belle dans un premier temps. Chaque version est construite avec deux
-profils de qualité, choisis dans le menu d'options du jeu :
-
 | Profil | Rôle | Critère |
 | ---- | ---- | ---- |
-| **Ultra (photoréaliste)** | La cible visuelle : assets en pleine résolution, Nanite et Lumen matériel activés là où la machine le permet, éclairage et matériaux sans compromis | Validé par captures (Movie Render Queue) comparées aux photos réelles, même si le M1 ne le rend qu'à quelques images par seconde |
-| **M1 (jouable)** | Ce qu'on joue au quotidien sur le MacBook Pro M1 Pro 16 Go | 95 % des images ≤ 33,3 ms en 1080p (ADR-0002) dans la build empaquetée |
+| **Ultra (photoréaliste)** | La cible visuelle, sans compromis | Validé par captures comparées aux photos réelles, même à quelques images par seconde sur le M1 |
+| **M1 (jouable)** | Ce qu'on joue sur le MacBook Pro M1 Pro 16 Go | Cible provisoire : 25 i/s, 95e centile ≤ 42 ms ; visé : 30 i/s, 95 % des images ≤ 33,3 ms ([ADR-0002](../docs/adr/adr-0002-performance-budget.fr.md)) |
 
-Le profil M1 est **dérivé** du profil Ultra (LOD, textures réduites, Lumen
-logiciel allégé, densités) et jamais l'inverse : on ne baisse pas la
-qualité des assets sources pour faire tenir le M1. Le profil Ultra
-deviendra jouable sur une machine plus puissante le jour où Nico le
-décidera. Ces deux niveaux sont ceux définis dans l'ADR-0001 et l'ADR-0002
-(niveaux Ultra et M1).
-
-Dans les fiches ci-dessous, « budget tenu » veut dire : profil M1 dans le
-budget de l'ADR-0002, mesuré dans la build empaquetée.
+Le profil M1 est dérivé du profil Ultra (LOD, densités, réglages), jamais
+l'inverse. Toute baisse visible de l'image passe par une carte à Nico.
 
 ### Les quatre grandes étapes
 
-| Étape | Versions | Ce qu'on obtient | Cible |
-| ---- | ---- | ---- | ---- |
-| **A. Prototype jouable** | 0.1 → 0.6 | Une rue de Lyon où l'on marche, conduit, tire, braque une boutique et sème la police | début mars 2027 |
-| **B. Tout le quartier en systèmes** | 0.7 → 0.13 | Bellecour → Terreaux en greybox, foule, trafic, carte, économie, météo | fin octobre 2027 |
-| **C. Quartier en qualité finale** | 0.14 → 0.18 | Façades, monuments, habillage, population, véhicules, intérieurs, son | avril 2028 |
-| **D. Tranche verticale** | 0.19 → 1.0 | Finition, performance, une heure de jeu sans bloquant | juin 2028 |
-| Ensuite | 1.x | Nouveaux quartiers, fonctions P1, histoire écrite avec Nico | 2028+ |
+| Étape | Versions | Ce qu'on obtient |
+| ---- | ---- | ---- |
+| **A. La rue vivante** | 0.1 → 0.7 | Une rue de Lyon où l'on marche, conduit dans le trafic, croise des piétons, est poursuivi par la police, de jour comme de nuit, et où l'on se bat |
+| **B. Tout le quartier en systèmes** | 0.8 → 0.12 | Bellecour → Terreaux complet, boutiques, argent, sauvegarde, carte et GPS, arsenal, activités : chaque ligne P0 cochée |
+| **C. Qualité finale** | 0.13 → 0.16 | Façades et monuments, intérieurs, population et véhicules, son, au niveau Ultra |
+| **D. Tranche verticale** | 0.17 → 1.0 | Finition, une heure de jeu sans bloquant, revue de parité |
+| Ensuite | 1.x | Nouveaux quartiers, fonctions P1, histoire écrite avec Nico |
+
+### Chantiers continus (toutes les versions)
+
+Ces chantiers ne sont pas des versions : ils livrent un lot dans chaque
+version.
+
+| Chantier | Ce qu'il livre à chaque version | Propriétaire |
+| ---- | ---- | ---- |
+| **Optimisation M1** | Le budget de la version tenu, mesuré sur 600 s dans la build | fil Optimisation (config moteur, budget) |
+| **Réalisme de la rue** | Un lot de détails face aux photos réelles (petits détails d'abord) | fil Réalisme de la rue (habillage) |
+| **Génération de la ville** | Données géo, voies, extension de la carte | fil Ville v2 |
+| **Assets** | Gratuits d'abord (Fab, Megascans, CC0), puis Tripo ; import, LOD, collision | fils Packs gratuits, Tripo, Import |
+| **Audio** | Le son des systèmes de la version (pas, moteurs, sirènes, impacts), mixage | *à ouvrir* (oubli de la v2) |
+| **Animations** | Les animations des systèmes de la version (entrer en voiture, réactions, combat) | *à ouvrir* (oubli de la v2) |
 
 ---
 
-## 2. Où on en est (2026-11-09)
+## 2. Où on en est (2026-11-10)
 
-| Domaine | État |
+| Version | État |
 | ---- | ---- |
-| Environnement | Fait : projet UE 5.8, repo, CI « Provenance check », règles de travail |
-| Concept | Fait : tableaux de parité P0-P2, tranche verticale = nord de la Presqu'île |
-| Rendu | ADR-0002 accepté (30 i/s, 1080p, 95 % des images ≤ 33,3 ms), à appliquer au profil M1. ADR-0001 proposé, à amender pour le profil Ultra |
-| Scène témoin | Greybox de la rue de la République (BD TOPO IGN, 334 bâtiments, 367 m), 4 éclairages. **Mesurée hors budget : 43 à 51 ms** (GPU limitant) |
-| Assets | Abonnement Tripo Studio Max actif (25 200 crédits Studio), outil `tools/tripo/` en cours |
-| Code gameplay | Aucun. **Rien n'est encore jouable** |
+| **0.1 Jouer en un clic** | ✅ livrée le 2026-11-09 (release v0.1.0, 702 Mo) |
+| **0.2 La rue habillée** | ✅ livrée le 2026-11-10 (release v0.2.0, 1,36 Go) : 600 s en profil M1, p50 29,9 ms, p95 40,3 ms, 84,9 % des images ≤ 33 ms. Défauts connus : platanes sans feuilles, logos absents |
+| **0.3 Au volant** | 🟡 conduite, trafic sur 112 voies, vol avec éjection et carte étendue fonctionnent ; **bloquée par le budget** : 6 PNJ coûtent environ 10 ms GPU, et la carte étendue ne tient que 65 % des images sous 33 ms |
+| Chantiers ouverts aujourd'hui | Piétons, Police, Jour/nuit + météo, Optimisation, Réalisme de la rue, Ville v2, Import, Packs gratuits, Tripo |
+
+La v2 prévoyait trois semaines par version ; les deux premières sont sorties
+en deux jours grâce aux fils en parallèle. Le vrai frein est apparu : le
+**GPU du M1 est déjà plein** avec une rue vide (p50 29,9 ms), et chaque
+système vivant (trafic, piétons, nuit, effets) doit payer sa place.
 
 ---
 
-## 3. Vue d'ensemble des versions
+## 3. Budget de performance par système
 
-| Version | Nom | On peut… | Cible |
-| ---- | ---- | ---- | ---- |
-| **0.1** | Jouer en un clic | lancer le jeu d'un double-clic et marcher, courir, sauter dans la rue de la République | 2026-11-27 |
-| **0.2** | La rue habillée | se promener dans une rue photoréaliste en profil Ultra (captures) et à 30 i/s en profil M1, sous 4 éclairages | 2026-12-18 |
-| **0.3** | Au volant | voler une voiture garée et rouler jusqu'au quai du Rhône | 2027-01-15 |
-| **0.4** | Armé | tirer, se mettre à couvert, se battre, mourir et réapparaître | 2027-02-05 |
-| **0.5** | Première boutique | entrer dans une boutique sans chargement, acheter, la braquer | 2027-02-19 |
-| **0.6** | La police arrive | être recherché (niveaux 1-2), poursuivi, et semer la police | 2027-03-05 |
-| **0.7** | Tout le quartier | parcourir Bellecour → Terreaux à pied et en voiture | 2027-04-09 |
-| **0.8** | La foule | croiser des centaines de piétons qui réagissent | 2027-05-14 |
-| **0.9** | Le trafic | rouler dans une circulation avec feux et priorités | 2027-06-25 |
-| **0.10** | L'arsenal | choisir parmi 6 armes, affronter une police niveau 3 et ses barrages | 2027-07-30 |
-| **0.11** | Vivre en ville | gagner et dépenser de l'argent dans 5 types de boutiques, sauvegarder dans une planque | 2027-09-03 |
-| **0.12** | La carte | ouvrir la carte de Lyon avec les vrais noms de rues et suivre le GPS | 2027-09-24 |
-| **0.13** | Le temps qui passe | vivre jour, nuit et météo, rouler en deux-roues, faire 6 activités libres | 2027-10-29 |
-| **0.14** | Les façades et monuments | voir le quartier en façades finales, Hôtel de Ville, Opéra, Bellecour, ponts | 2027-12-17 |
-| **0.15** | Le quartier habité | voir trottoirs, enseignes fictives, végétation et mobilier sur tout le quartier | 2028-01-28 |
-| **0.16** | Les gens et les voitures | croiser une population et une police réalistes, 6 véhicules finaux | 2028-02-25 |
-| **0.17** | Les intérieurs | entrer dans 30 boutiques, 10 bâtiments, 3 planques en qualité finale | 2028-03-31 |
-| **0.18** | Le son de Lyon | entendre la ville : pas, moteurs, armes, ambiance par rue | 2028-04-28 |
-| **0.19** | Finition | jouer une heure sans bloquant, dans le budget partout | 2028-05-26 |
-| **1.0** | Tranche verticale | jouer la tranche verticale complète, revue de parité face à la référence | 2028-06-16 |
+Jusqu'ici, seul le temps total était mesuré, si bien qu'un système pouvait
+manger la marge de tous les autres. À partir de la 0.3, chaque système a une
+enveloppe GPU dans le profil M1, mesurée à chaque version par le fil
+Optimisation (`stat gpu`, `ProfileGPU`, capture au même point de la rue).
 
-```mermaid
-gantt
-  dateFormat YYYY-MM-DD
-  axisFormat %b %y
-  section A Prototype
-  0.1 Jouer en un clic     :a1, 2026-11-10, 2026-11-27
-  0.2 Rue habillée         :a2, after a1, 2026-12-18
-  0.3 Au volant            :a3, after a2, 2027-01-15
-  0.4 Armé                 :a4, after a3, 2027-02-05
-  0.5 Boutique             :a5, after a4, 2027-02-19
-  0.6 Police               :a6, after a5, 2027-03-05
-  section B Systèmes
-  0.7 Quartier             :b1, after a6, 2027-04-09
-  0.8 Foule                :b2, after b1, 2027-05-14
-  0.9 Trafic               :b3, after b2, 2027-06-25
-  0.10 Arsenal             :b4, after b3, 2027-07-30
-  0.11 Vivre en ville      :b5, after b4, 2027-09-03
-  0.12 Carte               :b6, after b5, 2027-09-24
-  0.13 Temps qui passe     :b7, after b6, 2027-10-29
-  section C Art final
-  0.14 Façades monuments   :c1, after b7, 2027-12-17
-  0.15 Quartier habité     :c2, after c1, 2028-01-28
-  0.16 Gens et voitures    :c3, after c2, 2028-02-25
-  0.17 Intérieurs          :c4, after c3, 2028-03-31
-  0.18 Son                 :c5, after c4, 2028-04-28
-  section D Tranche
-  0.19 Finition            :d1, after c5, 2028-05-26
-  1.0 Tranche verticale    :d2, after d1, 2028-06-16
-```
+Enveloppe proposée pour la cible 30 i/s (33,3 ms), à affiner par la mesure :
 
-L'art final ne démarre pas en 0.14 : il est **produit en avance** (vagues
-Tripo, kits de façades, photos) pendant les étapes A et B, et **intégré**
-dans les versions 0.14 à 0.17. Voir la section 5.
+| Poste | Enveloppe GPU (profil M1) | Contenu |
+| ---- | ---- | ---- |
+| Ville (bâtiments, sols, mobilier, végétation) | 14 ms | façades, props, platanes, culling et HLOD |
+| Éclairage, ombres, illumination globale | 7 ms | Lumen logiciel, ombres, ciel |
+| Trafic | 2 ms | 12 voitures visibles au plus près du joueur, au-delà en imposteurs ou masquées |
+| Piétons | 2,5 ms | 40 piétons visibles, LOD agressifs, au-delà en Mass sans squelette |
+| Joueur, police, personnages proches | 1,5 ms | |
+| Nuit, météo, effets (pluie, phares, lampadaires, Niagara) | 2 ms | les lumières de nuit sont à budgéter à part |
+| Post-traitement, TSR, interface | 2,3 ms | |
+| Marge (saccades, pics) | 2 ms | |
+| **Total** | **33,3 ms** | |
+
+Règles :
+
+- Un système qui dépasse son enveloppe ne va pas sur `next` ; il réduit sa
+  densité ou son coût, ou le fil Optimisation libère de la place ailleurs.
+- Le processeur (game thread, IA, physique) a aussi son enveloppe : 25 ms
+  par image au plus, mesurée avec `stat unit`.
+- Tant que la cible provisoire (p95 ≤ 42 ms) est en vigueur, les enveloppes
+  sont multipliées par 1,25.
 
 ---
 
-## 4. Détail des versions
+## 4. Vue d'ensemble des versions
 
-Légende des fils : chaque ligne « Fils » propose des sujets qu'on peut
-confier à des fils différents en même temps. Les fils qui ouvrent l'éditeur
-Unreal sur le Mac passent l'un après l'autre (une seule session d'éditeur
-à la fois sur 16 Go) ; les fils de documentation, de scripts, de données
-géo et de génération Tripo tournent en parallèle sans limite.
-
-### Étape A : prototype jouable
-
-#### 0.1 Jouer en un clic
-
-**Objectif.** Un double-clic sur `GranTheftPraline.app` lance le jeu et on
-contrôle un personnage dans la rue de la République en greybox.
-
-**Fait quand :**
-- `GTAL/Builds/0.1/GranTheftPraline.app` démarre d'un double-clic en moins
-  de 30 secondes, sans éditeur, sans terminal.
-- Écran titre avec « Jouer » et « Quitter », menu pause (Échap), retour au
-  bureau propre.
-- Le personnage marche, court, saute, s'accroupit ; caméra façon GTA
-  (troisième personne, bascule en première personne) réglable à la souris
-  et à la manette ; collisions sur tous les bâtiments ; impossible de tomber hors du monde.
-- Une vidéo de 2 minutes et un relevé de temps d'image (CSV) de la build
-  empaquetée sont versionnés comme preuves. Le budget 30 i/s n'est **pas**
-  exigé en 0.1 : il l'est à partir de 0.2.
-- 10 minutes de jeu sans plantage.
-
-**Tâches :**
-1. Passer le projet en C++ : module `GranTheftPraline`, `GameMode`,
-   `PlayerController`, `GameInstance` minimaux.
-2. Règles Git LFS pour `.uasset`, `.umap` et binaires ; vérifier le quota.
-3. Intégrer le Game Animation Sample (personnage, motion matching,
-   caméra) dans `Content/Characters/`.
-4. Enhanced Input : clavier-souris et manette, actions déplacer, regarder,
-   sauter, sprinter, s'accroupir.
-5. Transformer la greybox de la scène témoin en niveau jouable
-   `L_RueRepublique` : collisions, PlayerStart, kill-Z, volumes de limite.
-6. Écran titre et menu pause (UMG).
-7. Script `tools/build/package-mac.sh` (BuildCookRun, Shipping, signature
-   ad hoc) qui produit l'application dans `GTAL/Builds/<version>/`.
-8. Lancer la build, filmer, mesurer le temps d'image, archiver les preuves.
-
-**Dépend de :** scène témoin (branche `feat/reference-scene`, à fusionner).
-
-**Fils en parallèle :**
-- *Build et lancement en un clic* (tâches 1, 2, 6, 7, 8) : chemin critique.
-- *Personnage jouable* (tâches 3, 4).
-- *Rue de la République jouable* (tâche 5, fusion de la scène témoin).
-- *Vague Tripo 1* : génère déjà le mobilier urbain de la 0.2 (voir catalogue).
-
-**Assets :** aucun asset final nécessaire. Vague Tripo 1 lancée en avance.
-
-**Estimation :** 2 à 3 semaines, une demi-heure de Nico pour tester la build.
-
-#### 0.2 La rue habillée
-
-**Objectif.** La rue de la République ressemble à une vraie rue lyonnaise en
-profil Ultra, et le profil M1 se joue dans le budget de l'ADR-0002.
-
-**Fait quand :**
-- Profil Ultra : captures des 4 éclairages (midi, heure dorée, pluie,
-  nuit) mises à côté de photos réelles de la rue, jugées crédibles par Nico.
-- Profil M1 : 95 % des images ≤ 33,3 ms dans la build empaquetée, sous les
-  4 éclairages, mesuré par CSV.
-- Choix du profil dans le menu d'options du jeu.
-- ADR-0001 amendé : profil Ultra et profil M1, avec les chiffres.
-- Façades kit v1 (8 à 12 modules), sols Megascans, au moins 40 objets de
-  mobilier urbain issus de la vague Tripo 1, tous inscrits dans
-  `assets/SOURCES.md`.
-- Touche en jeu pour changer d'éclairage ; heure dorée et nuit corrigées.
-- Captures comparées à des photos réelles de la rue.
-
-**Tâches :**
-1. Définir les deux profils (Scalability et Device Profiles) ; choisir les
-   leviers du profil M1 (Lumen Lite, résolution interne 50 %, autre) par
-   carte à Nico, avec chiffres et images comparatives Ultra / M1.
-2. Kit de façades v1 (Blender + textures photo).
-3. Sols et trottoirs Megascans en pleine résolution (pavés, asphalte,
-   bordures), variantes réduites pour le profil M1.
-4. Nettoyer et importer la vague Tripo 1 (LOD, collisions, matériaux).
-5. Corriger exposition de l'heure dorée et de la nuit.
-6. Sélecteur d'éclairage en jeu.
-7. Mesure complète et rapport.
-
-**Dépend de :** 0.1.
-
-**Fils en parallèle :** *Atteindre le photoréalisme* (tâches 1, 5, 6, 7),
-*Kit de façades v1* (2, 3), *Vague Tripo 1* (4).
-
-**Assets :** vague Tripo 1, mobilier urbain (60 modèles).
-
-**Estimation :** 3 semaines.
-
-#### 0.3 Au volant
-
-**Objectif.** On vole une voiture garée et on la conduit de la rue de la
-République jusqu'au quai du Rhône.
-
-**Fait quand :**
-- Une voiture réelle du parc français (Clio V) à conduite physique (Chaos Vehicles) : accélération,
-  freinage, frein à main, dérapage contrôlable, caméra de poursuite.
-- Monter, descendre, éjecter un conducteur PNJ, ouvrir une voiture garée.
-- Dégâts simples (carrosserie déformée, vitres cassées).
-- Greybox étendue au quai du Rhône et au pont le plus proche.
-- Vidéo d'un trajet de 3 minutes ; budget 30 i/s tenu en conduisant.
-
-**Tâches :** ADR-0003 (déplacement) ; Smart Objects pour portes et sièges ;
-véhicule Chaos et réglages ; animations entrer/sortir ; dégâts ; extension
-géo au quai ; mesure.
-
-**Dépend de :** 0.1 (personnage), pipeline géo pour le quai.
-
-**Fils en parallèle :** *Véhicules*, *Interactions contextuelles*,
-*Reproduction de la ville : quai et pont*, *Vague Tripo 2* (carrosseries).
-
-**Assets :** vague Tripo 2, véhicules et objets de rue liés (30 modèles).
-
-**Estimation :** 4 semaines.
-
-#### 0.4 Armé
-
-**Objectif.** On se bat : pistolet, visée, couverture, corps à corps, mort
-et réapparition.
-
-**Fait quand :**
-- Pistolet : viser, tirer, recharger, impacts sur les surfaces, réactions
-  des cibles.
-- Couverture contre murs et voitures, corps à corps (coups, esquive).
-- Santé, armure, mort, réapparition à l'hôpital le plus proche (fictif).
-- Mannequins d'entraînement ou PNJ hostiles simples.
-- Vidéo d'un combat de 2 minutes, budget tenu.
-
-**Tâches :** ADR-0004 (framework gameplay : Gameplay Ability System,
-Enhanced Input, StateTree) ; attributs et capacités ; arme et munitions ;
-couverture ; corps à corps ; mort et réapparition ; PNJ hostiles basiques.
-
-**Dépend de :** 0.1.
-
-**Fils en parallèle :** *Combat et armes*, *Santé et réapparition*,
-*Vague Tripo 3* (armes fictives, accessoires).
-
-**Assets :** vague Tripo 3, armes et accessoires (25 modèles).
-
-**Estimation :** 3 semaines.
-
-#### 0.5 Première boutique
-
-**Objectif.** On entre dans une boutique sans écran de chargement, on y
-achète et on peut la braquer.
-
-**Fait quand :**
-- Porte qui s'ouvre, intérieur meublé chargé à la volée (Level Instance ou
-  data layer).
-- Vendeur PNJ (StateTree) qui sert, se rend ou appelle la police.
-- Achat d'un objet, braquage avec caisse, argent affiché.
-- Vidéo d'un braquage ; budget tenu en entrant et sortant.
-
-**Tâches :** ADR-0005 (streaming : cellules World Partition, HLOD, data
-layers) ; intérieur de boutique en kit ; PNJ vendeur ; braquage ; argent.
-
-**Dépend de :** 0.4 (menace avec une arme), interactions de 0.3.
-
-**Fils en parallèle :** *Boutiques et intérieurs*, *IA des PNJ*,
-*Vague Tripo 4* (intérieur de boutique).
-
-**Assets :** vague Tripo 4, mobilier et produits d'une boutique (40 modèles).
-
-**Estimation :** 2 semaines.
-
-#### 0.6 La police arrive
-
-**Objectif.** Un crime déclenche une recherche de niveau 1 ou 2 que l'on
-peut semer.
-
-**Fait quand :**
-- Témoins qui signalent, niveaux de recherche 1 et 2, zone de recherche.
-- Patrouille à pied et en voiture, poursuite, arrestation.
-- On sème la police en sortant de la zone ou en se cachant.
-- HUD minimal : santé, argent, niveau de recherche, arme.
-- **Jalon « Maniabilité jouable »** : boucle de 10 minutes (marcher, voler
-  une voiture, rouler sur le quai, braquer la boutique, semer la police)
-  filmée, budget tenu, rapport de playtest qui note chaque verbe face à la
-  référence.
-
-**Tâches :** perception des PNJ ; système de recherche ; IA de police
-(StateTree) à pied et en voiture ; HUD ; playtest de Nico.
-
-**Dépend de :** 0.3, 0.4, 0.5.
-
-**Fils en parallèle :** *Police et recherche*, *Interface*, *Vague Tripo 5*
-(équipement de police fictif).
-
-**Assets :** vague Tripo 5, police fictive et signalétique (20 modèles).
-
-**Estimation :** 3 semaines, une heure de playtest de Nico.
-
-### Étape B : tout le quartier en systèmes (greybox)
-
-#### 0.7 Tout le quartier
-
-**Objectif.** On parcourt tout Bellecour → Terreaux, quais et ponts compris,
-sans chargement et dans le budget.
-
-**Fait quand :** pipeline géo v1 (BD TOPO, LiDAR HD, OSM) qui produit le
-quartier en une commande ; World Partition et HLOD ; trajet Bellecour →
-Terreaux à pied et en voiture filmé ; 95 % des images ≤ 33,3 ms sur le
-trajet ; mémoire ≤ 9 Go GPU.
-
-**Fils :** *Reproduction de la ville* (pipeline géo), *Streaming du monde*,
-*Kit de façades v2* (démarre, intégré en 0.14).
-
-**Assets :** vague Tripo 6, mobilier des places (Bellecour, Terreaux,
-Jacobins, République) (50 modèles).
-
-**Estimation :** 5 semaines.
-
-#### 0.8 La foule
-
-**Objectif.** Des centaines de piétons vivent dans le quartier et réagissent
-au joueur.
-
-**Fait quand :** foule Mass (MassCrowd) sur trottoirs et places, densité
-réglable, fuite face aux armes, budget tenu à densité cible ; repli en
-acteurs testé.
-
-**Fils :** *Foule*, *IA des PNJ*, *Vague Tripo 7* (objets portés, accessoires
-de piétons).
-
-**Assets :** vague Tripo 7 (30 modèles).
-
-**Estimation :** 5 semaines.
-
-#### 0.9 Le trafic
-
-**Objectif.** Une circulation crédible : voies issues des vraies rues,
-feux, priorités, réactions aux accidents.
-
-**Fait quand :** réseau de voies généré depuis les données géo, feux et
-passages piétons, voitures qui évitent, klaxonnent, fuient ; budget tenu.
-
-**Fils :** *Trafic*, *Reproduction de la ville* (voies et feux),
-*Vague Tripo 8* (feux, panneaux génériques, mobilier routier).
-
-**Assets :** vague Tripo 8 (40 modèles).
-
-**Estimation :** 6 semaines.
-
-#### 0.10 L'arsenal
-
-**Objectif.** Le combat complet : 6 armes, roue d'armes, inventaire, police
-niveau 3 avec barrages.
-
-**Fait quand :** 6 armes fictives réglées, roue d'armes, réactions aux
-impacts, niveau 3, barrages, poursuites en voiture.
-
-**Fils :** *Combat et armes*, *Police et recherche*, *Vague Tripo 9*.
-
-**Assets :** vague Tripo 9, armes et équipement (30 modèles).
-
-**Estimation :** 5 semaines.
-
-#### 0.11 Vivre en ville
-
-**Objectif.** Une économie : 5 types de boutiques, achats, planques,
-sauvegarde.
-
-**Fait quand :** 5 types de boutiques jouables (alimentation, vêtements,
-armurerie, garage, bar ou café), 3 planques, sauvegarde et chargement
-fiables, argent persistant.
-
-**Fils :** *Boutiques et intérieurs*, *Économie et sauvegarde*,
-*Vagues Tripo 10 et 11* (intérieurs par type de boutique).
-
-**Assets :** vagues Tripo 10-11, intérieurs (120 modèles).
-
-**Estimation :** 5 semaines.
-
-#### 0.12 La carte
-
-**Objectif.** Carte et mini-carte de Lyon avec les vrais noms de rues, GPS,
-menus complets.
-
-**Fait quand :** tuiles de carte issues de nos données géo, GPS qui suit les
-sens de circulation, menus options et accessibilité de base (sous-titres,
-remappage, daltonisme).
-
-**Fils :** *Interface et carte*, *Reproduction de la ville* (tuiles, noms).
-
-**Estimation :** 3 semaines.
-
-#### 0.13 Le temps qui passe
-
-**Objectif.** Jour, nuit et météo dynamiques, deux-roues, activités libres.
-
-**Fait quand :** cycle jour-nuit et météo qui tiennent le budget, scooter,
-moto et vélo, 6 activités libres du concept ; **jalon « Systèmes P0
-complets »** : chaque ligne P0 du concept cochée en greybox.
-
-**Fils :** *Heure et météo*, *Véhicules (deux-roues)*, *Activités*,
-*Vague Tripo 12* (deux-roues, mobilier d'activités).
-
-**Assets :** vague Tripo 12 (30 modèles).
-
-**Estimation :** 5 semaines.
-
-### Étape C : quartier en qualité finale
-
-Les assets de cette étape sont produits pendant A et B ; ces versions les
-intègrent, les règlent et les mesurent.
-
-| Version | Fait quand | Fils | Assets |
+| Version | Nom | On peut… | Ordre de grandeur |
 | ---- | ---- | ---- | ---- |
-| **0.14 Façades et monuments** | Kit de façades v2 sur tout le quartier ; Hôtel de Ville, Opéra, place Bellecour et sa statue, ponts en qualité finale ; captures Ultra des 4 éclairages, profil M1 dans le budget sur tout le quartier | *Kit de façades v2*, *Monuments*, *Photoréalisme* | Photos de terrain, Blender ; Tripo pour les éléments décoratifs (vague 13, 60 modèles) |
-| **0.15 Le quartier habité** | Habillage PCG (mobilier, végétation, enseignes fictives générées et vérifiées) sur tout le quartier ; grille visuelle ≥ 4/5 face aux photos | *Habillage PCG*, *Enseignes fictives* | Vague 14, végétation, devantures, détails (80 modèles) |
-| **0.16 Les gens et les voitures** | Population et police MetaHuman (visages fictifs), 6 véhicules finaux (modèles réels du parc français), voiture de police | *Personnages*, *Véhicules finaux* | Vague 15, carrosseries finales et accessoires de personnages (40 modèles) |
-| **0.17 Les intérieurs** | 30 boutiques, 10 bâtiments accessibles, 3 planques, hall et parking en qualité finale | *Intérieurs* | Vagues 16-17, mobilier intérieur final (150 modèles) |
-| **0.18 Le son de Lyon** | Pas par surface, moteurs, armes, ambiance par rue, réverbération ; prises de son à Lyon | *Audio* | Bibliothèques libres + prises de son |
+| **0.1** | Jouer en un clic | lancer le jeu et marcher dans la rue de la République | ✅ 2026-11-09 |
+| **0.2** | La rue habillée | se promener dans une rue fidèle, à 25 i/s en profil M1 | ✅ 2026-11-10 |
+| **0.3** | Au volant | voler une voiture, rouler dans le trafic jusqu'au quai du Rhône et au pont Lafayette | novembre 2026 |
+| **0.4** | La rue vivante | croiser des piétons qui réagissent, s'arrêter aux feux, renverser du mobilier | décembre 2026 |
+| **0.5** | La police arrive | être recherché (1-2 étoiles), poursuivi en voiture, arrêté ou semer la police | décembre 2026 |
+| **0.6** | Jour et nuit | rouler de jour, au crépuscule, la nuit et sous la pluie | janvier 2027 |
+| **0.7** | Armé | se battre à mains nues et au pistolet, se couvrir, mourir et réapparaître ; police qui tire | février 2027 |
+| **0.8** | Vivre en ville | entrer dans une boutique sans chargement, acheter, braquer, gagner de l'argent, sauvegarder en planque | mars 2027 |
+| **0.9** | Tout le quartier | parcourir Bellecour → Terreaux sans chargement | avril 2027 |
+| **0.10** | La carte et le confort | ouvrir la carte de Lyon, suivre le GPS, régler touches, accessibilité, manette | mai 2027 |
+| **0.11** | L'arsenal | choisir parmi 6 armes, affronter la police niveau 3 et ses barrages | juin 2027 |
+| **0.12** | La ville à soi | faire des activités et des missions libres, rouler en scooter et en Vélo'v : **jalon P0 complet** | été 2027 |
+| **0.13** | Façades et monuments | voir le quartier en qualité finale, monuments compris | automne 2027 |
+| **0.14** | Les intérieurs | entrer dans 30 boutiques, 10 bâtiments, 3 planques finaux | automne 2027 |
+| **0.15** | Les gens et les voitures | croiser une population et une police finales, 6 véhicules finaux | hiver 2027 |
+| **0.16** | Le son de Lyon | entendre la ville finale : ambiances par rue, prises de son à Lyon | hiver 2027 |
+| **0.17** | Finition | jouer une heure sans bloquant, budget tenu partout | début 2028 |
+| **1.0** | Tranche verticale | jouer la tranche verticale complète, revue de parité | début 2028 |
+
+Les ordres de grandeur supposent le rythme observé en novembre 2026 (fils en
+parallèle, Mac disponible plusieurs heures par jour). Ils sont **à confiance
+faible** et revus à chaque fin de version.
+
+### Pourquoi cet ordre
+
+1. **La rue vivante avant les armes.** Trafic, piétons, police et jour/nuit
+   ont déjà un chantier ouvert ; les intégrer d'abord utilise ce travail tout
+   de suite et mesure tôt les postes les plus chers pour le GPU (foule,
+   trafic, lumières de nuit). C'est aussi ce qui distingue un GTA d'un jeu
+   d'action en couloir.
+2. **La police avant le combat.** Voler une voiture ou renverser un piéton
+   suffit à déclencher 1-2 étoiles ; la police réutilise directement le
+   trafic et les piétons. Elle tirera quand le combat existera (0.7).
+3. **Jour et nuit avant le combat.** Le chantier est ouvert et touche au rendu,
+   donc au budget : mieux vaut connaître le coût des lumières de nuit avant
+   d'ajouter les effets d'armes.
+4. **Le combat en 0.7** laisse le temps de régler la source des animations
+   et les réactions physiques (0.4), sans lesquelles un combat ne ressemble
+   pas à un GTA.
+5. **Le quartier complet en 0.9**, après les systèmes, parce que le streaming
+   se règle mieux quand on sait ce qu'il doit porter (foule, trafic, police).
+
+---
+
+## 5. Détail des versions
+
+Chaque fiche : objectif, « fait quand », tâches, chantiers. Les chantiers
+continus (§1) livrent leur lot dans chaque version sans être répétés.
+
+### Étape A : la rue vivante
+
+#### 0.1 Jouer en un clic : ✅ livrée
+
+Application macOS en un clic, écran titre, menu pause, personnage GASP,
+caméra GTA 3e/1re personne, rue de la République en greybox, preuves dans
+[evidence/0.1](evidence/0.1/).
+
+#### 0.2 La rue habillée : ✅ livrée
+
+Rue de la République à partir du LiDAR HD et de Grand Lyon, kit de 30 modules
+de façades, 202 enseignes, 1 203 objets de mobilier, sol corrigé, deux
+profils de qualité, 600 s mesurées en profil M1 (p95 40,3 ms). Sensation à
+pied (caméra, aide « F Monter », HUD, ambiance) ajoutée.
+
+#### 0.3 Au volant : 🟡 en cours
+
+**Objectif.** On vole une voiture et on roule dans le trafic de la rue de la
+République jusqu'au quai du Rhône et au pont Lafayette.
+
+**Fait quand :**
+- Clio V, 208 II et Kangoo II conduisibles ; entrer, sortir, casser la vitre,
+  éjecter un conducteur PNJ.
+- Trafic de PNJ sur les voies issues de la BD TOPO ; son moteur ; panneau de
+  conduite.
+- Carte étendue au quai du Rhône et au pont Lafayette, avec collision.
+- **Chute dans le Rhône gérée** : le joueur ou la voiture qui tombe à l'eau
+  réapparaît sur le quai (la nage reste en 1.x). Surface d'eau du plugin
+  Water natif, sans simulation.
+- Vidéo d'un trajet de 3 minutes ; **p95 ≤ 42 ms** en profil M1 avec le
+  trafic (seuil fixé pour sortir la 0.3 sans attendre le reste).
+- Enveloppes GPU du §3 mesurées une première fois.
+- Distribution : si l'archive dépasse 2 Gio (limite d'un fichier de release
+  GitHub), découpage documenté dans le README.
+
+**Chantiers :** 0.3 (voies, conduite PNJ, HUD), Ville v2 (quai, pont, eau),
+Optimisation (budget), Véhicules.
+
+#### 0.4 La rue vivante
+
+**Objectif.** La rue vit : des piétons marchent et réagissent, les voitures
+s'arrêtent aux feux, le mobilier casse quand on le percute.
+
+**Fait quand :**
+- Piétons Mass + StateTree sur les trottoirs, densité réglable ; 40 visibles
+  près du joueur dans l'enveloppe de 2,5 ms.
+- Réactions : regarder, s'écarter, fuir un accident ; un piéton renversé
+  passe en **ragdoll** et se relève ou reste au sol.
+- **Réactions physiques du joueur** : trébucher, tomber d'une voiture en
+  marche, être percuté.
+- Feux tricolores et passages piétons sur la rue de la République ; les PNJ
+  conducteurs les respectent, klaxonnent, évitent.
+- **Objets cassables** : potelets, panneaux, poubelles, barrières se
+  renversent ou se cassent au choc (Chaos, version cassée des modèles
+  existants).
+- Franchir les obstacles bas (muret, borne) avec le GASP.
+- Variété de la population : nombre de modèles et stratégie MetaHuman / LOD
+  décidés et mesurés.
+- Textes du jeu passés en tables de chaînes, en français et en anglais.
+
+**Chantiers :** Piétons, 0.3 (feux, conduite PNJ), Animations et réactions
+physiques (*à ouvrir*), Réalisme de la rue (version cassable des objets).
+
+#### 0.5 La police arrive
+
+**Objectif.** Un délit vu par un témoin déclenche une recherche de niveau 1
+ou 2, qu'on peut semer.
+
+**Fait quand :**
+- Délits : vol de voiture, piéton renversé, accident grave, coup porté à un
+  policier ; signalés par des témoins (pas de détection magique).
+- Étoiles 1 et 2, zone de recherche, ligne de vue, fuite et cache.
+- Patrouilles à pied et en voiture de police fictive, **sirènes et
+  gyrophares**, poursuites, arrestation avec pénalité et reprise rapide.
+- **Mini-carte** au HUD (rues, police, zone de recherche).
+- **Réglages sauvegardés** (profil graphique, souris, volumes).
+- Animations entrer / sortir de voiture remplaçant les durées fixes.
+- Vidéo d'une poursuite de 3 minutes ; budget tenu avec police, trafic et
+  piétons.
+
+**Chantiers :** Police, Interface et réglages (*à ouvrir*), Audio (*à ouvrir*),
+Animations.
+
+#### 0.6 Jour et nuit
+
+**Objectif.** Le temps passe : soleil à la latitude de Lyon, crépuscule, nuit
+éclairée, pluie et sol mouillé.
+
+**Fait quand :**
+- Cycle jour/nuit réglable (vitesse du temps), course réelle du soleil à Lyon,
+  exposition corrigée de jour comme de nuit (ADR-0001).
+- **Éclairage de nuit** : lampadaires, vitrines, fenêtres allumées, **phares,
+  feux stop et clignotants** des voitures.
+- Pluie, flaques, sol mouillé, brouillard ; trafic et piétons qui s'y
+  adaptent (parapluies, vitesse).
+- Captures Ultra midi, heure dorée, nuit, pluie comparées aux photos ;
+  enveloppe « nuit, météo, effets » tenue.
+
+**Chantiers :** Jour/nuit + météo, Véhicules (feux), Réalisme de la rue
+(vitrines et fenêtres), Optimisation.
+
+#### 0.7 Armé
+
+**Objectif.** On se bat : mains nues et pistolet, couverture, santé, mort et
+réapparition ; la police tire au niveau 2.
+
+**Fait quand :**
+- ADR-0004 (framework gameplay : Gameplay Ability System, StateTree).
+- Corps à corps (coups, esquive, neutralisation) ; pistolet (viser, tirer,
+  recharger, recul), **aide à la visée** à la manette, changement d'épaule.
+- Couverture contre murs et voitures, passage d'un abri à l'autre, tir à
+  l'aveugle.
+- Santé, armure, **endurance**, mort, réapparition à l'hôpital (fictif).
+- Réactions localisées aux impacts, ragdoll à la mort.
+- **Effets visuels** : impacts par surface, étincelles, verre, sang retenu,
+  fumée ; feu et explosion des voitures.
+- Piétons qui fuient les armes ; police qui tire au niveau 2.
+- Vidéo d'un combat de 2 minutes ; budget tenu.
+
+**Chantiers :** Combat et armes (*à ouvrir*), Animations, Audio, Police.
+
+### Étape B : tout le quartier en systèmes
+
+| Version | Fait quand | Chantiers |
+| ---- | ---- | ---- |
+| **0.8 Vivre en ville** | ADR-0005 (streaming) ; une boutique sans écran de chargement (Level Instance ou data layer), vendeur PNJ qui sert, se rend ou appelle la police, achat, braquage ; argent persistant ; 1 planque, **sauvegarde automatique et en planque** ; portes et contenants | Boutiques et intérieurs, Économie et sauvegarde |
+| **0.9 Tout le quartier** | Bellecour → Terreaux, quais et ponts en une commande (Ville v2) ; World Partition, HLOD ; trajet complet filmé à pied et en voiture, budget tenu, mémoire ≤ 9 Go ; bus TCL en décor dans le trafic | Ville v2, Streaming du monde, Optimisation |
+| **0.10 La carte et le confort** | Carte plein écran à partir de nos données, **vrais noms de rues** (`roads.geojson` régénéré), GPS qui suit les sens de circulation ; remappage des touches, sensibilité, accessibilité (sous-titres, aide à la visée, couleurs) ; glyphes et vibrations manette ; caméra cinématique en voiture ; premières paroles des PNJ en français | Interface et réglages, Ville v2, Audio |
+| **0.11 L'arsenal** | 6 armes fictives, roue des armes, inventaire limité ; niveau 3, barrages, poursuites armées ; 5 types de boutiques (alimentation, vêtements, armurerie, garage, café), 3 planques | Combat et armes, Police, Boutiques |
+| **0.12 La ville à soi** | **Cadre de missions** (objectifs, points de passage, échec, reprise) ; 6 activités libres du concept construites avec ; scooter, moto, Vélo'v ; **jalon « Systèmes P0 complets »** : chaque ligne P0 de l'[inventaire](systems-inventory.fr.md) cochée en qualité de travail | Missions et activités (*à ouvrir à la 0.8*), Véhicules |
+
+### Étape C : qualité finale
+
+L'art final est produit **en avance** pendant A et B (vagues Tripo, kits,
+photos, packs gratuits) et intégré ici.
+
+| Version | Fait quand | Chantiers |
+| ---- | ---- | ---- |
+| **0.13 Façades et monuments** | Kit de façades v2 sur tout le quartier ; Hôtel de Ville, Opéra, Bellecour et sa statue, ponts ; captures Ultra jour, nuit, pluie ; budget M1 tenu sur tout le quartier | Ville v2, Réalisme de la rue, Monuments |
+| **0.14 Les intérieurs** | 30 boutiques, 10 bâtiments (halls, cages d'escalier, cours, toits, parking), 3 planques en qualité finale | Boutiques et intérieurs, Assets |
+| **0.15 Les gens et les voitures** | Population et police finales (visages fictifs), 6 véhicules finaux du parc français, voiture de police fictive, bus TCL | Piétons, Véhicules, Assets |
+| **0.16 Le son de Lyon** | Ambiances par rue, réverbération des façades, prises de son à Lyon, mixage final | Audio |
 
 ### Étape D : tranche verticale
 
-| Version | Fait quand | Fils |
+| Version | Fait quand | Chantiers |
 | ---- | ---- | ---- |
-| **0.19 Finition** | Saccades, mémoire, bugs ; une heure de jeu libre sans bloquant en profil M1 ; budget tenu partout ; captures Ultra de tout le quartier ; étude du mode 60 i/s | *Performance*, *Qualité*, *Sensations* (playtests de Nico) |
-| **1.0 Tranche verticale** | Revue de parité face à la référence ligne par ligne ; vidéo de présentation ; décision de Nico sur la suite (quartier suivant, histoire) | *Revue de parité*, *Présentation* |
+| **0.17 Finition** | Saccades, mémoire, bugs ; une heure de jeu libre sans bloquant en profil M1 ; budget tenu partout ; étude du mode 60 i/s | Optimisation, Qualité, playtests de Nico |
+| **1.0 Tranche verticale** | Revue de parité ligne par ligne avec l'[inventaire](systems-inventory.fr.md) ; vidéo de présentation ; décision de Nico sur la suite | Revue de parité, Présentation |
 
 ### Après la 1.0
 
-Versions 1.x : un quartier à la fois (sud de la Presqu'île, Vieux-Lyon,
-pentes de la Croix-Rousse, rive gauche, Fourvière), fonctions P1 du concept
-(téléphone, personnalisation, garages, nage…) et l'histoire écrite avec
-Nico. Environ 4 à 6 mois par quartier, chacun décidé par Nico.
+Un quartier à la fois (sud de la Presqu'île, Vieux-Lyon, Croix-Rousse, rive
+gauche, Fourvière), fonctions P1 (nage, téléphone, radio, garages,
+personnalisation, hélicoptère, saluer et provoquer les PNJ, événements
+d'ambiance) et l'histoire écrite avec Nico.
 
 ---
 
-## 5. Production d'assets avec Tripo
+## 6. Assets
 
-L'abonnement Tripo Studio Max (25 200 crédits Studio, dépensés uniquement
-dans l'interface web Studio) est utilisé **en continu, en avance sur
-l'intégration** : chaque version a sa vague de modèles listée dans le
-[catalogue](asset-catalog.fr.md).
-
-- **Ce que Tripo fait bien ici :** objets isolés de taille petite à moyenne
-  (mobilier urbain, accessoires, mobilier intérieur, produits, armes,
-  ébauches de carrosseries, éléments décoratifs).
-- **Ce qu'on ne lui confie pas :** façades et bâtiments (kits modulaires et
-  données géo), terrain, personnages jouables (MetaHuman), monuments
-  complets (photos et Blender ; Tripo seulement pour les ornements).
-- **Flux :** catalogue → images de référence (Flux, GPT Image) quand c'est
-  utile → dizaines de générations en parallèle dans Studio → export GLB vers
-  `assets/tripo/<vague>/` → nettoyage Blender (échelle, pivot, LOD,
-  collisions) → import Unreal → ligne dans `assets/SOURCES.md` → statut dans
-  le catalogue.
-- **Master et variante légère :** chaque modèle est gardé en **master haute
-  qualité** (génération et textures à la résolution maximale, GLB d'origine
-  conservé) et décliné en **variante légère** (polygones et textures
-  réduits) pour le profil M1. Dans Unreal, le master sert au profil Ultra
-  (Nanite activé quand la machine le permet) et la variante légère aux LOD
-  du profil M1.
-- **Stockage :** les GLB masters sont lourds et restent **hors Git**. Le
-  repo ne contient que les assets Unreal intégrés (Git LFS) et le
-  catalogue. Où ranger les masters (disque externe, stockage en ligne,
-  dossier `GTAL/AssetsMaster/` non versionné en attendant) est une décision
-  de Nico à prendre avant la fin de la vague 1.
-- **Rythme cible :** une vague de 20 à 60 modèles toutes les deux à trois
-  semaines, soit environ 800 modèles d'ici la 0.17. Le coût réel en crédits
-  par modèle est mesuré sur la vague 1 et le rythme ajusté pour consommer
-  les crédits avant leur expiration.
-- **Garde-fous :** les vraies enseignes et marques viennent des photos
-  terrain, jamais de Tripo ([bible artistique](../docs/art/art-bible.fr.md)) ; aucun objet copié d'un
-  jeu existant ; chaque modèle passe une revue visuelle avant d'entrer dans
-  le jeu.
+- **Gratuit d'abord** : Fab et Megascans (gratuits à vie), Megaplants, Poly
+  Haven et textures CC0, MetaHuman ; vérifier ces sources avant toute
+  génération. Pas de packs de mods de GTA V (droits de Rockstar et des
+  moddeurs, dépôt public exposé au retrait).
+- **Tripo Studio Max** ensuite pour les objets isolés (mobilier, accessoires,
+  intérieurs, carrosseries), « sans logo » ; les vraies enseignes viennent des
+  photos et restent hors Git (`Plugins/CityBrands/`). Aucune dépense sans
+  carte à Nico.
+- **Flux** : catalogue → génération → nettoyage (échelle, pivot, LOD,
+  collision) → import headless → ligne dans `assets/SOURCES.md` → statut dans
+  le [catalogue](asset-catalog.fr.md).
+- **Masters** gardés en haute qualité hors Git ; variante légère pour le
+  profil M1.
+- **Nouveau à partir de la 0.4** : chaque objet de rue susceptible d'être
+  percuté a une version cassable ou mobile.
 
 ---
 
-## 6. Systèmes, versions et dépendances
+## 7. Systèmes, versions et dépendances
 
-| # | Système | Version | Dépend de | Point de départ |
+| # | Système | Versions | Dépend de | Point de départ |
 | ---- | ---- | ---- | ---- | ---- |
-| 1 | Code de base (game mode, Enhanced Input, debug, packaging) | 0.1 | rien | Modèles Epic, Lyra en lecture |
-| 2 | Monde et streaming (World Partition, HLOD, data layers, import géo) | 0.1, 0.5, 0.7 | pipeline géo | `extract_bbox.py`, PCG |
-| 3 | À pied et caméra | 0.1 | 1 | Game Animation Sample |
-| 4 | Interactions contextuelles | 0.3 | 3 | Smart Objects, Gameplay Interaction |
-| 5 | Véhicules | 0.3, 0.13, 0.16 | 3, 4 | Chaos Vehicles |
-| 6 | Armes et combat | 0.4, 0.10 | 1, 3 | Gameplay Ability System |
-| 7 | Santé, mort, réapparition | 0.4 | 6 | Attributs GAS |
-| 8 | IA des PNJ | 0.5, 0.8 | 1, 4 | StateTree, AI Perception, Smart Objects |
-| 9 | Police et recherche | 0.6, 0.10 | 5, 6, 8 | Système maison sur StateTree |
-| 10 | Boutiques et intérieurs | 0.5, 0.11, 0.17 | 2, 4, 8 | Level Instances, data layers |
-| 11 | Économie, planques, sauvegarde | 0.11 | 7, 10 | Save Game |
-| 12 | Foule | 0.8 | 2, 8 | Mass, MassCrowd ; repli en acteurs |
-| 13 | Trafic | 0.9 | 5, 12 | Mass ou splines issues des routes géo |
-| 14 | Heure et météo | 0.2, 0.13 | rendu | SunPosition, Sky Atmosphere, contrôleur de la scène témoin |
-| 15 | Interface, carte, GPS | 0.1, 0.6, 0.12 | 2, 11 | UMG, Common UI |
-| 16 | Audio | continu, 0.18 | 3, 5, 6 | MetaSounds |
-| 17 | Deux-roues | 0.13 | 5 | Chaos Vehicles |
-
-*Décidé par Nico le 2026-11-09 : socle gameplay sur les briques Epic
-gratuites (Game Animation Sample, Gameplay Ability System, Chaos Vehicles,
-StateTree, Mass) ; police et boutiques écrites par nous.*
-
----
-
-## 7. Effort et équipe
-
-- **Nico** (environ 10 h par semaine) : décisions par cartes, playtests des
-  sensations à chaque version (une demi-heure à une heure), photos de
-  terrain à Lyon (rue témoin, puis quartier, puis monuments).
-- **Production assistée par IA** : code, scripts, données géo, génération et
-  nettoyage d'assets, mesures et captures sur le Mac, documentation.
-- **Goulots :** réglage des sensations (demande Nico), volume d'art final,
-  un seul Mac de 16 Go (éditeur, shaders, packaging et mesures en série).
-
-| Étape | Durée | Confiance |
-| ---- | ---- | ---- |
-| A Prototype (0.1-0.6) | environ 16 semaines | Moyenne |
-| B Systèmes (0.7-0.13) | environ 8 mois | Faible, replanifiée à 0.6 |
-| C Art final (0.14-0.18) | environ 6 mois | Faible |
-| D Tranche (0.19-1.0) | environ 7 semaines | Faible |
+| 1 | Code de base, packaging, mesure | 0.1 | rien | `tools/build/package-mac.sh` |
+| 2 | À pied et caméra | 0.1, 0.2, 0.7 | 1 | Game Animation Sample |
+| 3 | Interactions contextuelles | 0.2, 0.8 | 2 | `UGTPInteractionComponent` |
+| 4 | Véhicules | 0.3, 0.6, 0.12, 0.15 | 2, 3 | Chaos Vehicles, `AGTPVehicle` |
+| 5 | Trafic | 0.3, 0.4, 0.9 | 4, voies géo | `AGTPTrafficNetwork` |
+| 6 | Réactions physiques, ragdoll | 0.4, 0.7 | 2 | Physics Asset, Physical Animation |
+| 7 | Animations hors locomotion | 0.4 → 0.11 | 2 | à recenser (Epic gratuit, Fab) |
+| 8 | Piétons et IA des PNJ | 0.4, 0.15 | 6 | Mass, StateTree, Smart Objects |
+| 9 | Objets cassables, effets visuels | 0.4, 0.7 | 6 | Chaos, Niagara |
+| 10 | Police et recherche | 0.5, 0.7, 0.11 | 5, 8 | maison sur StateTree |
+| 11 | Interface, réglages, textes FR/EN | 0.4, 0.5, 0.10 | 1 | UMG, Common UI, tables de chaînes |
+| 12 | Heure et météo, éclairage de nuit | 0.6 | rendu | Sky Atmosphere, SunPosition |
+| 13 | Combat, santé, mort | 0.7, 0.11 | 2, 6, 7 | Gameplay Ability System |
+| 14 | Boutiques, intérieurs, économie, sauvegarde | 0.8, 0.11, 0.14 | 3, 8, 15 | Level Instances, SaveGame |
+| 15 | Streaming du monde | 0.8, 0.9 | génération de la ville | World Partition, HLOD |
+| 16 | Carte, GPS | 0.5 (mini-carte), 0.10 | données géo | tuiles maison |
+| 17 | Missions et activités | 0.12 | 10, 13, 14 | maison |
+| 18 | Audio | continu, 0.16 | tous | MetaSounds |
 
 ---
 
@@ -560,30 +373,29 @@ StateTree, Mass) ; police et boutiques écrites par nous.*
 
 | Risque | Probabilité | Impact | Parade |
 | ---- | ---- | ---- | ---- |
-| **M1 Pro, 16 Go** : déjà hors budget en greybox (43-51 ms), pas de Nanite | Certaine | Haut | Deux profils : le M1 joue un profil dégradé, le photoréalisme est porté par le profil Ultra ; leviers choisis en 0.2, mesure à chaque version, HLOD et petites cellules dès 0.7 |
-| **Poids du jeu et des sources** (masters haute qualité, textures 4K-8K) | Haute | Moyen | Masters hors Git, stockage décidé avant la fin de la vague 1, packaging par profil |
-| **Profil Ultra non vérifiable en temps réel** sur le M1 | Certaine | Moyen | Validation par captures Movie Render Queue ; test sur une machine plus puissante quand Nico le décidera |
-| **Une seule session d'éditeur** à la fois sur le Mac | Certaine | Moyen | Fils éditeur en file ; fils docs, géo et Tripo en parallèle ; scripts headless quand c'est possible |
-| **UE 5.8 dernière majeure UE5** | Certaine | Moyen | Rester sur 5.8 jusqu'à la 1.0 |
-| **Frameworks expérimentaux** (Mover, Chaos Vehicles 5.8.2, Mass) | Haute | Moyen | Voie stable d'abord, Mass derrière nos interfaces, repli en acteurs |
-| **Crédits Tripo Studio qui expirent** | Moyenne | Moyen | Vagues continues dès la 0.1, coût mesuré sur la vague 1, rythme ajusté |
-| **Qualité des modèles générés** (topologie, échelle, textures) | Haute | Moyen | Nettoyage Blender systématique, revue visuelle, objets secondaires d'abord |
-| **Licences et marques** | Moyenne | Haut | `assets/SOURCES.md` à chaque asset ; vraies marques (usage non commercial) gardées hors du dépôt public dans `Plugins/CityBrands/`, remplaçables d'un bloc |
-| **Taille du repo** (quota Git LFS) | Moyenne | Moyen | LFS posé en 0.1, sources brutes hors Git |
-| **Périmètre** face à un studio de milliers de personnes | Certaine | Haut | P0 seulement jusqu'à 1.0 ; réduire le nombre de boutiques avant la qualité |
+| **GPU du M1 Pro déjà plein** (p50 29,9 ms rue vide ; +10 ms pour 6 PNJ ; 65 % d'images < 33 ms sur la carte étendue) | Certaine | Très haut | Enveloppe par système (§3) ; fil Optimisation propriétaire du budget ; culling, imposteurs, LOD agressifs, Mass sans squelette au loin ; aucune version sur `next` hors budget |
+| **Un seul Mac pour tout** (éditeur, cuisson, packaging, mesure, et parfois Nico qui joue) | Certaine | Haut | File d'attente du Mac tenue par le coordinateur ; tout préparé dans le cloud avant le créneau ; scripts headless ; `caffeinate` pour les tâches longues ; un seul Unreal à la fois |
+| **Mémoire 16 Go** (éditeur + cuisson, carte complète en 0.9) | Haute | Haut | Petites cellules de streaming, HLOD dès 0.8, mesure mémoire à chaque version |
+| **Animations introuvables** pour le combat, les véhicules, les PNJ | Haute | Haut | Chantier Animations ouvert dès la 0.4 ; recensement des sources gratuites avant tout développement du combat |
+| **Divergence des clones sur le Mac** (cartes et matériaux copiés d'un clone à l'autre) | Haute | Moyen | Vérification avant chaque packaging ; une seule source par asset partagé |
+| **Taille du jeu** (zip 1,36 Go en 0.2, limite GitHub de 2 Gio par fichier) | Haute | Moyen | Découpage d'archive documenté ; textures compressées par profil |
+| **Frameworks expérimentaux** (Chaos Vehicles 5.8, Mass, Mover) | Haute | Moyen | Derrière nos interfaces ; repli en acteurs |
+| **Intégration de chantiers parallèles** (trafic, piétons, police touchent les mêmes PNJ) | Haute | Moyen | Propriétaires fixés par le coordinateur ; interfaces communes (perception, délits) définies avant le code |
+| **Qualité des modèles générés** | Haute | Moyen | Gratuit d'abord, nettoyage, revue visuelle |
+| **Licences et marques** | Moyenne | Haut | `assets/SOURCES.md` ; vraies marques hors du dépôt public, remplaçables d'un bloc ; pas de personnes réelles |
+| **Périmètre** face à un studio de milliers de personnes | Certaine | Haut | P0 seulement jusqu'à 1.0 ; l'[inventaire](systems-inventory.fr.md) sert de garde-fou |
 | **Pas de build Unreal en CI** | Certaine | Faible | Packaging et mesures scriptés sur le Mac, preuves versionnées |
 
 ---
 
 ## 9. Pilotage
 
-- [Tableau de bord](roadmap-status.fr.md) : statut de chaque version et de
-  chaque tâche de la version en cours, mis à jour par les fils à chaque
-  tâche terminée.
-- Les issues GitHub ne sont pas utilisées pour l'instant ; le tableau de
-  bord en tient lieu.
-- Fin de version : critère vérifié, build rangée dans `GTAL/Builds/`,
-  preuves versionnées, résumé d'une ligne à Nico, date des versions
-  suivantes revue.
-- Décisions structurantes (ordre des versions, achats, changement de
-  framework ou de budget) : cartes à Nico avec recommandation.
+- [Tableau de bord](roadmap-status.fr.md) : version en cours et état des
+  chantiers, mis à jour à chaque fin de tâche.
+- [Inventaire des systèmes](systems-inventory.fr.md) : revu à chaque fin de
+  version ; tout système sans version ni chantier y apparaît comme oubli.
+- Fin de version : critère et budget vérifiés, build rangée dans
+  `GTAL/Builds/`, preuves versionnées, résumé d'une ligne à Nico.
+- Décisions structurantes (ordre des versions, achats, budget de
+  performance, baisse visible de l'image) : cartes à Nico avec
+  recommandation.
