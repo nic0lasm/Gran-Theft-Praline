@@ -217,6 +217,10 @@ class GRANTHEFTPRALINE_API UGTPEnvironmentSubsystem : public UTickableWorldSubsy
 	GENERATED_BODY()
 
 public:
+	/** Writes Describe() and the sky state to Saved/Environment/status.txt (or -EnvReport=<path>):
+	 *  Shipping writes no log, this is how a test run checks what was loaded. */
+	void WriteStatusFile() const;
+
 	virtual void OnWorldBeginPlay(UWorld& InWorld) override;
 	virtual void Deinitialize() override;
 	virtual void Tick(float DeltaTime) override;
@@ -515,10 +519,6 @@ private:
 
 	/** off, loaded or missing: reported in the status file. */
 	FString CloudShadowState = TEXT("off");
-
-	/** Writes Describe() and the sky state to Saved/Environment/status.txt (or -EnvReport=<path>):
-	 *  Shipping writes no log, this is how a test run checks what was loaded. */
-	void WriteStatusFile() const;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UMaterialParameterCollection> LoadedCollection;
