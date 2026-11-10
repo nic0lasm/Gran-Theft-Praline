@@ -1,6 +1,7 @@
 #include "GTPVehicle.h"
 
 #include "GTPCameraModeComponent.h"
+#include "GTPLog.h"
 #include "GTPEngineSoundComponent.h"
 #include "GTPPlayerController.h"
 #include "GTPVehicleInput.h"
@@ -587,7 +588,7 @@ bool AGTPVehicle::BeginEnter(ACharacter* Character, AController* DriverControlle
 		Duration = PlayMontageOr(Character, EnterMontage, EnterDuration);
 		break;
 	}
-	UE_LOG(LogGTPVehicle, Log, TEXT("%s: entering (%s, %.1f s)"), *GetName(),
+	GTP_TRACE(LogGTPVehicle, TEXT("%s: entering (%s, %.1f s)"), *GetName(),
 		*StaticEnum<EGTPEntryKind>()->GetNameStringByValue(static_cast<int64>(PendingEntry)), Duration);
 	GetWorldTimerManager().SetTimer(SequenceTimer, this, &AGTPVehicle::FinishEnter, FMath::Max(Duration, 0.05f), false);
 	return true;
@@ -742,7 +743,7 @@ void AGTPVehicle::DoExit(bool bBailOut)
 	if (!FindExitLocation(Character, Location, Side))
 	{
 		// Boxed in: stay inside, the player can drive out.
-		UE_LOG(LogGTPVehicle, Log, TEXT("%s: no free exit"), *GetName());
+		GTP_TRACE(LogGTPVehicle, TEXT("%s: no free exit"), *GetName());
 		State = EGTPVehicleState::Driven;
 		if (UChaosWheeledVehicleMovementComponent* Move = GetWheeledMovement())
 		{
@@ -780,7 +781,7 @@ void AGTPVehicle::DoExit(bool bBailOut)
 			Move->SetHandbrakeInput(true);
 		}
 	}
-	UE_LOG(LogGTPVehicle, Log, TEXT("%s: driver out (%s)"), *GetName(), bBailOut ? TEXT("bail out") : TEXT("stopped"));
+	GTP_TRACE(LogGTPVehicle, TEXT("%s: driver out (%s)"), *GetName(), bBailOut ? TEXT("bail out") : TEXT("stopped"));
 }
 
 // --- Damage ----------------------------------------------------------------
@@ -888,6 +889,6 @@ void AGTPVehicle::SetWrecked()
 	{
 		Move->SetThrottleInput(0.f);
 	}
-	UE_LOG(LogGTPVehicle, Log, TEXT("%s: wrecked"), *GetName());
+	GTP_TRACE(LogGTPVehicle, TEXT("%s: wrecked"), *GetName());
 	OnWrecked();
 }

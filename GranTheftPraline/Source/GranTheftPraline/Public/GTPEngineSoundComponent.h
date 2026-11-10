@@ -4,6 +4,8 @@
 #include "Components/AudioComponent.h"
 #include "Sound/SoundWaveProcedural.h"
 #include "GTPEngineSynth.h"
+
+#include <atomic>
 #include "GTPEngineSoundComponent.generated.h"
 
 class AGTPVehicle;
@@ -19,7 +21,11 @@ public:
 
 	virtual int32 GeneratePCMData(uint8* PCMData, const int32 SamplesNeeded) override;
 
+	/** Samples rendered so far by the audio thread (read by the game thread for the log). */
+	int64 GetRenderedSamples() const { return RenderedSamples.load(std::memory_order_relaxed); }
+
 private:
+	std::atomic<int64> RenderedSamples{0};
 	TSharedPtr<FGTPEngineSynth, ESPMode::ThreadSafe> Synth;
 	TArray<float> Scratch;
 };
@@ -68,4 +74,5 @@ private:
 
 	TSharedPtr<FGTPEngineSynth, ESPMode::ThreadSafe> Synth;
 	bool bEngineOn = false;
+	bool bLoggedFirstAudio = false;
 };
