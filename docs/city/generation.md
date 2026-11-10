@@ -265,6 +265,8 @@ along the bridge axis until it meets the street within 12 cm and settles on the 
 height, measured step at most 7 cm, collision on) and a quay parapet along the water
 (519 m in the box, cut under the bridge). `import_city.py` places them when present (folder
 City/Riverside); `apply_city_materials.py` gives them `M_City_Shell` and `M_City_Water`.
+The river surface is our own mesh with `M_City_Water` (small moving waves, opaque), not the
+engine Water plugin: it needs a landscape and extra passes the M1 budget cannot afford.
 Falling in: a river bed with collision 2.5 m under the surface (nothing falls through the
 world), 25 m trigger boxes tagged `GTP_RiverRecovery` over the water and quay exits at street
 level every 25 m, tagged `GTP_RiverExit` (target points facing the land, never on the lower
