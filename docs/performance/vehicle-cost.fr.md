@@ -79,3 +79,21 @@ M1 : c'est la suite après la première mesure.
 - `tools/perf/vehicle-count-bench.sh` mesure maintenant trois niveaux par
   nombre de voitures : aucun, `-VehicleLod=1`, puis
   `-VehicleLod=1 -VehicleGhost=1 -TrafficPool=1`.
+
+## 5. Voitures garées en instances (interrupteur, pas encore mesuré)
+
+- `tools/city/parking.py --map <Map>` écrit `Content/City/Traffic/<Map>.parking.csv`.
+  Il pose un emplacement tous les 5,6 m, là où la chaussée mesurée laisse
+  2,1 m entre la voie extérieure et la bordure, à 15 m au moins des
+  carrefours. 70 % des emplacements reçoivent une voiture, toujours les
+  mêmes d'une exécution à l'autre. Cela fait environ 1 100 emplacements sur
+  toute la zone de la presqu'île.
+- `-ParkedCars=1` (ou `bParkedCars=True` sur le réseau de trafic) crée
+  `AGTPParkedCars` : une instance hiérarchique de maillage statique par
+  modèle (`SM_Parked_<Name>_A`, produit par
+  `tools/vehicles/unreal/import_parked_static.py`). Chaque instance a sa
+  couleur de carrosserie dans `PerInstanceCustomData[0..2]`. Pas d'ombre,
+  disparition en fondu entre 120 et 150 m, collision en boîte simple. Pas de
+  physique et pas de tick.
+- Pas encore fait : remplacer une voiture garée par une vraie voiture quand
+  le joueur s'en approche (pour la voler).

@@ -3,6 +3,7 @@
 #include "GTPLog.h"
 #include "GTPVehicle.h"
 #include "GTPTrafficGhost.h"
+#include "GTPParkedCars.h"
 #include "ChaosWheeledVehicleMovementComponent.h"
 #include "AIController.h"
 #include "CollisionQueryParams.h"
@@ -625,6 +626,18 @@ void AGTPTrafficNetwork::BeginPlay()
 		const FString File = LanesFileFor(UGameplayStatics::GetCurrentLevelName(this, true));
 		const int32 Count = LoadLanesFromCsv(File);
 		GTP_TRACE(LogGTPTraffic, TEXT("%d lanes from %s"), Count, *File);
+	}
+	int32 ParkedSwitch = bParkedCars ? 1 : 0;
+	FParse::Value(FCommandLine::Get(), TEXT("ParkedCars="), ParkedSwitch);
+	bParkedCars = ParkedSwitch != 0;
+	if (bParkedCars)
+	{
+		FActorSpawnParameters ParkedParams;
+		ParkedParams.Owner = this;
+		if (AGTPParkedCars* Parked = GetWorld()->SpawnActor<AGTPParkedCars>(AGTPParkedCars::StaticClass(), FTransform::Identity, ParkedParams))
+		{
+			Parked->Build(AGTPParkedCars::ParkingFileFor(UGameplayStatics::GetCurrentLevelName(this, true)));
+		}
 	}
 	int32 LightsFlag = bTrafficLights ? 1 : 0;
 	FParse::Value(FCommandLine::Get(), TEXT("TrafficLights="), LightsFlag);

@@ -297,6 +297,10 @@ protected:
 	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Cost")
 	bool bTrafficPool = false;
 
+	/** Parked cars along the kerbs as static instances (-ParkedCars=1, AGTPParkedCars, tools/city/parking.py). */
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Cost")
+	bool bParkedCars = false;
+
 	/** A car standing still this long (gridlock), out of sight, is taken away (seconds); longer than a red light and its queue. */
 	UPROPERTY(Config, EditAnywhere, Category = "Traffic")
 	float StuckSeconds = 35.f;

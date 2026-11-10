@@ -71,3 +71,18 @@ M1, which is why it is next after the first measure.
   never turn into ghosts.
 - `tools/perf/vehicle-count-bench.sh` now runs three tiers per count: none,
   `-VehicleLod=1`, then `-VehicleLod=1 -VehicleGhost=1 -TrafficPool=1`.
+
+## 5. Parked cars as instances (switch, not measured yet)
+
+- `tools/city/parking.py --map <Map>` writes `Content/City/Traffic/<Map>.parking.csv`:
+  one slot every 5.6 m where the measured carriageway leaves 2.1 m between the
+  outer lane and the kerb, 15 m away from the junctions, 70 % of the slots
+  taken (the same ones at every run). About 1,100 slots on the whole
+  presqu'île zone.
+- `-ParkedCars=1` (or `bParkedCars=True` on the traffic network) spawns
+  `AGTPParkedCars`: one hierarchical instanced static mesh per model
+  (`SM_Parked_<Name>_A` from `tools/vehicles/unreal/import_parked_static.py`),
+  body colour per instance in `PerInstanceCustomData[0..2]`, no shadows,
+  faded out between 120 and 150 m, simple box collision. No physics, no tick.
+- Not done yet: swapping a parked instance for a real car when the player
+  walks up to it (to steal it).

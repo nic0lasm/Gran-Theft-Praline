@@ -6,14 +6,16 @@
 #   1. package (Shipping)                 tools/build/package-mac.sh
 #   2. cars 3 / 6 / 12, -VehicleLod 0/1   tools/perf/vehicle-count-bench.sh
 #   3. pedestrians 0 / 12 / 30 / 60       tools/pedestrians/bench-crowd-mac.sh
-#   4. ragdolls off / full / lite         tools/ragdoll/measure-ragdoll-mac.sh
+#   4. parked cars as instances 0 / 1     tools/perf/bench.sh -ParkedCars
+#   5. ragdolls off / full / lite         tools/ragdoll/measure-ragdoll-mac.sh
 #
 # Usage, from the root of the clone, nothing else running:
 #   caffeinate -dimsu tools/perf/density-pass-mac.sh [version=perf-density] [duration_s=90]
 # Environment: BUILDS_DIR (default <repo>/Builds), SKIP_PACKAGE=1 to reuse a build,
 #   CROWD_CASES (default "n0 n12 n30 n60"), COUNTS (default "3 6 12").
 # Output: <BUILDS_DIR>/<version>/density-<stamp>/DENSITY.md and one log per step.
-# Expected length: package 15-25 min, cars ~25 min (3 counts x 3 tiers), crowd ~10 min, ragdolls ~5 min.
+# Expected length: package 15-25 min, cars ~25 min (3 counts x 3 tiers), crowd ~10 min,
+#   parked ~4 min, ragdolls ~5 min.
 set -uo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -53,6 +55,10 @@ step() {
   return $status
 }
 
+# Run-time data of the switches measured here (city tools need shapely: PYTHON=<venv>/bin/python).
+python="${PYTHON:-python3}"
+step parking-data "$python" tools/city/parking.py --map L_City_RueDeLaRepublique
+
 if test "${SKIP_PACKAGE:-0}" != "1"; then
   if ! step package tools/build/package-mac.sh "$version"; then
     grep -hE ": (fatal )?error:|Error: " "$out/package.log" | sort -u | head -n 80 > "$out/compile-errors.txt"
@@ -65,6 +71,11 @@ test -d "$build_dir/GranTheftPraline.app" || { echo "- no build at $build_dir" >
 COUNTS="${COUNTS:-3 6 12}" DURATION="$duration" step cars tools/perf/vehicle-count-bench.sh "$build_dir" "$out/cars"
 # shellcheck disable=SC2086
 step crowd tools/pedestrians/bench-crowd-mac.sh "$version" "$duration" ${CROWD_CASES:-n0 n12 n30 n60}
+# Parked cars as instances (needs /Game/Vehicles/Parked from import_parked_static.py before the package).
+for parked in 0 1; do
+  EXTRA_ARGS="-Traffic=6 -VehicleLod=1 -ParkedCars=$parked" SCENARIOS="street-demo" DURATION="$duration" \
+    step "parked$parked" tools/perf/bench.sh "$build_dir" "$out/parked$parked"
+done
 DURATION=60 step ragdolls tools/ragdoll/measure-ragdoll-mac.sh "$build_dir" "$out/ragdolls"
 
 # The tables, gathered in one file.
@@ -78,6 +89,11 @@ DURATION=60 step ragdolls tools/ragdoll/measure-ragdoll-mac.sh "$build_dir" "$ou
   echo
   latest_crowd="$(ls -dt "$build_dir"/evidence/crowd-* 2>/dev/null | head -n 1)"
   cat "$latest_crowd/SUMMARY.md" 2>/dev/null || echo "(no table, see crowd.log)"
+  echo
+  echo "## Parked cars (6 traffic cars, -VehicleLod=1)"
+  echo
+  for parked in 0 1; do echo "-ParkedCars=$parked"; grep '^|' "$out/parked$parked/summary.md" 2>/dev/null || echo "(no data)"; echo; done
+  grep -h "parked cars:" "$out"/parked1/*.log "$out"/parked1/*/*.log 2>/dev/null | head -n 3
   echo
   echo "## Ragdolls"
   echo
