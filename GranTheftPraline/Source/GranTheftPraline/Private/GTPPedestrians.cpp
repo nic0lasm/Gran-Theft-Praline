@@ -13,6 +13,7 @@
 #include "GameFramework/PlayerController.h"
 #include "Camera/PlayerCameraManager.h"
 #include "GTPGraphicsProfile.h"
+#include "GTPAudioWorld.h"
 #include "GTPTraffic.h"
 #include "GTPVehicle.h"
 #include "Kismet/GameplayStatics.h"
@@ -323,6 +324,14 @@ void UGTPPedestrianSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 		}
 		return !Network->IsWalkAllowed(Where, Direction);
 	};
+	// A loud crash or a shot (GTPAudioWorld.h) scares the passers-by around it.
+	if (UGTPAudioWorld* AudioWorld = InWorld.GetSubsystem<UGTPAudioWorld>())
+	{
+		AudioWorld->OnLoudSound.AddWeakLambda(this, [this](const FVector& Location, float Radius, AActor* Cause)
+		{
+			ScareAround(Location, Radius, Cause);
+		});
+	}
 	Wanted = ChooseDensity();
 	if (Wanted <= 0)
 	{
