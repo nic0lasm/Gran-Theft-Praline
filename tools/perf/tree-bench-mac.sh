@@ -26,8 +26,17 @@
 #   SCENARIO (default street-demo), CASES (default "bare light10 light impostor leafy")
 #   MAX_DELTA_10_MS (default 2), SKIP_PACKAGE=1 reuses a build already staged,
 #   KEEP_STAGED=1 leaves the leafy copy on the map
+#   DRY_RUN=1 replaces Unreal, the package and the benches by stubs that write
+#     fake outputs: checks the script end to end anywhere (Linux too), in seconds
+#     (DRY_SLEEP stub length, EXPECTED_S forces every expected length: tests the watchdog)
+#
+# Slot rules: every step has an expected length; a step running past twice that
+# length is killed, every Unreal and game process is stopped, the report says
+# why and the script exits 3 ("Mac libre"). Every 10 minutes (HEARTBEAT_S) a
+# "heartbeat" line with the step and its elapsed time goes to stdout and to
+# <out>/heartbeat.txt, for the session that relays it. Times are Paris time.
 # Output: <BUILDS_DIR>/<version>/trees-<stamp>/TREES.md, mesh_audit.csv, one log per step.
-# Expected length: audit + stage + unstage ~10 min, package 15-25 min, benches ~12 min.
+# Expected length: audit + stage + unstage ~15 min, package 15-30 min, benches ~18 min (about 1 h at most).
 set -uo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -50,11 +59,17 @@ mkdir -p "$out"
 report="$out/TREES.md"
 cd "$repo_root" || exit 1
 
-if pgrep -fl "UnrealEditor|GranTheftPraline" | grep -v UnrealEditorServices >/dev/null; then
-  echo "tree-bench: an Unreal or game process is already running, stop it first" >&2
-  exit 1
+dry="${DRY_RUN:-0}"
+heartbeat_s="${HEARTBEAT_S:-600}"
+paris() { TZ=Europe/Paris date '+%H:%M'; }
+
+if test "$dry" != "1"; then
+  if pgrep -fl "UnrealEditor|GranTheftPraline" | grep -v UnrealEditorServices >/dev/null; then
+    echo "tree-bench: an Unreal or game process is already running, stop it first" >&2
+    exit 1
+  fi
+  test -x "$editor" || { echo "tree-bench: no Unreal Editor at $editor" >&2; exit 1; }
 fi
-test -x "$editor" || { echo "tree-bench: no Unreal Editor at $editor" >&2; exit 1; }
 
 # The editor runs scripts from a path without spaces ("Claude work" has one).
 tmp="$(mktemp -d)"
@@ -62,27 +77,93 @@ trap 'rm -rf "$tmp"' EXIT
 cp tools/assets/unreal/audit_meshes.py tools/city/unreal/swap_street_trees.py "$tmp/"
 
 {
-  echo "# Leafy street trees $version, $(date '+%Y-%m-%d %H:%M %Z'), commit $(git rev-parse --short HEAD)"
+  echo "# Leafy street trees $version, $(TZ=Europe/Paris date '+%Y-%m-%d %H:%M') heure de Paris, commit $(git rev-parse --short HEAD)$( test "$dry" = 1 && echo ', DRY RUN (stubs, numbers are fake)')"
   echo
   echo "Profile m1, scenario $scenario, ${duration} s per run. Compare runs of this pass with each other only."
   echo
 } > "$report"
 
+# Expected length of each step in seconds; past twice that, the step is stopped.
+expected() {
+  if test -n "${EXPECTED_S:-}"; then echo "$EXPECTED_S"; return; fi
+  case "$1" in
+    audit) echo 480 ;;
+    stage|unstage) echo 420 ;;
+    package) echo 1800 ;;
+    bench_*) echo $(( duration + 120 )) ;;
+    *) echo 600 ;;
+  esac
+}
+
+stop_unreal() {
+  test "$dry" = "1" && return 0
+  pkill -f "MacOS/UnrealEditor( |$)" 2>/dev/null || true
+  pkill -f "GranTheftPraline.app" 2>/dev/null || true
+  pkill -f "UnrealBuildTool|ShaderCompileWorker" 2>/dev/null || true
+}
+
 step() {
   local name="$1"
   shift
-  local start status
+  local start limit pid status=0 next_beat
   start=$(date +%s)
-  echo "=== $name"
-  "$@" > "$out/$name.log" 2>&1
-  status=$?
-  echo "- $name: $( test $status -eq 0 && echo OK || echo "FAILED ($status)" ), $(( $(date +%s) - start )) s, log $name.log" >> "$report"
+  limit=$(( 2 * $(expected "$name") ))
+  next_beat=$(( start + heartbeat_s ))
+  echo "=== $name ($(paris), stops after $(( limit / 60 )) min)"
+  "$@" > "$out/$name.log" 2>&1 &
+  pid=$!
+  while kill -0 "$pid" 2>/dev/null; do
+    sleep 2
+    now=$(date +%s)
+    if test $(( now - start )) -gt "$limit"; then
+      kill "$pid" 2>/dev/null; sleep 2; kill -9 "$pid" 2>/dev/null
+      stop_unreal
+      {
+        echo "- $name: STOPPED by the watchdog after $(( (now - start) / 60 )) min (expected $(( $(expected "$name") / 60 )) min), $(paris)"
+        echo "- Mac libre: every Unreal process stopped. The map may still carry the hidden leafy copy: GTP_TREE_MODE=unstage removes it."
+      } >> "$report"
+      echo "heartbeat $(paris) STOPPED $name, Mac libre" | tee -a "$out/heartbeat.txt"
+      exit 3
+    fi
+    if test "$now" -ge "$next_beat"; then
+      echo "heartbeat $(paris) step $name, $(( (now - start) / 60 )) min of at most $(( limit / 60 ))" | tee -a "$out/heartbeat.txt"
+      next_beat=$(( now + heartbeat_s ))
+    fi
+  done
+  wait "$pid" || status=$?
+  echo "- $name: $( test $status -eq 0 && echo OK || echo "FAILED ($status)" ), $(( $(date +%s) - start )) s, ended $(paris), log $name.log" >> "$report"
   return $status
 }
 
 run_py() {
   "$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES -ExecutePythonScript="$tmp/$1"
 }
+
+if test "$dry" = "1"; then
+  # Stubs: same files as the real tools, fake numbers.
+  run_py() {
+    sleep "${DRY_SLEEP:-1}"
+    mkdir -p "$saved"
+    case "$1" in
+      audit_meshes.py) echo '{"roots": {}, "meshes": []}' > "${GTP_AUDIT_OUT:-$saved/mesh_audit.json}" ;;
+      swap_street_trees.py) cat > "$saved/trees_report.json" <<JSON
+{"mode": "$GTP_TREE_MODE", "errors": [], "staged": {"W14-63": {"mesh": "/Game/BlackAlder/SM_Stub", "trees": 104, "mesh_info": {"height_cm": 1200, "nanite": false, "triangles": [9000, 3000, 8]}}, "W14-64": {"mesh": "/Game/BlackAlder/SM_StubSapling", "trees": 8, "mesh_info": {"height_cm": 400, "nanite": false, "triangles": [2000, 600, 8]}}}}
+JSON
+      ;;
+    esac
+  }
+  package_cmd() { sleep "${DRY_SLEEP:-1}"; mkdir -p "$build_dir/GranTheftPraline.app"; }
+  bench_cmd() {
+    sleep "${DRY_SLEEP:-1}"
+    mkdir -p "$2"
+    local p=40.0
+    case "$EXTRA_ARGS" in *light*10*) p=40.6 ;; *light*) p=42.9 ;; *impostor*) p=40.4 ;; *leafy*) p=49.0 ;; esac
+    printf '| Scenario | Variant | GPU p50 | GPU p95 | Frame p50 | Frame p95 | %% <= 33.3 ms | Hitches > 100 ms |\n| ---- |\n| %s | base | 30.0 | 38.0 | 31.0 | %s | 70 %% | 1 |\n' "$SCENARIOS" "$p" > "$2/summary.md"
+  }
+else
+  package_cmd() { tools/build/package-mac.sh "$@"; }
+  bench_cmd() { tools/perf/bench.sh "$@"; }
+fi
 
 trees() {
   GTP_TREE_MODE="$1" run_py swap_street_trees.py || return 1
@@ -93,7 +174,7 @@ trees() {
 GTP_AUDIT_OUT="$out/mesh_audit.json" step audit run_py audit_meshes.py
 if test "${SKIP_PACKAGE:-0}" != "1"; then
   step stage trees stage || { echo "- staging failed, see trees_stage.json" >> "$report"; exit 1; }
-  if ! step package tools/build/package-mac.sh "$version"; then
+  if ! step package package_cmd "$version"; then
     grep -hE ": (fatal )?error:|Error: " "$out/package.log" | sort -u | head -n 80 > "$out/compile-errors.txt"
     echo "- package failed: errors in compile-errors.txt" >> "$report"
     test "${KEEP_STAGED:-0}" = "1" || step unstage trees unstage
@@ -115,7 +196,7 @@ case_args() {
 }
 
 # frame p95 of a case, from bench.sh's table (column 7)
-p95() { grep '^| ' "$out/$1/summary.md" 2>/dev/null | grep -v Scenario | head -n 1 | awk -F'|' '{gsub(/ /,"",$7); print $7}'; }
+p95() { grep '^| ' "$out/$1/summary.md" 2>/dev/null | grep -v -e Scenario -e '| -' | head -n 1 | awk -F'|' '{gsub(/ /,"",$7); print $7}'; }
 
 for c in $cases; do
   if test "$c" != "bare" && test "$c" != "light10" && test -n "${skip_112:-}"; then
@@ -123,7 +204,7 @@ for c in $cases; do
     continue
   fi
   EXTRA_ARGS="$(case_args "$c")" SCENARIOS="$scenario" DURATION="$duration" \
-    step "bench_$c" tools/perf/bench.sh "$build_dir" "$out/$c"
+    step "bench_$c" bench_cmd "$build_dir" "$out/$c"
   if test "$c" = "light10"; then
     b="$(p95 bare)"; l="$(p95 light10)"
     if test -n "$b" && test -n "$l" && python3 -c 'import sys; sys.exit(0 if float(sys.argv[2]) - float(sys.argv[1]) > float(sys.argv[3]) else 1)' "$b" "$l" "$max_delta_10"; then
@@ -158,7 +239,7 @@ PY
   echo
   echo "## Tables of bench.sh"
   echo
-  for c in $cases; do grep '^|' "$out/$c/summary.md" 2>/dev/null; done | awk 'NR==1 || !/Scenario/'
+  for c in $cases; do grep '^|' "$out/$c/summary.md" 2>/dev/null; done | awk '/Scenario/ { if (h++) next } /----/ { if (s++) next } { print }'
   echo
   echo "## Meshes picked"
   echo
