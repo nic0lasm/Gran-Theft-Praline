@@ -290,7 +290,8 @@ accrochés à quelque chose de réel :
   stores bannes déroulés sur les cafés, restaurants et commerces de bouche, repliés sur un commerce
   sur deux ailleurs, étirés à la largeur de la travée ; distributeur sur les banques ; cendrier aux
   portes des bars et tabacs ; paillassons ; jardinières sur l'appui des fenêtres lyonnaises,
-  quelques paraboles et climatiseurs sur les immeubles anciens.
+  quelques paraboles et climatiseurs sur les immeubles anciens ; un présentoir contre le fond de chaque
+  vitrine ouverte de la rue (rien à voir derrière la vitre sinon).
 * **Angles** : plaques de rue sur chaque immeuble d'angle, côté de l'angle.
 * **OpenStreetMap** : potelets, feux piétons des deux côtés des traversées à feux (largeur réelle de
   la chaussée BD TOPO), feux de circulation sur la bordure de droite, panneaux par code français
@@ -304,7 +305,7 @@ Le choix d'une travée est un hachage stable de l'immeuble et de la travée : ch
 même rue. Le tableau a les colonnes de `props_placement.csv` plus `snap` (`keep` garde la hauteur des
 objets muraux et de toit), `scale_x/y/z` et `collision` (aucune sur les petits objets). Plafond de
 3 000 instances (budget du fil optimisation, 1 ms GPU sur m1), par priorité de visibilité ;
-1 820 pour la rue de la République. `run_city_import.sh` rejoue `details.py` puis le pose avec
+environ 2 100 pour la rue de la République. `run_city_import.sh` rejoue `details.py` puis le pose avec
 `GTP_PROPS_SET=details` dans le dossier City/Details.
 
 Les vrais logos d'enseignes ne s'affichaient pas : le plugin hors Git `Plugins/CityBrands` n'existait
