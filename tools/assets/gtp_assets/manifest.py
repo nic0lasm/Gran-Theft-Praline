@@ -151,6 +151,34 @@ BUDGETS = {
     "medium": {"ultra_tris": 1_000_000, "m1_tris": 10_000, "lods": 4},
     "large": {"ultra_tris": 2_000_000, "m1_tris": 30_000, "lods": 4},
 }
+# M1 rules (perf freeze 10/11, from the audit of the 284 props): tighter M1 LOD0 caps by
+# object size and a texture side chosen from the on-screen size, never 4K.
+M1_RULES_VERSION = "m1rules-1"
+M1_TRIS_BY_SIZE = ((0.5, 800), (1.0, 2_000), (2.0, 6_000), (3.0, 12_000), (6.0, 20_000))
+M1_TRIS_MAX = 30_000
+HERO_FAMILIES = {"Shopfront", "Facade", "Monument"}  # seen close from the pavement: 2K
+TEXTURE_BY_SIZE = ((1.0, 512), (3.0, 1024))
+TEXTURE_MAX = 2048
+
+
+def m1_tris_cap(size_m: float) -> int:
+    """M1 LOD0 triangle cap for an object of ``size_m`` (never above the art bible class budget)."""
+    for limit, cap in M1_TRIS_BY_SIZE:
+        if size_m < limit:
+            return cap
+    return M1_TRIS_MAX
+
+
+def texture_cap(size_m: float, family: str = "") -> int:
+    """Largest texture side justified by the on-screen size (about 1 texel per pixel at 3 m)."""
+    if family in HERO_FAMILIES:
+        return TEXTURE_MAX
+    for limit, side in TEXTURE_BY_SIZE:
+        if size_m < limit:
+            return side
+    return TEXTURE_MAX
+
+
 SCREEN_SIZES = [1.0, 0.5, 0.25, 0.1]  # art bible 6.2
 
 

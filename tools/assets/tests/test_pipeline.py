@@ -67,7 +67,7 @@ def test_prepare_outputs(sample, tmp_path):
     assert not (out / "W1-01_m1.glb").exists()
     t = meta["triangles"]
     assert t["master"] > 6000 and 3000 <= t["ultra"] <= 7500  # capped to the Nanite budget
-    assert t["m1_lod0"] == 10000  # medium prop budget (art bible 5.1)
+    assert t["m1_lod0"] == 6000  # M1 rule: 1-2 m objects cap at 6000 (art bible 5.1 budget is 10000)
     assert meta["category"] == "medium" and len(meta["lod_plan"]) == 4
     pct = [e["percent_triangles"] for e in meta["lod_plan"]]
     assert pct == [1.0, 0.5, 0.25, 0.125]  # fractions of the M1 LOD0 / Nanite fallback
@@ -94,7 +94,7 @@ def test_small_prop_budget_and_box_collision(tmp_path):
     meta = prepare_asset(path, {"id": "W1-09", "size_m": 0.5, "ultra_tris": 6000},
                          str(tmp_path / "o"))
     assert meta["category"] == "small" and len(meta["lod_plan"]) == 3
-    assert meta["triangles"]["m1_lod0"] == 3000
+    assert meta["triangles"]["m1_lod0"] == 2000  # M1 rule: 0.5-1 m objects cap at 2000
     assert meta["collision"] == {"type": "box", "hulls": 1}
 
 
@@ -311,3 +311,10 @@ def test_make_broken_writes_variants(tmp_path):
     meta = json.loads((d / "asset.json").read_text())
     assert set(meta["broken"]) == {"Stump", "Top"}
     assert (d / meta["broken"]["Stump"]["file"]).exists()
+
+
+def test_m1_rules_caps():
+    from gtp_assets.manifest import m1_tris_cap, texture_cap
+    assert [m1_tris_cap(x) for x in (0.3, 0.7, 1.5, 2.5, 4.0, 8.0)] == [800, 2000, 6000, 12000, 20000, 30000]
+    assert texture_cap(0.6) == 512 and texture_cap(2.0) == 1024 and texture_cap(5.0) == 2048
+    assert texture_cap(0.6, "Shopfront") == 2048 and texture_cap(10.0, "Props") == 2048

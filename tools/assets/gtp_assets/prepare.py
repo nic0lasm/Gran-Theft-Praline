@@ -19,7 +19,7 @@ from . import __version__
 from .calibrate import density_px_cm, target_side
 from .collision import recipe as collision_recipe
 from .geometry import decimate, export_geometry_glb, load_glb, normalize
-from .manifest import BUDGETS, category, lod_plan
+from .manifest import BUDGETS, M1_RULES_VERSION, category, lod_plan, m1_tris_cap, texture_cap
 from .textures import extract_material
 
 
@@ -34,7 +34,7 @@ def file_sha256(path: str) -> str:
 def settings_key(item: dict) -> str:
     keys = {k: item.get(k) for k in ("size_m", "pivot", "rotate_y_deg", "rotate_x_deg", "collision",
                                      "m1_tris", "ultra_tris", "family", "asset")}
-    return json.dumps(keys, sort_keys=True) + __version__
+    return json.dumps(keys, sort_keys=True) + __version__ + M1_RULES_VERSION
 
 
 def prepare_asset(src_glb: str, item: dict, staging_root: str, wave: str = "w1",
@@ -62,7 +62,7 @@ def prepare_asset(src_glb: str, item: dict, staging_root: str, wave: str = "w1",
     cat = category(size_m)
     budget = BUDGETS[cat]
     ultra_cap = int(item.get("ultra_tris") or budget["ultra_tris"])
-    m1_target = int(item.get("m1_tris") or budget["m1_tris"])
+    m1_target = int(item.get("m1_tris") or min(budget["m1_tris"], m1_tris_cap(size_m)))
     master_tris = asset.tri_count
     ultra = decimate(asset, ultra_cap)
     proxy = decimate(ultra, m1_target)  # M1-sized proxy, only used for the collision recipe
@@ -76,7 +76,8 @@ def prepare_asset(src_glb: str, item: dict, staging_root: str, wave: str = "w1",
     for i, part in enumerate(ultra.parts):
         suffix = f"_{i}" if len(ultra.parts) > 1 else ""
         # Art bible 4.4: texture side = what the target density needs (never upscaled).
-        side = target_side(part, float(item.get("density_px_cm", 10.24)))
+        side = min(target_side(part, float(item.get("density_px_cm", 10.24))),
+                   int(item.get("texture_cap") or texture_cap(size_m, item.get("family", ""))))
         info = extract_material(part.material, os.path.join(out, "textures"),
                                 f"T_{asset_name}{suffix}", cap=side)
         info["density_px_cm"] = round(density_px_cm(part, max(info["size_px"])), 2)
