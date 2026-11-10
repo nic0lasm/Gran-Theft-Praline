@@ -37,6 +37,7 @@ args_for() {
     minimap)     echo "${off/-Minimap=0/}" ;;
     daynight)    echo "${off/-DayNight=0/} -Ambience=night" ;;
     audio)       echo "${off/-Audio=0/}" ;;
+    rain-dome)   echo "${off/-DayNight=0/} -Ambience=rain -CloudDome=1" ;;
     all)         echo "-Ambience=night" ;;
     *)           return 1 ;;
   esac
@@ -45,7 +46,7 @@ args_for() {
 if test "$#" -gt 0; then
   cases=("$@")
 else
-  cases=(reference traffic police pedestrians ragdoll minimap daynight audio all)
+  cases=(reference traffic police pedestrians ragdoll minimap daynight rain-dome audio all)
 fi
 
 if pgrep -fl "UnrealEditor|GranTheftPraline" >/dev/null; then
