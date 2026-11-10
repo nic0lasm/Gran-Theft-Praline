@@ -60,3 +60,12 @@ assets/staging/
 # City generation output (LiDAR, Grand Lyon, OSM derived): regenerate with tools/city/
 assets/geo/processed/*/gen/
 assets/geo/processed/*/terrain/
+
+# Secrets / local scratch
+.scratch/
+*.env
+
+# Tripo masters stay out of Git (registries only)
+assets/tripo/**/*.glb
+assets/tripo/**/*.fbx
+assets/tripo/**/*.zip
