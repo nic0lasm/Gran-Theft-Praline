@@ -137,6 +137,15 @@ void UGTPAIDriverComponent::Start(AGTPTrafficNetwork* InNetwork, int32 Lane, int
 	SetComponentTickEnabled(true);
 }
 
+void UGTPAIDriverComponent::SetDecisionInterval(float Seconds)
+{
+	Seconds = FMath::Max(0.f, Seconds);
+	if (!FMath::IsNearlyEqual(PrimaryComponentTick.TickInterval, Seconds))
+	{
+		SetComponentTickInterval(Seconds);
+	}
+}
+
 void UGTPAIDriverComponent::ReleaseJunctions()
 {
 	if (Network)
@@ -457,6 +466,20 @@ void AGTPTrafficNetwork::UpdateDetail(AGTPVehicle* Car, float DistanceToView) co
 	{
 		Body->SetVisibility(bDrawn, true);
 	}
+	if (bVehicleLod)
+	{
+		// Cost tiers: fewer driver decisions with distance, no pose refresh for a car that is not drawn.
+		if (UGTPAIDriverComponent* Driver = Car->FindComponentByClass<UGTPAIDriverComponent>())
+		{
+			Driver->SetDecisionInterval(DistanceToView < LodNearDistance ? 0.f : (DistanceToView < LodMidDistance ? 0.1f : 0.25f));
+		}
+		const EVisibilityBasedAnimTickOption Option = bNear ? EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones
+			: EVisibilityBasedAnimTickOption::OnlyTickPoseWhenRendered;
+		if (Body->VisibilityBasedAnimTickOption != Option)
+		{
+			Body->VisibilityBasedAnimTickOption = Option;
+		}
+	}
 }
 
 int32 AGTPTrafficNetwork::PickNext(int32 Lane)
@@ -515,6 +538,10 @@ void AGTPTrafficNetwork::BeginPlay()
 	WantedCars = NumCars;
 	FParse::Value(FCommandLine::Get(), TEXT("Traffic="), WantedCars);
 	WantedCars = FMath::Clamp(WantedCars, 0, 40);
+	int32 VehicleLodSwitch = bVehicleLod ? 1 : 0;
+	FParse::Value(FCommandLine::Get(), TEXT("VehicleLod="), VehicleLodSwitch);
+	bVehicleLod = VehicleLodSwitch != 0;
+	GTP_TRACE(LogGTPTraffic, TEXT("traffic: vehicle LOD tiers %s"), bVehicleLod ? TEXT("on") : TEXT("off"));
 
 	for (const FSoftClassPath& Path : VehicleClasses)
 	{

@@ -105,6 +105,13 @@ public:
 	/** Seconds the car has been standing still. */
 	float GetStoppedTime() const { return StoppedTime; }
 
+	/**
+	 * Seconds between two decisions (0 = every frame). The pedals keep their
+	 * last value in between, so far cars can decide 4 to 10 times a second
+	 * (-VehicleLod=1, docs/performance/vehicle-cost.md).
+	 */
+	void SetDecisionInterval(float Seconds);
+
 	/** Gives back the junctions this car holds (car taken away or stolen). */
 	void ReleaseJunctions();
 
@@ -238,6 +245,21 @@ protected:
 	/** Beyond this distance an AI car is not drawn at all (cm, 0 = always drawn). */
 	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Cost")
 	float DrawDistance = 15000.f;
+
+	/**
+	 * Distance tiers for the cost of AI cars, only with -VehicleLod=1 (or
+	 * bVehicleLod): the driver decides every frame under LodNearDistance, 10
+	 * times a second under LodMidDistance, 4 times a second beyond; the body
+	 * pose is only refreshed while the car is drawn.
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Cost")
+	bool bVehicleLod = false;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Cost")
+	float LodNearDistance = 3500.f;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Cost")
+	float LodMidDistance = 9000.f;
 
 	/** A car standing still this long (gridlock), out of sight, is taken away (seconds); longer than a red light and its queue. */
 	UPROPERTY(Config, EditAnywhere, Category = "Traffic")
