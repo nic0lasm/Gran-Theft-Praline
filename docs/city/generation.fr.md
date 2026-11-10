@@ -275,6 +275,11 @@ est prolongé dans l'axe du pont jusqu'à rejoindre la rue à moins de 12 cm, pu
 hauteur médiane de la rue : marche mesurée de 7 cm au plus, collision active) et un parapet de
 quai le long de l'eau (519 m dans la boîte, coupé sous le pont). `import_city.py` le pose s'il existe
 (dossier City/Riverside) ; `apply_city_materials.py` y met `M_City_Shell` et `M_City_Water`.
+Chute dans le Rhône : un lit avec collision 2,5 m sous la surface (rien ne traverse le monde),
+des boîtes de déclenchement de 25 m marquées `GTP_RiverRecovery` sur l'eau et des sorties de
+quai au niveau de la rue tous les 25 m, marquées `GTP_RiverExit` (points tournés vers la terre,
+jamais sur les bas-ports) : le jeu s'en sert pour faire nager ou repêcher le joueur et les
+voitures.
 `build.py` garde maintenant les noms de voies `nom_collaboratif_*` et `nom_voie_ban_*` de la
 BD TOPO actuelle (les anciens `nom_1_*` n'existent plus).
 
