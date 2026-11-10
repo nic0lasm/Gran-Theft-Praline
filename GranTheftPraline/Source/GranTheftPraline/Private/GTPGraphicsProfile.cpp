@@ -1,25 +1,12 @@
 #include "GTPGraphicsProfile.h"
 
+#include "GTPUserSettings.h"
 #include "HAL/IConsoleManager.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
 #include "UnrealClient.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogGTPGraphics, Log, All);
-
-namespace
-{
-	void SetCVar(const FString& Name, const FString& Value)
-	{
-		IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(*Name);
-		if (!CVar)
-		{
-			UE_LOG(LogGTPGraphics, Warning, TEXT("Unknown console variable %s, skipped"), *Name);
-			return;
-		}
-		CVar->Set(*Value, ECVF_SetByCode);
-	}
-}
 
 void UGTPGraphicsProfile::Initialize(FSubsystemCollectionBase& Collection)
 {
@@ -29,7 +16,38 @@ void UGTPGraphicsProfile::Initialize(FSubsystemCollectionBase& Collection)
 	if (!FParse::Value(FCommandLine::Get(), TEXT("GfxProfile="), Requested))
 	{
 		Requested = DefaultProfile;
+		// The player's saved choice (settings screen) replaces the project default.
+		const UGTPUserSettings* User = Collection.InitializeDependency<UGTPUserSettings>();
+		if (User && User->HasSavedFile())
+		{
+			Requested = FString(UTF8_TO_TCHAR(User->Get().Graphics.c_str()));
+		}
 	}
+	ApplyProfile(Requested);
+}
+
+void UGTPGraphicsProfile::SetProfile(const FString& Name)
+{
+	// Back to the values found at start, then the new profile on top (ultra = nothing on top).
+	if (ResizeHandle.IsValid())
+	{
+		FViewport::ViewportResizedEvent.Remove(ResizeHandle);
+		ResizeHandle.Reset();
+	}
+	for (const TPair<FString, FString>& Original : OriginalValues)
+	{
+		if (IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(*Original.Key))
+		{
+			CVar->Set(*Original.Value, ECVF_SetByCode);
+		}
+	}
+	OriginalValues.Reset();
+	AppliedScreenPercentage = 0.f;
+	ApplyProfile(Name);
+}
+
+void UGTPGraphicsProfile::ApplyProfile(FString Requested)
+{
 	Requested = Requested.ToLower();
 
 	if (Requested == TEXT("fidelity"))
@@ -41,7 +59,7 @@ void UGTPGraphicsProfile::Initialize(FSubsystemCollectionBase& Collection)
 		ApplyCVars(FidelityCVars);
 		ApplyCVars(M1CVars);
 		ResizeHandle = FViewport::ViewportResizedEvent.AddUObject(this, &UGTPGraphicsProfile::HandleViewportResized);
-		UpdateScreenPercentage(static_cast<int32>(M1ReferenceHeight));
+		UpdateScreenPercentage(ViewportSize.Y > 0 ? ViewportSize.Y : static_cast<int32>(M1ReferenceHeight));
 	}
 	else if (Requested != TEXT("ultra"))
 	{
@@ -51,6 +69,22 @@ void UGTPGraphicsProfile::Initialize(FSubsystemCollectionBase& Collection)
 
 	ActiveProfile = Requested;
 	UE_LOG(LogGTPGraphics, Log, TEXT("Graphics profile: %s"), *ActiveProfile);
+}
+
+void UGTPGraphicsProfile::SetCVar(const FString& Name, const FString& Value)
+{
+	IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(*Name);
+	if (!CVar)
+	{
+		UE_LOG(LogGTPGraphics, Warning, TEXT("Unknown console variable %s, skipped"), *Name);
+		return;
+	}
+	// Remember the value found before the first change, to come back to it on a profile switch.
+	if (!OriginalValues.Contains(Name))
+	{
+		OriginalValues.Add(Name, CVar->GetString());
+	}
+	CVar->Set(*Value, ECVF_SetByCode);
 }
 
 void UGTPGraphicsProfile::Deinitialize()

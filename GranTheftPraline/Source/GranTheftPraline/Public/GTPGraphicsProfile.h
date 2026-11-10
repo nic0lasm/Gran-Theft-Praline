@@ -29,6 +29,13 @@ public:
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
 	virtual void Deinitialize() override;
 
+	/**
+	 * Switches to another profile while the game runs (settings screen): puts
+	 * back the values found at start, then applies the named profile.
+	 * Names as for -GfxProfile. The cvar values stay those of the profiles.
+	 */
+	void SetProfile(const FString& Name);
+
 	/** Active profile name, for logs and the frame time summary. */
 	const FString& GetActiveProfile() const { return ActiveProfile; }
 
@@ -39,6 +46,8 @@ public:
 	FIntPoint GetViewportSize() const { return ViewportSize; }
 
 private:
+	void ApplyProfile(FString Requested);
+	void SetCVar(const FString& Name, const FString& Value);
 	void ApplyCVars(const TArray<FString>& Pairs);
 	void HandleViewportResized(FViewport* Viewport, uint32 Unused);
 	void UpdateScreenPercentage(int32 ViewportHeight);
@@ -62,6 +71,9 @@ private:
 	/** m1: screen percentage at the reference height. */
 	UPROPERTY(Config)
 	float M1ScreenPercentage = 50.f;
+
+	/** Value of each cvar before the profile first changed it. */
+	TMap<FString, FString> OriginalValues;
 
 	FString ActiveProfile;
 	float AppliedScreenPercentage = 0.f;
