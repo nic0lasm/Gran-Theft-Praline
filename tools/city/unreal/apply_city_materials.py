@@ -16,6 +16,9 @@ Steps (idempotent, only material assets and the mesh slots change, the map is no
   3. M_City_Shell: the building colour the generator wrote in the vertex colours,
      stone courses on the walls, rougher walls than roofs
   4. assign them to every terrain tile and building shell mesh, save the meshes
+  4b. M_City_Kit and one instance per facade kit slot (colours of kit.py; stone slots take
+     the building colour from per-instance custom data) on every kit mesh, in place of the
+     Interchange glTF instances that render as the default checker in the packaged game
   5. report in Saved/CityImport/materials_report.json (with a check of the facade
      instances and of the kit materials in the map)
 """
@@ -39,10 +42,39 @@ KIT_DIR = "/Game/Environment/Facades/LyonKit"
 
 # Art bible, dry daylight albedos (linear).
 SIDEWALK = (0.34, 0.32, 0.29)      # pale limestone slabs
-PAVING = (0.27, 0.26, 0.25)        # grey granite setts and slabs
+PAVING = (0.21, 0.20, 0.19)        # grey granite setts and slabs
 KERB = (0.22, 0.21, 0.20)          # granite kerb
 ASPHALT = (0.045, 0.045, 0.05)
 MARKING = (0.62, 0.62, 0.60)
+
+# Facade kit slots (tools/city/facade_kit/kit.py MATERIALS): linear albedo, roughness, metallic.
+# The glTF import gives them Interchange instances that render as the default checker in
+# the packaged game; they are replaced by instances of one lean master, M_City_Kit.
+KIT_SLOTS = {
+    "MI_Facade_LimestoneCream": (0.66, 0.60, 0.50, 0.82, 0.0),
+    "MI_Facade_LimestoneGreyPlinth": (0.42, 0.41, 0.39, 0.75, 0.0),
+    "MI_Facade_Render": (0.70, 0.52, 0.34, 0.92, 0.0),
+    "MI_Facade_PierreDoree": (0.62, 0.48, 0.30, 0.85, 0.0),
+    "MI_Window_PaintedWood": (0.80, 0.79, 0.76, 0.45, 0.0),
+    "MI_Glass_Window": (0.02, 0.025, 0.03, 0.04, 0.0),
+    "MI_Ironwork_Painted": (0.025, 0.025, 0.028, 0.55, 0.0),
+    "MI_Shutter_Painted": (0.30, 0.36, 0.33, 0.55, 0.0),
+    "MI_Shopfront_Aluminium": (0.20, 0.20, 0.21, 0.35, 1.0),
+    "MI_Shopfront_Wood": (0.10, 0.17, 0.15, 0.40, 0.0),
+    "MI_Door_Wood": (0.13, 0.07, 0.035, 0.45, 0.0),
+    "MI_Genoise_Tile": (0.50, 0.24, 0.14, 0.80, 0.0),
+    "MI_Sign_Fascia": (0.04, 0.04, 0.045, 0.40, 0.0),
+    "MI_Shopfront_Steel": (0.03, 0.03, 0.032, 0.35, 1.0),
+    "MI_Shutter_Metal": (0.45, 0.46, 0.47, 0.5, 1.0),
+    "MI_Shop_Interior": (0.80, 0.78, 0.74, 0.7, 0.0),
+    "MI_Shop_Floor": (0.35, 0.33, 0.31, 0.4, 0.0),
+    "MI_Shop_Display": (0.25, 0.22, 0.2, 0.6, 0.0),
+    "MI_Sign_Panel": (0.5, 0.5, 0.5, 0.35, 0.0),
+    "MI_Glass_Shop": (0.05, 0.06, 0.065, 0.03, 0.0),   # opaque here: reflective dark glass
+}
+KIT_EMISSIVE = {"MI_Shop_Interior": (1.0, 0.92, 0.8, 1.2)}
+# Stone slots take the building colour place_facades.py writes in per-instance custom data 0-2.
+KIT_BUILDING_COLOUR = ("MI_Facade_LimestoneCream", "MI_Facade_Render", "MI_Facade_PierreDoree")
 
 eal = unreal.EditorAssetLibrary
 mel = unreal.MaterialEditingLibrary
@@ -206,6 +238,83 @@ def shell_material():
     return mat
 
 
+def kit_master():
+    mat = new_material("M_City_Kit")
+    g = Graph(mat)
+    base = g.node(unreal.MaterialExpressionVectorParameter, parameter_name="BaseColor",
+                  default_value=unreal.LinearColor(0.5, 0.5, 0.5, 1.0))
+    use = g.node(unreal.MaterialExpressionScalarParameter, parameter_name="UseBuildingColour", default_value=0.0)
+    pic = g.node(unreal.MaterialExpressionPerInstanceCustomData3Vector, data_index=0,
+                 default_value=unreal.LinearColor(0.66, 0.60, 0.50, 1.0))
+    # Keep the slot's value contrast (cream stone vs plinth) and take the building's hue.
+    col = g.lerp(g.mask(base, r=True, g=True, b=True), pic, use)
+    rough = g.node(unreal.MaterialExpressionScalarParameter, parameter_name="Roughness", default_value=0.8)
+    metal = g.node(unreal.MaterialExpressionScalarParameter, parameter_name="Metallic", default_value=0.0)
+    emis = g.node(unreal.MaterialExpressionVectorParameter, parameter_name="Emissive",
+                  default_value=unreal.LinearColor(0.0, 0.0, 0.0, 1.0))
+    mel.connect_material_property(col, "", unreal.MaterialProperty.MP_BASE_COLOR)
+    mel.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS)
+    mel.connect_material_property(metal, "", unreal.MaterialProperty.MP_METALLIC)
+    mel.connect_material_property(g.mask(emis, r=True, g=True, b=True), "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+    mat.set_editor_property("used_with_instanced_static_meshes", True)
+    g.done()
+    return mat
+
+
+def kit_instances(master):
+    out = {}
+    for name, (r, gr, b, rough, metal) in KIT_SLOTS.items():
+        path = MAT_DIR + "/" + name.replace("MI_", "MI_City_", 1)
+        if eal.does_asset_exist(path):
+            eal.delete_asset(path)
+        mic = asset_tools.create_asset(path.rsplit("/", 1)[1], MAT_DIR, unreal.MaterialInstanceConstant,
+                                       unreal.MaterialInstanceConstantFactoryNew())
+        mel.set_material_instance_parent(mic, master)
+        mel.set_material_instance_vector_parameter_value(mic, "BaseColor", unreal.LinearColor(r, gr, b, 1.0))
+        mel.set_material_instance_scalar_parameter_value(mic, "Roughness", rough)
+        mel.set_material_instance_scalar_parameter_value(mic, "Metallic", metal)
+        mel.set_material_instance_scalar_parameter_value(mic, "UseBuildingColour",
+                                                         1.0 if name in KIT_BUILDING_COLOUR else 0.0)
+        if name in KIT_EMISSIVE:
+            er, eg, eb, k = KIT_EMISSIVE[name]
+            mel.set_material_instance_vector_parameter_value(mic, "Emissive", unreal.LinearColor(er * k, eg * k, eb * k, 1.0))
+        eal.save_loaded_asset(mic)
+        out[name] = mic
+    return out
+
+
+def slot_key(slot_name):
+    """Interchange may suffix slot names (_1, _Mat); match on the longest known prefix."""
+    s = str(slot_name)
+    best = None
+    for k in KIT_SLOTS:
+        if s.startswith(k) and (best is None or len(k) > len(best)):
+            best = k
+    return best
+
+
+def assign_kit(mics, report):
+    meshes, slots, unknown = 0, 0, set()
+    for p in eal.list_assets(KIT_DIR, recursive=True):
+        a = eal.load_asset(p)
+        if not isinstance(a, unreal.StaticMesh) or a.get_name() == "SM_Sign_Panel":
+            continue   # sign panels keep their per-shop MI set on the component
+        for i, sm in enumerate(a.get_editor_property("static_materials")):
+            key = slot_key(sm.get_editor_property("material_slot_name"))
+            if key is None:
+                mi = sm.get_editor_property("material_interface")
+                key = slot_key(mi.get_name()) if mi else None
+            if key is None:
+                unknown.add(str(sm.get_editor_property("material_slot_name")))
+                key = "MI_Facade_LimestoneCream"
+            a.set_material(i, mics[key])
+            slots += 1
+        eal.save_loaded_asset(a)
+        meshes += 1
+    report["kit_meshes"], report["kit_slots"] = meshes, slots
+    report["kit_unknown_slots"] = sorted(unknown)[:20]
+
+
 def assign(folder, mat):
     n = 0
     for p in eal.list_assets(folder, recursive=True):
@@ -250,6 +359,7 @@ def main():
         shell = shell_material()
         report["terrain_meshes"] = assign(ROOT + "/Terrain", ground)
         report["shell_meshes"] = assign(ROOT + "/Buildings/" + CAMEL, shell)
+        assign_kit(kit_instances(kit_master()), report)
         facade_check(report)
     except Exception as e:  # report, never leave the editor hanging on a dialog
         report["errors"].append(repr(e))
