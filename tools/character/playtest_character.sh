@@ -23,6 +23,8 @@ project="$repo/GranTheftPraline/GranTheftPraline.uproject"
 ue_root="${UE_ROOT:-/Users/Shared/Epic Games/UE_5.8}"
 editor="$ue_root/Engine/Binaries/Mac/UnrealEditor.app/Contents/MacOS/UnrealEditor"
 out="${1:-$repo/.scratch/character}"
+# The editor runs from the engine binaries folder: make the output absolute.
+case "$out" in /*) ;; *) out="$PWD/$out" ;; esac
 
 test -x "$editor" || { echo "Unreal Editor not found: $editor" >&2; exit 1; }
 mkdir -p "$out"
@@ -67,6 +69,15 @@ GTP_PLAYTEST_OUT="$out" "$editor" "$project" /Game/Maps/L_RueRepublique -game -w
 for f in frametimes.csv frametimes.summary.txt game.log; do
   test -f "$tmp/$f" && cp "$tmp/$f" "$out/$f"
 done
+# The recorder may ignore -FrameLogFile when -FrameLog is also given and write
+# to Saved/Profiling: take the newest log from there in that case.
+if test ! -f "$out/frametimes.csv"; then
+  latest="$(ls -t "$repo/GranTheftPraline/Saved/Profiling"/frametimes-*.csv 2>/dev/null | head -n 1 || true)"
+  if test -n "$latest"; then
+    cp "$latest" "$out/frametimes.csv"
+    test -f "${latest%.csv}.summary.txt" && cp "${latest%.csv}.summary.txt" "$out/frametimes.summary.txt"
+  fi
+fi
 test -f "$out/playtest.json" || { echo "no playtest report written" >&2; exit 1; }
 cat "$out/playtest.json"
 grep -q '"result": "PASS"' "$out/playtest.json"

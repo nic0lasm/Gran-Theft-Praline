@@ -1,7 +1,7 @@
 # On-foot feel: camera, prompts, HUD, ambience
 
 *French version: [on-foot-feel.fr.md](on-foot-feel.fr.md).*
-*Version 0.2. Last updated: 2026-11-09. Status: code ready, compile and playtest on the Mac pending.*
+*Version 0.2. Last updated: 2026-11-09. Status: compiled (editor and game, no warning in our code) and playtested on the M1 Pro, 16/16 checks passed.*
 
 ## 1. Goal
 
@@ -97,7 +97,30 @@ night variant, recorded CC0 layers if the synthetic bed sounds thin.
 `GTP_CAPTURE=<seconds>` films the run (frames by `UGTPFrameCapture`); frame
 times come from a separate, unfilmed run with the m1 profile.
 
-## 7. Results
+## 7. Results (M1 Pro, 2026-11-10, m1 profile, `L_RueRepublique`)
 
-To be filled after the Mac run: playtest report, video, frame times before
-and after (m1 profile).
+Evidence in [test-results/2026-11-10](test-results/2026-11-10/): both
+playtest reports, both frame time summaries, three screenshots. The 15 s
+video stays on the Mac (`.scratch/feel/on-foot-feel.mp4`).
+
+| Check | Follow camera (after) | Sample camera (before) |
+| ---- | ---- | ---- |
+| Framing at rest | 78°, 293 cm | 80°, 179 cm |
+| Framing sprinting | 86°, 385 cm | 80°, 224 cm |
+| Stop after a sprint (700 cm/s) | 83 cm, 0.17 s | same (sample locomotion) |
+| Auto recenter, 6 s diagonal run | 97.5° | 0° |
+| Camera behind a wall | 0 of 881 frames | not measured |
+| First person, respawn, back to third | pass | pass |
+| Playtest result | **PASS 16/16** | 13/16 (framing and recenter checks target the new camera) |
+
+| Frame time (ms) | p50 | p95 | p99 | GPU p50 | GPU p95 |
+| ---- | ---- | ---- | ---- | ---- | ---- |
+| Before | 28.85 | 44.26 | 70.31 | 25.30 | 36.13 |
+| After | 29.18 | 45.33 | 70.19 | 25.54 | 36.47 |
+
+Cost of the camera, prompts and HUD: about +0.3 ms median, within the
+noise of a GPU-bound run. Run with the screen locked; the game log shows no
+warning from our code and no view target fight.
+
+Still to check by hand: the feel itself (mouse and gamepad), the prompts
+next to the Clio in `L_City_RueDeLaRepublique`, the ambience level.

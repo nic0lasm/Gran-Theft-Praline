@@ -1,7 +1,7 @@
 # Sensation de jeu à pied : caméra, aides, HUD, ambiance
 
 *Version anglaise : [on-foot-feel.md](on-foot-feel.md).*
-*Version 0.2. Mise à jour : 2026-11-09. État : code prêt, compilation et playtest sur le Mac à faire.*
+*Version 0.2. Mise à jour : 2026-11-09. État : compilé (éditeur et jeu, aucun avertissement dans notre code) et testé sur le M1 Pro, 16 contrôles sur 16 réussis.*
 
 ## 1. Objectif
 
@@ -100,7 +100,32 @@ pauvre.
 `GTP_CAPTURE=<secondes>` filme le passage (images par `UGTPFrameCapture`) ;
 les temps d'image viennent d'un passage séparé, non filmé, en profil m1.
 
-## 7. Résultats
+## 7. Résultats (M1 Pro, 2026-11-10, profil m1, `L_RueRepublique`)
 
-À compléter après le passage sur le Mac : rapport de playtest, vidéo, temps
-d'image avant et après (profil m1).
+Preuves dans [test-results/2026-11-10](test-results/2026-11-10/) : les deux
+rapports de playtest, les deux résumés de temps d'image, trois captures. La
+vidéo de 15 s reste sur le Mac (`.scratch/feel/on-foot-feel.mp4`).
+
+| Contrôle | Caméra de suivi (après) | Caméra du sample (avant) |
+| ---- | ---- | ---- |
+| Cadrage à l'arrêt | 78°, 293 cm | 80°, 179 cm |
+| Cadrage en sprint | 86°, 385 cm | 80°, 224 cm |
+| Arrêt après un sprint (700 cm/s) | 83 cm, 0,17 s | identique (locomotion du sample) |
+| Recentrage auto, 6 s en diagonale | 97,5° | 0° |
+| Caméra derrière un mur | 0 image sur 881 | non mesuré |
+| Première personne, réapparition, retour en troisième | réussi | réussi |
+| Résultat du playtest | **PASS 16/16** | 13/16 (les contrôles de cadrage et de recentrage visent la nouvelle caméra) |
+
+| Temps d'image (ms) | p50 | p95 | p99 | GPU p50 | GPU p95 |
+| ---- | ---- | ---- | ---- | ---- | ---- |
+| Avant | 28,85 | 44,26 | 70,31 | 25,30 | 36,13 |
+| Après | 29,18 | 45,33 | 70,19 | 25,54 | 36,47 |
+
+Coût de la caméra, des aides et du HUD : environ +0,3 ms en médiane, dans le
+bruit d'un passage limité par le GPU. Passage fait écran verrouillé ; le
+journal ne montre aucun avertissement de notre code ni de conflit de cible
+de vue.
+
+Reste à vérifier à la main : la sensation elle-même (souris et manette), les
+aides près de la Clio dans `L_City_RueDeLaRepublique`, le niveau de
+l'ambiance.
