@@ -265,7 +265,12 @@ def main():
             continue
         a = place_mesh(m, (0.0, 0.0, 0.0), n["name"], "City/Riverside")
         if not n["collision"]:
-            a.static_mesh_component.set_collision_enabled(unreal.CollisionEnabled.NO_COLLISION)
+            # set_collision_enabled alone is runtime state and was not saved with the map:
+            # write the profile on the component's body instance so it persists.
+            comp = a.static_mesh_component
+            comp.modify()
+            comp.set_collision_profile_name("NoCollision")
+            comp.set_collision_enabled(unreal.CollisionEnabled.NO_COLLISION)
     report["riverside"] = sorted(river)
 
     # Player start: Bellecour end of the focus street, looking up the street (morning test map).
