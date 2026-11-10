@@ -34,7 +34,32 @@ MAX_SNAP_CM = 250.0
 PROPS_SET = os.environ.get("GTP_PROPS_SET", "props")
 FOLDER = "City/" + PROPS_SET.capitalize()
 CSV_NAME = PROPS_SET + "_placement.csv"
-PROPS_ROOT = "/Game/Environment/Props"   # farther than this from the LiDAR ground: keep the LiDAR height
+PROPS_ROOT = "/Game/Environment/Props"
+
+# Draw distances by prop size (largest bounding box side), metres, and per set (fil
+# optimisation: numbers to tune after the m1 measure). Culling starts at CULL_START_SHARE of
+# the end. Props smaller than NO_SHADOW_BELOW_M cast no dynamic shadow.
+CULL_END_M = {"props": {"small": 80.0, "medium": 120.0, "large": 250.0},
+              "details": {"small": 40.0, "medium": 60.0, "large": 120.0}}
+SIZE_CLASSES_M = (("small", 1.0), ("medium", 3.0))   # up to 1 m small, up to 3 m medium
+CULL_START_SHARE = 0.8
+NO_SHADOW_BELOW_M = 0.5
+
+
+def tune_render(comp, mesh, report):
+    """Cull distance and shadows from the mesh size; LOD check for the optimisation thread."""
+    ext = mesh.get_bounds().box_extent
+    size_m = 2.0 * max(ext.x, ext.y, ext.z) / 100.0
+    cls = next((c for c, lim in SIZE_CLASSES_M if size_m <= lim), "large")
+    end = CULL_END_M.get(PROPS_SET, CULL_END_M["props"])[cls] * 100.0
+    comp.set_editor_property("instance_start_cull_distance", int(end * CULL_START_SHARE))
+    comp.set_editor_property("instance_end_cull_distance", int(end))
+    if size_m < NO_SHADOW_BELOW_M:
+        comp.set_editor_property("cast_shadow", False)
+    tally = report.setdefault("cull_classes", {})
+    tally[cls] = tally.get(cls, 0) + 1
+    if mesh.get_num_lods() < 2:
+        report.setdefault("meshes_without_lods", []).append(mesh.get_name())   # farther than this from the LiDAR ground: keep the LiDAR height
 
 eal = unreal.EditorAssetLibrary
 level_sub = unreal.get_editor_subsystem(unreal.LevelEditorSubsystem)
@@ -110,6 +135,8 @@ def main():
             mesh = eal.load_asset(p) if p else None
             comps[key] = hism_actor("Props_" + r["catalog_id"] + "_" + (r["asset"] or mesh.get_name() if mesh else ""),
                                     mesh) if mesh else None
+            if mesh is not None:
+                tune_render(comps[key], mesh, report)
             if mesh is None:
                 report["missing_assets"].append(r["catalog_id"])
         comp = comps[key]
