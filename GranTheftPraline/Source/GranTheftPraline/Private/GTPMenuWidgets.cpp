@@ -99,7 +99,7 @@ void UGTPMenuWidget::RefreshHeadings()
 	}
 }
 
-UButton* UGTPMenuWidget::AddButton(const FText& Label, UTextBlock** OutLabel)
+UButton* UGTPMenuWidget::AddButton(const FText& Label, TObjectPtr<UTextBlock>* OutLabel)
 {
 	check(ButtonColumn);
 
@@ -279,7 +279,7 @@ namespace
 	{
 		if (UGTPUserSettings* Settings = UGTPUserSettings::Find(Context))
 		{
-			Settings->Modify(Change);
+			Settings->ChangeSettings(Change);
 		}
 	}
 }
@@ -304,8 +304,7 @@ void UGTPSettingsMenuWidget::BuildButtons()
 	AddButton(FText::GetEmpty(), &KeyboardLabel)->OnClicked.AddDynamic(this, &UGTPSettingsMenuWidget::HandleKeyboard);
 	AddButton(FText::GetEmpty(), &MinimapLabel)->OnClicked.AddDynamic(this, &UGTPSettingsMenuWidget::HandleMinimap);
 	AddButton(FText::GetEmpty(), &MinimapZoomLabel)->OnClicked.AddDynamic(this, &UGTPSettingsMenuWidget::HandleMinimapZoom);
-	UTextBlock* BackLabel = nullptr;
-	AddButton(GTPLoc("menu.back"), &BackLabel)->OnClicked.AddDynamic(this, &UGTPSettingsMenuWidget::HandleBack);
+	AddButton(GTPLoc("menu.back"))->OnClicked.AddDynamic(this, &UGTPSettingsMenuWidget::HandleBack);
 	RefreshRows();
 }
 

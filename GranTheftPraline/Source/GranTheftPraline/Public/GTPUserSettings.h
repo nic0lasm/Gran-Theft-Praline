@@ -35,7 +35,7 @@ public:
 	bool HasSavedFile() const { return bLoadedFromFile; }
 
 	/** Changes the settings, applies what changed and saves. */
-	void Modify(TFunctionRef<void(GTPUI::FUserSettings&)> Change);
+	void ChangeSettings(TFunctionRef<void(GTPUI::FUserSettings&)> Change);
 
 	/** Called after every change (controller re-applies the keyboard, HUD redraws). */
 	FSimpleMulticastDelegate OnChanged;

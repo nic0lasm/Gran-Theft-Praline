@@ -58,7 +58,7 @@ void UGTPUserSettings::ApplyLanguageAndVolume() const
 	FApp::SetVolumeMultiplier(Settings.VolumeMultiplier());
 }
 
-void UGTPUserSettings::Modify(TFunctionRef<void(GTPUI::FUserSettings&)> Change)
+void UGTPUserSettings::ChangeSettings(TFunctionRef<void(GTPUI::FUserSettings&)> Change)
 {
 	const GTPUI::FUserSettings Before = Settings;
 	Change(Settings);
