@@ -20,7 +20,9 @@ zone="${GTP_CITY_ZONE:-presqu-ile}"
 gen_root="$repo/assets/geo/processed/$zone/gen"
 
 test -x "$editor" || { echo "Unreal Editor not found: $editor" >&2; exit 1; }
-if pgrep -fl "UnrealEditor|GranTheftPraline" | grep -vE "UnrealEditorServices|CrashReportClient" > /dev/null; then
+# Same test as the perf slots: the editor or the game, never the UnrealEditorServices helper
+# (a "pgrep | grep -v" pipeline can match its own grep).
+if pgrep -f "UnrealEditor( |$)|GranTheftPraline-Mac" > /dev/null; then
   echo "an Unreal process is already running, wait for it to finish" >&2
   exit 1
 fi
@@ -36,9 +38,13 @@ fi
 test "${#gens[@]}" -gt 0 || { echo "no city outputs under $gen_root" >&2; exit 1; }
 python3 "$repo/tools/environment/build_night_lights.py" "${gens[@]}"
 
-# The project path has a space: Content/Python/gtp_run.py runs the script in place (no temp copy).
+# The project path has a space and Unreal splits -ExecutePythonScript on
+# spaces: Content/Python/gtp_run.py runs the script named by GTP_PY_SCRIPT, nothing is
+# copied or written outside the project.
+test -f "$repo/GranTheftPraline/Content/Python/gtp_run.py" || { echo "Content/Python/gtp_run.py missing (fix/py-launcher-no-tmp)" >&2; exit 1; }
 GTP_PY_SCRIPT="$repo/tools/environment/unreal/setup_environment.py" \
-  "$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES "-ExecutePythonScript=__import__('gtp_run').main()"
+  "$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES \
+  "-ExecutePythonScript=__import__('gtp_run').main()"
 
 result="$repo/GranTheftPraline/Saved/Environment/setup_report.json"
 test -f "$result" || { echo "setup_environment.py wrote no report" >&2; exit 1; }
