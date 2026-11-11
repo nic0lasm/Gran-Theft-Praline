@@ -54,6 +54,22 @@ def chain(source_tris, most):
     return [len(source_tris) - 1]
 
 
+def auto_screen_size(mesh):
+    """Turns on the automatic LOD screen sizes when this engine exposes the flag.
+
+    UE 5.8 does not expose it to Python on UStaticMesh (the property lookup
+    fails), so the mesh keeps the flag of the duplicated source; the report
+    says which case applied instead of failing the mesh.
+    """
+    for name in ("auto_compute_lod_screen_size", "b_auto_compute_lod_screen_size"):
+        try:
+            mesh.set_editor_property(name, True)
+            return "set"
+        except Exception:
+            continue
+    return "not exposed, kept from the source"
+
+
 def prepare(source, most, row):
     src = eal.load_asset(source)
     if src is None:
@@ -77,7 +93,7 @@ def prepare(source, most, row):
         got = sm_sub.set_lod_from_static_mesh(mesh, dest_lod, src, src_lod, True)
         if got < 0:
             raise RuntimeError("set_lod_from_static_mesh %d <- %d failed" % (dest_lod, src_lod))
-    mesh.set_editor_property("auto_compute_lod_screen_size", True)
+    row["auto_lod_screen_size"] = auto_screen_size(mesh)
     eal.save_loaded_asset(mesh)
 
     row.update({"mesh": dest, "triangles": tris(mesh),
