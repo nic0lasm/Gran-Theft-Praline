@@ -69,6 +69,33 @@ mapped onto the real engine's, and the load is cut during each gear change.
 - A medium or heavy crash broadcasts `UGTPAudioWorld::OnLoudSound(location, radius, cause)`, with a radius of 8 m (medium) or 20 m (heavy). Pedestrians bind `ScareAround` to it through a lambda.
 - Police radio, 2D and without words: alert tones then a call for each star gained, a closing call when the pursuit ends. In between, chatter every 7 to 16 s, closer together with more stars. The HUD star sounds (`StarUp`, `StarDown`) play at the same time.
 
+## Interiors and missions (0.9)
+
+`tools/audio/make_places.py` (seed 17, 32 files, no recording) writes `Interior/` (seamless 12 s
+loops: RoomTone, Fryer, Grill, Hood, Cold, Shake, Drinks), `Shop/` (till open and close, coins,
+notes, receipt printer, card beep, fryer timer, basket drop, order and door chimes, back-door
+alarm buzzer, safe) and `Mission/` (available, start, objective, checkpoint, success, fail,
+reward, countdown). `UGTPPlaceAudio`, owned by the audio world, plays them:
+
+- when a streamed level whose name contains `Interior` becomes visible (ADR-0012), its
+  components are scanned once. Loop emitters come from a tag `GTP_AudioLoop=<Loop>`, or else
+  from a name with fryer, grill, hood, fridge/freezer/cold, shake or drink in it; the same loop
+  within 1.5 m counts once. Rooms come from components tagged `GTP_AudioRoom`, or else the level
+  bounds. Till points come from till, register, kiosk or pos in a name;
+- a pool of at most 6 looping voices (`MaxRoomVoices`) follows the nearest emitters within
+  25 m. The pool is created once, so streaming an interior in and out never creates or
+  destroys an audio object;
+- inside a room, the indoor mix `SM_GTP_Indoor` lowers the street loop and the bed to 0.3, the
+  traffic to 0.35 (sirens 0.7) and low-passes them at 1.5 kHz; the room tone fades in and the
+  door chime plays on the way in;
+- until the staff loops call `UGTPPlaceAudio::PlayShop`, a light shop life plays card beeps,
+  receipts, order chimes, coins and fryer timers at the tills and fryers every 3 to 9 s
+  (`-ShopLife=0` turns it off);
+- `UGTPPlaceAudio::PlayMission` plays a sting in 2D through the Interface class.
+
+Settings: `[/Script/GranTheftPraline.GTPPlaceAudio]` in `DefaultGame.ini`. Cost: at most 6
+looping voices plus one room tone, an estimated 0.06 % of a core per sample voice, under 0.5 % in all.
+
 ## Crowd budget (50 pedestrians, 25 cars)
 
 Every 0.25 s `UGTPAudioWorld` ranks the running engines and the walkers by

@@ -13,6 +13,7 @@
 #include "GTPLog.h"
 #include "GTPSirenComponent.h"
 #include "GTPStreetReactions.h"
+#include "GTPPlaceAudio.h"
 #include "GTPVehicle.h"
 #include "GTPVehicleAudioComponent.h"
 #include "AudioMixerBlueprintLibrary.h"
@@ -66,6 +67,8 @@ void UGTPAudioWorld::OnWorldBeginPlay(UWorld& InWorld)
 	Bed->Start(&InWorld);
 	Reactions = NewObject<UGTPStreetReactions>(this);
 	Reactions->Start(&InWorld);
+	Places = NewObject<UGTPPlaceAudio>(this);
+	Places->Start(&InWorld);
 	GTP_TRACE(LogGTPAudioWorld, TEXT("[Audio] world %s: %d actors equipped at start; bed %s"), *InWorld.GetMapName(), Equipped, *Bed->Describe());
 }
 
@@ -80,6 +83,11 @@ void UGTPAudioWorld::Deinitialize()
 	{
 		Reactions->Stop();
 		Reactions = nullptr;
+	}
+	if (Places)
+	{
+		Places->Stop();
+		Places = nullptr;
 	}
 	PendingEquip.Reset();
 	Walkers.Reset();
@@ -213,6 +221,10 @@ void UGTPAudioWorld::Tick(float DeltaTime)
 	if (Reactions)
 	{
 		Reactions->Tick(DeltaTime);
+	}
+	if (Places)
+	{
+		Places->Tick(DeltaTime);
 	}
 	if (bLogStats)
 	{
@@ -396,8 +408,9 @@ void UGTPAudioWorld::LogStats()
 		}
 		Feet += It->FindComponentByClass<UGTPFootstepComponent>() ? 1 : 0;
 	}
-	GTP_TRACE(LogGTPAudioWorld, TEXT("[Audio] steps=%d impacts=%d sirens_on=%d skids_on=%d walkers=%d heard=%d engines=%d/%d driving=%d bank=%d voices=%d radio=%d %s; %s"),
+	GTP_TRACE(LogGTPAudioWorld, TEXT("[Audio] steps=%d impacts=%d sirens_on=%d skids_on=%d walkers=%d heard=%d engines=%d/%d driving=%d bank=%d voices=%d radio=%d %s; %s; %s"),
 		Mix ? Mix->FootstepsPlayed : 0, Mix ? Mix->ImpactsPlayed : 0, Sirens, Skids, Feet, WalkersHeard, EnginesAudible, Engines.Num(), bDrivingMixOn ? 1 : 0, Mix ? Mix->GetBankSize() : 0,
 		Mix ? Mix->VoicesPlayed : 0, Mix ? Mix->RadioPlayed : 0, Bed ? *Bed->Describe() : TEXT("bed=off"),
-		Reactions ? *Reactions->Describe() : TEXT("reactions=off"));
+		Reactions ? *Reactions->Describe() : TEXT("reactions=off"),
+		Places ? *Places->Describe() : TEXT("places=off"));
 }
