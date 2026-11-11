@@ -72,9 +72,13 @@ mapped onto the real engine's, and the load is cut during each gear change.
 ## Combat (0.7)
 
 Spec: [combat.md](../gameplay/combat.md), "Sounds". Banks made by `make_weapons.py`
-(`Weapons/`, `BulletImpacts/`, `Melee/`), played by `UGTPCombatAudio`, which the
-combat code calls or the audio world binds to `UGTPCombatSubsystem`
-(`OnShotFired` → `PlayShot`, `OnDamageDealt` → `PlayHit`).
+(`Weapons/`, `BulletImpacts/`, `Melee/`), played by `UGTPCombatAudio`. The audio world
+listens to the combat system through `UGTPCombatSounds`, so the combat code plays nothing itself:
+`OnShotFired` gives the shot and, from its hit, the bullet impact; `OnDamageDealt` with a melee
+blow gives a light or heavy hit (a bullet in a body already sounded as a Flesh impact); the
+player's `UGTPWeaponComponent::OnWeaponEvent` gives dry fire, magazine out at the start of a
+reload and in at 55 % of it, and the slide when it ends. Only blocks and swishes of the fists
+are called directly by the combat code. Nothing is bound under `-Combat=0`.
 
 - **Shot:** within 25 m `ShotClose` (dry, 90 % of its energy in under 80 ms); farther
   `ShotFar` (crack, dull boom, rolling tail), late by the speed of sound (170 m: 0.5 s).
