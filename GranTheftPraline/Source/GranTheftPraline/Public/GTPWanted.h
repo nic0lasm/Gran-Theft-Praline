@@ -7,6 +7,7 @@
 #include "GTPDriveLogic.h"
 #include "GTPTraffic.h"
 #include "GTPWantedLogic.h"
+#include "GTPWitnessLogic.h"
 #include "GTPWanted.generated.h"
 
 class ACharacter;
@@ -59,7 +60,15 @@ public:
 	static UGTPWantedComponent* Find(const UObject* WorldContext);
 
 	/** Reports a crime at Location. The police learn of it only if a witness could see: always true for now (every crime counts). */
-	void ReportCrime(EGTPCrimeKind Kind, const FVector& Location);
+	void ReportCrime(EGTPCrimeKind Kind, const FVector& Location, bool bVictimInvolved = false);
+
+	/**
+	 * Crimes count only when somebody saw or heard them (GTPWitnessLogic.h): police in sight
+	 * report at once, a person in sight calls after a few seconds, shots and killings are
+	 * heard. -Witnesses=0 makes every crime count at once (tests, demo scripts).
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Wanted")
+	bool bRequireWitnesses = true;
 
 	UFUNCTION(BlueprintPure, Category = "Wanted")
 	int32 GetStars() const { return State.GetStars(); }
@@ -126,6 +135,8 @@ public:
 
 private:
 	bool CanSeePlayer(const AGTPVehicle* Car, const FVector& PlayerLocation) const;
+	void ApplyCrime(EGTPCrimeKind Kind, const FVector& Location);
+	void TickPendingReports(float Now);
 	void OnBusted();
 	void NotifyIfChanged();
 	void EndBusted();
@@ -133,6 +144,16 @@ private:
 	FGTPWantedState State;
 	TArray<TWeakObjectPtr<AGTPVehicle>> Police;
 	FVector LastKnownLocation = FVector::ZeroVector;
+
+	/** Crimes seen by a person who is calling the police: reported when due. */
+	struct FPendingReport
+	{
+		EGTPCrimeKind Kind = EGTPCrimeKind::HitVehicle;
+		FVector Location = FVector::ZeroVector;
+		float DueTime = 0.f;
+	};
+	TArray<FPendingReport> PendingReports;
+	FGTPWitnessSettings WitnessSettings;
 	int32 ScriptedStars = 0;
 	float ScriptedTime = -1.f;
 	bool bHoldLevel = false;

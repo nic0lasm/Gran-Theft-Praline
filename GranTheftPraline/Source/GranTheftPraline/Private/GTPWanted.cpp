@@ -4,6 +4,7 @@
 
 #include "GTPLog.h"
 #include "GTPVehicle.h"
+#include "GTPPedestrians.h"
 #include "AIController.h"
 #include "CollisionQueryParams.h"
 #include "Components/PointLightComponent.h"
@@ -29,6 +30,13 @@ namespace GTPPolice
 namespace
 {
 	constexpr float WantedCmToM = 0.01f;
+
+	bool WitnessesDisabledByCommandLine()
+	{
+		int32 Value = 1;
+		FParse::Value(FCommandLine::Get(), TEXT("Witnesses="), Value);
+		return Value == 0;
+	}
 }
 
 // --- Wanted component ---------------------------------------------------------
@@ -52,7 +60,81 @@ UGTPWantedComponent* UGTPWantedComponent::Find(const UObject* WorldContext)
 	return PC ? PC->FindComponentByClass<UGTPWantedComponent>() : nullptr;
 }
 
-void UGTPWantedComponent::ReportCrime(EGTPCrimeKind Kind, const FVector& Location)
+void UGTPWantedComponent::ReportCrime(EGTPCrimeKind Kind, const FVector& Location, bool bVictimInvolved)
+{
+	if (BustedBannerLeft > 0.f || !GetWorld() || !IsComponentTickEnabled())
+	{
+		return;
+	}
+	if (!bRequireWitnesses || WitnessesDisabledByCommandLine())
+	{
+		ApplyCrime(Kind, Location);
+		return;
+	}
+
+	// Who saw or heard it: police cars and people close enough, with a clear line to the crime.
+	std::vector<FGTPWitness> Witnesses;
+	const FVector Eye = Location + FVector(0.f, 0.f, 150.f);
+	auto AddWitness = [&](const AActor* Who, bool bPolice)
+	{
+		if (!IsValid(Who))
+		{
+			return;
+		}
+		const FVector Where = Who->GetActorLocation();
+		FCollisionQueryParams WitnessParams(SCENE_QUERY_STAT(GTPWitnessSight), false, Who);
+		FHitResult Hit;
+		const bool bSees = FVector::Dist(Where, Location) < 8000.f
+			&& !GetWorld()->LineTraceSingleByChannel(Hit, Where + FVector(0.f, 0.f, 150.f), Eye, ECC_Visibility, WitnessParams);
+		FGTPWitness Witness;
+		Witness.X = static_cast<float>(Where.X) * WantedCmToM;
+		Witness.Y = static_cast<float>(Where.Y) * WantedCmToM;
+		Witness.bPolice = bPolice;
+		Witness.bCanSee = bSees;
+		Witnesses.push_back(Witness);
+	};
+	for (const TWeakObjectPtr<AGTPVehicle>& Car : Police)
+	{
+		AddWitness(Car.Get(), true);
+	}
+	for (TActorIterator<AGTPPedestrian> It(GetWorld()); It; ++It)
+	{
+		AddWitness(*It, false);
+	}
+	const bool bLoud = Kind == EGTPCrimeKind::ShotsFired || Kind == EGTPCrimeKind::Killing || Kind == EGTPCrimeKind::KillPolice;
+	const FGTPWitnessResult Result = GTPWitness::Evaluate(static_cast<float>(Location.X) * WantedCmToM, static_cast<float>(Location.Y) * WantedCmToM,
+		bLoud, bVictimInvolved, Witnesses, WitnessSettings);
+	if (!Result.bReported)
+	{
+		GTP_TRACE(LogGTPWanted, TEXT("wanted: crime %d not witnessed"), static_cast<int32>(Kind));
+		return;
+	}
+	if (Result.Delay <= 0.f)
+	{
+		ApplyCrime(Kind, Location);
+		return;
+	}
+	FPendingReport& Pending = PendingReports.AddDefaulted_GetRef();
+	Pending.Kind = Kind;
+	Pending.Location = Location;
+	Pending.DueTime = static_cast<float>(GetWorld()->GetTimeSeconds()) + Result.Delay;
+	GTP_TRACE(LogGTPWanted, TEXT("wanted: crime %d seen, the police are called (%.0f s)"), static_cast<int32>(Kind), Result.Delay);
+}
+
+void UGTPWantedComponent::TickPendingReports(float Now)
+{
+	for (int32 Index = PendingReports.Num() - 1; Index >= 0; --Index)
+	{
+		if (Now >= PendingReports[Index].DueTime)
+		{
+			const FPendingReport Report = PendingReports[Index];
+			PendingReports.RemoveAtSwap(Index);
+			ApplyCrime(Report.Kind, Report.Location);
+		}
+	}
+}
+
+void UGTPWantedComponent::ApplyCrime(EGTPCrimeKind Kind, const FVector& Location)
 {
 	if (BustedBannerLeft > 0.f || !GetWorld() || !IsComponentTickEnabled())
 	{
@@ -176,6 +258,10 @@ void UGTPWantedComponent::TickComponent(float DeltaTime, ELevelTick TickType, FA
 	{
 		ForceStars(ScriptedStars);
 		ScriptedTime = -1.f;
+	}
+	if (PendingReports.Num() > 0)
+	{
+		TickPendingReports(Now);
 	}
 	const APlayerController* PC = Cast<APlayerController>(GetOwner());
 	const APawn* Pawn = PC ? PC->GetPawn() : nullptr;

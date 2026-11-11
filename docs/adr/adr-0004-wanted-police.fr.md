@@ -87,3 +87,7 @@ Le banc M1 a montré un à-coup (pic CPU de 47 ms) à chaque apparition d'unité
 ## Délits de combat (11/11/2026)
 
 Ajoutés pour le combat, déclarés par `ReportCrime` (chaleur) : agression 15, coups de feu 20, menace armée 25, meurtre 60 (2 étoiles), meurtre d'un policier 130 (3 étoiles). Coups de feu et menaces comptent une fois par 5 s (une rafale), les autres délits une fois par 2 s. Pas encore de témoins (tout délit compte).
+
+## Témoins (11/11/2026)
+
+Un délit ne compte que si quelqu'un l'a vu ou entendu (`GTPWitnessLogic.h`, testé en CI) : une voiture de police en vue à moins de 60 m le signale aussitôt ; une personne en vue à moins de 25 m appelle la police 4 s plus tard ; les coups de feu et les meurtres s'entendent sans vue (police 120 m, passants 40 m) ; la personne directement concernée (le conducteur sorti de force, un piéton percuté) compte comme une personne qui a vu. Personne autour : aucune chaleur. `-Witnesses=0` fait compter tout délit aussitôt (tests, démos scriptées) ; `bRequireWitnesses=False` dans la config aussi. Les passants sont cherchés parmi les acteurs piétons proches du délit ; les silhouettes de foule lointaine ne sont pas des témoins.

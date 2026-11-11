@@ -32,11 +32,11 @@
 // Crimes of the player at the wheel go to the wanted level (GTPWanted.h).
 namespace
 {
-	void ReportPlayerCrime(const AGTPVehicle* Vehicle, EGTPCrimeKind Kind)
+	void ReportPlayerCrime(const AGTPVehicle* Vehicle, EGTPCrimeKind Kind, bool bVictimInvolved = false)
 	{
 		if (UGTPWantedComponent* Wanted = UGTPWantedComponent::Find(Vehicle))
 		{
-			Wanted->ReportCrime(Kind, Vehicle->GetActorLocation());
+			Wanted->ReportCrime(Kind, Vehicle->GetActorLocation(), bVictimInvolved);
 		}
 	}
 }
@@ -590,7 +590,8 @@ bool AGTPVehicle::BeginEnter(ACharacter* Character, AController* DriverControlle
 	case EGTPEntryKind::Carjack:
 		if (DriverController && DriverController->IsPlayerController())
 		{
-			ReportPlayerCrime(this, EGTPCrimeKind::CarTheft);
+			// The driver pulled out of the car calls the police.
+			ReportPlayerCrime(this, EGTPCrimeKind::CarTheft, Driver != nullptr);
 		}
 		// The car stops where it is while its driver is pulled out.
 		ClearDrivingInput();
@@ -953,7 +954,7 @@ void AGTPVehicle::OnBodyHit(UPrimitiveComponent* HitComponent, AActor* OtherActo
 	{
 		if (OtherActor->IsA<ACharacter>())
 		{
-			ReportPlayerCrime(this, EGTPCrimeKind::HitPedestrian);
+			ReportPlayerCrime(this, EGTPCrimeKind::HitPedestrian, true);
 		}
 		else if (OtherActor->IsA<AGTPVehicle>())
 		{
