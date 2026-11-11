@@ -4,6 +4,7 @@
 
 #include "GTPLog.h"
 #include "GTPVehicle.h"
+#include "GTPLiteDriver.h"
 #include "AIController.h"
 #include "CollisionQueryParams.h"
 #include "Components/PointLightComponent.h"
@@ -253,6 +254,13 @@ void AGTPPoliceDirector::BeginPlay()
 	MaxUnits = FMath::Clamp(MaxUnits, 0, 6);
 	LoadedPoliceClass = PoliceVehicleClass.TryLoadClass<AGTPVehicle>();
 	LoadedDriverClass = PoliceDriverClass.TryLoadClass<ACharacter>();
+	int32 LiteClassSwitch = 0;
+	FParse::Value(FCommandLine::Get(), TEXT("LiteDriverClass="), LiteClassSwitch);
+	if (LiteClassSwitch != 0)
+	{
+		// Camera-less occupant: no camera host is ever created for a police driver.
+		LoadedDriverClass = AGTPLiteDriver::StaticClass();
+	}
 	NextSpawnTime = GetWorld()->GetTimeSeconds() + 3.f;
 	GTP_TRACE(LogGTPWanted, TEXT("police: on, up to %d units, class %s"), MaxUnits, LoadedPoliceClass ? *LoadedPoliceClass->GetName() : TEXT("traffic cars"));
 }
