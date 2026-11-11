@@ -138,6 +138,12 @@ void UGTPMinimapSubsystem::LoadData()
 	GTP_TRACE(LogGTPMinimap, TEXT("minimap: on (%d polylines from %s)"), Kept, *Path);
 }
 
+void UGTPMinimapSubsystem::GetLayout(const UCanvas* Canvas, float Scale, FVector2D& OutCentre, float& OutRadius)
+{
+	OutRadius = RadiusAt1080 * Scale;
+	OutCentre = FVector2D(OutRadius + MarginAt1080 * Scale, Canvas->ClipY - OutRadius - MarginAt1080 * Scale);
+}
+
 void UGTPMinimapSubsystem::AddBlip(AActor* Actor, const FLinearColor& Color, bool bClampToEdge)
 {
 	if (!Actor)
@@ -174,8 +180,9 @@ void UGTPMinimapSubsystem::Draw(UCanvas* Canvas, const AGTPPlayerController* Con
 		return;
 	}
 
-	const float Radius = RadiusAt1080 * Scale;
-	const FVector2D Centre(Radius + MarginAt1080 * Scale, Canvas->ClipY - Radius - MarginAt1080 * Scale);
+	FVector2D Centre;
+	float Radius = 0.f;
+	GetLayout(Canvas, Scale, Centre, Radius);
 
 	GTPUI::FMapView View;
 	const FVector Location = Pawn->GetActorLocation();
