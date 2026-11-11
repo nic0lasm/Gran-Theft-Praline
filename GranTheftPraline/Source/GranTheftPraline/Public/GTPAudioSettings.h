@@ -277,6 +277,40 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category = "Voices")
 	FVector2D CrashScareRadius = FVector2D(800.f, 2000.f);
 
+	/**
+	 * Combat (docs/gameplay/combat.md): a shot within CloseShotDistance (cm) sounds
+	 * dry and close, beyond it far (crack and tail) and late by the speed of sound.
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Combat")
+	float CloseShotDistance = 2500.f;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Combat")
+	float ShotVolume = 1.f;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Combat")
+	FVector2D ShotRange = FVector2D(500.f, 60000.f);
+
+	UPROPERTY(Config, EditAnywhere, Category = "Combat")
+	int32 MaxWeaponVoices = 6;
+
+	/** A bullet passing within this of the listener whizzes (cm). */
+	UPROPERTY(Config, EditAnywhere, Category = "Combat")
+	float WhizzRadius = 250.f;
+
+	/** Ducking after a shot: time (s), level of the ambience and of the traffic. */
+	UPROPERTY(Config, EditAnywhere, Category = "Combat")
+	float GunshotDuckSeconds = 0.5f;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Combat")
+	float GunshotDuckAmbience = 0.4f;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Combat")
+	float GunshotDuckTraffic = 0.6f;
+
+	/** People within this of a shot run away (OnLoudSound, cm). */
+	UPROPERTY(Config, EditAnywhere, Category = "Combat")
+	float ShotScareRadius = 3000.f;
+
 	/** Police radio while wanted: level, random gap between two chatters (s). */
 	UPROPERTY(Config, EditAnywhere, Category = "Radio")
 	float RadioVolume = 0.45f;
