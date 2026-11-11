@@ -85,6 +85,7 @@ limit 900 tools/environment/setup-environment-mac.sh > "$out/setup.log" 2>&1 || 
 
 log "package Shipping, limit 45 min"
 BUILDS_DIR="$repo/Builds/perf-cumul" limit 2700 tools/build/package-mac.sh 0.3 Shipping > "$out/package.log" 2>&1 || die "package failed (see package.log)"
+git rev-parse HEAD > "$repo/Builds/perf-cumul/0.3/.commit" 2>/dev/null || true
 build="$repo/Builds/perf-cumul/0.3"
 test -d "$build/GranTheftPraline.app" || die "no app after packaging"
 
