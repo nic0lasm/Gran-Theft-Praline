@@ -213,8 +213,9 @@ if [ "$merged" = "1" ]; then total=$((total + 14 + 6)); fi
 say "details slot, $( [ "$dry" = "1" ] && echo "DRY RUN" || echo "Mac" ), output $out; planned about $total min"
 
 # --- prerequisites and checkout ------------------------------------------------------------
-if [ "$dry" != "1" ] && ps -axo pid=,command= | grep -E "UnrealEditor( |$)|GranTheftPraline.app" | grep -vE "CrashReportClient|UnrealEditorServices|grep -E" > /dev/null; then
-  say "an Unreal editor or the game is running: one at a time"; exit 1
+if [ "$dry" != "1" ] && ps -axo pid=,command= | grep -E "UnrealEditor( |$)|UnrealBuildTool|AutomationTool|GranTheftPraline.app" \
+    | grep -vE "CrashReportClient|UnrealEditorServices|grep -E" > /dev/null; then
+  say "an Unreal editor, a build (UBT/UAT) or the game is running: one at a time"; exit 1
 fi
 test -f "$map" || { say "map missing: $map"; exit 1; }
 git checkout -q -- assets/geo/processed 2> /dev/null || true
