@@ -9,6 +9,7 @@
 #   PACKAGE_ONLY=1     compile, cook and package (no screen needed), do not launch the game; stop after the package check
 #   SKIP_BUILD=1       measure only, on the package already in Builds/perf-slot6/0.3; refuses to start if the
 #                      screen is locked (CGSSessionScreenIsLocked), with a clear message
+#   SKIP_CONTROL=1     skip the 30 s control launch (freeze check)
 #   DRY_RUN=1          check prerequisites and syntax, print the plan, run nothing heavy
 #   DURATION           seconds per bench run (default 90)
 #   BRANCH             code to build (default feat/pedestrians-slot6d)
@@ -135,6 +136,9 @@ if screen_locked; then
   die "the screen is locked (CGSSessionScreenIsLocked): unlock the Mac, then rerun with SKIP_BUILD=1"
 fi
 
+if test "${SKIP_CONTROL:-0}" = "1"; then
+  log "SKIP_CONTROL: no control launch"
+else
 log "30 s control launch (freeze check), limit 120 s"
 exe="$(find "$build/GranTheftPraline.app/Contents/MacOS" -maxdepth 1 -type f -perm -u+x | head -n 1)"
 limit 120 "$exe" -SkipTitle "-FrameLogFile=$out/control.csv" -ExitAfter=30 > "$out/control.log" 2>&1 || true
@@ -159,6 +163,15 @@ if ! test -s "$out/control.csv"; then
   die "control launch produced no frame: the build freezes (see the report for the isolation result)"
 fi
 echo "Control launch: $(wc -l < "$out/control.csv" | tr -d ' ') frames in 30 s" >> "$report"
+# The control game must be gone before the bench starts (bench.sh refuses a running game): wait up to 60 s.
+for _ in $(seq 1 60); do
+  pgrep -f "UnrealEditor( |$)|GranTheftPraline-Mac|GranTheftPraline.app" > /dev/null || break
+  sleep 1
+done
+if pgrep -f "UnrealEditor( |$)|GranTheftPraline-Mac|GranTheftPraline.app" > /dev/null; then
+  die "the control game is still running 60 s after its end (stuck process): stop it and rerun with SKIP_BUILD=1 SKIP_CONTROL=1"
+fi
+fi
 
 off="-Traffic=0 -Police=0 -Ragdoll=0 -Minimap=0 -DayNight=0 -Audio=0"
 run_case() { # name extra
