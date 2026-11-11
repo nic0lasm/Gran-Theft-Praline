@@ -698,13 +698,6 @@ void AGTPTrafficNetwork::BeginPlay()
 	{
 		// Far cars hand over to driven cars that are ghosts by then.
 		bVehicleGhost = true;
-		FActorSpawnParameters FarParams;
-		FarParams.Owner = this;
-		FarTraffic = GetWorld()->SpawnActor<AGTPFarTraffic>(AGTPFarTraffic::StaticClass(), FTransform::Identity, FarParams);
-		if (FarTraffic)
-		{
-			FarTraffic->Build(this, FarCars);
-		}
 	}
 	GTP_TRACE(LogGTPTraffic, TEXT("traffic: ghost mode %s (past %.0f m, awake inside %.0f m)"),
 		bVehicleGhost ? TEXT("on") : TEXT("off"), GhostDistance / 100.f, GhostWakeDistance / 100.f);
@@ -736,6 +729,17 @@ void AGTPTrafficNetwork::BeginPlay()
 	}
 	GTP_TRACE(LogGTPTraffic, TEXT("traffic: %d cars wanted, %d car classes, driver %s"), WantedCars, LoadedVehicleClasses.Num(),
 		LoadedDriverClass ? *LoadedDriverClass->GetName() : TEXT("none"));
+	// Far traffic last: its puppet cars need the car and driver classes loaded above.
+	if (FarCars > 0)
+	{
+		FActorSpawnParameters FarParams;
+		FarParams.Owner = this;
+		FarTraffic = GetWorld()->SpawnActor<AGTPFarTraffic>(AGTPFarTraffic::StaticClass(), FTransform::Identity, FarParams);
+		if (FarTraffic)
+		{
+			FarTraffic->Build(this, FarCars);
+		}
+	}
 	// Let the player and the level settle before the first car.
 	NextSpawnTime = GetWorld()->GetTimeSeconds() + 2.f;
 }
@@ -764,7 +768,9 @@ bool AGTPTrafficNetwork::FindSpawnPoint(int32& OutLane, int32& OutPoint, FTransf
 {
 	const APawn* Player = UGameplayStatics::GetPlayerPawn(this, 0);
 	const FVector PlayerLocation = Player ? Player->GetActorLocation() : FVector::ZeroVector;
-	for (int32 Try = 0; Try < 40; ++Try)
+	// More tries when many cars are wanted: most lanes of the city are out of range.
+	const int32 MaxTries = WantedCars > 12 ? 120 : 40;
+	for (int32 Try = 0; Try < MaxTries; ++Try)
 	{
 		const int32 Lane = Random.RandRange(0, Lanes.Num() - 1);
 		const TArray<FVector>& Points = Lanes[Lane].Points;
@@ -1001,11 +1007,16 @@ void AGTPTrafficNetwork::Tick(float DeltaSeconds)
 	UpdateSignalHeads();
 	AIDrivers.RemoveAll([](const TWeakObjectPtr<UGTPAIDriverComponent>& Weak) { return !Weak.IsValid(); });
 
-	// One new car at a time, so spawns never come in a burst.
+	// New cars out of sight: one a second when it means spawning an actor (no burst of spawns),
+	// up to four a tick when the pool has cars to reuse (no spawn cost), so 40 cars fill in time.
 	if (Cars.Num() < WantedCars && GetWorld()->GetTimeSeconds() >= NextSpawnTime)
 	{
-		SpawnCar();
-		NextSpawnTime = GetWorld()->GetTimeSeconds() + 1.f;
+		const int32 Tries = FMath::Min(WantedCars - Cars.Num(), bTrafficPool && Pool.Num() > 0 ? 4 : 1);
+		for (int32 Try = 0; Try < Tries; ++Try)
+		{
+			SpawnCar();
+		}
+		NextSpawnTime = GetWorld()->GetTimeSeconds() + (bTrafficPool && Pool.Num() > 0 ? 0.f : 1.f);
 	}
 }
 
