@@ -16,11 +16,14 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogGTPFarTraffic, Log, All);
 
-namespace
+// Named, not anonymous: the unity build puts this file with GTPTraffic.cpp, which has its own CmToM.
+namespace GTPFarTrafficLocal
 {
-	constexpr float CmToM = 0.01f;
-	constexpr float FreeRoomCm = 1500.f;
+	constexpr float FarCmToM = 0.01f;
+	constexpr float FarFreeRoomCm = 1500.f;
 }
+using GTPFarTrafficLocal::FarCmToM;
+using GTPFarTrafficLocal::FarFreeRoomCm;
 
 AGTPFarTraffic::AGTPFarTraffic()
 {
@@ -131,7 +134,7 @@ const GTPFar::FLanePath& AGTPFarTraffic::LanePath(int32 Lane)
 	std::vector<FGTPDrivePoint> Points;
 	for (const FVector& Point : Network->GetLanes()[Lane].Points)
 	{
-		Points.push_back({static_cast<float>(Point.X) * CmToM, static_cast<float>(Point.Y) * CmToM});
+		Points.push_back({static_cast<float>(Point.X) * FarCmToM, static_cast<float>(Point.Y) * FarCmToM});
 	}
 	return Paths.Add(Lane, GTPFar::MakeLanePath(Points));
 }
@@ -173,7 +176,7 @@ FVector AGTPFarTraffic::Where(const FFarCar& Car, float& OutYawDegrees)
 	const float Segment = Next > Index ? Path.From[Next] - Path.From[Index] : 0.f;
 	const float T = Segment > 1e-3f ? FMath::Clamp(Along / Segment, 0.f, 1.f) : 0.f;
 	const float Z = FMath::Lerp(GroundZ(Car.Lane, Index), GroundZ(Car.Lane, Next), T);
-	return FVector(Position.X / CmToM, Position.Y / CmToM, Z + GroundOffset);
+	return FVector(Position.X / FarCmToM, Position.Y / FarCmToM, Z + GroundOffset);
 }
 
 bool AGTPFarTraffic::Place(FFarCar& Car, bool bOutOfSight)
@@ -202,7 +205,7 @@ bool AGTPFarTraffic::Place(FFarCar& Car, bool bOutOfSight)
 			if (&Other != &Car && Other.Lane != INDEX_NONE)
 			{
 				float Unused = 0.f;
-				if (FVector::Dist2D(Where(Other, Unused), Location) < FreeRoomCm)
+				if (FVector::Dist2D(Where(Other, Unused), Location) < FarFreeRoomCm)
 				{
 					bFree = false;
 					break;
@@ -211,7 +214,7 @@ bool AGTPFarTraffic::Place(FFarCar& Car, bool bOutOfSight)
 		}
 		for (const AGTPVehicle* Driven : Network->Cars)
 		{
-			if (bFree && Driven && FVector::Dist2D(Driven->GetActorLocation(), Location) < FreeRoomCm)
+			if (bFree && Driven && FVector::Dist2D(Driven->GetActorLocation(), Location) < FarFreeRoomCm)
 			{
 				bFree = false;
 			}

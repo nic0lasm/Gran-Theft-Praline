@@ -4,6 +4,7 @@
 #
 #   caffeinate -dimsu tools/perf/traffic-pass-mac.sh [version=perf-traffic] [duration_s=90]
 #
+# It stops at once (exit 2) when the screen is locked.
 # Steps, each under a time guard (killed past its limit, the pass stops):
 #   1. package (Shipping)            tools/build/package-mac.sh         limit 50 min
 #   2. 30 s control launch           tools/build/test-build-mac.sh      limit 3 min
@@ -39,6 +40,12 @@ heartbeat="$out/HEARTBEAT"
 dry="${DRY_RUN:-0}"
 read -r -a cases <<< "${CASES:-d12 d25 d12-f13 d40 d12-f28 d16-f24-p}"
 cd "$repo_root" || exit 1
+
+# A locked screen throttles or stops the game's rendering on macOS: no measure then.
+if command -v ioreg >/dev/null 2>&1 && ioreg -n Root -d1 | grep -q '"CGSSessionScreenIsLocked"=Yes'; then
+  echo "traffic-pass: the screen of this Mac is locked (CGSSessionScreenIsLocked): unlock it, then run the pass again" >&2
+  exit 2
+fi
 
 if pgrep -fl "UnrealEditor( |$)|GranTheftPraline-Mac" 2>/dev/null | grep -v UnrealEditorServices >/dev/null; then
   echo "traffic-pass: an Unreal or game process is already running, stop it first" >&2
