@@ -1,0 +1,112 @@
+{
+  "max_lod0_triangles": 6000,
+  "meshes": [
+    {
+      "source": "/Game/BlackAlder/Geometry/SimpleWind/SM_BlackAlder_Forest_06",
+      "source_triangles": [
+        2277,
+        12983,
+        8835,
+        5355,
+        1803,
+        913,
+        8
+      ],
+      "source_lods_kept": [
+        3,
+        4,
+        5,
+        6
+      ],
+      "auto_lod_screen_size": "not exposed, kept from the source",
+      "mesh": "/Game/BlackAlder/M1/SM_BlackAlder_Forest_06_M1",
+      "triangles": [
+        5355,
+        1803,
+        913,
+        8
+      ],
+      "nanite": false,
+      "decreasing": true
+    },
+    {
+      "source": "/Game/BlackAlder/Geometry/SimpleWind/SM_BlackAlder_Sapling_06",
+      "source_triangles": [
+        2093,
+        5678,
+        2577,
+        1251
+      ],
+      "source_lods_kept": [
+        1,
+        2,
+        3
+      ],
+      "auto_lod_screen_size": "not exposed, kept from the source",
+      "mesh": "/Game/BlackAlder/M1/SM_BlackAlder_Sapling_06_M1",
+      "triangles": [
+        5678,
+        2577,
+        1251
+      ],
+      "nanite": false,
+      "decreasing": true
+    },
+    {
+      "source": "/Game/BlackAlder/Geometry/SimpleWind/SM_BlackAlder_Field_05",
+      "source_triangles": [
+        9151,
+        60412,
+        43108,
+        27086,
+        15043,
+        7260,
+        8
+      ],
+      "source_lods_kept": [
+        4,
+        5,
+        6
+      ],
+      "auto_lod_screen_size": "not exposed, kept from the source",
+      "mesh": "/Game/BlackAlder/M1/SM_BlackAlder_Field_05_M1",
+      "triangles": [
+        15043,
+        7260,
+        8
+      ],
+      "nanite": false,
+      "decreasing": true
+    },
+    {
+      "source": "/Game/EuropeanBeech/Geometry/SimpleWind/SM_EuropeanBeech_Forest_08",
+      "source_triangles": [
+        25098,
+        91848,
+        47279,
+        10489,
+        6076,
+        3911,
+        8
+      ],
+      "source_lods_kept": [
+        3,
+        4,
+        5,
+        6
+      ],
+      "auto_lod_screen_size": "not exposed, kept from the source",
+      "mesh": "/Game/EuropeanBeech/M1/SM_EuropeanBeech_Forest_08_M1",
+      "triangles": [
+        10489,
+        6076,
+        3911,
+        8
+      ],
+      "nanite": false,
+      "decreasing": true
+    }
+  ],
+  "errors": [],
+  "seconds": 20.1
+}
