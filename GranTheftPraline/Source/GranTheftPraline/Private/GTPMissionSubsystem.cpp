@@ -16,7 +16,23 @@
 #include "GTPLog.h"
 #include "GTPTraffic.h"
 #include "GTPVehicle.h"
+// Optional neighbours: present once the reference interior branch is merged.
+#if __has_include("GTPWallet.h")
+#include "GTPWallet.h"
+#define GTP_MISSION_HAS_WALLET 1
+#endif
+#if __has_include("GTPInteriorStreaming.h")
+#include "GTPInteriorStreaming.h"
+#define GTP_MISSION_HAS_INTERIORS 1
+#endif
 #include "GTPWanted.h"
+
+#ifndef GTP_MISSION_HAS_WALLET
+#define GTP_MISSION_HAS_WALLET 0
+#endif
+#ifndef GTP_MISSION_HAS_INTERIORS
+#define GTP_MISSION_HAS_INTERIORS 0
+#endif
 
 DEFINE_LOG_CATEGORY(LogGTPMission);
 
@@ -322,6 +338,12 @@ GTPMission::FContext UGTPMissionSubsystem::BuildContext()
 	const FVector Location = Pawn->GetActorLocation();
 	Ctx.X = Location.X / 100.f;
 	Ctx.Y = -Location.Y / 100.f;
+#if GTP_MISSION_HAS_INTERIORS
+	if (const UGTPInteriorStreaming* Interiors = GetWorld()->GetSubsystem<UGTPInteriorStreaming>())
+	{
+		Ctx.Interior = ToStd(Interiors->GetPlayerInteriorId());
+	}
+#endif
 	if (const UGTPWantedComponent* Wanted = UGTPWantedComponent::Find(this))
 	{
 		Ctx.Stars = Wanted->GetStars();
@@ -512,6 +534,12 @@ void UGTPMissionSubsystem::Execute(const std::vector<GTPMission::FCommand>& Comm
 			break;
 		case ECommand::GiveReward:
 			UE_LOG(LogGTPMission, Log, TEXT("mission: reward %d (%s)"), Command.Amount, *ToFString(Command.RunKey));
+#if GTP_MISSION_HAS_WALLET
+			if (UGTPWalletSubsystem* Wallet = UGTPWalletSubsystem::Get(this))
+			{
+				Wallet->AddMoney(Command.Amount, TEXT("mission"), FName(*ToFString(Command.RunKey)));
+			}
+#endif
 			OnReward.Broadcast(Command.Amount, FName(*ToFString(Command.RunKey)), MissionId);
 			break;
 		case ECommand::MissionSucceeded:
