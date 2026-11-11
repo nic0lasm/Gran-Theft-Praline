@@ -38,7 +38,7 @@ fi
 test "${#gens[@]}" -gt 0 || { echo "no city outputs under $gen_root" >&2; exit 1; }
 python3 "$repo/tools/environment/build_night_lights.py" "${gens[@]}"
 
-# The project path has a space ("Claude work") and Unreal splits -ExecutePythonScript on
+# The project path has a space and Unreal splits -ExecutePythonScript on
 # spaces: Content/Python/gtp_run.py runs the script named by GTP_PY_SCRIPT, nothing is
 # copied or written outside the project.
 test -f "$repo/GranTheftPraline/Content/Python/gtp_run.py" || { echo "Content/Python/gtp_run.py missing (fix/py-launcher-no-tmp)" >&2; exit 1; }
