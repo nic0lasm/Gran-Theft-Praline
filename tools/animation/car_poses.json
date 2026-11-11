@@ -1113,6 +1113,337 @@
      "pose": {}
     }
    ]
+  },
+  {
+   "name": "AM_HandsUp_Enter",
+   "note": "Hands go up, 0.6 s (then the idle plays)",
+   "keys": [
+    {
+     "f": 0,
+     "pose": {}
+    },
+    {
+     "f": 6,
+     "pose": {
+      "upperarm_l": [
+       0.0,
+       60.0,
+       -18.0
+      ],
+      "upperarm_r": [
+       0.0,
+       60.0,
+       -18.0
+      ],
+      "lowerarm_l": [
+       0.0,
+       0.0,
+       24.0
+      ],
+      "lowerarm_r": [
+       0.0,
+       0.0,
+       24.0
+      ],
+      "clavicle_l": [
+       0.0,
+       0.0,
+       4.8
+      ],
+      "clavicle_r": [
+       0.0,
+       0.0,
+       4.8
+      ],
+      "spine_02": [
+       0.0,
+       -2.4,
+       0.0
+      ],
+      "head": [
+       0.0,
+       -3.5999999999999996,
+       0.0
+      ]
+     }
+    },
+    {
+     "f": 18,
+     "pose": {
+      "upperarm_l": [
+       0,
+       100,
+       -30
+      ],
+      "upperarm_r": [
+       0,
+       100,
+       -30
+      ],
+      "lowerarm_l": [
+       0,
+       0,
+       40
+      ],
+      "lowerarm_r": [
+       0,
+       0,
+       40
+      ],
+      "clavicle_l": [
+       0,
+       0,
+       8
+      ],
+      "clavicle_r": [
+       0,
+       0,
+       8
+      ],
+      "spine_02": [
+       0,
+       -4,
+       0
+      ],
+      "head": [
+       0,
+       -6,
+       0
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "AM_HandsUp_Idle",
+   "note": "Hands held up, a slight tremble, 3 s, replayed while the hands stay up",
+   "keys": [
+    {
+     "f": 0,
+     "pose": {
+      "upperarm_l": [
+       0,
+       100,
+       -30
+      ],
+      "upperarm_r": [
+       0,
+       100,
+       -30
+      ],
+      "lowerarm_l": [
+       0,
+       0,
+       40
+      ],
+      "lowerarm_r": [
+       0,
+       0,
+       40
+      ],
+      "clavicle_l": [
+       0,
+       0,
+       8
+      ],
+      "clavicle_r": [
+       0,
+       0,
+       8
+      ],
+      "spine_02": [
+       0,
+       -4,
+       0
+      ],
+      "head": [
+       0,
+       -6,
+       0
+      ]
+     }
+    },
+    {
+     "f": 22,
+     "pose": {
+      "upperarm_l": [
+       2,
+       104,
+       -32
+      ],
+      "upperarm_r": [
+       -2,
+       104,
+       -32
+      ],
+      "lowerarm_l": [
+       0,
+       0,
+       40
+      ],
+      "lowerarm_r": [
+       0,
+       0,
+       40
+      ],
+      "clavicle_l": [
+       0,
+       0,
+       8
+      ],
+      "clavicle_r": [
+       0,
+       0,
+       8
+      ],
+      "spine_02": [
+       0,
+       -4,
+       0
+      ],
+      "head": [
+       0,
+       -4,
+       0
+      ]
+     }
+    },
+    {
+     "f": 45,
+     "pose": {
+      "upperarm_l": [
+       0,
+       100,
+       -30
+      ],
+      "upperarm_r": [
+       0,
+       100,
+       -30
+      ],
+      "lowerarm_l": [
+       0,
+       0,
+       40
+      ],
+      "lowerarm_r": [
+       0,
+       0,
+       40
+      ],
+      "clavicle_l": [
+       0,
+       0,
+       8
+      ],
+      "clavicle_r": [
+       0,
+       0,
+       8
+      ],
+      "spine_02": [
+       0,
+       -4,
+       0
+      ],
+      "head": [
+       0,
+       -6,
+       0
+      ]
+     }
+    },
+    {
+     "f": 67,
+     "pose": {
+      "upperarm_l": [
+       2,
+       104,
+       -32
+      ],
+      "upperarm_r": [
+       -2,
+       104,
+       -32
+      ],
+      "lowerarm_l": [
+       0,
+       0,
+       40
+      ],
+      "lowerarm_r": [
+       0,
+       0,
+       40
+      ],
+      "clavicle_l": [
+       0,
+       0,
+       8
+      ],
+      "clavicle_r": [
+       0,
+       0,
+       8
+      ],
+      "spine_02": [
+       0,
+       -4,
+       0
+      ],
+      "head": [
+       0,
+       -4,
+       0
+      ]
+     }
+    },
+    {
+     "f": 90,
+     "pose": {
+      "upperarm_l": [
+       0,
+       100,
+       -30
+      ],
+      "upperarm_r": [
+       0,
+       100,
+       -30
+      ],
+      "lowerarm_l": [
+       0,
+       0,
+       40
+      ],
+      "lowerarm_r": [
+       0,
+       0,
+       40
+      ],
+      "clavicle_l": [
+       0,
+       0,
+       8
+      ],
+      "clavicle_r": [
+       0,
+       0,
+       8
+      ],
+      "spine_02": [
+       0,
+       -4,
+       0
+      ],
+      "head": [
+       0,
+       -6,
+       0
+      ]
+     }
+    }
+   ]
   }
  ]
 }
