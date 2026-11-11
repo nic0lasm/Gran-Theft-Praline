@@ -36,11 +36,9 @@ fi
 test "${#gens[@]}" -gt 0 || { echo "no city outputs under $gen_root" >&2; exit 1; }
 python3 "$repo/tools/environment/build_night_lights.py" "${gens[@]}"
 
-# Editor scripts run from a copy without spaces (the project folder has one).
-tmp="$(mktemp -d)"
-cp "$repo/tools/environment/unreal/setup_environment.py" "$tmp/"
-"$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES -ExecutePythonScript="$tmp/setup_environment.py"
-rm -rf "$tmp"
+# The project path has a space: Content/Python/gtp_run.py runs the script in place (no temp copy).
+GTP_PY_SCRIPT="$repo/tools/environment/unreal/setup_environment.py" \
+  "$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES "-ExecutePythonScript=__import__('gtp_run').main()"
 
 result="$repo/GranTheftPraline/Saved/Environment/setup_report.json"
 test -f "$result" || { echo "setup_environment.py wrote no report" >&2; exit 1; }
