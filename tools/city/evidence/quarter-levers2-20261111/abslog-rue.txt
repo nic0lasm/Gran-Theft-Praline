@@ -1,0 +1,22 @@
+LogConfig: Set CVar [[r.LightFunctionQuality:1]]
+LogConfig: Set CVar [[r.SkyAtmosphere.AerialPerspectiveLUT.FastApplyOnOpaque:1 ; Always have FastSkyLUT 1 in this case to avoid wrong sky]]
+LogConfig: Set CVar [[r.SkyAtmosphere.AerialPerspectiveLUT.SampleCountMaxPerSlice:4]]
+LogConfig: Set CVar [[r.SkyAtmosphere.AerialPerspectiveLUT.DepthResolution:16.0]]
+LogConfig: Set CVar [[r.SkyAtmosphere.FastSkyLUT:1]]
+LogConfig: Set CVar [[r.SkyAtmosphere.FastSkyLUT.SampleCountMin:4.0]]
+LogConfig: Set CVar [[r.SkyAtmosphere.FastSkyLUT.SampleCountMax:128.0]]
+LogConfig: Set CVar [[r.SkyAtmosphere.SampleCountMin:4.0]]
+LogConfig: Set CVar [[r.SkyAtmosphere.SampleCountMax:128.0]]
+LogConfig: Set CVar [[r.SkyAtmosphere.TransmittanceLUT.UseSmallFormat:0]]
+LogConfig: Set CVar [[r.SkyAtmosphere.TransmittanceLUT.SampleCount:10.0]]
+LogConfig: Set CVar [[r.SkyAtmosphere.MultiScatteringLUT.SampleCount:15.0]]
+LogConfig: Set CVar [[r.SkyAtmosphere.AerialPerspectiveLUT.SampleCountMaxPerSlice:2]]
+LogConfig: Set CVar [[r.SkyAtmosphere.FastSkyLUT.SampleCountMax:64.0]]
+LogConfig: Set CVar [[r.SkyAtmosphere.SampleCountMax:64.0]]
+LogGTPGraphics: Graphics profile: m1
+LogGTPCityDetails: city details mode 1: 0 actors shown, 0 hidden
+CityRenderTuning: L_City_RueDeLaRepublique 0 components changed; terrain=0/36
+LogGTPStreetTrees: street trees: cannot load /Game/BlackAlder/M1/SM_BlackAlder_Forest_06_M1.SM_BlackAlder_Forest_06_M1 (not cooked?)
+LogGTPStreetTrees: street trees: cannot load /Game/BlackAlder/M1/SM_BlackAlder_Sapling_06_M1.SM_BlackAlder_Sapling_06_M1 (not cooked?)
+LogGTPStreetTrees: street trees: -Trees=leafy needs -TreeSwap=<bare>~<leafy>, nothing changed
+LogGTPFrameTime: graphics profile m1 | viewport 1728x1117 | screen percentage 48.3 %
