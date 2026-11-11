@@ -5,6 +5,7 @@
 #include "GTPKitchen.h"
 #include "GTPLog.h"
 #include "GTPMissionSubsystem.h"
+#include "GTPPlaceAudio.h"
 #include "GTPThreat.h"
 #include "GTPWallet.h"
 #include "GTPWanted.h"
@@ -53,12 +54,14 @@ TStatId UGTPHoldUpSubsystem::GetStatId() const
 	RETURN_QUICK_DECLARE_CYCLE_STAT(UGTPHoldUpSubsystem, STATGROUP_Tickables);
 }
 
-void UGTPHoldUpSubsystem::BeginShop(const FString& InInteriorId, const FTransform& InAnchor, int32 TillCount,
+void UGTPHoldUpSubsystem::BeginShop(const FString& InInteriorId, const FTransform& InAnchor, const TArray<FVector>& TillLocations,
                                     const TArray<AGTPStaffCharacter*>& Crew, const TArray<uint8>& Roles)
 {
 	EndShop();
 	InteriorId = InInteriorId;
 	Anchor = InAnchor;
+	Tills = TillLocations;
+	const int32 TillCount = Tills.Num();
 	Run = GTPHoldUpTills::FRun();
 	Run.Begin(TillCount, 1000u + uint64(Serial));
 	Run.Staff.resize(size_t(Crew.Num()));
@@ -171,15 +174,28 @@ void UGTPHoldUpSubsystem::Finish(bool bArrested)
 void UGTPHoldUpSubsystem::HandleEvent(const GTPHoldUp::FEventRecord& Event)
 {
 	using GTPHoldUp::EEvent;
+	const int32 TillIndex = Run.Staff.size() > size_t(Event.Staff) && Event.Staff >= 0 ? Run.Staff[size_t(Event.Staff)].Till : -1;
+	const FVector TillAt = Tills.IsValidIndex(TillIndex) ? Tills[TillIndex] + FVector(0.f, 0.f, 95.f) : Anchor.GetLocation();
 	GTP_TRACE(HoldUp, TEXT("%s, staff %d, %.2f euros, t=%.1f"), EventName(Event.Kind), Event.Staff, Event.Cents / 100.0, Run.Time);
 	switch (Event.Kind)
 	{
 	case EEvent::Alerted:
 		++Serial;
 		break;
+	case EEvent::TillOpened:
+		UGTPPlaceAudio::PlayShop(this, TillAt, EGTPShopSound::TillOpen);
+		break;
+	case EEvent::StaffEscaped:
+		UGTPPlaceAudio::PlayShop(this, Anchor.TransformPosition(BackExitLocal), EGTPShopSound::AlarmBuzzer);   // the back door
+		break;
 	case EEvent::CashHandedOver:
 	{
-		const int32 Till = Run.Staff.size() > size_t(Event.Staff) ? Run.Staff[size_t(Event.Staff)].Till : -1;
+		const int32 Till = TillIndex;
+		UGTPPlaceAudio::PlayShop(this, TillAt, EGTPShopSound::Notes);
+		if (Run.Params.bRobberTakesCoins)
+		{
+			UGTPPlaceAudio::PlayShop(this, TillAt, EGTPShopSound::Coins);
+		}
 		if (UGTPWalletSubsystem* Wallet = UGTPWalletSubsystem::Get(this))
 		{
 			Wallet->AddCents(Event.Cents, TEXT("holdup_till"), FName(*FString::Printf(TEXT("holdup#%d/till%d"), Serial, Till)));
