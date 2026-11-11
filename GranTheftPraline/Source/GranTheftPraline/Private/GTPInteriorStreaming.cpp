@@ -11,6 +11,7 @@
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
 #include "GTPGraphicsProfile.h"
+#include "GTPKitchen.h"
 #include "GTPLog.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
@@ -105,6 +106,10 @@ void UGTPInteriorStreaming::Tick(float DeltaTime)
 		if (bVisible && !Interior.bWasVisible)
 		{
 			ApplyToLevel(Streaming->GetLoadedLevel());
+			if (UGTPKitchenSubsystem* Kitchen = GetWorld()->GetSubsystem<UGTPKitchenSubsystem>())
+			{
+				Kitchen->StartService(Streaming->GetLoadedLevel());   // inert without -InteriorStaff=
+			}
 			GTP_TRACE(InteriorStreaming, TEXT("visible %s t=%.2f"), *Interior.Level, GetWorld()->GetTimeSeconds());
 		}
 		Interior.bWasVisible = bVisible;
@@ -174,6 +179,13 @@ void UGTPInteriorStreaming::RequestLoad(FInterior& Interior)
 void UGTPInteriorStreaming::Release(FInterior& Interior)
 {
 	Interior.bRequested = false;
+	if (Interior.bWasVisible)
+	{
+		if (UGTPKitchenSubsystem* Kitchen = GetWorld()->GetSubsystem<UGTPKitchenSubsystem>())
+		{
+			Kitchen->StopService();
+		}
+	}
 	Interior.bWasVisible = false;
 	if (ULevelStreamingDynamic* Streaming = Interior.Streaming.Get())
 	{
