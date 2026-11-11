@@ -263,3 +263,16 @@ jamais.
   coupées par défaut tant que Nico ne les a pas validées (`-FarLean=1`).
 - Un levier n'entre dans les défauts que si le p95 à 20 ou 24 voitures
   conduites reste sous 33 ms, sans aucune image au-delà de 100 ms.
+
+## 9. Conducteurs assis allégés (interrupteur actif par défaut)
+
+Chaque voiture de trafic, lointaine ou de police installe un personnage
+joueur complet au volant (BP_PlayerCharacter, le pion du mode de jeu).
+Chacun fait tourner sa caméra, son bras à ressort, son directeur de caméra et
+son mouvement. Sur le monde C, cela fait environ 44 personnages, et le profil
+CPU Windows montre 3 à 4 ms par image dans la logique de caméra, plus
+environ 3 ms dans le mouvement. `SeatOccupant` allège désormais un conducteur
+assis qui n'est pas le joueur : plus de tick d'acteur ni de contrôleur, plus
+de tick de composant hormis les maillages, caméras et bras à ressort
+désactivés, mouvement None. Sortir de la voiture (`ReleaseCharacter`) rétablit
+exactement ce qui a été coupé. `-DriverLite=0` garde les conducteurs entiers.

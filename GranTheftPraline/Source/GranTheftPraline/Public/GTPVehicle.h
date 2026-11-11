@@ -125,6 +125,15 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Vehicle|Seats")
 	void SeatOccupant(ACharacter* Character);
 
+	/**
+	 * Seated non-player driver made lite (-DriverLite=0 keeps it whole): no actor tick, no
+	 * movement, camera or controller tick, cameras and spring arms off; only the meshes keep
+	 * animating. Undone when the character leaves the car (ReleaseCharacter). Police and
+	 * traffic both seat through SeatOccupant, so both get it.
+	 */
+	static void SetDriverLite(ACharacter* Character, bool bLite);
+	static bool IsDriverLiteWanted();
+
 	UFUNCTION(BlueprintPure, Category = "Vehicle|Seats")
 	ACharacter* GetDriver() const { return Driver; }
 
