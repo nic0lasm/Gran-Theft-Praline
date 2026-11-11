@@ -4,7 +4,9 @@
 #include "EnhancedInputSubsystems.h"
 #include "Engine/LocalPlayer.h"
 #include "GameFramework/PlayerController.h"
+#include "GTPCombatMelee.h"
 #include "GTPWeapon.h"
+#include "GameFramework/Pawn.h"
 #include "InputAction.h"
 #include "InputCoreTypes.h"
 #include "InputMappingContext.h"
@@ -36,6 +38,7 @@ void UGTPCombatInput::Bind(APlayerController* Controller)
 		ReloadAction = MakeCombatAction(this, TEXT("IA_Combat_Reload"));
 		Holster = MakeCombatAction(this, TEXT("IA_Combat_Holster"));
 		Shoulder = MakeCombatAction(this, TEXT("IA_Combat_Shoulder"));
+		DodgeAction = MakeCombatAction(this, TEXT("IA_Combat_Dodge"));
 
 		Context = NewObject<UInputMappingContext>(this, TEXT("IMC_Combat"), RF_Transient);
 		Context->MapKey(Aim, EKeys::RightMouseButton);
@@ -48,6 +51,8 @@ void UGTPCombatInput::Bind(APlayerController* Controller)
 		Context->MapKey(Holster, EKeys::Gamepad_DPad_Down);
 		Context->MapKey(Shoulder, EKeys::X);
 		Context->MapKey(Shoulder, EKeys::Gamepad_DPad_Left);
+		Context->MapKey(DodgeAction, EKeys::LeftAlt);
+		Context->MapKey(DodgeAction, EKeys::Gamepad_FaceButton_Right);
 	}
 	{
 		Enhanced->BindAction(Aim, ETriggerEvent::Started, this, &UGTPCombatInput::OnAimStarted);
@@ -57,6 +62,7 @@ void UGTPCombatInput::Bind(APlayerController* Controller)
 		Enhanced->BindAction(ReloadAction, ETriggerEvent::Started, this, &UGTPCombatInput::OnReload);
 		Enhanced->BindAction(Holster, ETriggerEvent::Started, this, &UGTPCombatInput::OnHolster);
 		Enhanced->BindAction(Shoulder, ETriggerEvent::Started, this, &UGTPCombatInput::OnShoulder);
+		Enhanced->BindAction(DodgeAction, ETriggerEvent::Started, this, &UGTPCombatInput::OnDodge);
 	}
 }
 
@@ -88,11 +94,23 @@ UGTPWeaponComponent* UGTPCombatInput::GetWeapon() const
 	return Pawn ? Pawn->FindComponentByClass<UGTPWeaponComponent>() : nullptr;
 }
 
+UGTPCombatMeleeComponent* UGTPCombatInput::GetFists() const
+{
+	const APlayerController* Controller = Owner.Get();
+	const APawn* Pawn = Controller ? Controller->GetPawn() : nullptr;
+	return Pawn ? Pawn->FindComponentByClass<UGTPCombatMeleeComponent>() : nullptr;
+}
+
 void UGTPCombatInput::OnAimStarted()
 {
-	if (UGTPWeaponComponent* Weapon = GetWeapon())
+	UGTPWeaponComponent* Weapon = GetWeapon();
+	if (Weapon && Weapon->IsDrawn())
 	{
 		Weapon->SetAiming(true);
+	}
+	else if (UGTPCombatMeleeComponent* Fists = GetFists())
+	{
+		Fists->SetGuard(true);
 	}
 }
 
@@ -102,14 +120,39 @@ void UGTPCombatInput::OnAimEnded()
 	{
 		Weapon->SetAiming(false);
 	}
+	if (UGTPCombatMeleeComponent* Fists = GetFists())
+	{
+		Fists->SetGuard(false);
+	}
 }
 
 void UGTPCombatInput::OnFireStarted()
 {
-	if (UGTPWeaponComponent* Weapon = GetWeapon())
+	UGTPWeaponComponent* Weapon = GetWeapon();
+	if (Weapon && Weapon->IsDrawn())
 	{
 		Weapon->PullTrigger();
 	}
+	else if (UGTPCombatMeleeComponent* Fists = GetFists())
+	{
+		Fists->Attack();
+	}
+}
+
+void UGTPCombatInput::OnDodge()
+{
+	UGTPCombatMeleeComponent* Fists = GetFists();
+	const APlayerController* Controller = Owner.Get();
+	const APawn* Pawn = Controller ? Controller->GetPawn() : nullptr;
+	if (!Fists || !Pawn)
+	{
+		return;
+	}
+	if (UGTPWeaponComponent* Weapon = GetWeapon())
+	{
+		Weapon->CancelReload();
+	}
+	Fists->Dodge(Pawn->GetLastMovementInputVector());
 }
 
 void UGTPCombatInput::OnFireEnded()
