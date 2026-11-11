@@ -95,7 +95,7 @@ if [ "${FACADES_ONLY:-0}" != "1" ] && test -f "$gen/details_placement.csv"; then
     # Bench A/B: the details stay as they are and the baked copy is placed as a second set
     # (City/Details_merged, tag GTP_Set_details_merged), hidden in game unless -CityDetailsMerged=1.
     cp "$gen/details_placement.csv" "$gen/details_merged_placement.csv"
-    GTP_PROPS_SET=details_merged GTP_DETAILS_MERGED=1 GTP_PY_SCRIPT="$py_dir/place_props.py" EDITOR_DONE_FILE="$out/details_merged_report.json" run_editor details_merged "$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES "-ExecutePythonScript=__import__('gtp_run').main()"
+    GTP_PROPS_SET=details_merged GTP_DETAILS_MERGED=1 GTP_PY_SCRIPT="$py_dir/place_props.py" EDITOR_DONE_FILE="$out/details_merged_report.json" EDITOR_MAX_S=120 run_editor details_merged "$editor" "$project" $headless -unattended -nosplash -nosound -NSAppSleepDisabled YES "-ExecutePythonScript=__import__('gtp_run').main()"
     test -f "$out/details_merged_report.json" || { echo "place_props.py (details_merged) wrote no report" >&2; exit 1; }
   else
     rm -f "$gen/details_merged_placement.csv"

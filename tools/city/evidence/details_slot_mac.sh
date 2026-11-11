@@ -34,7 +34,8 @@
 # Content/Python/gtp_run.py, with no temporary copy.
 #   SLOT_MODE (profile | bench), SLOT_REF (default origin/feat/street-details-12), SLOT_MERGED (1),
 #   SLOT_SKIP_PROFILE (0), GTP_PLAY_ARGS; bench mode: REFERENCE (results.csv of cumul-lf),
-#   BENCH_BUILD, SKIP_BUILD=1 (bench an existing build), BENCH_SCENARIOS (street-demo), BENCH_DURATION (90),
+#   BENCH_BUILD, SKIP_BUILD=1 (bench an existing build), BENCH_MERGED (1; 0 = no bake, screen may be locked),
+#   BENCH_SCENARIOS (street-demo), BENCH_DURATION (90),
 #   PYTHON (venv for the city tools), UE_ROOT, GTP_CITY_ZONE, GTP_CITY_FOCUS,
 #   DRY_RUN=1, DRY_STEP_S, HEARTBEAT_S (default 600), PLAN_SCALE (multiplies the planned durations)
 # Output: Saved/details-slot-<stamp>/ (profile_*.json, play_glass.json, logs, heartbeat.log, REPORT.txt).
@@ -49,7 +50,8 @@ heartbeat_s="${HEARTBEAT_S:-600}"
 plan_scale="${PLAN_SCALE:-1}"
 slot_ref="${SLOT_REF:-origin/feat/street-details-12}"
 merged="${SLOT_MERGED:-1}"
-mode="${SLOT_MODE:-profile}"   # profile (editor -game measures) or bench (packaged build, bench.sh)
+mode="${SLOT_MODE:-profile}"
+bench_merged="${BENCH_MERGED:-1}"   # bench mode: also bake and bench the one-material details   # profile (editor -game measures) or bench (packaged build, bench.sh)
 reference_csv="${REFERENCE:-$repo/Builds/perf-cumul/slot1-20261111-010738/cumul-lf/results.csv}"
 bench_build="${BENCH_BUILD:-$repo/Builds/details-bench/0.3}"
 export GTP_PLAY_ARGS="${GTP_PLAY_ARGS:--Sky=lightfunction}"
@@ -282,8 +284,11 @@ if [ "$mode" = "bench" ]; then
   # SKIP_BUILD=1 benches a build packaged elsewhere (about 15 min instead of about 75).
   if [ "${SKIP_BUILD:-0}" != "1" ]; then
     step "S setup environment assets" 8 "$out/setup.log" setup_env
-    GTP_CITY_DETAILS=1 GTP_DETAILS_MERGED=ab GTP_SHOP_GLASS="${GTP_SHOP_GLASS:-opaque}" SKIP_PLAY=1 \
-      step "1 regenerate with details and their bake, ${GTP_SHOP_GLASS:-opaque} glass" 16 "$out/regen_details.log" regen
+    # The bake (merge_detail_materials.py) renders, so it needs the screen unlocked; BENCH_MERGED=0
+    # leaves it out and the whole build then passes with the screen locked.
+    GTP_CITY_DETAILS=1 GTP_DETAILS_MERGED="$([ "$bench_merged" = "1" ] && echo ab || echo 0)" \
+      GTP_SHOP_GLASS="${GTP_SHOP_GLASS:-opaque}" SKIP_PLAY=1 \
+      step "1 regenerate with details$([ "$bench_merged" = "1" ] && echo " and their bake"), ${GTP_SHOP_GLASS:-opaque} glass" 16 "$out/regen_details.log" regen
     cp "$saved/details_report.json" "$saved/details_merged_report.json" "$saved/merge_details_report.json" "$out/" 2> /dev/null || true
     step "P package Shipping to $bench_build" 30 "$out/package.log" package
     git rev-parse HEAD > "$bench_build/.commit" 2> /dev/null || true
@@ -294,7 +299,9 @@ if [ "$mode" = "bench" ]; then
   echo "build: $bench_build ($(cat "$bench_build/.commit" 2> /dev/null || echo ?)); reference csv: ${reference_csv:-none}" >> "$report"
   step "B0 bench without details" 4 "$out/bench-nodetails.log" bench "$bench_build" "$out/nodetails" "" "-CityDetails=0"
   step "B1 bench with details (gate: reference)" 4 "$out/bench-details.log" bench "$bench_build" "$out/details" "$reference_csv" ""
-  step "B2 bench with the one-material bake" 4 "$out/bench-merged.log" bench "$bench_build" "$out/merged" "" "-CityDetailsMerged=1"
+  if [ "$bench_merged" = "1" ]; then
+    step "B2 bench with the one-material bake" 4 "$out/bench-merged.log" bench "$bench_build" "$out/merged" "" "-CityDetailsMerged=1"
+  fi
   {
     echo
     for b in nodetails details merged; do
@@ -303,8 +310,10 @@ if [ "$mode" = "bench" ]; then
     if [ "$dry" != "1" ]; then
       echo "## details vs no details (cost of the dressing)"
       python3 -I "$repo/tools/perf/compare.py" "$out/nodetails/results.csv" "$out/details/results.csv" 2 || true
-      echo "## merged vs details (gain of the bake)"
-      python3 -I "$repo/tools/perf/compare.py" "$out/details/results.csv" "$out/merged/results.csv" 2 || true
+      if [ -s "$out/merged/results.csv" ]; then
+        echo "## merged vs details (gain of the bake)"
+        python3 -I "$repo/tools/perf/compare.py" "$out/details/results.csv" "$out/merged/results.csv" 2 || true
+      fi
     fi
   } >> "$report"
   cat "$report"
