@@ -2,8 +2,8 @@
 # Night slot (day/night): cost of the night (street and shop lights, their shadows, car
 # lights) against the day, and of dawn, golden hour and dusk, on a packaged build, with the
 # night light budget varied by command line (-NightLights, -NightShadows, -NightDistance,
-# -LitCars: in builds from feat/sky-slot3 1e0dcd5 on; older builds ignore them and the
-# report says so). Nothing is compiled or packaged, the clone's files are not changed.
+# -LitCars: in builds that contain feat/sky-slot3 3df9dcf; older builds ignore them and the
+# report says "not in this build"). Nothing is compiled or packaged, the clone's files are not changed.
 #
 # Run from the root of the GTAL-build clone, nothing else running (one command):
 #   git fetch -q origin feat/sky-slot3 && mkdir -p Builds/night-slot && git show origin/feat/sky-slot3:tools/environment/slot-night-mac.sh > Builds/night-slot/run.sh && bash Builds/night-slot/run.sh
@@ -138,7 +138,7 @@ fi
   echo
   echo "| Run | GPU p50 - noon | GPU p95 - noon | Within 3 ms (p50) |"
   echo "| --- | --- | --- | --- |"
-  awk 'NR==FNR && $1=="noon"{n50=$2; n95=$3; next}
+  awk 'NR==FNR { if ($1=="noon") { n50=$2; n95=$3 }; next }
        $1!="noon" && $1 !~ /demo/ {
          if ($2=="nan" || n50=="") { print "| " $1 " | nan | nan | ? |"; next }
          d50=$2-n50; d95=$3-n95; printf "| %s | %+.1f | %+.1f | %s |\n", $1, d50, d95, (d50<=3 ? "yes" : "no") }' \
