@@ -169,3 +169,26 @@ jobs:
         run: python -I -m unittest discover -s tools/qa/tests
       - name: Credits cover every licence family in assets/SOURCES.md
         run: python3 tools/qa/check_notices.py
+
+  interiors:
+    name: Reference interior rules and budget
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Till float, shift and multi-employee hold-up (C++, no Unreal)
+        run: |
+          g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/interiors/core_test/core_test.cpp -o /tmp/core_test
+          /tmp/core_test
+      - name: Layout generator tests
+        run: python -I -m unittest discover -s tools/interiors/tests
+      - name: Unreal interior level script compiles
+        run: python -m py_compile tools/interiors/unreal/build_interior_level.py tools/interiors/unreal/map_interior_meshes.py tools/interiors/unreal/import_free_assets.py tools/interiors/unreal/shoot_interior.py
+      - name: Object budget of the reference interior, M1 and PC
+        run: |
+          python -I tools/interiors/interior_layout.py tools/interiors/fastfood_bellecour.json --tier m1
+          python -I tools/interiors/interior_layout.py tools/interiors/fastfood_bellecour.json --tier pc
