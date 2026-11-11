@@ -12,6 +12,7 @@
 #     d40        -Traffic=40                    (40 driven cars)
 #     d12-f28    -Traffic=12 -FarTraffic=28     (40 perceived)
 #     d16-f24-p  -Traffic=16 -FarTraffic=24 -ParkedCars=1 (40 perceived + parked cars)
+#     d16-f24    -Traffic=16 -FarTraffic=24 (the defaults since the next candidate, parked cars off)
 #   POLICE=1 adds a police chase (-WantedStars=2 -WantedHold); DURATION (default 90),
 #   SCENARIO (default street-demo).
 # Far traffic is drawn with puppet cars by default (no extra mesh needed); the
@@ -35,12 +36,13 @@ test "${POLICE:-0}" = "1" && police="-WantedStars=2 -WantedHold"
 
 args_for() {
   case "$1" in
-    d12)       echo "-Traffic=12" ;;
-    d25)       echo "-Traffic=25" ;;
+    d12)       echo "-Traffic=12 -FarTraffic=0" ;;
+    d25)       echo "-Traffic=25 -FarTraffic=0" ;;
     d12-f13)   echo "-Traffic=12 -FarTraffic=13" ;;
-    d40)       echo "-Traffic=40" ;;
+    d40)       echo "-Traffic=40 -FarTraffic=0" ;;
     d12-f28)   echo "-Traffic=12 -FarTraffic=28" ;;
     d16-f24-p) echo "-Traffic=16 -FarTraffic=24 -ParkedCars=1" ;;
+    d16-f24)   echo "-Traffic=16 -FarTraffic=24 -ParkedCars=0" ;;
     *) return 1 ;;
   esac
 }

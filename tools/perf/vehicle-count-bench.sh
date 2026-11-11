@@ -43,9 +43,9 @@ for n in $counts; do
   for lod in $tiers; do
     run="$out_dir/cars${n}_lod${lod}"
     case "$lod" in
-      0) tier_args="-VehicleLod=0" ;;
-      1) tier_args="-VehicleLod=1" ;;
-      *) tier_args="-VehicleLod=1 -VehicleGhost=1 -TrafficPool=1" ;;
+      0) tier_args="-VehicleLod=0 -VehicleGhost=0 -TrafficPool=0 -FarTraffic=0" ;;
+      1) tier_args="-VehicleLod=1 -VehicleGhost=0 -TrafficPool=0 -FarTraffic=0" ;;
+      *) tier_args="-VehicleLod=1 -VehicleGhost=1 -TrafficPool=1 -FarTraffic=0" ;;
     esac
     EXTRA_ARGS="-Traffic=$n $tier_args $police_args" SCENARIOS="$scenario" \
       "$script_dir/bench.sh" "$build_dir" "$run" > "$run.log" 2>&1 || echo "run cars=$n tier=$lod exited with an error, see $run.log" >&2
