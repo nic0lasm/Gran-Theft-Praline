@@ -274,6 +274,20 @@ void AGTPVehicle::SetAIDriveInput(float Throttle, float Brake, float Steering, b
 	Move->SetHandbrakeInput(bHandbrake);
 }
 
+void AGTPVehicle::SetScriptedDriveInput(float Throttle, float Brake, float Steering, bool bHandbrake)
+{
+	UChaosWheeledVehicleMovementComponent* Move = GetWheeledMovement();
+	if (!Move || bWrecked)
+	{
+		return;
+	}
+	ThrottleAmount = FMath::Clamp(Throttle, 0.f, 1.f);
+	Move->SetThrottleInput(ThrottleAmount);
+	Move->SetBrakeInput(FMath::Clamp(Brake, 0.f, 1.f));
+	Move->SetSteeringInput(FMath::Clamp(Steering, -1.f, 1.f));
+	Move->SetHandbrakeInput(bHandbrake);
+}
+
 // --- Input -----------------------------------------------------------------
 
 void AGTPVehicle::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
