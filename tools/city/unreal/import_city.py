@@ -7,7 +7,7 @@ Input (made in the cloud or locally by tools/city/, never committed):
 Run without the UI (UE 5.8 on Mac: no UnrealEditor-Cmd; copy the script to a
 path without spaces first, as for tools/level/build_playable_street.py):
   UnrealEditor GranTheftPraline.uproject -unattended -nosplash \
-      -ExecutePythonScript=/tmp/import_city.py
+      "-ExecutePythonScript=__import__('gtp_run').main()" (with GTP_PY_SCRIPT=tools/city/unreal/import_city.py)
 Settings come from the environment: GTP_CITY_ZONE (presqu-ile), GTP_CITY_FOCUS
 (rue-de-la-republique).
 

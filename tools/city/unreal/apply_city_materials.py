@@ -2,7 +2,7 @@
 
 Run after import_city.py (and place_facades.py), same way, no UI:
   UnrealEditor GranTheftPraline.uproject -unattended -nosplash -NSAppSleepDisabled YES \
-      -ExecutePythonScript=/tmp/apply_city_materials.py
+      "-ExecutePythonScript=__import__('gtp_run').main()" (with GTP_PY_SCRIPT=tools/city/unreal/apply_city_materials.py)
 Settings: GTP_CITY_ZONE (presqu-ile), GTP_CITY_FOCUS (rue-de-la-republique),
 GTP_CITY_GROUND_DIR (default assets/geo/processed/<zone>/gen/<focus>/ground, made by
 tools/city/ground_mask.py).

@@ -1,7 +1,7 @@
 """Place the Lyon facade kit on the generated city, inside the Unreal Editor.
 
 Run after import_city.py, same way (no UI, script copied to a path without spaces):
-  UnrealEditor GranTheftPraline.uproject -unattended -nosplash -ExecutePythonScript=/tmp/place_facades.py
+  UnrealEditor GranTheftPraline.uproject -unattended -nosplash "-ExecutePythonScript=__import__('gtp_run').main()" (with GTP_PY_SCRIPT=tools/city/unreal/place_facades.py)
 Settings: GTP_CITY_ZONE (presqu-ile), GTP_CITY_FOCUS (rue-de-la-republique).
 
 Input: gen/<focus>/facade_modules.csv (generate.py), gen/<focus>/kit/facade_kit.glb and
