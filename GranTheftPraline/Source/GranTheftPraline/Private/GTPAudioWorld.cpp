@@ -15,6 +15,7 @@
 #include "GTPStreetReactions.h"
 #include "GTPCombatSounds.h"
 #include "GTPPlaceAudio.h"
+#include "GTPMissionSounds.h"
 #include "GTPVehicle.h"
 #include "GTPVehicleAudioComponent.h"
 #include "AudioMixerBlueprintLibrary.h"
@@ -72,6 +73,8 @@ void UGTPAudioWorld::OnWorldBeginPlay(UWorld& InWorld)
 	CombatSounds->Start(&InWorld);
 	Places = NewObject<UGTPPlaceAudio>(this);
 	Places->Start(&InWorld);
+	MissionSounds = NewObject<UGTPMissionSounds>(this);
+	MissionSounds->Start(&InWorld);
 	GTP_TRACE(LogGTPAudioWorld, TEXT("[Audio] world %s: %d actors equipped at start; bed %s"), *InWorld.GetMapName(), Equipped, *Bed->Describe());
 }
 
@@ -96,6 +99,11 @@ void UGTPAudioWorld::Deinitialize()
 	{
 		Places->Stop();
 		Places = nullptr;
+	}
+	if (MissionSounds)
+	{
+		MissionSounds->Stop();
+		MissionSounds = nullptr;
 	}
 	PendingEquip.Reset();
 	Walkers.Reset();
@@ -245,6 +253,10 @@ void UGTPAudioWorld::Tick(float DeltaTime)
 	if (Places)
 	{
 		Places->Tick(DeltaTime);
+	}
+	if (MissionSounds)
+	{
+		MissionSounds->Tick(DeltaTime);
 	}
 	if (bLogStats)
 	{
@@ -443,10 +455,11 @@ void UGTPAudioWorld::LogStats()
 		}
 		Feet += It->FindComponentByClass<UGTPFootstepComponent>() ? 1 : 0;
 	}
-	GTP_TRACE(LogGTPAudioWorld, TEXT("[Audio] steps=%d impacts=%d sirens_on=%d skids_on=%d walkers=%d heard=%d engines=%d/%d driving=%d bank=%d voices=%d radio=%d %s; %s; %s; %s"),
+	GTP_TRACE(LogGTPAudioWorld, TEXT("[Audio] steps=%d impacts=%d sirens_on=%d skids_on=%d walkers=%d heard=%d engines=%d/%d driving=%d bank=%d voices=%d radio=%d %s; %s; %s; %s; %s"),
 		Mix ? Mix->FootstepsPlayed : 0, Mix ? Mix->ImpactsPlayed : 0, Sirens, Skids, Feet, WalkersHeard, EnginesAudible, Engines.Num(), bDrivingMixOn ? 1 : 0, Mix ? Mix->GetBankSize() : 0,
 		Mix ? Mix->VoicesPlayed : 0, Mix ? Mix->RadioPlayed : 0, Bed ? *Bed->Describe() : TEXT("bed=off"),
 		Reactions ? *Reactions->Describe() : TEXT("reactions=off"),
 		CombatSounds ? *CombatSounds->Describe() : TEXT("combat=off"),
-		Places ? *Places->Describe() : TEXT("places=off"));
+		Places ? *Places->Describe() : TEXT("places=off"),
+		MissionSounds ? *MissionSounds->Describe() : TEXT("missions=off"));
 }
