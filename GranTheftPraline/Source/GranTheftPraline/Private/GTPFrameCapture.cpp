@@ -35,7 +35,9 @@ void UGTPFrameCapture::Initialize(FSubsystemCollectionBase& Collection)
 	}
 	FParse::Value(CommandLine, TEXT("CaptureFps="), FramesPerSecond);
 	FParse::Value(CommandLine, TEXT("CaptureDelay="), DelaySeconds);
-	FramesPerSecond = FMath::Clamp(FramesPerSecond, 1.0, 60.0);
+	// Below 1 fps is allowed: -CaptureFps=0.1 saves one still every 10 s (a 1 fps floor made
+	// the demo-route stills cost a >100 ms frame every second, 11/11).
+	FramesPerSecond = FMath::Clamp(FramesPerSecond, 0.01, 60.0);
 
 	if (!FParse::Value(CommandLine, TEXT("CaptureDir="), OutputDir) || OutputDir.IsEmpty())
 	{
@@ -63,7 +65,7 @@ void UGTPFrameCapture::Initialize(FSubsystemCollectionBase& Collection)
 	NextCaptureSeconds = DelaySeconds;
 	TickHandle = FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateUObject(this, &UGTPFrameCapture::Tick));
 
-	UE_LOG(LogGTPFrameCapture, Log, TEXT("Capturing %.0f s at %.0f fps to %s"), DurationSeconds, FramesPerSecond, *OutputDir);
+	UE_LOG(LogGTPFrameCapture, Log, TEXT("Capturing %.0f s at %.2f fps to %s"), DurationSeconds, FramesPerSecond, *OutputDir);
 }
 
 void UGTPFrameCapture::Deinitialize()
