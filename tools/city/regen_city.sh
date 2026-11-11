@@ -52,15 +52,13 @@ PATH="$(dirname "$(command -v "$py")"):$PATH" GTP_CITY_RIVERSIDE=1 GTP_CITY_ZONE
   SKIP_PLAY="${SKIP_PLAY:-0}" "$repo/tools/city/unreal/run_city_import.sh"
 
 step "parked car"
-tmp="$(mktemp -d)"
-cp "$repo/tools/vehicles/unreal/place_parked_car.py" "$tmp/"
 # place_parked_car.py ends with quit_editor(), which makes the editor return 1 even when the
 # car is placed and the map saved (measured 10/11): 0 and 1 pass, anything else stops.
 rc=0
-GTP_PARKED_MAP="$map" "$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES \
-  -ExecutePythonScript="$tmp/place_parked_car.py" || rc=$?
+GTP_PARKED_MAP="$map" GTP_PY_SCRIPT="$repo/tools/vehicles/unreal/place_parked_car.py" \
+  "$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES \
+  "-ExecutePythonScript=__import__('gtp_run').main()" || rc=$?
 test "$rc" -le 1 || { echo "parked car: editor returned $rc" >&2; exit "$rc"; }
-rm -rf "$tmp"
 
 if test -f "$repo/tools/city/traffic.py"; then
   step "traffic lanes"
