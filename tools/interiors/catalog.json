@@ -1,29 +1,49 @@
 {
- "comment": "Mesh classes of interiors. size drives cull distance, shadows and LOD; tris_lod0 = budget for the mesh at LOD0 (Nanite source on PC); items_per_instance > 1 = a kit: one mesh shows a stack or a box of N items, swapped for single items only when the player touches it.",
+ "comment": "Mesh classes of interiors. size drives cull distance, shadows and LOD; tris_lod0 = budget for the mesh at LOD0 (Nanite source on PC); items_per_instance > 1 = a kit: one mesh shows a stack or a box of N items, swapped for single items only when the player touches it. dims_m (class, else size rule) = bounding box used by the grey boxes of step 2 before real meshes arrive.",
  "size_rules": {
   "micro": {
    "cull_m": 4,
    "shadow_m1": false,
    "shadow_pc": false,
-   "lod_factor": 0.15
+   "lod_factor": 0.15,
+   "dims_m": [
+    0.06,
+    0.06,
+    0.03
+   ]
   },
   "small": {
    "cull_m": 12,
    "shadow_m1": false,
    "shadow_pc": true,
-   "lod_factor": 0.3
+   "lod_factor": 0.3,
+   "dims_m": [
+    0.25,
+    0.25,
+    0.15
+   ]
   },
   "medium": {
    "cull_m": 30,
    "shadow_m1": true,
    "shadow_pc": true,
-   "lod_factor": 0.5
+   "lod_factor": 0.5,
+   "dims_m": [
+    0.6,
+    0.6,
+    0.8
+   ]
   },
   "large": {
    "cull_m": 0,
    "shadow_m1": true,
    "shadow_pc": true,
-   "lod_factor": 0.7
+   "lod_factor": 0.7,
+   "dims_m": [
+    1.2,
+    0.8,
+    1.0
+   ]
   }
  },
  "classes": {
@@ -32,7 +52,12 @@
    "tris_lod0": 18000,
    "sections": 3,
    "items_per_instance": 1,
-   "interactive": true
+   "interactive": true,
+   "dims_m": [
+    0.4,
+    0.8,
+    1.1
+   ]
   },
   "fry_basket": {
    "size": "small",
@@ -53,7 +78,12 @@
    "tris_lod0": 12000,
    "sections": 2,
    "items_per_instance": 1,
-   "interactive": false
+   "interactive": false,
+   "dims_m": [
+    0.9,
+    0.7,
+    0.9
+   ]
   },
   "fry_scoop": {
    "size": "small",
@@ -81,7 +111,12 @@
    "tris_lod0": 22000,
    "sections": 3,
    "items_per_instance": 1,
-   "interactive": true
+   "interactive": true,
+   "dims_m": [
+    0.9,
+    0.8,
+    1.1
+   ]
   },
   "spatula": {
    "size": "small",
@@ -123,21 +158,36 @@
    "tris_lod0": 1600,
    "sections": 1,
    "items_per_instance": 1,
-   "interactive": true
+   "interactive": true,
+   "dims_m": [
+    0.11,
+    0.11,
+    0.06
+   ]
   },
   "patty": {
    "size": "micro",
    "tris_lod0": 900,
    "sections": 1,
    "items_per_instance": 1,
-   "interactive": true
+   "interactive": true,
+   "dims_m": [
+    0.1,
+    0.1,
+    0.01
+   ]
   },
   "assembly_table": {
    "size": "large",
    "tris_lod0": 9000,
    "sections": 2,
    "items_per_instance": 1,
-   "interactive": false
+   "interactive": false,
+   "dims_m": [
+    1.8,
+    0.8,
+    0.9
+   ]
   },
   "condiment_insert": {
    "size": "small",
@@ -179,7 +229,12 @@
    "tris_lod0": 16000,
    "sections": 2,
    "items_per_instance": 1,
-   "interactive": false
+   "interactive": false,
+   "dims_m": [
+    1.0,
+    0.6,
+    0.7
+   ]
   },
   "holding_tray": {
    "size": "small",
@@ -193,14 +248,24 @@
    "tris_lod0": 7000,
    "sections": 1,
    "items_per_instance": 1,
-   "interactive": false
+   "interactive": false,
+   "dims_m": [
+    0.5,
+    0.7,
+    1.8
+   ]
   },
   "drink_tower": {
    "size": "large",
    "tris_lod0": 20000,
    "sections": 3,
    "items_per_instance": 1,
-   "interactive": true
+   "interactive": true,
+   "dims_m": [
+    0.9,
+    0.7,
+    1.2
+   ]
   },
   "cup_kit": {
    "size": "small",
@@ -340,14 +405,24 @@
    "tris_lod0": 8000,
    "sections": 1,
    "items_per_instance": 1,
-   "interactive": false
+   "interactive": false,
+   "dims_m": [
+    1.8,
+    0.7,
+    0.9
+   ]
   },
   "dishwasher": {
    "size": "large",
    "tris_lod0": 9000,
    "sections": 2,
    "items_per_instance": 1,
-   "interactive": false
+   "interactive": false,
+   "dims_m": [
+    0.6,
+    0.6,
+    0.85
+   ]
   },
   "utensil_rack": {
    "size": "medium",
@@ -368,21 +443,36 @@
    "tris_lod0": 6000,
    "sections": 1,
    "items_per_instance": 1,
-   "interactive": false
+   "interactive": false,
+   "dims_m": [
+    1.2,
+    0.5,
+    1.8
+   ]
   },
   "case_box": {
    "size": "small",
    "tris_lod0": 300,
    "sections": 1,
    "items_per_instance": 1,
-   "interactive": true
+   "interactive": true,
+   "dims_m": [
+    0.4,
+    0.3,
+    0.25
+   ]
   },
   "frozen_case": {
    "size": "small",
    "tris_lod0": 300,
    "sections": 1,
    "items_per_instance": 1,
-   "interactive": true
+   "interactive": true,
+   "dims_m": [
+    0.4,
+    0.3,
+    0.25
+   ]
   },
   "fry_bag": {
    "size": "small",
@@ -396,7 +486,12 @@
    "tris_lod0": 3000,
    "sections": 1,
    "items_per_instance": 1,
-   "interactive": false
+   "interactive": false,
+   "dims_m": [
+    1.4,
+    0.7,
+    0.75
+   ]
   },
   "office_chair": {
    "size": "medium",
@@ -410,7 +505,12 @@
    "tris_lod0": 5000,
    "sections": 2,
    "items_per_instance": 1,
-   "interactive": true
+   "interactive": true,
+   "dims_m": [
+    0.5,
+    0.5,
+    0.6
+   ]
   },
   "monitor": {
    "size": "small",
@@ -431,7 +531,12 @@
    "tris_lod0": 2500,
    "sections": 1,
    "items_per_instance": 1,
-   "interactive": true
+   "interactive": true,
+   "dims_m": [
+    0.4,
+    0.5,
+    1.8
+   ]
   },
   "bench": {
    "size": "medium",
@@ -445,56 +550,96 @@
    "tris_lod0": 3000,
    "sections": 2,
    "items_per_instance": 1,
-   "interactive": true
+   "interactive": true,
+   "dims_m": [
+    0.7,
+    0.7,
+    0.75
+   ]
   },
   "table_4": {
    "size": "medium",
    "tris_lod0": 3500,
    "sections": 2,
    "items_per_instance": 1,
-   "interactive": true
+   "interactive": true,
+   "dims_m": [
+    1.2,
+    0.8,
+    0.75
+   ]
   },
   "high_table": {
    "size": "medium",
    "tris_lod0": 3500,
    "sections": 2,
    "items_per_instance": 1,
-   "interactive": true
+   "interactive": true,
+   "dims_m": [
+    1.4,
+    0.7,
+    1.05
+   ]
   },
   "booth": {
    "size": "large",
    "tris_lod0": 8000,
    "sections": 2,
    "items_per_instance": 1,
-   "interactive": false
+   "interactive": false,
+   "dims_m": [
+    1.6,
+    0.8,
+    0.75
+   ]
   },
   "chair": {
    "size": "medium",
    "tris_lod0": 5000,
    "sections": 2,
    "items_per_instance": 1,
-   "interactive": true
+   "interactive": true,
+   "dims_m": [
+    0.45,
+    0.45,
+    0.85
+   ]
   },
   "stool": {
    "size": "medium",
    "tris_lod0": 3500,
    "sections": 2,
    "items_per_instance": 1,
-   "interactive": true
+   "interactive": true,
+   "dims_m": [
+    0.4,
+    0.4,
+    0.75
+   ]
   },
   "booth_bench": {
    "size": "large",
    "tris_lod0": 6000,
    "sections": 2,
    "items_per_instance": 1,
-   "interactive": false
+   "interactive": false,
+   "dims_m": [
+    1.6,
+    0.6,
+    1.1
+   ]
   },
   "tray": {
    "size": "small",
    "tris_lod0": 900,
    "sections": 1,
    "items_per_instance": 1,
-   "interactive": true
+   "interactive": true,
+   "dims_m": [
+    0.36,
+    0.27,
+    0.02
+   ]
   },
   "wrapper": {
    "size": "micro",
@@ -522,7 +667,12 @@
    "tris_lod0": 1400,
    "sections": 1,
    "items_per_instance": 1,
-   "interactive": true
+   "interactive": true,
+   "dims_m": [
+    0.09,
+    0.09,
+    0.15
+   ]
   },
   "lid": {
    "size": "micro",
@@ -571,21 +721,36 @@
    "tris_lod0": 12000,
    "sections": 3,
    "items_per_instance": 1,
-   "interactive": true
+   "interactive": true,
+   "dims_m": [
+    0.6,
+    0.3,
+    1.9
+   ]
   },
   "ceiling_tile": {
    "size": "medium",
    "tris_lod0": 48,
    "sections": 1,
    "items_per_instance": 1,
-   "interactive": false
+   "interactive": false,
+   "dims_m": [
+    0.6,
+    0.6,
+    0.02
+   ]
   },
   "ceiling_light": {
    "size": "medium",
    "tris_lod0": 1200,
    "sections": 2,
    "items_per_instance": 1,
-   "interactive": false
+   "interactive": false,
+   "dims_m": [
+    0.6,
+    0.6,
+    0.05
+   ]
   },
   "sprinkler": {
    "size": "micro",
@@ -648,21 +813,36 @@
    "tris_lod0": 6000,
    "sections": 2,
    "items_per_instance": 1,
-   "interactive": false
+   "interactive": false,
+   "dims_m": [
+    1.2,
+    0.5,
+    1.4
+   ]
   },
   "condiment_station": {
    "size": "large",
    "tris_lod0": 7000,
    "sections": 2,
    "items_per_instance": 1,
-   "interactive": false
+   "interactive": false,
+   "dims_m": [
+    1.0,
+    0.5,
+    1.0
+   ]
   },
   "toilet": {
    "size": "medium",
    "tris_lod0": 7000,
    "sections": 1,
    "items_per_instance": 1,
-   "interactive": false
+   "interactive": false,
+   "dims_m": [
+    0.4,
+    0.65,
+    0.8
+   ]
   },
   "wash_basin": {
    "size": "medium",
@@ -683,7 +863,12 @@
    "tris_lod0": 4000,
    "sections": 2,
    "items_per_instance": 1,
-   "interactive": false
+   "interactive": false,
+   "dims_m": [
+    1.2,
+    4.5,
+    3.6
+   ]
   }
  }
 }

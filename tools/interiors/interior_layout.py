@@ -31,6 +31,7 @@ WORKTOP_Z = 0.9
 # Share of the small and micro items of the work stations kept at each density level:
 # 0 = equipment and furniture only, 1 = half stocked, 2 and 3 = fully stocked.
 STOCK_SHARE = (0.0, 0.5, 1.0, 1.0)
+MAX_DENSITY = 3
 CEILING_CLASSES = {"ceiling_tile", "ceiling_light", "sprinkler", "vent_grille"}
 WALL_CLASSES = {"wall_socket", "fire_extinguisher", "wall_menu_screen", "hand_dryer"}
 
@@ -73,13 +74,14 @@ class Layout:
         self.storey = spec["frame"]["storey_height"]
         self.placements = []
 
-    def add(self, cls, zone, x, y, z, yaw=0.0, station=""):
+    def add(self, cls, zone, x, y, z, yaw=0.0, station="", min_density=0):
         if cls not in self.catalog["classes"]:
             raise KeyError(f"class '{cls}' is missing from the catalogue")
         level = self.zones[zone]["level"]
         self.placements.append({
             "class": cls, "zone": zone, "level": level, "station": station,
             "x": round(x, 3), "y": round(y, 3), "z": round(z + level * self.storey, 3), "yaw": round(yaw, 1),
+            "min_density": min_density,
         })
 
     def jitter(self, amount):
@@ -95,17 +97,16 @@ class Layout:
                 tag = f"{station['name']}_{index}"
                 for cls, full_count in station["items"].items():
                     size = self.catalog["classes"][cls]["size"]
-                    count = full_count if size in ("large", "medium") else int(round(full_count * STOCK_SHARE[self.density]))
+                    stock = size not in ("large", "medium")
                     z = 0.0 if size == "large" else WORKTOP_Z
-                    for item in range(count):
+                    for item in range(full_count):
+                        need = min_level(item, [int(round(full_count * share)) for share in STOCK_SHARE]) if stock else 0
                         spread = 0.0 if size == "large" else 0.35
                         self.add(cls, zone, point[0] + self.jitter(spread), point[1] + self.jitter(spread),
-                                 z + (0.0 if size == "large" else 0.02 * (item % 5)), self.rng.choice((0, 90, 180, 270)), tag)
+                                 z + (0.0 if size == "large" else 0.02 * (item % 5)), self.rng.choice((0, 90, 180, 270)), tag, need)
 
     def dining(self):
         clutter = self.spec["table_clutter"]
-        per_table = clutter["per_table"][self.density]
-        singles = clutter["fry_singles"][self.density]
         groups = {}
         for group in self.spec["dining"]:
             groups.setdefault(group["zone"], []).extend([group] * group["count"])
@@ -120,11 +121,13 @@ class Layout:
                     self.add(seat, zone, point[0] + 0.6 * math.cos(angle), point[1] + 0.6 * math.sin(angle), 0.0,
                              math.degrees(angle) + 180.0, tag)
                 if self.rng.random() < clutter["used_share"]:
-                    for item in range(per_table):
+                    for item in range(clutter["per_table"][-1]):
                         cls = clutter["items"][item % len(clutter["items"])]
-                        self.add(cls, zone, point[0] + self.jitter(0.3), point[1] + self.jitter(0.3), 0.75, self.rng.uniform(0, 360), tag)
-                    for _ in range(singles):
-                        self.add("fry_single", zone, point[0] + self.jitter(0.4), point[1] + self.jitter(0.4), 0.75, self.rng.uniform(0, 360), tag)
+                        self.add(cls, zone, point[0] + self.jitter(0.3), point[1] + self.jitter(0.3), 0.75, self.rng.uniform(0, 360), tag,
+                                 min_level(item, clutter["per_table"]))
+                    for item in range(clutter["fry_singles"][-1]):
+                        self.add("fry_single", zone, point[0] + self.jitter(0.4), point[1] + self.jitter(0.4), 0.75, self.rng.uniform(0, 360), tag,
+                                 min_level(item, clutter["fry_singles"]))
 
     def kiosks(self):
         kiosks = self.spec["kiosks"]
@@ -161,10 +164,27 @@ class Layout:
         return self.placements
 
 
+def min_level(index, counts_by_level):
+    """Lowest density level whose count includes item number index."""
+    for level, count in enumerate(counts_by_level):
+        if index < count:
+            return level
+    return len(counts_by_level)
+
+
+def generate_all(spec, catalog, seed=1):
+    """The full layout (density 3), each object tagged with the lowest density that shows it.
+
+    One layout for every density: the game switches density by hiding the components of the
+    higher levels (-InteriorDensity=), so an object never moves when the density changes.
+    """
+    return Layout(spec, catalog, MAX_DENSITY, seed).build()
+
+
 def generate(spec, catalog, density, seed=1):
-    if not 0 <= density <= 3:
+    if not 0 <= density <= MAX_DENSITY:
         raise ValueError("density goes from 0 to 3")
-    return Layout(spec, catalog, density, seed).build()
+    return [p for p in generate_all(spec, catalog, seed) if p["min_density"] <= density]
 
 
 def report(placements, catalog, tier, budgets):
@@ -174,11 +194,11 @@ def report(placements, catalog, tier, budgets):
     components = set()
     for placement in placements:
         per_class[placement["class"]] = per_class.get(placement["class"], 0) + 1
-        components.add((placement["class"], placement["level"]))
+        components.add((placement["class"], placement["level"], placement["min_density"]))
     logical = sum(classes[cls]["items_per_instance"] * count for cls, count in per_class.items())
-    draws = sum(classes[cls]["sections"] for cls, _level in components)
+    draws = sum(classes[cls]["sections"] for cls, _level, _density in components)
     shadow_key = "shadow_m1" if tier == "m1" else "shadow_pc"
-    shadow_draws = sum(classes[cls]["sections"] for cls, _level in components if rules[classes[cls]["size"]][shadow_key])
+    shadow_draws = sum(classes[cls]["sections"] for cls, _level, _density in components if rules[classes[cls]["size"]][shadow_key])
     tris_lod0 = sum(classes[cls]["tris_lod0"] * count for cls, count in per_class.items())
     tris_avg = sum(classes[cls]["tris_lod0"] * rules[classes[cls]["size"]]["lod_factor"] * count for cls, count in per_class.items())
     interactive = sum(count for cls, count in per_class.items() if classes[cls]["interactive"])
@@ -211,14 +231,14 @@ def write_csv(path, placements, catalog):
     with open(path, "w", newline="", encoding="utf-8") as handle:
         writer = csv.writer(handle)
         writer.writerow(["class", "zone", "level", "station", "x_cm", "y_cm", "z_cm", "yaw",
-                         "ism_group", "cull_cm", "shadow_m1", "shadow_pc", "interactive", "items"])
+                         "ism_group", "min_density", "cull_cm", "shadow_m1", "shadow_pc", "interactive", "items"])
         for placement in placements:
             info = catalog["classes"][placement["class"]]
             rule = rules[info["size"]]
             writer.writerow([
                 placement["class"], placement["zone"], placement["level"], placement["station"],
                 round(placement["x"] * 100, 1), round(-placement["y"] * 100, 1), round(placement["z"] * 100, 1), placement["yaw"],
-                f"{placement['class']}@L{placement['level']}", rule["cull_m"] * 100,
+                f"{placement['class']}@L{placement['level']}@D{placement['min_density']}", placement["min_density"], rule["cull_m"] * 100,
                 int(rule["shadow_m1"]), int(rule["shadow_pc"]), int(info["interactive"]), info["items_per_instance"],
             ])
 

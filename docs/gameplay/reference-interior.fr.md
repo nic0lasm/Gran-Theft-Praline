@@ -55,7 +55,7 @@ Les classes de maillage et leurs règles de coût sont dans `tools/interiors/cat
 | Mobilier | tables, chaises, tabourets, banquettes, bornes, casiers, étagères | ~260 |
 | Restes sur les tables | plateaux, papiers, gobelets, frites, tickets (60 % des tables occupées) | ~400 à 700 |
 | Équipement du bâtiment | dalles de plafond, luminaires, sprinklers, bouches, prises, siphons, extincteurs | ~1 300 |
-| **Total** | | **9 575 / 9 880 objets pour 3 593 / 3 898 instances et ~155 appels de dessin** |
+| **Total** | | **9 505 / 9 880 objets pour 3 523 / 3 898 instances et ~185-195 appels de dessin** |
 
 Niveaux de densité (`-InteriorDensity=`) : 0 équipement et mobilier seuls (2 170 objets),
 1 à moitié approvisionné (5 893), 2 plein avec restes sur les tables (défaut M1), 3 tout, y

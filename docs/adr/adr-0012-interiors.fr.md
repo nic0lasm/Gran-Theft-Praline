@@ -72,8 +72,8 @@ joueur entre dans le rayon de préchargement, déchargé avec hystérésis.
    | Mémoire du niveau intérieur | ≤ 600 Mo, textures 2K max | ≤ 1,5 Go |
 
    Le générateur d'aménagement vérifie en CI ce qui se compte. Le premier aménagement donne,
-   aux densités par défaut : M1 9 575 objets perçus, 3 593 instances, 92 maillages, 155 appels
-   de dessin ; PC 9 880 objets pour 159 appels (bornes basses : un matériau par section).
+   aux densités par défaut : M1 9 505 objets perçus, 3 523 instances, 92 maillages, 184 appels
+   de dessin ; PC 9 880 objets pour 196 appels (bornes basses : un matériau par section ; un composant par classe, étage et niveau de densité).
 7. **La ville vue de l'intérieur.** Lumen et la rue derrière la vitre restent ; les cellules
    derrière le bâtiment peuvent passer à leur proxy lointain pendant que le joueur est dedans
    (le fil optimisation tranche sur mesure).

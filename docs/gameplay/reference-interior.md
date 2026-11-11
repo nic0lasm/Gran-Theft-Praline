@@ -54,7 +54,7 @@ generator places them and counts them. At the default densities:
 | Furniture | tables, chairs, stools, booths, kiosks, lockers, shelving | ~260 |
 | Table leftovers | trays, wrappers, cups, fries, receipts (60 % of tables used) | ~400 to 700 |
 | Building fixtures | ceiling tiles, lights, sprinklers, vents, sockets, drains, extinguishers | ~1 300 |
-| **Total** | | **9 575 / 9 880 objects for 3 593 / 3 898 instances and ~155 draw calls** |
+| **Total** | | **9 505 / 9 880 objects for 3 523 / 3 898 instances and ~185-195 draw calls** |
 
 Density levels (`-InteriorDensity=`): 0 equipment and furniture only (2 170 objects),
 1 half stocked (5 893), 2 fully stocked with leftovers (M1 default), 3 everything including
