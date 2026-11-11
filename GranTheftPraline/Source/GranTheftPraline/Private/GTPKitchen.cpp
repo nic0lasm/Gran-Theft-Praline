@@ -153,10 +153,19 @@ void UGTPKitchenSubsystem::StartService(ULevel* InteriorLevel, const FString& In
 			Characters.Add(Crew[Index].Get());
 			Roles.Add(static_cast<uint8>(Kitchen.Staff[size_t(Index)].Role));
 		}
-		int32 Tills = 0;
+		TArray<FString> TillNames;
 		for (const TPair<FString, FTransform>& Pair : Slots)
 		{
-			Tills += Pair.Key.StartsWith(TEXT("till_")) ? 1 : 0;
+			if (Pair.Key.StartsWith(TEXT("till_")))
+			{
+				TillNames.Add(Pair.Key);
+			}
+		}
+		TillNames.Sort();   // counter staff k works till k, in name order
+		TArray<FVector> Tills;
+		for (const FString& Name : TillNames)
+		{
+			Tills.Add(Slots[Name].GetLocation());
 		}
 		HoldUp->BeginShop(InteriorId, Anchor, Tills, Characters, Roles);
 	}

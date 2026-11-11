@@ -37,7 +37,7 @@ public:
 	virtual TStatId GetStatId() const override;
 
 	/** The kitchen spawned its crew in a visible interior. Roles are GTPKitchen::ERole values. */
-	void BeginShop(const FString& InteriorId, const FTransform& Anchor, int32 TillCount, const TArray<AGTPStaffCharacter*>& Crew,
+	void BeginShop(const FString& InteriorId, const FTransform& Anchor, const TArray<FVector>& TillLocations, const TArray<AGTPStaffCharacter*>& Crew,
 	               const TArray<uint8>& Roles);
 	/** The interior is unloaded: a running hold-up ends as if the player left. */
 	void EndShop();
@@ -60,6 +60,7 @@ private:
 	TArray<TWeakObjectPtr<AGTPStaffCharacter>> Staff;
 	FString InteriorId;
 	FTransform Anchor;
+	TArray<FVector> Tills;
 	FDelegateHandle InteriorHandle;
 	FDelegateHandle ArrestHandle;
 	size_t EventsSeen = 0;
