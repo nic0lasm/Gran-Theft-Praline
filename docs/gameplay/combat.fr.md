@@ -36,7 +36,7 @@ ne tue jamais un corps en pleine santé.
 
 | Délégué | Arguments | Qui écoute |
 | --- | --- | --- |
-| `OnShotFired` | tireur, origine, direction, arme, acteur touché (peut être nul) | Police (`ShotsFired`), Audio (détonation, queue, écho par rue), Piétons s'il leur faut plus que la peur |
+| `OnShotFired` | tireur, origine, direction, arme, le `FHitResult` de la balle et s'il a touché | Police (`ShotsFired`), Audio (détonation, queue, écho par rue), Piétons s'il leur faut plus que la peur |
 | `OnDamageDealt` | auteur, victime, dégâts, zone, corps à corps ou non, santé restante | Police (`Assault`, `HitPolice`), HUD (marqueur de touche), Audio (impact) |
 | `OnPawnKilled` | tueur, victime, corps à corps ou non | Police (`Killing`, `KillPolice`), missions, statistiques |
 | `OnPlayerDied` / `OnPlayerRespawned` | lieu, hôpital | Police (efface le niveau), économie (facture d'hôpital si voulue), sauvegarde, HUD |
@@ -75,8 +75,8 @@ d'esquive ; chutes de corps déjà faites (ragdoll). Les détonations baissent l
 | Recharger | R | X / Carré |
 | Esquiver | Alt gauche | B / Rond |
 | Couverture (prendre, quitter) | Q | bouton droit (RB) |
-| Changer d'épaule | X | clic du stick droit |
-| Ranger, dégainer | 1 | croix haut |
+| Changer d'épaule | X | croix gauche |
+| Ranger, dégainer | 1 | croix bas (croix haut = grande carte) |
 
 À vérifier par le fil Interface contre les actions existantes (`F` monte en voiture, `E` interagit, `Espace`
 saute).
@@ -90,13 +90,14 @@ palier C, profil M1, plafonné à 40 i/s :
 | --- | --- | --- |
 | Effets d'impact (Niagara, simulation CPU, sans lumière, sans collision) | 12 vivants à la fois, 0,6 s de vie, particules par type 8 à 48 (`GTPDamage::MaxParticles`) | ≤ 0,25 ms GPU p95 |
 | Décalques d'impact (réserve, sans mélange de normales) | 32 dans le monde, le plus ancien recyclé, fondu 20 s | ≤ 0,05 ms GPU |
+| Sang (« façon GTA », choisi par Nico le 2026-11-11) | un décalque de flaque sous chaque corps mort (8 au plus, 90 s, fondu 10 s) ; taches sur les vêtements par le paramètre de matériau `GTPBlood` (0 à 1, +0,25 par balle), aucun dessin en plus | ≤ 0,05 ms GPU |
 | Flamme de bouche | sprite + lumière de 0,05 s **sans ombres**, joueur seulement ; tirs des PNJ : sprite seul | ≤ 0,05 ms GPU |
 | Fumée | une petite bouffée par tir (≤ 6 particules, peu de surdessin), aucune sous la pluie | compris ci-dessus |
 | Traçantes | coupées sur M1, actives en « fidelity » | 0 sur M1 |
 | Vitrines qui cassent | cassables existants (budget du fil Ragdoll) | non compté ici |
 | Fil de jeu (traces, santé à 10 Hz, aide à la visée) | 3 tireurs, 1 trace par tir, traces de couverture seulement à l'appui | ≤ 0,4 ms CPU |
 
-Total proposé : **≤ 0,35 ms GPU p95 et ≤ 0,4 ms CPU du fil de jeu** dans la scène de fusillade, en A/B
+Total proposé (sang compris) : **≤ 0,35 ms GPU p95 et ≤ 0,4 ms CPU du fil de jeu** dans la scène de fusillade, en A/B
 contre `-Combat=0`. Plafond atteint : l'effet le plus ancien disparaît, rien n'attend. Un profil
 « fidelity » peut doubler les plafonds et activer les traçantes.
 

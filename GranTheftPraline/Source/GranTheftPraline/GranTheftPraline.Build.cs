@@ -16,7 +16,8 @@ public class GranTheftPraline : ModuleRules
 			"UMG",
 			"ChaosVehicles",
 			"AIModule",
-			"PhysicsCore"
+			"PhysicsCore",
+			"Niagara"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[]
