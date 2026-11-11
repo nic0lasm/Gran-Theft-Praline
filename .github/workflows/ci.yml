@@ -152,3 +152,18 @@ jobs:
           python -I tools/audio/check_synths.py synth-out
       - name: Unreal import scripts compile
         run: python -m py_compile tools/audio/unreal/import_sounds.py tools/audio/unreal/report_gasp_foley.py tools/audio/import_ambience.py tools/audio/analyze_audio_run.py tools/audio/make_ambiences.py tools/audio/zone_map.py tools/audio/pick_sonniss.py tools/audio/make_voices_ui.py tools/audio/make_weapons.py && bash -n tools/audio/mac_audio_pass.sh
+
+  qa-tools:
+    name: QA tools tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Unit tests (version stamp, archives, log and bundle checks)
+        run: python -I -m unittest discover -s tools/qa/tests
+      - name: Credits cover every licence family in assets/SOURCES.md
+        run: python3 tools/qa/check_notices.py

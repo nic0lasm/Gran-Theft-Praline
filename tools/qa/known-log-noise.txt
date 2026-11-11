@@ -1,0 +1,2 @@
+# Known benign log lines, one regular expression per line.
+# Add a line only with the reason and the date.

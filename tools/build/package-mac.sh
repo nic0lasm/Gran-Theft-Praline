@@ -7,6 +7,7 @@
 #
 # Environment:
 #   UE_ROOT        Unreal Engine install (default: /Users/Shared/Epic Games/UE_5.8)
+#   VERSION_TAG    release tag (v0.9.0-rc1): sets ProjectVersion before the build (tools/qa/stamp_version.py)
 #   BUILDS_DIR     output root (default: <repo>/Builds)
 #   STALL_MINUTES  kill BuildCookRun when its log has not grown for this long
 #                  (default 25; the cook can hang at the very end when the
@@ -34,6 +35,12 @@ die() {
 test "$(uname -s)" = "Darwin" || die "macOS only"
 test -f "$project_file" || die "project not found: $project_file"
 test -x "$run_uat" || die "RunUAT not found: $run_uat (set UE_ROOT)"
+
+# VERSION_TAG (e.g. v0.9.0-rc1) stamps ProjectVersion from the release tag
+# before anything reads it, so the app and the tag cannot disagree.
+if test -n "${VERSION_TAG:-}"; then
+  python3 "$repo_root/tools/qa/stamp_version.py" "$VERSION_TAG" || die "cannot stamp version from $VERSION_TAG"
+fi
 
 project_version="$(sed -n 's/^ProjectVersion=//p' "$project_dir/Config/DefaultGame.ini" | head -n 1 | tr -d '\r')"
 default_version="$(printf '%s' "$project_version" | cut -d. -f1-2)"
