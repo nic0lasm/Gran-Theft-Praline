@@ -504,4 +504,4 @@ Première mise en œuvre de l'option B de l'ADR-0010, préparée et essayée hor
 
 Sans le manifeste, ou avec `GTP_SURFACES=0`, les matériaux restent procéduraux.
 
-Budget M1 : au plus 13 lectures de texture pour le sol, 4 pour le kit et 6 pour les coques, toutes avec des samplers partagés. `GTP_SURFACES_LITE=1` ne garde que les cartes de couleur.
+Budget M1 : au plus 15 lectures de texture pour le sol (la saleté comprise, en texture plutôt qu’en acteurs décals), 4 pour le kit et 6 pour les coques, toutes avec des samplers partagés. `GTP_SURFACES_LITE=1` ne garde que les cartes de couleur.
