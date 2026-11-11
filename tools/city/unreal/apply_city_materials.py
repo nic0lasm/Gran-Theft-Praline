@@ -471,7 +471,8 @@ def interior_or_none(report):
     except Exception as e:
         report["shop_glass_fallback"] = "interior material not built: %r" % (e,)
         return None
-    stats = getattr(mel, "get_statistics", None)
+    # Without a GPU (-nullrhi, run_city_import.sh) the statistics are empty: trust the build then.
+    stats = None if os.environ.get("GTP_NULLRHI") == "1" else getattr(mel, "get_statistics", None)
     if stats is not None:
         try:
             n = stats(mat).get_editor_property("num_pixel_shader_instructions")
