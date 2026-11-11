@@ -63,6 +63,11 @@ for _kv in filter(None, os.environ.get("GTP_FACADE_CULL", "").split(",")):
     _k, _v = _kv.split("=")
     CULL_END_M[_k.strip()] = float(_v)
 CULL_START_SHARE = 0.8
+# GTP_FACADE_SKIP="court" (comma list of families: court, upper, ground, eave): modules of
+# those families are not placed at all; the shell's own walls show instead. Courtyard facades
+# are a third of the quarter's modules and are only seen from inside the courtyards
+# (budget lever, ADR-0010; measure with and without).
+FACADE_SKIP = {f.strip() for f in os.environ.get("GTP_FACADE_SKIP", "").split(",") if f.strip()}
 
 # LODs of the kit modules (fil optimisation, 10/11): the 21 242 street-map instances were
 # 10.2 M triangles at LOD0 out to 250 m, drawn again by the virtual shadow maps, with no
@@ -85,6 +90,10 @@ def module_family(name):
 
 
 def set_cull(comp, family, report):
+    # Tag read at run time by UGTPCityRenderTuning (-CityCull=court=60,...), so the cull
+    # distances can be tried on a package without regenerating the map.
+    tags = list(comp.get_editor_property("component_tags"))
+    comp.set_editor_property("component_tags", tags + [unreal.Name("GTP_Cull_" + family)])
     end = CULL_END_M[family] * 100.0
     if not end:
         return
@@ -441,6 +450,9 @@ def main():
     comps, counts = {}, {}
 
     def add(name, x, y, z, yaw, sx, sz, colour, ground):  # noqa: PLR0913
+        if FACADE_SKIP and module_family(name) in FACADE_SKIP:
+            report["skipped_modules"] = report.get("skipped_modules", 0) + 1
+            return
         if name not in comps:
             comps[name] = hism_actor("Facade_" + name.replace("SM_Facade_", ""), meshes[name])[1]
             set_cull(comps[name], module_family(name), report)

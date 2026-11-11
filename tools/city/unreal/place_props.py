@@ -56,6 +56,9 @@ def tune_render(comp, mesh, report):
     comp.set_editor_property("instance_end_cull_distance", int(end))
     if size_m < NO_SHADOW_BELOW_M:
         comp.set_editor_property("cast_shadow", False)
+    # Read at run time by UGTPCityRenderTuning (-CityCull=props_small=20, -CityPropShadowBelow=1.0).
+    comp.set_editor_property("component_tags", [unreal.Name("GTP_Cull_%s_%s" % (PROPS_SET, cls)),
+                                                unreal.Name("GTP_SizeCm=%d" % round(size_m * 100))])
     tally = report.setdefault("cull_classes", {})
     tally[cls] = tally.get(cls, 0) + 1
     if mesh.get_num_lods() < 2:
