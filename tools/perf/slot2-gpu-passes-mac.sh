@@ -80,10 +80,10 @@ capture() { # name args...
   local dir="$out/$name"; mkdir -p "$dir"
   log "capture $name ($*), limit $((duration + 90)) s"
   limit $((duration + 90)) "$exe" "$@" -SkipTitle -csvGpuStats -csvCaptureFrames=$((duration * 40)) \
-    -FrameLogFile="$dir/frametimes.csv" -ExitAfter="$duration" -abslog="$dir/game.log" > "$dir/stdout.log" 2>&1 || log "  $name exited with $?"
-  # The CSV profiler writes under the app's Saved/Profiling/CSV (or the user Library): take the newest.
+    -FrameLogFile="$dir/frametimes.csv" -ExitAfter="$duration" -abslog="$dir/game.log" -saveddir="$dir/Saved" > "$dir/stdout.log" 2>&1 || log "  $name exited with $?"
+  # -saveddir keeps the CSV profile inside the run folder (never read ~/Library).
   local csvf
-  csvf="$(find "$build" "$HOME/Library/Application Support/Epic" -path '*Profiling/CSV*' -name '*.csv' -newer "$dir" 2>/dev/null | head -n 1)"
+  csvf="$(find "$dir" "$build" -path '*Profiling/CSV*' -name '*.csv' -newer "$dir" 2>/dev/null | head -n 1)"
   { echo; echo "## $name"; echo; } >> "$report"
   if test -n "$csvf"; then
     cp "$csvf" "$dir/profile.csv"
