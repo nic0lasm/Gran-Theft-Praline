@@ -44,7 +44,7 @@ namespace
 		}
 		if (const UPrimitiveComponent* Component = Hit.GetComponent())
 		{
-			if (const UMaterialInterface* Material = Component->GetMaterial(FMath::Max(0, Hit.ElementIndex)))
+			if (const UMaterialInterface* Material = Component->GetMaterial(FMath::Max(0, static_cast<int32>(Hit.ElementIndex))))
 			{
 				Name += TEXT(" ") + Material->GetName();
 			}
