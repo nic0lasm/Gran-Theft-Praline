@@ -34,7 +34,7 @@
 # Content/Python/gtp_run.py, with no temporary copy.
 #   SLOT_MODE (profile | bench), SLOT_REF (default origin/feat/street-details-12), SLOT_MERGED (1),
 #   SLOT_SKIP_PROFILE (0), GTP_PLAY_ARGS; bench mode: REFERENCE (results.csv of cumul-lf),
-#   BENCH_BUILD, SKIP_BUILD=1 (bench an existing build), BENCH_MERGED (1; 0 = no bake, screen may be locked),
+#   BENCH_BUILD, BUILD_ONLY=1 (stop after the package), SKIP_BUILD=1 (bench an existing build), BENCH_MERGED (1; 0 = no bake, screen may be locked),
 #   BENCH_SCENARIOS (street-demo), BENCH_DURATION (90),
 #   PYTHON (venv for the city tools), UE_ROOT, GTP_CITY_ZONE, GTP_CITY_FOCUS,
 #   DRY_RUN=1, DRY_STEP_S, HEARTBEAT_S (default 600), PLAN_SCALE (multiplies the planned durations)
@@ -294,6 +294,10 @@ if [ "$mode" = "bench" ]; then
     git rev-parse HEAD > "$bench_build/.commit" 2> /dev/null || true
   fi
   test -d "$bench_build/GranTheftPraline.app" || { say "no build at $bench_build"; exit 1; }
+  if [ "${BUILD_ONLY:-0}" = "1" ]; then   # build while the screen is locked, bench later with SKIP_BUILD=1
+    say "build ready at $bench_build; bench later with SKIP_BUILD=1"
+    exit 0
+  fi
   step "C 30 s control launch" 2 "$out/control.log" control
   if [ ! -s "$reference_csv" ]; then say "no reference csv at $reference_csv: bench without the gate"; reference_csv=""; fi
   echo "build: $bench_build ($(cat "$bench_build/.commit" 2> /dev/null || echo ?)); reference csv: ${reference_csv:-none}" >> "$report"
