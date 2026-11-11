@@ -472,7 +472,23 @@ void UGTPPedestrianSubsystem::InitFarCrowd(UWorld& InWorld)
 {
 	int32 Count = FarCrowdCount;
 	FParse::Value(FCommandLine::Get(), TEXT("PedFar="), Count);
-	UStaticMesh* Mesh = Cast<UStaticMesh>(FarCrowdMesh.TryLoad());
+	FString MeshOverride;
+	if (FParse::Value(FCommandLine::Get(), TEXT("PedFarMesh="), MeshOverride) && !MeshOverride.IsEmpty())
+	{
+		FarCrowdMesh = FSoftObjectPath(MeshOverride);
+	}
+	int32 ForceSilhouette = 0;
+	FParse::Value(FCommandLine::Get(), TEXT("PedFarSilhouette="), ForceSilhouette);
+	UStaticMesh* Mesh = ForceSilhouette != 0 ? nullptr : Cast<UStaticMesh>(FarCrowdMesh.TryLoad());
+	if (Count > 0 && !Mesh && (bFarSilhouetteFallback || ForceSilhouette != 0))
+	{
+		// No imported person: a 45 cm wide, 175 cm tall column. The engine's cylinder is 100 cm
+		// each way and centred, so lift it by half its scaled height.
+		Mesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cylinder.Cylinder"));
+		FarScale = FVector(0.45f, 0.45f, 1.75f);
+		FarZOffset = 87.5f;
+		GTP_TRACE(LogGTPPedestrians, TEXT("far crowd: silhouette columns (no far mesh)"));
+	}
 	if (Count <= 0 || !Mesh)
 	{
 		GTP_TRACE(LogGTPPedestrians, TEXT("far crowd: off (count %d, mesh %s)"), Count, Mesh ? TEXT("set") : TEXT("missing"));
@@ -587,7 +603,7 @@ void UGTPPedestrianSubsystem::TickFarCrowd(float DeltaTime)
 			continue;
 		}
 		const FRotator Facing(0.f, FMath::RadiansToDegrees(FMath::Atan2(D.Y, D.X)) + MeshYawOffset, 0.f);
-		FarInstances->UpdateInstanceTransform(i, FTransform(Facing, Location, FVector::OneVector), true, false, true);
+		FarInstances->UpdateInstanceTransform(i, FTransform(Facing, Location + FVector(0.f, 0.f, FarZOffset), FarScale), true, false, true);
 		Agent.bShown = true;
 	}
 	FarInstances->MarkRenderStateDirty();
