@@ -862,7 +862,7 @@ void AGTPVehicle::Drown()
 	if (!bWrecked)
 	{
 		Health = 0.f;
-		SetWrecked();
+		SetWrecked(EGTPVehicleLoss::Drowned);
 	}
 	ClearDrivingInput();
 	GTP_TRACE(LogGTPVehicle, TEXT("%s: drowned"), *GetName());
@@ -1039,8 +1039,24 @@ void AGTPVehicle::BreakGlass(EGTPDamageZone Zone)
 	OnGlassBroken(Zone);
 }
 
-void AGTPVehicle::SetWrecked()
+FGTPVehicleWrecked& AGTPVehicle::OnVehicleWrecked()
 {
+	static FGTPVehicleWrecked Lost;
+	return Lost;
+}
+
+void AGTPVehicle::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	if (EndPlayReason == EEndPlayReason::Destroyed)
+	{
+		OnVehicleWrecked().Broadcast(this, EGTPVehicleLoss::Destroyed);
+	}
+	Super::EndPlay(EndPlayReason);
+}
+
+void AGTPVehicle::SetWrecked(EGTPVehicleLoss Reason)
+{
+	const bool bFirst = !bWrecked;
 	bWrecked = true;
 	ThrottleAmount = 0.f;
 	if (UChaosWheeledVehicleMovementComponent* Move = GetWheeledMovement())
@@ -1049,4 +1065,8 @@ void AGTPVehicle::SetWrecked()
 	}
 	GTP_TRACE(LogGTPVehicle, TEXT("%s: wrecked"), *GetName());
 	OnWrecked();
+	if (bFirst)
+	{
+		OnVehicleWrecked().Broadcast(this, Reason);
+	}
 }

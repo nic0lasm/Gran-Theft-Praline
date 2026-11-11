@@ -18,6 +18,19 @@ class USpringArmComponent;
 struct FInputActionValue;
 
 /** Side of the car, seen from the driver's seat. France drives on the right: the driver sits on the left. */
+/** Why a car is lost to the game (missions, ADR-0014). */
+UENUM(BlueprintType)
+enum class EGTPVehicleLoss : uint8
+{
+	Wrecked,
+	Drowned,
+	Destroyed
+};
+
+class AGTPVehicle;
+/** Any car of the world lost: wrecked (health 0), drowned, or its actor destroyed. Native, no cost without listeners. */
+DECLARE_MULTICAST_DELEGATE_TwoParams(FGTPVehicleWrecked, AGTPVehicle* /*Vehicle*/, EGTPVehicleLoss /*Reason*/);
+
 UENUM(BlueprintType)
 enum class EGTPVehicleSide : uint8
 {
@@ -143,6 +156,15 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Vehicle|Damage")
 	bool IsWrecked() const { return bWrecked; }
+
+	/**
+	 * Fired once per car when it is wrecked or drowned, and when its actor is destroyed
+	 * (traffic recycling included): filter on the actor's tags. Static, so a listener needs
+	 * no car to bind to: AGTPVehicle::OnVehicleWrecked().AddUObject(this, &UMine::OnLost).
+	 */
+	static FGTPVehicleWrecked& OnVehicleWrecked();
+
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	/** Signed forward speed, in km/h. */
 	UFUNCTION(BlueprintPure, Category = "Vehicle")
@@ -419,7 +441,7 @@ private:
 	void OnBodyHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
 	EGTPDamageZone ZoneFromWorldLocation(const FVector& WorldLocation) const;
 	void BreakGlass(EGTPDamageZone Zone);
-	void SetWrecked();
+	void SetWrecked(EGTPVehicleLoss Reason = EGTPVehicleLoss::Wrecked);
 
 	void ApplyCityCarTuning();
 	UChaosWheeledVehicleMovementComponent* GetWheeledMovement() const;
