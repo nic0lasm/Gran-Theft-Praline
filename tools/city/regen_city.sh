@@ -58,10 +58,11 @@ PATH="$(dirname "$(command -v "$py")"):$PATH" GTP_CITY_RIVERSIDE=1 GTP_CITY_ZONE
 
 step "parked car"
 # place_parked_car.py ends with quit_editor(), which makes the editor return 1 even when the
-# car is placed and the map saved (measured 10/11): 0 and 1 pass, anything else stops.
+# car is placed and the map saved (measured 10/11): 0 and 1 pass, anything else stops. It writes
+# no report: run_editor knows it is done from the gtp_run.py marker (GTP_PY_DONE).
 rc=0
 GTP_PARKED_MAP="$map" GTP_PY_SCRIPT="$repo/tools/vehicles/unreal/place_parked_car.py" \
-  EDITOR_MAX_S=120 EDITOR_DONE_GREP="\[place_parked_car\] saved" run_editor parked_car "$editor" "$project" $headless -unattended -nosplash -nosound -NSAppSleepDisabled YES \
+  EDITOR_MAX_S=120 run_editor parked_car "$editor" "$project" $headless -unattended -nosplash -nosound -NSAppSleepDisabled YES \
   "-ExecutePythonScript=__import__('gtp_run').main()" || rc=$?
 test "$rc" -le 1 || { echo "parked car: editor returned $rc" >&2; exit "$rc"; }
 
