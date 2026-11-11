@@ -26,6 +26,8 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "InputActionValue.h"
 #include "TimerManager.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Parse.h"
 
 // Crimes of the player at the wheel go to the wanted level (GTPWanted.h).
 namespace
@@ -648,6 +650,88 @@ void AGTPVehicle::SeatOccupant(ACharacter* Character)
 	}
 	AttachToSeat(Character);
 	Driver = Character;
+	if (IsDriverLiteWanted() && !Character->IsPlayerControlled())
+	{
+		SetDriverLite(Character, true);
+	}
+}
+
+bool AGTPVehicle::IsDriverLiteWanted()
+{
+	static const bool bWanted = []
+	{
+		int32 Switch = 1;
+		FParse::Value(FCommandLine::Get(), TEXT("DriverLite="), Switch);
+		GTP_TRACE(LogGTPVehicle, TEXT("vehicle: seated drivers %s (-DriverLite=%d)"), Switch != 0 ? TEXT("lite") : TEXT("whole"), Switch);
+		return Switch != 0;
+	}();
+	return bWanted;
+}
+
+void AGTPVehicle::SetDriverLite(ACharacter* Character, bool bLite)
+{
+	static const FName LiteTag(TEXT("GTPDriverLite"));
+	static const FName TickTag(TEXT("GTPLiteTick"));
+	static const FName ActiveTag(TEXT("GTPLiteActive"));
+	if (!Character || Character->Tags.Contains(LiteTag) == bLite)
+	{
+		return;
+	}
+	if (bLite)
+	{
+		Character->Tags.Add(LiteTag);
+	}
+	else
+	{
+		Character->Tags.Remove(LiteTag);
+	}
+	Character->SetActorTickEnabled(!bLite);
+	if (AController* Brain = Character->GetController())
+	{
+		Brain->SetActorTickEnabled(!bLite);
+	}
+	if (bLite)
+	{
+		if (UCharacterMovementComponent* Move = Character->GetCharacterMovement())
+		{
+			Move->SetMovementMode(MOVE_None);
+		}
+	}
+	TInlineComponentArray<UActorComponent*> Parts(Character);
+	for (UActorComponent* Part : Parts)
+	{
+		// Meshes keep their pose update: a visible driver stays seated, not frozen.
+		if (Part->IsA<USkeletalMeshComponent>())
+		{
+			continue;
+		}
+		if (bLite)
+		{
+			if (Part->IsComponentTickEnabled())
+			{
+				Part->ComponentTags.AddUnique(TickTag);
+				Part->SetComponentTickEnabled(false);
+			}
+			const bool bView = Part->IsA<UCameraComponent>() || Part->IsA<USpringArmComponent>()
+				|| Part->GetClass()->GetName().Contains(TEXT("Camera"));
+			if (bView && Part->IsActive())
+			{
+				Part->ComponentTags.AddUnique(ActiveTag);
+				Part->Deactivate();
+			}
+		}
+		else
+		{
+			if (Part->ComponentTags.Remove(TickTag) > 0)
+			{
+				Part->SetComponentTickEnabled(true);
+			}
+			if (Part->ComponentTags.Remove(ActiveTag) > 0)
+			{
+				Part->Activate();
+			}
+		}
+	}
 }
 
 void AGTPVehicle::AttachToSeat(ACharacter* Character)
@@ -668,6 +752,7 @@ void AGTPVehicle::AttachToSeat(ACharacter* Character)
 
 void AGTPVehicle::ReleaseCharacter(ACharacter* Character, const FVector& Location, const FRotator& Rotation)
 {
+	SetDriverLite(Character, false);
 	Character->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
 	Character->SetActorLocationAndRotation(Location, Rotation, false, nullptr, ETeleportType::TeleportPhysics);
 	Character->SetActorHiddenInGame(false);

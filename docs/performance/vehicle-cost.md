@@ -232,3 +232,15 @@ and a negative value means never.
   until Nico approves them (`-FarLean=1`).
 - A lever goes into the defaults only if p95 at 20 or 24 driven cars stays
   under 33 ms with no frame over 100 ms.
+
+## 9. Lite seated drivers (switch on by default)
+
+Every traffic, far and police car seats a full player character
+(BP_PlayerCharacter, the game mode's pawn). Each one ticks its camera,
+spring arm, camera director and movement. On world C that is about 44
+characters, and the Windows CPU profile shows 3 to 4 ms per frame in camera
+logic plus about 3 ms in movement. `SeatOccupant` now makes a seated
+non-player driver lite: no actor tick, no controller tick, no tick on any
+component but the meshes, cameras and spring arms off, movement None.
+Leaving the car (`ReleaseCharacter`) restores exactly what it turned off.
+`-DriverLite=0` keeps the drivers whole.
