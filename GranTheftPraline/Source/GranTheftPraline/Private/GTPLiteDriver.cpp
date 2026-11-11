@@ -5,6 +5,7 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/SkeletalMesh.h"
 #include "Engine/World.h"
+#include "GameFramework/GameModeBase.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/CommandLine.h"
@@ -57,6 +58,17 @@ void AGTPLiteDriver::BeginPlay()
 			{
 				DriverMesh = Player->GetMesh()->GetSkeletalMeshAsset();
 			}
+		}
+	}
+	if (!DriverMesh)
+	{
+		// The player is in a car (the pawn is the vehicle): the player character class's own mesh.
+		const AGameModeBase* Mode = GetWorld() ? GetWorld()->GetAuthGameMode() : nullptr;
+		const UClass* PawnClass = Mode ? Mode->GetDefaultPawnClassForController(nullptr) : nullptr;
+		const ACharacter* Template = PawnClass ? Cast<ACharacter>(PawnClass->GetDefaultObject()) : nullptr;
+		if (Template && Template->GetMesh())
+		{
+			DriverMesh = Template->GetMesh()->GetSkeletalMeshAsset();
 		}
 	}
 	if (DriverMesh)
