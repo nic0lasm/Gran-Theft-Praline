@@ -126,7 +126,12 @@ code du combat. Rien n'est branché sous `-Combat=0`.
 - Tant que les boucles de travail des employés n'appellent pas `UGTPPlaceAudio::PlayShop`, une
   petite vie de boutique tourne près des caisses et des friteuses, toutes les 3 à 9 s : bips de
   carte, tickets, carillons de commande, pièces, minuteries. `-ShopLife=0` la coupe.
-- `UGTPPlaceAudio::PlayMission` joue un jingle en 2D par la classe Interface.
+- `UGTPPlaceAudio::PlayMission` joue un jingle en 2D par la classe Interface. `UGTPMissionSounds`
+  écoute `UGTPMissionSubsystem` et joue :
+  - « disponible » à l'entrée d'une zone de départ ;
+  - « départ » au premier objectif d'une partie, puis « objectif » aux suivants ;
+  - « réussite », suivie de « récompense » quand la mission paie ;
+  - « échec ».
 
 Réglages : `[/Script/GranTheftPraline.GTPPlaceAudio]` dans `DefaultGame.ini`. Coût : au plus
 6 voix en boucle et une ambiance de salle, environ 0,06 % d'un cœur par voix d'échantillon selon
