@@ -51,6 +51,7 @@ public:
 	USoundAttenuation* GetAttenuation(EGTPAudioCategory Category) const;
 	USoundMix* GetUserMix() const { return UserMix; }
 	USoundMix* GetDrivingMix() const { return DrivingMix; }
+	USoundMix* GetGunshotMix() const { return GunshotMix; }
 
 	/** Sets the volume of a category (0..1) in the user mix; the world subsystem applies it. */
 	UFUNCTION(BlueprintCallable, Category = "Audio")
@@ -65,6 +66,9 @@ public:
 	USoundBase* PickVoice(EGTPVoiceKind Kind);
 	USoundBase* PickRadio(EGTPRadioCall Call);
 	USoundBase* PickUI(EGTPUISound Sound);
+	USoundBase* PickWeapon(EGTPWeaponSound Sound);
+	USoundBase* PickBulletImpact(EGTPBulletImpact Kind);
+	USoundBase* PickMelee(EGTPMeleeSound Sound);
 
 	/**
 	 * Plays an interface sound (menus, map, HUD): 2D, Interface class, heard over
@@ -115,6 +119,9 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<USoundMix> DrivingMix;
 
+	UPROPERTY(Transient)
+	TObjectPtr<USoundMix> GunshotMix;
+
 	/** Bank arrays, flattened: Steps[surface], Lands[surface], Impacts[kind * 3 + tier - 1]. */
 	struct FBank
 	{
@@ -129,6 +136,9 @@ private:
 	FBank Voices[static_cast<int32>(EGTPVoiceKind::Count)];
 	FBank Radio[static_cast<int32>(EGTPRadioCall::Count)];
 	FBank Interface[static_cast<int32>(EGTPUISound::Count)];
+	FBank WeaponBanks[static_cast<int32>(EGTPWeaponSound::Count)];
+	FBank BulletBanks[static_cast<int32>(EGTPBulletImpact::Count)];
+	FBank MeleeBanks[static_cast<int32>(EGTPMeleeSound::Count)];
 	int32 UIPlayed = 0;
 
 	/** Keeps the bank sounds loaded (the FBank arrays are not seen by the garbage collector). */
