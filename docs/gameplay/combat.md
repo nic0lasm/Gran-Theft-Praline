@@ -35,7 +35,7 @@ torso hits without armour, 23 with full armour; a full fist combo (36) never kil
 
 | Delegate | Arguments | Who listens |
 | --- | --- | --- |
-| `OnShotFired` | shooter, origin, direction, weapon, hit actor (may be null) | Police (`ShotsFired`), Audio (gunshot, tail, echo by street), Pedestrians if they need more than fear |
+| `OnShotFired` | shooter, origin, direction, weapon, the bullet's `FHitResult` and whether it hit | Police (`ShotsFired`), Audio (gunshot, tail, echo by street), Pedestrians if they need more than fear |
 | `OnDamageDealt` | instigator, victim, damage, zone, melee or not, health after | Police (`Assault`, `HitPolice`), HUD (hit marker), Audio (impact) |
 | `OnPawnKilled` | killer, victim, melee or not | Police (`Killing`, `KillPolice`), missions, statistics |
 | `OnPlayerDied` / `OnPlayerRespawned` | place, hospital | Police (clear the level), economy (hospital bill if wanted), save, HUD |
@@ -73,8 +73,8 @@ the ambience and traffic for 0.5 s.
 | Reload | R | X / Square |
 | Dodge | Left Alt | B / Circle |
 | Cover (take, leave) | Q | right bumper |
-| Swap shoulder | X | right stick click |
-| Holster, draw | 1 | d-pad up |
+| Swap shoulder | X | d-pad left |
+| Holster, draw | 1 | d-pad down (d-pad up is the big map) |
 
 To be checked against the existing actions (`F` enters a car, `E` interacts, `Space` jumps) by the
 interface thread.
@@ -88,13 +88,14 @@ step C, M1 profile, capped at 40 fps:
 | --- | --- | --- |
 | Impact effects (Niagara, CPU simulation, no lights, no collisions) | 12 alive at once, 0.6 s life, particles per kind 8 to 48 (`GTPDamage::MaxParticles`) | ≤ 0.25 ms GPU p95 |
 | Impact decals (pooled, no normal-map blending) | 32 in the world, oldest recycled, 20 s fade | ≤ 0.05 ms GPU |
+| Blood ("GTA-like", chosen by Nico on 2026-11-11) | a pool decal under each dead body (8 at most, 90 s, fade 10 s); stains on clothes through the material scalar `GTPBlood` (0 to 1, +0.25 per bullet), no extra draw | ≤ 0.05 ms GPU |
 | Muzzle flash | sprite + a light of 0.05 s **without shadows**, player only; NPC shots: sprite only | ≤ 0.05 ms GPU |
 | Smoke | one small puff per shot (≤ 6 particles, low overdraw), none in rain | included above |
 | Tracers | off on M1, on in "fidelity" | 0 on M1 |
 | Glass breaking (shop windows) | existing breakables (ragdoll thread's budget) | not counted here |
 | Game thread (traces, health ticks at 10 Hz, aim assist) | 3 shooters, 1 trace per shot, cover probes on key press only | ≤ 0.4 ms CPU |
 
-Total proposed: **≤ 0.35 ms GPU p95 and ≤ 0.4 ms game-thread CPU** in the firefight scene, A/B against
+Total proposed (blood included): **≤ 0.35 ms GPU p95 and ≤ 0.4 ms game-thread CPU** in the firefight scene, A/B against
 `-Combat=0`. When a cap is reached the oldest effect is removed; nothing waits. A "fidelity" profile can
 double the caps and enable tracers.
 
