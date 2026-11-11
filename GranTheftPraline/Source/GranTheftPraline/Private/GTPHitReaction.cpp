@@ -47,6 +47,7 @@ EGTPHitReaction UGTPHitReactionComponent::ReactToHit(const FGTPHitInfo& Hit)
 	In.DirY = static_cast<float>(Hit.Direction.Y);
 	In.FacingYawDeg = static_cast<float>(GetOwner()->GetActorRotation().Yaw);
 	In.bMelee = Hit.bMelee;
+	In.bHeavy = Hit.bHeavy;
 	In.Zone = Hit.Bone.IsNone() ? GTPHit::EZone::Torso : GTPHit::ZoneFromBone(std::string(TCHAR_TO_UTF8(*Hit.Bone.ToString().ToLower())));
 
 	const GTPHit::FReaction R = GTPHit::Evaluate(In, State, GetWorld()->GetTimeSeconds(), Settings);

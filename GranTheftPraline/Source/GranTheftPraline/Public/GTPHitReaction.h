@@ -42,6 +42,10 @@ struct FGTPHitInfo
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool bMelee = false;
+
+	/** Forces a knockdown whatever the damage (the heavy third punch). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	bool bHeavy = false;
 };
 
 DECLARE_MULTICAST_DELEGATE_ThreeParams(FGTPHitReactionEvent, EGTPHitReaction /*Reaction*/, const FGTPHitInfo& /*Hit*/, AActor* /*Body*/);
