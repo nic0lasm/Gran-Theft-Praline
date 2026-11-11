@@ -440,3 +440,18 @@ First implementation of ADR-0010 option B, prepared and tested off the Mac; not 
    Grand Lyon tables (with real models) instead of OSM where both exist.
 5. Some 2012 ridge lines that the LiDAR still accepts produce steep gables on
    a few narrow buildings; to check against street photos.
+
+## Scanned surfaces (street realism)
+
+`tools/city/surfaces.json` lists the scanned surfaces of the street: Megascans, free on Fab, 2K, kept out of Git. It covers light granite slabs, limestone ashlar, render, kerb, zinc, slate and asphalt, then setts, sidewalks, tiles, grates and decals.
+
+`tools/city/unreal/surfaces_mac.sh` runs two headless launches:
+1. `import_surfaces.py` finds each surface in the project, either by a folder named after its id or by its Megascans name. It caps the surface at 2K and writes `Saved/CityImport/surfaces.json`.
+2. `apply_city_materials.py` then rebuilds the city materials. Its hooks in `gtp_surfaces.py` layer the textures into:
+   - the ground, one layer per mask channel, with markings staying procedural;
+   - the facade stone and render, as a detail that keeps each building's hue;
+   - the roofs.
+
+Without the manifest, or with `GTP_SURFACES=0`, the materials stay procedural.
+
+M1 budget: the ground uses at most 13 texture fetches, the kit 4 and the shells 6, all through shared samplers. `GTP_SURFACES_LITE=1` keeps only the colour maps.
