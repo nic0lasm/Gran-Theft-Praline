@@ -7,6 +7,7 @@
 #include "../../GranTheftPraline/Source/GranTheftPraline/Public/GTPBreakableLogic.h"
 #include "../../GranTheftPraline/Source/GranTheftPraline/Public/GTPHitLogic.h"
 #include "../../GranTheftPraline/Source/GranTheftPraline/Public/GTPImpactLogic.h"
+#include "../../GranTheftPraline/Source/GranTheftPraline/Public/GTPThreatLogic.h"
 
 using namespace GTPImpact;
 
@@ -258,6 +259,123 @@ int main()
 		CHECK(H::Evaluate(Hit(60.f, 40.f, H::EZone::Torso), K, 3.0).Kind == H::EReaction::Knockdown, "knockdown again after the immunity");
 		CHECK(std::string(H::ClipName(H::EReaction::Flinch, H::EDirection::Back)) == "AM_HitLight_Back", "clip name");
 		CHECK(std::string(H::ClipName(H::EReaction::Stagger, H::EDirection::Front)) == "AM_Stagger_Front", "stagger clip name");
+	}
+
+	// 12. Threat response.
+	{
+		namespace T = GTPThreat;
+		auto Run = [](T::FBrain& B, const T::FPerception& P, float Seconds, T::EState* StopAt = nullptr) {
+			float Time = 0.f;
+			for (; Time < Seconds; Time += 0.1f)
+			{
+				T::Step(B, P, 0.1f);
+				if (StopAt && B.State == *StopAt) break;
+			}
+			return Time;
+		};
+		T::FPerception Aimed;
+		Aimed.bAimedAt = true;
+		Aimed.DistanceToThreatCm = 400.f;
+
+		// Compliant: alarmed, then hands up, then obeying, within a few seconds.
+		{
+			T::FBrain B;
+			T::EState Target = T::EState::Complying;
+			const float Time = Run(B, Aimed, 10.f, &Target);
+			CHECK(B.State == T::EState::Complying, "a compliant person ends up complying (state %d)", static_cast<int>(B.State));
+			CHECK(Time > 1.0f && Time < 5.0f, "complying after %.1f s", Time);
+			CHECK(T::ObeysOrders(B), "obeys orders");
+			CHECK(B.SinceAimed < 0.2f, "aimed counter");
+			// The threat leaves: hands up, then alarmed, then calm; the fear decays.
+			T::FPerception None;
+			Run(B, None, 12.f);
+			CHECK(B.State == T::EState::Alarmed || B.State == T::EState::Calm, "relaxes (state %d)", static_cast<int>(B.State));
+			Run(B, None, 30.f);
+			CHECK(B.State == T::EState::Calm && B.Fear < 0.1f, "calm again, fear %.2f", B.Fear);
+		}
+		// Unarmed threat: nothing happens.
+		{
+			T::FBrain B;
+			T::FPerception Hand = Aimed;
+			Hand.bThreatArmed = false;
+			Run(B, Hand, 20.f);
+			CHECK(B.State == T::EState::Calm && B.Fear == 0.f, "an empty hand frightens no one");
+		}
+		// Fleeing temperament runs; frozen never does, even under fire.
+		{
+			T::FBrain B;
+			B.Temperament = T::ETemperament::Fleeing;
+			T::EState Target = T::EState::Fleeing;
+			Run(B, Aimed, 10.f, &Target);
+			CHECK(B.State == T::EState::Fleeing, "a fleeing temperament runs");
+			T::FBrain F;
+			F.Temperament = T::ETemperament::Frozen;
+			T::FPerception Fire = Aimed;
+			Fire.bShotAtMe = true;
+			Run(F, Fire, 20.f);
+			CHECK(F.State == T::EState::Complying || F.State == T::EState::HandsUp, "frozen stays with the hands up (state %d)", static_cast<int>(F.State));
+		}
+		// Brave: backs away at close range before putting the hands up.
+		{
+			T::FBrain B;
+			B.Temperament = T::ETemperament::Brave;
+			T::FPerception Close = Aimed;
+			Close.DistanceToThreatCm = 250.f;
+			bool bBacked = false;
+			for (float Time = 0.f; Time < 15.f; Time += 0.1f)
+			{
+				T::Step(B, Close, 0.1f);
+				bBacked |= B.State == T::EState::Backing;
+			}
+			CHECK(bBacked, "a brave person backs away first");
+			CHECK(B.State == T::EState::HandsUp || B.State == T::EState::Complying || B.State == T::EState::Fleeing, "then gives in (state %d)", static_cast<int>(B.State));
+		}
+		// Contagion: a calm person next to a terrified one becomes alarmed; shots frighten people nearby.
+		{
+			T::FBrain B;
+			T::FPerception Near;
+			Near.NearbyFear = 0.9f;
+			Run(B, Near, 6.f);
+			CHECK(B.State != T::EState::Calm, "fear spreads (state %d)", static_cast<int>(B.State));
+			T::FBrain C;
+			T::FPerception Shot;
+			Shot.bShotNearby = true;
+			T::Step(C, Shot, 0.1f);
+			CHECK(C.Fear > 0.3f, "a shot nearby frightens: %.2f", C.Fear);
+		}
+		// Hits: a knockdown takes the body down, then he gets up; a death stays.
+		{
+			T::FBrain B;
+			T::OnHit(B, true, false);
+			CHECK(B.State == T::EState::Down, "knockdown goes down");
+			T::FPerception None;
+			Run(B, None, 4.f);
+			CHECK(B.State == T::EState::Fleeing, "gets up and runs (state %d)", static_cast<int>(B.State));
+			T::FBrain D;
+			T::OnHit(D, false, true);
+			Run(D, Aimed, 20.f);
+			CHECK(D.State == T::EState::Down && D.bDead, "the dead stay down");
+			T::FBrain Fl;
+			T::OnHit(Fl, false, false);
+			CHECK(Fl.Fear > 0.2f, "a flinch frightens");
+		}
+		// Fear stays in 0..1 whatever happens.
+		{
+			T::FBrain B;
+			T::FPerception Everything = Aimed;
+			Everything.bShotAtMe = Everything.bShotNearby = true;
+			Everything.NearbyFear = 1.f;
+			for (int I = 0; I < 300; ++I)
+			{
+				T::Step(B, Everything, 0.1f);
+				CHECK(B.Fear >= 0.f && B.Fear <= 1.f, "fear out of range %.2f", B.Fear);
+			}
+		}
+		// Aim cone.
+		CHECK(T::InAimCone(0, 0, 160, 1, 0, 0, 500, 20, 160, 2000, 10), "slightly off the line is still aimed at");
+		CHECK(!T::InAimCone(0, 0, 160, 1, 0, 0, 500, 200, 160, 2000, 10), "outside the cone");
+		CHECK(!T::InAimCone(0, 0, 160, 1, 0, 0, 3000, 0, 160, 2000, 10), "out of range");
+		CHECK(!T::InAimCone(0, 0, 160, 1, 0, 0, -500, 0, 160, 2000, 10), "behind the aim");
 	}
 
 	std::printf(Failures == 0 ? "PASS impact logic\n" : "FAILED %d checks\n", Failures);
