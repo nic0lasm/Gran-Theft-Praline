@@ -8,7 +8,8 @@
 #   PYTHON (default python3; a venv with numpy, scipy, shapely, PIL), UE_ROOT,
 #   GTP_CITY_ZONE (presqu-ile), GTP_CITY_FOCUS (rue-de-la-republique),
 #   GTP_CITY_EXTRA_BBOX (250,-60,700,220: quai du Rhone and pont Lafayette),
-#   GTP_SHOP_GLASS (translucent | opaque), GTP_CITY_LANDMARKS=0 (generic shells for the Opera
+#   EDITOR_HEADLESS (default -nullrhi; empty for a windowed editor),
+#   GTP_SHOP_GLASS (translucent | opaque | interior), GTP_CITY_LANDMARKS=0 (generic shells for the Opera
 #   and the Hotel de Ville), SKIP_PLAY=1 to skip the screenshot run.
 set -euo pipefail
 
@@ -24,6 +25,8 @@ project="$repo/GranTheftPraline/GranTheftPraline.uproject"
 map="/Game/Maps/L_City_$(echo "$focus" | awk -F- '{for(i=1;i<=NF;i++) printf "%s", toupper(substr($i,1,1)) substr($i,2)}')"
 t0=$(date +%s)
 step() { echo "== $(date +%H:%M:%S) ($(( $(date +%s) - t0 )) s): $*"; }
+# Editor launches without a window or GPU: they pass with the screen locked (11/11).
+headless="${EDITOR_HEADLESS--nullrhi}"
 # shellcheck source=unreal/editor_run.sh
 . "$repo/tools/city/unreal/editor_run.sh"
 
@@ -58,7 +61,7 @@ step "parked car"
 # car is placed and the map saved (measured 10/11): 0 and 1 pass, anything else stops.
 rc=0
 GTP_PARKED_MAP="$map" GTP_PY_SCRIPT="$repo/tools/vehicles/unreal/place_parked_car.py" \
-  EDITOR_DONE_GREP="\[place_parked_car\] saved" run_editor parked_car "$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES \
+  EDITOR_MAX_S=120 EDITOR_DONE_GREP="\[place_parked_car\] saved" run_editor parked_car "$editor" "$project" $headless -unattended -nosplash -nosound -NSAppSleepDisabled YES \
   "-ExecutePythonScript=__import__('gtp_run').main()" || rc=$?
 test "$rc" -le 1 || { echo "parked car: editor returned $rc" >&2; exit "$rc"; }
 
