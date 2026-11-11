@@ -19,6 +19,8 @@
     MAX_MINUTES    hard limit for one BuildCookRun attempt (default 240)
     RETRIES        new attempts after a stall or time-out (default 1; the cook
                    is incremental, so a retry resumes most of the work)
+    VERSION_TAG    release tag (v0.9.0-rc1): sets ProjectVersion before the build
+                   (tools\qa\stamp-version.ps1), as package-mac.sh does
 
   Logs: Builds\<version>\package.log
 #>
@@ -66,6 +68,19 @@ $runUat = Join-Path $ueRoot 'Engine\Build\BatchFiles\RunUAT.bat'
 if (-not (Test-Path -LiteralPath $projectFile)) { Fail "project not found: $projectFile" }
 $engineFound = Test-Path -LiteralPath $runUat
 if (-not $engineFound -and -not $DryRun) { Fail "RunUAT not found: $runUat (set UE_ROOT)" }
+
+# VERSION_TAG (e.g. v0.9.0-rc1) stamps ProjectVersion from the release tag.
+$versionTag = EnvOr 'VERSION_TAG' ''
+if ($versionTag -ne '') {
+  $stamp = Join-Path $repoRoot 'tools\qa\stamp-version.ps1'
+  if (-not (Test-Path -LiteralPath $stamp)) { Fail "VERSION_TAG set but $stamp is missing" }
+  if ($DryRun) {
+    Write-Output "Dry run: would stamp ProjectVersion from $versionTag ($stamp)"
+  } else {
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $stamp $versionTag
+    if ($LASTEXITCODE -ne 0) { Fail "cannot stamp version from $versionTag" }
+  }
+}
 
 $projectVersion = IniValue (Join-Path $projectDir 'Config\DefaultGame.ini') 'ProjectVersion'
 if ($Version -eq '') { $Version = (($projectVersion -split '\.') | Select-Object -First 2) -join '.' }
