@@ -80,6 +80,18 @@ jobs:
           g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/far_test/far_test.cpp -o /tmp/far_test
           /tmp/far_test
 
+  mission-rules:
+    name: Mission framework rules
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - name: Mission tables and state machine outside Unreal
+        run: |
+          g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/missions/mission_test/mission_test.cpp -o /tmp/mission_test
+          /tmp/mission_test GranTheftPraline/Content/Data/Missions tools/missions/mission_test/fixtures
+
   ui-core:
     name: Interface core tests
     runs-on: ubuntu-latest
