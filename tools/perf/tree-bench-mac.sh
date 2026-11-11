@@ -77,10 +77,10 @@ if test "$dry" != "1"; then
   test -x "$editor" || { echo "tree-bench: no Unreal Editor at $editor" >&2; exit 1; }
 fi
 
-# The editor runs scripts from a path without spaces ("Claude work" has one).
-tmp="$(mktemp -d)"
-trap 'rm -rf "$tmp"' EXIT
-cp tools/assets/unreal/audit_meshes.py tools/city/unreal/swap_street_trees.py "$tmp/"
+# Editor scripts run through Content/Python/gtp_run.py: the clone path has a space and
+# nothing is copied outside the project.
+test "$dry" = "1" || test -f "$repo_root/GranTheftPraline/Content/Python/gtp_run.py" \
+  || { echo "tree-bench: Content/Python/gtp_run.py missing" >&2; exit 1; }
 
 {
   echo "# Leafy street trees $version, $(TZ=Europe/Paris date '+%Y-%m-%d %H:%M') heure de Paris, commit $(git rev-parse --short HEAD)$( test "$dry" = 1 && echo ', DRY RUN (stubs, numbers are fake)')"
@@ -142,7 +142,8 @@ step() {
 }
 
 run_py() {
-  "$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES -ExecutePythonScript="$tmp/$1"
+  GTP_PY_SCRIPT="$repo_root/$1" "$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES \
+    "-ExecutePythonScript=__import__('gtp_run').main()"
 }
 
 if test "$dry" = "1"; then
@@ -151,8 +152,8 @@ if test "$dry" = "1"; then
     sleep "${DRY_SLEEP:-1}"
     mkdir -p "$saved"
     case "$1" in
-      audit_meshes.py) echo '{"roots": {}, "meshes": []}' > "${GTP_AUDIT_OUT:-$saved/mesh_audit.json}" ;;
-      swap_street_trees.py) cat > "$saved/trees_report.json" <<JSON
+      *audit_meshes.py) echo '{"roots": {}, "meshes": []}' > "${GTP_AUDIT_OUT:-$saved/mesh_audit.json}" ;;
+      *swap_street_trees.py) cat > "$saved/trees_report.json" <<JSON
 {"mode": "$GTP_TREE_MODE", "errors": [], "swap_arg": "/Game/Environment/Props/W14-63/SM_Bare~/Game/BlackAlder/Geometry/SimpleWind/SM_Stub+/Game/Environment/Props/W14-64/SM_Young~/Game/BlackAlder/Geometry/SimpleWind/SM_StubSapling", "cook_dirs": ["/Game/BlackAlder/Geometry/SimpleWind"], "picked": {"W14-63": {"bare": "/Game/Environment/Props/W14-63/SM_Bare", "mesh": "/Game/BlackAlder/SM_Stub", "trees": 104, "mesh_info": {"height_cm": 1200, "nanite": false, "triangles": [9000, 3000, 8]}}, "W14-64": {"bare": "/Game/Environment/Props/W14-64/SM_Young", "mesh": "/Game/BlackAlder/SM_StubSapling", "trees": 8, "mesh_info": {"height_cm": 400, "nanite": false, "triangles": [2000, 600, 8]}}}}
 JSON
       ;;
@@ -184,7 +185,7 @@ ini_md5() { if command -v md5 >/dev/null; then md5 -q "$repo_root/GranTheftPrali
 ini_md5_start="$(ini_md5)"
 
 pick() {
-  GTP_TREE_MODE=pick run_py swap_street_trees.py || return 1
+  GTP_TREE_MODE=pick run_py tools/city/unreal/swap_street_trees.py || return 1
   cp "$saved/trees_report.json" "$out/trees_pick.json"
   grep -q '"errors": \[\]' "$saved/trees_report.json"
 }
@@ -192,9 +193,9 @@ json() { python3 -c 'import json,sys; v=json.load(open(sys.argv[1]))[sys.argv[2]
 
 # The leafy meshes are referenced by no map: cook their folders, for this package only.
 game_ini="$repo_root/GranTheftPraline/Config/DefaultGame.ini"
-ini_backup="$tmp/DefaultGame.ini"
+ini_backup="$out/DefaultGame.ini.orig"
 restore_ini() { test -f "$ini_backup" && cp "$ini_backup" "$game_ini" && rm -f "$ini_backup"; return 0; }
-trap 'restore_ini; rm -rf "$tmp"' EXIT
+trap 'restore_ini' EXIT
 cook_package() {
   cp "$game_ini" "$ini_backup"
   local lines="" d
@@ -213,7 +214,7 @@ PY
   return $status
 }
 
-GTP_AUDIT_OUT="$out/mesh_audit.json" step audit run_py audit_meshes.py
+GTP_AUDIT_OUT="$out/mesh_audit.json" step audit run_py tools/assets/unreal/audit_meshes.py
 step pick pick || { echo "- pick failed, see trees_pick.json" >> "$report"; exit 1; }
 swap_arg="$(json swap_arg)"
 echo "- trees swapped at run time: -TreeSwap=$swap_arg" >> "$report"
