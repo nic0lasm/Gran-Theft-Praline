@@ -14,7 +14,10 @@
 #              -NightClouds=volumetric|dome|half at night, late dusk and on the night demo
 #              route, 13 min; needs feat/sky-slot3 with -NightClouds in the build), or
 #              compare (before/after images of the m1 night cloud default against
-#              -NightClouds=full, golden hour to night and the night route, 13 min)
+#              -NightClouds=full, golden hour to night and the night route, 13 min), or
+#              rays64 (day clouds at 64 view ray samples against the default, cloudy,
+#              overcast and rain at 13:30 fixed, overcast on the demo route with a still
+#              every 10 s, 11 min)
 #   MAP_MD5    expected md5 of the map (default 1c92de0f813b89cb40aeb000cd92a1de)
 # Output: Builds/night-slot/<stamp>/REPORT.md (GPU per run, night cost against noon,
 #         verdict against the 3 ms budget), index.html (stills), heartbeat.txt, steps.log.
@@ -98,7 +101,7 @@ run() {
   if test $(( $(date +%s) - start_s )) -gt "$budget_s"; then log "skip $name: pass time limit reached"; return; fi
   log "== $name ($secs s)"
   limit $(( (secs + 20) * 2 )) "$exe" -SkipTitle "$@" -EnvReport="$dir/status.txt" -FrameLogFile="$dir/frames.csv" \
-    -CaptureVideo=1 -CaptureFps=1 -CaptureDelay=25 -CaptureDir="$dir" -ExitAfter="$secs" \
+    -CaptureVideo="${cap_len:-1}" -CaptureFps="${cap_fps:-1}" -CaptureDelay="${cap_delay:-25}" -CaptureDir="$dir" -ExitAfter="$secs" \
     > "$dir/stdout.log" 2>&1 < /dev/null || log "  $name: exit status $? (limit = killed)"
   pkill -f "GranTheftPraline-Mac" 2>/dev/null || true
   local img stats gpu budget lights
@@ -118,6 +121,15 @@ dawn="-Date=2026-10-15 -TimeOfDay=7.75 -TimeScale=0 -Weather=Clear"
 if test "$dry" = "1"; then
   run noon 20 -Ambience=noon
   run night 20 -Ambience=night
+elif test "$mode" = "rays64"; then
+  day="-Date=2026-06-21 -TimeOfDay=13.5 -TimeScale=0"
+  rays="-GfxCVars=r.VolumetricCloud.ViewRaySampleMaxCount=64"
+  for w in Cloudy Overcast Rain; do
+    run "$w-base" 50 $day -Weather=$w
+    run "$w-rays64" 50 $day -Weather=$w $rays
+  done
+  cap_len=80 cap_fps=0.1 cap_delay=10 run Overcast-demo-base 100 $day -Weather=Overcast -DemoRoute
+  cap_len=80 cap_fps=0.1 cap_delay=10 run Overcast-demo-rays64 100 $day -Weather=Overcast -DemoRoute $rays
 elif test "$mode" = "compare"; then
   late="-Date=2026-10-15 -TimeOfDay=19.6 -TimeScale=0 -Weather=Cloudy"
   for pair in "golden|-Ambience=golden" "dusk|-Ambience=dusk" "late-dusk|$late" "night|-Ambience=night"; do
@@ -163,12 +175,13 @@ fi
   echo "| --- | --- | --- | --- | --- | --- | --- |"
   cat "$out/rows.md" 2>/dev/null
   echo
-  if test "$mode" = "compare"; then
-    echo "## Gain of the default against -NightClouds=full (same ambience)"
+  if test "$mode" = "compare" || test "$mode" = "rays64"; then
+    echo "## Gain of the tested setting (default, or rays64) against the reference (full, or base)"
     echo
     echo "| Pair | GPU p50 full -> default | GPU p95 full -> default |"
     echo "| --- | --- | --- |"
-    awk '{ n=$1; if (n ~ /-full$/) { k=substr(n,1,length(n)-5); f50[k]=$2; f95[k]=$3 }
+    awk '{ n=$1; sub(/-base$/,"-full",n); sub(/-rays64$/,"-default",n)
+           if (n ~ /-full$/) { k=substr(n,1,length(n)-5); f50[k]=$2; f95[k]=$3 }
            else if (n ~ /-default$/) { k=substr(n,1,length(n)-8); d50[k]=$2; d95[k]=$3; order[++c]=k } }
          END { for (i=1;i<=c;i++) { k=order[i];
            if (f50[k]=="nan"||d50[k]=="nan"||f50[k]=="") print "| " k " | nan | nan |";
