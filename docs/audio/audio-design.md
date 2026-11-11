@@ -105,7 +105,9 @@ reward, countdown). `UGTPPlaceAudio`, owned by the audio world, plays them:
   components are scanned once. Loop emitters come from a tag `GTP_AudioLoop=<Loop>`, or else
   from a name with fryer, grill, hood, fridge/freezer/cold, shake or drink in it; the same loop
   within 1.5 m counts once. Rooms come from components tagged `GTP_AudioRoom`, or else the level
-  bounds. Till points come from till, register, kiosk or pos in a name;
+  bounds. Till points come from a tag `GTP_AudioTill`, or else till, register, kiosk or pos in a
+  name. Actor tags count once per actor (its root component); `GTP_AudioLoop=None` marks a
+  component that must not be guessed from its name (instanced groups);
 - a pool of at most 6 looping voices (`MaxRoomVoices`) follows the nearest emitters within
   25 m. The pool is created once, so streaming an interior in and out never creates or
   destroys an audio object;
@@ -143,6 +145,15 @@ Estimated game-thread cost at 30 fps with that crowd: about 0.15 ms
 (budget 0.3 ms), to be confirmed on the Mac with `-AudioStats`; the log line
 gives `heard=` (walkers) and `engines=audible/total`. Settings
 `MaxEngineVoices`, `MaxStepWalkers` and `BudgetInterval` in `DefaultGame.ini`.
+
+## Footstep surfaces and ambience zones per map
+
+`UGTPAudioMix::UseGridsForMap` picks the grids made for the map being played:
+`L_City_Quarter` reads `Sound/SurfaceMap/quarter.gtpsurf` and `zones-quarter.gtpsurf`,
+`L_City_RueDeLaRepublique` the `rue-de-la-republique` ones. A map without its own grids keeps
+those of `UGTPAudioSettings`. `mac_audio_pass.sh prepare` makes them for every map of `FOCUSES`
+(default `rue-de-la-republique quarter`), so the whole 0.9 quarter has its pedestrian streets,
+quays of both rivers and bridges, and its surfaces under the feet.
 
 ## Surfaces
 

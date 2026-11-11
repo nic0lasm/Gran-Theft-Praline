@@ -36,11 +36,17 @@ namespace
 		return Value >= 0 && Value < static_cast<int64>(EnumType::Count) ? static_cast<int32>(Value) : INDEX_NONE;
 	}
 
-	/** Loop of a component from its tag, else from its names. */
-	int32 LoopOf(const USceneComponent* Component)
+	/** Explicitly no loop (GTP_AudioLoop=None on instanced groups): names are not read either. */
+	constexpr int32 NoLoop = -2;
+
+	/**
+	 * Loop of a component from its tag, else from its names. Actor tags count for the root
+	 * component only (bActorTags), so a tagged TargetPoint is one emitter, not one per component.
+	 */
+	int32 LoopOf(const USceneComponent* Component, bool bActorTags)
 	{
 		const AActor* Owner = Component->GetOwner();
-		for (const TArray<FName>* Tags : {&Component->ComponentTags, Owner ? &Owner->Tags : nullptr})
+		for (const TArray<FName>* Tags : {&Component->ComponentTags, Owner && bActorTags ? &Owner->Tags : nullptr})
 		{
 			if (!Tags)
 			{
@@ -51,7 +57,8 @@ namespace
 				FString Left, Right;
 				if (Tag.ToString().Split(TEXT("="), &Left, &Right) && Left == TEXT("GTP_AudioLoop"))
 				{
-					return EnumIndex<EGTPRoomLoop>(Right);
+					const int32 Index = EnumIndex<EGTPRoomLoop>(Right);
+					return Index != INDEX_NONE ? Index : NoLoop;
 				}
 			}
 		}
@@ -85,16 +92,31 @@ namespace
 		return INDEX_NONE;
 	}
 
-	bool IsTill(const USceneComponent* Component)
+	bool HasTag(const USceneComponent* Component, const TCHAR* Tag, bool bActorTags)
 	{
+		return Component->ComponentHasTag(Tag) || (bActorTags && Component->GetOwner() && Component->GetOwner()->ActorHasTag(Tag));
+	}
+
+	/** A till: tag GTP_AudioTill (cooked builds: actor names are not the editor labels), else its names. */
+	bool IsTill(const USceneComponent* Component, bool bActorTags)
+	{
+		if (HasTag(Component, TEXT("GTP_AudioTill"), bActorTags))
+		{
+			return true;
+		}
 		FString Names = Component->GetName() + TEXT(" ") + (Component->GetOwner() ? Component->GetOwner()->GetName() : FString());
 		Names.ToLowerInline();
 		return Names.Contains(TEXT("till")) || Names.Contains(TEXT("register")) || Names.Contains(TEXT("kiosk")) || Names.Contains(TEXT("_pos"));
 	}
 
-	bool HasTag(const USceneComponent* Component, const TCHAR* Tag)
+	/** Adds a spot unless one is already there (the same till seen through two components). */
+	template <typename SpotType>
+	void AddSpot(TArray<SpotType>& Spots, const FVector& Location, ULevel* Level)
 	{
-		return Component->ComponentHasTag(Tag) || (Component->GetOwner() && Component->GetOwner()->ActorHasTag(Tag));
+		if (!Spots.ContainsByPredicate([&Location](const SpotType& Spot) { return FVector::DistSquared(Spot.Location, Location) < 50.f * 50.f; }))
+		{
+			Spots.Add({Location, Level});
+		}
 	}
 }
 
@@ -347,9 +369,10 @@ void UGTPPlaceAudio::ScanLevel(ULevel* Level)
 		TInlineComponentArray<USceneComponent*> Components(Actor);
 		for (const USceneComponent* Component : Components)
 		{
+			const bool bRoot = Component == Actor->GetRootComponent();
 			const FBoxSphereBounds ComponentBounds = Component->Bounds;
 			const FVector Location = ComponentBounds.Origin;
-			if (HasTag(Component, TEXT("GTP_AudioRoom")))
+			if (HasTag(Component, TEXT("GTP_AudioRoom"), bRoot))
 			{
 				Rooms.Add({ComponentBounds.GetBox().ExpandBy(-RoomShrink), Level});
 				++TaggedRooms;
@@ -359,8 +382,8 @@ void UGTPPlaceAudio::ScanLevel(ULevel* Level)
 			{
 				Bounds += ComponentBounds.GetBox();
 			}
-			const int32 Loop = LoopOf(Component);
-			if (Loop != INDEX_NONE && Loop != static_cast<int32>(EGTPRoomLoop::RoomTone))
+			const int32 Loop = LoopOf(Component, bRoot);
+			if (Loop >= 0 && Loop != static_cast<int32>(EGTPRoomLoop::RoomTone))
 			{
 				const bool bNear = Emitters.ContainsByPredicate([&](const FEmitter& Other)
 				{
@@ -373,12 +396,12 @@ void UGTPPlaceAudio::ScanLevel(ULevel* Level)
 				}
 				if (Loop == static_cast<int32>(EGTPRoomLoop::Fryer))
 				{
-					Fryers.Add({Location, Level});
+					AddSpot(Fryers, Location, Level);
 				}
 			}
-			else if (IsTill(Component))
+			else if (IsTill(Component, bRoot))
 			{
-				Tills.Add({Location, Level});
+				AddSpot(Tills, Location, Level);
 			}
 		}
 	}
