@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # First Mac measure of the streamed quarter (ADR-0010, option B): build the persistent level
 # L_City_Quarter (bible lighting, terrain, one far proxy per 250 m cell) and the detailed
-# streaming levels of the cells along the rue de la Republique, then play the demo route twice
-# in the editor (-game): streaming on (UGTPCityStreaming loads the cells around the player)
-# and proxies only (-CityCells=0). Frame times, the frames over 100 ms and the CityStreaming
-# load / visible / unload lines go to QUARTER.md.
+# streaming levels of the cells along the rue de la Republique, package them (Development),
+# then run the packaged demo route twice: streaming on (UGTPCityStreaming loads the cells
+# around the player) and proxies only (-CityCells=0). Frame times, the frames over 100 ms and
+# the CityStreaming load / visible / unload lines go to QUARTER.md.
 #
 # Steps and expected times (a step over twice its time is stopped and the run ends with the cause):
 #   compile   editor module with UGTPCityStreaming               10 min
@@ -12,20 +12,25 @@
 #   proxies   tools/city/cell_proxies.py --check                   1 min
 #   quarter   import_city + materials, GTP_CITY_LEVEL=quarter      5 min
 #   per cell  import 5 min, facade kit and signs 10 min, materials 3 min
-#   play on / play off   LAUNCH_S + 3 min each
-# Default, 5 cells and LAUNCH_S=120: about 2 h 10 (guard limit about 4 h 20).
+#   package   Development, into <BUILDS_DIR>/quarter/             20 min
+#   bench on / bench off   LAUNCH_S + 2 min each
+# Modes: BUILD_ONLY=1 stops after the package (every editor step runs -nullrhi, so a locked
+# Mac screen is fine): about 2 h with 5 cells, guard limit about 4 h. SKIP_BUILD=1 runs the two
+# benches only, on the package a BUILD_ONLY run left in the same BUILDS_DIR, and stops at once
+# when the screen is locked (CGSSessionScreenIsLocked); about 8 min with LAUNCH_S=120.
 # Version 1 leaves out the street furniture and the details of the cells (props, details);
 # the ground keeps the street map's material.
 #
 # Mac slot rules (Nico, 10/11): tried dry first (DRY_RUN=1, no Unreal), a time guard per step,
 # a sign of life every 10 min (HEARTBEAT lines on stdout and in heartbeat.log), Paris times.
 # The map and city content found at the start are restored at the end and checked by md5
-# (KEEP=1 keeps the quarter for the optimisation bench instead).
+# (KEEP=1 keeps the quarter in the project instead; the package keeps it either way).
 #
 # Usage, from the repository root: caffeinate -dimsu tools/city/evidence/quarter_slot_mac.sh
 #   CELLS ("cell-p0000-p0000 cell-p0000-m0250 ..."; default the cells within 60 m of the street),
 #   LAUNCH_S (default 120), PYTHON (venv with numpy, scipy, shapely, PIL), UE_ROOT,
-#   BUILDS_DIR (default <repo>/Builds/quarter-slot), PROFILE (default m1), KEEP=1, DRY_RUN=1.
+#   BUILDS_DIR (default <repo>/Builds/quarter-slot), PROFILE (default m1), KEEP=1, DRY_RUN=1,
+#   BUILD_ONLY=1, SKIP_BUILD=1 (DRY_LOCKED=1 fakes a locked screen in a dry run).
 # Dry run outside the Mac: from a scratch copy of the repo, never commit what it writes.
 set -euo pipefail
 repo="$(cd "$(dirname "$0")/../../.." && pwd)"
@@ -33,10 +38,20 @@ out="${BUILDS_DIR:-$repo/Builds/quarter-slot}"
 dry="${DRY_RUN:-0}"
 zone=presqu-ile
 mkdir -p "$out"
-report="$out/QUARTER.md"
+build_only="${BUILD_ONLY:-0}"
+skip_build="${SKIP_BUILD:-0}"
+report="$out/QUARTER$(test "$skip_build" = 1 && echo -bench).md"
 paris() { TZ=Europe/Paris date +%H:%M; }
 t0=$(date +%s)
+screen_locked() {
+  test "${DRY_LOCKED:-0}" = 1 && return 0
+  ioreg -n Root -d1 -a 2> /dev/null | grep -A1 CGSSessionScreenIsLocked | grep -q true
+}
 echo "# Streamed quarter, started $(paris) Paris time, commit $(git -C "$repo" rev-parse --short HEAD)$(test "$dry" = 1 && echo ', DRY RUN')" > "$report"
+if test "$skip_build" = 1 && screen_locked; then
+  echo "- $(paris) screen locked (CGSSessionScreenIsLocked): no launch possible, Mac libre" | tee -a "$report"
+  exit 4
+fi
 if test "$dry" != 1 && pgrep -f "UnrealEditor |UnrealEditor$|GranTheftPraline.app|GranTheftPraline-Mac|UnrealPak|AutomationTool" > /dev/null; then
   echo "an Unreal editor, a package or the game is running: one at a time" >&2
   exit 1
@@ -59,14 +74,18 @@ backup="$out/backup"
 if command -v md5 > /dev/null; then md5r=(md5 -r); else md5r=(md5sum); fi
 sums() { (cd "$1" && for k in "${kept[@]}"; do if test -e "$k"; then find "$k" -type f -print0; fi; done \
           | sort -z | xargs -0 -r "${md5r[@]}") ; }
-rm -rf "$backup"; mkdir -p "$backup"
-for k in "${kept[@]}"; do
-  if test -e "$proj/$k"; then mkdir -p "$backup/$(dirname "$k")"; cp -Rp "$proj/$k" "$backup/$k"; fi
-done
-sums "$proj" > "$out/before.md5"
+if test "$skip_build" != 1; then
+  rm -rf "$backup"; mkdir -p "$backup"
+  for k in "${kept[@]}"; do
+    if test -e "$proj/$k"; then mkdir -p "$backup/$(dirname "$k")"; cp -Rp "$proj/$k" "$backup/$k"; fi
+  done
+  sums "$proj" > "$out/before.md5"
+fi
 restore() {
   local rc=$?
-  if test "${KEEP:-0}" = "1" && test "$rc" = 0; then
+  if test "$skip_build" = 1; then
+    echo "- $(paris) benches only: the project content was not touched" >> "$report"
+  elif test "${KEEP:-0}" = "1" && test "$rc" = 0; then
     echo "- $(paris) KEEP=1: the quarter stays in the project (L_City_Quarter and its cells); backup in $backup" >> "$report"
   else
     for k in "${kept[@]}"; do
@@ -122,10 +141,15 @@ ue_root="${UE_ROOT:-/Users/Shared/Epic Games/UE_5.8}"
 editor="$ue_root/Engine/Binaries/Mac/UnrealEditor.app/Contents/MacOS/UnrealEditor"
 project="$proj/GranTheftPraline.uproject"
 saved="$proj/Saved/CityImport"
-# Editor Python runs in place through Content/Python/gtp_run.py (no temporary copy).
-ue_py() {  # ue_py <script under tools/city/unreal> <report json to check>
+# Editor Python runs in place through Content/Python/gtp_run.py (no temporary copy), headless
+# (-nullrhi) through run_editor (tools/city/unreal/editor_run.sh: absolute log, done marker,
+# SIGKILL once the report is written since the editor hangs on exit, time-stamped lines).
+ue_py() {  # ue_py <script under tools/city/unreal> <report json to check> <limit s>
   rm -f "$saved/$2"
-  GTP_PY_SCRIPT="$repo/tools/city/unreal/$1.py" "$editor" "$project" -unattended -nosplash -nosound \
+  # shellcheck source=../unreal/editor_run.sh
+  . "$repo/tools/city/unreal/editor_run.sh"
+  GTP_PY_SCRIPT="$repo/tools/city/unreal/$1.py" EDITOR_DONE_FILE="$saved/$2" EDITOR_MAX_S="${3:-600}" \
+    run_editor "quarter_$1" "$editor" "$project" -nullrhi -unattended -nosplash -nosound \
     -NSAppSleepDisabled YES "-ExecutePythonScript=__import__('gtp_run').main()" || true
   test -f "$saved/$2" || { echo "$1.py wrote no $2" >&2; return 1; }
   cat "$saved/$2"
@@ -133,17 +157,18 @@ ue_py() {  # ue_py <script under tools/city/unreal> <report json to check>
 }
 export -f ue_py
 export repo editor project saved
-play() {  # play <tag> <extra args>: demo route on L_City_Quarter, frame times to frames-<tag>.csv
+bench() {  # bench <tag> <game args...>: the packaged demo route on L_City_Quarter
   local tag="$1"; shift
-  local cvars; cvars="$(python3 "$repo/tools/rendering/reference_scene/profiles.py" "${PROFILE:-m1}")"
-  rm -f "$proj/Saved/Logs/GranTheftPraline.log"
-  "$editor" "$project" /Game/Maps/L_City_Quarter -game -windowed -ResX=1728 -ResY=1117 -nosound -unattended \
-    -NSAppSleepDisabled YES -SkipTitle -DemoRoute -TestVehicle -DemoDriveTime=$(( ${LAUNCH_S:-120} - 40 )) \
-    "-FrameLogFile=$out/frames-$tag.csv" -FrameLogWarmup=10 "-ExitAfter=${LAUNCH_S:-120}" "$@" \
-    -ExecCmds="r.SetRes 1728x1117w, $cvars" || true
-  cp "$proj/Saved/Logs/GranTheftPraline.log" "$out/game-$tag.log" 2> /dev/null || true
-  test -f "$out/frames-$tag.csv"
+  local before; before="$(date +%s)"
+  rm -f ~/Library/Logs/GranTheftPraline/GranTheftPraline.log 2> /dev/null || true
+  BUILDS_DIR="$out" GAME_ARGS="/Game/Maps/L_City_Quarter -TestVehicle -DemoDriveTime=$(( ${LAUNCH_S:-120} - 40 )) $*" \
+    "$repo/tools/build/test-build-mac.sh" quarter "${LAUNCH_S:-120}" 0 || true
+  local csv; csv="$(ls -t "$out"/quarter/evidence/*/frametimes.csv 2> /dev/null | head -n 1)"
+  test -n "$csv" && test "$(_mtime_q "$csv")" -ge "$before" || { echo "no frame times for $tag" >&2; return 1; }
+  cp "$csv" "$out/frames-$tag.csv"
+  { cat ~/Library/Logs/GranTheftPraline/GranTheftPraline.log "$(dirname "$csv")/stdout.log"; } > "$out/game-$tag.log" 2> /dev/null || true
 }
+_mtime_q() { stat -c %Y "$1" 2> /dev/null || stat -f %m "$1"; }
 summary() {  # summary <tag>
   python3 - "$out/frames-$1.csv" "$out/game-$1.log" "$1" >> "$report" <<'PY' || echo "- $1: no frame times" >> "$report"
 import csv, sys
@@ -164,25 +189,39 @@ PY
 }
 
 heartbeat "start, cells $CELLS"
-step compile 600 compile.log "$ue_root/Engine/Build/BatchFiles/Mac/Build.sh" GranTheftPralineEditor Mac Development \
-  "-project=$project" -WaitMutex
-step cells 600 cells.log python3 "$repo/tools/city/cells.py" --name "$zone" --jobs 6
-step proxies 60 proxies.log python3 "$repo/tools/city/cell_proxies.py" --name "$zone" --check
-"$repo/tools/city/unreal/mount_citybrands.sh" > /dev/null
-step "quarter import" 300 quarter-import.log env GTP_CITY_ZONE="$zone" GTP_CITY_FOCUS=quarter GTP_CITY_LEVEL=quarter \
-  bash -c 'ue_py import_city report.json'
-step "quarter materials" 180 quarter-materials.log env GTP_CITY_ZONE="$zone" GTP_CITY_FOCUS=quarter GTP_CITY_LEVEL=quarter \
-  bash -c 'ue_py apply_city_materials materials_report.json'
-for c in $CELLS; do
-  heartbeat "cell $c"
-  cellenv=(GTP_CITY_ZONE="$zone" GTP_CITY_FOCUS="$c" GTP_CITY_LEVEL=cell GTP_KIT_FOCUS=rue-de-la-republique
-           GTP_KIT_REUSE=1 GTP_SHOP_GLASS=opaque GTP_PROFILE="${PROFILE:-m1}")
-  step "$c import" 300 "$c-import.log" env "${cellenv[@]}" bash -c 'ue_py import_city report.json'
-  step "$c facades" 600 "$c-facades.log" env "${cellenv[@]}" bash -c 'ue_py place_facades facades_report.json'
-  step "$c materials" 180 "$c-materials.log" env "${cellenv[@]}" bash -c 'ue_py apply_city_materials materials_report.json'
+if test "$skip_build" != 1; then
+  step compile 600 compile.log "$ue_root/Engine/Build/BatchFiles/Mac/Build.sh" GranTheftPralineEditor Mac Development \
+    "-project=$project" -WaitMutex
+  step cells 600 cells.log python3 "$repo/tools/city/cells.py" --name "$zone" --jobs 6
+  step proxies 60 proxies.log python3 "$repo/tools/city/cell_proxies.py" --name "$zone" --check
+  "$repo/tools/city/unreal/mount_citybrands.sh" > /dev/null
+  step "quarter import" 300 quarter-import.log env GTP_CITY_ZONE="$zone" GTP_CITY_FOCUS=quarter GTP_CITY_LEVEL=quarter \
+    bash -c 'ue_py import_city report.json 600'
+  step "quarter materials" 180 quarter-materials.log env GTP_CITY_ZONE="$zone" GTP_CITY_FOCUS=quarter GTP_CITY_LEVEL=quarter \
+    bash -c 'ue_py apply_city_materials materials_report.json 360'
+  for c in $CELLS; do
+    heartbeat "cell $c"
+    cellenv=(GTP_CITY_ZONE="$zone" GTP_CITY_FOCUS="$c" GTP_CITY_LEVEL=cell GTP_KIT_FOCUS=rue-de-la-republique
+             GTP_KIT_REUSE=1 GTP_SHOP_GLASS=opaque GTP_PROFILE="${PROFILE:-m1}")
+    step "$c import" 300 "$c-import.log" env "${cellenv[@]}" bash -c 'ue_py import_city report.json 600'
+    step "$c facades" 600 "$c-facades.log" env "${cellenv[@]}" bash -c 'ue_py place_facades facades_report.json 1200'
+    step "$c materials" 180 "$c-materials.log" env "${cellenv[@]}" bash -c 'ue_py apply_city_materials materials_report.json 360'
+  done
+  step package 1200 package.log env BUILDS_DIR="$out" "$repo/tools/build/package-mac.sh" quarter Development
+  echo "- package: $out/quarter" >> "$report"
+fi
+if test "$build_only" = 1; then
+  echo "- $(paris) BUILD_ONLY: built in $(( ($(date +%s) - t0) / 60 )) min; benches with SKIP_BUILD=1 when the screen is unlocked" >> "$report"
+  exit 0
+fi
+if test "$dry" != 1 && ! test -d "$out/quarter"; then
+  echo "- no package in $out/quarter (run BUILD_ONLY=1 first)" >> "$report"
+  exit 1
+fi
+for run in "on -CityCells=1" "off -CityCells=0"; do
+  set -- $run
+  if screen_locked; then echo "- $(paris) screen locked before bench $1: skipped" >> "$report"; continue; fi
+  step "bench $1" $(( ${LAUNCH_S:-120} + 120 )) "bench-$1.log" bench "$@"
+  summary "$1"
 done
-step "play streaming" $(( ${LAUNCH_S:-120} + 180 )) play-on.log play on -CityCells=1
-summary on
-step "play proxies only" $(( ${LAUNCH_S:-120} + 180 )) play-off.log play off -CityCells=0
-summary off
 echo "- $(paris) done in $(( ($(date +%s) - t0) / 60 )) min" >> "$report"

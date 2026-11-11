@@ -55,9 +55,11 @@ step "parked car"
 # place_parked_car.py ends with quit_editor(), which makes the editor return 1 even when the
 # car is placed and the map saved (measured 10/11): 0 and 1 pass, anything else stops.
 # It runs in place through Content/Python/gtp_run.py (the project path has a space).
+# shellcheck source=unreal/editor_run.sh
+. "$repo/tools/city/unreal/editor_run.sh"
 rc=0
-GTP_PY_SCRIPT="$repo/tools/vehicles/unreal/place_parked_car.py" GTP_PARKED_MAP="$map" \
-  "$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES \
+GTP_PY_SCRIPT="$repo/tools/vehicles/unreal/place_parked_car.py" GTP_PARKED_MAP="$map" EDITOR_MAX_S=300 \
+  run_editor parked "$editor" "$project" ${EDITOR_HEADLESS--nullrhi} -unattended -nosplash -nosound -NSAppSleepDisabled YES \
   "-ExecutePythonScript=__import__('gtp_run').main()" || rc=$?
 test "$rc" -le 1 || { echo "parked car: editor returned $rc" >&2; exit "$rc"; }
 

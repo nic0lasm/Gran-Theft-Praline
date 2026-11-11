@@ -17,6 +17,11 @@
 #   LAUNCH_S (default 30): length of each launch; 90 gives frame times worth comparing.
 #   PYTHON (venv with numpy, scipy, shapely, PIL), BUILDS_DIR (default <repo>/Builds/freeze-bisect),
 #   DRY_RUN=1 (every Unreal step replaced by a short sleep; DRY_SLOW=<step> makes that one hang).
+#   BUILD_ONLY=1: regenerations and Development packages only, no launch (they pass with the Mac
+#     screen locked: editor steps run -nullrhi); each build in <BUILDS_DIR>/freeze-<step>.
+#   SKIP_BUILD=1: launches only, of the packages a BUILD_ONLY run left in the same BUILDS_DIR;
+#     stops at once when the screen is locked (CGSSessionScreenIsLocked), since no game can draw.
+#     Its report is FREEZE-bench.md; the content is not touched, so nothing is saved or restored.
 # Dry run outside the Mac: run it from a scratch copy of the repo, never commit what it writes.
 # Writes <BUILDS_DIR>/FREEZE.md. One Unreal or game process at a time.
 set -euo pipefail
@@ -25,10 +30,20 @@ steps="${1:-ABC}"
 out="${BUILDS_DIR:-$repo/Builds/freeze-bisect}"
 dry="${DRY_RUN:-0}"
 mkdir -p "$out"
-report="$out/FREEZE.md"
+build_only="${BUILD_ONLY:-0}"
+skip_build="${SKIP_BUILD:-0}"
+report="$out/FREEZE$(test "$skip_build" = 1 && echo -bench).md"
 paris() { TZ=Europe/Paris date +%H:%M; }
 t0=$(date +%s)
+screen_locked() {
+  test "${DRY_LOCKED:-0}" = 1 && return 0
+  ioreg -n Root -d1 -a 2> /dev/null | grep -A1 CGSSessionScreenIsLocked | grep -q true
+}
 echo "# Freeze bisect, started $(paris) Paris time, commit $(git -C "$repo" rev-parse --short HEAD)$(test "$dry" = 1 && echo ', DRY RUN')" > "$report"
+if test "$skip_build" = 1 && screen_locked; then
+  echo "- $(paris) screen locked (CGSSessionScreenIsLocked): no launch possible, Mac libre" | tee -a "$report"
+  exit 4
+fi
 if test "$dry" != 1 && pgrep -f "UnrealEditor |UnrealEditor$|GranTheftPraline.app" > /dev/null; then
   echo "an Unreal editor or the game is running: one at a time" >&2
   exit 1
@@ -42,12 +57,19 @@ backup="$out/backup"
 if command -v md5 > /dev/null; then md5r=(md5 -r); else md5r=(md5sum); fi
 sums() { (cd "$1" && for k in "${kept[@]}"; do if test -e "$k"; then find "$k" -type f -print0; fi; done \
           | sort -z | xargs -0 -r "${md5r[@]}") ; }
-rm -rf "$backup"; mkdir -p "$backup"
-for k in "${kept[@]}"; do
-  if test -e "$proj/$k"; then mkdir -p "$backup/$(dirname "$k")"; cp -Rp "$proj/$k" "$backup/$k"; fi
-done
-sums "$proj" > "$out/before.md5"
+if test "$skip_build" != 1; then
+  rm -rf "$backup"; mkdir -p "$backup"
+  for k in "${kept[@]}"; do
+    if test -e "$proj/$k"; then mkdir -p "$backup/$(dirname "$k")"; cp -Rp "$proj/$k" "$backup/$k"; fi
+  done
+  sums "$proj" > "$out/before.md5"
+fi
 restore() {
+  if test "$skip_build" = 1; then
+    echo "== $(paris) Mac libre: $(( ($(date +%s) - t0) / 60 )) min, report $report"
+    cat "$report"
+    return
+  fi
   for k in "${kept[@]}"; do
     rm -rf "${proj:?}/$k"   # also what did not exist at the start
     if test -e "$backup/$k"; then mkdir -p "$proj/$(dirname "$k")"; cp -Rp "$backup/$k" "$proj/$k"; fi
@@ -100,7 +122,22 @@ common=(GTP_SHOP_GLASS=opaque GTP_CITY_DETAILS=0 SKIP_PLAY=1)
 
 launch() {  # launch <tag>: package Development, 30 s launch, verdict
   local v="freeze-$1"
-  step "package $1" 900 "$v-package.log" env BUILDS_DIR="$out" "$repo/tools/build/package-mac.sh" "$v" Development
+  if test "$skip_build" != 1; then
+    step "package $1" 900 "$v-package.log" env BUILDS_DIR="$out" "$repo/tools/build/package-mac.sh" "$v" Development
+  fi
+  if test "$build_only" = 1; then
+    echo "- **$1: built** in $v/ (no launch, BUILD_ONLY)" >> "$report"
+    git -C "$repo" checkout -- assets/geo/processed 2> /dev/null || true
+    return 0
+  fi
+  if test "$dry" != 1 && ! test -d "$out/$v"; then
+    echo "- **$1: no package** in $out/$v (run BUILD_ONLY=1 first)" >> "$report"
+    return 0
+  fi
+  if screen_locked; then
+    echo "- $(paris) screen locked before launch $1: skipped" >> "$report"
+    return 0
+  fi
   step "launch $1" $(( ${LAUNCH_S:-30} + 120 )) "$v-test.log" \
     env BUILDS_DIR="$out" "$repo/tools/build/test-build-mac.sh" "$v" "${LAUNCH_S:-30}" 0 || true
   local verdict frames
@@ -113,19 +150,21 @@ launch() {  # launch <tag>: package Development, 30 s launch, verdict
 
 heartbeat "start, steps $steps"
 case "$steps" in *A*|*B*)
-  step "regen A" 600 "A-regen.log" env "${common[@]}" GTP_SIGN_ATLAS=0 "$repo/tools/city/regen_city.sh"
+  if test "$skip_build" != 1; then step "regen A" 600 "A-regen.log" env "${common[@]}" GTP_SIGN_ATLAS=0 "$repo/tools/city/regen_city.sh"; fi
   case "$steps" in *A*) launch A ;; esac
   case "$steps" in *B*)
-    step "replay B" 300 "B-replay.log" env "${common[@]}" GTP_SIGN_ATLAS=0 FACADES_ONLY=1 GTP_CITY_RIVERSIDE=0 \
-      "$repo/tools/city/unreal/run_city_import.sh"
+    if test "$skip_build" != 1; then
+      step "replay B" 300 "B-replay.log" env "${common[@]}" GTP_SIGN_ATLAS=0 FACADES_ONLY=1 GTP_CITY_RIVERSIDE=0 \
+        "$repo/tools/city/unreal/run_city_import.sh"
+    fi
     launch B ;;
   esac ;;
 esac
 case "$steps" in *C*)
-  step "regen C" 600 "C-regen.log" env "${common[@]}" GTP_SIGN_ATLAS=1 "$repo/tools/city/regen_city.sh"
+  if test "$skip_build" != 1; then step "regen C" 600 "C-regen.log" env "${common[@]}" GTP_SIGN_ATLAS=1 "$repo/tools/city/regen_city.sh"; fi
   launch C ;;
 esac
 case "$steps" in *D*)
-  step "regen D" 600 "D-regen.log" env "${common[@]}" GTP_SIGN_ATLAS=1 GTP_SHELL_MERGE=1 "$repo/tools/city/regen_city.sh"
+  if test "$skip_build" != 1; then step "regen D" 600 "D-regen.log" env "${common[@]}" GTP_SIGN_ATLAS=1 GTP_SHELL_MERGE=1 "$repo/tools/city/regen_city.sh"; fi
   launch D ;;
 esac

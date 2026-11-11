@@ -15,6 +15,10 @@
 #   mkdir -p Builds && git fetch -q origin feat/city-perf && git show origin/feat/city-perf:tools/city/evidence/city_slot6_mac.sh > Builds/city_slot6.sh && PYTHON="<venv>/bin/python" caffeinate -dimsu bash Builds/city_slot6.sh
 #   STEPS (default ABCD), LAUNCH_S (default 90), REF (default origin/feat/city-perf),
 #   DRY_ONLY=1 stops after the dry run.
+#   BUILD_ONLY=1: regenerations and packages only (Mac screen locked is fine), builds kept in
+#     "Builds/city slot6/freeze-<step>"; SKIP_BUILD=1 later: the launches only, on those builds,
+#     stopping at once if the screen is locked. Expected: BUILD_ONLY ~85 min (4 x (10 + 11)),
+#     SKIP_BUILD ~15 min with LAUNCH_S=90.
 set -euo pipefail
 root="$(pwd)"
 test -f "$root/GranTheftPraline/GranTheftPraline.uproject" || { echo "run it from the root of GTAL-build" >&2; exit 1; }
@@ -24,6 +28,11 @@ md5f() { if command -v md5 > /dev/null; then md5 -q "$1"; else md5sum "$1" | cut
 if pgrep -f "UnrealEditor |UnrealEditor$|GranTheftPraline.app|GranTheftPraline-Mac|UnrealPak|AutomationTool" > /dev/null; then
   echo "$(paris) an Unreal editor, a package or the game is running: one at a time" >&2
   exit 1
+fi
+if test "${SKIP_BUILD:-0}" = 1 && test "${DRY_LOCKED:-0}" != 1 && \
+   ioreg -n Root -d1 -a 2> /dev/null | grep -A1 CGSSessionScreenIsLocked | grep -q true; then
+  echo "$(paris) screen locked (CGSSessionScreenIsLocked): no launch possible, Mac libre" >&2
+  exit 4
 fi
 test -z "$(git -C "$root" status --porcelain --untracked-files=no)" || { echo "tracked changes in GTAL-build: stop" >&2; exit 1; }
 start_branch="$(git -C "$root" branch --show-current)"
@@ -45,7 +54,9 @@ mkdir -p "$root/Builds"
 echo "== $(paris) on $(git -C "$root" log -1 --format='%h %s')"
 BUILDS_DIR="$root/Builds/city slot6 dry" DRY_RUN=1 "$root/tools/city/evidence/freeze_bisect_mac.sh" "${STEPS:-ABCD}" \
   > "$root/Builds/city-slot6-dry.log" 2>&1
-grep -q "restore: map and city content identical" "$root/Builds/city slot6 dry/FREEZE.md" || {
+dry_ok="restore: map and city content identical"
+test "${SKIP_BUILD:-0}" = 1 && dry_ok="launch D: exit 0"
+grep -q "$dry_ok" "$root/Builds/city slot6 dry/FREEZE$(test "${SKIP_BUILD:-0}" = 1 && echo -bench).md" || {
   echo "dry run failed, see Builds/city-slot6-dry.log" >&2; exit 1; }
 echo "== $(paris) dry run OK"
 test "${DRY_ONLY:-0}" = "1" && exit 0

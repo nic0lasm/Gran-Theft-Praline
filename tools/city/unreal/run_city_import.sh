@@ -36,6 +36,12 @@ mkdir -p "$out"
 # launcher and GTP_PY_SCRIPT carries the path. No temporary copy.
 ue_py() { echo "$repo/tools/city/unreal/$1.py"; }
 launcher="__import__('gtp_run').main()"
+# Editor script launches run without a window or GPU (-nullrhi, EDITOR_HEADLESS= to drop it),
+# so they also pass with the Mac screen locked. run_editor (editor_run.sh): absolute log,
+# done marker, SIGKILL once the work is done (the editor hangs on exit), time limit per launch.
+headless="${EDITOR_HEADLESS--nullrhi}"
+# shellcheck source=editor_run.sh
+. "$repo/tools/city/unreal/editor_run.sh"
 python3 "$repo/tools/city/ground_mask.py" --zone "$zone" --focus "$focus" > /dev/null
 # Facade and street details table (tools/city/details.py), replayed on every run.
 # GTP_CITY_DETAILS=0 leaves them out (M1 budget fallback).
@@ -63,33 +69,33 @@ cvars="$(python3 "$repo/tools/rendering/reference_scene/profiles.py" "${PROFILE:
 # FACADES_ONLY=1: replay only the facade kit (place_facades.py) and the materials on the
 # existing map, ~4 min instead of ~10 (bench of facade LODs).
 if [ "${FACADES_ONLY:-0}" != "1" ]; then
-GTP_PY_SCRIPT="$(ue_py import_city)" "$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES -ExecutePythonScript="$launcher"
+GTP_PY_SCRIPT="$(ue_py import_city)" EDITOR_DONE_FILE="$out/report.json" EDITOR_MAX_S=600 run_editor import "$editor" "$project" $headless -unattended -nosplash -nosound -NSAppSleepDisabled YES -ExecutePythonScript="$launcher"
 test -f "$out/report.json" || { echo "import_city.py wrote no report" >&2; exit 1; }
 grep -q '"errors": \[\]' "$out/report.json" || { cat "$out/report.json"; exit 1; }
 fi
 
-GTP_PY_SCRIPT="$(ue_py place_facades)" "$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES -ExecutePythonScript="$launcher"
+GTP_PY_SCRIPT="$(ue_py place_facades)" EDITOR_DONE_FILE="$out/facades_report.json" EDITOR_MAX_S=900 run_editor facades "$editor" "$project" $headless -unattended -nosplash -nosound -NSAppSleepDisabled YES -ExecutePythonScript="$launcher"
 test -f "$out/facades_report.json" || { echo "place_facades.py wrote no report" >&2; exit 1; }
 grep -q '"errors": \[\]' "$out/facades_report.json" || { cat "$out/facades_report.json"; exit 1; }
 
 # Street furniture: assets not imported yet are skipped and listed in the report.
 if [ "${FACADES_ONLY:-0}" != "1" ]; then
-GTP_PY_SCRIPT="$(ue_py place_props)" "$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES -ExecutePythonScript="$launcher"
+GTP_PY_SCRIPT="$(ue_py place_props)" EDITOR_DONE_FILE="$out/props_report.json" EDITOR_MAX_S=240 run_editor props "$editor" "$project" $headless -unattended -nosplash -nosound -NSAppSleepDisabled YES -ExecutePythonScript="$launcher"
 test -f "$out/props_report.json" || { echo "place_props.py wrote no report" >&2; exit 1; }
 fi
 
 # Facade and street details (tools/city/details.py), when the table exists: own folder City/Details.
 if [ "${FACADES_ONLY:-0}" != "1" ] && test -f "$gen/details_placement.csv"; then
-  GTP_PROPS_SET=details GTP_PY_SCRIPT="$(ue_py place_props)" "$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES -ExecutePythonScript="$launcher"
+  GTP_PROPS_SET=details GTP_PY_SCRIPT="$(ue_py place_props)" EDITOR_DONE_FILE="$out/details_report.json" EDITOR_MAX_S=240 run_editor details "$editor" "$project" $headless -unattended -nosplash -nosound -NSAppSleepDisabled YES -ExecutePythonScript="$launcher"
   test -f "$out/details_report.json" || { echo "place_props.py (details) wrote no report" >&2; exit 1; }
 fi
 
 # Art bible ground and shell materials in place of the greybox one.
-GTP_PY_SCRIPT="$(ue_py apply_city_materials)" "$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES -ExecutePythonScript="$launcher"
+GTP_PY_SCRIPT="$(ue_py apply_city_materials)" EDITOR_DONE_FILE="$out/materials_report.json" EDITOR_MAX_S=360 run_editor materials "$editor" "$project" $headless -unattended -nosplash -nosound -NSAppSleepDisabled YES -ExecutePythonScript="$launcher"
 grep -q '"errors": \[\]' "$out/materials_report.json" || { cat "$out/materials_report.json"; exit 1; }
 
 if [ "${SKIP_PLAY:-0}" != "1" ]; then
-GTP_PY_SCRIPT="$(ue_py shoot_city)" "$editor" "$project" "$map" -game -windowed -ResX=1920 -ResY=1080 -nosound -NoScreenMessages -unattended -NSAppSleepDisabled YES \
+GTP_PY_SCRIPT="$(ue_py shoot_city)" EDITOR_DONE_FILE="$out/play_report.json" EDITOR_MAX_S=600 run_editor shoot "$editor" "$project" "$map" -game -windowed -ResX=1920 -ResY=1080 -nosound -NoScreenMessages -unattended -NSAppSleepDisabled YES \
   "-ini:Engine:[/Script/Engine.UserInterfaceSettings]:bAllowHighDPIInGameMode=True" \
   -ExecCmds="r.SetRes 1920x1080w, $cvars, py $launcher"
 fi
