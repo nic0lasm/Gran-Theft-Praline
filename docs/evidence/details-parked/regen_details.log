@@ -1,0 +1,816 @@
+== 07:46:19 (0 s): geo data (roads with street names, buildings)
+== 07:46:40 (21 s): landmarks (Opera, Hotel de Ville: LiDAR volumes instead of the facade kit; GTP_CITY_LANDMARKS=0 to skip)
+== 07:46:42 (23 s): generation (focus street + 250,-60,700,220)
+== 07:46:56 (37 s): signs, carriageways fitted to the kerbs, street furniture
+{
+  "roads": 633,
+  "kerb_share_mean": 0.79,
+  "centre_shift_m_p50": 0.0,
+  "centre_shift_m_p90": 1.57
+}
+== 07:47:08 (49 s): Unreal: import, facades, props, details, materials (run_city_import.sh)
+== 07:47:08 ground mask
+== 07:47:11 details table
+== 07:47:12 CityBrands plugin
+== 07:47:12 riverside
+== 07:47:12 start import (limit 300 s, editor log Saved/Logs/City_import.log)
+Opening shared memory
+Shared memory doesn't exist, checking legacy lock file
+Checking for a '/tmp/UnrealTraceServer.pid' lock file
+Forking process
+Wait until we know the daemon has started.
+Parent received signal 30
+Daemon signalled successful start
+Forked complete (ret=0)
+Setting up bundled DotNet SDK
+HOME Games/UE_5.8/Engine/Binaries/ThirdParty/DotNet/10.0/mac-arm64
+Running dotnet Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll -Mode=ValidatePlatforms -OutputSDKs -AllPlatforms -project=HOME work/GTAL-build/GranTheftPraline/GranTheftPraline.uproject -log=HOME Engine/GranTheftPralineEditor/AutoSDKInfo.txt -verbose -timestamps
+Log file: HOME Engine/GranTheftPralineEditor/AutoSDKInfo.txt
+##PlatformValidate: Win64 INVALID <UNKNOWN>
+##PlatformValidate: Mac VALID 26.1.1
+##PlatformValidate: IOS VALID 26.1.1
+##PlatformValidate: Android INVALID r27c
+##PlatformValidate: Linux INVALID <UNKNOWN>
+##PlatformValidate: LinuxArm64 INVALID <UNKNOWN>
+##PlatformValidate: TVOS VALID 26.1.1
+##PlatformValidate: VisionOS VALID 26.1.1
+Unable to find required SDK version 'MainVersion' for platform Win64. Check your SDK.json files
+Unable to find required SDK version 'MainVersion' for platform Linux. Check your SDK.json files
+Unable to find required SDK version 'MainVersion' for platform LinuxArm64. Check your SDK.json files
+Trace written to file HOME Support/Epic/UnrealBuildTool/Trace.uba with size 328b
+2026-11-11 07:47:14.827 UnrealEditor[88882:899449] [UE4] Shutdown handler: initialize.
+== 07:48:13 running import, 61 s, editor log 0 bytes, last: 
+*** Recognized (0x69) family*** (30 cols X 22 rows)
+== 07:48:18 import: work done (HOME work/GTAL-build/GranTheftPraline/Saved/CityImport/report.json), waiting up to 90 s for the editor to exit
+2026-11-11 07:48:18.160 UnrealEditor[88882:899386] [UE4] Shutdown handler: cleanup.
+Opening shared memory
+Shared memory doesn't exist, checking legacy lock file
+Checking for a '/tmp/UnrealTraceServer.pid' lock file
+Forking process
+Opening shared memory
+Starting the store
+Reading settings from 'HOME'
+
+Unable to open settings file HOME
+
+Store settings (HOME
+ - Store port: 1989
+ - Recorder port: 1981
+ - Thread count: 0
+ - Sponsored mode: 1
+ - Directory: 'HOME'
+Watcher enabled on HOME
+Signalling parent 88886
+Terminating server, no sponsors or connections active.
+Received signal 15
+Daemon is exiting without errors.
+Listening cancelled, closing port...
+Listening cancelled, closing port...
+== 07:48:23 end import, exit 0, 71 s
+== 07:48:23 start facades (limit 300 s, editor log Saved/Logs/City_facades.log)
+Opening shared memory
+Shared memory doesn't exist, checking legacy lock file
+Checking for a '/tmp/UnrealTraceServer.pid' lock file
+Forking process
+Wait until we know the daemon has started.
+Parent received signal 30
+Daemon signalled successful start
+Forked complete (ret=0)
+Setting up bundled DotNet SDK
+HOME Games/UE_5.8/Engine/Binaries/ThirdParty/DotNet/10.0/mac-arm64
+Running dotnet Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll -Mode=ValidatePlatforms -OutputSDKs -AllPlatforms -project=HOME work/GTAL-build/GranTheftPraline/GranTheftPraline.uproject -log=HOME Engine/GranTheftPralineEditor/AutoSDKInfo.txt -verbose -timestamps
+Log file: HOME Engine/GranTheftPralineEditor/AutoSDKInfo.txt
+##PlatformValidate: Win64 INVALID <UNKNOWN>
+##PlatformValidate: Mac VALID 26.1.1
+##PlatformValidate: IOS VALID 26.1.1
+##PlatformValidate: Android INVALID r27c
+##PlatformValidate: Linux INVALID <UNKNOWN>
+##PlatformValidate: LinuxArm64 INVALID <UNKNOWN>
+##PlatformValidate: TVOS VALID 26.1.1
+##PlatformValidate: VisionOS VALID 26.1.1
+Unable to find required SDK version 'MainVersion' for platform Win64. Check your SDK.json files
+Unable to find required SDK version 'MainVersion' for platform Linux. Check your SDK.json files
+Unable to find required SDK version 'MainVersion' for platform LinuxArm64. Check your SDK.json files
+Trace written to file HOME Support/Epic/UnrealBuildTool/Trace.uba with size 328b
+2026-11-11 07:48:24.813 UnrealEditor[89053:900529] [UE4] Shutdown handler: initialize.
+== 07:49:23 running facades, 60 s, editor log 0 bytes, last: 
+== 07:50:13 facades: work done (HOME work/GTAL-build/GranTheftPraline/Saved/CityImport/facades_report.json), waiting up to 90 s for the editor to exit
+*** Recognized (0x69) family*** (30 cols X 22 rows)
+2026-11-11 07:50:15.735 UnrealEditor[89053:900485] [UE4] Shutdown handler: cleanup.
+== 07:50:18 end facades, exit 0, 115 s
+== 07:50:18 start props (limit 120 s, editor log Saved/Logs/City_props.log)
+Opening shared memory
+Shared memory doesn't exist, checking legacy lock file
+Checking for a '/tmp/UnrealTraceServer.pid' lock file
+Forking process
+Opening shared memory
+Starting the store
+Reading settings from 'HOME'
+
+Unable to open settings file HOME
+
+Store settings (HOME
+ - Store port: 1989
+ - Recorder port: 1981
+ - Thread count: 0
+ - Sponsored mode: 1
+ - Directory: 'HOME'
+Watcher enabled on HOME
+Signalling parent 89055
+Terminating server, no sponsors or connections active.
+Received signal 15
+Daemon is exiting without errors.
+Listening cancelled, closing port...
+Listening cancelled, closing port...
+Opening shared memory
+Shared memory doesn't exist, checking legacy lock file
+Checking for a '/tmp/UnrealTraceServer.pid' lock file
+Forking process
+Wait until we know the daemon has started.
+Parent received signal 30
+Daemon signalled successful start
+Forked complete (ret=0)
+Setting up bundled DotNet SDK
+HOME Games/UE_5.8/Engine/Binaries/ThirdParty/DotNet/10.0/mac-arm64
+Running dotnet Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll -Mode=ValidatePlatforms -OutputSDKs -AllPlatforms -project=HOME work/GTAL-build/GranTheftPraline/GranTheftPraline.uproject -log=HOME Engine/GranTheftPralineEditor/AutoSDKInfo.txt -verbose -timestamps
+Log file: HOME Engine/GranTheftPralineEditor/AutoSDKInfo.txt
+##PlatformValidate: Win64 INVALID <UNKNOWN>
+##PlatformValidate: Mac VALID 26.1.1
+##PlatformValidate: IOS VALID 26.1.1
+##PlatformValidate: Android INVALID r27c
+##PlatformValidate: Linux INVALID <UNKNOWN>
+##PlatformValidate: LinuxArm64 INVALID <UNKNOWN>
+##PlatformValidate: TVOS VALID 26.1.1
+##PlatformValidate: VisionOS VALID 26.1.1
+Unable to find required SDK version 'MainVersion' for platform Win64. Check your SDK.json files
+Unable to find required SDK version 'MainVersion' for platform Linux. Check your SDK.json files
+Unable to find required SDK version 'MainVersion' for platform LinuxArm64. Check your SDK.json files
+Trace written to file HOME Support/Epic/UnrealBuildTool/Trace.uba with size 328b
+2026-11-11 07:50:20.152 UnrealEditor[89291:901978] [UE4] Shutdown handler: initialize.
+== 07:50:43 props: work done (HOME work/GTAL-build/GranTheftPraline/Saved/CityImport/props_report.json), waiting up to 90 s for the editor to exit
+*** Recognized (0x69) family*** (30 cols X 22 rows)
+2026-11-11 07:50:46.702 UnrealEditor[89291:901947] [UE4] Shutdown handler: cleanup.
+== 07:50:48 end props, exit 0, 30 s
+== 07:50:48 start details (limit 120 s, editor log Saved/Logs/City_details.log)
+Opening shared memory
+Shared memory doesn't exist, checking legacy lock file
+Checking for a '/tmp/UnrealTraceServer.pid' lock file
+Forking process
+Opening shared memory
+Starting the store
+Reading settings from 'HOME'
+
+Unable to open settings file HOME
+
+Store settings (HOME
+ - Store port: 1989
+ - Recorder port: 1981
+ - Thread count: 0
+ - Sponsored mode: 1
+ - Directory: 'HOME'
+Watcher enabled on HOME
+Signalling parent 89293
+Terminating server, no sponsors or connections active.
+Received signal 15
+Daemon is exiting without errors.
+Listening cancelled, closing port...
+Listening cancelled, closing port...
+Opening shared memory
+Shared memory doesn't exist, checking legacy lock file
+Checking for a '/tmp/UnrealTraceServer.pid' lock file
+Forking process
+Wait until we know the daemon has started.
+Parent received signal 30
+Daemon signalled successful start
+Forked complete (ret=0)
+Setting up bundled DotNet SDK
+HOME Games/UE_5.8/Engine/Binaries/ThirdParty/DotNet/10.0/mac-arm64
+Running dotnet Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll -Mode=ValidatePlatforms -OutputSDKs -AllPlatforms -project=HOME work/GTAL-build/GranTheftPraline/GranTheftPraline.uproject -log=HOME Engine/GranTheftPralineEditor/AutoSDKInfo.txt -verbose -timestamps
+Log file: HOME Engine/GranTheftPralineEditor/AutoSDKInfo.txt
+##PlatformValidate: Win64 INVALID <UNKNOWN>
+##PlatformValidate: Mac VALID 26.1.1
+##PlatformValidate: IOS VALID 26.1.1
+##PlatformValidate: Android INVALID r27c
+##PlatformValidate: Linux INVALID <UNKNOWN>
+##PlatformValidate: LinuxArm64 INVALID <UNKNOWN>
+##PlatformValidate: TVOS VALID 26.1.1
+##PlatformValidate: VisionOS VALID 26.1.1
+Unable to find required SDK version 'MainVersion' for platform Win64. Check your SDK.json files
+Unable to find required SDK version 'MainVersion' for platform Linux. Check your SDK.json files
+Unable to find required SDK version 'MainVersion' for platform LinuxArm64. Check your SDK.json files
+Trace written to file HOME Support/Epic/UnrealBuildTool/Trace.uba with size 328b
+2026-11-11 07:50:50.561 UnrealEditor[89404:902695] [UE4] Shutdown handler: initialize.
+*** Recognized (0x69) family*** (30 cols X 22 rows)
+2026-11-11 07:51:17.852 UnrealEditor[89404:902664] [UE4] Shutdown handler: cleanup.
+== 07:51:18 details: work done (HOME work/GTAL-build/GranTheftPraline/Saved/CityImport/details_report.json), waiting up to 90 s for the editor to exit
+== 07:51:18 end details, exit 0, 30 s
+== 07:51:18 start materials (limit 240 s, editor log Saved/Logs/City_materials.log)
+Opening shared memory
+Shared memory doesn't exist, checking legacy lock file
+Checking for a '/tmp/UnrealTraceServer.pid' lock file
+Forking process
+Opening shared memory
+Starting the store
+Reading settings from 'HOME'
+
+Unable to open settings file HOME
+
+Store settings (HOME
+ - Store port: 1989
+ - Recorder port: 1981
+ - Thread count: 0
+ - Sponsored mode: 1
+ - Directory: 'HOME'
+Watcher enabled on HOME
+Signalling parent 89406
+Terminating server, no sponsors or connections active.
+Received signal 15
+Daemon is exiting without errors.
+Listening cancelled, closing port...
+Listening cancelled, closing port...
+Opening shared memory
+Shared memory doesn't exist, checking legacy lock file
+Checking for a '/tmp/UnrealTraceServer.pid' lock file
+Forking process
+Wait until we know the daemon has started.
+Parent received signal 30
+Daemon signalled successful start
+Forked complete (ret=0)
+Setting up bundled DotNet SDK
+HOME Games/UE_5.8/Engine/Binaries/ThirdParty/DotNet/10.0/mac-arm64
+Running dotnet Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll -Mode=ValidatePlatforms -OutputSDKs -AllPlatforms -project=HOME work/GTAL-build/GranTheftPraline/GranTheftPraline.uproject -log=HOME Engine/GranTheftPralineEditor/AutoSDKInfo.txt -verbose -timestamps
+Log file: HOME Engine/GranTheftPralineEditor/AutoSDKInfo.txt
+##PlatformValidate: Win64 INVALID <UNKNOWN>
+##PlatformValidate: Mac VALID 26.1.1
+##PlatformValidate: IOS VALID 26.1.1
+##PlatformValidate: Android INVALID r27c
+##PlatformValidate: Linux INVALID <UNKNOWN>
+##PlatformValidate: LinuxArm64 INVALID <UNKNOWN>
+##PlatformValidate: TVOS VALID 26.1.1
+##PlatformValidate: VisionOS VALID 26.1.1
+Unable to find required SDK version 'MainVersion' for platform Win64. Check your SDK.json files
+Unable to find required SDK version 'MainVersion' for platform Linux. Check your SDK.json files
+Unable to find required SDK version 'MainVersion' for platform LinuxArm64. Check your SDK.json files
+Trace written to file HOME Support/Epic/UnrealBuildTool/Trace.uba with size 328b
+2026-11-11 07:51:20.697 UnrealEditor[89511:903409] [UE4] Shutdown handler: initialize.
+*** Recognized (0x69) family*** (30 cols X 22 rows)
+== 07:52:18 materials: work done (HOME work/GTAL-build/GranTheftPraline/Saved/CityImport/materials_report.json), waiting up to 90 s for the editor to exit
+== 07:52:18 running materials, 60 s, editor log 0 bytes, last: 
+2026-11-11 07:52:21.035 UnrealEditor[89511:903363] [UE4] Shutdown handler: cleanup.
+== 07:52:23 end materials, exit 0, 65 s
+== 07:52:23 import done
+{
+  "zone": "presqu-ile",
+  "focus": "rue-de-la-republique",
+  "map": "/Game/Maps/L_City_RueDeLaRepublique",
+  "errors": [],
+  "buildings_expected": 376,
+  "bounds_mismatch": 0,
+  "meshes_with_baked_position": 376,
+  "collision_meshes": 417,
+  "lighting": {
+    "source": "/Game/ReferenceScene/Maps/ReferenceStreet_Noon",
+    "actors_kept": 6
+  },
+  "terrain_bounds_check": {
+    "baked": 35,
+    "at_pivot": 1
+  },
+  "riverside": [
+    "SM_Bridge_Lafayette",
+    "SM_Quay_Parapet",
+    "SM_River_Bed",
+    "SM_River_Water"
+  ],
+  "landmarks": [
+    "SM_Landmark_HotelDeVille",
+    "SM_Landmark_Opera"
+  ],
+  "river_recovery": {
+    "boxes": 77,
+    "exits": 20,
+    "bed_z_m": -7.88
+  },
+  "player_start": [
+    17330,
+    23098,
+    141,
+    -88.5
+  ],
+  "buildings_placed": 376,
+  "terrain_tiles": 36,
+  "landscape_settings": {
+    "resolution": 2017,
+    "spacing_m": 0.696429,
+    "location_ue_cm": [
+      -69600.0,
+      -70200.0,
+      3616.4
+    ],
+    "scale_ue": [
+      69.6429,
+      69.6429,
+      17.22
+    ],
+    "height_step_cm": 0.1345,
+    "altitude_min_m": 161.98,
+    "altitude_max_m": 245.94,
+    "formula": "z_cm = location_z + (value - 32768) * scale_z / 128",
+    "mesh_tiles": [
+      {
+        "name": "SM_Terrain_m0696_m0702",
+        "ue_cm": [
+          -69600.0,
+          70200.0,
+          0.0
+        ]
+      },
+      {
+        "name": "SM_Terrain_m0696_m0446",
+        "ue_cm": [
+          -69600.0,
+          44600.0,
+          0.0
+        ]
+      },
+      {
+        "name": "SM_Terrain_m0696_m0190",
+        "ue_cm": [
+          -69600.0,
+          19000.0,
+          0.0
+        ]
+      },
+      {
+        "name": "SM_Terrain_m0696_p0066",
+        "ue_cm": [
+          -69600.0,
+          -6600.0,
+          0.0
+        ]
+      },
+      {
+        "name": "SM_Terrain_m0696_p0322",
+        "ue_cm": [
+          -69600.0,
+          -32200.0,
+          0.0
+        ]
+      },
+      {
+        "name": "SM_Terrain_m0696_p0578",
+        "ue_cm": [
+          -69600.0,
+          -57800.0,
+          0.0
+        ]
+      },
+      {
+        "name": "SM_Terrain_m0440_m0702",
+        "ue_cm": [
+          -44000.0,
+          70200.0,
+          0.0
+        ]
+      },
+      {
+        "name": "SM_Terrain_m0440_m0446",
+        "ue_cm": [
+          -44000.0,
+          44600.0,
+          0.0
+        ]
+      },
+      {
+        "name": "SM_Terrain_m0440_m0190",
+        "ue_cm": [
+          -44000.0,
+          19000.0,
+          0.0
+        ]
+      },
+      {
+        "name": "SM_Terrain_m0440_p0066",
+        "ue_cm": [
+          -44000.0,
+          -6600.0,
+          0.0
+        ]
+      },
+      {
+        "name": "SM_Terrain_m0440_p0322",
+        "ue_cm": [
+          -44000.0,
+          -32200.0,
+          0.0
+        ]
+      },
+      {
+        "name": "SM_Terrain_m0440_p0578",
+        "ue_cm": [
+          -44000.0,
+          -57800.0,
+          0.0
+        ]
+      },
+      {
+        "name": "SM_Terrain_m0184_m0702",
+        "ue_cm": [
+          -18400.0,
+          70200.0,
+          0.0
+        ]
+      },
+      {
+        "name": "SM_Terrain_m0184_m0446",
+        "ue_cm": [
+          -18400.0,
+          44600.0,
+          0.0
+        ]
+      },
+      {
+        "name": "SM_Terrain_m0184_m0190",
+        "ue_cm": [
+          -18400.0,
+          19000.0,
+          0.0
+        ]
+      },
+      {
+        "name": "SM_Terrain_m0184_p0066",
+        "ue_cm": [
+          -18400.0,
+          -6600.0,
+          0.0
+        ]
+      },
+      {
+        "name": "SM_Terrain_m0184_p0322",
+        "ue_cm": [
+          -18400.0,
+          -32200.0,
+          0.0
+        ]
+      },
+      {
+        "name": "SM_Terrain_m0184_p0578",
+        "ue_cm": [
+          -18400.0,
+          -57800.0,
+          0.0
+        ]
+      },
+      {
+        "name": "SM_Terrain_p0072_m0702",
+        "ue_cm": [
+          7200.0,
+          70200.0,
+          0.0
+        ]
+      },
+      {
+        "name": "SM_Terrain_p0072_m0446",
+        "ue_cm": [
+          7200.0,
+          44600.0,
+          0.0
+        ]
+      },
+      {
+        "name": "SM_Terrain_p0072_m0190",
+        "ue_cm": [
+          7200.0,
+          19000.0,
+          0.0
+        ]
+      },
+      {
+        "name": "SM_Terrain_p0072_p0066",
+        "ue_cm": [
+          7200.0,
+          -6600.0,
+          0.0
+        ]
+      },
+      {
+        "name": "SM_Terrain_p0072_p0322",
+        "ue_cm": [
+          7200.0,
+          -32200.0,
+          0.0
+        ]
+      },
+      {
+        "name": "SM_Terrain_p0072_p0578",
+        "ue_cm": [
+          7200.0,
+          -57800.0,
+          0.0
+        ]
+      },
+      {
+        "name": "SM_Terrain_p0328_m0702",
+        "ue_cm": [
+          32800.0,
+          70200.0,
+          0.0
+        ]
+      },
+      {
+        "name": "SM_Terrain_p0328_m0446",
+        "ue_cm": [
+          32800.0,
+          44600.0,
+          0.0
+        ]
+      },
+      {
+        "name": "SM_Terrain_p0328_m0190",
+        "ue_cm": [
+          32800.0,
+          19000.0,
+          0.0
+        ]
+      },
+      {
+        "name": "SM_Terrain_p0328_p0066",
+        "ue_cm": [
+          32800.0,
+          -6600.0,
+          0.0
+        ]
+      },
+      {
+        "name": "SM_Terrain_p0328_p0322",
+        "ue_cm": [
+          32800.0,
+          -32200.0,
+          0.0
+        ]
+      },
+      {
+        "name": "SM_Terrain_p0328_p0578",
+        "ue_cm": [
+          32800.0,
+          -57800.0,
+          0.0
+        ]
+      },
+      {
+        "name": "SM_Terrain_p0584_m0702",
+        "ue_cm": [
+          58400.0,
+          70200.0,
+          0.0
+        ]
+      },
+      {
+        "name": "SM_Terrain_p0584_m0446",
+        "ue_cm": [
+          58400.0,
+          44600.0,
+          0.0
+        ]
+      },
+      {
+        "name": "SM_Terrain_p0584_m0190",
+        "ue_cm": [
+          58400.0,
+          19000.0,
+          0.0
+        ]
+      },
+      {
+        "name": "SM_Terrain_p0584_p0066",
+        "ue_cm": [
+          58400.0,
+          -6600.0,
+          0.0
+        ]
+      },
+      {
+        "name": "SM_Terrain_p0584_p0322",
+        "ue_cm": [
+          58400.0,
+          -32200.0,
+          0.0
+        ]
+      },
+      {
+        "name": "SM_Terrain_p0584_p0578",
+        "ue_cm": [
+          58400.0,
+          -57800.0,
+          0.0
+        ]
+      }
+    ],
+    "mesh_triangles": 244296,
+    "source": "IGN LiDAR HD MNT (Licence Ouverte Etalab 2.0)"
+  },
+  "seconds": 43.6
+}{
+  "zone": "presqu-ile",
+  "focus": "rue-de-la-republique",
+  "map": "/Game/Maps/L_City_RueDeLaRepublique",
+  "errors": [],
+  "kit_lods": {
+    "levels": [
+      [
+        1.0,
+        1.0
+      ],
+      [
+        0.5,
+        0.3
+      ],
+      [
+        0.15,
+        0.1
+      ],
+      [
+        0.05,
+        0.035
+      ]
+    ],
+    "meshes": 27,
+    "lod_counts": [
+      4
+    ]
+  },
+  "kit_modules": 30,
+  "kit_outward_axis": "+Y",
+  "sign_textures": 257,
+  "citybrands_mounted": true,
+  "cull_end_m": {
+    "ground": 250.0,
+    "upper": 250.0,
+    "eave": 250.0,
+    "court": 250.0,
+    "sign": 150.0
+  },
+  "modules_without_lods": [
+    "SM_Facade_Haussmann_Blank",
+    "SM_Facade_Lyonnais_Blank"
+  ],
+  "instances": {
+    "SM_Facade_Haussmann_ShopClosed_C": 268,
+    "SM_Facade_Haussmann_Entrance": 90,
+    "SM_Facade_Haussmann_Entresol": 1344,
+    "SM_Facade_Haussmann_WindowBalcony": 500,
+    "SM_Facade_Haussmann_Window_C": 1037,
+    "SM_Facade_Haussmann_Cornice": 1251,
+    "SM_Facade_Haussmann_CourtWindow": 1203,
+    "SM_Facade_Haussmann_Blank": 841,
+    "SM_Facade_Lyonnais_CourtWindow": 2983,
+    "SM_Facade_Lyonnais_Shop": 139,
+    "SM_Facade_Lyonnais_Genoise": 916,
+    "SM_Facade_Haussmann_Shop_B": 63,
+    "SM_Facade_Haussmann_Window": 1214,
+    "SM_Facade_Lyonnais_Blank": 849,
+    "SM_Facade_Haussmann_ShopClosed": 266,
+    "SM_Facade_Haussmann_Shop": 91,
+    "SM_Facade_Lyonnais_Entrance": 129,
+    "SM_Facade_Lyonnais_Window_C": 1148,
+    "SM_Facade_Lyonnais_WindowSmall": 652,
+    "SM_Facade_Lyonnais_GroundWindow": 506,
+    "SM_Facade_Lyonnais_Window_B": 1044,
+    "SM_Facade_Lyonnais_Window": 1290,
+    "SM_Facade_Haussmann_WindowBalcony_C": 960,
+    "SM_Facade_Haussmann_Window_B": 1240,
+    "SM_Facade_Haussmann_WindowBalcony_B": 840,
+    "SM_Facade_Haussmann_ShopClosed_B": 195,
+    "SM_Facade_Haussmann_Shop_C": 69,
+    "SM_Facade_Haussmann_ShopShutter": 114
+  },
+  "instances_total": 21242,
+  "signs": 341,
+  "signs_with_logo": 0,
+  "blade_signs": 129,
+  "seconds": 93.1
+}{
+  "map": "/Game/Maps/L_City_RueDeLaRepublique",
+  "errors": [],
+  "missing_assets": [],
+  "instances": {
+    "W1-07": 74,
+    "W1-08": 5,
+    "W1-12": 105,
+    "W1-21": 26,
+    "W1-17": 112,
+    "W14-63": 63,
+    "W14-64": 49,
+    "W1-13": 6,
+    "W1-04": 137,
+    "W1-01": 68,
+    "W1-27": 21,
+    "W1-31": 3,
+    "W1-18": 1,
+    "W14-35": 125,
+    "W14-39": 127,
+    "W14-31": 30,
+    "W14-05": 31,
+    "W14-28": 2,
+    "W1-40": 15,
+    "W1-34": 48,
+    "W1-36": 48,
+    "W1-38": 16,
+    "W14-78": 16,
+    "W14-79": 28,
+    "W1-35": 46
+  },
+  "imported_catalog_ids": 284,
+  "cull_classes": {
+    "small": 10,
+    "large": 4,
+    "medium": 11
+  },
+  "breakable_components": {
+    "R": 10,
+    "C": 5
+  },
+  "rows": 1202,
+  "placed": 1202,
+  "snapped_to_ground": 173,
+  "kept_lidar_height": 1029,
+  "seconds": 7.2
+}== 07:52:23 (365 s): parked car
+== 07:52:24 start parked_car (limit 120 s, editor log Saved/Logs/City_parked_car.log)
+Opening shared memory
+Shared memory doesn't exist, checking legacy lock file
+Checking for a '/tmp/UnrealTraceServer.pid' lock file
+Forking process
+Opening shared memory
+Starting the store
+Reading settings from 'HOME'
+
+Unable to open settings file HOME
+
+Store settings (HOME
+ - Store port: 1989
+ - Recorder port: 1981
+ - Thread count: 0
+ - Sponsored mode: 1
+ - Directory: 'HOME'
+Watcher enabled on HOME
+Signalling parent 89513
+Terminating server, no sponsors or connections active.
+Received signal 15
+Daemon is exiting without errors.
+Listening cancelled, closing port...
+Listening cancelled, closing port...
+Opening shared memory
+Shared memory doesn't exist, checking legacy lock file
+Checking for a '/tmp/UnrealTraceServer.pid' lock file
+Forking process
+Wait until we know the daemon has started.
+Parent received signal 30
+Daemon signalled successful start
+Forked complete (ret=0)
+Setting up bundled DotNet SDK
+HOME Games/UE_5.8/Engine/Binaries/ThirdParty/DotNet/10.0/mac-arm64
+Running dotnet Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll -Mode=ValidatePlatforms -OutputSDKs -AllPlatforms -project=HOME work/GTAL-build/GranTheftPraline/GranTheftPraline.uproject -log=HOME Engine/GranTheftPralineEditor/AutoSDKInfo.txt -verbose -timestamps
+Log file: HOME Engine/GranTheftPralineEditor/AutoSDKInfo.txt
+##PlatformValidate: Win64 INVALID <UNKNOWN>
+##PlatformValidate: Mac VALID 26.1.1
+##PlatformValidate: IOS VALID 26.1.1
+##PlatformValidate: Android INVALID r27c
+##PlatformValidate: Linux INVALID <UNKNOWN>
+##PlatformValidate: LinuxArm64 INVALID <UNKNOWN>
+##PlatformValidate: TVOS VALID 26.1.1
+##PlatformValidate: VisionOS VALID 26.1.1
+Unable to find required SDK version 'MainVersion' for platform Win64. Check your SDK.json files
+Unable to find required SDK version 'MainVersion' for platform Linux. Check your SDK.json files
+Unable to find required SDK version 'MainVersion' for platform LinuxArm64. Check your SDK.json files
+Trace written to file HOME Support/Epic/UnrealBuildTool/Trace.uba with size 328b
+2026-11-11 07:52:25.662 UnrealEditor[89668:904375] [UE4] Shutdown handler: initialize.
+*** Recognized (0x69) family*** (30 cols X 22 rows)
+2026-11-11 07:52:44.726 UnrealEditor[89668:904328] [UE4] Shutdown handler: cleanup.
+== 07:53:24 running parked_car, 60 s, editor log 0 bytes, last: 
+== 07:54:24 running parked_car, 120 s, editor log 0 bytes, last: 
+== 07:54:34 TIMEOUT parked_car after 125 s; last editor log lines:
+parked car: editor returned 124
+Opening shared memory
+Shared memory doesn't exist, checking legacy lock file
+Checking for a '/tmp/UnrealTraceServer.pid' lock file
+Forking process
+Opening shared memory
+Starting the store
+Reading settings from 'HOME'
+
+Unable to open settings file HOME
+
+Store settings (HOME
+ - Store port: 1989
+ - Recorder port: 1981
+ - Thread count: 0
+ - Sponsored mode: 1
+ - Directory: 'HOME'
+Watcher enabled on HOME
+Signalling parent 89673
+Terminating server, no sponsors or connections active.
+Received signal 15
+Daemon is exiting without errors.
+Listening cancelled, closing port...
+Listening cancelled, closing port...
