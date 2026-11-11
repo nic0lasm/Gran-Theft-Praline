@@ -204,6 +204,7 @@ if [ "$dry" = "1" ]; then
   compile() { sleep "${DRY_STEP_S:-2}"; }
   regen() {
     sleep "${DRY_STEP_S:-2}"
+    if [ "${DRY_FAIL_GLASS:-0}" = "1" ] && [ "$GTP_CITY_DETAILS" = "0" ]; then echo "stub failure"; return 1; fi
     echo "map regenerated $GTP_CITY_DETAILS ${GTP_SHOP_GLASS:-} ${GTP_DETAILS_MERGED:-0}" > "$map"
     echo "lanes v2" > "$content/City/Traffic/L_City_RueDeLaRepublique.lanes.csv"
     if [ "${GTP_DETAILS_MERGED:-0}" = "1" ]; then echo x > "$content/Environment/Props/Wall/Plaque/SM_Plaque_Merged.uasset"; fi
@@ -254,9 +255,19 @@ step "2 profile the dressing" 6 "$out/profile.log" profile
 cp "$saved/details_profile.json" "$out/profile_details.json"
 cp "$saved/details_report.json" "$out/" 2> /dev/null || true
 fi
-GTP_CITY_DETAILS=0 GTP_SHOP_GLASS="${GTP_SLOT_GLASS:-interior}" \
-  step "3 regenerate without details, ${GTP_SLOT_GLASS:-interior} glass, street walk" 17 "$out/regen_glass.log" regen
-cp "$saved/play_report.json" "$out/play_glass.json"
+# Step 3 is soft: if it fails (not a time-out), steps 4-5 still run. A subshell does not
+# inherit the EXIT trap, so its failure only ends the subshell.
+rc3=0
+( GTP_CITY_DETAILS=0 GTP_SHOP_GLASS="${GTP_SLOT_GLASS:-interior}" \
+  step "3 regenerate without details, ${GTP_SLOT_GLASS:-interior} glass, street walk" 17 "$out/regen_glass.log" regen ) || rc3=$?
+if [ "$rc3" -ne 0 ]; then
+  if [ "$rc3" -eq 124 ]; then exit 124; fi   # a time-out still stops the slot
+  stop_unreal
+  say "step 3 failed (exit $rc3): going on with steps 4-5"
+  echo "3 FAILED (exit $rc3), slot went on" >> "$report"
+fi
+cp "$saved/play_report.json" "$out/play_glass.json" 2> /dev/null || true
+cp "$saved/materials_report.json" "$out/materials_glass.json" 2> /dev/null || true
 if [ "$merged" = "1" ]; then
   GTP_CITY_DETAILS=1 GTP_DETAILS_MERGED=1 GTP_SHOP_GLASS="${GTP_SHOP_GLASS:-opaque}" SKIP_PLAY=1 \
     step "4 regenerate with details baked to one material" 14 "$out/regen_merged.log" regen
@@ -264,4 +275,4 @@ if [ "$merged" = "1" ]; then
   step "5 profile the merged dressing" 6 "$out/profile_merged.log" profile
   cp "$saved/details_profile.json" "$out/profile_merged.json"
 fi
-cat "$out"/profile_*.json "$out/play_glass.json"
+cat "$out"/profile_*.json "$out/play_glass.json" 2> /dev/null || true
