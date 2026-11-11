@@ -26,7 +26,8 @@ fixed_s=45; demo_s=95; at="${CAPTURE_AT:-30}"
 test "$dry" = "1" && { fixed_s=36; demo_s=20; }
 budget_s=3300
 base_args="-Sky=lightfunction"
-default_variants='base||
+default_variants='warmup||
+base||
 tsr-hist75|r.TSR.History.ScreenPercentage=75|
 tsr-rejaa1|r.TSR.RejectionAntiAliasingQuality=1|
 tsr-noflicker|r.TSR.ShadingRejection.Flickering=0|
@@ -39,7 +40,8 @@ cloud-rtmode2|r.VolumetricRenderTarget.Mode=2|
 sky-cheap||-Sky=cheap
 night||-Ambience=night
 night-sky-cheap||-Ambience=night -Sky=cheap
-night-noclouds|r.VolumetricCloud=0|-Ambience=night'
+night-noclouds|r.VolumetricCloud=0|-Ambience=night
+base-end||'
 variants="${VARIANTS:-$default_variants}"
 test "$dry" = "1" && variants="base||"
 mkdir -p "$out/tools"
@@ -101,7 +103,7 @@ while IFS='|' read -r label cvars extra; do
   read -r f50 f95 _ _ <<< "$(stat2 "$out/$label-fixed/frames.csv" || echo nan nan nan nan)"
   read -r d50 d95 dpct dhit <<< "$(stat2 "$out/$label-demo/frames.csv" || echo nan nan nan nan)"
   prof="$out/$label-demo/profile.csv"
-  echo "| $label | ${f50:-nan} | ${f95:-nan} | ${d50:-nan} | ${d95:-nan} | ${dpct:-nan} | ${dhit:-nan} | $(pass "$prof" '^TSR') | $(pass "$prof" 'VolumetricCloud|VolCloud') | $(pass "$prof" '^Lumen') | $(pass "$prof" '^Basepass') |" >> "$report"
+  echo "| $label | ${f50:-nan} | ${f95:-nan} | ${d50:-nan} | ${d95:-nan} | ${dpct:-nan} | ${dhit:-nan} | $(pass "$prof" '^(TSR|TemporalSuperResolution|TAA|TemporalAA)') | $(pass "$prof" 'VolumetricCloud|VolCloud') | $(pass "$prof" '^Lumen') | $(pass "$prof" '^Basepass') |" >> "$report"
   printf "<div style='display:inline-block;margin:4px'><img src='%s-fixed.jpg' width='640'><br>%s : %s %s</div>\n" "$label" "$label" "${cvars:-}" "${extra:-}" >> "$html"
 done <<< "$variants"
 echo "</body></html>" >> "$html"
