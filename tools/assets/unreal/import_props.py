@@ -76,9 +76,13 @@ def set_master_defaults(orm, normal):
 
 def enable_nanite_usage(mat):
     """Nanite meshes need MATUSAGE_NANITE on the master: without it a packaged
-    build draws the props with the grey default material."""
+    build draws the props with the grey default material. The city places the props as
+    instances (HISM, tools/city/unreal/place_props.py), which need the instanced usage too.
+    Both are saved with the asset: the Mac editor only sets them in memory (Win64 package 11/11)."""
     mel.set_material_usage(mat, unreal.MaterialUsage.MATUSAGE_NANITE)
     mat.set_editor_property("used_with_nanite", True)
+    mel.set_material_usage(mat, unreal.MaterialUsage.MATUSAGE_INSTANCED_STATIC_MESHES)
+    mat.set_editor_property("used_with_instanced_static_meshes", True)
 
 
 def fix_master_material():
@@ -102,7 +106,13 @@ def fix_master_material():
 def ensure_master_material():
     """Opaque PBR master with BaseColor / ORM / Normal texture parameters."""
     if eal.does_asset_exist(MASTER_MATERIAL):
-        return unreal.load_asset(MASTER_MATERIAL)
+        mat = unreal.load_asset(MASTER_MATERIAL)
+        if not (mat.get_editor_property("used_with_nanite") and
+                mat.get_editor_property("used_with_instanced_static_meshes")):
+            enable_nanite_usage(mat)
+            mel.recompile_material(mat)
+            eal.save_loaded_asset(mat)
+        return mat
     tools = unreal.AssetToolsHelpers.get_asset_tools()
     folder, name = MASTER_MATERIAL.rsplit("/", 1)
     mat = tools.create_asset(name, folder, unreal.Material, unreal.MaterialFactoryNew())
