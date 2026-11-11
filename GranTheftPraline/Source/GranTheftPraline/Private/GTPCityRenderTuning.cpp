@@ -1,6 +1,8 @@
 #include "GTPCityRenderTuning.h"
 
 #include "Components/InstancedStaticMeshComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "Engine/StaticMesh.h"
 #include "Engine/Level.h"
 #include "Engine/World.h"
 #include "GameFramework/Actor.h"
@@ -32,6 +34,21 @@ bool UGTPCityRenderTuning::ParseCullList(const FString& List, TMap<FString, floa
 	return Out.Num() > 0;
 }
 
+FString UGTPCityRenderTuning::ImpliedFamily(const FString& MeshPath)
+{
+	// Persistent level of the quarter (import_city.py, GTP_CITY_LEVEL=quarter): plain static mesh
+	// actors, recognised by their mesh folder so a map built before the tags still answers.
+	if (MeshPath.Contains(TEXT("/CellProxies/")))
+	{
+		return TEXT("proxy");
+	}
+	if (MeshPath.Contains(TEXT("/Terrain/")))
+	{
+		return TEXT("terrain");
+	}
+	return FString();
+}
+
 void UGTPCityRenderTuning::OnWorldBeginPlay(UWorld& InWorld)
 {
 	Super::OnWorldBeginPlay(InWorld);
@@ -46,7 +63,14 @@ void UGTPCityRenderTuning::OnWorldBeginPlay(UWorld& InWorld)
 	{
 		ShadowBelowM = Below;
 	}
-	if (CullM.Num() == 0 && ShadowBelowM < 0.f)
+	int32 Proxies = 1;
+	if (FParse::Value(FCommandLine::Get(), TEXT("CityProxies="), Proxies))
+	{
+		bHideProxies = Proxies == 0;
+	}
+	int32 Report = 0;
+	FParse::Value(FCommandLine::Get(), TEXT("CityTuneReport="), Report);
+	if (CullM.Num() == 0 && ShadowBelowM < 0.f && !bHideProxies && Report == 0)
 	{
 		return;
 	}
@@ -74,40 +98,87 @@ void UGTPCityRenderTuning::Apply(ULevel* Level)
 	{
 		return;
 	}
-	int32 Changed = 0;
+	// Per family: components found (tagged or implied) and components this pass changed.
+	TMap<FString, FIntPoint> Counts;
 	for (AActor* Actor : Level->Actors)
 	{
 		if (!Actor)
 		{
 			continue;
 		}
-		TInlineComponentArray<UInstancedStaticMeshComponent*> Comps(Actor);
-		for (UInstancedStaticMeshComponent* Comp : Comps)
+		TInlineComponentArray<UStaticMeshComponent*> Comps(Actor);
+		for (UStaticMeshComponent* Comp : Comps)
 		{
-			bool bTouched = false;
+			UInstancedStaticMeshComponent* Ism = Cast<UInstancedStaticMeshComponent>(Comp);
+			TArray<FString> Families;
+			float SizeCm = -1.f;
 			for (const FName& Tag : Comp->ComponentTags)
 			{
 				const FString S = Tag.ToString();
 				if (S.StartsWith(TEXT("GTP_Cull_")))
 				{
-					if (const float* M = CullM.Find(S.RightChop(9)))
-					{
-						const int32 End = FMath::RoundToInt(*M * 100.f);
-						Comp->SetCullDistances(FMath::RoundToInt(End * 0.8f), End);
-						bTouched = true;
-					}
+					Families.AddUnique(S.RightChop(9));
 				}
-				else if (ShadowBelowM >= 0.f && S.StartsWith(TEXT("GTP_SizeCm=")))
+				else if (S.StartsWith(TEXT("GTP_SizeCm=")))
 				{
-					if (FCString::Atof(*S.RightChop(11)) < ShadowBelowM * 100.f && Comp->CastShadow)
-					{
-						Comp->SetCastShadow(false);
-						bTouched = true;
-					}
+					SizeCm = FCString::Atof(*S.RightChop(11));
 				}
 			}
-			Changed += bTouched ? 1 : 0;
+			if (Families.Num() == 0 && !Ism && Comp->GetStaticMesh())
+			{
+				const FString Implied = ImpliedFamily(Comp->GetStaticMesh()->GetPathName());
+				if (!Implied.IsEmpty())
+				{
+					Families.Add(Implied);
+				}
+			}
+			if (Families.Num() == 0)
+			{
+				continue;
+			}
+			bool bTouched = false;
+			for (const FString& Family : Families)
+			{
+				if (const float* M = CullM.Find(Family))
+				{
+					const int32 End = FMath::RoundToInt(*M * 100.f);
+					if (Ism)
+					{
+						Ism->SetCullDistances(FMath::RoundToInt(End * 0.8f), End);
+					}
+					else
+					{
+						Comp->SetCullDistance(float(End));
+					}
+					bTouched = true;
+				}
+				if (bHideProxies && Family == TEXT("proxy") && Comp->IsVisible())
+				{
+					// Component visibility, not the actor's: UGTPCityStreaming hides and shows the
+					// proxy actor as cells load, and both must be visible to draw.
+					Comp->SetVisibility(false);
+					bTouched = true;
+				}
+			}
+			if (ShadowBelowM >= 0.f && SizeCm >= 0.f && SizeCm < ShadowBelowM * 100.f && Comp->CastShadow)
+			{
+				Comp->SetCastShadow(false);
+				bTouched = true;
+			}
+			FIntPoint& C = Counts.FindOrAdd(Families[0]);
+			C.X += 1;
+			C.Y += bTouched ? 1 : 0;
 		}
 	}
-	GTP_TRACE(CityRenderTuning, TEXT("%s %d components"), *Level->GetOuter()->GetName(), Changed);
+	Counts.KeySort([](const FString& A, const FString& B) { return A < B; });
+	FString Line;
+	int32 Changed = 0;
+	for (const TPair<FString, FIntPoint>& It : Counts)
+	{
+		Line += FString::Printf(TEXT(" %s=%d/%d"), *It.Key, It.Value.Y, It.Value.X);
+		Changed += It.Value.Y;
+	}
+	// "<level> <changed> components changed; family=changed/found ..."
+	GTP_TRACE(CityRenderTuning, TEXT("%s %d components changed;%s"), *Level->GetOuter()->GetName(), Changed,
+		Line.IsEmpty() ? TEXT(" no tagged component") : *Line);
 }

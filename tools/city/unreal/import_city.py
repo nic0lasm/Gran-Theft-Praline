@@ -225,7 +225,9 @@ def place_terrain(terrain, terrain_meta, report):
         else:
             terrain_check["at_pivot"] += 1
             pos = tuple(tile["ue_cm"])
-        place_mesh(m, pos, tile["name"], "City/Terrain")
+        a = place_mesh(m, pos, tile["name"], "City/Terrain")
+        # read by UGTPCityRenderTuning (-CityCull=terrain=<m>)
+        a.static_mesh_component.set_editor_property("component_tags", [unreal.Name("GTP_Cull_terrain")])
     report["terrain_bounds_check"] = terrain_check
 
 
@@ -270,6 +272,8 @@ def build_quarter(report, t0):
         comp.set_editor_property("cast_shadow", False)
         comp.set_editor_property("affect_distance_field_lighting", False)
         comp.set_editor_property("affect_dynamic_indirect_lighting", False)
+        # read by UGTPCityRenderTuning (-CityCull=proxy=<m>, -CityProxies=0)
+        comp.set_editor_property("component_tags", [unreal.Name("GTP_Cull_proxy")])
         a.tags = ["GTP_CellProxy", n["level"], "bounds:%.0f,%.0f,%.0f,%.0f" % tuple(n["cell_bounds_ue_cm"])]
         placed += 1
     report["cell_proxies"] = dict(meta.get("budget", {}), placed=placed)
