@@ -1,5 +1,7 @@
 #include "GTPEnvironmentSubsystem.h"
 
+#include "GTPDeterminism.h"
+
 #include "Camera/PlayerCameraManager.h"
 #include "Components/DirectionalLightComponent.h"
 #include "Components/ExponentialHeightFogComponent.h"
@@ -252,7 +254,7 @@ void UGTPEnvironmentSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 	LocalHours = StartHour;
 	TimeScale = DefaultTimeScale;
 	FromWeather = ToWeather = FindPreset(StartWeather) ? StartWeather : WeatherPresets[0].Name;
-	WeatherRandom.Initialize(static_cast<int32>(FDateTime::Now().GetTicks() & 0x7fffffff));
+	WeatherRandom.Initialize(GTPDeterminism::IsOn() ? 0x57454154 : static_cast<int32>(FDateTime::Now().GetTicks() & 0x7fffffff));
 	HoursToNextWeather = WeatherChangeHours;
 	ReadCommandLine();
 	Wetness = BlendedWeather().Rain > 0.05f ? 1.f : 0.f;

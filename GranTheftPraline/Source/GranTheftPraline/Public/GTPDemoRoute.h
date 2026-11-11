@@ -26,6 +26,13 @@ class APlayerController;
  * in and out, and the vehicle movement inputs to drive. Phase changes are
  * logged (LogGTPDemo) with their time, to match them with the frame times.
  *
+ * -DemoDeterministic=1 makes the route repeatable (see GTPDeterminism.h): decisions are
+ * taken in fixed steps of 1/30 s of simulated game time (not real time, not frame
+ * rate), the walk ends at a waypoint (-DemoWalkCm=<cm> from the start, default 4500)
+ * instead of after a duration, junction choices use a fixed seed, and the position
+ * and heading are logged at fixed instants ("DemoPos t=... x=... y=... yaw=... kmh=...")
+ * so two runs can be compared with tools/perf/compare_demo_positions.py.
+ *
  * -DemoDriveTime=<s> sets how long step 4 drives (default 45 s).
  * -DemoCarjack replaces steps 2 and 3: after looking around, the player walks
  * to the nearest car with a non-player driver, steps in front of it so that
@@ -58,6 +65,10 @@ private:
 	};
 
 	bool Tick(float DeltaTime);
+	/** One decision step (the whole route logic); DeltaTime is real in a normal run, a fixed step when deterministic. */
+	bool RunStep(float DeltaTime);
+	/** Seconds on the route's clock: real time normally, simulated time (sum of the fixed steps) when deterministic. */
+	double Clock() const;
 	void SetPhase(EPhase NewPhase);
 	AGTPVehicle* FindCar() const;
 	AGTPVehicle* FindTrafficCar() const;
@@ -67,6 +78,16 @@ private:
 	FTSTicker::FDelegateHandle TickHandle;
 	EPhase Phase = EPhase::WaitForPawn;
 	double PhaseStart = 0.0;
+	bool bDeterministic = false;
+	/** Simulated seconds (deterministic runs only). */
+	double SimTime = 0.0;
+	double Accumulator = 0.0;
+	double LastWorldTime = -1.0;
+	int32 LastLoggedSlot = -1;
+	/** Movement input held between fixed steps and applied every frame. */
+	FVector HeldMove = FVector::ZeroVector;
+	FVector WalkOrigin = FVector::ZeroVector;
+	float WalkStreetCm = 4500.f;
 	double RouteStart = 0.0;
 	float StreetYaw = 0.f;
 	float StartControlYaw = 0.f;
