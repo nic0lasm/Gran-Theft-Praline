@@ -17,7 +17,7 @@ street map, ground mask and facade kit must already be in the project.
 
 Usage (repository root):
   python tools/city/surfaces_build.py [--ab] [--lite] [--loose <folder>] [--res 2560x1440] [--editor <exe>] [--dry-run]
-  --loose: Fab exports outside the project (e.g. Claude Work/GTAL-assets/downloads-free), found by
+  --loose: Fab exports outside the project (e.g. the downloads-free folder next to the clone), found by
   their listing name (match / match_any in surfaces.json) and imported to /Game/Environment/Surfaces/<id>/.
   --lite: colour maps only (GTP_SURFACES_LITE=1). --dry-run: a stand-in for Unreal writes each
   report and hangs, to try the sequence, the limits and the forced stop in seconds.
