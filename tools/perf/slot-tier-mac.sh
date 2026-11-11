@@ -7,8 +7,8 @@
 # TIER:
 #   B       slot 4  : 20 pedestrians drawn, 12 cars LOD+ghost, police 3;
 #                     fixed + demo + night + rain, 330 s, 3 passes (~75 min)
-#   C       slot 8  : 50 pedestrians (20 full + far crowd), 25 cars; 330 s x 1 (~35 min)
-#   target  slot 11 : 100 pedestrians (20 full + 80 far), 40 cars; 330 s x 1 (~35 min)
+#   C       slot 8  : 50 pedestrians (20 full + far crowd), 25 cars; 4 scenes, 330 s x 1 (~35 min)
+#   target  slot 11 : 100 pedestrians (20 full + 80 far), 40 cars; 4 scenes, 330 s x 1 (~35 min)
 #   cold    slot 10 : fresh package, first launch vs second launch on the demo
 #                     route, frames above 100 ms (PSO / shader hitches) (~70 min)
 #   long    slot 12 : tier B, 600 s, 3 passes, memory sampled every 30 s,
@@ -37,9 +37,10 @@ esac
 case "$tier" in
   B)      duration=330; passes=3; scenarios="street-fixed street-demo night rain" ;;
   long)   duration=600; passes=3; scenarios="street-fixed street-demo night rain" ;;
-  C|target) duration=330; passes=1; scenarios="street-fixed street-demo" ;;
+  C|target) duration=330; passes=1; scenarios="street-fixed street-demo night rain" ;;
   cold)   duration=120; passes=1; scenarios="street-demo" ;;
 esac
+scenarios="${SCENARIOS:-$scenarios}"
 mkdir -p "$out"
 report="$out/REPORT.md"
 
