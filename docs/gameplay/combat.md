@@ -98,6 +98,16 @@ Total proposed: **≤ 0.35 ms GPU p95 and ≤ 0.4 ms game-thread CPU** in the fi
 `-Combat=0`. When a cap is reached the oldest effect is removed; nothing waits. A "fidelity" profile can
 double the caps and enable tracers.
 
+Agreed by the optimisation thread on 2026-11-11 with three amendments, now part of the budget:
+
+- The margin it comes from: on next 8b16340 the gate's GPU p95 is 20.05 / 22.31 / 22.27 / 22.54 ms (fixed /
+  route / night / rain) against 24 ms, so 1.5 ms of margin in the worst scene; this line takes a quarter of it.
+- Checked **at night and in the rain**, not only at noon (translucent sparks, smoke and glass cost more there).
+  Hard caps on live particles and decals, pooled and recycled; no dynamic light casts shadows; muzzle flashes
+  never cast shadows.
+- **No frame over 100 ms at the first shot**: Niagara systems and their PSOs are preloaded when the level starts
+  (a hidden warm-up spawn), and the first shot is measured cold.
+
 ## Plan
 
 1. Rules outside Unreal (done, this branch).
