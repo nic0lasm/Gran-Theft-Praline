@@ -821,7 +821,7 @@ void UGTPPedestrianSubsystem::Update(FPerson& Person, float DeltaTime)
 		const bool bComingAtThem = FVector::DotProduct(CarVelocity.GetSafeNormal2D(), ToPerson) > 0.6f;
 		if (bComingAtThem && Person.Walker.FleeTimeLeft <= 0.f)
 		{
-			GTPWalk::Flee(Graph, Person.Walker, {CarLocation.X, CarLocation.Y}, Settings);
+			GTPWalk::Flee(Graph, Person.Walker, {float(CarLocation.X), float(CarLocation.Y)}, Settings);
 			++FledTotal;
 			OnPedestrianScared.Broadcast(Person.Location, nullptr);
 		}
@@ -843,7 +843,7 @@ void UGTPPedestrianSubsystem::Update(FPerson& Person, float DeltaTime)
 		FVector NearCar;
 		if (CarNear(Person.Location, 320.f, 150.f, &NearCar))
 		{
-			GTPWalk::Separate(Graph, Person.Walker, Person.Pos, Person.Dir, {NearCar.X, NearCar.Y}, Settings, 320.f);
+			GTPWalk::Separate(Graph, Person.Walker, Person.Pos, Person.Dir, {float(NearCar.X), float(NearCar.Y)}, Settings, 320.f);
 		}
 	}
 
@@ -946,7 +946,7 @@ int32 UGTPPedestrianSubsystem::ScareAround(const FVector& Location, float Radius
 		{
 			continue;
 		}
-		GTPWalk::Flee(Graph, P.Walker, {Location.X, Location.Y}, Settings);
+		GTPWalk::Flee(Graph, P.Walker, {float(Location.X), float(Location.Y)}, Settings);
 		++FledTotal;
 		++Count;
 		OnPedestrianScared.Broadcast(P.Location, Cause);
