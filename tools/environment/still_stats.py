@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 """Luminance statistics of a still (JPEG from -CaptureVideo), standard library only.
 
-Usage: still_stats.py <image.jpg>
-Prints: mean ground_mean ground_patch  (0-255, Rec. 601 luma)
+Usage: still_stats.py <image.jpg> [flat.jpg]
+Prints: mean ground_mean ground_patch [spots]  (0-255, Rec. 601 luma)
   mean          whole image (same measure as mean-luma.swift, within 1)
   ground_mean   lower half of the image (street, facades' feet)
   ground_patch  standard deviation of 16 x 6 block means over the lower half: the
                 large-scale light variation that cloud shadows add (texture detail
-                averages out inside a block). Compare with the reference sky.
+                averages out inside a block). Dominated by the scene's geometry with a
+                fixed camera: use spots to judge cloud shadows.
+  spots         with a flat still (same view, no cloud shadow at all): standard deviation
+                in % of the per-block ratio image / flat, normalised to its mean. The
+                geometry cancels out, what remains is the cloud shadow pattern.
 On macOS the JPEG is decoded by sips (built in) to a BMP; elsewhere Pillow is used.
 """
 import os
@@ -59,6 +63,29 @@ def load(path):
             for y in range(h)]
 
 
+def blocks_of(luma, bx=16, by=6):
+    h, w = len(luma), len(luma[0])
+    ground = luma[h // 2:]
+    gh = len(ground)
+    out = []
+    for j in range(by):
+        rows = ground[j * gh // by:(j + 1) * gh // by]
+        for i in range(bx):
+            x0, x1 = i * w // bx, (i + 1) * w // bx
+            cells = [v for r in rows for v in r[x0:x1]]
+            out.append(sum(cells) / len(cells))
+    return out
+
+
+def spots(luma, flat):
+    a, b = blocks_of(luma), blocks_of(flat)
+    ratios = [x / y for x, y in zip(a, b) if y > 2.0]
+    if len(ratios) < 10:
+        return float("nan")
+    m = sum(ratios) / len(ratios)
+    return 100.0 * (sum((r / m - 1.0) ** 2 for r in ratios) / len(ratios)) ** 0.5
+
+
 def stats(luma):
     h, w = len(luma), len(luma[0])
     mean = sum(map(sum, luma)) / (w * h)
@@ -79,14 +106,20 @@ def stats(luma):
 
 
 def main():
-    if len(sys.argv) != 2 or not os.path.isfile(sys.argv[1]):
-        print("nan nan nan")
+    flat_path = sys.argv[2] if len(sys.argv) > 2 else None
+    tail = " nan" if flat_path else ""
+    if len(sys.argv) < 2 or not os.path.isfile(sys.argv[1]):
+        print("nan nan nan" + tail)
         return
     try:
-        print("%.0f %.0f %.1f" % stats(load(sys.argv[1])))
+        luma = load(sys.argv[1])
+        line = "%.0f %.0f %.1f" % stats(luma)
+        if flat_path:
+            line += " %.1f" % (spots(luma, load(flat_path)) if os.path.isfile(flat_path) else float("nan"))
+        print(line)
     except Exception as exc:  # a broken still must not stop the pass
         sys.stderr.write("still_stats: %s\n" % exc)
-        print("nan nan nan")
+        print("nan nan nan" + tail)
 
 
 if __name__ == "__main__":
