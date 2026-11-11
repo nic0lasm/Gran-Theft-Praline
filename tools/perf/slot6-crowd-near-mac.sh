@@ -165,10 +165,10 @@ fi
 echo "Control launch: $(wc -l < "$out/control.csv" | tr -d ' ') frames in 30 s" >> "$report"
 # The control game must be gone before the bench starts (bench.sh refuses a running game): wait up to 60 s.
 for _ in $(seq 1 60); do
-  pgrep -f "UnrealEditor( |$)|GranTheftPraline-Mac|GranTheftPraline.app" > /dev/null || break
+  pgrep -f "UnrealEditor( |$)|GranTheftPraline-Mac" > /dev/null || break
   sleep 1
 done
-if pgrep -f "UnrealEditor( |$)|GranTheftPraline-Mac|GranTheftPraline.app" > /dev/null; then
+if pgrep -f "UnrealEditor( |$)|GranTheftPraline-Mac" > /dev/null; then
   die "the control game is still running 60 s after its end (stuck process): stop it and rerun with SKIP_BUILD=1 SKIP_CONTROL=1"
 fi
 fi
