@@ -269,14 +269,28 @@ void UGTPInteriorStreaming::PlaceAtCounter(const FInterior& Interior)
 	{
 		return;
 	}
-	const FName TillTag(TEXT("GTP_Station=till_0"));
+	// The first till slot by name (the builder numbers stations across the counter: till_3, till_4...).
+	const AActor* First = nullptr;
+	FString FirstName;
 	for (const AActor* Actor : Streaming->GetLoadedLevel()->Actors)
 	{
-		if (!Actor || !Actor->Tags.Contains(TillTag))
+		if (!Actor)
 		{
 			continue;
 		}
-		const FVector Till = Actor->GetActorLocation();
+		for (const FName& Tag : Actor->Tags)
+		{
+			const FString S = Tag.ToString();
+			if (S.StartsWith(TEXT("GTP_Station=till_")) && (!First || S < FirstName))
+			{
+				First = Actor;
+				FirstName = S;
+			}
+		}
+	}
+	if (First)
+	{
+		const FVector Till = First->GetActorLocation();
 		const FVector Front = Interior.Anchor.GetRotation().RotateVector(FVector(0.f, 250.f, 0.f));   // towards the shop front
 		const FVector Where = Till + Front + FVector(0.f, 0.f, 100.f);
 		const FRotator Look = (Till + FVector(0.f, 0.f, 150.f) - (Where + FVector(0.f, 0.f, 60.f))).Rotation();
@@ -287,11 +301,12 @@ void UGTPInteriorStreaming::PlaceAtCounter(const FInterior& Interior)
 		float After = -1.f;
 		FParse::Value(FCommandLine::Get(), TEXT("InteriorStartLeaveAfter="), After);
 		LeaveIn = After;
-		GTP_TRACE(InteriorStreaming, TEXT("test start: player at the counter of %s t=%.2f"), *Interior.Id, GetWorld()->GetTimeSeconds());
+		GTP_TRACE(InteriorStreaming, TEXT("test start: player at the counter of %s (%s) t=%.2f"), *Interior.Id, *FirstName,
+		          GetWorld()->GetTimeSeconds());
 		return;
 	}
 	bStartDone = true;
-	GTP_TRACE(InteriorStreaming, TEXT("test start: no till_0 slot in %s"), *Interior.Level);
+	GTP_TRACE(InteriorStreaming, TEXT("test start: no till slot in %s"), *Interior.Level);
 }
 
 FTransform UGTPInteriorStreaming::GetInteriorAnchor(const FString& Id) const

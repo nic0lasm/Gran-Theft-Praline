@@ -110,6 +110,8 @@ def hism_actor(label, mesh):
     actor = actor_sub.spawn_actor_from_class(unreal.StaticMeshActor, unreal.Vector(0, 0, 0))
     actor.set_actor_label(label)
     actor.set_folder_path("Interior/Objects")
+    # Sound comes from the explicit emitters of build_audio, never guessed from these names.
+    actor.set_editor_property("tags", [unreal.Name("GTP_AudioLoop=None")])
     root = sds.k2_gather_subobject_data_for_instance(actor)[0]
     handle, _ = sds.add_new_subobject(unreal.AddNewSubobjectParams(
         parent_handle=root, new_class=unreal.HierarchicalInstancedStaticMeshComponent))
@@ -142,7 +144,7 @@ def build_objects(spec, catalog, mapping, report):
             comp.set_editor_property("instance_start_cull_distance", int(rule["cull_m"] * 80))
             comp.set_editor_property("instance_end_cull_distance", int(rule["cull_m"] * 100))
         comp.set_editor_property("cast_shadow", bool(rule["shadow_pc"]))
-        tags = [unreal.Name("GTP_MinDensity=%d" % density), unreal.Name("GTP_Class=" + cls)]
+        tags = [unreal.Name("GTP_MinDensity=%d" % density), unreal.Name("GTP_Class=" + cls), unreal.Name("GTP_AudioLoop=None")]
         if not rule["shadow_m1"]:
             tags.append(unreal.Name("GTP_NoShadowM1"))
         if info["size"] == "micro":
@@ -178,6 +180,62 @@ def build_station_slots(spec, catalog):
         point.set_folder_path("Interior/Stations")
         point.set_editor_property("tags", [unreal.Name("GTP_Station=" + tag), unreal.Name("GTP_StationRole=" + roles[tag.rsplit("_", 1)[0]])])
     return len(seen)
+
+
+# Classes that hum, for the place audio (feat/audio-0.9, UGTPPlaceAudio): one emitter per object,
+# the audio merges those closer than 1.5 m. Hoods sit above the hot stations.
+AUDIO_LOOPS = {"fryer": "Fryer", "clamshell_grill": "Grill", "milk_fridge": "Cold", "ice_bin": "Cold",
+               "shake_machine": "Shake", "drink_tower": "Drinks"}
+HOOD_OVER = ("fryer", "clamshell_grill")
+
+
+def audio_point(label, location, tags):
+    point = actor_sub.spawn_actor_from_class(unreal.TargetPoint, location)
+    point.set_actor_label(label)
+    point.set_folder_path("Interior/Audio")
+    point.set_editor_property("tags", [unreal.Name(t) for t in tags])
+    return point
+
+
+def build_audio(spec, catalog):
+    """Explicit tags for the place audio: loop emitters, one room box per zone, tills."""
+    storey = spec["frame"]["storey_height"] * 100
+    count = {"loops": 0, "rooms": 0, "tills": 0}
+    for p in il.generate_all(spec, catalog):
+        loop = AUDIO_LOOPS.get(p["class"])
+        if not loop:
+            continue
+        where = unreal.Vector(p["x"] * 100.0, -p["y"] * 100.0, p["z"] * 100.0 + 90.0)
+        audio_point("Audio_%s_%d" % (loop, count["loops"]), where, ["GTP_AudioLoop=" + loop])
+        count["loops"] += 1
+        if p["class"] in HOOD_OVER:
+            hood = unreal.Vector(where.x, where.y, p["level"] * storey + 230.0)
+            audio_point("Audio_Hood_%d" % count["loops"], hood, ["GTP_AudioLoop=Hood"])
+            count["loops"] += 1
+    for zone in spec["zones"]:
+        x0, y0, x1, y1 = zone["rect"]
+        level = zone.get("level", 0)
+        centre = unreal.Vector((x0 + x1) * 50.0, -(y0 + y1) * 50.0, level * storey + storey / 2.0)
+        box = actor_sub.spawn_actor_from_class(unreal.TriggerBox, centre)
+        box.set_actor_label("AudioRoom_" + zone["name"])
+        box.set_folder_path("Interior/Audio")
+        box.set_editor_property("tags", [unreal.Name("GTP_AudioRoom"), unreal.Name("GTP_AudioRoomName=" + zone["name"])])
+        shape = box.get_component_by_class(unreal.BoxComponent)
+        shape.set_box_extent(unreal.Vector((x1 - x0) * 50.0, (y1 - y0) * 50.0, storey / 2.0))
+        shape.set_collision_enabled(unreal.CollisionEnabled.NO_COLLISION)
+        shape.set_editor_property("component_tags", [unreal.Name("GTP_AudioRoom")])
+        count["rooms"] += 1
+    seen = set()
+    for p in il.generate_all(spec, catalog):
+        tag = p.get("station", "")
+        if not tag.startswith("till_") or tag in seen:
+            continue
+        seen.add(tag)
+        # "Till" in the label and the tag: the audio finds tills by name or by GTP_AudioTill.
+        audio_point("Audio_Till_%s" % tag, unreal.Vector(p["x"] * 100.0, -p["y"] * 100.0, p["z"] * 100.0 + 95.0),
+                    ["GTP_AudioTill"])
+        count["tills"] += 1
+    return count
 
 
 def build_lights(spec):
@@ -284,6 +342,7 @@ def main():
     build_objects(spec, catalog, mapping, report)
     report["lights"] = build_lights(spec)
     report["station_slots"] = build_station_slots(spec, catalog)
+    report["audio"] = build_audio(spec, catalog)
     level_sub.save_current_level()
     if WITH_ANCHOR:
         place_anchor(spec, report)
