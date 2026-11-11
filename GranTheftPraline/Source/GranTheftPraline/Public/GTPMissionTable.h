@@ -48,12 +48,10 @@ using FParams = std::map<std::string, std::string>;
 struct FZone
 {
 	std::string Id;
-	double Lon = 0.0;
-	double Lat = 0.0;
-	float RadiusM = 10.f;
-	/** Local metres (x east, y north), filled by ProjectZones. */
+	/** City local metres: x east, y north (Unreal X = x * 100, Y = -y * 100). */
 	float X = 0.f;
 	float Y = 0.f;
+	float RadiusM = 10.f;
 };
 
 struct FObjective
@@ -253,23 +251,6 @@ inline bool ParseNumber(const std::string& Text, double& Out)
 	return End && *End == '\0';
 }
 
-/** Equirectangular projection around an origin: good to well under a metre over 2 km. */
-inline void ProjectLocal(double Lon, double Lat, double OriginLon, double OriginLat, float& OutX, float& OutY)
-{
-	const double Pi = 3.14159265358979323846;
-	const double MetresPerDegree = 111320.0;
-	OutX = static_cast<float>((Lon - OriginLon) * MetresPerDegree * std::cos(OriginLat * Pi / 180.0));
-	OutY = static_cast<float>((Lat - OriginLat) * MetresPerDegree);
-}
-
-inline void ProjectZones(FTables& Tables, double OriginLon, double OriginLat)
-{
-	for (auto& Pair : Tables.Zones)
-	{
-		ProjectLocal(Pair.second.Lon, Pair.second.Lat, OriginLon, OriginLat, Pair.second.X, Pair.second.Y);
-	}
-}
-
 /** Parses the three tables and checks them. Every problem is appended to Out.Errors. */
 inline void LoadTables(const std::string& MissionsCsv, const std::string& ObjectivesCsv, const std::string& ZonesCsv, FTables& Out)
 {
@@ -277,12 +258,14 @@ inline void LoadTables(const std::string& MissionsCsv, const std::string& Object
 	{
 		FZone Zone;
 		Zone.Id = Row.at("id");
-		double Radius = 0.0;
-		if (Zone.Id.empty() || !ParseNumber(Row.at("lon"), Zone.Lon) || !ParseNumber(Row.at("lat"), Zone.Lat) || !ParseNumber(Row.at("radius_m"), Radius) || Radius <= 0.0)
+		double X = 0.0, Y = 0.0, Radius = 0.0;
+		if (Zone.Id.empty() || !ParseNumber(Row.at("x_m"), X) || !ParseNumber(Row.at("y_m"), Y) || !ParseNumber(Row.at("radius_m"), Radius) || Radius <= 0.0)
 		{
 			Out.Errors.push_back("zones: bad row for '" + Zone.Id + "'");
 			continue;
 		}
+		Zone.X = static_cast<float>(X);
+		Zone.Y = static_cast<float>(Y);
 		Zone.RadiusM = static_cast<float>(Radius);
 		if (!Out.Zones.emplace(Zone.Id, Zone).second)
 		{

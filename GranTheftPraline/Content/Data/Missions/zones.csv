@@ -1,10 +1,16 @@
-# Zones used by the mission tables. Positions are WGS84 (lon, lat) and a radius in metres;
-# the adapter projects them into the level with the city origin (GTPMission::ProjectLocal).
-# Coordinates are working values taken from the map, to be snapped on the street at integration.
-id,lon,lat,radius_m
-z_start_holdup,4.83285,45.75790,6
-z_start_order,4.83370,45.76030,6
-z_start_flee,4.83310,45.76180,6
-z_order_search,4.83380,45.75680,90
-z_garage_fictif,4.83500,45.76250,12
-z_refuge_terreaux,4.83350,45.76750,30
+# Zones used by the mission tables, in city local metres (x east, y north, origin = origin_lambert93_m of
+# the city manifest; Unreal X = x*100, Y = -y*100). Every point is a vertex of a named road of
+# processed/presqu-ile/roads.geojson (IGN BD TOPO), radius in metres.
+id,x_m,y_m,radius_m
+# Rue de la Republique, at the fast-food restaurant (shops.csv node/35694312 at 69.3,-531.4)
+z_start_holdup,82.9,-530.6,8
+# Rue de la Republique, south part
+z_start_order,173.0,-242.1,8
+# Rue de la Republique, middle
+z_start_flee,179.0,76.0,8
+# Rue Confort, where the ordered car is found
+z_order_search,85.6,-344.0,90
+# Rue Merciere (the garage is fictional, only the spot is real)
+z_garage_fictif,-31.1,-158.1,12
+# Place des Terreaux
+z_refuge_terreaux,-7.0,475.0,30

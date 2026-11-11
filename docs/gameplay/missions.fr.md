@@ -97,6 +97,23 @@ Les trois activités jouées de bout en bout, trois fois chacune, en build packa
 échec et reprise fonctionnels ; récompense versée et sauvegardée ; départ depuis la carte ou un
 point de la rue ; porte de fusion tenue. Coût sans mission active : 0 ms.
 
+## Adaptateur Unreal (`UGTPMissionSubsystem`)
+
+Sous-système de monde, éteint par `-Missions=0` (rien n'est créé). Il lit le pion du joueur, le
+composant de recherche (étoiles, bandeau d'arrestation) et l'`AGTPVehicle` conduit (étiquette
+d'acteur, santé, épave), alimente l'exécuteur et exécute ses commandes. Tables lues dans
+`Content/Data/Missions/` ; sauvegarde provisoire `Saved/SaveGames/GTPMissions.txt` (écrite à côté
+puis déplacée) en attendant l'ADR-0013. Tests sans l'interface : `-MissionAutoStart=1` lance une
+mission en entrant dans sa zone ; console `GTPMission.Start <id>`, `.Retry`, `.Abort`,
+`.TagVehicle <étiquette>` (étiquette la voiture conduite). Délégués pour les autres fils :
+`OnStartAvailable`, `OnObjective`, `OnFailed`, `OnSucceeded`, `OnReward(montant, clé, mission)` ;
+accesseurs `GetWaypoint` et `GetStartMarkers` pour la carte. Manque encore sur `next` : une voiture
+cible étiquetée (proposition trafic `SpawnParkedVehicle`), l'accesseur d'intérieur (intérieur de
+référence, étape 7), `OnArrested` et `EnsureMinStars` (branche police `feat/wanted-api`) ; en
+attendant, l'adaptateur sonde et utilise `ForceStars`. Les zones sont de vrais sommets de rues
+nommées des données de la ville (rue de la République, rue Confort, rue Mercière, place des
+Terreaux).
+
 ## Suite
 
 Adaptateur Unreal `UGTPMissionSubsystem` (demande les API police, économie et intérieur sur `next`),
