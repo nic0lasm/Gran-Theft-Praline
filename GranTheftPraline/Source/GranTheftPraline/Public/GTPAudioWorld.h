@@ -8,6 +8,7 @@ class AActor;
 class UGTPAmbienceBed;
 class UGTPStreetReactions;
 class UGTPCombatSounds;
+class UGTPPlaceAudio;
 
 /** A loud sound at Location that frightens people within Radius (cm); Cause may be null. */
 DECLARE_MULTICAST_DELEGATE_ThreeParams(FGTPLoudSoundEvent, const FVector& /*Location*/, float /*Radius*/, AActor* /*Cause*/);
@@ -47,6 +48,8 @@ public:
 
 	/** Ducks the street ambience and the traffic for GunshotDuckSeconds (each shot restarts it). */
 	void DuckForGunshot();
+	/** Interiors and missions (GTPPlaceAudio.h); null under -Audio=0. */
+	UGTPPlaceAudio* GetPlaceAudio() const { return Places; }
 
 private:
 	void OnActorSpawned(AActor* Actor);
@@ -83,6 +86,7 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UGTPCombatSounds> CombatSounds;
+	TObjectPtr<UGTPPlaceAudio> Places;
 
 	/** Crowd pedestrians seen so far, for the crowd layer of the bed. */
 	TArray<TWeakObjectPtr<AActor>> Pedestrians;
