@@ -41,6 +41,7 @@ where the listener is and what the world does:
 | "pedestrian" zone (rue de la République, mask G) | `SW_Amb_Pedestrian`: voices, steps, sparrows | 45 % |
 | within 45 m of the Rhône | `SW_Amb_Quay`: river, wind, quay traffic, gulls | 35 % |
 | above the water (pont Lafayette) | `SW_Amb_Bridge`: wind, close cars, expansion joints | 20 % |
+| open square, 30 m from every building and off the road (place Bellecour) | `SW_Amb_Square`: wind, far traffic all around, pigeons | 35 % |
 | night (`CityLights` of MPC_Environment, ADR-0008) | `SW_Amb_Night`: muffled city, rare cars | × 30 % |
 | rain (`RainIntensity`) | `SW_Amb_Rain`, or `SW_Amb_RainCar` (roof) in a car | — |
 | visible pedestrians within 25 m | `SW_Amb_Crowd`, full at 10 pedestrians | — |

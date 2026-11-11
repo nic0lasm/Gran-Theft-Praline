@@ -15,7 +15,7 @@
 
 namespace
 {
-	const TCHAR* LayerNames[] = {TEXT("Pedestrian"), TEXT("Quay"), TEXT("Bridge"), TEXT("Night"), TEXT("Rain"), TEXT("RainCar"), TEXT("Crowd")};
+	const TCHAR* LayerNames[] = {TEXT("Pedestrian"), TEXT("Quay"), TEXT("Bridge"), TEXT("Night"), TEXT("Rain"), TEXT("RainCar"), TEXT("Crowd"), TEXT("Square")};
 	/** World state is sensed a few times per second; volumes glide every frame. */
 	constexpr float SenseInterval = 0.25f;
 }
@@ -144,8 +144,9 @@ void UGTPAmbienceBed::Tick(float DeltaTime, const TArray<TWeakObjectPtr<AActor>>
 		Targets[Pedestrian] = Zone == EGTPAmbienceZone::Pedestrian ? ZoneVolume : 0.f;
 		Targets[Quay] = Zone == EGTPAmbienceZone::Quay ? ZoneVolume : 0.f;
 		Targets[Bridge] = Zone == EGTPAmbienceZone::Bridge ? ZoneVolume : 0.f;
+		Targets[Square] = Zone == EGTPAmbienceZone::Square ? ZoneVolume : 0.f;
 		// At night the zone layers keep a third of their level, the night layer takes over.
-		for (int32 Index : {static_cast<int32>(Pedestrian), static_cast<int32>(Quay), static_cast<int32>(Bridge)})
+		for (int32 Index : {static_cast<int32>(Pedestrian), static_cast<int32>(Quay), static_cast<int32>(Bridge), static_cast<int32>(Square)})
 		{
 			Targets[Index] *= 1.f - 0.66f * NightAmount;
 		}
@@ -161,6 +162,8 @@ void UGTPAmbienceBed::Tick(float DeltaTime, const TArray<TWeakObjectPtr<AActor>>
 		case EGTPAmbienceZone::Pedestrian: Street = Settings->StreetLevelPedestrian; break;
 		case EGTPAmbienceZone::Quay: Street = Settings->StreetLevelQuay; break;
 		case EGTPAmbienceZone::Bridge: Street = Settings->StreetLevelBridge; break;
+		// The traffic is all around a square but far: the street loop is lowered like on a quay.
+		case EGTPAmbienceZone::Square: Street = Settings->StreetLevelQuay; break;
 		default: break;
 		}
 		StreetTarget = Street * FMath::Lerp(1.f, Settings->StreetLevelNight, NightAmount);
@@ -206,7 +209,7 @@ void UGTPAmbienceBed::Tick(float DeltaTime, const TArray<TWeakObjectPtr<AActor>>
 
 FString UGTPAmbienceBed::Describe() const
 {
-	static const TCHAR* ZoneNames[] = {TEXT("street"), TEXT("pedestrian"), TEXT("quay"), TEXT("bridge")};
+	static const TCHAR* ZoneNames[] = {TEXT("street"), TEXT("pedestrian"), TEXT("quay"), TEXT("bridge"), TEXT("square")};
 	int32 Loaded = 0;
 	int32 Playing = 0;
 	for (const UAudioComponent* Layer : Layers)
@@ -215,5 +218,5 @@ FString UGTPAmbienceBed::Describe() const
 		Playing += Layer && Layer->IsPlaying() ? 1 : 0;
 	}
 	return FString::Printf(TEXT("zone=%s street=%.2f rain=%.2f night=%.2f crowd=%d layers=%d/%d playing=%d"),
-		ZoneNames[FMath::Clamp(static_cast<int32>(Zone), 0, 3)], StreetApplied, RainAmount, NightAmount, CrowdCount, Loaded, static_cast<int32>(NumLayers), Playing);
+		ZoneNames[FMath::Clamp(static_cast<int32>(Zone), 0, 4)], StreetApplied, RainAmount, NightAmount, CrowdCount, Loaded, static_cast<int32>(NumLayers), Playing);
 }

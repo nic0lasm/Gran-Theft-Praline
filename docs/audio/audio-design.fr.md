@@ -41,6 +41,7 @@ en 2 s selon l'endroit et le monde :
 | zone « piétonne » (rue de la République, masque G) | `SW_Amb_Pedestrian` : voix, pas, moineaux | 45 % |
 | à moins de 45 m du Rhône | `SW_Amb_Quay` : fleuve, vent, trafic du quai, mouettes | 35 % |
 | au-dessus de l'eau (pont Lafayette) | `SW_Amb_Bridge` : vent, voitures proches, joints de dilatation | 20 % |
+| grande place, à 30 m de tout bâtiment et hors chaussée (place Bellecour) | `SW_Amb_Square` : vent, circulation lointaine tout autour, pigeons | 35 % |
 | nuit (`CityLights` du MPC_Environment, ADR-0008) | `SW_Amb_Night` : ville sourde, rares voitures | × 30 % |
 | pluie (`RainIntensity`) | `SW_Amb_Rain`, ou `SW_Amb_RainCar` (toit) en voiture | — |
 | piétons visibles à moins de 25 m | `SW_Amb_Crowd`, plein à 10 piétons | — |
