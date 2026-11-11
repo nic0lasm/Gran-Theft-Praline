@@ -100,8 +100,9 @@ run() {
   gpu="$(python3 -I "$out/tools/summarize.py" "$dir/frames.csv" s v 2>/dev/null | awk -F'|' 'NF>5{gsub(/ /,"",$4);gsub(/ /,"",$5);print $4" "$5}')"
   budget="$(sed -n 's/^night_budget=//p' "$dir/status.txt" 2>/dev/null)"
   lights="$(sed -n 's/^status=//p' "$dir/status.txt" 2>/dev/null | grep -o 'lights [0-9]*/[0-9]* on, [0-9]* shadowed' | head -n 1)"
+  local args="$*"
   set -- ${gpu:-nan nan}
-  echo "| $name | \`$*\` | $1 | $2 | ${stats:-nan} | ${budget:-not in this build} | ${lights:-?} |" >> "$out/rows.md"
+  echo "| $name | \`$args\` | $1 | $2 | ${stats:-nan} | ${budget:-not in this build} | ${lights:-?} |" >> "$out/rows.md"
   printf '%s %s %s\n' "$name" "$1" "$2" >> "$out/gpu.txt"
 }
 
