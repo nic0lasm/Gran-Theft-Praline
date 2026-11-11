@@ -159,6 +159,14 @@ public:
 	/** Hard limit: false when the cap of simulating ragdolls is reached (the body stays animated). */
 	bool HasRoom() const;
 
+	/**
+	 * For ragdolls that are not a UGTPRagdollComponent (the pedestrians' own): takes a place
+	 * under the same cap. False when the cap is reached or ragdolls are off (-Ragdoll=0):
+	 * the body then stays animated. Release it when the body is given back.
+	 */
+	bool TryClaimExternal(AActor* Body);
+	void ReleaseExternal(AActor* Body);
+
 protected:
 	UPROPERTY(Config)
 	int32 MaxRagdollsM1 = 3;
@@ -181,5 +189,6 @@ private:
 	int32 ChooseCap() const;
 
 	TArray<TWeakObjectPtr<UGTPRagdollComponent>> Active;
+	TArray<TWeakObjectPtr<AActor>> External;
 	FTimerHandle EnforceTimer;
 };
