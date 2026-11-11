@@ -183,7 +183,15 @@ besoin d'être un acteur.
   passe s'arrête. Une ligne de signe de vie est écrite chaque minute.
   `DRY_RUN=1` vérifie les chemins et les garde-temps sans Unreal.
 
-## 7. Coût de dessin des voitures conduites (interrupteurs pour un balayage, pas encore mesuré)
+## 7. Coût de dessin des voitures conduites (balayé le 11/11/2026 : pas un levier)
+
+Balayé le 11/11/2026 sur le candidat 09429f1 : M1, caméra fixe, 75 s par
+cas, 16 voitures conduites et 24 lointaines, sans police. Les six cas
+restent entre 13,5 et 14,4 ms au p50 et entre 25,2 et 27,0 ms au p95. Toutes
+les images passent sous 33 ms, sans aucun à-coup. Ces écarts relèvent du
+bruit : ni la distance fantôme (de 60 à 90 m) ni la distance du LOD complet
+(de 8 à 20 m) ne sont des leviers. Les réglages par défaut (90 m et 20 m)
+sont donc conservés. Le CPU du trafic reste à 0,3 ms ou moins.
 
 Au-delà d'environ 16 voitures conduites, c'est le GPU qui limite. Deux
 distances fixent ce que coûte le dessin d'une voiture conduite. Toutes deux
