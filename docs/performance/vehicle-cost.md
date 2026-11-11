@@ -93,7 +93,26 @@ Measured on 10 Nov 2026 (M1 Pro, profile m1, street-demo, 90 s, build
 - Not done yet: swapping a parked instance for a real car when the player
   walks up to it (to steal it).
 
-## 6. Far traffic and the CPU budget per car (switch, not measured yet)
+## 6. Far traffic and the CPU budget per car (measured 11 Nov 2026)
+
+Measured on 11 Nov 2026 (M1 Pro, profile m1, street-demo, 90 s, build
+d0f7aea, every case with LOD, ghosts and pool; the route varies by about
+1.5 ms). Frame p50/p95 in ms:
+
+| Case | Driven + far | p50 / p95 |
+|---|---|---|
+| d12 | 12 + 0 | 18.2 / 28.2 |
+| d25 | 25 + 0 | 20.0 / 35.2 |
+| d12-f13 | 12 + 13 | 17.9 / 28.3 |
+| d40 | 39 + 0 | 20.1 / 34.3 |
+| d12-f28 | 12 + 28 | 17.9 / 29.6 |
+| d16-f24-p | 16 + 24, parked cars | 18.0 / 28.2 |
+
+Far traffic costs about 0.1 ms of CPU, and 0 to 1.3 ms at p95. The AI
+drivers cost 0.37 ms at 39 cars. Past about 16 driven cars, the p95 goes
+over 33 ms: that cost is the GPU drawing the cars. 40 perceived vehicles
+hold with 16 driven cars and 24 far ones (p95 28.2 ms). More driven cars
+need a cheaper draw: earlier LODs or a shorter ghost distance.
 
 The aim is 25, then 40 vehicles in view without 25 or 40 Chaos cars with a
 driver. Past the ghost distance, a car does not need to be an actor at all.

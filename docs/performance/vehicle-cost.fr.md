@@ -105,7 +105,28 @@ donnent 41,5/55,0.
 - Pas encore fait : remplacer une voiture garée par une vraie voiture quand
   le joueur s'en approche (pour la voler).
 
-## 6. Trafic lointain et budget CPU par voiture (interrupteur, pas encore mesuré)
+## 6. Trafic lointain et budget CPU par voiture (mesuré le 11/11/2026)
+
+Mesuré le 11/11/2026 sur M1 Pro : profil m1, parcours street-demo de 90 s,
+build d0f7aea, chaque cas avec LOD, fantômes et réserve. Le parcours varie
+d'environ 1,5 ms. Temps d'image p50/p95 en ms :
+
+| Cas | Conduites + lointaines | p50 / p95 |
+|---|---|---|
+| d12 | 12 + 0 | 18,2 / 28,2 |
+| d25 | 25 + 0 | 20,0 / 35,2 |
+| d12-f13 | 12 + 13 | 17,9 / 28,3 |
+| d40 | 39 + 0 | 20,1 / 34,3 |
+| d12-f28 | 12 + 28 | 17,9 / 29,6 |
+| d16-f24-p | 16 + 24, voitures garées | 18,0 / 28,2 |
+
+Le trafic lointain coûte environ 0,1 ms de CPU, et de 0 à 1,3 ms au p95. Les
+conducteurs PNJ coûtent 0,37 ms pour 39 voitures. Au-delà d'environ 16
+voitures conduites, le p95 dépasse 33 ms, et ce coût vient du dessin des
+voitures par le GPU. 40 véhicules perçus tiennent avec 16 voitures
+conduites et 24 lointaines (p95 28,2 ms). Pour plus de voitures conduites,
+il faut un dessin moins cher : des LOD plus tôt ou une distance fantôme plus
+courte.
 
 L'objectif est d'avoir 25 puis 40 véhicules en vue, sans 25 ou 40 voitures
 Chaos avec conducteur. Au-delà de la distance fantôme, une voiture n'a pas
