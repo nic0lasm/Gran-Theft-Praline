@@ -74,7 +74,19 @@ Map icons: UGTPMinimapSubsystem::AddBlip(Actor, Colour). The car the player take
 marked in light blue (`UGTPVehicleInteractionComponent`) on the mini-map and the full map;
 the police system adds its cars the same way.
 
+## GPS (0.9, first version)
+
+On the full-screen map the cursor is the cross at the centre of the screen: pan with the
+arrow keys or the left stick, **Enter** or gamepad **A** sets the destination, **Delete** or
+**X** clears it. The route is the shortest way on the road lines of the map data
+(`GTPGpsCore.h`, Dijkstra on the junction graph: Presqu'ile = 1 017 roads, 755 junctions,
+0.16 ms for a 700 m route); both the start and the destination snap to the nearest road. It is
+drawn in magenta on the mini-map and the full map, with a marker at the destination (on the
+ring when out of range), recomputed when the player leaves it by more than 40 m, and cleared on
+arrival (25 m). Roads are two-way for now: following the traffic directions is roadmap 0.10.
+`-Gps=0` turns it off. Tested outside Unreal (`tools/ui/tests/run_cpp_tests.sh`: shortcut
+choice, same-road routes, snapping, unreachable island, empty graph).
+
 ## Next (roadmap 0.10)
 
-Waypoint set by the player, GPS route drawn on the lanes (`lanes.csv` of the traffic),
-pan and zoom of the full map, district names.
+GPS that follows the traffic directions (`lanes.csv`), zoom of the full map, district names, activity markers.

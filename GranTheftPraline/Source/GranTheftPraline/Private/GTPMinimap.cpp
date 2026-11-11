@@ -9,8 +9,10 @@
 #include "Engine/Engine.h"
 #include "Engine/Font.h"
 #include "Engine/World.h"
+#include "InputCoreTypes.h"
 #include "GameFramework/Pawn.h"
 #include "Kismet/GameplayStatics.h"
+#include "Misc/App.h"
 #include "Misc/CommandLine.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Parse.h"
@@ -96,6 +98,16 @@ bool UGTPMinimapSubsystem::IsDisabledOnCommandLine()
 	return bDisabled;
 }
 
+bool UGTPMinimapSubsystem::IsGpsDisabledOnCommandLine()
+{
+	static const bool bDisabled = []()
+	{
+		int32 Value = 1;
+		return FParse::Value(FCommandLine::Get(), TEXT("Gps="), Value) && Value == 0;
+	}();
+	return bDisabled;
+}
+
 bool UGTPMinimapSubsystem::ShouldCreateSubsystem(UObject* Outer) const
 {
 	if (IsDisabledOnCommandLine() && Cast<UWorld>(Outer) && Cast<UWorld>(Outer)->IsGameWorld())
@@ -131,6 +143,15 @@ void UGTPMinimapSubsystem::LoadData()
 	}
 	const FTCHARToUTF8 Utf8(*Text);
 	const int32 Kept = Data.ParseCsv(std::string_view(Utf8.Get(), static_cast<size_t>(Utf8.Length())));
+	if (!IsGpsDisabledOnCommandLine())
+	{
+		Gps.Build(Data);
+		GTP_TRACE(LogGTPMinimap, TEXT("gps: on (%d roads, %d junctions)"), static_cast<int32>(Gps.RoadCount()), static_cast<int32>(Gps.JunctionCount()));
+	}
+	else
+	{
+		GTP_TRACE(LogGTPMinimap, TEXT("gps: off (-Gps=0)"));
+	}
 	for (const GTPUI::FMapLabel& Label : Data.BuildStreetLabels())
 	{
 		Labels.Add(Label);
@@ -204,6 +225,22 @@ void UGTPMinimapSubsystem::Draw(UCanvas* Canvas, const AGTPPlayerController* Con
 		DrawLine(Canvas, ToCanvas(Centre, A), ToCanvas(Centre, B), Style.Color, FMath::Max(1.f, Style.Thickness * Scale));
 	});
 
+	UpdateGps(Location);
+	DrawRouteInDisc(Canvas, Centre, View, Scale);
+	if (bHasDestination)
+	{
+		// Destination marker: on the map, or on the ring in its direction when out of range.
+		GTPUI::FVec2 D = View.ToScreen({static_cast<float>(Destination.X), static_cast<float>(Destination.Y)});
+		const float Distance = FMath::Sqrt(D.X * D.X + D.Y * D.Y);
+		if (Distance > Radius)
+		{
+			D.X *= Radius / Distance;
+			D.Y *= Radius / Distance;
+		}
+		DrawDisc(Canvas, ToCanvas(Centre, D), 6.f * Scale, FLinearColor(0.f, 0.f, 0.f, 0.8f));
+		DrawDisc(Canvas, ToCanvas(Centre, D), 4.5f * Scale, FLinearColor(1.f, 0.25f, 0.75f));
+	}
+
 	for (const FBlip& Blip : Blips)
 	{
 		const AActor* Actor = Blip.Actor.Get();
@@ -269,7 +306,18 @@ void UGTPMinimapSubsystem::DrawFullMap(UCanvas* Canvas, const AGTPPlayerControll
 	// North up: the view heading is -90 degrees (forward = -Y on the map data).
 	GTPUI::FMapView View;
 	const FVector Location = Controller->GetPawn()->GetActorLocation();
-	View.Center = {static_cast<float>(Location.X), static_cast<float>(Location.Y)};
+	// Pan: arrow keys or the left stick, 250 m a second, polled (the game is paused).
+	{
+		const float Dt = FMath::Min(static_cast<float>(FApp::GetDeltaTime()), 0.1f);
+		float PanX = Controller->GetInputAnalogKeyState(EKeys::Gamepad_LeftX);
+		float PanY = -Controller->GetInputAnalogKeyState(EKeys::Gamepad_LeftY); // stick up = north = -Y
+		PanX += (Controller->IsInputKeyDown(EKeys::Right) ? 1.f : 0.f) - (Controller->IsInputKeyDown(EKeys::Left) ? 1.f : 0.f);
+		PanY += (Controller->IsInputKeyDown(EKeys::Down) ? 1.f : 0.f) - (Controller->IsInputKeyDown(EKeys::Up) ? 1.f : 0.f);
+		FullMapOffset += FVector2D(PanX, PanY) * 25000.f * Dt;
+		FullMapOffset.X = FMath::Clamp(FullMapOffset.X, -150000.0, 150000.0);
+		FullMapOffset.Y = FMath::Clamp(FullMapOffset.Y, -150000.0, 150000.0);
+	}
+	View.Center = {static_cast<float>(Location.X + FullMapOffset.X), static_cast<float>(Location.Y + FullMapOffset.Y)};
 	View.HeadingRadians = -PI * 0.5f;
 	// The disc only has to cover the screen; the canvas clips what is outside.
 	View.RadiusPixels = 0.5f * FMath::Sqrt(Canvas->ClipX * Canvas->ClipX + Canvas->ClipY * Canvas->ClipY);
@@ -283,6 +331,18 @@ void UGTPMinimapSubsystem::DrawFullMap(UCanvas* Canvas, const AGTPPlayerControll
 		const FStyle Style = StyleFor(Kind, WidthM);
 		DrawLine(Canvas, ToCanvas(Centre, A), ToCanvas(Centre, B), Style.Color, FMath::Max(1.f, Style.Thickness * Scale * 1.6f));
 	});
+
+	UpdateGps(Location);
+	DrawRouteInDisc(Canvas, Centre, View, Scale * 1.4f);
+	if (bHasDestination)
+	{
+		const GTPUI::FVec2 D = View.ToScreen({static_cast<float>(Destination.X), static_cast<float>(Destination.Y)});
+		DrawDisc(Canvas, ToCanvas(Centre, D), 10.f * Scale, FLinearColor(0.f, 0.f, 0.f, 0.85f));
+		DrawDisc(Canvas, ToCanvas(Centre, D), 7.5f * Scale, FLinearColor(1.f, 0.25f, 0.75f));
+	}
+	// Cursor at the centre of the screen: the destination is set here.
+	DrawLine(Canvas, Centre + FVector2D(-14.f, 0.f) * Scale, Centre + FVector2D(14.f, 0.f) * Scale, FLinearColor(1.f, 1.f, 1.f, 0.9f), FMath::Max(1.f, 2.f * Scale));
+	DrawLine(Canvas, Centre + FVector2D(0.f, -14.f) * Scale, Centre + FVector2D(0.f, 14.f) * Scale, FLinearColor(1.f, 1.f, 1.f, 0.9f), FMath::Max(1.f, 2.f * Scale));
 
 	// Blips (the player's car, police cars, ...): bigger dots, with a dark rim.
 	for (const FBlip& Blip : Blips)
@@ -338,8 +398,101 @@ void UGTPMinimapSubsystem::DrawFullMap(UCanvas* Canvas, const AGTPPlayerControll
 	const FVector2D Dir = FVector2D(Ahead.X, Ahead.Y).GetSafeNormal();
 	const FVector2D Side(-Dir.Y, Dir.X);
 	const float Size = 11.f * Scale;
-	FCanvasTriangleItem Pointer(Centre + Dir * Size * 1.4f, Centre - Dir * Size - Side * Size * 0.8f, Centre - Dir * Size + Side * Size * 0.8f, GWhiteTexture);
+	const GTPUI::FVec2 PlayerAt = View.ToScreen({static_cast<float>(Location.X), static_cast<float>(Location.Y)});
+	const FVector2D Me = ToCanvas(Centre, PlayerAt);
+	FCanvasTriangleItem Pointer(Me + Dir * Size * 1.4f, Me - Dir * Size - Side * Size * 0.8f, Me - Dir * Size + Side * Size * 0.8f, GWhiteTexture);
 	Pointer.SetColor(FLinearColor(1.f, 0.62f, 0.1f, 1.f));
 	Pointer.BlendMode = SE_BLEND_Translucent;
 	Canvas->DrawItem(Pointer);
+}
+
+// ---------------------------------------------------------------------------
+// GPS
+
+void UGTPMinimapSubsystem::ComputeRoute(const FVector& From)
+{
+	Route.Reset();
+	std::vector<GTPUI::FVec2> Points;
+	float Length = 0.f;
+	if (!Gps.Route({static_cast<float>(From.X), static_cast<float>(From.Y)},
+			{static_cast<float>(Destination.X), static_cast<float>(Destination.Y)}, Points, Length))
+	{
+		return; // no road near, or no way: the marker stays, no line
+	}
+	for (const GTPUI::FVec2& P : Points)
+	{
+		Route.Add(P);
+	}
+}
+
+void UGTPMinimapSubsystem::SetDestination(const FVector2D& WorldCm, const FVector& PlayerLocation)
+{
+	if (Gps.IsEmpty())
+	{
+		return;
+	}
+	Destination = WorldCm;
+	bHasDestination = true;
+	ComputeRoute(PlayerLocation);
+}
+
+void UGTPMinimapSubsystem::SetDestinationAtFullMapCursor(const FVector& PlayerLocation)
+{
+	SetDestination(FVector2D(PlayerLocation.X, PlayerLocation.Y) + FullMapOffset, PlayerLocation);
+}
+
+void UGTPMinimapSubsystem::ClearDestination()
+{
+	bHasDestination = false;
+	Route.Reset();
+}
+
+void UGTPMinimapSubsystem::UpdateGps(const FVector& PlayerLocation)
+{
+	if (!bHasDestination)
+	{
+		return;
+	}
+	const FVector2D Player(PlayerLocation.X, PlayerLocation.Y);
+	if (FVector2D::Distance(Player, Destination) < 2500.0)
+	{
+		ClearDestination(); // arrived
+		return;
+	}
+	// Twice a second: still on the route? else compute it again.
+	const double Now = FPlatformTime::Seconds();
+	if (Now - LastRouteCheckTime < 0.5)
+	{
+		return;
+	}
+	LastRouteCheckTime = Now;
+	std::vector<GTPUI::FVec2> Line(Route.Num());
+	for (int32 i = 0; i < Route.Num(); ++i)
+	{
+		Line[i] = Route[i];
+	}
+	if (Line.size() < 2 || GTPUI::DistanceToPolyline({static_cast<float>(Player.X), static_cast<float>(Player.Y)}, Line) > 4000.f)
+	{
+		ComputeRoute(PlayerLocation);
+	}
+}
+
+void UGTPMinimapSubsystem::DrawRouteInDisc(UCanvas* Canvas, const FVector2D& Centre, const GTPUI::FMapView& View, float Scale) const
+{
+	if (Route.Num() < 2)
+	{
+		return;
+	}
+	const FLinearColor Color(1.f, 0.25f, 0.75f, 0.95f);
+	GTPUI::FVec2 Prev = View.ToScreen(Route[0]);
+	for (int32 i = 1; i < Route.Num(); ++i)
+	{
+		const GTPUI::FVec2 Next = View.ToScreen(Route[i]);
+		GTPUI::FVec2 A = Prev, B = Next;
+		Prev = Next;
+		if (GTPUI::ClipSegmentToDisc(A, B, View.RadiusPixels))
+		{
+			DrawLine(Canvas, ToCanvas(Centre, A), ToCanvas(Centre, B), Color, FMath::Max(2.f, 3.5f * Scale));
+		}
+	}
 }

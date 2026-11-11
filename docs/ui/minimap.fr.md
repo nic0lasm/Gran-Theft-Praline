@@ -75,7 +75,20 @@ Icônes de carte : UGTPMinimapSubsystem::AddBlip(Actor, Couleur). La voiture que
 prend est marquée en bleu clair (`UGTPVehicleInteractionComponent`) sur la mini-carte et la
 carte plein écran ; la police ajoute ses voitures de la même façon.
 
+## GPS (0.9, première version)
+
+Sur la carte plein écran le curseur est la croix au centre de l'écran : déplacer avec les
+flèches ou le stick gauche, **Entrée** ou **A** de la manette pose la destination, **Suppr**
+ou **X** l'efface. L'itinéraire est le plus court chemin sur les lignes de routes des données
+de la map (`GTPGpsCore.h`, Dijkstra sur le graphe des carrefours : Presqu'île = 1 017 routes,
+755 carrefours, 0,16 ms pour 700 m) ; le départ comme la destination sont rapprochés de la
+route la plus proche. Tracé en magenta sur la mini-carte et la carte plein écran, avec un repère
+à la destination (sur l'anneau hors de portée), recalculé quand le joueur quitte l'itinéraire de
+plus de 40 m, effacé à l'arrivée (25 m). Les routes sont à double sens pour l'instant : suivre
+les sens de circulation est la 0.10 de la roadmap. `-Gps=0` le désactive. Testé hors Unreal
+(`tools/ui/tests/run_cpp_tests.sh` : choix du raccourci, trajets sur une même route, accrochage,
+île inaccessible, graphe vide).
+
 ## Suite (roadmap 0.10)
 
-Point de passage posé par le joueur, itinéraire GPS tracé sur les voies (`lanes.csv` du
-trafic), déplacement et zoom de la carte plein écran, noms de quartiers.
+GPS qui suit les sens de circulation (`lanes.csv`), zoom de la carte plein écran, noms de quartiers, marqueurs d'activités.

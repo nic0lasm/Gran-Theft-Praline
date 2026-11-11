@@ -2,6 +2,7 @@
 // mini-map maths. Build and run: tools/ui/tests/run_cpp_tests.sh
 #include "GTPControls.h"
 #include "GTPHudMath.h"
+#include "GTPGpsCore.h"
 #include "GTPMinimapCore.h"
 #include "GTPSettingsCore.h"
 #include "GTPStringTable.h"
@@ -200,6 +201,57 @@ static void TestHudMath()
 	CHECK(Full.G > Full.R && Low.R > Low.G);
 }
 
+static void TestGps()
+{
+	// A square block with a diagonal shortcut missing:
+	//   A(0,0) --1000-- B(1000,0)
+	//     |                |
+	//   2000             1000        D is (0,2000), C (1000,1000), E (1000,2000)
+	//     |                |
+	//   D(0,2000)--1000--E(1000,2000)   and B-C-E on the right
+	FMapData Data;
+	Data.ParseCsv(
+		"kind,width_m,points_ue_cm,name\n"
+		"road_major,6,0 0;1000 0,Top\n"
+		"road_major,6,1000 0;1000 1000,Right1\n"
+		"road_major,6,1000 1000;1000 2000,Right2\n"
+		"road_minor,4,0 0;0 2000,Left\n"
+		"road_minor,4,0 2000;1000 2000,Bottom\n"
+		"water,0,5000 5000;5100 5000\n"
+		"road_minor,4,9000 9000;9500 9000,Island\n");
+	FGpsGraph Graph;
+	Graph.Build(Data);
+	CHECK(Graph.RoadCount() == 6);
+
+	std::vector<FVec2> Route;
+	float Length = 0.f;
+	// Start at the middle of the left road, go to the middle of Right1: via the top, 1000 + 1000 + 500 + 500...
+	CHECK(Graph.Route({0.f, 1000.f}, {1000.f, 500.f}, Route, Length));
+	// Shortest: up the left road (1000), across the top (1000), down Right1 (500) = 2500;
+	// the other way: down 1000, across the bottom 1000, up Right2 1000, up Right1 500 = 3500.
+	CHECK(Near(Length, 2500.f, 1.f));
+	CHECK(Route.size() >= 4);
+	CHECK(Near(Route.front().X, 0.f) && Near(Route.front().Y, 1000.f));
+	CHECK(Near(Route.back().X, 1000.f) && Near(Route.back().Y, 500.f));
+	CHECK(Near(Route[1].X, 0.f) && Near(Route[1].Y, 0.f)); // goes through the top left corner
+
+	// Same road: straight along it.
+	CHECK(Graph.Route({100.f, 0.f}, {800.f, 0.f}, Route, Length));
+	CHECK(Near(Length, 700.f, 1.f));
+
+	// A point 30 m off the road is snapped to it and the detour counts in the length.
+	CHECK(Graph.Route({-3000.f, 1000.f}, {1000.f, 500.f}, Route, Length));
+	CHECK(Near(Length, 2500.f + 3000.f, 1.f));
+
+	// No way between the island road and the block; and nothing near the water.
+	CHECK(!Graph.Route({9200.f, 9000.f}, {1000.f, 500.f}, Route, Length, 1e9f));
+	CHECK(!Graph.Route({90000.f, 90000.f}, {1000.f, 500.f}, Route, Length));
+
+	FGpsGraph Empty;
+	CHECK(!Empty.Route({0, 0}, {1, 1}, Route, Length));
+	CHECK(Near(DistanceToPolyline({500.f, 300.f}, {{0.f, 0.f}, {1000.f, 0.f}}), 300.f));
+}
+
 int main()
 {
 	TestStrings();
@@ -207,6 +259,7 @@ int main()
 	TestSettings();
 	TestMinimap();
 	TestHudMath();
+	TestGps();
 	if (Failures == 0)
 	{
 		std::printf("ui_core_tests: PASS\n");
