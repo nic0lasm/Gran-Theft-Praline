@@ -61,6 +61,8 @@ void UGTPAudioWorld::OnWorldBeginPlay(UWorld& InWorld)
 	}
 	if (UGTPAudioMix* Mix = UGTPAudioMix::Get(&InWorld))
 	{
+		// The quarter has its own footstep surfaces and ambience zones (GTPAudioMix.h).
+		Mix->UseGridsForMap(InWorld.GetMapName());
 		UGameplayStatics::PushSoundMixModifier(&InWorld, Mix->GetUserMix());
 	}
 	Bed = NewObject<UGTPAmbienceBed>(this);

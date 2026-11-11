@@ -82,6 +82,16 @@ public:
 	/** Ambience zone at a world point (Street outside the grid). */
 	EGTPAmbienceZone SampleZone(const FVector& Location) const;
 
+	/**
+	 * Uses the surface and zone grids made for a map when they exist: L_City_Quarter reads
+	 * Sound/SurfaceMap/quarter.gtpsurf and zones-quarter.gtpsurf (tools/audio/mac_audio_pass.sh
+	 * FOCUS=quarter). Otherwise the grids of UGTPAudioSettings stay. Called by the audio world.
+	 */
+	void UseGridsForMap(const FString& MapName);
+
+	/** "rue-de-la-republique" for L_City_RueDeLaRepublique (also without the PIE prefix). */
+	static FString FocusOfMap(const FString& MapName);
+
 	/** Plays a one-shot at a point through a category (class, attenuation, concurrency). */
 	UAudioComponent* PlayAt(const UObject* WorldContext, USoundBase* Sound, EGTPAudioCategory Category, const FVector& Location, float Volume, float Pitch);
 
@@ -98,6 +108,8 @@ private:
 	void BuildConcurrencyAndAttenuation();
 	void LoadBanks();
 	void LoadSurfaceMap();
+	bool LoadGrids(const FString& SurfaceFile, const FString& ZoneFile, bool bRequired);
+	FString GridsFocus;
 	USoundBase* PickFrom(TArray<TObjectPtr<USoundBase>>& Bank, int32& LastIndex);
 
 	UPROPERTY(Transient)

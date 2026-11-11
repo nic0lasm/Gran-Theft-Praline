@@ -19,7 +19,7 @@
 #
 # Environment: UE_ROOT (default /Users/Shared/Epic Games/UE_5.8), PYTHON (needs
 # numpy and pillow; default: the repo venv .scratch/venv, made if missing),
-# GROUND_DIR (gen/<focus>/ground of the city pipeline), WATER_GEOJSON (BD TOPO water), GAME_ARGS (extra game
+# FOCUSES (default "rue-de-la-republique quarter"), GROUND_DIR (gen/<focus>/ground, only with one focus), WATER_GEOJSON (BD TOPO water), GAME_ARGS (extra game
 # arguments, e.g. "-PoliceMax=2"), AB_SECONDS (default 120), VIDEO_SECONDS (default 60).
 # Output of check: Builds/<version>/evidence/audio-<timestamp>/
 set -euo pipefail
@@ -29,7 +29,8 @@ project="$repo/GranTheftPraline/GranTheftPraline.uproject"
 ue_root="${UE_ROOT:-/Users/Shared/Epic Games/UE_5.8}"
 cmd="$ue_root/Engine/Binaries/Mac/UnrealEditor-Cmd"
 stage="$repo/.scratch/audio"
-focus="rue-de-la-republique"
+# Maps with their own footstep surfaces and ambience zones (UGTPAudioMix::UseGridsForMap).
+focuses="${FOCUSES:-rue-de-la-republique quarter}"
 
 die() {
   echo "mac_audio_pass: $*" >&2
@@ -77,23 +78,29 @@ prepare() {
   "$py" -I "$repo/tools/audio/make_voices_ui.py" "$stage/sfx"
   "$py" -I "$repo/tools/audio/make_places.py" "$stage/sfx"
 
-  echo "== surface grid"
-  local ground="${GROUND_DIR:-$repo/assets/geo/processed/presqu-ile/gen/$focus/ground}"
-  if ! test -f "$ground/T_GroundMask.png"; then
-    echo "no ground mask in $ground: generating it (tools/city/ground_mask.py)"
-    "$py" "$repo/tools/city/ground_mask.py" --focus "$focus"
-  fi
-  "$py" -I "$repo/tools/audio/surface_map.py" --ground "$ground" --focus "$focus"
-
-  echo "== ambience bed loops and zone grid"
+  echo "== ambience bed loops"
   rm -rf "$stage/ambience"
   "$py" -I "$repo/tools/audio/make_ambiences.py" "$stage/ambience"
+
   local water="${WATER_GEOJSON:-$repo/assets/geo/processed/presqu-ile/water.geojson}"
-  if test -f "$water"; then
-    "$py" -I "$repo/tools/audio/zone_map.py" --ground "$ground" --water "$water" --focus "$focus"
-  else
-    echo "no $water: no zone grid, the street loop plays everywhere"
-  fi
+  local focus ground
+  for focus in $focuses; do
+    echo "== surface and zone grids: $focus"
+    ground="${GROUND_DIR:-$repo/assets/geo/processed/presqu-ile/gen/$focus/ground}"
+    if ! test -f "$ground/T_GroundMask.png"; then
+      echo "no ground mask in $ground: generating it (tools/city/ground_mask.py)"
+      if ! "$py" "$repo/tools/city/ground_mask.py" --focus "$focus"; then
+        echo "no ground mask for $focus (city not generated?): this map keeps the default grids"
+        continue
+      fi
+    fi
+    "$py" -I "$repo/tools/audio/surface_map.py" --ground "$ground" --focus "$focus"
+    if test -f "$water"; then
+      "$py" -I "$repo/tools/audio/zone_map.py" --ground "$ground" --water "$water" --focus "$focus"
+    else
+      echo "no $water: no zone grid, the street loop plays everywhere"
+    fi
+  done
 
   echo "== import into /Game/Sound/SFX and /Game/Sound/Ambience"
   GTP_AUDIO_SRC="$stage/sfx" run_commandlet "$repo/tools/audio/unreal/import_sounds.py" | tee "$stage/import.log"

@@ -409,27 +409,80 @@ void UGTPAudioMix::LoadBanks()
 void UGTPAudioMix::LoadSurfaceMap()
 {
 	const UGTPAudioSettings* Settings = GetDefault<UGTPAudioSettings>();
+	LoadGrids(Settings->SurfaceMapFile, Settings->ZoneMapFile, /*bRequired*/ true);
+}
+
+bool UGTPAudioMix::LoadGrids(const FString& SurfaceFile, const FString& ZoneFile, bool bRequired)
+{
+	const UGTPAudioSettings* Settings = GetDefault<UGTPAudioSettings>();
+	const FString Path = FPaths::ProjectContentDir() / SurfaceFile;
+	const FString ZonePath = FPaths::ProjectContentDir() / ZoneFile;
+	TArray<uint8> Bytes;
+	TArray<uint8> ZoneBytes;
+	const bool bSurface = FFileHelper::LoadFileToArray(Bytes, *Path, FILEREAD_Silent);
+	const bool bZones = FFileHelper::LoadFileToArray(ZoneBytes, *ZonePath, FILEREAD_Silent);
+	if (!bRequired && !bSurface && !bZones)
 	{
-		const FString ZonePath = FPaths::ProjectContentDir() / Settings->ZoneMapFile;
-		TArray<uint8> ZoneBytes;
-		if (FFileHelper::LoadFileToArray(ZoneBytes, *ZonePath, FILEREAD_Silent) && ZoneMap.Load(ZoneBytes.GetData(), ZoneBytes.Num()))
+		return false; // no grid made for this map: keep the current ones
+	}
+	if (bZones && ZoneMap.Load(ZoneBytes.GetData(), ZoneBytes.Num()))
+	{
+		GTP_TRACE(LogGTPAudio, TEXT("[Audio] zone map %s: %d x %d cells"), *ZoneFile, ZoneMap.GetWidth(), ZoneMap.GetHeight());
+	}
+	else
+	{
+		ZoneMap = FGTPSurfaceMap();
+		GTP_TRACE(LogGTPAudio, TEXT("[Audio] no zone map at %s: street ambience everywhere"), *ZonePath);
+	}
+	if (!bSurface || !SurfaceMap.Load(Bytes.GetData(), Bytes.Num()))
+	{
+		SurfaceMap = FGTPSurfaceMap();
+		GTP_TRACE(LogGTPAudio, TEXT("[Audio] no surface map at %s: the city ground counts as %s"), *Path, *EnumName(Settings->DefaultSurface));
+		return true;
+	}
+	GTP_TRACE(LogGTPAudio, TEXT("[Audio] surface map %s: %d x %d cells of %.0f cm"), *SurfaceFile,
+		SurfaceMap.GetWidth(), SurfaceMap.GetHeight(), SurfaceMap.GetCellCm());
+	return true;
+}
+
+FString UGTPAudioMix::FocusOfMap(const FString& MapName)
+{
+	FString Name = MapName;
+	// PIE worlds are named UEDPIE_<n>_<map>.
+	if (Name.StartsWith(TEXT("UEDPIE_")))
+	{
+		int32 Second = INDEX_NONE;
+		const FString Rest = Name.Mid(7);
+		if (Rest.FindChar(TEXT('_'), Second))
 		{
-			GTP_TRACE(LogGTPAudio, TEXT("[Audio] zone map %s: %d x %d cells"), *Settings->ZoneMapFile, ZoneMap.GetWidth(), ZoneMap.GetHeight());
-		}
-		else
-		{
-			GTP_TRACE(LogGTPAudio, TEXT("[Audio] no zone map at %s: street ambience everywhere"), *ZonePath);
+			Name = Rest.Mid(Second + 1);
 		}
 	}
-	const FString Path = FPaths::ProjectContentDir() / Settings->SurfaceMapFile;
-	TArray<uint8> Bytes;
-	if (!FFileHelper::LoadFileToArray(Bytes, *Path, FILEREAD_Silent) || !SurfaceMap.Load(Bytes.GetData(), Bytes.Num()))
+	Name.RemoveFromStart(TEXT("L_City_"));
+	FString Focus;
+	for (int32 Index = 0; Index < Name.Len(); ++Index)
 	{
-		GTP_TRACE(LogGTPAudio, TEXT("[Audio] no surface map at %s: the city ground counts as %s"), *Path, *EnumName(Settings->DefaultSurface));
+		const TCHAR Char = Name[Index];
+		if (FChar::IsUpper(Char) && Index > 0)
+		{
+			Focus.AppendChar(TEXT('-'));
+		}
+		Focus.AppendChar(FChar::ToLower(Char));
+	}
+	return Focus;
+}
+
+void UGTPAudioMix::UseGridsForMap(const FString& MapName)
+{
+	const FString Focus = FocusOfMap(MapName);
+	if (Focus.IsEmpty() || Focus == GridsFocus)
+	{
 		return;
 	}
-	GTP_TRACE(LogGTPAudio, TEXT("[Audio] surface map %s: %d x %d cells of %.0f cm"), *Settings->SurfaceMapFile,
-		SurfaceMap.GetWidth(), SurfaceMap.GetHeight(), SurfaceMap.GetCellCm());
+	if (LoadGrids(FString::Printf(TEXT("Sound/SurfaceMap/%s.gtpsurf"), *Focus), FString::Printf(TEXT("Sound/SurfaceMap/zones-%s.gtpsurf"), *Focus), false))
+	{
+		GridsFocus = Focus;
+	}
 }
 
 EGTPAmbienceZone UGTPAudioMix::SampleZone(const FVector& Location) const
