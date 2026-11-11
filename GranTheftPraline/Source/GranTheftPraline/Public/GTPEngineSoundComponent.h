@@ -24,7 +24,11 @@ public:
 	/** Samples rendered so far by the audio thread (read by the game thread for the log). */
 	int64 GetRenderedSamples() const { return RenderedSamples.load(std::memory_order_relaxed); }
 
+	/** From EndPlay: zeros only from now on (the mixer may pull one more block). */
+	void Silence() { bSilenced.store(true, std::memory_order_release); }
+
 private:
+	std::atomic<bool> bSilenced{false};
 	std::atomic<int64> RenderedSamples{0};
 	TSharedPtr<FGTPEngineSynth, ESPMode::ThreadSafe> Synth;
 	TArray<float> Scratch;

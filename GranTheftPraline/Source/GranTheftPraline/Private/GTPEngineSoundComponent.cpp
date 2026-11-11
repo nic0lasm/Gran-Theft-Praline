@@ -17,7 +17,7 @@ int32 UGTPEngineSoundWave::GeneratePCMData(uint8* PCMData, const int32 SamplesNe
 {
 	// Called on the audio render thread; the synth only reads atomics written by the game thread.
 	int16* Out = reinterpret_cast<int16*>(PCMData);
-	if (!Synth.IsValid() || SamplesNeeded <= 0)
+	if (!Synth.IsValid() || SamplesNeeded <= 0 || bSilenced.load(std::memory_order_acquire))
 	{
 		FMemory::Memzero(PCMData, SamplesNeeded * sizeof(int16));
 		return SamplesNeeded * sizeof(int16);
@@ -96,6 +96,13 @@ void UGTPEngineSoundComponent::BeginPlay()
 void UGTPEngineSoundComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	StopEngine();
+	// Also stops an engine still fading out after the voice budget took it away.
+	Stop();
+	if (EngineWave)
+	{
+		EngineWave->Silence();
+	}
+	SetComponentTickEnabled(false);
 	Super::EndPlay(EndPlayReason);
 }
 
