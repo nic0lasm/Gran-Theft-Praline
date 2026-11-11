@@ -23,15 +23,20 @@
   Firewall needs no inbound rule on the PC. (The Mac side must accept the
   incoming connection on its port.)
 
-  Usage: powershell -ExecutionPolicy Bypass -File tools\build\fetch-content-win.ps1 -Url http://<mac-ip>:<port>/Content.tar -Sha256 <hex> [-Dest <dir>] [-MaxHours 12] [-DryRun]
+  Usage: powershell -ExecutionPolicy Bypass -File tools\build\fetch-content-win.ps1 -Url http://<mac-ip>:<port>/Content.tar [-Sha256 <hex>] [-WaitMinutes 30] [-Dest <dir>] [-MaxHours 12] [-DryRun]
     -Url          archive URL served by the Mac
-    -Sha256       expected SHA-256 of the archive (64 hex characters)
+    -Sha256       expected SHA-256 of the archive (64 hex characters); when
+                  omitted, the size is checked against the server and the
+                  whole archive is listed with tar.exe
+    -WaitMinutes  wait up to this long for the server (it answers once the
+                  archive is written; the size must be stable for 1 min)
     -Dest         extraction folder (default: <clone>\GranTheftPraline; the
                   archive holds Content\...)
     -TransferDir  download folder (default: transfer\, next to the clone)
     -MaxHours     give up after this many hours of retries (default 12)
     -PauseSeconds wait between two curl runs when the server is away (default 60)
     -MinFreeGB    free space required on the download drive (default 70)
+    -LimitRate    curl --limit-rate value, e.g. 60m, to spare the Mac during measurements
     -DryRun       resolve paths, check disk space, print the commands, run nothing
 
   Exit code: 0 done, 1 error, 2 gave up (time limit).
@@ -39,7 +44,9 @@
 [CmdletBinding()]
 param(
   [Parameter(Mandatory = $true)][string]$Url,
-  [Parameter(Mandatory = $true)][string]$Sha256,
+  [string]$Sha256 = '',
+  [int]$WaitMinutes = 0,
+  [string]$LimitRate = '',
   [string]$Dest = '',
   [string]$TransferDir = '',
   [double]$MaxHours = 12,
@@ -63,7 +70,17 @@ function FreeGB([string]$Path) {
 }
 
 $Sha256 = $Sha256.Trim().ToLowerInvariant()
-if ($Sha256 -notmatch '^[0-9a-f]{64}$') { Fail 'Sha256 must be 64 hexadecimal characters' }
+if ($Sha256 -ne '' -and $Sha256 -notmatch '^[0-9a-f]{64}$') { Fail 'Sha256 must be 64 hexadecimal characters' }
+
+# Content-Length announced by the server, or -1 when it does not answer.
+function RemoteLength {
+  $head = & curl.exe -sI -f --connect-timeout 10 --max-time 30 $Url 2>$null
+  if ($LASTEXITCODE -ne 0) { return [int64]-1 }
+  foreach ($line in $head) {
+    if ($line -match '^Content-Length:\s*(\d+)') { return [int64]$Matches[1] }
+  }
+  return [int64]-1
+}
 if ($Url -notmatch '^https?://') { Fail "Url must start with http:// or https://: $Url" }
 
 $scriptRepo = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
@@ -80,8 +97,9 @@ $fileName = [IO.Path]::GetFileName(([Uri]$Url).AbsolutePath)
 if (-not $fileName) { $fileName = 'Content.tar' }
 $archive = Join-Path $TransferDir $fileName
 $mapCheck = Join-Path $Dest 'Content\Maps\L_City_RueDeLaRepublique.umap'
-$curlArgs = @('-f', '-L', '-C', '-', '--retry', '20', '--retry-delay', '30', '--retry-all-errors',
+$curlArgs = @('-sS', '-f', '-L', '-C', '-', '--retry', '20', '--retry-delay', '30', '--retry-all-errors',
   '--connect-timeout', '20', '--speed-limit', '1024', '--speed-time', '120', '-o', $archive, $Url)
+if ($LimitRate -ne '') { $curlArgs = @('--limit-rate', $LimitRate) + $curlArgs }
 
 $partial = 0
 if (Test-Path -LiteralPath $archive) { $partial = (Get-Item -LiteralPath $archive).Length }
@@ -107,42 +125,83 @@ if ($DryRun) {
 if ($free -lt $needed) { Fail "only $free GB free on the drive of $TransferDir, about $needed GB needed" }
 New-Item -ItemType Directory -Force -Path $TransferDir, $Dest | Out-Null
 
-function HashOk {
-  if (-not (Test-Path -LiteralPath $archive)) { return $false }
-  $h = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
-  return ($h -eq $Sha256)
+$started = Get-Date
+
+# Optionally wait for the server: it starts once the archive is written, and
+# the size must be the same on two probes one minute apart.
+$expected = [int64]-1
+if ($WaitMinutes -gt 0) {
+  Write-Output "Waiting up to $WaitMinutes min for the server..."
+  $last = [int64]-1
+  while ($true) {
+    $len = RemoteLength
+    if ($len -gt 0 -and $len -eq $last) { $expected = $len; break }
+    if ($len -gt 0) { Write-Output "  $(Get-Date -Format 'HH:mm:ss') server answers, $([math]::Round($len / 1MB)) MB; checking again in 60 s" }
+    else { Write-Output "  $(Get-Date -Format 'HH:mm:ss') no answer yet" }
+    if (((Get-Date) - $started).TotalMinutes -ge $WaitMinutes) { Fail "server not reachable or size not stable after $WaitMinutes min: $Url" 2 }
+    $last = $len
+    Start-Sleep -Seconds $(if ($len -gt 0) { 60 } else { 30 })
+  }
+} else {
+  $expected = RemoteLength
+}
+if ($expected -gt 0) { Write-Output "Archive size on the server: $expected bytes ($([math]::Round($expected / 1GB, 2)) GB)" }
+
+function LocalLength {
+  if (Test-Path -LiteralPath $archive) { return [int64](Get-Item -LiteralPath $archive).Length }
+  return [int64]0
 }
 
-$started = Get-Date
+# Returns '' when the archive is good, else the reason.
+function Verify {
+  if ($Sha256 -ne '') {
+    $h = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($h -ne $Sha256) { return "SHA-256 mismatch (got $h)" }
+    Write-Output "SHA-256 OK: $Sha256" | Out-Host
+    return ''
+  }
+  $size = LocalLength
+  if ($expected -gt 0 -and $size -ne $expected) { return "size $size differs from the server's $expected" }
+  Write-Output "No SHA-256 given: size matches the server ($size bytes); listing the whole archive..." | Out-Host
+  $count = 0
+  & tar.exe -tf $archive | ForEach-Object { $count++ }
+  if ($LASTEXITCODE -ne 0) { return "tar.exe cannot read the whole archive (exit $LASTEXITCODE)" }
+  Write-Output "Archive lists $count entries" | Out-Host
+  return ''
+}
+
 $attempt = 0
 $verified = $false
-if ($partial -gt 0 -and (HashOk)) {
-  Write-Output 'Archive already complete and verified, skipping the download.'
-  $verified = $true
+if ((LocalLength) -gt 0 -and ($Sha256 -ne '' -or (LocalLength) -eq $expected)) {
+  $reason = Verify
+  if ($reason -eq '') { Write-Output 'Archive already complete and verified, skipping the download.'; $verified = $true }
 }
+$lastReport = Get-Date
 while (-not $verified) {
   $attempt++
-  Write-Output "Download attempt $attempt ($(Get-Date -Format 'HH:mm:ss'))"
+  Write-Output "Download attempt $attempt ($(Get-Date -Format 'HH:mm:ss'), $([math]::Round((LocalLength) / 1MB)) MB on disk)"
   & curl.exe @curlArgs
   $code = $LASTEXITCODE
-  if ($code -eq 0) {
-    Write-Output 'Download finished, verifying SHA-256...'
-    if (HashOk) { $verified = $true; break }
-    $size = (Get-Item -LiteralPath $archive).Length
-    Fail "SHA-256 mismatch for $archive ($size bytes). The archive is kept; check the hash given by the Mac, or rename the file to download it again."
+  if ($code -eq 0 -or ($expected -gt 0 -and (LocalLength) -eq $expected)) {
+    Write-Output 'Download finished, verifying...'
+    $reason = Verify
+    if ($reason -eq '') { $verified = $true; break }
+    Fail "$reason. The archive is kept at $archive; rename it to download again."
   }
   if ($code -eq 33) { Fail 'the server does not support resuming (HTTP range requests); serve the archive with a server that does' }
   $hours = ((Get-Date) - $started).TotalHours
   if ($hours -ge $MaxHours) { Fail "gave up after $([math]::Round($hours, 1)) h; run the script again to resume" 2 }
-  $have = 0
-  if (Test-Path -LiteralPath $archive) { $have = (Get-Item -LiteralPath $archive).Length }
-  Write-Output "curl stopped (exit $code) with $([math]::Round($have / 1MB)) MB so far; server away? retrying in $PauseSeconds s"
+  Write-Output "curl stopped (exit $code) with $([math]::Round((LocalLength) / 1MB)) MB so far; server away? retrying in $PauseSeconds s"
   Start-Sleep -Seconds $PauseSeconds
 }
-Write-Output "SHA-256 OK: $Sha256"
+Write-Output "Download done in $([int]((Get-Date) - $started).TotalMinutes) min"
 
-Write-Output "Extracting into $Dest ..."
-& tar.exe -xf $archive -C $Dest
+# The archive may hold Content\... or GranTheftPraline\Content\...
+$first = (& tar.exe -tf $archive | Select-Object -First 1)
+$extractTo = $Dest
+if ($first -match '^(\./)?GranTheftPraline/') { $extractTo = Split-Path -Parent $Dest }
+Write-Output "Extracting into $extractTo (first entry: $first) ..."
+& tar.exe -xf $archive -C $extractTo
 if ($LASTEXITCODE -ne 0) { Fail "tar.exe failed (exit $LASTEXITCODE); the archive is kept at $archive" }
 
 $content = Join-Path $Dest 'Content'
