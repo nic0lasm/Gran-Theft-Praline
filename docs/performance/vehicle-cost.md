@@ -162,7 +162,14 @@ driver. Past the ghost distance, a car does not need to be an actor at all.
   limit, a step is killed and the pass stops. A heartbeat line is written
   every minute. `DRY_RUN=1` checks the paths and guards without Unreal.
 
-## 7. Draw cost of the driven cars (switches for a sweep, not measured yet)
+## 7. Draw cost of the driven cars (swept 11 Nov 2026: not a lever)
+
+Swept on 11 Nov 2026 (candidate 09429f1, M1, fixed camera, 75 s per case, 16
+driven and 24 far cars, no police): all six cases stay between 13.5 and 14.4
+ms at p50 and between 25.2 and 27.0 ms at p95, with 100 % of frames under 33
+ms and no hitch. That spread is noise, so neither the ghost distance (60 to
+90 m) nor the full-detail distance (8 to 20 m) is a lever, and the defaults
+(90 m, 20 m) stay. Traffic CPU stays at 0.3 ms or less.
 
 Past about 16 driven cars the GPU is what limits. Two distances set what a
 driven car costs to draw, and both can now be set on the command line, in
