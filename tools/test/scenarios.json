@@ -1,0 +1,20 @@
+{
+  "about": "Named test drives for tools/test/drive_route.py and tools/test/run-drive.sh. Waypoints in Unreal metres (x, y), snapped to the nearest lane (30 m at most) and linked along the lanes. max_kmh caps the lane limits. Coordinates match L_City_RueDeLaRepublique (tools/city/traffic.py, focus rue-de-la-republique).",
+  "drives": [
+    {
+      "name": "grolee-cordeliers",
+      "description": "Rue Grolée to place des Cordeliers and rue Champier: straight street then one junction.",
+      "waypoints_m": [[272, 75], [257, 33], [241, -9], [254, -62]]
+    },
+    {
+      "name": "hopital-bellecour",
+      "description": "Place de la République, rue Bellecordière, rue de la Barre, place Bellecour, rue Édouard Herriot: the longest drive of the quarter, bends and four junctions.",
+      "waypoints_m": [[187, 334], [205, 400], [194, 478], [160, 592], [70, 565], [32, 552], [43, 473], [44, 400]]
+    },
+    {
+      "name": "gentil-bourse",
+      "description": "Rue Gentil then rue de la Bourse to rue du Bât d'Argent: short drive with a right turn.",
+      "waypoints_m": [[292, -230], [258, -226], [258, -265], [250, -353]]
+    }
+  ]
+}

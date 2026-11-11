@@ -33,6 +33,8 @@ jobs:
       - run: pip install -r tools/city/requirements.txt
       - name: Unit tests
         run: python -I -m unittest discover -s tools/city/tests
+      - name: Test drive tools
+        run: python -I -m unittest discover -s tools/test/tests && bash -n tools/test/run-drive.sh
       - name: Unreal import script compiles
         run: python -m py_compile tools/city/unreal/import_city.py tools/city/unreal/place_facades.py tools/city/unreal/shoot_city.py tools/city/unreal/place_props.py tools/city/unreal/merge_detail_materials.py tools/city/unreal/apply_city_materials.py tools/city/ground_mask.py tools/city/riverside.py tools/city/carriageway.py tools/city/parking.py tools/city/cells.py tools/city/cell_budget.py tools/city/landmarks.py tools/city/generate.py tools/city/terrain.py tools/city/props.py tools/city/details.py tools/assets/make_broken.py tools/city/brands.py tools/city/signs.py tools/city/facade_kit/kit.py tools/city/facade_kit/assemble.py tools/city/sign_atlas.py tools/city/cell_proxies.py tools/city/unreal/fix_material_usage.py tools/city/quarter_build.py
       - name: City cell streaming rules outside Unreal
