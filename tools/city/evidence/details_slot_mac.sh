@@ -90,9 +90,13 @@ switched=0
 
 stop_unreal() {
   [ "$dry" = "1" ] && return 0
-  pkill -TERM -f "UnrealEditor( |$)|UnrealBuildTool|AutomationTool|GranTheftPraline.app" 2> /dev/null || true
-  sleep 10
-  pkill -KILL -f "UnrealEditor( |$)|UnrealBuildTool|AutomationTool|GranTheftPraline.app" 2> /dev/null || true
+  local sig pids
+  for sig in TERM KILL; do   # the slot's own editor, UBT and UAT; never a crash reporter or UnrealEditorServices
+    pids="$(ps -axo pid=,command= | grep -E "UnrealEditor( |$)|UnrealBuildTool|AutomationTool|GranTheftPraline.app" \
+      | grep -vE "CrashReportClient|UnrealEditorServices|grep -E" | awk '{print $1}')"
+    if [ -n "$pids" ]; then kill -"$sig" $pids 2> /dev/null || true; fi
+    [ "$sig" = "TERM" ] && sleep 10
+  done
 }
 
 kill_tree() {   # macOS has no setsid/timeout: walk the children by hand
@@ -209,7 +213,7 @@ if [ "$merged" = "1" ]; then total=$((total + 14 + 6)); fi
 say "details slot, $( [ "$dry" = "1" ] && echo "DRY RUN" || echo "Mac" ), output $out; planned about $total min"
 
 # --- prerequisites and checkout ------------------------------------------------------------
-if [ "$dry" != "1" ] && pgrep -f "UnrealEditor( |$)|GranTheftPraline.app" > /dev/null; then
+if [ "$dry" != "1" ] && ps -axo pid=,command= | grep -E "UnrealEditor( |$)|GranTheftPraline.app" | grep -vE "CrashReportClient|UnrealEditorServices|grep -E" > /dev/null; then
   say "an Unreal editor or the game is running: one at a time"; exit 1
 fi
 test -f "$map" || { say "map missing: $map"; exit 1; }
