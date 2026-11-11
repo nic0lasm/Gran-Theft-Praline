@@ -503,6 +503,12 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 				UGTPAIDriverComponent::ProbeAhead(Driven, 4000.f, 90.f), Command))
 			{
 				DriveInputs(Driven, Command.Throttle, Command.Brake, Command.Steering, false);
+				if (bDeterministic && Follower.GetLane() != LastLoggedLane)
+				{
+					// The route is the lane sequence: two runs took the same way when these lines match.
+					LastLoggedLane = Follower.GetLane();
+					GTP_TRACE(LogGTPDemo, TEXT("DemoLane t=%.1f lane=%d"), static_cast<float>(Now - RouteStart), LastLoggedLane);
+				}
 				if (T >= DriveTime)
 				{
 					SetPhase(EPhase::Stop);

@@ -51,6 +51,9 @@ struct GRANTHEFTPRALINE_API FGTPLaneFollower
 
 	bool IsActive() const { return Network.IsValid() && Route.Num() > 0; }
 
+	/** Index of the lane being followed, INDEX_NONE when idle (logged by the deterministic demo to compare two runs). */
+	int32 GetLane() const { return Route.Num() > 0 ? Route[0] : INDEX_NONE; }
+
 	/** From now on, junction choices lead towards Goal (world cm) instead of being random. */
 	void SetGoal(const FVector& InGoal) { Goal = InGoal; bHasGoal = true; }
 	void ClearGoal() { bHasGoal = false; }
