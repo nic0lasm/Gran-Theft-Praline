@@ -101,6 +101,15 @@ redoes these computations outside Unreal and the tests check every state against
   (`NightCloudSampleScale`); A/B: `-NightClouds=volumetric|dome|half`. Night light budget
   overrides: `-NightLights=N`, `-NightShadows=N`, `-NightDistance=cm`, `-LitCars=N`.
   Mac measurement in one command: `tools/environment/slot-night-mac.sh` (`MODE=clouds`).
+  Measured on the M1 (2026-11-11): at night the volumetric clouds are close to invisible
+  (0.9/255 mean image difference without them) but cost 4 ms at p50 and 24 ms at p95.
+  Without the dome assets, `bCloudDomeAtNight` hides the clouds instead of keeping them.
+  At night the dome is dimmed and tinted by `CityLights`. `-Sky=` and `-NightClouds=` keep
+  their last occurrence on the command line. The status file gives `cloud_mode_applied`.
+  m1 default since 2026-11-11: half the cloud samples at night (`NightCloudSampleScale` 0.5),
+  ramped from +5° to −1° of sun (`NightCloudRampStart`, `NightCloudSunElevation`): same
+  mean luminance, −10 ms p95 fixed and −12.6 ms on the night route. `-NightClouds=full` gives
+  the 0.3 behaviour; `MODE=compare` of slot-night-mac.sh takes the before/after images.
 - **Status file**: at start (and on `gtp.EnvStatus`) the system writes
   `Saved/Environment/status.txt` (or `-EnvReport=<path>`): profile, sky switches, light
   function `loaded`/`missing`/`off`, its values and `Describe()`. Shipping writes no log.
