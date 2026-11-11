@@ -396,6 +396,35 @@ cell in its instance data. `GTP_SIGN_ATLAS=0` goes back to separate actors (the 
 376 shells → 8 meshes on the street map. `GTP_SHELL_MERGE=1` makes `import_city.py` place them
 instead of the separate shells (complex collision kept). Off by default.
 
+## Streamed quarter: far proxies, cell levels, streaming (added 2026-11-11, ADR-0010)
+
+First implementation of ADR-0010 option B, prepared and tested off the Mac; not measured yet.
+
+- `tools/city/cell_proxies.py` merges, for each cell, every building shell and landmark
+  volume of `gen/<cell>/` into one far proxy (`gen/quarter/cell_proxies.glb` and `.json`:
+  level, cell box in Unreal cm, triangles). Quarter of 30 cells: 29 proxies (one cell is
+  empty), 29 draws, 242 k triangles; `--check` fails above 100 draws or 400 k triangles.
+  `--near-street rue-de-la-republique --within 60` lists the cells a drive along the street
+  streams in: p0000-m0250, p0000-p0000, p0000-p0250, p0000-p0500, p0000-m0500.
+- `import_city.py` takes `GTP_CITY_LEVEL`: `quarter` builds the persistent `L_City_Quarter`
+  (bible lighting, the terrain reused, the proxies without collision, shadow or distance
+  field, tagged `GTP_CellProxy`, level and `bounds:`), `cell` builds a blank streaming level
+  `L_City_Cell<X><Y>` with only the cell's buildings and landmarks. `place_facades.py` reuses
+  the street kit (`GTP_KIT_FOCUS`, `GTP_KIT_REUSE=1`) so the kit and its materials are not
+  re-imported per cell; `apply_city_materials.py` only gives the cell's shells the existing
+  shell material.
+- `UGTPCityStreaming` (C++) reads the tagged proxies at begin play, plans with
+  `GTPCityStreamingCore.h` (load within 60 m of a cell, keep until 90 m, at most 4 cells,
+  one request per update, nearest first), loads with `ULevelStreamingDynamic`, hides a proxy
+  once its level is visible and shows it before release. `-CityCells=0`, `-CityCellLoad=`,
+  `-CityCellUnload=`, `-CityCellMax=`. Inert on maps without proxies. The rules are checked
+  by `tools/city/tests/city_streaming_test.cpp` (CI).
+- Mac slot: `tools/city/evidence/quarter_slot_mac.sh` (compile, cells, proxies, quarter,
+  5 cells, then the demo route with streaming on and proxies only; time guard per step,
+  heartbeat, content restored by md5 unless `KEEP=1`). About 2 h 10.
+- Not yet: street furniture and details in the cells, a quarter-wide ground mask, the cell
+  levels in the cook list for a package.
+
 ## Limits and next steps
 
 1. **Editor test**: `tools/city/unreal/import_city.py` imports the greybox and

@@ -1,5 +1,6 @@
 #include "GTPCityStreaming.h"
 
+#include "Camera/PlayerCameraManager.h"
 #include "Engine/LevelStreamingDynamic.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
@@ -10,7 +11,7 @@
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
 
-DEFINE_LOG_CATEGORY_STATIC(LogGTPCityStreaming, Log, All);
+DEFINE_LOG_CATEGORY_STATIC(CityStreaming, Log, All);   // lines read "CityStreaming: ..." in every build
 
 namespace
 {

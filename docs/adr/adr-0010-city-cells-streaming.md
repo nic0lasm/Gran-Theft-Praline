@@ -83,3 +83,5 @@ per-cell levels can manage.
 - Traffic lanes, pedestrians and police need cross-cell data: lanes stay zone-wide
   (one `lanes.csv`), actors are kept or recycled when their cell unloads.
 - The street map `L_City_RueDeLaRepublique` stays as the test map until 0.9.
+
+- 2026-11-11: first implementation on feat/city-perf (cell_proxies.py, GTP_CITY_LEVEL, UGTPCityStreaming, quarter_slot_mac.sh), see docs/city/generation.md; not measured yet.

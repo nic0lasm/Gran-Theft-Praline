@@ -411,6 +411,37 @@ aux acteurs séparés (l'avant du banc).
 l'ADR-0010), 376 coques → 8 maillages sur la map de rue. `GTP_SHELL_MERGE=1` les fait poser par
 `import_city.py` à la place des coques séparées (collision complexe conservée). Désactivé par défaut.
 
+## Quartier en streaming : substituts lointains, niveaux de cellule, chargement (ajouté le 2026-11-11, ADR-0010)
+
+Première mise en œuvre de l'option B de l'ADR-0010, préparée et essayée hors Mac ; pas encore mesurée.
+
+- `tools/city/cell_proxies.py` fusionne, par cellule, toutes les coques et les volumes de
+  monuments de `gen/<cellule>/` en un substitut lointain (`gen/quarter/cell_proxies.glb` et
+  `.json` : niveau, boîte de la cellule en cm Unreal, triangles). Quartier de 30 cellules :
+  29 substituts (une cellule est vide), 29 draws, 242 k triangles ; `--check` échoue au-delà
+  de 100 draws ou 400 k triangles. `--near-street rue-de-la-republique --within 60` donne les
+  cellules qu'un trajet dans la rue charge : p0000-m0250, p0000-p0000, p0000-p0250,
+  p0000-p0500, p0000-m0500.
+- `import_city.py` prend `GTP_CITY_LEVEL` : `quarter` construit le niveau persistant
+  `L_City_Quarter` (éclairage de la bible, terrain réutilisé, substituts sans collision, ombre
+  ni champ de distance, étiquetés `GTP_CellProxy`, niveau et `bounds:`), `cell` construit un
+  niveau de streaming vide `L_City_Cell<X><Y>` avec les seuls bâtiments et monuments de la
+  cellule. `place_facades.py` réutilise le kit de la rue (`GTP_KIT_FOCUS`, `GTP_KIT_REUSE=1`),
+  sans le réimporter à chaque cellule ; `apply_city_materials.py` ne fait que donner aux
+  coques de la cellule le matériau de coque existant.
+- `UGTPCityStreaming` (C++) lit les substituts étiquetés au démarrage, planifie avec
+  `GTPCityStreamingCore.h` (chargement à 60 m d'une cellule, conservation jusqu'à 90 m,
+  4 cellules au plus, une demande par mise à jour, la plus proche d'abord), charge par
+  `ULevelStreamingDynamic`, cache un substitut dès que son niveau est visible et le remontre
+  avant de libérer le niveau. `-CityCells=0`, `-CityCellLoad=`, `-CityCellUnload=`,
+  `-CityCellMax=`. Sans effet sur une map sans substituts. Règles vérifiées par
+  `tools/city/tests/city_streaming_test.cpp` (CI).
+- Créneau Mac : `tools/city/evidence/quarter_slot_mac.sh` (compilation, cellules, substituts,
+  quartier, 5 cellules, puis le parcours démo streaming actif et substituts seuls ; garde-temps
+  par étape, signe de vie, contenus restaurés par md5 sauf `KEEP=1`). Environ 2 h 10.
+- Pas encore : mobilier et détails dans les cellules, masque de sol à l'échelle du quartier,
+  niveaux de cellule dans la liste de cuisson pour un package.
+
 ## Limites et suite
 
 1. **Test éditeur** : `tools/city/unreal/import_city.py` importe greybox et
