@@ -65,7 +65,7 @@ mi.set_editor_property("parent", master)
 eal.save_loaded_asset(mi)
 mesh.set_material(0, mi)
 
-sub = unreal.get_editor_subsystem(unreal.StaticMeshEditorSubsystem)
+sub = unreal.get_editor_subsystem(unreal.StaticMeshEditorSubsystem) or unreal.StaticMeshEditorSubsystem()  # None in a commandlet
 if sub is None:
     sub = unreal.StaticMeshEditorSubsystem()
 ns = sub.get_nanite_settings(mesh)

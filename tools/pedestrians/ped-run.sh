@@ -17,14 +17,18 @@ ue="${UE_ROOT:-/Users/Shared/Epic Games/UE_5.8}"
 cmd="$ue/Engine/Binaries/Mac/UnrealEditor-Cmd"
 G=(python3 "$repo/tools/common/guard.py")
 run() { if [ "$DRY" = 1 ]; then printf '+'; printf ' %q' "$@"; echo; else "$@"; fi; }
-for f in "$cmd" "$uproject" "$here/export_ped_source.py" "$here/make_ped_far.sh" "$here/import_ped_far.py" "$repo/tools/common/guard.py"; do
+for f in "$cmd" "$uproject" "$here/export_ped_source.py" "$here/export_ped_editor.py" "$here/make_ped_far.sh" "$here/import_ped_far.py" "$repo/tools/common/guard.py"; do
   test -e "$f" || { echo "missing: $f" >&2; exit 1; }
 done
-if [ "$DRY" = 0 ] && pgrep -f "UnrealEditor|GranTheftPraline-Mac|Blender" >/dev/null; then
+# exact names: "UnrealEditor" alone also matched UnrealEditorServices, always running
+if [ "$DRY" = 0 ] && { pgrep -x UnrealEditor || pgrep -x UnrealEditor-Cmd || pgrep -f "[G]ranTheftPraline-Mac" || pgrep -x Blender; } >/dev/null; then
   echo "an Unreal, the game or Blender is running: stop." >&2; exit 3
 fi
 run "${G[@]}" --name sleep-selftest --max 5 -- sleep 1
-run "${G[@]}" --name ped-export --max 240 -- env GTP_PED_OUT="$out" "$cmd" "$uproject" -run=pythonscript -script="$here/export_ped_source.py" -unattended -nosplash -stdout -FullStdOutLogOutput
+# Editor mode on the empty Entry map: the FBX export of a skeletal mesh crashes in a commandlet
+# (export_ped_editor.py). quit_editor() returns non-zero, so the exported files are the check.
+run "${G[@]}" --name ped-export --max 240 -- env GTP_PED_OUT="$out" "$cmd" "$uproject" /Engine/Maps/Entry -ExecutePythonScript="$here/export_ped_editor.py" -unattended -nosplash -stdout -FullStdOutLogOutput || true
+if [ "$DRY" = 0 ]; then for f in SKM.fbx Anim.fbx; do test -s "$out/$f" || { echo "export failed: $out/$f missing" >&2; exit 1; }; done; fi
 run "$here/make_ped_far.sh" "$out"
 run "${G[@]}" --name ped-import --max 240 -- env GTP_PED_OUT="$out" "$cmd" "$uproject" -run=pythonscript -script="$here/import_ped_far.py" -unattended -nosplash -stdout -FullStdOutLogOutput
 echo "[ped-run] ${DRY:+dry-run }done"

@@ -17,7 +17,8 @@ import unreal
 eal = unreal.EditorAssetLibrary
 mel = unreal.MaterialEditingLibrary
 tools = unreal.AssetToolsHelpers.get_asset_tools()
-sm_sub = unreal.get_editor_subsystem(unreal.StaticMeshEditorSubsystem)
+# get_editor_subsystem() returns None for this subsystem in a commandlet: build it directly then.
+sm_sub = unreal.get_editor_subsystem(unreal.StaticMeshEditorSubsystem) or unreal.StaticMeshEditorSubsystem()
 
 REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 STAGING = os.environ.get("GTP_VEHICLE_STAGING", os.path.join(REPO, "assets", "staging", "vehicles"))

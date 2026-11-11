@@ -46,6 +46,18 @@ def export(asset, path):
     task.set_editor_property("automated", True)
     task.set_editor_property("replace_identical", True)
     task.set_editor_property("prompt", False)
+    # Explicit options, material baking off. This alone does not avoid the crash of the skeletal
+    # mesh export in a commandlet (assertion "MeshObject"): run it in the editor, export_ped_editor.py.
+    opts = unreal.FbxExportOption()
+    for prop, value in (("bake_material_inputs", getattr(getattr(unreal, "FbxMaterialBakeMode", None), "DISABLED", None)),
+                        ("export_morph_targets", False), ("collision", False), ("level_of_detail", False)):
+        if value is None:
+            continue
+        try:
+            opts.set_editor_property(prop, value)
+        except Exception as exc:  # noqa: BLE001 - option names move between engine versions
+            log(f"fbx option {prop} not set: {exc}")
+    task.set_editor_property("options", opts)
     ok = unreal.Exporter.run_asset_export_task(task)
     if not ok or not os.path.exists(path):
         raise RuntimeError(f"export failed: {asset.get_path_name()} -> {path}")

@@ -109,6 +109,9 @@ def main():
 
         bpy.ops.object.select_all(action="DESELECT")
         body.select_set(True)
+        # The source FBX are in centimetres: the vertices hold centimetre values, so export with a
+        # centimetre scene unit (as prepare_vehicle.py does), or Unreal gets everything x100.
+        bpy.context.scene.unit_settings.scale_length = 0.01
         bpy.ops.export_scene.fbx(
             filepath=os.path.join(out, f"{body.name}.fbx"), use_selection=True, object_types={"MESH"},
             apply_unit_scale=True, apply_scale_options="FBX_SCALE_UNITS", path_mode="STRIP",
