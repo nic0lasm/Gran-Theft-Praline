@@ -6,8 +6,9 @@ surfaces of tools/city/surfaces.json, it writes Saved/CityImport/surfaces.json, 
 called by the material generators before gtp_weather, put the textures in:
 
   ground(mat, mask)    M_City_Ground: one layer per ground mask channel (sidewalk, pedestrian
-                       paving G, carriageway R, kerb B off the road); road markings and any
-                       layer without a surface keep the procedural colour
+                       paving G, carriageway R, kerb B off the road), then a large grime
+                       texture over all of it (decal_dirt); road markings and any layer
+                       without a surface keep the procedural colour
   shell(mat)           M_City_Shell: roofs (zinc, or terracotta tiles where the vertex colour
                        is red), stone detail on the walls
   kit(mat)             M_City_Kit: stone or render detail on the slots that take the building
@@ -19,7 +20,7 @@ stays as it is, so the generators run the same on a project without the scans.
 
 M1 budget (no Nanite there, every fetch is paid per pixel): textures capped at 2K by the import,
 shared wrap samplers, one BaseColor + Normal + roughness map per layer: ground mask + 4 layers =
-13 fetches, kit 4 (one is the 1x1 mip used to keep the building hue), shell 6. GTP_SURFACES_LITE=1
+15 fetches with the grime, kit 4 (one is the 1x1 mip used to keep the building hue), shell 6. GTP_SURFACES_LITE=1
 keeps only the colour maps (ground 5, kit 2, shell 2) if the perf pass asks for it.
 """
 
@@ -43,6 +44,9 @@ GROUND_LAYERS = {
     "road": ("asphalt_dry",),
     "kerb": ("granite_kerb",),
 }
+GROUND_GRIME = ("decal_dirt", "decal_cracks")
+GRIME_SCALE = 3.0        # the grime repeats every 3 tiles of its own size (about 6 m)
+GRIME_STRENGTH = 0.5
 ROOF = ("zinc_roof", "slate_roof")
 ROOF_TILE = ("terracotta_tile",)
 STONE = ("limestone_ashlar",)
@@ -213,6 +217,14 @@ def ground(mat, mask):
         return v, vo
 
     col, _ = blend(0, col0, col0_out)
+    gid, grime = _pick(m, GROUND_GRIME)
+    if grime:
+        # Grime as a texture over the whole ground, not as decal actors: one fetch (plus its
+        # 1x1 mip), no draw call, no DBuffer pass on the M1. Large repeat, half strength.
+        uv = g.mul(xy, g.const(1.0 / float(grime.get("tile_cm", 200.0) * GRIME_SCALE)))
+        det = g.lerp(g.const((1.0, 1.0, 1.0)), _detail(g, grime, uv), g.const(GRIME_STRENGTH))
+        col = g.mul(col, det)
+        _used["ground.grime"] = gid
     col = g.lerp(col, col0, mark, b_out=col0_out)         # markings stay procedural
     mel.connect_material_property(col, "", unreal.MaterialProperty.MP_BASE_COLOR)
     if not LITE:
