@@ -1,6 +1,7 @@
 #include "GTPMissionSubsystem.h"
 
 #include "Engine/Engine.h"
+#include "EngineUtils.h"
 #include "Engine/World.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/Pawn.h"
@@ -11,7 +12,9 @@
 #include "Misc/FileHelper.h"
 #include "Misc/Parse.h"
 #include "Misc/Paths.h"
+#include "GTPCombat.h"
 #include "GTPLog.h"
+#include "GTPTraffic.h"
 #include "GTPVehicle.h"
 #include "GTPWanted.h"
 
@@ -123,6 +126,12 @@ void UGTPMissionSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
 	bAutoStart = FParse::Param(FCommandLine::Get(), TEXT("MissionAutoStart"));
+	FString Scripted;
+	if (FParse::Value(FCommandLine::Get(), TEXT("MissionStart="), Scripted))
+	{
+		ScriptedMission = FName(*Scripted);
+		FParse::Value(FCommandLine::Get(), TEXT("MissionStartDelay="), ScriptedDelay);
+	}
 	bTablesOk = LoadTables();
 	if (!bTablesOk)
 	{
@@ -140,11 +149,24 @@ void UGTPMissionSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	}
 	Runner = MakeUnique<GTPMission::FRunner>(&Tables);
 	LoadSave();
+	WreckHandle = AGTPVehicle::OnVehicleWrecked().AddUObject(this, &UGTPMissionSubsystem::HandleVehicleLost);
 	UE_LOG(LogGTPMission, Log, TEXT("mission: %d missions, %d zones"), static_cast<int32>(Tables.Missions.size()), static_cast<int32>(Tables.Zones.size()));
 }
 
 void UGTPMissionSubsystem::Deinitialize()
 {
+	if (WreckHandle.IsValid())
+	{
+		AGTPVehicle::OnVehicleWrecked().Remove(WreckHandle);
+	}
+	if (UGTPWantedComponent* Wanted = UGTPWantedComponent::Find(this))
+	{
+		Wanted->OnArrested.RemoveAll(this);
+	}
+	if (UGTPCombatSubsystem* Combat = GetWorld() ? GetWorld()->GetSubsystem<UGTPCombatSubsystem>() : nullptr)
+	{
+		Combat->OnPlayerDied.RemoveAll(this);
+	}
 	if (Runner && Runner->SaveDirty())
 	{
 		WriteSave();
@@ -326,24 +348,45 @@ GTPMission::FContext UGTPMissionSubsystem::BuildContext()
 	return Ctx;
 }
 
-void UGTPMissionSubsystem::PollWorldEvents(const GTPMission::FContext& Ctx)
+void UGTPMissionSubsystem::BindWorldEvents()
 {
-	// Arrest: the wanted component shows its banner while the player is taken; no delegate on next yet
-	// (feat/wanted-api adds OnArrested, then this poll goes away).
-	if (const UGTPWantedComponent* Wanted = UGTPWantedComponent::Find(this))
+	// Both owners are created after this subsystem, so the binding waits for the first ticks.
+	if (!bWantedBound)
 	{
-		const bool bBusted = Wanted->GetBustedBannerTime() > 0.f;
-		if (bBusted && !bWasBusted)
+		if (UGTPWantedComponent* Wanted = UGTPWantedComponent::Find(this))
 		{
-			ReportEvent(TEXT("player.arrested"));
+			Wanted->OnArrested.AddUObject(this, &UGTPMissionSubsystem::HandleArrested);
+			bWantedBound = true;
 		}
-		bWasBusted = bBusted;
 	}
-	if (Runner->GetStatus() == GTPMission::EStatus::Active && BoundVehicle.IsValid() && BoundVehicle->IsWrecked())
+	if (!bCombatBound)
+	{
+		if (UGTPCombatSubsystem* Combat = GetWorld()->GetSubsystem<UGTPCombatSubsystem>())
+		{
+			Combat->OnPlayerDied.AddUObject(this, &UGTPMissionSubsystem::HandlePlayerDied);
+			bCombatBound = true;
+		}
+	}
+}
+
+void UGTPMissionSubsystem::HandleArrested()
+{
+	ReportEvent(TEXT("player.arrested"));
+}
+
+void UGTPMissionSubsystem::HandlePlayerDied(const FVector& Where)
+{
+	(void)Where;
+	ReportEvent(TEXT("player.died"));
+}
+
+void UGTPMissionSubsystem::HandleVehicleLost(AGTPVehicle* Vehicle, EGTPVehicleLoss Loss)
+{
+	(void)Loss;
+	if (Vehicle && !BoundTag.IsNone() && Vehicle->Tags.Contains(BoundTag) && Runner && Runner->GetStatus() == GTPMission::EStatus::Active)
 	{
 		ReportEvent(TEXT("vehicle.destroyed"), BoundTag);
 	}
-	(void)Ctx;
 }
 
 void UGTPMissionSubsystem::Tick(float DeltaTime)
@@ -353,8 +396,15 @@ void UGTPMissionSubsystem::Tick(float DeltaTime)
 	{
 		return;
 	}
+	BindWorldEvents();
+	RunTime += DeltaTime;
+	if (!ScriptedMission.IsNone() && RunTime >= ScriptedDelay)
+	{
+		const FName Id = ScriptedMission;
+		ScriptedMission = NAME_None;
+		StartMission(Id);
+	}
 	const GTPMission::FContext Ctx = BuildContext();
-	PollWorldEvents(Ctx);
 	Runner->Tick(DeltaTime, Ctx);
 	Execute(Runner->TakeCommands());
 
@@ -405,6 +455,26 @@ void UGTPMissionSubsystem::Tick(float DeltaTime)
 	}
 }
 
+void UGTPMissionSubsystem::SpawnMissionVehicle(FName Tag, const FString& ZoneId)
+{
+	for (TActorIterator<AGTPVehicle> It(GetWorld()); It; ++It)
+	{
+		if (It->Tags.Contains(Tag) && !It->IsWrecked())
+		{
+			return; // a car with the tag already exists (placed, or kept from the last attempt)
+		}
+	}
+	const GTPMission::FZone* Zone = Tables.FindZone(ToStd(ZoneId));
+	TActorIterator<AGTPTrafficNetwork> Network(GetWorld());
+	if (!Zone || !Network)
+	{
+		UE_LOG(LogGTPMission, Warning, TEXT("mission: cannot spawn %s (zone %s, traffic network %d)"), *Tag.ToString(), *ZoneId, Network ? 1 : 0);
+		return;
+	}
+	AGTPVehicle* Car = Network->SpawnParkedVehicle(Tag, ToCm(Zone->X, Zone->Y), Zone->RadiusM * 100.f);
+	UE_LOG(LogGTPMission, Log, TEXT("mission: spawn %s near %s: %s"), *Tag.ToString(), *ZoneId, Car ? TEXT("ok") : TEXT("no free spot"));
+}
+
 void UGTPMissionSubsystem::Execute(const std::vector<GTPMission::FCommand>& Commands)
 {
 	using GTPMission::ECommand;
@@ -428,19 +498,14 @@ void UGTPMissionSubsystem::Execute(const std::vector<GTPMission::FCommand>& Comm
 			WaypointZone.Reset();
 			break;
 		case ECommand::EnsureStars:
-			// Never lowers the level. EnsureMinStars(n) of feat/wanted-api replaces this once on next.
+			// Raises the level, never lowers it, no crime attached.
 			if (UGTPWantedComponent* Wanted = UGTPWantedComponent::Find(this))
 			{
-				if (Wanted->GetStars() < Command.Amount)
-				{
-					Wanted->ForceStars(Command.Amount);
-				}
+				Wanted->EnsureMinStars(Command.Amount);
 			}
 			break;
 		case ECommand::SpawnVehicle:
-			// Needs AGTPTrafficNetwork::SpawnParkedVehicle (traffic thread proposal). Until then a car
-			// carrying the tag must exist in the level, or be tagged with GTPMission.TagVehicle.
-			UE_LOG(LogGTPMission, Log, TEXT("mission: needs a vehicle tagged %s near zone %s"), *ToFString(Command.Key), *ToFString(Command.Extra));
+			SpawnMissionVehicle(FName(*ToFString(Command.Key)), ToFString(Command.Extra));
 			break;
 		case ECommand::Checkpoint:
 			WriteSave();

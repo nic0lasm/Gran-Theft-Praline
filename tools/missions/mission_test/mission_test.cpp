@@ -71,7 +71,7 @@ static void TestShippedTables(const std::string& Dir)
 {
 	const FTables T = LoadFolder(Dir);
 	CHECK(T.Errors.empty());
-	CHECK(T.Missions.size() == 3);
+	CHECK(T.Missions.size() == 5);
 	CHECK(T.Find("act_holdup_shop") && T.Find("act_order_car") && T.Find("act_lose_cops"));
 
 	std::set<std::string> Known;
@@ -298,6 +298,51 @@ static void TestLoseCops(const std::string& Dir)
 	CHECK(Get(R.TakeCommands(), ECommand::EnsureStars) != nullptr);
 }
 
+static void TestTrialAndCourier(const std::string& Dir)
+{
+	const FTables T = LoadFolder(Dir);
+	FRunner R(&T);
+	// Time trial: on foot at a checkpoint does not count, in a car it does, one star at the end is fine, two is not.
+	R.Start("act_time_trial");
+	FContext Ctx = At(T, "z_trial_cp1");
+	R.Tick(1.f, Ctx);
+	CHECK(R.GetObjectiveIndex() == 0);
+	Ctx.bInVehicle = true;
+	R.Tick(1.f, Ctx);
+	CHECK(R.GetObjectiveIndex() == 1);
+	Ctx = At(T, "z_trial_cp2");
+	Ctx.bInVehicle = true;
+	R.Tick(1.f, Ctx);
+	Ctx = At(T, "z_trial_cp3");
+	Ctx.bInVehicle = true;
+	Ctx.Stars = 2;
+	R.Tick(1.f, Ctx);
+	CHECK(R.GetStatus() == EStatus::Active);
+	Ctx.Stars = 1;
+	R.Tick(1.f, Ctx);
+	CHECK(R.GetStatus() == EStatus::Succeeded);
+	CHECK(Get(R.TakeCommands(), ECommand::GiveReward)->Amount == 300);
+	R.Acknowledge();
+	R.Tick(61.f, FContext());
+	R.Start("act_time_trial");
+	R.Tick(151.f, FContext());
+	CHECK(R.GetStatus() == EStatus::Failed && R.GetFailReason() == "time");
+	R.Abort();
+
+	// Courier on foot: arriving by car does not count.
+	R.Start("act_courier");
+	Ctx = At(T, "z_garage_fictif");
+	Ctx.bInVehicle = true;
+	R.Tick(1.f, Ctx);
+	CHECK(R.GetObjectiveIndex() == 0);
+	Ctx.bInVehicle = false;
+	R.Tick(1.f, Ctx);
+	CHECK(R.GetObjectiveIndex() == 1);
+	R.Tick(1.f, At(T, "z_refuge_terreaux"));
+	CHECK(R.GetStatus() == EStatus::Succeeded);
+	CHECK(Get(R.TakeCommands(), ECommand::GiveReward)->Amount == 120);
+}
+
 static void TestCheckpointsAndGates(const std::string& Dir)
 {
 	const FTables T = LoadFolder(Dir);
@@ -449,6 +494,7 @@ int main(int Argc, char** Argv)
 	TestFailureAndRetry(Data);
 	TestCarOrder(Data);
 	TestLoseCops(Data);
+	TestTrialAndCourier(Data);
 	TestCheckpointsAndGates(Fixtures);
 	TestSave(Fixtures);
 	TestTableErrors();

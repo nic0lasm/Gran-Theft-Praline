@@ -91,6 +91,20 @@ g++ -std=c++17 -I GranTheftPraline/Source/GranTheftPraline/Public tools/missions
 - **Récompense** : 250 €. Répétable, délai de 60 s.
 - **Dépend de** : recherche (étoiles, état de fouille), trafic (voitures qui poursuivent).
 
+## Scénarios scriptés
+
+`-MissionStart=<id> [-MissionStartDelay=<s>]` lance une mission toute seule après ce délai de jeu : un
+scénario du fil Méthodes peut l'associer à `-TestDrive=<nom> -TestVehicle -SkipTitle` et lire le journal :
+`LogGTPMission: mission: succeeded <id>` ou `failed <id>: <raison>`. Exemple, semer la police :
+`-SkipTitle -MissionStart=act_lose_cops` (le cadre monte à 2 étoiles, le parcours ou le testeur s'échappe).
+
+## Activités 4 et 5 (données seules)
+
+- **Contre-la-montre** (`act_time_trial`) : départ place Bellecour, trois points de contrôle de la rue de la
+  République en voiture, une étoile au plus au dernier, 150 s. 300 €.
+- **Course à pied** (`act_courier`) : départ rue Mercière, à pied jusqu'au garage, puis place des Terreaux,
+  240 s. 120 €.
+
 ## Fait quand (0.9)
 
 Les trois activités jouées de bout en bout, trois fois chacune, en build packagée sans bloquant ;
@@ -107,10 +121,10 @@ puis déplacée) en attendant l'ADR-0013. Tests sans l'interface : `-MissionAuto
 mission en entrant dans sa zone ; console `GTPMission.Start <id>`, `.Retry`, `.Abort`,
 `.TagVehicle <étiquette>` (étiquette la voiture conduite). Délégués pour les autres fils :
 `OnStartAvailable`, `OnObjective`, `OnFailed`, `OnSucceeded`, `OnReward(montant, clé, mission)` ;
-accesseurs `GetWaypoint` et `GetStartMarkers` pour la carte. Manque encore sur `next` : une voiture
-cible étiquetée (proposition trafic `SpawnParkedVehicle`), l'accesseur d'intérieur (intérieur de
-référence, étape 7), `OnArrested` et `EnsureMinStars` (branche police `feat/wanted-api`) ; en
-attendant, l'adaptateur sonde et utilise `ForceStars`. Les zones sont de vrais sommets de rues
+accesseurs `GetWaypoint` et `GetStartMarkers` pour la carte. Branché sur les vraies API du candidat 9 : `OnArrested` et `EnsureMinStars` (police), `OnVehicleWrecked`
+et `SpawnParkedVehicle` (trafic), `OnPlayerDied` (combat). Manque encore : l'accesseur d'intérieur
+(intérieur de référence, étape 7), donc le braquage ne passe pas son premier objectif ; l'`AddMoney` de
+l'économie (la récompense est diffusée sur `OnReward`). Les zones sont de vrais sommets de rues
 nommées des données de la ville (rue de la République, rue Confort, rue Mercière, place des
 Terreaux).
 

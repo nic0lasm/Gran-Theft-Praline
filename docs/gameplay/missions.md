@@ -91,6 +91,20 @@ g++ -std=c++17 -I GranTheftPraline/Source/GranTheftPraline/Public tools/missions
 - **Reward**: 250 €. Repeatable, 60 s cooldown.
 - **Depends on**: wanted (stars, search state), traffic (cars chasing).
 
+## Scripted scenarios
+
+`-MissionStart=<id> [-MissionStartDelay=<s>]` starts a mission by itself once the game has run that long,
+so a scenario of the methods thread can combine it with `-TestDrive=<name> -TestVehicle -SkipTitle` and read
+the log: `LogGTPMission: mission: succeeded <id>` or `failed <id>: <reason>`. Example, lose the police:
+`-SkipTitle -MissionStart=act_lose_cops` (the framework raises 2 stars, the test drive or the tester gets away).
+
+## Activities 4 and 5 (data only)
+
+- **Time trial** (`act_time_trial`): start place Bellecour, three checkpoints along rue de la République in a
+  car, at most one star at the last one, 150 s. 300 €.
+- **Courier run** (`act_courier`): start rue Mercière, on foot to the garage spot, then to place des Terreaux,
+  240 s. 120 €.
+
 ## Done when (0.9)
 
 The three activities played from start to end, three times each, in a packaged build without
@@ -107,9 +121,10 @@ Tests without the interface: `-MissionAutoStart=1` starts a mission on entering 
 console `GTPMission.Start <id>`, `.Retry`, `.Abort`, `.TagVehicle <tag>` (tags the car you drive).
 Delegates for the other threads: `OnStartAvailable`, `OnObjective`, `OnFailed`, `OnSucceeded`,
 `OnReward(amount, runKey, mission)`; getters `GetWaypoint` and `GetStartMarkers` for the map.
-Still missing on `next`: a tagged target car (traffic proposal `SpawnParkedVehicle`), the
-interior id accessor (reference interior, step 7), `OnArrested` and `EnsureMinStars` (police
-branch `feat/wanted-api`); the adapter polls and uses `ForceStars` until then. Zones are real
+Wired to the real APIs of candidate 9: `OnArrested` and `EnsureMinStars` (police), `OnVehicleWrecked` and
+`SpawnParkedVehicle` (traffic), `OnPlayerDied` (combat). Still missing: the interior id accessor (reference
+interior, step 7), so the hold-up cannot start its first objective yet; the economy `AddMoney` (the reward
+is broadcast on `OnReward`). Zones are real
 vertices of named roads of the city data (rue de la République, rue Confort, rue Mercière,
 place des Terreaux).
 

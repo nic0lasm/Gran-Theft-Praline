@@ -22,3 +22,11 @@ mission.fail.vehicle_abandoned	Vous avez abandonné la voiture	You abandoned the
 mission.fail.time	Temps écoulé	Time is up
 mission.retry	Réessayer	Retry
 mission.abandon	Abandonner	Give up
+mission.trial.title	Contre-la-montre	Time trial
+mission.trial.brief	Passez les trois points de contrôle de la rue de la République en voiture, en moins de 150 s.	Drive through the three checkpoints of rue de la République in under 150 s.
+mission.courier.title	Course à pied	Courier run
+mission.courier.brief	Portez un pli à pied jusqu'au garage, puis jusqu'à la place des Terreaux, en moins de 4 minutes.	Carry a parcel on foot to the garage, then to place des Terreaux, in under 4 minutes.
+objective.trial.cp	Point de contrôle suivant	Next checkpoint
+objective.trial.last	Dernier point de contrôle	Last checkpoint
+objective.courier.drop	Rejoignez le garage à pied	Reach the garage on foot
+objective.courier.deliver	Livrez le pli aux Terreaux	Deliver the parcel at the Terreaux

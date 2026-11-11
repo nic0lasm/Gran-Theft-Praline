@@ -4,3 +4,5 @@ id,kind,title_key,brief_key,start_zone,start_prompt_key,repeatable,cooldown_s,re
 act_holdup_shop,activity,mission.holdup.title,mission.holdup.brief,z_start_holdup,mission.start.prompt,1,60,150,0,restart,,
 act_order_car,activity,mission.order.title,mission.order.brief,z_start_order,mission.start.prompt,1,60,400,600,restart,,
 act_lose_cops,activity,mission.flee.title,mission.flee.brief,z_start_flee,mission.start.prompt,1,60,250,300,restart,ensure_stars=2,
+act_time_trial,activity,mission.trial.title,mission.trial.brief,z_start_trial,mission.start.prompt,1,60,300,150,restart,,
+act_courier,activity,mission.courier.title,mission.courier.brief,z_start_courier,mission.start.prompt,1,60,120,240,restart,,

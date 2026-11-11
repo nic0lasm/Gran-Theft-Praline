@@ -396,6 +396,8 @@ private:
 		switch (Objective.Type)
 		{
 		case EObjectiveType::GoTo:
+			if (Objective.Param("in_vehicle", 0.f) != 0.f && !Ctx.bInVehicle) return false;
+			if (Objective.Param("on_foot", 0.f) != 0.f && Ctx.bInVehicle) return false;
 			return InZone(Objective.Target, Ctx) && Ctx.Stars <= static_cast<int>(Objective.Param("max_stars", 5.f));
 		case EObjectiveType::EnterInterior:
 			return !Ctx.Interior.empty() && Ctx.Interior == Objective.Target;
