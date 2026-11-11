@@ -1,0 +1,6 @@
+# One row per mission or activity. Lists use ';', effects are key=value pairs joined by ';'.
+# retry: checkpoint | restart | none. reward_money in euros (whole), paid once per success.
+id,kind,title_key,brief_key,start_zone,start_prompt_key,repeatable,cooldown_s,reward_money,time_limit_s,retry,start_effects,requires
+act_holdup_shop,activity,mission.holdup.title,mission.holdup.brief,z_start_holdup,mission.start.prompt,1,60,150,0,restart,,
+act_order_car,activity,mission.order.title,mission.order.brief,z_start_order,mission.start.prompt,1,60,400,600,restart,,
+act_lose_cops,activity,mission.flee.title,mission.flee.brief,z_start_flee,mission.start.prompt,1,60,250,300,restart,ensure_stars=2,

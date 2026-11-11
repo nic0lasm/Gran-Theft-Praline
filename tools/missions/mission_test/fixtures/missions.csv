@@ -1,0 +1,4 @@
+id,kind,title_key,brief_key,start_zone,start_prompt_key,repeatable,cooldown_s,reward_money,time_limit_s,retry,start_effects,requires
+m_long,mission,t,b,za,p,0,0,500,100,checkpoint,spawn_vehicle=car1@za,
+m_once,mission,t,b,za,p,0,0,10,0,none,,m_long
+m_gate,mission,t,b,za,p,1,30,5,0,restart,,

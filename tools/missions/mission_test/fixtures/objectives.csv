@@ -1,0 +1,6 @@
+mission_id,index,type,target,params,hint_key,checkpoint,time_limit_s,fail_on
+m_long,0,GoTo,za,,h,0,0,
+m_long,1,WaitEvent,ev.one,min=5,h,1,0,ev.bad
+m_long,2,GoTo,zb,max_stars=0,h,0,30,
+m_once,0,WaitEvent,ev.one,,h,0,0,
+m_gate,0,WaitEvent,ev.one,,h,0,0,

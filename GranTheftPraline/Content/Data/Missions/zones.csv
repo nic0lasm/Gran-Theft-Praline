@@ -1,0 +1,10 @@
+# Zones used by the mission tables. Positions are WGS84 (lon, lat) and a radius in metres;
+# the adapter projects them into the level with the city origin (GTPMission::ProjectLocal).
+# Coordinates are working values taken from the map, to be snapped on the street at integration.
+id,lon,lat,radius_m
+z_start_holdup,4.83285,45.75790,6
+z_start_order,4.83370,45.76030,6
+z_start_flee,4.83310,45.76180,6
+z_order_search,4.83380,45.75680,90
+z_garage_fictif,4.83500,45.76250,12
+z_refuge_terreaux,4.83350,45.76750,30
