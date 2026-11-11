@@ -81,8 +81,16 @@ if test "$skip_build" != 1; then
   done
   sums "$proj" > "$out/before.md5"
 fi
+game_ini="$proj/Config/DefaultGame.ini"
+ini_back() {   # the cook list is only widened for the package: DefaultGame.ini goes back as found
+  if test -f "$out/DefaultGame.ini.orig"; then
+    cp "$out/DefaultGame.ini.orig" "$game_ini" && rm -f "$out/DefaultGame.ini.orig"
+    echo "- $(paris) DefaultGame.ini restored" >> "$report"
+  fi
+}
 restore() {
   local rc=$?
+  ini_back
   if test "$skip_build" = 1; then
     echo "- $(paris) benches only: the project content was not touched" >> "$report"
   elif test "${KEEP:-0}" = "1" && test "$rc" = 0; then
@@ -161,9 +169,31 @@ export repo editor project saved
 bench() {  # bench <tag> <game args...>: the packaged demo route on L_City_Quarter
   local tag="$1"; shift
   local before; before="$(date +%s)"
-  rm -f ~/Library/Logs/GranTheftPraline/GranTheftPraline.log 2> /dev/null || true
+  local glog=~/Library/Logs/GranTheftPraline/GranTheftPraline.log
+  rm -f "$glog" 2> /dev/null || true
+  local mark="$out/.bench-$tag"; touch "$mark"
+  set -m
   BUILDS_DIR="$out" GAME_ARGS="/Game/Maps/L_City_Quarter -TestVehicle -DemoDriveTime=$(( ${LAUNCH_S:-120} - 40 )) $*" \
-    "$repo/tools/build/test-build-mac.sh" quarter "${LAUNCH_S:-120}" 0 || true
+    "$repo/tools/build/test-build-mac.sh" quarter "${LAUNCH_S:-120}" 0 > "$out/test-$tag.log" 2>&1 &
+  local tpid=$!
+  set +m
+  # Fail at once when the map does not open (not cooked, missing) instead of timing an empty world.
+  while kill -0 "$tpid" 2> /dev/null; do
+    sleep 2
+    # the game's own log, and the stdout of this bench's runs only (newer than the mark)
+    if grep -qs "Failed to enter\|SkipPackage: /Game/Maps/L_City_Quarter" "$glog" || \
+       find "$out/quarter/evidence" -name stdout.log -newer "$mark" \
+         -exec grep -qs "Failed to enter\|SkipPackage: /Game/Maps/L_City_Quarter" {} \; -print 2> /dev/null | grep -q .; then
+      kill -TERM -- "-$tpid" 2> /dev/null || kill -TERM "$tpid" 2> /dev/null || true
+      pkill -f "GranTheftPraline.app/Contents/MacOS" 2> /dev/null || true
+      echo "- $(paris) bench $tag: L_City_Quarter did not open (Failed to enter / SkipPackage); stopped" >> "$report"
+      { grep -hs "Failed to enter\|SkipPackage" "$glog"
+        find "$out/quarter/evidence" -name stdout.log -newer "$mark" -exec grep -hs "Failed to enter\|SkipPackage" {} \; 2> /dev/null
+      } | head -n 3 | sed 's/^/    /' >> "$report"
+      return 2
+    fi
+  done
+  wait "$tpid" || true
   local csv; csv="$(ls -t "$out"/quarter/evidence/*/frametimes.csv 2> /dev/null | head -n 1)"
   test -n "$csv" && test "$(_mtime_q "$csv")" -ge "$before" || { echo "no frame times for $tag" >&2; return 1; }
   cp "$csv" "$out/frames-$tag.csv"
@@ -208,7 +238,21 @@ if test "$skip_build" != 1; then
     step "$c facades" 600 "$c-facades.log" env "${cellenv[@]}" bash -c 'ue_py place_facades facades_report.json 1200'
     step "$c materials" 180 "$c-materials.log" env "${cellenv[@]}" bash -c 'ue_py apply_city_materials materials_report.json 360'
   done
+  # No cooked map references the quarter: list it and its cells in the cook for this package only.
+  cook_maps="/Game/Maps/L_City_Quarter /Game/Maps/L_City_RueDeLaRepublique"
+  for c in $CELLS; do cook_maps="$cook_maps /Game/Maps/L_City_$(camel "$c")"; done
+  cp "$game_ini" "$out/DefaultGame.ini.orig"
+  python3 - "$game_ini" $cook_maps <<'PY'
+import sys
+path, maps = sys.argv[1], sys.argv[2:]
+s = open(path).read()
+key = "[/Script/UnrealEd.ProjectPackagingSettings]\n"
+assert key in s, "no packaging section in DefaultGame.ini"
+open(path, "w").write(s.replace(key, key + "".join('+MapsToCook=(FilePath="%s")\n' % m for m in maps), 1))
+PY
+  echo "- maps cooked for this package only: $cook_maps" >> "$report"
   step package 1200 package.log env BUILDS_DIR="$out" "$repo/tools/build/package-mac.sh" quarter Development
+  ini_back
   echo "- package: $out/quarter" >> "$report"
 fi
 if test "$build_only" = 1; then
