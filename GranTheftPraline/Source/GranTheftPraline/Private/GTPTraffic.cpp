@@ -644,9 +644,10 @@ void AGTPTrafficNetwork::UpdateDetail(AGTPVehicle* Car, float DistanceToView) co
 		Car->GetComponents<ULightComponent>(CarLights);
 		for (ULightComponent* Light : CarLights)
 		{
-			if (Light->IsVisible() != bLit)
+			// Affects-world, not visibility: the environment switches visibility for the nearest lit cars.
+			if (static_cast<bool>(Light->bAffectsWorld) != bLit)
 			{
-				Light->SetVisibility(bLit, false);
+				Light->SetAffectsWorld(bLit);
 			}
 		}
 	}
