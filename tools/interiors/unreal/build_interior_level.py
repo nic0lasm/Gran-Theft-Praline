@@ -28,6 +28,7 @@ Report: Saved/InteriorBuild/<id>.json (counts per group, missing meshes, timings
 import json
 import math
 import os
+import shutil
 import sys
 import time
 
@@ -224,21 +225,34 @@ def place_anchor(spec, report):
 
 def remove_previous(path, report):
     """The level is generated, never edited by hand, so a rebuild starts from zero.
-    A loaded level cannot be deleted: switch to an unsaved blank map first, then
-    delete the map and its one-file-per-actor folder."""
+    The editor API refuses to delete a map package the asset registry already holds, even in a
+    fresh commandlet, so the generated files are removed from disk before anything loads them:
+    the .umap and its one-file-per-actor folders. Only files under Content/Interiors are touched."""
     if not eal.does_asset_exist(path):
         return True
-    unreal.EditorLoadingAndSavingUtils.new_blank_map(False)
-    eal.delete_asset(path)
+    content = unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_content_dir())
     package, name = path.rsplit("/", 1)
-    external = "/Game/__ExternalActors__" + package[len("/Game"):] + "/" + name
-    for folder in (external, external.replace("__ExternalActors__", "__ExternalObjects__")):
-        if eal.does_directory_exist(folder):
-            eal.delete_directory(folder)
-    if eal.does_asset_exist(path):
-        report["errors"].append("cannot delete previous " + path + " (open in another editor?)")
+    relative = package[len("/Game/"):]
+    if not relative.startswith("Interiors"):
+        report["errors"].append("refusing to delete outside /Game/Interiors: " + path)
         return False
-    log("previous %s deleted" % path)
+    targets = [os.path.join(content, relative, name + ".umap")]
+    for folder in ("__ExternalActors__", "__ExternalObjects__"):
+        targets.append(os.path.join(content, folder, relative, name))
+    unreal.EditorLoadingAndSavingUtils.new_blank_map(False)
+    unreal.SystemLibrary.collect_garbage()
+    for target in targets:
+        if os.path.isdir(target):
+            shutil.rmtree(target)
+        elif os.path.isfile(target):
+            os.remove(target)
+    registry = unreal.AssetRegistryHelpers.get_asset_registry()
+    registry.scan_paths_synchronous(["/Game/" + relative], True)
+    unreal.SystemLibrary.collect_garbage()
+    if eal.does_asset_exist(path) or os.path.exists(targets[0]):
+        report["errors"].append("cannot delete previous " + path)
+        return False
+    log("previous %s deleted from disk" % path)
     return True
 
 
