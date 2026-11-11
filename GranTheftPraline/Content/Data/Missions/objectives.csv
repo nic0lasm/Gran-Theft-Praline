@@ -1,0 +1,11 @@
+# One row per objective, in order (index from 0). Objective 0 is always a resume point;
+# checkpoint=1 makes the objective a resume point too. fail_on: events that fail the mission
+# on this objective, on top of player.arrested and player.died (name@bound = only for the mission vehicle).
+mission_id,index,type,target,params,hint_key,checkpoint,time_limit_s,fail_on
+act_holdup_shop,0,EnterInterior,fastfood_bellecour,,objective.holdup.enter,0,0,
+act_holdup_shop,1,WaitEvent,holdup.cash_taken,min=1,objective.holdup.take_cash,0,0,
+act_holdup_shop,2,LoseWanted,,hold_s=2,objective.holdup.escape,0,180,
+act_order_car,0,EnterVehicle,order_sedan_blue,search_zone=z_order_search,objective.order.steal,0,0,vehicle.destroyed@bound
+act_order_car,1,DeliverVehicle,z_garage_fictif,min_health=0.5;abandon_m=150;abandon_s=20,objective.order.deliver,0,0,vehicle.destroyed@bound
+act_lose_cops,0,LoseWanted,,hold_s=2,objective.flee.lose,0,0,
+act_lose_cops,1,GoTo,z_refuge_terreaux,max_stars=0,objective.flee.reach,0,0,
