@@ -35,7 +35,6 @@ static FTables LoadFolder(const std::string& Dir)
 {
 	FTables Tables;
 	LoadTables(ReadFile(Dir + "/missions.csv"), ReadFile(Dir + "/objectives.csv"), ReadFile(Dir + "/zones.csv"), Tables);
-	ProjectZones(Tables, 4.8320, 45.7578);
 	for (const std::string& Error : Tables.Errors)
 	{
 		std::printf("table error: %s\n", Error.c_str());
@@ -419,7 +418,7 @@ static void TestTableErrors()
 			   "d,2,WaitEvent,x,,h,0,0,\n"
 			   "zzz,0,WaitEvent,x,,h,0,0,\n"
 			   "short,row\n",
-			   "id,lon,lat,radius_m\nz,4.8,45.7,10\nz,4.8,45.7,10\nbad,x,45.7,10\n",
+			   "id,x_m,y_m,radius_m\nz,4.8,45.7,10\nz,4.8,45.7,10\nbad,x,45.7,10\n",
 			   T);
 	std::string All;
 	for (const std::string& E : T.Errors) All += E + "\n";
@@ -435,15 +434,6 @@ static void TestTableErrors()
 	CHECK(All.find("unknown start zone 'nozone'") != std::string::npos);
 	CHECK(All.find("bad requires 'ghost'") != std::string::npos);
 	CHECK(All.find("unknown zone 'nozone'") != std::string::npos);
-}
-
-static void TestProjection()
-{
-	float X = 0, Y = 0;
-	ProjectLocal(4.8320, 45.7578, 4.8320, 45.7578, X, Y);
-	CHECK(std::fabs(X) < 1e-3f && std::fabs(Y) < 1e-3f);
-	ProjectLocal(4.8320, 45.7678, 4.8320, 45.7578, X, Y); // 0.01 deg north ~ 1113 m
-	CHECK(std::fabs(Y - 1113.2f) < 1.f && std::fabs(X) < 1e-3f);
 }
 
 int main(int Argc, char** Argv)
@@ -462,7 +452,6 @@ int main(int Argc, char** Argv)
 	TestCheckpointsAndGates(Fixtures);
 	TestSave(Fixtures);
 	TestTableErrors();
-	TestProjection();
 	std::printf(Failures ? "mission_test: %d failure(s)\n" : "mission_test: ok\n", Failures);
 	return Failures ? 1 : 0;
 }
