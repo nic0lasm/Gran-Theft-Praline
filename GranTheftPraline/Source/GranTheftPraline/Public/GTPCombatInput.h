@@ -8,11 +8,13 @@ class APlayerController;
 class UInputAction;
 class UInputMappingContext;
 class UGTPWeaponComponent;
+class UGTPCombatMeleeComponent;
 struct FInputActionValue;
 
 /**
  * The player's combat inputs (ADR-0011), built in code like the vehicle inputs so no
- * input asset is needed: aim, fire, reload, draw or holster, swap shoulder. The mapping
+ * input asset is needed: aim, fire, reload, draw or holster, swap shoulder, dodge. With no gun drawn,
+ * fire punches and aim guards. The mapping
  * context is present only while the player is on foot (UpdateContext), and the actions
  * never consume their keys, so driving (triggers) is untouched. Remapping is the
  * interface thread's (Enhanced Input user settings over these actions).
@@ -40,6 +42,8 @@ public:
 	UPROPERTY(Transient)
 	TObjectPtr<UInputAction> Shoulder;
 	UPROPERTY(Transient)
+	TObjectPtr<UInputAction> DodgeAction;
+	UPROPERTY(Transient)
 	TObjectPtr<UInputMappingContext> Context;
 
 	/** Above the on-foot contexts, below nothing that matters: the actions do not consume keys. */
@@ -47,6 +51,9 @@ public:
 
 private:
 	UGTPWeaponComponent* GetWeapon() const;
+	/** The fists, when no gun is drawn. */
+	UGTPCombatMeleeComponent* GetFists() const;
+	void OnDodge();
 	void OnAimStarted();
 	void OnAimEnded();
 	void OnFireStarted();
