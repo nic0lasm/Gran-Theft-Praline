@@ -84,6 +84,7 @@ private:
 	double Accumulator = 0.0;
 	double LastWorldTime = -1.0;
 	int32 LastLoggedSlot = -1;
+	int32 LastLoggedLane = INDEX_NONE;
 	/** Movement input held between fixed steps and applied every frame. */
 	FVector HeldMove = FVector::ZeroVector;
 	FVector WalkOrigin = FVector::ZeroVector;

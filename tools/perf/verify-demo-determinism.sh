@@ -5,7 +5,8 @@
 #   build_dir   folder holding GranTheftPraline.app
 #   duration_s  default 90
 # Example: tools/perf/verify-demo-determinism.sh Builds/perf-m1/0.3 90
-# Exit code 0 on PASS (every 5 s instant within 150 cm / 10 degrees, same phases).
+# Exit code 0 on PASS: same lane sequence, and every 5 s instant within 600 cm / 45 degrees with the
+# same phases (vehicle physics is not bit-identical, so the route is judged by its lanes).
 set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
