@@ -86,6 +86,12 @@ still pose from `make_ped_far.py` is the fallback; `-PedFar=0` turns the layer o
 enough once that mesh is imported. Impostor sprites stay a fallback if the vertex
 animation proves too dear on Metal.
 
+Fallback with no imported mesh: if `FarCrowdMesh` cannot be loaded, far people are drawn
+as a 45 cm by 175 cm dark column (the engine's cylinder: nothing to import). It reads as a
+person beyond 45 m and costs almost nothing; `-PedFarSilhouette=1` forces it. Switch it off
+with `bFarSilhouetteFallback=False`. The vertex animation and the baked pose replace it when
+their mesh exists.
+
 ## Budget (performance thread, 2026-11-10)
 
 Target: 20 drawn people at most 2 ms GPU and 1 ms CPU; shadows only inside 20 m,

@@ -91,6 +91,12 @@ par défaut `/Game/Characters/Far/SM_PedFar_A`, donc `-PedFar=N` suffit une fois
 maillage importé. Les sprites imposteurs restent un repli si l'animation de sommets
 coûte trop cher sur Metal.
 
+Repli sans maillage importé : si `FarCrowdMesh` ne se charge pas, les lointains sont
+dessinés en colonne sombre de 45 cm sur 175 cm (le cylindre du moteur : rien à
+importer). Au-delà de 45 m cela se lit comme une personne et ne coûte presque rien ;
+`-PedFarSilhouette=1` la force. On la coupe avec `bFarSilhouetteFallback=False`. L'animation
+de sommets et la pose cuite la remplacent quand leur maillage existe.
+
 ## Budget (fil performance, 2026-11-10)
 
 Cible : 20 personnes dessinées au plus à 2 ms de GPU et 1 ms de CPU ; ombres

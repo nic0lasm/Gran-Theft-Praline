@@ -184,6 +184,13 @@ protected:
 	UPROPERTY(Config)
 	int32 FarCrowdCount = 0;
 
+	/**
+	 * With no usable FarCrowdMesh, far people are drawn as a plain dark column of person size
+	 * (the engine's cylinder, no import needed). -PedFarSilhouette=1 forces it (to measure).
+	 */
+	UPROPERTY(Config)
+	bool bFarSilhouetteFallback = true;
+
 	/** Static mesh of a person in a walking pose (baked from the skeletal mesh in the editor). */
 	UPROPERTY(Config)
 	FSoftObjectPath FarCrowdMesh = FSoftObjectPath(TEXT("/Game/Characters/Far/SM_PedFar_A.SM_PedFar_A"));
@@ -276,6 +283,8 @@ private:
 		/** Index of the partner this person follows (a pair walking together), -1 = walks alone. */
 		int32 Leader = -1;
 		float FarAccumulated = 0.f;
+	FVector FarScale = FVector::OneVector;
+	float FarZOffset = 0.f;
 		GTPWalk::FStepResult LastResult;
 		GTPWalk::FPoint Pos;
 		GTPWalk::FPoint Dir;

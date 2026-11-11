@@ -1,0 +1,140 @@
+#!/usr/bin/env bash
+# Perf slot 6: near crowd of 20, 50 and 100 pedestrians with the cost levers (mesh LOD, cheap
+# rendering, animation rate) and the far-crowd silhouette fallback, in one command. No mesh
+# import, no editor, no copy outside the project.
+#
+# Usage (from the root of the GTAL-build clone, nothing else running; the path may contain spaces):
+#   caffeinate -dimsu tools/perf/slot6-crowd-near-mac.sh
+# Environment:
+#   DRY_RUN=1          check prerequisites and syntax, print the plan, run nothing heavy
+#   DURATION           seconds per bench run (default 90)
+#   BRANCH             code to build (default feat/pedestrians-slot6 = feat/perf-cumul + the silhouette fallback)
+#   EXPECTED_MAP_MD5   map fingerprint required (default 1c92de0f813b89cb40aeb000cd92a1de)
+#   UE_ROOT            engine folder, read by tools/build/package-mac.sh (its own default applies)
+# Output: Builds/perf-slot6/slot6-<stamp>/ (REPORT.md, steps.log, heartbeat.txt, one folder per case)
+#
+# Planned 45 min at most: environment assets 5-10, package ~20 (incremental), control launch 1,
+# eight 90 s cases ~20. Every step is stopped at twice its planned time; a heartbeat line every
+# 10 minutes; the map fingerprint is checked before and after (restored from a copy if changed);
+# the clone goes back to its original HEAD on exit.
+# Cases: n0; n20, n50, n100 (all levers on); n50 and n100 with each lever off in turn (n50-nocheap,
+# n50-noanimrate, n100-nospread); n50-far80 (50 near + 80 far silhouettes).
+set -euo pipefail
+
+repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$repo"
+stamp="$(date +%Y%m%d-%H%M%S)"
+out="$repo/Builds/perf-slot6/slot6-$stamp"
+branch="${BRANCH:-feat/pedestrians-slot6}"
+duration="${DURATION:-90}"
+expected_md5="${EXPECTED_MAP_MD5:-1c92de0f813b89cb40aeb000cd92a1de}"
+dry="${DRY_RUN:-0}"
+map="$repo/GranTheftPraline/Content/Maps/L_City_RueDeLaRepublique.umap"
+mkdir -p "$out"
+report="$out/REPORT.md"
+
+log() { printf '%s %s\n' "$(date +%H:%M:%S)" "$*" | tee -a "$out/steps.log"; }
+die() { log "ABORT: $*"; printf '\n**ABORTED:** %s\n' "$*" >> "$report"; exit 1; }
+md5of() { if command -v md5 > /dev/null 2>&1; then md5 -q "$1"; else md5sum "$1" | cut -d' ' -f1; fi; }
+sizeof() { stat -f %z "$1" 2> /dev/null || stat -c %s "$1" 2> /dev/null || echo ?; }
+# Time limit without coreutils `timeout`: perl alarm + exec; arguments pass as they are.
+limit() { local s="$1"; shift; perl -e 'alarm shift; exec @ARGV or die "exec: $!"' "$s" "$@"; }
+
+( while sleep 600; do printf "%s alive\n" "$(date +%H:%M:%S)" >> "$out/heartbeat.txt"; done ) > /dev/null 2>&1 &
+hb=$!
+orig_head="$(git rev-parse --abbrev-ref HEAD)"
+test "$orig_head" != "HEAD" || orig_head="$(git rev-parse HEAD)"
+map_before=""
+cleanup() {
+  kill "$hb" 2> /dev/null || true
+  if test "$dry" != "1"; then
+    pkill -f "GranTheftPraline-Mac" 2> /dev/null || true
+    pkill -f "UnrealEditor( |$)|UnrealBuildTool|AutomationTool" 2> /dev/null || true
+    if test -n "$map_before" && test -f "$map" && test "$(md5of "$map")" != "$map_before"; then
+      cp -f "$out/map.backup" "$map" && log "MAP CHANGED during the pass: restored from the backup" \
+        && echo "**Map changed during the pass and was restored from the backup.**" >> "$report"
+    fi
+    git checkout -q "$orig_head" 2> /dev/null || log "could not restore $orig_head"
+    log "map md5 after: $(test -f "$map" && md5of "$map" || echo missing)"
+  fi
+  log "end (clone back on $orig_head)"
+}
+trap cleanup EXIT
+
+{
+  echo "# Perf slot 6 - near crowd and far silhouettes ($stamp)"
+  echo
+  echo "Host $(hostname -s); $(uptime | sed 's/^ *//')"
+  echo "Clone HEAD before: $orig_head; code branch $branch"
+} > "$report"
+
+log "prerequisites"
+if pgrep -f "UnrealEditor( |$)|GranTheftPraline-Mac" > /dev/null; then
+  test "$dry" = "1" && log "(dry run) an Unreal process is running: a real run would stop here" || die "an Unreal editor or the game is running"
+fi
+if test -f "$map"; then
+  map_before="$(md5of "$map")"
+  echo "Map md5 before: $map_before  size $(sizeof "$map")" >> "$report"
+  log "map md5 before: $map_before"
+  if test "$map_before" != "$expected_md5"; then
+    test "$dry" = "1" && log "(dry run) map md5 differs from $expected_md5" || die "map md5 $map_before is not the expected $expected_md5 (regenerate or pass EXPECTED_MAP_MD5)"
+  fi
+else
+  test "$dry" = "1" && log "(dry run) map missing" || die "map missing: $map"
+fi
+bash -n "$repo/tools/perf/bench.sh" || die "bench.sh syntax"
+bash -n "${BASH_SOURCE[0]}" || die "this script's syntax"
+
+if test "$dry" = "1"; then
+  log "DRY RUN plan: checkout origin/$branch; setup-environment-mac.sh (limit 30 min); package Shipping to Builds/perf-slot6/0.3 (limit 90 min); 30 s control launch; cases n0 n20 n50 n100 n50-nocheap n50-noanimrate n100-nospread n50-far80, ${duration} s each (limit 25 min per case); map check and restore; report"
+  echo "DRY RUN OK (path with spaces handled: \"$repo\")" >> "$report"
+  cat "$report"
+  exit 0
+fi
+
+test -z "$(git status --porcelain --untracked-files=no)" || { git checkout -q -- assets/geo/processed 2> /dev/null || true; }
+test -z "$(git status --porcelain --untracked-files=no)" || die "tracked changes in the clone, refusing to switch branch"
+cp -f "$map" "$out/map.backup"
+git fetch -q origin "$branch" || die "fetch $branch failed"
+git checkout -q --detach "origin/$branch" || die "checkout"
+echo "Code: $(git rev-parse --short HEAD) ($branch)" >> "$report"
+
+log "setup environment assets (M_CloudShadowLF), limit 30 min"
+limit 1800 tools/environment/setup-environment-mac.sh > "$out/setup.log" 2>&1 || die "setup-environment-mac.sh failed (see setup.log)"
+
+log "package Shipping, limit 90 min"
+BUILDS_DIR="$repo/Builds/perf-slot6" limit 5400 tools/build/package-mac.sh 0.3 Shipping > "$out/package.log" 2>&1 || die "package failed (see package.log)"
+build="$repo/Builds/perf-slot6/0.3"
+test -d "$build/GranTheftPraline.app" || die "no app after packaging"
+
+log "30 s control launch (freeze check), limit 120 s"
+exe="$(find "$build/GranTheftPraline.app/Contents/MacOS" -maxdepth 1 -type f -perm -u+x | head -n 1)"
+limit 120 "$exe" -SkipTitle "-FrameLogFile=$out/control.csv" -ExitAfter=30 > "$out/control.log" 2>&1 || true
+test -s "$out/control.csv" || die "control launch produced no frame: the build freezes"
+echo "Control launch: $(wc -l < "$out/control.csv" | tr -d ' ') frames in 30 s" >> "$report"
+
+off="-Traffic=0 -Police=0 -Ragdoll=0 -Minimap=0 -DayNight=0 -Audio=0"
+run_case() { # name extra
+  log "bench $1, limit 25 min"
+  CAPTURE=0 EXTRA_ARGS="$off $2" SCENARIOS="street-demo" DURATION="$duration" \
+    limit 1500 tools/perf/bench.sh "$build" "$out/$1" > "$out/$1.log" 2>&1 || log "bench $1 ended with an error (see $1.log)"
+  { echo; echo "## $1 ($2)"; sed -n '/^| Scenario/,$p' "$out/$1/summary.md" 2> /dev/null || echo "no summary"; grep -h "LogGTPPedestrians" "$out/$1.log" 2> /dev/null | tail -n 3 | sed 's/^/    /'; } >> "$report"
+}
+run_case n0 "-Pedestrians=0"
+run_case n20 "-Pedestrians=20 -PedMaxVisible=20"
+run_case n50 "-Pedestrians=50 -PedMaxVisible=50"
+run_case n100 "-Pedestrians=100 -PedMaxVisible=100"
+run_case n50-nocheap "-Pedestrians=50 -PedMaxVisible=50 -PedCheap=0"
+run_case n50-noanimrate "-Pedestrians=50 -PedMaxVisible=50 -PedAnimRate=0"
+run_case n100-nospread "-Pedestrians=100 -PedMaxVisible=100 -PedSpread=0"
+run_case n50-far80 "-Pedestrians=50 -PedMaxVisible=20 -PedFar=80 -PedFarSilhouette=1"
+
+for c in n20 n50 n100 n50-far80; do
+  if test -s "$out/n0/results.csv" && test -s "$out/$c/results.csv"; then
+    { echo; echo "## Gate $c vs n0"; python3 -I tools/perf/compare.py "$out/n0/results.csv" "$out/$c/results.csv" 2 || true; } >> "$report"
+  fi
+done
+log "map md5 check"
+test "$(md5of "$map")" = "$map_before" && echo "Map md5 after: unchanged ($map_before)" >> "$report" || echo "Map md5 after: CHANGED (restored on exit)" >> "$report"
+log "done, report: $report"
+cat "$report"
