@@ -897,6 +897,222 @@
      "pose": {}
     }
    ]
+  },
+  {
+   "name": "AM_Stagger_Front",
+   "note": "Staggers backwards from a hit in front, 1.0 s",
+   "keys": [
+    {
+     "f": 0,
+     "pose": {}
+    },
+    {
+     "f": 6,
+     "loc": {
+      "pelvis": [
+       -10,
+       0,
+       -4
+      ]
+     },
+     "pose": {
+      "spine_01": [
+       0,
+       -14,
+       0
+      ],
+      "spine_02": [
+       0,
+       -16,
+       0
+      ],
+      "head": [
+       0,
+       -14,
+       0
+      ],
+      "thigh_l": [
+       0,
+       0,
+       12
+      ],
+      "thigh_r": [
+       0,
+       0,
+       -10
+      ],
+      "upperarm_l": [
+       0,
+       0,
+       -30
+      ],
+      "upperarm_r": [
+       0,
+       0,
+       -30
+      ]
+     }
+    },
+    {
+     "f": 14,
+     "loc": {
+      "pelvis": [
+       -14,
+       0,
+       -6
+      ]
+     },
+     "pose": {
+      "spine_01": [
+       0,
+       -8,
+       0
+      ],
+      "spine_02": [
+       0,
+       -10,
+       0
+      ],
+      "thigh_l": [
+       0,
+       0,
+       -14
+      ],
+      "thigh_r": [
+       0,
+       0,
+       18
+      ],
+      "calf_r": [
+       0,
+       0,
+       -20
+      ],
+      "upperarm_l": [
+       0,
+       0,
+       -40
+      ],
+      "upperarm_r": [
+       0,
+       0,
+       -40
+      ]
+     }
+    },
+    {
+     "f": 30,
+     "pose": {}
+    }
+   ]
+  },
+  {
+   "name": "AM_Stagger_Back",
+   "note": "Staggers forward from a hit in the back, 1.0 s",
+   "keys": [
+    {
+     "f": 0,
+     "pose": {}
+    },
+    {
+     "f": 6,
+     "loc": {
+      "pelvis": [
+       10,
+       0,
+       -4
+      ]
+     },
+     "pose": {
+      "spine_01": [
+       0,
+       14,
+       0
+      ],
+      "spine_02": [
+       0,
+       16,
+       0
+      ],
+      "head": [
+       0,
+       12,
+       0
+      ],
+      "thigh_l": [
+       0,
+       0,
+       -10
+      ],
+      "thigh_r": [
+       0,
+       0,
+       14
+      ],
+      "upperarm_l": [
+       0,
+       0,
+       25
+      ],
+      "upperarm_r": [
+       0,
+       0,
+       25
+      ]
+     }
+    },
+    {
+     "f": 14,
+     "loc": {
+      "pelvis": [
+       14,
+       0,
+       -6
+      ]
+     },
+     "pose": {
+      "spine_01": [
+       0,
+       8,
+       0
+      ],
+      "spine_02": [
+       0,
+       10,
+       0
+      ],
+      "thigh_l": [
+       0,
+       0,
+       18
+      ],
+      "calf_l": [
+       0,
+       0,
+       -20
+      ],
+      "thigh_r": [
+       0,
+       0,
+       -14
+      ],
+      "upperarm_l": [
+       0,
+       0,
+       35
+      ],
+      "upperarm_r": [
+       0,
+       0,
+       35
+      ]
+     }
+    },
+    {
+     "f": 30,
+     "pose": {}
+    }
+   ]
   }
  ]
 }
