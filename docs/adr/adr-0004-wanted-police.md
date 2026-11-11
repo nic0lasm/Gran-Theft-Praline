@@ -76,3 +76,7 @@ Target: p95 ≤ 42 ms with three police cars and traffic; to be measured.
 - Pedestrian hits: the pedestrian thread calls
   `UGTPWantedComponent::ReportCrime(EGTPCrimeKind::HitPedestrian, Location)`.
 - No map change: everything appears at runtime.
+
+## Spawn hitch fix (2026-11-11)
+
+The M1 bench showed one hitch (47 ms CPU spike) each time police units appear: a unit was a full player character (with its gameplay camera system) plus a car, created in one frame, and destroyed when the level was lost, about every 110 s. Now: the car, the driver and the light bar are created on three successive frames; units are kept `IdleLifetime` (150 s) after the level is lost, driving the lanes with lights off, and a kept unit far from a new chase is moved near the player out of sight instead of being created again; `PoliceDriverClass` lets a light character without camera replace the player's character.

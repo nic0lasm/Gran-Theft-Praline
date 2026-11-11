@@ -79,3 +79,7 @@ et le trafic ; à mesurer.
 - Piéton heurté : le fil piétons appelle
   `UGTPWantedComponent::ReportCrime(EGTPCrimeKind::HitPedestrian, Position)`.
 - Aucune modification de la carte : tout apparaît au runtime.
+
+## Correction de l'à-coup d'apparition (11/11/2026)
+
+Le banc M1 a montré un à-coup (pic CPU de 47 ms) à chaque apparition d'unités de police : une unité était un personnage joueur complet (avec son système de caméra de gameplay) plus une voiture, créés dans la même image, puis détruits à la perte du niveau, environ toutes les 110 s. Maintenant : la voiture, le conducteur et la rampe sont créés sur trois images successives ; les unités sont gardées `IdleLifetime` (150 s) après la perte du niveau, à rouler sur les voies lumières éteintes, et une unité gardée loin d'une nouvelle poursuite est déplacée près du joueur hors de vue au lieu d'être recréée ; `PoliceDriverClass` permet de remplacer le personnage du joueur par un personnage léger sans caméra.

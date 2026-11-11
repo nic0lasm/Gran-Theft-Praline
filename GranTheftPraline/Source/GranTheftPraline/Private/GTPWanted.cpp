@@ -7,6 +7,7 @@
 #include "AIController.h"
 #include "CollisionQueryParams.h"
 #include "Components/PointLightComponent.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "GameFramework/Character.h"
@@ -251,6 +252,7 @@ void AGTPPoliceDirector::BeginPlay()
 	FParse::Value(FCommandLine::Get(), TEXT("PoliceMax="), MaxUnits);
 	MaxUnits = FMath::Clamp(MaxUnits, 0, 6);
 	LoadedPoliceClass = PoliceVehicleClass.TryLoadClass<AGTPVehicle>();
+	LoadedDriverClass = PoliceDriverClass.TryLoadClass<ACharacter>();
 	NextSpawnTime = GetWorld()->GetTimeSeconds() + 3.f;
 	GTP_TRACE(LogGTPWanted, TEXT("police: on, up to %d units, class %s"), MaxUnits, LoadedPoliceClass ? *LoadedPoliceClass->GetName() : TEXT("traffic cars"));
 }
@@ -323,7 +325,7 @@ bool AGTPPoliceDirector::SpawnUnit(const FVector& PlayerLocation)
 	{
 		Class = Network->LoadedVehicleClasses[Random.RandRange(0, Network->LoadedVehicleClasses.Num() - 1)];
 	}
-	if (!Class || !Network->LoadedDriverClass)
+	if (!Class || !(LoadedDriverClass.Get() || Network->LoadedDriverClass.Get()))
 	{
 		return false;
 	}
@@ -340,20 +342,6 @@ bool AGTPPoliceDirector::SpawnUnit(const FVector& PlayerLocation)
 	{
 		return false;
 	}
-	FActorSpawnParameters DriverParams;
-	DriverParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-	if (ACharacter* Driver = GetWorld()->SpawnActor<ACharacter>(Network->LoadedDriverClass, Transform, DriverParams))
-	{
-		Driver->AIControllerClass = AAIController::StaticClass();
-		Driver->SpawnDefaultController();
-		Car->SeatOccupant(Driver);
-		Network->MakeCheap(Car, Driver);
-	}
-	if (!Car->HasAIDriver())
-	{
-		Car->Destroy();
-		return false;
-	}
 	Car->Tags.AddUnique(GTPPolice::PoliceTag);
 
 	FUnit& Unit = Units.AddDefaulted_GetRef();
@@ -363,13 +351,54 @@ bool AGTPPoliceDirector::SpawnUnit(const FVector& PlayerLocation)
 	Unit.Settings.ComfortDecel = 5.f;
 	Unit.Settings.SafeGap = 6.f;
 	Unit.Settings.ThrottleGain = 0.5f;
-	AddLightBar(Unit);
-	if (UGTPWantedComponent* Wanted = UGTPWantedComponent::Find(this))
-	{
-		Wanted->RegisterPolice(Car);
-	}
+	// The driver, the light bar and the registration come on the next frames: one heavy step per frame.
+	Unit.Stage = 1;
 	GTP_TRACE(LogGTPWanted, TEXT("police: %s on lane %d at %s"), *Car->GetName(), Lane, *Transform.GetLocation().ToCompactString());
 	return true;
+}
+
+bool AGTPPoliceDirector::SeatDriver(FUnit& Unit)
+{
+	AGTPVehicle* Car = Unit.Car.Get();
+	TSubclassOf<ACharacter> DriverClass = LoadedDriverClass.Get() != nullptr ? LoadedDriverClass : Network->LoadedDriverClass;
+	if (!Car || !DriverClass)
+	{
+		return false;
+	}
+	FActorSpawnParameters DriverParams;
+	DriverParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	ACharacter* Driver = GetWorld()->SpawnActor<ACharacter>(DriverClass, Car->GetActorTransform(), DriverParams);
+	if (!Driver)
+	{
+		return false;
+	}
+	Driver->AIControllerClass = AAIController::StaticClass();
+	Driver->SpawnDefaultController();
+	Car->SeatOccupant(Driver);
+	Network->MakeCheap(Car, Driver);
+	return Car->HasAIDriver();
+}
+
+void AGTPPoliceDirector::RepositionUnit(FUnit& Unit, const FVector& PlayerLocation)
+{
+	AGTPVehicle* Car = Unit.Car.Get();
+	int32 Lane = 0, Point = 0;
+	FTransform Transform;
+	if (!Car || !FindSpawnPoint(PlayerLocation, Lane, Point, Transform))
+	{
+		return;
+	}
+	// A move instead of a new car and driver: no spawn hitch.
+	Car->SetActorLocationAndRotation(Transform.GetLocation(), Transform.GetRotation(), false, nullptr, ETeleportType::TeleportPhysics);
+	if (USkeletalMeshComponent* Body = Car->GetMesh())
+	{
+		Body->SetPhysicsLinearVelocity(FVector::ZeroVector);
+		Body->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
+	}
+	Unit.Follower = FGTPLaneFollower();
+	Unit.bOnLanes = false;
+	Unit.StoppedTime = 0.f;
+	GTP_TRACE(LogGTPWanted, TEXT("police: %s moved to lane %d"), *Car->GetName(), Lane);
 }
 
 void AGTPPoliceDirector::AddLightBar(FUnit& Unit)
@@ -572,6 +601,24 @@ void AGTPPoliceDirector::Tick(float DeltaSeconds)
 			Units.RemoveAtSwap(Index);
 			continue;
 		}
+		if (Unit.Stage == 1)
+		{
+			if (!SeatDriver(Unit))
+			{
+				Car->Destroy();
+				Units.RemoveAtSwap(Index);
+				continue;
+			}
+			Unit.Stage = 2;
+			continue;
+		}
+		if (Unit.Stage == 2)
+		{
+			AddLightBar(Unit);
+			Wanted->RegisterPolice(Car);
+			Unit.Stage = 0;
+			continue;
+		}
 		if (!Car->HasAIDriver() || Car->IsWrecked())
 		{
 			// Stolen or destroyed: no longer a unit (a wreck stays where it is).
@@ -580,6 +627,15 @@ void AGTPPoliceDirector::Tick(float DeltaSeconds)
 			UpdateSiren(Unit, 0, false);
 			Units.RemoveAtSwap(Index);
 			continue;
+		}
+		Unit.IdleTime = Stars > 0 ? 0.f : Unit.IdleTime + DeltaSeconds;
+		// A unit left far from a new chase is moved near the player (out of sight) instead of creating another.
+		if (Stars > 0 && Index < Desired && Now >= Unit.NextRepositionTime
+			&& FVector::Dist2D(Car->GetActorLocation(), Player->GetActorLocation()) > MaxSpawnDistance * 1.5f
+			&& !Network->IsSeenByPlayer(Car->GetActorLocation()))
+		{
+			Unit.NextRepositionTime = Now + 3.f;
+			RepositionUnit(Unit, Player->GetActorLocation());
 		}
 		DriveUnit(Unit, *Wanted, *Player, DeltaSeconds);
 		// With -VehicleLod=1 the light bar is dark beyond LightBarDistance: two lights nobody can tell apart from far away.
@@ -594,7 +650,7 @@ void AGTPPoliceDirector::Tick(float DeltaSeconds)
 		// Taken away out of sight: too many for the level, too far, stuck, or the level is gone.
 		const bool bTooFar = FVector::Dist2D(Car->GetActorLocation(), Player->GetActorLocation()) > LeashDistance;
 		const bool bStuck = Unit.StoppedTime > 12.f && !(Stars > 0 && FVector::Dist2D(Car->GetActorLocation(), Player->GetActorLocation()) < 1500.f);
-		if ((bTooFar || bStuck || Stars == 0) && !Network->IsSeenByPlayer(Car->GetActorLocation()))
+		if ((bTooFar || bStuck || (Stars == 0 && Unit.IdleTime >= IdleLifetime)) && !Network->IsSeenByPlayer(Car->GetActorLocation()))
 		{
 			RemoveUnit(Index);
 		}

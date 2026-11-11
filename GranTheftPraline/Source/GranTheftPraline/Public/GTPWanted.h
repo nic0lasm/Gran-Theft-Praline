@@ -9,6 +9,7 @@
 #include "GTPWantedLogic.h"
 #include "GTPWanted.generated.h"
 
+class ACharacter;
 class AGTPVehicle;
 class AGTPTrafficNetwork;
 class UPointLightComponent;
@@ -163,6 +164,22 @@ protected:
 	UPROPERTY(Config, EditAnywhere, Category = "Police")
 	int32 MaxUnits = 2;
 
+	/**
+	 * Character put at the wheel of police cars; empty = the traffic's driver
+	 * (the player's character: a camera system per spawn). Use a light
+	 * character without camera to make spawning cheap.
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Police", meta = (MetaClass = "/Script/Engine.Character"))
+	FSoftClassPath PoliceDriverClass;
+
+	/**
+	 * Units are kept this long (s) after the level is lost, driving the lanes with lights off, and
+	 * reused (moved out of sight) when a new level comes: creating a car and its driver costs a
+	 * visible hitch. 0 takes them away at once.
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Police")
+	float IdleLifetime = 150.f;
+
 	/** Spawn ring around the player (cm): far enough to be out of sight, close enough to arrive. */
 	UPROPERTY(Config, EditAnywhere, Category = "Police")
 	float MinSpawnDistance = 5000.f;
@@ -200,6 +217,11 @@ private:
 		float StoppedTime = 0.f;
 		bool bOnLanes = false;
 		int8 LightState = -1;
+		/** Creation stages spread over frames: 1 = driver to spawn, 2 = light bar to add, 0 = ready. */
+		int8 Stage = 0;
+		/** Seconds without a wanted level (an idle unit is kept for IdleLifetime, then taken away). */
+		float IdleTime = 0.f;
+		float NextRepositionTime = 0.f;
 		/** Siren mode last set (EGTPSirenMode as int, -1 = never). */
 		int8 SirenState = -1;
 	};
@@ -213,6 +235,8 @@ private:
 	void DriveStraight(FUnit& Unit, const FVector& Target, float MaxSpeedKmh);
 	void DriveOnLanes(FUnit& Unit, const FVector& Goal, bool bHasGoal, float MaxSpeedKmh);
 	void AddLightBar(FUnit& Unit);
+	bool SeatDriver(FUnit& Unit);
+	void RepositionUnit(FUnit& Unit, const FVector& PlayerLocation);
 	void BlinkLights(FUnit& Unit, bool bOn, bool bPhase);
 	bool HasLineOfSight(const AGTPVehicle* Car, const AActor& Player, const FVector& Target) const;
 	void RemoveUnit(int32 Index);
@@ -222,6 +246,7 @@ private:
 
 	TArray<FUnit> Units;
 	TSubclassOf<AGTPVehicle> LoadedPoliceClass;
+	TSubclassOf<ACharacter> LoadedDriverClass;
 	float NextSpawnTime = 0.f;
 	FRandomStream Random;
 };
