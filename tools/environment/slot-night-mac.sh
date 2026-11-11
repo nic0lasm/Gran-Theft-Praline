@@ -10,6 +10,9 @@
 # Environment:
 #   BUILD      packaged build dir (default Builds/perf-cumul/0.3)
 #   DRY_RUN=1  prerequisites and 2 short runs only
+#   MODE       lights (default, the runs above, 14 min) or clouds (night clouds A/B,
+#              -NightClouds=volumetric|dome|half at night, late dusk and on the night demo
+#              route, 13 min; needs feat/sky-slot3 with -NightClouds in the build)
 #   MAP_MD5    expected md5 of the map (default 1c92de0f813b89cb40aeb000cd92a1de)
 # Output: Builds/night-slot/<stamp>/REPORT.md (GPU per run, night cost against noon,
 #         verdict against the 3 ms budget), index.html (stills), heartbeat.txt, steps.log.
@@ -22,7 +25,9 @@ repo="$(pwd)"
 test -d "$repo/GranTheftPraline" || { echo "night: run from the root of the GTAL-build clone" >&2; exit 1; }
 stamp="$(date +%Y%m%d-%H%M%S)"
 dry="${DRY_RUN:-0}"
+mode="${MODE:-lights}"
 out="$repo/Builds/night-slot/$stamp"
+test "$mode" = "lights" || out="$repo/Builds/night-slot/$mode-$stamp"
 test "$dry" = "1" && out="$repo/Builds/night-slot/dry-$stamp"
 build="${BUILD:-$repo/Builds/perf-cumul/0.3}"
 map="$repo/GranTheftPraline/Content/Maps/L_City_RueDeLaRepublique.umap"
@@ -62,7 +67,7 @@ cleanup() {
 trap cleanup EXIT
 
 {
-  echo "# Night slot - cost of the night lights ($stamp)"
+  echo "# Night slot ($mode) - cost of the night ($stamp)"
   echo
   echo "Host $(hostname -s); $(uptime | sed 's/^ *//')"
   echo "Clone HEAD: $head_before"
@@ -99,6 +104,7 @@ run() {
   stats="$(python3 -I "$out/tools/still_stats.py" "${img:-none}" | cut -d' ' -f1)"
   gpu="$(python3 -I "$out/tools/summarize.py" "$dir/frames.csv" s v 2>/dev/null | awk -F'|' 'NF>5{gsub(/ /,"",$4);gsub(/ /,"",$5);print $4" "$5}')"
   budget="$(sed -n 's/^night_budget=//p' "$dir/status.txt" 2>/dev/null)"
+  test "$mode" = "clouds" && budget="$(sed -n 's/^night_clouds=//p' "$dir/status.txt" 2>/dev/null)"
   lights="$(sed -n 's/^status=//p' "$dir/status.txt" 2>/dev/null | grep -o 'lights [0-9]*/[0-9]* on, [0-9]* shadowed' | head -n 1)"
   local args="$*"
   set -- ${gpu:-nan nan}
@@ -110,6 +116,17 @@ dawn="-Date=2026-10-15 -TimeOfDay=7.75 -TimeScale=0 -Weather=Clear"
 if test "$dry" = "1"; then
   run noon 20 -Ambience=noon
   run night 20 -Ambience=night
+elif test "$mode" = "clouds"; then
+  late="-Date=2026-10-15 -TimeOfDay=19.6 -TimeScale=0 -Weather=Cloudy"
+  run noon 50 -Ambience=noon
+  run night 50 -Ambience=night -NightClouds=volumetric
+  run night-dome 50 -Ambience=night -NightClouds=dome
+  run night-half 50 -Ambience=night -NightClouds=half
+  run late-dusk 50 $late -NightClouds=volumetric
+  run late-dusk-dome 50 $late -NightClouds=dome
+  run night-demo 100 -Ambience=night -DemoRoute -NightClouds=volumetric
+  run night-demo-dome 100 -Ambience=night -DemoRoute -NightClouds=dome
+  run night-demo-half 100 -Ambience=night -DemoRoute -NightClouds=half
 else
   run noon 50 -Ambience=noon
   run dawn 50 $dawn

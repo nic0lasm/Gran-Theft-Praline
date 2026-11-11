@@ -179,6 +179,18 @@ struct FGTPLightBudget
 	 *  cloud shadow map (about 8.6 ms in m1). Turns the volumetric cloud shadows off. */
 	UPROPERTY()
 	bool bCloudShadowLightFunction = false;
+
+	/** Night clouds (sun below NightCloudSunElevation, the moon lights them): the volumetric
+	 *  clouds cost more at night and the eye sees little of them. bCloudDomeAtNight shows the
+	 *  2D dome instead; NightCloudSampleScale multiplies the cloud ray samples. */
+	UPROPERTY()
+	bool bCloudDomeAtNight = false;
+
+	UPROPERTY()
+	float NightCloudSampleScale = 1.f;
+
+	UPROPERTY()
+	float NightCloudSunElevation = -4.f;
 };
 
 /**
