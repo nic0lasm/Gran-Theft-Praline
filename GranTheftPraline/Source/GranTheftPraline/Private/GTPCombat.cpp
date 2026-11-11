@@ -1,6 +1,7 @@
 #include "GTPCombat.h"
 
 #include "GTPCombatInput.h"
+#include "GTPCombatMelee.h"
 #include "GTPHitReaction.h"
 #include "GTPLog.h"
 #include "GTPPedestrians.h"
@@ -176,6 +177,11 @@ void UGTPCombatSubsystem::EquipPlayer()
 		Weapon = NewObject<UGTPWeaponComponent>(Character, TEXT("GTPWeapon"));
 		Weapon->bPlayerControlled = true;
 		Weapon->RegisterComponent();
+	}
+	if (!Character->FindComponentByClass<UGTPCombatMeleeComponent>())
+	{
+		UGTPCombatMeleeComponent* Fists = NewObject<UGTPCombatMeleeComponent>(Character, TEXT("GTPFists"));
+		Fists->RegisterComponent();
 	}
 	GTP_TRACE(LogGTPCombat, TEXT("combat: player %s equipped (health %.0f, pistol %d/%d)"), *Character->GetName(), Health->GetHealth(),
 		Weapon->GetMagazine(), Weapon->GetReserve());
