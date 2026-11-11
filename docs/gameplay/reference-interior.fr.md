@@ -110,6 +110,28 @@ Règles dans `GTPHoldUpModel.h` (testées en CI) :
 - Le coffre (bureau, à l'étage) est une étape ultérieure : il faut le gérant et une
   temporisation.
 
+
+### 6.1 Dans le jeu (étape 7)
+
+`UGTPHoldUpSubsystem` (`-HoldUp=1`, avec `-ThreatResponse=1`, `-Interiors=1`, `-InteriorStaff=N`)
+fait la partie boutique ; règles dans `GTPHoldUpTills.h`, testées par `core_test`. La peur n'est
+jamais calculée deux fois : chaque employé porte le `UGTPThreatResponseComponent` commun, lâche sa
+tâche de cuisine tant qu'il n'est pas calme, et le sous-système lit son état toutes les 0,1 s.
+
+- Un caissier en `Complying` ouvre sa caisse (2,5 s) puis remet les billets (4 s). S'il cesse
+  d'obéir pendant l'ouverture, la caisse reste fermée.
+- Un employé du comptoir effrayé et non visé depuis 3 s appuie sur l'alarme silencieuse ; la police
+  est prévenue 20 s plus tard. Ceux qui atteignent le fond de la réserve sont dehors et appellent
+  la police aussitôt.
+- Chaque caisse remise est créditée au portefeuille (`AddCents`, raison `holdup_till`, clé
+  `holdup#<n>/till<k>`), signalée aux missions par `holdup.cash_taken` (sujet = id de l'intérieur,
+  valeur en euros) et diffusée par `OnCashTaken`.
+- Le braquage se termine quand le joueur sort du restaurant (`escaped` avec butin, `aborted` sans)
+  ou est arrêté (`caught`) : événement missions `holdup.ended`, `OnEnded`. Les caisses vidées le
+  restent jusqu'au déchargement de l'intérieur.
+- Délit : `ReportCrime(ArmedThreat)` au restaurant.
+- Intérieur courant du joueur : `UGTPInteriorStreaming::GetPlayerInteriorId()`.
+
 ## 7. Le fond de caisse
 
 Règles dans `GTPCashDrawerModel.h` (testées en CI). Chaque caisse ouvre avec un fond de

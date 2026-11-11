@@ -105,6 +105,27 @@ Rules in `GTPHoldUpModel.h` (tested in CI):
 - Crime reported through `UGTPWantedComponent::ReportCrime`; the police thread does the rest.
 - The safe (office, upstairs) is a later step: it needs the manager and a time lock.
 
+
+### 6.1 In the game (step 7)
+
+`UGTPHoldUpSubsystem` (`-HoldUp=1`, needs `-ThreatResponse=1`, `-Interiors=1`, `-InteriorStaff=N`)
+runs the shop part; the rules are in `GTPHoldUpTills.h`, tested by `core_test`. Fear is never
+computed twice: each staff character carries the shared `UGTPThreatResponseComponent`, drops its
+kitchen task while not calm, and the subsystem reads its state every 0.1 s.
+
+- A cashier in `Complying` opens their till (2.5 s), then hands over the notes (4 s). A cashier who
+  stops obeying while opening leaves it closed.
+- A counter employee not aimed at for 3 s while scared presses the silent alarm; the police are
+  told 20 s later. Staff who reach the back of the storage room are out and call the police at once.
+- Each till handed over is credited to the wallet (`AddCents`, reason `holdup_till`, run key
+  `holdup#<n>/till<k>`), reported to the missions as `holdup.cash_taken` (subject the interior id,
+  value in euros) and broadcast as `OnCashTaken`.
+- The hold-up ends when the player leaves the restaurant (`escaped` with cash, `aborted` without)
+  or is arrested (`caught`): missions event `holdup.ended`, `OnEnded`. Emptied tills stay empty
+  until the interior is unloaded.
+- Crime: `ReportCrime(ArmedThreat)` at the restaurant.
+- The player's current interior: `UGTPInteriorStreaming::GetPlayerInteriorId()`.
+
 ## 7. The till float
 
 Rules in `GTPCashDrawerModel.h` (tested in CI). Every till opens with a 150.00 euro float:

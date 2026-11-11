@@ -8,6 +8,7 @@
 
 class AGTPStaffCharacter;
 class UAnimMontage;
+class UGTPThreatResponseComponent;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FGTPStaffTaskSignature, AGTPStaffCharacter*, Staff, uint8, Task);
 
@@ -15,8 +16,9 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FGTPStaffTaskSignature, AGTPStaffCh
  * One member of a restaurant crew (docs/gameplay/reference-interior.md section 4). Walks to the
  * slot of the station its current task needs, faces it and plays the task's montage when set
  * (TaskMontages, indexed by GTPKitchen::ETask). Persistent in the interior, not part of the
- * pedestrian pool. Threat reactions come from the ragdoll thread's UGTPThreatResponseComponent
- * when it is added to this actor (step 7 stops its tasks while threatened).
+ * pedestrian pool. Threat reactions come from the shared UGTPThreatResponseComponent it carries
+ * (inert without -ThreatResponse=1): while not calm, the staff drops its task and the threat
+ * component moves it (hands up, backing, fleeing to the back).
  */
 UCLASS()
 class GRANTHEFTPRALINE_API AGTPStaffCharacter : public ACharacter
@@ -38,6 +40,15 @@ public:
 	FGTPStaffTaskSignature OnTaskStarted;
 
 	uint8 GetTask() const { return Task; }
+
+	UGTPThreatResponseComponent* GetThreatResponse() const { return ThreatResponse; }
+
+	/** True while the threat response is anything but calm: no task, no walking to a slot. */
+	bool IsThreatened() const;
+
+protected:
+	UPROPERTY(VisibleAnywhere, Category = "Kitchen")
+	TObjectPtr<UGTPThreatResponseComponent> ThreatResponse;
 
 private:
 	FTransform Slot;
@@ -66,7 +77,7 @@ public:
 	virtual TStatId GetStatId() const override;
 
 	/** Starts the service once the interior level is visible (called by the interior streaming). */
-	void StartService(ULevel* InteriorLevel);
+	void StartService(ULevel* InteriorLevel, const FString& InteriorId, const FTransform& Anchor);
 	void StopService();
 
 	const GTPKitchen::FKitchen& GetKitchen() const { return Kitchen; }
