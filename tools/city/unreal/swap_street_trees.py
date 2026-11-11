@@ -34,6 +34,7 @@ FOCUS = os.environ.get("GTP_CITY_FOCUS", "rue-de-la-republique")
 MAP = "/Game/Maps/L_City_" + "".join(p.capitalize() for p in FOCUS.split("-"))
 OUT = os.path.join(REPO, "GranTheftPraline", "Saved", "CityImport")
 TREE_IDS = ("W14-63", "W14-64")
+CHOSEN = "/Game/BlackAlder/M1/SM_BlackAlder_Field_05_M1"
 SEARCH_ROOTS = ("/Game/Fab", "/Game/Megascans", "/Game/MSPresets", "/Game")
 
 eal = unreal.EditorAssetLibrary
@@ -110,7 +111,8 @@ def pick_swaps(comps, report):
     pattern = os.environ.get("GTP_TREE_PATTERN", "Maple|Acer|Beech|Alder")
     min_h = int(os.environ.get("GTP_TREE_MIN_HEIGHT_CM", "800"))
     found = candidates(pattern)
-    want = os.environ.get("GTP_TREE_MESH", "auto")
+    # default: the tree chosen for the street (DefaultGame.ini), else the lightest one
+    want = os.environ.get("GTP_TREE_MESH") or (CHOSEN if eal.does_asset_exist(CHOSEN) else "auto")
     mature = pick(found, False, min_h) if want in ("", "auto") else want
     sapling = os.environ.get("GTP_SAPLING_MESH") or pick(found, True, 0) or mature
     report["candidates"] = found[:60]

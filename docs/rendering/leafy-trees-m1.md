@@ -77,3 +77,8 @@ Before placing a single one in the street:
 Script ready: `tools/assets/unreal/prepare_roadside.py` (`list` mode by default, report only; `GTP_ROADSIDE_MODE=apply` turns Nanite off, rebuilds the 3 LODs from the scan and caps textures at 2048, on the pack's own assets only, no map touched; a fresh Fab download restores the pack as it came).
 
 None of this is done while the push freezes new assets: it is the recipe for the day a thread needs it.
+
+
+## Choice of 2026-11-11 and shipping
+
+M1 measure (trees2, 1a51b60): p95 equal to the bare trees within ±0.5 ms for all three trees. The stills (tools/perf/evidence/trees2-20261111 on feat/trees-stills-results) decide: alder Field_05, wide dense crown, closest to the plane trees' volume (recommended, choice put to Nico). The impostor case is dropped (the card forced up close makes the trees vanish). Shipping (feat/leafy-trees-ship): DefaultGame.ini gives the subsystem `DefaultVariant=light` and `DefaultSwap`, and cooks `/Game/BlackAlder/M1`; the M1 meshes are made on the Mac by `prepare_trees_m1.py` (TREES=1 step of `tools/perf/candidate-build-mac.sh`). `-Trees=bare` keeps the bare street for A/B. Without the pack on the machine, the game keeps the bare trees.
