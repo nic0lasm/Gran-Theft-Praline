@@ -1,7 +1,7 @@
 """Place the Lyon facade kit on the generated city, inside the Unreal Editor.
 
 Run after import_city.py, same way (no UI, script copied to a path without spaces):
-  UnrealEditor GranTheftPraline.uproject -unattended -nosplash -ExecutePythonScript=/tmp/place_facades.py
+  UnrealEditor GranTheftPraline.uproject -unattended -nosplash "-ExecutePythonScript=__import__('gtp_run').main()" (with GTP_PY_SCRIPT=tools/city/unreal/place_facades.py)
 Settings: GTP_CITY_ZONE (presqu-ile), GTP_CITY_FOCUS (rue-de-la-republique).
 
 Input: gen/<focus>/facade_modules.csv (generate.py), gen/<focus>/kit/facade_kit.glb and
@@ -45,6 +45,11 @@ ZONE = os.environ.get("GTP_CITY_ZONE", "presqu-ile")
 FOCUS = os.environ.get("GTP_CITY_FOCUS", "rue-de-la-republique")
 GEN = os.path.join(REPO, "assets", "geo", "processed", ZONE, "gen", FOCUS)
 KIT_DIR = "/Game/Environment/Facades/LyonKit"
+# Streaming cells (ADR-0010) share one kit: GTP_KIT_FOCUS names the generation whose kit/ is
+# used (cells have none of their own), GTP_KIT_REUSE=1 keeps the kit already imported, with
+# its LODs and material instances, instead of deleting and re-importing it for every cell.
+KIT_GEN = os.path.join(REPO, "assets", "geo", "processed", ZONE, "gen", os.environ.get("GTP_KIT_FOCUS", FOCUS))
+KIT_REUSE = os.environ.get("GTP_KIT_REUSE", "0") == "1"
 MAP = "/Game/Maps/L_City_" + "".join(p.capitalize() for p in FOCUS.split("-"))
 SIGN_DIR = "/Game/Environment/City/Signs/" + "".join(p.capitalize() for p in FOCUS.split("-"))
 BRAND_SIGN_DIR = "/CityBrands/Signs/" + "".join(p.capitalize() for p in FOCUS.split("-"))
@@ -58,6 +63,19 @@ for _kv in filter(None, os.environ.get("GTP_FACADE_CULL", "").split(",")):
     _k, _v = _kv.split("=")
     CULL_END_M[_k.strip()] = float(_v)
 CULL_START_SHARE = 0.8
+# GTP_FACADE_SKIP="court" (comma list of families: court, upper, ground, eave): modules of
+# those families are not placed at all; the shell's own walls show instead. Courtyard facades
+# are a third of the quarter's modules and are only seen from inside the courtyards
+# (budget lever, ADR-0010; measure with and without).
+FACADE_SKIP = {f.strip() for f in os.environ.get("GTP_FACADE_SKIP", "").split(",") if f.strip()}
+
+# LODs of the kit modules (fil optimisation, 10/11): the 21 242 street-map instances were
+# 10.2 M triangles at LOD0 out to 250 m, drawn again by the virtual shadow maps, with no
+# Nanite on M1. (share of LOD0 triangles, screen size below which the LOD is used); a
+# module is ~4 m wide, so 0.3 ~ 10 m, 0.1 ~ 30 m, 0.035 ~ 85 m away at 90 degrees.
+# GTP_KIT_LODS=0 keeps LOD0 only (bench before/after).
+KIT_LODS = ((1.0, 1.0), (0.5, 0.3), (0.15, 0.1), (0.05, 0.035))
+KIT_LOD_MIN_TRIANGLES = 100
 
 # LODs of the kit modules (fil optimisation, 10/11): the 21 242 street-map instances were
 # 10.2 M triangles at LOD0 out to 250 m, drawn again by the virtual shadow maps, with no
@@ -80,6 +98,10 @@ def module_family(name):
 
 
 def set_cull(comp, family, report):
+    # Tag read at run time by UGTPCityRenderTuning (-CityCull=court=60,...), so the cull
+    # distances can be tried on a package without regenerating the map.
+    tags = list(comp.get_editor_property("component_tags"))
+    comp.set_editor_property("component_tags", tags + [unreal.Name("GTP_Cull_" + family)])
     end = CULL_END_M[family] * 100.0
     if not end:
         return
@@ -112,10 +134,13 @@ def srgb_to_linear(c):
 
 
 def import_kit():
+    if KIT_REUSE and eal.does_directory_exist(KIT_DIR):
+        return {a.get_name(): a for a in (eal.load_asset(p) for p in eal.list_assets(KIT_DIR, recursive=True))
+                if isinstance(a, unreal.StaticMesh)}
     if eal.does_directory_exist(KIT_DIR):
         eal.delete_directory(KIT_DIR)
     task = unreal.AssetImportTask()
-    task.set_editor_property("filename", os.path.join(GEN, "kit", "facade_kit.glb"))
+    task.set_editor_property("filename", os.path.join(KIT_GEN, "kit", "facade_kit.glb"))
     task.set_editor_property("destination_path", KIT_DIR)
     task.set_editor_property("automated", True)
     task.set_editor_property("replace_existing", True)
@@ -203,12 +228,32 @@ def import_textures(paths, dest):
         asset_tools.import_asset_tasks(tasks)
 
 
+# Usage flags the cooked game needs. A material compiles shaders only for the usages saved
+# with it: the Mac editor sets missing ones in memory when a mesh uses the material, but the
+# saved asset kept none, so on Windows (Nanite on, DX12) 280 city and sign materials drew with
+# the default material (11/11). Set them at creation, and on any material reused as it is.
+MATERIAL_USAGES = ("used_with_nanite", "used_with_instanced_static_meshes")
+
+
+def ensure_usage(mat, save=True):
+    changed = False
+    for flag in MATERIAL_USAGES:
+        if not mat.get_editor_property(flag):
+            mat.set_editor_property(flag, True)
+            changed = True
+    if changed and save:
+        unreal.MaterialEditingLibrary.recompile_material(mat)
+        unreal.EditorAssetLibrary.save_loaded_asset(mat)
+    return mat
+
+
 def sign_parent():
     """M_Sign_Fascia: the sign texture as base colour, a little emissive (back-lit letters)."""
     path = SIGN_DIR + "/M_Sign_Fascia"
     if eal.does_asset_exist(path):
-        return eal.load_asset(path)
-    mat = asset_tools.create_asset("M_Sign_Fascia", SIGN_DIR, unreal.Material, unreal.MaterialFactoryNew())
+        return ensure_usage(eal.load_asset(path))
+    mat = ensure_usage(asset_tools.create_asset("M_Sign_Fascia", SIGN_DIR, unreal.Material, unreal.MaterialFactoryNew()),
+                       save=False)
     tex = mel.create_material_expression(mat, unreal.MaterialExpressionTextureSampleParameter2D, -500, 0)
     tex.set_editor_property("parameter_name", "SignTexture")
     mel.connect_material_property(tex, "RGB", unreal.MaterialProperty.MP_BASE_COLOR)
@@ -265,16 +310,127 @@ def sign_materials(report):
     return out
 
 
+def sign_atlas_parent():
+    """M_Sign_Atlas: M_Sign_Fascia read from an atlas page; the instance's custom data 0, 1 is
+    the top-left UV of its sign's cell, CellUV the cell size (tools/city/sign_atlas.py)."""
+    path = SIGN_DIR + "/M_Sign_Atlas"
+    if eal.does_asset_exist(path):
+        return ensure_usage(eal.load_asset(path))
+    mat = ensure_usage(asset_tools.create_asset("M_Sign_Atlas", SIGN_DIR, unreal.Material, unreal.MaterialFactoryNew()),
+                       save=False)
+    uv = mel.create_material_expression(mat, unreal.MaterialExpressionTextureCoordinate, -1300, 0)
+    cell = mel.create_material_expression(mat, unreal.MaterialExpressionVectorParameter, -1300, 150)
+    cell.set_editor_property("parameter_name", "CellUV")
+    scaled = mel.create_material_expression(mat, unreal.MaterialExpressionMultiply, -1100, 50)
+    mel.connect_material_expressions(uv, "", scaled, "A")
+    mask = mel.create_material_expression(mat, unreal.MaterialExpressionComponentMask, -1150, 150)
+    mask.set_editor_property("r", True)
+    mask.set_editor_property("g", True)
+    mask.set_editor_property("b", False)
+    mask.set_editor_property("a", False)
+    mel.connect_material_expressions(cell, "", mask, "")
+    mel.connect_material_expressions(mask, "", scaled, "B")
+    cu = mel.create_material_expression(mat, unreal.MaterialExpressionPerInstanceCustomData, -1300, 300)
+    cu.set_editor_property("data_index", 0)
+    cv = mel.create_material_expression(mat, unreal.MaterialExpressionPerInstanceCustomData, -1300, 400)
+    cv.set_editor_property("data_index", 1)
+    off = mel.create_material_expression(mat, unreal.MaterialExpressionAppendVector, -1100, 350)
+    mel.connect_material_expressions(cu, "", off, "A")
+    mel.connect_material_expressions(cv, "", off, "B")
+    at = mel.create_material_expression(mat, unreal.MaterialExpressionAdd, -900, 150)
+    mel.connect_material_expressions(scaled, "", at, "A")
+    mel.connect_material_expressions(off, "", at, "B")
+    tex = mel.create_material_expression(mat, unreal.MaterialExpressionTextureSampleParameter2D, -500, 0)
+    tex.set_editor_property("parameter_name", "Atlas")
+    mel.connect_material_expressions(at, "", tex, "UVs")
+    mel.connect_material_property(tex, "RGB", unreal.MaterialProperty.MP_BASE_COLOR)
+    glow = mel.create_material_expression(mat, unreal.MaterialExpressionMultiply, -250, 200)
+    glow.set_editor_property("const_b", 0.15)
+    mel.connect_material_expressions(tex, "RGB", glow, "A")
+    mel.connect_material_property(glow, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+    rough = mel.create_material_expression(mat, unreal.MaterialExpressionConstant, -250, 350)
+    rough.set_editor_property("r", 0.35)
+    mel.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS)
+    mel.recompile_material(mat)
+    eal.save_loaded_asset(mat)
+    return mat
+
+
+def sign_atlas(report):
+    """shop_osm_id -> ((set, page), u, v, uses the logo) from gen/<focus>/signs/sign_atlas.json,
+    and (set, page) -> material instance. None when there is no atlas (or GTP_SIGN_ATLAS=0)."""
+    signs_dir = os.path.join(GEN, "signs")
+    path = os.path.join(signs_dir, "sign_atlas.json")
+    if os.environ.get("GTP_SIGN_ATLAS", "1") == "0" or not os.path.exists(path):
+        return None, None
+    with open(path, encoding="utf-8") as f:
+        atlas = json.load(f)
+    with open(os.path.join(signs_dir, "signs.csv"), encoding="utf-8") as f:
+        shop_of = {r["sign_id"]: r["shop_osm_id"] for r in csv.DictReader(f) if r["has_fascia"] == "True"}
+    brands = eal.does_directory_exist("/CityBrands")
+    if eal.does_directory_exist(SIGN_DIR):
+        eal.delete_directory(SIGN_DIR)
+    parent = sign_atlas_parent()
+    pages = [("letters", i, SIGN_DIR + "/Textures", "T_SignAtlas_%d" % i) for i in range(atlas["pages"])]
+    if brands:
+        pages += [("logo", i, BRAND_SIGN_DIR, "T_SignLogoAtlas_%d" % i) for i in range(atlas["logo_pages"])]
+    for kind in ("letters", "logo"):
+        import_textures([os.path.join(signs_dir, p[3] + ".png") for p in pages if p[0] == kind],
+                        next((p[2] for p in pages if p[0] == kind), SIGN_DIR))
+    mics = {}
+    cu, cv = atlas["cell_uv"]
+    for kind, i, folder, name in pages:
+        tex = eal.load_asset("%s/%s" % (folder, name))
+        if tex is None:
+            report["errors"].append("sign atlas not imported: %s/%s" % (folder, name))
+            continue
+        mic = asset_tools.create_asset("MI_" + name.replace("T_", ""), folder if kind == "logo" else SIGN_DIR + "/Materials",
+                                       unreal.MaterialInstanceConstant, unreal.MaterialInstanceConstantFactoryNew())
+        mel.set_material_instance_parent(mic, parent)
+        mel.set_material_instance_texture_parameter_value(mic, "Atlas", tex)
+        mel.set_material_instance_vector_parameter_value(mic, "CellUV", unreal.LinearColor(cu, cv, 0.0, 0.0))
+        eal.save_loaded_asset(mic)
+        mics[(kind, i)] = mic
+    out = {}
+    for sid, cells in atlas["signs"].items():
+        use_logo = brands and cells.get("logo") is not None
+        c = cells["logo"] if use_logo else cells["letters"]
+        key = ("logo" if use_logo else "letters", c["page"])
+        if key in mics and sid in shop_of:
+            out[shop_of[sid]] = (key, c["u"], c["v"], use_logo)
+    report["sign_atlas_pages"] = len(mics)
+    report["sign_textures"] = len(out)
+    report["citybrands_mounted"] = brands
+    return out, mics
+
+
+def sign_hism(label, mesh, mic, shadow):
+    actor = actor_sub.spawn_actor_from_class(unreal.StaticMeshActor, unreal.Vector(0, 0, 0))
+    actor.set_actor_label(label)
+    actor.set_folder_path("City/Signs")
+    root = sds.k2_gather_subobject_data_for_instance(actor)[0]
+    params = unreal.AddNewSubobjectParams(parent_handle=root,
+                                          new_class=unreal.HierarchicalInstancedStaticMeshComponent)
+    handle, fail = sds.add_new_subobject(params)
+    comp = sdl.get_object(sdl.get_data(handle))
+    comp.set_static_mesh(mesh)
+    comp.set_material(0, mic)
+    comp.set_editor_property("num_custom_data_floats", 2)   # top-left UV of the sign's cell
+    comp.set_editor_property("mobility", unreal.ComponentMobility.STATIC)
+    comp.set_editor_property("cast_shadow", shadow)
+    return comp
+
+
 def main():
     t0 = time.time()
     report = {"zone": ZONE, "focus": FOCUS, "map": MAP, "errors": []}
-    with open(os.path.join(GEN, "kit", "kit_manifest.json")) as f:
+    with open(os.path.join(KIT_GEN, "kit", "kit_manifest.json")) as f:
         manifest = json.load(f)
     with open(os.path.join(GEN, "facade_modules.csv"), encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
     meshes = import_kit()
     bad = check_sizes(meshes, manifest)
-    if not bad:
+    if not bad and not KIT_REUSE:
         add_lods(meshes, manifest, report)
     report["kit_modules"] = len(meshes)
     if bad:
@@ -302,10 +458,15 @@ def main():
     comps, counts = {}, {}
 
     def add(name, x, y, z, yaw, sx, sz, colour, ground):  # noqa: PLR0913
+        if FACADE_SKIP and module_family(name) in FACADE_SKIP:
+            report["skipped_modules"] = report.get("skipped_modules", 0) + 1
+            return
         if name not in comps:
             comps[name] = hism_actor("Facade_" + name.replace("SM_Facade_", ""), meshes[name])[1]
             set_cull(comps[name], module_family(name), report)
-            if meshes[name].get_num_lods() < 2:
+            # A 12-triangle blank wall needs no LOD (KIT_LOD_MIN_TRIANGLES): not a defect.
+            if meshes[name].get_num_lods() < 2 and \
+                    manifest["modules"].get(name, {}).get("triangles", 0) >= KIT_LOD_MIN_TRIANGLES:
                 report.setdefault("modules_without_lods", []).append(name)
         t = unreal.Transform(unreal.Vector(x, y, z), unreal.Rotator(0.0, 0.0, yaw + yaw_offset), unreal.Vector(sx, 1.0, sz))
         i = comps[name].add_instance(t, True)
@@ -316,7 +477,34 @@ def main():
         comps[name].set_custom_data_value(i, 3, ground, False)
         counts[name] = counts.get(name, 0) + 1
 
-    sign_mics = sign_materials(report)
+    atlas_cells, atlas_mics = sign_atlas(report)
+    sign_mics = sign_materials(report) if atlas_cells is None else atlas_cells
+    sign_comps = {}
+
+    def place_sign(cell, loc, rot, scale, blade):
+        """One sign panel: an instance in its atlas page's component, or its own actor."""
+        if atlas_cells is None:
+            panel = actor_sub.spawn_actor_from_class(unreal.StaticMeshActor, loc, rot)
+            panel.set_folder_path("City/Signs")
+            panel.set_actor_scale3d(scale)
+            comp = panel.static_mesh_component
+            comp.set_static_mesh(meshes["SM_Sign_Panel"])
+            comp.set_material(0, cell[0])
+            comp.set_editor_property("mobility", unreal.ComponentMobility.STATIC)
+            if blade:
+                comp.set_editor_property("cast_shadow", False)
+            set_cull(comp, "sign", report)
+            return
+        key = (cell[0], blade)
+        if key not in sign_comps:
+            sign_comps[key] = sign_hism("Signs_%s_%d%s" % (cell[0][0], cell[0][1], "_Blade" if blade else ""),
+                                        meshes["SM_Sign_Panel"], atlas_mics[cell[0]], not blade)
+            set_cull(sign_comps[key], "sign", report)
+        c = sign_comps[key]
+        i = c.add_instance(unreal.Transform(loc, rot, scale), True)
+        c.set_custom_data_value(i, 0, cell[1], False)
+        c.set_custom_data_value(i, 1, cell[2], False)
+
     signs = logos = blades = 0
     for r in rows:
         name = kit_layout.module_for(r["typology"], r["kind"], r["building_id"])
@@ -338,19 +526,11 @@ def main():
         fa = kit_layout.FASCIA[fam]
         a = math.radians(yaw)
         loc = unreal.Vector(x + math.cos(a) * out_m * 100, y + math.sin(a) * out_m * 100, z + zc * 100)
-        panel = actor_sub.spawn_actor_from_class(unreal.StaticMeshActor, loc,
-                                                 unreal.Rotator(0.0, 0.0, yaw + yaw_offset))
-        panel.set_actor_label("Sign_%s_%s" % (r["shop_osm_id"].replace("/", "_"), r["bay"]))
-        panel.set_folder_path("City/Signs")
-        panel.set_actor_scale3d(unreal.Vector(w * fa["width_share"] - 0.04, 1.0,
-                                              fa["height_m"] * h / nominal["nominal_height_m"] - 0.04))
-        comp = panel.static_mesh_component
-        comp.set_static_mesh(meshes["SM_Sign_Panel"])
-        comp.set_material(0, mic[0])
-        comp.set_editor_property("mobility", unreal.ComponentMobility.STATIC)
-        set_cull(comp, "sign", report)
+        place_sign(mic, loc, unreal.Rotator(0.0, 0.0, yaw + yaw_offset),
+                   unreal.Vector(w * fa["width_share"] - 0.04, 1.0,
+                                 fa["height_m"] * h / nominal["nominal_height_m"] - 0.04), False)
         signs += 1
-        logos += 1 if mic[1] else 0
+        logos += 1 if mic[-1] else 0
         # Projecting blade sign (enseigne drapeau) on about half the shops, at the first bay:
         # the same texture on two back-to-back panels across the facade, above the fascia.
         if r["sign_continued"] == "False" and zlib.crc32(r["shop_osm_id"].encode()) % 100 < BLADE_SHARE_PCT:
@@ -360,20 +540,12 @@ def main():
             for k, turn in ((-1, 90.0), (1, -90.0)):
                 bl = unreal.Vector(x + math.cos(a) * out + ta[0] * (edge + k * 0.6),
                                    y + math.sin(a) * out + ta[1] * (edge + k * 0.6), z + (zc + BLADE_ABOVE_M) * 100)
-                blade = actor_sub.spawn_actor_from_class(unreal.StaticMeshActor, bl,
-                                                         unreal.Rotator(0.0, 0.0, yaw + yaw_offset + turn))
-                blade.set_actor_label("Blade_%s_%d" % (r["shop_osm_id"].replace("/", "_"), k))
-                blade.set_folder_path("City/Signs")
-                blade.set_actor_scale3d(unreal.Vector(BLADE_W_M, 1.0, BLADE_W_M * 464.0 / 2048.0))
-                bc = blade.static_mesh_component
-                bc.set_static_mesh(meshes["SM_Sign_Panel"])
-                bc.set_material(0, mic[0])
-                bc.set_editor_property("mobility", unreal.ComponentMobility.STATIC)
-                bc.set_editor_property("cast_shadow", False)
-                set_cull(bc, "sign", report)
+                place_sign(mic, bl, unreal.Rotator(0.0, 0.0, yaw + yaw_offset + turn),
+                           unreal.Vector(BLADE_W_M, 1.0, BLADE_W_M * 464.0 / 2048.0), True)
             blades += 1
 
     level_sub.save_current_level()
+    report["sign_components"] = len(sign_comps) if atlas_cells is not None else signs + 2 * blades
     report.update({"instances": counts, "instances_total": sum(counts.values()), "signs": signs,
                    "signs_with_logo": logos, "blade_signs": blades})
     write(report, t0)

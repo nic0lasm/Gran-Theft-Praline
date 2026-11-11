@@ -78,6 +78,9 @@ def main():  # noqa: C901, PLR0915
     ap.add_argument("--focus", default="rue-de-la-republique")
     ap.add_argument("--street", default="Rue de la République")
     ap.add_argument("--buffer", type=float, default=45.0)
+    ap.add_argument("--cell", metavar="X0,Y0,X1,Y1",
+                    help="streaming cell mode (tools/city/cells.py): every surveyed item in this box (local "
+                         "metres) and the shops of every street; --focus names the cell, --street is ignored")
     ap.add_argument("--geo", default=os.path.join(REPO, "assets", "geo"))
     ap.add_argument("--manifest", default=os.path.join(REPO, "assets", "manifests", "wave-01.json"))
     ap.add_argument("--leafy", action="store_true", default=os.environ.get("GTP_CITY_LEAFY") == "1",
@@ -95,10 +98,20 @@ def main():  # noqa: C901, PLR0915
     mnt = raster.Raster.load(raw, "mnt")
 
     roads = generate.load_roads(raw, origin)
-    street = [r[0] for r in roads if r[2] == args.street]
-    if not street:
-        sys.exit("no road named %r" % args.street)
-    zone = unary_union(street).buffer(args.buffer)
+    if args.cell:
+        from shapely.geometry import box
+        zone = box(*[float(v) for v in args.cell.split(",")])
+
+        def on_street(name):
+            return True
+    else:
+        street = [r[0] for r in roads if r[2] == args.street]
+        if not street:
+            sys.exit("no road named %r" % args.street)
+        zone = unary_union(street).buffer(args.buffer)
+
+        def on_street(name):
+            return name == args.street
     footprints = [b["poly"] for b in generate.load_buildings(proc) if b["poly"].intersects(zone)]
     fp_tree = STRtree(footprints)
     with open(os.path.join(gen, "facade_modules.csv"), encoding="utf-8") as f:
@@ -206,7 +219,7 @@ def main():  # noqa: C901, PLR0915
                 "entrance", m["building_id"])
             add("W14-39", x0 + nx * 0.25, y0 + ny * 0.25, yaw, "entrance", m["building_id"])
             continue
-        if m["kind"] != "shop" or m["street"] != args.street:
+        if m["kind"] != "shop" or not on_street(m["street"]):
             continue
         trade = shops.get(m["shop_osm_id"], {}).get("type", "")
         if trade == "pharmacy":  # green cross over the door, perpendicular to the facade
@@ -222,7 +235,7 @@ def main():  # noqa: C901, PLR0915
                 add("W14-05", x0 + nx * 0.4 + tx * k * (w / 2 - 0.2), y0 + ny * 0.4 + ty * k * (w / 2 - 0.2), yaw,
                     "shop", m["shop_osm_id"])
     for m in modules:
-        if m["kind"] != "shop" or m["street"] != args.street or m["sign_continued"] != "False":
+        if m["kind"] != "shop" or not on_street(m["street"]) or m["sign_continued"] != "False":
             continue
         if shops.get(m["shop_osm_id"], {}).get("type") not in TERRACE_TRADES:
             continue

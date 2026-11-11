@@ -410,6 +410,61 @@ d'écran, 15 % sous 0,1, 5 % sous 0,035, soit environ 10, 30 et 85 m) ; rien de 
 Banc en une commande : `caffeinate -dimsu tools/city/facade_lods_mac.sh` (rejoue seulement les
 façades et les matériaux, `FACADES_ONLY=1`, puis package dans Builds/facade-lods/).
 
+### Atlas des enseignes (performance, 2026-11-10)
+
+Chaque enseigne était son propre acteur avec son matériau et sa texture : environ 600 draw calls
+pour 341 bandeaux et les enseignes drapeau. `tools/city/sign_atlas.py` range les textures dans
+des pages 4096 × 4096 (64 enseignes par page, 1008 × 228 px chacune, bords répétés contre le
+débordement des mips) : 5 pages de lettrage et 1 page de logos (hors Git, plugin CityBrands).
+`place_facades.py` pose une composante instanciée par page (plus une sans ombre pour les drapeaux)
+avec `M_Sign_Atlas`, la case de chaque enseigne en données d'instance. `GTP_SIGN_ATLAS=0` revient
+aux acteurs séparés (l'avant du banc).
+
+### Coques fusionnées par cellule (performance, 2026-11-10)
+
+`generate.py` écrit aussi `shell_cells.glb` : les coques fusionnées par cellule de 250 m (grille de
+l'ADR-0010), 376 coques → 8 maillages sur la map de rue. `GTP_SHELL_MERGE=1` les fait poser par
+`import_city.py` à la place des coques séparées (collision complexe conservée). Désactivé par défaut.
+
+## Quartier en streaming : substituts lointains, niveaux de cellule, chargement (ajouté le 2026-11-11, ADR-0010)
+
+Première mise en œuvre de l'option B de l'ADR-0010, préparée et essayée hors Mac ; pas encore mesurée.
+
+- `tools/city/cell_proxies.py` fusionne, par cellule, toutes les coques et les volumes de
+  monuments de `gen/<cellule>/` en un substitut lointain (`gen/quarter/cell_proxies.glb` et
+  `.json` : niveau, boîte de la cellule en cm Unreal, triangles). Quartier de 30 cellules :
+  29 substituts (une cellule est vide), 29 draws, 242 k triangles ; `--check` échoue au-delà
+  de 100 draws ou 400 k triangles. `--near-street rue-de-la-republique --within 60` donne les
+  cellules qu'un trajet dans la rue charge : p0000-m0250, p0000-p0000, p0000-p0250,
+  p0000-p0500, p0000-m0500.
+- `import_city.py` prend `GTP_CITY_LEVEL` : `quarter` construit le niveau persistant
+  `L_City_Quarter` (éclairage de la bible, terrain réutilisé, substituts sans collision, ombre
+  ni champ de distance, étiquetés `GTP_CellProxy`, niveau et `bounds:`), `cell` construit un
+  niveau de streaming vide `L_City_Cell<X><Y>` avec les seuls bâtiments et monuments de la
+  cellule. `place_facades.py` réutilise le kit de la rue (`GTP_KIT_FOCUS`, `GTP_KIT_REUSE=1`),
+  sans le réimporter à chaque cellule ; `apply_city_materials.py` ne fait que donner aux
+  coques de la cellule le matériau de coque existant.
+- `UGTPCityStreaming` (C++) lit les substituts étiquetés au démarrage, planifie avec
+  `GTPCityStreamingCore.h` (chargement à 60 m d'une cellule, conservation jusqu'à 90 m,
+  4 cellules au plus, une demande par mise à jour, la plus proche d'abord), charge par
+  `ULevelStreamingDynamic`, cache un substitut dès que son niveau est visible et le remontre
+  avant de libérer le niveau. `-CityCells=0`, `-CityCellLoad=`, `-CityCellUnload=`,
+  `-CityCellMax=`. Sans effet sur une map sans substituts. Règles vérifiées par
+  `tools/city/tests/city_streaming_test.cpp` (CI).
+- Créneau Mac : `tools/city/evidence/quarter_slot_mac.sh` (compilation, cellules, substituts,
+  quartier, 5 cellules, puis le parcours démo streaming actif et substituts seuls ; garde-temps
+  par étape, signe de vie, contenus restaurés par md5 sauf `KEEP=1`). Environ 2 h 10.
+- Quartier entier (2026-11-11, 0.9) : `cells.py` pose aussi le mobilier relevé par cellule (`props.py --cell`, 20 460 objets) et, sur un passage complet, écrit les substituts, les voies du quartier (`traffic.py --focus quarter` : 1 043 voies, 45,5 km) et le budget par cellule avec une estimation mémoire (`cell_budget.py` : pire 2 × 2 + partagé ≈ 446 Mo pour 1,5 Go). `tools/city/quarter_build.py` construit tous les niveaux sans écran, sur le Mac ou le PC Windows (Python seul, limite de temps par étape, arrêt forcé d'un éditeur bloqué, `--dry-run`).
+- Leviers sur un package, sans régénérer (`UGTPCityRenderTuning`) : `-CityCull=<famille>=<m>,...`
+  fixe la distance de disparition par famille d'étiquette, sur les composants instanciés des
+  cellules (`ground`, `upper`, `eave`, `court`, `sign`, `props_<taille>`, `details_<taille>`) et sur
+  le niveau persistant (`proxy`, `terrain` ; une map construite avant ces étiquettes est reconnue
+  par le dossier du maillage) ; `-CityProxies=0` n'affiche jamais les substituts lointains ;
+  `-CityPropShadowBelow=<m>` ; `-CityTuneReport=1` journalise seulement. Une ligne par niveau :
+  `CityRenderTuning: <niveau> <n> components changed; <famille>=<changés>/<trouvés> ...`.
+- Pas encore : mobilier et détails dans les cellules, masque de sol à l'échelle du quartier,
+  niveaux de cellule dans la liste de cuisson pour un package.
+
 ## Limites et suite
 
 1. **Test éditeur** : `tools/city/unreal/import_city.py` importe greybox et

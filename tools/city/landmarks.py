@@ -266,7 +266,7 @@ def load_bdtopo(proc):
     return out
 
 
-def build_zone(zone):
+def build_zone(zone, write=True):
     raw = os.path.join(REPO, "assets", "geo", "raw", zone)
     proc = os.path.join(REPO, "assets", "geo", "processed", zone)
     with open(os.path.join(proc, "manifest.json"), encoding="utf-8") as f:
@@ -314,8 +314,9 @@ def build_zone(zone):
                     s.setdefault("monuments", []).append(r["key"])
     meta = {"zone": zone, "sources": "OpenStreetMap (ODbL) footprints and Wikidata ids; LiDAR HD IGN MNS/MNT 0.5 m",
             "landmarks": out, "replaced_bdtopo": sorted({i for r in out for i in r.get("replaces_bdtopo", [])})}
-    with open(os.path.join(proc, "landmarks.json"), "w", encoding="utf-8") as f:
-        json.dump(meta, f, indent=1, ensure_ascii=False)
+    if write:   # cells.py runs the per-cell calls in parallel: only the zone call writes it
+        with open(os.path.join(proc, "landmarks.json"), "w", encoding="utf-8") as f:
+            json.dump(meta, f, indent=1, ensure_ascii=False)
     return meta, meshes
 
 
@@ -355,7 +356,7 @@ def main():
     ap.add_argument("--focus", help="gen/<focus> to write landmarks.glb into (after generate.py)")
     ap.add_argument("--cell", help="cell mode: X0,Y0,X1,Y1; the cell holding a landmark's centre owns it")
     a = ap.parse_args()
-    meta, meshes = build_zone(a.name)
+    meta, meshes = build_zone(a.name, write=a.cell is None)
     summary = [{k: r.get(k) for k in ("key", "kind", "footprint_m2", "height_m", "triangles", "error")
                 if r.get(k) is not None} for r in meta["landmarks"]]
     res = {"landmarks": summary, "replaced_bdtopo": len(meta["replaced_bdtopo"])}
