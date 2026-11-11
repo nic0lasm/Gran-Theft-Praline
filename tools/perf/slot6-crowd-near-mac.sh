@@ -8,7 +8,7 @@
 # Environment:
 #   DRY_RUN=1          check prerequisites and syntax, print the plan, run nothing heavy
 #   DURATION           seconds per bench run (default 90)
-#   BRANCH             code to build (default feat/pedestrians-slot6 = feat/perf-cumul + the silhouette fallback)
+#   BRANCH             code to build (default feat/pedestrians-slot6b = feat/perf-cumul-night-nofar + the far crowd fixes)
 #   EXPECTED_MAP_MD5   map fingerprint required (default 1c92de0f813b89cb40aeb000cd92a1de)
 #   UE_ROOT            engine folder, read by tools/build/package-mac.sh (its own default applies)
 # Output: Builds/perf-slot6/slot6-<stamp>/ (REPORT.md, steps.log, heartbeat.txt, one folder per case)
@@ -25,7 +25,7 @@ repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo"
 stamp="$(date +%Y%m%d-%H%M%S)"
 out="$repo/Builds/perf-slot6/slot6-$stamp"
-branch="${BRANCH:-feat/pedestrians-slot6}"
+branch="${BRANCH:-feat/pedestrians-slot6b}"
 duration="${DURATION:-90}"
 expected_md5="${EXPECTED_MAP_MD5:-1c92de0f813b89cb40aeb000cd92a1de}"
 dry="${DRY_RUN:-0}"
