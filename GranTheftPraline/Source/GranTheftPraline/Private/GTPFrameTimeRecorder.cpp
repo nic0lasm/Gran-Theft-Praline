@@ -188,6 +188,14 @@ void UGTPFrameTimeRecorder::CopyCsvProfile() const
 		UE_LOG(LogGTPFrameTime, Warning, TEXT("CsvCopyTo: no CSV profile found"));
 		return;
 	}
+	// Only a profile written by this run counts: a Shipping build writes none, and copying the
+	// newest file left by an earlier run reported stale per-pass costs (11/11).
+	const FDateTime ProcessStart = FDateTime::UtcNow() - FTimespan::FromSeconds(FPlatformTime::Seconds() - GStartTime);
+	if (NewestTime < ProcessStart)
+	{
+		UE_LOG(LogGTPFrameTime, Warning, TEXT("CsvCopyTo: newest CSV profile predates this run (%s): nothing copied"), *Newest);
+		return;
+	}
 	const uint32 Result = IFileManager::Get().Copy(*CsvCopyTo, *Newest);
 	UE_LOG(LogGTPFrameTime, Log, TEXT("CsvCopyTo: %s (%s)"), *CsvCopyTo, Result == COPY_OK ? TEXT("copied") : TEXT("FAILED"));
 }
