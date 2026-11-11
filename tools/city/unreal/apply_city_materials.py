@@ -183,6 +183,18 @@ class Graph:
         eal.save_loaded_asset(self.mat)
 
 
+def surfaces():
+    """Scanned surfaces (tools/city/unreal/gtp_surfaces.py, street realism thread): each hook does
+    nothing until import_surfaces.py has written Saved/CityImport/surfaces.json, or with
+    GTP_SURFACES=0, so the procedural look stays the default. Called before weather()."""
+    import sys
+    here = os.path.join(REPO, "tools", "city", "unreal")
+    if here not in sys.path:
+        sys.path.insert(0, here)
+    import gtp_surfaces
+    return gtp_surfaces
+
+
 def weather(mat, roles):
     """Hook of the day/night and weather thread (tools/environment/unreal/gtp_weather.py):
     wetness, puddles and night emissive scale inserted between our sources and the material
@@ -279,6 +291,7 @@ def ground_material(tex, extent):
     rough = g.lerp(g.lerp(g.const(0.78), g.const(0.92), s, "R"), g.const(0.6), mark)
     mel.connect_material_property(col, "", unreal.MaterialProperty.MP_BASE_COLOR)
     mel.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS)
+    surfaces().ground(mat, s)
     weather(mat, ("wet", "puddles"))
     g.done()
     return mat
@@ -302,6 +315,7 @@ def shell_material():
     rough = g.lerp(g.const(0.55), g.const(0.88), wall)
     mel.connect_material_property(col, "", unreal.MaterialProperty.MP_BASE_COLOR)
     mel.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS)
+    surfaces().shell(mat)
     weather(mat, ("wet",))
     g.done()
     return mat
@@ -370,6 +384,7 @@ def kit_master():
     mel.connect_material_property(metal, "", unreal.MaterialProperty.MP_METALLIC)
     mel.connect_material_property(g.mask(emis, r=True, g=True, b=True), "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
     mat.set_editor_property("used_with_instanced_static_meshes", True)
+    surfaces().kit(mat)
     weather(mat, ("wet", "emissive"))
     g.done()
     return mat
@@ -528,6 +543,7 @@ def kit_instances(master, report=None):
             continue
         mel.set_material_instance_scalar_parameter_value(mic, "Roughness", rough)
         mel.set_material_instance_scalar_parameter_value(mic, "Metallic", metal)
+        surfaces().kit_params(mic, name)
         mel.set_material_instance_scalar_parameter_value(mic, "UseBuildingColour",
                                                          1.0 if name in KIT_BUILDING_COLOUR else 0.0)
         mel.set_material_instance_scalar_parameter_value(mic, "Weathering", KIT_WEATHERING.get(name, 1.0))
@@ -711,7 +727,8 @@ def main():
         if eal.does_directory_exist(river_dir):
             report["riverside_meshes"] = assign(river_dir, shell, {"SM_River_Water": water_material()})
         assign_kit(kit_instances(kit_master(), report), report)
-        report["shop_glass"] = SHOP_GLASS_MODE + (" -> opaque fallback" if "shop_glass_fallback" in report else "")
+        report["shop_glass"] = SHOP_GLASS_MODE
+        report["surfaces"] = surfaces().report() + (" -> opaque fallback" if "shop_glass_fallback" in report else "")
         facade_check(report)
     except StopIteration:
         pass

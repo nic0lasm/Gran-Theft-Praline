@@ -490,3 +490,18 @@ Première mise en œuvre de l'option B de l'ADR-0010, préparée et essayée hor
    quand les deux existent.
 5. Quelques faîtages 2012 encore validés par le LiDAR donnent des pignons
    raides sur des bâtiments étroits ; à vérifier sur photos de rue.
+
+## Surfaces scannées (réalisme de la rue)
+
+`tools/city/surfaces.json` liste les surfaces scannées de la rue : Megascans gratuits sur Fab, en 2K, hors Git. Il couvre les dalles de granit clair, la pierre de taille, l'enduit, la bordure, le zinc, l'ardoise et l'asphalte, puis les pavés, les trottoirs, les tuiles, les grilles et les décals.
+
+`tools/city/unreal/surfaces_mac.sh` enchaîne deux lancements sans écran :
+1. `import_surfaces.py` trouve chaque surface dans le projet, par un dossier au nom de son id ou par son nom Megascans. Il la plafonne à 2K et écrit `Saved/CityImport/surfaces.json`.
+2. `apply_city_materials.py` reconstruit ensuite les matériaux de la ville. Ses crochets de `gtp_surfaces.py` posent les textures dans :
+   - le sol, avec une couche par canal du masque, les marquages restant procéduraux ;
+   - la pierre et l'enduit des façades, sous forme d'un détail qui garde la teinte de chaque immeuble ;
+   - les toits.
+
+Sans le manifeste, ou avec `GTP_SURFACES=0`, les matériaux restent procéduraux.
+
+Budget M1 : au plus 13 lectures de texture pour le sol, 4 pour le kit et 6 pour les coques, toutes avec des samplers partagés. `GTP_SURFACES_LITE=1` ne garde que les cartes de couleur.
