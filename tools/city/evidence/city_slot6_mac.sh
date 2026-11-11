@@ -2,7 +2,7 @@
 # Mac slot 6 of the performance plan (ville v2), runnable by any session from the root of the
 # GTAL-build clone, whatever branch it is on:
 #   1. checks: no Unreal or game running, no tracked change, notes HEAD and the map md5;
-#   2. checks out feat/facade-lods (detached) and runs freeze_bisect_mac.sh dry, in a folder
+#   2. checks out feat/city-perf (detached) and runs freeze_bisect_mac.sh dry, in a folder
 #      whose name has a space (no Unreal, a few seconds);
 #   3. runs it for real: A atlas off, B facades-only replay, C atlas on, D atlas on + merged
 #      shells, each a Development package and a LAUNCH_S launch (time guard per step,
@@ -11,10 +11,9 @@
 # Expected 95 min with LAUNCH_S=90 (4 x (10 regen + 15 package + 3.5 launch)); a stuck step
 # ends the run at twice its expected time.
 #
-# Run it from a copy, since it checks out another branch:
-#   git fetch origin feat/facade-lods && git show origin/feat/facade-lods:tools/city/evidence/city_slot6_mac.sh > "$TMPDIR/city_slot6.sh"
-#   PYTHON="<venv>/bin/python" caffeinate -dimsu bash "$TMPDIR/city_slot6.sh"
-#   STEPS (default ABCD), LAUNCH_S (default 90), REF (default origin/feat/facade-lods),
+# Run it from a copy under Builds/ (ignored by Git, untouched by the checkout), in one line:
+#   mkdir -p Builds && git fetch -q origin feat/city-perf && git show origin/feat/city-perf:tools/city/evidence/city_slot6_mac.sh > Builds/city_slot6.sh && PYTHON="<venv>/bin/python" caffeinate -dimsu bash Builds/city_slot6.sh
+#   STEPS (default ABCD), LAUNCH_S (default 90), REF (default origin/feat/city-perf),
 #   DRY_ONLY=1 stops after the dry run.
 set -euo pipefail
 root="$(pwd)"
@@ -40,8 +39,8 @@ back() {
   echo "== $(paris) Mac libre (exit $rc)"
 }
 trap back EXIT
-git -C "$root" fetch -q origin feat/facade-lods
-git -C "$root" checkout -q --detach "${REF:-origin/feat/facade-lods}"
+git -C "$root" fetch -q origin feat/city-perf
+git -C "$root" checkout -q --detach "${REF:-origin/feat/city-perf}"
 mkdir -p "$root/Builds"
 echo "== $(paris) on $(git -C "$root" log -1 --format='%h %s')"
 BUILDS_DIR="$root/Builds/city slot6 dry" DRY_RUN=1 "$root/tools/city/evidence/freeze_bisect_mac.sh" "${STEPS:-ABCD}" \
