@@ -4,6 +4,7 @@
 *Surveyed: 2026-11-09. Prices and licences change often: re-read the licence
 on the listing at download time and log it in [`assets/SOURCES.md`](../../assets/SOURCES.md).*
 *Used by: [roadmap](../../production/roadmap.md), [rendering strategy](../rendering/rendering-strategy.md).*
+*Free asset packs (Megascans, trees, water, CC0 sources), checked 2026-11-10: [free-assets.md](../art/free-assets.md).*
 
 Goal: list what already exists so that we do not rebuild it, and say for each
 item whether we use it.
