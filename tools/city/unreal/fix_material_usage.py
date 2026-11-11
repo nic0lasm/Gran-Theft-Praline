@@ -5,7 +5,7 @@ without regenerating anything (Windows package of 11/11: 280 materials saved wit
 The generation scripts set these flags when they create a material (apply_city_materials.py,
 place_facades.py: MATERIAL_USAGES); this script fixes the assets saved before that, in place:
 for every Material (not instance: instances use their parent's shaders) under the folders of
-GTP_USAGE_ROOTS (default the city, the facade kit and the brand signs), it sets the missing
+GTP_USAGE_ROOTS (default /Game and the brand signs plugin: an instance takes its parent's usage, and the parents of the city instances are not all under the city folders), it sets the missing
 flags, recompiles and saves. Maps are not opened or changed.
 
 Report: Saved/CityImport/usage_report.json {"roots", "materials", "fixed", "already", "errors"}.
@@ -21,7 +21,7 @@ import time
 import unreal
 
 USAGES = ("used_with_nanite", "used_with_instanced_static_meshes")
-ROOTS = os.environ.get("GTP_USAGE_ROOTS", "/Game/Environment/City /Game/Environment/Facades /CityBrands").split()
+ROOTS = os.environ.get("GTP_USAGE_ROOTS", "/Game /CityBrands").split()   # parents of MI_City_* live elsewhere too
 
 eal = unreal.EditorAssetLibrary
 mel = unreal.MaterialEditingLibrary

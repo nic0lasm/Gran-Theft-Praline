@@ -161,7 +161,7 @@ void UGTPCityStreaming::Update()
 	{
 		Loaded[I] = Cells[I].bRequested;
 	}
-	const GTPCity::FStreamingPlan Plan = GTPCity::PlanStreaming(Boxes, Loaded, Where.X, Where.Y, Rules);
+	const GTPCity::FStreamingPlan Plan = GTPCity::PlanStreaming(Boxes, Loaded, static_cast<float>(Where.X), static_cast<float>(Where.Y), Rules);
 	for (const int I : Plan.Unload)
 	{
 		Release(Cells[I]);

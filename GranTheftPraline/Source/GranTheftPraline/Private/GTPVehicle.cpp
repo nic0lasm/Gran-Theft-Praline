@@ -758,13 +758,13 @@ ACharacter* AGTPVehicle::EjectDriverTo(const FVector& Location, const FRotator& 
 	{
 		return nullptr;
 	}
-	AController* Controller = GetController();
+	AController* PawnController = GetController();
 	Driver = nullptr;
 	State = EGTPVehicleState::Parked;
 	ReleaseCharacter(Character, Location, Rotation);
-	if (Controller && Controller->IsPlayerController())
+	if (PawnController && PawnController->IsPlayerController())
 	{
-		Controller->Possess(Character);
+		PawnController->Possess(Character);
 	}
 	GTP_TRACE(LogGTPVehicle, TEXT("%s: driver taken out to %s"), *GetName(), *Location.ToCompactString());
 	return Character;
@@ -785,7 +785,7 @@ void AGTPVehicle::DoExit(bool bBailOut)
 {
 	GetWorldTimerManager().ClearTimer(SequenceTimer);
 	ACharacter* Character = Driver;
-	AController* Controller = GetController();
+	AController* PawnController = GetController();
 	if (!Character)
 	{
 		State = EGTPVehicleState::Parked;
@@ -811,9 +811,9 @@ void AGTPVehicle::DoExit(bool bBailOut)
 	Driver = nullptr;
 	State = EGTPVehicleState::Parked;
 	ReleaseCharacter(Character, Location, FRotator(0.f, GetActorRotation().Yaw, 0.f));
-	if (Controller)
+	if (PawnController)
 	{
-		Controller->Possess(Character);
+		PawnController->Possess(Character);
 	}
 
 	if (bBailOut)

@@ -3,7 +3,7 @@
 # static meshes), headless (-nullrhi, fine with the Mac screen locked), without touching any map.
 # Expected 3 min, stopped at 10 (EDITOR_MAX_S). From the repository root:
 #   caffeinate -dimsu tools/city/unreal/fix_material_usage.sh
-# GTP_USAGE_ROOTS (default "/Game/Environment/City /Game/Environment/Facades /CityBrands").
+# GTP_USAGE_ROOTS (default "/Game /CityBrands"). Expect a few minutes more on the whole project.
 # Result: GranTheftPraline/Saved/CityImport/usage_report.json; exit 1 when it lists errors.
 set -euo pipefail
 repo="$(cd "$(dirname "$0")/../../.." && pwd)"
