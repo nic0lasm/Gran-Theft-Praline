@@ -92,7 +92,7 @@ maillage importé. Les sprites imposteurs restent un repli si l'animation de som
 coûte trop cher sur Metal.
 
 Repli sans maillage importé : si `FarCrowdMesh` ne se charge pas, les lointains sont
-dessinés en colonne sombre de 45 cm sur 175 cm (le cylindre du moteur : rien à
+dessinés en colonne de 45 cm sur 175 cm (le cylindre du moteur : rien à
 importer). Au-delà de 45 m cela se lit comme une personne et ne coûte presque rien ;
 `-PedFarSilhouette=1` la force. On la coupe avec `bFarSilhouetteFallback=False`. L'animation
 de sommets et la pose cuite la remplacent quand leur maillage existe.
