@@ -25,14 +25,16 @@
 # replays the whole slot off the Mac with stub steps on a scratch copy of the clone layout.
 #
 # Usage, from the root of the clone:
-#   git fetch origin feat/street-details-10 &&
+#   git fetch origin feat/street-details-11 &&
 #   mkdir -p Builds/details-slot &&
-#   git show origin/feat/street-details-10:tools/city/evidence/details_slot_mac.sh > Builds/details-slot/run.sh &&
+#   git show origin/feat/street-details-11:tools/city/evidence/details_slot_mac.sh > Builds/details-slot/run.sh &&
 #   SLOT_REPO="$PWD" caffeinate -dimsu bash Builds/details-slot/run.sh
 # Everything it writes stays in the clone (Saved/details-slot-<stamp>/, Content, the map), apart
 # from the editor's own logs and caches: the editor scripts run in place through
 # Content/Python/gtp_run.py, with no temporary copy.
-#   SLOT_REF (default origin/feat/street-details-10), SLOT_MERGED (1), SLOT_SKIP_PROFILE (0), GTP_PLAY_ARGS,
+#   SLOT_MODE (profile | bench), SLOT_REF (default origin/feat/street-details-11), SLOT_MERGED (1),
+#   SLOT_SKIP_PROFILE (0), GTP_PLAY_ARGS; bench mode: REFERENCE (results.csv of cumul-lf),
+#   REF_BUILD (Builds/perf-cumul/0.3, benched again when present), BENCH_DURATION (90),
 #   PYTHON (venv for the city tools), UE_ROOT, GTP_CITY_ZONE, GTP_CITY_FOCUS,
 #   DRY_RUN=1, DRY_STEP_S, HEARTBEAT_S (default 600), PLAN_SCALE (multiplies the planned durations)
 # Output: Saved/details-slot-<stamp>/ (profile_*.json, play_glass.json, logs, heartbeat.log, REPORT.txt).
@@ -45,8 +47,12 @@ cd "$repo"
 dry="${DRY_RUN:-0}"
 heartbeat_s="${HEARTBEAT_S:-600}"
 plan_scale="${PLAN_SCALE:-1}"
-slot_ref="${SLOT_REF:-origin/feat/street-details-10}"
+slot_ref="${SLOT_REF:-origin/feat/street-details-11}"
 merged="${SLOT_MERGED:-1}"
+mode="${SLOT_MODE:-profile}"   # profile (editor -game measures) or bench (packaged build, bench.sh)
+reference_csv="${REFERENCE:-$repo/Builds/perf-cumul/slot1-20261111-010738/cumul-lf/results.csv}"
+ref_build="${REF_BUILD:-$repo/Builds/perf-cumul/0.3}"
+bench_build="$repo/Builds/details-bench/0.3"
 export GTP_PLAY_ARGS="${GTP_PLAY_ARGS:--Sky=lightfunction}"
 ue_root="${UE_ROOT:-/Users/Shared/Epic Games/UE_5.8}"
 project="$repo/GranTheftPraline/GranTheftPraline.uproject"
@@ -67,7 +73,8 @@ if [ "$dry" = "1" ]; then
   # Off-Mac rehearsal: the real script against a scratch layout, stub steps.
   for f in tools/city/regen_city.sh tools/city/unreal/profile_details.sh tools/city/unreal/profile_details.py \
            tools/city/details.py tools/city/unreal/place_props.py tools/city/unreal/run_city_import.sh \
-           tools/city/unreal/merge_detail_materials.py; do
+           tools/city/unreal/merge_detail_materials.py tools/environment/setup-environment-mac.sh \
+           tools/build/package-mac.sh tools/perf/bench.sh tools/perf/compare.py; do
     test -f "$repo/$f" || { say "DRY RUN: missing $f"; exit 1; }
   done
   for f in tools/city/regen_city.sh tools/city/unreal/run_city_import.sh tools/city/unreal/profile_details.sh; do
@@ -212,13 +219,30 @@ if [ "$dry" = "1" ]; then
     echo '{}' > "$saved/details_report.json"
   }
   profile() { sleep "${DRY_STEP_S:-2}"; echo "{\"stub\": true, \"play_args\": \"$GTP_PLAY_ARGS\"}" > "$saved/details_profile.json"; }
+  setup_env() { sleep "${DRY_STEP_S:-2}"; }
+  package() { sleep "${DRY_STEP_S:-2}"; mkdir -p "$bench_build/GranTheftPraline.app/Contents/MacOS"; }
+  control() { sleep "${DRY_STEP_S:-2}"; echo "frame" > "$out/control.csv"; }
+  bench() { sleep "${DRY_STEP_S:-2}"; mkdir -p "$2"; echo "scenario,variant" > "$2/results.csv"; echo "| Scenario | stub |" > "$2/summary.md"; }
 else
   compile() { "$ue_root/Engine/Build/BatchFiles/Mac/Build.sh" GranTheftPralineEditor Mac Development "-project=$project" -WaitMutex; }
   regen() { "$repo/tools/city/regen_city.sh"; }
   profile() { "$repo/tools/city/unreal/profile_details.sh"; }
+  setup_env() { "$repo/tools/environment/setup-environment-mac.sh"; }
+  package() { BUILDS_DIR="$repo/Builds/details-bench" "$repo/tools/build/package-mac.sh" 0.3 Shipping; }
+  control() {   # 30 s launch: a build that freezes produces no frame
+    local exe
+    exe="$(find "$bench_build/GranTheftPraline.app/Contents/MacOS" -maxdepth 1 -type f -perm -u+x | head -n 1)"
+    "$exe" -SkipTitle -FrameLogFile="$out/control.csv" -ExitAfter=30 || true
+    test -s "$out/control.csv"
+  }
+  bench() {   # bench <build> <out> [reference csv]
+    CAPTURE=1 EXTRA_ARGS="${GTP_PLAY_ARGS}" SCENARIOS="street-fixed street-demo" DURATION="${BENCH_DURATION:-90}" \
+      REFERENCE="${3:-}" "$repo/tools/perf/bench.sh" "$1" "$2"
+  }
 fi
 
 total=$((5 + 12 + 6 + 17))
+if [ "$mode" = "bench" ]; then total=$((5 + 8 + 12 + 30 + 2 + 10 + 10)); fi
 if [ "${SLOT_SKIP_PROFILE:-0}" = "1" ]; then total=$((total - 18)); fi
 if [ "$merged" = "1" ]; then total=$((total + 14 + 6)); fi
 say "details slot, $( [ "$dry" = "1" ] && echo "DRY RUN" || echo "Mac" ), output $out; planned about $total min"
@@ -248,6 +272,38 @@ echo "slot commit: $(git rev-parse --short HEAD)" >> "$report"
 
 # --- the measures ----------------------------------------------------------------------------
 step "0 compile the editor for $(git rev-parse --short HEAD)" 5 "$out/compile.log" compile
+if [ "$mode" = "bench" ]; then
+  # Official before/after: a packaged Shipping build of the same code with the details on the
+  # map, benched like the perf reference (bench.sh, same scenarios, REFERENCE gate). If the
+  # reference build is still on disk it is benched again first, in the same session, so the
+  # gap is not day-to-day drift.
+  step "S setup environment assets" 8 "$out/setup.log" setup_env
+  GTP_CITY_DETAILS=1 GTP_SHOP_GLASS="${GTP_SHOP_GLASS:-opaque}" SKIP_PLAY=1 \
+    step "1 regenerate with details, ${GTP_SHOP_GLASS:-opaque} glass" 12 "$out/regen_details.log" regen
+  cp "$saved/details_report.json" "$out/" 2> /dev/null || true
+  step "P package Shipping to Builds/details-bench/0.3" 30 "$out/package.log" package
+  git rev-parse HEAD > "$bench_build/.commit" 2> /dev/null || true
+  step "C 30 s control launch" 2 "$out/control.log" control
+  if [ -d "$ref_build/GranTheftPraline.app" ]; then
+    step "B1 bench the reference build again" 10 "$out/bench-ref.log" bench "$ref_build" "$out/ref"
+  fi
+  if [ ! -s "$reference_csv" ]; then say "no reference csv at $reference_csv: bench without the gate"; reference_csv=""; fi
+  echo "reference csv: ${reference_csv:-none}; reference build: $ref_build" >> "$report"
+  step "B2 bench the build with details against the reference" 10 "$out/bench-details.log" \
+    bench "$bench_build" "$out/details" "$reference_csv"
+  {
+    echo
+    for b in ref details; do
+      if [ -f "$out/$b/summary.md" ]; then echo "## $b"; sed -n '/^| Scenario/,$p' "$out/$b/summary.md"; echo; fi
+    done
+    if [ -s "$out/ref/results.csv" ] && [ -s "$out/details/results.csv" ] && [ "$dry" != "1" ]; then
+      echo "## details vs ref, same session"
+      python3 -I "$repo/tools/perf/compare.py" "$out/ref/results.csv" "$out/details/results.csv" 2 || true
+    fi
+  } >> "$report"
+  cat "$report"
+  exit 0
+fi
 if [ "${SLOT_SKIP_PROFILE:-0}" != "1" ]; then   # SLOT_SKIP_PROFILE=1: steps 1-2 already measured
 GTP_CITY_DETAILS=1 GTP_SHOP_GLASS="${GTP_SHOP_GLASS:-opaque}" SKIP_PLAY=1 \
   step "1 regenerate with details, ${GTP_SHOP_GLASS:-opaque} glass" 12 "$out/regen_details.log" regen
