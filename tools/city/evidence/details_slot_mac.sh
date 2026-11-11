@@ -29,10 +29,9 @@
 #   mkdir -p Builds/details-slot &&
 #   git show origin/feat/street-details-10:tools/city/evidence/details_slot_mac.sh > Builds/details-slot/run.sh &&
 #   SLOT_REPO="$PWD" caffeinate -dimsu bash Builds/details-slot/run.sh
-# Everything it writes stays in the clone (Saved/details-slot-<stamp>/, Content, the map), except
-# the editor's own files and the Python copies that run_city_import.sh, regen_city.sh and
-# profile_details.sh put in a mktemp folder: Unreal splits -ExecutePythonScript and "py" paths on
-# spaces, and "Claude work" has one. Those folders are deleted at the end of each step.
+# Everything it writes stays in the clone (Saved/details-slot-<stamp>/, Content, the map), apart
+# from the editor's own logs and caches: the editor scripts run in place through
+# Content/Python/gtp_run.py, with no temporary copy.
 #   SLOT_REF (default origin/feat/street-details-10), SLOT_MERGED (1), GTP_PLAY_ARGS,
 #   PYTHON (venv for the city tools), UE_ROOT, GTP_CITY_ZONE, GTP_CITY_FOCUS,
 #   DRY_RUN=1, DRY_STEP_S, HEARTBEAT_S (default 600), PLAN_SCALE (multiplies the planned durations)

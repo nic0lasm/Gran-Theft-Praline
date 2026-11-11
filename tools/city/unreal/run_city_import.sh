@@ -31,9 +31,9 @@ done
 rm -rf "$out"
 mkdir -p "$out"
 
-# Python scripts run from a copy without spaces (the project folder has one).
-tmp="$(mktemp -d)"
-cp "$repo"/tools/city/unreal/{import_city,place_facades,place_props,apply_city_materials,shoot_city,merge_detail_materials}.py "$tmp/"
+# Editor scripts run through Content/Python/gtp_run.py: the project path has a space, which
+# Unreal splits on, and nothing is copied outside the project.
+py_dir="$repo/tools/city/unreal"
 python3 "$repo/tools/city/ground_mask.py" --zone "$zone" --focus "$focus" > /dev/null
 # Facade and street details table (tools/city/details.py), replayed on every run.
 # GTP_CITY_DETAILS=0 leaves them out (M1 budget fallback).
@@ -56,18 +56,18 @@ cvars="$(python3 "$repo/tools/rendering/reference_scene/profiles.py" "${PROFILE:
 # FACADES_ONLY=1: replay only the facade kit (place_facades.py) and the materials on the
 # existing map, ~4 min instead of ~10 (bench of facade LODs).
 if [ "${FACADES_ONLY:-0}" != "1" ]; then
-"$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES -ExecutePythonScript="$tmp/import_city.py"
+GTP_PY_SCRIPT="$py_dir/import_city.py" "$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES "-ExecutePythonScript=__import__('gtp_run').main()"
 test -f "$out/report.json" || { echo "import_city.py wrote no report" >&2; exit 1; }
 grep -q '"errors": \[\]' "$out/report.json" || { cat "$out/report.json"; exit 1; }
 fi
 
-"$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES -ExecutePythonScript="$tmp/place_facades.py"
+GTP_PY_SCRIPT="$py_dir/place_facades.py" "$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES "-ExecutePythonScript=__import__('gtp_run').main()"
 test -f "$out/facades_report.json" || { echo "place_facades.py wrote no report" >&2; exit 1; }
 grep -q '"errors": \[\]' "$out/facades_report.json" || { cat "$out/facades_report.json"; exit 1; }
 
 # Street furniture: assets not imported yet are skipped and listed in the report.
 if [ "${FACADES_ONLY:-0}" != "1" ]; then
-"$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES -ExecutePythonScript="$tmp/place_props.py"
+GTP_PY_SCRIPT="$py_dir/place_props.py" "$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES "-ExecutePythonScript=__import__('gtp_run').main()"
 test -f "$out/props_report.json" || { echo "place_props.py wrote no report" >&2; exit 1; }
 fi
 
@@ -75,23 +75,22 @@ fi
 if [ "${FACADES_ONLY:-0}" != "1" ] && test -f "$gen/details_placement.csv"; then
   if [ "${GTP_DETAILS_MERGED:-0}" = "1" ]; then
     # one baked material per multi-slot detail mesh (merge_detail_materials.py), used by place_props.py
-    "$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES -ExecutePythonScript="$tmp/merge_detail_materials.py"
+    GTP_PY_SCRIPT="$py_dir/merge_detail_materials.py" "$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES "-ExecutePythonScript=__import__('gtp_run').main()"
     test -f "$out/merge_details_report.json" || { echo "merge_detail_materials.py wrote no report" >&2; exit 1; }
   fi
-  GTP_PROPS_SET=details "$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES -ExecutePythonScript="$tmp/place_props.py"
+  GTP_PROPS_SET=details GTP_PY_SCRIPT="$py_dir/place_props.py" "$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES "-ExecutePythonScript=__import__('gtp_run').main()"
   test -f "$out/details_report.json" || { echo "place_props.py (details) wrote no report" >&2; exit 1; }
 fi
 
 # Art bible ground and shell materials in place of the greybox one.
-"$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES -ExecutePythonScript="$tmp/apply_city_materials.py"
+GTP_PY_SCRIPT="$py_dir/apply_city_materials.py" "$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES "-ExecutePythonScript=__import__('gtp_run').main()"
 grep -q '"errors": \[\]' "$out/materials_report.json" || { cat "$out/materials_report.json"; exit 1; }
 
 if [ "${SKIP_PLAY:-0}" != "1" ]; then
-"$editor" "$project" "$map" -game -windowed -ResX=1920 -ResY=1080 -nosound -NoScreenMessages -unattended -NSAppSleepDisabled YES \
+GTP_PY_SCRIPT="$py_dir/shoot_city.py" "$editor" "$project" "$map" -game -windowed -ResX=1920 -ResY=1080 -nosound -NoScreenMessages -unattended -NSAppSleepDisabled YES \
   "-ini:Engine:[/Script/Engine.UserInterfaceSettings]:bAllowHighDPIInGameMode=True" \
-  ${GTP_PLAY_ARGS:-} -ExecCmds="r.SetRes 1920x1080w, $cvars, py $tmp/shoot_city.py"
+  ${GTP_PLAY_ARGS:-} -ExecCmds="r.SetRes 1920x1080w, $cvars, py __import__('gtp_run').main()"
 fi
-rm -rf "$tmp"
 
 for f in report facades_report props_report; do if test -f "$out/$f.json"; then cat "$out/$f.json"; fi; done
 if test -f "$out/play_report.json"; then cat "$out/play_report.json"; fi
