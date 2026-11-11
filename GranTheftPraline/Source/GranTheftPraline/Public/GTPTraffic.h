@@ -12,6 +12,7 @@
 class ACharacter;
 class AGTPVehicle;
 class AGTPTrafficNetwork;
+class AGTPFarTraffic;
 
 /** One driving lane, in world space (cm), from tools/city/traffic.py. */
 USTRUCT(BlueprintType)
@@ -123,6 +124,20 @@ public:
 	 */
 	void SetGhost(bool bInGhost);
 	bool IsGhost() const { return bGhost; }
+
+	/** Ghost speed (m/s). */
+	float GetGhostSpeed() const { return GhostSpeed; }
+
+	/**
+	 * Moves the car, as a ghost, to point Point of Lane at Location (cm) facing
+	 * YawDegrees, rolling at SpeedMs: a far car handed over to this driven car
+	 * (-FarTraffic, GTPFarTraffic.h).
+	 */
+	void PlaceGhost(int32 Lane, int32 Point, const FVector& Location, float YawDegrees, float SpeedMs);
+
+	/** Time spent in the ticks of all AI drivers (seconds) and their number, since the last read. */
+	static double TickSeconds;
+	static int32 TickCount;
 
 	/** Length of the obstacle probe ahead (cm). */
 	UPROPERTY(EditAnywhere, Category = "Traffic")
@@ -301,6 +316,14 @@ protected:
 	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Cost")
 	bool bParkedCars = false;
 
+	/**
+	 * Far traffic (-FarTraffic=N, AGTPFarTraffic): N more cars past the ghost
+	 * distance, drawn as moving instances with no actor. 0 = none. Needs the
+	 * ghost mode, turned on with it.
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Cost")
+	int32 NumFarCars = 0;
+
 	/** A car standing still this long (gridlock), out of sight, is taken away (seconds); longer than a red light and its queue. */
 	UPROPERTY(Config, EditAnywhere, Category = "Traffic")
 	float StuckSeconds = 35.f;
@@ -331,6 +354,7 @@ protected:
 
 private:
 	friend class AGTPPoliceDirector;
+	friend class AGTPFarTraffic;
 	bool SpawnCar();
 	bool FindSpawnPoint(int32& OutLane, int32& OutPoint, FTransform& OutTransform) const;
 	bool IsSeenByPlayer(const FVector& Location) const;
@@ -380,5 +404,13 @@ private:
 	TMap<int32, float> JunctionAxis;
 	int32 WantedCars = 0;
 	float NextSpawnTime = 0.f;
+	/** Far traffic drawn as instances (-FarTraffic=N), spawned by BeginPlay. */
+	UPROPERTY(Transient)
+	TObjectPtr<AGTPFarTraffic> FarTraffic;
+	/** CPU budget log: time spent in Tick (seconds) and ticks since the last line. */
+	double NetworkTickSeconds = 0.0;
+	int32 BudgetTicks = 0;
+	uint64 BudgetFrame = 0;
+	void LogBudget();
 	FRandomStream Random;
 };

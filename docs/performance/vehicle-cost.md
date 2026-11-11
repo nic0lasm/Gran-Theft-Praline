@@ -56,7 +56,7 @@ M1, which is why it is next after the first measure.
   GPU p50 and of frame p95; the switch is kept on if p95 does not get worse
   and the slope drops.
 
-## 4. Ghost mode and car pool (switches, not measured yet)
+## 4. Ghost mode and car pool (measured 10 Nov 2026)
 
 - `-VehicleGhost=1` (or `bVehicleGhost=True`): past `GhostDistance` (90 m) from
   the player an AI car turns into a ghost: physics and the Chaos vehicle off,
@@ -72,6 +72,12 @@ M1, which is why it is next after the first measure.
 - `tools/perf/vehicle-count-bench.sh` now runs three tiers per count: none,
   `-VehicleLod=1`, then `-VehicleLod=1 -VehicleGhost=1 -TrafficPool=1`.
 
+Measured on 10 Nov 2026 (M1 Pro, profile m1, street-demo, 90 s, build
+4c7906b, map 799c8d5 with facade LODs): 12 cars with
+`-VehicleLod=1 -VehicleGhost=1 -TrafficPool=1` give frame p50/p95
+28.9/38.8 ms, 86 % of frames under 33 ms and no hitch, the same as 3 cars
+(28.9/38.2). Without the tiers, 12 cars give 41.5/55.0.
+
 ## 5. Parked cars as instances (switch, not measured yet)
 
 - `tools/city/parking.py --map <Map>` writes `Content/City/Traffic/<Map>.parking.csv`:
@@ -86,3 +92,39 @@ M1, which is why it is next after the first measure.
   faded out between 120 and 150 m, simple box collision. No physics, no tick.
 - Not done yet: swapping a parked instance for a real car when the player
   walks up to it (to steal it).
+
+## 6. Far traffic and the CPU budget per car (switch, not measured yet)
+
+The aim is 25, then 40 vehicles in view without 25 or 40 Chaos cars with a
+driver. Past the ghost distance, a car does not need to be an actor at all.
+
+- `-FarTraffic=N` (or `NumFarCars` on the traffic network) creates
+  `AGTPFarTraffic`: N more cars drawn as moving instances of the parked car
+  meshes (one `InstancedStaticMeshComponent` per model, colours as the
+  parked cars). There are no actors, no physics, no driver and no shadow,
+  and they fade out between 120 and 150 m, like the driven cars. The switch
+  turns the ghost mode on.
+- A far car follows the lanes and takes a random next lane at the end. It
+  keeps 8 m to the car ahead on its lane, driven cars included, and stops at
+  red lights. Junction claims and the obstacle probe are left out: at that
+  distance nobody sees two cars cross. The logic is in `GTPTrafficFar.h`,
+  checked by `tools/vehicles/far_test`.
+- Handover: a far car that comes within 90 m of the player swaps places with
+  the farthest driven car, which is a ghost by then. The driven car takes
+  the far car's lane, position and speed and wakes up at 70 m. The far car
+  takes the driven car's old place. When no driven car can be freed, a far
+  car out of sight that comes within 50 m starts again elsewhere. One in
+  view keeps going and never vanishes. Out of sight, a far car past 250 m or
+  at a dead end also starts again elsewhere, 120 to 250 m away.
+- Perceived traffic is the driven cars plus the far cars: palier C (25) is
+  `-Traffic=12 -FarTraffic=13`, the target (40) is
+  `-Traffic=12 -FarTraffic=28`.
+- CPU budget: every 5 s the game logs one line,
+  `traffic budget: D driven (G ghosts), P pooled, F far | drivers x ms/frame
+  (y us per driver tick), network z ms/frame, far w ms/frame`, Shipping
+  included.
+- One command: `tools/perf/traffic-perceived-bench.sh <build_dir>` measures
+  12 driven cars (palier B reference), 25 and 40 driven cars, then 12+13 and
+  12+28 with far traffic, and 16+24 with parked cars. It writes the table
+  and the budget lines. Far traffic and parked cars need the
+  `/Game/Vehicles/Parked` meshes in the build.

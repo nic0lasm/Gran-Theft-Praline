@@ -4,6 +4,9 @@
 #include "GTPVehicle.h"
 #include "GTPTrafficGhost.h"
 #include "GTPParkedCars.h"
+#include "GTPFarTraffic.h"
+#include "Misc/ScopeExit.h"
+#include "CoreGlobals.h"
 #include "ChaosWheeledVehicleMovementComponent.h"
 #include "AIController.h"
 #include "CollisionQueryParams.h"
@@ -140,6 +143,26 @@ void UGTPAIDriverComponent::Start(AGTPTrafficNetwork* InNetwork, int32 Lane, int
 	bAtDeadEnd = false;
 	PlanRoute();
 	SetComponentTickEnabled(true);
+}
+
+double UGTPAIDriverComponent::TickSeconds = 0.0;
+int32 UGTPAIDriverComponent::TickCount = 0;
+
+void UGTPAIDriverComponent::PlaceGhost(int32 Lane, int32 Point, const FVector& Location, float YawDegrees, float SpeedMs)
+{
+	AGTPVehicle* Vehicle = Cast<AGTPVehicle>(GetOwner());
+	if (!Vehicle || !Network)
+	{
+		return;
+	}
+	SetGhost(true);
+	Vehicle->SetActorLocationAndRotation(Location + FVector(0.f, 0.f, GhostRideHeight), FRotator(0.f, YawDegrees, 0.f), false, nullptr,
+		ETeleportType::TeleportPhysics);
+	Start(Network, Lane, Point);
+	GhostSpeed = FMath::Max(0.f, SpeedMs);
+	GhostAlong = 0.f;
+	GhostGroundZ = static_cast<float>(Location.Z);
+	GhostGroundAge = 1.f;
 }
 
 void UGTPAIDriverComponent::SetDecisionInterval(float Seconds)
@@ -288,6 +311,12 @@ float UGTPAIDriverComponent::ProbeAhead(const AGTPVehicle* Vehicle, float Length
 void UGTPAIDriverComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+	const double TickStart = FPlatformTime::Seconds();
+	ON_SCOPE_EXIT
+	{
+		TickSeconds += FPlatformTime::Seconds() - TickStart;
+		++TickCount;
+	};
 	AGTPVehicle* Vehicle = Cast<AGTPVehicle>(GetOwner());
 	if (!Vehicle || !Network || Route.Num() == 0)
 	{
@@ -662,6 +691,21 @@ void AGTPTrafficNetwork::BeginPlay()
 	FParse::Value(FCommandLine::Get(), TEXT("TrafficPool="), TrafficPoolSwitch);
 	bTrafficPool = TrafficPoolSwitch != 0;
 	GTP_TRACE(LogGTPTraffic, TEXT("traffic: car pool %s"), bTrafficPool ? TEXT("on") : TEXT("off"));
+	int32 FarCars = NumFarCars;
+	FParse::Value(FCommandLine::Get(), TEXT("FarTraffic="), FarCars);
+	FarCars = FMath::Clamp(FarCars, 0, 60);
+	if (FarCars > 0)
+	{
+		// Far cars hand over to driven cars that are ghosts by then.
+		bVehicleGhost = true;
+		FActorSpawnParameters FarParams;
+		FarParams.Owner = this;
+		FarTraffic = GetWorld()->SpawnActor<AGTPFarTraffic>(AGTPFarTraffic::StaticClass(), FTransform::Identity, FarParams);
+		if (FarTraffic)
+		{
+			FarTraffic->Build(this, FarCars);
+		}
+	}
 	GTP_TRACE(LogGTPTraffic, TEXT("traffic: ghost mode %s (past %.0f m, awake inside %.0f m)"),
 		bVehicleGhost ? TEXT("on") : TEXT("off"), GhostDistance / 100.f, GhostWakeDistance / 100.f);
 	GTP_TRACE(LogGTPTraffic, TEXT("traffic: vehicle LOD tiers %s"), bVehicleLod ? TEXT("on") : TEXT("off"));
@@ -896,6 +940,12 @@ void AGTPTrafficNetwork::Recycle(AGTPVehicle* Car)
 void AGTPTrafficNetwork::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+	const double TickStart = FPlatformTime::Seconds();
+	ON_SCOPE_EXIT
+	{
+		NetworkTickSeconds += FPlatformTime::Seconds() - TickStart;
+	};
+	LogBudget();
 	const APawn* Player = UGameplayStatics::GetPlayerPawn(this, 0);
 
 	// Forget stolen cars (the player's now); take away stuck or far cars out of sight.
@@ -942,6 +992,34 @@ void AGTPTrafficNetwork::Tick(float DeltaSeconds)
 		SpawnCar();
 		NextSpawnTime = GetWorld()->GetTimeSeconds() + 1.f;
 	}
+}
+
+void AGTPTrafficNetwork::LogBudget()
+{
+	// Every 5 s (the network ticks twice a second): CPU time of the traffic per frame and per driven car.
+	if (++BudgetTicks < 10)
+	{
+		return;
+	}
+	const uint64 Frames = FMath::Max<uint64>(GFrameCounter - BudgetFrame, 1);
+	int32 Ghosts = 0;
+	for (const AGTPVehicle* Car : Cars)
+	{
+		const UGTPAIDriverComponent* Driver = IsValid(Car) ? Car->FindComponentByClass<UGTPAIDriverComponent>() : nullptr;
+		Ghosts += Driver && Driver->IsGhost() ? 1 : 0;
+	}
+	const double FarSeconds = FarTraffic ? FarTraffic->TakeTickSeconds() : 0.0;
+	const double PerFrame = 1000.0 / static_cast<double>(Frames);
+	GTP_TRACE(LogGTPTraffic, TEXT("traffic budget: %d driven (%d ghosts), %d pooled, %d far | drivers %.3f ms/frame (%.1f us per driver tick), network %.3f ms/frame, far %.3f ms/frame"),
+		Cars.Num(), Ghosts, Pool.Num(), FarTraffic ? FarTraffic->Num() : 0,
+		UGTPAIDriverComponent::TickSeconds * PerFrame,
+		UGTPAIDriverComponent::TickCount > 0 ? UGTPAIDriverComponent::TickSeconds * 1e6 / UGTPAIDriverComponent::TickCount : 0.0,
+		NetworkTickSeconds * PerFrame, FarSeconds * PerFrame);
+	UGTPAIDriverComponent::TickSeconds = 0.0;
+	UGTPAIDriverComponent::TickCount = 0;
+	NetworkTickSeconds = 0.0;
+	BudgetTicks = 0;
+	BudgetFrame = GFrameCounter;
 }
 
 // --- Traffic lights (version 0.4) --------------------------------------------
