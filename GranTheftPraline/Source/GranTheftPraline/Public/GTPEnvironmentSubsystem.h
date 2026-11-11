@@ -191,6 +191,11 @@ struct FGTPLightBudget
 
 	UPROPERTY()
 	float NightCloudSunElevation = -4.f;
+
+	/** The sample scale ramps from 1 at this sun elevation down to NightCloudSampleScale at
+	 *  NightCloudSunElevation (dusk costs as much as the night: +16 ms p95 measured). */
+	UPROPERTY()
+	float NightCloudRampStart = 5.f;
 };
 
 /**

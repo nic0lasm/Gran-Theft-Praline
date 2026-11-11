@@ -617,7 +617,6 @@ void UGTPEnvironmentSubsystem::ApplyBudgetForProfile(UWorld& World)
 		if (NightClouds == TEXT("volumetric"))
 		{
 			Budget.bCloudDomeAtNight = false;
-			Budget.NightCloudSampleScale = 1.f;
 		}
 		else if (NightClouds == TEXT("dome"))
 		{
@@ -628,9 +627,15 @@ void UGTPEnvironmentSubsystem::ApplyBudgetForProfile(UWorld& World)
 			Budget.bCloudDomeAtNight = false;
 			Budget.NightCloudSampleScale = 0.5f;
 		}
+		else if (NightClouds == TEXT("full"))
+		{
+			// The 0.3 behaviour: full samples day and night.
+			Budget.bCloudDomeAtNight = false;
+			Budget.NightCloudSampleScale = 1.f;
+		}
 		else
 		{
-			UE_LOG(LogGTPEnvironment, Warning, TEXT("Unknown -NightClouds=%s (volumetric, dome, half)"), *NightClouds);
+			UE_LOG(LogGTPEnvironment, Warning, TEXT("Unknown -NightClouds=%s (volumetric, dome, half, full)"), *NightClouds);
 		}
 	}
 	int32 LightFunctionFlag = -1;
@@ -753,8 +758,10 @@ void UGTPEnvironmentSubsystem::UpdateClouds(const FGTPWeatherPreset& Weather)
 			CloudDome->SetVisibility(Mode == 2);
 		}
 	}
+	const float RampHigh = FMath::Max(Budget.NightCloudRampStart, Budget.NightCloudSunElevation + 0.1f);
+	const float NightRamp = 1.f - FMath::SmoothStep(Budget.NightCloudSunElevation, RampHigh, static_cast<float>(SunPosition.ElevationDeg));
 	const float SampleScale = Budget.CloudSampleScale * Weather.CloudSampleScale
-		* (bNightClouds ? Budget.NightCloudSampleScale : 1.f);
+		* FMath::Lerp(1.f, Budget.NightCloudSampleScale, NightRamp);
 	if (Mode == 1 && Clouds.IsValid() && FMath::Abs(SampleScale - AppliedCloudSampleScale) > 0.05f)
 	{
 		AppliedCloudSampleScale = SampleScale;
@@ -935,14 +942,14 @@ void UGTPEnvironmentSubsystem::WriteStatusFile() const
 	const FGTPWeatherPreset Weather = BlendedWeather();
 	FString Text = FString::Printf(TEXT("daynight=on\nprofile=%s\nvolumetric_clouds=%d\ncloud_dome=%d\ncloud_dome_when_overcast=%d\n")
 		TEXT("cloud_shadow_map=%d\ncloud_shadow_light_function=%s\nlf_mean=%.3f\nlf_strength=%.3f\nlf_coverage=%.3f\nlf_contrast=%.2f\n")
-		TEXT("cvar_mean=%.3f\ncvar_strength=%.3f\ncvar_coverage=%.3f\nnight_budget=%d lights, %d shadowed, %.0f cm, %d lit cars\nnight_clouds=%s, samples x%.2f below %.1f deg\ncloud_mode_applied=%s\ncloud_dome_component=%s\nstatus=%s\n"),
+		TEXT("cvar_mean=%.3f\ncvar_strength=%.3f\ncvar_coverage=%.3f\nnight_budget=%d lights, %d shadowed, %.0f cm, %d lit cars\nnight_clouds=%s, samples x%.2f below %.1f deg (ramp from %.1f deg)\ncloud_mode_applied=%s\ncloud_dome_component=%s\nstatus=%s\n"),
 		*Budget.Profile, Budget.bVolumetricClouds ? 1 : 0, Budget.bCloudDome ? 1 : 0, Budget.bCloudDomeWhenOvercast ? 1 : 0,
 		Budget.bCloudShadows ? 1 : 0, *CloudShadowState, Weather.CloudShadowMean, Weather.CloudShadowStrength,
 		Weather.CloudShadowCoverage, CVarCloudShadowContrast.GetValueOnGameThread(),
 		CVarCloudShadowMean.GetValueOnGameThread(), CVarCloudShadowStrength.GetValueOnGameThread(),
 		CVarCloudShadowCoverage.GetValueOnGameThread(), Budget.MaxLights, Budget.MaxShadowedLights,
 		Budget.MaxDistance, Budget.MaxLitCars, Budget.bCloudDomeAtNight ? TEXT("dome") : TEXT("volumetric"),
-		Budget.NightCloudSampleScale, Budget.NightCloudSunElevation,
+		Budget.NightCloudSampleScale, Budget.NightCloudSunElevation, Budget.NightCloudRampStart,
 		AppliedCloudMode == 2 ? TEXT("dome") : (AppliedCloudMode == 1 ? TEXT("volumetric") : (AppliedCloudMode == 0 ? TEXT("none") : TEXT("not yet"))),
 		CloudDome ? TEXT("yes") : TEXT("no (dome assets missing: run setup-environment-mac.sh before packaging)"), *Describe());
 	if (!FFileHelper::SaveStringToFile(Text, *Path))

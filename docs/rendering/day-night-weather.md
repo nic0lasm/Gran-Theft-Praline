@@ -106,6 +106,10 @@ redoes these computations outside Unreal and the tests check every state against
   Without the dome assets, `bCloudDomeAtNight` hides the clouds instead of keeping them.
   At night the dome is dimmed and tinted by `CityLights`. `-Sky=` and `-NightClouds=` keep
   their last occurrence on the command line. The status file gives `cloud_mode_applied`.
+  m1 default since 2026-11-11: half the cloud samples at night (`NightCloudSampleScale` 0.5),
+  ramped from +5° to −1° of sun (`NightCloudRampStart`, `NightCloudSunElevation`): same
+  mean luminance, −10 ms p95 fixed and −12.6 ms on the night route. `-NightClouds=full` gives
+  the 0.3 behaviour; `MODE=compare` of slot-night-mac.sh takes the before/after images.
 - **Status file**: at start (and on `gtp.EnvStatus`) the system writes
   `Saved/Environment/status.txt` (or `-EnvReport=<path>`): profile, sky switches, light
   function `loaded`/`missing`/`off`, its values and `Describe()`. Shipping writes no log.

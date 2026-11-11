@@ -12,7 +12,9 @@
 #   DRY_RUN=1  prerequisites and 2 short runs only
 #   MODE       lights (default, the runs above, 14 min) or clouds (night clouds A/B,
 #              -NightClouds=volumetric|dome|half at night, late dusk and on the night demo
-#              route, 13 min; needs feat/sky-slot3 with -NightClouds in the build)
+#              route, 13 min; needs feat/sky-slot3 with -NightClouds in the build), or
+#              compare (before/after images of the m1 night cloud default against
+#              -NightClouds=full, golden hour to night and the night route, 13 min)
 #   MAP_MD5    expected md5 of the map (default 1c92de0f813b89cb40aeb000cd92a1de)
 # Output: Builds/night-slot/<stamp>/REPORT.md (GPU per run, night cost against noon,
 #         verdict against the 3 ms budget), index.html (stills), heartbeat.txt, steps.log.
@@ -116,6 +118,15 @@ dawn="-Date=2026-10-15 -TimeOfDay=7.75 -TimeScale=0 -Weather=Clear"
 if test "$dry" = "1"; then
   run noon 20 -Ambience=noon
   run night 20 -Ambience=night
+elif test "$mode" = "compare"; then
+  late="-Date=2026-10-15 -TimeOfDay=19.6 -TimeScale=0 -Weather=Cloudy"
+  for pair in "golden|-Ambience=golden" "dusk|-Ambience=dusk" "late-dusk|$late" "night|-Ambience=night"; do
+    label="${pair%%|*}"; args="${pair#*|}"
+    run "$label-full" 50 $args -NightClouds=full
+    run "$label-default" 50 $args
+  done
+  run night-demo-full 100 -Ambience=night -DemoRoute -NightClouds=full
+  run night-demo-default 100 -Ambience=night -DemoRoute
 elif test "$mode" = "clouds"; then
   late="-Date=2026-10-15 -TimeOfDay=19.6 -TimeScale=0 -Weather=Cloudy"
   run noon 50 -Ambience=noon
