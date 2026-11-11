@@ -95,6 +95,13 @@ void UGTPInteriorStreaming::OnWorldBeginPlay(UWorld& InWorld)
 	FParse::Value(FCommandLine::Get(), TEXT("InteriorDensity="), RequestedDensity);
 	Density = GTPInterior::ClampDensity(RequestedDensity);
 	bEnabled = Interiors.Num() > 0 && Flag != 0;
+	int32 Start = 0;
+	if (FParse::Value(FCommandLine::Get(), TEXT("InteriorStart="), Start) && Start != 0)
+	{
+		Rules.LoadRadius = Rules.UnloadRadius = 1.0e7f;   // loaded from the start, wherever the player is
+	}
+	bStartDone = false;
+	LeaveIn = -1.f;
 	if (Interiors.Num() > 0)
 	{
 		GTP_TRACE(InteriorStreaming, TEXT("%d interiors, %s, preload %.0f m, unload %.0f m, density %d"), Interiors.Num(),
@@ -123,7 +130,22 @@ void UGTPInteriorStreaming::Tick(float DeltaTime)
 			}
 			GTP_TRACE(InteriorStreaming, TEXT("visible %s t=%.2f"), *Interior.Level, GetWorld()->GetTimeSeconds());
 		}
+		if (bVisible && !bStartDone)
+		{
+			PlaceAtCounter(Interior);   // retried until the pawn exists
+		}
 		Interior.bWasVisible = bVisible;
+	}
+	if (LeaveIn >= 0.f)
+	{
+		LeaveIn -= DeltaTime;
+		APawn* Pawn = GetWorld()->GetFirstPlayerController() ? GetWorld()->GetFirstPlayerController()->GetPawn() : nullptr;
+		if (LeaveIn < 0.f && Pawn)
+		{
+			// Back on the pavement, 3 m in front of the shop front: the hold-up ends as an escape or an abort.
+			Pawn->TeleportTo(StartAnchor.TransformPosition(FVector(950.f, 300.f, 100.f)), StartAnchor.Rotator());
+			GTP_TRACE(InteriorStreaming, TEXT("test start: player taken outside t=%.2f"), GetWorld()->GetTimeSeconds());
+		}
 	}
 	SinceUpdate += DeltaTime;
 	if (SinceUpdate >= UpdateSeconds)
@@ -222,6 +244,54 @@ void UGTPInteriorStreaming::Release(FInterior& Interior)
 		Streaming->SetShouldBeLoaded(false);
 	}
 	GTP_TRACE(InteriorStreaming, TEXT("unload %s t=%.2f"), *Interior.Level, GetWorld()->GetTimeSeconds());
+}
+
+void UGTPInteriorStreaming::PlaceAtCounter(const FInterior& Interior)
+{
+	// Tests without input: -InteriorStart=1 puts the player in the queue facing the first till, the
+	// way a robber walks in (with -ThreatDemo the player's view is the aim);
+	// -InteriorStartLeaveAfter=S takes them back outside S seconds later.
+	int32 Start = 0;
+	FParse::Value(FCommandLine::Get(), TEXT("InteriorStart="), Start);
+	if (Start == 0)
+	{
+		bStartDone = true;   // not a test start: never looked at again
+		return;
+	}
+	const ULevelStreamingDynamic* Streaming = Interior.Streaming.Get();
+	if (bStartDone || !Streaming || !Streaming->GetLoadedLevel())
+	{
+		return;
+	}
+	APlayerController* PC = GetWorld()->GetFirstPlayerController();
+	APawn* Pawn = PC ? PC->GetPawn() : nullptr;
+	if (!Pawn)
+	{
+		return;
+	}
+	const FName TillTag(TEXT("GTP_Station=till_0"));
+	for (const AActor* Actor : Streaming->GetLoadedLevel()->Actors)
+	{
+		if (!Actor || !Actor->Tags.Contains(TillTag))
+		{
+			continue;
+		}
+		const FVector Till = Actor->GetActorLocation();
+		const FVector Front = Interior.Anchor.GetRotation().RotateVector(FVector(0.f, 250.f, 0.f));   // towards the shop front
+		const FVector Where = Till + Front + FVector(0.f, 0.f, 100.f);
+		const FRotator Look = (Till + FVector(0.f, 0.f, 150.f) - (Where + FVector(0.f, 0.f, 60.f))).Rotation();
+		Pawn->TeleportTo(Where, FRotator(0.f, Look.Yaw, 0.f));
+		PC->SetControlRotation(Look);
+		bStartDone = true;
+		StartAnchor = Interior.Anchor;
+		float After = -1.f;
+		FParse::Value(FCommandLine::Get(), TEXT("InteriorStartLeaveAfter="), After);
+		LeaveIn = After;
+		GTP_TRACE(InteriorStreaming, TEXT("test start: player at the counter of %s t=%.2f"), *Interior.Id, GetWorld()->GetTimeSeconds());
+		return;
+	}
+	bStartDone = true;
+	GTP_TRACE(InteriorStreaming, TEXT("test start: no till_0 slot in %s"), *Interior.Level);
 }
 
 FTransform UGTPInteriorStreaming::GetInteriorAnchor(const FString& Id) const
