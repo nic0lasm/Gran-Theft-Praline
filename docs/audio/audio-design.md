@@ -115,7 +115,9 @@ reward, countdown). `UGTPPlaceAudio`, owned by the audio world, plays them:
 - until the staff loops call `UGTPPlaceAudio::PlayShop`, a light shop life plays card beeps,
   receipts, order chimes, coins and fryer timers at the tills and fryers every 3 to 9 s
   (`-ShopLife=0` turns it off);
-- `UGTPPlaceAudio::PlayMission` plays a sting in 2D through the Interface class.
+- `UGTPPlaceAudio::PlayMission` plays a sting in 2D through the Interface class. `UGTPMissionSounds`
+  listens to `UGTPMissionSubsystem`: available on entering a start zone, start on the first
+  objective of a run, then objective, success followed by reward when it pays, fail.
 
 Settings: `[/Script/GranTheftPraline.GTPPlaceAudio]` in `DefaultGame.ini`. Cost: at most 6
 looping voices plus one room tone, an estimated 0.06 % of a core per sample voice, under 0.5 % in all.
