@@ -15,7 +15,8 @@ Steps:
   lanes     installs gen/quarter/traffic/lanes.csv as Content/City/Traffic/L_City_Quarter.lanes.csv
   quarter   persistent level L_City_Quarter (import_city.py and apply_city_materials.py,
             GTP_CITY_LEVEL=quarter)
-  cells     per cell: import_city, place_facades (street kit reused), place_props,
+  cells     per cell: import_city, place_facades (street kit reused), place_props (furniture,
+            then the street details, GTP_PROPS_SET=details, where the table has rows),
             apply_city_materials (GTP_CITY_LEVEL=cell) -> L_City_Cell<X><Y>
 Materials are created with the Nanite and instanced usage flags (apply_city_materials.py).
 The facade kit and the street materials must already be in the project (one street run, as
@@ -173,6 +174,14 @@ def camel(slug):
     return "".join(p.capitalize() for p in slug.split("-"))
 
 
+def has_rows(path):
+    """A placement table with at least one row (cells.py writes an empty one off the street)."""
+    if not os.path.exists(path):
+        return False
+    with open(path, encoding="utf-8") as f:
+        return sum(1 for _ in f) > 1
+
+
 def main():  # noqa: C901
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--zone", default="presqu-ile")
@@ -237,7 +246,11 @@ def main():  # noqa: C901
         env = dict(common, GTP_CITY_FOCUS=c, GTP_CITY_LEVEL="cell", GTP_KIT_FOCUS="rue-de-la-republique",
                    GTP_KIT_REUSE="1")
         jobs += [("%s_%s" % (c, s), s, rep, lim, env) for s, rep, lim in CELL_STEPS
-                 if s != "place_props" or os.path.exists(os.path.join(proc_dir, "gen", c, "props_placement.csv"))]
+                 if s != "place_props" or has_rows(os.path.join(proc_dir, "gen", c, "props_placement.csv"))]
+        # street details of the cell (details.py --cell), when the rue de la Republique crosses it
+        if has_rows(os.path.join(proc_dir, "gen", c, "details_placement.csv")):
+            jobs.append(("%s_details" % c, "place_props", "details_report.json", 300,
+                         dict(env, GTP_PROPS_SET="details")))
     for i, (name, script, rep, lim, env) in enumerate(jobs):
         stamp("step %d/%d" % (i + 1, len(jobs)))
         ok, secs, note = run_editor(name, script, rep, lim, env, args)

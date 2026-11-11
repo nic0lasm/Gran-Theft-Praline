@@ -13,13 +13,15 @@
 #   quarter   import_city + materials, GTP_CITY_LEVEL=quarter      5 min
 #   per cell  import 5 min, facade kit and signs 10 min, materials 3 min
 #   package   Development, into <BUILDS_DIR>/quarter/             20 min
-#   bench on / bench off   LAUNCH_S + 2 min each
+#   benches (5 by default)  LAUNCH_S + 2 min each
 # Modes: BUILD_ONLY=1 stops after the package (every editor step runs -nullrhi, so a locked
-# Mac screen is fine): about 2 h with 5 cells, guard limit about 4 h. SKIP_BUILD=1 runs the two
+# Mac screen is fine): about 1 h 30 with 5 cells (65 min measured without furniture and details), guard limit about 3 h. SKIP_BUILD=1 runs the
 # benches only, on the package a BUILD_ONLY run left in the same BUILDS_DIR, and stops at once
-# when the screen is locked (CGSSessionScreenIsLocked); about 8 min with LAUNCH_S=120.
-# Version 1 leaves out the street furniture and the details of the cells (props, details);
-# the ground keeps the street map's material.
+# when the screen is locked (CGSSessionScreenIsLocked); about 20 min with LAUNCH_S=120.
+#   per cell (v2) furniture 2 min and street details 2 min (place_props.py, sets props and details)
+# The benches (BENCHES) compare on one package: shippable cells (render defaults of
+# UGTPCityRenderTuning), cells without those defaults, cells without furniture and details,
+# proxies only. The ground keeps the street map's material.
 #
 # Mac slot rules (Nico, 10/11): tried dry first (DRY_RUN=1, no Unreal), a time guard per step,
 # a sign of life every 10 min (HEARTBEAT lines on stdout and in heartbeat.log), Paris times.
@@ -208,7 +210,7 @@ ms = sorted(float(r["frame_ms"]) for r in rows)
 q = lambda p: ms[min(len(ms) - 1, int(p * len(ms)))]  # noqa: E731
 hitches = [r for r in rows if float(r["frame_ms"]) > 100.0]
 try:
-    log = [l.strip() for l in open(sys.argv[2], errors="replace") if "CityStreaming" in l]
+    log = [l.strip() for l in open(sys.argv[2], errors="replace") if "CityStreaming" in l or "CityRenderTuning" in l]
 except OSError:
     log = []
 print("- **%s**: %d frames, p50 %.1f ms, p95 %.1f ms, p99 %.1f ms, max %.1f ms, %.1f %% <= 33.3 ms, %d frames > 100 ms%s"
@@ -237,6 +239,15 @@ if test "$skip_build" != 1; then
     step "$c import" 300 "$c-import.log" env "${cellenv[@]}" bash -c 'ue_py import_city report.json 600'
     step "$c facades" 600 "$c-facades.log" env "${cellenv[@]}" bash -c 'ue_py place_facades facades_report.json 1200'
     step "$c materials" 180 "$c-materials.log" env "${cellenv[@]}" bash -c 'ue_py apply_city_materials materials_report.json 360'
+    # surveyed street furniture and the street details of the cell (props.py / details.py --cell),
+    # placed in the cell level; a table with no row is skipped
+    for pset in props details; do
+      table="$repo/assets/geo/processed/$zone/gen/$c/${pset}_placement.csv"
+      if test "$(wc -l < "$table" 2> /dev/null || echo 0)" -gt 1; then
+        step "$c $pset" 120 "$c-$pset.log" env "${cellenv[@]}" GTP_PROPS_SET="$pset" \
+          bash -c "ue_py place_props ${pset}_report.json 300"
+      fi
+    done
   done
   # No cooked map references the quarter: list it and its cells in the cook for this package only.
   cook_maps="/Game/Maps/L_City_Quarter /Game/Maps/L_City_RueDeLaRepublique"
@@ -263,7 +274,12 @@ if test "$dry" != 1 && ! test -d "$out/quarter"; then
   echo "- no package in $out/quarter (run BUILD_ONLY=1 first)" >> "$report"
   exit 1
 fi
-for run in "on -CityCells=1" "off -CityCells=0"; do
+# BENCHES: "<tag> <game args>;..." on the same package. Default: the shippable cells (their
+# render defaults, UGTPCityRenderTuning), the cells without those defaults, a stronger scale (0.5), the cells without
+# furniture and details (a cull of 0 hides a family), and proxies only.
+benches="${BENCHES:-deliv -CityCells=1 -CityTuneReport=1;nodefaults -CityCells=1 -CityCellDefaults=0 -CityTuneReport=1;scale05 -CityCells=1 -CityCellDetailScale=0.5 -CityTuneReport=1;bare -CityCells=1 -CityCull=props_small=0,props_medium=0,props_large=0,details_small=0,details_medium=0,details_large=0 -CityTuneReport=1;off -CityCells=0}"
+IFS=';' read -r -a bench_list <<< "$benches"
+for run in "${bench_list[@]}"; do
   set -- $run
   if screen_locked; then echo "- $(paris) screen locked before bench $1: skipped" >> "$report"; continue; fi
   step "bench $1" $(( ${LAUNCH_S:-120} + 120 )) "bench-$1.log" bench "$@"

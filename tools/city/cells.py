@@ -2,7 +2,8 @@
 each one outside the engine: buildings and facade modules (generate.py --cell), shop
 signs (signs.py, then their atlas pages, sign_atlas.py), the landmarks of the cell
 (landmarks.py), the ground mask (ground_mask.py, carriageways fitted to the kerbs) and the
-surveyed street furniture (props.py --cell). With no --only, then the quarter-wide data: far
+surveyed street furniture (props.py --cell) and the street details along the rue de la
+Republique (details.py --cell). With no --only, then the quarter-wide data: far
 proxies (cell_proxies.py), driving lanes (traffic.py --focus quarter) and the weight and
 memory budget per cell (cell_budget.py).
 
@@ -80,6 +81,11 @@ def make_cell(zone, cell, py):
         pr = json.loads(run([py, os.path.join(HERE, "props.py"), "--name", zone, "--focus", cell["name"],
                              "--cell=" + bbox]))
         out["props"] = pr.get("props")
+        # facade and street details along the rue de la Republique, clipped to the cell
+        # (details.py --cell; empty table where the street does not cross the cell)
+        dr = json.loads(run([py, os.path.join(HERE, "details.py"), "--name", zone, "--focus", cell["name"],
+                             "--cell=" + bbox]))
+        out["details"] = dr.get("details")
     # the landmarks whose centre lies in this cell (Opera, Hotel de Ville...)
     lm = run([py, os.path.join(HERE, "landmarks.py"), "--name", zone, "--focus", cell["name"], "--cell=" + bbox])
     out["landmarks"] = json.loads(lm).get("placed_in_" + cell["name"], [])
