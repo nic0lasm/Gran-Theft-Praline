@@ -133,6 +133,26 @@ int main()
 		S.Clear();
 		CHECK(S.GetStars() == 0 && S.GetArrestProgress() == 0.f);
 	}
+	{
+		// Combat crimes: a burst of shots counts once per 5 s, a killing is heavy, killing a police officer is heavier.
+		FGTPWantedState S;
+		CHECK(S.AddCrime(EGTPCrimeKind::ShotsFired, 0.f));
+		CHECK(S.GetStars() == 1);
+		CHECK(!S.AddCrime(EGTPCrimeKind::ShotsFired, 3.f)); // same burst
+		CHECK(S.AddCrime(EGTPCrimeKind::ShotsFired, 5.5f));
+		FGTPWantedState K;
+		CHECK(K.AddCrime(EGTPCrimeKind::Killing, 0.f));
+		CHECK(K.GetStars() == 2);
+		FGTPWantedState P;
+		CHECK(P.AddCrime(EGTPCrimeKind::KillPolice, 0.f));
+		CHECK(P.GetStars() >= 3);
+		CHECK(P.GetStars() > K.GetStars());
+		// Holding a gun at someone adds heat once per burst too.
+		FGTPWantedState T;
+		T.AddCrime(EGTPCrimeKind::ArmedThreat, 0.f);
+		CHECK(!T.AddCrime(EGTPCrimeKind::ArmedThreat, 1.f));
+		CHECK(T.GetStars() == 1);
+	}
 	std::printf(Failures ? "FAILED (%d)\n" : "OK\n", Failures);
 	return Failures ? 1 : 0;
 }

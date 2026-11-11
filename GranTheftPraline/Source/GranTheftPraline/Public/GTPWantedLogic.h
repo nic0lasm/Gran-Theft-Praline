@@ -16,8 +16,16 @@ enum class EGTPCrimeKind
 	CarTheft,
 	HitPedestrian,
 	HitVehicle,
-	HitPolice
+	HitPolice,
+	/** Combat (docs/gameplay/combat): a person hurt, a weapon fired or pointed, a person or a police officer killed. */
+	Assault,
+	ShotsFired,
+	ArmedThreat,
+	Killing,
+	KillPolice
 };
+
+constexpr int GTPCrimeKindCount = 9;
 
 struct FGTPWantedSettings
 {
@@ -28,6 +36,14 @@ struct FGTPWantedSettings
 	float HeatHitPedestrian = 35.f;
 	float HeatHitVehicle = 12.f;
 	float HeatHitPolice = 45.f;
+	float HeatAssault = 15.f;
+	float HeatShotsFired = 20.f;
+	float HeatArmedThreat = 25.f;
+	float HeatKilling = 60.f;
+	float HeatKillPolice = 130.f; // 3 stars at once: more than a killing (2 stars)
+
+	/** Weapon crimes come in bursts: shots and threats count once per this time (s), not once per CrimeCooldown. */
+	float BurstCooldown = 5.f;
 
 	/** The same kind of crime does not count twice within this time (a car dragging a person). */
 	float CrimeCooldown = 2.0f;
@@ -80,7 +96,8 @@ public:
 	bool AddCrime(EGTPCrimeKind Kind, float Time)
 	{
 		const int Index = static_cast<int>(Kind);
-		if (Time - LastCrimeTime[Index] < Settings.CrimeCooldown)
+		const bool bBurst = Kind == EGTPCrimeKind::ShotsFired || Kind == EGTPCrimeKind::ArmedThreat;
+		if (Time - LastCrimeTime[Index] < (bBurst ? Settings.BurstCooldown : Settings.CrimeCooldown))
 		{
 			return false;
 		}
@@ -92,6 +109,11 @@ public:
 		case EGTPCrimeKind::HitPedestrian: Add = Settings.HeatHitPedestrian; break;
 		case EGTPCrimeKind::HitVehicle: Add = Settings.HeatHitVehicle; break;
 		case EGTPCrimeKind::HitPolice: Add = Settings.HeatHitPolice; break;
+		case EGTPCrimeKind::Assault: Add = Settings.HeatAssault; break;
+		case EGTPCrimeKind::ShotsFired: Add = Settings.HeatShotsFired; break;
+		case EGTPCrimeKind::ArmedThreat: Add = Settings.HeatArmedThreat; break;
+		case EGTPCrimeKind::Killing: Add = Settings.HeatKilling; break;
+		case EGTPCrimeKind::KillPolice: Add = Settings.HeatKillPolice; break;
 		}
 		Heat = std::min(Heat + Add, Settings.StarHeat[4] + 40.f);
 		RestartSearch();
@@ -168,7 +190,7 @@ private:
 	float SearchLeft = 0.f;
 	float SearchTotal = 0.f;
 	float ArrestTime = 0.f;
-	float LastCrimeTime[4] = {-1000.f, -1000.f, -1000.f, -1000.f};
+	float LastCrimeTime[GTPCrimeKindCount] = {-1000.f, -1000.f, -1000.f, -1000.f, -1000.f, -1000.f, -1000.f, -1000.f, -1000.f};
 };
 
 namespace GTPWanted
