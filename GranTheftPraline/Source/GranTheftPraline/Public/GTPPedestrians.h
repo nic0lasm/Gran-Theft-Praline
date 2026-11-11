@@ -255,11 +255,18 @@ protected:
 	UPROPERTY(Config)
 	float RagdollSeconds = 8.f;
 
+	/** Pedestrians simulated as ragdolls at once; more hits only scare them (m1 ragdoll ceiling, ADR-0006). */
+	UPROPERTY(Config, EditAnywhere, Category = "Pedestrians|Reactions", meta = (ClampMin = "0"))
+	int32 MaxRagdolls = 3;
+
 	/** A car this close (cm) to a crossing, moving, makes people wait at the kerb. */
 	UPROPERTY(Config)
 	float CrossingLookRadius = 2200.f;
 
 private:
+	/** True when a pedestrian may become a ragdoll now (enabled, shared ceiling, own ceiling). */
+	bool RagdollRoom() const;
+
 	struct FPerson
 	{
 		TWeakObjectPtr<AGTPPedestrian> Actor;

@@ -15,6 +15,7 @@
 #include "GameFramework/PlayerController.h"
 #include "Camera/PlayerCameraManager.h"
 #include "GTPGraphicsProfile.h"
+#include "GTPRagdoll.h"
 #include "GTPAudioWorld.h"
 #include "GTPTraffic.h"
 #include "GTPVehicle.h"
@@ -140,6 +141,29 @@ void AGTPPedestrian::SetDetail(bool bVisible, bool bCastShadow, int32 ForcedLOD)
 		// SetForcedLOD takes 1-based levels, 0 = automatic.
 		Body->SetForcedLOD(ForcedLOD < 0 ? 0 : ForcedLOD + 1);
 	}
+}
+
+bool UGTPPedestrianSubsystem::RagdollRoom() const
+{
+	// -Ragdoll=0 and the shared ragdoll ceiling apply to pedestrians too: they stay animated and flee.
+	if (!UGTPRagdollSubsystem::IsEnabled())
+	{
+		return false;
+	}
+	if (const UWorld* World = GetWorld())
+	{
+		const UGTPRagdollSubsystem* Shared = World->GetSubsystem<UGTPRagdollSubsystem>();
+		if (Shared && !Shared->HasRoom())
+		{
+			return false;
+		}
+	}
+	int32 Active = 0;
+	for (const FPerson& P : People)
+	{
+		Active += (P.Actor && P.Actor->IsRagdoll()) ? 1 : 0;
+	}
+	return Active < MaxRagdolls;
 }
 
 bool AGTPPedestrian::StartRagdoll(const FVector& Impulse)
@@ -825,7 +849,7 @@ void UGTPPedestrianSubsystem::Update(FPerson& Person, float DeltaTime)
 			++FledTotal;
 			OnPedestrianScared.Broadcast(Person.Location, nullptr);
 		}
-		if (bRagdollOnHit && bComingAtThem && Distance < 170.f && CarVelocity.Size2D() > HitCarSpeed)
+		if (bRagdollOnHit && bComingAtThem && Distance < 170.f && CarVelocity.Size2D() > HitCarSpeed && RagdollRoom())
 		{
 			if (Actor->StartRagdoll(CarVelocity * 0.4f + FVector(0.f, 0.f, 200.f)))
 			{
