@@ -9,7 +9,9 @@
 #   git fetch -q origin feat/sky-slot3 && mkdir -p Builds/sky-slot3 && git show origin/feat/sky-slot3:tools/environment/slot3-sky-mac.sh > Builds/sky-slot3/run.sh && bash Builds/sky-slot3/run.sh
 # Environment:
 #   BUILD      packaged build dir (default Builds/perf-cumul/0.3, from slot 1)
-#   DRY_RUN=1  check the prerequisites and run 2 short stills only
+#   DRY_RUN=1  check the prerequisites and run 3 short stills only
+#   MODE       full (default, ~35 min) or rainfog (~10 min: Rain and Fog mean sweep, plus the
+#              Clear cloud spots check; same command with MODE=rainfog in front of bash)
 #   MAP_MD5    expected md5 of the map (default 1c92de0f813b89cb40aeb000cd92a1de)
 # Output: Builds/sky-slot3/<stamp>/REPORT.md (tables, verdicts, preset proposal),
 #         index.html (stills side by side), heartbeat.txt, steps.log, one folder per still.
@@ -22,7 +24,9 @@ repo="$(pwd)"
 test -d "$repo/GranTheftPraline" || { echo "slot3: run from the root of the GTAL-build clone" >&2; exit 1; }
 stamp="$(date +%Y%m%d-%H%M%S)"
 dry="${DRY_RUN:-0}"
+mode="${MODE:-full}"
 out="$repo/Builds/sky-slot3/$stamp"
+test "$mode" = "full" || out="$repo/Builds/sky-slot3/$mode-$stamp"
 test "$dry" = "1" && out="$repo/Builds/sky-slot3/dry-$stamp"
 build="${BUILD:-$repo/Builds/perf-cumul/0.3}"
 map="$repo/GranTheftPraline/Content/Maps/L_City_RueDeLaRepublique.umap"
@@ -31,6 +35,7 @@ mkdir -p "$out/tools"
 report="$out/REPORT.md"
 start_s="$(date +%s)"
 budget_s=4200
+test "$mode" = "full" || budget_s=1200
 
 log() { printf '%s %s\n' "$(date +%H:%M:%S)" "$*" | tee -a "$out/steps.log"; }
 die() { log "ABORT: $*"; printf '\n**ABORTED:** %s\n' "$*" >> "$report"; exit 1; }
@@ -64,7 +69,7 @@ cleanup() {
 trap cleanup EXIT
 
 {
-  echo "# Slot 3 - light function cloud shadow in every weather ($stamp)"
+  echo "# Slot 3 ($mode) - light function cloud shadow ($stamp)"
   echo
   echo "Host $(hostname -s); $(uptime | sed 's/^ *//')"
   echo "Clone HEAD: $head_before"
@@ -152,6 +157,11 @@ C=gtp.CloudShadowLF
 if test "$dry" = "1"; then
   case_weather Clear "preset:"
   printf "\nDRY RUN OK\n" >> "$report"
+elif test "$mode" = "rainfog"; then
+  # Presets in the build may predate the ini of this branch: the cvars carry the values.
+  case_weather Clear "m38:$C.Coverage=0.45,$C.Strength=0.2,$C.Mean=0.38" "c80s50m60:$C.Coverage=0.8,$C.Strength=0.5,$C.Mean=0.6"
+  case_weather Rain "m70:$C.Mean=0.7" "m80:$C.Mean=0.8" "m90:$C.Mean=0.9"
+  case_weather Fog "m35:$C.Coverage=0.7,$C.Strength=0.35,$C.Mean=0.35" "m45:$C.Coverage=0.7,$C.Strength=0.35,$C.Mean=0.45" "m55:$C.Coverage=0.7,$C.Strength=0.35,$C.Mean=0.55"
 else
   # Clear: calibrated mean but no visible spots suspected (strength had no effect): more coverage.
   case_weather Clear "preset:" \
