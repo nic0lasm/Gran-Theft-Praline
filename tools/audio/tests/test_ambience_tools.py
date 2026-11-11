@@ -87,6 +87,41 @@ class ZoneMapTest(unittest.TestCase):
             self.assertEqual(at(17000, 5000), 3)   # above the water: bridge
 
 
+    def test_squares_from_buildings(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            gen = os.path.join(tmp, "gen")
+            ground = os.path.join(gen, "ground")
+            os.makedirs(ground)
+            # Mask 200 x 200 m, a carriageway (R) along the south edge (Unreal Y 18000-20000 cm).
+            mask = np.zeros((400, 400, 3), np.uint8)
+            mask[360:400, :, 0] = 255
+            Image.fromarray(mask, "RGB").save(os.path.join(ground, "T_GroundMask.png"))
+            with open(os.path.join(ground, "ground.json"), "w") as f:
+                json.dump({"extent_ue_cm": [0.0, 0.0, 20000.0, 20000.0]}, f)
+            # Buildings along the north and west edges, 20 m deep; the rest is open.
+            with open(os.path.join(gen, "buildings_gen.csv"), "w", newline="") as f:
+                w = csv.DictWriter(f, ["ue_x", "ue_y", "bounds_ue_cm"])
+                w.writeheader()
+                w.writerow({"ue_x": 10000, "ue_y": 1000, "bounds_ue_cm": "-10000 -1000 0 10000 1000 1500"})
+                w.writerow({"ue_x": 1000, "ue_y": 10000, "bounds_ue_cm": "-1000 -10000 0 1000 10000 1500"})
+            water = os.path.join(tmp, "water.geojson")
+            with open(water, "w") as f:
+                json.dump({"type": "FeatureCollection", "features": []}, f)
+            out = os.path.join(tmp, "zones.gtpsurf")
+            zone_map.build(ground, water, out, 200.0, east_cm=20000.0)
+            data = open(out, "rb").read()
+            nx, ny, x0, y0, cell = struct.unpack("<iifff", data[8:28])
+            ids = np.frombuffer(data[28:], np.uint8).reshape(ny, nx)
+
+            def at(x_cm, y_cm):
+                return ids[int((y_cm - y0) // cell), int((x_cm - x0) // cell)]
+
+            self.assertEqual(at(12000, 10000), 4)  # 80 m from the buildings: square
+            self.assertEqual(at(4000, 10000), 0)   # 20 m from the west row: street
+            self.assertEqual(at(12000, 19000), 0)  # on the carriageway: street
+            self.assertEqual(zone_map.ZONES[4], "Square")
+
+
 class PickTest(unittest.TestCase):
     def test_banks_and_step_slicing(self):
         with tempfile.TemporaryDirectory() as tmp:
