@@ -25,7 +25,7 @@
 # replays the whole slot off the Mac with stub steps on a scratch copy of the clone layout.
 #
 # Usage: caffeinate -dimsu tools/city/evidence/details_slot_mac.sh
-#   SLOT_REF (default origin/feat/street-details-9), SLOT_MERGED (1), GTP_PLAY_ARGS,
+#   SLOT_REF (default origin/feat/street-details-10), SLOT_MERGED (1), GTP_PLAY_ARGS,
 #   PYTHON (venv for the city tools), UE_ROOT, GTP_CITY_ZONE, GTP_CITY_FOCUS,
 #   DRY_RUN=1, DRY_STEP_S, HEARTBEAT_S (default 600), PLAN_SCALE (multiplies the planned durations)
 # Output: Saved/details-slot-<stamp>/ (profile_*.json, play_glass.json, logs, heartbeat.log, REPORT.txt).
@@ -36,7 +36,7 @@ cd "$repo"
 dry="${DRY_RUN:-0}"
 heartbeat_s="${HEARTBEAT_S:-600}"
 plan_scale="${PLAN_SCALE:-1}"
-slot_ref="${SLOT_REF:-origin/feat/street-details-9}"
+slot_ref="${SLOT_REF:-origin/feat/street-details-10}"
 merged="${SLOT_MERGED:-1}"
 export GTP_PLAY_ARGS="${GTP_PLAY_ARGS:--Sky=lightfunction}"
 ue_root="${UE_ROOT:-/Users/Shared/Epic Games/UE_5.8}"
