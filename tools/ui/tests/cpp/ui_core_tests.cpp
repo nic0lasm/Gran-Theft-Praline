@@ -1,6 +1,7 @@
 // Checks the Unreal-free core of the interface: string tables, settings and
 // mini-map maths. Build and run: tools/ui/tests/run_cpp_tests.sh
 #include "GTPControls.h"
+#include "GTPHudMath.h"
 #include "GTPMinimapCore.h"
 #include "GTPSettingsCore.h"
 #include "GTPStringTable.h"
@@ -187,12 +188,25 @@ static void TestMinimap()
 	CHECK(Segments == Roads + Others);
 }
 
+static void TestHudMath()
+{
+	// 90 degree FOV on a 1920 px wide screen: a 10 degree cone is tan(10)/tan(45) * 960 px.
+	CHECK(Near(ReticleRadiusPixels(10.f, 90.f, 1920.f), 169.3f, 0.5f));
+	CHECK(Near(ReticleRadiusPixels(0.f, 90.f, 1920.f), 5.f));    // never smaller than the dot
+	CHECK(Near(ReticleRadiusPixels(70.f, 90.f, 1920.f), 220.f)); // nor bigger than the cap
+	CHECK(Near(HitMarkerAlpha(0.f), 1.f) && Near(HitMarkerAlpha(0.075f), 0.5f));
+	CHECK(HitMarkerAlpha(0.15f) == 0.f && HitMarkerAlpha(-1.f) == 0.f && HitMarkerAlpha(5.f) == 0.f);
+	const FRgb Full = HealthColor(1.f), Low = HealthColor(0.f);
+	CHECK(Full.G > Full.R && Low.R > Low.G);
+}
+
 int main()
 {
 	TestStrings();
 	TestControls();
 	TestSettings();
 	TestMinimap();
+	TestHudMath();
 	if (Failures == 0)
 	{
 		std::printf("ui_core_tests: PASS\n");

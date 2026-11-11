@@ -1,6 +1,7 @@
 #include "GTPHUD.h"
 
 #include "GTPCameraModeComponent.h"
+#include "GTPHudCombat.h"
 #include "GTPInteraction.h"
 #include "GTPMinimap.h"
 #include "GTPPlayerController.h"
@@ -77,7 +78,9 @@ void AGTPHUD::DrawHUD()
 	const float Scale = Canvas->ClipY / 1080.f;
 	const float DeltaTime = GetWorld() ? GetWorld()->GetDeltaSeconds() : 0.f;
 
-	if (bShowReticle && Cast<ACharacter>(PC->GetPawn()))
+	// Combat HUD (health, weapon, hit marker): replaces the dot with the spread ring when a weapon is drawn.
+	const bool bCombatReticle = GTPHudCombat::Draw(Canvas, PC, Scale);
+	if (bShowReticle && !bCombatReticle && Cast<ACharacter>(PC->GetPawn()))
 	{
 		const bool bFirstPerson = PC->GetCameraMode() && PC->GetCameraMode()->IsFirstPerson();
 		DrawReticle(Scale, bFirstPerson ? ReticleOpacityFirstPerson : ReticleOpacityThirdPerson);
