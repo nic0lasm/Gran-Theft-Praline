@@ -283,8 +283,6 @@ private:
 		/** Index of the partner this person follows (a pair walking together), -1 = walks alone. */
 		int32 Leader = -1;
 		float FarAccumulated = 0.f;
-	FVector FarScale = FVector::OneVector;
-	float FarZOffset = 0.f;
 		GTPWalk::FStepResult LastResult;
 		GTPWalk::FPoint Pos;
 		GTPWalk::FPoint Dir;
@@ -348,6 +346,8 @@ private:
 	};
 	TArray<FFarAgent> FarAgents;
 	float FarAccumulated = 0.f;
+	FVector FarScale = FVector::OneVector;
+	float FarZOffset = 0.f;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UInstancedStaticMeshComponent> FarInstances;

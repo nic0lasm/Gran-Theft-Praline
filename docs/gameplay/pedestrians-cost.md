@@ -87,7 +87,7 @@ enough once that mesh is imported. Impostor sprites stay a fallback if the verte
 animation proves too dear on Metal.
 
 Fallback with no imported mesh: if `FarCrowdMesh` cannot be loaded, far people are drawn
-as a 45 cm by 175 cm dark column (the engine's cylinder: nothing to import). It reads as a
+as a 45 cm by 175 cm column (the engine's cylinder: nothing to import). It reads as a
 person beyond 45 m and costs almost nothing; `-PedFarSilhouette=1` forces it. Switch it off
 with `bFarSilhouetteFallback=False`. The vertex animation and the baked pose replace it when
 their mesh exists.
