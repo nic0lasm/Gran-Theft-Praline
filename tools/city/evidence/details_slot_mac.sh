@@ -24,14 +24,19 @@
 # heartbeat.log every HEARTBEAT_S seconds, for whoever runs the slot to relay. DRY_RUN=1
 # replays the whole slot off the Mac with stub steps on a scratch copy of the clone layout.
 #
-# Usage: caffeinate -dimsu tools/city/evidence/details_slot_mac.sh
+# Usage, from the root of the clone:
+#   git fetch origin feat/street-details-10 &&
+#   git show origin/feat/street-details-10:tools/city/evidence/details_slot_mac.sh > /tmp/details_slot.sh &&
+#   SLOT_REPO="$PWD" caffeinate -dimsu bash /tmp/details_slot.sh
 #   SLOT_REF (default origin/feat/street-details-10), SLOT_MERGED (1), GTP_PLAY_ARGS,
 #   PYTHON (venv for the city tools), UE_ROOT, GTP_CITY_ZONE, GTP_CITY_FOCUS,
 #   DRY_RUN=1, DRY_STEP_S, HEARTBEAT_S (default 600), PLAN_SCALE (multiplies the planned durations)
 # Output: Saved/details-slot-<stamp>/ (profile_*.json, play_glass.json, logs, heartbeat.log, REPORT.txt).
 set -euo pipefail
 
-repo="$(cd "$(dirname "$0")/../../.." && pwd)"
+# Run it from a copy outside the clone (it checks out another commit while it runs, and bash
+# reads a script as it goes): SLOT_REPO names the clone, default the one the script sits in.
+repo="$(cd "${SLOT_REPO:-$(dirname "$0")/../../..}" && pwd)"
 cd "$repo"
 dry="${DRY_RUN:-0}"
 heartbeat_s="${HEARTBEAT_S:-600}"
