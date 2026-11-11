@@ -6,6 +6,7 @@
 #include "Engine/Level.h"
 #include "Engine/World.h"
 #include "GameFramework/Actor.h"
+#include "GTPCityTuningCore.h"
 #include "GTPLog.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
@@ -72,7 +73,11 @@ void UGTPCityRenderTuning::OnWorldBeginPlay(UWorld& InWorld)
 	int32 CellDefaults = 1;
 	FParse::Value(FCommandLine::Get(), TEXT("CityCellDefaults="), CellDefaults);
 	bCellDefaults = CellDefaults != 0;
-	FParse::Value(FCommandLine::Get(), TEXT("CityCellDetailScale="), CellDetailScale);
+	// Integer percent: -CityCellDetailScale=0.5 crashed the Shipping build at launch on M1 (11/11,
+	// cause not found off the Mac), so the lever takes a whole number and is bounded.
+	int32 Pct = GTPCityTuning::DefaultCellDetailPct;
+	FParse::Value(FCommandLine::Get(), TEXT("CityCellDetailPct="), Pct);
+	CellDetailPct = GTPCityTuning::ClampPct(Pct);
 	int32 Report = 0;
 	FParse::Value(FCommandLine::Get(), TEXT("CityTuneReport="), Report);
 	// Cell levels get their defaults as they stream in, so the subsystem listens whenever the
@@ -92,9 +97,9 @@ bool UGTPCityRenderTuning::IsCellLevel(const FString& LevelPackageName)
 void UGTPCityRenderTuning::CellDefaultCull(TMap<FString, float>& Out)
 {
 	// Compensation of the cells' furniture and details (optimisation thread, 11/11): courtyard
-	// facades and shop signs drawn closer; the props and details scale is CellDetailScale.
+	// facades and shop signs drawn closer; the props and details percentage is CellDetailPct.
 	Out.Add(TEXT("court"), 60.f);
-	Out.Add(TEXT("sign"), 60.f);
+	Out.Add(TEXT("sign"), 45.f);
 }
 
 void UGTPCityRenderTuning::Deinitialize()
@@ -121,7 +126,7 @@ void UGTPCityRenderTuning::Apply(ULevel* Level)
 	const bool bCell = bCellDefaults && IsCellLevel(LevelName);
 	TMap<FString, float> Cull;
 	float ShadowBelow = ShadowBelowM;
-	float SetScale = 1.f;
+	int32 SetPct = 100;
 	if (bCell)
 	{
 		CellDefaultCull(Cull);
@@ -129,7 +134,7 @@ void UGTPCityRenderTuning::Apply(ULevel* Level)
 		{
 			ShadowBelow = 1.0f;   // furniture and details under 1 m cast no shadow in the cells
 		}
-		SetScale = CellDetailScale;
+		SetPct = CellDetailPct;
 	}
 	Cull.Append(CullM);   // the command line wins over the cell defaults
 	// Per family: components found (tagged or implied) and components this pass changed.
@@ -197,12 +202,12 @@ void UGTPCityRenderTuning::Apply(ULevel* Level)
 					}
 					bTouched = true;
 				}
-				else if (Ism && SetScale > 0.f && SetScale < 1.f && Ism->InstanceEndCullDistance > 0
+				else if (Ism && SetPct < 100 && Ism->InstanceEndCullDistance > 0
 					&& (Family.StartsWith(TEXT("props_")) || Family.StartsWith(TEXT("details_"))))
 				{
 					// Generated distances (size class or per-row cull_m) scaled down as a whole.
-					const int32 End = FMath::RoundToInt(Ism->InstanceEndCullDistance * SetScale);
-					Ism->SetCullDistances(FMath::RoundToInt(End * 0.8f), End);
+					const int32 End = GTPCityTuning::ScaledEndCm(Ism->InstanceEndCullDistance, SetPct);
+					Ism->SetCullDistances(GTPCityTuning::StartCm(End), End);
 					bTouched = true;
 				}
 				if (bHideProxies && Family == TEXT("proxy") && Comp->IsVisible())
