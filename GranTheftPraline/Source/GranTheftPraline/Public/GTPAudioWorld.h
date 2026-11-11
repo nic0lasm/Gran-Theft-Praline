@@ -80,6 +80,9 @@ private:
 	TArray<TWeakObjectPtr<AActor>> Pedestrians;
 
 	FDelegateHandle SpawnHandle;
+
+	/** Actors spawned since the last tick: equipped once they have begun play, never mid-spawn. */
+	TArray<TWeakObjectPtr<AActor>> PendingEquip;
 	bool bDrivingMixOn = false;
 	bool bLogStats = false;
 	float StatsTimer = 0.f;
