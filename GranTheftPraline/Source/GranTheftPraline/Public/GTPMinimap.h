@@ -52,6 +52,9 @@ public:
 	/** True with -Minimap=0 or -NoMinimap: the subsystem is not created. */
 	static bool IsDisabledOnCommandLine();
 
+	/** Where the mini-map disc sits on a canvas (centre, radius in pixels): the combat HUD draws around it. */
+	static void GetLayout(const UCanvas* Canvas, float Scale, FVector2D& OutCentre, float& OutRadius);
+
 	bool HasData() const { return Data.Lines.size() > 0; }
 
 private:

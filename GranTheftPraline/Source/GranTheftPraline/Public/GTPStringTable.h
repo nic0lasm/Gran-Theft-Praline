@@ -75,6 +75,9 @@ inline constexpr FStringEntry Entries[] = {
 	// HUD, shared with the other HUD elements
 	{"prompt.enter_vehicle", "Monter", "Get in"},
 	{"prompt.exit_vehicle", "Descendre", "Get out"},
+	{"hud.reloading", "Rechargement…", "Reloading…"},
+	{"Weapon.Pistol9", "Pistolet 9 mm", "9 mm pistol"},
+	{"Weapon.Fist", "Poings", "Fists"},
 	{"minimap.north", "N", "N"},
 	{"controls.heading", "Commandes", "Controls"},
 	{"controls.interact", "Interagir", "Interact"},
