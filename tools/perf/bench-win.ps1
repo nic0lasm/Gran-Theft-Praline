@@ -244,7 +244,7 @@ foreach ($scenario in $scenarios) {
     $gameArgs = @() + $sargs + $extraArgs
     if ($cvars) { $gameArgs += "-GfxCVars=$cvars" }
     if ($CsvProfile) {
-      $gameArgs += @('-csvGpuStats', "-CsvMetadata=scenario=$scenario,variant=$label", "-csvCaptureFrames=$($duration * 60)", "-CsvCopyTo=$run\csvprofile")
+      $gameArgs += @('-csvGpuStats', "-CsvMetadata=scenario=$scenario,variant=$label", "-csvCaptureFrames=$($duration * 1000)", "-CsvCopyTo=$run\csvprofile")
     }
     $gameArgs += @('-SkipTitle', "-FrameLogFile=$run\frametimes.csv", "-ExitAfter=$duration", '-log', "-abslog=$run\game.log")
     $smiArgs = @('--query-gpu=timestamp,utilization.gpu,utilization.memory,memory.used,memory.total,clocks.gr,clocks.mem,power.draw,temperature.gpu,pstate', '--format=csv', "-lms", "$nvsmiMs", '-f', "$run\nvidia-smi.csv")
