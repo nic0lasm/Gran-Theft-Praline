@@ -241,10 +241,10 @@ else
 fi
 
 total=$((5 + 12 + 6 + 17))
-if [ "$mode" = "bench" ]; then total=$((5 + 8 + 16 + 30 + 2 + 12)); fi
-if [ "$mode" = "bench" ] && [ "${SKIP_BUILD:-0}" = "1" ]; then total=$((2 + 12)); fi
 if [ "${SLOT_SKIP_PROFILE:-0}" = "1" ]; then total=$((total - 18)); fi
 if [ "$merged" = "1" ]; then total=$((total + 14 + 6)); fi
+if [ "$mode" = "bench" ]; then total=$((5 + 8 + 16 + 30 + 2 + 12)); fi
+if [ "$mode" = "bench" ] && [ "${SKIP_BUILD:-0}" = "1" ]; then total=$((2 + 12)); fi
 say "details slot, $( [ "$dry" = "1" ] && echo "DRY RUN" || echo "Mac" ), output $out; planned about $total min"
 
 # --- prerequisites and checkout ------------------------------------------------------------
