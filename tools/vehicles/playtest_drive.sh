@@ -28,9 +28,9 @@ test -x "$editor" || { echo "Unreal Editor not found: $editor" >&2; exit 1; }
 mkdir -p "$out"
 rm -rf "$out/playtest_drive.json" "$out/frames"
 
-# "py" takes the rest of the line as the path: run a copy from a folder without spaces.
-tmp="$(mktemp -d)"
-cp "$repo/tools/vehicles/playtest_drive.py" "$tmp/playtest_drive.py"
+# The project path has a space: Content/Python/gtp_run.py runs the script in place (no temp copy).
+export GTP_PY_SCRIPT="$repo/tools/vehicles/playtest_drive.py"
+run_py="py __import__('gtp_run').main()"
 
 play() {
   "$editor" "$project" /Game/Maps/L_RueRepublique -game -windowed -ResX=1920 -ResY=1080 \
@@ -39,7 +39,7 @@ play() {
 }
 
 GTP_DRIVE_MODE=checks play -CaptureVideo=60 -CaptureFps=15 -CaptureDelay=6 -CaptureDir="$out/frames" \
-  -ExecCmds="r.SetRes 1920x1080w, py $tmp/playtest_drive.py"
+  -ExecCmds="r.SetRes 1920x1080w, $run_py"
 if swift "$repo/tools/build/frames-to-movie.swift" "$out/frames" 15 "$out/drive.mov"; then
   rm -rf "$out/frames"
 fi
@@ -47,10 +47,9 @@ fi
 if test "${BENCH:-1}" != 0; then
   cvars="$(python3 "$repo/tools/rendering/reference_scene/profiles.py" "$profile")"
   GTP_DRIVE_MODE=bench play -FrameLogFile="$out/frametimes-$profile.csv" -FrameLogWarmup=12 \
-    -ExecCmds="r.SetRes 1920x1080w, r.VSync 0, t.MaxFPS 0, $cvars, py $tmp/playtest_drive.py"
+    -ExecCmds="r.SetRes 1920x1080w, r.VSync 0, t.MaxFPS 0, $cvars, $run_py"
   cat "$out/frametimes-$profile.summary.txt" 2>/dev/null || echo "no frame time summary written" >&2
 fi
-rm -rf "$tmp"
 
 test -f "$out/playtest_drive.json" || { echo "no playtest report written" >&2; exit 1; }
 cat "$out/playtest_drive.json"
