@@ -247,6 +247,11 @@ def main():  # noqa: C901
             finish(3 if note == "time limit" else 1)
     result["ok"] = True
     result["levels"] = ["/Game/Maps/L_City_Quarter"] + ["/Game/Maps/L_City_" + camel(c) for c in names]
+    # No cooked map references them: a package must list them (DefaultGame.ini, packaging section),
+    # as quarter_slot_mac.sh does for its package only.
+    result["cook_entries"] = ['+MapsToCook=(FilePath="%s")' % m for m in result["levels"]]
+    stamp("a package of the quarter needs these in DefaultGame.ini [/Script/UnrealEd.ProjectPackagingSettings]: "
+          "+MapsToCook for L_City_Quarter and every L_City_Cell* (listed in quarter_build.json)")
     finish(0)
 
 
