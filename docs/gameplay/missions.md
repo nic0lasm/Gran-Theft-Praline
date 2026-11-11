@@ -97,6 +97,22 @@ The three activities played from start to end, three times each, in a packaged b
 a blocker; failure and retry work; the reward is paid and saved; start from the map or from a
 point in the street; merge gate held. Cost with no active mission: 0 ms.
 
+## Unreal adapter (`UGTPMissionSubsystem`)
+
+World subsystem, off with `-Missions=0` (nothing is created). It reads the player pawn, the wanted
+component (stars, arrest banner) and the driven `AGTPVehicle` (actor tag, health, wreck), feeds the
+runner and executes its commands. Tables are read from `Content/Data/Missions/`; the interim save is
+`Saved/SaveGames/GTPMissions.txt` (written beside, then moved over) until ADR-0013 carries it.
+Tests without the interface: `-MissionAutoStart=1` starts a mission on entering its zone;
+console `GTPMission.Start <id>`, `.Retry`, `.Abort`, `.TagVehicle <tag>` (tags the car you drive).
+Delegates for the other threads: `OnStartAvailable`, `OnObjective`, `OnFailed`, `OnSucceeded`,
+`OnReward(amount, runKey, mission)`; getters `GetWaypoint` and `GetStartMarkers` for the map.
+Still missing on `next`: a tagged target car (traffic proposal `SpawnParkedVehicle`), the
+interior id accessor (reference interior, step 7), `OnArrested` and `EnsureMinStars` (police
+branch `feat/wanted-api`); the adapter polls and uses `ForceStars` until then. Zones are real
+vertices of named roads of the city data (rue de la République, rue Confort, rue Mercière,
+place des Terreaux).
+
 ## Next steps
 
 Unreal adapter `UGTPMissionSubsystem` (needs the police, economy and interior APIs on `next`),

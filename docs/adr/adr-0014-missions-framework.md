@@ -36,8 +36,8 @@ is reached through the adapter only.
 1. **Tables** in `Content/Data/Missions/`: `missions.csv` (id, kind, title and brief keys, start
    zone, repeatable, cooldown, money reward, time limit, retry policy, start effects,
    prerequisites), `objectives.csv` (ordered rows per mission: type, target, parameters, hint
-   key, checkpoint flag, time limit, failure events), `zones.csv` (WGS84 position and radius,
-   projected into the level with the city origin), `strings.tsv` (FR/EN texts, to be folded
+   key, checkpoint flag, time limit, failure events), `zones.csv` (city local metres and radius, snapped on
+   real street vertices), `strings.tsv` (FR/EN texts, to be folded
    into `GTPStringTable.h` by the interface thread). The parser rejects every inconsistency
    (unknown zone, gap in indexes, bad number, unknown type) and CI runs it on the shipped tables.
 2. **Objective types**: GoTo, EnterInterior, WaitEvent, EnterVehicle, DeliverVehicle,

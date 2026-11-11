@@ -38,8 +38,8 @@ tous les autres systèmes ne sont atteints que par l'adaptateur.
    résumé, zone de départ, répétable, délai de reprise, récompense en argent, limite de temps,
    politique de reprise, effets au départ, prérequis), `objectives.csv` (lignes ordonnées par
    mission : type, cible, paramètres, clé d'indice, point de reprise, limite de temps, événements
-   d'échec), `zones.csv` (position WGS84 et rayon, projetés dans le niveau avec l'origine de la
-   ville), `strings.tsv` (textes FR/EN, à intégrer à `GTPStringTable.h` par le fil Interface).
+   d'échec), `zones.csv` (mètres locaux de la ville et rayon, calés sur
+   des sommets de rues réelles), `strings.tsv` (textes FR/EN, à intégrer à `GTPStringTable.h` par le fil Interface).
    L'analyseur refuse toute incohérence (zone inconnue, trou d'indice, nombre faux, type inconnu)
    et la CI le lance sur les tables livrées.
 2. **Types d'objectif** : GoTo, EnterInterior, WaitEvent, EnterVehicle, DeliverVehicle,
