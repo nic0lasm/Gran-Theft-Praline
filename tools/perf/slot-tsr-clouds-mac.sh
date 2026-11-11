@@ -44,6 +44,7 @@ mkdir -p "$out/tools"
 report="$out/REPORT.md"
 log() { printf '%s %s\n' "$(date +%H:%M:%S)" "$*" | tee -a "$out/steps.log" >&2; }
 die() { log "ABORT: $*"; printf '\n**ABORTED:** %s\n' "$*" >> "$report"; exit 1; }
+screen_locked() { ioreg -n Root -d1 -a 2>/dev/null | grep -A1 CGSSessionScreenIsLocked | grep -q "<true/>"; }
 limit() { local s="$1"; shift; perl -e 'alarm shift; exec @ARGV or die "exec: $!"' "$s" "$@"; }
 ( while sleep 600; do printf "%s alive\n" "$(date +%H:%M:%S)" >> "$out/heartbeat.txt"; done ) > /dev/null 2>&1 &
 hb=$!
@@ -52,6 +53,7 @@ trap cleanup EXIT
 
 if pgrep -f "UnrealEditor( |$)|GranTheftPraline-Mac|UnrealBuildTool|AutomationTool" > /dev/null; then die "Unreal, UBT/UAT or the game is running"; fi
 test -f "$map" || die "map missing"
+screen_locked && die "screen locked: unlock the Mac, the game cannot open its window"
 git fetch -q origin "$branch" || die "fetch $branch"
 for f in gpu_passes.py summarize.py; do git show "origin/$branch:tools/perf/$f" > "$out/tools/$f" || die "tool $f"; done
 exe="$(find "$build/GranTheftPraline.app/Contents/MacOS" -maxdepth 1 -type f -perm -u+x 2>/dev/null | head -n 1)"

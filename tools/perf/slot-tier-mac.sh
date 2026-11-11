@@ -45,6 +45,7 @@ report="$out/REPORT.md"
 
 log() { printf '%s %s\n' "$(date +%H:%M:%S)" "$*" | tee -a "$out/steps.log"; }
 die() { log "ABORT: $*"; printf '\n**ABORTED:** %s\n' "$*" >> "$report"; exit 1; }
+screen_locked() { ioreg -n Root -d1 -a 2>/dev/null | grep -A1 CGSSessionScreenIsLocked | grep -q "<true/>"; }
 limit() { local s="$1"; shift; perl -e 'alarm shift; exec @ARGV or die "exec: $!"' "$s" "$@"; }
 
 ( while sleep 600; do printf "%s alive\n" "$(date +%H:%M:%S)" >> "$out/heartbeat.txt"; done ) > /dev/null 2>&1 &
@@ -79,6 +80,7 @@ test -z "$(git status --porcelain --untracked-files=no)" || die "tracked changes
 git fetch -q origin "$branch" || die "fetch $branch failed"
 if test -n "${REFERENCE:-}" && ! test -s "$REFERENCE"; then die "REFERENCE not found: $REFERENCE"; fi
 if test "$dry" = "1"; then
+  screen_locked && log "WARNING: screen locked, a real run would stop"
   log "DRY RUN: tier $tier on origin/$branch ($(git rev-parse --short "origin/$branch")): $scenarios, ${duration}s x $passes, world: $world"
   bash -n tools/perf/bench.sh || die "bench.sh syntax"
   echo "DRY RUN OK" >> "$report"; exit 0
@@ -101,6 +103,7 @@ else
 fi
 exe="$(find "$build/GranTheftPraline.app/Contents/MacOS" -maxdepth 1 -type f -perm -u+x | head -n 1)"
 test -n "$exe" || die "no executable in $build"
+if test "${PACKAGE_ONLY:-0}" != "1" && screen_locked; then die "screen locked: unlock the Mac, the game cannot open its window"; fi
 if test "${PACKAGE_ONLY:-0}" = "1"; then echo "Packaged only (PACKAGE_ONLY=1)" >> "$report"; log "packaged only"; exit 0; fi
 
 if test "$tier" != "cold"; then
