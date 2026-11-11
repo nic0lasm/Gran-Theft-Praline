@@ -91,3 +91,5 @@ ce que des niveaux par cellule permettent de gérer.
   à l'échelle de la zone (un seul `lanes.csv`), les acteurs sont gardés ou recyclés quand leur
   cellule se décharge.
 - La map de rue `L_City_RueDeLaRepublique` reste la map de test jusqu'à la 0.9.
+
+- 2026-11-11 : première mise en œuvre sur feat/city-perf (cell_proxies.py, GTP_CITY_LEVEL, UGTPCityStreaming, quarter_slot_mac.sh), voir docs/city/generation.fr.md ; pas encore mesurée.
