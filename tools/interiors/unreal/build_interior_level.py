@@ -19,6 +19,7 @@ What it does (idempotent, the level is rebuilt from zero each run):
    the mapped mesh, cull distances, shadows, collision and the tags read at run time by
    UGTPInteriorStreaming: GTP_MinDensity=<n>, GTP_NoShadowM1, GTP_NoCollision;
 4. lights: one shadowed rect light per zone up to the M1 cap, the others unshadowed;
+   work station slots: TargetPoints tagged GTP_Station=<station>_<n>, GTP_StationRole=<role>;
 5. optional anchor in the city map (TargetPoint tagged GTP_InteriorAnchor and
    GTP_InteriorLevel=<package>) at the spec's anchor transform.
 Report: Saved/InteriorBuild/<id>.json (counts per group, missing meshes, timings).
@@ -156,6 +157,28 @@ def build_objects(spec, catalog, mapping, report):
     report["grey_classes"] = sorted({cls for (cls, _l, _d) in groups if cls not in mapping})
 
 
+def build_station_slots(spec, catalog):
+    """One TargetPoint per work station, where the staff stands (UGTPKitchenSubsystem reads the tags)."""
+    roles = {s["name"]: s.get("role", "crew") for s in spec["stations"]}
+    seen = {}
+    for p in il.generate_all(spec, catalog):
+        tag = p["station"]
+        name = tag.rsplit("_", 1)[0]
+        if name not in roles or tag in seen:
+            continue
+        seen[tag] = p
+    storey = spec["frame"]["storey_height"] * 100
+    for tag, p in sorted(seen.items()):
+        level = p["level"]
+        # Stand 70 cm in front of the station (towards the counter side, -y in the frame).
+        location = unreal.Vector(p["x"] * 100.0, -p["y"] * 100.0 + 70.0, level * storey)
+        point = actor_sub.spawn_actor_from_class(unreal.TargetPoint, location)
+        point.set_actor_label("Station_" + tag)
+        point.set_folder_path("Interior/Stations")
+        point.set_editor_property("tags", [unreal.Name("GTP_Station=" + tag), unreal.Name("GTP_StationRole=" + roles[tag.rsplit("_", 1)[0]])])
+    return len(seen)
+
+
 def build_lights(spec):
     storey = spec["frame"]["storey_height"] * 100
     zones = sorted(spec["zones"], key=lambda z: -il.rect_area(z["rect"]))
@@ -222,6 +245,7 @@ def main():
     report["shell_actors"] = build_shell(spec)
     build_objects(spec, catalog, mapping, report)
     report["lights"] = build_lights(spec)
+    report["station_slots"] = build_station_slots(spec, catalog)
     level_sub.save_current_level()
     if WITH_ANCHOR:
         place_anchor(spec, report)
