@@ -3,9 +3,9 @@
 #include "CoreMinimal.h"
 #include "Subsystems/WorldSubsystem.h"
 #include "GTPMissionRunner.h"
+#include "GTPVehicle.h"
 #include "GTPMissionSubsystem.generated.h"
 
-class AGTPVehicle;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogGTPMission, Log, All);
 
@@ -23,6 +23,7 @@ DECLARE_MULTICAST_DELEGATE_ThreeParams(FGTPMissionReward, int32 /*Amount*/, FNam
  *
  * Command line: -Missions=0 turns it all off (no subsystem). -MissionAutoStart=1 starts a
  * mission on entering its start zone (tests; the interface thread offers a prompt otherwise).
+ * -MissionStart=<id> [-MissionStartDelay=<s>] starts a mission by itself (scripted scenarios, with -TestDrive).
  * Console: GTPMission.Start <id>, GTPMission.Retry, GTPMission.Abort, GTPMission.TagVehicle <tag>
  * (tags the vehicle the player drives, to test the car order without a spawned target).
  * Log lines "LogGTPMission: mission: ..." follow the soak-log convention.
@@ -91,7 +92,11 @@ private:
 	void Execute(const std::vector<GTPMission::FCommand>& Commands);
 	void LoadSave();
 	void WriteSave();
-	void PollWorldEvents(const GTPMission::FContext& Ctx);
+	void BindWorldEvents();
+	void SpawnMissionVehicle(FName Tag, const FString& ZoneId);
+	void HandleArrested();
+	void HandlePlayerDied(const FVector& Where);
+	void HandleVehicleLost(AGTPVehicle* Vehicle, EGTPVehicleLoss Loss);
 	FVector ToCm(float X, float Y) const { return FVector(X * 100.f, -Y * 100.f, 0.f); }
 	static FString SavePath();
 
@@ -104,7 +109,13 @@ private:
 	FName BoundTag;
 	bool bAutoStart = false;
 	bool bTablesOk = false;
-	bool bWasBusted = false;
+	bool bWantedBound = false;
+	bool bCombatBound = false;
+	FDelegateHandle WreckHandle;
+	/** -MissionStart=<id>: start that mission once the game has run -MissionStartDelay seconds (scripted scenarios). */
+	FName ScriptedMission;
+	float ScriptedDelay = 6.f;
+	float RunTime = 0.f;
 	FString InsideStartZone;
 	float LogTimer = 0.f;
 	FName OfferedMission;

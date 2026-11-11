@@ -14,3 +14,10 @@ z_order_search,85.6,-344.0,90
 z_garage_fictif,-31.1,-158.1,12
 # Place des Terreaux
 z_refuge_terreaux,-7.0,475.0,30
+# Time trial: start at place Bellecour, then three vertices of rue de la Republique
+z_start_trial,61.5,-558.6,8
+z_trial_cp1,173.0,-242.1,15
+z_trial_cp2,179.0,76.0,15
+z_trial_cp3,185.2,500.5,20
+# Courier on foot: start in rue Merciere, drop at the garage spot of the order activity
+z_start_courier,-74.7,86.0,6

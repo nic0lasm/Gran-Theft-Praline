@@ -9,3 +9,8 @@ act_order_car,0,EnterVehicle,order_sedan_blue,search_zone=z_order_search,objecti
 act_order_car,1,DeliverVehicle,z_garage_fictif,min_health=0.5;abandon_m=150;abandon_s=20,objective.order.deliver,0,0,vehicle.destroyed@bound
 act_lose_cops,0,LoseWanted,,hold_s=2,objective.flee.lose,0,0,
 act_lose_cops,1,GoTo,z_refuge_terreaux,max_stars=0,objective.flee.reach,0,0,
+act_time_trial,0,GoTo,z_trial_cp1,in_vehicle=1,objective.trial.cp,0,0,
+act_time_trial,1,GoTo,z_trial_cp2,in_vehicle=1,objective.trial.cp,0,0,
+act_time_trial,2,GoTo,z_trial_cp3,in_vehicle=1;max_stars=1,objective.trial.last,0,0,
+act_courier,0,GoTo,z_garage_fictif,on_foot=1,objective.courier.drop,0,0,
+act_courier,1,GoTo,z_refuge_terreaux,on_foot=1,objective.courier.deliver,0,0,
