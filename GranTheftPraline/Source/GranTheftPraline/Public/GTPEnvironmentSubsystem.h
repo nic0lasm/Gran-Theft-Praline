@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "Subsystems/WorldSubsystem.h"
 #include "GTPSolarPosition.h"
+#include "GTPCarSignalLogic.h"
 #include "GTPEnvironmentSubsystem.generated.h"
 
 class AActor;
@@ -280,6 +281,8 @@ private:
 	void LoadNightLights(UWorld& World);
 	void FindNewCars();
 	void UpdateCarLights(const FVector& CameraLocation);
+	/** Every frame, lit cars only: brake, reverse and indicator lights. */
+	void UpdateCarSignals();
 	void AdoptTaggedLights(UWorld& World);
 	void ReadCommandLine();
 	void ApplyBudgetForProfile(UWorld& World);
@@ -475,6 +478,21 @@ private:
 	UPROPERTY(Config)
 	float TailLightRadius = 350.f;
 
+	/** Car signals on the lit cars (GTPCarSignalLogic.h): brake lights (tail light times
+	 *  BrakeLightBoost), reverse light and turn indicators on one extra small light per car.
+	 *  -CarSignals=0 switches them off. */
+	UPROPERTY(Config)
+	bool bCarSignals = true;
+
+	UPROPERTY(Config)
+	float BrakeLightBoost = 5.f;
+
+	UPROPERTY(Config)
+	float SignalCandela = 30.f;
+
+	UPROPERTY(Config)
+	float SignalRadius = 250.f;
+
 	/** Seconds between two night light updates. */
 	UPROPERTY(Config)
 	float LightUpdateInterval = 0.2f;
@@ -554,6 +572,15 @@ private:
 		TWeakObjectPtr<AActor> Car;
 		TArray<TWeakObjectPtr<ULocalLightComponent>> Lights;
 		bool bOn = false;
+		TWeakObjectPtr<ULocalLightComponent> Tail;
+		TWeakObjectPtr<ULocalLightComponent> Signal;
+		TWeakObjectPtr<UActorComponent> Movement;
+		FVector RearLeft = FVector::ZeroVector;
+		FVector RearCentre = FVector::ZeroVector;
+		FGTPCarSignalState SignalState;
+		bool bBrakeShown = false;
+		int32 SignalShown = 0;  // 0 off, 1 reverse, 2 indicator lit
+		int32 SignalSide = 0;
 	};
 	TArray<FCarLights> CarLights;
 	float CarScanTimer = 0.f;

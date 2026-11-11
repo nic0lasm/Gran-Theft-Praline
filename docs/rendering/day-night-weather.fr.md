@@ -114,6 +114,12 @@ refait ces calculs hors Unreal et les tests vérifient chaque état contre la bi
   `NightCloudSunElevation`) : même luminance moyenne, −10 ms au p95 en fixe et −12,6 ms sur le
   parcours de nuit. `-NightClouds=full` redonne le comportement de la 0.3 ; `MODE=compare` de
   slot-night-mac.sh prend les images avant/après.
+- **Feux des voitures** : sur les voitures allumées (`MaxLitCars`), feux stop (feu arrière ×
+  `BrakeLightBoost`), feu de recul et clignotants (orange, 1,5 Hz) se partagent une petite lumière
+  de plus par voiture. Les conducteurs n'ont pas de commodo : le virage se déduit du volant à
+  vitesse de ville et tient 1,2 s (`GTPCarSignalLogic.h`, testé hors Unreal par
+  `tools/environment/car_signals_test.cpp`). Entrées lues par réflexion sur le composant de
+  mouvement Chaos. `-CarSignals=0` coupe.
 - **Fichier d'état** : au démarrage (et sur `gtp.EnvStatus`), le système écrit
   `Saved/Environment/status.txt` (ou `-EnvReport=<chemin>`) : profil, interrupteurs du
   ciel, light function `loaded`/`missing`/`off`, ses valeurs et `Describe()`. Shipping

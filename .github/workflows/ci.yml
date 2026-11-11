@@ -146,6 +146,10 @@ jobs:
       - run: pip install numpy pillow
       - name: Unit tests (banks, surface map, recorded picks)
         run: python -I -m unittest discover -s tools/audio/tests
+      - name: Car signal rules outside Unreal
+        run: |
+          g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/environment/car_signals_test.cpp -o car_signals_test
+          ./car_signals_test
       - name: Footstep rules and procedural sirens outside Unreal
         run: |
           g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/audio/audio_logic_test.cpp -o audio_logic_test
