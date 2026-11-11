@@ -110,7 +110,26 @@ test -d "$build/GranTheftPraline.app" || die "no app after packaging"
 log "30 s control launch (freeze check), limit 120 s"
 exe="$(find "$build/GranTheftPraline.app/Contents/MacOS" -maxdepth 1 -type f -perm -u+x | head -n 1)"
 limit 120 "$exe" -SkipTitle "-FrameLogFile=$out/control.csv" -ExitAfter=30 > "$out/control.log" 2>&1 || true
-test -s "$out/control.csv" || die "control launch produced no frame: the build freezes"
+if ! test -s "$out/control.csv"; then
+  # The Shipping build froze at start. Find out whether the pedestrians are to blame (same build,
+  # pedestrians off), then package Development to get a log of the freeze, and stop.
+  log "control launch froze: retry with -Pedestrians=0, limit 120 s"
+  limit 120 "$exe" -SkipTitle -Pedestrians=0 "-FrameLogFile=$out/control-nopeds.csv" -ExitAfter=30 > "$out/control-nopeds.log" 2>&1 || true
+  if test -s "$out/control-nopeds.csv"; then
+    echo "Control launch FROZE with pedestrians on and ran with -Pedestrians=0: the pedestrian code is the cause" >> "$report"
+  else
+    echo "Control launch froze even with -Pedestrians=0: not the pedestrians (base build or map)" >> "$report"
+  fi
+  log "package Development for a log, limit 30 min"
+  BUILDS_DIR="$repo/Builds/perf-slot6-dev" limit 1800 tools/build/package-mac.sh 0.3 Development > "$out/package-dev.log" 2>&1 || log "development package failed (see package-dev.log)"
+  devexe="$(find "$repo/Builds/perf-slot6-dev/0.3/GranTheftPraline.app/Contents/MacOS" -maxdepth 1 -type f -perm -u+x 2> /dev/null | head -n 1)"
+  if test -n "$devexe"; then
+    limit 90 "$devexe" -SkipTitle -log -stdout -FullStdOutLogOutput "-FrameLogFile=$out/control-dev.csv" -ExitAfter=30 > "$out/control-dev.log" 2>&1 || true
+    echo "Development control log: control-dev.log (last lines below)" >> "$report"
+    { echo '```'; tail -n 40 "$out/control-dev.log"; echo '```'; } >> "$report"
+  fi
+  die "control launch produced no frame: the build freezes (see the report for the isolation result)"
+fi
 echo "Control launch: $(wc -l < "$out/control.csv" | tr -d ' ') frames in 30 s" >> "$report"
 
 off="-Traffic=0 -Police=0 -Ragdoll=0 -Minimap=0 -DayNight=0 -Audio=0"

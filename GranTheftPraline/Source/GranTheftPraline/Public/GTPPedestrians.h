@@ -346,6 +346,7 @@ private:
 	};
 	TArray<FFarAgent> FarAgents;
 	float FarAccumulated = 0.f;
+	bool bFarPending = false;
 	FVector FarScale = FVector::OneVector;
 	float FarZOffset = 0.f;
 

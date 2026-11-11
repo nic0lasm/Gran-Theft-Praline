@@ -465,13 +465,20 @@ void UGTPPedestrianSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 		P.Actor = Actor;
 	}
 	GTP_TRACE(LogGTPPedestrians, TEXT("pedestrians: on (%d), %d walkway edges, %d visible at most"), Wanted, Edges, MaxVisible);
-	InitFarCrowd(InWorld);
+	// The far crowd loads its mesh a few seconds into play, never while the map is loading.
+	bFarPending = true;
 }
 
 void UGTPPedestrianSubsystem::InitFarCrowd(UWorld& InWorld)
 {
 	int32 Count = FarCrowdCount;
 	FParse::Value(FCommandLine::Get(), TEXT("PedFar="), Count);
+	if (Count <= 0)
+	{
+		// Off: load nothing at all.
+		GTP_TRACE(LogGTPPedestrians, TEXT("far crowd: off"));
+		return;
+	}
 	FString MeshOverride;
 	if (FParse::Value(FCommandLine::Get(), TEXT("PedFarMesh="), MeshOverride) && !MeshOverride.IsEmpty())
 	{
@@ -978,6 +985,14 @@ void UGTPPedestrianSubsystem::Tick(float DeltaTime)
 		return;
 	}
 	Clock += DeltaTime;
+	if (bFarPending && Clock > 3.f)
+	{
+		bFarPending = false;
+		if (UWorld* World = GetWorld())
+		{
+			InitFarCrowd(*World);
+		}
+	}
 	RefreshViewer();
 	if (!bHasViewer)
 	{
