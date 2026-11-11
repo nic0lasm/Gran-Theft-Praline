@@ -45,6 +45,12 @@ UGTPEngineSoundComponent::UGTPEngineSoundComponent(const FObjectInitializer& Obj
 void UGTPEngineSoundComponent::BeginPlay()
 {
 	Super::BeginPlay();
+	if (!UGTPAudioMix::IsSynthAudioEnabled())
+	{
+		// No wave and no synth: StartEngine and Tick do nothing.
+		SetComponentTickEnabled(false);
+		return;
+	}
 
 	AttenuationOverrides.bAttenuate = true;
 	AttenuationOverrides.bSpatialize = true;

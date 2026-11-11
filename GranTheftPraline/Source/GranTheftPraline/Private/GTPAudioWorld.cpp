@@ -67,8 +67,14 @@ void UGTPAudioWorld::OnWorldBeginPlay(UWorld& InWorld)
 		Mix->UseGridsForMap(InWorld.GetMapName());
 		UGameplayStatics::PushSoundMixModifier(&InWorld, Mix->GetUserMix());
 	}
-	Bed = NewObject<UGTPAmbienceBed>(this);
-	Bed->Start(&InWorld);
+	// -AudioBed=0: no ambience bed (crash hunt A/B switch; its layers stop and restart during play).
+	int32 BedSwitch = 1;
+	FParse::Value(FCommandLine::Get(), TEXT("AudioBed="), BedSwitch);
+	if (BedSwitch != 0)
+	{
+		Bed = NewObject<UGTPAmbienceBed>(this);
+		Bed->Start(&InWorld);
+	}
 	Reactions = NewObject<UGTPStreetReactions>(this);
 	Reactions->Start(&InWorld);
 	CombatSounds = NewObject<UGTPCombatSounds>(this);
@@ -77,7 +83,7 @@ void UGTPAudioWorld::OnWorldBeginPlay(UWorld& InWorld)
 	Places->Start(&InWorld);
 	MissionSounds = NewObject<UGTPMissionSounds>(this);
 	MissionSounds->Start(&InWorld);
-	GTP_TRACE(LogGTPAudioWorld, TEXT("[Audio] world %s: %d actors equipped at start; bed %s"), *InWorld.GetMapName(), Equipped, *Bed->Describe());
+	GTP_TRACE(LogGTPAudioWorld, TEXT("[Audio] world %s: %d actors equipped at start; bed %s"), *InWorld.GetMapName(), Equipped, Bed ? *Bed->Describe() : TEXT("off"));
 }
 
 void UGTPAudioWorld::Deinitialize()

@@ -40,12 +40,16 @@ void UGTPVehicleAudioComponent::BeginPlay()
 		AttenuationSettings = Mix->GetAttenuation(EGTPAudioCategory::Vehicles);
 		ConcurrencySet.Add(Mix->GetConcurrency(EGTPAudioCategory::Vehicles));
 	}
-	Skid = MakeShared<FGTPSkidSynth, ESPMode::ThreadSafe>();
-	Skid->Init(UGTPSynthSoundWave::SynthSampleRate, FGTPSkidSettings());
-	TSharedPtr<FGTPSkidSynth, ESPMode::ThreadSafe> Shared = Skid;
-	SkidWave = NewObject<UGTPSynthSoundWave>(this);
-	SkidWave->Setup([Shared](float* Out, int32 Count) { Shared->Render(Out, Count); });
-	SetSound(SkidWave);
+	// -SynthAudio=0: no skid wave (Tick then skips the skid), crashes still sound.
+	if (UGTPAudioMix::IsSynthAudioEnabled())
+	{
+		Skid = MakeShared<FGTPSkidSynth, ESPMode::ThreadSafe>();
+		Skid->Init(UGTPSynthSoundWave::SynthSampleRate, FGTPSkidSettings());
+		TSharedPtr<FGTPSkidSynth, ESPMode::ThreadSafe> Shared = Skid;
+		SkidWave = NewObject<UGTPSynthSoundWave>(this);
+		SkidWave->Setup([Shared](float* Out, int32 Count) { Shared->Render(Out, Count); });
+		SetSound(SkidWave);
+	}
 	SetVolumeMultiplier(GetDefault<UGTPAudioSettings>()->SkidVolume);
 
 	if (UPrimitiveComponent* Body = Cast<UPrimitiveComponent>(GetOwner() ? GetOwner()->GetRootComponent() : nullptr))

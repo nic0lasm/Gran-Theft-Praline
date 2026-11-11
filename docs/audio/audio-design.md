@@ -218,7 +218,9 @@ recordings, delete its folder in the editor first.
 ## Measuring and tuning
 
 - `-AudioStats`: one line `[Audio] steps=… impacts=… sirens_on=… skids_on=… walkers=…` per second.
-- `-Audio=0`: nothing of ADR-0009 (A/B measurement).
+- `-Audio=0`: nothing of ADR-0009 (A/B measurement). The car engine synths stay.
+- `-SynthAudio=0`: no procedural wave at all (engines, sirens, skids). With `-Audio=0`, no game sound object is created or destroyed during play (crash hunt).
+- `-AudioBed=0`: no ambience bed, whose layers stop and restart with the zone, the crowd, rain and night.
 - `-RecordAudio[=s]` (`-RecordAudioDir=`): records the game output to a WAV, at the same time as `-CaptureVideo`; `-TestSiren`: the nearest traffic car sounds a siren (two-tone 12 s, yelp 4 s).
 - `-DebugFeet` (or `gtp.Audio.DebugFeet 1`): foot heights of the player and every step with its surface (to calibrate `FootPlantHeight`).
 - Outside the engine, in CI: `tools/audio/audio_logic_test.cpp` + `check_synths.py`

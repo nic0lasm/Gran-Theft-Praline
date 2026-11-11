@@ -238,7 +238,9 @@ entière aux prises de son, supprimer d'abord son dossier dans l'éditeur.
 ## Mesure et réglage
 
 - `-AudioStats` : une ligne `[Audio] steps=… impacts=… sirens_on=… skids_on=… walkers=…` par seconde.
-- `-Audio=0` : rien de l'ADR-0009 (mesure A/B).
+- `-Audio=0` : rien de l'ADR-0009 (mesure A/B). Les synthés de moteur des voitures restent.
+- `-SynthAudio=0` : aucune onde procédurale (moteurs, sirènes, crissements). Avec `-Audio=0`, aucun objet sonore du jeu n'est créé ni détruit en cours de partie (chasse au plantage).
+- `-AudioBed=0` : pas de lit d'ambiance, dont les couches s'arrêtent et repartent selon la zone, la foule, la pluie et la nuit.
 - `-RecordAudio[=s]` (`-RecordAudioDir=`) : enregistre la sortie du jeu en WAV, au même moment que `-CaptureVideo` ; `-TestSiren` : la voiture de trafic la plus proche fait sonner une sirène (deux tons 12 s, yelp 4 s).
 - `-DebugFeet` (ou `gtp.Audio.DebugFeet 1`) : hauteur des pieds du joueur et chaque pas avec sa surface (étalonnage de `FootPlantHeight`).
 - Hors moteur, en CI : `tools/audio/audio_logic_test.cpp` + `check_synths.py`
