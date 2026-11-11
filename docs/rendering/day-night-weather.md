@@ -96,6 +96,11 @@ redoes these computations outside Unreal and the tests check every state against
   `.Strength`, `.Coverage`, `.Contrast`). They are calibrated by image luminance against
   the volumetric shadow, exposure untouched: `tools/environment/calibrate-cloud-shadow-mac.sh
   <build_dir>` (target ±3 of the reference at noon and in the rain).
+- **Night clouds**: below `NightCloudSunElevation` (−4°, the moon lights the clouds) a
+  budget can show the 2D dome (`bCloudDomeAtNight`) or scale the cloud samples
+  (`NightCloudSampleScale`); A/B: `-NightClouds=volumetric|dome|half`. Night light budget
+  overrides: `-NightLights=N`, `-NightShadows=N`, `-NightDistance=cm`, `-LitCars=N`.
+  Mac measurement in one command: `tools/environment/slot-night-mac.sh` (`MODE=clouds`).
 - **Status file**: at start (and on `gtp.EnvStatus`) the system writes
   `Saved/Environment/status.txt` (or `-EnvReport=<path>`): profile, sky switches, light
   function `loaded`/`missing`/`off`, its values and `Describe()`. Shipping writes no log.

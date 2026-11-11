@@ -1,7 +1,7 @@
 """Run an editor Python script whose path has spaces, without copying it anywhere.
 
 Unreal splits the -ExecutePythonScript value and the "py" console command on spaces (a file
-"with optional arguments"), and the project lives under "Claude work". Copying the scripts to
+"with optional arguments"), and the project folder has a space in its path. Copying the scripts to
 a temporary folder without spaces worked but wrote outside the project. Instead, this module
 sits in Content/Python, which Unreal puts on sys.path for every editor and -game run, and the
 command line names it by a call with no space at all:

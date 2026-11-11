@@ -99,6 +99,11 @@ refait ces calculs hors Unreal et les tests vérifient chaque état contre la bi
   `.Strength`, `.Coverage`, `.Contrast`). Ils se calent par luminance d'image sur l'ombre
   volumétrique, sans toucher à l'exposition : `tools/environment/calibrate-cloud-shadow-mac.sh
   <dossier_build>` (cible ±3 de la référence à midi et sous la pluie).
+- **Nuages de nuit** : sous `NightCloudSunElevation` (−4°, la lune éclaire les nuages), un
+  budget peut afficher le dôme 2D (`bCloudDomeAtNight`) ou réduire les échantillons des
+  nuages (`NightCloudSampleScale`) ; A/B : `-NightClouds=volumetric|dome|half`. Budget des
+  lumières de nuit forçable : `-NightLights=N`, `-NightShadows=N`, `-NightDistance=cm`,
+  `-LitCars=N`. Mesure Mac en une commande : `tools/environment/slot-night-mac.sh` (`MODE=clouds`).
 - **Fichier d'état** : au démarrage (et sur `gtp.EnvStatus`), le système écrit
   `Saved/Environment/status.txt` (ou `-EnvReport=<chemin>`) : profil, interrupteurs du
   ciel, light function `loaded`/`missing`/`off`, ses valeurs et `Describe()`. Shipping
