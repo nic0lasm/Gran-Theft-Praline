@@ -469,7 +469,7 @@ Première mise en œuvre de l'option B de l'ADR-0010, préparée et essayée hor
   `quarter_build.py` posent le mobilier et les détails dans chaque niveau de cellule
   (`place_props.py`, jeux `props` et `details`). Compensation du budget, active par défaut dans
   les seuls niveaux de cellule (`UGTPCityRenderTuning`) : façades de cour et enseignes jusqu'à
-  60 m, distances du mobilier et des détails ×0,7 (`-CityCellDetailScale=`), pas d'ombre sous
+  60 m et 45 m, distances du mobilier et des détails à 60 % (`-CityCellDetailPct=`, de 10 à 100), pas d'ombre sous
   1 m ; `-CityCellDefaults=0` la coupe, `-CityCull` l'emporte, une distance de 0 masque une famille.
 - Pas encore : mobilier et détails dans les cellules loin de la rue de la République, masque de sol à l'échelle du quartier,
   niveaux de cellule dans la liste de cuisson pour un package.

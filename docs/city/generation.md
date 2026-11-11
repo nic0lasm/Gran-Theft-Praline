@@ -450,7 +450,7 @@ First implementation of ADR-0010 option B, prepared and tested off the Mac; not 
   map's 1 890). `quarter_slot_mac.sh` and `quarter_build.py` place the furniture and the details
   in each cell level (`place_props.py`, sets `props` and `details`). Budget compensation, on by
   default in the cell levels only (`UGTPCityRenderTuning`): courtyard facades and shop signs end
-  at 60 m, furniture and detail distances x0.7 (`-CityCellDetailScale=`), no shadow under 1 m;
+  at 60 m and 45 m, furniture and detail distances at 60 % (`-CityCellDetailPct=`, 10 to 100), no shadow under 1 m;
   `-CityCellDefaults=0` turns it off, `-CityCull` wins over it, a distance of 0 hides a family.
 - Not yet: furniture and details in the cells away from the rue de la Republique, a quarter-wide ground mask, the cell
   levels in the cook list for a package.

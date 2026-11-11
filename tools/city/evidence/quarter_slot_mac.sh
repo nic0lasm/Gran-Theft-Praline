@@ -277,9 +277,9 @@ if test "$dry" != 1 && ! test -d "$out/quarter"; then
   exit 1
 fi
 # BENCHES: "<tag> <game args>;..." on the same package. Default: the shippable cells (their
-# render defaults, UGTPCityRenderTuning), the cells without those defaults, a stronger scale (0.5), the cells without
+# render defaults, UGTPCityRenderTuning), the cells without those defaults, the previous 70 % distances, the cells without
 # furniture and details (a cull of 0 hides a family), and proxies only.
-benches="${BENCHES:-deliv -CityCells=1 -CityTuneReport=1;nodefaults -CityCells=1 -CityCellDefaults=0 -CityTuneReport=1;scale05 -CityCells=1 -CityCellDetailScale=0.5 -CityTuneReport=1;bare -CityCells=1 -CityCull=props_small=0,props_medium=0,props_large=0,details_small=0,details_medium=0,details_large=0 -CityTuneReport=1;off -CityCells=0}"
+benches="${BENCHES:-deliv -CityCells=1 -CityTuneReport=1;nodefaults -CityCells=1 -CityCellDefaults=0 -CityTuneReport=1;pct70 -CityCells=1 -CityCellDetailPct=70 -CityTuneReport=1;bare -CityCells=1 -CityCull=props_small=0,props_medium=0,props_large=0,details_small=0,details_medium=0,details_large=0 -CityTuneReport=1;off -CityCells=0}"
 IFS=';' read -r -a bench_list <<< "$benches"
 for run in "${bench_list[@]}"; do
   set -- $run

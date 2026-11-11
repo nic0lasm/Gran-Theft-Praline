@@ -41,6 +41,8 @@ jobs:
         run: |
           g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/city/tests/city_streaming_test.cpp -o city_streaming_test
           ./city_streaming_test
+          g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/city/tests/city_tuning_test.cpp -o city_tuning_test
+          ./city_tuning_test
 
   assets-pipeline:
     name: Asset pipeline tests
