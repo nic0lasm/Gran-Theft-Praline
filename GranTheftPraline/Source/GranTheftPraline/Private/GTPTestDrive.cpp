@@ -26,6 +26,10 @@ namespace GTPTestDriveLocal
 	constexpr double EnterTimeout = 10.0;
 	/** Ground to actor origin of a car (cm), as the traffic ghosts (GTPTraffic.h). */
 	constexpr float RideHeightCm = 40.f;
+	/** The car must stand this close to the first point when the drive starts. */
+	constexpr double StartToleranceCm = 300.0;
+	/** Physics mode: farther than this from the path point being followed = off the path. */
+	constexpr double OffPathCm = 1500.0;
 	/** The heading looks this many seconds behind and ahead, so it turns smoothly through the path points. */
 	constexpr double HeadingWindow = 0.4;
 
@@ -374,13 +378,13 @@ bool UGTPTestDrive::Tick(float DeltaTime)
 	case EPhase::Enter:
 		if (Driven && Pawn == Driven)
 		{
-			if (bRail)
+			// Both modes: physics off while the car is put at the start, so the teleport
+			// cannot be undone by the solver (seen on M1: a physics car left 90 m away).
+			if (UPrimitiveComponent* Root = Cast<UPrimitiveComponent>(Driven->GetRootComponent()))
 			{
-				if (UPrimitiveComponent* Root = Cast<UPrimitiveComponent>(Driven->GetRootComponent()))
-				{
-					Root->SetSimulatePhysics(false);
-				}
+				Root->SetSimulatePhysics(false);
 			}
+			PutAtStart(Driven);
 			SetPhase(EPhase::Hold);
 		}
 		else if (InPhase > GTPTestDriveLocal::EnterTimeout)
@@ -392,12 +396,30 @@ bool UGTPTestDrive::Tick(float DeltaTime)
 		break;
 
 	case EPhase::Hold:
-		if (Driven && bRail)
+		if (Driven)
 		{
-			StepRail(Driven, Path[0].T);
+			StepRail(Driven, Path[0].T); // parked on the first point, physics off
 		}
-		if (InPhase >= Delay)
+		if (InPhase >= Delay && Driven)
 		{
+			const double FromStart = FVector::Dist2D(Driven->GetActorLocation(), FVector(Path[0].Location.X, Path[0].Location.Y, 0.0));
+			if (FromStart > GTPTestDriveLocal::StartToleranceCm)
+			{
+				GTP_TRACE(LogGTPTestDrive, TEXT("TestDrive error: car not at the start (%.0f cm away)"), FromStart);
+				SetPhase(EPhase::Done);
+				break;
+			}
+			if (!bRail)
+			{
+				if (UPrimitiveComponent* Root = Cast<UPrimitiveComponent>(Driven->GetRootComponent()))
+				{
+					Root->SetSimulatePhysics(true);
+					Root->SetPhysicsLinearVelocity(FVector::ZeroVector);
+					Root->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
+				}
+			}
+			LastLocation = Driven->GetActorLocation();
+			OffPathSince = -1.0;
 			DriveStart = Now;
 			LastLoggedSlot = -1;
 			Closest = 0;
@@ -423,6 +445,41 @@ bool UGTPTestDrive::Tick(float DeltaTime)
 			StepPhysics(Driven, T);
 		}
 		LogPosition(Driven, T - Path[0].T);
+		{
+			// A car that moves farther in one frame than it could drive has been put back by
+			// something (physics recovery, traffic pool, a teleport): the run is not valid.
+			const FVector Here = Driven->GetActorLocation();
+			const double Moved = FVector::Dist2D(Here, LastLocation);
+			const double Possible = 200.0 + 3.0 * FMath::Max(DeltaTime, 0.f) * 4000.0; // 144 km/h margin
+			if (Moved > Possible && (Now - DriveStart) > 0.5)
+			{
+				GTP_TRACE(LogGTPTestDrive, TEXT("TestDrive jump t=%.1f %.0f cm from %s to %s"), static_cast<float>(T - Path[0].T), Moved,
+					*LastLocation.ToCompactString(), *Here.ToCompactString());
+			}
+			LastLocation = Here;
+			if (!bRail)
+			{
+				const int32 Near = FMath::Clamp(Closest, 0, Path.Num() - 1);
+				const double Off = FVector2D::Distance(FVector2D(Here.X, Here.Y), Path[Near].Location);
+				if (Off > GTPTestDriveLocal::OffPathCm)
+				{
+					if (OffPathSince < 0.0)
+					{
+						OffPathSince = Now;
+					}
+					else if (Now - OffPathSince > 5.0)
+					{
+						GTP_TRACE(LogGTPTestDrive, TEXT("TestDrive error: off the path for 5 s (%.0f cm) at %s"), Off, *Here.ToCompactString());
+						SetPhase(EPhase::Done);
+						break;
+					}
+				}
+				else
+				{
+					OffPathSince = -1.0;
+				}
+			}
+		}
 		const bool bEnded = bRail ? T >= Path.Last().T
 			: (Closest >= Path.Num() - 2 && Driven->GetSpeedKmh() < 2.f) || T > Path.Last().T * 3.0 + 60.0;
 		if (bEnded)
@@ -434,9 +491,18 @@ bool UGTPTestDrive::Tick(float DeltaTime)
 				// Back to the first point (a rail drive that ends where it began does not jump).
 				if (!bRail)
 				{
+					if (UPrimitiveComponent* Root = Cast<UPrimitiveComponent>(Driven->GetRootComponent()))
+					{
+						Root->SetSimulatePhysics(false);
+					}
 					PutAtStart(Driven);
 					SetPhase(EPhase::Hold);
 				}
+				else
+				{
+					StepRail(Driven, Path[0].T);
+				}
+				LastLocation = Driven->GetActorLocation();
 				DriveStart = Now;
 				LastLoggedSlot = -1;
 				Closest = 0;
