@@ -614,10 +614,34 @@ def lock_exposure(report, actor_sub, level_sub):
     report["post_process_volumes"] = done
 
 
+def cell_level(report):
+    """Streaming cell (GTP_CITY_LEVEL=cell): the terrain, the kit and their materials are shared
+    with the persistent level and already set; only the cell's own shells get the shell
+    material, reused as it is so the levels built before keep a valid reference."""
+    shell_path = MAT_DIR + "/M_City_Shell"
+    shell = eal.load_asset(shell_path) if eal.does_asset_exist(shell_path) else shell_material()
+    report["shell_meshes"] = assign(ROOT + "/Buildings/" + CAMEL, shell)
+    if eal.does_directory_exist(ROOT + "/Landmarks/" + CAMEL):
+        report["landmark_meshes"] = assign(ROOT + "/Landmarks/" + CAMEL, shell)
+    report["level"] = "cell"
+
+
 def main():
     t0 = time.time()
     report = {"map": MAP, "ground_dir": GROUND_DIR, "errors": []}
     try:
+        if os.environ.get("GTP_CITY_LEVEL", "street") == "cell":
+            cell_level(report)
+            raise StopIteration
+        if os.environ.get("GTP_CITY_LEVEL", "street") == "quarter":
+            # Persistent level: proxies and terrain carry their materials already; only the
+            # exposure of its post-process volume is locked like the street map's.
+            level_sub = unreal.get_editor_subsystem(unreal.LevelEditorSubsystem)
+            if not level_sub.load_level(MAP):
+                raise RuntimeError("cannot open " + MAP)
+            lock_exposure(report, unreal.get_editor_subsystem(unreal.EditorActorSubsystem), level_sub)
+            report["level"] = "quarter"
+            raise StopIteration
         with open(os.path.join(GROUND_DIR, "ground.json")) as f:
             meta = json.load(f)
         if not eal.does_directory_exist(MAT_DIR):
@@ -639,6 +663,8 @@ def main():
         assign_kit(kit_instances(kit_master()), report)
         report["shop_glass"] = SHOP_GLASS_MODE
         facade_check(report)
+    except StopIteration:
+        pass
     except Exception as e:  # report, never leave the editor hanging on a dialog
         report["errors"].append(repr(e))
     report["seconds"] = round(time.time() - t0, 1)

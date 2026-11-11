@@ -45,6 +45,11 @@ ZONE = os.environ.get("GTP_CITY_ZONE", "presqu-ile")
 FOCUS = os.environ.get("GTP_CITY_FOCUS", "rue-de-la-republique")
 GEN = os.path.join(REPO, "assets", "geo", "processed", ZONE, "gen", FOCUS)
 KIT_DIR = "/Game/Environment/Facades/LyonKit"
+# Streaming cells (ADR-0010) share one kit: GTP_KIT_FOCUS names the generation whose kit/ is
+# used (cells have none of their own), GTP_KIT_REUSE=1 keeps the kit already imported, with
+# its LODs and material instances, instead of deleting and re-importing it for every cell.
+KIT_GEN = os.path.join(REPO, "assets", "geo", "processed", ZONE, "gen", os.environ.get("GTP_KIT_FOCUS", FOCUS))
+KIT_REUSE = os.environ.get("GTP_KIT_REUSE", "0") == "1"
 MAP = "/Game/Maps/L_City_" + "".join(p.capitalize() for p in FOCUS.split("-"))
 SIGN_DIR = "/Game/Environment/City/Signs/" + "".join(p.capitalize() for p in FOCUS.split("-"))
 BRAND_SIGN_DIR = "/CityBrands/Signs/" + "".join(p.capitalize() for p in FOCUS.split("-"))
@@ -112,10 +117,13 @@ def srgb_to_linear(c):
 
 
 def import_kit():
+    if KIT_REUSE and eal.does_directory_exist(KIT_DIR):
+        return {a.get_name(): a for a in (eal.load_asset(p) for p in eal.list_assets(KIT_DIR, recursive=True))
+                if isinstance(a, unreal.StaticMesh)}
     if eal.does_directory_exist(KIT_DIR):
         eal.delete_directory(KIT_DIR)
     task = unreal.AssetImportTask()
-    task.set_editor_property("filename", os.path.join(GEN, "kit", "facade_kit.glb"))
+    task.set_editor_property("filename", os.path.join(KIT_GEN, "kit", "facade_kit.glb"))
     task.set_editor_property("destination_path", KIT_DIR)
     task.set_editor_property("automated", True)
     task.set_editor_property("replace_existing", True)
@@ -379,13 +387,13 @@ def sign_hism(label, mesh, mic, shadow):
 def main():
     t0 = time.time()
     report = {"zone": ZONE, "focus": FOCUS, "map": MAP, "errors": []}
-    with open(os.path.join(GEN, "kit", "kit_manifest.json")) as f:
+    with open(os.path.join(KIT_GEN, "kit", "kit_manifest.json")) as f:
         manifest = json.load(f)
     with open(os.path.join(GEN, "facade_modules.csv"), encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
     meshes = import_kit()
     bad = check_sizes(meshes, manifest)
-    if not bad:
+    if not bad and not KIT_REUSE:
         add_lods(meshes, manifest, report)
     report["kit_modules"] = len(meshes)
     if bad:

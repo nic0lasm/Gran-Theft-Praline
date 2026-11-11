@@ -23,6 +23,17 @@ Steps (idempotent, the map is rebuilt each run; nothing else is touched):
   3b. optional Rhone riverside (riverside.glb + riverside.json from tools/city/riverside.py):
      water without collision, bridge deck and quay parapets with collision, folder City/Riverside
   4. report in Saved/CityImport/report.json
+
+Streaming cells (ADR-0010), GTP_CITY_LEVEL:
+  street   (default) the self-contained test map above;
+  cell     GTP_CITY_FOCUS=cell-p0000-p0000: a blank streaming level L_City_Cell<X><Y> with only
+           the buildings and landmarks of the cell (no lighting, terrain, river or player start,
+           which belong to the persistent level);
+  quarter  GTP_CITY_FOCUS=quarter: the persistent level L_City_Quarter: bible lighting, the
+           terrain (reused when already imported, so the street map keeps its materials), one
+           far proxy per cell (gen/quarter/cell_proxies.*, tools/city/cell_proxies.py: no shadow,
+           no collision, no distance field, tagged for UGTPCityStreaming) and a player start at
+           the Bellecour end of the rue de la Republique when its generation is there.
 The facade module list (facade_modules.csv) is left for the facade kit / PCG
 graph; this script only builds the greybox that already contains the modules.
 """
@@ -42,6 +53,8 @@ GEN = os.path.join(REPO, "assets", "geo", "processed", ZONE, "gen", FOCUS)
 TERRAIN = os.path.join(REPO, "assets", "geo", "processed", ZONE, "terrain")
 # "shell" (roofs and party walls; place_facades.py adds the kit) or "greybox" (modules baked in)
 MESH = os.environ.get("GTP_CITY_MESH", "shell")
+LEVEL = os.environ.get("GTP_CITY_LEVEL", "street")
+STREET_GEN = os.path.join(REPO, "assets", "geo", "processed", ZONE, "gen", "rue-de-la-republique")
 CAMEL = "".join(p.capitalize() for p in FOCUS.split("-"))
 ROOT = "/Game/Environment/City/" + "".join(p.capitalize() for p in ZONE.split("-"))
 MAP = "/Game/Maps/L_City_" + CAMEL
@@ -190,9 +203,101 @@ def terrain_baked(mesh, tile):
     return math.hypot(cx - tx, cy - ty) < math.hypot(cx, cy)
 
 
+def existing_meshes(dest):
+    meshes = {}
+    for p in eal.list_assets(dest, recursive=True):
+        a = eal.load_asset(p)
+        if isinstance(a, unreal.StaticMesh):
+            meshes[a.get_name()] = a
+    return meshes
+
+
+def place_terrain(terrain, terrain_meta, report):
+    terrain_check = {"baked": 0, "at_pivot": 0}
+    for tile in terrain_meta["mesh_tiles"]:
+        m = terrain.get(tile["name"])
+        if m is None:
+            report["errors"].append("terrain tile missing: " + tile["name"])
+            continue
+        if terrain_baked(m, tile):
+            terrain_check["baked"] += 1
+            pos = (0.0, 0.0, 0.0)
+        else:
+            terrain_check["at_pivot"] += 1
+            pos = tuple(tile["ue_cm"])
+        place_mesh(m, pos, tile["name"], "City/Terrain")
+    report["terrain_bounds_check"] = terrain_check
+
+
+def build_quarter(report, t0):
+    """Persistent level of the streamed quarter: lighting, terrain, far proxies, player start."""
+    with open(os.path.join(TERRAIN, "terrain.json")) as f:
+        terrain_meta = json.load(f)
+    with open(os.path.join(GEN, "cell_proxies.json"), encoding="utf-8") as f:
+        meta = json.load(f)
+    terrain = existing_meshes(ROOT + "/Terrain") if eal.does_directory_exist(ROOT + "/Terrain") else {}
+    report["terrain_reused"] = bool(terrain)
+    if not terrain:
+        terrain = import_glb(os.path.join(TERRAIN, "terrain.glb"), ROOT + "/Terrain")
+        set_complex_collision(list(terrain.values()))
+    proxies = import_glb(os.path.join(GEN, "cell_proxies.glb"), ROOT + "/CellProxies")
+    shell_path = ROOT + "/Materials/M_City_Shell"
+    shell = eal.load_asset(shell_path) if eal.does_asset_exist(shell_path) else None
+    for m in proxies.values():
+        if shell:
+            for i in range(len(m.get_editor_property("static_materials"))):
+                m.set_material(i, shell)
+        eal.save_loaded_asset(m)
+    report["proxy_material"] = shell.get_path_name() if shell else "imported (vertex colour)"
+    open_level_with_bible_lighting(report)
+    unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world() \
+        .get_world_settings().set_editor_property("kill_z", KILL_Z)
+    place_terrain(terrain, terrain_meta, report)
+    placed = 0
+    for n in meta["nodes"]:
+        m = proxies.get(n["name"])
+        if m is None:
+            report["errors"].append("cell proxy missing: " + n["name"])
+            continue
+        pos = (0.0, 0.0, 0.0) if terrain_baked(m, n) else tuple(n["ue_cm"])
+        a = place_mesh(m, pos, n["name"], "City/CellProxies")
+        # Far stand-in only: no collision (the cell level brings its own), no shadow, no
+        # distance field or Lumen contribution (ADR-0010 condition 2).
+        comp = a.static_mesh_component
+        comp.modify()
+        comp.set_collision_profile_name("NoCollision")
+        comp.set_collision_enabled(unreal.CollisionEnabled.NO_COLLISION)
+        comp.set_editor_property("cast_shadow", False)
+        comp.set_editor_property("affect_distance_field_lighting", False)
+        comp.set_editor_property("affect_dynamic_indirect_lighting", False)
+        a.tags = ["GTP_CellProxy", n["level"], "bounds:%.0f,%.0f,%.0f,%.0f" % tuple(n["cell_bounds_ue_cm"])]
+        placed += 1
+    report["cell_proxies"] = dict(meta.get("budget", {}), placed=placed)
+    street_report = os.path.join(STREET_GEN, "report.json")
+    if os.path.exists(street_report):
+        with open(street_report, encoding="utf-8") as f:
+            loc, yaw = bellecour_start(json.load(f)["focus_axis_ue_cm"])
+    else:
+        loc, yaw = (12500.0, -12500.0, 30000.0), 0.0   # above the first cell; the pawn falls to the terrain
+    spawn(unreal.PlayerStart, loc, unreal.Rotator(0, 0, yaw), "PlayerStart_City")
+    report["player_start"] = [round(v) for v in loc] + [round(yaw, 1)]
+    level_sub.save_current_level()
+    write_report(report, t0)
+
+
+def open_blank_cell_level(report):
+    """A streaming level holds only its own actors: no lighting, sky or world settings of its own."""
+    if eal.does_asset_exist(MAP):
+        eal.delete_asset(MAP)
+    level_sub.new_level(MAP)
+    report["lighting"] = "none (streaming cell, lit by the persistent level)"
+
+
 def main():
     t0 = time.time()
-    report = {"zone": ZONE, "focus": FOCUS, "map": MAP, "errors": []}
+    report = {"zone": ZONE, "focus": FOCUS, "map": MAP, "level": LEVEL, "errors": []}
+    if LEVEL == "quarter":
+        return build_quarter(report, t0)
     with open(os.path.join(GEN, "buildings_gen.csv"), encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
     with open(os.path.join(TERRAIN, "terrain.json")) as f:
@@ -204,7 +309,8 @@ def main():
     for r in rows:
         r["mesh_name"] = r["mesh_name"].replace("SM_Building_", prefix)
         r["bounds_ue_cm"] = r[bounds_col]
-    terrain = import_glb(os.path.join(TERRAIN, "terrain.glb"), ROOT + "/Terrain")
+    # A streaming cell does not own the terrain: the persistent level and the street map share it.
+    terrain = {} if LEVEL == "cell" else import_glb(os.path.join(TERRAIN, "terrain.glb"), ROOT + "/Terrain")
 
     # Convention check before anything is placed.
     bad, baked = [], 0
@@ -253,9 +359,12 @@ def main():
         cells = import_glb(os.path.join(GEN, "shell_cells.glb"), ROOT + "/Buildings/" + CAMEL + "/Cells")
     shells = list(cells.values()) if cells_meta else list(buildings.values())
     report["collision_meshes"] = set_complex_collision(shells + list(terrain.values()) + solid)
-    open_level_with_bible_lighting(report)
-    unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world() \
-        .get_world_settings().set_editor_property("kill_z", KILL_Z)
+    if LEVEL == "cell":
+        open_blank_cell_level(report)
+    else:
+        open_level_with_bible_lighting(report)
+        unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world() \
+            .get_world_settings().set_editor_property("kill_z", KILL_Z)
 
     if cells_meta:
         for n in cells_meta["nodes"]:
@@ -270,20 +379,8 @@ def main():
         for r in rows:
             pos = (0.0, 0.0, 0.0) if r["baked"] else (float(r["ue_x"]), float(r["ue_y"]), float(r["ue_z"]))
             place_mesh(buildings[r["mesh_name"]], pos, r["mesh_name"], "City/Buildings")
-    terrain_check = {"baked": 0, "at_pivot": 0}
-    for tile in terrain_meta["mesh_tiles"]:
-        m = terrain.get(tile["name"])
-        if m is None:
-            report["errors"].append("terrain tile missing: " + tile["name"])
-            continue
-        if terrain_baked(m, tile):
-            terrain_check["baked"] += 1
-            pos = (0.0, 0.0, 0.0)
-        else:
-            terrain_check["at_pivot"] += 1
-            pos = tuple(tile["ue_cm"])
-        place_mesh(m, pos, tile["name"], "City/Terrain")
-    report["terrain_bounds_check"] = terrain_check
+    if LEVEL != "cell":
+        place_terrain(terrain, terrain_meta, report)
     # Riverside nodes are written with their origin at the zone origin: placed at 0 either way.
     for n in (river_meta or {}).get("nodes", []):
         m = river.get(n["name"])
@@ -324,6 +421,10 @@ def main():
             t.tags = [rec["tag_exits"]]
         report["river_recovery"] = {"boxes": len(rec["boxes"]), "exits": len(rec["exits"]), "bed_z_m": rec["bed_z_m"]}
 
+    if LEVEL == "cell":
+        level_sub.save_current_level()
+        report.update({"buildings_placed": len(rows), "terrain_tiles": 0})
+        return write_report(report, t0)
     # Player start: Bellecour end of the focus street, looking up the street (morning test map).
     with open(os.path.join(GEN, "report.json"), encoding="utf-8") as f:
         axis = json.load(f)["focus_axis_ue_cm"]
