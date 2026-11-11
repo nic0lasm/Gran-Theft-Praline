@@ -1,0 +1,71 @@
+{
+  "id": "fastfood_bellecour",
+  "comment": "Reference interior 1 (docs/gameplay/reference-interior.md). Footprint from BD TOPO building T24GFDBJTRSJ (329 m2, 7 levels, 28.3 m, commercial), local metres from the shop point (x east, y north). Room split is a working hypothesis from the street: dining along the place Bellecour glass front (south) and the rue de la Republique side (east), counter in the middle, kitchen and storage at the back, crew room and toilets upstairs with a second dining room. Branding is a local layer: no brand name, logo or trade dress here.",
+  "footprint_bdtopo": [[8.2, 15.3], [1.7, -2.1], [0.8, -2.9], [-6.6, -0.3], [-14.2, 2.4], [-13.1, 5.5], [-11.0, 11.7], [-10.3, 15.8], [-10.1, 17.6], [-8.5, 16.8], [-6.9, 21.0], [-0.5, 18.5], [4.6, 16.6], [8.2, 15.3]],
+  "frame": {"comment": "working rectangle aligned on the Bellecour front, metres", "width": 19.0, "depth": 16.0, "storey_height": 3.6},
+  "zones": [
+    {"name": "dining_ground", "level": 0, "rect": [0.0, 0.0, 12.0, 7.5]},
+    {"name": "kiosks", "level": 0, "rect": [12.0, 0.0, 19.0, 3.5]},
+    {"name": "queue", "level": 0, "rect": [12.0, 3.5, 19.0, 7.5]},
+    {"name": "counter", "level": 0, "rect": [4.0, 7.5, 19.0, 9.0]},
+    {"name": "kitchen", "level": 0, "rect": [4.0, 9.0, 19.0, 13.5]},
+    {"name": "storage", "level": 0, "rect": [11.0, 13.5, 19.0, 16.0]},
+    {"name": "walk_in", "level": 0, "rect": [4.0, 13.5, 11.0, 16.0]},
+    {"name": "stairs", "level": 0, "rect": [0.0, 7.5, 4.0, 16.0]},
+    {"name": "dining_upper", "level": 1, "rect": [0.0, 0.0, 19.0, 9.0]},
+    {"name": "crew_room", "level": 1, "rect": [10.0, 9.0, 19.0, 16.0]},
+    {"name": "toilets", "level": 1, "rect": [0.0, 9.0, 10.0, 16.0]}
+  ],
+  "stations": [
+    {"name": "fryer", "zone": "kitchen", "count": 4, "role": "fries", "items": {"fryer": 1, "fry_basket": 2, "oil_filter_tray": 1}},
+    {"name": "fry_dump", "zone": "kitchen", "count": 1, "role": "fries", "items": {"fry_dump": 1, "fry_scoop": 2, "fry_carton_kit": 6, "salt_shaker": 1}},
+    {"name": "grill", "zone": "kitchen", "count": 2, "role": "grill", "items": {"clamshell_grill": 1, "spatula": 2, "scraper": 1, "patty_tray": 4}},
+    {"name": "toaster", "zone": "kitchen", "count": 2, "role": "assembly", "items": {"bun_toaster": 1, "bun_tray": 2}},
+    {"name": "assembly", "zone": "kitchen", "count": 2, "role": "assembly", "items": {"assembly_table": 1, "condiment_insert": 12, "sauce_gun": 3, "wrapper_kit": 4, "burger_box_kit": 4, "kvs_screen": 2, "bun": 18}},
+    {"name": "holding", "zone": "kitchen", "count": 2, "role": "grill", "items": {"holding_cabinet": 1, "holding_tray": 12, "patty": 24}},
+    {"name": "bun_rack", "zone": "kitchen", "count": 4, "role": "assembly", "items": {"speed_rack": 1, "bun_tray": 8, "bun": 96}},
+    {"name": "drinks", "zone": "counter", "count": 2, "role": "counter", "items": {"drink_tower": 1, "cup_kit": 6, "lid_kit": 4, "straw_box": 2, "ice_bin": 1}},
+    {"name": "coffee", "zone": "counter", "count": 1, "role": "counter", "items": {"coffee_machine": 2, "milk_fridge": 1, "cup_kit": 4, "pastry_case": 1, "pastry": 36}},
+    {"name": "shake", "zone": "kitchen", "count": 1, "role": "counter", "items": {"shake_machine": 1, "dessert_cup_kit": 4}},
+    {"name": "till", "zone": "counter", "count": 4, "role": "cashier", "items": {"pos_terminal": 1, "cash_drawer": 1, "card_reader": 1, "receipt_printer": 1, "bag_kit": 2, "tray_stack": 1}},
+    {"name": "pickup", "zone": "counter", "count": 2, "role": "counter", "items": {"order_screen": 1, "bag_kit": 4, "napkin_kit": 3, "sauce_packet_kit": 4}},
+    {"name": "wash", "zone": "kitchen", "count": 1, "role": "crew", "items": {"triple_sink": 1, "dishwasher": 1, "utensil_rack": 1, "utensil": 30}},
+    {"name": "shelving", "zone": "storage", "count": 6, "role": "crew", "items": {"wire_shelf": 1, "case_box": 20}},
+    {"name": "walk_in_racks", "zone": "walk_in", "count": 4, "role": "crew", "items": {"wire_shelf": 1, "frozen_case": 16, "fry_bag": 12}},
+    {"name": "office", "zone": "crew_room", "count": 1, "role": "manager", "items": {"desk": 1, "office_chair": 1, "safe": 1, "monitor": 2, "binder": 24, "locker": 8, "bench": 2}}
+  ],
+  "dining": [
+    {"zone": "dining_ground", "table": "table_2", "count": 10, "seats": 2},
+    {"zone": "dining_ground", "table": "table_4", "count": 4, "seats": 4},
+    {"zone": "dining_ground", "table": "high_table", "count": 3, "seats": 4, "seat": "stool"},
+    {"zone": "dining_upper", "table": "table_2", "count": 12, "seats": 2},
+    {"zone": "dining_upper", "table": "table_4", "count": 8, "seats": 4},
+    {"zone": "dining_upper", "table": "booth", "count": 5, "seats": 4, "seat": "booth_bench"}
+  ],
+  "table_clutter": {"comment": "items left on a used table, by density level", "items": ["tray", "wrapper", "burger_box", "fry_carton", "cup", "lid", "straw", "napkin", "sauce_packet", "receipt", "fry_single"], "per_table": [0, 3, 8, 14], "used_share": 0.6, "fry_singles": [0, 0, 6, 15]},
+  "kiosks": {"zone": "kiosks", "count": 6},
+  "fixtures": {
+    "ceiling_tile": {"per_m2": 2.78, "comment": "60 x 60 cm grid"},
+    "ceiling_light": {"per_m2": 0.12},
+    "sprinkler": {"per_m2": 0.11},
+    "vent_grille": {"per_m2": 0.05},
+    "wall_socket": {"per_m2": 0.06},
+    "floor_drain": {"per_m2": 0.02, "zones": ["kitchen", "walk_in"]},
+    "fire_extinguisher": {"per_m2": 0.01},
+    "bin": {"per_m2": 0.02},
+    "wall_menu_screen": {"count": 6, "zone": "counter"},
+    "high_chair": {"count": 3, "zone": "dining_ground"},
+    "tray_return": {"count": 2, "zone": "dining_ground"},
+    "condiment_station": {"count": 1, "zone": "dining_ground"},
+    "toilet": {"count": 4, "zone": "toilets"},
+    "wash_basin": {"count": 4, "zone": "toilets"},
+    "hand_dryer": {"count": 2, "zone": "toilets"},
+    "stair_flight": {"count": 2, "zone": "stairs"}
+  },
+  "density": {"comment": "multipliers on table clutter and loose items; -InteriorDensity=0..3", "default_m1": 2, "default_pc": 3},
+  "budgets": {
+    "comment": "per interior, while the player is inside; owner of the numbers: Optimisation thread (proposed, to be measured)",
+    "m1": {"rendered_instances": 12000, "unique_meshes": 260, "draw_calls": 1400, "shadow_draw_calls": 450, "triangles_lod_avg": 3000000, "characters": 20},
+    "pc": {"rendered_instances": 40000, "unique_meshes": 600, "draw_calls": 3500, "shadow_draw_calls": 1500, "triangles_lod_avg": 25000000, "characters": 35}
+  }
+}
