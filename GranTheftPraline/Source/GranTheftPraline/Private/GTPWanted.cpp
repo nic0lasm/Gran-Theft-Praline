@@ -67,12 +67,14 @@ void UGTPWantedComponent::ReportCrime(EGTPCrimeKind Kind, const FVector& Locatio
 	{
 		LastKnownLocation = Location;
 	}
+	NotifyIfChanged();
 	GTP_TRACE(LogGTPWanted, TEXT("wanted: crime %d, heat %.0f, %d stars"), static_cast<int32>(Kind), State.GetHeat(), State.GetStars());
 }
 
 void UGTPWantedComponent::ForceStars(int32 Stars)
 {
 	State.ForceStars(Stars);
+	NotifyIfChanged();
 	if (const APlayerController* PC = Cast<APlayerController>(GetOwner()))
 	{
 		if (const APawn* Pawn = PC->GetPawn())
@@ -103,10 +105,31 @@ void UGTPWantedComponent::BeginPlay()
 	bHoldLevel = FParse::Param(FCommandLine::Get(), TEXT("WantedHold"));
 }
 
+void UGTPWantedComponent::EnsureMinStars(int32 Stars)
+{
+	if (Stars > State.GetStars())
+	{
+		ForceStars(Stars);
+	}
+}
+
+void UGTPWantedComponent::NotifyIfChanged()
+{
+	const int32 Stars = State.GetStars();
+	const int32 Phase = static_cast<int32>(State.GetPhase());
+	if (Stars != LastNotifiedStars || Phase != LastNotifiedPhase)
+	{
+		LastNotifiedStars = Stars;
+		LastNotifiedPhase = Phase;
+		OnWantedChanged.Broadcast(Stars, State.GetPhase());
+	}
+}
+
 void UGTPWantedComponent::ClearWanted()
 {
 	State.Clear();
 	bSeenNow = false;
+	NotifyIfChanged();
 }
 
 void UGTPWantedComponent::RegisterPolice(AGTPVehicle* Car)
@@ -159,6 +182,7 @@ void UGTPWantedComponent::TickComponent(float DeltaTime, ELevelTick TickType, FA
 	if (!Pawn || State.GetStars() == 0)
 	{
 		bSeenNow = false;
+		NotifyIfChanged();
 		return;
 	}
 
@@ -200,6 +224,7 @@ void UGTPWantedComponent::TickComponent(float DeltaTime, ELevelTick TickType, FA
 	{
 		OnBusted();
 	}
+	NotifyIfChanged();
 	else if (StarsBefore > 0 && State.GetStars() == 0)
 	{
 		GTP_TRACE(LogGTPWanted, TEXT("wanted: level lost"));
@@ -212,6 +237,8 @@ void UGTPWantedComponent::OnBusted()
 	State.Clear();
 	bSeenNow = false;
 	BustedBannerLeft = BustedSeconds;
+	NotifyIfChanged();
+	OnArrested.Broadcast();
 	APlayerController* PC = Cast<APlayerController>(GetOwner());
 	if (!PC)
 	{
