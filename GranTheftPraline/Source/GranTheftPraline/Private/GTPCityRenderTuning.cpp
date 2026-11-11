@@ -73,8 +73,7 @@ void UGTPCityRenderTuning::OnWorldBeginPlay(UWorld& InWorld)
 	int32 CellDefaults = 1;
 	FParse::Value(FCommandLine::Get(), TEXT("CityCellDefaults="), CellDefaults);
 	bCellDefaults = CellDefaults != 0;
-	// Integer percent: -CityCellDetailScale=0.5 crashed the Shipping build at launch on M1 (11/11,
-	// cause not found off the Mac), so the lever takes a whole number and is bounded.
+	// Whole percent, bounded (GTPCityTuningCore.h, tested off the engine).
 	int32 Pct = GTPCityTuning::DefaultCellDetailPct;
 	FParse::Value(FCommandLine::Get(), TEXT("CityCellDetailPct="), Pct);
 	CellDetailPct = GTPCityTuning::ClampPct(Pct);
