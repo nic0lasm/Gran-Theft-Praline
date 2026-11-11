@@ -13,7 +13,7 @@ void UGTPSynthSoundWave::Setup(TFunction<void(float*, int32)>&& InRender)
 int32 UGTPSynthSoundWave::GeneratePCMData(uint8* PCMData, const int32 SamplesNeeded)
 {
 	int16* Out = reinterpret_cast<int16*>(PCMData);
-	if (!Render || SamplesNeeded <= 0)
+	if (!Render || SamplesNeeded <= 0 || bSilenced.load(std::memory_order_acquire))
 	{
 		FMemory::Memzero(PCMData, FMath::Max(0, SamplesNeeded) * sizeof(int16));
 		return FMath::Max(0, SamplesNeeded) * sizeof(int16);

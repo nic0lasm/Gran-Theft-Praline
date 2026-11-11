@@ -101,7 +101,8 @@ void UGTPAudioWorld::OnActorSpawned(AActor* Actor)
 
 void UGTPAudioWorld::Equip(AActor* Actor)
 {
-	if (!Actor || Actor->IsTemplate())
+	// Never equip an actor on its way out (or not in a world any more).
+	if (!Actor || Actor->IsTemplate() || Actor->IsActorBeingDestroyed() || !IsValid(Actor) || Actor->GetWorld() != GetWorld())
 	{
 		return;
 	}
@@ -114,6 +115,7 @@ void UGTPAudioWorld::Equip(AActor* Actor)
 	if ((Cast<ACharacter>(Actor) || bPedestrian) && !Actor->FindComponentByClass<UGTPFootstepComponent>())
 	{
 		UGTPFootstepComponent* Feet = NewObject<UGTPFootstepComponent>(Actor, MakeUniqueObjectName(Actor, UGTPFootstepComponent::StaticClass(), TEXT("GTPFootsteps")));
+		Actor->AddInstanceComponent(Feet);
 		Feet->RegisterComponent();
 		Walkers.Add(Feet);
 		bAdded = true;
@@ -124,6 +126,8 @@ void UGTPAudioWorld::Equip(AActor* Actor)
 		{
 			UGTPVehicleAudioComponent* Body = NewObject<UGTPVehicleAudioComponent>(Actor, MakeUniqueObjectName(Actor, UGTPVehicleAudioComponent::StaticClass(), TEXT("GTPBodyAudio")));
 			Body->SetupAttachment(Actor->GetRootComponent());
+			// An instance component: the actor owns it, saves it from GC and unregisters it with itself.
+			Actor->AddInstanceComponent(Body);
 			Body->RegisterComponent();
 			bAdded = true;
 		}
