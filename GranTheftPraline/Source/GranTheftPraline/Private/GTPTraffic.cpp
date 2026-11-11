@@ -981,7 +981,7 @@ bool AGTPTrafficNetwork::SpawnCar()
 			{
 				AIDrivers.Add(ReusedDriver);
 			}
-			Cars.Add(Reused);
+			Cars.AddUnique(Reused);
 			GTP_TRACE(LogGTPTraffic, TEXT("traffic: %s reused on lane %d"), *Reused->GetName(), Lane);
 			return true;
 		}
@@ -1016,7 +1016,7 @@ bool AGTPTrafficNetwork::PutAway(AGTPVehicle* Car)
 	{
 		Driver->SetActorHiddenInGame(true);
 	}
-	Pool.Add(Car);
+	Pool.AddUnique(Car);
 	return true;
 }
 
@@ -1027,6 +1027,29 @@ AGTPVehicle* AGTPTrafficNetwork::TakeFromPool(const FTransform& Transform)
 		AGTPVehicle* Car = Pool.Pop();
 		if (!IsValid(Car))
 		{
+			continue;
+		}
+		// Only a car that is still whole goes back on the road: its driver seated and alive,
+		// its AI driver there, not wrecked, not taken back meanwhile (far traffic, police).
+		ACharacter* Seated = Car->GetDriver();
+		if (!IsValid(Seated) || !Car->HasAIDriver() || Car->IsWrecked() || Cars.Contains(Car)
+			|| !IsValid(Car->FindComponentByClass<UGTPAIDriverComponent>()))
+		{
+			GTP_TRACE(LogGTPTraffic, TEXT("traffic: %s dropped from the pool (driver %s, wrecked %d, already driven %d)"), *Car->GetName(),
+				IsValid(Seated) ? TEXT("ok") : TEXT("gone"), Car->IsWrecked() ? 1 : 0, Cars.Contains(Car) ? 1 : 0);
+			if (!Cars.Contains(Car))
+			{
+				// Destroyed, not put back: Recycle would pool it again.
+				if (IsValid(Seated))
+				{
+					if (AController* Brain = Seated->GetController())
+					{
+						Brain->Destroy();
+					}
+					Seated->Destroy();
+				}
+				Car->Destroy();
+			}
 			continue;
 		}
 		Car->SetActorTransform(Transform, false, nullptr, ETeleportType::ResetPhysics);
