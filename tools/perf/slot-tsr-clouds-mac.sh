@@ -8,10 +8,10 @@
 #     && git show origin/feat/perf-cumul-night:tools/perf/slot-tsr-clouds-mac.sh > Builds/tsr-clouds/run.sh \
 #     && caffeinate -dimsu bash Builds/tsr-clouds/run.sh
 # Environment: DRY_RUN=1 (checks + base variant, short runs), BUILD (default
-#   Builds/perf-cumul-test/0.3, a Development package with -CsvCopyTo, f1744dd or later),
+#   Builds/perf-cumul/0.3: Shipping gives frame times and stills, GPU per pass needs a Development build), DEMO_STILLS=1 (a still every 10 s on the demo route),
 #   VARIANTS (lines "label|cvar=v,cvar=v|extra args"), BRANCH (tools source, feat/perf-cumul-night)
 # Output: Builds/tsr-clouds/<stamp>/REPORT.md, index.html, <variant>-fixed.jpg
-# Plan: 14 variants (variant arguments come first: FParse takes the first match) x (45 s + 95 s) + launches = about 38 min; whole pass capped at 55 min,
+# Plan: 12 variants (variant arguments come first: FParse takes the first match) x (45 s + 95 s) + launches = about 35 min; whole pass capped at 45 min,
 #   every launch killed at its duration + 60 s.
 set -euo pipefail
 repo="$(pwd)"
@@ -20,28 +20,23 @@ branch="${BRANCH:-feat/perf-cumul-night}"
 dry="${DRY_RUN:-0}"
 stamp="$(date +%Y%m%d-%H%M%S)"
 out="$repo/Builds/tsr-clouds/$stamp"; test "$dry" = "1" && out="$repo/Builds/tsr-clouds/dry-$stamp"
-build="${BUILD:-$repo/Builds/perf-cumul-test/0.3}"
+build="${BUILD:-$repo/Builds/perf-cumul/0.3}"
 map="$repo/GranTheftPraline/Content/Maps/L_City_RueDeLaRepublique.umap"
 fixed_s=45; demo_s=95; at="${CAPTURE_AT:-30}"
 test "$dry" = "1" && { fixed_s=36; demo_s=20; }
-budget_s=3300
+budget_s=2700
 base_args="-Sky=lightfunction"
 default_variants='warmup||
 base||
 tsr-hist75|r.TSR.History.ScreenPercentage=75|
-tsr-rejaa1|r.TSR.RejectionAntiAliasingQuality=1|
-tsr-noflicker|r.TSR.ShadingRejection.Flickering=0|
 tsr-aa-medium|sg.AntiAliasingQuality=1|
 tsr-aa-medium-hist75|sg.AntiAliasingQuality=1,r.TSR.History.ScreenPercentage=75|
 taa|r.AntiAliasingMethod=2|
-cloud-rays128|r.VolumetricCloud.ViewRaySampleMaxCount=128|
 cloud-rays64|r.VolumetricCloud.ViewRaySampleMaxCount=64|
-cloud-rtmode2|r.VolumetricRenderTarget.Mode=2|
-sky-cheap||-Sky=cheap
 night||-Ambience=night
-night-sky-cheap||-Ambience=night -Sky=cheap
-night-noclouds|r.VolumetricCloud=0|-Ambience=night
+night-full||-Ambience=night -NightClouds=full
 night-rain||-Ambience=night-rain
+night-rain-full||-Ambience=night-rain -NightClouds=full
 base-end||'
 variants="${VARIANTS:-$default_variants}"
 test "$dry" = "1" && variants="base||"
@@ -101,12 +96,16 @@ while IFS='|' read -r label cvars extra; do
   img="$(ls "$out/$label-fixed/still"/frame_*.jpg 2>/dev/null | head -n 1 || true)"
   if test -n "$img"; then mv "$img" "$out/$label-fixed.jpg"; rm -rf "$out/$label-fixed/still"; fi
   log "variant $label: demo ${demo_s}s"
-  run "$out/$label-demo" "$demo_s" ${vargs[@]+"${vargs[@]}"} -DemoRoute
+  dcap=(); test "${DEMO_STILLS:-1}" = "1" && dcap=(-CaptureVideo=90 -CaptureFps=0.1 -CaptureDelay=5 -CaptureDir="$out/$label-demo/stills")
+  run "$out/$label-demo" "$demo_s" ${vargs[@]+"${vargs[@]}"} -DemoRoute ${dcap[@]+"${dcap[@]}"}
+  n=0; for f in "$out/$label-demo/stills"/frame_*.jpg; do test -f "$f" || continue; mv "$f" "$out/$label-demo-$(printf %02d $n).jpg"; n=$((n + 1)); done
+  rm -rf "$out/$label-demo/stills"
   read -r f50 f95 _ _ <<< "$(stat2 "$out/$label-fixed/frames.csv" || echo nan nan nan nan)"
   read -r d50 d95 dpct dhit <<< "$(stat2 "$out/$label-demo/frames.csv" || echo nan nan nan nan)"
   prof="$out/$label-demo/profile.csv"
   echo "| $label | ${f50:-nan} | ${f95:-nan} | ${d50:-nan} | ${d95:-nan} | ${dpct:-nan} | ${dhit:-nan} | $(pass "$prof" '^(TSR|TemporalSuperResolution|TAA|TemporalAA)') | $(pass "$prof" 'VolumetricCloud|VolCloud') | $(pass "$prof" '^Lumen') | $(pass "$prof" '^Basepass') |" >> "$report"
   printf "<div style='display:inline-block;margin:4px'><img src='%s-fixed.jpg' width='640'><br>%s : %s %s</div>\n" "$label" "$label" "${cvars:-}" "${extra:-}" >> "$html"
+  { printf "<div>"; for f in "$out/$label"-demo-*.jpg; do test -f "$f" && printf "<img src='%s' width='320'>" "$(basename "$f")"; done; printf "<br>%s demo route, one still every 10 s</div>\n" "$label"; } >> "$html"
 done <<< "$variants"
 echo "</body></html>" >> "$html"
 { echo; echo "GPU columns: demo route, sum of the median of the matching passes. Full pass tables: <variant>-demo/profile.csv with gpu_passes.py."; echo "Duration: $(( ($(date +%s) - start_s) / 60 )) min"; } >> "$report"
