@@ -463,10 +463,31 @@ def shop_interior_master():
     return mat
 
 
-def kit_instances(master):
+def interior_or_none(report):
+    """M_City_ShopInterior, or None (opaque glass) when it cannot be built or does not compile
+    for this editor's shader platform (Metal on the Mac): the regeneration goes on either way."""
+    try:
+        mat = shop_interior_master()
+    except Exception as e:
+        report["shop_glass_fallback"] = "interior material not built: %r" % (e,)
+        return None
+    stats = getattr(mel, "get_statistics", None)
+    if stats is not None:
+        try:
+            n = stats(mat).get_editor_property("num_pixel_shader_instructions")
+            report["shop_interior_ps_instructions"] = n
+            if n <= 0:   # a material that failed to compile has no pixel shader
+                report["shop_glass_fallback"] = "interior material does not compile on this platform"
+                return None
+        except Exception as e:
+            report["shop_interior_stats"] = repr(e)
+    return mat
+
+
+def kit_instances(master, report=None):
     out = {}
     glass = shop_glass_master() if SHOP_GLASS_MODE == "translucent" else \
-        shop_interior_master() if SHOP_GLASS_MODE == "interior" else None
+        interior_or_none(report if report is not None else {}) if SHOP_GLASS_MODE == "interior" else None
     for name, (r, gr, b, rough, metal) in KIT_SLOTS.items():
         path = MAT_DIR + "/" + name.replace("MI_", "MI_City_", 1)
         if eal.does_asset_exist(path):
@@ -644,8 +665,8 @@ def main():
         river_dir = ROOT + "/Riverside/" + CAMEL
         if eal.does_directory_exist(river_dir):
             report["riverside_meshes"] = assign(river_dir, shell, {"SM_River_Water": water_material()})
-        assign_kit(kit_instances(kit_master()), report)
-        report["shop_glass"] = SHOP_GLASS_MODE
+        assign_kit(kit_instances(kit_master(), report), report)
+        report["shop_glass"] = SHOP_GLASS_MODE + (" -> opaque fallback" if "shop_glass_fallback" in report else "")
         facade_check(report)
     except Exception as e:  # report, never leave the editor hanging on a dialog
         report["errors"].append(repr(e))
