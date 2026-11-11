@@ -148,3 +148,18 @@ class Bundle(unittest.TestCase):
             with zipfile.ZipFile(root / "G.zip", "a") as zf:
                 zf.writestr("App/T_SignLogo_1.png", "x")
             self.assertEqual(b.main([str(root)]), 1)
+
+
+class DayReport(unittest.TestCase):
+    def test_parse_proof(self):
+        import day_report as d
+        ok = d.parse_proof("compile-x", "VERDICT: OK  feat/x @abc1234  (464s)")
+        self.assertEqual((ok["kind"], ok["status"]), ("compile", "OK"))
+        bad = d.parse_proof("package-c9", "Package failed; see log")
+        self.assertEqual((bad["kind"], bad["status"]), ("package", "FAIL"))
+        self.assertEqual(d.parse_proof("lyra", "# Lyra\nx")["kind"], "other")
+
+    def test_percentiles(self):
+        import day_report as d
+        self.assertEqual(d.parse_percentiles("frame p50 25,00 ms | p95 25.02 ms"), (25.0, 25.02))
+        self.assertIsNone(d.parse_percentiles("nothing"))
