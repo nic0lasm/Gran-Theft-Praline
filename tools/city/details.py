@@ -49,7 +49,7 @@ import time
 import xml.etree.ElementTree as ET
 
 import numpy as np
-from shapely.geometry import LineString, Point
+from shapely.geometry import LineString, Point, box
 from shapely.ops import nearest_points, unary_union
 from shapely.strtree import STRtree
 
@@ -179,6 +179,9 @@ def main():  # noqa: C901, PLR0912, PLR0915
     ap.add_argument("--geo", default=os.path.join(REPO, "assets", "geo"))
     ap.add_argument("--manifests", default=os.path.join(REPO, "assets", "manifests"))
     ap.add_argument("--max", type=int, default=MAX_INSTANCES)
+    ap.add_argument("--cell", help="x0,y0,x1,y1 (m): with --focus <cell>, a cell of the streamed quarter "
+                                   "(cells.py): the street zone clipped to the cell box, so no detail is "
+                                   "placed twice at a seam (ADR-0010)")
     args = ap.parse_args()
     t0 = time.time()
     raw = os.path.join(args.geo, "raw", args.name)
@@ -195,6 +198,11 @@ def main():  # noqa: C901, PLR0912, PLR0915
     if not street:
         sys.exit("no road named %r" % args.street)
     zone = unary_union(street).buffer(args.buffer)
+    if args.cell:
+        zone = zone.intersection(box(*[float(v) for v in args.cell.split(",")]))
+    if zone.is_empty:   # the street does not cross this cell: an empty table, nothing placed
+        write_tables(gen, [], 0, args, {}, t0)
+        return
     buildings = [b for b in generate.load_buildings(proc) if b["poly"].intersects(zone)]
     footprints = [b["poly"] for b in buildings]
     fp_tree = STRtree(footprints)
@@ -204,6 +212,9 @@ def main():  # noqa: C901, PLR0912, PLR0915
         m["x"], m["y"], m["z"] = float(m["x_m"]), float(m["y_m"]), float(m["z_m"])
         m["yaw"], m["w"], m["h"] = float(m["ue_yaw"]), float(m["width_m"]), float(m["height_m"])
     ground = [m for m in all_mods if m["storey"] == "0"]
+    if not ground:   # no street-level facade of this cell in the zone: nothing to anchor on
+        write_tables(gen, [], 0, args, {}, t0)
+        return
     gxy = np.array([[m["x"], m["y"]] for m in ground])
     bgen = {}
     with open(os.path.join(gen, "buildings_gen.csv"), encoding="utf-8") as f:
@@ -517,6 +528,10 @@ def main():  # noqa: C901, PLR0912, PLR0915
     total = len(rows)
     rows.sort(key=lambda r: PRIORITY.get(r["catalog_id"], 5))
     rows = rows[:args.max]
+    write_tables(gen, rows, total, args, switches, t0)
+
+
+def write_tables(gen, rows, total, args, switches, t0):
     fields = ["catalog_id", "asset", "family", "asset_path", "x_m", "y_m", "z_m", "ue_x", "ue_y", "ue_z", "ue_yaw",
               "source", "ref", "snap", "scale_x", "scale_y", "scale_z", "collision", "shadow", "cull_m"]
     with open(os.path.join(gen, "details_placement.csv"), "w", newline="", encoding="utf-8") as f:

@@ -62,20 +62,39 @@ void UGTPCityRenderTuning::OnWorldBeginPlay(UWorld& InWorld)
 	if (FParse::Value(FCommandLine::Get(), TEXT("CityPropShadowBelow="), Below))
 	{
 		ShadowBelowM = Below;
+		bShadowBelowGiven = true;
 	}
 	int32 Proxies = 1;
 	if (FParse::Value(FCommandLine::Get(), TEXT("CityProxies="), Proxies))
 	{
 		bHideProxies = Proxies == 0;
 	}
+	int32 CellDefaults = 1;
+	FParse::Value(FCommandLine::Get(), TEXT("CityCellDefaults="), CellDefaults);
+	bCellDefaults = CellDefaults != 0;
+	FParse::Value(FCommandLine::Get(), TEXT("CityCellDetailScale="), CellDetailScale);
 	int32 Report = 0;
 	FParse::Value(FCommandLine::Get(), TEXT("CityTuneReport="), Report);
-	if (CullM.Num() == 0 && ShadowBelowM < 0.f && !bHideProxies && Report == 0)
+	// Cell levels get their defaults as they stream in, so the subsystem listens whenever the
+	// defaults are on; the persistent level is only touched by explicit levers.
+	if (CullM.Num() > 0 || ShadowBelowM >= 0.f || bHideProxies || Report != 0)
 	{
-		return;
+		Apply(InWorld.PersistentLevel);
 	}
-	Apply(InWorld.PersistentLevel);
 	LevelAddedHandle = FWorldDelegates::LevelAddedToWorld.AddUObject(this, &UGTPCityRenderTuning::OnLevelAdded);
+}
+
+bool UGTPCityRenderTuning::IsCellLevel(const FString& LevelPackageName)
+{
+	return LevelPackageName.Contains(TEXT("L_City_Cell"));
+}
+
+void UGTPCityRenderTuning::CellDefaultCull(TMap<FString, float>& Out)
+{
+	// Compensation of the cells' furniture and details (optimisation thread, 11/11): courtyard
+	// facades and shop signs drawn closer; the props and details scale is CellDetailScale.
+	Out.Add(TEXT("court"), 60.f);
+	Out.Add(TEXT("sign"), 60.f);
 }
 
 void UGTPCityRenderTuning::Deinitialize()
@@ -98,6 +117,21 @@ void UGTPCityRenderTuning::Apply(ULevel* Level)
 	{
 		return;
 	}
+	const FString LevelName = Level->GetOuter()->GetName();
+	const bool bCell = bCellDefaults && IsCellLevel(LevelName);
+	TMap<FString, float> Cull;
+	float ShadowBelow = ShadowBelowM;
+	float SetScale = 1.f;
+	if (bCell)
+	{
+		CellDefaultCull(Cull);
+		if (!bShadowBelowGiven)
+		{
+			ShadowBelow = 1.0f;   // furniture and details under 1 m cast no shadow in the cells
+		}
+		SetScale = CellDetailScale;
+	}
+	Cull.Append(CullM);   // the command line wins over the cell defaults
 	// Per family: components found (tagged or implied) and components this pass changed.
 	TMap<FString, FIntPoint> Counts;
 	for (AActor* Actor : Level->Actors)
@@ -139,17 +173,36 @@ void UGTPCityRenderTuning::Apply(ULevel* Level)
 			bool bTouched = false;
 			for (const FString& Family : Families)
 			{
-				if (const float* M = CullM.Find(Family))
+				if (const float* M = Cull.Find(Family))
 				{
-					const int32 End = FMath::RoundToInt(*M * 100.f);
-					if (Ism)
+					if (*M <= 0.f)
 					{
-						Ism->SetCullDistances(FMath::RoundToInt(End * 0.8f), End);
+						// 0 m: never drawn (a cull distance of 0 would mean "never culled").
+						if (Comp->IsVisible())
+						{
+							Comp->SetVisibility(false);
+						}
 					}
 					else
 					{
-						Comp->SetCullDistance(float(End));
+						const int32 End = FMath::RoundToInt(*M * 100.f);
+						if (Ism)
+						{
+							Ism->SetCullDistances(FMath::RoundToInt(End * 0.8f), End);
+						}
+						else
+						{
+							Comp->SetCullDistance(float(End));
+						}
 					}
+					bTouched = true;
+				}
+				else if (Ism && SetScale > 0.f && SetScale < 1.f && Ism->InstanceEndCullDistance > 0
+					&& (Family.StartsWith(TEXT("props_")) || Family.StartsWith(TEXT("details_"))))
+				{
+					// Generated distances (size class or per-row cull_m) scaled down as a whole.
+					const int32 End = FMath::RoundToInt(Ism->InstanceEndCullDistance * SetScale);
+					Ism->SetCullDistances(FMath::RoundToInt(End * 0.8f), End);
 					bTouched = true;
 				}
 				if (bHideProxies && Family == TEXT("proxy") && Comp->IsVisible())
@@ -160,7 +213,7 @@ void UGTPCityRenderTuning::Apply(ULevel* Level)
 					bTouched = true;
 				}
 			}
-			if (ShadowBelowM >= 0.f && SizeCm >= 0.f && SizeCm < ShadowBelowM * 100.f && Comp->CastShadow)
+			if (ShadowBelow >= 0.f && SizeCm >= 0.f && SizeCm < ShadowBelow * 100.f && Comp->CastShadow)
 			{
 				Comp->SetCastShadow(false);
 				bTouched = true;
@@ -179,6 +232,6 @@ void UGTPCityRenderTuning::Apply(ULevel* Level)
 		Changed += It.Value.Y;
 	}
 	// "<level> <changed> components changed; family=changed/found ..."
-	GTP_TRACE(CityRenderTuning, TEXT("%s %d components changed;%s"), *Level->GetOuter()->GetName(), Changed,
+	GTP_TRACE(CityRenderTuning, TEXT("%s%s %d components changed;%s"), *LevelName, bCell ? TEXT(" (cell defaults)") : TEXT(""), Changed,
 		Line.IsEmpty() ? TEXT(" no tagged component") : *Line);
 }
