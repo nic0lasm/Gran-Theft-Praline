@@ -14,7 +14,7 @@
 #   long    slot 12 : tier B, 600 s, 3 passes, memory sampled every 30 s,
 #                     non-regression gate against REFERENCE (~130 min)
 # Environment: DRY_RUN=1 (checks only), REFERENCE=<results.csv> (gate),
-#   BRANCH (default feat/perf-cumul), FORCE_PACKAGE=1
+#   BRANCH (default feat/perf-cumul), FORCE_PACKAGE=1, PACKAGE_ONLY=1 (stop after the package)
 # Output: Builds/perf-cumul/tier-<TIER>-<stamp>/REPORT.md
 set -euo pipefail
 
@@ -101,6 +101,7 @@ else
 fi
 exe="$(find "$build/GranTheftPraline.app/Contents/MacOS" -maxdepth 1 -type f -perm -u+x | head -n 1)"
 test -n "$exe" || die "no executable in $build"
+if test "${PACKAGE_ONLY:-0}" = "1"; then echo "Packaged only (PACKAGE_ONLY=1)" >> "$report"; log "packaged only"; exit 0; fi
 
 if test "$tier" != "cold"; then
   log "30 s control launch, limit 120 s"
