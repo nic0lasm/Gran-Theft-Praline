@@ -80,6 +80,24 @@ jobs:
           g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/far_test/far_test.cpp -o /tmp/far_test
           /tmp/far_test
 
+  combat-rules:
+    name: Combat rules
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - name: Health, damage, pistol, aim assist, fists and cover outside Unreal
+        run: |
+          g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/combat/combat_logic_test.cpp -o /tmp/combat_logic_test
+          /tmp/combat_logic_test
+      - name: Headers clean under strict conversion warnings (MSVC is stricter than g++)
+        run: |
+          for h in GTPHealthLogic GTPDamageLogic GTPWeaponLogic GTPCombatMeleeLogic GTPCoverLogic; do
+            printf '#include "%s.h"\nint main() { return 0; }\n' "$h" > /tmp/hdr.cpp
+            clang++ -std=c++17 -fsyntax-only -Wall -Wextra -Werror -Wconversion -Wsign-conversion -Wshadow -Wdouble-promotion -I GranTheftPraline/Source/GranTheftPraline/Public /tmp/hdr.cpp
+          done
+
   ui-core:
     name: Interface core tests
     runs-on: ubuntu-latest
