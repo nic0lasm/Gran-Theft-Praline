@@ -421,6 +421,14 @@ return col * Glow;
 """
 
 
+def custom_input(name):
+    # FCustomInput's fields are EditAnywhere but not Blueprint-visible: its Python constructor
+    # takes no argument (Mac slot 11/11: "call() takes at most 0 arguments"), the setter works.
+    ci = unreal.CustomInput()
+    ci.set_editor_property("input_name", name)
+    return ci
+
+
 def shop_interior_master():
     mat = new_material("M_City_ShopInterior")
     mat.set_editor_property("used_with_instanced_static_meshes", True)
@@ -437,7 +445,7 @@ def shop_interior_master():
     seed = g.node(unreal.MaterialExpressionScalarParameter, parameter_name="Seed", default_value=0.0)
     custom = g.node(unreal.MaterialExpressionCustom, code=INTERIOR_HLSL,
                     output_type=unreal.CustomMaterialOutputType.CMOT_FLOAT3, description="ShopInterior",
-                    inputs=[unreal.CustomInput(input_name=n) for n in ("P", "V", "Glow", "Seed")])
+                    inputs=[custom_input(n) for n in ("P", "V", "Glow", "Seed")])
     for src, name in ((lp, "P"), (cv, "V"), (glow, "Glow"), (seed, "Seed")):
         g.link(src, "", custom, name)
     # grazing views read as glass: the room fades behind the reflection
