@@ -96,5 +96,7 @@ private:
 	int32 Closest = 0;
 	double StuckSince = -1.0;
 	double UnstickUntil = -1.0;
+	double OffPathSince = -1.0;
+	FVector LastLocation = FVector::ZeroVector;
 	float UnstickSteer = 0.f;
 };

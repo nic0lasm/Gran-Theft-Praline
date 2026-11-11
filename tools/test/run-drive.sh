@@ -14,10 +14,12 @@
 #   VIDEO       1: film the drive (10 fps) into capture.mov (never during a measurement)
 #   OUT_DIR     default <build_dir>/drives/<drive>-<mode>-<timestamp>
 #   DRY_RUN     1: print the command and checks, launch nothing
+#   STUCK_MAX   physics mode: most "backing off" moments allowed (default 2)
 #
 # Output: run.log (game stdout), result.txt (PASS/FAIL and why), positions.txt
 # (the DemoPos lines: two runs compare with tools/perf/compare_demo_positions.py).
-# Exit code 0 when the drive reached "TestDrive end" with no error line.
+# Exit code 0 when the drive reached "TestDrive end" with no error line, no jump (the car put
+# back by something else) and, in physics mode, at most STUCK_MAX moments stuck.
 set -euo pipefail
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/../.." && pwd)"
@@ -81,6 +83,16 @@ if grep -q "TestDrive error" "$out_dir/run.log"; then
 elif ! grep -q "TestDrive end" "$out_dir/run.log"; then
   result="FAIL"
   reason="no 'TestDrive end' line (game exit $status; stuck, crash or guard)"
+fi
+jumps="$(grep -c "TestDrive jump" "$out_dir/run.log" || true)"
+stucks="$(grep -c "backing off" "$out_dir/run.log" || true)"
+if test "$result" = "PASS" && test "${jumps:-0}" -gt 0; then
+  result="FAIL"
+  reason="$jumps jump(s): $(grep -m 1 "TestDrive jump" "$out_dir/run.log")"
+fi
+if test "$result" = "PASS" && test "${stucks:-0}" -gt "${STUCK_MAX:-2}"; then
+  result="FAIL"
+  reason="stuck $stucks times (max ${STUCK_MAX:-2}): $(grep -m 1 "backing off" "$out_dir/run.log")"
 fi
 if test "${VIDEO:-0}" = "1" && test -d "$out_dir/frames"; then
   swift "$repo_root/tools/build/frames-to-movie.swift" "$out_dir/frames" 10 "$out_dir/capture.mov" && rm -rf "$out_dir/frames"
