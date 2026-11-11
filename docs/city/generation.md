@@ -422,6 +422,7 @@ First implementation of ADR-0010 option B, prepared and tested off the Mac; not 
 - Mac slot: `tools/city/evidence/quarter_slot_mac.sh` (compile, cells, proxies, quarter,
   5 cells, then the demo route with streaming on and proxies only; time guard per step,
   heartbeat, content restored by md5 unless `KEEP=1`). About 2 h 10.
+- Whole quarter (2026-11-11, 0.9): `cells.py` now also places the surveyed street furniture per cell (`props.py --cell`, 20 460 objects) and, for a full run, writes the proxies, the lanes of the quarter (`traffic.py --focus quarter`: 1 043 lanes, 45.5 km) and the budget per cell with a memory estimate (`cell_budget.py`: worst 2 x 2 + shared about 446 MB for 1.5 GB). `tools/city/quarter_build.py` builds every level headless on the Mac or the Windows PC (plain Python, time limit per step, forced stop of a hung editor, `--dry-run`).
 - Not yet: street furniture and details in the cells, a quarter-wide ground mask, the cell
   levels in the cook list for a package.
 

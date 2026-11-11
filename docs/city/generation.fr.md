@@ -439,6 +439,7 @@ Première mise en œuvre de l'option B de l'ADR-0010, préparée et essayée hor
 - Créneau Mac : `tools/city/evidence/quarter_slot_mac.sh` (compilation, cellules, substituts,
   quartier, 5 cellules, puis le parcours démo streaming actif et substituts seuls ; garde-temps
   par étape, signe de vie, contenus restaurés par md5 sauf `KEEP=1`). Environ 2 h 10.
+- Quartier entier (2026-11-11, 0.9) : `cells.py` pose aussi le mobilier relevé par cellule (`props.py --cell`, 20 460 objets) et, sur un passage complet, écrit les substituts, les voies du quartier (`traffic.py --focus quarter` : 1 043 voies, 45,5 km) et le budget par cellule avec une estimation mémoire (`cell_budget.py` : pire 2 × 2 + partagé ≈ 446 Mo pour 1,5 Go). `tools/city/quarter_build.py` construit tous les niveaux sans écran, sur le Mac ou le PC Windows (Python seul, limite de temps par étape, arrêt forcé d'un éditeur bloqué, `--dry-run`).
 - Pas encore : mobilier et détails dans les cellules, masque de sol à l'échelle du quartier,
   niveaux de cellule dans la liste de cuisson pour un package.
 
