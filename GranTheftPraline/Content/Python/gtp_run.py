@@ -13,6 +13,7 @@ command line names it by a call with no space at all:
 
 A command that does not end in .py is run as Python code, not as a file. The script runs as
 __main__ with its own __file__; GTP_PY_ARGS (split like a shell line) becomes sys.argv[1:].
+When GTP_PY_DONE names a file, it is written once the script returns (or raises).
 """
 
 import os
@@ -29,4 +30,12 @@ def main(script=None):
     folder = os.path.dirname(os.path.abspath(path))
     if folder not in sys.path:
         sys.path.insert(0, folder)   # like "python script.py": sibling modules import
-    return runpy.run_path(path, run_name="__main__")
+    try:
+        return runpy.run_path(path, run_name="__main__")
+    finally:
+        # GTP_PY_DONE: a file the caller watches (tools/city/unreal/editor_run.sh) to know the
+        # script returned, since the editor can hang on exit afterwards.
+        done = os.environ.get("GTP_PY_DONE")
+        if done:
+            with open(done, "w") as f:
+                f.write(path + "\n")
