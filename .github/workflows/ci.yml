@@ -71,6 +71,10 @@ jobs:
         run: |
           g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/ghost_test/ghost_test.cpp -o /tmp/ghost_test
           /tmp/ghost_test
+      - name: Far traffic drawn as instances
+        run: |
+          g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/far_test/far_test.cpp -o /tmp/far_test
+          /tmp/far_test
 
   ui-core:
     name: Interface core tests

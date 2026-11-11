@@ -60,7 +60,7 @@ M1 : c'est la suite après la première mesure.
   p50 et du p95 d'image ; l'interrupteur est gardé si le p95 ne se dégrade
   pas et que la pente baisse.
 
-## 4. Mode fantôme et réserve de voitures (interrupteurs, pas encore mesurés)
+## 4. Mode fantôme et réserve de voitures (mesurés le 10/11/2026)
 
 - `-VehicleGhost=1` (ou `bVehicleGhost=True`) : au-delà de `GhostDistance`
   (90 m) du joueur, une voiture PNJ devient un fantôme. La physique et le
@@ -80,6 +80,13 @@ M1 : c'est la suite après la première mesure.
   nombre de voitures : aucun, `-VehicleLod=1`, puis
   `-VehicleLod=1 -VehicleGhost=1 -TrafficPool=1`.
 
+Mesuré le 10/11/2026 (M1 Pro, profil m1, street-demo, 90 s, build 4c7906b,
+map 799c8d5 avec LOD des façades). Avec
+`-VehicleLod=1 -VehicleGhost=1 -TrafficPool=1`, 12 voitures donnent un temps
+d'image p50/p95 de 28,9/38,8 ms, 86 % des images sous 33 ms et aucun
+à-coup : autant que 3 voitures (28,9/38,2). Sans ces niveaux, 12 voitures
+donnent 41,5/55,0.
+
 ## 5. Voitures garées en instances (interrupteur, pas encore mesuré)
 
 - `tools/city/parking.py --map <Map>` écrit `Content/City/Traffic/<Map>.parking.csv`.
@@ -97,3 +104,81 @@ M1 : c'est la suite après la première mesure.
   physique et pas de tick.
 - Pas encore fait : remplacer une voiture garée par une vraie voiture quand
   le joueur s'en approche (pour la voler).
+
+## 6. Trafic lointain et budget CPU par voiture (mesuré le 11/11/2026)
+
+Mesuré le 11/11/2026 sur M1 Pro : profil m1, parcours street-demo de 90 s,
+build d0f7aea, chaque cas avec LOD, fantômes et réserve. Le parcours varie
+d'environ 1,5 ms. Temps d'image p50/p95 en ms :
+
+| Cas | Conduites + lointaines | p50 / p95 |
+|---|---|---|
+| d12 | 12 + 0 | 18,2 / 28,2 |
+| d25 | 25 + 0 | 20,0 / 35,2 |
+| d12-f13 | 12 + 13 | 17,9 / 28,3 |
+| d40 | 39 + 0 | 20,1 / 34,3 |
+| d12-f28 | 12 + 28 | 17,9 / 29,6 |
+| d16-f24-p | 16 + 24, voitures garées | 18,0 / 28,2 |
+
+Le trafic lointain coûte environ 0,1 ms de CPU, et de 0 à 1,3 ms au p95. Les
+conducteurs PNJ coûtent 0,37 ms pour 39 voitures. Au-delà d'environ 16
+voitures conduites, le p95 dépasse 33 ms, et ce coût vient du dessin des
+voitures par le GPU. 40 véhicules perçus tiennent avec 16 voitures
+conduites et 24 lointaines (p95 28,2 ms). Pour plus de voitures conduites,
+il faut un dessin moins cher : des LOD plus tôt ou une distance fantôme plus
+courte.
+
+L'objectif est d'avoir 25 puis 40 véhicules en vue, sans 25 ou 40 voitures
+Chaos avec conducteur. Au-delà de la distance fantôme, une voiture n'a pas
+besoin d'être un acteur.
+
+- `-FarTraffic=N` (ou `NumFarCars` sur le réseau de trafic) crée
+  `AGTPFarTraffic`, soit N voitures de plus au-delà de la distance fantôme,
+  sans physique et sans conducteur actif. L'interrupteur active aussi le
+  mode fantôme. Deux façons de les dessiner :
+  - marionnettes (par défaut) : des voitures des classes du trafic, créées
+    une fois au départ. Chacune est gardée à son LOD le plus bas, sans
+    ombre, sans mise à jour de pose et sans collision, cachée au-delà de
+    150 m, et déplacée par `AGTPFarTraffic` ;
+  - instances (`-FarInstances=1`) : des instances mobiles des maillages de
+    voitures garées, un `InstancedStaticMeshComponent` par modèle, sans
+    aucun acteur. Il faut pour cela des maillages `/Game/Vehicles/Parked`
+    corrects ; sans eux, le jeu se replie sur les marionnettes.
+- Une voiture lointaine suit les voies et prend une voie suivante au hasard
+  en bout de voie. Elle garde 8 m avec la voiture de devant sur sa voie,
+  voitures conduites comprises, et s'arrête aux feux rouges. Elle ne réserve
+  pas les carrefours et ne sonde pas les obstacles : à cette distance,
+  personne ne voit deux voitures se croiser. La logique est dans
+  `GTPTrafficFar.h`, vérifiée par `tools/vehicles/far_test`.
+- Passage de relais : une voiture lointaine qui arrive à moins de 90 m du
+  joueur échange avec la voiture conduite la plus éloignée, qui est alors un
+  fantôme. Avec les marionnettes, les deux voitures échangent leurs rôles :
+  la marionnette devient une voiture conduite (un fantôme qui se réveille à
+  70 m), et la voiture conduite devient la marionnette de cette voiture
+  lointaine. C'est la même voiture qui reste en vue, couleur comprise. Avec
+  les instances, la voiture conduite reprend la voie, la position et la
+  vitesse de la voiture lointaine, et la voiture lointaine reprend
+  l'ancienne place de la voiture conduite. Si aucune
+  voiture conduite n'est libre, une voiture lointaine hors de vue qui arrive
+  à moins de 50 m repart ailleurs. Celle qui est en vue continue et ne
+  disparaît jamais. Hors de vue, une voiture lointaine au-delà de 250 m ou
+  dans une impasse repart aussi ailleurs, entre 120 et 250 m.
+- Trafic perçu = voitures conduites + voitures lointaines. Le palier C
+  (25 véhicules) correspond à `-Traffic=12 -FarTraffic=13`, la cible
+  (40 véhicules) à `-Traffic=12 -FarTraffic=28`.
+- Budget CPU : toutes les 5 s, le jeu écrit une ligne, Shipping compris :
+  `traffic budget: D driven (G ghosts), P pooled, F far | drivers x ms/frame
+  (y us per driver tick), network z ms/frame, far w ms/frame`.
+- Une commande : `tools/perf/traffic-perceived-bench.sh <build_dir>`. Elle
+  mesure 12 voitures conduites (la référence du palier B), puis 25 et 40
+  voitures conduites, puis 12+13 et 12+28 avec le trafic lointain, et enfin
+  16+24 avec les voitures garées. Elle écrit le tableau et les lignes de
+  budget. Les voitures garées et `-FarInstances=1` ont besoin des maillages
+  `/Game/Vehicles/Parked` dans le build ; les marionnettes, non.
+- Un créneau Mac : depuis la racine du clone,
+  `caffeinate -dimsu tools/perf/traffic-pass-mac.sh` package le jeu, fait
+  un lancement de contrôle de 30 s, puis joue chaque cas. Chaque étape a un
+  garde-temps : 50 min pour le package, 3 min pour le contrôle et
+  2 × (durée + 60 s) par cas. Une étape qui dépasse sa limite est tuée et la
+  passe s'arrête. Une ligne de signe de vie est écrite chaque minute.
+  `DRY_RUN=1` vérifie les chemins et les garde-temps sans Unreal.
