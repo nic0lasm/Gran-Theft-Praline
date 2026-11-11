@@ -462,7 +462,16 @@ Première mise en œuvre de l'option B de l'ADR-0010, préparée et essayée hor
   par le dossier du maillage) ; `-CityProxies=0` n'affiche jamais les substituts lointains ;
   `-CityPropShadowBelow=<m>` ; `-CityTuneReport=1` journalise seulement. Une ligne par niveau :
   `CityRenderTuning: <niveau> <n> components changed; <famille>=<changés>/<trouvés> ...`.
-- Pas encore : mobilier et détails dans les cellules, masque de sol à l'échelle du quartier,
+- Cellules v2 (2026-11-11, 0.9) : `cells.py` écrit aussi les détails de rue de chaque cellule le
+  long de la rue de la République (`details.py --focus <cellule> --cell=x0,y0,x1,y1` : la zone de
+  la rue coupée à la boîte de la cellule, rien en double à une couture ; 1 909 dans les cinq
+  cellules de la rue, à peu près les 1 890 de la map de rue). `quarter_slot_mac.sh` et
+  `quarter_build.py` posent le mobilier et les détails dans chaque niveau de cellule
+  (`place_props.py`, jeux `props` et `details`). Compensation du budget, active par défaut dans
+  les seuls niveaux de cellule (`UGTPCityRenderTuning`) : façades de cour et enseignes jusqu'à
+  60 m, distances du mobilier et des détails ×0,7 (`-CityCellDetailScale=`), pas d'ombre sous
+  1 m ; `-CityCellDefaults=0` la coupe, `-CityCull` l'emporte, une distance de 0 masque une famille.
+- Pas encore : mobilier et détails dans les cellules loin de la rue de la République, masque de sol à l'échelle du quartier,
   niveaux de cellule dans la liste de cuisson pour un package.
 
 ## Limites et suite

@@ -22,6 +22,10 @@ class ULevel;
  *   -CityCull=proxy=400,terrain=600               also works on the quarter's plain components
  *   -CityProxies=0                                far proxies never drawn (cost of the proxies)
  *   -CityTuneReport=1                             only the log line, nothing changed
+ *   A distance of 0 hides the family (-CityCull=details_small=0,props_small=0: A/B on one package).
+ * Streamed cells (L_City_Cell*) get defaults, budget compensation of their furniture and details:
+ *   court=60, sign=60, no shadow under 1 m, props and details distances x CityCellDetailScale
+ *   (0.7). -CityCull and -CityPropShadowBelow win over them; -CityCellDefaults=0 turns them off.
  * Applied to the persistent level at begin play and to every streamed cell as it is added.
  * One log line per application:
  *   "CityRenderTuning: <level> <n> components changed; <family>=<changed>/<found> ..."
@@ -42,6 +46,12 @@ public:
 	/** Family of an untagged quarter component from its mesh path ("proxy", "terrain" or empty). */
 	static FString ImpliedFamily(const FString& MeshPath);
 
+	/** True for a streamed cell level of the quarter (L_City_Cell<X><Y>). */
+	static bool IsCellLevel(const FString& LevelPackageName);
+
+	/** Default cull distances (m) of the cell levels, per family. */
+	static void CellDefaultCull(TMap<FString, float>& Out);
+
 private:
 	void OnLevelAdded(ULevel* Level, UWorld* World);
 	void Apply(ULevel* Level);
@@ -49,5 +59,8 @@ private:
 	TMap<FString, float> CullM;
 	float ShadowBelowM = -1.f;
 	bool bHideProxies = false;
+	bool bShadowBelowGiven = false;
+	bool bCellDefaults = true;
+	float CellDetailScale = 0.7f;
 	FDelegateHandle LevelAddedHandle;
 };
