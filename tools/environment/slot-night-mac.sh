@@ -163,6 +163,18 @@ fi
   echo "| --- | --- | --- | --- | --- | --- | --- |"
   cat "$out/rows.md" 2>/dev/null
   echo
+  if test "$mode" = "compare"; then
+    echo "## Gain of the default against -NightClouds=full (same ambience)"
+    echo
+    echo "| Pair | GPU p50 full -> default | GPU p95 full -> default |"
+    echo "| --- | --- | --- |"
+    awk '{ n=$1; if (n ~ /-full$/) { k=substr(n,1,length(n)-5); f50[k]=$2; f95[k]=$3 }
+           else if (n ~ /-default$/) { k=substr(n,1,length(n)-8); d50[k]=$2; d95[k]=$3; order[++c]=k } }
+         END { for (i=1;i<=c;i++) { k=order[i];
+           if (f50[k]=="nan"||d50[k]=="nan"||f50[k]=="") print "| " k " | nan | nan |";
+           else printf "| %s | %.1f -> %.1f (%+.1f) | %.1f -> %.1f (%+.1f) |\n", k, f50[k], d50[k], d50[k]-f50[k], f95[k], d95[k], d95[k]-f95[k] } }' "$out/gpu.txt" 2>/dev/null
+    echo
+  fi
   echo "## Cost against noon (fixed camera), budget: night <= 3 ms GPU over the day"
   echo
   echo "| Run | GPU p50 - noon | GPU p95 - noon | Within 3 ms (p50) |"
