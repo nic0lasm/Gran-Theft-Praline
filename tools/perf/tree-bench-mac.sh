@@ -59,8 +59,9 @@ export BUILDS_DIR="$builds_dir"
 build_dir="$builds_dir/$version"
 stamp="$(date +%Y%m%d-%H%M%S)"
 out="$build_dir/trees-$stamp"
-scenario="${SCENARIO:-street-demo}"
-cases="${CASES:-bare light10 light impostor leafy}"
+scenario="${SCENARIO:-street-fixed street-demo}"
+export CAPTURE="${CAPTURE:-1}"   # bench.sh keeps a still of street-fixed for each case
+cases="${CASES:-bare light10 light light:SM_BlackAlder_Field_05_M1 light:SM_EuropeanBeech_Forest_08_M1 leafy}"
 max_delta_10="${MAX_DELTA_10_MS:-2}"
 project="$repo_root/GranTheftPraline/GranTheftPraline.uproject"
 ue_root="${UE_ROOT:-/Users/Shared/Epic Games/UE_5.8}"
@@ -174,14 +175,14 @@ if test "$dry" = "1"; then
     mkdir -p "$saved"
     case "$2" in
       *audit_meshes.py) echo '{"roots": {}, "meshes": []}' > "${GTP_AUDIT_OUT:-$saved/mesh_audit.json}" ;;
-      *prepare_trees_m1.py) echo '{"errors": [], "meshes": [{"mesh": "/Game/BlackAlder/M1/SM_Stub_M1", "triangles": [5355, 1803, 913, 8]}]}' > "$saved/trees_m1_report.json" ;;
+      *prepare_trees_m1.py) echo '{"errors": [], "meshes": [{"mesh": "/Game/BlackAlder/M1/SM_Stub_M1", "triangles": [5355, 1803, 913, 8]}, {"mesh": "/Game/EuropeanBeech/M1/SM_EuropeanBeech_Forest_08_M1", "triangles": [10489, 8]}]}' > "$saved/trees_m1_report.json" ;;
       *swap_street_trees.py) cat > "$saved/trees_report.json" <<JSON
 {"mode": "$GTP_TREE_MODE", "errors": [], "swap_arg": "/Game/Environment/Props/W14-63/SM_Bare~/Game/BlackAlder/Geometry/SimpleWind/SM_Stub+/Game/Environment/Props/W14-64/SM_Young~/Game/BlackAlder/Geometry/SimpleWind/SM_StubSapling", "cook_dirs": ["/Game/BlackAlder/Geometry/SimpleWind"], "picked": {"W14-63": {"bare": "/Game/Environment/Props/W14-63/SM_Bare", "mesh": "/Game/BlackAlder/SM_Stub", "trees": 104, "mesh_info": {"height_cm": 1200, "nanite": false, "triangles": [9000, 3000, 8]}}, "W14-64": {"bare": "/Game/Environment/Props/W14-64/SM_Young", "mesh": "/Game/BlackAlder/SM_StubSapling", "trees": 8, "mesh_info": {"height_cm": 400, "nanite": false, "triangles": [2000, 600, 8]}}}}
 JSON
       ;;
     esac
   }
-  package_cmd() { sleep "${DRY_SLEEP:-1}"; grep -c BlackAlder "$game_ini"; mkdir -p "$build_dir/GranTheftPraline.app"; }
+  package_cmd() { sleep "${DRY_SLEEP:-1}"; grep -E "BlackAlder|EuropeanBeech" "$game_ini"; mkdir -p "$build_dir/GranTheftPraline.app"; }
   bench_cmd() {
     sleep "${DRY_SLEEP:-1}"
     mkdir -p "$2"
@@ -221,7 +222,9 @@ trap 'restore_ini' EXIT
 cook_package() {
   cp "$game_ini" "$ini_backup"
   local lines="" d
-  for d in $(json cook_dirs); do lines="$lines+DirectoriesToAlwaysCook=(Path=\"$d\")\n"; done
+  local dirs
+  dirs="$( (json cook_dirs; python3 -c 'import json,sys; [print(m["mesh"].rsplit("/",1)[0]) for m in json.load(open(sys.argv[1]))["meshes"] if "mesh" in m]' "$out/trees_m1.json" 2>/dev/null) | tr ' ' '\n' | sort -u)"
+  for d in $dirs; do lines="$lines+DirectoriesToAlwaysCook=(Path=\"$d\")\n"; done
   python3 - "$game_ini" "$lines" <<'PY'
 import sys
 path, lines = sys.argv[1], sys.argv[2].replace("\\n", "\n")
@@ -275,19 +278,27 @@ if test "$dry" != "1" && screen_locked; then
 fi
 test -d "$build_dir/GranTheftPraline.app" || { echo "- no build at $build_dir" >> "$report"; exit 1; }
 
+# light:<mesh> = light with another rebuilt mature mesh, e.g. light:SM_BlackAlder_Field_05_M1
+swap_with() {   # the pick's -TreeSwap with its mature leafy mesh replaced by /Game/<Pack>/M1/<mesh>
+  local pack mature
+  pack="$(echo "$1" | cut -d_ -f2)"
+  mature="$(echo "$swap_arg" | cut -d+ -f1 | cut -d~ -f2)"
+  echo "${swap_arg/$mature//Game/$pack/M1/$1}"
+}
 case_args() {
   case "$1" in
     bare)     echo "-Trees=bare" ;;
     light10)  echo "-Trees=light -TreeCount=10 -TreeSwap=$swap_arg" ;;
     light)    echo "-Trees=light -TreeSwap=$swap_arg" ;;
-    impostor) echo "-Trees=impostor -TreeSwap=$swap_arg" ;;
+    light:*)  echo "-Trees=light -TreeSwap=$(swap_with "${1#light:}")" ;;
+    impostor) echo "-Trees=impostor -TreeSwap=$swap_arg" ;;   # broken on 11/11: near trees vanish
     leafy)    echo "-Trees=leafy -TreeSwap=$swap_arg" ;;
     *) echo "unknown" ;;
   esac
 }
 
 # frame p95 of a case, from bench.sh's table (column 7)
-p95() { grep '^| ' "$out/$1/summary.md" 2>/dev/null | grep -v -e Scenario -e '| -' | head -n 1 | awk -F'|' '{gsub(/ /,"",$7); print $7}'; }
+p95() { grep '^| ' "$out/${1//:/_}/summary.md" 2>/dev/null | grep -v -e Scenario -e '| -' | awk '/street-demo/ { d = $0 } NR == 1 { f = $0 } END { print (d != "" ? d : f) }' | awk -F'|' '{gsub(/ /,"",$7); print $7}'; }
 
 for c in $cases; do
   if test "$c" != "bare" && test "$c" != "light10" && test -n "${skip_112:-}"; then
@@ -295,7 +306,7 @@ for c in $cases; do
     continue
   fi
   EXTRA_ARGS="${BASE_ARGS--Sky=lightfunction} $(case_args "$c")" SCENARIOS="$scenario" DURATION="$duration" \
-    step "bench_$c" bench_cmd "$build_dir" "$out/$c"
+    step "bench_${c//:/_}" bench_cmd "$build_dir" "$out/${c//:/_}"
   if test "$c" = "light10"; then
     b="$(p95 bare)"; l="$(p95 light10)"
     if test -n "$b" && test -n "$l" && python3 -c 'import sys; sys.exit(0 if float(sys.argv[2]) - float(sys.argv[1]) > float(sys.argv[3]) else 1)' "$b" "$l" "$max_delta_10"; then
@@ -343,7 +354,7 @@ PY
   echo
   echo "## Tables of bench.sh"
   echo
-  for c in $cases; do grep '^|' "$out/$c/summary.md" 2>/dev/null; done | awk '/Scenario/ { if (h++) next } /----/ { if (s++) next } { print }'
+  for c in $cases; do grep '^|' "$out/${c//:/_}/summary.md" 2>/dev/null; done | awk '/Scenario/ { if (h++) next } /----/ { if (s++) next } { print }'
   echo
   echo "## Meshes picked"
   echo

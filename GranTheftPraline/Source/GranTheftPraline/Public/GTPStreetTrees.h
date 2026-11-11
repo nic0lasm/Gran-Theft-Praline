@@ -26,10 +26,15 @@ class UHierarchicalInstancedStaticMeshComponent;
  *   -TreeCount=N     only N leafy trees, spread along the street; the others stay bare
  *   -TreeShadows=0   leafy trees cast no shadow
  *
+ * Without these arguments, DefaultVariant and DefaultSwap from DefaultGame.ini apply
+ * ([/Script/GranTheftPraline.GTPStreetTreesSubsystem]): the shipped game shows the chosen
+ * leafy tree; -Trees=bare on the command line still gives the bare street (A/B). A leafy
+ * mesh that is not in the build (pack missing on that machine) leaves the bare trees.
+ *
  * The twin has no collision: the bare trunk keeps it. Cost: one pass over the
  * actors at BeginPlay, a hundred instances copied.
  */
-UCLASS()
+UCLASS(Config = Game)
 class GRANTHEFTPRALINE_API UGTPStreetTreesSubsystem : public UWorldSubsystem
 {
 	GENERATED_BODY()
@@ -40,6 +45,14 @@ public:
 
 	/** Indices 0..Total-1 of Count trees spread evenly (all of them when Count >= Total). */
 	static TArray<int32> SpreadIndices(int32 Total, int32 Count);
+
+	/** Variant when the command line gives no -Trees= (DefaultGame.ini; "bare" changes nothing). */
+	UPROPERTY(Config)
+	FString DefaultVariant = TEXT("bare");
+
+	/** -TreeSwap value when the command line gives none (DefaultGame.ini). */
+	UPROPERTY(Config)
+	FString DefaultSwap;
 
 private:
 	void ApplyVariant(UHierarchicalInstancedStaticMeshComponent* Leafy, const FString& Variant) const;

@@ -77,3 +77,8 @@ Avant d'en placer un seul dans la rue :
 Script prêt : `tools/assets/unreal/prepare_roadside.py` (mode `list` par défaut, rapport seul ; `GTP_ROADSIDE_MODE=apply` coupe Nanite, reconstruit les 3 LOD depuis le scan et plafonne les textures à 2048, uniquement sur les assets du pack, sans toucher de map ; un nouveau téléchargement Fab rend le pack d'origine).
 
 Rien de cela n'est fait tant que le chantier gèle les nouveaux assets : c'est la recette pour le jour où un fil en a besoin.
+
+
+## Choix du 11/11 et mise en jeu
+
+Mesure M1 (trees2, 1a51b60) : p95 identique aux arbres nus à ±0,5 ms pour les trois arbres. Les images (tools/perf/evidence/trees2-20261111 sur feat/trees-stills-results) départagent : aulne Field_05, couronne large et dense, le plus proche du volume des platanes (recommandé, choix soumis à Nico). Le cas impostor est retiré (la carte forcée de près fait disparaître les arbres). Mise en jeu (feat/leafy-trees-ship) : DefaultGame.ini donne `DefaultVariant=light` et `DefaultSwap` au sous-système, et cuit `/Game/BlackAlder/M1` ; les maillages M1 sont produits sur le Mac par `prepare_trees_m1.py` (étape TREES=1 de `tools/perf/candidate-build-mac.sh`). `-Trees=bare` garde la rue nue pour les A/B. Sans le pack sur la machine, le jeu garde les arbres nus.

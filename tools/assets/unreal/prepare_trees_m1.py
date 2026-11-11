@@ -13,7 +13,7 @@ triangles, then the following ones, the billboard last. No simplifier runs on th
 so the cards look as the pack drew them. Replaying the script rebuilds the copies.
 
 Environment:
-  GTP_TREES_M1_SOURCES  space-separated mesh paths (default DEFAULT_SOURCES: the 8.9 m alder
+  GTP_TREES_M1_SOURCES  space-separated mesh paths, each optionally ":<max LOD 0 triangles>" (default DEFAULT_SOURCES: the 8.9 m alder
                         and the 3.7 m alder sapling; SM_BlackAlder_Field_05, fuller, needs MAX 7300)
   GTP_TREES_M1_MAX      most triangles accepted for LOD 0 (default 6000)
 
@@ -29,6 +29,10 @@ import unreal
 DEFAULT_SOURCES = (
     "/Game/BlackAlder/Geometry/SimpleWind/SM_BlackAlder_Forest_06",   # 8.9 m: 5355, 1803, 913, 8
     "/Game/BlackAlder/Geometry/SimpleWind/SM_BlackAlder_Sapling_06",  # 3.7 m: 2577, 1251
+    # fuller crowns, closer to the street's plane trees (bench of 11/11: 5,000 triangles a tree
+    # cost +0.5 ms p95 for 112 trees, so a heavier LOD 0 is affordable):
+    "/Game/BlackAlder/Geometry/SimpleWind/SM_BlackAlder_Field_05:16000",     # 7.4 m: 15043, 7260, 8
+    "/Game/EuropeanBeech/Geometry/SimpleWind/SM_EuropeanBeech_Forest_08:11000",  # 7.6 m: 10489, 6076, 3911, 8
 )
 SAVED = unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_saved_dir())
 OUT = os.path.join(SAVED, "CityImport", "trees_m1_report.json")
@@ -109,10 +113,11 @@ def main():
     sources = os.environ.get("GTP_TREES_M1_SOURCES", " ".join(DEFAULT_SOURCES)).split()
     most = int(os.environ.get("GTP_TREES_M1_MAX", "6000"))
     report = {"max_lod0_triangles": most, "meshes": [], "errors": []}
-    for source in sources:
+    for item in sources:
+        source, _, own = item.partition(":")
         row = {"source": source}
         try:
-            prepare(source, most, row)
+            prepare(source, int(own) if own else most, row)
         except Exception as e:
             report["errors"].append("%s: %s" % (source, e))
         report["meshes"].append(row)

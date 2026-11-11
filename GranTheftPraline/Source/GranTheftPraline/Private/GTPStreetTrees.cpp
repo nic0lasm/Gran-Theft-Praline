@@ -46,7 +46,7 @@ void UGTPStreetTreesSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 {
 	Super::OnWorldBeginPlay(InWorld);
 
-	FString Variant = TEXT("bare");
+	FString Variant = DefaultVariant.IsEmpty() ? FString(TEXT("bare")) : DefaultVariant;
 	FParse::Value(FCommandLine::Get(), TEXT("Trees="), Variant);
 	Variant = Variant.ToLower();
 	const bool bLeafy = Variant == TEXT("leafy") || Variant == TEXT("light") || Variant == TEXT("impostor");
@@ -54,7 +54,7 @@ void UGTPStreetTreesSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 	{
 		return;
 	}
-	FString SwapArg;
+	FString SwapArg = DefaultSwap;
 	FParse::Value(FCommandLine::Get(), TEXT("TreeSwap="), SwapArg, false);
 	int32 Count = -1;
 	FParse::Value(FCommandLine::Get(), TEXT("TreeCount="), Count);
