@@ -30,6 +30,12 @@ ue_root="${UE_ROOT:-/Users/Shared/Epic Games/UE_5.8}"
 cmd="$ue_root/Engine/Binaries/Mac/UnrealEditor-Cmd"
 stage="$repo/.scratch/audio"
 focus="rue-de-la-republique"
+# Every scratch file stays in the working folder: temp files, the pip cache and the
+# Swift module cache all go under .scratch (never /tmp nor the user's Library).
+export TMPDIR="$repo/.scratch/tmp/"
+export PIP_CACHE_DIR="$repo/.scratch/pip-cache"
+swift_cache="$repo/.scratch/swift-module-cache"
+mkdir -p "$TMPDIR" "$swift_cache"
 
 die() {
   echo "mac_audio_pass: $*" >&2
@@ -49,20 +55,19 @@ python_with_numpy() {
 }
 
 editor_free() {
-  if pgrep -x "UnrealEditor" >/dev/null || pgrep -x "UnrealEditor-Cmd" >/dev/null || pgrep -f "GranTheftPraline.app/Contents/MacOS" >/dev/null; then
+  if pgrep -x "UnrealEditor" >/dev/null || pgrep -f "Binaries/Mac/UnrealEditor-Cmd" >/dev/null || pgrep -f "GranTheftPraline.app/Contents/MacOS" >/dev/null; then
     die "an Unreal editor or the game is running: one at a time"
   fi
 }
 
 run_commandlet() {
-  # Paths with spaces cannot go through -script: copy the script to a plain folder.
+  # Unreal splits -script on spaces and the project path has one: the script path goes
+  # through GTP_PY_SCRIPT and the common launcher Content/Python/gtp_run.py runs it in
+  # place. Nothing is copied or written outside the working folder.
   local script="$1"
-  local tmp
-  tmp="$(mktemp -d /tmp/gtp-audio.XXXXXX)"
-  cp "$script" "$tmp/"
-  "$cmd" "$project" -run=pythonscript -script="$tmp/$(basename "$script")" \
+  test -f "$script" || die "no script $script"
+  GTP_PY_SCRIPT="$script" "$cmd" "$project" -run=pythonscript "-script=__import__('gtp_run').main()" \
     -unattended -nosplash -nosound -stdout -FullStdOutLogOutput -NSAppSleepDisabled YES
-  rm -rf "$tmp"
 }
 
 prepare() {
@@ -129,10 +134,10 @@ check() {
     -CaptureVideo="$video" -CaptureFps=10 -CaptureDelay=5 -CaptureDir="$out/frames" \
     -RecordAudio -RecordAudioDir="$out" -ExitAfter=$(( video + 15 )) > "$out/video-run.log" 2>&1
   set -e
-  if swift "$repo/tools/build/frames-to-movie.swift" "$out/frames" 10 "$out/capture.mov"; then
+  if swift -module-cache-path "$swift_cache" "$repo/tools/build/frames-to-movie.swift" "$out/frames" 10 "$out/capture.mov"; then
     rm -rf "$out/frames"
     if test -f "$out/game_audio.wav"; then
-      swift "$repo/tools/audio/mux-audio.swift" "$out/capture.mov" "$out/game_audio.wav" "$out/capture-with-sound.mov" \
+      swift -module-cache-path "$swift_cache" "$repo/tools/audio/mux-audio.swift" "$out/capture.mov" "$out/game_audio.wav" "$out/capture-with-sound.mov" \
         || echo "mux failed: video and sound kept apart in $out"
     else
       echo "no game_audio.wav: see $out/video-run.log"

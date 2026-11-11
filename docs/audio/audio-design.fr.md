@@ -93,6 +93,28 @@ Coût estimé sur le fil de jeu à 30 i/s avec cette foule : environ 0,15 ms
 donne `heard=` (marcheurs) et `engines=audibles/total`. Réglages
 `MaxEngineVoices`, `MaxStepWalkers` et `BudgetInterval` dans `DefaultGame.ini`.
 
+### Budget CPU par source
+
+Cible : fil audio à 10 % d'un cœur au plus, fil de jeu à 0,3 ms par image
+au plus, GPU 0. Les coûts des synthés sont mesurés hors Unreal (un cœur x86 à
+2,1 GHz, `-O2`, blocs de 1 024 échantillons à 48 kHz) ; un cœur performance
+de M1 Pro est plus rapide, ce sont donc des plafonds. Les coûts de mixage et
+du fil de jeu sont des estimations à confirmer sur le Mac avec `-AudioStats`
+et `stat audio`.
+
+| Source | Voix au plus | Fil audio, chacune | Fil audio, total | Fil de jeu |
+|---|---|---|---|---|
+| Synthé de moteur (diesel et turbo est le plus cher) | 6 | 0,32 à 0,37 % | 2,2 % | tick ~2 µs par voiture (25 voitures : 50 µs) |
+| Synthé de sirène | 3 | 0,42 % | 1,3 % | ~1 µs par voiture de police |
+| Synthé de crissement | 4 | 0,24 % | 1,0 % | 0,5 à 2 µs par voiture (4 Hz loin, 20 Hz près) |
+| Pas, chocs, voix, radio, interface (sons ponctuels) | 10 + 6 + 4 + 1 + 3 | ~0,06 % (mixage, estimation) | 1,4 % | ~30 µs par son lancé (trace + création) ; 8 marcheurs écoutés ~25 µs par image |
+| Boucles du lit (stéréo) | rue + 4 au plus | ~0,1 % (estimation) | 0,5 % | ~5 µs par image |
+| Mixage des voix synthétisées (spatialisation, filtres) | 13 | ~0,06 % (estimation) | 0,8 % | — |
+| **Total** | **42** | | **~7 %** (budget 10 %) | **~0,15 ms** (budget 0,3 ms) |
+
+Si le Mac mesure plus, réduire dans cet ordre : `MaxEngineVoices` de 6 à 4,
+puis `MaxStepWalkers` de 8 à 5, puis les voix de pas de 10 à 6.
+
 ## Surfaces
 
 Ordre de décision au point touché : matériau physique (nommé dans les

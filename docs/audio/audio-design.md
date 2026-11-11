@@ -91,6 +91,27 @@ Estimated game-thread cost at 30 fps with that crowd: about 0.15 ms
 gives `heard=` (walkers) and `engines=audible/total`. Settings
 `MaxEngineVoices`, `MaxStepWalkers` and `BudgetInterval` in `DefaultGame.ini`.
 
+### CPU budget per source
+
+Target: audio thread at most 10 % of one core, game thread at most 0.3 ms per
+frame, GPU 0. Synth costs are measured outside Unreal (one 2.1 GHz x86 core,
+`-O2`, blocks of 1,024 samples at 48 kHz); an M1 Pro performance core is
+faster, so these are upper bounds. Mixer and game-thread costs are estimates
+to confirm on the Mac with `-AudioStats` and `stat audio`.
+
+| Source | Voices at most | Audio thread, each | Audio thread, all | Game thread |
+|---|---|---|---|---|
+| Engine synth (diesel and turbo is the dearest) | 6 | 0.32 to 0.37 % | 2.2 % | tick ~2 µs per car (25 cars: 50 µs) |
+| Siren synth | 3 | 0.42 % | 1.3 % | ~1 µs per police car |
+| Tyre squeal synth | 4 | 0.24 % | 1.0 % | 0.5 to 2 µs per car (4 Hz far, 20 Hz near) |
+| Footsteps, impacts, voices, radio, interface (one-shots) | 10 + 6 + 4 + 1 + 3 | ~0.06 % (mixing, estimate) | 1.4 % | ~30 µs per sound started (trace + spawn); 8 walkers heard ~25 µs per frame |
+| Bed loops (stereo) | street + up to 4 | ~0.1 % (estimate) | 0.5 % | ~5 µs per frame |
+| Mixing of the synth voices (spatialisation, filters) | 13 | ~0.06 % (estimate) | 0.8 % | — |
+| **Total** | **42** | | **~7 %** (budget 10 %) | **~0.15 ms** (budget 0.3 ms) |
+
+If the Mac shows more, cut in this order: `MaxEngineVoices` 6 to 4, then
+`MaxStepWalkers` 8 to 5, then the footstep voices 10 to 6.
+
 ## Surfaces
 
 Order of decision at the hit point: physical material (named in the project
