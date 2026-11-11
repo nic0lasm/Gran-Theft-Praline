@@ -403,7 +403,8 @@ inline FStepResult Step(const FGraph& G, FWalker& W, float Dt, FRng& Rng, const 
 	W.S += Speed * Dt;
 	Result.bMoving = true;
 	Result.Speed = Speed;
-	while (W.Edge >= 0 && W.S >= G.Edges[W.Edge].Length)
+	// Bounded: a zero-length edge would otherwise loop forever (Over stays 0 >= Length 0).
+	for (int Guard = 0; Guard < 8 && W.Edge >= 0 && W.S >= G.Edges[W.Edge].Length; ++Guard)
 	{
 		const float Over = W.S - G.Edges[W.Edge].Length;
 		const int Node = NodeAhead(G, W);

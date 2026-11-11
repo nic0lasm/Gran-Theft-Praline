@@ -293,8 +293,14 @@ UAnimSequenceBase* UGTPPedestrianSubsystem::FindAnimation(const USkeletalMesh* M
 	const FTopLevelAssetPath SequenceClass = UAnimSequence::StaticClass()->GetClassPathName();
 	FAssetData Best;
 	int32 BestScore = 0;
+	int32 Loads = 0;
+	GTP_TRACE(LogGTPPedestrians, TEXT("find animation: scanning %d assets"), Assets.Num());
 	for (const FAssetData& Asset : Assets)
 	{
+		if (Loads >= 4)
+		{
+			break; // never load more than a handful synchronously
+		}
 		if (Asset.AssetClassPath != SequenceClass)
 		{
 			continue;
@@ -317,6 +323,7 @@ UAnimSequenceBase* UGTPPedestrianSubsystem::FindAnimation(const USkeletalMesh* M
 			|| Name.Contains(TEXT("back")) || Name.Contains(TEXT("left")) || Name.Contains(TEXT("right")) || Name.Contains(TEXT("strafe"))) ? 8 : 0;
 		if (Score > BestScore)
 		{
+			++Loads;
 			UAnimSequenceBase* Candidate = Cast<UAnimSequenceBase>(Asset.GetAsset());
 			if (Candidate && Candidate->GetSkeleton() == Mesh->GetSkeleton())
 			{
@@ -379,6 +386,7 @@ void UGTPPedestrianSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 		GTP_TRACE(LogGTPPedestrians, TEXT("pedestrians: off"));
 		return;
 	}
+	GTP_TRACE(LogGTPPedestrians, TEXT("init: begin"));
 	const FString File = WalkwaysFileFor(UGameplayStatics::GetCurrentLevelName(&InWorld, true));
 	const int32 Edges = LoadWalkwaysFromCsv(File, Graph);
 	if (Edges == 0)
@@ -388,6 +396,7 @@ void UGTPPedestrianSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 		return;
 	}
 
+	GTP_TRACE(LogGTPPedestrians, TEXT("init: walkways %d edges, loading meshes"), Edges);
 	for (const FSoftObjectPath& Path : Meshes)
 	{
 		if (USkeletalMesh* Mesh = Cast<USkeletalMesh>(Path.TryLoad()))
@@ -421,6 +430,7 @@ void UGTPPedestrianSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 		}
 		return FindAnimation(LoadedMeshes[0], Words);
 	};
+	GTP_TRACE(LogGTPPedestrians, TEXT("init: meshes %d, resolving animations"), LoadedMeshes.Num());
 	Walk = Resolve(WalkAnimation, TEXT("PedWalk="), {TEXT("walk")});
 	Idle = Resolve(IdleAnimation, TEXT("PedIdle="), {TEXT("idle")});
 	Run = Resolve(RunAnimation, TEXT("PedRun="), {TEXT("run"), TEXT("jog")});
@@ -444,6 +454,7 @@ void UGTPPedestrianSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 		Run = Walk;
 	}
 
+	GTP_TRACE(LogGTPPedestrians, TEXT("init: spawning %d"), Wanted);
 	People.SetNum(Wanted);
 	FActorSpawnParameters Params;
 	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
