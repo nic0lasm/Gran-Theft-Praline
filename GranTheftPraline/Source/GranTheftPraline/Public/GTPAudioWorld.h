@@ -7,6 +7,7 @@
 class AActor;
 class UGTPAmbienceBed;
 class UGTPStreetReactions;
+class UGTPCombatSounds;
 
 /** A loud sound at Location that frightens people within Radius (cm); Cause may be null. */
 DECLARE_MULTICAST_DELEGATE_ThreeParams(FGTPLoudSoundEvent, const FVector& /*Location*/, float /*Radius*/, AActor* /*Cause*/);
@@ -79,6 +80,9 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UGTPStreetReactions> Reactions;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UGTPCombatSounds> CombatSounds;
 
 	/** Crowd pedestrians seen so far, for the crowd layer of the bed. */
 	TArray<TWeakObjectPtr<AActor>> Pedestrians;

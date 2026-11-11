@@ -74,8 +74,13 @@ et la charge est coupée pendant chaque changement de rapport.
 
 Spécification : [combat.fr.md](../gameplay/combat.fr.md), « Sons ». Banques faites par
 `make_weapons.py` (`Weapons/`, `BulletImpacts/`, `Melee/`), jouées par `UGTPCombatAudio`.
-Le code du combat l'appelle, ou le monde audio le branche sur `UGTPCombatSubsystem`
-(`OnShotFired` → `PlayShot`, `OnDamageDealt` → `PlayHit`).
+Le monde audio écoute le système de combat par `UGTPCombatSounds`, si bien que le code du combat
+ne joue rien lui-même : `OnShotFired` donne le tir et, par son impact, le son de la balle ;
+`OnDamageDealt` pour un coup au corps à corps donne un coup léger ou lourd (une balle dans un corps
+a déjà sonné comme un impact Flesh) ; `UGTPWeaponComponent::OnWeaponEvent` de l'arme du joueur
+donne le tir à vide, le chargeur retiré au début d'un rechargement et remis à 55 %, puis la culasse
+à la fin. Seuls les blocages et les coups dans le vide des poings sont appelés directement par le
+code du combat. Rien n'est branché sous `-Combat=0`.
 
 - **Tir :** à moins de 25 m, `ShotClose` (sec, 90 % de l'énergie en moins de 80 ms) ;
   plus loin, `ShotFar` (claquement, détonation sourde, roulement), en retard selon la
