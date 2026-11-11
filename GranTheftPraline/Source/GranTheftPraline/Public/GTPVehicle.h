@@ -171,6 +171,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Vehicle")
 	void SetAIDriveInput(float Throttle, float Brake, float Steering, bool bHandbrake);
 
+	/**
+	 * Same pedals as SetAIDriveInput for the player's own car driven by a test tool
+	 * (-TestDrive physics mode, GTPTestDrive.h): keeps ThrottleAmount (engine sound,
+	 * load) in step. Does nothing on a wrecked car.
+	 */
+	void SetScriptedDriveInput(float Throttle, float Brake, float Steering, bool bHandbrake);
+
 	/** True when a non-player character sits at the wheel. */
 	UFUNCTION(BlueprintPure, Category = "Vehicle|Seats")
 	bool HasAIDriver() const { return Driver != nullptr && State != EGTPVehicleState::Driven; }

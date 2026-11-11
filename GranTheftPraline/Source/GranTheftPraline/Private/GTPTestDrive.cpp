@@ -19,7 +19,7 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogGTPTestDrive, Log, All);
 
-namespace
+namespace GTPTestDriveLocal
 {
 	constexpr double PosLogInterval = 5.0;
 	constexpr double PlaceTimeout = 20.0;
@@ -98,7 +98,7 @@ void UGTPTestDrive::Sample(const TArray<FPoint>& InPath, double T, FVector2D& Ou
 		return FMath::Lerp(InPath[Lo].Location, InPath[Hi].Location, Alpha);
 	};
 	OutLocation = At(T, &OutSpeedKmh);
-	FVector2D Ahead = At(T + HeadingWindow, nullptr) - At(T - HeadingWindow, nullptr);
+	FVector2D Ahead = At(T + GTPTestDriveLocal::HeadingWindow, nullptr) - At(T - GTPTestDriveLocal::HeadingWindow, nullptr);
 	if (Ahead.SizeSquared() < 1.0)
 	{
 		// Standing still (start, end): face along the path from here.
@@ -176,7 +176,7 @@ void UGTPTestDrive::SetPhase(EPhase NewPhase)
 {
 	Phase = NewPhase;
 	PhaseStart = GameTime();
-	GTP_TRACE(LogGTPTestDrive, TEXT("TestDrive %.1f s: %s"), static_cast<float>(PhaseStart), PhaseName(static_cast<int32>(NewPhase)));
+	GTP_TRACE(LogGTPTestDrive, TEXT("TestDrive %.1f s: %s"), static_cast<float>(PhaseStart), GTPTestDriveLocal::PhaseName(static_cast<int32>(NewPhase)));
 }
 
 AGTPVehicle* UGTPTestDrive::FindCar() const
@@ -220,7 +220,7 @@ float UGTPTestDrive::GroundZ(const AGTPVehicle* InCar, const FVector2D& At, floa
 	const FVector To(At.X, At.Y, FallbackZ - 1000.f);
 	if (World->LineTraceSingleByObjectType(Hit, From, To, Objects, Params))
 	{
-		return static_cast<float>(Hit.ImpactPoint.Z) + RideHeightCm;
+		return static_cast<float>(Hit.ImpactPoint.Z) + GTPTestDriveLocal::RideHeightCm;
 	}
 	return FallbackZ;
 }
@@ -245,7 +245,7 @@ void UGTPTestDrive::PutAtStart(AGTPVehicle* InCar)
 
 void UGTPTestDrive::LogPosition(const AGTPVehicle* InCar, double T)
 {
-	const int32 Slot = static_cast<int32>(T / PosLogInterval);
+	const int32 Slot = static_cast<int32>(T / GTPTestDriveLocal::PosLogInterval);
 	if (Slot <= LastLoggedSlot || !InCar)
 	{
 		return;
@@ -259,7 +259,7 @@ void UGTPTestDrive::LogPosition(const AGTPVehicle* InCar, double T)
 		float Yaw = 0.f;
 		UGTPTestDrive::Sample(Path, T, Unused, Yaw, Kmh);
 	}
-	GTP_TRACE(LogGTPTestDrive, TEXT("DemoPos t=%.1f x=%.0f y=%.0f yaw=%.0f kmh=%.0f phase=testdrive"), Slot * PosLogInterval, Location.X, Location.Y,
+	GTP_TRACE(LogGTPTestDrive, TEXT("DemoPos t=%.1f x=%.0f y=%.0f yaw=%.0f kmh=%.0f phase=testdrive"), Slot * GTPTestDriveLocal::PosLogInterval, Location.X, Location.Y,
 		FRotator::NormalizeAxis(InCar->GetActorRotation().Yaw), Kmh);
 }
 
@@ -275,22 +275,15 @@ void UGTPTestDrive::StepRail(AGTPVehicle* InCar, double T)
 
 void UGTPTestDrive::StepPhysics(AGTPVehicle* InCar, double T)
 {
-	UChaosVehicleMovementComponent* Move = InCar->GetVehicleMovementComponent();
-	if (!Move)
+	// Through the car, as the AI drivers: keeps ThrottleAmount (engine sound, load) in step.
+	auto Pedals = [InCar](float Throttle, float Brake, float Steering)
 	{
-		return;
-	}
-	auto Pedals = [Move](float Throttle, float Brake, float Steering)
-	{
-		Move->SetThrottleInput(Throttle);
-		Move->SetBrakeInput(Brake);
-		Move->SetSteeringInput(Steering);
-		Move->SetHandbrakeInput(false);
+		InCar->SetScriptedDriveInput(Throttle, Brake, Steering, false);
 	};
 	const double Now = GameTime();
 	if (Now < UnstickUntil)
 	{
-		Pedals(0.f, 0.6f, -UnstickSteer); // reverse out (brake while slow = reverse in Chaos)
+		Pedals(0.f, 0.6f, -UnstickSteer); // reverse out (bReverseAsBrake is set on every AGTPVehicle)
 		return;
 	}
 	// The path is the plan; its speeds are the limits (pure pursuit as the AI drivers).
@@ -351,7 +344,7 @@ bool UGTPTestDrive::Tick(float DeltaTime)
 		ACharacter* Character = Cast<ACharacter>(Pawn);
 		if (!Found || !Character)
 		{
-			if (InPhase > PlaceTimeout)
+			if (InPhase > GTPTestDriveLocal::PlaceTimeout)
 			{
 				UE_LOG(LogGTPTestDrive, Error, TEXT("Test drive: no free car (add -TestVehicle)"));
 				GTP_TRACE(LogGTPTestDrive, TEXT("TestDrive error: no free car"));
@@ -367,7 +360,7 @@ bool UGTPTestDrive::Tick(float DeltaTime)
 		PC->SetControlRotation(FRotator(0.f, Yaw, 0.f));
 		if (!Found->BeginEnter(Character, PC))
 		{
-			if (InPhase > PlaceTimeout)
+			if (InPhase > GTPTestDriveLocal::PlaceTimeout)
 			{
 				GTP_TRACE(LogGTPTestDrive, TEXT("TestDrive error: the car refused the entry"));
 				SetPhase(EPhase::Done);
@@ -390,9 +383,9 @@ bool UGTPTestDrive::Tick(float DeltaTime)
 			}
 			SetPhase(EPhase::Hold);
 		}
-		else if (InPhase > EnterTimeout)
+		else if (InPhase > GTPTestDriveLocal::EnterTimeout)
 		{
-			UE_LOG(LogGTPTestDrive, Error, TEXT("Test drive: entry did not finish in %.0f s"), EnterTimeout);
+			UE_LOG(LogGTPTestDrive, Error, TEXT("Test drive: entry did not finish in %.0f s"), GTPTestDriveLocal::EnterTimeout);
 			GTP_TRACE(LogGTPTestDrive, TEXT("TestDrive error: entry did not finish"));
 			SetPhase(EPhase::Done);
 		}
@@ -453,11 +446,7 @@ bool UGTPTestDrive::Tick(float DeltaTime)
 			{
 				Root->SetSimulatePhysics(true); // the car is the player's again
 			}
-			if (UChaosVehicleMovementComponent* Move = Driven->GetVehicleMovementComponent())
-			{
-				Move->SetThrottleInput(0.f);
-				Move->SetBrakeInput(1.f);
-			}
+			Driven->SetScriptedDriveInput(0.f, 1.f, 0.f, false);
 			SetPhase(EPhase::Done);
 			if (bQuit)
 			{
