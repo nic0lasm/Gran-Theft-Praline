@@ -182,3 +182,27 @@ besoin d'être un acteur.
   2 × (durée + 60 s) par cas. Une étape qui dépasse sa limite est tuée et la
   passe s'arrête. Une ligne de signe de vie est écrite chaque minute.
   `DRY_RUN=1` vérifie les chemins et les garde-temps sans Unreal.
+
+## 7. Coût de dessin des voitures conduites (interrupteurs pour un balayage, pas encore mesuré)
+
+Au-delà d'environ 16 voitures conduites, c'est le GPU qui limite. Deux
+distances fixent ce que coûte le dessin d'une voiture conduite. Toutes deux
+se règlent maintenant en ligne de commande, en mètres :
+
+- `-GhostDistance=M` : au-delà de M, les voitures deviennent des fantômes,
+  et elles se réveillent 20 m plus près. Les voitures lointaines passent le
+  relais à la même distance. Par défaut : 90.
+- `-LodNear=M` : le LOD complet et l'ombre ne s'appliquent que sous M ;
+  au-delà, c'est `FarLOD` (2 par défaut, ou `-FarLOD=N`). Par défaut : 20.
+- Une commande, sur un build existant :
+  `caffeinate -dimsu tools/perf/traffic-lod-sweep-mac.sh <build_dir>`. Elle
+  enchaîne 6 cas de 75 s avec 16 voitures conduites et 24 lointaines :
+  g90-l20 (les réglages actuels), g75-l20, g60-l20, g90-l12, g90-l8 et
+  g60-l8. La caméra est fixe par défaut ; avec `DETERMINISTIC=1`, le
+  balayage suit le parcours de démo (`-DemoDeterministic=1`). Chaque cas a
+  un garde-temps. Le balayage s'arrête si l'écran est verrouillé, et
+  `DRY_RUN=1` le vérifie sans lancer le jeu.
+- Depuis le candidat suivant, les réglages par défaut sont 16 voitures
+  conduites et 24 lointaines. Les niveaux de détail, les fantômes et la
+  réserve sont activés, les voitures garées restent coupées. `-Traffic=0`
+  coupe aussi les voitures lointaines.

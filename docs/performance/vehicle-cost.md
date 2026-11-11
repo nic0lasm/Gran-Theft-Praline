@@ -161,3 +161,24 @@ driver. Past the ghost distance, a car does not need to be an actor at all.
   package 50 min, control 3 min, a case 2 x (duration + 60 s). Past its
   limit, a step is killed and the pass stops. A heartbeat line is written
   every minute. `DRY_RUN=1` checks the paths and guards without Unreal.
+
+## 7. Draw cost of the driven cars (switches for a sweep, not measured yet)
+
+Past about 16 driven cars the GPU is what limits. Two distances set what a
+driven car costs to draw, and both can now be set on the command line, in
+metres:
+
+- `-GhostDistance=M`: cars past M are ghosts and wake up again 20 m nearer.
+  Far cars hand over at the same distance. The default is 90.
+- `-LodNear=M`: full LOD and shadow only under M, `FarLOD` beyond (default 2,
+  or `-FarLOD=N`). The default is 20.
+- One command on an existing build:
+  `caffeinate -dimsu tools/perf/traffic-lod-sweep-mac.sh <build_dir>`. It
+  runs 6 cases of 75 s with 16 driven and 24 far cars: g90-l20 (today),
+  g75-l20, g60-l20, g90-l12, g90-l8 and g60-l8. It uses a fixed camera by
+  default, or the demo route with `DETERMINISTIC=1` (`-DemoDeterministic=1`).
+  Each case has a time guard. The sweep stops when the screen is locked, and
+  `DRY_RUN=1` checks it without the game.
+- Since the next candidate, the defaults are 16 driven cars and 24 far cars,
+  with tiers, ghosts and the pool on and parked cars off.
+  `-Traffic=0` also turns the far cars off.

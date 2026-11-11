@@ -706,6 +706,22 @@ void AGTPTrafficNetwork::BeginPlay()
 		// Far cars hand over to driven cars that are ghosts by then.
 		bVehicleGhost = true;
 	}
+	// Sweeps of the draw cost (tools/perf/traffic-lod-sweep-mac.sh), in metres:
+	// -GhostDistance=M (cars past M are ghosts, awake again 20 m nearer; far cars hand over at M),
+	// -LodNear=M (full LOD and shadow only under M, the FarLOD beyond), -FarLOD=N.
+	float GhostMetres = 0.f;
+	if (FParse::Value(FCommandLine::Get(), TEXT("GhostDistance="), GhostMetres) && GhostMetres > 0.f)
+	{
+		GhostDistance = GhostMetres * 100.f;
+		GhostWakeDistance = FMath::Max(GhostDistance - 2000.f, GhostDistance * 0.5f);
+	}
+	float LodNearMetres = 0.f;
+	if (FParse::Value(FCommandLine::Get(), TEXT("LodNear="), LodNearMetres) && LodNearMetres >= 0.f)
+	{
+		DetailDistance = LodNearMetres * 100.f;
+	}
+	FParse::Value(FCommandLine::Get(), TEXT("FarLOD="), FarLOD);
+	GTP_TRACE(LogGTPTraffic, TEXT("traffic: full detail under %.0f m, LOD %d beyond"), DetailDistance / 100.f, FarLOD);
 	GTP_TRACE(LogGTPTraffic, TEXT("traffic: ghost mode %s (past %.0f m, awake inside %.0f m)"),
 		bVehicleGhost ? TEXT("on") : TEXT("off"), GhostDistance / 100.f, GhostWakeDistance / 100.f);
 	GTP_TRACE(LogGTPTraffic, TEXT("traffic: vehicle LOD tiers %s"), bVehicleLod ? TEXT("on") : TEXT("off"));

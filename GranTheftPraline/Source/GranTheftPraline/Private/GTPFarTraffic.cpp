@@ -42,6 +42,9 @@ int32 AGTPFarTraffic::Build(AGTPTrafficNetwork* InNetwork, int32 Count)
 	{
 		return 0;
 	}
+	// Hand over where driven cars turn into ghosts (-GhostDistance= moves both).
+	HandoverDistance = Network->GhostDistance;
+	HideDistance = FMath::Min(HideDistance, Network->GhostWakeDistance);
 	int32 InstancesSwitch = bInstances ? 1 : 0;
 	FParse::Value(FCommandLine::Get(), TEXT("FarInstances="), InstancesSwitch);
 	if (InstancesSwitch != 0)
