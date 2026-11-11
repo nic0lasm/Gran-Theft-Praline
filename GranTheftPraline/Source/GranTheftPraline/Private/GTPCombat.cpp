@@ -85,6 +85,13 @@ void UGTPCombatSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 	GTP_TRACE(LogGTPCombat, TEXT("combat: on (-Combat=0 turns it off)"));
 	InWorld.GetTimerManager().SetTimer(HealthTimer, FTimerDelegate::CreateUObject(this, &UGTPCombatSubsystem::StepHealth), CombatHealthStepSeconds, true);
 	InWorld.GetTimerManager().SetTimer(EquipTimer, FTimerDelegate::CreateUObject(this, &UGTPCombatSubsystem::EquipPlayer), 0.5f, true, 0.2f);
+	int32 Bench = 0;
+	FParse::Value(FCommandLine::Get(), TEXT("-CombatBench="), Bench);
+	if (Bench != 0)
+	{
+		GTP_TRACE(LogGTPCombat, TEXT("combat: firefight bench on (a shot every 0.45 s)"));
+		InWorld.GetTimerManager().SetTimer(BenchTimer, FTimerDelegate::CreateUObject(this, &UGTPCombatSubsystem::BenchShot), 0.45f, true, 3.0f);
+	}
 	FTimerHandle WarmUp;
 	InWorld.GetTimerManager().SetTimer(WarmUp, FTimerDelegate::CreateUObject(this, &UGTPCombatSubsystem::WarmUpEffects), 1.0f, false);
 }
@@ -96,6 +103,7 @@ void UGTPCombatSubsystem::Deinitialize()
 		World->GetTimerManager().ClearTimer(HealthTimer);
 		World->GetTimerManager().ClearTimer(EquipTimer);
 		World->GetTimerManager().ClearTimer(RespawnTimer);
+		World->GetTimerManager().ClearTimer(BenchTimer);
 	}
 	Bodies.Reset();
 	Super::Deinitialize();
@@ -353,7 +361,9 @@ void UGTPCombatSubsystem::WarmUpEffects()
 			++Loaded;
 		}
 	}
-	GTP_TRACE(LogGTPCombat, TEXT("combat: %d impact effects loaded and warmed up"), Loaded);
+	// Loaded here, never during a fight (a missing package would stall the game thread).
+	LoadedBloodPool = BloodPoolMaterial.IsNull() ? nullptr : Cast<UMaterialInterface>(BloodPoolMaterial.TryLoad());
+	GTP_TRACE(LogGTPCombat, TEXT("combat: %d impact effects loaded and warmed up, blood pool %s"), Loaded, LoadedBloodPool ? TEXT("on") : TEXT("off"));
 }
 
 void UGTPCombatSubsystem::OnHealthDied(UGTPHealthComponent* Health, EGTPDamageCause Cause, AActor* Killer)
@@ -472,11 +482,7 @@ void UGTPCombatSubsystem::SpawnBloodPool(AActor* Body)
 	}
 	if (!LoadedBloodPool)
 	{
-		LoadedBloodPool = Cast<UMaterialInterface>(BloodPoolMaterial.TryLoad());
-		if (!LoadedBloodPool)
-		{
-			return;
-		}
+		return; // loaded once in WarmUpEffects; missing asset = no pools
 	}
 	// On the ground under the body.
 	const FVector From = Body->GetActorLocation();
@@ -504,5 +510,69 @@ void UGTPCombatSubsystem::SpawnBloodPool(AActor* Body)
 	{
 		Decal->SetFadeOut(BloodPoolLifeSeconds - 10.f, 10.f, false);
 		BloodPools.Add(Decal);
+	}
+}
+
+void UGTPCombatSubsystem::BenchShot()
+{
+	APlayerController* PC = GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr;
+	APawn* Pawn = PC ? PC->GetPawn() : nullptr;
+	UGTPWeaponComponent* Weapon = Pawn ? Pawn->FindComponentByClass<UGTPWeaponComponent>() : nullptr;
+	if (!Weapon)
+	{
+		return;
+	}
+	if (!Weapon->IsDrawn())
+	{
+		Weapon->SetDrawn(true);
+	}
+	if (Weapon->GetReserve() < 24)
+	{
+		Weapon->AddAmmo(96);
+	}
+	++BenchShots;
+	// A fixed sweep: left-right across the street, down at the ground and up at the facades.
+	FVector Eye;
+	FRotator View;
+	PC->GetPlayerViewPoint(Eye, View);
+	const float T = static_cast<float>(BenchShots);
+	const FRotator Aim(View.Pitch - 6.0 + 9.0 * FMath::Sin(T * 0.61f), View.Yaw + 40.0 * FMath::Sin(T * 0.37f), 0.0);
+	Weapon->FireAt(Eye + Aim.Vector() * 3000.f, 1.f);
+
+	if (BenchShots % 10 != 0)
+	{
+		return;
+	}
+	// Every tenth shot: the nearest living passer-by within 40 m falls (reaction, ragdoll, blood).
+	AActor* Nearest = nullptr;
+	double NearestD2 = FMath::Square(4000.0);
+	for (TActorIterator<AActor> It(GetWorld()); It; ++It)
+	{
+		AActor* Other = *It;
+		if (Other == Pawn || !(Cast<AGTPPedestrian>(Other) || (Cast<ACharacter>(Other) && !Cast<APawn>(Other)->IsPlayerControlled())))
+		{
+			continue;
+		}
+		const UGTPHealthComponent* Health = Other->FindComponentByClass<UGTPHealthComponent>();
+		if (Health && Health->IsDead())
+		{
+			continue;
+		}
+		const double D2 = FVector::DistSquared(Other->GetActorLocation(), Pawn->GetActorLocation());
+		if (D2 < NearestD2)
+		{
+			Nearest = Other;
+			NearestD2 = D2;
+		}
+	}
+	if (Nearest)
+	{
+		FGTPCombatHit Hit;
+		Hit.Instigator = Pawn;
+		Hit.Victim = Nearest;
+		Hit.Location = Nearest->GetActorLocation();
+		Hit.Direction = (Nearest->GetActorLocation() - Pawn->GetActorLocation()).GetSafeNormal();
+		Hit.FixedDamage = 1000.f;
+		ApplyHit(Hit);
 	}
 }

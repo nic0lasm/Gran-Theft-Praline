@@ -49,6 +49,9 @@ DECLARE_MULTICAST_DELEGATE_ThreeParams(FGTPArmedThreat, AActor* /*Source*/, cons
  * death and respawn at the nearest fictional hospital (ATargetPoint tagged GTPHospital).
  * It also gives the player's pawn its health, hit reaction and weapon, and binds the
  * combat inputs. -Combat=0 turns the whole system off (the subsystem is not created).
+ * -CombatBench=1 is the firefight scene of the M1 gate: the player fires the pistol
+ * every 0.45 s along a fixed sweep and every tenth shot kills the nearest passer-by
+ * (ragdoll, blood pool), with no input and the same shots every run.
  */
 UCLASS(Config = Game)
 class GRANTHEFTPRALINE_API UGTPCombatSubsystem : public UWorldSubsystem
@@ -107,9 +110,9 @@ protected:
 	UPROPERTY(Config)
 	float PlayerDamageTaken = 0.45f;
 
-	/** Blood pool decal under a dead body ("GTA-like" blood, chosen by Nico on 2026-11-11). Unset = none. */
+	/** Blood pool decal under a dead body ("GTA-like" blood, chosen by Nico on 2026-11-11), made by tools/combat/unreal/make_blood_material.py. Missing = none. */
 	UPROPERTY(Config)
-	FSoftObjectPath BloodPoolMaterial;
+	FSoftObjectPath BloodPoolMaterial = FSoftObjectPath(TEXT("/Game/Combat/Materials/M_GTP_BloodPool.M_GTP_BloodPool"));
 
 	/** Blood pools in the world at once; the oldest goes first. */
 	UPROPERTY(Config)
@@ -132,6 +135,7 @@ private:
 	void OnHealthDied(UGTPHealthComponent* Health, EGTPDamageCause Cause, AActor* Killer);
 	void RespawnPlayer();
 	void WarmUpEffects();
+	void BenchShot();
 	void SpawnBloodPool(AActor* Body);
 	void AddBloodStain(AActor* Body);
 	bool IsPlayer(const AActor* Actor) const;
@@ -160,4 +164,6 @@ private:
 	FTimerHandle HealthTimer;
 	FTimerHandle EquipTimer;
 	FTimerHandle RespawnTimer;
+	FTimerHandle BenchTimer;
+	int32 BenchShots = 0;
 };
