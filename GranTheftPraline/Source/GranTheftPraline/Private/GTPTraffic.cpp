@@ -6,6 +6,7 @@
 #include "GTPTrafficGhost.h"
 #include "GTPParkedCars.h"
 #include "GTPFarTraffic.h"
+#include "GTPKerbSpot.h"
 #include "Misc/ScopeExit.h"
 #include "CoreGlobals.h"
 #include "ChaosWheeledVehicleMovementComponent.h"
@@ -867,6 +868,89 @@ bool AGTPTrafficNetwork::IsSeenByPlayer(const FVector& Location) const
 	FHitResult Hit;
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(GTPTrafficSight), false, PC->GetPawn());
 	return !GetWorld()->LineTraceSingleByChannel(Hit, Eye, Location + FVector(0.f, 0.f, 150.f), ECC_Visibility, Params);
+}
+
+AGTPVehicle* AGTPTrafficNetwork::SpawnParkedVehicle(FName Tag, const FVector& Near, float RadiusCm, TSubclassOf<AGTPVehicle> Class)
+{
+	if (!Class)
+	{
+		if (LoadedVehicleClasses.Num() == 0)
+		{
+			for (const FSoftClassPath& Path : VehicleClasses)
+			{
+				if (UClass* Loaded = Path.TryLoadClass<AGTPVehicle>())
+				{
+					LoadedVehicleClasses.Add(Loaded);
+				}
+			}
+		}
+		if (LoadedVehicleClasses.Num() == 0)
+		{
+			GTP_TRACE(LogGTPTraffic, TEXT("traffic: no car class for a parked mission car"));
+			return nullptr;
+		}
+		Class = LoadedVehicleClasses[Random.RandRange(0, LoadedVehicleClasses.Num() - 1)];
+	}
+	std::vector<std::vector<GTPKerb::FPoint2>> Polylines;
+	Polylines.reserve(Lanes.Num());
+	for (const FGTPTrafficLane& Lane : Lanes)
+	{
+		std::vector<GTPKerb::FPoint2>& Line = Polylines.emplace_back();
+		Line.reserve(Lane.Points.Num());
+		for (const FVector& Point : Lane.Points)
+		{
+			Line.push_back({static_cast<float>(Point.X), static_cast<float>(Point.Y)});
+		}
+	}
+	const std::vector<GTPKerb::FSegmentRef> Segments = GTPKerb::SegmentsNear(Polylines,
+		{static_cast<float>(Near.X), static_cast<float>(Near.Y)}, FMath::Max(RadiusCm, 100.f));
+	// Out of sight first; if every spot is seen, a seen one rather than nothing.
+	for (int32 Pass = 0; Pass < 2; ++Pass)
+	{
+		int32 Tried = 0;
+		for (const GTPKerb::FSegmentRef& Ref : Segments)
+		{
+			if (++Tried > 64)
+			{
+				break;
+			}
+			const FVector& A = Lanes[Ref.Lane].Points[Ref.Point];
+			const FVector& B = Lanes[Ref.Lane].Points[Ref.Point + 1];
+			GTPKerb::FSpot Spot;
+			if (!GTPKerb::SpotBeside({static_cast<float>(A.X), static_cast<float>(A.Y)}, {static_cast<float>(B.X), static_cast<float>(B.Y)}, ParkOffset, Spot))
+			{
+				continue;
+			}
+			FVector Location(Spot.Position.X, Spot.Position.Y, (A.Z + B.Z) * 0.5);
+			if (Pass == 0 && IsSeenByPlayer(Location))
+			{
+				continue;
+			}
+			FHitResult Ground;
+			FCollisionQueryParams Params(SCENE_QUERY_STAT(GTPParkedGround), false);
+			if (!GetWorld()->LineTraceSingleByChannel(Ground, Location + FVector(0.f, 0.f, 500.f), Location - FVector(0.f, 0.f, 2000.f), ECC_Visibility, Params))
+			{
+				continue;
+			}
+			Location.Z = Ground.ImpactPoint.Z + 40.f;
+			FActorSpawnParameters SpawnParams;
+			SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::DontSpawnIfColliding;
+			AGTPVehicle* Car = GetWorld()->SpawnActor<AGTPVehicle>(Class, FTransform(FRotator(0.f, Spot.YawDegrees, 0.f), Location), SpawnParams);
+			if (!Car)
+			{
+				continue;
+			}
+			if (!Tag.IsNone())
+			{
+				Car->Tags.AddUnique(Tag);
+			}
+			GTP_TRACE(LogGTPTraffic, TEXT("traffic: parked %s (%s) on lane %d at %s, %.0f m from the request"), *Car->GetName(),
+				*Tag.ToString(), Ref.Lane, *Location.ToCompactString(), Ref.Distance / 100.f);
+			return Car;
+		}
+	}
+	GTP_TRACE(LogGTPTraffic, TEXT("traffic: no free spot for a parked car (%s) within %.0f m of %s"), *Tag.ToString(), RadiusCm / 100.f, *Near.ToCompactString());
+	return nullptr;
 }
 
 bool AGTPTrafficNetwork::FindSpawnPoint(int32& OutLane, int32& OutPoint, FTransform& OutTransform) const

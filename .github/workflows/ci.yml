@@ -79,6 +79,10 @@ jobs:
         run: |
           g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/far_test/far_test.cpp -o /tmp/far_test
           /tmp/far_test
+      - name: Mission parking spots
+        run: |
+          g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/kerb_test/kerb_test.cpp -o /tmp/kerb_test
+          /tmp/kerb_test
 
   ui-core:
     name: Interface core tests

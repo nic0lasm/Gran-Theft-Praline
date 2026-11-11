@@ -203,6 +203,18 @@ public:
 
 	const TArray<FGTPTrafficLane>& GetLanes() const { return Lanes; }
 
+	/**
+	 * A car without a driver, parked beside a lane near Near (within RadiusCm, world cm),
+	 * out of the player's sight when it can, tagged with Tag (empty: no tag). Class empty: a
+	 * random traffic car class. The car is not traffic: never recycled, no AI driver, so the
+	 * player can take it. nullptr when no spot was free. Costs nothing unless called (missions).
+	 */
+	AGTPVehicle* SpawnParkedVehicle(FName Tag, const FVector& Near, float RadiusCm, TSubclassOf<AGTPVehicle> Class = nullptr);
+
+	/** Distance from the lane's centre line to the kerb spot of SpawnParkedVehicle (cm). */
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Missions")
+	float ParkOffset = 250.f;
+
 	/** Reads a lanes CSV (traffic.py format); returns the number of lanes. */
 	int32 LoadLanesFromCsv(const FString& Path);
 
