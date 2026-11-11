@@ -244,3 +244,21 @@ non-player driver lite: no actor tick, no controller tick, no tick on any
 component but the meshes, cameras and spring arms off, movement None.
 Leaving the car (`ReleaseCharacter`) restores exactly what it turned off.
 `-DriverLite=0` keeps the drivers whole.
+
+## 10. Traffic over the whole streamed quarter (11 Nov 2026)
+
+The quarter network has 1,043 lanes over about 1.3 × 1.5 km, against a few
+dozen on the street. Spawns used to draw a lane at random from all of them,
+so most tries landed on lanes far outside the spawn ring.
+`AGTPTrafficNetwork::LanesInRing` now keeps only the lanes whose bounding box
+reaches the ring, and both driven and far cars draw from that list.
+
+Measured off Unreal on the quarter's lanes.csv (400 player positions, 20 tries
+each), the share of tries that land in the ring went:
+- for driven cars (40 to 250 m): from 8.2 % to 83.9 %;
+- for far cars (120 to 250 m): from 6.5 % to 75.5 %.
+
+The quarter has 124 junctions with lights and 471 signal heads. A head whose
+streamed cell was not loaded at start finds its ground when it comes within
+draw distance. It stays hidden until then, instead of floating or being
+buried.

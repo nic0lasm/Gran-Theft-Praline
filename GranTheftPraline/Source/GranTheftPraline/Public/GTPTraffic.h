@@ -203,6 +203,12 @@ public:
 
 	const TArray<FGTPTrafficLane>& GetLanes() const { return Lanes; }
 
+	/**
+	 * Lanes a car can start on (4 points or more, not a dead end) with a point that may lie
+	 * between MinCm and MaxCm of Center (2D, by bounding box): what spawns draw from.
+	 */
+	void LanesInRing(const FVector& Center, float MinCm, float MaxCm, TArray<int32>& Out) const;
+
 	/** Reads a lanes CSV (traffic.py format); returns the number of lanes. */
 	int32 LoadLanesFromCsv(const FString& Path);
 
@@ -404,6 +410,9 @@ private:
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<AGTPVehicle>> Pool;
 
+	/** 2D bounds of each lane (cm), filled when the lanes load, for LanesInRing. */
+	TArray<FBox2D> LaneBounds;
+
 	/** Puts Car away into Pool; false if it cannot be reused (wrecked, no driver). */
 	bool PutAway(AGTPVehicle* Car);
 	/** A pooled car at Transform, ready to drive; nullptr if the pool is empty. */
@@ -426,6 +435,8 @@ private:
 		TWeakObjectPtr<UStaticMeshComponent> Lamp;
 		TWeakObjectPtr<UStaticMeshComponent> Pole;
 		TWeakObjectPtr<UMaterialInstanceDynamic> Material;
+		/** Foot found on the ground; false while its streamed cell is not loaded yet (retried when seen). */
+		bool bGrounded = false;
 	};
 
 	FGTPJunctionTable JunctionTable;

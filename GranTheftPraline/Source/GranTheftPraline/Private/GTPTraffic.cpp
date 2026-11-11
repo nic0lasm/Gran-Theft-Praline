@@ -6,6 +6,7 @@
 #include "GTPTrafficGhost.h"
 #include "GTPParkedCars.h"
 #include "GTPFarTraffic.h"
+#include "GTPTrafficFar.h"
 #include "Misc/ScopeExit.h"
 #include "CoreGlobals.h"
 #include "ChaosWheeledVehicleMovementComponent.h"
@@ -494,7 +495,40 @@ int32 AGTPTrafficNetwork::LoadLanesFromCsv(const FString& Path)
 	{
 		Lane.Next.RemoveAll([this](int32 Id) { return !Lanes.IsValidIndex(Id); });
 	}
+	LaneBounds.Reset(Lanes.Num());
+	for (const FGTPTrafficLane& Lane : Lanes)
+	{
+		FBox2D Bounds(ForceInit);
+		for (const FVector& Point : Lane.Points)
+		{
+			Bounds += FVector2D(Point.X, Point.Y);
+		}
+		LaneBounds.Add(Bounds);
+	}
 	return Lanes.Num();
+}
+
+void AGTPTrafficNetwork::LanesInRing(const FVector& Center, float MinCm, float MaxCm, TArray<int32>& Out) const
+{
+	Out.Reset();
+	for (int32 Index = 0; Index < Lanes.Num(); ++Index)
+	{
+		const FGTPTrafficLane& Lane = Lanes[Index];
+		if (Lane.Points.Num() < 4 || Lane.Next.Num() == 0)
+		{
+			continue;
+		}
+		if (LaneBounds.IsValidIndex(Index) && LaneBounds[Index].bIsValid)
+		{
+			const FBox2D& Box = LaneBounds[Index];
+			if (!GTPFar::BoxTouchesRing(static_cast<float>(Box.Min.X), static_cast<float>(Box.Min.Y), static_cast<float>(Box.Max.X),
+					static_cast<float>(Box.Max.Y), static_cast<float>(Center.X), static_cast<float>(Center.Y), MinCm, MaxCm))
+			{
+				continue;
+			}
+		}
+		Out.Add(Index);
+	}
 }
 
 bool AGTPTrafficNetwork::FindNearestLane(const FVector& Location, float YawDegrees, float MaxDistanceCm, int32& OutLane, int32& OutPoint) const
@@ -875,9 +909,19 @@ bool AGTPTrafficNetwork::FindSpawnPoint(int32& OutLane, int32& OutPoint, FTransf
 	const FVector PlayerLocation = Player ? Player->GetActorLocation() : FVector::ZeroVector;
 	// More tries when many cars are wanted: most lanes of the city are out of range.
 	const int32 MaxTries = WantedCars > 12 ? 120 : 40;
+	// Only lanes that reach the spawn ring: on the quarter's 1 000 lanes most are out of range.
+	TArray<int32> Candidates;
+	if (Player)
+	{
+		LanesInRing(PlayerLocation, MinSpawnDistance, MaxCarDistance, Candidates);
+		if (Candidates.Num() == 0)
+		{
+			return false;
+		}
+	}
 	for (int32 Try = 0; Try < MaxTries; ++Try)
 	{
-		const int32 Lane = Random.RandRange(0, Lanes.Num() - 1);
+		const int32 Lane = Player ? Candidates[Random.RandRange(0, Candidates.Num() - 1)] : Random.RandRange(0, Lanes.Num() - 1);
 		const TArray<FVector>& Points = Lanes[Lane].Points;
 		if (Points.Num() < 4 || Lanes[Lane].Next.Num() == 0)
 		{
@@ -1254,11 +1298,13 @@ void AGTPTrafficNetwork::BuildLights()
 		FHitResult Ground;
 		const FVector Top(Foot.X, Foot.Y, Foot.Z + 10000.f);
 		FCollisionQueryParams Params(SCENE_QUERY_STAT(GTPSignalGround), false, this);
-		if (GetWorld()->LineTraceSingleByChannel(Ground, Top, Top - FVector(0.f, 0.f, 20000.f), ECC_WorldStatic, Params))
+		const bool bGrounded = GetWorld()->LineTraceSingleByChannel(Ground, Top, Top - FVector(0.f, 0.f, 20000.f), ECC_WorldStatic, Params);
+		if (bGrounded)
 		{
 			Foot = Ground.ImpactPoint;
 		}
 		FSignalHead Head;
+		Head.bGrounded = bGrounded;
 		Head.Lane = Index;
 		Head.Location = Foot;
 		UStaticMeshComponent* Pole = NewObject<UStaticMeshComponent>(this);
@@ -1304,9 +1350,29 @@ void AGTPTrafficNetwork::UpdateSignalHeads()
 		{
 			continue;
 		}
-		const bool bVisible = SignalDrawDistance <= 0.f || FVector::DistSquared(View, Head.Location) < FMath::Square(SignalDrawDistance);
-		Lamp->SetVisibility(bVisible);
-		Pole->SetVisibility(bVisible);
+		const bool bVisible = SignalDrawDistance <= 0.f || FVector::DistSquared2D(View, Head.Location) < FMath::Square(SignalDrawDistance);
+		if (bVisible && !Head.bGrounded)
+		{
+			// Streamed quarter: the cell under this head was not loaded at start. Find the ground
+			// now that the head is about to be seen (one trace, then never again).
+			FHitResult Ground;
+			FCollisionQueryParams Params(SCENE_QUERY_STAT(GTPSignalGround), false, this);
+			const FVector Top(Head.Location.X, Head.Location.Y, Head.Location.Z + 10000.f);
+			if (GetWorld()->LineTraceSingleByChannel(Ground, Top, Top - FVector(0.f, 0.f, 20000.f), ECC_WorldStatic, Params))
+			{
+				Head.bGrounded = true;
+				Head.Location = Ground.ImpactPoint;
+				Pole->SetWorldLocation(Head.Location + FVector(0.f, 0.f, 150.f));
+				Lamp->SetWorldLocation(Head.Location + FVector(0.f, 0.f, 320.f));
+			}
+		}
+		// Hidden until grounded: no lamp floating or buried while its cell streams in.
+		const bool bDrawn = bVisible && Head.bGrounded;
+		if (Lamp->IsVisible() != bDrawn)
+		{
+			Lamp->SetVisibility(bDrawn);
+			Pole->SetVisibility(bDrawn);
+		}
 		const EGTPLight Light = Lights.LightFor(Head.Lane, Now);
 		if (Light != Head.Shown)
 		{

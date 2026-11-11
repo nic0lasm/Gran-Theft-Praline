@@ -193,9 +193,18 @@ bool AGTPFarTraffic::Place(FFarCar& Car, bool bOutOfSight)
 	const APawn* Player = UGameplayStatics::GetPlayerPawn(this, 0);
 	const FVector PlayerLocation = Player ? Player->GetActorLocation() : FVector::ZeroVector;
 	const TArray<FGTPTrafficLane>& Lanes = Network->GetLanes();
+	TArray<int32> Candidates;
+	if (Player)
+	{
+		Network->LanesInRing(PlayerLocation, SpawnMinDistance, MaxDistance, Candidates);
+		if (Candidates.Num() == 0)
+		{
+			return false;
+		}
+	}
 	for (int32 Try = 0; Try < 30; ++Try)
 	{
-		const int32 Lane = Random.RandRange(0, Lanes.Num() - 1);
+		const int32 Lane = Player ? Candidates[Random.RandRange(0, Candidates.Num() - 1)] : Random.RandRange(0, Lanes.Num() - 1);
 		const TArray<FVector>& Points = Lanes[Lane].Points;
 		if (Points.Num() < 4 || Lanes[Lane].Next.Num() == 0)
 		{
