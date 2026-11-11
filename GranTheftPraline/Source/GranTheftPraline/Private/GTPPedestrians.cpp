@@ -16,6 +16,7 @@
 #include "Camera/PlayerCameraManager.h"
 #include "GTPGraphicsProfile.h"
 #include "GTPAudioWorld.h"
+#include "GTPRagdoll.h"
 #include "GTPTraffic.h"
 #include "GTPVehicle.h"
 #include "Kismet/GameplayStatics.h"
@@ -148,6 +149,13 @@ bool AGTPPedestrian::StartRagdoll(const FVector& Impulse)
 	{
 		return false;
 	}
+	// One cap for every physical body (ADR-0006): m1 3, lite 6; -Ragdoll=0 refuses all.
+	// A refused pedestrian stays animated and runs.
+	UGTPRagdollSubsystem* Cap = GetWorld() ? GetWorld()->GetSubsystem<UGTPRagdollSubsystem>() : nullptr;
+	if (Cap && !Cap->TryClaimExternal(this))
+	{
+		return false;
+	}
 	bRagdoll = true;
 	Body->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 	Body->SetCollisionProfileName(TEXT("Ragdoll"));
@@ -160,6 +168,10 @@ void AGTPPedestrian::ResetBody()
 {
 	if (bRagdoll)
 	{
+		if (UGTPRagdollSubsystem* Cap = GetWorld() ? GetWorld()->GetSubsystem<UGTPRagdollSubsystem>() : nullptr)
+		{
+			Cap->ReleaseExternal(this);
+		}
 		Body->SetSimulatePhysics(false);
 		Body->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		Body->AttachToComponent(Root, FAttachmentTransformRules::SnapToTargetNotIncludingScale);

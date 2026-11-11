@@ -309,7 +309,35 @@ bool UGTPRagdollSubsystem::HasRoom() const
 	{
 		Running += P.IsValid() ? 1 : 0;
 	}
+	for (const TWeakObjectPtr<AActor>& A : External)
+	{
+		Running += A.IsValid() ? 1 : 0;
+	}
 	return Running < ChooseCap();
+}
+
+bool UGTPRagdollSubsystem::TryClaimExternal(AActor* Body)
+{
+	if (!IsEnabled() || !Body)
+	{
+		return false;
+	}
+	External.RemoveAll([](const TWeakObjectPtr<AActor>& A) { return !A.IsValid(); });
+	if (External.Contains(Body))
+	{
+		return true;
+	}
+	if (!HasRoom())
+	{
+		return false;
+	}
+	External.Add(Body);
+	return true;
+}
+
+void UGTPRagdollSubsystem::ReleaseExternal(AActor* Body)
+{
+	External.Remove(Body);
 }
 
 void UGTPRagdollSubsystem::Unregister(UGTPRagdollComponent* Ragdoll)
