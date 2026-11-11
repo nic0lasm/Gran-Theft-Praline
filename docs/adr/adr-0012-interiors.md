@@ -69,8 +69,8 @@ comes within the preload radius, unloaded with hysteresis.
    | Memory of the interior level | ≤ 600 MB, 2K textures max | ≤ 1.5 GB |
 
    The layout generator checks the countable ones in CI. The first layout gives, at the
-   default densities: M1 9 575 perceived objects, 3 593 instances, 92 meshes, 155 draw calls;
-   PC 9 880 objects for 159 draw calls (lower bounds: one material per section).
+   default densities: M1 9 505 perceived objects, 3 523 instances, 92 meshes, 184 draw calls;
+   PC 9 880 objects for 196 draw calls (lower bounds: one material per section; one component per class, floor and density level).
 7. **The city while inside.** Lumen and the street through the glass stay; cells behind the
    building can drop to their far proxy while the player is inside (the optimisation thread
    decides it from the measure).

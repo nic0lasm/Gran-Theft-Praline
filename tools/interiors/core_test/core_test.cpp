@@ -2,6 +2,7 @@
 //   g++ -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/interiors/core_test/core_test.cpp -o core_test && ./core_test
 #include "GTPCashDrawerModel.h"
 #include "GTPHoldUpModel.h"
+#include "GTPInteriorStreamingCore.h"
 
 #include <cstdio>
 
@@ -179,10 +180,31 @@ static void HoldUpChecks()
 	}
 }
 
+static void StreamingChecks()
+{
+	using namespace GTPInterior;
+	FStreamingRules Rules;  // 40 m in, 70 m out, 2 at most
+	std::vector<FSite> Sites = {{0.f, 0.f, 0.f, false}, {10000.f, 0.f, 0.f, false}, {2000.f, 0.f, 0.f, false}, {3000.f, 0.f, 0.f, false}};
+	std::vector<bool> Wanted = Plan(Sites, 0.f, 0.f, 0.f, Rules);
+	Check(Wanted[0] && !Wanted[1], "the interior at the door loads, the far one does not");
+	Check(Wanted[2] && !Wanted[3], "at most two interiors, nearest first");
+	Sites.resize(2);  // only the restaurant and a far one from here
+	Sites[0].bLoaded = true;
+	Check(Plan(Sites, 5500.f, 0.f, 0.f, Rules)[0], "a loaded interior stays loaded at 55 m (hysteresis)");
+	Sites[0].bLoaded = false;
+	Check(!Plan(Sites, 5500.f, 0.f, 0.f, Rules)[0], "an unloaded interior does not load at 55 m");
+	Sites[0].bLoaded = true;
+	Check(!Plan(Sites, 7100.f, 0.f, 0.f, Rules)[0], "past 70 m it is released");
+	Check(DefaultDensity(true) == 2 && DefaultDensity(false) == 3, "density 2 on m1, 3 elsewhere");
+	Check(ClampDensity(9) == 3 && ClampDensity(-1) == 0, "density clamped to 0..3");
+	Check(ShownAt(0, 0) && ShownAt(2, 3) && !ShownAt(3, 2), "a component shows from its own density up");
+}
+
 int main()
 {
 	CashChecks();
 	HoldUpChecks();
+	StreamingChecks();
 	std::printf(Failures == 0 ? "all checks passed\n" : "%d check(s) failed\n", Failures);
 	return Failures == 0 ? 0 : 1;
 }

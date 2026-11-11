@@ -28,6 +28,14 @@ class LayoutTests(unittest.TestCase):
         self.assertEqual(counts, sorted(counts))
         self.assertLess(counts[0], counts[3])
 
+    def test_density_levels_share_one_layout(self):
+        # The game switches density by hiding components: objects never move between levels.
+        full = il.generate_all(self.spec, self.catalog)
+        for density in range(4):
+            subset = il.generate(self.spec, self.catalog, density)
+            self.assertEqual(subset, [p for p in full if p["min_density"] <= density])
+        self.assertEqual({p["min_density"] for p in full}, {0, 1, 2, 3})
+
     def test_default_density_fits_both_tiers(self):
         for tier in ("m1", "pc"):
             density = self.spec["density"]["default_" + tier]
