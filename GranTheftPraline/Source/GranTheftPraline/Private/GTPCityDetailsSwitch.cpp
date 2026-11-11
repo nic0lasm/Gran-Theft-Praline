@@ -1,5 +1,7 @@
 #include "GTPCityDetailsSwitch.h"
 
+#include "GTPLog.h"
+
 #include "EngineUtils.h"
 #include "Engine/World.h"
 #include "GameFramework/Actor.h"
@@ -60,5 +62,5 @@ void UGTPCityDetailsSwitch::OnWorldBeginPlay(UWorld& InWorld)
 			++Shown;
 		}
 	}
-	UE_LOG(LogGTPCityDetails, Log, TEXT("city details mode %d: %d actors shown, %d hidden"), Mode, Shown, Hidden);
+	GTP_TRACE(LogGTPCityDetails, TEXT("city details mode %d: %d actors shown, %d hidden"), Mode, Shown, Hidden);
 }
