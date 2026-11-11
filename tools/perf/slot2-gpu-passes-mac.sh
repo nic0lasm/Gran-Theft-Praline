@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Perf slot 2: per-pass GPU breakdown of the cumulative build, in one command.
 #
-# Packages feat/perf-cumul in the Test configuration (the CSV profiler and the
+# Packages feat/perf-cumul in CONFIG (default Development: the launcher engine cannot build Test) (the CSV profiler and the
 # GPU stats exist there, not in Shipping), runs the fixed camera and the demo
 # route with -csvGpuStats and prints the cost of every GPU pass.
 #
@@ -11,6 +11,7 @@
 #   (default "noon rain"; empty value = no -Ambience argument)
 # Output: Builds/perf-cumul/slot2-<stamp>/REPORT.md
 set -euo pipefail
+config="${CONFIG:-Development}"
 
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo"
@@ -55,7 +56,7 @@ if test "$dry" != "1"; then git checkout -q -- assets/geo/processed 2>/dev/null 
 test -z "$(git status --porcelain --untracked-files=no)" || die "tracked changes in the clone"
 git fetch -q origin "$branch" || die "fetch failed"
 if test "$dry" = "1"; then
-  log "DRY RUN: would package origin/$branch ($(git rev-parse --short "origin/$branch")) in Test and capture GPU passes for: fixed + demo x [${ambiences:-none}]"
+  log "DRY RUN: would package origin/$branch ($(git rev-parse --short "origin/$branch")) in $config and capture GPU passes for: fixed + demo x [${ambiences:-none}]"
   python3 -I tools/perf/gpu_passes.py /dev/null 2>/dev/null; echo "DRY RUN OK" >> "$report"; exit 0
 fi
 
@@ -63,12 +64,12 @@ git checkout -q --detach "origin/$branch" || die "checkout"; switched=1
 echo "Code: $(git rev-parse --short HEAD)" >> "$report"
 build="$repo/Builds/perf-cumul-test/0.3"
 if test -d "$build/GranTheftPraline.app" && test "$(cat "$build/.commit" 2>/dev/null)" = "$(git rev-parse HEAD)"; then
-  log "Test build already packaged for this commit"
+  log "$config build already packaged for this commit"
 else
   log "setup environment, limit 15 min"
   limit 900 tools/environment/setup-environment-mac.sh > "$out/setup.log" 2>&1 || die "setup failed"
-  log "package Test, limit 50 min"
-  BUILDS_DIR="$repo/Builds/perf-cumul-test" limit 3000 tools/build/package-mac.sh 0.3 Test > "$out/package.log" 2>&1 || die "package failed (package.log)"
+  log "package $config, limit 50 min"
+  BUILDS_DIR="$repo/Builds/perf-cumul-test" limit 3000 tools/build/package-mac.sh 0.3 "$config" > "$out/package.log" 2>&1 || die "package failed (package.log)"
   git rev-parse HEAD > "$build/.commit"
 fi
 exe="$(find "$build/GranTheftPraline.app/Contents/MacOS" -maxdepth 1 -type f -perm -u+x | head -n 1)"
