@@ -61,6 +61,7 @@ namespace
 		case EGTPAmbienceZone::Pedestrian: OutDelay = 0.06f; OutLevel = 0.6f; break; // ~20 m between facades
 		case EGTPAmbienceZone::Quay: OutDelay = 0.25f; OutLevel = 0.3f; break;       // facades on one side only
 		case EGTPAmbienceZone::Bridge: OutDelay = 0.4f; OutLevel = 0.15f; break;     // open water, far banks
+		case EGTPAmbienceZone::Square: OutDelay = 0.35f; OutLevel = 0.25f; break;    // facades 60 to 150 m away
 		default: OutDelay = 0.09f; OutLevel = 0.5f; break;                            // street with traffic, ~30 m
 		}
 	}

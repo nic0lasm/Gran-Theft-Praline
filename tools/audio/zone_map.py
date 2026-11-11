@@ -6,6 +6,8 @@ GTPSurfaceLogic.h) where each cell says which ambience layer leads:
   1 Pedestrian  streets closed to cars (G channel of the ground mask: rue de la République)
   2 Quay        within QUAY_M of the river, on land (quai du Rhône)
   3 Bridge      above the water (pont Lafayette: the only way to stand there)
+  4 Square      open ground further than SQUARE_M from every building, off the carriageway
+                (place Bellecour, place des Jacobins), when gen/<focus>/buildings_gen.csv is there
 Inputs: the ground mask of the focus street (tools/city/ground_mask.py) and
 water.geojson of the zone (BD TOPO, local metres, x east, y north). The grid
 covers the mask and stretches east to the far bank of the Rhône.
@@ -17,6 +19,7 @@ Output (not committed: derived from BD TOPO):
 """
 
 import argparse
+import csv
 import json
 import os
 import struct
@@ -24,9 +27,10 @@ import struct
 import numpy as np
 from PIL import Image, ImageDraw
 
-ZONES = ["Street", "Pedestrian", "Quay", "Bridge"]
-PREVIEW = [(150, 150, 150), (220, 190, 120), (60, 160, 120), (200, 60, 60)]
+ZONES = ["Street", "Pedestrian", "Quay", "Bridge", "Square"]
+PREVIEW = [(150, 150, 150), (220, 190, 120), (60, 160, 120), (200, 60, 60), (200, 180, 60)]
 QUAY_M = 45.0
+SQUARE_M = 30.0
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
 
@@ -43,6 +47,23 @@ def water_rings(path):
         for poly in polys:
             rings.append(np.asarray(poly[0], float))
     return rings
+
+
+def building_boxes(ground_dir):
+    """World boxes (Unreal cm: x0, y0, x1, y1) of the generated buildings, [] when unknown."""
+    path = os.path.join(os.path.dirname(os.path.abspath(ground_dir)), "buildings_gen.csv")
+    if not os.path.isfile(path):
+        return []
+    boxes = []
+    with open(path, encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            try:
+                bx0, by0, _, bx1, by1, _ = (float(v) for v in row["bounds_ue_cm"].split())
+                ux, uy = float(row["ue_x"]), float(row["ue_y"])
+            except (KeyError, ValueError):
+                continue
+            boxes.append((ux + bx0, uy + by0, ux + bx1, uy + by1))
+    return boxes
 
 
 def dilate(mask, cells):
@@ -84,6 +105,20 @@ def build(ground_dir, water_path, out_path, cell_cm=200.0, east_cm=None):
     pedestrian = (sample[..., 1] > 127) & (sample[..., 0] <= 127)
     pedestrian[:, ~inside_x] = False
     grid[pedestrian] = 1
+
+    # Squares: open ground far from every building and off the carriageway (R), inside the mask.
+    boxes = building_boxes(ground_dir)
+    if boxes:
+        built = np.zeros((ny, nx), bool)
+        for bx0, by0, bx1, by1 in boxes:
+            i0, i1 = int(np.floor((bx0 - x0) / cell_cm)), int(np.ceil((bx1 - x0) / cell_cm))
+            j0, j1 = int(np.floor((by0 - y0) / cell_cm)), int(np.ceil((by1 - y0) / cell_cm))
+            built[max(j0, 0):max(j1, 0), max(i0, 0):max(i1, 0)] = True
+        near_building = dilate(built, int(round(SQUARE_M * 100.0 / cell_cm)))
+        carriageway = sample[..., 0] > 127
+        square = ~near_building & ~carriageway
+        square[:, ~inside_x] = False
+        grid[square] = 4
 
     layer = Image.new("L", (nx, ny), 0)
     draw = ImageDraw.Draw(layer)

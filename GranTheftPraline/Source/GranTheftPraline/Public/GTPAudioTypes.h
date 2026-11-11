@@ -162,6 +162,8 @@ enum class EGTPAmbienceZone : uint8
 	Pedestrian,
 	Quay,
 	Bridge,
+	/** Open square far from the buildings (place Bellecour): wind, far traffic, pigeons. */
+	Square,
 	Count UMETA(Hidden)
 };
 

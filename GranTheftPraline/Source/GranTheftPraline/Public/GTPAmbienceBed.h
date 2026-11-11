@@ -45,6 +45,7 @@ private:
 		Rain,
 		RainCar,
 		Crowd,
+		Square,
 		NumLayers
 	};
 

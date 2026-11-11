@@ -33,7 +33,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from make_street_ambience import (  # noqa: E402
     RATE, add_wrapped, band, chirp, pass_by, shaped_noise, slow_wobble, write_wav)
 
-LAYERS = ["Pedestrian", "Quay", "Bridge", "Night", "Rain", "RainCar", "Crowd"]
+LAYERS = ["Pedestrian", "Quay", "Bridge", "Night", "Rain", "RainCar", "Crowd", "Square"]
 TARGET_RMS_DB = -24.0
 
 
@@ -111,6 +111,29 @@ def gull(rng):
     return np.stack([mono * np.sqrt(0.5 * (1 - pan)), mono * np.sqrt(0.5 * (1 + pan))], axis=1)
 
 
+def pigeons(rng, n, count, level):
+    """Pigeons of a big square: soft coos and the clatter of a few taking off."""
+    out = np.zeros((n, 2))
+    for _ in range(count):
+        if rng.uniform() < 0.6:
+            dur = rng.uniform(0.5, 0.9)
+            k = np.arange(int(dur * RATE)) / RATE
+            f = rng.uniform(380, 460) * (1 + 0.12 * np.sin(2 * np.pi * k / dur))
+            phase = 2 * np.pi * np.cumsum(f) / RATE
+            env = np.sin(np.pi * np.clip(k / dur, 0, 1)) * (0.6 + 0.4 * np.sin(2 * np.pi * 9 * k))
+            sig = (np.sin(phase) + 0.25 * np.sin(2 * phase)) * env * 0.5
+        else:
+            dur = rng.uniform(0.6, 1.2)
+            m = int(dur * RATE)
+            k = np.arange(m) / RATE
+            flaps = np.clip(np.sin(2 * np.pi * rng.uniform(9, 13) * k), 0, None) ** 3
+            sig = shaped_noise(rng, m, band(300.0, 4000.0, 1.2)) * flaps * np.exp(-k / (dur * 0.6))
+        pan = rng.uniform(-0.8, 0.8)
+        add_wrapped(out, int(rng.uniform(0, n)),
+                    level * np.stack([sig * np.sqrt(0.5 * (1 - pan)), sig * np.sqrt(0.5 * (1 + pan))], axis=1))
+    return out
+
+
 def joint_thumps(rng, n, count, level):
     """Ka-thunk of a car crossing the bridge's expansion joint (two axles)."""
     out = np.zeros((n, 2))
@@ -184,6 +207,14 @@ def build(name, seconds, seed):
         mix = rain(rng, n, seconds, 0.2)
     elif name == "RainCar":
         mix = rain(rng, n, seconds, 0.3, roof=True)
+    elif name == "Square":
+        # A big open square: wind, the traffic all around but far, people spread out, pigeons.
+        mix = wind(rng, n, seconds, 0.16)
+        mix += 0.6 * traffic(rng, n, seconds, (2.0, 6.0), ["car", "bus", "scooter", "car"], 0.7)
+        mix += murmur(rng, n, seconds, 0.05, (1.0, 3.0)) + steps(rng, n, int(seconds * 2), 0.05)
+        mix += pigeons(rng, n, int(seconds / 2.5) + 1, 0.25)
+        for _ in range(int(seconds / 8)):
+            add_wrapped(mix, int(rng.uniform(0, n)), chirp(rng))
     elif name == "Crowd":
         mix = murmur(rng, n, seconds, 0.2, (2.5, 8.0)) + steps(rng, n, int(seconds * 4), 0.06)
     else:
