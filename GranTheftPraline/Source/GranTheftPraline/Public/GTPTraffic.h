@@ -356,6 +356,8 @@ private:
 	friend class AGTPPoliceDirector;
 	friend class AGTPFarTraffic;
 	bool SpawnCar();
+	/** A new car with its AI driver (registered, not started) at Transform; nullptr if it could not spawn. */
+	AGTPVehicle* CreateCar(const FTransform& Transform, ESpawnActorCollisionHandlingMethod Collision);
 	bool FindSpawnPoint(int32& OutLane, int32& OutPoint, FTransform& OutTransform) const;
 	bool IsSeenByPlayer(const FVector& Location) const;
 	void Recycle(AGTPVehicle* Car);

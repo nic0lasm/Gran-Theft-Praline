@@ -810,6 +810,44 @@ bool AGTPTrafficNetwork::FindSpawnPoint(int32& OutLane, int32& OutPoint, FTransf
 	return false;
 }
 
+AGTPVehicle* AGTPTrafficNetwork::CreateCar(const FTransform& Transform, ESpawnActorCollisionHandlingMethod Collision)
+{
+	if (LoadedVehicleClasses.Num() == 0)
+	{
+		return nullptr;
+	}
+	FActorSpawnParameters Params;
+	Params.SpawnCollisionHandlingOverride = Collision;
+	TSubclassOf<AGTPVehicle> Class = LoadedVehicleClasses[Random.RandRange(0, LoadedVehicleClasses.Num() - 1)];
+	AGTPVehicle* Car = GetWorld()->SpawnActor<AGTPVehicle>(Class, Transform, Params);
+	if (!Car)
+	{
+		return nullptr;
+	}
+	if (LoadedDriverClass)
+	{
+		FActorSpawnParameters DriverParams;
+		DriverParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		if (ACharacter* Driver = GetWorld()->SpawnActor<ACharacter>(LoadedDriverClass, Transform, DriverParams))
+		{
+			// An AI controller lets the driver run away once pulled out.
+			Driver->AIControllerClass = AAIController::StaticClass();
+			Driver->SpawnDefaultController();
+			Car->SeatOccupant(Driver);
+			MakeCheap(Car, Driver);
+		}
+	}
+	if (!Car->HasAIDriver())
+	{
+		Car->Destroy();
+		return nullptr;
+	}
+	UGTPAIDriverComponent* AIDriver = NewObject<UGTPAIDriverComponent>(Car, TEXT("AIDriver"));
+	AIDrivers.Add(AIDriver);
+	AIDriver->RegisterComponent();
+	return Car;
+}
+
 bool AGTPTrafficNetwork::SpawnCar()
 {
 	if (LoadedVehicleClasses.Num() == 0 || Lanes.Num() == 0)
@@ -838,35 +876,12 @@ bool AGTPTrafficNetwork::SpawnCar()
 		}
 		Reused->Destroy();
 	}
-	FActorSpawnParameters Params;
-	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::DontSpawnIfColliding;
-	TSubclassOf<AGTPVehicle> Class = LoadedVehicleClasses[Random.RandRange(0, LoadedVehicleClasses.Num() - 1)];
-	AGTPVehicle* Car = GetWorld()->SpawnActor<AGTPVehicle>(Class, Transform, Params);
-	if (!Car)
+	AGTPVehicle* Car = CreateCar(Transform, ESpawnActorCollisionHandlingMethod::DontSpawnIfColliding);
+	UGTPAIDriverComponent* AIDriver = Car ? Car->FindComponentByClass<UGTPAIDriverComponent>() : nullptr;
+	if (!AIDriver)
 	{
 		return false;
 	}
-	if (LoadedDriverClass)
-	{
-		FActorSpawnParameters DriverParams;
-		DriverParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-		if (ACharacter* Driver = GetWorld()->SpawnActor<ACharacter>(LoadedDriverClass, Transform, DriverParams))
-		{
-			// An AI controller lets the driver run away once pulled out.
-			Driver->AIControllerClass = AAIController::StaticClass();
-			Driver->SpawnDefaultController();
-			Car->SeatOccupant(Driver);
-			MakeCheap(Car, Driver);
-		}
-	}
-	if (!Car->HasAIDriver())
-	{
-		Car->Destroy();
-		return false;
-	}
-	UGTPAIDriverComponent* AIDriver = NewObject<UGTPAIDriverComponent>(Car, TEXT("AIDriver"));
-	AIDrivers.Add(AIDriver);
-	AIDriver->RegisterComponent();
 	AIDriver->Start(this, Lane, Point);
 	Cars.Add(Car);
 	GTP_TRACE(LogGTPTraffic, TEXT("traffic: %s on lane %d at %s"), *Car->GetName(), Lane, *Transform.GetLocation().ToCompactString());

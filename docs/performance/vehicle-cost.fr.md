@@ -112,12 +112,17 @@ Chaos avec conducteur. Au-delà de la distance fantôme, une voiture n'a pas
 besoin d'être un acteur.
 
 - `-FarTraffic=N` (ou `NumFarCars` sur le réseau de trafic) crée
-  `AGTPFarTraffic`, soit N voitures de plus. Ce sont des instances mobiles
-  des maillages de voitures garées, avec un `InstancedStaticMeshComponent`
-  par modèle et les mêmes couleurs que les voitures garées. Elles n'ont ni
-  acteur, ni physique, ni conducteur, ni ombre, et disparaissent en fondu
-  entre 120 et 150 m, comme les voitures conduites. L'interrupteur active
-  aussi le mode fantôme.
+  `AGTPFarTraffic`, soit N voitures de plus au-delà de la distance fantôme,
+  sans physique et sans conducteur actif. L'interrupteur active aussi le
+  mode fantôme. Deux façons de les dessiner :
+  - marionnettes (par défaut) : des voitures des classes du trafic, créées
+    une fois au départ. Chacune est gardée à son LOD le plus bas, sans
+    ombre, sans mise à jour de pose et sans collision, cachée au-delà de
+    150 m, et déplacée par `AGTPFarTraffic` ;
+  - instances (`-FarInstances=1`) : des instances mobiles des maillages de
+    voitures garées, un `InstancedStaticMeshComponent` par modèle, sans
+    aucun acteur. Il faut pour cela des maillages `/Game/Vehicles/Parked`
+    corrects ; sans eux, le jeu se replie sur les marionnettes.
 - Une voiture lointaine suit les voies et prend une voie suivante au hasard
   en bout de voie. Elle garde 8 m avec la voiture de devant sur sa voie,
   voitures conduites comprises, et s'arrête aux feux rouges. Elle ne réserve
@@ -125,10 +130,14 @@ besoin d'être un acteur.
   personne ne voit deux voitures se croiser. La logique est dans
   `GTPTrafficFar.h`, vérifiée par `tools/vehicles/far_test`.
 - Passage de relais : une voiture lointaine qui arrive à moins de 90 m du
-  joueur échange sa place avec la voiture conduite la plus éloignée, qui est
-  alors un fantôme. La voiture conduite reprend la voie, la position et la
-  vitesse de la voiture lointaine, puis se réveille à 70 m. La voiture
-  lointaine reprend l'ancienne place de la voiture conduite. Si aucune
+  joueur échange avec la voiture conduite la plus éloignée, qui est alors un
+  fantôme. Avec les marionnettes, les deux voitures échangent leurs rôles :
+  la marionnette devient une voiture conduite (un fantôme qui se réveille à
+  70 m), et la voiture conduite devient la marionnette de cette voiture
+  lointaine. C'est la même voiture qui reste en vue, couleur comprise. Avec
+  les instances, la voiture conduite reprend la voie, la position et la
+  vitesse de la voiture lointaine, et la voiture lointaine reprend
+  l'ancienne place de la voiture conduite. Si aucune
   voiture conduite n'est libre, une voiture lointaine hors de vue qui arrive
   à moins de 50 m repart ailleurs. Celle qui est en vue continue et ne
   disparaît jamais. Hors de vue, une voiture lointaine au-delà de 250 m ou
@@ -143,5 +152,12 @@ besoin d'être un acteur.
   mesure 12 voitures conduites (la référence du palier B), puis 25 et 40
   voitures conduites, puis 12+13 et 12+28 avec le trafic lointain, et enfin
   16+24 avec les voitures garées. Elle écrit le tableau et les lignes de
-  budget. Le trafic lointain et les voitures garées ont besoin des maillages
-  `/Game/Vehicles/Parked` dans le build.
+  budget. Les voitures garées et `-FarInstances=1` ont besoin des maillages
+  `/Game/Vehicles/Parked` dans le build ; les marionnettes, non.
+- Un créneau Mac : depuis la racine du clone,
+  `caffeinate -dimsu tools/perf/traffic-pass-mac.sh` package le jeu, fait
+  un lancement de contrôle de 30 s, puis joue chaque cas. Chaque étape a un
+  garde-temps : 50 min pour le package, 3 min pour le contrôle et
+  2 × (durée + 60 s) par cas. Une étape qui dépasse sa limite est tuée et la
+  passe s'arrête. Une ligne de signe de vie est écrite chaque minute.
+  `DRY_RUN=1` vérifie les chemins et les garde-temps sans Unreal.

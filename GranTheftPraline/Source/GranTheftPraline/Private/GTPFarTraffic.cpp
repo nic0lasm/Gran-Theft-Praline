@@ -6,6 +6,10 @@
 #include "GTPVehicle.h"
 #include "CollisionQueryParams.h"
 #include "Components/InstancedStaticMeshComponent.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "GameFramework/Character.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Parse.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
@@ -35,32 +39,37 @@ int32 AGTPFarTraffic::Build(AGTPTrafficNetwork* InNetwork, int32 Count)
 	{
 		return 0;
 	}
-	for (const FSoftObjectPath& Path : Meshes)
+	int32 InstancesSwitch = bInstances ? 1 : 0;
+	FParse::Value(FCommandLine::Get(), TEXT("FarInstances="), InstancesSwitch);
+	if (InstancesSwitch != 0)
 	{
-		UStaticMesh* Mesh = Cast<UStaticMesh>(Path.TryLoad());
-		if (!Mesh)
+		for (const FSoftObjectPath& Path : Meshes)
 		{
-			GTP_TRACE(LogGTPFarTraffic, TEXT("far traffic: mesh %s not found"), *Path.ToString());
-			continue;
+			UStaticMesh* Mesh = Cast<UStaticMesh>(Path.TryLoad());
+			if (!Mesh)
+			{
+				GTP_TRACE(LogGTPFarTraffic, TEXT("far traffic: mesh %s not found"), *Path.ToString());
+				continue;
+			}
+			// Plain instances, not hierarchical: every instance moves every frame.
+			UInstancedStaticMeshComponent* Model = NewObject<UInstancedStaticMeshComponent>(this);
+			Model->SetMobility(EComponentMobility::Movable);
+			Model->SetStaticMesh(Mesh);
+			Model->SetupAttachment(RootComponent);
+			Model->SetNumCustomDataFloats(3);
+			Model->SetCullDistances(CullStart, CullEnd);
+			Model->SetCastShadow(false);
+			Model->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+			Model->SetCanEverAffectNavigation(false);
+			Model->RegisterComponent();
+			Models.Add(Model);
 		}
-		// Plain instances, not hierarchical: every instance moves every frame.
-		UInstancedStaticMeshComponent* Model = NewObject<UInstancedStaticMeshComponent>(this);
-		Model->SetMobility(EComponentMobility::Movable);
-		Model->SetStaticMesh(Mesh);
-		Model->SetupAttachment(RootComponent);
-		Model->SetNumCustomDataFloats(3);
-		Model->SetCullDistances(CullStart, CullEnd);
-		Model->SetCastShadow(false);
-		Model->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-		Model->SetCanEverAffectNavigation(false);
-		Model->RegisterComponent();
-		Models.Add(Model);
+		if (Models.Num() == 0)
+		{
+			GTP_TRACE(LogGTPFarTraffic, TEXT("far traffic: no parked car mesh, puppet cars instead"));
+		}
 	}
-	if (Models.Num() == 0)
-	{
-		GTP_TRACE(LogGTPFarTraffic, TEXT("far traffic: no mesh, off (import the parked car meshes first)"));
-		return 0;
-	}
+	bPuppets = Models.Num() == 0;
 	if (Colours.Num() == 0)
 	{
 		Colours.Add(FLinearColor(0.8f, 0.8f, 0.8f));
@@ -69,25 +78,40 @@ int32 AGTPFarTraffic::Build(AGTPTrafficNetwork* InNetwork, int32 Count)
 	for (int32 Index = 0; Index < Count; ++Index)
 	{
 		FFarCar Car;
-		Car.Model = Index % Models.Num();
-		UInstancedStaticMeshComponent* Model = Models[Car.Model];
-		Car.Instance = Model->AddInstance(FTransform(FQuat::Identity, FVector::ZeroVector, FVector::ZeroVector), true);
-		const FLinearColor& Paint = Colours[Random.RandRange(0, Colours.Num() - 1)];
-		Model->SetCustomDataValue(Car.Instance, 0, Paint.R, false);
-		Model->SetCustomDataValue(Car.Instance, 1, Paint.G, false);
-		Model->SetCustomDataValue(Car.Instance, 2, Paint.B, false);
-		if (Place(Car, true))
+		const bool bPlaced = Place(Car, true);
+		if (bPuppets)
 		{
-			++Placed;
+			float Yaw = 0.f;
+			const FVector Location = bPlaced ? Where(Car, Yaw) : FVector(0.0, 0.0, -100000.0 - 1000.0 * Index);
+			AGTPVehicle* Vehicle = Network->CreateCar(FTransform(FRotator(0.f, Yaw, 0.f), Location + FVector(0.f, 0.f, PuppetRideHeight)),
+				ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+			if (!Vehicle)
+			{
+				continue;
+			}
+			MakePuppet(Vehicle);
+			Car.Puppet = Vehicle;
 		}
+		else
+		{
+			Car.Model = Index % Models.Num();
+			UInstancedStaticMeshComponent* Model = Models[Car.Model];
+			Car.Instance = Model->AddInstance(FTransform(FQuat::Identity, FVector::ZeroVector, FVector::ZeroVector), true);
+			const FLinearColor& Paint = Colours[Random.RandRange(0, Colours.Num() - 1)];
+			Model->SetCustomDataValue(Car.Instance, 0, Paint.R, false);
+			Model->SetCustomDataValue(Car.Instance, 1, Paint.G, false);
+			Model->SetCustomDataValue(Car.Instance, 2, Paint.B, false);
+		}
+		Placed += bPlaced ? 1 : 0;
 		Cars.Add(Car);
-		Show(Car);
+		Show(Cars.Last());
 	}
 	for (UInstancedStaticMeshComponent* Model : Models)
 	{
 		Model->MarkRenderStateDirty();
 	}
-	GTP_TRACE(LogGTPFarTraffic, TEXT("far traffic: %d cars wanted, %d placed, %d models"), Count, Placed, Models.Num());
+	GTP_TRACE(LogGTPFarTraffic, TEXT("far traffic: %d cars wanted, %d placed, %s"), Count, Placed,
+		bPuppets ? TEXT("puppet cars") : *FString::Printf(TEXT("instances of %d models"), Models.Num()));
 	return Placed;
 }
 
@@ -238,9 +262,26 @@ bool AGTPFarTraffic::Promote(FFarCar& Car)
 
 	float Yaw = 0.f;
 	const FVector Location = Where(Car, Yaw);
-	Driver->PlaceGhost(Car.Lane, Car.Index, Location, Yaw, Car.Speed);
-	// Drawn at once: the network only updates the detail of its cars twice a second.
-	Network->UpdateDetail(Driven, static_cast<float>(FVector::Dist(Player->GetActorLocation(), Location)));
+	if (bPuppets)
+	{
+		// Swap the roles: the puppet is driven from here, the driven car becomes this far car's puppet.
+		AGTPVehicle* Puppet = Car.Puppet.Get();
+		if (!Puppet)
+		{
+			return false;
+		}
+		Wake(Puppet, Car.Lane, Car.Index, Location, Yaw, Car.Speed);
+		Network->UpdateDetail(Puppet, static_cast<float>(FVector::Dist(Player->GetActorLocation(), Location)));
+		Network->Cars.Remove(Driven);
+		MakePuppet(Driven);
+		Car.Puppet = Driven;
+	}
+	else
+	{
+		Driver->PlaceGhost(Car.Lane, Car.Index, Location, Yaw, Car.Speed);
+		// Drawn at once: the network only updates the detail of its cars twice a second.
+		Network->UpdateDetail(Driven, static_cast<float>(FVector::Dist(Player->GetActorLocation(), Location)));
+	}
 
 	const TArray<FVector>& Points = Network->GetLanes()[DrivenLane].Points;
 	Car.Lane = DrivenLane;
@@ -251,8 +292,29 @@ bool AGTPFarTraffic::Promote(FFarCar& Car)
 	return true;
 }
 
-void AGTPFarTraffic::Show(const FFarCar& Car)
+void AGTPFarTraffic::Show(FFarCar& Car)
 {
+	if (bPuppets)
+	{
+		AGTPVehicle* Puppet = Car.Puppet.Get();
+		if (!Puppet)
+		{
+			return;
+		}
+		// Past the fade distance a puppet is hidden and not moved: no transform update for nobody.
+		const bool bDrawn = Car.Lane != INDEX_NONE && Car.ToPlayer < static_cast<float>(CullEnd);
+		if (Puppet->IsHidden() == bDrawn)
+		{
+			Puppet->SetActorHiddenInGame(!bDrawn);
+		}
+		if (bDrawn)
+		{
+			float Yaw = 0.f;
+			const FVector Location = Where(Car, Yaw) + FVector(0.f, 0.f, PuppetRideHeight);
+			Puppet->SetActorLocationAndRotation(Location, FRotator(0.f, Yaw, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
+		}
+		return;
+	}
 	if (!Models.IsValidIndex(Car.Model) || Car.Instance == INDEX_NONE)
 	{
 		return;
@@ -265,6 +327,48 @@ void AGTPFarTraffic::Show(const FFarCar& Car)
 		Transform = FTransform(FRotator(0.f, Yaw, 0.f), Location);
 	}
 	Models[Car.Model]->UpdateInstanceTransform(Car.Instance, Transform, true, false, true);
+}
+
+void AGTPFarTraffic::MakePuppet(AGTPVehicle* Vehicle)
+{
+	if (UGTPAIDriverComponent* Driver = Vehicle->FindComponentByClass<UGTPAIDriverComponent>())
+	{
+		Driver->ReleaseJunctions();
+		// Physics and the Chaos vehicle off (the ghost switch does both), then no decisions at all.
+		Driver->SetGhost(true);
+		Driver->SetComponentTickEnabled(false);
+	}
+	Vehicle->SetActorEnableCollision(false);
+	if (USkeletalMeshComponent* Body = Vehicle->GetMesh())
+	{
+		Body->SetForcedLOD(Body->GetNumLODs());
+		Body->SetCastShadow(false);
+		// No pose, no wheel animation: the body stays as it is until woken.
+		Body->SetComponentTickEnabled(false);
+	}
+	if (ACharacter* Occupant = Vehicle->GetDriver())
+	{
+		Occupant->SetActorHiddenInGame(true);
+	}
+}
+
+void AGTPFarTraffic::Wake(AGTPVehicle* Vehicle, int32 Lane, int32 Point, const FVector& Location, float YawDegrees, float SpeedMs)
+{
+	Vehicle->SetActorHiddenInGame(false);
+	Vehicle->SetActorEnableCollision(true);
+	if (USkeletalMeshComponent* Body = Vehicle->GetMesh())
+	{
+		Body->SetComponentTickEnabled(true);
+	}
+	if (ACharacter* Occupant = Vehicle->GetDriver())
+	{
+		Occupant->SetActorHiddenInGame(false);
+	}
+	if (UGTPAIDriverComponent* Driver = Vehicle->FindComponentByClass<UGTPAIDriverComponent>())
+	{
+		Driver->PlaceGhost(Lane, Point, Location, YawDegrees, SpeedMs);
+	}
+	Network->Cars.Add(Vehicle);
 }
 
 void AGTPFarTraffic::Tick(float DeltaSeconds)
@@ -306,6 +410,8 @@ void AGTPFarTraffic::Tick(float DeltaSeconds)
 			// Not placed yet (no free spot out of sight last time): try again now and then.
 			if (Random.FRand() < 0.05f && Place(Car, true))
 			{
+				float Unused = 0.f;
+				Car.ToPlayer = static_cast<float>(FVector::Dist2D(Where(Car, Unused), PlayerLocation));
 				Show(Car);
 			}
 			continue;

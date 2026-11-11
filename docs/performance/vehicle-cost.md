@@ -99,20 +99,28 @@ The aim is 25, then 40 vehicles in view without 25 or 40 Chaos cars with a
 driver. Past the ghost distance, a car does not need to be an actor at all.
 
 - `-FarTraffic=N` (or `NumFarCars` on the traffic network) creates
-  `AGTPFarTraffic`: N more cars drawn as moving instances of the parked car
-  meshes (one `InstancedStaticMeshComponent` per model, colours as the
-  parked cars). There are no actors, no physics, no driver and no shadow,
-  and they fade out between 120 and 150 m, like the driven cars. The switch
-  turns the ghost mode on.
+  `AGTPFarTraffic`: N more cars past the ghost distance, with no physics and
+  no driver at work. The switch turns the ghost mode on. They are drawn in
+  one of two ways:
+  - puppets (default): cars of the traffic classes, spawned once at the
+    start. Each is kept at its lowest LOD, with no shadow, no pose update and
+    no collision, hidden past 150 m, and moved by `AGTPFarTraffic`;
+  - instances (`-FarInstances=1`): moving instances of the parked car meshes,
+    one `InstancedStaticMeshComponent` per model, with no actor at all. This
+    needs good `/Game/Vehicles/Parked` meshes; without them the game falls
+    back to puppets.
 - A far car follows the lanes and takes a random next lane at the end. It
   keeps 8 m to the car ahead on its lane, driven cars included, and stops at
   red lights. Junction claims and the obstacle probe are left out: at that
   distance nobody sees two cars cross. The logic is in `GTPTrafficFar.h`,
   checked by `tools/vehicles/far_test`.
-- Handover: a far car that comes within 90 m of the player swaps places with
-  the farthest driven car, which is a ghost by then. The driven car takes
-  the far car's lane, position and speed and wakes up at 70 m. The far car
-  takes the driven car's old place. When no driven car can be freed, a far
+- Handover: a far car that comes within 90 m of the player swaps with the
+  farthest driven car, which is a ghost by then. With puppets the two cars
+  swap roles: the puppet becomes a driven car (a ghost, waking up at 70 m),
+  and the driven car becomes the puppet of that far car. The same car stays
+  in view, colour included. With instances, the driven car takes the far
+  car's lane, position and speed, and the far car takes the driven car's
+  old place. When no driven car can be freed, a far
   car out of sight that comes within 50 m starts again elsewhere. One in
   view keeps going and never vanishes. Out of sight, a far car past 250 m or
   at a dead end also starts again elsewhere, 120 to 250 m away.
@@ -126,5 +134,11 @@ driver. Past the ghost distance, a car does not need to be an actor at all.
 - One command: `tools/perf/traffic-perceived-bench.sh <build_dir>` measures
   12 driven cars (palier B reference), 25 and 40 driven cars, then 12+13 and
   12+28 with far traffic, and 16+24 with parked cars. It writes the table
-  and the budget lines. Far traffic and parked cars need the
-  `/Game/Vehicles/Parked` meshes in the build.
+  and the budget lines. Parked cars and `-FarInstances=1` need the
+  `/Game/Vehicles/Parked` meshes in the build; puppets do not.
+- One Mac slot: from the root of the clone,
+  `caffeinate -dimsu tools/perf/traffic-pass-mac.sh` packages, runs a 30 s
+  control launch, then each case. Every step runs under a time guard:
+  package 50 min, control 3 min, a case 2 x (duration + 60 s). Past its
+  limit, a step is killed and the pass stops. A heartbeat line is written
+  every minute. `DRY_RUN=1` checks the paths and guards without Unreal.

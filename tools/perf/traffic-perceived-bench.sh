@@ -14,8 +14,8 @@
 #     d16-f24-p  -Traffic=16 -FarTraffic=24 -ParkedCars=1 (40 perceived + parked cars)
 #   POLICE=1 adds a police chase (-WantedStars=2 -WantedHold); DURATION (default 90),
 #   SCENARIO (default street-demo).
-# Far traffic and parked cars need the parked car meshes (/Game/Vehicles/Parked)
-# in the build: without them those cases log "far traffic: no mesh" and measure nothing more.
+# Far traffic is drawn with puppet cars by default (no extra mesh needed); the
+# parked cars of d16-f24-p need the /Game/Vehicles/Parked meshes in the build.
 #
 # Writes <out_dir>/traffic-perceived.md: the bench table and the traffic budget
 # lines of the game (CPU time of the drivers, network and far traffic per frame).

@@ -9,10 +9,17 @@
 class AGTPTrafficNetwork;
 class UInstancedStaticMeshComponent;
 
+class AGTPVehicle;
+
 /**
  * Far traffic (docs/performance/vehicle-cost.md section 6): cars past the
- * ghost distance drawn as moving instances of the parked car meshes, with no
- * actor, physics or driver. They follow the lanes of the network, keep their
+ * ghost distance, with no physics and no driver at work. Two ways to draw them:
+ * - puppets (default): cars of the traffic classes, spawned once, kept at
+ *   their lowest LOD with no shadow, no pose update and no collision, moved
+ *   by this actor. A handover swaps the roles of two cars (the puppet is
+ *   driven, the driven car becomes a puppet), so nothing changes in view;
+ * - instances (-FarInstances=1): moving instances of the parked car meshes,
+ *   one draw per model, no actor at all. They follow the lanes of the network, keep their
  * distance on a lane and stop at red lights (GTPTrafficFar.h). When one comes
  * within HandoverDistance of the player, it swaps places with the farthest
  * driven car (a ghost by then): the driven car takes its lane, position and
@@ -41,6 +48,14 @@ public:
 	double TakeTickSeconds();
 
 protected:
+	/** Instances of the parked car meshes instead of puppet cars (-FarInstances=1). */
+	UPROPERTY(Config, EditAnywhere, Category = "Far traffic")
+	bool bInstances = false;
+
+	/** Height of a puppet car's origin above the ground (cm), as a driven car at rest. */
+	UPROPERTY(Config, EditAnywhere, Category = "Far traffic")
+	float PuppetRideHeight = 40.f;
+
 	/** Static meshes, one per model (same as the parked cars: tools/vehicles/unreal/import_parked_static.py). */
 	UPROPERTY(Config, EditAnywhere, Category = "Far traffic")
 	TArray<FSoftObjectPath> Meshes;
@@ -91,6 +106,8 @@ private:
 		float Speed = 0.f;
 		int32 Model = 0;
 		int32 Instance = INDEX_NONE;
+		/** Puppet mode: the car drawn for this far car (it changes at each handover). */
+		TWeakObjectPtr<AGTPVehicle> Puppet;
 		float ToPlayer = 0.f;
 	};
 
@@ -99,7 +116,12 @@ private:
 	FVector Where(const FFarCar& Car, float& OutYawDegrees);
 	bool Place(FFarCar& Car, bool bOutOfSight);
 	bool Promote(FFarCar& Car);
-	void Show(const FFarCar& Car);
+	void Show(FFarCar& Car);
+	/** Puppet mode: Vehicle stops being a driven car (no physics, no driver at work, lowest LOD, no collision). */
+	void MakePuppet(AGTPVehicle* Vehicle);
+	/** Puppet mode: Vehicle is a driven car again, as a ghost at Location on Lane, rolling at SpeedMs. */
+	void Wake(AGTPVehicle* Vehicle, int32 Lane, int32 Point, const FVector& Location, float YawDegrees, float SpeedMs);
+	bool bPuppets = false;
 
 	UPROPERTY(Transient)
 	TObjectPtr<AGTPTrafficNetwork> Network;
