@@ -4,7 +4,7 @@
 #
 #   caffeinate -dimsu tools/perf/traffic-pass-mac.sh [version=perf-traffic] [duration_s=90]
 #
-# It stops at once (exit 2) when the screen is locked.
+# Unless PACKAGE_ONLY=1, it stops at once (exit 2) when the screen is locked.
 # Steps, each under a time guard (killed past its limit, the pass stops):
 #   1. package (Shipping)            tools/build/package-mac.sh         limit 50 min
 #   2. 30 s control launch           tools/build/test-build-mac.sh      limit 3 min
@@ -14,7 +14,8 @@
 #
 # Environment:
 #   CASES        default "d12 d25 d12-f13 d40 d12-f28 d16-f24-p" (see traffic-perceived-bench.sh)
-#   SKIP_PACKAGE 1 reuses <BUILDS_DIR>/<version>/GranTheftPraline.app
+#   PACKAGE_ONLY 1 compiles and packages, launches nothing (works with the screen locked)
+#   SKIP_BUILD   1 measures only, on <BUILDS_DIR>/<version>/GranTheftPraline.app (SKIP_PACKAGE=1 too)
 #   MAP_MD5      expected md5 of the map: the pass refuses to start on another map
 #   BUILDS_DIR   default <repo>/Builds
 #   DRY_STEP_S   length of each stand-in step (default 3; above 60 trips the time guard)
@@ -24,6 +25,17 @@
 # Output: <BUILDS_DIR>/<version>/traffic-<stamp>/TRAFFIC.md, one log per step.
 # Expected length: package 4 to 25 min, control 1 min, 6 cases x about 2 min.
 set -uo pipefail
+
+package_only="${PACKAGE_ONLY:-0}"
+skip_build="${SKIP_BUILD:-${SKIP_PACKAGE:-0}}"
+
+# A locked screen throttles or stops the game's rendering on macOS: no measure then.
+# (Not needed to compile and package: PACKAGE_ONLY=1 skips this test.)
+if test "$package_only" != "1" && command -v ioreg >/dev/null 2>&1 \
+  && ioreg -n Root -d1 -a | grep -A1 'CGSSessionScreenIsLocked' | grep -q '<true/>'; then
+  echo "traffic-pass: the screen of this Mac is locked (CGSSessionScreenIsLocked): unlock it, then run the pass again" >&2
+  exit 2
+fi
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/../.." && pwd)"
@@ -40,12 +52,6 @@ heartbeat="$out/HEARTBEAT"
 dry="${DRY_RUN:-0}"
 read -r -a cases <<< "${CASES:-d12 d25 d12-f13 d40 d12-f28 d16-f24-p}"
 cd "$repo_root" || exit 1
-
-# A locked screen throttles or stops the game's rendering on macOS: no measure then.
-if command -v ioreg >/dev/null 2>&1 && ioreg -n Root -d1 | grep -q '"CGSSessionScreenIsLocked"=Yes'; then
-  echo "traffic-pass: the screen of this Mac is locked (CGSSessionScreenIsLocked): unlock it, then run the pass again" >&2
-  exit 2
-fi
 
 if pgrep -fl "UnrealEditor( |$)|GranTheftPraline-Mac" 2>/dev/null | grep -v UnrealEditorServices >/dev/null; then
   echo "traffic-pass: an Unreal or game process is already running, stop it first" >&2
@@ -80,7 +86,7 @@ beat() {
 }
 ( while true; do sleep "${HEARTBEAT_S:-60}"; test -f "$out/.state" && current="$(cat "$out/.state")" && step_start="$(cat "$out/.since")"; beat; done ) &
 beat_pid=$!
-trap 'kill "$beat_pid" 2>/dev/null' EXIT
+trap 'kill_tree "$beat_pid"' EXIT
 
 kill_tree() {
   local pid="$1" child
@@ -126,7 +132,7 @@ stand_in() {
 }
 
 # --- 1. package -------------------------------------------------------------------
-if test "${SKIP_PACKAGE:-0}" != "1"; then
+if test "$skip_build" != "1"; then
   if test "$dry" = 1; then
     guarded package 60 stand_in tools/build/package-mac.sh "$version" && mkdir -p "$build_dir/GranTheftPraline.app"
   else
@@ -140,6 +146,12 @@ if test "${SKIP_PACKAGE:-0}" != "1"; then
   fi
 fi
 test -d "$build_dir/GranTheftPraline.app" || { echo "- no build at $build_dir" >> "$report"; exit 1; }
+if test "$package_only" = "1"; then
+  echo "- PACKAGE_ONLY=1: build ready at $build_dir, no game launched" >> "$report"
+  echo "[$(date '+%H:%M:%S')] done (package only)" >> "$heartbeat"
+  echo "Done: $report"
+  exit 0
+fi
 
 # --- 2. control launch ----------------------------------------------------------
 if test "$dry" = 1; then
