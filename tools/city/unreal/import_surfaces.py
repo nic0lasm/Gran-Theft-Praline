@@ -39,6 +39,7 @@ eal = unreal.EditorAssetLibrary
 ROLES = (
     ("rough", re.compile(r"(_ORDp?|_ORM|_ARD|_ORD)$", re.I), "G"),
     ("rough", re.compile(r"(_R|rough(ness)?)$", re.I), "R"),
+    ("ao", re.compile(r"(_AO|ambient_?occlusion)$", re.I), None),
     ("normal", re.compile(r"(_N|normal(gl|dx)?)$", re.I), None),
     ("basecolor", re.compile(r"(_D|_BC|basecolou?r|albedo|diffuse)$", re.I), None),
 )
@@ -73,33 +74,69 @@ def textures_by_folder():
     return out
 
 
+def word_sets(entry):
+    """match, then each set of match_any: a folder matches a set when it holds every word."""
+    sets = [entry.get("match", [])] + entry.get("match_any", [])
+    return [[w.lower() for w in ws] for ws in sets if ws]
+
+
+def _norm(path):
+    return re.sub(r"[\s_\-]+", "", path.lower())
+
+
 def find_folder(entry, folders):
     sid = entry["id"].lower()
-    words = [w.lower() for w in entry.get("match", [])]
     by_id = sorted(f for f in folders if sid in f.lower())
     if by_id:
         return by_id[0]
-    if words:
-        hits = sorted(f for f in folders if all(w in f.lower() for w in words))
+    for words in word_sets(entry):
+        hits = sorted(f for f in folders if all(_norm(w) in _norm(f) for w in words))
         if hits:
             return hits[0]
     return None
 
 
-def import_loose(entry):
+def loose_images(entry):
+    """Images of one loose export: <LOOSE>/<id>/, else the first folder under LOOSE (any depth)
+    whose path matches a word set (Fab exports keep their listing name, e.g. "Roman Limestone
+    Wall"). One file per role, the 2K one when there are several resolutions."""
     src = os.path.join(LOOSE, entry["id"])
-    if not os.path.isdir(src):
-        return
+    roots = [src] if os.path.isdir(src) else []
+    if not roots:
+        for words in word_sets(entry):
+            for d, _, _ in sorted(os.walk(LOOSE)):
+                rel = _norm(os.path.relpath(d, LOOSE))
+                if rel != "." and all(_norm(w) in rel for w in words):
+                    roots.append(d)
+                    break
+            if roots:
+                break
+    if not roots:
+        return []
+    found = {}
+    for d, _, files in sorted(os.walk(roots[0])):
+        for fn in sorted(files):
+            if not fn.lower().endswith(IMAGE):
+                continue
+            role, _ = role_of(os.path.splitext(fn)[0])
+            if not role or role == "ao":     # AO is not used by the layers
+                continue
+            path = os.path.join(d, fn)
+            if role not in found or ("2k" in fn.lower() and "2k" not in os.path.basename(found[role]).lower()):
+                found[role] = path
+    return sorted(found.values())
+
+
+def import_loose(entry):
     tasks = []
-    for fn in sorted(os.listdir(src)):
-        if fn.lower().endswith(IMAGE) and role_of(os.path.splitext(fn)[0])[0]:
-            t = unreal.AssetImportTask()
-            t.set_editor_property("filename", os.path.join(src, fn))
-            t.set_editor_property("destination_path", DEST + "/" + entry["id"])
-            t.set_editor_property("automated", True)
-            t.set_editor_property("replace_existing", True)
-            t.set_editor_property("save", True)
-            tasks.append(t)
+    for path in loose_images(entry):
+        t = unreal.AssetImportTask()
+        t.set_editor_property("filename", path)
+        t.set_editor_property("destination_path", DEST + "/" + entry["id"])
+        t.set_editor_property("automated", True)
+        t.set_editor_property("replace_existing", True)
+        t.set_editor_property("save", True)
+        tasks.append(t)
     if tasks:
         unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks(tasks)
         log("%s: %d loose images imported" % (entry["id"], len(tasks)))
@@ -161,6 +198,9 @@ def main():
                 continue
             s = {"folder": folder, "tile_cm": e.get("tile_cm", 200), "role": e.get("role", ""),
                  "priority": e.get("priority", 3)}
+            if e.get("tint"):
+                s["tint"] = e["tint"]
+            found.pop("ao", None)          # not used: the ORDp red channel or nothing
             for role, (p, ch) in found.items():
                 prepare(p, role, report["changed"])
                 s[role] = p

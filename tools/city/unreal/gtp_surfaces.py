@@ -155,9 +155,23 @@ class _G:
         self.link(uv, "", e, "UVs")
         return e
 
+    def tint(self, col, surf):
+        """Surfaces with a tint (a red painted roof standing in for zinc): grey, then the tint
+        times twice the grey, so the scan's light and dark patches stay."""
+        if not surf.get("tint"):
+            return col
+        grey = self.node(unreal.MaterialExpressionDesaturation)
+        self.link(col, "", grey, "Input")
+        grey.set_editor_property("luminance_factors", unreal.LinearColor(0.3, 0.59, 0.11, 0.0))
+        return self.mul(self.mul(grey, self.const(tuple(surf["tint"]))), self.const(2.0))
+
+    def colour(self, surf, uv):
+        return self.tint(self.mask(self.sample(surf["basecolor"], uv, "color"), r=True, g=True, b=True), surf)
+
     def layer(self, surf, uv):
         """(colour rgb, normal or None, roughness or None) of one manifest surface."""
         col = self.mask(self.sample(surf["basecolor"], uv, "color"), r=True, g=True, b=True)
+        col = self.tint(col, surf)
         if LITE:
             return col, None, None
         nrm = self.sample(surf["normal"], uv, "normal") if surf.get("normal") else None
@@ -241,8 +255,8 @@ def ground(mat, mask):
 def _detail(g, s, uv):
     """Texture colour divided by its own average (1x1 mip): a detail around 1 that keeps the
     generator's colour, so each building keeps its hue."""
-    col = g.mask(g.sample(s["basecolor"], uv, "color"), r=True, g=True, b=True)
-    avg = g.mask(g.sample(s["basecolor"], uv, "color", mip=12), r=True, g=True, b=True)
+    col = g.tint(g.mask(g.sample(s["basecolor"], uv, "color"), r=True, g=True, b=True), s)
+    avg = g.tint(g.mask(g.sample(s["basecolor"], uv, "color", mip=12), r=True, g=True, b=True), s)
     return g.div(col, g.op(unreal.MaterialExpressionMax, avg, g.const(0.02)))
 
 
@@ -306,10 +320,10 @@ def shell(mat):
     col = (col0, col0_out)
     roof_col = None
     if roof:
-        roof_col = g.layer(roof, g.mul(xy, g.const(1.0 / float(roof.get("tile_cm", 200.0)))))[0]
+        roof_col = g.colour(roof, g.mul(xy, g.const(1.0 / float(roof.get("tile_cm", 200.0)))))
         _used["shell.roof"] = rid
     if tile:
-        tcol = g.layer(tile, g.mul(xy, g.const(1.0 / float(tile.get("tile_cm", 150.0)))))[0]
+        tcol = g.colour(tile, g.mul(xy, g.const(1.0 / float(tile.get("tile_cm", 150.0)))))
         red = g.unary(unreal.MaterialExpressionSaturate,
                       g.mul(g.sub(g.mask(vc, r=True), g.mask(vc, b=True)), g.const(4.0)))
         roof_col = g.lerp(roof_col, tcol, red) if roof_col is not None else tcol

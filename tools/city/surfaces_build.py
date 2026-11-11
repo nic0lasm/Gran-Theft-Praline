@@ -16,7 +16,9 @@ Without --ab only import and on run (the surfaces stay applied). The map is not 
 street map, ground mask and facade kit must already be in the project.
 
 Usage (repository root):
-  python tools/city/surfaces_build.py [--ab] [--lite] [--res 2560x1440] [--editor <exe>] [--dry-run]
+  python tools/city/surfaces_build.py [--ab] [--lite] [--loose <folder>] [--res 2560x1440] [--editor <exe>] [--dry-run]
+  --loose: Fab exports outside the project (e.g. Claude Work/GTAL-assets/downloads-free), found by
+  their listing name (match / match_any in surfaces.json) and imported to /Game/Environment/Surfaces/<id>/.
   --lite: colour maps only (GTP_SURFACES_LITE=1). --dry-run: a stand-in for Unreal writes each
   report and hangs, to try the sequence, the limits and the forced stop in seconds.
 Report: Saved/CityImport/surfaces_build.json. Exit 0 when every step passed, 1 on a failed step,
@@ -156,6 +158,8 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--ab", action="store_true", help="shoot without, then with the surfaces")
     ap.add_argument("--lite", action="store_true")
+    ap.add_argument("--loose", default=os.environ.get("GTP_SURFACES_DIR", ""),
+                    help="folder of loose Fab exports (one folder per listing), imported first")
     ap.add_argument("--res", default="2560x1440")
     ap.add_argument("--editor", default=qb.default_editor())
     ap.add_argument("--dry-run", action="store_true")
@@ -181,7 +185,8 @@ def main():
             sys.exit(1)
     on = {"GTP_SURFACES": "1", "GTP_SURFACES_LITE": "1" if args.lite else "0"}
     off = {"GTP_SURFACES": "0"}
-    steps = [("import", "import_surfaces", "surfaces.json", 480, {}, False)]
+    steps = [("import", "import_surfaces", "surfaces.json", 480,
+              {"GTP_SURFACES_DIR": os.path.abspath(args.loose)} if args.loose else {}, False)]
     if args.ab:
         steps += [("off", "apply_city_materials", "materials_report.json", 480, off, False),
                   ("shoot_off", "shoot_city", "play_report.json", 600, {}, True)]

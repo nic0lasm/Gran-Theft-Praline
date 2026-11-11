@@ -1,26 +1,262 @@
 {
- "about": "Scanned surfaces of the street (Megascans, Fab free, 2K, Unreal export: T_*_D, T_*_N, T_*_ORDp). Never in Git: they live in the project Content. id = folder name under /Game/Environment/Surfaces/<id>/ (or any folder whose path holds the id), match = name words that find a Megascans folder when the id is not in its path. tile_cm = real size of one texture repeat. Used by tools/city/unreal/import_surfaces.py and gtp_surfaces.py.",
+ "about": "Scanned surfaces of the street (Megascans, Fab free, 2K, Unreal export: T_*_D, T_*_N, T_*_ORDp). Never in Git: they live in the project Content. id = folder name under /Game/Environment/Surfaces/<id>/ (or any folder whose path holds the id), match = name words that find a Megascans folder when the id is not in its path. tile_cm = real size of one texture repeat. Used by tools/city/unreal/import_surfaces.py and gtp_surfaces.py. match_any = other word sets that also find it (any one set, every word in it). tint = linear RGB: the colour map is turned grey and multiplied by it (a red painted roof becomes zinc).",
  "surfaces": [
-  {"id": "granite_slab_light", "priority": 1, "role": "ground.paving", "tile_cm": 200, "match": ["granite", "slab"], "fab": "light grey granite floor slabs, large format"},
-  {"id": "limestone_ashlar", "priority": 1, "role": "facade.stone", "tile_cm": 200, "match": ["limestone", "ashlar"], "fab": "cream limestone ashlar wall, regular courses"},
-  {"id": "render_ochre", "priority": 1, "role": "facade.render", "tile_cm": 250, "match": ["plaster"], "fab": "smooth beige or ochre facade plaster / stucco"},
-  {"id": "granite_kerb", "priority": 1, "role": "ground.kerb", "tile_cm": 100, "match": ["granite", "kerb"], "fab": "grey granite kerb stone"},
-  {"id": "zinc_roof", "priority": 1, "role": "roof", "tile_cm": 200, "match": ["standing", "seam"], "fab": "grey zinc standing-seam metal roof"},
-  {"id": "slate_roof", "priority": 1, "role": "roof", "tile_cm": 150, "match": ["slate", "roof"], "fab": "slate roof tiles"},
-  {"id": "asphalt_dry", "priority": 1, "role": "ground.road", "tile_cm": 400, "match": ["asphalt"], "fab": "worn dry urban asphalt"},
-  {"id": "granite_setts", "priority": 2, "role": "ground.paving", "tile_cm": 120, "match": ["granite", "cobble"], "fab": "granite setts / cobblestones"},
-  {"id": "concrete_sidewalk", "priority": 2, "role": "ground.sidewalk", "tile_cm": 300, "match": ["concrete", "pavement"], "fab": "concrete sidewalk"},
-  {"id": "limestone_slab", "priority": 2, "role": "ground.sidewalk", "tile_cm": 240, "match": ["limestone", "floor"], "fab": "limestone floor slabs (sidewalks)"},
-  {"id": "terracotta_tile", "priority": 2, "role": "roof", "tile_cm": 150, "match": ["roof", "tile"], "fab": "terracotta canal roof tiles"},
-  {"id": "painted_metal_dark", "priority": 2, "role": "props.metal", "tile_cm": 100, "match": ["painted", "metal"], "fab": "dark green or black painted metal, slightly worn"},
-  {"id": "tactile_paving", "priority": 2, "role": "ground.crossing", "tile_cm": 60, "match": ["tactile"], "fab": "tactile paving"},
-  {"id": "cast_iron_grate", "priority": 2, "role": "ground.grate", "tile_cm": 120, "match": ["grate"], "fab": "cast iron tree grate / drain grate"},
-  {"id": "decal_dirt", "priority": 3, "role": "decal", "tile_cm": 200, "match": ["dirt", "decal"], "fab": "ground dirt / stains decal"},
-  {"id": "decal_oil", "priority": 3, "role": "decal", "tile_cm": 150, "match": ["oil", "stain"], "fab": "oil stain decal"},
-  {"id": "decal_gum", "priority": 3, "role": "decal", "tile_cm": 100, "match": ["gum"], "fab": "chewing gum decal"},
-  {"id": "decal_cracks", "priority": 3, "role": "decal", "tile_cm": 150, "match": ["crack"], "fab": "pavement cracks decal"},
-  {"id": "decal_leaves", "priority": 3, "role": "decal", "tile_cm": 150, "match": ["leaves"], "fab": "dead leaves decal"},
-  {"id": "decal_manhole", "priority": 3, "role": "decal", "tile_cm": 80, "match": ["manhole"], "fab": "round cast iron manhole cover"},
-  {"id": "decal_marking", "priority": 3, "role": "decal", "tile_cm": 300, "match": ["road", "marking"], "fab": "worn white road marking"}
+  {
+   "id": "granite_slab_light",
+   "priority": 1,
+   "role": "ground.paving",
+   "tile_cm": 200,
+   "match": [
+    "granite",
+    "slab"
+   ],
+   "fab": "light grey granite floor slabs, large format"
+  },
+  {
+   "id": "limestone_ashlar",
+   "priority": 1,
+   "role": "facade.stone",
+   "tile_cm": 200,
+   "match": [
+    "limestone",
+    "ashlar"
+   ],
+   "fab": "cream limestone ashlar wall, regular courses",
+   "match_any": [
+    [
+     "roman",
+     "limestone"
+    ],
+    [
+     "limestone",
+     "wall"
+    ]
+   ],
+   "note": "Fab 11/11: Roman Limestone Wall"
+  },
+  {
+   "id": "render_ochre",
+   "priority": 1,
+   "role": "facade.render",
+   "tile_cm": 250,
+   "match": [
+    "plaster"
+   ],
+   "fab": "smooth beige or ochre facade plaster / stucco"
+  },
+  {
+   "id": "granite_kerb",
+   "priority": 1,
+   "role": "ground.kerb",
+   "tile_cm": 100,
+   "match": [
+    "granite",
+    "kerb"
+   ],
+   "fab": "grey granite kerb stone"
+  },
+  {
+   "id": "zinc_roof",
+   "priority": 1,
+   "role": "roof",
+   "tile_cm": 200,
+   "match": [
+    "standing",
+    "seam"
+   ],
+   "fab": "grey zinc standing-seam metal roof",
+   "match_any": [
+    [
+     "metal",
+     "roof"
+    ]
+   ],
+   "tint": [
+    0.42,
+    0.44,
+    0.46
+   ],
+   "note": "Fab 11/11: Worn Painted Metal Roof (red paint): desaturated and tinted zinc grey"
+  },
+  {
+   "id": "slate_roof",
+   "priority": 1,
+   "role": "roof",
+   "tile_cm": 150,
+   "match": [
+    "slate",
+    "roof"
+   ],
+   "fab": "slate roof tiles"
+  },
+  {
+   "id": "asphalt_dry",
+   "priority": 1,
+   "role": "ground.road",
+   "tile_cm": 400,
+   "match": [
+    "asphalt"
+   ],
+   "fab": "worn dry urban asphalt"
+  },
+  {
+   "id": "granite_setts",
+   "priority": 2,
+   "role": "ground.paving",
+   "tile_cm": 200,
+   "match": [
+    "granite",
+    "cobble"
+   ],
+   "fab": "granite setts / cobblestones",
+   "match_any": [
+    [
+     "street",
+     "cobblestone"
+    ],
+    [
+     "cobblestone"
+    ]
+   ],
+   "note": "Fab 11/11: Street Cobblestone"
+  },
+  {
+   "id": "concrete_sidewalk",
+   "priority": 2,
+   "role": "ground.sidewalk",
+   "tile_cm": 300,
+   "match": [
+    "concrete",
+    "pavement"
+   ],
+   "fab": "concrete sidewalk"
+  },
+  {
+   "id": "limestone_slab",
+   "priority": 2,
+   "role": "ground.sidewalk",
+   "tile_cm": 240,
+   "match": [
+    "limestone",
+    "floor"
+   ],
+   "fab": "limestone floor slabs (sidewalks)"
+  },
+  {
+   "id": "terracotta_tile",
+   "priority": 2,
+   "role": "roof",
+   "tile_cm": 150,
+   "match": [
+    "roof",
+    "tile"
+   ],
+   "fab": "terracotta canal roof tiles"
+  },
+  {
+   "id": "painted_metal_dark",
+   "priority": 2,
+   "role": "props.metal",
+   "tile_cm": 100,
+   "match": [
+    "dark",
+    "painted",
+    "metal"
+   ],
+   "fab": "dark green or black painted metal, slightly worn"
+  },
+  {
+   "id": "tactile_paving",
+   "priority": 2,
+   "role": "ground.crossing",
+   "tile_cm": 60,
+   "match": [
+    "tactile"
+   ],
+   "fab": "tactile paving"
+  },
+  {
+   "id": "cast_iron_grate",
+   "priority": 2,
+   "role": "ground.grate",
+   "tile_cm": 120,
+   "match": [
+    "grate"
+   ],
+   "fab": "cast iron tree grate / drain grate"
+  },
+  {
+   "id": "decal_dirt",
+   "priority": 3,
+   "role": "decal",
+   "tile_cm": 200,
+   "match": [
+    "dirt",
+    "decal"
+   ],
+   "fab": "ground dirt / stains decal"
+  },
+  {
+   "id": "decal_oil",
+   "priority": 3,
+   "role": "decal",
+   "tile_cm": 150,
+   "match": [
+    "oil",
+    "stain"
+   ],
+   "fab": "oil stain decal"
+  },
+  {
+   "id": "decal_gum",
+   "priority": 3,
+   "role": "decal",
+   "tile_cm": 100,
+   "match": [
+    "gum"
+   ],
+   "fab": "chewing gum decal"
+  },
+  {
+   "id": "decal_cracks",
+   "priority": 3,
+   "role": "decal",
+   "tile_cm": 150,
+   "match": [
+    "crack"
+   ],
+   "fab": "pavement cracks decal"
+  },
+  {
+   "id": "decal_leaves",
+   "priority": 3,
+   "role": "decal",
+   "tile_cm": 150,
+   "match": [
+    "leaves"
+   ],
+   "fab": "dead leaves decal"
+  },
+  {
+   "id": "decal_manhole",
+   "priority": 3,
+   "role": "decal",
+   "tile_cm": 80,
+   "match": [
+    "manhole"
+   ],
+   "fab": "round cast iron manhole cover"
+  },
+  {
+   "id": "decal_marking",
+   "priority": 3,
+   "role": "decal",
+   "tile_cm": 300,
+   "match": [
+    "road",
+    "marking"
+   ],
+   "fab": "worn white road marking"
+  }
  ]
 }
