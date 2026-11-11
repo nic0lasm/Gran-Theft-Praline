@@ -75,10 +75,10 @@ if [ "$dry" = "1" ]; then
            tools/city/details.py tools/city/unreal/place_props.py tools/city/unreal/run_city_import.sh \
            tools/city/unreal/merge_detail_materials.py tools/environment/setup-environment-mac.sh \
            tools/build/package-mac.sh tools/perf/bench.sh tools/perf/compare.py; do
-    test -f "$repo/$f" || { say "DRY RUN: missing $f"; exit 1; }
+    git cat-file -e "$slot_ref:$f" 2> /dev/null || { say "DRY RUN: missing $f in $slot_ref"; exit 1; }
   done
   for f in tools/city/regen_city.sh tools/city/unreal/run_city_import.sh tools/city/unreal/profile_details.sh; do
-    bash -n "$f"
+    git show "$slot_ref:$f" | bash -n || { say "DRY RUN: syntax error in $f"; exit 1; }
   done
   content="$out/stub-content"
   saved="$out/stub-saved"
