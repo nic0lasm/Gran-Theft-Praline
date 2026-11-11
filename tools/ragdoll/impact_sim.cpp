@@ -2,8 +2,10 @@
 // Build and run: python3 tools/ragdoll/check_impact_logic.py
 #include <cmath>
 #include <cstdio>
+#include <string>
 
 #include "../../GranTheftPraline/Source/GranTheftPraline/Public/GTPBreakableLogic.h"
+#include "../../GranTheftPraline/Source/GranTheftPraline/Public/GTPHitLogic.h"
 #include "../../GranTheftPraline/Source/GranTheftPraline/Public/GTPImpactLogic.h"
 
 using namespace GTPImpact;
@@ -198,6 +200,64 @@ int main()
 			CHECK(R.ImpactorLossKmh < K * 0.3f, "car loses too much at %.0f km/h: %.2f", K, R.ImpactorLossKmh);
 			Prev = R.ThrowCmS;
 		}
+	}
+
+	// 11. Localised hit reactions.
+	{
+		namespace H = GTPHit;
+		CHECK(H::ZoneFromBone("head") == H::EZone::Head && H::ZoneFromBone("neck_01") == H::EZone::Head, "head zone");
+		CHECK(H::ZoneFromBone("lowerarm_l") == H::EZone::Arm && H::ZoneFromBone("hand_r") == H::EZone::Arm, "arm zone");
+		CHECK(H::ZoneFromBone("calf_r") == H::EZone::Leg && H::ZoneFromBone("foot_l") == H::EZone::Leg, "leg zone");
+		CHECK(H::ZoneFromBone("spine_03") == H::EZone::Torso && H::ZoneFromBone("pelvis") == H::EZone::Torso, "torso zone");
+
+		// A body facing +x (yaw 0): a hit travelling toward -x comes from the front, toward +x from behind.
+		CHECK(H::DirectionOf(-1.f, 0.f, 0.f) == H::EDirection::Front, "front");
+		CHECK(H::DirectionOf(1.f, 0.f, 0.f) == H::EDirection::Back, "back");
+		CHECK(H::DirectionOf(0.f, -1.f, 0.f) == H::EDirection::Left, "from the left (+y is left of +x)");
+		CHECK(H::DirectionOf(0.f, 1.f, 0.f) == H::EDirection::Right, "from the right");
+		CHECK(H::DirectionOf(0.f, 1.f, 90.f) == H::EDirection::Back, "facing +y, hit travelling +y comes from behind");
+		CHECK(H::DirectionOf(1.f, 0.f, 180.f) == H::EDirection::Front, "facing -x, hit travelling +x comes from the front");
+
+		auto Hit = [](float Damage, float HealthAfter, H::EZone Zone, bool Melee = false) {
+			H::FHitInfo I;
+			I.Damage = Damage;
+			I.HealthAfter = HealthAfter;
+			I.Zone = Zone;
+			I.bMelee = Melee;
+			I.DirX = -1.f;
+			return I;
+		};
+		H::FState St;
+		CHECK(H::Evaluate(Hit(3.f, 97.f, H::EZone::Torso), St, 0.0).Kind == H::EReaction::None, "tiny hit: nothing");
+		H::FState St2;
+		CHECK(H::Evaluate(Hit(10.f, 90.f, H::EZone::Torso), St2, 0.0).Kind == H::EReaction::Flinch, "10 damage flinches");
+		H::FState St3;
+		CHECK(H::Evaluate(Hit(25.f, 75.f, H::EZone::Torso), St3, 0.0).Kind == H::EReaction::Stagger, "25 damage staggers");
+		H::FState St4;
+		CHECK(H::Evaluate(Hit(50.f, 50.f, H::EZone::Torso), St4, 0.0).Kind == H::EReaction::Knockdown, "50 damage knocks down");
+		H::FState St5;
+		const H::FReaction Kd = H::Evaluate(Hit(50.f, 50.f, H::EZone::Torso), St5, 0.0);
+		CHECK(Kd.LaunchX < 0.f && Kd.LaunchZ > 0.f && std::fabs(Kd.LaunchX) <= 650.f, "launch along the hit, bounded");
+		H::FState St6;
+		const H::EReaction HeadKind = H::Evaluate(Hit(8.f, 92.f, H::EZone::Head), St6, 0.0).Kind;
+		H::FState St6b;
+		const H::EReaction LegKind = H::Evaluate(Hit(8.f, 92.f, H::EZone::Leg), St6b, 0.0).Kind;
+		CHECK(HeadKind > LegKind, "a head hit reacts more than a leg hit");
+		H::FState St7;
+		CHECK(H::Evaluate(Hit(10.f, 0.f, H::EZone::Torso), St7, 0.0).Kind == H::EReaction::Death, "health 0 dies");
+		CHECK(H::Evaluate(Hit(50.f, 0.f, H::EZone::Torso), St7, 1.0).Kind == H::EReaction::None, "the dead do not react again");
+		// Cooldown, chain and immunity.
+		H::FState C;
+		CHECK(H::Evaluate(Hit(10.f, 90.f, H::EZone::Torso), C, 0.0).Kind == H::EReaction::Flinch, "first flinch");
+		CHECK(H::Evaluate(Hit(10.f, 90.f, H::EZone::Torso), C, 0.1).Kind == H::EReaction::None, "cooldown swallows the next");
+		CHECK(H::Evaluate(Hit(10.f, 90.f, H::EZone::Torso), C, 0.5).Kind == H::EReaction::Flinch, "second after the cooldown");
+		CHECK(H::Evaluate(Hit(10.f, 90.f, H::EZone::Torso), C, 1.0).Kind == H::EReaction::Stagger, "the third flinch in 2 s staggers");
+		H::FState K;
+		CHECK(H::Evaluate(Hit(60.f, 40.f, H::EZone::Torso), K, 0.0).Kind == H::EReaction::Knockdown, "knockdown");
+		CHECK(H::Evaluate(Hit(60.f, 40.f, H::EZone::Torso), K, 1.0).Kind == H::EReaction::Stagger, "immune to a second knockdown for 2 s");
+		CHECK(H::Evaluate(Hit(60.f, 40.f, H::EZone::Torso), K, 3.0).Kind == H::EReaction::Knockdown, "knockdown again after the immunity");
+		CHECK(std::string(H::ClipName(H::EReaction::Flinch, H::EDirection::Back)) == "AM_HitLight_Back", "clip name");
+		CHECK(std::string(H::ClipName(H::EReaction::Stagger, H::EDirection::Front)) == "AM_Stagger_Front", "stagger clip name");
 	}
 
 	std::printf(Failures == 0 ? "PASS impact logic\n" : "FAILED %d checks\n", Failures);
