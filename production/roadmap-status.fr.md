@@ -72,3 +72,4 @@ attendre les autres chantiers.
 ## Décisions en attente de Nico
 
 - Aucune. Ordre des versions 0.4 à 0.7 décidé par Nico le 2026-11-10 : la rue vivante d'abord.
+- Décidé le 2026-11-11 : la 0.9 est la build de test du quartier, testée par Nico et quelques proches sur Mac et Windows, en qualité de travail avec la rue de la République en photoréaliste. Voir le [plan vers la phase de test](test-phase-plan.fr.md).

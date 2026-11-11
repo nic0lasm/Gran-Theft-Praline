@@ -2,6 +2,7 @@
 
 *French version: [roadmap.fr.md](roadmap.fr.md)*
 *Version 3, 2026-11-10: review after 0.2. Versions reordered around the open workstreams, per-system performance budget, gaps added.*
+*Version 3.1, 2026-11-11: 0.9 becomes the quarter test build, quality gates on every merge, gaps on the way to testing. Details: [test-phase-plan.md](test-phase-plan.md).*
 *Systems checklist: [systems-inventory.md](systems-inventory.md). Tracking: [roadmap-status.md](roadmap-status.md). Assets: [asset-catalog.md](asset-catalog.md).*
 *Inputs: [concept](../design/gdd/game-concept.md), [rendering strategy](../docs/rendering/rendering-strategy.md),
 [ADR-0001](../docs/adr/adr-0001-rendering-pipeline.md), [ADR-0002](../docs/adr/adr-0002-performance-budget.md),
@@ -32,7 +33,7 @@
 | Profile | Role | Criterion |
 | ---- | ---- | ---- |
 | **Ultra (photorealistic)** | The visual target, without compromise | Validated with captures compared to real photos, even at a few frames per second on the M1 |
-| **M1 (playable)** | What we play on the MacBook Pro M1 Pro 16 GB | Provisional target: 25 fps, 95th percentile ≤ 42 ms; aim: 30 fps, 95 % of frames ≤ 33.3 ms ([ADR-0002](../docs/adr/adr-0002-performance-budget.md)) |
+| **M1 (playable)** | What we play on the MacBook Pro M1 Pro 16 GB | **Capped at 40 fps (steady 25.0 ms), no frame > 100 ms** (decision of 2026-11-11, measured at tier C: 50 pedestrians, 25 driven + 24 far cars, police); replaces the 30 fps target of [ADR-0002](../docs/adr/adr-0002-performance-budget.md), to be amended |
 
 The M1 profile is derived from the Ultra profile (LODs, densities,
 settings), never the other way round. Any visible loss of image quality goes
@@ -64,6 +65,16 @@ These workstreams are not versions: they deliver a batch in every version.
 ---
 
 ## 2. Where we stand (2026-11-10)
+
+**Update of 2026-11-11.** 0.3.0 shipped on 2026-11-10 with previews of the
+0.4 to 0.6 systems (pedestrians, traffic lights, ragdoll, police, minimap,
+saved settings, day/night, sounds). The performance worksite that followed
+holds tier C capped at 40 fps on the M1 (`next` = 3dcf33b). The code of
+versions 0.4 to 0.6 is therefore already there: they will ship as a train
+once their gaps are closed. Nothing exists yet for 0.7, 0.8 and 0.9. See the
+[plan to the test phase](test-phase-plan.md).
+
+*Table of 2026-11-10:*
 
 | Version | State |
 | ---- | ---- |
@@ -123,7 +134,7 @@ Rules:
 | **0.6** | Day and night | drive by day, at dusk, at night and in the rain | January 2027 |
 | **0.7** | Armed | fight bare-handed and with a pistol, take cover, die and respawn; police shoot back | February 2027 |
 | **0.8** | City life | enter a shop without loading, buy, rob it, earn money, save in a safe house | March 2027 |
-| **0.9** | The whole district | roam Bellecour → Terreaux without loading | April 2027 |
+| **0.9** | The whole district: test build | roam Bellecour → Terreaux without loading, find your way on the map, play 3 activities, save; then the **test phase** | April 2027 |
 | **0.10** | Map and comfort | open the Lyon map, follow the GPS, set keys, accessibility, gamepad | May 2027 |
 | **0.11** | The arsenal | choose among 6 weapons, face level-3 police and roadblocks | June 2027 |
 | **0.12** | Your own city | play free activities and missions, ride a scooter and a Vélo'v: **P0 complete milestone** | summer 2027 |
@@ -269,7 +280,7 @@ windows and windows), Optimisation.
 respawn; police shoot at level 2.
 
 **Done when:**
-- ADR-0008 (gameplay framework: Gameplay Ability System, StateTree).
+- ADR-0011 (gameplay framework: Gameplay Ability System, StateTree; number 0008 is taken by day/night).
 - Melee (punches, dodge, takedown); pistol (aim, shoot, reload, recoil),
   **gamepad aim assist**, shoulder swap.
 - Cover against walls and cars, moving between covers, blind fire.
@@ -286,11 +297,11 @@ respawn; police shoot at level 2.
 
 | Version | Done when | Workstreams |
 | ---- | ---- | ---- |
-| **0.8 City life** | ADR-0005 (streaming); a shop without a loading screen (Level Instance or data layer), NPC shopkeeper who serves, gives in or calls the police, purchase, hold-up; persistent money; 1 safe house, **autosave and safe-house save**; doors and containers | Shops and interiors, Economy and saving |
-| **0.9 The whole district** | Bellecour → Terreaux, quays and bridges in one command (City v2); World Partition, HLOD; full route filmed on foot and by car, budget met, memory ≤ 9 GB; TCL buses as scenery in traffic | City v2, World streaming, Optimisation |
-| **0.10 Map and comfort** | Full-screen map from our data, **real street names** (`roads.geojson` regenerated), GPS that follows one-way streets; key remapping, sensitivity, accessibility (subtitles, aim assist, colours); gamepad glyphs and rumble; cinematic car camera; first NPC speech in French | Interface and settings, City v2, Audio |
+| **0.8 City life** | ADR-0012 (interiors without loading; city cells are in ADR-0010); save versioning; a shop without a loading screen (Level Instance or data layer), NPC shopkeeper who serves, gives in or calls the police, purchase, hold-up; persistent money; 1 safe house, **autosave and safe-house save**; doors and containers | Shops and interiors, Economy and saving |
+| **0.9 The whole district** | Bellecour → Terreaux, quays and bridges in one command (City v2); World Partition, HLOD; full route filmed on foot and by car, budget met, memory ≤ 9 GB; TCL buses as scenery in traffic. **Pulled forward for testing**: map with real street names and simple GPS, minimal mission framework and 3 activities, remapping and gamepad glyphs, credits, test build with logs, macOS and Windows builds. Full criteria: [plan to the test phase](test-phase-plan.md) | City v2, World streaming, Optimisation, Interface, Missions, QA and release |
+| **0.10 Map and comfort** | What remains after 0.9: GPS that follows one-way streets; full key remapping, sensitivity, accessibility (subtitles, aim assist, colours); gamepad glyphs and rumble; cinematic car camera; first NPC speech in French | Interface and settings, City v2, Audio |
 | **0.11 The arsenal** | 6 fictional weapons, weapon wheel, limited inventory; level 3, roadblocks, armed chases; 5 shop types (grocery, clothes, gun shop, garage, café), 3 safe houses | Combat and weapons, Police, Shops |
-| **0.12 Your own city** | **Mission framework** (objectives, checkpoints, failure, retry); the concept's 6 free activities built with it; scooter, motorbike, Vélo'v; **"P0 systems complete" milestone**: every P0 line of the [inventory](systems-inventory.md) ticked at working quality | Missions and activities (*to open at 0.8*), Vehicles |
+| **0.12 Your own city** | Complete mission framework (the minimum arrives in 0.9); the concept's 6 free activities built with it; scooter, motorbike, Vélo'v; **"P0 systems complete" milestone**: every P0 line of the [inventory](systems-inventory.md) ticked at working quality | Missions and activities (*to open at 0.8*), Vehicles |
 
 ### Stage C: final quality
 

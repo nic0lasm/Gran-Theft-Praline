@@ -72,3 +72,4 @@ traffic, without waiting for the other workstreams.
 ## Decisions awaiting Nico
 
 - None. Order of versions 0.4 to 0.7 decided by Nico on 2026-11-10: the living street first.
+- Decided 2026-11-11: 0.9 is the quarter test build, tested by Nico and a few close people on Mac and Windows, at work quality with rue de la République at photorealistic quality. See the [plan to the test phase](test-phase-plan.md).

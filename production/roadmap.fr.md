@@ -2,6 +2,7 @@
 
 *Version anglaise : [roadmap.md](roadmap.md)*
 *Version 3, 2026-11-10 : revue après la 0.2. Versions réordonnées selon les chantiers ouverts, budget de performance par système, oublis ajoutés.*
+*Version 3.1, 2026-11-11 : la 0.9 devient la build de test du quartier, portes de qualité à chaque fusion, oublis du chemin vers le test. Détail : [test-phase-plan.fr.md](test-phase-plan.fr.md).*
 *Liste de contrôle des systèmes : [systems-inventory.fr.md](systems-inventory.fr.md). Suivi : [roadmap-status.fr.md](roadmap-status.fr.md). Assets : [asset-catalog.fr.md](asset-catalog.fr.md).*
 *Entrées : [concept](../design/gdd/game-concept.fr.md), [stratégie de rendu](../docs/rendering/rendering-strategy.fr.md),
 [ADR-0001](../docs/adr/adr-0001-rendering-pipeline.fr.md), [ADR-0002](../docs/adr/adr-0002-performance-budget.fr.md),
@@ -33,7 +34,7 @@
 | Profil | Rôle | Critère |
 | ---- | ---- | ---- |
 | **Ultra (photoréaliste)** | La cible visuelle, sans compromis | Validé par captures comparées aux photos réelles, même à quelques images par seconde sur le M1 |
-| **M1 (jouable)** | Ce qu'on joue sur le MacBook Pro M1 Pro 16 Go | Cible provisoire : 25 i/s, 95e centile ≤ 42 ms ; visé : 30 i/s, 95 % des images ≤ 33,3 ms ([ADR-0002](../docs/adr/adr-0002-performance-budget.fr.md)) |
+| **M1 (jouable)** | Ce qu'on joue sur le MacBook Pro M1 Pro 16 Go | **Plafonné à 40 i/s (25,0 ms réguliers), aucune image > 100 ms** (décision du 2026-11-11, mesurée au palier C : 50 piétons, 25 voitures conduites + 24 lointaines, police) ; remplace la cible 30 i/s de l'[ADR-0002](../docs/adr/adr-0002-performance-budget.fr.md), à amender |
 
 Le profil M1 est dérivé du profil Ultra (LOD, densités, réglages), jamais
 l'inverse. Toute baisse visible de l'image passe par une carte à Nico.
@@ -65,6 +66,16 @@ version.
 ---
 
 ## 2. Où on en est (2026-11-10)
+
+**Mise à jour du 2026-11-11.** La 0.3.0 est sortie le 2026-11-10 avec, en
+avant-première, les systèmes des versions 0.4 à 0.6 (piétons, feux, ragdoll,
+police, mini-carte, réglages sauvegardés, jour/nuit, sons). Le chantier
+performance qui a suivi tient le palier C plafonné à 40 i/s sur le M1
+(`next` = 3dcf33b). Le code des versions 0.4 à 0.6 est donc déjà là : elles
+sortiront en train dès leurs manques comblés. Rien n'existe encore pour
+0.7, 0.8 et 0.9. Voir le [plan vers la phase de test](test-phase-plan.fr.md).
+
+*Tableau du 2026-11-10 :*
 
 | Version | État |
 | ---- | ---- |
@@ -124,7 +135,7 @@ Règles :
 | **0.6** | Jour et nuit | rouler de jour, au crépuscule, la nuit et sous la pluie | janvier 2027 |
 | **0.7** | Armé | se battre à mains nues et au pistolet, se couvrir, mourir et réapparaître ; police qui tire | février 2027 |
 | **0.8** | Vivre en ville | entrer dans une boutique sans chargement, acheter, braquer, gagner de l'argent, sauvegarder en planque | mars 2027 |
-| **0.9** | Tout le quartier | parcourir Bellecour → Terreaux sans chargement | avril 2027 |
+| **0.9** | Tout le quartier : build de test | parcourir Bellecour → Terreaux sans chargement, se repérer sur la carte, faire 3 activités, sauvegarder ; puis **phase de test** | avril 2027 |
 | **0.10** | La carte et le confort | ouvrir la carte de Lyon, suivre le GPS, régler touches, accessibilité, manette | mai 2027 |
 | **0.11** | L'arsenal | choisir parmi 6 armes, affronter la police niveau 3 et ses barrages | juin 2027 |
 | **0.12** | La ville à soi | faire des activités et des missions libres, rouler en scooter et en Vélo'v : **jalon P0 complet** | été 2027 |
@@ -275,7 +286,7 @@ Animations.
 réapparition ; la police tire au niveau 2.
 
 **Fait quand :**
-- ADR-0008 (framework gameplay : Gameplay Ability System, StateTree).
+- ADR-0011 (framework gameplay : Gameplay Ability System, StateTree ; le numéro 0008 est pris par le jour/nuit).
 - Corps à corps (coups, esquive, neutralisation) ; pistolet (viser, tirer,
   recharger, recul), **aide à la visée** à la manette, changement d'épaule.
 - Couverture contre murs et voitures, passage d'un abri à l'autre, tir à
@@ -293,11 +304,11 @@ réapparition ; la police tire au niveau 2.
 
 | Version | Fait quand | Chantiers |
 | ---- | ---- | ---- |
-| **0.8 Vivre en ville** | ADR-0005 (streaming) ; une boutique sans écran de chargement (Level Instance ou data layer), vendeur PNJ qui sert, se rend ou appelle la police, achat, braquage ; argent persistant ; 1 planque, **sauvegarde automatique et en planque** ; portes et contenants | Boutiques et intérieurs, Économie et sauvegarde |
-| **0.9 Tout le quartier** | Bellecour → Terreaux, quais et ponts en une commande (Ville v2) ; World Partition, HLOD ; trajet complet filmé à pied et en voiture, budget tenu, mémoire ≤ 9 Go ; bus TCL en décor dans le trafic | Ville v2, Streaming du monde, Optimisation |
-| **0.10 La carte et le confort** | Carte plein écran à partir de nos données, **vrais noms de rues** (`roads.geojson` régénéré), GPS qui suit les sens de circulation ; remappage des touches, sensibilité, accessibilité (sous-titres, aide à la visée, couleurs) ; glyphes et vibrations manette ; caméra cinématique en voiture ; premières paroles des PNJ en français | Interface et réglages, Ville v2, Audio |
+| **0.8 Vivre en ville** | ADR-0012 (intérieurs sans chargement ; les cellules de la ville sont dans l'ADR-0010) ; versionnage des sauvegardes ; une boutique sans écran de chargement (Level Instance ou data layer), vendeur PNJ qui sert, se rend ou appelle la police, achat, braquage ; argent persistant ; 1 planque, **sauvegarde automatique et en planque** ; portes et contenants | Boutiques et intérieurs, Économie et sauvegarde |
+| **0.9 Tout le quartier** | Bellecour → Terreaux, quais et ponts en une commande (Ville v2) ; World Partition, HLOD ; trajet complet filmé à pied et en voiture, budget tenu, mémoire ≤ 9 Go ; bus TCL en décor dans le trafic. **Avancés pour le test** : carte avec vrais noms de rues et GPS simple, cadre de missions minimal et 3 activités, remappage et glyphes manette, crédits, build de test avec journaux, builds macOS et Windows. Critères complets : [plan vers la phase de test](test-phase-plan.fr.md) | Ville v2, Streaming du monde, Optimisation, Interface, Missions, QA et sortie |
+| **0.10 La carte et le confort** | Ce qui reste après la 0.9 : GPS qui suit les sens de circulation ; remappage complet des touches, sensibilité, accessibilité (sous-titres, aide à la visée, couleurs) ; glyphes et vibrations manette ; caméra cinématique en voiture ; premières paroles des PNJ en français | Interface et réglages, Ville v2, Audio |
 | **0.11 L'arsenal** | 6 armes fictives, roue des armes, inventaire limité ; niveau 3, barrages, poursuites armées ; 5 types de boutiques (alimentation, vêtements, armurerie, garage, café), 3 planques | Combat et armes, Police, Boutiques |
-| **0.12 La ville à soi** | **Cadre de missions** (objectifs, points de passage, échec, reprise) ; 6 activités libres du concept construites avec ; scooter, moto, Vélo'v ; **jalon « Systèmes P0 complets »** : chaque ligne P0 de l'[inventaire](systems-inventory.fr.md) cochée en qualité de travail | Missions et activités (*à ouvrir à la 0.8*), Véhicules |
+| **0.12 La ville à soi** | Cadre de missions complet (le minimum arrive en 0.9) ; 6 activités libres du concept construites avec ; scooter, moto, Vélo'v ; **jalon « Systèmes P0 complets »** : chaque ligne P0 de l'[inventaire](systems-inventory.fr.md) cochée en qualité de travail | Missions et activités (*à ouvrir à la 0.8*), Véhicules |
 
 ### Étape C : qualité finale
 
