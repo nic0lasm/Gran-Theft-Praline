@@ -11,6 +11,13 @@ details for the 14 ms city share of ADR-0002. It is an order of magnitude to pic
 to stream together, not a measure; the optimisation thread measures the packaged cells.
 The report gives the worst 2 x 2 and 3 x 3 blocks of neighbouring cells.
 
+Memory (ADR-0010 condition 4: <= 1.5 GB for 4 detailed cells and every proxy) is estimated
+the same way, from sizes rather than a measure (memreport on the packaged quarter replaces
+it): shell triangles with their complex collision, facade and prop instances (HISM transform,
+custom data and render copy), the sign atlas pages of the cell (4096 px, BC1 with mips) and
+one actor per building part. The kit, the prop meshes and the proxies are shared: counted
+once, in "shared_mb".
+
 Output: processed/<zone>/cells_budget.json and a Markdown table on stdout.
 Usage: python3 tools/city/cell_budget.py --name presqu-ile
 """
@@ -28,6 +35,14 @@ REF_CITY_MS = 14.0                    # ADR-0002 city share for that map
 MS_PER_INSTANCE = REF_CITY_MS / REF_INSTANCES
 PROPS_PER_OSM_ITEM = 3.0              # props.py + details.py place ~3 objects per mapped item
 BUDGET_MS = 14.0                      # ADR-0010: the detailed cells together
+# Memory estimate (bytes), see the docstring.
+B_PER_SHELL_TRI = 108 + 50            # 3 unshared vertices x 32 B + 12 B of indices, + cooked collision
+B_PER_INSTANCE = 200                  # HISM: transform, custom data, cluster tree, render copy
+B_PER_ATLAS_PAGE = 4096 * 4096 // 2 * 4 // 3   # BC1, full mip chain
+B_PER_ACTOR = 2048
+B_PER_PROXY_TRI = 108
+BUDGET_MB = 1536.0                    # 4 detailed cells + all proxies
+KIT_SHARED_MB = 120.0                 # facade kit with LODs, its materials and the street prop meshes (order of magnitude)
 
 
 def count_in(rows, bbox):
@@ -71,6 +86,21 @@ def main():
         rec["trees"] = count_in(tables["trees"], c["bbox_m"])
         rec["props_estimate"] = round(rec["osm_furniture"] * PROPS_PER_OSM_ITEM + rec["trees"])
         rec["city_gpu_ms_estimate"] = round((rec["facade_instances"] + rec["props_estimate"]) * MS_PER_INSTANCE, 2)
+        props_csv = os.path.join(gen, "props_placement.csv")
+        if os.path.exists(props_csv):
+            with open(props_csv, encoding="utf-8") as f:
+                rec["props_placed"] = sum(1 for _ in csv.DictReader(f))
+        pages = 0
+        atlas = os.path.join(gen, "signs", "sign_atlas.json")
+        if os.path.exists(atlas):
+            with open(atlas, encoding="utf-8") as f:
+                at = json.load(f)
+            pages = at.get("pages", 0) + at.get("logo_pages", 0)
+        rec["sign_atlas_pages"] = pages
+        mem = (rec["shell_triangles"] * B_PER_SHELL_TRI
+               + (rec["facade_instances"] + rec.get("props_placed", rec["props_estimate"])) * B_PER_INSTANCE
+               + pages * B_PER_ATLAS_PAGE + ((c.get("parts") or 0) + 50) * B_PER_ACTOR)
+        rec["memory_mb_estimate"] = round(mem / 2 ** 20, 1)
         out.append(rec)
     by_xy = {(round(r["bbox_m"][0]), round(r["bbox_m"][1])): r for r in out}
     size = round(cells["cell_m"])
@@ -84,22 +114,36 @@ def main():
             ms = sum(b["city_gpu_ms_estimate"] for b in block)
             if best is None or ms > best["city_gpu_ms_estimate"]:
                 best = {"cells": [b["name"] for b in block], "city_gpu_ms_estimate": round(ms, 1),
-                        "facade_instances": sum(b["facade_instances"] for b in block)}
+                        "facade_instances": sum(b["facade_instances"] for b in block),
+                        "memory_mb_estimate": round(sum(b["memory_mb_estimate"] for b in block), 1)}
         return best
 
+    proxies = os.path.join(proc, "gen", "quarter", "cell_proxies.json")
+    proxy_tris = 0
+    if os.path.exists(proxies):
+        with open(proxies, encoding="utf-8") as f:
+            proxy_tris = sum(n["triangles"] for n in json.load(f)["nodes"])
+    shared_mb = round(proxy_tris * B_PER_PROXY_TRI / 2 ** 20 + KIT_SHARED_MB, 1)
+    w2 = worst(2)
+    memory = {"shared_mb": shared_mb, "proxy_triangles": proxy_tris, "budget_mb": BUDGET_MB,
+              "worst_2x2_plus_shared_mb": round((w2["memory_mb_estimate"] if w2 else 0) + shared_mb, 1)}
+    memory["ok"] = memory["worst_2x2_plus_shared_mb"] <= BUDGET_MB
     meta = {"zone": a.name, "calibration": {"ref_instances": REF_INSTANCES, "ref_city_ms": REF_CITY_MS},
+            "memory": memory,
             "budget_ms": BUDGET_MS, "cells": out, "worst_2x2": worst(2), "worst_3x3": worst(3),
             "total_facade_instances": sum(r["facade_instances"] for r in out)}
     with open(os.path.join(proc, "cells_budget.json"), "w", encoding="utf-8") as f:
         json.dump(meta, f, indent=2)
-    print("| cell | buildings | facade inst. | signs | props (est.) | city GPU ms (est.) |")
-    print("|---|---|---|---|---|---|")
+    print("| cell | buildings | facade inst. | signs | props | city GPU ms (est.) | memory MB (est.) |")
+    print("|---|---|---|---|---|---|---|")
     for r in sorted(out, key=lambda r: -r["city_gpu_ms_estimate"]):
         if r["buildings"]:
-            print("| %s | %d | %d | %d | %d | %.1f |" % (r["name"], r["buildings"], r["facade_instances"], r["signs"],
-                                                       r["props_estimate"], r["city_gpu_ms_estimate"]))
+            print("| %s | %d | %d | %d | %d | %.1f | %.0f |" % (
+                r["name"], r["buildings"], r["facade_instances"], r["signs"], r.get("props_placed", r["props_estimate"]),
+                r["city_gpu_ms_estimate"], r["memory_mb_estimate"]))
     print("\nworst 2x2:", json.dumps(meta["worst_2x2"]))
     print("worst 3x3:", json.dumps(meta["worst_3x3"]))
+    print("memory:", json.dumps(memory))
 
 
 if __name__ == "__main__":

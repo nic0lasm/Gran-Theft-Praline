@@ -1,7 +1,10 @@
 """Cut the quarter (Bellecour -> Terreaux, both quays) into streaming cells and generate
 each one outside the engine: buildings and facade modules (generate.py --cell), shop
 signs (signs.py, then their atlas pages, sign_atlas.py), the landmarks of the cell
-(landmarks.py) and the ground mask (ground_mask.py, carriageways fitted to the kerbs).
+(landmarks.py), the ground mask (ground_mask.py, carriageways fitted to the kerbs) and the
+surveyed street furniture (props.py --cell). With no --only, then the quarter-wide data: far
+proxies (cell_proxies.py), driving lanes (traffic.py --focus quarter) and the weight and
+memory budget per cell (cell_budget.py).
 
 A cell is a square of CELL_M on a grid anchored at the zone origin, so cell names never
 change when the quarter grows. Each cell is written to processed/<zone>/gen/<cell>/ in the
@@ -73,6 +76,10 @@ def make_cell(zone, cell, py):
         run([py, os.path.join(HERE, "signs.py"), "--name", zone, "--focus", cell["name"]])
         run([py, os.path.join(HERE, "sign_atlas.py"), "--name", zone, "--focus", cell["name"]])
         run([py, os.path.join(HERE, "ground_mask.py"), "--zone", zone, "--focus", cell["name"]])
+        # surveyed street furniture of the cell (Grand Lyon, OSM), shops of every street
+        pr = json.loads(run([py, os.path.join(HERE, "props.py"), "--name", zone, "--focus", cell["name"],
+                             "--cell=" + bbox]))
+        out["props"] = pr.get("props")
     # the landmarks whose centre lies in this cell (Opera, Hotel de Ville...)
     lm = run([py, os.path.join(HERE, "landmarks.py"), "--name", zone, "--focus", cell["name"], "--cell=" + bbox])
     out["landmarks"] = json.loads(lm).get("placed_in_" + cell["name"], [])
@@ -103,6 +110,13 @@ def main():
     path = os.path.join(REPO, "assets", "geo", "processed", a.name, "cells.json")
     with open(path, "w", encoding="utf-8") as f:
         json.dump(meta, f, indent=2)
+    if not a.only:
+        # Quarter-wide data once every cell is there: far proxies (cell_proxies.py), driving
+        # lanes of the whole quarter (traffic.py, zone-wide by ADR-0010) and the weight and
+        # memory budget per cell (cell_budget.py).
+        run([py, os.path.join(HERE, "cell_proxies.py"), "--name", a.name, "--check"])
+        run([py, os.path.join(HERE, "traffic.py"), "--zone", a.name, "--focus", "quarter"])
+        run([py, os.path.join(HERE, "cell_budget.py"), "--name", a.name])
     print(json.dumps({"cells": len(done), "errors": errors,
                       "buildings": sum(c.get("buildings") or 0 for c in done)}, indent=2))
 

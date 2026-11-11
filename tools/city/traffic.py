@@ -31,10 +31,14 @@ Rules:
 
   python3 tools/city/traffic.py [--zone presqu-ile] [--focus rue-de-la-republique] \
       [--map L_City_RueDeLaRepublique]
+  python3 tools/city/traffic.py --focus quarter --map L_City_Quarter
+      the whole streamed quarter: lanes near the buildings of every cell (gen/cell-*/),
+      written to gen/quarter/traffic/ (ADR-0010: lanes stay zone-wide, not per cell)
 """
 
 import argparse
 import csv
+import glob
 import json
 import math
 import os
@@ -316,17 +320,29 @@ def preview(lanes, path, size=2048):
     img.save(path)
 
 
+def building_rows(gen):
+    """buildings_gen.csv of the focus; for the streamed quarter (gen/quarter, no buildings of
+    its own) the rows of every cell generation next to it (gen/cell-*/, tools/city/cells.py)."""
+    own = os.path.join(gen, "buildings_gen.csv")
+    paths = [own] if os.path.exists(own) else sorted(glob.glob(os.path.join(os.path.dirname(gen), "cell-*", "buildings_gen.csv")))
+    rows = []
+    for path in paths:
+        with open(path, encoding="utf-8") as f:
+            rows += list(csv.DictReader(f))
+    if not rows:
+        raise SystemExit("no buildings_gen.csv for " + gen)
+    return rows
+
+
 def focus_area_m(gen):
     """Where cars may drive: within AREA_BUFFER_M of a generated building, so no car
     shows up on a road with no city around it (the zone's corners)."""
-    with open(os.path.join(gen, "buildings_gen.csv"), encoding="utf-8") as f:
-        rows = list(csv.DictReader(f))
+    rows = building_rows(gen)
     return unary_union([Point(float(r["cx"]), float(r["cy"])).buffer(AREA_BUFFER_M, 8) for r in rows])
 
 
 def focus_extent_m(gen):
-    with open(os.path.join(gen, "buildings_gen.csv"), encoding="utf-8") as f:
-        rows = list(csv.DictReader(f))
+    rows = building_rows(gen)
     xs = [float(r["ue_x"]) for r in rows]
     ys = [float(r["ue_y"]) for r in rows]
     x0, x1 = min(xs) - MARGIN_CM, max(xs) + MARGIN_CM
