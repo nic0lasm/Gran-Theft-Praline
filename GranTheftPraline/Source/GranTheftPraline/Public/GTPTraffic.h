@@ -62,6 +62,8 @@ private:
 	bool bHasGoal = false;
 
 	TWeakObjectPtr<AGTPTrafficNetwork> Network;
+	/** Own stream for deterministic runs: the junction choices do not depend on what other cars drew. */
+	FRandomStream OwnRandom{0x44454D4F};
 	TArray<int32> Route;
 	std::vector<FGTPDrivePoint> Path;
 	int32 CurrentLaneLength = 0;
@@ -141,6 +143,7 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<AGTPTrafficNetwork> Network;
 
+	FRandomStream DriverRandom;
 	TArray<int32> Route;
 	std::vector<FGTPDrivePoint> Path;
 	int32 CurrentLaneLength = 0;
@@ -187,8 +190,8 @@ public:
 	/** Path of the lanes file for a map name, under the project content folder. */
 	static FString LanesFileFor(const FString& MapName);
 
-	/** Picks a random lane among Lane's next lanes, INDEX_NONE at a dead end. */
-	int32 PickNext(int32 Lane);
+	/** Picks a random lane among Lane's next lanes, INDEX_NONE at a dead end. Draws from Stream when given (deterministic runs), else from the network's own stream. */
+	int32 PickNext(int32 Lane, FRandomStream* Stream = nullptr);
 
 	/** Next lane of Lane whose end is closest to Target (world cm); INDEX_NONE at a dead end. */
 	int32 PickNextToward(int32 Lane, const FVector& Target) const;

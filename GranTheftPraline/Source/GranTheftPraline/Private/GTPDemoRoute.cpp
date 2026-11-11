@@ -6,6 +6,7 @@
 #include "EngineUtils.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/PlayerController.h"
+#include "GTPDeterminism.h"
 #include "GTPLog.h"
 #include "GTPPlayerController.h"
 #include "GTPVehicle.h"
@@ -32,6 +33,10 @@ namespace
 	constexpr double ExitMaxTime = 6.0;
 	constexpr float CruiseKmh = 40.f;
 	constexpr float DoorReachCm = 300.f;
+	/** Deterministic runs: decision step and the interval of the position log (simulated seconds). */
+	constexpr double FixedStep = 1.0 / 30.0;
+	constexpr double PosLogInterval = 5.0;
+	constexpr int32 MaxStepsPerFrame = 6;
 
 	const TCHAR* PhaseName(int32 Phase)
 	{
@@ -50,13 +55,21 @@ void UGTPDemoRoute::Initialize(FSubsystemCollectionBase& Collection)
 	{
 		return;
 	}
+	bDeterministic = GTPDeterminism::IsOn();
+	{
+		double WalkCm = WalkStreetCm;
+		if (FParse::Value(FCommandLine::Get(), TEXT("DemoWalkCm="), WalkCm))
+		{
+			WalkStreetCm = static_cast<float>(FMath::Clamp(WalkCm, 500.0, 50000.0));
+		}
+	}
 	FParse::Value(FCommandLine::Get(), TEXT("DemoDriveTime="), DriveTime);
 	bToRiver = FParse::Param(FCommandLine::Get(), TEXT("DemoToRiver"));
 	DriveTime = FMath::Clamp(DriveTime, 5.0, 3600.0);
-	RouteStart = FPlatformTime::Seconds();
+	RouteStart = Clock();
 	PhaseStart = RouteStart;
 	TickHandle = FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateUObject(this, &UGTPDemoRoute::Tick));
-	GTP_TRACE(LogGTPDemo, TEXT("Demo route enabled (drive %.0f s%s)"), DriveTime, bCarjack ? TEXT(", carjack") : TEXT(""));
+	GTP_TRACE(LogGTPDemo, TEXT("Demo route enabled (drive %.0f s%s%s)"), DriveTime, bCarjack ? TEXT(", carjack") : TEXT(""), bDeterministic ? TEXT(", deterministic") : TEXT(""));
 }
 
 void UGTPDemoRoute::Deinitialize()
@@ -75,10 +88,23 @@ APlayerController* UGTPDemoRoute::GetController() const
 	return GameInstance ? GameInstance->GetFirstLocalPlayerController() : nullptr;
 }
 
+double UGTPDemoRoute::Clock() const
+{
+	return bDeterministic ? SimTime : FPlatformTime::Seconds();
+}
+
 void UGTPDemoRoute::SetPhase(EPhase NewPhase)
 {
 	Phase = NewPhase;
-	PhaseStart = FPlatformTime::Seconds();
+	PhaseStart = Clock();
+	if (NewPhase == EPhase::WalkStreet)
+	{
+		const APlayerController* PC = GetController();
+		if (const APawn* Pawn = PC ? PC->GetPawn() : nullptr)
+		{
+			WalkOrigin = Pawn->GetActorLocation();
+		}
+	}
 	GTP_TRACE(LogGTPDemo, TEXT("Demo route %.1f s: %s"), static_cast<float>(PhaseStart - RouteStart), PhaseName(static_cast<int32>(NewPhase)));
 }
 
@@ -149,9 +175,53 @@ void UGTPDemoRoute::DriveInputs(AGTPVehicle* InCar, float Throttle, float Brake,
 
 bool UGTPDemoRoute::Tick(float DeltaTime)
 {
+	if (!bDeterministic)
+	{
+		return RunStep(DeltaTime);
+	}
+	// Deterministic: the route is advanced by simulated game time in fixed steps, so a slow
+	// frame or a different frame rate changes how many steps run, never what they decide.
+	const APlayerController* PC = GetController();
+	const UWorld* World = PC ? PC->GetWorld() : nullptr;
+	if (!World)
+	{
+		return true;
+	}
+	const double WorldTime = World->GetTimeSeconds();
+	if (LastWorldTime < 0.0)
+	{
+		LastWorldTime = WorldTime;
+	}
+	Accumulator += FMath::Max(0.0, WorldTime - LastWorldTime);
+	LastWorldTime = WorldTime;
+	bool bKeepGoing = true;
+	for (int32 Steps = 0; Accumulator >= FixedStep && Steps < MaxStepsPerFrame && bKeepGoing; ++Steps)
+	{
+		Accumulator -= FixedStep;
+		SimTime += FixedStep;
+		bKeepGoing = RunStep(static_cast<float>(FixedStep));
+	}
+	if (Accumulator > FixedStep * MaxStepsPerFrame)
+	{
+		Accumulator = 0.0; // after a long hitch, do not replay it
+	}
+	// Movement input is consumed by the character every frame: hold the last decision.
+	if (bKeepGoing && !HeldMove.IsNearlyZero())
+	{
+		if (APawn* Pawn = PC->GetPawn())
+		{
+			Pawn->AddMovementInput(HeldMove, 1.f);
+		}
+	}
+	return bKeepGoing;
+}
+
+bool UGTPDemoRoute::RunStep(float DeltaTime)
+{
 	APlayerController* PC = GetController();
 	APawn* Pawn = PC ? PC->GetPawn() : nullptr;
-	const double Now = FPlatformTime::Seconds();
+	const double Now = Clock();
+	HeldMove = FVector::ZeroVector;
 	const double T = Now - PhaseStart;
 
 	if (!PC || !Pawn)
@@ -159,11 +229,31 @@ bool UGTPDemoRoute::Tick(float DeltaTime)
 		return true;
 	}
 
+	// Fixed instants, comparable between two runs: time, position, heading, speed.
+	if (bDeterministic && Phase != EPhase::WaitForPawn)
+	{
+		const int32 Slot = static_cast<int32>((Now - RouteStart) / PosLogInterval);
+		if (Slot > LastLoggedSlot)
+		{
+			LastLoggedSlot = Slot;
+			const FVector Location = Pawn->GetActorLocation();
+			const AGTPVehicle* Driven = Cast<AGTPVehicle>(Pawn);
+			GTP_TRACE(LogGTPDemo, TEXT("DemoPos t=%.1f x=%.0f y=%.0f yaw=%.0f kmh=%.0f phase=%s"), Slot * PosLogInterval, Location.X, Location.Y,
+				FRotator::NormalizeAxis(Pawn->GetActorRotation().Yaw), Driven ? Driven->GetSpeedKmh() : 0.f, PhaseName(static_cast<int32>(Phase)));
+		}
+	}
+
 	switch (Phase)
 	{
 	case EPhase::WaitForPawn:
 		if (Cast<ACharacter>(Pawn))
 		{
+			if (bDeterministic)
+			{
+				// The route's own time starts here, whatever the level took to load.
+				RouteStart = Now;
+				LastLoggedSlot = -1;
+			}
 			StreetYaw = Pawn->GetActorRotation().Yaw;
 			StartControlYaw = PC->GetControlRotation().Yaw;
 			SetPhase(EPhase::LookAround);
@@ -187,8 +277,18 @@ bool UGTPDemoRoute::Tick(float DeltaTime)
 		const float Sway = 12.f * static_cast<float>(FMath::Sin(2.0 * UE_DOUBLE_PI * T / 7.0));
 		const FRotator View(-6.f, StreetYaw + Sway, 0.f);
 		PC->SetControlRotation(View);
-		Pawn->AddMovementInput(FRotator(0.f, StreetYaw, 0.f).Vector(), 1.f);
-		if (T >= WalkStreetTime)
+		if (bDeterministic)
+		{
+			HeldMove = FRotator(0.f, StreetYaw, 0.f).Vector();
+		}
+		else
+		{
+			Pawn->AddMovementInput(FRotator(0.f, StreetYaw, 0.f).Vector(), 1.f);
+		}
+		// Waypoint: a set distance from where the walk began (a duration in a normal run).
+		const bool bArrived = bDeterministic ? FVector::Dist2D(Pawn->GetActorLocation(), WalkOrigin) >= WalkStreetCm || T >= 2.0 * WalkStreetTime
+			: T >= WalkStreetTime;
+		if (bArrived)
 		{
 			SetPhase(EPhase::TurnBack);
 		}
@@ -228,7 +328,14 @@ bool UGTPDemoRoute::Tick(float DeltaTime)
 		PC->SetControlRotation(FMath::RInterpTo(PC->GetControlRotation(), Desired, DeltaTime, 3.f));
 		if (ToDoor.Size() > DoorReachCm * 0.5f)
 		{
-			Pawn->AddMovementInput(ToDoor.GetSafeNormal(), 1.f);
+			if (bDeterministic)
+			{
+				HeldMove = ToDoor.GetSafeNormal();
+			}
+			else
+			{
+				Pawn->AddMovementInput(ToDoor.GetSafeNormal(), 1.f);
+			}
 		}
 		const AGTPPlayerController* GTPController = Cast<AGTPPlayerController>(PC);
 		UGTPVehicleInteractionComponent* Interaction = GTPController ? GTPController->GetVehicleInteraction() : nullptr;
@@ -282,7 +389,14 @@ bool UGTPDemoRoute::Tick(float DeltaTime)
 		PC->SetControlRotation(FMath::RInterpTo(PC->GetControlRotation(), Desired, DeltaTime, 3.f));
 		if (ToGoal.Size() > 60.f)
 		{
-			Pawn->AddMovementInput(ToGoal.GetSafeNormal(), 1.f);
+			if (bDeterministic)
+			{
+				HeldMove = ToGoal.GetSafeNormal();
+			}
+			else
+			{
+				Pawn->AddMovementInput(ToGoal.GetSafeNormal(), 1.f);
+			}
 		}
 		FVector ToDoor = Door - Pawn->GetActorLocation();
 		ToDoor.Z = 0.f;

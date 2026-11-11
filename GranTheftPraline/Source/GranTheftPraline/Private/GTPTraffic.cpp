@@ -1,5 +1,6 @@
 #include "GTPTraffic.h"
 
+#include "GTPDeterminism.h"
 #include "GTPLog.h"
 #include "GTPVehicle.h"
 #include "GTPTrafficGhost.h"
@@ -71,7 +72,7 @@ void FGTPLaneFollower::Plan()
 	}
 	while (AheadM < RouteAheadM)
 	{
-		const int32 Next = bHasGoal ? Net->PickNextToward(Route.Last(), Goal) : Net->PickNext(Route.Last());
+		const int32 Next = bHasGoal ? Net->PickNextToward(Route.Last(), Goal) : Net->PickNext(Route.Last(), GTPDeterminism::IsOn() ? &OwnRandom : nullptr);
 		if (Next == INDEX_NONE)
 		{
 			break;
@@ -130,6 +131,11 @@ UGTPAIDriverComponent::UGTPAIDriverComponent()
 void UGTPAIDriverComponent::Start(AGTPTrafficNetwork* InNetwork, int32 Lane, int32 StartPoint)
 {
 	Network = InNetwork;
+	if (GTPDeterminism::IsOn())
+	{
+		// Seeded from the car's name (spawn order), not from a stream shared by all cars.
+		DriverRandom.Initialize(static_cast<int32>(FCrc::StrCrc32(*GetOwner()->GetName()) & 0x7fffffff));
+	}
 	ReleaseJunctions();
 	Route.Reset();
 	Route.Add(Lane);
@@ -242,7 +248,7 @@ void UGTPAIDriverComponent::PlanRoute()
 	}
 	while (AheadM < RouteAheadM)
 	{
-		const int32 Next = Network->PickNext(Route.Last());
+		const int32 Next = Network->PickNext(Route.Last(), GTPDeterminism::IsOn() ? &DriverRandom : nullptr);
 		if (Next == INDEX_NONE)
 		{
 			break;
@@ -584,14 +590,14 @@ void AGTPTrafficNetwork::UpdateDetail(AGTPVehicle* Car, float DistanceToView) co
 	}
 }
 
-int32 AGTPTrafficNetwork::PickNext(int32 Lane)
+int32 AGTPTrafficNetwork::PickNext(int32 Lane, FRandomStream* Stream)
 {
 	if (!Lanes.IsValidIndex(Lane) || Lanes[Lane].Next.Num() == 0)
 	{
 		return INDEX_NONE;
 	}
 	const TArray<int32>& Next = Lanes[Lane].Next;
-	return Next[Random.RandRange(0, Next.Num() - 1)];
+	return Next[(Stream ? *Stream : Random).RandRange(0, Next.Num() - 1)];
 }
 
 int32 AGTPTrafficNetwork::PickNextToward(int32 Lane, const FVector& Target) const
