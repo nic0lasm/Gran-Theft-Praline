@@ -11,7 +11,7 @@
 #   Builds/perf-cumul-test/0.3, a Development package with -CsvCopyTo, f1744dd or later),
 #   VARIANTS (lines "label|cvar=v,cvar=v|extra args"), BRANCH (tools source, feat/perf-cumul-night)
 # Output: Builds/tsr-clouds/<stamp>/REPORT.md, index.html, <variant>-fixed.jpg
-# Plan: 11 variants x (45 s + 95 s) + launches = about 30 min; whole pass capped at 50 min,
+# Plan: 14 variants (variant arguments come first: FParse takes the first match) x (45 s + 95 s) + launches = about 30 min; whole pass capped at 50 min,
 #   every launch killed at its duration + 60 s.
 set -euo pipefail
 repo="$(pwd)"
@@ -72,7 +72,7 @@ start_s=$(date +%s)
 # One run: dir, seconds, args... ; leaves frames.csv, profile.csv, game.log
 run() {
   local dir="$1" secs="$2"; shift 2; mkdir -p "$dir"
-  limit $((secs + 60)) "$exe" -SkipTitle $base_args "$@" -csvGpuStats -csvCaptureFrames=$((secs * 60)) \
+  limit $((secs + 60)) "$exe" "$@" -SkipTitle $base_args -csvGpuStats -csvCaptureFrames=$((secs * 60)) \
     -FrameLogFile="$dir/frames.csv" -CsvCopyTo="$dir/profile.csv" -ExitAfter="$secs" -abslog="$dir/game.log" \
     > "$dir/stdout.log" 2>&1 < /dev/null || log "  $(basename "$dir"): exit $? (limit = killed)"
   pkill -f "GranTheftPraline-Mac" 2>/dev/null || true
