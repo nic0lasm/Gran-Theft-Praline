@@ -32,7 +32,7 @@
 # Everything it writes stays in the clone (Saved/details-slot-<stamp>/, Content, the map), apart
 # from the editor's own logs and caches: the editor scripts run in place through
 # Content/Python/gtp_run.py, with no temporary copy.
-#   SLOT_REF (default origin/feat/street-details-10), SLOT_MERGED (1), GTP_PLAY_ARGS,
+#   SLOT_REF (default origin/feat/street-details-10), SLOT_MERGED (1), SLOT_SKIP_PROFILE (0), GTP_PLAY_ARGS,
 #   PYTHON (venv for the city tools), UE_ROOT, GTP_CITY_ZONE, GTP_CITY_FOCUS,
 #   DRY_RUN=1, DRY_STEP_S, HEARTBEAT_S (default 600), PLAN_SCALE (multiplies the planned durations)
 # Output: Saved/details-slot-<stamp>/ (profile_*.json, play_glass.json, logs, heartbeat.log, REPORT.txt).
@@ -218,6 +218,7 @@ else
 fi
 
 total=$((5 + 12 + 6 + 17))
+if [ "${SLOT_SKIP_PROFILE:-0}" = "1" ]; then total=$((total - 18)); fi
 if [ "$merged" = "1" ]; then total=$((total + 14 + 6)); fi
 say "details slot, $( [ "$dry" = "1" ] && echo "DRY RUN" || echo "Mac" ), output $out; planned about $total min"
 
@@ -246,11 +247,13 @@ echo "slot commit: $(git rev-parse --short HEAD)" >> "$report"
 
 # --- the measures ----------------------------------------------------------------------------
 step "0 compile the editor for $(git rev-parse --short HEAD)" 5 "$out/compile.log" compile
+if [ "${SLOT_SKIP_PROFILE:-0}" != "1" ]; then   # SLOT_SKIP_PROFILE=1: steps 1-2 already measured
 GTP_CITY_DETAILS=1 GTP_SHOP_GLASS="${GTP_SHOP_GLASS:-opaque}" SKIP_PLAY=1 \
   step "1 regenerate with details, ${GTP_SHOP_GLASS:-opaque} glass" 12 "$out/regen_details.log" regen
 step "2 profile the dressing" 6 "$out/profile.log" profile
 cp "$saved/details_profile.json" "$out/profile_details.json"
 cp "$saved/details_report.json" "$out/" 2> /dev/null || true
+fi
 GTP_CITY_DETAILS=0 GTP_SHOP_GLASS="${GTP_SLOT_GLASS:-interior}" \
   step "3 regenerate without details, ${GTP_SLOT_GLASS:-interior} glass, street walk" 17 "$out/regen_glass.log" regen
 cp "$saved/play_report.json" "$out/play_glass.json"
