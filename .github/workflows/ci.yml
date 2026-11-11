@@ -116,3 +116,24 @@ jobs:
           python -I tools/audio/check_synths.py synth-out
       - name: Unreal import scripts compile
         run: python -m py_compile tools/audio/unreal/import_sounds.py tools/audio/unreal/report_gasp_foley.py tools/audio/import_ambience.py tools/audio/analyze_audio_run.py tools/audio/make_ambiences.py tools/audio/zone_map.py tools/audio/pick_sonniss.py tools/audio/make_voices_ui.py && bash -n tools/audio/mac_audio_pass.sh
+
+  interiors:
+    name: Reference interior rules and budget
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Till float, shift and multi-employee hold-up (C++, no Unreal)
+        run: |
+          g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/interiors/core_test/core_test.cpp -o /tmp/core_test
+          /tmp/core_test
+      - name: Layout generator tests
+        run: python -I -m unittest discover -s tools/interiors/tests
+      - name: Object budget of the reference interior, M1 and PC
+        run: |
+          python -I tools/interiors/interior_layout.py tools/interiors/fastfood_bellecour.json --tier m1
+          python -I tools/interiors/interior_layout.py tools/interiors/fastfood_bellecour.json --tier pc
