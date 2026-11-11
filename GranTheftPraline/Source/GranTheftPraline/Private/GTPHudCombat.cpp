@@ -11,7 +11,7 @@
 #include "Engine/Engine.h"
 #include "Engine/Font.h"
 #include "GameFramework/Pawn.h"
-#include "GameFramework/PlayerCameraManager.h"
+#include "Camera/PlayerCameraManager.h"
 #include "GameFramework/PlayerController.h"
 
 namespace
