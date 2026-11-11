@@ -495,7 +495,7 @@ Première mise en œuvre de l'option B de l'ADR-0010, préparée et essayée hor
 
 `tools/city/surfaces.json` liste les surfaces scannées de la rue : Megascans gratuits sur Fab, en 2K, hors Git. Il couvre les dalles de granit clair, la pierre de taille, l'enduit, la bordure, le zinc, l'ardoise et l'asphalte, puis les pavés, les trottoirs, les tuiles, les grilles et les décals.
 
-`tools/city/unreal/surfaces_mac.sh` enchaîne deux lancements sans écran :
+`python tools/city/surfaces_build.py [--ab]` (PC Windows ou Mac, sans bash ; `--ab` filme aussi la rue sans puis avec les surfaces dans `Saved/CityImport/surfaces_ab/`) ou `tools/city/unreal/surfaces_mac.sh` enchaîne deux lancements sans écran :
 1. `import_surfaces.py` trouve chaque surface dans le projet, par un dossier au nom de son id ou par son nom Megascans. Il la plafonne à 2K et écrit `Saved/CityImport/surfaces.json`.
 2. `apply_city_materials.py` reconstruit ensuite les matériaux de la ville. Ses crochets de `gtp_surfaces.py` posent les textures dans :
    - le sol, avec une couche par canal du masque, les marquages restant procéduraux ;

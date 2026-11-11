@@ -474,7 +474,7 @@ First implementation of ADR-0010 option B, prepared and tested off the Mac; not 
 
 `tools/city/surfaces.json` lists the scanned surfaces of the street: Megascans, free on Fab, 2K, kept out of Git. It covers light granite slabs, limestone ashlar, render, kerb, zinc, slate and asphalt, then setts, sidewalks, tiles, grates and decals.
 
-`tools/city/unreal/surfaces_mac.sh` runs two headless launches:
+`python tools/city/surfaces_build.py [--ab]` (Windows PC or Mac, no bash; `--ab` also shoots the street without then with the surfaces into `Saved/CityImport/surfaces_ab/`) or `tools/city/unreal/surfaces_mac.sh` runs two headless launches:
 1. `import_surfaces.py` finds each surface in the project, either by a folder named after its id or by its Megascans name. It caps the surface at 2K and writes `Saved/CityImport/surfaces.json`.
 2. `apply_city_materials.py` then rebuilds the city materials. Its hooks in `gtp_surfaces.py` layer the textures into:
    - the ground, one layer per mask channel, with markings staying procedural;
