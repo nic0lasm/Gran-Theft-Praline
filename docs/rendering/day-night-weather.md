@@ -110,6 +110,11 @@ redoes these computations outside Unreal and the tests check every state against
   ramped from +5° to −1° of sun (`NightCloudRampStart`, `NightCloudSunElevation`): same
   mean luminance, −10 ms p95 fixed and −12.6 ms on the night route. `-NightClouds=full` gives
   the 0.3 behaviour; `MODE=compare` of slot-night-mac.sh takes the before/after images.
+- **Car signals**: on the lit cars (`MaxLitCars`), brake lights (tail light × `BrakeLightBoost`),
+  reverse light and turn indicators (amber, 1.5 Hz) share one extra small light per car. The
+  drivers have no indicator stalk: a turn is read from the steering at town speed and held
+  1.2 s (`GTPCarSignalLogic.h`, tested outside Unreal by `tools/environment/car_signals_test.cpp`).
+  Inputs come from the Chaos movement component by reflection. `-CarSignals=0` switches off.
 - **Status file**: at start (and on `gtp.EnvStatus`) the system writes
   `Saved/Environment/status.txt` (or `-EnvReport=<path>`): profile, sky switches, light
   function `loaded`/`missing`/`off`, its values and `Describe()`. Shipping writes no log.

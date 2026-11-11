@@ -666,6 +666,11 @@ void UGTPEnvironmentSubsystem::ApplyBudgetForProfile(UWorld& World)
 	{
 		Budget.MaxDistance = DistanceFlag;
 	}
+	IntFlag = -1;
+	if (FParse::Value(FCommandLine::Get(), TEXT("CarSignals="), IntFlag) && IntFlag >= 0)
+	{
+		bCarSignals = IntFlag != 0;
+	}
 	int32 CloudShadowsFlag = -1;
 	if (FParse::Value(FCommandLine::Get(), TEXT("CloudShadows="), CloudShadowsFlag) && CloudShadowsFlag >= 0)
 	{
@@ -944,7 +949,7 @@ void UGTPEnvironmentSubsystem::WriteStatusFile() const
 	const FGTPWeatherPreset Weather = BlendedWeather();
 	FString Text = FString::Printf(TEXT("daynight=on\nprofile=%s\nvolumetric_clouds=%d\ncloud_dome=%d\ncloud_dome_when_overcast=%d\n")
 		TEXT("cloud_shadow_map=%d\ncloud_shadow_light_function=%s\nlf_mean=%.3f\nlf_strength=%.3f\nlf_coverage=%.3f\nlf_contrast=%.2f\n")
-		TEXT("cvar_mean=%.3f\ncvar_strength=%.3f\ncvar_coverage=%.3f\nnight_budget=%d lights, %d shadowed, %.0f cm, %d lit cars\nnight_clouds=%s, samples x%.2f below %.1f deg (ramp from %.1f deg)\ncloud_mode_applied=%s\ncloud_dome_component=%s\nstatus=%s\n"),
+		TEXT("cvar_mean=%.3f\ncvar_strength=%.3f\ncvar_coverage=%.3f\nnight_budget=%d lights, %d shadowed, %.0f cm, %d lit cars\nnight_clouds=%s, samples x%.2f below %.1f deg (ramp from %.1f deg)\ncloud_mode_applied=%s\ncloud_dome_component=%s\ncar_signals=%d\nstatus=%s\n"),
 		*Budget.Profile, Budget.bVolumetricClouds ? 1 : 0, Budget.bCloudDome ? 1 : 0, Budget.bCloudDomeWhenOvercast ? 1 : 0,
 		Budget.bCloudShadows ? 1 : 0, *CloudShadowState, Weather.CloudShadowMean, Weather.CloudShadowStrength,
 		Weather.CloudShadowCoverage, CVarCloudShadowContrast.GetValueOnGameThread(),
@@ -953,7 +958,8 @@ void UGTPEnvironmentSubsystem::WriteStatusFile() const
 		Budget.MaxDistance, Budget.MaxLitCars, Budget.bCloudDomeAtNight ? TEXT("dome") : TEXT("volumetric"),
 		Budget.NightCloudSampleScale, Budget.NightCloudSunElevation, Budget.NightCloudRampStart,
 		AppliedCloudMode == 2 ? TEXT("dome") : (AppliedCloudMode == 1 ? TEXT("volumetric") : (AppliedCloudMode == 0 ? TEXT("none") : TEXT("not yet"))),
-		CloudDome ? TEXT("yes") : TEXT("no (dome assets missing: run setup-environment-mac.sh before packaging)"), *Describe());
+		CloudDome ? TEXT("yes") : TEXT("no (dome assets missing: run setup-environment-mac.sh before packaging)"),
+		bCarSignals ? 1 : 0, *Describe());
 	if (!FFileHelper::SaveStringToFile(Text, *Path))
 	{
 		GTP_TRACE(LogGTPEnvironment, TEXT("daynight: cannot write %s"), *Path);
@@ -994,6 +1000,8 @@ void UGTPEnvironmentSubsystem::Tick(float DeltaTime)
 		}
 		UpdateNightLights();
 	}
+
+	UpdateCarSignals();
 
 	if (StatusRewriteTimer > 0.f)
 	{
@@ -1331,6 +1339,132 @@ void UGTPEnvironmentSubsystem::FindNewCars()
 		Tail->SetRelativeLocation(FVector(Box.Min.X - 10.f, Centre.Y, LampZ + 0.1f * Extent.Z));
 		Tail->RegisterComponent();
 		Entry.Lights.Add(Tail);
+		Entry.Tail = Tail;
+		Entry.RearCentre = FVector(Box.Min.X - 10.f, Centre.Y, LampZ + 0.1f * Extent.Z);
+		Entry.RearLeft = FVector(Box.Min.X - 8.f, Centre.Y - 0.8f * Extent.Y, LampZ + 0.1f * Extent.Z);
+
+		if (bCarSignals)
+		{
+			// One small light per car for the indicator (moved to the turning side) or the reverse light.
+			UPointLightComponent* Signal = NewObject<UPointLightComponent>(Car);
+			Signal->SetMobility(EComponentMobility::Movable);
+			Signal->IntensityUnits = ELightUnits::Candelas;
+			Signal->Intensity = SignalCandela;
+			Signal->AttenuationRadius = SignalRadius;
+			Signal->CastShadows = false;
+			Signal->SetVisibility(false);
+			Signal->SetupAttachment(Body);
+			Signal->SetRelativeLocation(Entry.RearCentre);
+			Signal->RegisterComponent();
+			Entry.Signal = Signal;
+			// Driving inputs come from the Chaos movement component, read by reflection below.
+			for (UActorComponent* Component : Car->GetComponents())
+			{
+				if (Component && Component->GetClass()->GetName().Contains(TEXT("VehicleMovement")))
+				{
+					Entry.Movement = Component;
+					break;
+				}
+			}
+		}
+	}
+}
+
+namespace
+{
+	/** First float property found among the names (Chaos renamed its inputs across versions). */
+	float ReadFloatProperty(const UObject* Object, std::initializer_list<const TCHAR*> Names, float Default)
+	{
+		if (!Object)
+		{
+			return Default;
+		}
+		for (const TCHAR* Name : Names)
+		{
+			if (const FFloatProperty* Prop = FindFProperty<FFloatProperty>(Object->GetClass(), Name))
+			{
+				return Prop->GetPropertyValue_InContainer(Object);
+			}
+		}
+		return Default;
+	}
+
+	bool ReadBoolProperty(const UObject* Object, std::initializer_list<const TCHAR*> Names)
+	{
+		if (!Object)
+		{
+			return false;
+		}
+		for (const TCHAR* Name : Names)
+		{
+			if (const FBoolProperty* Prop = FindFProperty<FBoolProperty>(Object->GetClass(), Name))
+			{
+				return Prop->GetPropertyValue_InContainer(Object);
+			}
+		}
+		return false;
+	}
+}
+
+void UGTPEnvironmentSubsystem::UpdateCarSignals()
+{
+	if (!bCarSignals)
+	{
+		return;
+	}
+	const UWorld* World = GetWorld();
+	const double Now = World ? World->GetTimeSeconds() : 0.0;
+	for (FCarLights& Entry : CarLights)
+	{
+		ULocalLightComponent* Tail = Entry.Tail.Get();
+		ULocalLightComponent* Signal = Entry.Signal.Get();
+		const AGTPVehicle* Car = Cast<AGTPVehicle>(Entry.Car.Get());
+		if (!Car || !Tail || !Signal)
+		{
+			continue;
+		}
+		FGTPCarSignalOutput Out;
+		if (Entry.bOn)
+		{
+			const UObject* Movement = Entry.Movement.Get();
+			FGTPCarSignalInput In;
+			In.Brake = ReadFloatProperty(Movement, { TEXT("BrakeInput"), TEXT("RawBrakeInput") }, 0.f);
+			In.bHandbrake = ReadBoolProperty(Movement, { TEXT("bRawHandbrakeInput") })
+				|| ReadFloatProperty(Movement, { TEXT("HandbrakeInput") }, 0.f) > 0.5f;
+			In.Steering = ReadFloatProperty(Movement, { TEXT("SteeringInput"), TEXT("RawSteeringInput") }, 0.f);
+			In.Gear = Car->GetGear();
+			In.SpeedCmS = static_cast<float>(Car->GetVelocity().Size());
+			In.TimeSeconds = Now;
+			Out = GTPCarSignals::Evaluate(In, Entry.SignalState);
+		}
+		if (Out.bBrake != Entry.bBrakeShown)
+		{
+			Entry.bBrakeShown = Out.bBrake;
+			Tail->SetIntensity(TailLightCandela * (Out.bBrake ? BrakeLightBoost : 1.f));
+		}
+		const int32 Shown = Out.bReverse ? 1 : (Out.bIndicatorLit ? 2 : 0);
+		if (Shown == 2 && Out.IndicatorSide != Entry.SignalSide)
+		{
+			Entry.SignalSide = Out.IndicatorSide;
+			FVector Corner = Entry.RearLeft;
+			Corner.Y = Entry.RearCentre.Y + (Entry.RearLeft.Y - Entry.RearCentre.Y) * (Out.IndicatorSide < 0 ? 1.f : -1.f);
+			Signal->SetRelativeLocation(Corner);
+		}
+		if (Shown != Entry.SignalShown)
+		{
+			if (Shown == 1)
+			{
+				Signal->SetRelativeLocation(Entry.RearCentre);
+				Signal->SetLightColor(FLinearColor(1.f, 1.f, 0.95f));
+				Entry.SignalSide = 0;
+			}
+			else if (Shown == 2)
+			{
+				Signal->SetLightColor(FLinearColor(1.f, 0.42f, 0.02f));
+			}
+			Signal->SetVisibility(Shown != 0);
+			Entry.SignalShown = Shown;
+		}
 	}
 }
 
