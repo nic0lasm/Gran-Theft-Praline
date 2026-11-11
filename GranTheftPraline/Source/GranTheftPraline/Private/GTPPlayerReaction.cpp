@@ -8,6 +8,7 @@
 #include "Engine/World.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "GTPHealth.h"
 #include "GTPRagdoll.h"
 #include "GTPVehicle.h"
 #include "TimerManager.h"
@@ -87,12 +88,11 @@ void UGTPPlayerReactionComponent::OnLandedDynamic(const FHitResult& Hit)
 	}
 	if (R.Kind == GTPImpact::ELanding::Ragdoll)
 	{
-		ApplyHit(GTPImpact::ESeverity::Knock, FVector::ZeroVector, R.Damage, 0.f);
+		ApplyHit(GTPImpact::ESeverity::Knock, FVector::ZeroVector, R.Damage, 0.f, true);
 	}
 	else
 	{
-		Health = FMath::Max(0.f, Health - R.Damage);
-		OnHurt.Broadcast(R.Damage, Health);
+		TakeDamage(R.Damage, EGTPDamageCause::Fall);
 		Stumble();
 	}
 }
@@ -170,10 +170,33 @@ void UGTPPlayerReactionComponent::CheckCars()
 	}
 }
 
-void UGTPPlayerReactionComponent::ApplyHit(GTPImpact::ESeverity Severity, const FVector& Launch, float Damage, float Spin)
+float UGTPPlayerReactionComponent::GetHealth() const
 {
+	const UGTPHealthComponent* Shared = UGTPHealthComponent::Find(GetOwner());
+	return Shared ? Shared->GetHealth() : Health;
+}
+
+void UGTPPlayerReactionComponent::TakeDamage(float Damage, EGTPDamageCause Cause)
+{
+	// One health per body: when the combat health component exists it is the truth
+	// (cars and falls ignore armour); otherwise the local 0..100 value stands in.
+	if (UGTPHealthComponent* Shared = UGTPHealthComponent::Find(GetOwner()))
+	{
+		const FGTPDamageOutcome Outcome = Shared->ApplyDamage(Damage, Cause, nullptr, true);
+		Health = Outcome.HealthAfter;
+		if (!Outcome.bIgnored)
+		{
+			OnHurt.Broadcast(Outcome.HealthLost, Health);
+		}
+		return;
+	}
 	Health = FMath::Max(0.f, Health - Damage);
 	OnHurt.Broadcast(Damage, Health);
+}
+
+void UGTPPlayerReactionComponent::ApplyHit(GTPImpact::ESeverity Severity, const FVector& Launch, float Damage, float Spin, bool bFromFall)
+{
+	TakeDamage(Damage, bFromFall ? EGTPDamageCause::Fall : EGTPDamageCause::Vehicle);
 	if (Severity == GTPImpact::ESeverity::Bump)
 	{
 		Stumble();

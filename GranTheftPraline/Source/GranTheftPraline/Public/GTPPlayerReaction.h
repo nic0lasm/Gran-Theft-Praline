@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "GTPHealth.h"
 #include "GTPImpactLogic.h"
 #include "GTPPlayerReaction.generated.h"
 
@@ -37,7 +38,7 @@ public:
 	void ReactToBailOut(FVector VehicleVelocity);
 
 	UFUNCTION(BlueprintPure, Category = "Reaction")
-	float GetHealth() const { return Health; }
+	float GetHealth() const;
 
 	/** Back to full health (respawn, tests). */
 	UFUNCTION(BlueprintCallable, Category = "Reaction")
@@ -73,7 +74,9 @@ private:
 	void CheckCars();
 	UFUNCTION()
 	void OnLandedDynamic(const FHitResult& Hit);
-	void ApplyHit(GTPImpact::ESeverity Severity, const FVector& Launch, float Damage, float Spin);
+	/** Pays the damage to the shared health component when there is one, else to the local value. */
+	void TakeDamage(float Damage, EGTPDamageCause Cause);
+	void ApplyHit(GTPImpact::ESeverity Severity, const FVector& Launch, float Damage, float Spin, bool bFromFall = false);
 	void Stumble();
 	void EndStumble();
 	UGTPRagdollComponent* GetRagdoll();
