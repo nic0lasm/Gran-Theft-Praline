@@ -25,7 +25,7 @@ map="/Game/Maps/L_City_$(echo "$focus" | awk -F- '{for(i=1;i<=NF;i++) printf "%s
 t0=$(date +%s)
 step() { echo "== $(( $(date +%s) - t0 )) s: $*"; }
 
-if pgrep -f "UnrealEditor |UnrealEditor$|GranTheftPraline.app" > /dev/null; then
+if ps -axo pid=,command= | grep -E "UnrealEditor |UnrealEditor$|GranTheftPraline.app" | grep -vE "CrashReportClient|UnrealEditorServices|grep -E" > /dev/null; then
   echo "an Unreal editor or the game is running: one at a time" >&2
   exit 1
 fi
