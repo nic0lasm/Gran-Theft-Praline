@@ -47,21 +47,21 @@ void AGTPLiteDriver::BeginPlay()
 	{
 		Path = FSoftObjectPath(MeshOverride);
 	}
-	USkeletalMesh* Mesh = Path.IsValid() ? Cast<USkeletalMesh>(Path.TryLoad()) : nullptr;
-	if (!Mesh)
+	USkeletalMesh* DriverMesh = Path.IsValid() ? Cast<USkeletalMesh>(Path.TryLoad()) : nullptr;
+	if (!DriverMesh)
 	{
 		// The player's own mesh: already loaded, so no synchronous load at spawn.
 		if (const ACharacter* Player = Cast<ACharacter>(UGameplayStatics::GetPlayerPawn(this, 0)))
 		{
 			if (Player->GetMesh())
 			{
-				Mesh = Player->GetMesh()->GetSkeletalMeshAsset();
+				DriverMesh = Player->GetMesh()->GetSkeletalMeshAsset();
 			}
 		}
 	}
-	if (Mesh)
+	if (DriverMesh)
 	{
-		Body->SetSkeletalMesh(Mesh);
+		Body->SetSkeletalMesh(DriverMesh);
 	}
 	FString AnimOverride;
 	FSoftObjectPath AnimPath = SeatedAnimation;
