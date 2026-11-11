@@ -189,3 +189,28 @@ metres:
 - Since the next candidate, the defaults are 16 driven cars and 24 far cars,
   with tiers, ghosts and the pool on and parked cars off.
   `-Traffic=0` also turns the far cars off.
+
+## 8. Draw levers per driven car (switches, not measured yet)
+
+Past about 16 driven cars, p95 goes over 33 ms on the M1, and the GPU is the
+limit. These levers cut what each driven car draws. All of them are off by
+default, so the game is unchanged without a switch. Distances are in metres,
+and a negative value means never.
+
+- `-CarDriverDraw=M`: the AI driver's body is hidden past M.
+- `-CarLightDistance=M`: the car's lights are off past M. Far cars have none.
+- `-CarRenderStatic=M`: the body is drawn static past M. There is no skinning
+  and no velocity pass, and the wheels stop turning there. Far cars are static
+  too while it is on.
+- `-CarNearLOD=N`: LOD N under the full-detail distance, instead of LOD 0.
+- `-CarShadows=0`: no car casts a shadow, even when near.
+- One command on an existing build:
+  `caffeinate -dimsu tools/perf/car-draw-bench-mac.sh <build_dir>`. It runs
+  11 cases of 75 s with a fixed camera and 24 far cars, in about 26 minutes:
+  - base and cheap (all levers but shadows) at 16, 20 and 24 driven cars;
+  - each lever alone at 24.
+
+  It has the same time guard, screen-lock test, heartbeat and `DRY_RUN=1` as
+  the sweep.
+- A lever goes into the defaults only if p95 at 20 or 24 driven cars stays
+  under 33 ms with no frame over 100 ms.

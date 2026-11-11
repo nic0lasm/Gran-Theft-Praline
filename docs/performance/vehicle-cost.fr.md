@@ -214,3 +214,33 @@ se règlent maintenant en ligne de commande, en mètres :
   conduites et 24 lointaines. Les niveaux de détail, les fantômes et la
   réserve sont activés, les voitures garées restent coupées. `-Traffic=0`
   coupe aussi les voitures lointaines.
+
+## 8. Leviers de dessin par voiture conduite (interrupteurs, pas encore mesurés)
+
+Au-delà d'environ 16 voitures conduites, le p95 dépasse 33 ms sur le M1, et
+c'est le GPU qui limite. Ces leviers réduisent ce que dessine chaque voiture
+conduite. Tous sont coupés par défaut, donc le jeu ne change pas sans
+interrupteur. Les distances sont en mètres, et une valeur négative veut dire
+jamais.
+
+- `-CarDriverDraw=M` : le corps du conducteur IA est caché au-delà de M.
+- `-CarLightDistance=M` : les feux de la voiture sont éteints au-delà de M.
+  Les voitures lointaines n'en ont pas.
+- `-CarRenderStatic=M` : la carrosserie est dessinée en statique au-delà de M.
+  Il n'y a plus de skinning ni de passe de vitesse, et les roues ne tournent
+  plus à cette distance. Les voitures lointaines sont aussi statiques quand
+  le levier est actif.
+- `-CarNearLOD=N` : LOD N sous la distance de plein détail, au lieu du LOD 0.
+- `-CarShadows=0` : aucune voiture ne projette d'ombre, même de près.
+- Une commande sur un build existant :
+  `caffeinate -dimsu tools/perf/car-draw-bench-mac.sh <build_dir>`. Elle lance
+  11 cas de 75 s avec une caméra fixe et 24 voitures lointaines, en
+  26 minutes environ :
+  - base et « cheap » (tous les leviers sauf les ombres) à 16, 20 et
+    24 voitures conduites ;
+  - chaque levier seul à 24.
+
+  Elle a le même garde-temps, le même test d'écran verrouillé, le même signe
+  de vie et le même `DRY_RUN=1` que le balayage.
+- Un levier n'entre dans les défauts que si le p95 à 20 ou 24 voitures
+  conduites reste sous 33 ms, sans aucune image au-delà de 100 ms.

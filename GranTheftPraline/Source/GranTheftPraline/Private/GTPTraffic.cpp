@@ -579,6 +579,24 @@ void AGTPTrafficNetwork::MakeCheap(AGTPVehicle* Car, ACharacter* Driver) const
 	}
 }
 
+void AGTPTrafficNetwork::SetCarRenderStatic(USkeletalMeshComponent* Body, bool bStatic)
+{
+	static const FName StaticTag(TEXT("GTPRenderStatic"));
+	if (Body == nullptr || Body->ComponentHasTag(StaticTag) == bStatic)
+	{
+		return;
+	}
+	if (bStatic)
+	{
+		Body->ComponentTags.AddUnique(StaticTag);
+	}
+	else
+	{
+		Body->ComponentTags.Remove(StaticTag);
+	}
+	Body->SetRenderStatic(bStatic);
+}
+
 void AGTPTrafficNetwork::UpdateDetail(AGTPVehicle* Car, float DistanceToView) const
 {
 	USkeletalMeshComponent* Body = Car ? Car->GetMesh() : nullptr;
@@ -587,11 +605,13 @@ void AGTPTrafficNetwork::UpdateDetail(AGTPVehicle* Car, float DistanceToView) co
 		return;
 	}
 	const bool bNear = DistanceToView < DetailDistance;
-	if (static_cast<bool>(Body->CastShadow) != bNear)
+	const bool bShadow = bNear && bCarShadows;
+	if (static_cast<bool>(Body->CastShadow) != bShadow)
 	{
-		Body->SetCastShadow(bNear);
+		Body->SetCastShadow(bShadow);
 	}
-	const int32 Forced = bNear ? 0 : FMath::Clamp(FarLOD + 1, 0, Body->GetNumLODs());
+	const int32 Forced = bNear ? (NearLOD > 0 ? FMath::Clamp(NearLOD + 1, 0, Body->GetNumLODs()) : 0)
+		: FMath::Clamp(FarLOD + 1, 0, Body->GetNumLODs());
 	if (Body->GetForcedLOD() != Forced)
 	{
 		Body->SetForcedLOD(Forced);
@@ -600,6 +620,40 @@ void AGTPTrafficNetwork::UpdateDetail(AGTPVehicle* Car, float DistanceToView) co
 	if (Body->IsVisible() != bDrawn)
 	{
 		Body->SetVisibility(bDrawn, true);
+	}
+	// Draw cost levers (section 8), all off by default. Hidden-in-game flags, so they do not
+	// fight the visibility above, which propagates to the attached parts.
+	if (DriverDrawDistance >= 0.f && Car->HasAIDriver())
+	{
+		if (ACharacter* AtTheWheel = Car->GetDriver())
+		{
+			if (USkeletalMeshComponent* Person = AtTheWheel->GetMesh())
+			{
+				const bool bHide = DistanceToView > DriverDrawDistance;
+				if (static_cast<bool>(Person->bHiddenInGame) != bHide)
+				{
+					Person->SetHiddenInGame(bHide);
+				}
+			}
+		}
+	}
+	if (LightDistance >= 0.f)
+	{
+		const bool bLit = DistanceToView <= LightDistance;
+		TArray<ULightComponent*> CarLights;
+		Car->GetComponents<ULightComponent>(CarLights);
+		for (ULightComponent* Light : CarLights)
+		{
+			if (Light->IsVisible() != bLit)
+			{
+				Light->SetVisibility(bLit, false);
+			}
+		}
+	}
+	if (StaticRenderDistance >= 0.f)
+	{
+		const bool bStatic = DistanceToView > StaticRenderDistance;
+		SetCarRenderStatic(Body, bStatic);
 	}
 	if (bVehicleLod)
 	{
@@ -721,6 +775,25 @@ void AGTPTrafficNetwork::BeginPlay()
 		DetailDistance = LodNearMetres * 100.f;
 	}
 	FParse::Value(FCommandLine::Get(), TEXT("FarLOD="), FarLOD);
+	float CarMetres = 0.f;
+	if (FParse::Value(FCommandLine::Get(), TEXT("CarDriverDraw="), CarMetres))
+	{
+		DriverDrawDistance = CarMetres < 0.f ? -1.f : CarMetres * 100.f;
+	}
+	if (FParse::Value(FCommandLine::Get(), TEXT("CarLightDistance="), CarMetres))
+	{
+		LightDistance = CarMetres < 0.f ? -1.f : CarMetres * 100.f;
+	}
+	if (FParse::Value(FCommandLine::Get(), TEXT("CarRenderStatic="), CarMetres))
+	{
+		StaticRenderDistance = CarMetres < 0.f ? -1.f : CarMetres * 100.f;
+	}
+	FParse::Value(FCommandLine::Get(), TEXT("CarNearLOD="), NearLOD);
+	int32 CarShadowsSwitch = bCarShadows ? 1 : 0;
+	FParse::Value(FCommandLine::Get(), TEXT("CarShadows="), CarShadowsSwitch);
+	bCarShadows = CarShadowsSwitch != 0;
+	GTP_TRACE(LogGTPTraffic, TEXT("traffic: draw levers driver %.0f m, lights %.0f m, static %.0f m, near LOD %d, shadows %s (negative = off)"),
+		DriverDrawDistance / 100.f, LightDistance / 100.f, StaticRenderDistance / 100.f, NearLOD, bCarShadows ? TEXT("on") : TEXT("off"));
 	GTP_TRACE(LogGTPTraffic, TEXT("traffic: full detail under %.0f m, LOD %d beyond"), DetailDistance / 100.f, FarLOD);
 	GTP_TRACE(LogGTPTraffic, TEXT("traffic: ghost mode %s (past %.0f m, awake inside %.0f m)"),
 		bVehicleGhost ? TEXT("on") : TEXT("off"), GhostDistance / 100.f, GhostWakeDistance / 100.f);
