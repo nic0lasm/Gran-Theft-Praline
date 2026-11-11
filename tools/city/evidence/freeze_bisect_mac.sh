@@ -32,7 +32,7 @@ dry="${DRY_RUN:-0}"
 mkdir -p "$out"
 build_only="${BUILD_ONLY:-0}"
 skip_build="${SKIP_BUILD:-0}"
-report="$out/FREEZE$(test "$skip_build" = 1 && echo -bench).md"
+report="$out/FREEZE$(test "$skip_build" = 1 && echo -bench || true).md"
 paris() { TZ=Europe/Paris date +%H:%M; }
 t0=$(date +%s)
 screen_locked() {
@@ -93,6 +93,7 @@ step() {  # step <name> <expected_s> <log> <command...>
   if test "$dry" = 1; then   # minutes become seconds, so the guard is tried in a few seconds
     expected=$(( expected / 60 > 2 ? expected / 60 : 2 ))
     if test "${DRY_SLOW:-}" = "$name"; then set -- sleep $(( expected * 3 ))
+    elif test "$skip_build" = 1; then set -- true
     else set -- sh -c 'mkdir -p "$1/Content/Maps" && echo dry > "$1/Content/Maps/L_City_RueDeLaRepublique.umap"' sh "$proj"; fi
   fi
   echo "== $(paris) $name (expected $(( expected / 60 )) min, stopped at $(( 2 * expected / 60 )) min)"

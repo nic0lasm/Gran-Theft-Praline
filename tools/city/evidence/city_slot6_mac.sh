@@ -56,7 +56,7 @@ BUILDS_DIR="$root/Builds/city slot6 dry" DRY_RUN=1 "$root/tools/city/evidence/fr
   > "$root/Builds/city-slot6-dry.log" 2>&1
 dry_ok="restore: map and city content identical"
 test "${SKIP_BUILD:-0}" = 1 && dry_ok="launch D: exit 0"
-grep -q "$dry_ok" "$root/Builds/city slot6 dry/FREEZE$(test "${SKIP_BUILD:-0}" = 1 && echo -bench).md" || {
+grep -q "$dry_ok" "$root/Builds/city slot6 dry/FREEZE$(test "${SKIP_BUILD:-0}" = 1 && echo -bench || true).md" || {
   echo "dry run failed, see Builds/city-slot6-dry.log" >&2; exit 1; }
 echo "== $(paris) dry run OK"
 test "${DRY_ONLY:-0}" = "1" && exit 0
