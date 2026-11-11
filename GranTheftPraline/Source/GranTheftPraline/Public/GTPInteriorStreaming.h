@@ -25,6 +25,8 @@ class ULevelStreamingDynamic;
  *   -Interiors=1              turns streaming on (0 or absent: anchors are ignored)
  *   -InteriorPreload=<m>      preload radius (default 40), -InteriorUnload=<m> (default 70)
  *   -InteriorDensity=0..3     object density (default 2 on m1, 3 otherwise)
+ *   -InteriorStart=1          tests: interiors stay loaded and the player starts in the queue facing
+ *                             the first till; -InteriorStartLeaveAfter=S takes them outside after S s
  * Log lines "InteriorStreaming: load|visible|unload <level> t=<s>" let the bench line up a hitch.
  */
 UCLASS(Config = Game)
@@ -96,4 +98,9 @@ private:
 	bool bEnabled = false;
 	float SinceUpdate = 0.f;
 	FString PlayerInteriorId;
+	/** Test start (-InteriorStart=1): seconds before the player is taken back outside, < 0 when off. */
+	float LeaveIn = -1.f;
+	bool bStartDone = false;
+	FTransform StartAnchor;
+	void PlaceAtCounter(const FInterior& Interior);
 };
