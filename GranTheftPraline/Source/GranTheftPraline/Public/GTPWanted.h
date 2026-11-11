@@ -14,6 +14,12 @@ class AGTPVehicle;
 class AGTPTrafficNetwork;
 class UPointLightComponent;
 
+/** Fired when the player is arrested (after the level was cleared). */
+DECLARE_MULTICAST_DELEGATE(FGTPArrestedDelegate);
+
+/** Fired when the stars or the phase change (Clear, Pursuit, Searching). */
+DECLARE_MULTICAST_DELEGATE_TwoParams(FGTPWantedChangedDelegate, int32 /*Stars*/, EGTPWantedPhase /*Phase*/);
+
 /** Tag put on every police car, so the player's collisions and the HUD can tell them from traffic. */
 namespace GTPPolice
 {
@@ -77,6 +83,13 @@ public:
 	bool IsSeenNow() const { return bSeenNow; }
 	EGTPWantedPhase GetPhase() const { return State.GetPhase(); }
 
+	/** Raises the level to at least Stars (1 to 5) with no crime attached; never lowers it. For missions. */
+	void EnsureMinStars(int32 Stars);
+
+	/** Native events for missions and UI; unbind when done. */
+	FGTPArrestedDelegate OnArrested;
+	FGTPWantedChangedDelegate OnWantedChanged;
+
 	/** Sets the level directly (command line, tests). */
 	void ForceStars(int32 Stars);
 
@@ -114,6 +127,7 @@ public:
 private:
 	bool CanSeePlayer(const AGTPVehicle* Car, const FVector& PlayerLocation) const;
 	void OnBusted();
+	void NotifyIfChanged();
 	void EndBusted();
 
 	FGTPWantedState State;
@@ -124,6 +138,8 @@ private:
 	bool bHoldLevel = false;
 	float NextTraceTime = 0.f;
 	bool bSeenNow = false;
+	int32 LastNotifiedStars = 0;
+	int32 LastNotifiedPhase = 0;
 	bool bPoliceAvailable = false;
 	float BustedBannerLeft = 0.f;
 	FTimerHandle BustedTimer;
