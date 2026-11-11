@@ -78,6 +78,8 @@ struct FHitInfo
 	EZone Zone = EZone::Torso;
 	/** A melee blow pushes harder than its damage says. */
 	bool bMelee = false;
+	/** A blow that must put the body on the ground whatever its damage (a finisher, a heavy punch). */
+	bool bHeavy = false;
 };
 
 struct FReaction
@@ -171,11 +173,11 @@ inline FReaction Evaluate(const FHitInfo& Hit, FState& State, double Now, const 
 		State.LastReaction = Now;
 		return R;
 	}
-	if (Share < S.FlinchShare)
+	if (Share < S.FlinchShare && !Hit.bHeavy)
 	{
 		return R;
 	}
-	EReaction Kind = Share >= S.KnockdownShare ? EReaction::Knockdown : (Share >= S.StaggerShare ? EReaction::Stagger : EReaction::Flinch);
+	EReaction Kind = (Hit.bHeavy || Share >= S.KnockdownShare) ? EReaction::Knockdown : (Share >= S.StaggerShare ? EReaction::Stagger : EReaction::Flinch);
 
 	// Cooldown: a knockdown always goes through, the rest wait (and do not count in the chain).
 	if (Kind != EReaction::Knockdown && Now - State.LastReaction < S.CooldownSeconds)
