@@ -8,6 +8,7 @@
 #include "GTPFarTraffic.h"
 #include "GTPKerbSpot.h"
 #include "GTPTrafficFar.h"
+#include "GTPLiteDriver.h"
 #include "Misc/ScopeExit.h"
 #include "CoreGlobals.h"
 #include "ChaosWheeledVehicleMovementComponent.h"
@@ -861,6 +862,13 @@ void AGTPTrafficNetwork::BeginPlay()
 		}
 	}
 	LoadedDriverClass = DriverClass.TryLoadClass<ACharacter>();
+	int32 LiteClassSwitch = 0;
+	FParse::Value(FCommandLine::Get(), TEXT("LiteDriverClass="), LiteClassSwitch);
+	if (LiteClassSwitch != 0)
+	{
+		// Camera-less occupant (no camera host created at spawn), for traffic and far puppets.
+		LoadedDriverClass = AGTPLiteDriver::StaticClass();
+	}
 	if (!LoadedDriverClass)
 	{
 		AGameModeBase* Mode = GetWorld()->GetAuthGameMode();
