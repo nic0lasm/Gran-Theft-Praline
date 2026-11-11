@@ -592,6 +592,27 @@ void UGTPEnvironmentSubsystem::ApplyBudgetForProfile(UWorld& World)
 	{
 		Budget.bCloudShadowLightFunction = LightFunctionFlag != 0;
 	}
+	// Night light budget overrides for measurements (-NightLights=0 switches them all off).
+	int32 IntFlag = -1;
+	if (FParse::Value(FCommandLine::Get(), TEXT("NightLights="), IntFlag) && IntFlag >= 0)
+	{
+		Budget.MaxLights = IntFlag;
+	}
+	IntFlag = -1;
+	if (FParse::Value(FCommandLine::Get(), TEXT("NightShadows="), IntFlag) && IntFlag >= 0)
+	{
+		Budget.MaxShadowedLights = IntFlag;
+	}
+	IntFlag = -1;
+	if (FParse::Value(FCommandLine::Get(), TEXT("LitCars="), IntFlag) && IntFlag >= 0)
+	{
+		Budget.MaxLitCars = IntFlag;
+	}
+	float DistanceFlag = -1.f;
+	if (FParse::Value(FCommandLine::Get(), TEXT("NightDistance="), DistanceFlag) && DistanceFlag > 0.f)
+	{
+		Budget.MaxDistance = DistanceFlag;
+	}
 	int32 CloudShadowsFlag = -1;
 	if (FParse::Value(FCommandLine::Get(), TEXT("CloudShadows="), CloudShadowsFlag) && CloudShadowsFlag >= 0)
 	{
@@ -859,12 +880,13 @@ void UGTPEnvironmentSubsystem::WriteStatusFile() const
 	const FGTPWeatherPreset Weather = BlendedWeather();
 	FString Text = FString::Printf(TEXT("daynight=on\nprofile=%s\nvolumetric_clouds=%d\ncloud_dome=%d\ncloud_dome_when_overcast=%d\n")
 		TEXT("cloud_shadow_map=%d\ncloud_shadow_light_function=%s\nlf_mean=%.3f\nlf_strength=%.3f\nlf_coverage=%.3f\nlf_contrast=%.2f\n")
-		TEXT("cvar_mean=%.3f\ncvar_strength=%.3f\ncvar_coverage=%.3f\nstatus=%s\n"),
+		TEXT("cvar_mean=%.3f\ncvar_strength=%.3f\ncvar_coverage=%.3f\nnight_budget=%d lights, %d shadowed, %.0f cm, %d lit cars\nstatus=%s\n"),
 		*Budget.Profile, Budget.bVolumetricClouds ? 1 : 0, Budget.bCloudDome ? 1 : 0, Budget.bCloudDomeWhenOvercast ? 1 : 0,
 		Budget.bCloudShadows ? 1 : 0, *CloudShadowState, Weather.CloudShadowMean, Weather.CloudShadowStrength,
 		Weather.CloudShadowCoverage, CVarCloudShadowContrast.GetValueOnGameThread(),
 		CVarCloudShadowMean.GetValueOnGameThread(), CVarCloudShadowStrength.GetValueOnGameThread(),
-		CVarCloudShadowCoverage.GetValueOnGameThread(), *Describe());
+		CVarCloudShadowCoverage.GetValueOnGameThread(), Budget.MaxLights, Budget.MaxShadowedLights,
+		Budget.MaxDistance, Budget.MaxLitCars, *Describe());
 	if (!FFileHelper::SaveStringToFile(Text, *Path))
 	{
 		GTP_TRACE(LogGTPEnvironment, TEXT("daynight: cannot write %s"), *Path);
@@ -904,6 +926,15 @@ void UGTPEnvironmentSubsystem::Tick(float DeltaTime)
 			FindNewCars();
 		}
 		UpdateNightLights();
+	}
+
+	if (StatusRewriteTimer > 0.f)
+	{
+		StatusRewriteTimer -= DeltaTime;
+		if (StatusRewriteTimer <= 0.f)
+		{
+			WriteStatusFile();
+		}
 	}
 }
 

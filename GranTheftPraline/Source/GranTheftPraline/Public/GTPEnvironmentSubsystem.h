@@ -520,6 +520,9 @@ private:
 	/** off, loaded or missing: reported in the status file. */
 	FString CloudShadowState = TEXT("off");
 
+	/** The status file is written again once the night lights and cars have settled. */
+	float StatusRewriteTimer = 12.f;
+
 	UPROPERTY(Transient)
 	TObjectPtr<UMaterialParameterCollection> LoadedCollection;
 
