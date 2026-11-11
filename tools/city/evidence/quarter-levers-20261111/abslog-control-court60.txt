@@ -1,0 +1,8 @@
+CityRenderTuning: L_City_Quarter 0 components
+CityStreaming: 29 cells, on, load 60 m, unload 90 m, max 4
+CityStreaming: load L_City_CellP0000M0250 t=0.00
+CityStreaming: load L_City_CellP0000M0500 t=0.27
+CityRenderTuning: L_City_CellP0000M0250 2 components
+CityStreaming: visible L_City_CellP0000M0250 t=0.44
+CityRenderTuning: L_City_CellP0000M0500 2 components
+CityStreaming: visible L_City_CellP0000M0500 t=0.68

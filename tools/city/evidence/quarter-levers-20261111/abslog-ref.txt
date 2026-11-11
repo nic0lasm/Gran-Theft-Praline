@@ -1,0 +1,5 @@
+CityStreaming: 29 cells, on, load 60 m, unload 90 m, max 4
+CityStreaming: load L_City_CellP0000M0250 t=0.00
+CityStreaming: load L_City_CellP0000M0500 t=0.27
+CityStreaming: visible L_City_CellP0000M0250 t=0.44
+CityStreaming: visible L_City_CellP0000M0500 t=0.70

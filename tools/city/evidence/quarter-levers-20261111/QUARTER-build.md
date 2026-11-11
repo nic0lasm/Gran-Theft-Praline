@@ -1,0 +1,28 @@
+# Streamed quarter, started 15:50 Paris time, commit 5e470d4
+- cells: cell-p0000-m0250 cell-p0000-p0000 cell-p0000-p0250 cell-p0000-p0500 cell-p0000-m0500
+- 15:50 compile: exit 0 in 0 min (compile.log)
+- 15:51 cells: exit 0 in 1 min (cells.log)
+- 15:52 proxies: exit 0 in 0 min (proxies.log)
+- 15:54 quarter import: exit 0 in 2 min (quarter-import.log)
+- 15:55 quarter materials: exit 0 in 0 min (quarter-materials.log)
+- 16:02 cell-p0000-m0250 import: exit 0 in 6 min (cell-p0000-m0250-import.log)
+- 16:03 cell-p0000-m0250 facades: exit 0 in 0 min (cell-p0000-m0250-facades.log)
+- 16:03 cell-p0000-m0250 materials: exit 0 in 0 min (cell-p0000-m0250-materials.log)
+- 16:07 cell-p0000-p0000 import: exit 0 in 4 min (cell-p0000-p0000-import.log)
+- 16:08 cell-p0000-p0000 facades: exit 0 in 0 min (cell-p0000-p0000-facades.log)
+- 16:08 cell-p0000-p0000 materials: exit 0 in 0 min (cell-p0000-p0000-materials.log)
+- 16:12 cell-p0000-p0250 import: exit 0 in 3 min (cell-p0000-p0250-import.log)
+- 16:12 cell-p0000-p0250 facades: exit 0 in 0 min (cell-p0000-p0250-facades.log)
+- 16:13 cell-p0000-p0250 materials: exit 0 in 0 min (cell-p0000-p0250-materials.log)
+- 16:17 cell-p0000-p0500 import: exit 0 in 4 min (cell-p0000-p0500-import.log)
+- 16:18 cell-p0000-p0500 facades: exit 0 in 0 min (cell-p0000-p0500-facades.log)
+- 16:18 cell-p0000-p0500 materials: exit 0 in 0 min (cell-p0000-p0500-materials.log)
+- 16:23 cell-p0000-m0500 import: exit 0 in 4 min (cell-p0000-m0500-import.log)
+- 16:24 cell-p0000-m0500 facades: exit 0 in 0 min (cell-p0000-m0500-facades.log)
+- 16:24 cell-p0000-m0500 materials: exit 0 in 0 min (cell-p0000-m0500-materials.log)
+- maps cooked for this package only: /Game/Maps/L_City_Quarter /Game/Maps/L_City_RueDeLaRepublique /Game/Maps/L_City_CellP0000M0250 /Game/Maps/L_City_CellP0000P0000 /Game/Maps/L_City_CellP0000P0250 /Game/Maps/L_City_CellP0000P0500 /Game/Maps/L_City_CellP0000M0500
+- 16:55 package: exit 0 in 30 min (package.log)
+- 16:55 DefaultGame.ini restored
+- package: GTAL-build/Builds/quarter-levers/quarter
+- 16:55 BUILD_ONLY: built in 65 min; benches with SKIP_BUILD=1 when the screen is unlocked
+- 16:55 restore: map and city content identical to the start (md5,     1018 files)
