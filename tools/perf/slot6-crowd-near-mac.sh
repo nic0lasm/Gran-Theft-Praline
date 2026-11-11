@@ -12,7 +12,7 @@
 #   SKIP_CONTROL=1     skip the 30 s control launch (freeze check)
 #   DRY_RUN=1          check prerequisites and syntax, print the plan, run nothing heavy
 #   DURATION           seconds per bench run (default 90)
-#   BRANCH             code to build (default feat/pedestrians-slot6d)
+#   BRANCH             code to build (default feat/pedestrians-slot6e)
 #   EXPECTED_MAP_MD5   map fingerprint required (default 1c92de0f813b89cb40aeb000cd92a1de)
 #   UE_ROOT            engine folder, read by tools/build/package-mac.sh (its own default applies)
 # Output: Builds/perf-slot6/slot6-<stamp>/ (REPORT.md, steps.log, heartbeat.txt, one folder per case)
@@ -31,7 +31,7 @@ repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo"
 stamp="$(date +%Y%m%d-%H%M%S)"
 out="$repo/Builds/perf-slot6/slot6-$stamp"
-branch="${BRANCH:-feat/pedestrians-slot6d}"
+branch="${BRANCH:-feat/pedestrians-slot6e}"
 duration="${DURATION:-90}"
 expected_md5="${EXPECTED_MAP_MD5:-1c92de0f813b89cb40aeb000cd92a1de}"
 dry="${DRY_RUN:-0}"
@@ -175,13 +175,14 @@ if pgrep -f "UnrealEditor( |$)|GranTheftPraline-Mac" > /dev/null; then
 fi
 fi
 
-off="-Traffic=0 -Police=0 -Ragdoll=0 -Minimap=0 -DayNight=0 -Audio=0"
+# Same world settings as the tier C/target passes of slot-tier-mac.sh (sky, vehicle LOD, noon ambience), so the numbers compare with next; traffic and police stay off to isolate the pedestrians.
+off="-Sky=lightfunction -VehicleLod=1 -Traffic=0 -Police=0 -Ragdoll=0 -Minimap=0 -DayNight=0 -Audio=0"
 run_case() { # name extra; never stops the pass
   run_case_body "$@" || log "case $1 failed (exit $?), continuing"
 }
 run_case_body() {
   log "bench $1, limit 25 min"
-  CAPTURE=0 EXTRA_ARGS="$off $2" SCENARIOS="street-demo" DURATION="$duration" \
+  AMBIENCE=noon CAPTURE=0 EXTRA_ARGS="$off $2" SCENARIOS="street-demo" DURATION="$duration" \
     limit 1500 tools/perf/bench.sh "$build" "$out/$1" > "$out/$1.log" 2>&1 || log "bench $1 ended with an error (see $1.log)"
   # No match from grep (n0 has no pedestrian log) must not stop the pass under set -e / pipefail.
   { echo; echo "## $1 ($2)"; sed -n '/^| Scenario/,$p' "$out/$1/summary.md" 2> /dev/null || echo "no summary"; { grep -h "LogGTPPedestrians" "$out/$1.log" 2> /dev/null || true; } | tail -n 3 | sed 's/^/    /'; } >> "$report" || log "could not write the report block for $1"
