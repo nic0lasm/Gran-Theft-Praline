@@ -2,6 +2,8 @@
 
 #include "CoreMinimal.h"
 #include "Sound/SoundWaveProcedural.h"
+
+#include <atomic>
 #include "GTPSynthSoundWave.generated.h"
 
 /**
@@ -23,7 +25,14 @@ public:
 
 	virtual int32 GeneratePCMData(uint8* PCMData, const int32 SamplesNeeded) override;
 
+	/**
+	 * From EndPlay: the render function is no longer called (zeros only), in case
+	 * the mixer still pulls a block after the owner left the game.
+	 */
+	void Silence() { bSilenced.store(true, std::memory_order_release); }
+
 private:
+	std::atomic<bool> bSilenced{false};
 	TFunction<void(float*, int32)> Render;
 	TArray<float> Scratch;
 };

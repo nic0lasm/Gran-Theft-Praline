@@ -19,7 +19,7 @@ UGTPSirenComponent::UGTPSirenComponent(const FObjectInitializer& ObjectInitializ
 
 UGTPSirenComponent* UGTPSirenComponent::FindOrAdd(AActor* Vehicle)
 {
-	if (!Vehicle || !UGTPAudioMix::IsGameAudioEnabled())
+	if (!Vehicle || Vehicle->IsActorBeingDestroyed() || !UGTPAudioMix::IsGameAudioEnabled())
 	{
 		return nullptr;
 	}
@@ -27,13 +27,15 @@ UGTPSirenComponent* UGTPSirenComponent::FindOrAdd(AActor* Vehicle)
 	{
 		return Existing;
 	}
-	UGTPSirenComponent* Siren = NewObject<UGTPSirenComponent>(Vehicle, MakeUniqueObjectName(Vehicle, UGTPSirenComponent::StaticClass(), TEXT("GTPSiren")));
+	UGTPSirenComponent* Siren = NewObject<UGTPSirenComponent>(Vehicle, MakeUniqueObjectName(Vehicle, UGTPSirenComponent::StaticClass(), TEXT("GTPSiren")), RF_Transient);
 	if (USceneComponent* Root = Vehicle->GetRootComponent())
 	{
 		Siren->SetupAttachment(Root);
 	}
 	// Light bar height: the siren speaker sits on the roof.
 	Siren->SetRelativeLocation(FVector(0.f, 0.f, 130.f));
+	// An instance component: the actor owns it, saves it from GC and unregisters it with itself.
+	Vehicle->AddInstanceComponent(Siren);
 	Siren->RegisterComponent();
 	return Siren;
 }
@@ -79,6 +81,10 @@ void UGTPSirenComponent::EnsureWave()
 void UGTPSirenComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	Stop();
+	if (SirenWave)
+	{
+		SirenWave->Silence();
+	}
 	SetComponentTickEnabled(false);
 	Super::EndPlay(EndPlayReason);
 }

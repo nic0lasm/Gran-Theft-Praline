@@ -63,6 +63,11 @@ void UGTPVehicleAudioComponent::EndPlay(const EEndPlayReason::Type EndPlayReason
 		Body->OnComponentHit.RemoveDynamic(this, &UGTPVehicleAudioComponent::OnBodyHit);
 	}
 	Stop();
+	if (SkidWave)
+	{
+		SkidWave->Silence();
+	}
+	SetComponentTickEnabled(false);
 	Super::EndPlay(EndPlayReason);
 }
 
