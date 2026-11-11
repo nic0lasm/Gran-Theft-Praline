@@ -403,7 +403,17 @@ bool AGTPPoliceDirector::SeatDriver(FUnit& Unit)
 	Driver->SpawnDefaultController();
 	Car->SeatOccupant(Driver);
 	Network->MakeCheap(Car, Driver);
-	return Car->HasAIDriver();
+	if (!Car->HasAIDriver())
+	{
+		// Not seated: do not leave an orphan character (and its controller) behind.
+		if (AController* Controller = Driver->GetController())
+		{
+			Controller->Destroy();
+		}
+		Driver->Destroy();
+		return false;
+	}
+	return true;
 }
 
 void AGTPPoliceDirector::RepositionUnit(FUnit& Unit, const FVector& PlayerLocation)
