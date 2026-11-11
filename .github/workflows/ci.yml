@@ -130,7 +130,7 @@ jobs:
       - name: Layout generator tests
         run: python -I -m unittest discover -s tools/interiors/tests
       - name: Unreal interior level script compiles
-        run: python -m py_compile tools/interiors/unreal/build_interior_level.py
+        run: python -m py_compile tools/interiors/unreal/build_interior_level.py tools/interiors/unreal/map_interior_meshes.py
       - name: Object budget of the reference interior, M1 and PC
         run: |
           python -I tools/interiors/interior_layout.py tools/interiors/fastfood_bellecour.json --tier m1
