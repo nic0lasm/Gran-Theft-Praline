@@ -1,0 +1,102 @@
+#include "GTPLiteDriver.h"
+
+#include "Animation/AnimSequenceBase.h"
+#include "Components/CapsuleComponent.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Engine/SkeletalMesh.h"
+#include "Engine/World.h"
+#include "GameFramework/CharacterMovementComponent.h"
+#include "Kismet/GameplayStatics.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Parse.h"
+
+AGTPLiteDriver::AGTPLiteDriver(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	// Nothing here ticks by itself: the vehicle drives the occupant.
+	PrimaryActorTick.bCanEverTick = false;
+	PrimaryActorTick.bStartWithTickEnabled = false;
+	bUseControllerRotationYaw = false;
+	if (UCharacterMovementComponent* Move = GetCharacterMovement())
+	{
+		Move->PrimaryComponentTick.bStartWithTickEnabled = false;
+		Move->SetComponentTickEnabled(false);
+		Move->DefaultLandMovementMode = MOVE_None;
+		Move->bRunPhysicsWithNoController = false;
+	}
+	if (USkeletalMeshComponent* Body = GetMesh())
+	{
+		Body->SetRelativeRotation(FRotator(0.f, MeshYawOffset, 0.f));
+		Body->SetAnimationMode(EAnimationMode::AnimationSingleNode);
+		Body->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::OnlyTickMontagesWhenNotRendered;
+		Body->SetCastShadow(false);
+	}
+}
+
+void AGTPLiteDriver::BeginPlay()
+{
+	Super::BeginPlay();
+	USkeletalMeshComponent* Body = GetMesh();
+	if (!Body)
+	{
+		return;
+	}
+	FString MeshOverride;
+	FSoftObjectPath Path = MeshPath;
+	if (FParse::Value(FCommandLine::Get(), TEXT("LiteDriverMesh="), MeshOverride) && !MeshOverride.IsEmpty())
+	{
+		Path = FSoftObjectPath(MeshOverride);
+	}
+	USkeletalMesh* Mesh = Path.IsValid() ? Cast<USkeletalMesh>(Path.TryLoad()) : nullptr;
+	if (!Mesh)
+	{
+		// The player's own mesh: already loaded, so no synchronous load at spawn.
+		if (const ACharacter* Player = Cast<ACharacter>(UGameplayStatics::GetPlayerPawn(this, 0)))
+		{
+			if (Player->GetMesh())
+			{
+				Mesh = Player->GetMesh()->GetSkeletalMeshAsset();
+			}
+		}
+	}
+	if (Mesh)
+	{
+		Body->SetSkeletalMesh(Mesh);
+	}
+	FString AnimOverride;
+	FSoftObjectPath AnimPath = SeatedAnimation;
+	if (FParse::Value(FCommandLine::Get(), TEXT("LiteDriverAnim="), AnimOverride) && !AnimOverride.IsEmpty())
+	{
+		AnimPath = FSoftObjectPath(AnimOverride);
+	}
+	if (AnimPath.IsValid())
+	{
+		if (UAnimSequenceBase* Anim = Cast<UAnimSequenceBase>(AnimPath.TryLoad()))
+		{
+			Body->SetAnimation(Anim);
+			Body->Play(true);
+		}
+	}
+	ApplyMovementTick();
+}
+
+void AGTPLiteDriver::OnMovementModeChanged(EMovementMode PreviousMovementMode, uint8 PreviousCustomMode)
+{
+	Super::OnMovementModeChanged(PreviousMovementMode, PreviousCustomMode);
+	ApplyMovementTick();
+}
+
+void AGTPLiteDriver::ApplyMovementTick()
+{
+	// Seated (MOVE_None) the movement component sleeps; any other mode (the vehicle's release
+	// sets MOVE_Walking) wakes it, so a pulled-out driver can run away.
+	if (UCharacterMovementComponent* Move = GetCharacterMovement())
+	{
+		const bool bAwake = Move->MovementMode != MOVE_None;
+		if (Move->IsComponentTickEnabled() != bAwake)
+		{
+			Move->SetComponentTickEnabled(bAwake);
+		}
+		SetActorTickEnabled(false);
+	}
+}
