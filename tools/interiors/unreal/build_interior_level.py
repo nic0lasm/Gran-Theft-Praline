@@ -218,7 +218,11 @@ def place_anchor(spec, report):
     anchor = actor_sub.spawn_actor_from_class(unreal.TargetPoint, location, rotation)
     anchor.set_actor_label("InteriorAnchor_" + spec["id"])
     anchor.set_folder_path("City/Interiors")
-    anchor.set_editor_property("tags", [unreal.Name("GTP_InteriorAnchor"), unreal.Name("GTP_InteriorLevel=" + level_path(spec))])
+    frame = spec["frame"]
+    storeys = 1 + max(z.get("level", 0) for z in spec["zones"])
+    size = "GTP_InteriorSize=%gx%gx%g" % (frame["width"], frame["depth"], round(frame["storey_height"] * storeys, 2))
+    anchor.set_editor_property("tags", [unreal.Name("GTP_InteriorAnchor"), unreal.Name("GTP_InteriorLevel=" + level_path(spec)),
+                                        unreal.Name(size)])
     level_sub.save_current_level()
     report["anchor"] = {"map": CITY_MAP, "location": [location.x, location.y, location.z], "yaw": rotation.yaw}
 

@@ -2,8 +2,10 @@
 //   g++ -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/interiors/core_test/core_test.cpp -o core_test && ./core_test
 #include "GTPCashDrawerModel.h"
 #include "GTPHoldUpModel.h"
+#include "GTPHoldUpTills.h"
 #include "GTPInteriorStreamingCore.h"
 #include "GTPKitchenModel.h"
+#include "GTPWalletModel.h"
 
 #include <cstdio>
 
@@ -241,12 +243,135 @@ static void KitchenChecks()
 	      "same seed, same service");
 }
 
+static void WalletChecks()
+{
+	GTPWallet::FWallet Wallet;
+	Check(Wallet.Add(15000, "act_holdup_shop#1") && Wallet.Cents == 15000, "a keyed reward is paid");
+	Check(!Wallet.Add(15000, "act_holdup_shop#1") && Wallet.Cents == 15000, "the same key is never paid twice");
+	Check(!Wallet.Add(-20000) && Wallet.Cents == 15000, "spending more than the balance is refused");
+	Check(Wallet.Add(-5000) && Wallet.Cents == 10000, "spending lowers the balance");
+	GTPWallet::FWallet Loaded;
+	Check(Loaded.Load(Wallet.Save()) && Loaded.Cents == 10000 && Loaded.WasPaid("act_holdup_shop#1"), "save and load keep balance and paid keys");
+	Check(!Loaded.Load("abc") && !Loaded.Load("") && !Loaded.Load("-5"), "a broken save is refused");
+}
+
+static void InteriorIdChecks()
+{
+	using namespace GTPInterior;
+	Check(IdFromLevel("/Game/Interiors/L_Interior_fastfood_bellecour") == "fastfood_bellecour", "interior id from the level path");
+	Check(IdFromLevel("/Game/Interiors/L_Interior_fastfood_bellecour.L_Interior_fastfood_bellecour") == "fastfood_bellecour", "interior id from an object path");
+	Check(Inside(950, -800, 90, 1900, 1600, 720), "middle of the restaurant is inside");
+	Check(!Inside(950, 20, 90, 1900, 1600, 720) && !Inside(950, -30, 90, 1900, 1600, 720), "the pavement and the doorway are outside");
+	Check(!Inside(950, -800, 900, 1900, 1600, 720), "above the roof is outside");
+}
+
+static GTPHoldUpTills::FRun MakeShop()
+{
+	using namespace GTPHoldUpTills;
+	FRun Run;
+	Run.Staff.resize(5);
+	Run.Staff[0].Till = 0;
+	Run.Staff[0].bCanReachAlarm = true;
+	Run.Staff[1].Till = 1;
+	Run.Staff[1].bCanReachAlarm = true;
+	Run.Begin(2, 11);
+	return Run;
+}
+
+static bool HasTill(const GTPHoldUpTills::FRun& Run, EEvent Kind)
+{
+	for (const FEventRecord& Event : Run.Events)
+	{
+		if (Event.Kind == Kind)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+static void TillChecks()
+{
+	using namespace GTPHoldUpTills;
+	FRun Calm = MakeShop();
+	for (int Step = 0; Step < 100; ++Step)
+	{
+		Calm.Step(0.1, false);
+	}
+	Check(!Calm.bActive && Calm.Events.empty(), "no threat: nothing happens");
+	const int64_t Before = Calm.CashLeft();
+	Check(Before > 20000, "two tills mid-service hold more than 200 euros");
+
+	// Both cashiers covered and obeying, the crew hands up: two tills emptied, no alarm.
+	FRun Shop = MakeShop();
+	for (FMember& Member : Shop.Staff)
+	{
+		Member.State = EThreat::HandsUp;
+		Member.SecondsSinceAimed = 0.5;
+	}
+	Shop.Staff[0].State = EThreat::Complying;
+	Shop.Staff[1].State = EThreat::Complying;
+	for (int Step = 0; Step < 80; ++Step)
+	{
+		Shop.Step(0.1, true);
+	}
+	Check(Shop.bActive && Shop.TillsEmptied == 2 && Shop.Loot > 0, "two obeying cashiers empty both tills in 8 s");
+	Check(!HasTill(Shop, EEvent::AlarmPressed) && !Shop.bCrimeReported, "covered staff do not press the alarm");
+	Check(Shop.CashLeft() > 0 && Shop.CashLeft() < Before, "coins stay in the drawers");
+	Check(Shop.End(false) == EOutcome::Escaped && Shop.End(false) == EOutcome::None, "leaving with cash is an escape, reported once");
+
+	// The second cashier is not covered: alarm, then the police 20 s later.
+	FRun Alarm = MakeShop();
+	Alarm.Staff[0].State = EThreat::Complying;
+	Alarm.Staff[0].SecondsSinceAimed = 0.2;
+	Alarm.Staff[1].State = EThreat::Alarmed;
+	Alarm.Staff[1].SecondsSinceAimed = 10.0;
+	for (int Step = 0; Step < 100; ++Step)
+	{
+		Alarm.Step(0.1, true);
+	}
+	Check(HasTill(Alarm, EEvent::AlarmPressed) && !Alarm.bCrimeReported, "an uncovered cashier presses the silent alarm");
+	for (int Step = 0; Step < 200; ++Step)
+	{
+		Alarm.Step(0.1, true);
+	}
+	Check(Alarm.bCrimeReported, "the monitoring centre reports the crime 20 s later");
+
+	// A cashier stops obeying while opening: the till stays closed. A cook escapes: crime reported.
+	FRun Broken = MakeShop();
+	Broken.Staff[0].State = EThreat::Complying;
+	Broken.Staff[0].SecondsSinceAimed = 0.0;
+	Broken.Staff[1].SecondsSinceAimed = 0.0;
+	Broken.Staff[1].State = EThreat::HandsUp;
+	for (int Step = 0; Step < 10; ++Step)
+	{
+		Broken.Step(0.1, true);
+	}
+	Broken.Staff[0].State = EThreat::Fleeing;
+	Broken.Staff[3].State = EThreat::Fleeing;
+	Broken.Staff[3].bReachedExit = true;
+	for (int Step = 0; Step < 60; ++Step)
+	{
+		Broken.Step(0.1, true);
+	}
+	Check(Broken.TillsEmptied == 0 && Broken.Tills[0].Phase == ETillPhase::Closed, "a cashier who runs off leaves the till closed");
+	Check(HasTill(Broken, EEvent::StaffEscaped) && Broken.bCrimeReported, "staff out of the back door call the police");
+	Check(Broken.End(true) == EOutcome::Caught, "arrested before leaving: caught");
+	FRun Empty = MakeShop();
+	Empty.Staff[2].State = EThreat::Alarmed;
+	Empty.Step(0.1, true);
+	Check(Empty.End(false) == EOutcome::Aborted, "leaving without cash: aborted");
+}
+
 int main()
 {
 	CashChecks();
 	HoldUpChecks();
 	StreamingChecks();
 	KitchenChecks();
+	WalletChecks();
+	InteriorIdChecks();
+	TillChecks();
 	std::printf(Failures == 0 ? "all checks passed\n" : "%d check(s) failed\n", Failures);
 	return Failures == 0 ? 0 : 1;
 }
