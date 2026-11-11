@@ -12,6 +12,7 @@
 #include "Misc/FileHelper.h"
 #include "Misc/Parse.h"
 #include "Misc/Paths.h"
+#include "ProfilingDebugging/CsvProfiler.h"
 #include "RenderCore.h"
 #include "RHI.h"
 
@@ -70,6 +71,9 @@ void UGTPFrameTimeRecorder::Initialize(FSubsystemCollectionBase& Collection)
 
 	FParse::Value(CommandLine, TEXT("FrameLogWarmup="), WarmupSeconds);
 	FParse::Value(CommandLine, TEXT("ExitAfter="), ExitAfterSeconds);
+	// -CsvCopyTo=<file>: at ExitAfter, stop the CSV profile, wait for it to be
+	// written, then copy it there (packaged Mac builds keep Saved in the user Library).
+	FParse::Value(CommandLine, TEXT("CsvCopyTo="), CsvCopyTo);
 
 	if (!bWantsLog && ExitAfterSeconds <= 0.0)
 	{
@@ -124,12 +128,68 @@ bool UGTPFrameTimeRecorder::Tick(float DeltaTime)
 
 	if (ExitAfterSeconds > 0.0 && Elapsed >= ExitAfterSeconds && !bExitRequested)
 	{
-		bExitRequested = true;
-		UE_LOG(LogGTPFrameTime, Log, TEXT("ExitAfter reached (%.0f s), quitting."), ExitAfterSeconds);
-		WriteResults();
-		FPlatformMisc::RequestExit(false, TEXT("GTPFrameTimeRecorder"));
+		if (CsvStopSeconds < 0.0)
+		{
+			UE_LOG(LogGTPFrameTime, Log, TEXT("ExitAfter reached (%.0f s), quitting."), ExitAfterSeconds);
+			WriteResults();
+			CsvStopSeconds = Elapsed;
+#if CSV_PROFILER
+			if (!CsvCopyTo.IsEmpty() && FCsvProfiler::Get()->IsCapturing())
+			{
+				FCsvProfiler::Get()->EndCapture();
+			}
+#endif
+		}
+		bool bCsvBusy = false;
+#if CSV_PROFILER
+		if (!CsvCopyTo.IsEmpty())
+		{
+			// The file is finished on a worker thread after the capture ends: allow 10 s.
+			if (FCsvProfiler::Get()->IsCapturing())
+			{
+				CsvStopSeconds = Elapsed;
+			}
+			bCsvBusy = Elapsed - CsvStopSeconds < 10.0;
+		}
+#endif
+		// Never wait more than 40 s after ExitAfter.
+		if (!bCsvBusy || Elapsed - ExitAfterSeconds > 40.0)
+		{
+			CopyCsvProfile();
+			bExitRequested = true;
+			FPlatformMisc::RequestExit(false, TEXT("GTPFrameTimeRecorder"));
+		}
 	}
 	return true;
+}
+
+void UGTPFrameTimeRecorder::CopyCsvProfile() const
+{
+	if (CsvCopyTo.IsEmpty())
+	{
+		return;
+	}
+	const FString CsvDir = FPaths::Combine(FPaths::ProfilingDir(), TEXT("CSV"));
+	TArray<FString> Files;
+	IFileManager::Get().FindFilesRecursive(Files, *CsvDir, TEXT("*.csv"), true, false);
+	FString Newest;
+	FDateTime NewestTime = FDateTime::MinValue();
+	for (const FString& File : Files)
+	{
+		const FDateTime Stamp = IFileManager::Get().GetTimeStamp(*File);
+		if (Stamp > NewestTime)
+		{
+			NewestTime = Stamp;
+			Newest = File;
+		}
+	}
+	if (Newest.IsEmpty())
+	{
+		UE_LOG(LogGTPFrameTime, Warning, TEXT("CsvCopyTo: no CSV profile found"));
+		return;
+	}
+	const uint32 Result = IFileManager::Get().Copy(*CsvCopyTo, *Newest);
+	UE_LOG(LogGTPFrameTime, Log, TEXT("CsvCopyTo: %s (%s)"), *CsvCopyTo, Result == COPY_OK ? TEXT("copied") : TEXT("FAILED"));
 }
 
 void UGTPFrameTimeRecorder::WriteResults()

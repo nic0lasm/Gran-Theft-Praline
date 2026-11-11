@@ -80,13 +80,11 @@ capture() { # name args...
   local dir="$out/$name"; mkdir -p "$dir"
   log "capture $name ($*), limit $((duration + 90)) s"
   limit $((duration + 90)) "$exe" "$@" -SkipTitle -csvGpuStats -csvCaptureFrames=$((duration * 40)) \
-    -FrameLogFile="$dir/frametimes.csv" -ExitAfter="$duration" -abslog="$dir/game.log" -saveddir="$dir/Saved" > "$dir/stdout.log" 2>&1 || log "  $name exited with $?"
-  # -saveddir keeps the CSV profile inside the run folder (never read ~/Library).
-  local csvf
-  csvf="$(find "$dir" "$build" -path '*Profiling/CSV*' -name '*.csv' -newer "$dir" 2>/dev/null | head -n 1)"
+    -FrameLogFile="$dir/frametimes.csv" -ExitAfter="$duration" -abslog="$dir/game.log" -CsvCopyTo="$dir/profile.csv" > "$dir/stdout.log" 2>&1 || log "  $name exited with $?"
+  # The game copies its CSV profile there at exit (-CsvCopyTo); never read ~/Library.
+  local csvf="$dir/profile.csv"; test -s "$csvf" || csvf=""
   { echo; echo "## $name"; echo; } >> "$report"
   if test -n "$csvf"; then
-    cp "$csvf" "$dir/profile.csv"
     python3 -I tools/perf/gpu_passes.py "$dir/profile.csv" 300 >> "$report" 2>&1 || echo "analysis failed" >> "$report"
   else
     echo "No CSV profile found (check game.log for 'CSV')." >> "$report"

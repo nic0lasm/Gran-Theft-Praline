@@ -50,5 +50,8 @@ private:
 	double FirstTickSinceLaunch = -1.0;
 	bool bRecording = false;
 	bool bExitRequested = false;
+	double CsvStopSeconds = -1.0;
+	FString CsvCopyTo;
+	void CopyCsvProfile() const;
 	bool bWritten = false;
 };
