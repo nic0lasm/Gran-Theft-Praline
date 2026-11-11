@@ -587,6 +587,30 @@ void UGTPEnvironmentSubsystem::ApplyBudgetForProfile(UWorld& World)
 			UE_LOG(LogGTPEnvironment, Warning, TEXT("Unknown -Sky=%s (volumetric, lightfunction, cheap)"), *Sky);
 		}
 	}
+	// -NightClouds=volumetric|dome|half for night A/B measurements.
+	FString NightClouds;
+	if (FParse::Value(FCommandLine::Get(), TEXT("NightClouds="), NightClouds))
+	{
+		NightClouds = NightClouds.ToLower();
+		if (NightClouds == TEXT("volumetric"))
+		{
+			Budget.bCloudDomeAtNight = false;
+			Budget.NightCloudSampleScale = 1.f;
+		}
+		else if (NightClouds == TEXT("dome"))
+		{
+			Budget.bCloudDomeAtNight = true;
+		}
+		else if (NightClouds == TEXT("half"))
+		{
+			Budget.bCloudDomeAtNight = false;
+			Budget.NightCloudSampleScale = 0.5f;
+		}
+		else
+		{
+			UE_LOG(LogGTPEnvironment, Warning, TEXT("Unknown -NightClouds=%s (volumetric, dome, half)"), *NightClouds);
+		}
+	}
 	int32 LightFunctionFlag = -1;
 	if (FParse::Value(FCommandLine::Get(), TEXT("CloudShadowLF="), LightFunctionFlag) && LightFunctionFlag >= 0)
 	{
@@ -625,7 +649,7 @@ void UGTPEnvironmentSubsystem::ApplyCloudQuality()
 	// Volumetric clouds are the most expensive part of the sky on the M1 (about 12 ms
 	// measured): quality per profile and per weather, values owned by the optimisation work.
 	// The 2D dome is created whenever the profile may use it, and shown by UpdateClouds.
-	if ((Budget.bCloudDome || Budget.bCloudDomeWhenOvercast) && Holder)
+	if ((Budget.bCloudDome || Budget.bCloudDomeWhenOvercast || Budget.bCloudDomeAtNight) && Holder)
 	{
 		UStaticMesh* Mesh = CloudDomeMesh.LoadSynchronous();
 		UMaterialInterface* Material = CloudDomeMaterial.LoadSynchronous();
@@ -683,7 +707,9 @@ void UGTPEnvironmentSubsystem::UpdateClouds(const FGTPWeatherPreset& Weather)
 {
 	// 0 none, 1 volumetric, 2 dome. Without the dome assets the volumetric clouds stay.
 	int32 Mode = Budget.bVolumetricClouds ? 1 : 0;
-	if (CloudDome && (Budget.bCloudDome || (Budget.bCloudDomeWhenOvercast && Weather.bPreferCloudDome)))
+	const bool bNightClouds = SunPosition.ElevationDeg < Budget.NightCloudSunElevation;
+	if (CloudDome && (Budget.bCloudDome || (Budget.bCloudDomeWhenOvercast && Weather.bPreferCloudDome)
+		|| (Budget.bCloudDomeAtNight && bNightClouds)))
 	{
 		Mode = 2;
 	}
@@ -699,7 +725,8 @@ void UGTPEnvironmentSubsystem::UpdateClouds(const FGTPWeatherPreset& Weather)
 			CloudDome->SetVisibility(Mode == 2);
 		}
 	}
-	const float SampleScale = Budget.CloudSampleScale * Weather.CloudSampleScale;
+	const float SampleScale = Budget.CloudSampleScale * Weather.CloudSampleScale
+		* (bNightClouds ? Budget.NightCloudSampleScale : 1.f);
 	if (Mode == 1 && Clouds.IsValid() && FMath::Abs(SampleScale - AppliedCloudSampleScale) > 0.05f)
 	{
 		AppliedCloudSampleScale = SampleScale;
@@ -880,13 +907,14 @@ void UGTPEnvironmentSubsystem::WriteStatusFile() const
 	const FGTPWeatherPreset Weather = BlendedWeather();
 	FString Text = FString::Printf(TEXT("daynight=on\nprofile=%s\nvolumetric_clouds=%d\ncloud_dome=%d\ncloud_dome_when_overcast=%d\n")
 		TEXT("cloud_shadow_map=%d\ncloud_shadow_light_function=%s\nlf_mean=%.3f\nlf_strength=%.3f\nlf_coverage=%.3f\nlf_contrast=%.2f\n")
-		TEXT("cvar_mean=%.3f\ncvar_strength=%.3f\ncvar_coverage=%.3f\nnight_budget=%d lights, %d shadowed, %.0f cm, %d lit cars\nstatus=%s\n"),
+		TEXT("cvar_mean=%.3f\ncvar_strength=%.3f\ncvar_coverage=%.3f\nnight_budget=%d lights, %d shadowed, %.0f cm, %d lit cars\nnight_clouds=%s, samples x%.2f below %.1f deg\nstatus=%s\n"),
 		*Budget.Profile, Budget.bVolumetricClouds ? 1 : 0, Budget.bCloudDome ? 1 : 0, Budget.bCloudDomeWhenOvercast ? 1 : 0,
 		Budget.bCloudShadows ? 1 : 0, *CloudShadowState, Weather.CloudShadowMean, Weather.CloudShadowStrength,
 		Weather.CloudShadowCoverage, CVarCloudShadowContrast.GetValueOnGameThread(),
 		CVarCloudShadowMean.GetValueOnGameThread(), CVarCloudShadowStrength.GetValueOnGameThread(),
 		CVarCloudShadowCoverage.GetValueOnGameThread(), Budget.MaxLights, Budget.MaxShadowedLights,
-		Budget.MaxDistance, Budget.MaxLitCars, *Describe());
+		Budget.MaxDistance, Budget.MaxLitCars, Budget.bCloudDomeAtNight ? TEXT("dome") : TEXT("volumetric"),
+		Budget.NightCloudSampleScale, Budget.NightCloudSunElevation, *Describe());
 	if (!FFileHelper::SaveStringToFile(Text, *Path))
 	{
 		GTP_TRACE(LogGTPEnvironment, TEXT("daynight: cannot write %s"), *Path);
