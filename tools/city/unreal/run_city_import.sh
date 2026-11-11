@@ -73,13 +73,22 @@ fi
 
 # Facade and street details (tools/city/details.py), when the table exists: own folder City/Details.
 if [ "${FACADES_ONLY:-0}" != "1" ] && test -f "$gen/details_placement.csv"; then
-  if [ "${GTP_DETAILS_MERGED:-0}" = "1" ]; then
+  if [ "${GTP_DETAILS_MERGED:-0}" != "0" ]; then
     # one baked material per multi-slot detail mesh (merge_detail_materials.py), used by place_props.py
     GTP_PY_SCRIPT="$py_dir/merge_detail_materials.py" "$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES "-ExecutePythonScript=__import__('gtp_run').main()"
     test -f "$out/merge_details_report.json" || { echo "merge_detail_materials.py wrote no report" >&2; exit 1; }
   fi
   GTP_PROPS_SET=details GTP_PY_SCRIPT="$py_dir/place_props.py" "$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES "-ExecutePythonScript=__import__('gtp_run').main()"
   test -f "$out/details_report.json" || { echo "place_props.py (details) wrote no report" >&2; exit 1; }
+  if [ "${GTP_DETAILS_MERGED:-0}" = "ab" ]; then
+    # Bench A/B: the details stay as they are and the baked copy is placed as a second set
+    # (City/Details_merged, tag GTP_Set_details_merged), hidden in game unless -CityDetailsMerged=1.
+    cp "$gen/details_placement.csv" "$gen/details_merged_placement.csv"
+    GTP_PROPS_SET=details_merged GTP_DETAILS_MERGED=1 GTP_PY_SCRIPT="$py_dir/place_props.py" "$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES "-ExecutePythonScript=__import__('gtp_run').main()"
+    test -f "$out/details_merged_report.json" || { echo "place_props.py (details_merged) wrote no report" >&2; exit 1; }
+  else
+    rm -f "$gen/details_merged_placement.csv"
+  fi
 fi
 
 # Art bible ground and shell materials in place of the greybox one.

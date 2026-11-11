@@ -25,16 +25,16 @@
 # replays the whole slot off the Mac with stub steps on a scratch copy of the clone layout.
 #
 # Usage, from the root of the clone:
-#   git fetch origin feat/street-details-11 &&
+#   git fetch origin feat/street-details-12 &&
 #   mkdir -p Builds/details-slot &&
-#   git show origin/feat/street-details-11:tools/city/evidence/details_slot_mac.sh > Builds/details-slot/run.sh &&
+#   git show origin/feat/street-details-12:tools/city/evidence/details_slot_mac.sh > Builds/details-slot/run.sh &&
 #   SLOT_REPO="$PWD" caffeinate -dimsu bash Builds/details-slot/run.sh
 # Everything it writes stays in the clone (Saved/details-slot-<stamp>/, Content, the map), apart
 # from the editor's own logs and caches: the editor scripts run in place through
 # Content/Python/gtp_run.py, with no temporary copy.
-#   SLOT_MODE (profile | bench), SLOT_REF (default origin/feat/street-details-11), SLOT_MERGED (1),
+#   SLOT_MODE (profile | bench), SLOT_REF (default origin/feat/street-details-12), SLOT_MERGED (1),
 #   SLOT_SKIP_PROFILE (0), GTP_PLAY_ARGS; bench mode: REFERENCE (results.csv of cumul-lf),
-#   REF_BUILD (Builds/perf-cumul/0.3, benched again when present), BENCH_DURATION (90),
+#   BENCH_BUILD, SKIP_BUILD=1 (bench an existing build), BENCH_SCENARIOS (street-demo), BENCH_DURATION (90),
 #   PYTHON (venv for the city tools), UE_ROOT, GTP_CITY_ZONE, GTP_CITY_FOCUS,
 #   DRY_RUN=1, DRY_STEP_S, HEARTBEAT_S (default 600), PLAN_SCALE (multiplies the planned durations)
 # Output: Saved/details-slot-<stamp>/ (profile_*.json, play_glass.json, logs, heartbeat.log, REPORT.txt).
@@ -47,12 +47,11 @@ cd "$repo"
 dry="${DRY_RUN:-0}"
 heartbeat_s="${HEARTBEAT_S:-600}"
 plan_scale="${PLAN_SCALE:-1}"
-slot_ref="${SLOT_REF:-origin/feat/street-details-11}"
+slot_ref="${SLOT_REF:-origin/feat/street-details-12}"
 merged="${SLOT_MERGED:-1}"
 mode="${SLOT_MODE:-profile}"   # profile (editor -game measures) or bench (packaged build, bench.sh)
 reference_csv="${REFERENCE:-$repo/Builds/perf-cumul/slot1-20261111-010738/cumul-lf/results.csv}"
-ref_build="${REF_BUILD:-$repo/Builds/perf-cumul/0.3}"
-bench_build="$repo/Builds/details-bench/0.3"
+bench_build="${BENCH_BUILD:-$repo/Builds/details-bench/0.3}"
 export GTP_PLAY_ARGS="${GTP_PLAY_ARGS:--Sky=lightfunction}"
 ue_root="${UE_ROOT:-/Users/Shared/Epic Games/UE_5.8}"
 project="$repo/GranTheftPraline/GranTheftPraline.uproject"
@@ -235,14 +234,15 @@ else
     "$exe" -SkipTitle -FrameLogFile="$out/control.csv" -ExitAfter=30 || true
     test -s "$out/control.csv"
   }
-  bench() {   # bench <build> <out> [reference csv]
-    CAPTURE=1 EXTRA_ARGS="${GTP_PLAY_ARGS}" SCENARIOS="street-fixed street-demo" DURATION="${BENCH_DURATION:-90}" \
-      REFERENCE="${3:-}" "$repo/tools/perf/bench.sh" "$1" "$2"
+  bench() {   # bench <build> <out> <reference csv or ""> <extra game args>
+    CAPTURE=1 EXTRA_ARGS="${GTP_PLAY_ARGS} ${4:-}" SCENARIOS="${BENCH_SCENARIOS:-street-demo}" \
+      DURATION="${BENCH_DURATION:-90}" REFERENCE="${3:-}" "$repo/tools/perf/bench.sh" "$1" "$2"
   }
 fi
 
 total=$((5 + 12 + 6 + 17))
-if [ "$mode" = "bench" ]; then total=$((5 + 8 + 12 + 30 + 2 + 10 + 10)); fi
+if [ "$mode" = "bench" ]; then total=$((5 + 8 + 16 + 30 + 2 + 12)); fi
+if [ "$mode" = "bench" ] && [ "${SKIP_BUILD:-0}" = "1" ]; then total=$((2 + 12)); fi
 if [ "${SLOT_SKIP_PROFILE:-0}" = "1" ]; then total=$((total - 18)); fi
 if [ "$merged" = "1" ]; then total=$((total + 14 + 6)); fi
 say "details slot, $( [ "$dry" = "1" ] && echo "DRY RUN" || echo "Mac" ), output $out; planned about $total min"
@@ -271,34 +271,40 @@ fi
 echo "slot commit: $(git rev-parse --short HEAD)" >> "$report"
 
 # --- the measures ----------------------------------------------------------------------------
-step "0 compile the editor for $(git rev-parse --short HEAD)" 5 "$out/compile.log" compile
+if [ "$mode" != "bench" ] || [ "${SKIP_BUILD:-0}" != "1" ]; then
+  step "0 compile the editor for $(git rev-parse --short HEAD)" 5 "$out/compile.log" compile
+fi
 if [ "$mode" = "bench" ]; then
-  # Official before/after: a packaged Shipping build of the same code with the details on the
-  # map, benched like the perf reference (bench.sh, same scenarios, REFERENCE gate). If the
-  # reference build is still on disk it is benched again first, in the same session, so the
-  # gap is not day-to-day drift.
-  step "S setup environment assets" 8 "$out/setup.log" setup_env
-  GTP_CITY_DETAILS=1 GTP_SHOP_GLASS="${GTP_SHOP_GLASS:-opaque}" SKIP_PLAY=1 \
-    step "1 regenerate with details, ${GTP_SHOP_GLASS:-opaque} glass" 12 "$out/regen_details.log" regen
-  cp "$saved/details_report.json" "$out/" 2> /dev/null || true
-  step "P package Shipping to Builds/details-bench/0.3" 30 "$out/package.log" package
-  git rev-parse HEAD > "$bench_build/.commit" 2> /dev/null || true
-  step "C 30 s control launch" 2 "$out/control.log" control
-  if [ -d "$ref_build/GranTheftPraline.app" ]; then
-    step "B1 bench the reference build again" 10 "$out/bench-ref.log" bench "$ref_build" "$out/ref"
+  # Official A/B on a packaged Shipping build: one build carries the details AND their
+  # one-material bake (GTP_DETAILS_MERGED=ab), and UGTPCityDetailsSwitch picks the set at launch:
+  # -CityDetails=0 (none), default (details), -CityDetailsMerged=1 (bake). Demo route, 90 s each,
+  # the details run gated against the perf reference (REFERENCE). BENCH_BUILD=<dir> with
+  # SKIP_BUILD=1 benches a build packaged elsewhere (about 15 min instead of about 75).
+  if [ "${SKIP_BUILD:-0}" != "1" ]; then
+    step "S setup environment assets" 8 "$out/setup.log" setup_env
+    GTP_CITY_DETAILS=1 GTP_DETAILS_MERGED=ab GTP_SHOP_GLASS="${GTP_SHOP_GLASS:-opaque}" SKIP_PLAY=1 \
+      step "1 regenerate with details and their bake, ${GTP_SHOP_GLASS:-opaque} glass" 16 "$out/regen_details.log" regen
+    cp "$saved/details_report.json" "$saved/details_merged_report.json" "$saved/merge_details_report.json" "$out/" 2> /dev/null || true
+    step "P package Shipping to $bench_build" 30 "$out/package.log" package
+    git rev-parse HEAD > "$bench_build/.commit" 2> /dev/null || true
   fi
+  test -d "$bench_build/GranTheftPraline.app" || { say "no build at $bench_build"; exit 1; }
+  step "C 30 s control launch" 2 "$out/control.log" control
   if [ ! -s "$reference_csv" ]; then say "no reference csv at $reference_csv: bench without the gate"; reference_csv=""; fi
-  echo "reference csv: ${reference_csv:-none}; reference build: $ref_build" >> "$report"
-  step "B2 bench the build with details against the reference" 10 "$out/bench-details.log" \
-    bench "$bench_build" "$out/details" "$reference_csv"
+  echo "build: $bench_build ($(cat "$bench_build/.commit" 2> /dev/null || echo ?)); reference csv: ${reference_csv:-none}" >> "$report"
+  step "B0 bench without details" 4 "$out/bench-nodetails.log" bench "$bench_build" "$out/nodetails" "" "-CityDetails=0"
+  step "B1 bench with details (gate: reference)" 4 "$out/bench-details.log" bench "$bench_build" "$out/details" "$reference_csv" ""
+  step "B2 bench with the one-material bake" 4 "$out/bench-merged.log" bench "$bench_build" "$out/merged" "" "-CityDetailsMerged=1"
   {
     echo
-    for b in ref details; do
+    for b in nodetails details merged; do
       if [ -f "$out/$b/summary.md" ]; then echo "## $b"; sed -n '/^| Scenario/,$p' "$out/$b/summary.md"; echo; fi
     done
-    if [ -s "$out/ref/results.csv" ] && [ -s "$out/details/results.csv" ] && [ "$dry" != "1" ]; then
-      echo "## details vs ref, same session"
-      python3 -I "$repo/tools/perf/compare.py" "$out/ref/results.csv" "$out/details/results.csv" 2 || true
+    if [ "$dry" != "1" ]; then
+      echo "## details vs no details (cost of the dressing)"
+      python3 -I "$repo/tools/perf/compare.py" "$out/nodetails/results.csv" "$out/details/results.csv" 2 || true
+      echo "## merged vs details (gain of the bake)"
+      python3 -I "$repo/tools/perf/compare.py" "$out/details/results.csv" "$out/merged/results.csv" 2 || true
     fi
   } >> "$report"
   cat "$report"
