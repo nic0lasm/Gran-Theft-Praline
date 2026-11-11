@@ -224,11 +224,11 @@ void UGTPWantedComponent::TickComponent(float DeltaTime, ELevelTick TickType, FA
 	{
 		OnBusted();
 	}
-	NotifyIfChanged();
 	else if (StarsBefore > 0 && State.GetStars() == 0)
 	{
 		GTP_TRACE(LogGTPWanted, TEXT("wanted: level lost"));
 	}
+	NotifyIfChanged();
 }
 
 void UGTPWantedComponent::OnBusted()
