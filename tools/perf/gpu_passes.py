@@ -8,6 +8,7 @@ median, 95th percentile and share of the GPU frame. The first skip_frames
 frames (default 300, about 10 s) are left out: loading and PSO warm-up.
 """
 import csv
+csv.field_size_limit(1 << 30)  # the metadata row holds the whole command line
 import statistics
 import sys
 
