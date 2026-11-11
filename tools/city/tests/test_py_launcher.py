@@ -9,7 +9,7 @@ import gtp_run  # noqa: E402
 
 class LauncherTests(unittest.TestCase):
     def test_runs_a_script_under_a_path_with_spaces(self):
-        with tempfile.TemporaryDirectory(prefix="Claude work ") as d:
+        with tempfile.TemporaryDirectory(prefix="work folder ") as d:
             with open(os.path.join(d, "helper_mod.py"), "w") as f:
                 f.write("X = 42\n")
             with open(os.path.join(d, "job.py"), "w") as f:
