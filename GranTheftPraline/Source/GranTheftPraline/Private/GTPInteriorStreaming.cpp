@@ -22,6 +22,7 @@ namespace
 {
 const FName AnchorTag(TEXT("GTP_InteriorAnchor"));
 const TCHAR* LevelPrefix = TEXT("GTP_InteriorLevel=");
+const TCHAR* SizePrefix = TEXT("GTP_InteriorSize=");   // metres, "19x16x7.2"
 const TCHAR* MinDensityPrefix = TEXT("GTP_MinDensity=");
 const FName NoShadowM1Tag(TEXT("GTP_NoShadowM1"));
 const FName NoCollisionTag(TEXT("GTP_NoCollision"));   // micro objects: never collide, even when shown
@@ -64,6 +65,15 @@ void UGTPInteriorStreaming::OnWorldBeginPlay(UWorld& InWorld)
 			{
 				Interior.Level = S.RightChop(FCString::Strlen(LevelPrefix));
 			}
+			else if (S.StartsWith(SizePrefix))
+			{
+				TArray<FString> Parts;
+				S.RightChop(FCString::Strlen(SizePrefix)).ParseIntoArray(Parts, TEXT("x"));
+				if (Parts.Num() == 3)
+				{
+					Interior.Size = FVector(FCString::Atof(*Parts[0]), FCString::Atof(*Parts[1]), FCString::Atof(*Parts[2])) * 100.f;
+				}
+			}
 		}
 		if (Interior.Level.IsEmpty())
 		{
@@ -71,6 +81,7 @@ void UGTPInteriorStreaming::OnWorldBeginPlay(UWorld& InWorld)
 			continue;
 		}
 		Interior.Anchor = Actor->GetActorTransform();
+		Interior.Id = UTF8_TO_TCHAR(GTPInterior::IdFromLevel(TCHAR_TO_UTF8(*Interior.Level)).c_str());
 		Interiors.Add(MoveTemp(Interior));
 	}
 
@@ -138,6 +149,24 @@ void UGTPInteriorStreaming::Update()
 		const FVector Door = Interior.Anchor.GetLocation();
 		Sites.push_back({static_cast<float>(Door.X), static_cast<float>(Door.Y), static_cast<float>(Door.Z), Interior.bRequested});
 	}
+	FString Inside;
+	for (const FInterior& Interior : Interiors)
+	{
+		const FVector Local = Interior.Anchor.InverseTransformPosition(Where);
+		if (GTPInterior::Inside(Local.X, Local.Y, Local.Z, Interior.Size.X, Interior.Size.Y, Interior.Size.Z))
+		{
+			Inside = Interior.Id;
+			break;
+		}
+	}
+	if (Inside != PlayerInteriorId)
+	{
+		const FString Old = PlayerInteriorId;
+		PlayerInteriorId = Inside;
+		GTP_TRACE(InteriorStreaming, TEXT("player %s %s t=%.2f"), Inside.IsEmpty() ? TEXT("left") : TEXT("entered"),
+		          Inside.IsEmpty() ? *Old : *Inside, GetWorld()->GetTimeSeconds());
+		OnPlayerInteriorChanged.Broadcast(Old, Inside);
+	}
 	const std::vector<bool> Wanted = GTPInterior::Plan(Sites, static_cast<float>(Where.X), static_cast<float>(Where.Y), static_cast<float>(Where.Z), Rules);
 	for (int32 Index = 0; Index < Interiors.Num(); ++Index)
 	{
@@ -193,6 +222,18 @@ void UGTPInteriorStreaming::Release(FInterior& Interior)
 		Streaming->SetShouldBeLoaded(false);
 	}
 	GTP_TRACE(InteriorStreaming, TEXT("unload %s t=%.2f"), *Interior.Level, GetWorld()->GetTimeSeconds());
+}
+
+FTransform UGTPInteriorStreaming::GetInteriorAnchor(const FString& Id) const
+{
+	for (const FInterior& Interior : Interiors)
+	{
+		if (Interior.Id == Id)
+		{
+			return Interior.Anchor;
+		}
+	}
+	return FTransform::Identity;
 }
 
 void UGTPInteriorStreaming::SetDensity(int32 NewDensity)

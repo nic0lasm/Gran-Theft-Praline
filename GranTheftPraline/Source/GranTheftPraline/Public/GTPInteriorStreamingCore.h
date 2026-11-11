@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <string>
 #include <vector>
 
 namespace GTPInterior
@@ -66,4 +67,26 @@ namespace GTPInterior
 	inline int ClampDensity(int Density) { return Density < 0 ? 0 : (Density > MaxDensity ? MaxDensity : Density); }
 	/** A component built for MinDensity is shown at Density when MinDensity <= Density. */
 	inline bool ShownAt(int MinDensity, int Density) { return MinDensity <= Density; }
+
+	/** "/Game/Interiors/L_Interior_fastfood_bellecour" -> "fastfood_bellecour". */
+	inline std::string IdFromLevel(const std::string& Level)
+	{
+		const size_t Slash = Level.find_last_of('/');
+		std::string Name = Slash == std::string::npos ? Level : Level.substr(Slash + 1);
+		const size_t Dot = Name.find('.');
+		Name = Dot == std::string::npos ? Name : Name.substr(0, Dot);
+		const std::string Prefix = "L_Interior_";
+		return Name.compare(0, Prefix.size(), Prefix) == 0 ? Name.substr(Prefix.size()) : Name;
+	}
+
+	/**
+	 * A point in the interior frame (cm): x along the front from the west corner, y towards the
+	 * back is negative (the frame of build_interior_level.py), z up from the ground floor.
+	 * A 50 cm margin keeps the doorway out, so standing on the threshold is still outside.
+	 */
+	inline bool Inside(double X, double Y, double Z, double Width, double Depth, double Height)
+	{
+		const double Margin = 50.0;
+		return X > Margin && X < Width - Margin && -Y > Margin && -Y < Depth - Margin && Z > -100.0 && Z < Height;
+	}
 }

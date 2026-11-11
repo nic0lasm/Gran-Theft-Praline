@@ -44,6 +44,21 @@ public:
 	/** Changes the density of every visible interior at once (settings, bench). */
 	void SetDensity(int32 NewDensity);
 
+	/**
+	 * Id of the interior the player stands in ("fastfood_bellecour": the level name without
+	 * L_Interior_), empty outside. Missions and the hold-up read it. Refreshed every update
+	 * (0.25 s), only while interiors are on (-Interiors=1).
+	 */
+	UFUNCTION(BlueprintPure, Category = "Interiors")
+	FString GetPlayerInteriorId() const { return PlayerInteriorId; }
+
+	/** Anchor of an interior (its frame: x along the front, -y towards the back, z up), identity if unknown. */
+	FTransform GetInteriorAnchor(const FString& Id) const;
+
+	/** The player entered (NewId set) or left (NewId empty) an interior. */
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FGTPInteriorChanged, const FString& /*OldId*/, const FString& /*NewId*/);
+	FGTPInteriorChanged OnPlayerInteriorChanged;
+
 protected:
 	UPROPERTY(Config)
 	float PreloadRadiusM = 40.f;
@@ -61,7 +76,9 @@ private:
 	struct FInterior
 	{
 		FString Level;
+		FString Id;
 		FTransform Anchor;
+		FVector Size = FVector(2000.f, 2000.f, 800.f);   // cm, from the GTP_InteriorSize=WxDxH tag (metres)
 		TWeakObjectPtr<ULevelStreamingDynamic> Streaming;
 		bool bRequested = false;
 		bool bWasVisible = false;
@@ -78,4 +95,5 @@ private:
 	int32 Density = 2;
 	bool bEnabled = false;
 	float SinceUpdate = 0.f;
+	FString PlayerInteriorId;
 };
