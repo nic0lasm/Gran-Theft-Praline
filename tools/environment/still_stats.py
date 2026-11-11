@@ -12,14 +12,14 @@ Prints: mean ground_mean ground_patch [spots]  (0-255, Rec. 601 luma)
   spots         with a flat still (same view, no cloud shadow at all): standard deviation
                 in % of the per-block ratio image / flat, normalised to its mean. The
                 geometry cancels out, what remains is the cloud shadow pattern.
-On macOS the JPEG is decoded by sips (built in) to a BMP; elsewhere Pillow is used.
+On macOS the JPEG is decoded by sips (built in) to a BMP beside it, removed after; elsewhere
+Pillow is used. Nothing is written outside the folder of the still.
 """
 import os
 import shutil
 import struct
 import subprocess
 import sys
-import tempfile
 
 
 def read_bmp(path):
@@ -46,14 +46,15 @@ def read_bmp(path):
 
 def load(path):
     if shutil.which("sips"):
-        tmp = tempfile.mkdtemp()
+        # Decoded next to the still (inside the run folder), never in the system temp.
+        bmp = path + ".stats.bmp"
         try:
-            bmp = os.path.join(tmp, "still.bmp")
             subprocess.run(["sips", "-Z", "480", "-s", "format", "bmp", path, "--out", bmp],
                            check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             return read_bmp(bmp)
         finally:
-            shutil.rmtree(tmp, ignore_errors=True)
+            if os.path.exists(bmp):
+                os.remove(bmp)
     from PIL import Image  # noqa: PLC0415 (fallback off macOS)
     img = Image.open(path).convert("RGB")
     img.thumbnail((480, 480))
