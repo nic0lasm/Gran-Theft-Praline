@@ -126,6 +126,56 @@ function Summarize([string]$Csv, [string]$Scenario, [string]$Variant, [string]$R
   return "| $Scenario | $Variant | $(& $fmt $g50) | $(& $fmt $g95) | $(& $fmt $f50) | $(& $fmt $f95) | $($within.ToString('0', $Inv)) % | $hitches |"
 }
 
+# Per-run details.md: p50/p95/p99/max, both budgets, spikes with their time,
+# the game's traffic and wanted trace lines, and the GPU memory peak.
+function Details([string]$Run) {
+  $out = New-Object Collections.Generic.List[string]
+  $csv = Join-Path $Run 'frametimes.csv'
+  $n2 = { param($x) ([double]$x).ToString('0.00', $Inv) }
+  if (Test-Path -LiteralPath $csv) {
+    $rows = @(Import-Csv -LiteralPath $csv)
+    $fa = [double[]]@($rows | ForEach-Object { [double]::Parse($_.frame_ms, $Inv) })
+    $ga = [double[]]@($rows | ForEach-Object { [double]::Parse($_.gpu_ms, $Inv) } | Where-Object { $_ -ge 0 -and $_ -le 1000 })
+    if ($fa.Count) {
+      foreach ($pair in @(@('Frame', $fa), @('GPU', $ga))) {
+        $v = $pair[1]
+        if (-not $v.Count) { $out.Add("$($pair[0]): no data"); continue }
+        $out.Add("$($pair[0]) ms: p50 $(& $n2 (Pct $v 50)) | p95 $(& $n2 (Pct $v 95)) | p99 $(& $n2 (Pct $v 99)) | max $(& $n2 ($v | Measure-Object -Maximum).Maximum)")
+      }
+      $out.Add("Frames: $($fa.Count) | <= 33.3 ms: $((100.0 * @($fa | Where-Object { $_ -le 33.3 }).Count / $fa.Count).ToString('0.0', $Inv)) % | <= 16.7 ms: $((100.0 * @($fa | Where-Object { $_ -le 16.7 }).Count / $fa.Count).ToString('0.0', $Inv)) %")
+      foreach ($limit in 50, 100) {
+        $sp = @($rows | Where-Object { [double]::Parse($_.frame_ms, $Inv) -gt $limit })
+        $list = ($sp | Select-Object -First 40 | ForEach-Object { "$($_.time_s)s=$($_.frame_ms)" }) -join ', '
+        $out.Add("Frames > $limit ms: $($sp.Count)$(if ($sp.Count) { " (time_s=frame_ms: $list$(if ($sp.Count -gt 40) { ', ...' }))" })")
+      }
+    }
+  } else { $out.Add('No frametimes.csv') }
+  $logs = @('game.log', 'stdout.log') | ForEach-Object { Join-Path $Run $_ } | Where-Object { Test-Path -LiteralPath $_ }
+  foreach ($key in 'traffic budget:', 'wanted:') {
+    $hits = @($logs | ForEach-Object { Select-String -LiteralPath $_ -SimpleMatch $key -Encoding UTF8 } | ForEach-Object { $_.Line.Trim() } | Select-Object -Unique)
+    $out.Add("'$key' lines: $($hits.Count)")
+    $hits | Select-Object -First 2 | ForEach-Object { $out.Add("  first: $_") }
+    if ($hits.Count -gt 2) { $hits | Select-Object -Last 2 | ForEach-Object { $out.Add("  last: $_") } }
+  }
+  $smi = Join-Path $Run 'nvidia-smi.csv'
+  if (Test-Path -LiteralPath $smi) {
+    $s = @(Import-Csv -LiteralPath $smi)
+    if ($s.Count) {
+      $col = $s[0].PSObject.Properties.Name
+      $used = $col | Where-Object { $_ -match 'memory.used' } | Select-Object -First 1
+      $total = $col | Where-Object { $_ -match 'memory.total' } | Select-Object -First 1
+      $util = $col | Where-Object { $_ -match 'utilization.gpu' } | Select-Object -First 1
+      $num = { param($x) [double](($x -replace '[^0-9.]', '')) }
+      $peak = ($s | ForEach-Object { & $num $_.$used } | Measure-Object -Maximum).Maximum
+      $tot = & $num $s[0].$total
+      $u = ($s | ForEach-Object { & $num $_.$util } | Measure-Object -Average).Average
+      $out.Add("GPU memory peak: $peak MiB of $tot MiB$(if ($tot -and $peak -ge 0.95 * $tot) { ' -- SATURATED' }) | mean GPU utilization $([math]::Round($u)) %")
+    }
+  }
+  $out | Set-Content -LiteralPath (Join-Path $Run 'details.md') -Encoding ascii
+  return $out
+}
+
 # Same gate as compare.py.
 function CompareResults([string]$Reference, [string]$Current, [double]$MaxMs) {
   $ref = @{}; foreach ($r in (Import-Csv -LiteralPath $Reference)) { $ref["$($r.scenario)/$($r.variant)"] = $r }
@@ -206,7 +256,10 @@ foreach ($scenario in $scenarios) {
       continue
     }
     New-Item -ItemType Directory -Force -Path $run | Out-Null
+    "$(Quote $exe) $(($gameArgs | ForEach-Object { Quote $_ }) -join ' ')" | Set-Content -LiteralPath (Join-Path $run 'cmdline.txt') -Encoding ascii
     WaitForCalm
+    # A finished game must be gone before the next run starts.
+    while (Get-Process -Name 'GranTheftPraline*' -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 2 }
     $smi = $null
     if ($hasNvsmi) { $smi = Start-Process -FilePath $nvsmi -ArgumentList (($smiArgs | ForEach-Object { Quote $_ }) -join ' ') -PassThru -WindowStyle Hidden }
     try { RunGame $duration (Join-Path $run 'stdout.log') $gameArgs }
@@ -214,6 +267,8 @@ foreach ($scenario in $scenarios) {
     $sumTxt = Join-Path $run 'frametimes.summary.txt'
     if (Test-Path -LiteralPath $sumTxt) { Copy-Item -LiteralPath $sumTxt -Destination (Join-Path $run 'summary.txt') }
     Summarize (Join-Path $run 'frametimes.csv') $scenario $label $results | Add-Content -LiteralPath $summary -Encoding ascii
+    Write-Output "-- $scenario / $label"
+    Details $run | ForEach-Object { Write-Output "   $_" }
     Start-Sleep -Seconds 5
   }
 }
