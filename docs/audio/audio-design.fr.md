@@ -114,7 +114,10 @@ code du combat. Rien n'est branché sous `-Combat=0`.
     contenant fryer, grill, hood, fridge/freezer/cold, shake ou drink. Une même boucle à moins
     de 1,5 m ne compte qu'une fois.
   - Les salles viennent des composants étiquetés `GTP_AudioRoom`, sinon des bornes du niveau.
-  - Les caisses viennent d'un nom contenant till, register, kiosk ou pos.
+  - Les caisses viennent de l'étiquette `GTP_AudioTill`, sinon d'un nom contenant till, register,
+    kiosk ou pos.
+  - Une étiquette d'acteur compte une fois par acteur (son composant racine). `GTP_AudioLoop=None`
+    marque un composant qu'il ne faut pas deviner par son nom (groupes instanciés).
 - Un groupe d'au plus 6 voix en boucle (`MaxRoomVoices`) suit les émetteurs les plus proches, à
   moins de 25 m. Ce groupe est créé une seule fois : charger ou décharger un intérieur ne crée ni
   ne détruit aucun objet sonore.
@@ -159,6 +162,17 @@ Coût estimé sur le fil de jeu à 30 i/s avec cette foule : environ 0,15 ms
 (budget 0,3 ms), à confirmer sur le Mac avec `-AudioStats` ; la ligne de log
 donne `heard=` (marcheurs) et `engines=audibles/total`. Réglages
 `MaxEngineVoices`, `MaxStepWalkers` et `BudgetInterval` dans `DefaultGame.ini`.
+
+## Surfaces et zones d'ambiance par carte
+
+`UGTPAudioMix::UseGridsForMap` choisit les grilles faites pour la carte jouée :
+- `L_City_Quarter` lit `Sound/SurfaceMap/quarter.gtpsurf` et `zones-quarter.gtpsurf` ;
+- `L_City_RueDeLaRepublique` lit celles de `rue-de-la-republique` ;
+- une carte sans grilles à elle garde celles de `UGTPAudioSettings`.
+
+`mac_audio_pass.sh prepare` les fabrique pour chaque carte de `FOCUSES`, par défaut
+`rue-de-la-republique quarter`. Le quartier de la 0.9 a ainsi en entier ses rues piétonnes, les
+quais des deux rivières, ses ponts et ses surfaces sous les pieds.
 
 ## Surfaces
 
