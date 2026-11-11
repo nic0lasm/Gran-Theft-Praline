@@ -20,7 +20,9 @@ if ps -axo pid=,command= | grep -E "UnrealEditor|GranTheftPraline.app" | grep -v
 fi
 export GTP_CITY_ZONE="${GTP_CITY_ZONE:-presqu-ile}" GTP_CITY_FOCUS="$focus" GTP_PROFILE="${PROFILE:-m1}"
 cvars="$(python3 "$repo/tools/rendering/reference_scene/profiles.py" "${PROFILE:-m1}")"
-GTP_PY_SCRIPT="$repo/tools/city/unreal/profile_details.py" "$editor" "$project" "$map" -game -windowed -ResX=1920 -ResY=1080 -nosound -NoScreenMessages -unattended -NSAppSleepDisabled YES \
+. "$repo/tools/city/unreal/editor_run.sh"
+GTP_PY_SCRIPT="$repo/tools/city/unreal/profile_details.py" EDITOR_MAX_S="${EDITOR_MAX_S:-600}" \
+  EDITOR_DONE_FILE="$repo/GranTheftPraline/Saved/CityImport/details_profile.json" run_editor profile "$editor" "$project" "$map" -game -windowed -ResX=1920 -ResY=1080 -nosound -NoScreenMessages -unattended -NSAppSleepDisabled YES \
   "-ini:Engine:[/Script/Engine.UserInterfaceSettings]:bAllowHighDPIInGameMode=True" \
   ${GTP_PLAY_ARGS:-} -ExecCmds="r.SetRes 1920x1080w, $cvars, py __import__('gtp_run').main()"
 cat "$repo/GranTheftPraline/Saved/CityImport/details_profile.json"

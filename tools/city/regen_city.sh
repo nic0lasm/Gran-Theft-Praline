@@ -23,7 +23,9 @@ editor="$ue_root/Engine/Binaries/Mac/UnrealEditor.app/Contents/MacOS/UnrealEdito
 project="$repo/GranTheftPraline/GranTheftPraline.uproject"
 map="/Game/Maps/L_City_$(echo "$focus" | awk -F- '{for(i=1;i<=NF;i++) printf "%s", toupper(substr($i,1,1)) substr($i,2)}')"
 t0=$(date +%s)
-step() { echo "== $(( $(date +%s) - t0 )) s: $*"; }
+step() { echo "== $(date +%H:%M:%S) ($(( $(date +%s) - t0 )) s): $*"; }
+# shellcheck source=unreal/editor_run.sh
+. "$repo/tools/city/unreal/editor_run.sh"
 
 if ps -axo pid=,command= | grep -E "UnrealEditor |UnrealEditor$|GranTheftPraline.app" | grep -vE "CrashReportClient|UnrealEditorServices|grep -E" > /dev/null; then
   echo "an Unreal editor or the game is running: one at a time" >&2
@@ -56,7 +58,7 @@ step "parked car"
 # car is placed and the map saved (measured 10/11): 0 and 1 pass, anything else stops.
 rc=0
 GTP_PARKED_MAP="$map" GTP_PY_SCRIPT="$repo/tools/vehicles/unreal/place_parked_car.py" \
-  "$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES \
+  EDITOR_DONE_GREP="\[place_parked_car\] saved" run_editor parked_car "$editor" "$project" -unattended -nosplash -nosound -NSAppSleepDisabled YES \
   "-ExecutePythonScript=__import__('gtp_run').main()" || rc=$?
 test "$rc" -le 1 || { echo "parked car: editor returned $rc" >&2; exit "$rc"; }
 
