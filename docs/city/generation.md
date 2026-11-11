@@ -454,4 +454,4 @@ First implementation of ADR-0010 option B, prepared and tested off the Mac; not 
 
 Without the manifest, or with `GTP_SURFACES=0`, the materials stay procedural.
 
-M1 budget: the ground uses at most 13 texture fetches, the kit 4 and the shells 6, all through shared samplers. `GTP_SURFACES_LITE=1` keeps only the colour maps.
+M1 budget: the ground uses at most 15 texture fetches (grime included, as a texture rather than decal actors), the kit 4 and the shells 6, all through shared samplers. `GTP_SURFACES_LITE=1` keeps only the colour maps.
