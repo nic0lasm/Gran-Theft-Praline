@@ -96,6 +96,41 @@ code du combat. Rien n'est branché sous `-Combat=0`.
 - **Corps à corps :** Light, Heavy (15 dégâts et plus), Block, Swish (esquive, coup raté).
 - **Manipulation :** DryFire, MagOut, MagIn, Slide, joués à la main du porteur.
 - **Budget :** classe `Weapons`, 6 voix ; impacts et coups partagent les 6 voix d'impact.
+## Intérieurs et missions (0.9)
+
+`tools/audio/make_places.py` (graine 17, 32 fichiers, aucun enregistrement) écrit trois dossiers :
+- `Interior/` : boucles sans couture de 12 s (RoomTone, Fryer, Grill, Hood, Cold, Shake, Drinks) ;
+- `Shop/` : ouverture et fermeture de caisse, pièces, billets, imprimante à tickets, bip de carte,
+  minuterie de friteuse, panier plongé, carillons de commande et de porte, buzzer de porte arrière,
+  coffre ;
+- `Mission/` : disponible, départ, objectif, point de passage, réussite, échec, récompense,
+  compte à rebours.
+
+`UGTPPlaceAudio`, tenu par le monde audio, les joue :
+
+- Quand un niveau chargé dont le nom contient `Interior` devient visible (ADR-0012), ses
+  composants sont parcourus une fois.
+  - Les émetteurs de boucle viennent d'une étiquette `GTP_AudioLoop=<Boucle>`, sinon d'un nom
+    contenant fryer, grill, hood, fridge/freezer/cold, shake ou drink. Une même boucle à moins
+    de 1,5 m ne compte qu'une fois.
+  - Les salles viennent des composants étiquetés `GTP_AudioRoom`, sinon des bornes du niveau.
+  - Les caisses viennent d'un nom contenant till, register, kiosk ou pos.
+- Un groupe d'au plus 6 voix en boucle (`MaxRoomVoices`) suit les émetteurs les plus proches, à
+  moins de 25 m. Ce groupe est créé une seule fois : charger ou décharger un intérieur ne crée ni
+  ne détruit aucun objet sonore.
+- Dans une salle, le mix intérieur `SM_GTP_Indoor` règle les sons de la rue :
+  - la boucle de rue et le lit passent à 0,3 ;
+  - la circulation passe à 0,35 et les sirènes à 0,7 ;
+  - le tout est filtré au-dessus de 1,5 kHz.
+  L'ambiance de la salle monte en fondu, et le carillon de porte sonne à l'entrée.
+- Tant que les boucles de travail des employés n'appellent pas `UGTPPlaceAudio::PlayShop`, une
+  petite vie de boutique tourne près des caisses et des friteuses, toutes les 3 à 9 s : bips de
+  carte, tickets, carillons de commande, pièces, minuteries. `-ShopLife=0` la coupe.
+- `UGTPPlaceAudio::PlayMission` joue un jingle en 2D par la classe Interface.
+
+Réglages : `[/Script/GranTheftPraline.GTPPlaceAudio]` dans `DefaultGame.ini`. Coût : au plus
+6 voix en boucle et une ambiance de salle, environ 0,06 % d'un cœur par voix d'échantillon selon
+l'estimation, moins de 0,5 % au total.
 
 ## Budget de foule (50 piétons, 25 voitures)
 
