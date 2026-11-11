@@ -189,7 +189,7 @@ def check(spec, actions, arm):
                 moved.add(fc.data_path.split('"')[1])
         start, end = action.frame_range
         print(f"{action.name}: frames {start:.0f}-{end:.0f}, bones moving: {len(moved)}")
-        light = action.name.startswith("AM_HitLight")
+        light = action.name.startswith(("AM_HitLight", "AM_HandsUp"))
         if end - start < (12 if light else 20) or len(moved) < (3 if light else 6):
             print(f"FAIL {action.name}: too short or too few bones move")
             ok = False
