@@ -203,6 +203,14 @@ void UGTPAudioWorld::Tick(float DeltaTime)
 			}
 		}
 	}
+	if (DuckLeft > 0.f)
+	{
+		DuckLeft -= DeltaTime;
+		if (DuckLeft <= 0.f)
+		{
+			UGameplayStatics::PopSoundMixModifier(World, Mix->GetGunshotMix());
+		}
+	}
 	UpdateRecording();
 	UpdateTestSiren(DeltaTime);
 	UpdateBudget(DeltaTime);
@@ -223,6 +231,21 @@ void UGTPAudioWorld::Tick(float DeltaTime)
 			LogStats();
 		}
 	}
+}
+
+void UGTPAudioWorld::DuckForGunshot()
+{
+	UWorld* World = GetWorld();
+	UGTPAudioMix* Mix = UGTPAudioMix::Get(World);
+	if (!World || !Mix || !Mix->GetGunshotMix())
+	{
+		return;
+	}
+	if (DuckLeft <= 0.f)
+	{
+		UGameplayStatics::PushSoundMixModifier(World, Mix->GetGunshotMix());
+	}
+	DuckLeft = FMath::Max(DuckLeft, GetDefault<UGTPAudioSettings>()->GunshotDuckSeconds);
 }
 
 void UGTPAudioWorld::UpdateBudget(float DeltaTime)

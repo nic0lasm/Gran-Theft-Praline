@@ -70,6 +70,28 @@ et la charge est coupée pendant chaque changement de rapport.
 - Un choc moyen ou fort diffuse `UGTPAudioWorld::OnLoudSound(lieu, rayon, cause)`, avec un rayon de 8 m (moyen) ou 20 m (fort). Les piétons y branchent `ScareAround` par une lambda.
 - Radio de police, en 2D et sans paroles : tonalités d'alerte puis un appel à chaque étoile gagnée, appel de fin quand la poursuite s'arrête. Entre les deux, un bavardage toutes les 7 à 16 s, plus serré avec les étoiles. Les sons d'étoile du HUD (`StarUp`, `StarDown`) partent au même moment.
 
+## Combat (0.7)
+
+Spécification : [combat.fr.md](../gameplay/combat.fr.md), « Sons ». Banques faites par
+`make_weapons.py` (`Weapons/`, `BulletImpacts/`, `Melee/`), jouées par `UGTPCombatAudio`.
+Le code du combat l'appelle, ou le monde audio le branche sur `UGTPCombatSubsystem`
+(`OnShotFired` → `PlayShot`, `OnDamageDealt` → `PlayHit`).
+
+- **Tir :** à moins de 25 m, `ShotClose` (sec, 90 % de l'énergie en moins de 80 ms) ;
+  plus loin, `ShotFar` (claquement, détonation sourde, roulement), en retard selon la
+  vitesse du son (170 m : 0,5 s).
+- **Écho de rue :** une `Tail` après le tir, avec délai et niveau selon la zone : rue
+  piétonne 60 ms et 0,6, rue 90 ms et 0,5, quai 250 ms et 0,3, pont 400 ms et 0,15.
+- **Sifflement :** une balle qui passe à moins de 2,5 m de l'écoute, pas pour le tireur.
+- **Atténuation :** chaque tir baisse l'ambiance et ses couches à 0,4 et le trafic à 0,6
+  pendant 0,5 s (`SM_GTP_Gunshot`), puis ils remontent en 0,35 s.
+- **Panique :** `OnLoudSound` avec un rayon de 30 m, les piétons fuient.
+- **Impacts de balle :** Dust (pierre, asphalte), Sparks (métal, parfois un ricochet), Car,
+  Glass (nom du matériau), Wood, Dirt (herbe, gravier), Water, Flesh (`ImpactKindOf(Hit)`).
+- **Corps à corps :** Light, Heavy (15 dégâts et plus), Block, Swish (esquive, coup raté).
+- **Manipulation :** DryFire, MagOut, MagIn, Slide, joués à la main du porteur.
+- **Budget :** classe `Weapons`, 6 voix ; impacts et coups partagent les 6 voix d'impact.
+
 ## Budget de foule (50 piétons, 25 voitures)
 
 Toutes les 0,25 s, `UGTPAudioWorld` classe les moteurs allumés et les
