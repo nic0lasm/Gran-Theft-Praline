@@ -198,6 +198,7 @@ bool UGTPMissionSubsystem::StartMission(FName MissionId)
 		UE_LOG(LogGTPMission, Log, TEXT("mission: cannot start %s: %s"), *MissionId.ToString(), *ToFString(Why));
 		return false;
 	}
+	ClearResult();
 	BoundTag = NAME_None;
 	BoundVehicle.Reset();
 	const bool bOk = Runner->Start(Id);
@@ -211,6 +212,7 @@ bool UGTPMissionSubsystem::RetryMission()
 	{
 		return false;
 	}
+	ClearResult();
 	const bool bOk = Runner->Retry();
 	Execute(Runner->TakeCommands());
 	return bOk;
@@ -220,6 +222,7 @@ void UGTPMissionSubsystem::AbortMission()
 {
 	if (Runner)
 	{
+		ClearResult();
 		Runner->Abort();
 		Execute(Runner->TakeCommands());
 		CurrentHint = NAME_None;
@@ -448,6 +451,10 @@ void UGTPMissionSubsystem::Execute(const std::vector<GTPMission::FCommand>& Comm
 			break;
 		case ECommand::MissionSucceeded:
 			UE_LOG(LogGTPMission, Log, TEXT("mission: succeeded %s"), *MissionId.ToString());
+			ResultMission = MissionId;
+			ResultReason = NAME_None;
+			ResultReward = Command.Amount;
+			bResultSuccess = true;
 			OnSucceeded.Broadcast(MissionId, Command.Amount);
 			if (Runner)
 			{
@@ -457,7 +464,11 @@ void UGTPMissionSubsystem::Execute(const std::vector<GTPMission::FCommand>& Comm
 			break;
 		case ECommand::MissionFailed:
 			UE_LOG(LogGTPMission, Log, TEXT("mission: failed %s: %s"), *MissionId.ToString(), *ToFString(Command.Key));
-			OnFailed.Broadcast(FName(*ToFString(Command.Key)));
+			ResultMission = MissionId;
+			ResultReason = FName(*ToFString(Command.Key));
+			ResultReward = 0;
+			bResultSuccess = false;
+			OnFailed.Broadcast(ResultReason);
 			break;
 		}
 	}
