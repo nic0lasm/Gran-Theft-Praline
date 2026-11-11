@@ -211,12 +211,32 @@ def import_textures(paths, dest):
         asset_tools.import_asset_tasks(tasks)
 
 
+# Usage flags the cooked game needs. A material compiles shaders only for the usages saved
+# with it: the Mac editor sets missing ones in memory when a mesh uses the material, but the
+# saved asset kept none, so on Windows (Nanite on, DX12) 280 city and sign materials drew with
+# the default material (11/11). Set them at creation, and on any material reused as it is.
+MATERIAL_USAGES = ("used_with_nanite", "used_with_instanced_static_meshes")
+
+
+def ensure_usage(mat, save=True):
+    changed = False
+    for flag in MATERIAL_USAGES:
+        if not mat.get_editor_property(flag):
+            mat.set_editor_property(flag, True)
+            changed = True
+    if changed and save:
+        unreal.MaterialEditingLibrary.recompile_material(mat)
+        unreal.EditorAssetLibrary.save_loaded_asset(mat)
+    return mat
+
+
 def sign_parent():
     """M_Sign_Fascia: the sign texture as base colour, a little emissive (back-lit letters)."""
     path = SIGN_DIR + "/M_Sign_Fascia"
     if eal.does_asset_exist(path):
-        return eal.load_asset(path)
-    mat = asset_tools.create_asset("M_Sign_Fascia", SIGN_DIR, unreal.Material, unreal.MaterialFactoryNew())
+        return ensure_usage(eal.load_asset(path))
+    mat = ensure_usage(asset_tools.create_asset("M_Sign_Fascia", SIGN_DIR, unreal.Material, unreal.MaterialFactoryNew()),
+                       save=False)
     tex = mel.create_material_expression(mat, unreal.MaterialExpressionTextureSampleParameter2D, -500, 0)
     tex.set_editor_property("parameter_name", "SignTexture")
     mel.connect_material_property(tex, "RGB", unreal.MaterialProperty.MP_BASE_COLOR)
@@ -278,9 +298,9 @@ def sign_atlas_parent():
     the top-left UV of its sign's cell, CellUV the cell size (tools/city/sign_atlas.py)."""
     path = SIGN_DIR + "/M_Sign_Atlas"
     if eal.does_asset_exist(path):
-        return eal.load_asset(path)
-    mat = asset_tools.create_asset("M_Sign_Atlas", SIGN_DIR, unreal.Material, unreal.MaterialFactoryNew())
-    mat.set_editor_property("used_with_instanced_static_meshes", True)
+        return ensure_usage(eal.load_asset(path))
+    mat = ensure_usage(asset_tools.create_asset("M_Sign_Atlas", SIGN_DIR, unreal.Material, unreal.MaterialFactoryNew()),
+                       save=False)
     uv = mel.create_material_expression(mat, unreal.MaterialExpressionTextureCoordinate, -1300, 0)
     cell = mel.create_material_expression(mat, unreal.MaterialExpressionVectorParameter, -1300, 150)
     cell.set_editor_property("parameter_name", "CellUV")

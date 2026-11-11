@@ -197,11 +197,31 @@ def weather(mat, roles):
     gtp_weather.add_weather(mat, roles)
 
 
+# Usage flags the cooked game needs. A material compiles shaders only for the usages saved
+# with it: the Mac editor sets missing ones in memory when a mesh uses the material, but the
+# saved asset kept none, so on Windows (Nanite on, DX12) 280 city and sign materials drew with
+# the default material (11/11). Set them at creation, and on any material reused as it is.
+MATERIAL_USAGES = ("used_with_nanite", "used_with_instanced_static_meshes")
+
+
+def ensure_usage(mat, save=True):
+    changed = False
+    for flag in MATERIAL_USAGES:
+        if not mat.get_editor_property(flag):
+            mat.set_editor_property(flag, True)
+            changed = True
+    if changed and save:
+        unreal.MaterialEditingLibrary.recompile_material(mat)
+        unreal.EditorAssetLibrary.save_loaded_asset(mat)
+    return mat
+
+
 def new_material(name):
     path = MAT_DIR + "/" + name
     if eal.does_asset_exist(path):
         eal.delete_asset(path)
-    return asset_tools.create_asset(name, MAT_DIR, unreal.Material, unreal.MaterialFactoryNew())
+    return ensure_usage(asset_tools.create_asset(name, MAT_DIR, unreal.Material, unreal.MaterialFactoryNew()),
+                        save=False)   # Graph.done() compiles and saves
 
 
 def import_mask():
@@ -619,7 +639,7 @@ def cell_level(report):
     with the persistent level and already set; only the cell's own shells get the shell
     material, reused as it is so the levels built before keep a valid reference."""
     shell_path = MAT_DIR + "/M_City_Shell"
-    shell = eal.load_asset(shell_path) if eal.does_asset_exist(shell_path) else shell_material()
+    shell = ensure_usage(eal.load_asset(shell_path)) if eal.does_asset_exist(shell_path) else shell_material()
     report["shell_meshes"] = assign(ROOT + "/Buildings/" + CAMEL, shell)
     if eal.does_directory_exist(ROOT + "/Landmarks/" + CAMEL):
         report["landmark_meshes"] = assign(ROOT + "/Landmarks/" + CAMEL, shell)
