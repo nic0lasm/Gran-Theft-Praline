@@ -43,6 +43,10 @@ def ensure_master():
 
 if not OUT:
     raise SystemExit("set GTP_PED_OUT")
+for stray in (DEST + "/M_Parked",):  # left here by an earlier run
+    if eal.does_asset_exist(stray):
+        eal.delete_asset(stray)
+        log(f"removed stray {stray}")
 meta = json.load(open(os.path.join(OUT, "ped.json"), encoding="utf-8"))
 task = unreal.AssetImportTask()
 task.set_editor_property("filename", os.path.join(OUT, NAME + ".fbx"))

@@ -5,7 +5,7 @@
 
 export: import SKM.fbx and Anim.fbx, apply the animation at <phase> of the loop (legs apart about
         25 %), bake the pose with the armature modifier, one mesh, raw GLB (_raw.glb);
-        decimation is tools/vehicles/decimate_parked.py <dir> --tris 1500 (meshoptimizer);
+        decimation is tools/vehicles/decimate_parked.py <dir> --tris 2500 (meshoptimizer; the quadric collapse in Blender already did it);
 finish: import _dec.glb, keep orientation and scale of the mannequin, feet at Z=0 on the centre,
         write SM_PedFar_A.fbx and ped.json.
 Run through tools/pedestrians/make_ped_far.sh.
@@ -24,11 +24,26 @@ def parse_args():
     p.add_argument("--dir", required=True)
     p.add_argument("--stage", choices=("export", "finish"), required=True)
     p.add_argument("--phase", type=float, default=0.25)
+    p.add_argument("--tris", type=int, default=2500)
     return p.parse_args(argv)
 
 
 def armature_of(objs):
     return next(o for o in objs if o.type == "ARMATURE")
+
+
+def evaluated_height(meshes):
+    """Height (max Z - min Z, scene units) of the meshes as evaluated now (armature included)."""
+    dg = bpy.context.evaluated_depsgraph_get()
+    lo, hi = 1e9, -1e9
+    for m in meshes:
+        ev = m.evaluated_get(dg)
+        mesh = ev.to_mesh()
+        for v in mesh.vertices:
+            z = (ev.matrix_world @ v.co).z
+            lo, hi = min(lo, z), max(hi, z)
+        ev.to_mesh_clear()
+    return hi - lo
 
 
 def main():
@@ -38,6 +53,8 @@ def main():
         bpy.ops.import_scene.fbx(filepath=os.path.join(a.dir, "SKM.fbx"))
         skin_objs = list(bpy.context.scene.objects)
         arm = armature_of(skin_objs)
+        rest_h = evaluated_height([o for o in skin_objs if o.type == "MESH"])
+        print(f"[ped] rest pose height {rest_h:.3f} (scene units)")
         before = set(bpy.data.actions)
         bpy.ops.import_scene.fbx(filepath=os.path.join(a.dir, "Anim.fbx"))
         actions = [x for x in bpy.data.actions if x not in before] or list(bpy.data.actions)
@@ -56,6 +73,8 @@ def main():
         bpy.context.scene.frame_set(int(frame), subframe=frame - int(frame))
         bpy.context.view_layer.update()
         meshes = [o for o in skin_objs if o.type == "MESH"]
+        posed_h = evaluated_height(meshes)
+        print(f"[ped] posed height {posed_h:.3f} (rest {rest_h:.3f}, ratio {posed_h / max(rest_h, 1e-6):.2f})")
         for m in meshes:
             if m.data.shape_keys:
                 bpy.context.view_layer.objects.active = m
@@ -74,6 +93,13 @@ def main():
             bpy.ops.object.join()
         body = bpy.context.view_layer.objects.active
         bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+        tris = sum(len(p.vertices) - 2 for p in body.data.polygons)
+        if tris > a.tris:  # quadric collapse keeps limbs; the mannequin is small (about 10 k triangles)
+            mod = body.modifiers.new("decimate", "DECIMATE")
+            mod.ratio = a.tris / tris
+            mod.use_collapse_triangulate = True
+            bpy.ops.object.modifier_apply(modifier=mod.name)
+            print(f"[ped] collapsed {tris} -> {sum(len(p.vertices) - 2 for p in body.data.polygons)} triangles")
         bpy.ops.export_scene.gltf(filepath=os.path.join(a.dir, "_raw.glb"), export_format="GLB",
                                   export_materials="NONE", use_selection=False, export_apply=False)
         print(f"[ped] posed at frame {frame:.1f} of {f0:.0f}-{f1:.0f} ({action.name})")
