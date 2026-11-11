@@ -49,6 +49,58 @@ enum class EGTPAudioCategory : uint8
 	Weather,
 	/** Police radio heard by the player while wanted (2D). */
 	Radio,
+	/** Gunshots, their tails and the weapon handling sounds (0.7 combat). */
+	Weapons,
+	Count UMETA(Hidden)
+};
+
+/** Weapon sounds, folder /Game/Sound/SFX/Weapons/<Name>/ (docs/gameplay/combat.md). */
+UENUM(BlueprintType)
+enum class EGTPWeaponSound : uint8
+{
+	/** Pistol heard within CloseShotDistance: dry and short. */
+	ShotClose,
+	/** Pistol heard from afar: crack and rolling tail, delayed by the distance. */
+	ShotFar,
+	/** Street reflections, played after the shot with a delay set by the street. */
+	Tail,
+	DryFire,
+	MagOut,
+	MagIn,
+	Slide,
+	/** A bullet passing close to the listener. */
+	Whizz,
+	Count UMETA(Hidden)
+};
+
+/** What a bullet hits, folder /Game/Sound/SFX/BulletImpacts/<Name>/. */
+UENUM(BlueprintType)
+enum class EGTPBulletImpact : uint8
+{
+	/** Stone, concrete, plaster, asphalt. */
+	Dust,
+	/** Steel: poles, railings, signs. */
+	Sparks,
+	/** Car body. */
+	Car,
+	Glass,
+	Wood,
+	/** Earth, grass, gravel, sand. */
+	Dirt,
+	Water,
+	Flesh,
+	Count UMETA(Hidden)
+};
+
+/** Hand-to-hand sounds, folder /Game/Sound/SFX/Melee/<Name>/. */
+UENUM(BlueprintType)
+enum class EGTPMeleeSound : uint8
+{
+	Light,
+	Heavy,
+	Block,
+	/** A dodge or a missed blow. */
+	Swish,
 	Count UMETA(Hidden)
 };
 

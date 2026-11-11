@@ -111,4 +111,4 @@ jobs:
           ./audio_logic_test synth-out
           python -I tools/audio/check_synths.py synth-out
       - name: Unreal import scripts compile
-        run: python -m py_compile tools/audio/unreal/import_sounds.py tools/audio/unreal/report_gasp_foley.py tools/audio/import_ambience.py tools/audio/analyze_audio_run.py tools/audio/make_ambiences.py tools/audio/zone_map.py tools/audio/pick_sonniss.py tools/audio/make_voices_ui.py && bash -n tools/audio/mac_audio_pass.sh
+        run: python -m py_compile tools/audio/unreal/import_sounds.py tools/audio/unreal/report_gasp_foley.py tools/audio/import_ambience.py tools/audio/analyze_audio_run.py tools/audio/make_ambiences.py tools/audio/zone_map.py tools/audio/pick_sonniss.py tools/audio/make_voices_ui.py tools/audio/make_weapons.py && bash -n tools/audio/mac_audio_pass.sh

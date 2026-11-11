@@ -44,6 +44,9 @@ public:
 	 */
 	FGTPLoudSoundEvent OnLoudSound;
 
+	/** Ducks the street ambience and the traffic for GunshotDuckSeconds (each shot restarts it). */
+	void DuckForGunshot();
+
 private:
 	void OnActorSpawned(AActor* Actor);
 	void LogStats();
@@ -55,6 +58,7 @@ private:
 	TArray<TWeakObjectPtr<class UGTPFootstepComponent>> Walkers;
 	TArray<TWeakObjectPtr<class UGTPEngineSoundComponent>> Engines;
 	float BudgetTimer = 0.f;
+	float DuckLeft = 0.f;
 	int32 EnginesAudible = 0;
 	int32 WalkersHeard = 0;
 

@@ -47,6 +47,7 @@ namespace
 		case EGTPAudioCategory::Impacts:
 		case EGTPAudioCategory::Sirens:
 		case EGTPAudioCategory::Voice:
+		case EGTPAudioCategory::Weapons:
 			return EGTPAudioCategory::Effects;
 		case EGTPAudioCategory::Zones:
 			// Zone layers of the bed follow the ambience (driving mix: lower and duller in a car).
@@ -221,6 +222,21 @@ void UGTPAudioMix::BuildMixes()
 	// Reaches the zone layers too; the street-bed mix and the user mix stay on the Ambience class alone.
 	Ambience.bApplyToChildren = true;
 	DrivingMix->SoundClassEffects.Add(Ambience);
+
+	// A gunshot ducks the street (ambience and its layers, traffic) for a moment (combat.md).
+	GunshotMix = NewObject<USoundMix>(this, TEXT("SM_GTP_Gunshot"));
+	GunshotMix->Duration = -1.f;
+	GunshotMix->FadeInTime = 0.02f;
+	GunshotMix->FadeOutTime = 0.35f;
+	FSoundClassAdjuster DuckAmbience;
+	DuckAmbience.SoundClassObject = Classes[static_cast<int32>(EGTPAudioCategory::Ambience)];
+	DuckAmbience.VolumeAdjuster = Settings->GunshotDuckAmbience;
+	DuckAmbience.bApplyToChildren = true;
+	GunshotMix->SoundClassEffects.Add(DuckAmbience);
+	FSoundClassAdjuster DuckTraffic;
+	DuckTraffic.SoundClassObject = Classes[static_cast<int32>(EGTPAudioCategory::Vehicles)];
+	DuckTraffic.VolumeAdjuster = Settings->GunshotDuckTraffic;
+	GunshotMix->SoundClassEffects.Add(DuckTraffic);
 }
 
 void UGTPAudioMix::BuildConcurrencyAndAttenuation()
@@ -245,6 +261,7 @@ void UGTPAudioMix::BuildConcurrencyAndAttenuation()
 	MakeConcurrency(EGTPAudioCategory::Voice, Settings->MaxVoiceVoices);
 	MakeConcurrency(EGTPAudioCategory::Radio, 1);
 	MakeConcurrency(EGTPAudioCategory::Interface, 3);
+	MakeConcurrency(EGTPAudioCategory::Weapons, Settings->MaxWeaponVoices);
 
 	auto MakeAttenuation = [this](EGTPAudioCategory Category, const FVector2D& Range, float FarLowPass)
 	{
@@ -269,6 +286,7 @@ void UGTPAudioMix::BuildConcurrencyAndAttenuation()
 	MakeAttenuation(EGTPAudioCategory::Sirens, Settings->SirenRange, 2000.f);
 	MakeAttenuation(EGTPAudioCategory::Vehicles, Settings->SkidRange, 3000.f);
 	MakeAttenuation(EGTPAudioCategory::Voice, Settings->VoiceRange, 3000.f);
+	MakeAttenuation(EGTPAudioCategory::Weapons, Settings->ShotRange, 1500.f);
 }
 
 void UGTPAudioMix::LoadBanks()
@@ -352,6 +370,21 @@ void UGTPAudioMix::LoadBanks()
 			Bank = FindNamed(Parts[1], Radio, StaticEnum<EGTPRadioCall>(), static_cast<int32>(UE_ARRAY_COUNT(Radio)));
 			Class = GetClass(EGTPAudioCategory::Radio);
 		}
+		else if (Parts.Num() >= 2 && Parts[0] == TEXT("Weapons"))
+		{
+			Bank = FindNamed(Parts[1], WeaponBanks, StaticEnum<EGTPWeaponSound>(), static_cast<int32>(UE_ARRAY_COUNT(WeaponBanks)));
+			Class = GetClass(EGTPAudioCategory::Weapons);
+		}
+		else if (Parts.Num() >= 2 && Parts[0] == TEXT("BulletImpacts"))
+		{
+			Bank = FindNamed(Parts[1], BulletBanks, StaticEnum<EGTPBulletImpact>(), static_cast<int32>(UE_ARRAY_COUNT(BulletBanks)));
+			Class = ImpactClass;
+		}
+		else if (Parts.Num() >= 2 && Parts[0] == TEXT("Melee"))
+		{
+			Bank = FindNamed(Parts[1], MeleeBanks, StaticEnum<EGTPMeleeSound>(), static_cast<int32>(UE_ARRAY_COUNT(MeleeBanks)));
+			Class = ImpactClass;
+		}
 		else if (Parts.Num() >= 2 && Parts[0] == TEXT("UI"))
 		{
 			Bank = FindNamed(Parts[1], Interface, StaticEnum<EGTPUISound>(), static_cast<int32>(UE_ARRAY_COUNT(Interface)));
@@ -404,6 +437,9 @@ void UGTPAudioMix::LoadBanks()
 	GTP_TRACE(LogGTPAudio, TEXT("[Audio] game audio on (ADR-0009, -Audio=0 turns it off); banks under %s: steps/landings%s; impacts %d (glass %d); voices %d, radio %d, ui %d; %d unsorted"),
 		*Root, *Summary, ImpactCount, Glass.Sounds.Num(), CountOf(Voices, static_cast<int32>(UE_ARRAY_COUNT(Voices))), CountOf(Radio, static_cast<int32>(UE_ARRAY_COUNT(Radio))),
 		CountOf(Interface, static_cast<int32>(UE_ARRAY_COUNT(Interface))), Unsorted);
+	GTP_TRACE(LogGTPAudio, TEXT("[Audio] combat banks: weapons %d, bullet impacts %d, melee %d"),
+		CountOf(WeaponBanks, static_cast<int32>(UE_ARRAY_COUNT(WeaponBanks))), CountOf(BulletBanks, static_cast<int32>(UE_ARRAY_COUNT(BulletBanks))),
+		CountOf(MeleeBanks, static_cast<int32>(UE_ARRAY_COUNT(MeleeBanks))));
 }
 
 void UGTPAudioMix::LoadSurfaceMap()
@@ -543,6 +579,30 @@ USoundBase* UGTPAudioMix::PickVoice(EGTPVoiceKind Kind)
 USoundBase* UGTPAudioMix::PickRadio(EGTPRadioCall Call)
 {
 	FBank& Bank = Radio[FMath::Clamp(static_cast<int32>(Call), 0, static_cast<int32>(UE_ARRAY_COUNT(Radio)) - 1)];
+	return PickFrom(Bank.Sounds, Bank.Last);
+}
+
+USoundBase* UGTPAudioMix::PickWeapon(EGTPWeaponSound Sound)
+{
+	FBank& Bank = WeaponBanks[FMath::Clamp(static_cast<int32>(Sound), 0, static_cast<int32>(UE_ARRAY_COUNT(WeaponBanks)) - 1)];
+	return PickFrom(Bank.Sounds, Bank.Last);
+}
+
+USoundBase* UGTPAudioMix::PickBulletImpact(EGTPBulletImpact Kind)
+{
+	FBank& Bank = BulletBanks[FMath::Clamp(static_cast<int32>(Kind), 0, static_cast<int32>(UE_ARRAY_COUNT(BulletBanks)) - 1)];
+	if (USoundBase* Sound = PickFrom(Bank.Sounds, Bank.Last))
+	{
+		return Sound;
+	}
+	// Missing bank: the stone one.
+	FBank& Dust = BulletBanks[static_cast<int32>(EGTPBulletImpact::Dust)];
+	return PickFrom(Dust.Sounds, Dust.Last);
+}
+
+USoundBase* UGTPAudioMix::PickMelee(EGTPMeleeSound Sound)
+{
+	FBank& Bank = MeleeBanks[FMath::Clamp(static_cast<int32>(Sound), 0, static_cast<int32>(UE_ARRAY_COUNT(MeleeBanks)) - 1)];
 	return PickFrom(Bank.Sounds, Bank.Last);
 }
 
