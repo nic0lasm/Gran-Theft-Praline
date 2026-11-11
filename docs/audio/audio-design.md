@@ -69,6 +69,27 @@ mapped onto the real engine's, and the load is cut during each gear change.
 - A medium or heavy crash broadcasts `UGTPAudioWorld::OnLoudSound(location, radius, cause)`, with a radius of 8 m (medium) or 20 m (heavy). Pedestrians bind `ScareAround` to it through a lambda.
 - Police radio, 2D and without words: alert tones then a call for each star gained, a closing call when the pursuit ends. In between, chatter every 7 to 16 s, closer together with more stars. The HUD star sounds (`StarUp`, `StarDown`) play at the same time.
 
+## Combat (0.7)
+
+Spec: [combat.md](../gameplay/combat.md), "Sounds". Banks made by `make_weapons.py`
+(`Weapons/`, `BulletImpacts/`, `Melee/`), played by `UGTPCombatAudio`, which the
+combat code calls or the audio world binds to `UGTPCombatSubsystem`
+(`OnShotFired` → `PlayShot`, `OnDamageDealt` → `PlayHit`).
+
+- **Shot:** within 25 m `ShotClose` (dry, 90 % of its energy in under 80 ms); farther
+  `ShotFar` (crack, dull boom, rolling tail), late by the speed of sound (170 m: 0.5 s).
+- **Street echo:** a `Tail` after the shot, delay and level by ambience zone: pedestrian
+  street 60 ms and 0.6, street 90 ms and 0.5, quay 250 ms and 0.3, bridge 400 ms and 0.15.
+- **Whizz:** a bullet line passing within 2.5 m of the listener, not for the shooter.
+- **Ducking:** each shot lowers the ambience and its layers to 0.4 and the traffic to 0.6
+  for 0.5 s (`SM_GTP_Gunshot`), then they come back in 0.35 s.
+- **Panic:** `OnLoudSound` with a 30 m radius, so pedestrians run.
+- **Bullet impacts:** Dust (stone, asphalt), Sparks (metal, sometimes a ricochet), Car,
+  Glass (material name), Wood, Dirt (grass, gravel), Water, Flesh (`ImpactKindOf(Hit)`).
+- **Melee:** Light, Heavy (15 damage and more), Block, Swish (dodge, missed blow).
+- **Handling:** DryFire, MagOut, MagIn, Slide at the holder.
+- **Budget:** `Weapons` class, 6 voices; impacts and blows share the 6 impact voices.
+
 ## Crowd budget (50 pedestrians, 25 cars)
 
 Every 0.25 s `UGTPAudioWorld` ranks the running engines and the walkers by
