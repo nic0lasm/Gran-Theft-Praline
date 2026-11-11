@@ -276,3 +276,22 @@ assis qui n'est pas le joueur : plus de tick d'acteur ni de contrôleur, plus
 de tick de composant hormis les maillages, caméras et bras à ressort
 désactivés, mouvement None. Sortir de la voiture (`ReleaseCharacter`) rétablit
 exactement ce qui a été coupé. `-DriverLite=0` garde les conducteurs entiers.
+
+## 10. Trafic sur tout le quartier streamé (11/11/2026)
+
+Le réseau du quartier compte 1 043 voies sur environ 1,3 × 1,5 km, contre
+quelques dizaines dans la rue. Avant, chaque apparition tirait une voie au
+hasard parmi toutes, si bien que la plupart des essais tombaient loin de
+l'anneau d'apparition. `AGTPTrafficNetwork::LanesInRing` ne garde maintenant
+que les voies dont la boîte englobante touche l'anneau, et les voitures
+conduites comme lointaines tirent dans cette liste.
+
+Mesuré hors Unreal sur le lanes.csv du quartier (400 positions du joueur,
+20 essais chacune), la part des essais qui tombent dans l'anneau est passée :
+- pour les voitures conduites (40 à 250 m) : de 8,2 % à 83,9 % ;
+- pour les voitures lointaines (120 à 250 m) : de 6,5 % à 75,5 %.
+
+Le quartier compte 124 carrefours à feux et 471 têtes de feu. Une tête dont la
+cellule streamée n'était pas chargée au départ trouve son sol quand elle
+arrive à distance de dessin. Elle reste cachée jusque-là, au lieu de flotter
+ou d'être enterrée.

@@ -141,4 +141,23 @@ namespace GTPFar
 		}
 		return Best;
 	}
+
+	/**
+	 * Whether a lane's bounding box (MinX..MaxX, MinY..MaxY) can hold a point between
+	 * RMin and RMax of (CX, CY): its nearest point is within RMax and its farthest corner
+	 * at least RMin away. Picks the lanes worth trying for a spawn in a ring around the
+	 * player, so a quarter-wide network does not waste its tries on lanes 1 km away.
+	 */
+	inline bool BoxTouchesRing(float MinX, float MinY, float MaxX, float MaxY, float CX, float CY, float RMin, float RMax)
+	{
+		const float NX = CX < MinX ? MinX : (CX > MaxX ? MaxX : CX);
+		const float NY = CY < MinY ? MinY : (CY > MaxY ? MaxY : CY);
+		if (std::hypot(NX - CX, NY - CY) > RMax)
+		{
+			return false;
+		}
+		const float FX = std::fabs(CX - MinX) > std::fabs(CX - MaxX) ? MinX : MaxX;
+		const float FY = std::fabs(CY - MinY) > std::fabs(CY - MaxY) ? MinY : MaxY;
+		return std::hypot(FX - CX, FY - CY) >= RMin;
+	}
 }

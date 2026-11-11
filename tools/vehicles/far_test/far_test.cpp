@@ -64,6 +64,12 @@ int main()
 	Check(!bMoving && Near(Position.X, 30.f) && Near(Position.Y, 40.f), "slides to the end of the lane, then reports it");
 	Check(Near(GTPFar::DistanceOnLane(Lane, Index, Along), 70.f), "distance on lane at the end = lane length");
 
+	// Lanes worth trying for a spawn in the ring around the player.
+	Check(GTPFar::BoxTouchesRing(100.f, -10.f, 200.f, 10.f, 0.f, 0.f, 50.f, 150.f), "a lane crossing the ring is kept");
+	Check(!GTPFar::BoxTouchesRing(300.f, -10.f, 400.f, 10.f, 0.f, 0.f, 50.f, 150.f), "a lane beyond the ring is left out");
+	Check(!GTPFar::BoxTouchesRing(-10.f, -10.f, 10.f, 10.f, 0.f, 0.f, 50.f, 150.f), "a lane inside the inner circle is left out");
+	Check(GTPFar::BoxTouchesRing(-100.f, -100.f, 100.f, 100.f, 0.f, 0.f, 50.f, 150.f), "a lane around the player that reaches the ring is kept");
+
 	std::printf("%s (%d failure%s)\n", Failures == 0 ? "PASS" : "FAIL", Failures, Failures == 1 ? "" : "s");
 	return Failures == 0 ? 0 : 1;
 }
