@@ -7,6 +7,7 @@
 #include "CollisionQueryParams.h"
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Components/LightComponent.h"
 #include "GameFramework/Character.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
@@ -351,6 +352,20 @@ void AGTPFarTraffic::MakePuppet(AGTPVehicle* Vehicle)
 		Body->SetCastShadow(false);
 		// No pose, no wheel animation: the body stays as it is until woken.
 		Body->SetComponentTickEnabled(false);
+		// Draw levers of section 8: no skinning at all, when the static draw is on.
+		if (Network->StaticRenderDistance >= 0.f)
+		{
+			AGTPTrafficNetwork::SetCarRenderStatic(Body, true);
+		}
+	}
+	if (Network->LightDistance >= 0.f)
+	{
+		TArray<ULightComponent*> PuppetLights;
+		Vehicle->GetComponents<ULightComponent>(PuppetLights);
+		for (ULightComponent* Light : PuppetLights)
+		{
+			Light->SetVisibility(false, false);
+		}
 	}
 	if (ACharacter* Occupant = Vehicle->GetDriver())
 	{
@@ -365,6 +380,7 @@ void AGTPFarTraffic::Wake(AGTPVehicle* Vehicle, int32 Lane, int32 Point, const F
 	if (USkeletalMeshComponent* Body = Vehicle->GetMesh())
 	{
 		Body->SetComponentTickEnabled(true);
+		AGTPTrafficNetwork::SetCarRenderStatic(Body, false);
 	}
 	if (ACharacter* Occupant = Vehicle->GetDriver())
 	{

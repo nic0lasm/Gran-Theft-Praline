@@ -13,6 +13,7 @@ class ACharacter;
 class AGTPVehicle;
 class AGTPTrafficNetwork;
 class AGTPFarTraffic;
+class USkeletalMeshComponent;
 
 /** One driving lane, in world space (cm), from tools/city/traffic.py. */
 USTRUCT(BlueprintType)
@@ -278,6 +279,32 @@ protected:
 	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Cost")
 	int32 FarLOD = 2;
 
+	/**
+	 * Draw cost of the driven AI cars (docs/performance/vehicle-cost.md section 8),
+	 * all off by default and set in metres on the command line:
+	 * - DriverDrawDistance (-CarDriverDraw=M): the AI driver at the wheel is not drawn past it;
+	 * - LightDistance (-CarLightDistance=M): the car's lights are off past it;
+	 * - StaticRenderDistance (-CarRenderStatic=M): past it the body is drawn as a static
+	 *   mesh (no skinning, last pose kept);
+	 * - NearLOD (-CarNearLOD=N, 0-based): LOD drawn even under DetailDistance (0 = the full one);
+	 * - bCarShadows (-CarShadows=0): no shadow at all from AI cars.
+	 * A negative distance means never.
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Cost")
+	float DriverDrawDistance = -1.f;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Cost")
+	float LightDistance = -1.f;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Cost")
+	float StaticRenderDistance = -1.f;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Cost")
+	int32 NearLOD = 0;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Cost")
+	bool bCarShadows = true;
+
 	/** Beyond this distance an AI car is not drawn at all (cm, 0 = always drawn). */
 	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Cost")
 	float DrawDistance = 15000.f;
@@ -417,5 +444,11 @@ private:
 	int32 BudgetTicks = 0;
 	uint64 BudgetFrame = 0;
 	void LogBudget();
+
+public:
+	/** Switches the skinned draw of a car body, tracked by a component tag so it is only changed once. */
+	static void SetCarRenderStatic(USkeletalMeshComponent* Body, bool bStatic);
+
+private:
 	FRandomStream Random;
 };
