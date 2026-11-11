@@ -3,6 +3,7 @@
 #include "GTPCashDrawerModel.h"
 #include "GTPHoldUpModel.h"
 #include "GTPInteriorStreamingCore.h"
+#include "GTPKitchenModel.h"
 
 #include <cstdio>
 
@@ -200,11 +201,52 @@ static void StreamingChecks()
 	Check(ShownAt(0, 0) && ShownAt(2, 3) && !ShownAt(3, 2), "a component shows from its own density up");
 }
 
+static GTPKitchen::FKitchen RunKitchen(int Crew, int PerHour, uint64_t Seed, double Hours)
+{
+	GTPKitchen::FKitchen Kitchen;
+	Kitchen.Params.CustomersPerHour = PerHour;
+	Kitchen.Staff = GTPKitchen::FKitchen::DefaultCrew(Crew);
+	Kitchen.Begin(Seed);
+	for (int Step = 0; Step < int(Hours * 3600.0 * 30.0); ++Step)
+	{
+		Kitchen.Step(1.0 / 30.0);
+	}
+	return Kitchen;
+}
+
+static void KitchenChecks()
+{
+	using namespace GTPKitchen;
+	const FKitchen Evening = RunKitchen(8, 120, 7, 1.0);
+	std::printf("     crew of 8, 120 customers/h: %d served, wait %.0f s on average, %.0f s at most\n", Evening.Served, Evening.AverageWait(), Evening.MaxWait);
+	Check(Evening.Served >= 100, "a crew of 8 serves the evening rush (120 customers an hour)");
+	Check(Evening.AverageWait() < 180.0 && Evening.MaxWait < 300.0, "orders ready in under 3 minutes on average, 5 at most");
+	bool bAllTasks = true;
+	for (ETask Task : {ETask::TakeOrder, ETask::FryDrop, ETask::FryLift, ETask::FryBag, ETask::GrillLoad, ETask::GrillUnload, ETask::Assemble, ETask::PourDrink, ETask::BagOrder})
+	{
+		bool bSeen = false;
+		for (const FTaskEvent& Event : Evening.Events)
+		{
+			bSeen = bSeen || Event.Task == Task;
+		}
+		bAllTasks = bAllTasks && bSeen;
+	}
+	Check(bAllTasks, "every station task happens (each one drives an animation and moves objects)");
+	const FKitchen Short = RunKitchen(2, 120, 7, 1.0);
+	Check(Short.AverageWait() > 600.0 && Short.Orders.size() > 20, "two people cannot hold the rush: the queue grows");
+	const FKitchen Quiet = RunKitchen(4, 30, 3, 2.0);
+	Check(Quiet.FriesWasted + Quiet.PattiesWasted > 0, "a quiet afternoon throws away food held too long");
+	const FKitchen Again = RunKitchen(8, 120, 7, 1.0);
+	Check(Again.Served == Evening.Served && Again.Events.size() == Evening.Events.size() && Again.TotalWait == Evening.TotalWait,
+	      "same seed, same service");
+}
+
 int main()
 {
 	CashChecks();
 	HoldUpChecks();
 	StreamingChecks();
+	KitchenChecks();
 	std::printf(Failures == 0 ? "all checks passed\n" : "%d check(s) failed\n", Failures);
 	return Failures == 0 ? 0 : 1;
 }
