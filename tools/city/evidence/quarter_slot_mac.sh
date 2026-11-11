@@ -276,6 +276,15 @@ if test "$dry" != 1 && ! test -d "$out/quarter"; then
   echo "- no package in $out/quarter (run BUILD_ONLY=1 first)" >> "$report"
   exit 1
 fi
+# A game launched right after the previous one closed can segfault at start (exit 139 at t = 0,
+# no log; Mac 11/11, intermittent): 20 s between launches, and one retry after a failed launch.
+launch() {  # launch <step args...>
+  if test "$dry" != 1; then sleep 20; fi
+  step "$@" && return 0
+  echo "- $(paris) $1 failed: one retry in 20 s" >> "$report"
+  if test "$dry" != 1; then sleep 20; fi
+  step "$@"
+}
 # BENCHES: "<tag> <game args>;..." on the same package. Default: the shippable cells (their
 # render defaults, UGTPCityRenderTuning), the cells without those defaults, the previous 70 % distances, the cells without
 # furniture and details (a cull of 0 hides a family), and proxies only.
@@ -284,7 +293,7 @@ IFS=';' read -r -a bench_list <<< "$benches"
 for run in "${bench_list[@]}"; do
   set -- $run
   if screen_locked; then echo "- $(paris) screen locked before bench $1: skipped" >> "$report"; continue; fi
-  step "bench $1" $(( ${LAUNCH_S:-120} + 120 )) "bench-$1.log" bench "$@"
+  launch "bench $1" $(( ${LAUNCH_S:-120} + 120 )) "bench-$1.log" bench "$@"
   summary "$1"
 done
 # --- stills, separate pass, never during a measure (project rule) -------------------------------
@@ -307,7 +316,7 @@ if test "${STILLS:-}" != "0"; then
   for run in "${still_runs[@]}"; do
     set -- $run
     if screen_locked; then echo "- $(paris) screen locked before stills $1: skipped" >> "$report"; continue; fi
-    step "stills $1" $(( ${STILLS_S:-75} + 60 )) "stills-$1.log" stills "$@"
+    launch "stills $1" $(( ${STILLS_S:-75} + 60 )) "stills-$1.log" stills "$@"
     echo "- stills $1: $(ls "$out/stills-$1" 2> /dev/null | grep -c jpg || true) images in $out/stills-$1" >> "$report"
   done
 fi
