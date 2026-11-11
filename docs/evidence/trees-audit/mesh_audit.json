@@ -1,0 +1,1636 @@
+{
+  "roots": {
+    "/Game/EuropeanBeech": {
+      "meshes": 34,
+      "textures": 100,
+      "textures_over_2k": 0,
+      "texture_megapixels": 0.1
+    },
+    "/Game/BlackAlder": {
+      "meshes": 44,
+      "textures": 106,
+      "textures_over_2k": 0,
+      "texture_megapixels": 0.1
+    },
+    "/Game/Megaplant_Library": "missing",
+    "/Game/Scene_RoadsideConstruction": "missing"
+  },
+  "meshes": [
+    {
+      "path": "/Game/EuropeanBeech/Geometry/PivotPainter/SM_EuropeanBeech_Field_01_PP",
+      "lods": 7,
+      "triangles": [
+        972734,
+        2309649,
+        1022547,
+        261371,
+        96289,
+        32150,
+        8
+      ],
+      "lod0_triangles": 972734,
+      "last_lod_triangles": 8,
+      "nanite": true,
+      "materials": 5,
+      "size_cm": [
+        2285,
+        2337,
+        2392
+      ]
+    },
+    {
+      "path": "/Game/EuropeanBeech/Geometry/PivotPainter/SM_EuropeanBeech_Forest_01_PP",
+      "lods": 7,
+      "triangles": [
+        442079,
+        1045949,
+        613384,
+        175663,
+        65936,
+        15132,
+        8
+      ],
+      "lod0_triangles": 442079,
+      "last_lod_triangles": 8,
+      "nanite": true,
+      "materials": 5,
+      "size_cm": [
+        3040,
+        3177,
+        4847
+      ]
+    },
+    {
+      "path": "/Game/EuropeanBeech/Geometry/PivotPainter/SM_EuropeanBeech_Forest_02_PP",
+      "lods": 7,
+      "triangles": [
+        550781,
+        1568529,
+        788192,
+        458139,
+        205593,
+        19612,
+        8
+      ],
+      "lod0_triangles": 550781,
+      "last_lod_triangles": 8,
+      "nanite": true,
+      "materials": 5,
+      "size_cm": [
+        2674,
+        2169,
+        4489
+      ]
+    },
+    {
+      "path": "/Game/EuropeanBeech/Geometry/PivotPainter/SM_EuropeanBeech_Forest_03_PP",
+      "lods": 7,
+      "triangles": [
+        400096,
+        949485,
+        506132,
+        332248,
+        108086,
+        12315,
+        8
+      ],
+      "lod0_triangles": 400096,
+      "last_lod_triangles": 8,
+      "nanite": true,
+      "materials": 4,
+      "size_cm": [
+        1448,
+        1614,
+        3280
+      ]
+    },
+    {
+      "path": "/Game/EuropeanBeech/Geometry/PivotPainter/SM_EuropeanBeech_Forest_04_PP",
+      "lods": 7,
+      "triangles": [
+        269428,
+        636656,
+        235938,
+        83278,
+        26192,
+        14853,
+        8
+      ],
+      "lod0_triangles": 269428,
+      "last_lod_triangles": 8,
+      "nanite": true,
+      "materials": 5,
+      "size_cm": [
+        1562,
+        1460,
+        3173
+      ]
+    },
+    {
+      "path": "/Game/EuropeanBeech/Geometry/PivotPainter/SM_EuropeanBeech_Forest_05_PP",
+      "lods": 7,
+      "triangles": [
+        119401,
+        235119,
+        143992,
+        100263,
+        68841,
+        67422,
+        8
+      ],
+      "lod0_triangles": 119401,
+      "last_lod_triangles": 8,
+      "nanite": true,
+      "materials": 5,
+      "size_cm": [
+        1190,
+        950,
+        2530
+      ]
+    },
+    {
+      "path": "/Game/EuropeanBeech/Geometry/PivotPainter/SM_EuropeanBeech_Forest_06_PP",
+      "lods": 7,
+      "triangles": [
+        91470,
+        130045,
+        50381,
+        15534,
+        7836,
+        5344,
+        8
+      ],
+      "lod0_triangles": 91470,
+      "last_lod_triangles": 8,
+      "nanite": true,
+      "materials": 5,
+      "size_cm": [
+        622,
+        699,
+        1532
+      ]
+    },
+    {
+      "path": "/Game/EuropeanBeech/Geometry/PivotPainter/SM_EuropeanBeech_Forest_07_PP",
+      "lods": 7,
+      "triangles": [
+        83881,
+        97979,
+        78357,
+        26140,
+        32180,
+        6398,
+        8
+      ],
+      "lod0_triangles": 83881,
+      "last_lod_triangles": 8,
+      "nanite": true,
+      "materials": 4,
+      "size_cm": [
+        801,
+        817,
+        1431
+      ]
+    },
+    {
+      "path": "/Game/EuropeanBeech/Geometry/PivotPainter/SM_EuropeanBeech_Forest_08_PP",
+      "lods": 7,
+      "triangles": [
+        13385,
+        91848,
+        47279,
+        10489,
+        6076,
+        3911,
+        8
+      ],
+      "lod0_triangles": 13385,
+      "last_lod_triangles": 8,
+      "nanite": true,
+      "materials": 4,
+      "size_cm": [
+        444,
+        420,
+        762
+      ]
+    },
+    {
+      "path": "/Game/EuropeanBeech/Geometry/PivotPainter/SM_EuropeanBeech_Sapling_01_PP",
+      "lods": 4,
+      "triangles": [
+        19578,
+        38750,
+        9778,
+        6233
+      ],
+      "lod0_triangles": 19578,
+      "last_lod_triangles": 6233,
+      "nanite": true,
+      "materials": 2,
+      "size_cm": [
+        230,
+        179,
+        318
+      ]
+    },
+    {
+      "path": "/Game/EuropeanBeech/Geometry/PivotPainter/SM_EuropeanBeech_Sapling_02_PP",
+      "lods": 4,
+      "triangles": [
+        26004,
+        128937,
+        67079,
+        2118
+      ],
+      "lod0_triangles": 26004,
+      "last_lod_triangles": 2118,
+      "nanite": true,
+      "materials": 2,
+      "size_cm": [
+        280,
+        350,
+        302
+      ]
+    },
+    {
+      "path": "/Game/EuropeanBeech/Geometry/PivotPainter/SM_EuropeanBeech_Sapling_03_PP",
+      "lods": 4,
+      "triangles": [
+        69733,
+        201100,
+        51087,
+        2759
+      ],
+      "lod0_triangles": 69733,
+      "last_lod_triangles": 2759,
+      "nanite": true,
+      "materials": 2,
+      "size_cm": [
+        218,
+        214,
+        261
+      ]
+    },
+    {
+      "path": "/Game/EuropeanBeech/Geometry/PivotPainter/SM_EuropeanBeech_Sapling_04_PP",
+      "lods": 4,
+      "triangles": [
+        51576,
+        92653,
+        31422,
+        6107
+      ],
+      "lod0_triangles": 51576,
+      "last_lod_triangles": 6107,
+      "nanite": true,
+      "materials": 2,
+      "size_cm": [
+        199,
+        182,
+        208
+      ]
+    },
+    {
+      "path": "/Game/EuropeanBeech/Geometry/PivotPainter/SM_EuropeanBeech_Seedling_01_PP",
+      "lods": 4,
+      "triangles": [
+        2274,
+        808,
+        403,
+        201
+      ],
+      "lod0_triangles": 2274,
+      "last_lod_triangles": 201,
+      "nanite": true,
+      "materials": 2,
+      "size_cm": [
+        30,
+        36,
+        104
+      ]
+    },
+    {
+      "path": "/Game/EuropeanBeech/Geometry/PivotPainter/SM_EuropeanBeech_Seedling_02_PP",
+      "lods": 4,
+      "triangles": [
+        1366,
+        6313,
+        3157,
+        1579
+      ],
+      "lod0_triangles": 1366,
+      "last_lod_triangles": 1579,
+      "nanite": true,
+      "materials": 2,
+      "size_cm": [
+        93,
+        118,
+        120
+      ]
+    },
+    {
+      "path": "/Game/EuropeanBeech/Geometry/PivotPainter/SM_EuropeanBeech_Seedling_03_PP",
+      "lods": 4,
+      "triangles": [
+        1517,
+        1234,
+        616,
+        308
+      ],
+      "lod0_triangles": 1517,
+      "last_lod_triangles": 308,
+      "nanite": true,
+      "materials": 2,
+      "size_cm": [
+        43,
+        40,
+        83
+      ]
+    },
+    {
+      "path": "/Game/EuropeanBeech/Geometry/PivotPainter/SM_EuropeanBeech_Seedling_04_PP",
+      "lods": 4,
+      "triangles": [
+        268,
+        92,
+        64,
+        64
+      ],
+      "lod0_triangles": 268,
+      "last_lod_triangles": 64,
+      "nanite": true,
+      "materials": 2,
+      "size_cm": [
+        22,
+        21,
+        24
+      ]
+    },
+    {
+      "path": "/Game/EuropeanBeech/Geometry/SimpleWind/SM_EuropeanBeech_Field_01",
+      "lods": 7,
+      "triangles": [
+        972734,
+        2309649,
+        1022547,
+        261371,
+        96289,
+        32150,
+        8
+      ],
+      "lod0_triangles": 972734,
+      "last_lod_triangles": 8,
+      "nanite": true,
+      "materials": 5,
+      "size_cm": [
+        2285,
+        2337,
+        2392
+      ]
+    },
+    {
+      "path": "/Game/EuropeanBeech/Geometry/SimpleWind/SM_EuropeanBeech_Forest_01",
+      "lods": 7,
+      "triangles": [
+        10213,
+        1045949,
+        613384,
+        175663,
+        65936,
+        15132,
+        8
+      ],
+      "lod0_triangles": 10213,
+      "last_lod_triangles": 8,
+      "nanite": true,
+      "materials": 5,
+      "size_cm": [
+        3040,
+        3177,
+        4847
+      ]
+    },
+    {
+      "path": "/Game/EuropeanBeech/Geometry/SimpleWind/SM_EuropeanBeech_Forest_02",
+      "lods": 7,
+      "triangles": [
+        550781,
+        1568529,
+        788192,
+        458139,
+        205593,
+        19612,
+        8
+      ],
+      "lod0_triangles": 550781,
+      "last_lod_triangles": 8,
+      "nanite": true,
+      "materials": 5,
+      "size_cm": [
+        2674,
+        2169,
+        4489
+      ]
+    },
+    {
+      "path": "/Game/EuropeanBeech/Geometry/SimpleWind/SM_EuropeanBeech_Forest_03",
+      "lods": 7,
+      "triangles": [
+        400096,
+        949485,
+        506132,
+        332248,
+        108086,
+        12315,
+        8
+      ],
+      "lod0_triangles": 400096,
+      "last_lod_triangles": 8,
+      "nanite": true,
+      "materials": 4,
+      "size_cm": [
+        1448,
+        1614,
+        3280
+      ]
+    },
+    {
+      "path": "/Game/EuropeanBeech/Geometry/SimpleWind/SM_EuropeanBeech_Forest_04",
+      "lods": 7,
+      "triangles": [
+        269427,
+        636656,
+        235938,
+        83278,
+        26192,
+        14853,
+        8
+      ],
+      "lod0_triangles": 269427,
+      "last_lod_triangles": 8,
+      "nanite": true,
+      "materials": 5,
+      "size_cm": [
+        1562,
+        1460,
+        3173
+      ]
+    },
+    {
+      "path": "/Game/EuropeanBeech/Geometry/SimpleWind/SM_EuropeanBeech_Forest_05",
+      "lods": 7,
+      "triangles": [
+        119401,
+        235119,
+        143992,
+        100263,
+        68841,
+        67422,
+        8
+      ],
+      "lod0_triangles": 119401,
+      "last_lod_triangles": 8,
+      "nanite": true,
+      "materials": 5,
+      "size_cm": [
+        1190,
+        950,
+        2530
+      ]
+    },
+    {
+      "path": "/Game/EuropeanBeech/Geometry/SimpleWind/SM_EuropeanBeech_Forest_06",
+      "lods": 7,
+      "triangles": [
+        91470,
+        130045,
+        50381,
+        15534,
+        7836,
+        5344,
+        8
+      ],
+      "lod0_triangles": 91470,
+      "last_lod_triangles": 8,
+      "nanite": true,
+      "materials": 5,
+      "size_cm": [
+        622,
+        699,
+        1532
+      ]
+    },
+    {
+      "path": "/Game/EuropeanBeech/Geometry/SimpleWind/SM_EuropeanBeech_Forest_07",
+      "lods": 7,
+      "triangles": [
+        83882,
+        97979,
+        78357,
+        26140,
+        32180,
+        6398,
+        8
+      ],
+      "lod0_triangles": 83882,
+      "last_lod_triangles": 8,
+      "nanite": true,
+      "materials": 4,
+      "size_cm": [
+        801,
+        817,
+        1431
+      ]
+    },
+    {
+      "path": "/Game/EuropeanBeech/Geometry/SimpleWind/SM_EuropeanBeech_Forest_08",
+      "lods": 7,
+      "triangles": [
+        25098,
+        91848,
+        47279,
+        10489,
+        6076,
+        3911,
+        8
+      ],
+      "lod0_triangles": 25098,
+      "last_lod_triangles": 8,
+      "nanite": true,
+      "materials": 4,
+      "size_cm": [
+        444,
+        420,
+        762
+      ]
+    },
+    {
+      "path": "/Game/EuropeanBeech/Geometry/SimpleWind/SM_EuropeanBeech_Sapling_01",
+      "lods": 4,
+      "triangles": [
+        19578,
+        38750,
+        9778,
+        6233
+      ],
+      "lod0_triangles": 19578,
+      "last_lod_triangles": 6233,
+      "nanite": true,
+      "materials": 2,
+      "size_cm": [
+        230,
+        179,
+        318
+      ]
+    },
+    {
+      "path": "/Game/EuropeanBeech/Geometry/SimpleWind/SM_EuropeanBeech_Sapling_02",
+      "lods": 4,
+      "triangles": [
+        26004,
+        128937,
+        67079,
+        2118
+      ],
+      "lod0_triangles": 26004,
+      "last_lod_triangles": 2118,
+      "nanite": true,
+      "materials": 2,
+      "size_cm": [
+        280,
+        350,
+        302
+      ]
+    },
+    {
+      "path": "/Game/EuropeanBeech/Geometry/SimpleWind/SM_EuropeanBeech_Sapling_03",
+      "lods": 4,
+      "triangles": [
+        69733,
+        201100,
+        51087,
+        2759
+      ],
+      "lod0_triangles": 69733,
+      "last_lod_triangles": 2759,
+      "nanite": true,
+      "materials": 2,
+      "size_cm": [
+        218,
+        214,
+        261
+      ]
+    },
+    {
+      "path": "/Game/EuropeanBeech/Geometry/SimpleWind/SM_EuropeanBeech_Sapling_04",
+      "lods": 4,
+      "triangles": [
+        51576,
+        92653,
+        31422,
+        6107
+      ],
+      "lod0_triangles": 51576,
+      "last_lod_triangles": 6107,
+      "nanite": true,
+      "materials": 2,
+      "size_cm": [
+        199,
+        182,
+        208
+      ]
+    },
+    {
+      "path": "/Game/EuropeanBeech/Geometry/SimpleWind/SM_EuropeanBeech_Seedling_01",
+      "lods": 4,
+      "triangles": [
+        2274,
+        808,
+        403,
+        201
+      ],
+      "lod0_triangles": 2274,
+      "last_lod_triangles": 201,
+      "nanite": true,
+      "materials": 2,
+      "size_cm": [
+        30,
+        36,
+        104
+      ]
+    },
+    {
+      "path": "/Game/EuropeanBeech/Geometry/SimpleWind/SM_EuropeanBeech_Seedling_02",
+      "lods": 4,
+      "triangles": [
+        1366,
+        6313,
+        3157,
+        1579
+      ],
+      "lod0_triangles": 1366,
+      "last_lod_triangles": 1579,
+      "nanite": true,
+      "materials": 2,
+      "size_cm": [
+        93,
+        118,
+        120
+      ]
+    },
+    {
+      "path": "/Game/EuropeanBeech/Geometry/SimpleWind/SM_EuropeanBeech_Seedling_03",
+      "lods": 4,
+      "triangles": [
+        1517,
+        1234,
+        616,
+        308
+      ],
+      "lod0_triangles": 1517,
+      "last_lod_triangles": 308,
+      "nanite": true,
+      "materials": 2,
+      "size_cm": [
+        43,
+        40,
+        83
+      ]
+    },
+    {
+      "path": "/Game/EuropeanBeech/Geometry/SimpleWind/SM_EuropeanBeech_Seedling_04",
+      "lods": 4,
+      "triangles": [
+        268,
+        165,
+        82,
+        63
+      ],
+      "lod0_triangles": 268,
+      "last_lod_triangles": 63,
+      "nanite": true,
+      "materials": 2,
+      "size_cm": [
+        22,
+        21,
+        24
+      ]
+    },
+    {
+      "path": "/Game/BlackAlder/Geometry/PivotPainter/SM_BlackAlder_Field_01_PP",
+      "lods": 7,
+      "triangles": [
+        15521,
+        203065,
+        143457,
+        50491,
+        28020,
+        7111,
+        8
+      ],
+      "lod0_triangles": 15521,
+      "last_lod_triangles": 8,
+      "nanite": true,
+      "materials": 5,
+      "size_cm": [
+        1188,
+        1262,
+        1605
+      ]
+    },
+    {
+      "path": "/Game/BlackAlder/Geometry/PivotPainter/SM_BlackAlder_Field_02_PP",
+      "lods": 7,
+      "triangles": [
+        18048,
+        358373,
+        211734,
+        99588,
+        51217,
+        12285,
+        8
+      ],
+      "lod0_triangles": 18048,
+      "last_lod_triangles": 8,
+      "nanite": true,
+      "materials": 4,
+      "size_cm": [
+        1635,
+        1620,
+        1720
+      ]
+    },
+    {
+      "path": "/Game/BlackAlder/Geometry/PivotPainter/SM_BlackAlder_Field_03_PP",
+      "lods": 7,
+      "triangles": [
+        10123,
+        172725,
+        109552,
+        78235,
+        20251,
+        10122,
+        8
+      ],
+      "lod0_triangles": 10123,
+      "last_lod_triangles": 8,
+      "nanite": true,
+      "materials": 4,
+      "size_cm": [
+        1146,
+        982,
+        1664
+      ]
+    },
+    {
+      "path": "/Game/BlackAlder/Geometry/PivotPainter/SM_BlackAlder_Field_04_PP",
+      "lods": 7,
+      "triangles": [
+        8893,
+        82457,
+        45963,
+        33986,
+        18514,
+        11158,
+        8
+      ],
+      "lod0_triangles": 8893,
+      "last_lod_triangles": 8,
+      "nanite": true,
+      "materials": 5,
+      "size_cm": [
+        678,
+        695,
+        1151
+      ]
+    },
+    {
+      "path": "/Game/BlackAlder/Geometry/PivotPainter/SM_BlackAlder_Field_05_PP",
+      "lods": 7,
+      "triangles": [
+        9139,
+        60412,
+        43108,
+        27086,
+        15043,
+        7260,
+        8
+      ],
+      "lod0_triangles": 9139,
+      "last_lod_triangles": 8,
+      "nanite": true,
+      "materials": 4,
+      "size_cm": [
+        674,
+        701,
+        742
+      ]
+    },
+    {
+      "path": "/Game/BlackAlder/Geometry/PivotPainter/SM_BlackAlder_Forest_01_PP",
+      "lods": 7,
+      "triangles": [
+        6676,
+        124359,
+        64698,
+        32559,
+        9881,
+        4295,
+        8
+      ],
+      "lod0_triangles": 6676,
+      "last_lod_triangles": 8,
+      "nanite": true,
+      "materials": 4,
+      "size_cm": [
+        811,
+        825,
+        2089
+      ]
+    },
+    {
+      "path": "/Game/BlackAlder/Geometry/PivotPainter/SM_BlackAlder_Forest_02_PP",
+      "lods": 7,
+      "triangles": [
+        5374,
+        90431,
+        49618,
+        29202,
+        14552,
+        8363,
+        8
+      ],
+      "lod0_triangles": 5374,
+      "last_lod_triangles": 8,
+      "nanite": true,
+      "materials": 4,
+      "size_cm": [
+        632,
+        636,
+        1983
+      ]
+    },
+    {
+      "path": "/Game/BlackAlder/Geometry/PivotPainter/SM_BlackAlder_Forest_03_PP",
+      "lods": 7,
+      "triangles": [
+        5874,
+        102183,
+        48121,
+        15622,
+        8429,
+        4584,
+        8
+      ],
+      "lod0_triangles": 5874,
+      "last_lod_triangles": 8,
+      "nanite": true,
+      "materials": 5,
+      "size_cm": [
+        723,
+        733,
+        1766
+      ]
+    },
+    {
+      "path": "/Game/BlackAlder/Geometry/PivotPainter/SM_BlackAlder_Forest_04_PP",
+      "lods": 7,
+      "triangles": [
+        7075,
+        71860,
+        51068,
+        22619,
+        15196,
+        4354,
+        8
+      ],
+      "lod0_triangles": 7075,
+      "last_lod_triangles": 8,
+      "nanite": true,
+      "materials": 5,
+      "size_cm": [
+        704,
+        580,
+        1176
+      ]
+    },
+    {
+      "path": "/Game/BlackAlder/Geometry/PivotPainter/SM_BlackAlder_Forest_05_PP",
+      "lods": 7,
+      "triangles": [
+        8179,
+        68806,
+        33835,
+        15639,
+        9454,
+        2749,
+        8
+      ],
+      "lod0_triangles": 8179,
+      "last_lod_triangles": 8,
+      "nanite": true,
+      "materials": 4,
+      "size_cm": [
+        599,
+        708,
+        1107
+      ]
+    },
+    {
+      "path": "/Game/BlackAlder/Geometry/PivotPainter/SM_BlackAlder_Forest_06_PP",
+      "lods": 7,
+      "triangles": [
+        3060,
+        12983,
+        8835,
+        5355,
+        1803,
+        913,
+        8
+      ],
+      "lod0_triangles": 3060,
+      "last_lod_triangles": 8,
+      "nanite": true,
+      "materials": 4,
+      "size_cm": [
+        358,
+        273,
+        888
+      ]
+    },
+    {
+      "path": "/Game/BlackAlder/Geometry/PivotPainter/SM_BlackAlder_Forest_07_PP",
+      "lods": 6,
+      "triangles": [
+        3128,
+        18978,
+        8603,
+        5604,
+        4492,
+        1667
+      ],
+      "lod0_triangles": 3128,
+      "last_lod_triangles": 1667,
+      "nanite": true,
+      "materials": 3,
+      "size_cm": [
+        442,
+        365,
+        824
+      ]
+    },
+    {
+      "path": "/Game/BlackAlder/Geometry/PivotPainter/SM_BlackAlder_Forest_08_PP",
+      "lods": 6,
+      "triangles": [
+        2682,
+        9539,
+        6462,
+        4325,
+        1394,
+        557
+      ],
+      "lod0_triangles": 2682,
+      "last_lod_triangles": 557,
+      "nanite": true,
+      "materials": 3,
+      "size_cm": [
+        310,
+        279,
+        736
+      ]
+    },
+    {
+      "path": "/Game/BlackAlder/Geometry/PivotPainter/SM_BlackAlder_Forest_09_PP",
+      "lods": 6,
+      "triangles": [
+        2769,
+        12922,
+        6474,
+        4349,
+        2293,
+        1448
+      ],
+      "lod0_triangles": 2769,
+      "last_lod_triangles": 1448,
+      "nanite": true,
+      "materials": 2,
+      "size_cm": [
+        387,
+        348,
+        599
+      ]
+    },
+    {
+      "path": "/Game/BlackAlder/Geometry/PivotPainter/SM_BlackAlder_Sapling_01_PP",
+      "lods": 4,
+      "triangles": [
+        1230,
+        3692,
+        700,
+        246
+      ],
+      "lod0_triangles": 1230,
+      "last_lod_triangles": 246,
+      "nanite": true,
+      "materials": 1,
+      "size_cm": [
+        89,
+        78,
+        98
+      ]
+    },
+    {
+      "path": "/Game/BlackAlder/Geometry/PivotPainter/SM_BlackAlder_Sapling_02_PP",
+      "lods": 4,
+      "triangles": [
+        1575,
+        10451,
+        2100,
+        841
+      ],
+      "lod0_triangles": 1575,
+      "last_lod_triangles": 841,
+      "nanite": true,
+      "materials": 1,
+      "size_cm": [
+        167,
+        140,
+        159
+      ]
+    },
+    {
+      "path": "/Game/BlackAlder/Geometry/PivotPainter/SM_BlackAlder_Sapling_03_PP",
+      "lods": 4,
+      "triangles": [
+        1780,
+        13896,
+        2878,
+        1146
+      ],
+      "lod0_triangles": 1780,
+      "last_lod_triangles": 1146,
+      "nanite": true,
+      "materials": 1,
+      "size_cm": [
+        136,
+        158,
+        181
+      ]
+    },
+    {
+      "path": "/Game/BlackAlder/Geometry/PivotPainter/SM_BlackAlder_Sapling_04_PP",
+      "lods": 4,
+      "triangles": [
+        1554,
+        16376,
+        3406,
+        1393
+      ],
+      "lod0_triangles": 1554,
+      "last_lod_triangles": 1393,
+      "nanite": true,
+      "materials": 1,
+      "size_cm": [
+        211,
+        221,
+        163
+      ]
+    },
+    {
+      "path": "/Game/BlackAlder/Geometry/PivotPainter/SM_BlackAlder_Sapling_05_PP",
+      "lods": 4,
+      "triangles": [
+        1631,
+        17778,
+        3592,
+        1312
+      ],
+      "lod0_triangles": 1631,
+      "last_lod_triangles": 1312,
+      "nanite": true,
+      "materials": 1,
+      "size_cm": [
+        136,
+        159,
+        102
+      ]
+    },
+    {
+      "path": "/Game/BlackAlder/Geometry/PivotPainter/SM_BlackAlder_Sapling_06_PP",
+      "lods": 4,
+      "triangles": [
+        2063,
+        5662,
+        2565,
+        1243
+      ],
+      "lod0_triangles": 2063,
+      "last_lod_triangles": 1243,
+      "nanite": true,
+      "materials": 1,
+      "size_cm": [
+        360,
+        390,
+        375
+      ]
+    },
+    {
+      "path": "/Game/BlackAlder/Geometry/PivotPainter/SM_BlackAlder_Seedling_01_PP",
+      "lods": 4,
+      "triangles": [
+        626,
+        878,
+        152,
+        76
+      ],
+      "lod0_triangles": 626,
+      "last_lod_triangles": 76,
+      "nanite": true,
+      "materials": 1,
+      "size_cm": [
+        38,
+        38,
+        42
+      ]
+    },
+    {
+      "path": "/Game/BlackAlder/Geometry/PivotPainter/SM_BlackAlder_Seedling_02_PP",
+      "lods": 4,
+      "triangles": [
+        1290,
+        4601,
+        944,
+        356
+      ],
+      "lod0_triangles": 1290,
+      "last_lod_triangles": 356,
+      "nanite": true,
+      "materials": 1,
+      "size_cm": [
+        85,
+        90,
+        86
+      ]
+    },
+    {
+      "path": "/Game/BlackAlder/Geometry/SimpleWind/SM_BlackAlder_Field_01",
+      "lods": 7,
+      "triangles": [
+        18577,
+        203065,
+        143457,
+        50491,
+        28020,
+        7111,
+        8
+      ],
+      "lod0_triangles": 18577,
+      "last_lod_triangles": 8,
+      "nanite": true,
+      "materials": 5,
+      "size_cm": [
+        1192,
+        1266,
+        1605
+      ]
+    },
+    {
+      "path": "/Game/BlackAlder/Geometry/SimpleWind/SM_BlackAlder_Field_02",
+      "lods": 7,
+      "triangles": [
+        18480,
+        358373,
+        211734,
+        99588,
+        51217,
+        12285,
+        8
+      ],
+      "lod0_triangles": 18480,
+      "last_lod_triangles": 8,
+      "nanite": true,
+      "materials": 4,
+      "size_cm": [
+        1645,
+        1628,
+        1727
+      ]
+    },
+    {
+      "path": "/Game/BlackAlder/Geometry/SimpleWind/SM_BlackAlder_Field_03",
+      "lods": 7,
+      "triangles": [
+        10011,
+        172725,
+        109552,
+        78235,
+        20251,
+        10122,
+        8
+      ],
+      "lod0_triangles": 10011,
+      "last_lod_triangles": 8,
+      "nanite": true,
+      "materials": 4,
+      "size_cm": [
+        1146,
+        982,
+        1664
+      ]
+    },
+    {
+      "path": "/Game/BlackAlder/Geometry/SimpleWind/SM_BlackAlder_Field_04",
+      "lods": 7,
+      "triangles": [
+        8999,
+        82457,
+        45963,
+        33986,
+        18514,
+        11158,
+        8
+      ],
+      "lod0_triangles": 8999,
+      "last_lod_triangles": 8,
+      "nanite": true,
+      "materials": 5,
+      "size_cm": [
+        678,
+        695,
+        1151
+      ]
+    },
+    {
+      "path": "/Game/BlackAlder/Geometry/SimpleWind/SM_BlackAlder_Field_05",
+      "lods": 7,
+      "triangles": [
+        9151,
+        60412,
+        43108,
+        27086,
+        15043,
+        7260,
+        8
+      ],
+      "lod0_triangles": 9151,
+      "last_lod_triangles": 8,
+      "nanite": true,
+      "materials": 4,
+      "size_cm": [
+        674,
+        701,
+        742
+      ]
+    },
+    {
+      "path": "/Game/BlackAlder/Geometry/SimpleWind/SM_BlackAlder_Forest_01",
+      "lods": 7,
+      "triangles": [
+        7225,
+        124359,
+        64698,
+        32559,
+        9881,
+        4295,
+        8
+      ],
+      "lod0_triangles": 7225,
+      "last_lod_triangles": 8,
+      "nanite": true,
+      "materials": 4,
+      "size_cm": [
+        818,
+        829,
+        2093
+      ]
+    },
+    {
+      "path": "/Game/BlackAlder/Geometry/SimpleWind/SM_BlackAlder_Forest_02",
+      "lods": 7,
+      "triangles": [
+        5236,
+        90431,
+        49618,
+        29202,
+        14552,
+        8363,
+        8
+      ],
+      "lod0_triangles": 5236,
+      "last_lod_triangles": 8,
+      "nanite": true,
+      "materials": 4,
+      "size_cm": [
+        633,
+        640,
+        1986
+      ]
+    },
+    {
+      "path": "/Game/BlackAlder/Geometry/SimpleWind/SM_BlackAlder_Forest_03",
+      "lods": 7,
+      "triangles": [
+        7177,
+        102183,
+        48121,
+        15622,
+        8429,
+        4584,
+        8
+      ],
+      "lod0_triangles": 7177,
+      "last_lod_triangles": 8,
+      "nanite": true,
+      "materials": 5,
+      "size_cm": [
+        725,
+        736,
+        1770
+      ]
+    },
+    {
+      "path": "/Game/BlackAlder/Geometry/SimpleWind/SM_BlackAlder_Forest_04",
+      "lods": 7,
+      "triangles": [
+        7433,
+        71860,
+        51068,
+        22619,
+        15196,
+        4354,
+        8
+      ],
+      "lod0_triangles": 7433,
+      "last_lod_triangles": 8,
+      "nanite": true,
+      "materials": 5,
+      "size_cm": [
+        708,
+        586,
+        1178
+      ]
+    },
+    {
+      "path": "/Game/BlackAlder/Geometry/SimpleWind/SM_BlackAlder_Forest_05",
+      "lods": 7,
+      "triangles": [
+        8426,
+        68806,
+        33835,
+        15639,
+        9454,
+        2749,
+        8
+      ],
+      "lod0_triangles": 8426,
+      "last_lod_triangles": 8,
+      "nanite": true,
+      "materials": 4,
+      "size_cm": [
+        599,
+        711,
+        1108
+      ]
+    },
+    {
+      "path": "/Game/BlackAlder/Geometry/SimpleWind/SM_BlackAlder_Forest_06",
+      "lods": 7,
+      "triangles": [
+        2277,
+        12983,
+        8835,
+        5355,
+        1803,
+        913,
+        8
+      ],
+      "lod0_triangles": 2277,
+      "last_lod_triangles": 8,
+      "nanite": true,
+      "materials": 4,
+      "size_cm": [
+        360,
+        273,
+        890
+      ]
+    },
+    {
+      "path": "/Game/BlackAlder/Geometry/SimpleWind/SM_BlackAlder_Forest_07",
+      "lods": 6,
+      "triangles": [
+        3039,
+        18978,
+        8603,
+        5604,
+        4492,
+        1667
+      ],
+      "lod0_triangles": 3039,
+      "last_lod_triangles": 1667,
+      "nanite": true,
+      "materials": 3,
+      "size_cm": [
+        443,
+        365,
+        825
+      ]
+    },
+    {
+      "path": "/Game/BlackAlder/Geometry/SimpleWind/SM_BlackAlder_Forest_08",
+      "lods": 6,
+      "triangles": [
+        2138,
+        9539,
+        6462,
+        4325,
+        1394,
+        557
+      ],
+      "lod0_triangles": 2138,
+      "last_lod_triangles": 557,
+      "nanite": true,
+      "materials": 3,
+      "size_cm": [
+        310,
+        280,
+        736
+      ]
+    },
+    {
+      "path": "/Game/BlackAlder/Geometry/SimpleWind/SM_BlackAlder_Forest_09",
+      "lods": 6,
+      "triangles": [
+        2701,
+        12922,
+        6474,
+        4349,
+        2293,
+        1448
+      ],
+      "lod0_triangles": 2701,
+      "last_lod_triangles": 1448,
+      "nanite": true,
+      "materials": 2,
+      "size_cm": [
+        387,
+        348,
+        600
+      ]
+    },
+    {
+      "path": "/Game/BlackAlder/Geometry/SimpleWind/SM_BlackAlder_Sapling_01",
+      "lods": 4,
+      "triangles": [
+        1234,
+        3692,
+        700,
+        246
+      ],
+      "lod0_triangles": 1234,
+      "last_lod_triangles": 246,
+      "nanite": true,
+      "materials": 1,
+      "size_cm": [
+        89,
+        78,
+        98
+      ]
+    },
+    {
+      "path": "/Game/BlackAlder/Geometry/SimpleWind/SM_BlackAlder_Sapling_02",
+      "lods": 4,
+      "triangles": [
+        1577,
+        10451,
+        2100,
+        841
+      ],
+      "lod0_triangles": 1577,
+      "last_lod_triangles": 841,
+      "nanite": true,
+      "materials": 1,
+      "size_cm": [
+        167,
+        140,
+        159
+      ]
+    },
+    {
+      "path": "/Game/BlackAlder/Geometry/SimpleWind/SM_BlackAlder_Sapling_03",
+      "lods": 4,
+      "triangles": [
+        1797,
+        13896,
+        2878,
+        1146
+      ],
+      "lod0_triangles": 1797,
+      "last_lod_triangles": 1146,
+      "nanite": true,
+      "materials": 1,
+      "size_cm": [
+        136,
+        158,
+        181
+      ]
+    },
+    {
+      "path": "/Game/BlackAlder/Geometry/SimpleWind/SM_BlackAlder_Sapling_04",
+      "lods": 4,
+      "triangles": [
+        1561,
+        16376,
+        3406,
+        1393
+      ],
+      "lod0_triangles": 1561,
+      "last_lod_triangles": 1393,
+      "nanite": true,
+      "materials": 1,
+      "size_cm": [
+        211,
+        221,
+        163
+      ]
+    },
+    {
+      "path": "/Game/BlackAlder/Geometry/SimpleWind/SM_BlackAlder_Sapling_05",
+      "lods": 4,
+      "triangles": [
+        1676,
+        17778,
+        3592,
+        1312
+      ],
+      "lod0_triangles": 1676,
+      "last_lod_triangles": 1312,
+      "nanite": true,
+      "materials": 1,
+      "size_cm": [
+        136,
+        159,
+        102
+      ]
+    },
+    {
+      "path": "/Game/BlackAlder/Geometry/SimpleWind/SM_BlackAlder_Sapling_06",
+      "lods": 4,
+      "triangles": [
+        2093,
+        5678,
+        2577,
+        1251
+      ],
+      "lod0_triangles": 2093,
+      "last_lod_triangles": 1251,
+      "nanite": true,
+      "materials": 1,
+      "size_cm": [
+        360,
+        390,
+        375
+      ]
+    },
+    {
+      "path": "/Game/BlackAlder/Geometry/SimpleWind/SM_BlackAlder_Seedling_01",
+      "lods": 4,
+      "triangles": [
+        626,
+        878,
+        152,
+        76
+      ],
+      "lod0_triangles": 626,
+      "last_lod_triangles": 76,
+      "nanite": true,
+      "materials": 1,
+      "size_cm": [
+        38,
+        38,
+        42
+      ]
+    },
+    {
+      "path": "/Game/BlackAlder/Geometry/SimpleWind/SM_BlackAlder_Seedling_02",
+      "lods": 4,
+      "triangles": [
+        1256,
+        4601,
+        944,
+        356
+      ],
+      "lod0_triangles": 1256,
+      "last_lod_triangles": 356,
+      "nanite": true,
+      "materials": 1,
+      "size_cm": [
+        85,
+        90,
+        86
+      ]
+    }
+  ],
+  "errors": [],
+  "seconds": 593.0
+}
