@@ -20,7 +20,9 @@ zone="${GTP_CITY_ZONE:-presqu-ile}"
 gen_root="$repo/assets/geo/processed/$zone/gen"
 
 test -x "$editor" || { echo "Unreal Editor not found: $editor" >&2; exit 1; }
-if pgrep -fl "UnrealEditor|GranTheftPraline" | grep -vE "UnrealEditorServices|CrashReportClient" > /dev/null; then
+# Same test as the perf slots: the editor or the game, never the UnrealEditorServices helper
+# (a "pgrep | grep -v" pipeline can match its own grep).
+if pgrep -f "UnrealEditor( |$)|GranTheftPraline-Mac" > /dev/null; then
   echo "an Unreal process is already running, wait for it to finish" >&2
   exit 1
 fi
