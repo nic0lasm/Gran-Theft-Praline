@@ -218,5 +218,17 @@ and a negative value means never.
   in the rain (+2.9 ms p50, +5.8 ms p95), which day scenes do not show.
   Translucent glass is lit by every street lamp and fogged in the rain. To be
   measured at night and in the rain, with and without the switch.
+- Measured on 11 Nov 2026 (M1, 24 driven and 24 far cars, fixed camera,
+  single 75 s passes, about 2 ms of noise), GPU p50/p95 in ms:
+  - base: 15.0/26.9;
+  - all levers ("cheap"): 12.2/24.6;
+  - static past 30 m alone: 12.3/24.9;
+  - near LOD 1: 12.8/25.4;
+  - lights: 13.1/26.4;
+  - driver and shadows: noise.
+
+  Since then, the default is `StaticRenderDistance=3000` (static past 30 m),
+  and `-CarRenderStatic=-1` turns it off. Lean puppets are off by default
+  until Nico approves them (`-FarLean=1`).
 - A lever goes into the defaults only if p95 at 20 or 24 driven cars stays
   under 33 ms with no frame over 100 ms.

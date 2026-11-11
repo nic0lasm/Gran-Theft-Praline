@@ -249,5 +249,17 @@ jamais.
   +5,8 ms p95), que les scènes de jour ne montrent pas. Une vitre translucide
   est éclairée par chaque réverbère et embrumée sous la pluie. À mesurer de
   nuit et sous la pluie, avec et sans l'interrupteur.
+- Mesuré le 11/11/2026 (M1, 24 voitures conduites et 24 lointaines, caméra
+  fixe, passes uniques de 75 s, environ 2 ms de bruit), GPU p50/p95 en ms :
+  - base : 15,0/26,9 ;
+  - tous les leviers (« cheap ») : 12,2/24,6 ;
+  - statique au-delà de 30 m seul : 12,3/24,9 ;
+  - LOD proche 1 : 12,8/25,4 ;
+  - feux : 13,1/26,4 ;
+  - conducteur et ombres : dans le bruit.
+
+  Depuis, le défaut est `StaticRenderDistance=3000` (statique au-delà de
+  30 m), et `-CarRenderStatic=-1` le coupe. Les marionnettes allégées restent
+  coupées par défaut tant que Nico ne les a pas validées (`-FarLean=1`).
 - Un levier n'entre dans les défauts que si le p95 à 20 ou 24 voitures
   conduites reste sous 33 ms, sans aucune image au-delà de 100 ms.
