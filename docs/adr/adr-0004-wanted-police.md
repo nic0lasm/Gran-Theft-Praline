@@ -84,3 +84,7 @@ The M1 bench showed one hitch (47 ms CPU spike) each time police units appear: a
 ## Combat crimes (2026-11-11)
 
 Added for the combat framework, reported through `ReportCrime` (heat): assault 15, shots fired 20, armed threat 25, killing 60 (2 stars), killing a police officer 130 (3 stars). Shots and threats count once per 5 s (a burst), the other crimes once per 2 s. Not yet checked: witnesses (every crime counts).
+
+## Witnesses (2026-11-11)
+
+A crime counts only if somebody saw or heard it (`GTPWitnessLogic.h`, tested in CI): a police car in sight within 60 m reports it at once; a person in sight within 25 m calls the police 4 s later; shots and killings are heard without sight (police 120 m, people 40 m); the person directly involved (the driver pulled out of a car, a person hit by a car) counts as a person who saw it. Nobody around: no heat. `-Witnesses=0` makes every crime count at once (tests, scripted demos); `bRequireWitnesses=False` in the config does the same. Pedestrians are found among the pedestrian actors near the crime; people drawn only as far crowd are not witnesses.
