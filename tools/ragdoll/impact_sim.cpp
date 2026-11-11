@@ -257,6 +257,14 @@ int main()
 		CHECK(H::Evaluate(Hit(60.f, 40.f, H::EZone::Torso), K, 0.0).Kind == H::EReaction::Knockdown, "knockdown");
 		CHECK(H::Evaluate(Hit(60.f, 40.f, H::EZone::Torso), K, 1.0).Kind == H::EReaction::Stagger, "immune to a second knockdown for 2 s");
 		CHECK(H::Evaluate(Hit(60.f, 40.f, H::EZone::Torso), K, 3.0).Kind == H::EReaction::Knockdown, "knockdown again after the immunity");
+		H::FState Hv;
+		H::FHitInfo Heavy = Hit(18.f, 82.f, H::EZone::Torso, true);
+		CHECK(H::Evaluate(Heavy, Hv, 0.0).Kind != H::EReaction::Knockdown, "18 melee damage alone does not knock down");
+		H::FState Hv2;
+		Heavy.bHeavy = true;
+		CHECK(H::Evaluate(Heavy, Hv2, 0.0).Kind == H::EReaction::Knockdown, "a heavy blow knocks down at 18 damage");
+		H::FState Hv3;
+		CHECK(H::Evaluate(Hit(18.f, 0.f, H::EZone::Torso, true), Hv3, 0.0).Kind == H::EReaction::Death, "death still wins over heavy");
 		CHECK(std::string(H::ClipName(H::EReaction::Flinch, H::EDirection::Back)) == "AM_HitLight_Back", "clip name");
 		CHECK(std::string(H::ClipName(H::EReaction::Stagger, H::EDirection::Front)) == "AM_Stagger_Front", "stagger clip name");
 	}
