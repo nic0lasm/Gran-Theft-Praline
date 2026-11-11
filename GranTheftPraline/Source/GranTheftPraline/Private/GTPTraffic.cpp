@@ -644,10 +644,18 @@ void AGTPTrafficNetwork::UpdateDetail(AGTPVehicle* Car, float DistanceToView) co
 		Car->GetComponents<ULightComponent>(CarLights);
 		for (ULightComponent* Light : CarLights)
 		{
-			// Affects-world, not visibility: the environment switches visibility for the nearest lit cars.
-			if (static_cast<bool>(Light->bAffectsWorld) != bLit)
+			// The environment switches visibility for the nearest lit cars: only a light this
+			// lever turned off (tagged) is turned back on, so the two never fight.
+			static const FName LeverOffTag(TEXT("GTPLightLeverOff"));
+			if (!bLit && Light->IsVisible())
 			{
-				Light->SetAffectsWorld(bLit);
+				Light->ComponentTags.AddUnique(LeverOffTag);
+				Light->SetVisibility(false, false);
+			}
+			else if (bLit && Light->ComponentHasTag(LeverOffTag))
+			{
+				Light->ComponentTags.Remove(LeverOffTag);
+				Light->SetVisibility(true, false);
 			}
 		}
 	}
