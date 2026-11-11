@@ -699,7 +699,8 @@ void AGTPTrafficNetwork::BeginPlay()
 	GTP_TRACE(LogGTPTraffic, TEXT("traffic: car pool %s"), bTrafficPool ? TEXT("on") : TEXT("off"));
 	int32 FarCars = NumFarCars;
 	FParse::Value(FCommandLine::Get(), TEXT("FarTraffic="), FarCars);
-	FarCars = FMath::Clamp(FarCars, 0, 60);
+	// -Traffic=0 turns all traffic off, far cars included (benches of other systems rely on it).
+	FarCars = WantedCars > 0 ? FMath::Clamp(FarCars, 0, 60) : 0;
 	if (FarCars > 0)
 	{
 		// Far cars hand over to driven cars that are ghosts by then.
