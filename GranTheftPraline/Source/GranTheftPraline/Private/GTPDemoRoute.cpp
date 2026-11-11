@@ -95,7 +95,7 @@ AGTPVehicle* UGTPDemoRoute::FindCar() const
 	float BestDist = TNumericLimits<float>::Max();
 	for (TActorIterator<AGTPVehicle> It(World); It; ++It)
 	{
-		if (It->IsWrecked() || It->GetDriver() != nullptr)
+		if (It->IsWrecked() || It->GetDriver() != nullptr || It->HasAIDriver())
 		{
 			continue;
 		}
