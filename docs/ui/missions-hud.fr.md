@@ -22,4 +22,4 @@ rien avec `-Missions=0`.
 - Textes : les lignes de `Content/Data/Missions/strings.tsv` sont dans la table de chaînes (un test
   vérifie les deux langues) ; les nouveaux textes de mission passent par le fil interface en une passe.
 
-L'affichage de l'argent (HUD) attend l'API du fil économie (un getter du montant courant).
+Argent (HUD) : voir `GTPHudMoney.cpp`, le solde en haut à droite sous les étoiles de la police avec un flash +/-, lu dans `UGTPWalletSubsystem::GetMoney`.

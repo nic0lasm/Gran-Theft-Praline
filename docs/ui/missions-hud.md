@@ -18,4 +18,4 @@ to nothing when `GTPMissionSubsystem.h` is absent and does nothing with `-Missio
 - Texts: the rows of `Content/Data/Missions/strings.tsv` are in the string table (a test checks both
   languages); new mission texts go through the interface thread in one pass.
 
-Money display (HUD) waits for the economy thread's API (a getter for the current amount).
+Money (HUD): see `GTPHudMoney.cpp`, the balance at the top right under the police stars with a +/- flash, read from `UGTPWalletSubsystem::GetMoney`.

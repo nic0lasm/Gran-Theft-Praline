@@ -197,6 +197,12 @@ static void TestHudMath()
 	CHECK(Near(ReticleRadiusPixels(70.f, 90.f, 1920.f), 220.f)); // nor bigger than the cap
 	CHECK(Near(HitMarkerAlpha(0.f), 1.f) && Near(HitMarkerAlpha(0.075f), 0.5f));
 	CHECK(HitMarkerAlpha(0.15f) == 0.f && HitMarkerAlpha(-1.f) == 0.f && HitMarkerAlpha(5.f) == 0.f);
+	const std::string Narrow = "\xE2\x80\xAF";
+	CHECK(FormatThousands(0) == "0" && FormatThousands(999) == "999");
+	CHECK(FormatThousands(1234) == "1" + Narrow + "234");
+	CHECK(FormatThousands(1234567) == "1" + Narrow + "234" + Narrow + "567");
+	CHECK(FormatThousands(-1200) == "-1" + Narrow + "200");
+	CHECK(Near(MoneyFlashAlpha(0.f), 1.f) && Near(MoneyFlashAlpha(2.f), 0.5f) && MoneyFlashAlpha(2.5f) == 0.f && MoneyFlashAlpha(-1.f) == 0.f);
 	const FRgb Full = HealthColor(1.f), Low = HealthColor(0.f);
 	CHECK(Full.G > Full.R && Low.R > Low.G);
 }

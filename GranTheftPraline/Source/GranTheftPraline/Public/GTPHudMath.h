@@ -4,6 +4,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
+#include <string>
 
 namespace GTPUI
 {
@@ -26,6 +28,32 @@ inline float HitMarkerAlpha(float SecondsSinceHit, float Duration = 0.15f)
 		return 0.f;
 	}
 	return 1.f - SecondsSinceHit / Duration;
+}
+
+/** "1 234 567" for 1234567, "-1 200" for -1200: thousands separated by a (UTF-8) narrow no-break space. */
+inline std::string FormatThousands(long long Value)
+{
+	std::string Digits = std::to_string(Value < 0 ? -Value : Value);
+	std::string Out;
+	for (std::size_t i = 0; i < Digits.size(); ++i)
+	{
+		if (i > 0 && (Digits.size() - i) % 3 == 0)
+		{
+			Out += "\xE2\x80\xAF";
+		}
+		Out += Digits[i];
+	}
+	return Value < 0 ? "-" + Out : Out;
+}
+
+/** Fade of the "+150" flash after a change: full for Hold seconds, then linear to 0 at Hold + Fade. */
+inline float MoneyFlashAlpha(float SecondsSinceChange, float Hold = 1.5f, float Fade = 1.f)
+{
+	if (SecondsSinceChange < 0.f || SecondsSinceChange >= Hold + Fade)
+	{
+		return 0.f;
+	}
+	return SecondsSinceChange <= Hold ? 1.f : 1.f - (SecondsSinceChange - Hold) / Fade;
 }
 
 /** Colour of a health arc: green when healthy, amber, red when low (0..1 in, RGB out). */
