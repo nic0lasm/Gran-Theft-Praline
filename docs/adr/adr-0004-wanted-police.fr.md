@@ -83,3 +83,7 @@ et le trafic ; à mesurer.
 ## Correction de l'à-coup d'apparition (11/11/2026)
 
 Le banc M1 a montré un à-coup (pic CPU de 47 ms) à chaque apparition d'unités de police : une unité était un personnage joueur complet (avec son système de caméra de gameplay) plus une voiture, créés dans la même image, puis détruits à la perte du niveau, environ toutes les 110 s. Maintenant : la voiture, le conducteur et la rampe sont créés sur trois images successives ; les unités sont gardées `IdleLifetime` (150 s) après la perte du niveau, à rouler sur les voies lumières éteintes, et une unité gardée loin d'une nouvelle poursuite est déplacée près du joueur hors de vue au lieu d'être recréée ; `PoliceDriverClass` permet de remplacer le personnage du joueur par un personnage léger sans caméra.
+
+## Délits de combat (11/11/2026)
+
+Ajoutés pour le combat, déclarés par `ReportCrime` (chaleur) : agression 15, coups de feu 20, menace armée 25, meurtre 60 (2 étoiles), meurtre d'un policier 130 (3 étoiles). Coups de feu et menaces comptent une fois par 5 s (une rafale), les autres délits une fois par 2 s. Pas encore de témoins (tout délit compte).
