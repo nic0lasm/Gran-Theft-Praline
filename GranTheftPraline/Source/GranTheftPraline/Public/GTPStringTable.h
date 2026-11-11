@@ -91,7 +91,9 @@ inline constexpr FStringEntry Entries[] = {
 	{"controls.keyboard_header", "Clavier ({0})", "Keyboard ({0})"},
 	{"controls.gamepad_header", "Manette", "Gamepad"},
 	{"fullmap.title", "Carte de Lyon", "Map of Lyon"},
-	{"fullmap.hint", "M ou croix haut : fermer la carte", "M or D-pad up: close the map"},
+	{"fullmap.hint",
+		"Flèches / stick : déplacer · Entrée / A : destination · Suppr / X : effacer · M / B : fermer",
+		"Arrows / stick: move · Enter / A: destination · Del / X: clear · M / B: close"},
 };
 
 inline constexpr std::size_t EntryCount = sizeof(Entries) / sizeof(Entries[0]);

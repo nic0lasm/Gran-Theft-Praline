@@ -371,6 +371,25 @@ bool AGTPPlayerController::InputKey(const FInputKeyEventArgs& Params)
 	if (Params.Event == IE_Pressed)
 	{
 		const bool bMapKey = Params.Key == EKeys::M || Params.Key == EKeys::Gamepad_DPad_Up;
+		if (bFullMapOpen)
+		{
+			UGTPMinimapSubsystem* Minimap = GetWorld() ? GetWorld()->GetSubsystem<UGTPMinimapSubsystem>() : nullptr;
+			if (Minimap && Params.Key == EKeys::Enter && GetPawn())
+			{
+				Minimap->SetDestinationAtFullMapCursor(GetPawn()->GetActorLocation());
+				return true;
+			}
+			if (Minimap && Params.Key == EKeys::Gamepad_FaceButton_Bottom && GetPawn())
+			{
+				Minimap->SetDestinationAtFullMapCursor(GetPawn()->GetActorLocation());
+				return true;
+			}
+			if (Minimap && (Params.Key == EKeys::Delete || Params.Key == EKeys::Gamepad_FaceButton_Left))
+			{
+				Minimap->ClearDestination();
+				return true;
+			}
+		}
 		if (bFullMapOpen && (bMapKey || IsPauseKey(Params.Key) || Params.Key == EKeys::Gamepad_FaceButton_Right))
 		{
 			ToggleFullMap();
@@ -432,6 +451,10 @@ void AGTPPlayerController::ToggleFullMap()
 		}
 	}
 	bFullMapOpen = !bFullMapOpen;
+	if (bFullMapOpen)
+	{
+		GetWorld()->GetSubsystem<UGTPMinimapSubsystem>()->ResetFullMapView();
+	}
 	UGTPAudioMix::PlayUI(this, bFullMapOpen ? EGTPUISound::Open : EGTPUISound::Close);
 	SetPause(bFullMapOpen);
 }

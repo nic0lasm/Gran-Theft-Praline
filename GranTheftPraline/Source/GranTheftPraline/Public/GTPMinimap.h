@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Subsystems/WorldSubsystem.h"
+#include "GTPGpsCore.h"
 #include "GTPMinimapCore.h"
 #include "GTPMinimap.generated.h"
 
@@ -46,6 +47,23 @@ public:
 	 */
 	void DrawFullMap(UCanvas* Canvas, const AGTPPlayerController* Controller);
 
+	/**
+	 * GPS (roadmap 0.9): a destination set on the full-screen map (cursor at the
+	 * centre of the screen, moved with the arrow keys or the left stick, Enter or
+	 * gamepad A to set, Delete or X to clear). The route follows the road lines
+	 * of the map data (two-way for now), is drawn on both maps and is computed
+	 * again when the player leaves it by more than 40 m. Reaching the destination
+	 * (25 m) clears it. -Gps=0 on the command line turns it off.
+	 */
+	void SetDestination(const FVector2D& WorldCm, const FVector& PlayerLocation);
+	void SetDestinationAtFullMapCursor(const FVector& PlayerLocation);
+	void ClearDestination();
+	bool HasDestination() const { return bHasDestination; }
+	static bool IsGpsDisabledOnCommandLine();
+
+	/** Centres the full-screen map on the player again (called when it opens). */
+	void ResetFullMapView() { FullMapOffset = FVector2D::ZeroVector; }
+
 	void AddBlip(AActor* Actor, const FLinearColor& Color, bool bClampToEdge = false);
 	void RemoveBlip(AActor* Actor);
 
@@ -56,6 +74,17 @@ public:
 
 private:
 	void LoadData();
+	/** Keeps the route current: arrival, leaving the route, first computation. */
+	void UpdateGps(const FVector& PlayerLocation);
+	void ComputeRoute(const FVector& From);
+	void DrawRouteInDisc(UCanvas* Canvas, const FVector2D& Centre, const GTPUI::FMapView& View, float Scale) const;
+
+	GTPUI::FGpsGraph Gps;
+	TArray<GTPUI::FVec2> Route;
+	FVector2D Destination = FVector2D::ZeroVector;
+	bool bHasDestination = false;
+	double LastRouteCheckTime = 0.0;
+	FVector2D FullMapOffset = FVector2D::ZeroVector; // world cm, from the player
 
 	struct FBlip
 	{
