@@ -22,6 +22,10 @@ Taille des `.uasset` de `Geometry/SimpleWind` (indicateur grossier du nombre de 
 
 Le banc choisit seul (`GTP_TREE_MESH=auto`) le maillage SimpleWind adulte le plus léger en triangles LOD 0 parmi ceux d'au moins 8 m, et le plus léger des jeunes arbres. Les packs ont des matériaux d'impostor (`Materials/Impostor`) : le dernier LOD est un billboard. Si l'audit montre Nanite activé, la variante légère force le maillage de repli (fallback), qui est de toute façon celui que dessine un GPU sans Nanite.
 
+## Audit du 11/11 : la chaîne de LOD est inversée sur M1
+
+Les 78 maillages du hêtre et de l'aulne sont tous en Nanite, que le M1 ne fait pas tourner. Il dessine le repli (LOD 0, léger), puis les LOD 1 et suivants du pack, 4 à 100 fois plus lourds (aulne Forest_06 : 2 277, puis 12 983, 8 835, 5 355, 1 803, 913, 8). Au-delà du LOD 1, la chaîne dessinée par le pack décroît bien jusqu'à une carte de 8 triangles. `tools/assets/unreal/prepare_trees_m1.py` fait donc une copie de chaque maillage retenu dans `<pack>/M1/`, sans Nanite, avec comme LOD 0 le premier LOD du pack sous 6 000 triangles, puis la suite jusqu'à la carte. Aucune simplification automatique n'est appliquée aux feuilles. Choix par défaut : aulne Forest_06 de 8,9 m (5 355, 1 803, 913, 8) et aulne Sapling_06 de 3,7 m (2 577, 1 251). Pour 112 arbres, cela fait au plus environ 0,6 M de triangles près du joueur. Textures : toutes en 2K ou moins. L'audit complet est sur feat/trees-audit-results (docs/evidence/trees-audit).
+
 ## Les trois variantes (une seule map, un seul package)
 
 La map n'est jamais modifiée. `swap_street_trees.py` (mode `pick`, lecture seule) choisit les maillages feuillus et donne l'argument `-TreeSwap=<nu>~<feuillu>`. Au lancement, `UGTPStreetTreesSubsystem` crée un double feuillu des arbres nus (mêmes instances, sans collision : le tronc nu garde la collision) et retire du maillage nu les arbres montrés feuillus. Sans argument, la rue reste comme aujourd'hui. Les dossiers des maillages feuillus sont ajoutés à la cuisson le temps du package seulement (`DefaultGame.ini` remis à l'identique ensuite).

@@ -22,6 +22,10 @@ The 112 street trees (W14-63 mature plane tree, W14-64 guarded young tree) are t
 
 The bench picks by itself (`GTP_TREE_MESH=auto`) the SimpleWind mature mesh with the fewest LOD 0 triangles among those at least 8 m tall, and the lightest young tree. The packs ship impostor materials (`Materials/Impostor`): the last LOD is a billboard. If the audit shows Nanite on, the light variant forces the fallback mesh, which is what a GPU without Nanite draws anyway.
 
+## Audit of 2026-11-11: the LOD chain is upside down on M1
+
+All 78 beech and alder meshes are Nanite, which the M1 does not run. It draws the fallback (LOD 0, light), then the pack's LOD 1 and beyond, 4 to 100 times heavier (alder Forest_06: 2,277, then 12,983, 8,835, 5,355, 1,803, 913, 8). Past LOD 1 the pack's authored chain does decrease, down to an 8-triangle card. `tools/assets/unreal/prepare_trees_m1.py` therefore copies each mesh kept into `<pack>/M1/`, without Nanite, with the pack's first LOD under 6,000 triangles as LOD 0, then the rest down to the card. No automatic simplification is applied to the leaves. Defaults: the 8.9 m alder Forest_06 (5,355, 1,803, 913, 8) and the 3.7 m alder Sapling_06 (2,577, 1,251). For 112 trees, that is at most about 0.6 M triangles near the player. Textures: all 2K or less. Full audit on feat/trees-audit-results (docs/evidence/trees-audit).
+
 ## The three variants (one map, one package)
 
 The map is never changed. `swap_street_trees.py` (`pick` mode, read only) picks the leafy meshes and gives the `-TreeSwap=<bare>~<leafy>` argument. At start, `UGTPStreetTreesSubsystem` creates a leafy twin of the bare trees (same instances, no collision: the bare trunk keeps it) and removes from the bare mesh the trees shown leafy. Without arguments the street stays as it is today. The leafy mesh folders are added to the cook for the package only (`DefaultGame.ini` restored afterwards).

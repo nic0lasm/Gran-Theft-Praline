@@ -9,6 +9,7 @@
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
 #include "Misc/Paths.h"
+#include "UObject/Package.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogGTPStreetTrees, Log, All);
 
@@ -160,10 +161,13 @@ void UGTPStreetTreesSubsystem::ApplyVariant(UHierarchicalInstancedStaticMeshComp
 	FParse::Value(FCommandLine::Get(), TEXT("TreeWindCm="), WindCm);
 	FParse::Value(FCommandLine::Get(), TEXT("TreeCullCm="), CullCm);
 	const UStaticMesh* Mesh = Leafy->GetStaticMesh();
-	const bool bNanite = Mesh && Mesh->IsNaniteEnabled();
 
 	Leafy->SetCullDistances(0, CullCm);
 	Leafy->ShadowCacheInvalidationBehavior = EShadowCacheInvalidationBehavior::Static;
+	// The street meshes are rebuilt without Nanite by tools/assets/unreal/prepare_trees_m1.py
+	// (decreasing LOD chain, impostor last). Should a Nanite mesh come through anyway, draw its
+	// fallback and keep it on LOD 0: below LOD 0, Megascans Nanite trees get heavier, not lighter.
+	const bool bNanite = Mesh && Mesh->HasValidNaniteData();
 	if (bNanite)
 	{
 		Leafy->bDisallowNanite = true;
@@ -171,8 +175,10 @@ void UGTPStreetTreesSubsystem::ApplyVariant(UHierarchicalInstancedStaticMeshComp
 	if (Variant == TEXT("light"))
 	{
 		Leafy->WorldPositionOffsetDisableDistance = WindCm;
-		Leafy->bOverrideMinLOD = true;
-		Leafy->MinLOD = 1;
+		if (bNanite)
+		{
+			Leafy->SetForcedLodModel(1);
+		}
 	}
 	else if (Variant == TEXT("impostor"))
 	{

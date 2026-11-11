@@ -3,9 +3,11 @@
 # as they come from the pack, lightened, and as impostors, against the bare trees.
 # Built on tools/perf/bench.sh (same route, same duration, load guard).
 #
-#   1. audit the Fab packs (triangles per LOD, Nanite, textures over 2K)
+#   1. (AUDIT=1) audit the Fab packs (triangles per LOD, Nanite, textures over 2K)
 #                                         tools/assets/unreal/audit_meshes.py
-#   2. pick the leafy meshes, map loaded read only (never saved)
+#   2. rebuild the leafy meshes for M1 (no Nanite, decreasing authored LODs, billboard
+#      last) as copies under <pack>/M1/  tools/assets/unreal/prepare_trees_m1.py
+#   3. pick the leafy meshes, map loaded read only (never saved)
 #                                         tools/city/unreal/swap_street_trees.py
 #   3. package (Shipping) with the leafy mesh folders cooked: added to
 #      Config/DefaultGame.ini for the package only, the file is restored after
@@ -23,7 +25,7 @@
 #   caffeinate -dimsu tools/perf/tree-bench-mac.sh [version=perf-trees] [duration_s=90]
 # Environment:
 #   UE_ROOT (default /Users/Shared/Epic Games/UE_5.8), BUILDS_DIR (default <repo>/Builds)
-#   GTP_TREE_MESH, GTP_SAPLING_MESH, GTP_TREE_PATTERN (see swap_street_trees.py;
+#   GTP_TREE_MESH, GTP_SAPLING_MESH, GTP_TREE_PATTERN (default /M1/, the rebuilt copies; see swap_street_trees.py;
 #     default: the lightest beech or alder at least 8 m tall)
 #   BASE_ARGS game arguments of every case (default -Sky=lightfunction, as the
 #     "cumul-lf" reference of tools/perf/slot1-cumul-mac.sh)
@@ -42,7 +44,7 @@
 # "heartbeat" line with the step and its elapsed time goes to stdout and to
 # <out>/heartbeat.txt, for the session that relays it. Times are Paris time.
 # Output: <BUILDS_DIR>/<version>/trees-<stamp>/TREES.md, mesh_audit.csv, one log per step.
-# Expected length: audit + pick ~12 min, package 15-30 min, benches ~18 min (about 1 h at most).
+# Expected length: rebuild + pick ~12 min (audit +10 min), package 15-30 min, benches ~18 min (about 1 h at most).
 set -uo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -95,6 +97,7 @@ expected() {
   case "$1" in
     audit) echo 480 ;;
     pick) echo 420 ;;
+    prepare) echo 600 ;;
     package) echo 1800 ;;
     bench_*) echo $(( duration + 120 )) ;;
     *) echo 600 ;;
@@ -153,6 +156,7 @@ if test "$dry" = "1"; then
     mkdir -p "$saved"
     case "$1" in
       *audit_meshes.py) echo '{"roots": {}, "meshes": []}' > "${GTP_AUDIT_OUT:-$saved/mesh_audit.json}" ;;
+      *prepare_trees_m1.py) echo '{"errors": [], "meshes": [{"mesh": "/Game/BlackAlder/M1/SM_Stub_M1", "triangles": [5355, 1803, 913, 8]}]}' > "$saved/trees_m1_report.json" ;;
       *swap_street_trees.py) cat > "$saved/trees_report.json" <<JSON
 {"mode": "$GTP_TREE_MODE", "errors": [], "swap_arg": "/Game/Environment/Props/W14-63/SM_Bare~/Game/BlackAlder/Geometry/SimpleWind/SM_Stub+/Game/Environment/Props/W14-64/SM_Young~/Game/BlackAlder/Geometry/SimpleWind/SM_StubSapling", "cook_dirs": ["/Game/BlackAlder/Geometry/SimpleWind"], "picked": {"W14-63": {"bare": "/Game/Environment/Props/W14-63/SM_Bare", "mesh": "/Game/BlackAlder/SM_Stub", "trees": 104, "mesh_info": {"height_cm": 1200, "nanite": false, "triangles": [9000, 3000, 8]}}, "W14-64": {"bare": "/Game/Environment/Props/W14-64/SM_Young", "mesh": "/Game/BlackAlder/SM_StubSapling", "trees": 8, "mesh_info": {"height_cm": 400, "nanite": false, "triangles": [2000, 600, 8]}}}}
 JSON
@@ -185,7 +189,7 @@ ini_md5() { if command -v md5 >/dev/null; then md5 -q "$repo_root/GranTheftPrali
 ini_md5_start="$(ini_md5)"
 
 pick() {
-  GTP_TREE_MODE=pick run_py tools/city/unreal/swap_street_trees.py || return 1
+  GTP_TREE_MODE=pick GTP_TREE_PATTERN="${GTP_TREE_PATTERN:-/M1/}" run_py tools/city/unreal/swap_street_trees.py || return 1
   cp "$saved/trees_report.json" "$out/trees_pick.json"
   grep -q '"errors": \[\]' "$saved/trees_report.json"
 }
@@ -214,7 +218,15 @@ PY
   return $status
 }
 
-GTP_AUDIT_OUT="$out/mesh_audit.json" step audit run_py tools/assets/unreal/audit_meshes.py
+if test "${AUDIT:-0}" = "1"; then
+  GTP_AUDIT_OUT="$out/mesh_audit.json" step audit run_py tools/assets/unreal/audit_meshes.py
+fi
+prepare() {
+  run_py tools/assets/unreal/prepare_trees_m1.py || return 1
+  cp "$saved/trees_m1_report.json" "$out/trees_m1.json"
+  grep -q '"errors": \[\]' "$saved/trees_m1_report.json"
+}
+step prepare prepare || { echo "- M1 rebuild of the tree meshes failed, see trees_m1.json" >> "$report"; exit 1; }
 step pick pick || { echo "- pick failed, see trees_pick.json" >> "$report"; exit 1; }
 swap_arg="$(json swap_arg)"
 echo "- trees swapped at run time: -TreeSwap=$swap_arg" >> "$report"

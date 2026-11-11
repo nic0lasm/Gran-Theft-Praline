@@ -18,9 +18,10 @@ class UHierarchicalInstancedStaticMeshComponent;
  *                    (the leafy meshes must be cooked: DirectoriesToAlwaysCook)
  *   -Trees=bare      (default) nothing happens, the street looks as it did
  *   -Trees=leafy     leafy mesh as it comes from the pack (wind, shadows, all LODs)
- *   -Trees=light     no wind beyond -TreeWindCm (3000), VSM pages not invalidated
- *                    by wind, LOD 0 skipped, culled beyond -TreeCullCm (20000),
- *                    Nanite fallback when the mesh is Nanite
+ *   -Trees=light     the mesh's own LOD chain (rebuilt for M1 by prepare_trees_m1.py),
+ *                    no wind beyond -TreeWindCm (3000), VSM pages not invalidated
+ *                    by wind, culled beyond -TreeCullCm (20000); a Nanite mesh is
+ *                    drawn as its fallback, held on LOD 0
  *   -Trees=impostor  every tree on its last LOD (the billboard), no wind
  *   -TreeCount=N     only N leafy trees, spread along the street; the others stay bare
  *   -TreeShadows=0   leafy trees cast no shadow
