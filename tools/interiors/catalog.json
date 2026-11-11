@@ -1,0 +1,1112 @@
+{
+ "comment": "Mesh classes of interiors. size drives cull distance, shadows and LOD; tris_lod0 = budget for the mesh at LOD0 (Nanite source on PC); items_per_instance > 1 = a kit: one mesh shows a stack or a box of N items, swapped for single items only when the player touches it. dims_m (class, else size rule) = bounding box used by the grey boxes of step 2 before real meshes arrive. keywords = words looked for in imported static mesh names by unreal/map_interior_meshes.py to build the local class -> mesh map.",
+ "size_rules": {
+  "micro": {
+   "cull_m": 4,
+   "shadow_m1": false,
+   "shadow_pc": false,
+   "lod_factor": 0.15,
+   "dims_m": [
+    0.06,
+    0.06,
+    0.03
+   ]
+  },
+  "small": {
+   "cull_m": 12,
+   "shadow_m1": false,
+   "shadow_pc": true,
+   "lod_factor": 0.3,
+   "dims_m": [
+    0.25,
+    0.25,
+    0.15
+   ]
+  },
+  "medium": {
+   "cull_m": 30,
+   "shadow_m1": true,
+   "shadow_pc": true,
+   "lod_factor": 0.5,
+   "dims_m": [
+    0.6,
+    0.6,
+    0.8
+   ]
+  },
+  "large": {
+   "cull_m": 0,
+   "shadow_m1": true,
+   "shadow_pc": true,
+   "lod_factor": 0.7,
+   "dims_m": [
+    1.2,
+    0.8,
+    1.0
+   ]
+  }
+ },
+ "classes": {
+  "fryer": {
+   "size": "large",
+   "tris_lod0": 18000,
+   "sections": 3,
+   "items_per_instance": 1,
+   "interactive": true,
+   "dims_m": [
+    0.4,
+    0.8,
+    1.1
+   ],
+   "keywords": [
+    "deep_fryer",
+    "fryer"
+   ]
+  },
+  "fry_basket": {
+   "size": "small",
+   "tris_lod0": 6000,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": true,
+   "keywords": [
+    "fry_basket",
+    "basket_fry",
+    "basket"
+   ]
+  },
+  "oil_filter_tray": {
+   "size": "medium",
+   "tris_lod0": 3000,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": false
+  },
+  "fry_dump": {
+   "size": "large",
+   "tris_lod0": 12000,
+   "sections": 2,
+   "items_per_instance": 1,
+   "interactive": false,
+   "dims_m": [
+    0.9,
+    0.7,
+    0.9
+   ],
+   "keywords": [
+    "fry_station",
+    "fry_dump",
+    "fries_station"
+   ]
+  },
+  "fry_scoop": {
+   "size": "small",
+   "tris_lod0": 2500,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": true
+  },
+  "fry_carton_kit": {
+   "size": "small",
+   "tris_lod0": 4000,
+   "sections": 1,
+   "items_per_instance": 25,
+   "interactive": false,
+   "keywords": [
+    "fries_box",
+    "fry_carton",
+    "container_box_paper"
+   ]
+  },
+  "salt_shaker": {
+   "size": "micro",
+   "tris_lod0": 1500,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": true
+  },
+  "clamshell_grill": {
+   "size": "large",
+   "tris_lod0": 22000,
+   "sections": 3,
+   "items_per_instance": 1,
+   "interactive": true,
+   "dims_m": [
+    0.9,
+    0.8,
+    1.1
+   ],
+   "keywords": [
+    "platen_grill",
+    "griddle",
+    "grill"
+   ]
+  },
+  "spatula": {
+   "size": "small",
+   "tris_lod0": 1200,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": true,
+   "keywords": [
+    "spatula"
+   ]
+  },
+  "scraper": {
+   "size": "small",
+   "tris_lod0": 900,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": false
+  },
+  "patty_tray": {
+   "size": "small",
+   "tris_lod0": 1500,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": true
+  },
+  "bun_toaster": {
+   "size": "medium",
+   "tris_lod0": 14000,
+   "sections": 2,
+   "items_per_instance": 1,
+   "interactive": true
+  },
+  "bun_tray": {
+   "size": "small",
+   "tris_lod0": 1800,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": true
+  },
+  "bun": {
+   "size": "micro",
+   "tris_lod0": 1600,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": true,
+   "dims_m": [
+    0.11,
+    0.11,
+    0.06
+   ],
+   "keywords": [
+    "hamburger_bun",
+    "burger_bun",
+    "bun"
+   ]
+  },
+  "patty": {
+   "size": "micro",
+   "tris_lod0": 900,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": true,
+   "dims_m": [
+    0.1,
+    0.1,
+    0.01
+   ],
+   "keywords": [
+    "patty"
+   ]
+  },
+  "assembly_table": {
+   "size": "large",
+   "tris_lod0": 9000,
+   "sections": 2,
+   "items_per_instance": 1,
+   "interactive": false,
+   "dims_m": [
+    1.8,
+    0.8,
+    0.9
+   ],
+   "keywords": [
+    "work_table",
+    "metal_table",
+    "workbench",
+    "stainless_table"
+   ]
+  },
+  "condiment_insert": {
+   "size": "small",
+   "tris_lod0": 2200,
+   "sections": 2,
+   "items_per_instance": 1,
+   "interactive": false,
+   "keywords": [
+    "gastronorm"
+   ]
+  },
+  "sauce_gun": {
+   "size": "small",
+   "tris_lod0": 3000,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": true
+  },
+  "wrapper_kit": {
+   "size": "small",
+   "tris_lod0": 1200,
+   "sections": 1,
+   "items_per_instance": 50,
+   "interactive": false
+  },
+  "burger_box_kit": {
+   "size": "small",
+   "tris_lod0": 2400,
+   "sections": 1,
+   "items_per_instance": 20,
+   "interactive": false
+  },
+  "kvs_screen": {
+   "size": "medium",
+   "tris_lod0": 2500,
+   "sections": 2,
+   "items_per_instance": 1,
+   "interactive": false
+  },
+  "holding_cabinet": {
+   "size": "large",
+   "tris_lod0": 16000,
+   "sections": 2,
+   "items_per_instance": 1,
+   "interactive": false,
+   "dims_m": [
+    1.0,
+    0.6,
+    0.7
+   ]
+  },
+  "holding_tray": {
+   "size": "small",
+   "tris_lod0": 1400,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": true,
+   "keywords": [
+    "food_tray",
+    "metal_tray"
+   ]
+  },
+  "speed_rack": {
+   "size": "large",
+   "tris_lod0": 7000,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": false,
+   "dims_m": [
+    0.5,
+    0.7,
+    1.8
+   ],
+   "keywords": [
+    "trolley",
+    "rack_cart"
+   ]
+  },
+  "drink_tower": {
+   "size": "large",
+   "tris_lod0": 20000,
+   "sections": 3,
+   "items_per_instance": 1,
+   "interactive": true,
+   "dims_m": [
+    0.9,
+    0.7,
+    1.2
+   ],
+   "keywords": [
+    "soda_dispenser",
+    "soda_fountain",
+    "drink_dispenser"
+   ]
+  },
+  "cup_kit": {
+   "size": "small",
+   "tris_lod0": 3000,
+   "sections": 1,
+   "items_per_instance": 50,
+   "interactive": false,
+   "keywords": [
+    "cup_paper",
+    "paper_cup",
+    "soda_cup"
+   ]
+  },
+  "lid_kit": {
+   "size": "small",
+   "tris_lod0": 2000,
+   "sections": 1,
+   "items_per_instance": 100,
+   "interactive": false
+  },
+  "straw_box": {
+   "size": "small",
+   "tris_lod0": 800,
+   "sections": 1,
+   "items_per_instance": 250,
+   "interactive": false
+  },
+  "ice_bin": {
+   "size": "medium",
+   "tris_lod0": 4000,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": false
+  },
+  "coffee_machine": {
+   "size": "medium",
+   "tris_lod0": 24000,
+   "sections": 3,
+   "items_per_instance": 1,
+   "interactive": true,
+   "keywords": [
+    "coffee_machine",
+    "espresso"
+   ]
+  },
+  "milk_fridge": {
+   "size": "medium",
+   "tris_lod0": 5000,
+   "sections": 2,
+   "items_per_instance": 1,
+   "interactive": false,
+   "keywords": [
+    "display_fridge",
+    "fridge"
+   ]
+  },
+  "pastry_case": {
+   "size": "medium",
+   "tris_lod0": 6000,
+   "sections": 2,
+   "items_per_instance": 1,
+   "interactive": false,
+   "keywords": [
+    "cake_display",
+    "bakery",
+    "display_case"
+   ]
+  },
+  "pastry": {
+   "size": "micro",
+   "tris_lod0": 2000,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": true,
+   "keywords": [
+    "croissant",
+    "muffin",
+    "donut"
+   ]
+  },
+  "shake_machine": {
+   "size": "medium",
+   "tris_lod0": 15000,
+   "sections": 2,
+   "items_per_instance": 1,
+   "interactive": false
+  },
+  "dessert_cup_kit": {
+   "size": "small",
+   "tris_lod0": 2000,
+   "sections": 1,
+   "items_per_instance": 50,
+   "interactive": false
+  },
+  "pos_terminal": {
+   "size": "medium",
+   "tris_lod0": 6000,
+   "sections": 2,
+   "items_per_instance": 1,
+   "interactive": true,
+   "keywords": [
+    "pos",
+    "cash_register"
+   ]
+  },
+  "cash_drawer": {
+   "size": "medium",
+   "tris_lod0": 4000,
+   "sections": 2,
+   "items_per_instance": 1,
+   "interactive": true,
+   "keywords": [
+    "cash_register",
+    "cashregister"
+   ]
+  },
+  "card_reader": {
+   "size": "small",
+   "tris_lod0": 2000,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": true
+  },
+  "receipt_printer": {
+   "size": "small",
+   "tris_lod0": 2500,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": false
+  },
+  "bag_kit": {
+   "size": "small",
+   "tris_lod0": 1500,
+   "sections": 1,
+   "items_per_instance": 50,
+   "interactive": false,
+   "keywords": [
+    "bag_paper",
+    "paper_bag"
+   ]
+  },
+  "tray_stack": {
+   "size": "small",
+   "tris_lod0": 1200,
+   "sections": 1,
+   "items_per_instance": 20,
+   "interactive": false,
+   "keywords": [
+    "tray"
+   ]
+  },
+  "order_screen": {
+   "size": "medium",
+   "tris_lod0": 1500,
+   "sections": 2,
+   "items_per_instance": 1,
+   "interactive": false
+  },
+  "napkin_kit": {
+   "size": "small",
+   "tris_lod0": 600,
+   "sections": 1,
+   "items_per_instance": 200,
+   "interactive": false,
+   "keywords": [
+    "napkin"
+   ]
+  },
+  "sauce_packet_kit": {
+   "size": "small",
+   "tris_lod0": 1500,
+   "sections": 1,
+   "items_per_instance": 60,
+   "interactive": false
+  },
+  "triple_sink": {
+   "size": "large",
+   "tris_lod0": 8000,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": false,
+   "dims_m": [
+    1.8,
+    0.7,
+    0.9
+   ],
+   "keywords": [
+    "sink"
+   ]
+  },
+  "dishwasher": {
+   "size": "large",
+   "tris_lod0": 9000,
+   "sections": 2,
+   "items_per_instance": 1,
+   "interactive": false,
+   "dims_m": [
+    0.6,
+    0.6,
+    0.85
+   ]
+  },
+  "utensil_rack": {
+   "size": "medium",
+   "tris_lod0": 3000,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": false
+  },
+  "utensil": {
+   "size": "micro",
+   "tris_lod0": 600,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": true,
+   "keywords": [
+    "ladle",
+    "skimmer",
+    "spoon",
+    "tongs"
+   ]
+  },
+  "wire_shelf": {
+   "size": "large",
+   "tris_lod0": 6000,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": false,
+   "dims_m": [
+    1.2,
+    0.5,
+    1.8
+   ],
+   "keywords": [
+    "wire_shelf",
+    "shelving",
+    "pallet_racking",
+    "shelf"
+   ]
+  },
+  "case_box": {
+   "size": "small",
+   "tris_lod0": 300,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": true,
+   "dims_m": [
+    0.4,
+    0.3,
+    0.25
+   ],
+   "keywords": [
+    "cardboard_box",
+    "cardboardbox",
+    "carton"
+   ]
+  },
+  "frozen_case": {
+   "size": "small",
+   "tris_lod0": 300,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": true,
+   "dims_m": [
+    0.4,
+    0.3,
+    0.25
+   ],
+   "keywords": [
+    "cardboard_box",
+    "carton"
+   ]
+  },
+  "fry_bag": {
+   "size": "small",
+   "tris_lod0": 800,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": true
+  },
+  "desk": {
+   "size": "large",
+   "tris_lod0": 3000,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": false,
+   "dims_m": [
+    1.4,
+    0.7,
+    0.75
+   ],
+   "keywords": [
+    "desk"
+   ]
+  },
+  "office_chair": {
+   "size": "medium",
+   "tris_lod0": 9000,
+   "sections": 2,
+   "items_per_instance": 1,
+   "interactive": true,
+   "keywords": [
+    "office_chair",
+    "chair_mixed"
+   ]
+  },
+  "safe": {
+   "size": "medium",
+   "tris_lod0": 5000,
+   "sections": 2,
+   "items_per_instance": 1,
+   "interactive": true,
+   "dims_m": [
+    0.5,
+    0.5,
+    0.6
+   ],
+   "keywords": [
+    "safe"
+   ]
+  },
+  "monitor": {
+   "size": "small",
+   "tris_lod0": 2500,
+   "sections": 2,
+   "items_per_instance": 1,
+   "interactive": false,
+   "keywords": [
+    "monitor"
+   ]
+  },
+  "binder": {
+   "size": "micro",
+   "tris_lod0": 400,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": true,
+   "keywords": [
+    "binder",
+    "file_paper"
+   ]
+  },
+  "locker": {
+   "size": "large",
+   "tris_lod0": 2500,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": true,
+   "dims_m": [
+    0.4,
+    0.5,
+    1.8
+   ],
+   "keywords": [
+    "locker"
+   ]
+  },
+  "bench": {
+   "size": "medium",
+   "tris_lod0": 1500,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": false
+  },
+  "table_2": {
+   "size": "medium",
+   "tris_lod0": 3000,
+   "sections": 2,
+   "items_per_instance": 1,
+   "interactive": true,
+   "dims_m": [
+    0.7,
+    0.7,
+    0.75
+   ],
+   "keywords": [
+    "cafe_table",
+    "table_round",
+    "table"
+   ]
+  },
+  "table_4": {
+   "size": "medium",
+   "tris_lod0": 3500,
+   "sections": 2,
+   "items_per_instance": 1,
+   "interactive": true,
+   "dims_m": [
+    1.2,
+    0.8,
+    0.75
+   ],
+   "keywords": [
+    "diner_table",
+    "table"
+   ]
+  },
+  "high_table": {
+   "size": "medium",
+   "tris_lod0": 3500,
+   "sections": 2,
+   "items_per_instance": 1,
+   "interactive": true,
+   "dims_m": [
+    1.4,
+    0.7,
+    1.05
+   ],
+   "keywords": [
+    "high_table",
+    "bar_table"
+   ]
+  },
+  "booth": {
+   "size": "large",
+   "tris_lod0": 8000,
+   "sections": 2,
+   "items_per_instance": 1,
+   "interactive": false,
+   "dims_m": [
+    1.6,
+    0.8,
+    0.75
+   ],
+   "keywords": [
+    "booth"
+   ]
+  },
+  "chair": {
+   "size": "medium",
+   "tris_lod0": 5000,
+   "sections": 2,
+   "items_per_instance": 1,
+   "interactive": true,
+   "dims_m": [
+    0.45,
+    0.45,
+    0.85
+   ],
+   "keywords": [
+    "restaurant_chair",
+    "cafe_chair",
+    "chair"
+   ]
+  },
+  "stool": {
+   "size": "medium",
+   "tris_lod0": 3500,
+   "sections": 2,
+   "items_per_instance": 1,
+   "interactive": true,
+   "dims_m": [
+    0.4,
+    0.4,
+    0.75
+   ],
+   "keywords": [
+    "bar_stool",
+    "stool"
+   ]
+  },
+  "booth_bench": {
+   "size": "large",
+   "tris_lod0": 6000,
+   "sections": 2,
+   "items_per_instance": 1,
+   "interactive": false,
+   "dims_m": [
+    1.6,
+    0.6,
+    1.1
+   ],
+   "keywords": [
+    "booth"
+   ]
+  },
+  "tray": {
+   "size": "small",
+   "tris_lod0": 900,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": true,
+   "dims_m": [
+    0.36,
+    0.27,
+    0.02
+   ],
+   "keywords": [
+    "tray"
+   ]
+  },
+  "wrapper": {
+   "size": "micro",
+   "tris_lod0": 800,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": true
+  },
+  "burger_box": {
+   "size": "small",
+   "tris_lod0": 1200,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": true,
+   "keywords": [
+    "burger_box",
+    "container_box_paper"
+   ]
+  },
+  "fry_carton": {
+   "size": "small",
+   "tris_lod0": 1200,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": true
+  },
+  "cup": {
+   "size": "small",
+   "tris_lod0": 1400,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": true,
+   "dims_m": [
+    0.09,
+    0.09,
+    0.15
+   ],
+   "keywords": [
+    "cup_paper",
+    "paper_cup",
+    "soda_cup"
+   ]
+  },
+  "lid": {
+   "size": "micro",
+   "tris_lod0": 700,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": true
+  },
+  "straw": {
+   "size": "micro",
+   "tris_lod0": 200,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": true,
+   "keywords": [
+    "straw"
+   ]
+  },
+  "napkin": {
+   "size": "micro",
+   "tris_lod0": 400,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": true
+  },
+  "sauce_packet": {
+   "size": "micro",
+   "tris_lod0": 300,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": true
+  },
+  "receipt": {
+   "size": "micro",
+   "tris_lod0": 200,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": true
+  },
+  "fry_single": {
+   "size": "micro",
+   "tris_lod0": 100,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": true,
+   "keywords": [
+    "fries"
+   ]
+  },
+  "kiosk": {
+   "size": "large",
+   "tris_lod0": 12000,
+   "sections": 3,
+   "items_per_instance": 1,
+   "interactive": true,
+   "dims_m": [
+    0.6,
+    0.3,
+    1.9
+   ],
+   "keywords": [
+    "kiosk"
+   ]
+  },
+  "ceiling_tile": {
+   "size": "medium",
+   "tris_lod0": 48,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": false,
+   "dims_m": [
+    0.6,
+    0.6,
+    0.02
+   ],
+   "keywords": [
+    "ceiling_tile",
+    "drop_ceiling"
+   ]
+  },
+  "ceiling_light": {
+   "size": "medium",
+   "tris_lod0": 1200,
+   "sections": 2,
+   "items_per_instance": 1,
+   "interactive": false,
+   "dims_m": [
+    0.6,
+    0.6,
+    0.05
+   ],
+   "keywords": [
+    "fluorescent",
+    "ceiling_lamp",
+    "panel_light"
+   ]
+  },
+  "sprinkler": {
+   "size": "micro",
+   "tris_lod0": 600,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": false,
+   "keywords": [
+    "sprinkler"
+   ]
+  },
+  "vent_grille": {
+   "size": "small",
+   "tris_lod0": 800,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": false,
+   "keywords": [
+    "vent",
+    "duct",
+    "grille"
+   ]
+  },
+  "wall_socket": {
+   "size": "micro",
+   "tris_lod0": 300,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": false,
+   "keywords": [
+    "socket",
+    "outlet"
+   ]
+  },
+  "floor_drain": {
+   "size": "small",
+   "tris_lod0": 400,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": false,
+   "keywords": [
+    "drain"
+   ]
+  },
+  "fire_extinguisher": {
+   "size": "small",
+   "tris_lod0": 3000,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": true,
+   "keywords": [
+    "extinguisher"
+   ]
+  },
+  "bin": {
+   "size": "medium",
+   "tris_lod0": 4000,
+   "sections": 2,
+   "items_per_instance": 1,
+   "interactive": true,
+   "keywords": [
+    "trash_can",
+    "bin"
+   ]
+  },
+  "wall_menu_screen": {
+   "size": "medium",
+   "tris_lod0": 1200,
+   "sections": 2,
+   "items_per_instance": 1,
+   "interactive": false,
+   "keywords": [
+    "menu_board",
+    "menu"
+   ]
+  },
+  "high_chair": {
+   "size": "medium",
+   "tris_lod0": 5000,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": true
+  },
+  "tray_return": {
+   "size": "large",
+   "tris_lod0": 6000,
+   "sections": 2,
+   "items_per_instance": 1,
+   "interactive": false,
+   "dims_m": [
+    1.2,
+    0.5,
+    1.4
+   ]
+  },
+  "condiment_station": {
+   "size": "large",
+   "tris_lod0": 7000,
+   "sections": 2,
+   "items_per_instance": 1,
+   "interactive": false,
+   "dims_m": [
+    1.0,
+    0.5,
+    1.0
+   ]
+  },
+  "toilet": {
+   "size": "medium",
+   "tris_lod0": 7000,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": false,
+   "dims_m": [
+    0.4,
+    0.65,
+    0.8
+   ],
+   "keywords": [
+    "toilet",
+    "wc"
+   ]
+  },
+  "wash_basin": {
+   "size": "medium",
+   "tris_lod0": 5000,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": false,
+   "keywords": [
+    "basin",
+    "sink"
+   ]
+  },
+  "hand_dryer": {
+   "size": "small",
+   "tris_lod0": 3000,
+   "sections": 1,
+   "items_per_instance": 1,
+   "interactive": false,
+   "keywords": [
+    "hand_dryer",
+    "dryer"
+   ]
+  },
+  "stair_flight": {
+   "size": "large",
+   "tris_lod0": 4000,
+   "sections": 2,
+   "items_per_instance": 1,
+   "interactive": false,
+   "dims_m": [
+    1.2,
+    4.5,
+    3.6
+   ]
+  }
+ }
+}
