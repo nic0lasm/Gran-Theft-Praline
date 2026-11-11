@@ -19,7 +19,7 @@ UGTPSirenComponent::UGTPSirenComponent(const FObjectInitializer& ObjectInitializ
 
 UGTPSirenComponent* UGTPSirenComponent::FindOrAdd(AActor* Vehicle)
 {
-	if (!Vehicle || Vehicle->IsActorBeingDestroyed() || !UGTPAudioMix::IsGameAudioEnabled())
+	if (!Vehicle || Vehicle->IsActorBeingDestroyed() || !UGTPAudioMix::IsGameAudioEnabled() || !UGTPAudioMix::IsSynthAudioEnabled())
 	{
 		return nullptr;
 	}

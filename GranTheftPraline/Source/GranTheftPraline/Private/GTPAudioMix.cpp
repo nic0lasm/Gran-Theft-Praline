@@ -81,6 +81,17 @@ bool UGTPAudioMix::IsGameAudioEnabled()
 	return bEnabled;
 }
 
+bool UGTPAudioMix::IsSynthAudioEnabled()
+{
+	static const bool bEnabled = []()
+	{
+		int32 Value = 1;
+		FParse::Value(FCommandLine::Get(), TEXT("SynthAudio="), Value);
+		return Value != 0;
+	}();
+	return bEnabled;
+}
+
 bool UGTPAudioMix::IsPedestrian(const AActor* Actor)
 {
 	for (const UClass* Class = Actor ? Actor->GetClass() : nullptr; Class; Class = Class->GetSuperClass())

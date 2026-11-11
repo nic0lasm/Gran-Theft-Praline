@@ -40,6 +40,13 @@ public:
 	 */
 	static bool IsGameAudioEnabled();
 
+	/**
+	 * False with -SynthAudio=0: no procedural sound wave is created at all (car engines,
+	 * sirens, skids), even with -Audio=0, which keeps the engines. Crash hunt A/B switch:
+	 * with both -Audio=0 and -SynthAudio=0, no game sound object is created or destroyed during play.
+	 */
+	static bool IsSynthAudioEnabled();
+
 	/** Crowd pedestrian (ADR-0005), recognised by class name to stay independent of that code. */
 	static bool IsPedestrian(const AActor* Actor);
 
