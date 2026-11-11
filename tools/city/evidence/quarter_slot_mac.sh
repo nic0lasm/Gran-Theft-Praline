@@ -14,10 +14,12 @@
 #   per cell  import 5 min, facade kit and signs 10 min, materials 3 min
 #   package   Development, into <BUILDS_DIR>/quarter/             20 min
 #   benches (5 by default)  LAUNCH_S + 2 min each
+#   stills (STILLS, deliv and nodefaults by default; STILLS=0 skips)  about 2 min each, after
+#           every bench, never during one
 # Modes: BUILD_ONLY=1 stops after the package (every editor step runs -nullrhi, so a locked
 # Mac screen is fine): about 1 h 30 with 5 cells (65 min measured without furniture and details), guard limit about 3 h. SKIP_BUILD=1 runs the
 # benches only, on the package a BUILD_ONLY run left in the same BUILDS_DIR, and stops at once
-# when the screen is locked (CGSSessionScreenIsLocked); about 20 min with LAUNCH_S=120.
+# when the screen is locked (CGSSessionScreenIsLocked); about 25 min with LAUNCH_S=120 (benches, then stills).
 #   per cell (v2) furniture 2 min and street details 2 min (place_props.py, sets props and details)
 # The benches (BENCHES) compare on one package: shippable cells (render defaults of
 # UGTPCityRenderTuning), cells without those defaults, cells without furniture and details,
@@ -285,4 +287,28 @@ for run in "${bench_list[@]}"; do
   step "bench $1" $(( ${LAUNCH_S:-120} + 120 )) "bench-$1.log" bench "$@"
   summary "$1"
 done
+# --- stills, separate pass, never during a measure (project rule) -------------------------------
+# STILLS: "<tag> <game args>;..." Same deterministic demo route for each, one still every 10 s
+# from the 5th second, so stills-<tag>/frame_0000N.jpg show the same shot in every variant:
+# the image cost of the cell render defaults (deliv against nodefaults) for a card to Nico.
+stills() {  # stills <tag> <game args...>
+  local tag="$1"; shift
+  local exe; exe="$(find "$out/quarter/GranTheftPraline.app/Contents/MacOS" -maxdepth 1 -type f -perm -u+x | head -n 1)"
+  test -n "$exe" || { echo "no executable in $out/quarter" >&2; return 1; }
+  mkdir -p "$out/stills-$tag"
+  "$exe" /Game/Maps/L_City_Quarter -SkipTitle -TestVehicle -DemoRoute -DemoDeterministic=1 \
+    -DemoDriveTime=$(( ${STILLS_S:-75} - 30 )) "$@" -CaptureVideo=$(( ${STILLS_S:-75} - 5 )) -CaptureFps=0.1 \
+    -CaptureDelay=5 -CaptureDir="$out/stills-$tag" -ExitAfter=$(( ${STILLS_S:-75} + 10 )) || true
+  ls "$out/stills-$tag"/*.jpg > /dev/null 2>&1
+}
+if test "${STILLS:-}" != "0"; then
+  stills_list="${STILLS:-deliv -CityCells=1;nodefaults -CityCells=1 -CityCellDefaults=0}"
+  IFS=';' read -r -a still_runs <<< "$stills_list"
+  for run in "${still_runs[@]}"; do
+    set -- $run
+    if screen_locked; then echo "- $(paris) screen locked before stills $1: skipped" >> "$report"; continue; fi
+    step "stills $1" $(( ${STILLS_S:-75} + 60 )) "stills-$1.log" stills "$@"
+    echo "- stills $1: $(ls "$out/stills-$1" 2> /dev/null | grep -c jpg || true) images in $out/stills-$1" >> "$report"
+  done
+fi
 echo "- $(paris) done in $(( ($(date +%s) - t0) / 60 )) min" >> "$report"
