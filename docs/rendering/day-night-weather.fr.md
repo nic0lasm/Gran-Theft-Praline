@@ -104,6 +104,11 @@ refait ces calculs hors Unreal et les tests vérifient chaque état contre la bi
   nuages (`NightCloudSampleScale`) ; A/B : `-NightClouds=volumetric|dome|half`. Budget des
   lumières de nuit forçable : `-NightLights=N`, `-NightShadows=N`, `-NightDistance=cm`,
   `-LitCars=N`. Mesure Mac en une commande : `tools/environment/slot-night-mac.sh` (`MODE=clouds`).
+  Mesuré sur le M1 (2026-11-11) : la nuit, les nuages volumétriques sont presque invisibles
+  (0,9/255 d'écart moyen d'image sans eux) mais coûtent 4 ms au p50 et 24 ms au p95. Sans
+  les assets du dôme, `bCloudDomeAtNight` masque les nuages au lieu de les garder. La nuit,
+  le dôme est assombri et teinté par `CityLights`. `-Sky=` et `-NightClouds=` gardent leur
+  dernière occurrence. Le fichier d'état donne `cloud_mode_applied`.
 - **Fichier d'état** : au démarrage (et sur `gtp.EnvStatus`), le système écrit
   `Saved/Environment/status.txt` (ou `-EnvReport=<chemin>`) : profil, interrupteurs du
   ciel, light function `loaded`/`missing`/`off`, ses valeurs et `Describe()`. Shipping

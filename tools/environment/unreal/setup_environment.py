@@ -116,10 +116,12 @@ def cloud_dome_mesh():
 
 def cloud_dome_material(mpc, noise):
     """Unlit 2D clouds seen from inside a large sphere: noise above 1 - Cloudiness, slow drift,
-    luminance CloudLuminance (set from the exposure by the game)."""
+    luminance CloudLuminance (set from the exposure by the game). At night (CityLights) the
+    underside takes the orange of the city lights, like a real overcast night over a town.
+    The graph is rebuilt on every run so an older version on disk is replaced."""
     mat, created = load_or_create("M_CloudDome", unreal.Material, unreal.MaterialFactoryNew())
     if not created:
-        return mat
+        mel.delete_all_material_expressions(mat)
     mat.set_editor_property("blend_mode", unreal.BlendMode.BLEND_TRANSLUCENT)
     mat.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_UNLIT)
     mat.set_editor_property("two_sided", True)
@@ -141,7 +143,11 @@ def cloud_dome_material(mpc, noise):
     mel.connect_material_property(opacity, "", unreal.MaterialProperty.MP_OPACITY)
     shade = g.lerp(0.75, 1.0, detail)  # thicker parts a little darker underneath
     lum = g.mul(g.collection(mpc, "CloudLuminance"), shade)
-    mel.connect_material_property(lum, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+    white = g.node(unreal.MaterialExpressionConstant3Vector, constant=unreal.LinearColor(1.0, 1.0, 1.0, 1.0))
+    sodium = g.node(unreal.MaterialExpressionConstant3Vector, constant=unreal.LinearColor(1.0, 0.62, 0.38, 1.0))
+    glow = g.lerp(white, sodium, g.mul(g.collection(mpc, "CityLights"), 0.7))
+    tinted = g.mul(lum, glow)
+    mel.connect_material_property(tinted, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
     mel.recompile_material(mat)
     eal.save_loaded_asset(mat)
     return mat

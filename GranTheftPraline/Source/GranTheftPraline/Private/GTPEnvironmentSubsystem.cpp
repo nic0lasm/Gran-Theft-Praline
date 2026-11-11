@@ -68,6 +68,28 @@ namespace
 	}
 
 	/** Writes an FLinearColor property found by one of several names (they changed across engine versions). */
+	/** Like FParse::Value, but the LAST occurrence wins: test scripts append a variant's
+	 *  -Sky= after the base arguments, and FParse::Value would keep the first one. */
+	bool ParseLastValue(const TCHAR* Stream, const TCHAR* Key, FString& Out)
+	{
+		bool bFound = false;
+		const int32 KeyLength = FCString::Strlen(Key);
+		const TCHAR* Cursor = Stream;
+		while (const TCHAR* Hit = FCString::Stristr(Cursor, Key))
+		{
+			// Only a whole option: start of the line, or after a space, '-' or '"'.
+			const bool bStart = Hit == Stream || Hit[-1] == TEXT('-') || Hit[-1] == TEXT(' ') || Hit[-1] == TEXT('"');
+			FString Value;
+			if (bStart && FParse::Value(Hit, Key, Value))
+			{
+				Out = Value;
+				bFound = true;
+			}
+			Cursor = Hit + KeyLength;
+		}
+		return bFound;
+	}
+
 	bool SetColorProperty(UObject* Object, std::initializer_list<const TCHAR*> Names, const FLinearColor& Value)
 	{
 		for (const TCHAR* Name : Names)
@@ -566,7 +588,7 @@ void UGTPEnvironmentSubsystem::ApplyBudgetForProfile(UWorld& World)
 	}
 	// -Sky= sets the three sky switches at once for A/B measurements.
 	FString Sky;
-	if (FParse::Value(FCommandLine::Get(), TEXT("Sky="), Sky))
+	if (ParseLastValue(FCommandLine::Get(), TEXT("Sky="), Sky))
 	{
 		Sky = Sky.ToLower();
 		const bool bVolumetric = Sky == TEXT("volumetric");
@@ -589,7 +611,7 @@ void UGTPEnvironmentSubsystem::ApplyBudgetForProfile(UWorld& World)
 	}
 	// -NightClouds=volumetric|dome|half for night A/B measurements.
 	FString NightClouds;
-	if (FParse::Value(FCommandLine::Get(), TEXT("NightClouds="), NightClouds))
+	if (ParseLastValue(FCommandLine::Get(), TEXT("NightClouds="), NightClouds))
 	{
 		NightClouds = NightClouds.ToLower();
 		if (NightClouds == TEXT("volumetric"))
@@ -712,6 +734,12 @@ void UGTPEnvironmentSubsystem::UpdateClouds(const FGTPWeatherPreset& Weather)
 		|| (Budget.bCloudDomeAtNight && bNightClouds)))
 	{
 		Mode = 2;
+	}
+	else if (Budget.bCloudDomeAtNight && bNightClouds)
+	{
+		// No dome assets: at night the volumetric clouds are close to invisible (measured
+		// 2026-11-11) and cost up to 24 ms at p95 on the M1, so none rather than volumetric.
+		Mode = 0;
 	}
 	if (Mode != AppliedCloudMode)
 	{
@@ -907,14 +935,16 @@ void UGTPEnvironmentSubsystem::WriteStatusFile() const
 	const FGTPWeatherPreset Weather = BlendedWeather();
 	FString Text = FString::Printf(TEXT("daynight=on\nprofile=%s\nvolumetric_clouds=%d\ncloud_dome=%d\ncloud_dome_when_overcast=%d\n")
 		TEXT("cloud_shadow_map=%d\ncloud_shadow_light_function=%s\nlf_mean=%.3f\nlf_strength=%.3f\nlf_coverage=%.3f\nlf_contrast=%.2f\n")
-		TEXT("cvar_mean=%.3f\ncvar_strength=%.3f\ncvar_coverage=%.3f\nnight_budget=%d lights, %d shadowed, %.0f cm, %d lit cars\nnight_clouds=%s, samples x%.2f below %.1f deg\nstatus=%s\n"),
+		TEXT("cvar_mean=%.3f\ncvar_strength=%.3f\ncvar_coverage=%.3f\nnight_budget=%d lights, %d shadowed, %.0f cm, %d lit cars\nnight_clouds=%s, samples x%.2f below %.1f deg\ncloud_mode_applied=%s\ncloud_dome_component=%s\nstatus=%s\n"),
 		*Budget.Profile, Budget.bVolumetricClouds ? 1 : 0, Budget.bCloudDome ? 1 : 0, Budget.bCloudDomeWhenOvercast ? 1 : 0,
 		Budget.bCloudShadows ? 1 : 0, *CloudShadowState, Weather.CloudShadowMean, Weather.CloudShadowStrength,
 		Weather.CloudShadowCoverage, CVarCloudShadowContrast.GetValueOnGameThread(),
 		CVarCloudShadowMean.GetValueOnGameThread(), CVarCloudShadowStrength.GetValueOnGameThread(),
 		CVarCloudShadowCoverage.GetValueOnGameThread(), Budget.MaxLights, Budget.MaxShadowedLights,
 		Budget.MaxDistance, Budget.MaxLitCars, Budget.bCloudDomeAtNight ? TEXT("dome") : TEXT("volumetric"),
-		Budget.NightCloudSampleScale, Budget.NightCloudSunElevation, *Describe());
+		Budget.NightCloudSampleScale, Budget.NightCloudSunElevation,
+		AppliedCloudMode == 2 ? TEXT("dome") : (AppliedCloudMode == 1 ? TEXT("volumetric") : (AppliedCloudMode == 0 ? TEXT("none") : TEXT("not yet"))),
+		CloudDome ? TEXT("yes") : TEXT("no (dome assets missing: run setup-environment-mac.sh before packaging)"), *Describe());
 	if (!FFileHelper::SaveStringToFile(Text, *Path))
 	{
 		GTP_TRACE(LogGTPEnvironment, TEXT("daynight: cannot write %s"), *Path);
@@ -1207,7 +1237,8 @@ void UGTPEnvironmentSubsystem::ApplyParameters()
 	}
 	// Unlit cloud dome: luminance of the exposure's middle grey (0.125 x 2^EV100 nits), darker in the rain.
 	Instance->SetScalarParameterValue(TEXT("CloudLuminance"),
-		0.125f * FMath::Pow(2.f, ExposureTarget) * CloudDomeBrightness * FMath::Lerp(1.f, 0.5f, Weather.Rain));
+		0.125f * FMath::Pow(2.f, ExposureTarget) * CloudDomeBrightness * FMath::Lerp(1.f, 0.5f, Weather.Rain)
+		* FMath::Lerp(1.f, 0.45f, NightFactor));  // night clouds sit below middle grey
 }
 
 void UGTPEnvironmentSubsystem::UpdateRain()
