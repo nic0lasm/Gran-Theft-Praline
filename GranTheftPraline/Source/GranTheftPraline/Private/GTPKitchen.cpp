@@ -4,7 +4,9 @@
 #include "Engine/Level.h"
 #include "Engine/World.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "GTPHoldUp.h"
 #include "GTPLog.h"
+#include "GTPThreat.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
 
@@ -41,6 +43,12 @@ AGTPStaffCharacter::AGTPStaffCharacter()
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.TickInterval = 0.05f;   // walking to a slot does not need every frame
 	AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
+	ThreatResponse = CreateDefaultSubobject<UGTPThreatResponseComponent>(TEXT("ThreatResponse"));
+}
+
+bool AGTPStaffCharacter::IsThreatened() const
+{
+	return ThreatResponse && UGTPThreatSubsystem::IsEnabled() && ThreatResponse->GetState() != EGTPThreatState::Calm;
 }
 
 void AGTPStaffCharacter::BeginTask(uint8 InTask, const FTransform& InSlot)
@@ -53,6 +61,11 @@ void AGTPStaffCharacter::BeginTask(uint8 InTask, const FTransform& InSlot)
 void AGTPStaffCharacter::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+	if (IsThreatened())
+	{
+		bAtSlot = false;   // walks back to its task once calm again
+		return;
+	}
 	if (bAtSlot)
 	{
 		return;
@@ -85,7 +98,7 @@ TStatId UGTPKitchenSubsystem::GetStatId() const
 	RETURN_QUICK_DECLARE_CYCLE_STAT(UGTPKitchenSubsystem, STATGROUP_Tickables);
 }
 
-void UGTPKitchenSubsystem::StartService(ULevel* InteriorLevel)
+void UGTPKitchenSubsystem::StartService(ULevel* InteriorLevel, const FString& InteriorId, const FTransform& Anchor)
 {
 	int32 CrewSize = 0;
 	FParse::Value(FCommandLine::Get(), TEXT("InteriorStaff="), CrewSize);
@@ -131,11 +144,31 @@ void UGTPKitchenSubsystem::StartService(ULevel* InteriorLevel)
 		Crew.Add(GetWorld()->SpawnActor<AGTPStaffCharacter>(AGTPStaffCharacter::StaticClass(), Start, Params));
 	}
 	bRunning = true;
+	if (UGTPHoldUpSubsystem* HoldUp = GetWorld()->GetSubsystem<UGTPHoldUpSubsystem>())
+	{
+		TArray<AGTPStaffCharacter*> Characters;
+		TArray<uint8> Roles;
+		for (int32 Index = 0; Index < Crew.Num(); ++Index)
+		{
+			Characters.Add(Crew[Index].Get());
+			Roles.Add(static_cast<uint8>(Kitchen.Staff[size_t(Index)].Role));
+		}
+		int32 Tills = 0;
+		for (const TPair<FString, FTransform>& Pair : Slots)
+		{
+			Tills += Pair.Key.StartsWith(TEXT("till_")) ? 1 : 0;
+		}
+		HoldUp->BeginShop(InteriorId, Anchor, Tills, Characters, Roles);
+	}
 	GTP_TRACE(KitchenService, TEXT("service started: %d staff, %d station slots, %d customers/h"), CrewSize, Slots.Num(), Kitchen.Params.CustomersPerHour);
 }
 
 void UGTPKitchenSubsystem::StopService()
 {
+	if (UGTPHoldUpSubsystem* HoldUp = GetWorld()->GetSubsystem<UGTPHoldUpSubsystem>())
+	{
+		HoldUp->EndShop();
+	}
 	for (const TWeakObjectPtr<AGTPStaffCharacter>& Staff : Crew)
 	{
 		if (AGTPStaffCharacter* Character = Staff.Get())

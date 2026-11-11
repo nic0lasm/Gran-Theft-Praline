@@ -119,7 +119,7 @@ void UGTPInteriorStreaming::Tick(float DeltaTime)
 			ApplyToLevel(Streaming->GetLoadedLevel());
 			if (UGTPKitchenSubsystem* Kitchen = GetWorld()->GetSubsystem<UGTPKitchenSubsystem>())
 			{
-				Kitchen->StartService(Streaming->GetLoadedLevel());   // inert without -InteriorStaff=
+				Kitchen->StartService(Streaming->GetLoadedLevel(), Interior.Id, Interior.Anchor);   // inert without -InteriorStaff=
 			}
 			GTP_TRACE(InteriorStreaming, TEXT("visible %s t=%.2f"), *Interior.Level, GetWorld()->GetTimeSeconds());
 		}
