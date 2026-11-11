@@ -100,6 +100,16 @@ Total proposé : **≤ 0,35 ms GPU p95 et ≤ 0,4 ms CPU du fil de jeu** dans la
 contre `-Combat=0`. Plafond atteint : l'effet le plus ancien disparaît, rien n'attend. Un profil
 « fidelity » peut doubler les plafonds et activer les traçantes.
 
+Accepté par le fil Optimisation le 2026-11-11 avec trois amendements, intégrés au budget :
+
+- D'où vient la marge : sur next 8b16340, le GPU p95 de la porte vaut 20,05 / 22,31 / 22,27 / 22,54 ms (fixe /
+  parcours / nuit / pluie) pour 24 ms, soit 1,5 ms de marge dans la pire scène ; cette ligne en prend un quart.
+- Vérifié **de nuit et sous la pluie**, pas seulement à midi (étincelles, fumée et verre translucides y coûtent
+  plus). Plafonds durs sur les particules et décalques vivants, en réserve recyclée ; aucune lumière dynamique ne
+  projette d'ombre ; les flammes de bouche jamais.
+- **Aucune image > 100 ms au premier tir** : systèmes Niagara et leurs PSO préchargés au lancement du niveau
+  (apparition cachée de préchauffage), premier tir mesuré à froid.
+
 ## Plan
 
 1. Règles hors Unreal (fait, cette branche).
