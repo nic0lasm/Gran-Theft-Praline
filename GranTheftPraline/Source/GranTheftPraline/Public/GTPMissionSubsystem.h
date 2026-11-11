@@ -67,6 +67,15 @@ public:
 	};
 	TArray<FStartMarker> GetStartMarkers() const;
 
+	/** Last result, kept until the next Start, Retry or Abort (the HUD draws it while it is there). */
+	bool HasResult() const { return !ResultMission.IsNone(); }
+	bool ResultIsSuccess() const { return bResultSuccess; }
+	FName GetResultMission() const { return ResultMission; }
+	/** Success: the reward in euros. Failure: 0. */
+	int32 GetResultReward() const { return ResultReward; }
+	/** Failure: the reason (player.arrested, time, vehicle.destroyed...), the key is "mission.fail.<reason>". */
+	FName GetResultReason() const { return ResultReason; }
+
 	/** Other systems report events here by name (holdup.cash_taken, vehicle.destroyed...). */
 	void ReportEvent(FName Name, FName Subject = NAME_None, float Value = 0.f);
 
@@ -99,4 +108,9 @@ private:
 	FString InsideStartZone;
 	float LogTimer = 0.f;
 	FName OfferedMission;
+	FName ResultMission;
+	FName ResultReason;
+	int32 ResultReward = 0;
+	bool bResultSuccess = false;
+	void ClearResult() { ResultMission = NAME_None; ResultReason = NAME_None; ResultReward = 0; }
 };
