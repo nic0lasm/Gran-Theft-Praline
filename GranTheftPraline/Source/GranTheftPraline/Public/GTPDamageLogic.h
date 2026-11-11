@@ -135,7 +135,7 @@ enum class EImpact : int
 	Dirt = 5,
 	/** Water (Rhône, puddles): splash. */
 	Water = 6,
-	/** A body: small, short blood puff (no gore pools: rating and budget). */
+	/** A body: blood puff; a pool under the dead body and stains are added by the subsystem ("GTA-like", Nico 2026-11-11). */
 	Flesh = 7,
 	Count = 8
 };
