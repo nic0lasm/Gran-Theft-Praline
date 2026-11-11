@@ -2,6 +2,7 @@
 
 #include "GTPCameraModeComponent.h"
 #include "GTPHudCombat.h"
+#include "GTPHudMissions.h"
 #include "GTPInteraction.h"
 #include "GTPMinimap.h"
 #include "GTPPlayerController.h"
@@ -62,6 +63,10 @@ void AGTPHUD::DrawHUD()
 {
 	Super::DrawHUD();
 	const AGTPPlayerController* PC = Cast<AGTPPlayerController>(GetOwningPlayerController());
+	if (Canvas && PC)
+	{
+		GTPHudMissions::Update(GetWorld(), PC); // keeps map markers, waypoint and GPS current (also on the full map)
+	}
 	if (Canvas && PC && PC->IsFullMapOpen())
 	{
 		// The full-screen map replaces the HUD while the game is paused on it.
@@ -88,6 +93,7 @@ void AGTPHUD::DrawHUD()
 	const float DrivingHeight = DrawDriving(Scale);
 	DrawPrompts(Scale, DeltaTime, DrivingHeight);
 	DrawWanted(Scale);
+	GTPHudMissions::Draw(Canvas, PC, Scale);
 	DrawMessage(Scale);
 	// Bottom left; the driving panel and the prompts sit on the right (UGTPMinimapSubsystem).
 	if (UGTPMinimapSubsystem* Minimap = GetWorld() ? GetWorld()->GetSubsystem<UGTPMinimapSubsystem>() : nullptr)

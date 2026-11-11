@@ -6,6 +6,7 @@
 #include "GTPInteraction.h"
 #include "GTPGameInstance.h"
 #include "GTPMenuWidgets.h"
+#include "GTPHudMissions.h"
 #include "GTPMinimap.h"
 #include "GTPUserSettings.h"
 #include "GTPVehicle.h"
@@ -393,6 +394,10 @@ bool AGTPPlayerController::InputKey(const FInputKeyEventArgs& Params)
 		if (bFullMapOpen && (bMapKey || IsPauseKey(Params.Key) || Params.Key == EKeys::Gamepad_FaceButton_Right))
 		{
 			ToggleFullMap();
+			return true;
+		}
+		if (!IsMenuOpen() && GTPHudMissions::HandleKey(this, Params.Key))
+		{
 			return true;
 		}
 		if (bMapKey && !IsMenuOpen())

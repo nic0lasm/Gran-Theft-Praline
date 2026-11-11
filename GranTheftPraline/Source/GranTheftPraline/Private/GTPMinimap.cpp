@@ -165,6 +165,62 @@ void UGTPMinimapSubsystem::GetLayout(const UCanvas* Canvas, float Scale, FVector
 	OutCentre = FVector2D(OutRadius + MarginAt1080 * Scale, Canvas->ClipY - OutRadius - MarginAt1080 * Scale);
 }
 
+void UGTPMinimapSubsystem::SetMarkers(FName Source, const TArray<FMapMarker>& Markers)
+{
+	if (Markers.Num() == 0)
+	{
+		MarkersBySource.Remove(Source);
+	}
+	else
+	{
+		MarkersBySource.Add(Source, Markers);
+	}
+}
+
+void UGTPMinimapSubsystem::DrawMarkers(UCanvas* Canvas, const FVector2D& Centre, const GTPUI::FMapView& View, float Radius, float Scale, bool bFullMap) const
+{
+	const float Size = (bFullMap ? 9.f : 6.f) * Scale;
+	for (const TPair<FName, TArray<FMapMarker>>& Source : MarkersBySource)
+	{
+		for (const FMapMarker& Marker : Source.Value)
+		{
+			GTPUI::FVec2 P = View.ToScreen({static_cast<float>(Marker.WorldCm.X), static_cast<float>(Marker.WorldCm.Y)});
+			if (!bFullMap)
+			{
+				const float Distance = FMath::Sqrt(P.X * P.X + P.Y * P.Y);
+				if (Distance > Radius - Size)
+				{
+					if (!Marker.bClampToEdge)
+					{
+						continue;
+					}
+					P.X *= (Radius - Size) / Distance;
+					P.Y *= (Radius - Size) / Distance;
+				}
+			}
+			const FVector2D At = ToCanvas(Centre, P);
+			if (At.X < 0.f || At.Y < 0.f || At.X > Canvas->ClipX || At.Y > Canvas->ClipY)
+			{
+				continue;
+			}
+			// A diamond with a dark rim.
+			for (const float Grow : {1.35f, 1.f})
+			{
+				const float S = Size * Grow;
+				const FLinearColor Color = Grow > 1.f ? FLinearColor(0.f, 0.f, 0.f, 0.85f) : Marker.Color;
+				FCanvasTriangleItem Top(At + FVector2D(0.f, -S), At + FVector2D(-S, 0.f), At + FVector2D(S, 0.f), GWhiteTexture);
+				FCanvasTriangleItem Bottom(At + FVector2D(0.f, S), At + FVector2D(S, 0.f), At + FVector2D(-S, 0.f), GWhiteTexture);
+				Top.SetColor(Color);
+				Bottom.SetColor(Color);
+				Top.BlendMode = SE_BLEND_Translucent;
+				Bottom.BlendMode = SE_BLEND_Translucent;
+				Canvas->DrawItem(Top);
+				Canvas->DrawItem(Bottom);
+			}
+		}
+	}
+}
+
 void UGTPMinimapSubsystem::AddBlip(AActor* Actor, const FLinearColor& Color, bool bClampToEdge)
 {
 	if (!Actor)
@@ -240,6 +296,8 @@ void UGTPMinimapSubsystem::Draw(UCanvas* Canvas, const AGTPPlayerController* Con
 		DrawDisc(Canvas, ToCanvas(Centre, D), 6.f * Scale, FLinearColor(0.f, 0.f, 0.f, 0.8f));
 		DrawDisc(Canvas, ToCanvas(Centre, D), 4.5f * Scale, FLinearColor(1.f, 0.25f, 0.75f));
 	}
+
+	DrawMarkers(Canvas, Centre, View, Radius, Scale, false);
 
 	for (const FBlip& Blip : Blips)
 	{
@@ -344,6 +402,7 @@ void UGTPMinimapSubsystem::DrawFullMap(UCanvas* Canvas, const AGTPPlayerControll
 	DrawLine(Canvas, Centre + FVector2D(-14.f, 0.f) * Scale, Centre + FVector2D(14.f, 0.f) * Scale, FLinearColor(1.f, 1.f, 1.f, 0.9f), FMath::Max(1.f, 2.f * Scale));
 	DrawLine(Canvas, Centre + FVector2D(0.f, -14.f) * Scale, Centre + FVector2D(0.f, 14.f) * Scale, FLinearColor(1.f, 1.f, 1.f, 0.9f), FMath::Max(1.f, 2.f * Scale));
 
+	DrawMarkers(Canvas, Centre, View, 0.f, Scale, true);
 	// Blips (the player's car, police cars, ...): bigger dots, with a dark rim.
 	for (const FBlip& Blip : Blips)
 	{

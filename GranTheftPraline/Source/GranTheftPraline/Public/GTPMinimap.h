@@ -70,6 +70,19 @@ public:
 	/** True with -Minimap=0 or -NoMinimap: the subsystem is not created. */
 	static bool IsDisabledOnCommandLine();
 
+	/**
+	 * Fixed markers from other systems (mission starts, activities): replace all the
+	 * markers of one source. Drawn as diamonds on the mini-map (on the ring when out
+	 * of range) and on the full map. Cheap: the caller refreshes them a few times a second.
+	 */
+	struct FMapMarker
+	{
+		FVector2D WorldCm = FVector2D::ZeroVector;
+		FLinearColor Color = FLinearColor::White;
+		bool bClampToEdge = false;
+	};
+	void SetMarkers(FName Source, const TArray<FMapMarker>& Markers);
+
 	/** Where the mini-map disc sits on a canvas (centre, radius in pixels): the combat HUD draws around it. */
 	static void GetLayout(const UCanvas* Canvas, float Scale, FVector2D& OutCentre, float& OutRadius);
 
@@ -81,6 +94,9 @@ private:
 	void UpdateGps(const FVector& PlayerLocation);
 	void ComputeRoute(const FVector& From);
 	void DrawRouteInDisc(UCanvas* Canvas, const FVector2D& Centre, const GTPUI::FMapView& View, float Scale) const;
+
+	TMap<FName, TArray<FMapMarker>> MarkersBySource;
+	void DrawMarkers(UCanvas* Canvas, const FVector2D& Centre, const GTPUI::FMapView& View, float Radius, float Scale, bool bFullMap) const;
 
 	GTPUI::FGpsGraph Gps;
 	TArray<GTPUI::FVec2> Route;
