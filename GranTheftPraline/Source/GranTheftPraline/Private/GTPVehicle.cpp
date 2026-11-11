@@ -726,7 +726,9 @@ void AGTPVehicle::SetDriverLite(ACharacter* Character, bool bLite)
 			{
 				Part->SetComponentTickEnabled(true);
 			}
-			if (Part->ComponentTags.Remove(ActiveTag) > 0)
+			// An AI character pulled out never needs its camera: activating a gameplay camera
+			// creates a camera host and can take the player's view. Only a player gets it back.
+			if (Part->ComponentTags.Remove(ActiveTag) > 0 && Character->IsPlayerControlled())
 			{
 				Part->Activate();
 			}
