@@ -24,6 +24,8 @@
 # Cases: n0; n20, n50, n100 (all levers on); n50 and n100 with each lever off in turn (n50-nocheap,
 # n50-noanimrate, n100-nospread); n50-far80 (50 near + 80 far silhouettes).
 set -euo pipefail
+# Any command that fails under set -e says which one, and where, before the script stops.
+trap 'rc=$?; printf "%s ERROR: exit %s at line %s: %s\n" "$(date +%H:%M:%S)" "$rc" "$LINENO" "$BASH_COMMAND" >> "${out:-/dev/null}/steps.log" 2>/dev/null; printf "ERROR: exit %s at line %s: %s\n" "$rc" "$LINENO" "$BASH_COMMAND" >&2' ERR
 
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo"
@@ -174,11 +176,15 @@ fi
 fi
 
 off="-Traffic=0 -Police=0 -Ragdoll=0 -Minimap=0 -DayNight=0 -Audio=0"
-run_case() { # name extra
+run_case() { # name extra; never stops the pass
+  run_case_body "$@" || log "case $1 failed (exit $?), continuing"
+}
+run_case_body() {
   log "bench $1, limit 25 min"
   CAPTURE=0 EXTRA_ARGS="$off $2" SCENARIOS="street-demo" DURATION="$duration" \
     limit 1500 tools/perf/bench.sh "$build" "$out/$1" > "$out/$1.log" 2>&1 || log "bench $1 ended with an error (see $1.log)"
-  { echo; echo "## $1 ($2)"; sed -n '/^| Scenario/,$p' "$out/$1/summary.md" 2> /dev/null || echo "no summary"; grep -h "LogGTPPedestrians" "$out/$1.log" 2> /dev/null | tail -n 3 | sed 's/^/    /'; } >> "$report"
+  # No match from grep (n0 has no pedestrian log) must not stop the pass under set -e / pipefail.
+  { echo; echo "## $1 ($2)"; sed -n '/^| Scenario/,$p' "$out/$1/summary.md" 2> /dev/null || echo "no summary"; { grep -h "LogGTPPedestrians" "$out/$1.log" 2> /dev/null || true; } | tail -n 3 | sed 's/^/    /'; } >> "$report" || log "could not write the report block for $1"
 }
 run_case n0 "-Pedestrians=0"
 run_case n20 "-Pedestrians=20 -PedMaxVisible=20"
