@@ -9,13 +9,18 @@ Accepted on 2026-11-09 by the project lead: 30 fps fidelity target with a
 numbers below are starting values, re-measured in the reference street
 scene.
 
+**Amended on 2026-11-11** (project lead's choice of a steady 40 fps): the M1
+tier is capped at 40 fps and every merge to `next` goes through the gate below.
+The amendment replaces the 30 fps fidelity target of the M1 tier; the rest of
+this ADR is kept as the record of the starting values.
+
 ## Date
 
 2026-11-09
 
 ## Last Verified
 
-2026-11-09
+2026-11-11
 
 ## Decision Makers
 
@@ -144,6 +149,49 @@ pipeline state (PSO) compiled at first use on Metal, or a one-off render target
 or shadow page pool reallocation, rather than texture streaming. Check with
 PSO precaching logs (`r.PSOPrecache.Validation`) when the street is dressed.
 
+## Amendment of 2026-11-11: M1 tier capped at 40 fps, merge gate
+
+### What changed
+
+On the M1 Pro, the gap between median and 95th percentile came from frame
+pacing, not from cost: an uncapped tier C run has a p50 of 13 to 18 ms and a
+p95 of 24 to 33 ms, and the same world capped with `t.MaxFPS=40` shows every
+frame at 25.0 ms. The project lead chose "40 fps, perfectly steady" on
+2026-11-11. The `m1` profile now sets `t.MaxFPS=40` (`M1CVars` in
+`Config/DefaultGame.ini`).
+
+| Mode | Frame rate | Output | Internal (TSR) | Lighting |
+| ---- | ---- | ---- | ---- | ---- |
+| M1 (replaces "Fidelity 30 fps") | 40 fps capped, steady 25.0 ms | 1920×1080 | 960×540 (50 %) | Lumen Lite, shadows Medium, clouds at 64 view ray samples |
+
+Hitch rule unchanged: no frame above 100 ms.
+
+Tier C at 40 fps on `next` 3dcf33b (4 scenes × 120 s, 50 pedestrians, 25
+driven and 24 far cars, police 3): frame p50 = p95 = 25.00 ms in every scene,
+3 frames over 26 ms in 460 s, none over 100 ms; GPU p95 19.7 (fixed), 23.7
+(route), 22.6 (night), 21.4 (rain) ms.
+
+### Merge gate (every merge to `next`, no exception)
+
+1. Green CI on the exact commit (Provenance check, tests outside Unreal).
+2. Compile check on the Windows PC (MSVC, Win64 editor and game)
+   of the same commit: the Mac's clang
+   lets through narrowing and shadowing errors that MSVC refuses.
+3. M1 Pro, packaged Shipping build, `m1` profile (cap from the profile, no
+   `-GfxCVars`), tier C world, 4 scenes of 120 s (fixed camera,
+   deterministic route, night, rain), no image capture during the
+   measurement:
+   - at least 99 % of frames at 25.0 ms ± 1 ms;
+   - **no frame above 100 ms**;
+   - GPU p95 at or under 24 ms (headroom under the 25 ms cap).
+4. A branch that adds a system also gets an on/off A/B against its line of the
+   per-system budget.
+
+The cap makes frame time insensitive to the ~2 ms run-to-run variance of
+tier C (random traffic and pedestrians on screen); GPU p95 is the headroom
+gauge. Uncapped figures are still recorded for diagnosis but no longer gate a
+merge.
+
 ## Alternatives Considered
 
 ### Buying a rendering reference machine (Windows RTX PC or M4/M5 Max Mac)
@@ -173,7 +221,9 @@ PSO precaching logs (`r.PSOPrecache.Validation`) when the street is dressed.
 
 ## Validation Criteria
 
-The [reference street scene](../rendering/rendering-strategy.md#7-reference-street-scene-test-plan)
+Since 2026-11-11: the merge gate above, on every merge to `next`.
+
+Original criterion (2026-11-09): the [reference street scene](../rendering/rendering-strategy.md#7-reference-street-scene-test-plan)
 holds a 95th-percentile GPU time at or under 33.3 ms in all four lighting
 states on the M1 Pro.
 

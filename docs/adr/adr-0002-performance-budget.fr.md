@@ -8,13 +8,18 @@ Accepté le 2026-11-09 par Nico : cible fidélité à 30 i/s, mode performance
 à 60 i/s plus tard, sur le M1 Pro (sans achat de matériel). Les chiffres
 ci-dessous sont des valeurs de départ, remesurées dans la scène témoin.
 
+**Amendé le 2026-11-11** (choix de Nico : 40 i/s parfaitement
+réguliers) : le niveau M1 est plafonné à 40 i/s, et toute intégration sur `next`
+passe la porte ci-dessous. L'amendement remplace la cible de 30 i/s du niveau
+M1 ; le reste de cet ADR est conservé comme trace des valeurs de départ.
+
 ## Date
 
 2026-11-09
 
 ## Dernière vérification
 
-2026-11-09
+2026-11-11
 
 ## Décideurs
 
@@ -138,6 +143,48 @@ pool de pages d'ombres, que le streaming des textures. À vérifier avec les
 journaux de précache des PSO (`r.PSOPrecache.Validation`) quand la rue sera
 habillée.
 
+## Amendement du 2026-11-11 : niveau M1 plafonné à 40 i/s, porte d'intégration
+
+### Ce qui change
+
+Sur le M1 Pro, l'écart entre médiane et 95e centile venait de la cadence, pas
+du coût : au palier C sans plafond, p50 de 13 à 18 ms et p95 de 24 à 33 ms ; le
+même monde plafonné par `t.MaxFPS=40` affiche toutes les images à 25,0 ms.
+Nico a choisi « 40 i/s parfaitement réguliers » le 2026-11-11. Le
+profil `m1` pose désormais `t.MaxFPS=40` (`M1CVars` dans
+`Config/DefaultGame.ini`).
+
+| Mode | Cadence | Sortie | Interne (TSR) | Éclairage |
+| ---- | ---- | ---- | ---- | ---- |
+| M1 (remplace « Fidélité 30 i/s ») | 40 i/s plafonnés, 25,0 ms réguliers | 1920×1080 | 960×540 (50 %) | Lumen Lite, ombres Medium, nuages à 64 échantillons |
+
+Règle des à-coups inchangée : aucune image au-dessus de 100 ms.
+
+Palier C à 40 i/s sur `next` 3dcf33b (4 scènes × 120 s, 50 piétons, 25
+voitures conduites et 24 lointaines, police 3) : image p50 = p95 = 25,00 ms
+dans chaque scène, 3 images au-dessus de 26 ms en 460 s, aucune au-dessus de
+100 ms ; GPU p95 19,7 (fixe), 23,7 (parcours), 22,6 (nuit), 21,4 (pluie) ms.
+
+### Porte d'intégration (toute intégration sur `next`, sans exception)
+
+1. CI verte sur le commit exact (Provenance check, tests hors Unreal).
+2. Compilation de contrôle sur le PC Windows (MSVC, éditeur et jeu Win64)
+   du même commit : le clang du Mac laisse
+   passer des erreurs de conversion et de masquage que MSVC refuse.
+3. M1 Pro, build Shipping packagé, profil `m1` (plafond venant du profil, sans
+   `-GfxCVars`), monde du palier C, 4 scènes de 120 s (caméra fixe, parcours
+   déterministe, nuit, pluie), aucune capture d'image pendant la mesure :
+   - au moins 99 % des images à 25,0 ms ± 1 ms ;
+   - **aucune image au-dessus de 100 ms** ;
+   - GPU p95 au plus 24 ms (marge sous le plafond de 25 ms).
+4. Une branche qui ajoute un système passe aussi un A/B avec et sans, comparé à
+   sa ligne du budget par système.
+
+Le plafond rend le temps d'image insensible à la variance d'environ 2 ms d'une
+passe à l'autre au palier C (trafic et piétons aléatoires) ; le GPU p95 sert de
+jauge de marge. Les chiffres sans plafond restent relevés pour le diagnostic,
+mais ne conditionnent plus une intégration.
+
 ## Alternatives écartées
 
 - **Acheter une machine de référence du rendu** (PC Windows RTX ou Mac
@@ -163,7 +210,9 @@ habillée.
 
 ## Critères de validation
 
-La scène témoin tient un temps GPU au 95e centile inférieur ou égal à
+Depuis le 2026-11-11 : la porte d'intégration ci-dessus, à chaque intégration sur `next`.
+
+Critère d'origine (2026-11-09) : la scène témoin tient un temps GPU au 95e centile inférieur ou égal à
 33,3 ms dans ses quatre états d'éclairage sur le M1 Pro.
 
 ## Liens
