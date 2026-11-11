@@ -27,7 +27,7 @@ UGTPSirenComponent* UGTPSirenComponent::FindOrAdd(AActor* Vehicle)
 	{
 		return Existing;
 	}
-	UGTPSirenComponent* Siren = NewObject<UGTPSirenComponent>(Vehicle, MakeUniqueObjectName(Vehicle, UGTPSirenComponent::StaticClass(), TEXT("GTPSiren")));
+	UGTPSirenComponent* Siren = NewObject<UGTPSirenComponent>(Vehicle, MakeUniqueObjectName(Vehicle, UGTPSirenComponent::StaticClass(), TEXT("GTPSiren")), RF_Transient);
 	if (USceneComponent* Root = Vehicle->GetRootComponent())
 	{
 		Siren->SetupAttachment(Root);

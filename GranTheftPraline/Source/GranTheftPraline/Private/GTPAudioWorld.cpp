@@ -81,6 +81,9 @@ void UGTPAudioWorld::Deinitialize()
 		Reactions->Stop();
 		Reactions = nullptr;
 	}
+	PendingEquip.Reset();
+	Walkers.Reset();
+	Engines.Reset();
 	OnLoudSound.Clear();
 	if (UWorld* World = GetWorld())
 	{
@@ -96,7 +99,12 @@ TStatId UGTPAudioWorld::GetStatId() const
 
 void UGTPAudioWorld::OnActorSpawned(AActor* Actor)
 {
-	Equip(Actor);
+	// Spawn callbacks can come before construction and component registration end
+	// (deferred spawns): adding components there can leave them half registered.
+	if (Actor)
+	{
+		PendingEquip.Add(Actor);
+	}
 }
 
 void UGTPAudioWorld::Equip(AActor* Actor)
@@ -114,7 +122,7 @@ void UGTPAudioWorld::Equip(AActor* Actor)
 	}
 	if ((Cast<ACharacter>(Actor) || bPedestrian) && !Actor->FindComponentByClass<UGTPFootstepComponent>())
 	{
-		UGTPFootstepComponent* Feet = NewObject<UGTPFootstepComponent>(Actor, MakeUniqueObjectName(Actor, UGTPFootstepComponent::StaticClass(), TEXT("GTPFootsteps")));
+		UGTPFootstepComponent* Feet = NewObject<UGTPFootstepComponent>(Actor, MakeUniqueObjectName(Actor, UGTPFootstepComponent::StaticClass(), TEXT("GTPFootsteps")), RF_Transient);
 		Actor->AddInstanceComponent(Feet);
 		Feet->RegisterComponent();
 		Walkers.Add(Feet);
@@ -124,7 +132,7 @@ void UGTPAudioWorld::Equip(AActor* Actor)
 	{
 		if (!Actor->FindComponentByClass<UGTPVehicleAudioComponent>())
 		{
-			UGTPVehicleAudioComponent* Body = NewObject<UGTPVehicleAudioComponent>(Actor, MakeUniqueObjectName(Actor, UGTPVehicleAudioComponent::StaticClass(), TEXT("GTPBodyAudio")));
+			UGTPVehicleAudioComponent* Body = NewObject<UGTPVehicleAudioComponent>(Actor, MakeUniqueObjectName(Actor, UGTPVehicleAudioComponent::StaticClass(), TEXT("GTPBodyAudio")), RF_Transient);
 			Body->SetupAttachment(Actor->GetRootComponent());
 			// An instance component: the actor owns it, saves it from GC and unregisters it with itself.
 			Actor->AddInstanceComponent(Body);
@@ -172,6 +180,27 @@ void UGTPAudioWorld::Tick(float DeltaTime)
 		else
 		{
 			UGameplayStatics::PopSoundMixModifier(World, Mix->GetDrivingMix());
+		}
+	}
+	if (PendingEquip.Num() > 0)
+	{
+		TArray<TWeakObjectPtr<AActor>> Ready = MoveTemp(PendingEquip);
+		PendingEquip.Reset();
+		for (const TWeakObjectPtr<AActor>& Weak : Ready)
+		{
+			AActor* Actor = Weak.Get();
+			if (!Actor)
+			{
+				continue;
+			}
+			if (Actor->HasActorBegunPlay())
+			{
+				Equip(Actor);
+			}
+			else if (!Actor->IsActorBeingDestroyed())
+			{
+				PendingEquip.Add(Actor);
+			}
 		}
 	}
 	UpdateRecording();
