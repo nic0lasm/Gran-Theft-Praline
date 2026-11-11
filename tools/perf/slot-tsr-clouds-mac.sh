@@ -41,6 +41,7 @@ sky-cheap||-Sky=cheap
 night||-Ambience=night
 night-sky-cheap||-Ambience=night -Sky=cheap
 night-noclouds|r.VolumetricCloud=0|-Ambience=night
+night-rain||-Ambience=night-rain
 base-end||'
 variants="${VARIANTS:-$default_variants}"
 test "$dry" = "1" && variants="base||"
@@ -77,7 +78,8 @@ start_s=$(date +%s)
 # One run: dir, seconds, args... ; leaves frames.csv, profile.csv, game.log
 run() {
   local dir="$1" secs="$2"; shift 2; mkdir -p "$dir"
-  limit $((secs + 60)) "$exe" "$@" -SkipTitle $base_args -csvGpuStats -csvCaptureFrames=$((secs * 60)) \
+  local base="$base_args"; case " $* " in *" -Sky="*) base="" ;; esac  # a variant -Sky= replaces the base one
+  limit $((secs + 60)) "$exe" "$@" -SkipTitle $base -csvGpuStats -csvCaptureFrames=$((secs * 60)) \
     -FrameLogFile="$dir/frames.csv" -CsvCopyTo="$dir/profile.csv" -ExitAfter="$secs" -abslog="$dir/game.log" \
     > "$dir/stdout.log" 2>&1 < /dev/null || log "  $(basename "$dir"): exit $? (limit = killed)"
   pkill -f "GranTheftPraline-Mac" 2>/dev/null || true
