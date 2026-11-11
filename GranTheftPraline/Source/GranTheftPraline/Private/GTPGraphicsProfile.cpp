@@ -61,10 +61,14 @@ void UGTPGraphicsProfile::ApplyProfile(FString Requested)
 		ResizeHandle = FViewport::ViewportResizedEvent.AddUObject(this, &UGTPGraphicsProfile::HandleViewportResized);
 		UpdateScreenPercentage(ViewportSize.Y > 0 ? ViewportSize.Y : static_cast<int32>(M1ReferenceHeight));
 	}
-	else if (Requested != TEXT("ultra"))
+	else
 	{
-		UE_LOG(LogGTPGraphics, Warning, TEXT("Unknown graphics profile '%s', using ultra (project settings)"), *Requested);
-		Requested = TEXT("ultra");
+		if (Requested != TEXT("ultra"))
+		{
+			UE_LOG(LogGTPGraphics, Warning, TEXT("Unknown graphics profile '%s', using ultra"), *Requested);
+			Requested = TEXT("ultra");
+		}
+		ApplyCVars(UltraCVars);
 	}
 
 	// -GfxCVars=a=1,b=2 applies extra cvars on top of the profile. Shipping

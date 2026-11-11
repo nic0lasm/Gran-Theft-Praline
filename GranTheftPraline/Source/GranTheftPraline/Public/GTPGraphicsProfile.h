@@ -11,7 +11,8 @@ class FViewport;
  * packaged build runs with the same settings that were measured.
  *
  * Profiles (tools/rendering/reference_scene/profiles.json has the same values):
- *   ultra     project settings only (the Ultra tier)
+ *   ultra     Epic scalability at 100 % resolution, set explicitly so the
+ *             auto-detected settings saved on the machine cannot lower it
  *   fidelity  ADR-0002 fidelity mode: TSR 67 %, Lumen GI and reflections High
  *   m1        fidelity + Lumen Lite + shadows Medium, internal resolution of
  *             a 1080p image at 50 % whatever the display (default)
@@ -55,6 +56,10 @@ private:
 	/** Profile used when the command line names none. */
 	UPROPERTY(Config)
 	FString DefaultProfile = TEXT("m1");
+
+	/** "cvar=value" pairs of the ultra tier. */
+	UPROPERTY(Config)
+	TArray<FString> UltraCVars;
 
 	/** "cvar=value" pairs of the fidelity mode. */
 	UPROPERTY(Config)

@@ -61,7 +61,7 @@ Les preuves retenues pour une version sont copiées dans
 | `-FrameLogWarmup=<s>` | Ignore les premières secondes (5 par défaut) |
 | `-ExitAfter=<s>` | Quitte proprement après ce nombre de secondes |
 | `-CaptureVideo=<s>` | Enregistre les images rendues en JPEG pendant ce nombre de secondes (`-CaptureFps`, 10 par défaut ; `-CaptureDelay`, 3 par défaut ; `-CaptureDir`) |
-| `-GfxProfile=<nom>` | Profil de rendu de l'ADR-0002 : `m1` (par défaut), `fidelity` ou `ultra` (réglages du projet seuls) |
+| `-GfxProfile=<nom>` | Profil de rendu de l'ADR-0002 : `m1` (par défaut), `fidelity` ou `ultra` (qualité Epic à 100 % de résolution, posée explicitement) |
 | `-DemoRoute` | Joue seul un parcours fixe (regard circulaire, marche, montée dans la voiture garée la plus proche, conduite, descente) pour filmer et mesurer sans joueur ; avec `-SkipTitle` (et `-TestVehicle` sur une map sans voiture garée) |
 
 L'enregistreur fonctionne aussi en Shipping : il lit les temps des fils du

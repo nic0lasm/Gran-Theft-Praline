@@ -58,7 +58,7 @@ version is copied to `production/evidence/<version>/` (video through Git LFS).
 | `-FrameLogWarmup=<s>` | Ignore the first seconds (default 5) |
 | `-ExitAfter=<s>` | Quit cleanly after this many seconds |
 | `-CaptureVideo=<s>` | Save rendered frames as JPEG for this many seconds (`-CaptureFps`, default 10; `-CaptureDelay`, default 3; `-CaptureDir`) |
-| `-GfxProfile=<name>` | Rendering profile from ADR-0002: `m1` (default), `fidelity` or `ultra` (project settings only) |
+| `-GfxProfile=<name>` | Rendering profile from ADR-0002: `m1` (default), `fidelity` or `ultra` (Epic scalability at 100 % resolution, set explicitly) |
 | `-DemoRoute` | Plays a fixed route by itself (look around, walk, get in the nearest parked car, drive, get out) to film and measure without a player; use with `-SkipTitle` (and `-TestVehicle` on a map with no parked car) |
 
 The recorder works in Shipping builds too: it uses the engine thread
