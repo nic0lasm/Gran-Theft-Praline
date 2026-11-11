@@ -226,6 +226,7 @@ FGTPDamageOutcome UGTPCombatSubsystem::ApplyHit(const FGTPCombatHit& Hit)
 		Info.Direction = Hit.Direction;
 		Info.Bone = Hit.Bone;
 		Info.bMelee = Hit.bMelee;
+		Info.bHeavy = Hit.bHeavy;
 		Reaction->ReactToHit(Info);
 	}
 
