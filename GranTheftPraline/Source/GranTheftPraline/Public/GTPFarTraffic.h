@@ -56,6 +56,10 @@ protected:
 	UPROPERTY(Config, EditAnywhere, Category = "Far traffic")
 	float PuppetRideHeight = 40.f;
 
+	/** Puppets without glass, engine sound tick or actor tick (-FarLean=0 keeps them whole). */
+	UPROPERTY(Config, EditAnywhere, Category = "Far traffic")
+	bool bLeanPuppets = true;
+
 	/** Static meshes, one per model (same as the parked cars: tools/vehicles/unreal/import_parked_static.py). */
 	UPROPERTY(Config, EditAnywhere, Category = "Far traffic")
 	TArray<FSoftObjectPath> Meshes;
@@ -121,6 +125,7 @@ private:
 	void MakePuppet(AGTPVehicle* Vehicle);
 	/** Puppet mode: Vehicle is a driven car again, as a ghost at Location on Lane, rolling at SpeedMs. */
 	void Wake(AGTPVehicle* Vehicle, int32 Lane, int32 Point, const FVector& Location, float YawDegrees, float SpeedMs);
+	void SetPuppetLean(AGTPVehicle* Vehicle, bool bLean);
 	bool bPuppets = false;
 
 	UPROPERTY(Transient)

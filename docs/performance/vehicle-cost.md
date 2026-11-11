@@ -212,5 +212,11 @@ and a negative value means never.
 
   It has the same time guard, screen-lock test, heartbeat and `DRY_RUN=1` as
   the sweep.
+- `-FarLean=0`: the far puppets stay whole. By default they are lean: no
+  translucent glass, no engine-sound tick and no actor tick. The glass is the
+  suspect for the cost of far traffic at night (+1.4 ms p50, +3.4 ms p95) and
+  in the rain (+2.9 ms p50, +5.8 ms p95), which day scenes do not show.
+  Translucent glass is lit by every street lamp and fogged in the rain. To be
+  measured at night and in the rain, with and without the switch.
 - A lever goes into the defaults only if p95 at 20 or 24 driven cars stays
   under 33 ms with no frame over 100 ms.

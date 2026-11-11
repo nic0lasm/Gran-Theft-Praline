@@ -4,10 +4,11 @@
 #include "GTPTraffic.h"
 #include "GTPTrafficGhost.h"
 #include "GTPVehicle.h"
+#include "GTPEngineSoundComponent.h"
 #include "CollisionQueryParams.h"
 #include "Components/InstancedStaticMeshComponent.h"
+#include "Components/StaticMeshComponent.h"
 #include "Components/SkeletalMeshComponent.h"
-#include "Components/LightComponent.h"
 #include "GameFramework/Character.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
@@ -48,6 +49,9 @@ int32 AGTPFarTraffic::Build(AGTPTrafficNetwork* InNetwork, int32 Count)
 	HideDistance = FMath::Min(HideDistance, Network->GhostWakeDistance);
 	int32 InstancesSwitch = bInstances ? 1 : 0;
 	FParse::Value(FCommandLine::Get(), TEXT("FarInstances="), InstancesSwitch);
+	int32 LeanSwitch = bLeanPuppets ? 1 : 0;
+	FParse::Value(FCommandLine::Get(), TEXT("FarLean="), LeanSwitch);
+	bLeanPuppets = LeanSwitch != 0;
 	if (InstancesSwitch != 0)
 	{
 		for (const FSoftObjectPath& Path : Meshes)
@@ -117,8 +121,9 @@ int32 AGTPFarTraffic::Build(AGTPTrafficNetwork* InNetwork, int32 Count)
 	{
 		Model->MarkRenderStateDirty();
 	}
-	GTP_TRACE(LogGTPFarTraffic, TEXT("far traffic: %d cars wanted, %d placed, %s"), Count, Placed,
-		bPuppets ? TEXT("puppet cars") : *FString::Printf(TEXT("instances of %d models"), Models.Num()));
+	GTP_TRACE(LogGTPFarTraffic, TEXT("far traffic: %d cars wanted, %d placed, %s%s"), Count, Placed,
+		bPuppets ? TEXT("puppet cars") : *FString::Printf(TEXT("instances of %d models"), Models.Num()),
+		bPuppets ? (bLeanPuppets ? TEXT(", lean (no glass, no sound or actor tick)") : TEXT(", whole")) : TEXT(""));
 	return Placed;
 }
 
@@ -358,19 +363,33 @@ void AGTPFarTraffic::MakePuppet(AGTPVehicle* Vehicle)
 			AGTPTrafficNetwork::SetCarRenderStatic(Body, true);
 		}
 	}
-	if (Network->LightDistance >= 0.f)
+	if (bLeanPuppets)
 	{
-		TArray<ULightComponent*> PuppetLights;
-		Vehicle->GetComponents<ULightComponent>(PuppetLights);
-		for (ULightComponent* Light : PuppetLights)
-		{
-			Light->SetVisibility(false, false);
-		}
+		SetPuppetLean(Vehicle, true);
 	}
 	if (ACharacter* Occupant = Vehicle->GetDriver())
 	{
 		Occupant->SetActorHiddenInGame(true);
 	}
+}
+
+void AGTPFarTraffic::SetPuppetLean(AGTPVehicle* Vehicle, bool bLean)
+{
+	// Nothing a car 90 m away shows: its translucent glass (forward-lit by every street
+	// lamp at night, fogged in the rain), the engine sound tick and the actor tick.
+	TInlineComponentArray<UStaticMeshComponent*> Parts(Vehicle);
+	for (UStaticMeshComponent* Part : Parts)
+	{
+		if (Part->ComponentHasTag(TEXT("Glass")) && Part->IsVisible() == bLean)
+		{
+			Part->SetVisibility(!bLean, false);
+		}
+	}
+	if (UGTPEngineSoundComponent* Engine = Vehicle->FindComponentByClass<UGTPEngineSoundComponent>())
+	{
+		Engine->SetComponentTickEnabled(!bLean);
+	}
+	Vehicle->SetActorTickEnabled(!bLean);
 }
 
 void AGTPFarTraffic::Wake(AGTPVehicle* Vehicle, int32 Lane, int32 Point, const FVector& Location, float YawDegrees, float SpeedMs)
@@ -382,6 +401,7 @@ void AGTPFarTraffic::Wake(AGTPVehicle* Vehicle, int32 Lane, int32 Point, const F
 		Body->SetComponentTickEnabled(true);
 		AGTPTrafficNetwork::SetCarRenderStatic(Body, false);
 	}
+	SetPuppetLean(Vehicle, false);
 	if (ACharacter* Occupant = Vehicle->GetDriver())
 	{
 		Occupant->SetActorHiddenInGame(false);

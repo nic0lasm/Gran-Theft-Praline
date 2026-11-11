@@ -242,5 +242,12 @@ jamais.
 
   Elle a le même garde-temps, le même test d'écran verrouillé, le même signe
   de vie et le même `DRY_RUN=1` que le balayage.
+- `-FarLean=0` : les marionnettes lointaines restent entières. Par défaut,
+  elles sont allégées : pas de vitres translucides, pas de tick du son moteur
+  ni de tick d'acteur. Les vitres sont suspectées de causer le coût du trafic
+  lointain la nuit (+1,4 ms p50, +3,4 ms p95) et sous la pluie (+2,9 ms p50,
+  +5,8 ms p95), que les scènes de jour ne montrent pas. Une vitre translucide
+  est éclairée par chaque réverbère et embrumée sous la pluie. À mesurer de
+  nuit et sous la pluie, avec et sans l'interrupteur.
 - Un levier n'entre dans les défauts que si le p95 à 20 ou 24 voitures
   conduites reste sous 33 ms, sans aucune image au-delà de 100 ms.
