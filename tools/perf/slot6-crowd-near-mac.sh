@@ -6,9 +6,12 @@
 # Usage (from the root of the GTAL-build clone, nothing else running; the path may contain spaces):
 #   caffeinate -dimsu tools/perf/slot6-crowd-near-mac.sh
 # Environment:
+#   PACKAGE_ONLY=1     compile, cook and package (no screen needed), do not launch the game; stop after the package check
+#   SKIP_BUILD=1       measure only, on the package already in Builds/perf-slot6/0.3; refuses to start if the
+#                      screen is locked (CGSSessionScreenIsLocked), with a clear message
 #   DRY_RUN=1          check prerequisites and syntax, print the plan, run nothing heavy
 #   DURATION           seconds per bench run (default 90)
-#   BRANCH             code to build (default feat/pedestrians-slot6b = feat/perf-cumul-night-nofar + the far crowd fixes)
+#   BRANCH             code to build (default feat/pedestrians-slot6d)
 #   EXPECTED_MAP_MD5   map fingerprint required (default 1c92de0f813b89cb40aeb000cd92a1de)
 #   UE_ROOT            engine folder, read by tools/build/package-mac.sh (its own default applies)
 # Output: Builds/perf-slot6/slot6-<stamp>/ (REPORT.md, steps.log, heartbeat.txt, one folder per case)
@@ -25,10 +28,12 @@ repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo"
 stamp="$(date +%Y%m%d-%H%M%S)"
 out="$repo/Builds/perf-slot6/slot6-$stamp"
-branch="${BRANCH:-feat/pedestrians-slot6b}"
+branch="${BRANCH:-feat/pedestrians-slot6d}"
 duration="${DURATION:-90}"
 expected_md5="${EXPECTED_MAP_MD5:-1c92de0f813b89cb40aeb000cd92a1de}"
 dry="${DRY_RUN:-0}"
+package_only="${PACKAGE_ONLY:-0}"
+skip_build="${SKIP_BUILD:-0}"
 map="$repo/GranTheftPraline/Content/Maps/L_City_RueDeLaRepublique.umap"
 mkdir -p "$out"
 report="$out/REPORT.md"
@@ -39,6 +44,9 @@ md5of() { if command -v md5 > /dev/null 2>&1; then md5 -q "$1"; else md5sum "$1"
 sizeof() { stat -f %z "$1" 2> /dev/null || stat -c %s "$1" 2> /dev/null || echo ?; }
 # Time limit without coreutils `timeout`: perl alarm + exec; arguments pass as they are.
 limit() { local s="$1"; shift; perl -e 'alarm shift; exec @ARGV or die "exec: $!"' "$s" "$@"; }
+
+# True when the console session is locked: no game can create its Metal window then.
+screen_locked() { ioreg -n Root -d1 -a 2> /dev/null | grep -A1 "CGSSessionScreenIsLocked" | grep -q "<true/>"; }
 
 ( while sleep 600; do printf "%s alive\n" "$(date +%H:%M:%S)" >> "$out/heartbeat.txt"; done ) > /dev/null 2>&1 &
 hb=$!
@@ -68,7 +76,11 @@ trap cleanup EXIT
   echo "Clone HEAD before: $orig_head; code branch $branch"
 } > "$report"
 
+test "$package_only" = "1" && test "$skip_build" = "1" && die "PACKAGE_ONLY=1 and SKIP_BUILD=1 together do nothing"
 log "prerequisites"
+if test "$package_only" != "1" && test "$dry" != "1" && screen_locked; then
+  die "the screen is locked (CGSSessionScreenIsLocked): unlock the Mac, or run with PACKAGE_ONLY=1 to build without a screen"
+fi
 if pgrep -f "UnrealEditor( |$)|GranTheftPraline-Mac" > /dev/null; then
   test "$dry" = "1" && log "(dry run) an Unreal process is running: a real run would stop here" || die "an Unreal editor or the game is running"
 fi
@@ -86,6 +98,7 @@ bash -n "$repo/tools/perf/bench.sh" || die "bench.sh syntax"
 bash -n "${BASH_SOURCE[0]}" || die "this script's syntax"
 
 if test "$dry" = "1"; then
+  log "mode: package_only=$package_only skip_build=$skip_build; screen locked now: $(screen_locked && echo yes || echo no)"
   log "DRY RUN plan: checkout origin/$branch; setup-environment-mac.sh (limit 30 min); package Shipping to Builds/perf-slot6/0.3 (limit 90 min); 30 s control launch; cases n0 n20 n50 n100 n50-nocheap n50-noanimrate n100-nospread n50-far80, ${duration} s each (limit 25 min per case); map check and restore; report"
   echo "DRY RUN OK (path with spaces handled: \"$repo\")" >> "$report"
   cat "$report"
@@ -99,13 +112,28 @@ git fetch -q origin "$branch" || die "fetch $branch failed"
 git checkout -q --detach "origin/$branch" || die "checkout"
 echo "Code: $(git rev-parse --short HEAD) ($branch)" >> "$report"
 
-log "setup environment assets (M_CloudShadowLF), limit 30 min"
-limit 1800 tools/environment/setup-environment-mac.sh > "$out/setup.log" 2>&1 || die "setup-environment-mac.sh failed (see setup.log)"
-
-log "package Shipping, limit 90 min"
-BUILDS_DIR="$repo/Builds/perf-slot6" limit 5400 tools/build/package-mac.sh 0.3 Shipping > "$out/package.log" 2>&1 || die "package failed (see package.log)"
 build="$repo/Builds/perf-slot6/0.3"
-test -d "$build/GranTheftPraline.app" || die "no app after packaging"
+if test "$skip_build" = "1"; then
+  log "SKIP_BUILD: using the existing package"
+  test -d "$build/GranTheftPraline.app" || die "SKIP_BUILD but no package at $build (run PACKAGE_ONLY=1 first)"
+else
+  log "setup environment assets (M_CloudShadowLF), limit 30 min"
+  limit 1800 tools/environment/setup-environment-mac.sh > "$out/setup.log" 2>&1 || die "setup-environment-mac.sh failed (see setup.log)"
+
+  log "package Shipping, limit 90 min"
+  BUILDS_DIR="$repo/Builds/perf-slot6" limit 5400 tools/build/package-mac.sh 0.3 Shipping > "$out/package.log" 2>&1 || die "package failed (see package.log)"
+  test -d "$build/GranTheftPraline.app" || die "no app after packaging"
+  echo "Package: $build (code $(git rev-parse --short HEAD))" >> "$report"
+fi
+if test "$package_only" = "1"; then
+  log "PACKAGE_ONLY: package ready, game not launched"
+  echo "Package ready at $build; measurements not run (PACKAGE_ONLY). Next: SKIP_BUILD=1 caffeinate -dimsu tools/perf/slot6-crowd-near-mac.sh" >> "$report"
+  cat "$report"
+  exit 0
+fi
+if screen_locked; then
+  die "the screen is locked (CGSSessionScreenIsLocked): unlock the Mac, then rerun with SKIP_BUILD=1"
+fi
 
 log "30 s control launch (freeze check), limit 120 s"
 exe="$(find "$build/GranTheftPraline.app/Contents/MacOS" -maxdepth 1 -type f -perm -u+x | head -n 1)"
