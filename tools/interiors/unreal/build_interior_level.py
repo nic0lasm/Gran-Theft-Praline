@@ -222,6 +222,26 @@ def place_anchor(spec, report):
     report["anchor"] = {"map": CITY_MAP, "location": [location.x, location.y, location.z], "yaw": rotation.yaw}
 
 
+def remove_previous(path, report):
+    """The level is generated, never edited by hand, so a rebuild starts from zero.
+    A loaded level cannot be deleted: switch to an unsaved blank map first, then
+    delete the map and its one-file-per-actor folder."""
+    if not eal.does_asset_exist(path):
+        return True
+    unreal.EditorLoadingAndSavingUtils.new_blank_map(False)
+    eal.delete_asset(path)
+    package, name = path.rsplit("/", 1)
+    external = "/Game/__ExternalActors__" + package[len("/Game"):] + "/" + name
+    for folder in (external, external.replace("__ExternalActors__", "__ExternalObjects__")):
+        if eal.does_directory_exist(folder):
+            eal.delete_directory(folder)
+    if eal.does_asset_exist(path):
+        report["errors"].append("cannot delete previous " + path + " (open in another editor?)")
+        return False
+    log("previous %s deleted" % path)
+    return True
+
+
 def write(report, t0, spec_id):
     report["seconds"] = round(time.time() - t0, 1)
     out = os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_saved_dir()), "InteriorBuild")
@@ -237,8 +257,8 @@ def main():
     catalog = il.load_json(il.DEFAULT_CATALOG)
     mapping = il.load_json(MESH_MAP) if MESH_MAP and os.path.exists(MESH_MAP) else {}
     report = {"level": level_path(spec), "errors": [], "groups": {}}
-    if eal.does_asset_exist(level_path(spec)):
-        eal.delete_asset(level_path(spec))   # rebuilt from zero: the level is generated, never edited by hand
+    if not remove_previous(level_path(spec), report):
+        return write(report, t0, spec["id"])
     if not level_sub.new_level(level_path(spec)):
         report["errors"].append("cannot create " + level_path(spec))
         return write(report, t0, spec["id"])
