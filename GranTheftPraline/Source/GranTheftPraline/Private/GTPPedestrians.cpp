@@ -418,6 +418,20 @@ void UGTPPedestrianSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 			}
 		}
 	}
+	if (LoadedMeshes.Num() == 0)
+	{
+		// The player pawn has no main mesh (a MetaHuman keeps its body in other components): the game's mannequin.
+		if (USkeletalMesh* Fallback = Cast<USkeletalMesh>(FSoftObjectPath(TEXT("/Game/Characters/UEFN_Mannequin/Meshes/SKM_UEFN_Mannequin.SKM_UEFN_Mannequin")).TryLoad()))
+		{
+			LoadedMeshes.Add(Fallback);
+		}
+	}
+	if (LoadedMeshes.Num() == 0)
+	{
+		GTP_TRACE(LogGTPPedestrians, TEXT("no pedestrians: no skeletal mesh (none configured, the player has none, the mannequin is missing)"));
+		Wanted = 0;
+		return;
+	}
 	// -PedWalk= / -PedIdle= / -PedRun= (asset paths) override the config; anything still missing
 	// is found among the animations of the mesh's skeleton by name (walk, idle, run or jog).
 	auto Resolve = [&](const FSoftObjectPath& Configured, const TCHAR* Param, const TArray<FString>& Words) -> UAnimSequenceBase*
