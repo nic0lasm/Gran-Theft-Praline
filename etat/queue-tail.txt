@@ -1,7 +1,3 @@
-07:41 == crash-ilight-u1 start (120 s, -userdir) 
-07:43 crash-ilight-u1: exit=0 crash=no last t=wanted: t=119 context= reused=27 | reused/police in the last 15 s: 5 line(s) | crash-ilight-u1: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 
-07:43 == crash-ilight-u2 start (120 s, -userdir) 
-07:45 crash-ilight-u2: exit=0 crash=no last t=wanted: t=119 context= reused=11 | reused/police in the last 15 s: 2 line(s) | crash-ilight-u2: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 
 07:46 == crash-ilight-u3 start (120 s, -userdir) 
 07:48 crash-ilight-u3: exit=0 crash=no last t=wanted: t=119 context= reused=18 | reused/police in the last 15 s: 4 line(s) | crash-ilight-u3: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 2
 07:48 == crash-ilight-u4 start (120 s, -userdir) 
@@ -58,3 +54,7 @@
 08:56 == poolfix-7 start (120 s, interior pass, no -userdir)
 08:58 poolfix-7: crash no (exit 0), end t=119, reused=21, wrecked-last-10s=0, pool lines=25
 08:59 == poolfix-8 start (120 s, interior pass, no -userdir)
+08:59 pushed etat
+09:01 poolfix-8: crash no (exit 0), end t=119, reused=17, wrecked-last-10s=0, pool lines=25
+09:01 pushed crash-ilight
+09:01 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
