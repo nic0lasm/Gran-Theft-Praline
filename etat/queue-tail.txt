@@ -1,23 +1,3 @@
-06:41 pushed etat
-06:42 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
-06:43 pushed etat
-06:45 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
-06:48 loop-endurance-1-1 (list33): loop-endurance-1-1: 23795 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 6 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 49.2 | gpu p50 18.50 p95 29.46 | gate FAIL last t=
-06:48 list34 starts (list33 stopped), evidence branch feat/mac-evidence-20261112b
-06:48 pushed etat
-06:48 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
-06:48 == cand11c-compile start
-06:49 == cand11c-compile exit=0
-06:49 == cand11c-blood start
-06:50 == cand11c-blood exit=0
-06:50 cand11c blood: LogPython: Warning: [CombatMaterials] built /Game/Combat/Materials/M_GTP_BloodPool;
-06:50 == cand11c-build start
-07:01 == cand11c-build exit=0
-07:01 cand11c build exit=0; MapsToCook: ; L_Interior in package.log: 0; - map md5 at the end: 1c92de0f813b89cb40aeb000cd92a1de, unchanged;- DefaultGame.ini md5 at the end: eb19ee3a657b09a9e28edc806259ad78, unchanged;- tracked changes at the end: 0, clone on 2be7b36;; ini md5 vs start same
-07:01 cand11c restore: Combat removed 1 file(s); Content/Interiors entries 0; tracked changes 0
-07:01 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
-07:02 == cand11c-interior start (120 s, no -userdir)
-07:04 cand11c-interior: exit=0 | interior: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.01 max 25.1 | gpu p50 12.05 p95 19.56 | gate PASS | InteriorStreaming: first plan: player at V(X=17329.84, Y=23097.69, Z=141.40) (pawn), nearest interior 321 m, 1 wanted, t=0.03;InteriorStreaming: load /Game/Interiors/L_Interior_fastfood_bellecour t=0.03;InteriorStreaming: visible /Game/Interiors/L_Interior_fastfood_bellecour t=0.20;InteriorStreaming: test start: player at the counter of fastfood_bellecour (GTP_Station=till_3) t=0.20;
 07:05 cand11c still: frame_00000.jpg
 07:05 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
 07:07 cand11c witness street-fixed: 4600 frames | 25.0+-1 ms 99.9 % (exactly 25.0 99.8 %) | >26 3 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 36.7 | gpu p50 13.77 p95 20.73 | gate PASS | LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy | pool drops 0
@@ -58,3 +38,23 @@
 07:41 pushed etat
 07:41 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
 07:41 list37 starts (list36 stopped after the ilight block)
+07:41 pushed etat
+07:41 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+07:41 == crash-ilight-u1 start (120 s, -userdir) 
+07:43 crash-ilight-u1: exit=0 crash=no last t=wanted: t=119 context= reused=27 | reused/police in the last 15 s: 5 line(s) | crash-ilight-u1: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 
+07:43 == crash-ilight-u2 start (120 s, -userdir) 
+07:45 crash-ilight-u2: exit=0 crash=no last t=wanted: t=119 context= reused=11 | reused/police in the last 15 s: 2 line(s) | crash-ilight-u2: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 
+07:46 == crash-ilight-u3 start (120 s, -userdir) 
+07:48 crash-ilight-u3: exit=0 crash=no last t=wanted: t=119 context= reused=18 | reused/police in the last 15 s: 4 line(s) | crash-ilight-u3: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 2
+07:48 == crash-ilight-u4 start (120 s, -userdir) 
+07:49 crash-ilight-u4: exit=139 crash=YES last t=wanted: t=75 context= reused=13 | reused/police in the last 15 s: 3 line(s) | FileNotFoundError: [Errno 2] No such file or directory: 'GTAL-build/Builds/ilight/cr
+07:49 crash-ilight: Shipping crash on try 4
+07:50 == crash-ilight-pool0-1 start (120 s, -userdir) -TrafficPool=0
+07:52 crash-ilight-pool0-1: exit=0 crash=no last t=wanted: t=119 context= reused=0 | reused/police in the last 15 s: 2 line(s) | crash-ilight-pool0-1: 4599 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00
+07:52 == crash-ilight-pool0-2 start (120 s, -userdir) -TrafficPool=0
+07:54 crash-ilight-pool0-2: exit=0 crash=no last t=wanted: t=119 context= reused=0 | reused/police in the last 15 s: 2 line(s) | crash-ilight-pool0-2: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 
+07:55 == crash-ilight-pool0-3 start (120 s, -userdir) -TrafficPool=0
+07:57 crash-ilight-pool0-3: exit=0 crash=no last t=wanted: t=119 context= reused=0 | reused/police in the last 15 s: 2 line(s) | crash-ilight-pool0-3: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00
+07:57 == crash-ilight-pool0-4 start (120 s, -userdir) -TrafficPool=0
+07:59 crash-ilight-pool0-4: exit=0 crash=no last t=wanted: t=119 context= reused=0 | reused/police in the last 15 s: 3 line(s) | crash-ilight-pool0-4: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00
+07:59 list37 paused after pool0-4; list39 starts (pool0 5-8, dev, poolfix, ilight2, quarter3)
