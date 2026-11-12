@@ -123,6 +123,9 @@ public:
 	/** True for a while after the player fired, threatened or hit someone: two stars then shoot back. */
 	bool IsPlayerAggressive() const;
 
+	/** Off: nobody can arrest the player (scripted demos that must show a chase first). */
+	void SetArrestEnabled(bool bEnabled) { bArrestEnabled = bEnabled; }
+
 	/** Distance from which police see the player when nothing is in the way (cm). */
 	UPROPERTY(EditAnywhere, Category = "Wanted")
 	float SightRange = 6500.f;
@@ -163,6 +166,7 @@ private:
 	TArray<TWeakObjectPtr<AActor>> Officers;
 	float LastAggressiveTime = -1000.f;
 	float DispatchLeft = 0.f;
+	bool bArrestEnabled = true;
 	FVector LastKnownLocation = FVector::ZeroVector;
 
 	/** Crimes seen by a person who is calling the police: reported when due. */
@@ -305,6 +309,11 @@ private:
 		float NextRepositionTime = 0.f;
 		/** Siren mode last set (EGTPSirenMode as int, -1 = never). */
 		int8 SirenState = -1;
+		/** Obstacle probe ignored until then (s): a unit stopped behind traffic pushes through (ramming). */
+		float RamUntil = 0.f;
+		float LastObstacle = -1.f;
+		float LastThrottle = 0.f;
+		float LastBrake = 0.f;
 	};
 
 	/** Siren follows the lights: off without stars, yelp in pursuit, two-tone otherwise. */

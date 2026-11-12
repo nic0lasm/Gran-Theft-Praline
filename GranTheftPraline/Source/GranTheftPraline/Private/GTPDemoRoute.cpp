@@ -455,6 +455,8 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 			UGTPWantedComponent* Wanted = PC->FindComponentByClass<UGTPWantedComponent>();
 			if (Wanted)
 			{
+				// Nobody can arrest the player before the flight starts: the chase must show first.
+				Wanted->SetArrestEnabled(T >= 60.0);
 				if (T >= 8.0 && T < 60.0)
 				{
 					Wanted->EnsureMinStars(T >= 30.0 ? 3 : 2);
@@ -524,8 +526,26 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 		if (Follower.IsActive())
 		{
 			FGTPDriveCommand Command;
+			// Held up for more than 3 s by a car in a narrow street (a chase demo cannot wait): push through for 3 s.
+			if (bChase && T > 4.0)
+			{
+				if (FMath::Abs(Driven->GetSpeedKmh()) < 3.f)
+				{
+					SlowSince = SlowSince <= 0.0 ? Now : SlowSince;
+					if (Now - SlowSince > 3.0 && Now >= RamUntil)
+					{
+						RamUntil = Now + 3.0;
+						SlowSince = 0.0;
+						GTP_TRACE(LogGTPDemo, TEXT("Demo chase: held up, pushing through"));
+					}
+				}
+				else
+				{
+					SlowSince = 0.0;
+				}
+			}
 			if (Follower.Step(Driven->GetActorLocation(), static_cast<float>(Driven->GetActorRotation().Yaw), Driven->GetSpeedKmh(), Cruise,
-				UGTPAIDriverComponent::ProbeAhead(Driven, 4000.f, 90.f), Command))
+				Now < RamUntil ? 1000.f : UGTPAIDriverComponent::ProbeAhead(Driven, 4000.f, 90.f), Command))
 			{
 				DriveInputs(Driven, Command.Throttle, Command.Brake, Command.Steering, false);
 				if (bDeterministic && Follower.GetLane() != LastLoggedLane)

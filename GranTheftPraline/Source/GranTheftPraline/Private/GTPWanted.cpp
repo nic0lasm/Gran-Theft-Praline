@@ -349,7 +349,7 @@ void UGTPWantedComponent::TickComponent(float DeltaTime, ELevelTick TickType, FA
 	const float SpeedKmh = Vehicle ? FMath::Abs(Vehicle->GetSpeedKmh()) : 0.f;
 	const int32 StarsBefore = State.GetStars();
 	State.Tick(DeltaTime, bHold);
-	if (State.UpdateArrest(DeltaTime, Nearest, SpeedKmh, Vehicle == nullptr))
+	if (State.UpdateArrest(DeltaTime, bArrestEnabled ? Nearest : -1.f, SpeedKmh, Vehicle == nullptr))
 	{
 		OnBusted();
 	}
@@ -699,10 +699,13 @@ void AGTPPoliceDirector::DriveStraight(FUnit& Unit, const FVector& Target, float
 	const FVector End = Target + Direction * 2000.f;
 	Path.push_back({static_cast<float>(End.X) * WantedCmToM, static_cast<float>(End.Y) * WantedCmToM});
 	int Closest = 0;
-	const float Obstacle = UGTPAIDriverComponent::ProbeAhead(Car, 4000.f, 100.f);
+	const float Obstacle = GetWorld()->GetTimeSeconds() < Unit.RamUntil ? 1000.f : UGTPAIDriverComponent::ProbeAhead(Car, 4000.f, 100.f);
+	Unit.LastObstacle = Obstacle;
 	const float Speed = Car->GetSpeedKmh() / 3.6f;
 	const FGTPDriveCommand Command = GTPDrive::Decide(Path, Path[0].X, Path[0].Y, FMath::DegreesToRadians(static_cast<float>(Car->GetActorRotation().Yaw)),
 		Speed, MaxSpeedKmh / 3.6f, Obstacle, Unit.Settings, Closest);
+	Unit.LastThrottle = Command.Throttle;
+	Unit.LastBrake = Command.Brake;
 	Car->SetAIDriveInput(Command.Throttle, Command.Brake, Command.Steering, Command.Brake >= 1.f && Speed < 0.5f);
 	Unit.bOnLanes = false;
 }
@@ -731,14 +734,19 @@ void AGTPPoliceDirector::DriveOnLanes(FUnit& Unit, const FVector& Goal, bool bHa
 	{
 		Unit.Follower.ClearGoal();
 	}
-	const float Obstacle = UGTPAIDriverComponent::ProbeAhead(Car, 4000.f, 90.f);
+	const float Obstacle = GetWorld()->GetTimeSeconds() < Unit.RamUntil ? 1000.f : UGTPAIDriverComponent::ProbeAhead(Car, 4000.f, 90.f);
+	Unit.LastObstacle = Obstacle;
 	FGTPDriveCommand Command;
 	if (!Unit.Follower.Step(Location, Yaw, Car->GetSpeedKmh(), MaxSpeedKmh, Obstacle, Command))
 	{
 		Unit.bOnLanes = false;
+		Unit.LastThrottle = 0.f;
+		Unit.LastBrake = 1.f;
 		Car->SetAIDriveInput(0.f, 1.f, 0.f, true);
 		return;
 	}
+	Unit.LastThrottle = Command.Throttle;
+	Unit.LastBrake = Command.Brake;
 	Car->SetAIDriveInput(Command.Throttle, Command.Brake, Command.Steering, Command.Brake >= 1.f && Car->GetSpeedKmh() < 2.f);
 }
 
@@ -756,6 +764,15 @@ void AGTPPoliceDirector::DriveUnit(FUnit& Unit, UGTPWantedComponent& Wanted, con
 		return;
 	}
 	const float ChaseKmh = GTPWanted::ChaseSpeedKmh(Stars);
+	const float NowSeconds = static_cast<float>(GetWorld()->GetTimeSeconds());
+	// Stopped far from the player in a chase: push through whatever is in the way for a few seconds.
+	if (Unit.StoppedTime > 4.f && NowSeconds >= Unit.RamUntil && FVector::Dist2D(Location, Player.GetActorLocation()) > 1500.f)
+	{
+		Unit.RamUntil = NowSeconds + 3.f;
+		Unit.StoppedTime = 0.f;
+		Unit.bOnLanes = false;
+		GTP_TRACE(LogGTPWanted, TEXT("police unit: stopped, pushing through (obstacle %.1f m)"), Unit.LastObstacle);
+	}
 	const bool bPursuit = Wanted.GetPhase() == EGTPWantedPhase::Pursuit;
 	const FVector Target = bPursuit ? Player.GetActorLocation() : Wanted.GetLastKnownLocation();
 	const float Distance = static_cast<float>(FVector::Dist2D(Location, Target));
@@ -898,8 +915,9 @@ void AGTPPoliceDirector::Tick(float DeltaSeconds)
 		{
 			if (const AGTPVehicle* Car = Unit.Car.Get())
 			{
-				GTP_TRACE(LogGTPWanted, TEXT("police unit: dist=%.0f m speed=%.0f km/h lanes=%d stopped=%.0f s stage=%d"),
-					FVector::Dist2D(Car->GetActorLocation(), Player->GetActorLocation()) * 0.01f, Car->GetSpeedKmh(), Unit.bOnLanes ? 1 : 0, Unit.StoppedTime, Unit.Stage);
+				GTP_TRACE(LogGTPWanted, TEXT("police unit: dist=%.0f m speed=%.0f km/h lanes=%d stopped=%.0f s stage=%d obstacle=%.1f m throttle=%.2f brake=%.2f"),
+					FVector::Dist2D(Car->GetActorLocation(), Player->GetActorLocation()) * 0.01f, Car->GetSpeedKmh(), Unit.bOnLanes ? 1 : 0, Unit.StoppedTime, Unit.Stage,
+					Unit.LastObstacle, Unit.LastThrottle, Unit.LastBrake);
 			}
 		}
 	}
