@@ -1,0 +1,60 @@
+06:15 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+06:15 pushed etat
+06:15 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+06:16 == lumen-dev12 start (30 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -PoliceMax=3 -GfxCVars=r.EyeAdaptation.CachedLightingPreExposure=12
+06:16 lumen-dev12: exit=0 crash=no last t=wanted: t=29 wanted=13 police=3 police-in-last-10=0 pool-drops=0 | lumen-dev12: 1001 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.01 p95 25.03 max 25.0 | gpu p50 18.21 p95 29.11 | gate FAIL
+06:16 lumen dev check: LogCsvProfiler: Display: Metadata set : commandline="" -Ambience=noon -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -PoliceMax=3 -GfxCVars=r.EyeAdaptation.CachedLightingPreExposure=12 -SkipTitle -FrameLogFile="GTAL-build/Builds/lumen/devcheck/frametimes.csv" -ExitAfter=30 -userdir="GTAL-build/Builds/lumen/devcheck/userdir" -abslog="HOME
+06:16 pushed lumen
+06:16 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+06:16 pushed etat
+06:17 cand11b: PC proof VERDICT: OK found
+06:17 pushed etat
+06:17 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+06:17 == cand11b-compile start
+06:17 list33 paused during cand11b compile for the userdir split (c)
+06:17 == cand11-gpu-c start (120 s, no -userdir, args of (b))
+06:20 cand11-gpu-c: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.1 | gpu p50 13.62 p95 20.62 | gate PASS
+06:20 list33 resumed (cand11b blood step next)
+06:20 == cand11b-compile exit=0
+06:20 == cand11b-blood start
+06:21 == cand11b-blood exit=0
+06:21 cand11b blood: LogAutomationTest: Error: Condition failed;LogAutomationTest: Error: Condition failed;LogPython: Warning: [CombatMaterials] built /Game/Combat/Materials/M_GTP_BloodPool; | new files: GranTheftPraline/Content/Combat/Materials/M_GTP_BloodPool.uasset 
+06:21 == cand11b-build start
+06:32 == cand11b-build exit=0
+06:32 cand11b build exit=0; - interiors: OK, 26 s, log interiors.log;- interiors built into the package: fastfood_bellecour (check: game log 'InteriorStreaming: load' then 'visible' with -Interiors=1);- map md5 at the end: 1c92de0f813b89cb40aeb000cd92a1de, unchanged;- tracked changes at the end: 0, clone on a335faf;; cooked files under Content/Interiors: 0
+06:32 cand11b restore: Combat removed 1 file(s); Content/Interiors now: 0 entries; tracked changes 0
+06:32 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+06:35 cand11b witness street-fixed: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.5 | gpu p50 13.47 p95 20.48 | gate PASS | LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy | pool drops 0
+06:35 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+06:35 == cand11b-interior start (120 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -PoliceMax=3 -Interiors=1 -InteriorStart=1 -InteriorStaff=8
+06:37 cand11b-interior: exit=0 crash=no last t=wanted: t=119 wanted=58 police=15 police-in-last-10=4 pool-drops=0 | cand11b-interior: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.1 | gpu p50 18.12 p95 29.18 | gate FAIL
+06:37 cand11b interior lines: InteriorStreaming: first plan: player at V(X=17329.84, Y=23097.69, Z=141.40) (pawn), nearest interior 321 m, 1 wanted, t=0.03;InteriorStreaming: cannot load /Game/Interiors/L_Interior_fastfood_bellecour: shop window card kept;
+06:38 cand11b still: frame_00000.jpg
+06:38 push cand11b failed
+06:38 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+06:38 pushed etat
+06:38 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+06:38 == loop-endurance-1-1 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
+06:41 pushed etat
+06:42 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+06:43 pushed etat
+06:45 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+06:48 loop-endurance-1-1 (list33): loop-endurance-1-1: 23795 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 6 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 49.2 | gpu p50 18.50 p95 29.46 | gate FAIL last t=
+06:48 list34 starts (list33 stopped), evidence branch feat/mac-evidence-20261112b
+06:48 pushed etat
+06:48 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+06:48 == cand11c-compile start
+06:49 == cand11c-compile exit=0
+06:49 == cand11c-blood start
+06:50 == cand11c-blood exit=0
+06:50 cand11c blood: LogPython: Warning: [CombatMaterials] built /Game/Combat/Materials/M_GTP_BloodPool;
+06:50 == cand11c-build start
+07:01 == cand11c-build exit=0
+07:01 cand11c build exit=0; MapsToCook: ; L_Interior in package.log: 0; - map md5 at the end: 1c92de0f813b89cb40aeb000cd92a1de, unchanged;- DefaultGame.ini md5 at the end: eb19ee3a657b09a9e28edc806259ad78, unchanged;- tracked changes at the end: 0, clone on 2be7b36;; ini md5 vs start same
+07:01 cand11c restore: Combat removed 1 file(s); Content/Interiors entries 0; tracked changes 0
+07:01 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+07:02 == cand11c-interior start (120 s, no -userdir)
+07:04 cand11c-interior: exit=0 | interior: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.01 max 25.1 | gpu p50 12.05 p95 19.56 | gate PASS | InteriorStreaming: first plan: player at V(X=17329.84, Y=23097.69, Z=141.40) (pawn), nearest interior 321 m, 1 wanted, t=0.03;InteriorStreaming: load /Game/Interiors/L_Interior_fastfood_bellecour t=0.03;InteriorStreaming: visible /Game/Interiors/L_Interior_fastfood_bellecour t=0.20;InteriorStreaming: test start: player at the counter of fastfood_bellecour (GTP_Station=till_3) t=0.20;
+07:05 cand11c still: frame_00000.jpg
+07:05 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+07:07 cand11c witness street-fixed: 4600 frames | 25.0+-1 ms 99.9 % (exactly 25.0 99.8 %) | >26 3 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 36.7 | gpu p50 13.77 p95 20.73 | gate PASS | LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy | pool drops 0
