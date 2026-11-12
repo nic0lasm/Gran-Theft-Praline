@@ -1450,26 +1450,47 @@ void AGTPTrafficNetwork::UpdateReactDemo()
 	}
 	const FVector View = Viewer->PlayerCameraManager->GetCameraLocation();
 	const FVector Look = Viewer->PlayerCameraManager->GetCameraRotation().Vector();
+	// A car in view within 50 m first; while the player drives, the nearest one within 90 m
+	// whatever the direction (the camera turns with the car, cars spawn out of sight).
 	UGTPAIDriverComponent* Best = nullptr;
+	UGTPAIDriverComponent* Nearest = nullptr;
 	float BestDistance = 5000.f;
+	float NearestDistance = 9000.f;
+	int32 Candidates = 0;
 	for (AGTPVehicle* Car : Cars)
 	{
 		UGTPAIDriverComponent* Driver = IsValid(Car) ? Car->FindComponentByClass<UGTPAIDriverComponent>() : nullptr;
-		if (!Driver || Driver->IsGhost() || Driver->GetReactState() != GTPTrafficReact::EState::Cruise)
+		if (!Driver || !Car->HasAIDriver() || Car->IsWrecked() || Driver->GetReactState() != GTPTrafficReact::EState::Cruise)
 		{
 			continue;
 		}
 		const FVector To = Car->GetActorLocation() - View;
 		const float Distance = static_cast<float>(To.Size());
-		if (Distance > 1000.f && Distance < BestDistance && FVector::DotProduct(To.GetSafeNormal(), Look) > 0.5f)
+		if (Distance <= 1000.f)
+		{
+			continue;
+		}
+		++Candidates;
+		if (!Driver->IsGhost() && Distance < BestDistance && FVector::DotProduct(To.GetSafeNormal(), Look) > 0.5f)
 		{
 			Best = Driver;
 			BestDistance = Distance;
 		}
+		if (!Driver->IsGhost() && Distance < NearestDistance)
+		{
+			Nearest = Driver;
+			NearestDistance = Distance;
+		}
+	}
+	if (!Best && Nearest)
+	{
+		Best = Nearest;
+		BestDistance = NearestDistance;
 	}
 	if (!Best)
 	{
-		GTP_TRACE(LogGTPTraffic, TEXT("traffic react demo: no car in view"));
+		GTP_TRACE(LogGTPTraffic, TEXT("traffic react demo: no car within 90 m (%d cruising cars, %d driven in all)"), Candidates, Cars.Num());
+		NextReactDemoTime = Now + 2.0;
 		return;
 	}
 	static const TCHAR* Events[] = {TEXT("aim"), TEXT("ram"), TEXT("shot")};
