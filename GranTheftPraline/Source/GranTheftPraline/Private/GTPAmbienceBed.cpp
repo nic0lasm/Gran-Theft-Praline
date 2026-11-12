@@ -72,21 +72,23 @@ void UGTPAmbienceBed::Start(UWorld* World)
 
 void UGTPAmbienceBed::Stop()
 {
-	for (UAudioComponent* Layer : Layers)
+	// During the world's tear down its audio components and the device go away on their own.
+	UWorld* World = WorldRef.Get();
+	if (World && !World->bIsTearingDown)
 	{
-		if (Layer)
+		for (UAudioComponent* Layer : Layers)
 		{
-			Layer->Stop();
+			if (IsValid(Layer))
+			{
+				Layer->Stop();
+			}
 		}
-	}
-	Layers.Reset();
-	if (UWorld* World = WorldRef.Get())
-	{
 		if (StreetMix)
 		{
 			UGameplayStatics::PopSoundMixModifier(World, StreetMix);
 		}
 	}
+	Layers.Reset();
 }
 
 float UGTPAmbienceBed::ReadParameter(FName Name) const

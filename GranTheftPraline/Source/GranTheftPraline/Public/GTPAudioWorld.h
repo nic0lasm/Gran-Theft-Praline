@@ -87,6 +87,9 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UGTPCombatSounds> CombatSounds;
+
+	/** Must stay a UPROPERTY: without it the garbage collector frees the place audio during play. */
+	UPROPERTY(Transient)
 	TObjectPtr<UGTPPlaceAudio> Places;
 
 	UPROPERTY(Transient)
