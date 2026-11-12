@@ -6,6 +6,7 @@
 #include "Materials/MaterialInstanceDynamic.h"
 #include "UObject/SoftObjectPath.h"
 #include "GTPDriveLogic.h"
+#include "GTPTrafficReactLogic.h"
 #include "GTPTrafficLights.h"
 #include "GTPTraffic.generated.h"
 
@@ -109,8 +110,17 @@ public:
 	/** Index of the lane point the car is nearest to, on its current lane. */
 	int32 GetLanePoint() const { return Closest; }
 
-	/** Free distance in front of Vehicle (m) to the nearest car or person, negative if none within LengthCm. */
-	static float ProbeAhead(const AGTPVehicle* Vehicle, float LengthCm, float RadiusCm);
+	/**
+	 * Free distance in front of Vehicle (m) to the nearest car or person, negative if none within LengthCm.
+	 * OutHit, when given, receives what was hit.
+	 */
+	static float ProbeAhead(const AGTPVehicle* Vehicle, float LengthCm, float RadiusCm, AActor** OutHit = nullptr);
+
+	/** Reaction state of this driver (GTPTrafficReactLogic.h): cruise, waiting, bypass, panic, flee, shaken. */
+	GTPTrafficReact::EState GetReactState() const { return React.State; }
+
+	/** Demo and tests: the driver behaves as if aimed at, shot near, or rammed by the player (-TrafficReactDemo). */
+	void InjectReaction(bool bAimed, bool bShot, bool bRammed);
 
 	/** Seconds the car has been standing still. */
 	float GetStoppedTime() const { return StoppedTime; }
@@ -183,6 +193,18 @@ private:
 	float GhostGroundAge = 1.f;  // seconds since that ground trace
 	float PushTime = 0.f;        // seconds pressing the throttle without moving (wedged on something)
 	float BackOffTime = 0.f;     // seconds left reversing out of it
+
+	/** Reactions (GTPTrafficReactLogic.h) and what feeds them. */
+	GTPTrafficReact::FOutput UpdateReactions(AGTPVehicle* Vehicle, float DeltaTime, float Speed, float ProbeM, AActor* ProbeHit);
+	bool IsSideClear(const AGTPVehicle* Vehicle, float AheadM) const;
+	bool IsStillObstacle(const AActor* Actor) const;
+	GTPTrafficReact::FBrain React;
+	TWeakObjectPtr<AActor> BypassBlocker;
+	int32 SeenShotSerial = -1;
+	bool bHornOn = false;
+	float InjectAimLeft = 0.f;
+	bool bInjectShot = false;
+	bool bInjectRammed = false;
 };
 
 /**
@@ -219,6 +241,41 @@ public:
 	/** Distance from the lane's centre line to the kerb spot of SpawnParkedVehicle (cm). */
 	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Missions")
 	float ParkOffset = 250.f;
+
+	// --- Reactions of the drivers (GTPTrafficReactLogic.h, docs/gameplay/traffic-reactions.md) ---
+
+	/** Horn, going round, panic, fleeing, shock (-TrafficReact=0 turns them all off for measurements). */
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Reactions")
+	bool bTrafficReact = true;
+
+	/** Stopped behind something that does not move this long before the first horn (s). */
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Reactions")
+	float ReactHonkAfter = 2.5f;
+
+	/** Blocked this long before going round when the side is clear (s). */
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Reactions")
+	float ReactBypassAfter = 5.f;
+
+	/** Flooring it after a threat (s). */
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Reactions")
+	float ReactPanicSeconds = 8.f;
+
+	/** A gun pointed within this distance (cm) and half angle (degrees) frightens the driver. */
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Reactions")
+	float ReactAimRange = 2000.f;
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Reactions")
+	float ReactAimHalfAngle = 10.f;
+
+	/** A shot fired within this distance (cm) starts a panic. */
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Reactions")
+	float ReactShotRange = 3500.f;
+
+	/** Horns farther than this from the camera stay silent (cm). */
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Reactions")
+	float ReactHornDistance = 8000.f;
+
+	/** The rules' settings, from the values above. */
+	GTPTrafficReact::FSettings ReactSettings;
 
 	/**
 	 * Lanes a car can start on (4 points or more, not a dead end) with a point that may lie
@@ -447,6 +504,11 @@ private:
 	AGTPVehicle* TakeFromPool(const FTransform& Transform);
 	/** A visible vehicle other than Car inside Car's box placed at Transform, or null (-PoolSpawnCheck=0 skips the test). */
 	const AActor* FindCarAt(const AGTPVehicle* Car, const FTransform& Transform) const;
+	/** -TrafficReactDemo=S: a reaction every S seconds on a car in view (video and measurements). */
+	void UpdateReactDemo();
+	float ReactDemoInterval = 0.f;
+	double NextReactDemoTime = 0.0;
+	int32 ReactDemoStep = 0;
 	bool bPoolSpawnCheck = true;
 
 	UPROPERTY(Transient)

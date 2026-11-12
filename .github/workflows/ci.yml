@@ -83,6 +83,14 @@ jobs:
         run: |
           g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/ghost_test/ghost_test.cpp -o /tmp/ghost_test
           /tmp/ghost_test
+      - name: Build and run the traffic reactions test (horn, going round, panic, fleeing)
+        run: |
+          g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/react_test/react_test.cpp -o /tmp/react_test
+          /tmp/react_test
+          for h in GTPTrafficReactLogic GTPHornSynth; do
+            printf '#include "%s.h"\nint main() { return 0; }\n' "$h" > /tmp/hdr.cpp
+            clang++ -std=c++17 -fsyntax-only -Wall -Wextra -Werror -Wconversion -Wsign-conversion -Wshadow -Wdouble-promotion -I GranTheftPraline/Source/GranTheftPraline/Public /tmp/hdr.cpp
+          done
       - name: Far traffic drawn as instances
         run: |
           g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/far_test/far_test.cpp -o /tmp/far_test
