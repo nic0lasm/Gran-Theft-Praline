@@ -295,3 +295,9 @@ Le quartier compte 124 carrefours à feux et 471 têtes de feu. Une tête dont l
 cellule streamée n'était pas chargée au départ trouve son sol quand elle
 arrive à distance de dessin. Elle reste cachée jusque-là, au lieu de flotter
 ou d'être enterrée.
+
+## 11. Lumières des voitures de jour (12/11/2026, à mesurer)
+
+Le diagnostic du PC comptait jusqu'à 44 lumières de voiture allumées en plein jour sur street-demo. Le code n'en allume aucune de jour : les phares de l'environnement ne s'allument que la nuit, sur les `LitCars` voitures les plus proches. Ces lumières viennent du blueprint de la voiture, allumées en permanence sur chaque voiture du trafic.
+
+Correctif : `MakeCheap` éteint désormais les lumières du blueprint sur les voitures du trafic, les marionnettes et la police (le joueur garde les siennes). La nuit, les phares restent ceux de l'environnement, plafonnés à `LitCars`. `-CarBPLights=1` rend l'ancien comportement pour l'A/B. Aucun effet d'épave n'existe en C++ : une épave ne dessine que ce que le blueprint ajoute dans `OnWrecked`.
