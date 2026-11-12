@@ -9,7 +9,7 @@
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
 
-DEFINE_LOG_CATEGORY_STATIC(Customers, Log, All);   // lines read "Customers: ..." in every build
+DEFINE_LOG_CATEGORY_STATIC(CustomerQueue, Log, All);   // lines read "CustomerQueue: ..." in every build (not "Customers": a member has that name)
 
 namespace
 {
@@ -75,7 +75,7 @@ void UGTPCustomerSubsystem::OpenShop(ULevel* InteriorLevel, const FString& Inter
 	}
 	if (Spots.Num() == 0)
 	{
-		GTP_TRACE(Customers, TEXT("no customer spot in %s (rebuild the level with build_interior_level.py)"), *InteriorId);
+		GTP_TRACE(CustomerQueue, TEXT("no customer spot in %s (rebuild the level with build_interior_level.py)"), *InteriorId);
 		return;
 	}
 	ShopId = InteriorId;
@@ -90,7 +90,7 @@ void UGTPCustomerSubsystem::OpenShop(ULevel* InteriorLevel, const FString& Inter
 	{
 		Apply(Run.Events[EventsSeen]);
 	}
-	GTP_TRACE(Customers, TEXT("shop %s open: %d lines, %d spots, %d customers in (%d refused by the pool)"), *ShopId, Spots.Num(),
+	GTP_TRACE(CustomerQueue, TEXT("shop %s open: %d lines, %d spots, %d customers in (%d refused by the pool)"), *ShopId, Spots.Num(),
 	          TotalSpots, Customers.Num(), Refused);
 }
 
@@ -108,7 +108,7 @@ void UGTPCustomerSubsystem::CloseShop()
 			Pool->ReturnToPool(Pair.Value.Get());
 		}
 	}
-	GTP_TRACE(Customers, TEXT("shop %s closed: %d served"), *ShopId, Run.ServedCount);
+	GTP_TRACE(CustomerQueue, TEXT("shop %s closed: %d served"), *ShopId, Run.ServedCount);
 	Customers.Reset();
 	Spots.Reset();
 	bOpen = false;
@@ -127,7 +127,7 @@ void UGTPCustomerSubsystem::Apply(const GTPCustomers::FEvent& Event)
 	{
 	case ECustomerEvent::Arrived:
 	{
-		AGTPPedestrian* Person = Pool ? Pool->AcquireFromPool(Spot.GetLocation(), Spot.Rotator().Yaw) : nullptr;
+		AGTPPedestrian* Person = Pool ? Pool->AcquireFromPool(Spot.GetLocation(), static_cast<float>(Spot.Rotator().Yaw)) : nullptr;
 		if (Person)
 		{
 			Customers.Add(Event.Id, Person);
@@ -190,7 +190,7 @@ void UGTPCustomerSubsystem::Tick(float DeltaTime)
 	if (SinceLog >= 60.f)
 	{
 		SinceLog = 0.f;
-		GTP_TRACE(Customers, TEXT("%s: %d in the shop, %d served, %d refused by the pool%s"), *ShopId, Customers.Num(), Run.ServedCount,
+		GTP_TRACE(CustomerQueue, TEXT("%s: %d in the shop, %d served, %d refused by the pool%s"), *ShopId, Customers.Num(), Run.ServedCount,
 		          Refused, bFrozen ? TEXT(", frozen by a threat") : TEXT(""));
 	}
 }

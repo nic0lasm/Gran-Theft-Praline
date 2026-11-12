@@ -18,7 +18,7 @@ class ULevel;
  * pool. Started and stopped with the interior by UGTPInteriorStreaming.
  *
  * Command line: -InteriorCustomers=N  customers at once (default 6 with -Interiors=1; 0: none).
- * Log lines "Customers: ..." on start, stop and every minute.
+ * Log lines "CustomerQueue: ..." on start, stop and every minute.
  */
 UCLASS()
 class GRANTHEFTPRALINE_API UGTPCustomerSubsystem : public UTickableWorldSubsystem
