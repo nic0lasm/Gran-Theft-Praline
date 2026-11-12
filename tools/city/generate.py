@@ -15,6 +15,8 @@ Output (regenerated, not committed): assets/geo/processed/<name>/gen/<focus>/
 Usage:
   python3 tools/city/generate.py --name presqu-ile --focus "Rue de la République" --buffer 45
   python3 tools/city/generate.py --name presqu-ile --focus all      # every building of the zone
+  python3 tools/city/generate.py --name presqu-ile --focus "Rue de la République" \
+      --clip=-80,-570,300,-180 --out republique-tranche          # Bellecour -> Jacobins slice
 """
 
 import argparse
@@ -157,12 +159,16 @@ def main():
     ap.add_argument("--cell", metavar="X0,Y0,X1,Y1",
                     help="streaming cell mode (tools/city/cells.py): take every building whose centroid "
                          "is in this box, local metres; --focus is then only the output name")
+    ap.add_argument("--clip", metavar="X0,Y0,X1,Y1",
+                    help="with a street --focus: keep only the buildings whose centroid is in this box "
+                         "(local metres), and the focus axis inside it; a shorter slice of the street")
+    ap.add_argument("--out", help="output folder name under gen/ (default: the slug of --focus)")
     ap.add_argument("--geo", default=os.path.join(REPO, "assets", "geo"))
     args = ap.parse_args()
     t0 = time.time()
     raw = os.path.join(args.geo, "raw", args.name)
     proc = os.path.join(args.geo, "processed", args.name)
-    out = os.path.join(proc, "gen", slug(args.focus))
+    out = os.path.join(proc, "gen", args.out or slug(args.focus))
     os.makedirs(out, exist_ok=True)
     with open(os.path.join(proc, "manifest.json"), encoding="utf-8") as f:
         manifest = json.load(f)
@@ -207,6 +213,10 @@ def main():
             have = {id(b) for b in selected}
             selected += [b for b in buildings if id(b) not in have
                          and any(bx.contains(b["poly"].centroid) for bx in boxes)]
+        if args.clip:   # a slice of the street (e.g. Bellecour -> Jacobins): buildings and axis inside the box
+            clip = box(*[float(v) for v in args.clip.split(",")])
+            selected = [b for b in selected if clip.contains(b["poly"].centroid)]
+            street = [g for g in (s.intersection(clip) for s in street) if not g.is_empty and g.length > 0]
         merged = shapely.line_merge(unary_union(street))
         longest = max(getattr(merged, "geoms", [merged]), key=lambda g: g.length)
         for d in np.arange(0, longest.length, 10.0):
@@ -321,6 +331,7 @@ def main():
         kinds[r["kind"]] = kinds.get(r["kind"], 0) + 1
     report = {
         "zone": args.name, "focus": args.focus, "buffer_m": args.buffer, "extra_bbox": args.extra_bbox,
+        "clip": args.clip,
         "bdtopo_buildings": len(selected),
         "left_to_landmarks": sorted(replaced),
         "skipped_lidar_ground": len(skipped), "building_parts": len(bld_rows),

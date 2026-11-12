@@ -79,6 +79,7 @@ KIT_SLOTS = {
     "MI_Shop_Display": (0.25, 0.22, 0.2, 0.6, 0.0),
     "MI_Sign_Panel": (0.5, 0.5, 0.5, 0.35, 0.0),
     "MI_Glass_Shop": (0.05, 0.06, 0.065, 0.05, 0.0),   # translucent: M_City_GlassShop
+    "MI_Roof_Zinc": (0.40, 0.42, 0.44, 0.45, 0.6),      # mansard modules (facade_kit/roof_kit.py)
 }
 KIT_EMISSIVE = {"MI_Shop_Interior": (1.0, 0.92, 0.8, 1.2)}
 # Share of the facade weathering each slot takes (1 when not listed).
