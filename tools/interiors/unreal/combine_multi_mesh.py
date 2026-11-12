@@ -20,6 +20,8 @@ import unreal
 ROOT = "/Game/Interiors/Free/Models"
 PIPELINE_SOURCE = "/Interchange/Pipelines/DefaultAssetsPipeline"
 PIPELINE = "/Game/Interiors/Free/Pipelines/GTP_CombineMeshesPipeline"
+# Kits of different objects (a washroom set): their pieces are the objects, never combined.
+KITS = ("eu_guest_wc",) + tuple(n.strip() for n in os.environ.get("GTP_COMBINE_SKIP", "").split(",") if n.strip())
 ONLY = [n.strip() for n in os.environ.get("GTP_COMBINE_ONLY", "").split(",") if n.strip()]
 SAVED = unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_saved_dir())
 eal = unreal.EditorAssetLibrary
@@ -124,7 +126,7 @@ def main():
     folders = [f.rstrip("/") for f in eal.list_assets(ROOT, recursive=False, include_folder=True) if f.endswith("/")]
     for folder in sorted(folders):
         name = folder.rsplit("/", 1)[1]
-        if pipeline is None or name.endswith("_Combined") or (ONLY and name not in ONLY):
+        if pipeline is None or name.endswith("_Combined") or name in KITS or (ONLY and name not in ONLY):
             continue
         pieces = static_meshes(folder)
         if len(pieces) < 2:
