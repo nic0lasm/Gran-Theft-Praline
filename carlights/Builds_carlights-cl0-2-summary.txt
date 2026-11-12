@@ -1,0 +1,3 @@
+cl0-2: 4601 frames | GPU p50 14.11 p95 21.27 | >26 ms 0 | p95/10s (t s:ms) 0:21.0 10:19.7 20:20.5 30:21.5 40:21.8 50:21.8 60:21.3 70:21.3 80:21.7 90:20.1 100:20.3 110:20.6 120:12.5
+high mode (any 10 s slice >= 26 ms): no
+args: -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -PoliceMax=3 -CarLightDistance=0
