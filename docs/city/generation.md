@@ -499,6 +499,23 @@ nearest road (`procgen.faces_open_space`). On the République focus, 353 modules
 change to street fronts, on place des Cordeliers, place de la Bourse and place Le Viste; the
 fast-food front on place Bellecour gets shopfronts.
 
+## Backdrop and the whole street axis (added 2026-11-12, République slice)
+
+The wide views of the slice (place Bellecour, Pathé, place de la République) ended on the horizon
+behind the 45 m street zone. `tools/city/backdrop.py` gives every other BD TOPO building within
+600 m of the street axis a closed low-definition volume (walls to the LiDAR eave in the typology
+colour, LiDAR-fitted roof, no facade modules), merged per 250 m cell. `regen_city.sh` runs it
+after the generation and `import_city.py` places it in the street map (folder City/Backdrop, shell
+material, no collision, no distance field, cull tag `proxy`; `GTP_CITY_BACKDROP=0` skips it).
+République (2026-11-12, cloud machine): 1 589 buildings, 102 k triangles, 30 meshes, 16 s.
+
+The street axis was the longest merged piece of the street only. Rue de la République is cut by
+place de la République, so the axis stopped there: the player start ("Bellecour end") was on the
+square and the Bellecour stretch (Unreal Y 24 000 to 53 000) was never on the axis.
+`generate.chain_axis` now chains the pieces across gaps of up to 150 m: the axis runs from
+Y -50 050 to +52 361 cm. The ground mask is paving (G) along the whole street; asphalt (R) shows
+only where car streets cross it.
+
 ## Limits and next steps
 
 1. **Editor test**: `tools/city/unreal/import_city.py` imports the greybox and

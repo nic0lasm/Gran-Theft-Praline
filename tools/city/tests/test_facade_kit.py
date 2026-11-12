@@ -109,5 +109,17 @@ class InteriorCutoutTests(unittest.TestCase):
             self.assertGreater(w * d, 0)
 
 
+class AxisTests(unittest.TestCase):
+    def test_pieces_split_by_a_square_are_chained(self):
+        from shapely.geometry import LineString
+        south = LineString([(0, -500), (0, -300)])
+        north = LineString([(5, -240), (5, 400)])     # 60 m gap: the square
+        far = LineString([(900, 0), (950, 0)])         # another street with the same name, left out
+        axis = generate.chain_axis([north, far, south])
+        ys = [p[1] for p in axis.coords]
+        self.assertEqual((min(ys), max(ys)), (-500, 400))
+        self.assertNotIn((900.0, 0.0), list(axis.coords))
+
+
 if __name__ == "__main__":
     unittest.main()
