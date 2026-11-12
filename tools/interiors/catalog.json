@@ -184,7 +184,10 @@
    "tris_lod0": 14000,
    "sections": 2,
    "items_per_instance": 1,
-   "interactive": true
+   "interactive": true,
+   "keywords": [
+    "toaster"
+   ]
   },
   "bun_tray": {
    "size": "small",
@@ -419,7 +422,8 @@
    "interactive": false,
    "keywords": [
     "display_fridge",
-    "fridge"
+    "fridge",
+    "refrigerator"
    ]
   },
   "pastry_case": {
@@ -432,7 +436,9 @@
     "cake_display",
     "bakery",
     "display_case",
-    "supermarket_fridge"
+    "supermarket_fridge",
+    "market_refrigerator",
+    "refrigerated_display"
    ]
   },
   "pastry": {
@@ -480,7 +486,9 @@
    "interactive": true,
    "keywords": [
     "cash_register",
-    "cashregister"
+    "cashregister",
+    "cash_box",
+    "cashbox"
    ]
   },
   "card_reader": {
@@ -488,14 +496,23 @@
    "tris_lod0": 2000,
    "sections": 1,
    "items_per_instance": 1,
-   "interactive": true
+   "interactive": true,
+   "keywords": [
+    "card_reader",
+    "payment_terminal",
+    "card_terminal"
+   ]
   },
   "receipt_printer": {
    "size": "small",
    "tris_lod0": 2500,
    "sections": 1,
    "items_per_instance": 1,
-   "interactive": false
+   "interactive": false,
+   "keywords": [
+    "receipt_printer",
+    "printer"
+   ]
   },
   "bag_kit": {
    "size": "small",
@@ -1160,7 +1177,8 @@
    "interactive": false,
    "keywords": [
     "menu_board",
-    "menu"
+    "menu",
+    "chalkboard"
    ]
   },
   "high_chair": {
@@ -1197,7 +1215,10 @@
     0.5,
     1.0
    ],
-   "keywords": []
+   "keywords": [
+    "food_container",
+    "food_containers"
+   ]
   },
   "toilet": {
    "size": "medium",
