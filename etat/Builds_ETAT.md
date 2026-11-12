@@ -1,5 +1,5 @@
-# Mac state 2026-11-12 14:06 Paris
+# Mac state 2026-11-12 14:11 Paris
 
-- block: starting
-- last line: 14:05 visuals street-noon cand12: captured 1440x1080 -> 1920 1080 
+- block: cand15b: waiting for the PC proof (f6c4d71)
+- last line: 14:11 endurance package: cand13
 - startup crashes: 3

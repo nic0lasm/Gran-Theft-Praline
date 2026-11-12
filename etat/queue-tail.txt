@@ -1,26 +1,3 @@
-13:11 pushed police-demo
-13:11 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
-13:11 list50 starts (list49 stopped after the police-demo push and its check)
-13:11 pushed etat
-13:11 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
-13:11 cand14: M1CVars in DefaultGame.ini: 1
-13:11 == cand14-compile start
-13:11 == cand14-compile exit=0
-13:11 == cand14-blood start
-13:12 == cand14-blood exit=0
-13:12 cand14 blood: LogPython: Warning: [CombatMaterials] built /Game/Combat/Materials/M_GTP_BloodPool;
-13:12 == cand14-build start
-13:21 pushed etat
-13:25 pushed etat
-13:26 == cand14-build exit=0
-13:26 cand14 build exit=0; - interiors: OK, 26 s, log interiors.log;- interior maps cooked for this package only: /Game/Interiors/L_Interior_fastfood_bellecour ;- map md5 at the end: 1c92de0f813b89cb40aeb000cd92a1de, unchanged;- DefaultGame.ini md5 at the end: 8903e75b281ca60504b93c023e0f9905, unchanged;- tracked changes at the end: 0, clone on d7487ca;; ini md5 vs start same
-13:26 cand14 restore: Combat removed 1 file(s); Content/Interiors entries 0; tracked changes 0
-13:26 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
-13:26 pushed etat
-13:26 pushed etat
-13:36 cand14 street-fixed: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.1 | gpu p50 14.54 p95 21.48 | gate PASS | LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy | pool drops 0
-13:36 cand14 street-demo: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.8 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.1 | gpu p50 15.49 p95 22.58 | gate PASS | LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy | pool drops 0
-13:36 cand14 night: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.1 | gpu p50 16.34 p95 27.67 | gate FAIL | LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy | pool drops 0
 13:36 cand14 rain: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.0 | gpu p50 15.33 p95 28.12 | gate FAIL | LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy | pool drops 0
 13:38 cand14 street-demo pass 2: demo2: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.4 | gpu p50 16.78 p95 24.86 | gate FAIL | plateau after 60 s: YES (mean p95 of the 60-120 s slices 26.7 ms)
 13:38 pushed etat
@@ -58,3 +35,26 @@
 14:04 pushed etat
 14:04 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
 14:05 visuals street-noon cand12: captured 1440x1080 -> 1920 1080 
+14:06 pushed etat
+14:06 visuals street-noon cand13: captured 1440x1080 -> 1920 1080 
+14:07 visuals interior-counter cand12: captured 1440x1080 -> 1920 1080 
+14:08 visuals interior-counter cand13: captured 1440x1080 -> 1920 1080 
+14:09 visuals night cand12: captured 1440x1080 -> 1920 1080 
+14:10 visuals night cand13: captured 1440x1080 -> 1920 1080 
+14:10 visuals rain cand12: captured 1440x1080 -> 1920 1080 
+14:11 visuals rain cand13: captured 1440x1080 -> 1920 1080 
+14:11 pushed visuals-20261112
+14:11 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+14:11 cand15: on hold (relay 12:40Z: a new head with the right AA value is coming); demo-src now
+14:11 list55 starts (list54 stopped after the visuals push and its check)
+14:11 visuals interior-counter-cand12: 1440x1080 -> 1440 810 (no upscale)
+14:11 visuals interior-counter-cand13: 1440x1080 -> 1440 810 (no upscale)
+14:11 visuals night-cand12: 1440x1080 -> 1440 810 (no upscale)
+14:11 visuals night-cand13: 1440x1080 -> 1440 810 (no upscale)
+14:11 visuals rain-cand12: 1440x1080 -> 1440 810 (no upscale)
+14:11 visuals rain-cand13: 1440x1080 -> 1440 810 (no upscale)
+14:11 visuals street-noon-cand12: 1440x1080 -> 1440 810 (no upscale)
+14:11 visuals street-noon-cand13: 1440x1080 -> 1440 810 (no upscale)
+14:11 pushed visuals-20261112
+14:11 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+14:11 endurance package: cand13
