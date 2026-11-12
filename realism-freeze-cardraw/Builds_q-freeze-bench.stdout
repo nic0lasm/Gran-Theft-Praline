@@ -1,0 +1,20 @@
+== 00:22 start: detached d27b6719e7d422a620d3871869ef125428c418d7, map md5 1c92de0f813b89cb40aeb000cd92a1de
+== 00:22 on 233414c feat(city): quarter_build lists the cook entries a package of the quarter needs
+== 00:22 dry run OK
+HEARTBEAT 00:22 Paris: start, steps ABCD, 0 min since start
+== 00:22 launch A (expected 3 min, stopped at 7 min)
+== 00:24 launch B (expected 3 min, stopped at 7 min)
+== 00:27 launch C (expected 3 min, stopped at 7 min)
+== 00:29 launch D (expected 3 min, stopped at 7 min)
+== 00:31 Mac libre: 8 min, report GTAL-build/Builds/city slot6/FREEZE-bench.md
+# Freeze bisect, started 00:22 Paris time, commit 233414c
+- 00:24 launch A: exit 0 in 2 min (freeze-A-test.log)
+- **A: verdict=PASS**; frame  p50  28.28 ms | p95  37.55 ms | p99  42.49 ms | max   43.81 ms | <= 33.3 ms:  89.6 %; game log freeze-A-game.log
+- 00:27 launch B: exit 0 in 2 min (freeze-B-test.log)
+- **B: verdict=PASS**; frame  p50  28.09 ms | p95  37.20 ms | p99  42.12 ms | max   46.30 ms | <= 33.3 ms:  90.1 %; game log freeze-B-game.log
+- 00:29 launch C: exit 0 in 2 min (freeze-C-test.log)
+- **C: verdict=PASS**; frame  p50  28.61 ms | p95  37.76 ms | p99  42.39 ms | max   43.96 ms | <= 33.3 ms:  88.9 %; game log freeze-C-game.log
+- 00:31 launch D: exit 0 in 2 min (freeze-D-test.log)
+- **D: verdict=PASS**; frame  p50  23.58 ms | p95  34.40 ms | p99  37.75 ms | max   42.36 ms | <= 33.3 ms:  93.2 %; game log freeze-D-game.log
+== 00:31 GTAL-build back on d27b6719e7d422a620d3871869ef125428c418d7 (d27b671); map md5 1c92de0f813b89cb40aeb000cd92a1de (unchanged)
+== 00:31 Mac libre (exit 0)

@@ -1,0 +1,62 @@
+== off: -RagdollTest -Ragdoll=0
+== street-fixed / base (60s)
+Bench done: GTAL-build/Builds/cand9/ragdoll/off/summary.md
+# Bench 20261112-013239
+
+Build: GTAL-build/Builds/cand9/0.3 ; 60 s per run ; load limit 4 ; host macbook-pro-de-nico1 ; uptime: 1:32  up 1 day,  9:51, 1 user, load averages: 3.17 3.06 3.56
+
+| Scenario | Variant | GPU p50 | GPU p95 | Frame p50 | Frame p95 | % <= 33.3 ms | Hitches > 100 ms |
+| ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- |
+| street-fixed | base | 13.5 | 21.3 | 25.0 | 25.0 | 100 % | 0 |
+== full: -RagdollTest
+== street-fixed / base (60s)
+Bench done: GTAL-build/Builds/cand9/ragdoll/full/summary.md
+# Bench 20261112-013349
+
+Build: GTAL-build/Builds/cand9/0.3 ; 60 s per run ; load limit 4 ; host macbook-pro-de-nico1 ; uptime: 1:33  up 1 day,  9:52, 1 user, load averages: 3.25 3.17 3.57
+
+| Scenario | Variant | GPU p50 | GPU p95 | Frame p50 | Frame p95 | % <= 33.3 ms | Hitches > 100 ms |
+| ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- |
+| street-fixed | base | 13.4 | 21.3 | 25.0 | 25.0 | 100 % | 0 |
+== lite: -RagdollTest -RagdollLite=1
+== street-fixed / base (60s)
+Bench done: GTAL-build/Builds/cand9/ragdoll/lite/summary.md
+# Bench 20261112-013457
+
+Build: GTAL-build/Builds/cand9/0.3 ; 60 s per run ; load limit 4 ; host macbook-pro-de-nico1 ; uptime: 1:34  up 1 day,  9:53, 1 user, load averages: 2.16 2.86 3.42
+
+| Scenario | Variant | GPU p50 | GPU p95 | Frame p50 | Frame p95 | % <= 33.3 ms | Hitches > 100 ms |
+| ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- |
+| street-fixed | base | 13.4 | 21.1 | 25.0 | 25.0 | 100 % | 0 |
+
+== GTPRagdollTest lines
+LogGTPRagdoll: ragdoll: on (cap 3)
+LogGTPRagdoll: GTPRagdollTest: car 20 km/h -> severity 2, damage 28, ragdoll started 1
+LogGTPRagdoll: GTPRagdollTest: car 40 km/h -> severity 3, damage 69, ragdoll started 1
+LogGTPRagdoll: GTPRagdollTest: car 70 km/h -> severity 4, damage 100, ragdoll started 1
+LogGTPRagdoll: GTPRagdollTest: all three car hits resolved in 2.8 s
+LogGTPRagdoll: GTPRagdollTest: fall of 3 m -> health 87, ragdoll 0
+LogGTPRagdoll: GTPRagdollTest: fall of 8 m -> health 34, ragdoll 0
+LogGTPRagdoll: GTPRagdollTest: four at once -> started 3, refused 1, simulating 3
+LogGTPRagdoll: GTPRagdollTest: scenario frames 438, mean 25.00 ms, p95 25.00 ms, max 25.07 ms (lite 0, enabled 1)
+LogGTPRagdoll: GTPRagdollTest: PASS
+LogGTPRagdoll: ragdoll: on lite (cap 6)
+LogGTPRagdoll: GTPRagdollTest: car 20 km/h -> severity 2, damage 28, ragdoll started 1
+LogGTPRagdoll: GTPRagdollTest: car 40 km/h -> severity 3, damage 69, ragdoll started 1
+LogGTPRagdoll: GTPRagdollTest: car 70 km/h -> severity 4, damage 100, ragdoll started 1
+LogGTPRagdoll: GTPRagdollTest: all three car hits resolved in 4.5 s
+LogGTPRagdoll: GTPRagdollTest: fall of 3 m -> health 87, ragdoll 0
+LogGTPRagdoll: GTPRagdollTest: fall of 8 m -> health 34, ragdoll 0
+LogGTPRagdoll: GTPRagdollTest: four at once -> started 4, refused 0, simulating 4
+LogGTPRagdoll: GTPRagdollTest: scenario frames 504, mean 25.00 ms, p95 25.00 ms, max 25.04 ms (lite 1, enabled 1)
+LogGTPRagdoll: GTPRagdollTest: PASS
+LogGTPRagdoll: ragdoll: off (cap 3)
+LogGTPRagdoll: GTPRagdollTest: car 20 km/h -> severity 2, damage 28, ragdoll started 0
+LogGTPRagdoll: GTPRagdollTest: car 40 km/h -> severity 3, damage 69, ragdoll started 0
+LogGTPRagdoll: GTPRagdollTest: car 70 km/h -> severity 4, damage 100, ragdoll started 0
+LogGTPRagdoll: GTPRagdollTest: all three car hits resolved in 0.0 s
+LogGTPRagdoll: GTPRagdollTest: fall of 3 m -> health 87, ragdoll 0
+LogGTPRagdoll: GTPRagdollTest: fall of 8 m -> health 34, ragdoll 0
+LogGTPRagdoll: GTPRagdollTest: four at once -> started 0, refused 4, simulating 0
+LogGTPRagdoll: GTPRagdollTest: scenario frames 327, mean 25.00 ms, p95 25.00 ms, max 25.02 ms (lite 0, enabled 0)
+LogGTPRagdoll: GTPRagdollTest: PASS

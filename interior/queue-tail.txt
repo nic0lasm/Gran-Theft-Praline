@@ -1,0 +1,60 @@
+01:08 cand9 street-demo: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.4 | gpu p50 16.90 p95 24.58 | gate FAIL | LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy | pool drops 0
+01:08 cand9 night: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.0 | gpu p50 15.11 p95 22.34 | gate PASS | LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy | pool drops 0
+01:08 cand9 rain: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.0 | gpu p50 14.27 p95 22.24 | gate PASS | LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy | pool drops 0
+01:08 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+01:08 == cand9-600 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -PoliceMax=3
+01:18 cand9-600: exit=0 crash=no last t=wanted: t=599 wanted=298 police=83 police-in-last-10=6 pool-drops=0 | cand9-600: 23798 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.01 max 25.1 | gpu p50 17.97 p95 29.15 | gate FAIL
+01:18 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+01:21 cand9 default: default: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.1 | gpu p50 13.48 p95 20.38 | gate PASS
+01:21 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+01:23 cand9 combat0: combat0: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.0 | gpu p50 13.45 p95 20.42 | gate PASS
+01:23 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+01:25 pushed etat
+01:25 cand9 threat: threat: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.0 | gpu p50 13.50 p95 20.41 | gate PASS
+01:26 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+01:32 cand9 gunfight street-fixed: street-fixed: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.0 | gpu p50 13.53 p95 20.61 | gate PASS | worst frame in the first 5 s: 
+01:32 cand9 gunfight night: night: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.0 | gpu p50 15.13 p95 22.31 | gate PASS | worst frame in the first 5 s: 
+01:32 cand9 gunfight rain: rain: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.0 | gpu p50 14.36 p95 22.47 | gate PASS | worst frame in the first 5 s: 
+01:32 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+01:32 == cand9-ragdoll start
+01:36 == cand9-ragdoll exit=0
+01:36 cand9 ragdoll: LogGTPRagdoll: GTPRagdollTest: car 20 km/h -> severity 2, damage 28, ragdoll started 1;LogGTPRagdoll: GTPRagdollTest: car 40 km/h -> severity 3, damage 69, ragdoll started 1;LogGTPRagdoll: GTPRagdollTest: car 70 km/h -> severity 4, damage 100, ragdoll started 1;LogGTPRagdoll: GTPRagdollTest: all three car hits resolved in 2.8 s;LogGTPRagdoll: GTPRagdollTest: fall of 3 m -> health 87, ragdoll 0;Log
+01:36 pushed cand9
+01:36 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+01:36 pushed etat
+01:36 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+01:36 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+01:36 quarter margin head 0eb6901
+01:36 == qm-build start
+02:17 == qm-build exit=0
+02:17 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+02:17 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+02:17 == qm-nodefaults start
+02:21 == qm-nodefaults exit=0
+02:21 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+02:21 == qm-pct70 start
+02:23 == qm-pct70 exit=0
+02:23 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+02:23 == qm-bare start
+02:25 pushed etat
+02:26 == qm-bare exit=0
+02:26 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+02:26 == qm-off start
+02:29 == qm-off exit=0
+02:29 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+02:29 == qm-deliv start
+02:36 == qm-deliv exit=0
+02:36 qm cap40: frames-bare: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 1 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 26.1 | gpu p50 15.80 p95 27.93 | gate FAIL;frames-deliv: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.1 | gpu p50 15.62 p95 24.80 | gate FAIL;frames-nodefaults: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.1 | gpu p50 15.69 p95 24.49 | gate FAIL;frames-off: 4599 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >
+02:36 pushed quarter-margin
+02:36 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+02:36 pushed etat
+02:36 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+02:36 == interior-compile start
+02:39 == interior-compile exit=6
+02:39 == interior-level start
+02:41 == interior-level exit=137
+02:41 interior level: exit=137 report: Traceback (most recent call last):
+02:41 interior restore: map md5 1c92de0f813b89cb40aeb000cd92a1de (expected 1c92de0f813b89cb40aeb000cd92a1de), removed 0 created file(s), tracked changes 0
+02:41 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+02:41 BLOCK FAIL: 3c interior build
+02:41 pushed etat

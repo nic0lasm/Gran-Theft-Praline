@@ -1,0 +1,60 @@
+23:47 realism10 ref 1b7b151 (latest at start)
+23:47 == realism10 start
+00:12 == realism10 exit=0
+00:12 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+00:12 city ref 233414c
+00:12 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+00:12 == freeze-D start
+00:22 == freeze-D exit=0
+00:22 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+00:22 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+00:22 == freeze-bench start
+00:25 pushed etat
+00:31 == freeze-bench exit=0
+00:31 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+00:31 == cardraw night+rain default (120 s each)
+00:35 cardraw nr default exit=0
+00:35 == cardraw night+rain farlean0 (120 s each)
+00:39 cardraw nr farlean0 exit=0
+00:39 == cardraw night+rain far0 (120 s each)
+00:44 cardraw nr far0 exit=0
+00:44 == cardraw night still (40 s)
+00:44 cardraw still exit=0 capture.txt
+00:44 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+00:44 pushed realism-freeze-cardraw
+00:44 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+00:44 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+00:44 cand9: make_blood_material.py found, editor compile then gtp_run before the package
+00:44 == cand9-compile start
+00:45 == cand9-compile exit=0
+00:45 == cand9-blood start
+00:45 == cand9-blood exit=0
+00:45 cand9 blood: 
+00:45 == cand9-build start
+00:57 == cand9-build exit=0
+00:57 cand9 blood restore: removed 0 new file(s); tracked changes 0; untracked left in Content/Combat: 0
+00:57 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+00:57 pushed etat
+00:57 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+01:08 cand9 street-fixed: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.1 | gpu p50 13.59 p95 20.73 | gate PASS | LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy | pool drops 0
+01:08 cand9 street-demo: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.4 | gpu p50 16.90 p95 24.58 | gate FAIL | LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy | pool drops 0
+01:08 cand9 night: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.0 | gpu p50 15.11 p95 22.34 | gate PASS | LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy | pool drops 0
+01:08 cand9 rain: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.0 | gpu p50 14.27 p95 22.24 | gate PASS | LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy | pool drops 0
+01:08 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+01:08 == cand9-600 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -PoliceMax=3
+01:18 cand9-600: exit=0 crash=no last t=wanted: t=599 wanted=298 police=83 police-in-last-10=6 pool-drops=0 | cand9-600: 23798 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.01 max 25.1 | gpu p50 17.97 p95 29.15 | gate FAIL
+01:18 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+01:21 cand9 default: default: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.1 | gpu p50 13.48 p95 20.38 | gate PASS
+01:21 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+01:23 cand9 combat0: combat0: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.0 | gpu p50 13.45 p95 20.42 | gate PASS
+01:23 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+01:25 pushed etat
+01:25 cand9 threat: threat: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.0 | gpu p50 13.50 p95 20.41 | gate PASS
+01:26 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+01:32 cand9 gunfight street-fixed: street-fixed: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.0 | gpu p50 13.53 p95 20.61 | gate PASS | worst frame in the first 5 s: 
+01:32 cand9 gunfight night: night: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.0 | gpu p50 15.13 p95 22.31 | gate PASS | worst frame in the first 5 s: 
+01:32 cand9 gunfight rain: rain: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.0 | gpu p50 14.36 p95 22.47 | gate PASS | worst frame in the first 5 s: 
+01:32 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+01:32 == cand9-ragdoll start
+01:36 == cand9-ragdoll exit=0
+01:36 cand9 ragdoll: LogGTPRagdoll: GTPRagdollTest: car 20 km/h -> severity 2, damage 28, ragdoll started 1;LogGTPRagdoll: GTPRagdollTest: car 40 km/h -> severity 3, damage 69, ragdoll started 1;LogGTPRagdoll: GTPRagdollTest: car 70 km/h -> severity 4, damage 100, ragdoll started 1;LogGTPRagdoll: GTPRagdollTest: all three car hits resolved in 2.8 s;LogGTPRagdoll: GTPRagdollTest: fall of 3 m -> health 87, ragdoll 0;Log

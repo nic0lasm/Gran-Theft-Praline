@@ -1,0 +1,59 @@
+GPU split cand11 ff3b3a9, street-fixed 120 s, direct launch, 2026-11-12
+gpu-a: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.2 | gpu p50 17.98 p95 29.02 | gate FAIL
+gpu-b: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.1 | gpu p50 17.92 p95 29.00 | gate FAIL
+gpu-c: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.1 | gpu p50 13.62 p95 20.62 | gate PASS
+gpu-a: gate args, -userdir (fresh); gpu-b: no wanted/police, -userdir (fresh); gpu-c: same as b WITHOUT -userdir
+bench.sh gate street-fixed (no -userdir): gpu 13.58/20.72
+
+GameUserSettings.ini written in the fresh userdir after (b):
+;METADATA=(Diff=true, UseCommands=true)
+[ScalabilityGroups]
+sg.ResolutionQuality=0
+sg.ViewDistanceQuality=3
+sg.AntiAliasingQuality=3
+sg.ShadowQuality=1
+sg.GlobalIlluminationQuality=1
+sg.ReflectionQuality=1
+sg.PostProcessQuality=3
+sg.TextureQuality=2
+sg.EffectsQuality=2
+sg.FoliageQuality=2
+sg.ShadingQuality=3
+sg.LandscapeQuality=3
+[/Script/Engine.GameUserSettings]
+bUseVSync=False
+bUseDynamicResolution=False
+ResolutionSizeX=1728
+ResolutionSizeY=1117
+LastUserConfirmedResolutionSizeX=1728
+LastUserConfirmedResolutionSizeY=1117
+FullscreenMode=1
+LastConfirmedFullscreenMode=1
+PreferredFullscreenMode=1
+DisplayID=
+DisplayIndex=-1
+LastUserConfirmedDisplayID=
+LastUserConfirmedDisplayIndex=-1
+Version=5
+AudioQualityLevel=0
+LastConfirmedAudioQualityLevel=0
+FrameRateLimit=0.000000
+DynamicResolutionFrameTarget=0.000000
+DesiredScreenWidth=1280
+bUseDesiredScreenHeight=False
+DesiredScreenHeight=720
+LastUserConfirmedDesiredScreenWidth=1280
+LastUserConfirmedDesiredScreenHeight=720
+LastRecommendedScreenWidth=-1.000000
+LastRecommendedScreenHeight=-1.000000
+LastCPUBenchmarkResult=-1.000000
+LastGPUBenchmarkResult=-1.000000
+LastGPUBenchmarkMultiplier=1.000000
+bUseHDRDisplayOutput=False
+bUseHDRDisplayCalibration=False
+HDRDisplayOutputNits=1000
+HDRPaperWhiteNits=203.000000
+HDRUILuminanceNits=203.000000
+bIsHDRUILuminanceSeparate=False
+
+The saved profile used without -userdir lives under ~/Library (not read).

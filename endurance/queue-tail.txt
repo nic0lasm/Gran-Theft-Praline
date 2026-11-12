@@ -1,0 +1,60 @@
+01:36 == qm-build start
+02:17 == qm-build exit=0
+02:17 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+02:17 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+02:17 == qm-nodefaults start
+02:21 == qm-nodefaults exit=0
+02:21 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+02:21 == qm-pct70 start
+02:23 == qm-pct70 exit=0
+02:23 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+02:23 == qm-bare start
+02:25 pushed etat
+02:26 == qm-bare exit=0
+02:26 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+02:26 == qm-off start
+02:29 == qm-off exit=0
+02:29 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+02:29 == qm-deliv start
+02:36 == qm-deliv exit=0
+02:36 qm cap40: frames-bare: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 1 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 26.1 | gpu p50 15.80 p95 27.93 | gate FAIL;frames-deliv: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.1 | gpu p50 15.62 p95 24.80 | gate FAIL;frames-nodefaults: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.1 | gpu p50 15.69 p95 24.49 | gate FAIL;frames-off: 4599 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >
+02:36 pushed quarter-margin
+02:36 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+02:36 pushed etat
+02:36 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+02:36 == interior-compile start
+02:39 == interior-compile exit=6
+02:39 == interior-level start
+02:41 == interior-level exit=137
+02:41 interior level: exit=137 report: Traceback (most recent call last):
+02:41 interior restore: map md5 1c92de0f813b89cb40aeb000cd92a1de (expected 1c92de0f813b89cb40aeb000cd92a1de), removed 0 created file(s), tracked changes 0
+02:41 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+02:41 BLOCK FAIL: 3c interior build
+02:41 pushed etat
+02:41 pushed interior
+02:41 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+02:41 pushed etat
+02:41 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+02:42 lumen still noon 8: frame_00000.jpg
+02:42 lumen still noon 12: frame_00000.jpg
+02:43 lumen still night 8: frame_00000.jpg
+02:44 lumen still night 12: frame_00000.jpg
+02:44 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+02:46 lumen cap40 8: pre8: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.1 | gpu p50 13.36 p95 20.36 | gate PASS
+02:48 lumen cap40 12: pre12: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.1 | gpu p50 13.42 p95 20.43 | gate PASS
+02:48 lumen cvar check: 
+02:48 pushed lumen
+02:48 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+02:48 pushed etat
+02:48 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+02:48 == determinism start
+02:51 == determinism exit=0
+02:51 determinism:   70.0       408     11  drive / drive   75.0       253     17  drive / drive   80.0       251     31  drive / drive route: same lane sequence (2 lane changes in common) PASS: 17 instants within 600 cm and 45 degrees 
+02:52 pushed determinism
+02:52 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+02:52 pushed etat
+02:52 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+02:52 == endurance-1 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
+03:02 endurance-1: exit=0 crash=no last t=wanted: t=598 wanted=299 police=82 police-in-last-10=6 pool-drops=0 | endurance-1: 23796 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.1 | gpu p50 17.94 p95 29.14 | gate FAIL
+03:02 == endurance-2 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
+03:12 endurance-2: exit=0 crash=no last t=wanted: t=598 wanted=299 police=87 police-in-last-10=5 pool-drops=0 | endurance-2: 23795 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 1 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 26.1 | gpu p50 18.19 p95 29.27 | gate FAIL

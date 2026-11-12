@@ -1,0 +1,60 @@
+18:23 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0 unreal=0
+18:23 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0 unreal=0
+18:27 quarter 884b0e9 BUILD_ONLY stopped (TERM, trap restore: content identical, md5 OK); queue21 stopped; PAUSE for the SSD backup
+19:08 SSD copy ended: queue25 resumes
+19:08 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0 unreal=0
+19:35 queue25 paused at the end of the quarter block; queue26 started (backup verification pause)
+19:35 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0 unreal=0
+19:50 verification pause over: queue26 resumes
+19:50 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0 unreal=0
+19:50 == trees2-stills start
+19:56 == trees2-stills exit=0
+19:56 trees2-stills: Builds/perf-trees2/trees-20261111-195048 stills: 4
+19:56 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0 unreal=0
+19:56 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0 unreal=0
+19:56 cand7 head 8f179d9
+19:56 == cand7-build start
+20:09 == cand7-build exit=0
+20:09 cand7 report: GranTheftPraline/Saved/candidate-build-20261111-195640: - tracked changes at the end: 0, clone on 8f179d9
+20:09 == cand7 merge gate: 4 x 120 s, no GfxCVars, EXTRA_ARGS: -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -PoliceMax=3 -Trees=leafy -TreeSwap=/Game/Environment/Props/Greenery/PlaneTree_Trunk/SM_PlaneTree_Trunk_A~/Game/BlackAlder/M1/SM_BlackAlder_Forest_06_M1+/Game/Environment/Props/Greenery/PlaneTree_YoungGuard/SM_PlaneTree_YoungGuard_A~/Game/BlackAlder/M1/SM_BlackAlder_Sapling_06_M1
+20:18 cand7 gate exit=0 0 segfault(s)
+20:18 cand7 street-fixed: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.8 %) | >26 2 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 30.0 | gpu p50 12.83 p95 19.67 | gate PASS | details: LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | trees: LogGTPStreetTrees: street trees: variant leafy, 112 of 112 trees leafy | pool drops: 0 | covered
+20:18 cand7 street-demo: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 1 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 30.8 | gpu p50 16.66 p95 23.94 | gate PASS | details: LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | trees: LogGTPStreetTrees: street trees: variant leafy, 112 of 112 trees leafy | pool drops: 0 | covered
+20:18 cand7 night: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.0 | gpu p50 15.09 p95 23.20 | gate PASS | details: LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | trees: LogGTPStreetTrees: street trees: variant leafy, 112 of 112 trees leafy | pool drops: 0 | covered
+20:18 cand7 rain: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.1 | gpu p50 13.84 p95 21.90 | gate PASS | details: LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | trees: LogGTPStreetTrees: street trees: variant leafy, 112 of 112 trees leafy | pool drops: 0 | covered
+20:18 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0 unreal=0
+20:18 == cand7 long run: street-fixed 600 s, no capture
+20:20 queue26 paused during the cand7 long run; queue27 started (cand8 b6f34e4 next)
+20:21 cand7 long run ended; queue26 replaced by queue27
+20:21 cand7 long: segfault=1 pool drops=0 last t=wanted: t=85 | FileNotFoundError: [Errno 2] No such file or directory: 'GTAL-build/Builds/cand7/long/street-fixed__base/frametimes.csv'
+20:21 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0 unreal=0
+20:21 cand8 head b6f34e4; ini M1 cook lines: 2
+20:21 == cand8-build start
+20:33 == cand8-build exit=0
+20:33 cand8 report: - tracked changes at the end: 0, clone on b6f34e4; ini md5 unchanged, M1 cook lines now 2, M1 meshes SM_BlackAlder_Field_05_M1.uasset SM_BlackAlder_Forest_06_M1.uasset SM_BlackAlder_Sapling_06_M1.uasset 
+20:33 == cand8 merge gate: 4 x 120 s, no GfxCVars, no -Trees, EXTRA_ARGS: -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -PoliceMax=3
+20:44 cand8 gate exit=0 0 segfault(s)
+20:44 cand8 street-fixed: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 1 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 28.1 | gpu p50 13.22 p95 20.24 | gate PASS | details: LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | trees: LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy; | pool drops: 0 | covered
+20:44 cand8 street-demo: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.8 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.1 | gpu p50 16.63 p95 23.76 | gate PASS | details: LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | trees: LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy; | pool drops: 0 | covered
+20:44 cand8 night: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.8 | gpu p50 14.88 p95 22.53 | gate PASS | details: LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | trees: LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy; | pool drops: 0 | covered
+20:44 cand8 rain: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.1 | gpu p50 14.06 p95 22.06 | gate PASS | details: LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | trees: LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy; | pool drops: 0 | covered
+20:44 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0 unreal=0
+20:44 == cand8 long run: street-fixed 600 s, no capture, no -Trees
+20:54 cand8 long: segfault=0 pool drops=0 last t=wanted: t=599 | long: 23798 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.3 | gpu p50 13.25 p95 20.08 | gate PASS
+20:54 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0 unreal=0
+20:54 waiting for Builds/testdrive.go (PC compile) before realism 10; next slots to be scripted: test-drive, quarter-cell-details 31b9700
+20:54 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+20:54 == qcd build 31b9700 start
+21:32 qcd build exit=0 - 21:32 restore: map and city content identical to the start (md5,     1018 files)
+21:32 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+21:37 qcd bench exit=1 - **deliv**: 4601 frames, p50 25.0 ms, p95 25.0 ms, p99 25.0 ms, max 28.4 ms, 100.0 % <= 33.3 ms, 0 frames > 100 ms - **nodefaults**: 4600 frames, p50 25.0 ms, p95 25.0 ms, p99 25.0 ms, max 27.3 ms, 100.0 % <= 33.3 ms, 0 frames > 100 ms 
+21:37 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+21:37 == test-drive 90b3b8b package
+21:41 td package exit=0
+21:43 td hopital-bellecour run 1 exit=0 PASS: drive reached its end (hopital-bellecour, rail, exit 0)
+21:45 td hopital-bellecour run 2 exit=0 PASS: drive reached its end (hopital-bellecour, rail, exit 0)
+21:45 td compare:  110.0         0      0  testdrive / testdrive note: no DemoLane line (the car never joined a lane); only positions are compared PASS: 23 instants within 600 cm and 45 degrees 
+21:48 td grolee-cordeliers physics exit=0 PASS: drive reached its end (grolee-cordeliers, physics, exit 0) 
+21:48 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+21:48 slots28 done: queue27 released (realism 10, freeze D, car-draw)
+21:48 list24 starts; queue27 stopped (its block 2 is in this list)

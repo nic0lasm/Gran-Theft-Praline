@@ -1,0 +1,21 @@
+[2026.11.12-05.20.47:196][  0]LogAutomationTest: Error: Condition failed
+[2026.11.12-05.20.47:196][  0]LogAutomationTest: Error: Condition failed
+[2026.11.12-05.20.47:196][  0]LogAutomationTest: Error: Condition failed
+[2026.11.12-05.20.47:196][  0]LogAutomationTest: Error: Condition failed
+[2026.11.12-05.20.47:196][  0]LogAutomationTest: Error: Condition failed
+[2026.11.12-05.20.47:196][  0]LogAutomationTest: Error: Condition failed
+[2026.11.12-05.20.47:196][  0]LogAutomationTest: Error: Condition failed
+[2026.11.12-05.20.47:196][  0]LogAutomationTest: Error: Condition failed
+[2026.11.12-05.20.47:196][  0]LogAutomationTest: Error: Condition failed
+[2026.11.12-05.20.47:196][  0]LogAutomationTest: Error: Condition failed
+[2026.11.12-05.20.47:196][  0]LogAutomationTest: Error: Condition failed
+[2026.11.12-05.20.47:196][  0]LogAutomationTest: Error: Condition failed
+[2026.11.12-05.20.47:196][  0]LogAutomationTest: Error: Condition failed
+[2026.11.12-05.20.47:196][  0]LogAutomationTest: Error: Condition failed
+[2026.11.12-05.20.47:196][  0]LogAutomationTest: Error: Condition failed
+[2026.11.12-05.20.47:196][  0]LogAutomationTest: Error: Condition failed
+[2026.11.12-05.20.47:196][  0]LogAutomationTest: Error: Condition failed
+[2026.11.12-05.20.47:196][  0]LogAutomationTest: Error: Condition failed
+[2026.11.12-05.20.47:196][  0]LogAutomationTest: Error: Condition failed
+[2026.11.12-05.20.47:196][  0]LogAutomationTest: Error: Condition failed
+[2026.11.12-05.20.55:001][  2]LogPython: Warning: [CombatMaterials] built /Game/Combat/Materials/M_GTP_BloodPool

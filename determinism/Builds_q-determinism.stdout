@@ -1,0 +1,22 @@
+== run 1 (90s)
+== run 2 (90s)
+     t   dist cm   dyaw  run1 phase / run2 phase
+   0.0         0      0  look around / look around
+   5.0         0      0  look around / look around
+  10.0         0      0  walk street / walk street
+  15.0         0      0  turn back / turn back
+  20.0         0      0  walk to car / walk to car
+  25.0         1      0  drive / drive
+  30.0         1      0  drive / drive
+  35.0         6      1  drive / drive
+  40.0        90      1  drive / drive
+  45.0        53      4  drive / drive
+  50.0        98      1  drive / drive
+  55.0       163      3  drive / drive
+  60.0       259     11  drive / drive
+  65.0       545     11  drive / drive
+  70.0       408     11  drive / drive
+  75.0       253     17  drive / drive
+  80.0       251     31  drive / drive
+route: same lane sequence (2 lane changes in common)
+PASS: 17 instants within 600 cm and 45 degrees

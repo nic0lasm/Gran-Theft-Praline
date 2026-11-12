@@ -1,0 +1,60 @@
+22:47 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+22:53 hunt-gc1: crash=no last t=wanted: t=598 wanted=299 police=83 pool-drops=0 LogGarbage=430; last: LogGarbage: GC purged 34190 objects (66769 -> 32579) in 142.610ms (3 iteration(s));LogGarbage: 0.503626 ms for Gather Unreachable Objects (32579 objects collected / 66910 scanned with 4 thread(s));LogGarbage: 7.786501 ms for unhashing unreachable objects (32579 objects unhashed);LogGarbage: GC purged 32579 objects (32579 -> 0) in 153.476ms (4 iteration(s));LogGarbage: Freed 53632b from 4 GC contexts; | hunt-gc1: 23793 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.8 %) | >26 11 | >50 1 | >100 0 | frame p50 25.00 p95 25.02 max 59.9 | gpu p50 19.10 p95 29.02 | gate FAIL
+22:53 list28 starts after hunt-gc1 (list26/list27 stopped)
+22:53 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+22:53 == hunt-gc2 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6 -ini:Engine:[/Script/Engine.GarbageCollectionSettings]:gc.TimeBetweenPurgingPendingKillObjects=10 -LogCmds=LogGarbage Log
+23:03 hunt-gc2: exit=0 crash=no last t=wanted: t=598 wanted=299 police=84 police-in-last-10=0 pool-drops=0 | hunt-gc2: 23792 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.8 %) | >26 5 | >50 0 | >100 0 | frame p50 25.01 p95 25.02 max 29.8 | gpu p50 18.57 p95 28.69 | gate FAIL
+23:03 hunt-gc2 LogGarbage lines: 430; last: LogGarbage: GC purged 34087 objects (66666 -> 32579) in 127.301ms (3 iteration(s));LogGarbage: 1.450751 ms for Gather Unreachable Objects (32579 objects collected / 66692 scanned with 4 thread(s));LogGarbage: 7.590458 ms for unhashing unreachable objects (32579 objects unhashed);LogGarbage: GC purged 32579 objects (32579 -> 0) in 136.414ms (4 iteration(s));LogGarbage: Freed 73696b from 4 GC contexts;
+23:03 == hunt-gc3 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6 -ini:Engine:[/Script/Engine.GarbageCollectionSettings]:gc.TimeBetweenPurgingPendingKillObjects=10 -LogCmds=LogGarbage Log
+23:03 hunt-gc3: exit=139 crash=YES last t= wanted= police= police-in-last-10=0 pool-drops= | FileNotFoundError: [Errno 2] No such file or directory: 'GTAL-build/Builds/next-dev/hunt/gc3/frametimes.csv'
+23:03 hunt-gc3 LogGarbage lines: ; last: 
+23:03 hunt gc: crash on run 3 (context and tail in GTAL-build/Builds/next-dev/hunt/gc3), next phase
+23:03 == hunt-b1 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=0 -ini:Engine:[/Script/Engine.GarbageCollectionSettings]:gc.TimeBetweenPurgingPendingKillObjects=10 -LogCmds=LogGarbage Log
+23:05 pushed etat
+23:05 pushed etat
+23:07 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+23:13 hunt-b1: crash=no last t=wanted: t=598 police=0 | hunt-b1: 23794 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.01 p95 25.02 max 25.9 | gpu p50 18.92 p95 28.71 | gate FAIL
+23:13 pushed crash-hunt
+23:13 list29 starts: rest of b and c skipped, Shipping hunt on cand8
+23:13 pushed etat
+23:13 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+23:14 == shunt-s1 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
+23:24 shunt-s1: exit=0 crash=no last t= wanted= police= police-in-last-10=0 pool-drops= | shunt-s1: 23796 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.6 | gpu p50 18.14 p95 29.18 | gate FAIL
+23:24 == shunt-s2 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
+23:25 pushed etat
+23:26 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+23:26 shunt-s2: frames 0 crash=YES crashes dir: 0 file(s) | FileNotFoundError: [Errno 2] No such file or directory: 'GTAL-build/Builds/cand8/hunt/s2/frametimes.csv' (stdout of s1/s2 not kept: Shipping writes no log file)
+23:26 list31 starts after shunt-s2; list30 stopped
+23:26 pushed etat
+23:26 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+23:27 == shunt-p01 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=0
+23:37 shunt-p01: exit=0 crash=no last t=wanted: t=598 wanted=299 police=0 police-in-last-10=5 pool-drops=0 | shunt-p01: 23796 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 1 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 32.7 | gpu p50 18.01 p95 29.25 | gate FAIL
+23:37 == shunt-p02 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=0
+23:47 shunt-p02: exit=0 crash=no last t=wanted: t=598 wanted=299 police=0 police-in-last-10=4 pool-drops=0 | shunt-p02: 23797 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.2 | gpu p50 18.00 p95 29.15 | gate FAIL
+23:47 shunt verdict: crash with police; with -PoliceMax=0 no crash in 2 runs
+23:47 pushed crash-hunt-shipping
+23:47 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+23:47 pushed etat
+23:47 realism10 ref 1b7b151 (latest at start)
+23:47 == realism10 start
+00:12 == realism10 exit=0
+00:12 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+00:12 city ref 233414c
+00:12 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+00:12 == freeze-D start
+00:22 == freeze-D exit=0
+00:22 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+00:22 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+00:22 == freeze-bench start
+00:25 pushed etat
+00:31 == freeze-bench exit=0
+00:31 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+00:31 == cardraw night+rain default (120 s each)
+00:35 cardraw nr default exit=0
+00:35 == cardraw night+rain farlean0 (120 s each)
+00:39 cardraw nr farlean0 exit=0
+00:39 == cardraw night+rain far0 (120 s each)
+00:44 cardraw nr far0 exit=0
+00:44 == cardraw night still (40 s)
+00:44 cardraw still exit=0 capture.txt
+00:44 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0

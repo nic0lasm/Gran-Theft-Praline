@@ -1,0 +1,60 @@
+02:48 lumen cap40 12: pre12: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.1 | gpu p50 13.42 p95 20.43 | gate PASS
+02:48 lumen cvar check: 
+02:48 pushed lumen
+02:48 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+02:48 pushed etat
+02:48 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+02:48 == determinism start
+02:51 == determinism exit=0
+02:51 determinism:   70.0       408     11  drive / drive   75.0       253     17  drive / drive   80.0       251     31  drive / drive route: same lane sequence (2 lane changes in common) PASS: 17 instants within 600 cm and 45 degrees 
+02:52 pushed determinism
+02:52 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+02:52 pushed etat
+02:52 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+02:52 == endurance-1 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
+03:02 endurance-1: exit=0 crash=no last t=wanted: t=598 wanted=299 police=82 police-in-last-10=6 pool-drops=0 | endurance-1: 23796 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.1 | gpu p50 17.94 p95 29.14 | gate FAIL
+03:02 == endurance-2 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
+03:12 endurance-2: exit=0 crash=no last t=wanted: t=598 wanted=299 police=87 police-in-last-10=5 pool-drops=0 | endurance-2: 23795 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 1 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 26.1 | gpu p50 18.19 p95 29.27 | gate FAIL
+03:12 pushed endurance
+03:12 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+03:13 pushed etat
+03:13 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+03:13 == endurance9-1 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
+03:23 endurance9-1: exit=0 crash=no last t=wanted: t=598 wanted=299 police=87 police-in-last-10=5 pool-drops=0 | endurance9-1: 23797 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.3 | gpu p50 18.04 p95 29.11 | gate FAIL
+03:23 == endurance9-2 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
+03:25 pushed etat
+03:33 endurance9-2: exit=0 crash=no last t=wanted: t=598 wanted=299 police=85 police-in-last-10=5 pool-drops=0 | endurance9-2: 23797 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.2 | gpu p50 18.39 p95 29.40 | gate FAIL
+03:34 == endurance9-3 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
+03:44 endurance9-3: exit=0 crash=no last t=wanted: t=598 wanted=299 police=86 police-in-last-10=6 pool-drops=0 | endurance9-3: 23797 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.3 | gpu p50 18.30 p95 29.40 | gate FAIL
+03:44 == endurance9-4 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
+03:54 endurance9-4: exit=0 crash=no last t=wanted: t=598 wanted=299 police=79 police-in-last-10=5 pool-drops=0 | endurance9-4: 23796 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.4 | gpu p50 18.34 p95 29.42 | gate FAIL
+03:54 pushed endurance-cand9
+03:54 pushed etat
+03:54 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+03:55 == cand10-e32b3fc-build start
+04:06 == cand10-e32b3fc-build exit=1
+04:06 BLOCK FAIL: cand10 e32b3fc build
+04:06 pushed etat
+04:06 pushed etat
+04:06 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+04:06 == loop-endurance-2-1 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
+04:16 loop-endurance-2-1: exit=0 crash=no last t=wanted: t=597 wanted=299 police=88 police-in-last-10=6 pool-drops=0 | loop-endurance-2-1: 23796 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.1 | gpu p50 17.79 p95 29.07 | gate FAIL
+04:17 == loop-endurance-2-2 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
+04:25 pushed etat
+04:27 loop-endurance-2-2: exit=0 crash=no last t=wanted: t=597 wanted=299 police=80 police-in-last-10=6 pool-drops=0 | loop-endurance-2-2: 23796 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.3 | gpu p50 17.92 p95 29.07 | gate FAIL
+04:27 pushed loop-endurance-2
+04:27 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+04:27 pushed etat
+04:27 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+04:27 == loop-endurance-3-1 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
+04:37 loop-endurance-3-1: exit=0 crash=no last t=wanted: t=598 wanted=299 police=91 police-in-last-10=6 pool-drops=0 | loop-endurance-3-1: 23796 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 1 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 26.4 | gpu p50 18.22 p95 29.28 | gate FAIL
+04:38 == loop-endurance-3-2 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
+04:48 loop-endurance-3-2: exit=0 crash=no last t=wanted: t=598 wanted=299 police=83 police-in-last-10=6 pool-drops=0 | loop-endurance-3-2: 23797 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.2 | gpu p50 17.91 p95 29.16 | gate FAIL
+04:48 pushed loop-endurance-3
+04:48 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+04:48 pushed etat
+04:48 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+04:48 == loop-endurance-4-1 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
+04:59 loop-endurance-4-1: exit=0 crash=no last t=wanted: t=598 wanted=299 police=88 police-in-last-10=5 pool-drops=0 | loop-endurance-4-1: 23797 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.2 | gpu p50 18.17 p95 29.24 | gate FAIL
+04:59 == loop-endurance-4-2 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
+05:09 loop-endurance-4-2: exit=0 crash=no last t=wanted: t=598 wanted=299 police=88 police-in-last-10=5 pool-drops=0 | loop-endurance-4-2: 23795 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.7 | gpu p50 18.31 p95 29.33 | gate FAIL

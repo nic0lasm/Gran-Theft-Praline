@@ -1,0 +1,60 @@
+05:37 == cand11-blood exit=0
+05:37 cand11 blood: 
+05:37 == cand11-build start
+05:46 pushed etat
+05:49 == cand11-build exit=0
+05:49 cand11 build exit=0; - tracked changes at the end: 0, clone on ff3b3a9; cooked /Game/Interiors lines in package.log: 0
+05:49 cand11 blood restore: removed 0 file(s); tracked changes 0
+05:49 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+05:56 pushed etat
+06:00 cand11 street-fixed: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.3 | gpu p50 13.58 p95 20.72 | gate PASS | LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy | pool drops 0
+06:00 cand11 street-demo: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 1 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 26.9 | gpu p50 14.81 p95 21.96 | gate PASS | LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy | pool drops 0
+06:00 cand11 night: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.8 %) | >26 1 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 26.1 | gpu p50 15.10 p95 22.53 | gate PASS | LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy | pool drops 0
+06:00 cand11 rain: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.0 | gpu p50 14.33 p95 22.30 | gate PASS | LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy | pool drops 0
+06:00 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+06:01 == cand11-600 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -PoliceMax=3
+06:06 pushed etat
+06:11 cand11-600: exit=0 crash=no last t=wanted: t=597 wanted=297 police=90 police-in-last-10=5 pool-drops=0 | cand11-600: 23798 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.2 | gpu p50 18.22 p95 29.29 | gate FAIL
+06:11 list32 paused after cand11-600; list33 starts (blood block on 0512ec2)
+06:11 pushed etat
+06:11 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+06:11 list33 starts after cand11-600 (list32 stopped)
+06:11 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+06:11 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+06:11 == cand11-gpu-a start (120 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -PoliceMax=3
+06:13 cand11-gpu-a: exit=0 crash=no last t=wanted: t=119 wanted=58 police=14 police-in-last-10=4 pool-drops=0 | cand11-gpu-a: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.2 | gpu p50 17.98 p95 29.02 | gate FAIL
+06:13 == cand11-gpu-b start (120 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -Police=0
+06:15 cand11-gpu-b: exit=0 crash=no last t= wanted=0 police=0 police-in-last-10=0 pool-drops=0 | cand11-gpu-b: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.1 | gpu p50 17.92 p95 29.00 | gate FAIL
+06:15 pushed cand11
+06:15 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+06:15 pushed etat
+06:15 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+06:16 == lumen-dev12 start (30 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -PoliceMax=3 -GfxCVars=r.EyeAdaptation.CachedLightingPreExposure=12
+06:16 lumen-dev12: exit=0 crash=no last t=wanted: t=29 wanted=13 police=3 police-in-last-10=0 pool-drops=0 | lumen-dev12: 1001 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.01 p95 25.03 max 25.0 | gpu p50 18.21 p95 29.11 | gate FAIL
+06:16 lumen dev check: LogCsvProfiler: Display: Metadata set : commandline="" -Ambience=noon -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -PoliceMax=3 -GfxCVars=r.EyeAdaptation.CachedLightingPreExposure=12 -SkipTitle -FrameLogFile="GTAL-build/Builds/lumen/devcheck/frametimes.csv" -ExitAfter=30 -userdir="GTAL-build/Builds/lumen/devcheck/userdir" -abslog="HOME
+06:16 pushed lumen
+06:16 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+06:16 pushed etat
+06:17 cand11b: PC proof VERDICT: OK found
+06:17 pushed etat
+06:17 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+06:17 == cand11b-compile start
+06:17 list33 paused during cand11b compile for the userdir split (c)
+06:17 == cand11-gpu-c start (120 s, no -userdir, args of (b))
+06:20 cand11-gpu-c: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.1 | gpu p50 13.62 p95 20.62 | gate PASS
+06:20 list33 resumed (cand11b blood step next)
+06:20 == cand11b-compile exit=0
+06:20 == cand11b-blood start
+06:21 == cand11b-blood exit=0
+06:21 cand11b blood: LogAutomationTest: Error: Condition failed;LogAutomationTest: Error: Condition failed;LogPython: Warning: [CombatMaterials] built /Game/Combat/Materials/M_GTP_BloodPool; | new files: GranTheftPraline/Content/Combat/Materials/M_GTP_BloodPool.uasset 
+06:21 == cand11b-build start
+06:32 == cand11b-build exit=0
+06:32 cand11b build exit=0; - interiors: OK, 26 s, log interiors.log;- interiors built into the package: fastfood_bellecour (check: game log 'InteriorStreaming: load' then 'visible' with -Interiors=1);- map md5 at the end: 1c92de0f813b89cb40aeb000cd92a1de, unchanged;- tracked changes at the end: 0, clone on a335faf;; cooked files under Content/Interiors: 0
+06:32 cand11b restore: Combat removed 1 file(s); Content/Interiors now: 0 entries; tracked changes 0
+06:32 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+06:35 cand11b witness street-fixed: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.5 | gpu p50 13.47 p95 20.48 | gate PASS | LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy | pool drops 0
+06:35 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+06:35 == cand11b-interior start (120 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -PoliceMax=3 -Interiors=1 -InteriorStart=1 -InteriorStaff=8
+06:37 cand11b-interior: exit=0 crash=no last t=wanted: t=119 wanted=58 police=15 police-in-last-10=4 pool-drops=0 | cand11b-interior: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.1 | gpu p50 18.12 p95 29.18 | gate FAIL
+06:37 cand11b interior lines: InteriorStreaming: first plan: player at V(X=17329.84, Y=23097.69, Z=141.40) (pawn), nearest interior 321 m, 1 wanted, t=0.03;InteriorStreaming: cannot load /Game/Interiors/L_Interior_fastfood_bellecour: shop window card kept;
+06:38 cand11b still: frame_00000.jpg

@@ -1,0 +1,60 @@
+04:38 == loop-endurance-3-2 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
+04:48 loop-endurance-3-2: exit=0 crash=no last t=wanted: t=598 wanted=299 police=83 police-in-last-10=6 pool-drops=0 | loop-endurance-3-2: 23797 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.2 | gpu p50 17.91 p95 29.16 | gate FAIL
+04:48 pushed loop-endurance-3
+04:48 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+04:48 pushed etat
+04:48 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+04:48 == loop-endurance-4-1 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
+04:59 loop-endurance-4-1: exit=0 crash=no last t=wanted: t=598 wanted=299 police=88 police-in-last-10=5 pool-drops=0 | loop-endurance-4-1: 23797 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.2 | gpu p50 18.17 p95 29.24 | gate FAIL
+04:59 == loop-endurance-4-2 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
+05:09 loop-endurance-4-2: exit=0 crash=no last t=wanted: t=598 wanted=299 police=88 police-in-last-10=5 pool-drops=0 | loop-endurance-4-2: 23795 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.7 | gpu p50 18.31 p95 29.33 | gate FAIL
+05:09 pushed loop-endurance-4
+05:09 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+05:09 pushed etat
+05:09 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+05:10 == loop-endurance-5-1 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
+05:11 loop-endurance-5-1: STARTUP CRASH (exit 139, no log, 126 s after the previous close; total 2), relaunch in 60 s: yes
+05:12 == loop-endurance-5-1 start (600 s), relaunch after a startup crash: -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
+05:22 loop-endurance-5-1: exit=0 crash=no last t=wanted: t=598 wanted=299 police=85 police-in-last-10=5 pool-drops=0 | loop-endurance-5-1: 23796 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.8 | gpu p50 18.15 p95 29.21 | gate FAIL
+05:23 == loop-endurance-5-2 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
+05:24 loop-endurance-5-2: STARTUP CRASH (exit 138, no log, 117 s after the previous close; total 3), relaunch in 60 s: yes
+05:25 pushed etat
+05:26 == loop-endurance-5-2 start (600 s), relaunch after a startup crash: -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
+05:35 list31 paused (pilot 05:35): stopped after loop-endurance-5-2
+05:36 pushed etat
+05:36 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+05:36 list32 starts (list31 stopped after loop-endurance-5-2)
+05:36 pushed etat
+05:36 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+05:36 cand11 head ff3b3a9
+05:36 cand11 ini cook lines: 1 x /Game/Interiors, 2 x BlackAlder/M1
+05:36 == cand11-compile start
+05:36 == cand11-compile exit=0
+05:36 == cand11-blood start
+05:37 == cand11-blood exit=0
+05:37 cand11 blood: 
+05:37 == cand11-build start
+05:46 pushed etat
+05:49 == cand11-build exit=0
+05:49 cand11 build exit=0; - tracked changes at the end: 0, clone on ff3b3a9; cooked /Game/Interiors lines in package.log: 0
+05:49 cand11 blood restore: removed 0 file(s); tracked changes 0
+05:49 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+05:56 pushed etat
+06:00 cand11 street-fixed: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.3 | gpu p50 13.58 p95 20.72 | gate PASS | LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy | pool drops 0
+06:00 cand11 street-demo: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 1 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 26.9 | gpu p50 14.81 p95 21.96 | gate PASS | LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy | pool drops 0
+06:00 cand11 night: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.8 %) | >26 1 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 26.1 | gpu p50 15.10 p95 22.53 | gate PASS | LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy | pool drops 0
+06:00 cand11 rain: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.0 | gpu p50 14.33 p95 22.30 | gate PASS | LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy | pool drops 0
+06:00 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+06:01 == cand11-600 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -PoliceMax=3
+06:06 pushed etat
+06:11 cand11-600: exit=0 crash=no last t=wanted: t=597 wanted=297 police=90 police-in-last-10=5 pool-drops=0 | cand11-600: 23798 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.2 | gpu p50 18.22 p95 29.29 | gate FAIL
+06:11 list32 paused after cand11-600; list33 starts (blood block on 0512ec2)
+06:11 pushed etat
+06:11 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+06:11 list33 starts after cand11-600 (list32 stopped)
+06:11 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+06:11 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+06:11 == cand11-gpu-a start (120 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -PoliceMax=3
+06:13 cand11-gpu-a: exit=0 crash=no last t=wanted: t=119 wanted=58 police=14 police-in-last-10=4 pool-drops=0 | cand11-gpu-a: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.2 | gpu p50 17.98 p95 29.02 | gate FAIL
+06:13 == cand11-gpu-b start (120 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -Police=0
+06:15 cand11-gpu-b: exit=0 crash=no last t= wanted=0 police=0 police-in-last-10=0 pool-drops=0 | cand11-gpu-b: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.1 | gpu p50 17.92 p95 29.00 | gate FAIL

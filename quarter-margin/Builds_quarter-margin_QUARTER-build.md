@@ -1,0 +1,38 @@
+# Streamed quarter, started 01:36 Paris time, commit 0eb6901
+- cells: cell-p0000-m0250 cell-p0000-p0000 cell-p0000-p0250 cell-p0000-p0500 cell-p0000-m0500
+- 01:40 compile: exit 0 in 3 min (compile.log)
+- 01:58 cells: exit 0 in 17 min (cells.log)
+- 01:58 proxies: exit 0 in 0 min (proxies.log)
+- 01:59 quarter import: exit 0 in 0 min (quarter-import.log)
+- 01:59 quarter materials: exit 0 in 0 min (quarter-materials.log)
+- 02:00 cell-p0000-m0250 import: exit 0 in 0 min (cell-p0000-m0250-import.log)
+- 02:00 cell-p0000-m0250 facades: exit 0 in 0 min (cell-p0000-m0250-facades.log)
+- 02:01 cell-p0000-m0250 materials: exit 0 in 0 min (cell-p0000-m0250-materials.log)
+- 02:01 cell-p0000-m0250 props: exit 0 in 0 min (cell-p0000-m0250-props.log)
+- 02:02 cell-p0000-m0250 details: exit 0 in 0 min (cell-p0000-m0250-details.log)
+- 02:02 cell-p0000-p0000 import: exit 0 in 0 min (cell-p0000-p0000-import.log)
+- 02:03 cell-p0000-p0000 facades: exit 0 in 0 min (cell-p0000-p0000-facades.log)
+- 02:03 cell-p0000-p0000 materials: exit 0 in 0 min (cell-p0000-p0000-materials.log)
+- 02:04 cell-p0000-p0000 props: exit 0 in 0 min (cell-p0000-p0000-props.log)
+- 02:05 cell-p0000-p0000 details: exit 0 in 0 min (cell-p0000-p0000-details.log)
+- 02:05 cell-p0000-p0250 import: exit 0 in 0 min (cell-p0000-p0250-import.log)
+- 02:06 cell-p0000-p0250 facades: exit 0 in 0 min (cell-p0000-p0250-facades.log)
+- 02:06 cell-p0000-p0250 materials: exit 0 in 0 min (cell-p0000-p0250-materials.log)
+- 02:07 cell-p0000-p0250 props: exit 0 in 0 min (cell-p0000-p0250-props.log)
+- 02:07 cell-p0000-p0250 details: exit 0 in 0 min (cell-p0000-p0250-details.log)
+- 02:08 cell-p0000-p0500 import: exit 0 in 0 min (cell-p0000-p0500-import.log)
+- 02:08 cell-p0000-p0500 facades: exit 0 in 0 min (cell-p0000-p0500-facades.log)
+- 02:09 cell-p0000-p0500 materials: exit 0 in 0 min (cell-p0000-p0500-materials.log)
+- 02:09 cell-p0000-p0500 props: exit 0 in 0 min (cell-p0000-p0500-props.log)
+- 02:10 cell-p0000-p0500 details: exit 0 in 0 min (cell-p0000-p0500-details.log)
+- 02:10 cell-p0000-m0500 import: exit 0 in 0 min (cell-p0000-m0500-import.log)
+- 02:11 cell-p0000-m0500 facades: exit 0 in 0 min (cell-p0000-m0500-facades.log)
+- 02:11 cell-p0000-m0500 materials: exit 0 in 0 min (cell-p0000-m0500-materials.log)
+- 02:12 cell-p0000-m0500 props: exit 0 in 0 min (cell-p0000-m0500-props.log)
+- 02:13 cell-p0000-m0500 details: exit 0 in 0 min (cell-p0000-m0500-details.log)
+- maps cooked for this package only: /Game/Maps/L_City_Quarter /Game/Maps/L_City_RueDeLaRepublique /Game/Maps/L_City_CellP0000M0250 /Game/Maps/L_City_CellP0000P0000 /Game/Maps/L_City_CellP0000P0250 /Game/Maps/L_City_CellP0000P0500 /Game/Maps/L_City_CellP0000M0500
+- 02:17 package: exit 0 in 4 min (package.log)
+- 02:17 DefaultGame.ini restored
+- package: GTAL-build/Builds/quarter-margin/quarter
+- 02:17 BUILD_ONLY: built in 40 min; benches with SKIP_BUILD=1 when the screen is unlocked
+- 02:17 restore: map and city content identical to the start (md5,     1018 files)
