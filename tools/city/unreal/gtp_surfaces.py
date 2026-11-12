@@ -20,7 +20,7 @@ stays as it is, so the generators run the same on a project without the scans.
 
 M1 budget (no Nanite there, every fetch is paid per pixel): textures capped at 2K by the import,
 shared wrap samplers, one BaseColor + Normal + roughness map per layer: ground mask + 4 layers =
-17 fetches with the stains (mud, oil: colour + opacity each), kit 4 (one is the 1x1 mip used to keep the building hue), shell 6. GTP_SURFACES_LITE=1
+up to 21 fetches with the stains (mud, oil, cracks, gum: colour + opacity each), kit 4 (one is the 1x1 mip used to keep the building hue), shell 6. GTP_SURFACES_LITE=1
 keeps only the colour maps (ground 5, kit 2, shell 2) if the perf pass asks for it.
 """
 
@@ -44,7 +44,7 @@ GROUND_LAYERS = {
     "road": ("asphalt_dry",),
     "kerb": ("granite_kerb",),
 }
-GROUND_GRIME = ("decal_dirt", "decal_cracks")
+GROUND_GRIME = ("decal_dirt",)
 GRIME_SCALE = 3.0        # the grime repeats every 3 tiles of its own size (about 6 m)
 GRIME_STRENGTH = 0.5
 KIT_DETAIL = float(os.environ.get("GTP_SURFACES_DETAIL", "0.6"))   # share of the stone detail kept
@@ -237,8 +237,11 @@ def ground(mat, mask):
     # Stains as texture layers, not decal actors (no draw call, no DBuffer pass on the M1): the
     # decal's colour where its opacity map says so, scattered by two slow sines so the repeat
     # does not read as a grid. Mud over all the ground, oil on the carriageway only.
+    off_road = g.sub(g.const(1.0), on_road)
     for sid_list, region, region_out, period, strength in ((GROUND_GRIME, None, "", 450.0, 0.55),
-                                                          (("decal_oil",), mask, "R", 700.0, 0.7)):
+                                                          (("decal_oil",), mask, "R", 700.0, 0.7),
+                                                          (("decal_cracks",), mask, "R", 900.0, 0.6),
+                                                          (("decal_gum",), off_road, "", 260.0, 0.8)):
         sid, st = _pick(m, sid_list)
         if not st or not st.get("opacity"):
             continue
