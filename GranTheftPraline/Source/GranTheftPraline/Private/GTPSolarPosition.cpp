@@ -2,7 +2,7 @@
 
 namespace
 {
-	constexpr double Deg = UE_DOUBLE_PI / 180.0;
+	constexpr double SolarDegToRad = UE_DOUBLE_PI / 180.0;
 
 	double Wrap360(double Value)
 	{
@@ -24,13 +24,13 @@ namespace
 	/** Altitude / azimuth of a body from its right ascension and declination (radians). */
 	FGTPSkyPosition FromEquatorial(double LatDeg, double LocalSiderealDeg, double RightAscension, double Declination)
 	{
-		const double Phi = LatDeg * Deg;
-		const double HourAngle = LocalSiderealDeg * Deg - RightAscension;
+		const double Phi = LatDeg * SolarDegToRad;
+		const double HourAngle = LocalSiderealDeg * SolarDegToRad - RightAscension;
 		const double SinAlt = FMath::Sin(Phi) * FMath::Sin(Declination) + FMath::Cos(Phi) * FMath::Cos(Declination) * FMath::Cos(HourAngle);
 		FGTPSkyPosition Out;
-		Out.ElevationDeg = FMath::Asin(FMath::Clamp(SinAlt, -1.0, 1.0)) / Deg;
+		Out.ElevationDeg = FMath::Asin(FMath::Clamp(SinAlt, -1.0, 1.0)) / SolarDegToRad;
 		Out.AzimuthDeg = Wrap360(FMath::Atan2(FMath::Sin(HourAngle),
-			FMath::Cos(HourAngle) * FMath::Sin(Phi) - FMath::Tan(Declination) * FMath::Cos(Phi)) / Deg + 180.0);
+			FMath::Cos(HourAngle) * FMath::Sin(Phi) - FMath::Tan(Declination) * FMath::Cos(Phi)) / SolarDegToRad + 180.0);
 		return Out;
 	}
 }
@@ -48,14 +48,14 @@ FGTPSkyPosition GTPSolar::Sun(double LatDeg, double LonDeg, const FDateTime& Utc
 		- 0.002697 * FMath::Cos(3 * Gamma) + 0.00148 * FMath::Sin(3 * Gamma);
 
 	const double TrueSolarMinutes = HourUtc * 60.0 + EqTimeMinutes + 4.0 * LonDeg;
-	const double HourAngle = (TrueSolarMinutes / 4.0 - 180.0) * Deg;
-	const double Phi = LatDeg * Deg;
+	const double HourAngle = (TrueSolarMinutes / 4.0 - 180.0) * SolarDegToRad;
+	const double Phi = LatDeg * SolarDegToRad;
 	const double CosZenith = FMath::Sin(Phi) * FMath::Sin(Declination) + FMath::Cos(Phi) * FMath::Cos(Declination) * FMath::Cos(HourAngle);
 
 	FGTPSkyPosition Out;
-	Out.ElevationDeg = 90.0 - FMath::Acos(FMath::Clamp(CosZenith, -1.0, 1.0)) / Deg;
+	Out.ElevationDeg = 90.0 - FMath::Acos(FMath::Clamp(CosZenith, -1.0, 1.0)) / SolarDegToRad;
 	Out.AzimuthDeg = Wrap360(FMath::Atan2(FMath::Sin(HourAngle),
-		FMath::Cos(HourAngle) * FMath::Sin(Phi) - FMath::Tan(Declination) * FMath::Cos(Phi)) / Deg + 180.0);
+		FMath::Cos(HourAngle) * FMath::Sin(Phi) - FMath::Tan(Declination) * FMath::Cos(Phi)) / SolarDegToRad + 180.0);
 	return Out;
 }
 
@@ -67,9 +67,9 @@ FGTPSkyPosition GTPSolar::Moon(double LatDeg, double LonDeg, const FDateTime& Ut
 	const double MeanLongitude = Wrap360(218.316 + 13.176396 * D);
 	const double MeanAnomaly = Wrap360(134.963 + 13.064993 * D);
 	const double ArgLatitude = Wrap360(93.272 + 13.229350 * D);
-	const double Longitude = (MeanLongitude + 6.289 * FMath::Sin(MeanAnomaly * Deg)) * Deg;
-	const double Latitude = 5.128 * FMath::Sin(ArgLatitude * Deg) * Deg;
-	const double Obliquity = 23.4397 * Deg;
+	const double Longitude = (MeanLongitude + 6.289 * FMath::Sin(MeanAnomaly * SolarDegToRad)) * SolarDegToRad;
+	const double Latitude = 5.128 * FMath::Sin(ArgLatitude * SolarDegToRad) * SolarDegToRad;
+	const double Obliquity = 23.4397 * SolarDegToRad;
 
 	const double RightAscension = FMath::Atan2(FMath::Sin(Longitude) * FMath::Cos(Obliquity) - FMath::Tan(Latitude) * FMath::Sin(Obliquity),
 		FMath::Cos(Longitude));
@@ -78,8 +78,8 @@ FGTPSkyPosition GTPSolar::Moon(double LatDeg, double LonDeg, const FDateTime& Ut
 	const double LocalSidereal = Wrap360(280.16 + 360.9856235 * D + LonDeg);
 
 	// Phase from the elongation to the sun's ecliptic longitude.
-	const double SunMeanAnomaly = (357.528 + 0.9856003 * D) * Deg;
-	const double SunLongitude = (280.460 + 0.9856474 * D + 1.915 * FMath::Sin(SunMeanAnomaly) + 0.020 * FMath::Sin(2 * SunMeanAnomaly)) * Deg;
+	const double SunMeanAnomaly = (357.528 + 0.9856003 * D) * SolarDegToRad;
+	const double SunLongitude = (280.460 + 0.9856474 * D + 1.915 * FMath::Sin(SunMeanAnomaly) + 0.020 * FMath::Sin(2 * SunMeanAnomaly)) * SolarDegToRad;
 	OutIllumination = 0.5 * (1.0 - FMath::Cos(Longitude - SunLongitude));
 
 	return FromEquatorial(LatDeg, LocalSidereal, RightAscension, Declination);
