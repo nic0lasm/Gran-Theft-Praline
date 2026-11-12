@@ -163,3 +163,13 @@ class DayReport(unittest.TestCase):
         import day_report as d
         self.assertEqual(d.parse_percentiles("frame p50 25,00 ms | p95 25.02 ms"), (25.0, 25.02))
         self.assertIsNone(d.parse_percentiles("nothing"))
+
+
+class CcBy(unittest.TestCase):
+    def test_cc_by_required_only_when_used(self):
+        base = "IGN Etalab Métropole de Lyon OpenStreetMap ODbL Unreal Engine Epic Games"
+        self.assertEqual(check_notices.check("Etalab", {"a": base}), [])
+        problems = check_notices.check("asset under CC BY 4.0", {"a": base})
+        self.assertTrue(any("CC BY 4.0" in p for p in problems))
+        ok = base + " CC BY 4.0 https://creativecommons.org/licenses/by/4.0/"
+        self.assertEqual(check_notices.check("asset under CC BY 4.0", {"a": ok}), [])
