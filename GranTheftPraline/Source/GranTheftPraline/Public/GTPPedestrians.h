@@ -297,6 +297,8 @@ private:
 		bool bDrawn = false;
 		/** Lent out by AcquireFromPool: the pool leaves it alone. */
 		bool bBorrowed = false;
+		/** This fleeing person has already passed its panic on (reset when it stops running). */
+		bool bPanicSpread = false;
 		/** Index of the partner this person follows (a pair walking together), -1 = walks alone. */
 		int32 Leader = -1;
 		float FarAccumulated = 0.f;
