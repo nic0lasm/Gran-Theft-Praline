@@ -114,7 +114,8 @@
    "match": [
     "asphalt"
    ],
-   "fab": "worn dry urban asphalt"
+   "fab": "worn dry urban asphalt",
+   "note": "Asphalt Road (Fab 12/11)"
   },
   {
    "id": "granite_setts",
@@ -222,12 +223,19 @@
    "id": "decal_dirt",
    "priority": 3,
    "role": "decal",
-   "tile_cm": 200,
+   "tile_cm": 150,
    "match": [
     "dirt",
     "decal"
    ],
-   "fab": "ground dirt / stains decal"
+   "fab": "ground dirt / stains decal",
+   "match_any": [
+    [
+     "mud",
+     "stain"
+    ]
+   ],
+   "note": "Mud Stain (Fab 12/11)"
   },
   {
    "id": "decal_oil",
@@ -238,7 +246,8 @@
     "oil",
     "stain"
    ],
-   "fab": "oil stain decal"
+   "fab": "oil stain decal",
+   "note": "Oil Stain (Fab 12/11)"
   },
   {
    "id": "decal_gum",
