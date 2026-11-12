@@ -26,7 +26,7 @@ import time
 import unreal
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")))
-from surface_files import IMAGE, loose_images as _loose_images, norm as _norm, role_of, word_sets  # noqa: E402,F401
+from surface_files import IMAGE, excluded, loose_images as _loose_images, norm as _norm, role_of, word_sets  # noqa: E402,F401
 
 REPO = os.path.abspath(os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_dir()), ".."))
 CATALOG = os.path.join(REPO, "tools", "city", "surfaces.json")
@@ -67,7 +67,7 @@ def find_folder(entry, folders):
     if by_id:
         return by_id[0]
     for words in word_sets(entry):
-        hits = sorted(f for f in folders if all(_norm(w) in _norm(f) for w in words))
+        hits = sorted(f for f in folders if all(_norm(w) in _norm(f) for w in words) and not excluded(entry, f))
         if hits:
             return hits[0]
     return None
