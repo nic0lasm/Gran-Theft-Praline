@@ -519,6 +519,24 @@ la plus proche (`procgen.faces_open_space`). Sur le focus République, 353 modul
 deviennent des façades sur rue, place des Cordeliers, place de la Bourse et place Le Viste ; la
 façade du fast-food sur la place Bellecour reçoit des devantures.
 
+## Fond de carte et axe de rue complet (ajouté le 2026-11-12, tranche République)
+
+Les vues larges de la tranche (place Bellecour, Pathé, place de la République) finissaient sur
+l'horizon derrière la zone de 45 m. `tools/city/backdrop.py` donne à tous les autres bâtiments
+BD TOPO à moins de 600 m de l'axe un volume fermé en basse définition (murs jusqu'à l'égout LiDAR
+dans la couleur de la typologie, toit ajusté au LiDAR, sans modules de façade), fusionné par
+cellule de 250 m. `regen_city.sh` le lance après la génération et `import_city.py` le pose dans
+la carte de rue (dossier City/Backdrop, matériau des coques, sans collision ni champ de distance,
+étiquette de coupe `proxy` ; `GTP_CITY_BACKDROP=0` le saute). République (2026-11-12, machine
+cloud) : 1 589 bâtiments, 102 k triangles, 30 maillages, 16 s.
+
+L'axe de la rue n'était que le plus long morceau de la rue. La rue de la République est coupée
+par la place de la République : l'axe s'arrêtait là, le départ du joueur (« côté Bellecour ») était
+sur la place et le tronçon Bellecour (Y Unreal de 24 000 à 53 000) n'était jamais sur l'axe.
+`generate.chain_axis` raccorde maintenant les morceaux par-dessus des trous de 150 m au plus : l'axe
+va de Y -50 050 à +52 361 cm. Le masque du sol est en dalles (G) sur toute la rue ; l'asphalte (R)
+n'apparaît qu'aux croisements avec des rues ouvertes aux voitures.
+
 ## Limites et suite
 
 1. **Test éditeur** : `tools/city/unreal/import_city.py` importe greybox et
