@@ -1,5 +1,3 @@
-12:57 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
-12:57 == cand13-interior1 start (120 s, no -userdir) -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -PoliceMax=3 -Interiors=1 -InteriorStart=1 -InteriorStaff=8
 12:59 cand13-interior1: crash no (exit 0), end t=119, reused=20 | interior1: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.0 | gpu p50 12.12 p95 19.55 | gate PASS | InteriorStreaming: interior exposure EV 8.0-9.0 on the camera (modifier added);InteriorStreaming: interior exposure applied in fastfood_bellecour t=0.75;
 13:00 == cand13-interior2 start (120 s, no -userdir) -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -PoliceMax=3 -Interiors=1 -InteriorStart=1 -InteriorStaff=8
 13:02 cand13-interior2: crash no (exit 0), end t=119, reused=17 | interior2: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.1 | gpu p50 12.28 p95 19.66 | gate PASS | InteriorStreaming: interior exposure EV 8.0-9.0 on the camera (modifier added);InteriorStreaming: interior exposure applied in fastfood_bellecour t=0.75;
@@ -58,3 +56,5 @@
 13:49 aa-lvl rain-aa1: 4601 frames | GPU p50 14.52 p95 22.60 | >26 ms 0 | p95/10s (t s:ms) 0:21.9 10:22.5 20:22.6 30:22.4 40:22.4 50:22.4 60:22.7 70:22.9 80:23.1 90:23.1 100:22.8 110:22.9 120:13.9 | high mode (any 10 s slice >= 26 ms): no
 13:51 aa-lvl rain-aa0: 4600 frames | GPU p50 14.22 p95 22.13 | >26 ms 0 | p95/10s (t s:ms) 0:21.6 10:21.9 20:22.0 30:22.1 40:22.0 50:22.0 60:22.4 70:22.7 80:22.7 90:22.5 100:22.5 110:22.5 120:13.5 | high mode (any 10 s slice >= 26 ms): no
 13:53 aa-lvl rain-ref: 4601 frames | GPU p50 14.27 p95 22.19 | >26 ms 0 | p95/10s (t s:ms) 0:21.6 10:22.0 20:22.2 30:22.0 40:22.0 50:21.9 60:22.4 70:22.7 80:22.7 90:23.0 100:23.0 110:22.9 120:14.1 | high mode (any 10 s slice >= 26 ms): no
+13:55 pushed etat
+13:55 aa-lvl night-aa1: 4601 frames | GPU p50 15.71 p95 24.39 | >26 ms 0 | p95/10s (t s:ms) 0:22.2 10:22.2 20:22.6 30:22.4 40:22.3 50:22.3 60:24.5 70:28.3 80:28.8 90:29.1 100:28.4 110:27.8 120:15.2 | high mode (any 10 s slice >= 26 ms): YES, 5 slice(s) from 70 s
