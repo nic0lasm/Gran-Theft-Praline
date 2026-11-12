@@ -113,6 +113,21 @@ public:
 	int32 ScareAround(const FVector& Location, float Radius, AActor* Cause = nullptr);
 
 	/**
+	 * Lends one pedestrian of the pool (a customer in a shop, a bystander in a scene): placed at
+	 * Location facing YawDegrees, idle, drawn with full detail. The pool never moves or retires
+	 * it until ReturnToPool; the borrower may play its own looping animation with
+	 * AGTPPedestrian::PlayLoop. Takes a free one, else the farthest walking one (not ragdolled).
+	 * Returns nullptr when pedestrians are off or nobody can be lent.
+	 */
+	AGTPPedestrian* AcquireFromPool(const FVector& Location, float YawDegrees = 0.f);
+
+	/** Gives a lent pedestrian back: hidden and free, the pool walks it again later. */
+	void ReturnToPool(AGTPPedestrian* Actor);
+
+	/** How many pedestrians are lent out now. */
+	int32 GetBorrowedCount() const;
+
+	/**
 	 * Traffic lights hook: return true when people may NOT set off across the crossing at Where
 	 * walking along WalkDirection (world, unit): the roads they cross are not red. Unset = they
 	 * only look out for cars. Set by the code that owns the lights (e.g. from
@@ -273,6 +288,8 @@ private:
 		bool bRunning = false;
 		bool bIdle = false;
 		bool bDrawn = false;
+		/** Lent out by AcquireFromPool: the pool leaves it alone. */
+		bool bBorrowed = false;
 		/** Index of the partner this person follows (a pair walking together), -1 = walks alone. */
 		int32 Leader = -1;
 		float FarAccumulated = 0.f;
