@@ -3,6 +3,8 @@
 *Version anglaise : [test-phase-plan.md](test-phase-plan.md). Roadmap : [roadmap.fr.md](roadmap.fr.md). Systèmes : [systems-inventory.fr.md](systems-inventory.fr.md).*
 *Revue du 2026-11-11, pendant le chantier performance (`next` = 3dcf33b). Complète la roadmap v3 : elle fixe ce que la 0.9 doit tenir pour qu'on puisse la tester, ce qui manque, et dans quel ordre on le fait.*
 
+> **En pause depuis le 2026-11-12.** La [roadmap v4](roadmap.fr.md) reporte la 0.9 et concentre l'effort sur la tranche rue de la République. Ce plan reste une référence pour plus tard.
+
 ---
 
 ## 1. L'objectif, rappelé

@@ -20,6 +20,12 @@ written once the playable base exists. This document defines that base: what
 the player can do, how it should feel and look, and which part of Lyon comes
 first.
 
+**Direction chosen on 2026-11-12, written later:** thefts of Lyon
+specialities and getaways through the traboules. It waits until priority 1
+of the [roadmap](../../production/roadmap.md) (mechanics and NPCs in the
+rue de la République slice) meets its bar; the map already plans for the
+traboules.
+
 ---
 
 ## Core Identity

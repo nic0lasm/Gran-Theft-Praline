@@ -22,6 +22,12 @@ seront écrits une fois la base jouable. Ce document définit cette base : ce
 que le joueur peut faire, les sensations et le rendu visés, et la partie de
 Lyon par laquelle on commence.
 
+**Piste retenue le 2026-11-12, écrite plus tard :** des vols de produits
+lyonnais et des fuites par les traboules. Elle attend que la priorité 1 de la
+[roadmap](../../production/roadmap.fr.md) (mécaniques et PNJ dans la tranche
+rue de la République) tienne son critère ; la carte prévoit déjà les
+traboules.
+
 ---
 
 ## Identité

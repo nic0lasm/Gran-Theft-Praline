@@ -3,6 +3,8 @@
 *Version anglaise : [systems-inventory.md](systems-inventory.md). Roadmap : [roadmap.fr.md](roadmap.fr.md).*
 *Revue du 2026-11-10, après la livraison de la 0.2. Mise à jour à chaque fin de version.*
 
+> **Note du 2026-11-12.** Les colonnes de version renvoient à la roadmap v3. La [roadmap v4](roadmap.fr.md) remplace cet ordre : priorité aux mécaniques et aux PNJ dans la tranche rue de la République, le reste est gelé.
+
 Ce document liste **tous** les systèmes qu'un joueur attend d'un monde ouvert
 de type GTA ou Red Dead Redemption, et dit où en est chacun dans Gran Theft
 Praline. Il sert de liste de contrôle : un système qui n'a ni version ni

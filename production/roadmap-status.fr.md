@@ -1,75 +1,55 @@
 # Tableau de bord : où en est le jeu
 
 *Version anglaise : [roadmap-status.md](roadmap-status.md). Roadmap : [roadmap.fr.md](roadmap.fr.md). Systèmes : [systems-inventory.fr.md](systems-inventory.fr.md).*
-*Mis à jour par les fils à chaque tâche terminée. Dernière mise à jour : 2026-11-10.*
+*Mis à jour à chaque candidat. Dernière mise à jour : 2026-11-12 (`next` = candidat 17b).*
 
-Légende : ✅ fait · 🟡 en cours · ⬜ à faire · ⛔ bloqué
+Légende : ✅ fait · 🟡 en cours · ⬜ à faire · ❄️ gelé
 
-## Version en cours : 0.3 « Au volant »
+## Cible en cours : la tranche rue de la République
 
-Sort dès que le 95e centile est ≤ 42 ms en profil M1 avec le trafic, sans
-attendre les autres chantiers.
+300 à 400 m de Bellecour aux Jacobins, jugés sur PC. Critère complet :
+[roadmap §3](roadmap.fr.md#3-la-cible--la-tranche-rue-de-la-république).
 
-| # | Tâche | Chantier | Statut | Preuve |
-| ---- | ---- | ---- | ---- | ---- |
-| 1 | Clio V, 208 II, Kangoo II conduisibles avec LOD | Véhicules | ✅ | `assets/staging/vehicles/evidence-lods/` sur le Mac |
-| 2 | Entrer, sortir, casser la vitre, éjecter un conducteur PNJ | 0.3 | ✅ | vidéos `GTAL/Builds/0.3-dev/evidence` |
-| 3 | Trafic sur 112 voies, conducteurs PNJ | 0.3 | 🟡 | branche `feat/traffic-drivers` |
-| 4 | Son moteur et panneau de conduite | 0.3 | 🟡 | branche `feat/vehicle-hud-sound` |
-| 5 | Carte étendue : quai du Rhône, pont Lafayette, transversales de 6 m | Ville v2 | ✅ | build `0.3-city`, test 60 s |
-| 6 | Chute dans le Rhône : lit, volumes `GTP_RiverRecovery`, sorties `GTP_RiverExit` (ville v2) ; réaction en jeu (0.3) | Ville v2, 0.3 | 🟡 | branche `feat/city-rhone-2` |
-| 7 | Coût GPU des PNJ réduit (ombres, LOD, conducteurs sans animation) | 0.3 | 🟡 | créneau Mac du 2026-11-10 |
-| 8 | Budget de la carte étendue (culling, ombres, Lumen) | Optimisation | 🟡 | au créneau Mac |
-| 9 | Enveloppes GPU par système mesurées une première fois | Optimisation | ⬜ | |
-| 10 | Mesure 600 s : p95 ≤ 42 ms avec trafic | 0.3 | ⬜ | |
-| 11 | Archive de release : découpage si > 2 Gio | 0.3 | ⬜ | |
-
-## Chantiers ouverts
-
-| Chantier | Vise | État |
+| Critère | Statut | Dernière preuve |
 | ---- | ---- | ---- |
-| Piétons (Mass + StateTree) | 0.4 | préparation cloud |
-| Police et étoiles | 0.5 | préparation cloud |
-| Jour/nuit + météo | 0.6 | préparation cloud |
-| Optimisation M1 | continu | créneau Mac en file |
-| Réalisme de la rue | continu | audit face aux photos |
-| Ville v2 | continu | quai et pont faits |
-| Import, packs gratuits, Tripo | continu | 84 modèles importés ; érable Megaplants à mesurer |
+| 5 paires photo réelle / capture du jeu | 🟡 première planche : 1/5 sur deux vues, 0 sur trois | candidat 17b, 12 nov. |
+| Vidéo de 10 minutes qui ressemble à GTA | ⬜ pas encore tournée | |
+| Package PC sans plantage | 🟡 600 s sans plantage sur le candidat 17b | candidat 17b, 12 nov. |
 
-## Toutes les versions
+## Écarts relevés sur la première planche
 
-| Version | Nom | Statut |
-| ---- | ---- | ---- |
-| 0.1 | Jouer en un clic | ✅ 2026-11-09 |
-| 0.2 | La rue habillée | ✅ 2026-11-10 |
-| 0.3 | Au volant | 🟡 |
-| 0.4 | La rue vivante | ⬜ (piétons en préparation) |
-| 0.5 | La police arrive | ⬜ (police en préparation) |
-| 0.6 | Jour et nuit | ⬜ (jour/nuit en préparation) |
-| 0.7 | Armé | ⬜ |
-| 0.8 | Vivre en ville | ⬜ |
-| 0.9 | Tout le quartier | ⬜ |
-| 0.10 | La carte et le confort | ⬜ |
-| 0.11 | L'arsenal | ⬜ |
-| 0.12 | La ville à soi | ⬜ |
-| 0.13 | Façades et monuments | ⬜ |
-| 0.14 | Les intérieurs | ⬜ |
-| 0.15 | Les gens et les voitures | ⬜ |
-| 0.16 | Le son de Lyon | ⬜ |
-| 0.17 | Finition | ⬜ |
-| 1.0 | Tranche verticale | ⬜ |
+| Écart | Réponse prévue |
+| ---- | ---- |
+| Ombres noires | Profil d'image PC ultra, Lumen matériel (candidat 18) |
+| Carte vide au-delà de 45 m | Bâtiments de fond jusqu'à l'horizon (candidat 18) |
+| Sol en carrelage gris | Surfaces scannées posées sur la carte (candidat 18) |
+| Vitrines et nuit noires | Éclairage des vitrines et de la nuit (après le candidat 18) |
+| Joueur en mannequin | Joueur MetaHuman (candidat 18) |
+| Ni piétons ni voitures sur les vues | Script de capture corrigé (candidat 18) |
 
-## Indicateurs
+## Les systèmes de la priorité 1
 
-| Indicateur | Valeur | Cible | Source |
-| ---- | ---- | ---- | ---- |
-| Temps d'image, build 0.2, 600 s, profil M1 | p50 29,9 ms, p95 40,3 ms, 84,9 % ≤ 33 ms | p95 ≤ 42 ms (provisoire), 95 % ≤ 33,3 ms (visé) | preuves de la 0.2 sur le Mac |
-| Carte étendue 0.3, 60 s | 65 % d'images < 33 ms, GPU p50 32 ms | idem | build `0.3-city` |
-| Coût de 6 PNJ conducteurs | environ +10 ms GPU | 2 ms pour tout le trafic (§3 de la roadmap) | créneau du 2026-11-10 |
-| Taille de l'archive de release | 1,36 Go (0.2) | < 2 Gio par fichier | release v0.2.0 |
-| Modèles importés dans Unreal | 84 (284 meshes) | | fil Import |
+| Système | Statut |
+| ---- | ---- |
+| Marche, course, caméra | 🟡 base du Game Animation Sample, joueur encore en mannequin |
+| Voler une voiture, conduire | 🟡 jouable depuis la 0.3, à juger dans la tranche |
+| Trafic (feux, évitement) | 🟡 en code, crash du pool corrigé dans le candidat 17b |
+| Piétons qui réagissent, témoins | 🟡 en code (24 simulés, 20 dessinés), réactions à juger |
+| Police, étoiles, poursuite, arrestation | 🟡 en code, à juger dans la tranche |
+| Combat de base (mains nues, pistolet) | 🟡 en code, à juger dans la tranche |
+| Mort et réapparition | ⬜ à vérifier |
 
-## Décisions en attente de Nico
+## Gelés
 
-- Aucune. Ordre des versions 0.4 à 0.7 décidé par Nico le 2026-11-10 : la rue vivante d'abord.
-- Décidé le 2026-11-11 : la 0.9 est la build de test du quartier, testée par Nico et quelques proches sur Mac et Windows, en qualité de travail avec la rue de la République en photoréaliste. Voir le [plan vers la phase de test](test-phase-plan.fr.md).
+❄️ Missions · audio au-delà de l'existant · menus · intérieurs (fast-food en
+maintenance) · sauvegarde de partie · mini-carte · remappage · crédits ·
+build de test 0.9.
+
+## Versions
+
+| Version | Statut |
+| ---- | ---- |
+| 0.1 Jouer en un clic | ✅ 2026-11-09 |
+| 0.2 La rue habillée | ✅ 2026-11-10 |
+| 0.3 Au volant | ✅ 2026-11-10 (dernière version publique) |
+| Prochaine version | ⬜ quand la tranche tient son critère |

@@ -3,6 +3,8 @@
 *French version: [systems-inventory.fr.md](systems-inventory.fr.md). Roadmap: [roadmap.md](roadmap.md).*
 *Review of 2026-11-10, after shipping 0.2. Updated at the end of every version.*
 
+> **Note of 2026-11-12.** The version columns refer to roadmap v3. [Roadmap v4](roadmap.md) replaces that order: mechanics and NPCs in the rue de la République slice come first, the rest is frozen.
+
 This document lists **every** system a player expects from a GTA- or Red
 Dead Redemption-style open world, and states where each one stands in Gran
 Theft Praline. It is a checklist: a system with neither a version nor a

@@ -3,6 +3,8 @@
 *French version: [test-phase-plan.fr.md](test-phase-plan.fr.md). Roadmap: [roadmap.md](roadmap.md). Systems: [systems-inventory.md](systems-inventory.md).*
 *Review of 2026-11-11, during the performance worksite (`next` = 3dcf33b). Complements roadmap v3: it sets what 0.9 must hold so it can be tested, what is missing, and the order of work.*
 
+> **Paused since 2026-11-12.** [Roadmap v4](roadmap.md) postpones 0.9 and focuses on the rue de la République slice. This plan stays as a reference for later.
+
 ---
 
 ## 1. The objective, restated

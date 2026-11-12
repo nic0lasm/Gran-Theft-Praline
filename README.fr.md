@@ -16,7 +16,7 @@
 
 <p align="center">
   <a href="https://github.com/nic0lasm/Gran-Theft-Praline/releases/tag/v0.3.0"><img alt="Télécharger la 0.3.0" src="https://img.shields.io/badge/t%C3%A9l%C3%A9charger-0.3.0%20pour%20macOS-success?logo=apple"></a>
-  <img alt="Build de test 0.9.0 en préparation" src="https://img.shields.io/badge/prochaine-0.9.0%20build%20de%20test%20du%20quartier-orange">
+  <img alt="En cours : tranche rue de la République sur PC" src="https://img.shields.io/badge/en%20cours-tranche%20rue%20de%20la%20R%C3%A9publique%20(PC)-orange">
   <a href="https://github.com/nic0lasm/Gran-Theft-Praline/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/nic0lasm/Gran-Theft-Praline/actions/workflows/ci.yml/badge.svg?branch=main"></a>
   <img alt="Unreal Engine 5.8" src="https://img.shields.io/badge/Unreal%20Engine-5.8-0e1128?logo=unrealengine">
   <a href="LICENSE"><img alt="Licence : MIT" src="https://img.shields.io/badge/licence-MIT-blue.svg"></a>
@@ -87,7 +87,7 @@ profil de qualité **M1** du quotidien. Aucune retouche.
   </tr>
   <tr>
     <td><img src="docs/media/readme/0.3-on-foot-crossroads.jpg" alt="En jeu : carrefour avec immeuble d'angle, bancs et une voiture au loin" width="100%"><br><sub>Un carrefour, avec la circulation au loin (0.3)</sub></td>
-    <td><img src="docs/media/readme/real-quai-jean-moulin.jpg" alt="Photo du quai Jean-Moulin au bord du Rhône, platanes, circulation et promenade" width="100%"><br><sub><b>Prochaine étape :</b> le vrai quai Jean-Moulin au bord du Rhône, qui arrive avec le pont Lafayette dans la 0.3. Photo : Corentin Eustacchi, <a href="https://commons.wikimedia.org/wiki/File:Quai_Jean-Moulin_(Lyon,_2025).jpg">Wikimedia Commons</a>, CC BY-SA 4.0, recadrée.</sub></td>
+    <td><img src="docs/media/readme/real-quai-jean-moulin.jpg" alt="Photo du quai Jean-Moulin au bord du Rhône, platanes, circulation et promenade" width="100%"><br><sub>Le vrai quai Jean-Moulin au bord du Rhône, au bout du trajet en voiture de la 0.3. Photo : Corentin Eustacchi, <a href="https://commons.wikimedia.org/wiki/File:Quai_Jean-Moulin_(Lyon,_2025).jpg">Wikimedia Commons</a>, CC BY-SA 4.0, recadrée.</sub></td>
   </tr>
 </table>
 
@@ -144,86 +144,65 @@ Tous les détails : [personnage](docs/gameplay/player-character.fr.md),
 | ✅ | **0.2** La rue habillée | flâner dans une rue fidèle et habillée, sur un portable M1 | sortie le 10 nov. 2026 |
 | ✅ | **0.3** Au volant | voler une voiture et traverser la circulation jusqu'au quai du Rhône et au pont Lafayette | sortie le 10 nov. 2026 |
 
-La version 0.3.0 est la dernière version publique. Depuis, le travail a
-beaucoup avancé sur la branche de pré-production `next`, vers la **0.9.0,
-un build de test du quartier** pour l'auteur et quelques proches, sur Mac
-et Windows.
+La 0.3.0 reste la dernière version publique. Sur la branche de
+pré-production `next`, beaucoup de systèmes existent déjà en code : piétons
+et témoins, trafic, police et étoiles, combat à mains nues et au pistolet,
+ragdoll, jour, nuit et météo, un premier intérieur. La plupart sont **à
+moitié finis**.
 
-### Déjà dans `next` (candidat 16, version 0.9.0)
-
-Tout ce qui suit a été mesuré sur le M1 Pro avec un build packagé, et a
-passé la porte de fusion (4 scènes, cible d'image à 25 ms) avant d'entrer :
-
-- **Le premier intérieur : un fast-food de la rue de la République
-  (Bellecour).** Éclairé et lisible (luminance moyenne 89/255, il était
-  presque noir à 10/255), avec des clients en file aux caisses (6 clients,
-  environ 11 servis par minute). Vrais noms en lettrage, aucun logo.
-- **Plus de piétons :** 24 simulés, 20 dessinés au plus (10 avant).
-- **Nuages pilotés par la météo** dans le ciel.
-- **Écran titre** avec la version, et un écran **Crédits**.
-- **Premier lancement corrigé sur le M1 :** de 29,4 ms à 20,9 ms de GPU, en
-  réglant l'anticrénelage sur Moyen. Le plantage intermittent du Mac
-  (réserve de voitures du trafic) est aussi corrigé.
-- **Temps d'image (GPU p95, M1) :** rue fixe 20,9 ms, parcours démo
-  22,2 ms, nuit 23,8 ms, pluie 23,2 ms, intérieur 19,8 ms ; 100 % des
-  images à 25 ± 1 ms.
-- **Endurance :** 5 passes de 600 s avec un dossier utilisateur neuf, aucun
-  plantage. Une chasse aux plantages sur Windows passe aussi.
-
-### En cours, pas encore dans `next`
-
-Le candidat 17 et ce qui l'entoure, tant que ce n'est pas mesuré sur le M1 :
-
-- un ciel couvert gris, des maillages de pluie et de dôme, des vitrines
-  éclairées de jour, des lumières de voiture éteintes de jour (suspectes
-  d'un ralentissement aléatoire de +6 ms dans le parcours démo, dont la
-  cause est le trafic) ;
-- des surfaces scannées pour la rue ;
-- un second look de piéton (un second maillage civil gratuit) ;
-- l'habillage de la cuisine du fast-food, avec des assets gratuits
-  uniquement.
+**Honnêtement, l'image est encore loin du but.** La première comparaison
+photo réelle / capture du jeu (12 novembre) donne 1 sur 5 au mieux : ombres
+trop noires, carte vide au-delà de 45 m, sol sans texture réaliste,
+vitrines et nuit noires, joueur en mannequin. Le projet a donc été recadré
+le 12 novembre 2026.
 
 ## Feuille de route
 
-Le jeu avance par **versions jouables** : chacune se lance d'un double-clic
-et ajoute quelque chose qu'on voit ou qu'on fait.
+**Priorité 1 : un GTA-like réaliste du centre de Lyon**, avec les mécaniques
+de GTA et des personnages qui réagissent (piétons, trafic crédible, police
+qui traque). Tout l'effort va sur **une tranche de 300 à 400 m de la rue de
+la République, de Bellecour aux Jacobins.**
 
-| Version | On peut… | Visée |
-| ---- | ---- | ---- |
-| 0.4 La rue vivante | croiser des piétons qui réagissent, s'arrêter aux feux, renverser le mobilier | déc. 2026 |
-| 0.5 La police arrive | être recherché (1-2 étoiles), poursuivi en voiture, arrêté ou semer la police | déc. 2026 |
-| 0.6 Jour et nuit | rouler de jour, au crépuscule, de nuit et sous la pluie | janv. 2027 |
-| 0.7 Armé | se battre à mains nues et au pistolet, se mettre à couvert, mourir et réapparaître | févr. 2027 |
-| 0.8 La vie en ville | entrer dans une boutique sans chargement, acheter, la braquer, gagner de l'argent, sauvegarder | mars 2027 |
-| 0.9 Tout le quartier | parcourir Bellecour → Terreaux sans chargement | avr. 2027 |
-| 0.10 à 0.12 | carte de la ville et GPS, six armes, missions, scooter et Vélo'v | été 2027 |
-| 0.13 à 0.17 | façades et monuments définitifs, intérieurs, habitants et voitures, le son de Lyon, finitions | début 2028 |
-| **1.0** Tranche verticale | jouer tout le nord de la Presqu'île, de Bellecour aux Terreaux | début 2028 |
+Elle sera finie quand **10 minutes de jeu y ressemblent à GTA** (vidéo sans
+montage : voler une voiture, rouler dans le trafic, passants qui
+réagissent, combat, étoiles, poursuite) et quand **5 paires photo réelle /
+capture du jeu** tiennent la comparaison.
 
-Les dates sont des ordres de grandeur à faible confiance, revus à chaque
-version. Détails : [feuille de route complète](production/roadmap.fr.md),
+| Quand (ordre de grandeur) | Quoi |
+| ---- | ---- |
+| Fin novembre 2026 | La tranche rue de la République, sur PC |
+| Mi à fin décembre 2026 | Le nord de la Presqu'île, de Bellecour aux Terreaux |
+| Février 2027 | Portage Mac |
+| Vers février 2027, avec une forte marge | Un quartier jouable et beau sur PC |
+| Ensuite | L'histoire : des vols de produits lyonnais et des fuites par les traboules |
+
+En attendant, les missions, les menus, les intérieurs, la sauvegarde de
+partie et l'audio sont gelés. Le build de test 0.9 est reporté. Les assets
+restent **gratuits uniquement** (Megascans, MetaHuman, City Sample, Fab
+gratuit, fait maison).
+
+Détails : [feuille de route](production/roadmap.fr.md),
+[tableau de bord](production/roadmap-status.fr.md),
 [inventaire des systèmes](production/systems-inventory.fr.md),
 [concept du jeu](design/gdd/game-concept.fr.md).
 
-### Deux profils de qualité
+### Le PC d'abord, le Mac ensuite
 
-| Profil | Ce que c'est | Cible |
-| ---- | ---- | ---- |
-| **Ultra** | La vraie cible visuelle : assets en pleine résolution, Nanite, Lumen haute qualité | Une machine puissante (GPU dédié récent ou Apple Silicon haut de gamme) |
-| **M1** | Le profil jouable du quotidien sur un portable Apple M1 Pro | environ 30 i/s en 1080p |
+| Machine | Rôle |
+| ---- | ---- |
+| **PC Windows** (RTX 3070 Ti) | Machine de référence : l'image s'y règle avec Lumen matériel et Nanite, et chaque changement doit y compiler et y tourner sans plantage avant d'entrer sur `next` |
+| **Mac Apple Silicon** (M1 Pro) | Une mesure par nuit, à titre d'alerte ; le portage jouable vient en février 2027. Les versions publiées jusqu'ici (0.1 à 0.3) sont pour Mac |
 
-Le profil M1 ne baisse que les réglages graphiques ; les modèles et les
-matériaux ne sont jamais simplifiés. Voir
-[ADR-0001](docs/adr/adr-0001-rendering-pipeline.fr.md) et
+Voir [ADR-0001](docs/adr/adr-0001-rendering-pipeline.fr.md) et
 [ADR-0002](docs/adr/adr-0002-performance-budget.fr.md).
 
 ## Le compiler soi-même
 
 ### Prérequis
 
-- Un Mac Apple Silicon
+- Un PC Windows avec une carte graphique récente (machine de référence) ou un Mac Apple Silicon
 - [Unreal Engine 5.8](https://www.unrealengine.com/) (Epic Games Launcher)
-- Xcode avec la chaîne d'outils Metal
+- Sur Windows : Visual Studio avec les outils C++ ; sur Mac : Xcode avec la chaîne d'outils Metal
 - [Git LFS](https://git-lfs.com/)
 - Python 3 (outils de ville et d'assets)
 
@@ -253,6 +232,9 @@ tools/build/package-mac.sh        # → Builds/<version>/GranTheftPraline.app
 tools/build/test-build-mac.sh     # test de 10 minutes, vidéo et temps d'image
 ```
 
+Sur Windows : `powershell -ExecutionPolicy Bypass -File tools\build\package-win.ps1`
+(package dans `Builds\<version>\`).
+
 Guide pas à pas : [compilation macOS en un clic](docs/build/one-click-build.fr.md).
 
 ### Technologie
@@ -261,7 +243,7 @@ Guide pas à pas : [compilation macOS en un clic](docs/build/one-click-build.fr.
 | ---- | ---- |
 | Moteur | Unreal Engine 5.8 : Lumen, Virtual Shadow Maps, Substrate, TSR |
 | Code | C++ pour les systèmes de jeu, Blueprint pour le prototypage |
-| Plateforme | macOS Apple Silicon (Metal) d'abord ; des packages Windows sont construits pour les tests |
+| Plateforme | Windows (DirectX 12) pour régler l'image et valider chaque changement ; macOS Apple Silicon (Metal) pour les versions publiées jusqu'ici et le portage de 2027 |
 | Bases de gameplay | Les briques gratuites d'Epic : Game Animation Sample, Gameplay Ability System, Chaos Vehicles, StateTree |
 | Ville | IGN (BD TOPO, LiDAR HD, RGE ALTI), data.grandlyon.com et OpenStreetMap, traités par [tools/city](tools/city/) et [tools/geo-pipeline](tools/geo-pipeline/) |
 | Graphisme | Quixel Megascans, Poly Haven et ambientCG (CC0), Blender ; voir la [bible artistique](docs/art/art-bible.fr.md) |

@@ -16,7 +16,7 @@
 
 <p align="center">
   <a href="https://github.com/nic0lasm/Gran-Theft-Praline/releases/tag/v0.3.0"><img alt="Download 0.3.0" src="https://img.shields.io/badge/download-0.3.0%20for%20macOS-success?logo=apple"></a>
-  <img alt="0.9.0 test build in preparation" src="https://img.shields.io/badge/next-0.9.0%20district%20test%20build-orange">
+  <img alt="In progress: rue de la République slice on PC" src="https://img.shields.io/badge/in%20progress-rue%20de%20la%20R%C3%A9publique%20slice%20(PC)-orange">
   <a href="https://github.com/nic0lasm/Gran-Theft-Praline/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/nic0lasm/Gran-Theft-Praline/actions/workflows/ci.yml/badge.svg?branch=main"></a>
   <img alt="Unreal Engine 5.8" src="https://img.shields.io/badge/Unreal%20Engine-5.8-0e1128?logo=unrealengine">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
@@ -85,7 +85,7 @@ quality profile. Nothing is retouched.
   </tr>
   <tr>
     <td><img src="docs/media/readme/0.3-on-foot-crossroads.jpg" alt="In-game: a crossroads with a corner building, benches and a car in the distance" width="100%"><br><sub>A crossroads with traffic in the distance (0.3)</sub></td>
-    <td><img src="docs/media/readme/real-quai-jean-moulin.jpg" alt="Photo of quai Jean-Moulin along the Rhône, plane trees, traffic and the riverside walk" width="100%"><br><sub><b>Next stop:</b> the real quai Jean-Moulin by the Rhône, coming in 0.3 with Pont Lafayette. Photo: Corentin Eustacchi, <a href="https://commons.wikimedia.org/wiki/File:Quai_Jean-Moulin_(Lyon,_2025).jpg">Wikimedia Commons</a>, CC BY-SA 4.0, cropped.</sub></td>
+    <td><img src="docs/media/readme/real-quai-jean-moulin.jpg" alt="Photo of quai Jean-Moulin along the Rhône, plane trees, traffic and the riverside walk" width="100%"><br><sub>The real quai Jean-Moulin by the Rhône, at the end of the 0.3 drive. Photo: Corentin Eustacchi, <a href="https://commons.wikimedia.org/wiki/File:Quai_Jean-Moulin_(Lyon,_2025).jpg">Wikimedia Commons</a>, CC BY-SA 4.0, cropped.</sub></td>
   </tr>
 </table>
 
@@ -141,82 +141,64 @@ Full details: [player character](docs/gameplay/player-character.md),
 | ✅ | **0.2** The dressed street | stroll down a faithful, dressed street on an M1 laptop | released Nov 10, 2026 |
 | ✅ | **0.3** Behind the wheel | steal a car and drive through traffic to the Rhône quay and Pont Lafayette | released Nov 10, 2026 |
 
-Version 0.3.0 is the latest public release. Since then the work has moved
-fast on the `next` pre-release branch, towards **0.9.0, a district test
-build** for the author and a few friends, on Mac and Windows.
+Version 0.3.0 is still the latest public release. On the `next`
+pre-production branch, many systems already exist in code: pedestrians and
+witnesses, traffic, police and wanted stars, bare-hands and pistol combat,
+ragdoll, day, night and weather, a first interior. Most of them are **half
+finished**.
 
-### Already in `next` (candidate 16, version 0.9.0)
-
-Everything here was measured on the M1 Pro with a packaged build, and
-passed the merge gate (4 scenes, 25 ms frame target) before landing:
-
-- **The first interior: a fast-food on rue de la République (Bellecour).**
-  Lit and readable (average luminance 89/255, it was nearly black at 10/255
-  before), with customers queuing at the tills (6 customers, about 11 served
-  per minute). Real shop names in lettering, no logos.
-- **More pedestrians:** 24 simulated, up to 20 drawn (10 before).
-- **Weather-driven clouds** in the sky.
-- **Title screen** showing the version, with a **Credits** screen.
-- **First launch fixed on the M1:** 29.4 ms down to 20.9 ms GPU, by setting
-  anti-aliasing to Medium. The sporadic Mac crash (traffic car pool) is
-  fixed too.
-- **Frame times (GPU p95, M1):** fixed street 20.9 ms, demo drive 22.2 ms,
-  night 23.8 ms, rain 23.2 ms, interior 19.8 ms; 100 % of frames at
-  25 ± 1 ms.
-- **Endurance:** 5 runs of 600 s with a fresh user directory, no crash.
-  A Windows crash hunt also passes.
-
-### In progress, not in `next` yet
-
-Candidate 17 and the content around it, until measured on the M1:
-
-- an overcast grey sky, rain and dome meshes, lit shopfronts by day,
-  car lights switched off by day (they were a suspect for a random +6 ms
-  slowdown in the demo drive, whose cause is the traffic);
-- scanned surfaces for the street;
-- a second pedestrian look (a second free civilian mesh);
-- dressing the fast-food kitchen with free assets only.
+**Honestly, the image is still far from the goal.** The first real photo /
+game capture comparison (November 12) scores 1 out of 5 at best: shadows
+too dark, an empty map beyond 45 m, ground without realistic texture, black
+shop windows and night, a mannequin player. So the project was refocused on
+November 12, 2026.
 
 ## Roadmap
 
-The game moves forward in **playable versions**: each one launches with a
-double-click and adds something you can see or do.
+**Priority 1: a realistic GTA-like of central Lyon**, with GTA's mechanics
+and characters who react (pedestrians, believable traffic, police who hunt
+you down). All effort goes into **a 300 to 400 m slice of rue de la
+République, from Bellecour to the Jacobins.**
 
-| Version | You can… | Target |
-| ---- | ---- | ---- |
-| 0.4 The living street | meet pedestrians who react, stop at traffic lights, knock street furniture over | Dec 2026 |
-| 0.5 The police arrive | get wanted (1-2 stars), be chased by car, get arrested or lose the police | Dec 2026 |
-| 0.6 Day and night | drive by day, at dusk, at night and in the rain | Jan 2027 |
-| 0.7 Armed | fight bare-handed and with a pistol, take cover, die and respawn | Feb 2027 |
-| 0.8 City life | enter a shop without loading, buy, rob it, earn money, save | Mar 2027 |
-| 0.9 The whole district | roam from Bellecour to the Terreaux without loading | Apr 2027 |
-| 0.10 to 0.12 | city map and GPS, six weapons, missions, scooter and Vélo'v | summer 2027 |
-| 0.13 to 0.17 | final façades and landmarks, interiors, people and cars, the sound of Lyon, polish | early 2028 |
-| **1.0** Vertical slice | play the whole northern Presqu'île, Bellecour → Terreaux | early 2028 |
+It is done when **10 minutes of play there feel like GTA** (an unedited
+video: steal a car, drive through traffic, passers-by who react, combat,
+wanted stars, a chase) and when **5 real photo / game capture pairs** hold
+up.
 
-Dates are low-confidence orders of magnitude, reviewed after every version.
-Details: [full roadmap](production/roadmap.md),
+| When (order of magnitude) | What |
+| ---- | ---- |
+| End of November 2026 | The rue de la République slice, on PC |
+| Mid to late December 2026 | The northern Presqu'île, Bellecour to Terreaux |
+| February 2027 | Mac port |
+| Around February 2027, with a wide margin | A playable, good-looking neighbourhood on PC |
+| Then | The story: thefts of Lyon specialities and getaways through the traboules |
+
+Meanwhile missions, menus, interiors, game saves and audio are frozen. The
+0.9 test build is postponed. Assets stay **free only** (Megascans,
+MetaHuman, City Sample, free Fab content, home-made).
+
+Details: [roadmap](production/roadmap.md),
+[dashboard](production/roadmap-status.md),
 [systems inventory](production/systems-inventory.md),
 [game concept](design/gdd/game-concept.md).
 
-### Two quality profiles
+### PC first, Mac later
 
-| Profile | What it is | Target |
-| ---- | ---- | ---- |
-| **Ultra** | The real visual target: full-resolution assets, Nanite, high-quality Lumen | A powerful machine (recent dedicated GPU or high-end Apple Silicon) |
-| **M1** | The everyday playable profile on an Apple M1 Pro laptop | about 30 fps at 1080p |
+| Machine | Role |
+| ---- | ---- |
+| **Windows PC** (RTX 3070 Ti) | Reference machine: the image is tuned there with hardware Lumen and Nanite, and every change must compile and run there without a crash before it lands on `next` |
+| **Apple Silicon Mac** (M1 Pro) | One nightly measurement as an early warning; the playable port comes in February 2027. The releases so far (0.1 to 0.3) are for Mac |
 
-The M1 profile only lowers graphics settings; models and materials are never
-simplified. See [ADR-0001](docs/adr/adr-0001-rendering-pipeline.md) and
+See [ADR-0001](docs/adr/adr-0001-rendering-pipeline.md) and
 [ADR-0002](docs/adr/adr-0002-performance-budget.md).
 
 ## Build it yourself
 
 ### Requirements
 
-- A Mac with Apple Silicon
+- A Windows PC with a recent graphics card (reference machine) or a Mac with Apple Silicon
 - [Unreal Engine 5.8](https://www.unrealengine.com/) (Epic Games Launcher)
-- Xcode with the Metal toolchain
+- On Windows: Visual Studio with the C++ tools; on Mac: Xcode with the Metal toolchain
 - [Git LFS](https://git-lfs.com/)
 - Python 3 (city and asset tools)
 
@@ -246,6 +228,9 @@ tools/build/package-mac.sh        # → Builds/<version>/GranTheftPraline.app
 tools/build/test-build-mac.sh     # 10-minute test, video and frame times
 ```
 
+On Windows: `powershell -ExecutionPolicy Bypass -File tools\build\package-win.ps1`
+(package in `Builds\<version>\`).
+
 Step-by-step guide: [one-click macOS build](docs/build/one-click-build.md).
 
 ### Technology
@@ -254,7 +239,7 @@ Step-by-step guide: [one-click macOS build](docs/build/one-click-build.md).
 | ---- | ---- |
 | Engine | Unreal Engine 5.8: Lumen, Virtual Shadow Maps, Substrate, TSR |
 | Code | C++ for the game systems, Blueprint for prototyping |
-| Platform | macOS on Apple Silicon (Metal) first; Windows packages are built for testing |
+| Platform | Windows (DirectX 12) to tune the image and validate every change; macOS on Apple Silicon (Metal) for the releases so far and the 2027 port |
 | Gameplay foundations | Epic's free building blocks: Game Animation Sample, Gameplay Ability System, Chaos Vehicles, StateTree |
 | City | IGN (BD TOPO, LiDAR HD, RGE ALTI), data.grandlyon.com and OpenStreetMap, processed by [tools/city](tools/city/) and [tools/geo-pipeline](tools/geo-pipeline/) |
 | Art | Quixel Megascans, Poly Haven and ambientCG (CC0), Blender; see the [art bible](docs/art/art-bible.md) |
