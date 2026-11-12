@@ -1,0 +1,16 @@
+{
+  "errors": [],
+  "created": [
+    "/Game/Environment/Weather/SM_RainLayer",
+    "/Game/Environment/Weather/SM_CloudDome"
+  ],
+  "patched": [],
+  "skipped": [],
+  "cloud_material_scalar_parameters": [
+    "Layout_CloudGlobalScale",
+    "Cloud_GlobalCoverage",
+    "Cloud_GlobalDensity",
+    "StormClouds",
+    "Storm_LightningTexScale"
+  ]
+}
