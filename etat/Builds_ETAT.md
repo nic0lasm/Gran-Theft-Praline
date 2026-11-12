@@ -1,5 +1,5 @@
-# Mac state 2026-11-12 13:11 Paris
+# Mac state 2026-11-12 13:21 Paris
 
-- block: cand14 d7487ca
-- last line: 13:11 list50 starts (list49 stopped after the police-demo push and its check)
+- block: starting
+- last line: 13:12 == cand14-build start
 - startup crashes: 3
