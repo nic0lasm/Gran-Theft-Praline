@@ -35,6 +35,8 @@ class GRANTHEFTPRALINE_API UGTPInteriorStreaming : public UTickableWorldSubsyste
 {
 	GENERATED_BODY()
 
+	friend class UGTPInteriorExposureModifier;   // reads the exposure settings and weight
+
 public:
 	virtual bool ShouldCreateSubsystem(UObject* Outer) const override;
 	virtual void OnWorldBeginPlay(UWorld& InWorld) override;
