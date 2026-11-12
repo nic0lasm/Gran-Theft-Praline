@@ -1,5 +1,5 @@
 {
- "about": "Scanned surfaces of the street (Megascans, Fab free, 2K, Unreal export: T_*_D, T_*_N, T_*_ORDp). Never in Git: they live in the project Content. id = folder name under /Game/Environment/Surfaces/<id>/ (or any folder whose path holds the id), match = name words that find a Megascans folder when the id is not in its path. tile_cm = real size of one texture repeat. Used by tools/city/unreal/import_surfaces.py and gtp_surfaces.py. match_any = other word sets that also find it (any one set, every word in it). tint = linear RGB: the colour map is turned grey and multiplied by it (a red painted roof becomes zinc). gain = multiplier on the colour map.",
+ "about": "Scanned surfaces of the street (Megascans, Fab free, 2K, Unreal export: T_*_D, T_*_N, T_*_ORDp). Never in Git: they live in the project Content. id = folder name under /Game/Environment/Surfaces/<id>/ (or any folder whose path holds the id), match = name words that find a Megascans folder when the id is not in its path. tile_cm = real size of one texture repeat. Used by tools/city/unreal/import_surfaces.py and gtp_surfaces.py. match_any = other word sets that also find it (any one set, every word in it). tint = linear RGB: the colour map is turned grey and multiplied by it (a red painted roof becomes zinc). gain = multiplier on the colour map. exclude = words a matching folder must not hold (a surface never takes a decal's folder).",
  "surfaces": [
   {
    "id": "granite_slab_light",
@@ -18,7 +18,13 @@
     ]
    ],
    "gain": 1.6,
-   "note": "Granite Paving Slabs (Fab 12/11); gain 1.6: the scan read darker than the street's light granite (PC A/B 12/11)"
+   "note": "Granite Paving Slabs (Fab 12/11); gain 1.6: the scan read darker than the street's light granite (PC A/B 12/11)",
+   "exclude": [
+    "crack",
+    "decal",
+    "stain",
+    "gum"
+   ]
   },
   {
    "id": "limestone_ashlar",
@@ -40,7 +46,13 @@
      "wall"
     ]
    ],
-   "note": "Fab 11/11: Roman Limestone Wall"
+   "note": "Fab 11/11: Roman Limestone Wall",
+   "exclude": [
+    "crack",
+    "decal",
+    "stain",
+    "gum"
+   ]
   },
   {
    "id": "render_ochre",
@@ -61,6 +73,12 @@
      "plaster",
      "wall"
     ]
+   ],
+   "exclude": [
+    "crack",
+    "decal",
+    "stain",
+    "gum"
    ]
   },
   {
@@ -72,7 +90,13 @@
     "granite",
     "kerb"
    ],
-   "fab": "grey granite kerb stone"
+   "fab": "grey granite kerb stone",
+   "exclude": [
+    "crack",
+    "decal",
+    "stain",
+    "gum"
+   ]
   },
   {
    "id": "zinc_roof",
@@ -95,7 +119,13 @@
     0.44,
     0.46
    ],
-   "note": "Fab 11/11: Worn Painted Metal Roof (red paint): desaturated and tinted zinc grey"
+   "note": "Fab 11/11: Worn Painted Metal Roof (red paint): desaturated and tinted zinc grey",
+   "exclude": [
+    "crack",
+    "decal",
+    "stain",
+    "gum"
+   ]
   },
   {
    "id": "slate_roof",
@@ -106,7 +136,13 @@
     "slate",
     "roof"
    ],
-   "fab": "slate roof tiles"
+   "fab": "slate roof tiles",
+   "exclude": [
+    "crack",
+    "decal",
+    "stain",
+    "gum"
+   ]
   },
   {
    "id": "asphalt_dry",
@@ -114,10 +150,17 @@
    "role": "ground.road",
    "tile_cm": 400,
    "match": [
-    "asphalt"
+    "asphalt",
+    "road"
    ],
    "fab": "worn dry urban asphalt",
-   "note": "Asphalt Road (Fab 12/11)"
+   "note": "Asphalt Road (Fab 12/11)",
+   "exclude": [
+    "crack",
+    "decal",
+    "stain",
+    "gum"
+   ]
   },
   {
    "id": "granite_setts",
@@ -135,6 +178,12 @@
      "cobblestone",
      "floor"
     ]
+   ],
+   "exclude": [
+    "crack",
+    "decal",
+    "stain",
+    "gum"
    ]
   },
   {
@@ -152,6 +201,12 @@
      "sidewalk",
      "tiles"
     ]
+   ],
+   "exclude": [
+    "crack",
+    "decal",
+    "stain",
+    "gum"
    ]
   },
   {
@@ -169,6 +224,12 @@
      "stone",
      "pavement"
     ]
+   ],
+   "exclude": [
+    "crack",
+    "decal",
+    "stain",
+    "gum"
    ]
   },
   {
@@ -187,6 +248,12 @@
      "roof",
      "tiles"
     ]
+   ],
+   "exclude": [
+    "crack",
+    "decal",
+    "stain",
+    "gum"
    ]
   },
   {
@@ -199,7 +266,13 @@
     "painted",
     "metal"
    ],
-   "fab": "dark green or black painted metal, slightly worn"
+   "fab": "dark green or black painted metal, slightly worn",
+   "exclude": [
+    "crack",
+    "decal",
+    "stain",
+    "gum"
+   ]
   },
   {
    "id": "tactile_paving",
@@ -209,7 +282,13 @@
    "match": [
     "tactile"
    ],
-   "fab": "tactile paving"
+   "fab": "tactile paving",
+   "exclude": [
+    "crack",
+    "decal",
+    "stain",
+    "gum"
+   ]
   },
   {
    "id": "cast_iron_grate",
@@ -219,7 +298,13 @@
    "match": [
     "grate"
    ],
-   "fab": "cast iron tree grate / drain grate"
+   "fab": "cast iron tree grate / drain grate",
+   "exclude": [
+    "crack",
+    "decal",
+    "stain",
+    "gum"
+   ]
   },
   {
    "id": "decal_dirt",
