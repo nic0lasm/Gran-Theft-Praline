@@ -20,9 +20,13 @@ Run with tools/city/unreal/surfaces_mac.sh.
 import json
 import os
 import re
+import sys
 import time
 
 import unreal
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")))
+from surface_files import IMAGE, loose_images as _loose_images, norm as _norm, role_of, word_sets  # noqa: E402,F401
 
 REPO = os.path.abspath(os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_dir()), ".."))
 CATALOG = os.path.join(REPO, "tools", "city", "surfaces.json")
@@ -35,28 +39,10 @@ SKIP = ("/Game/Environment/City/", "/Game/Environment/Facades/", "/Game/Maps/", 
 
 eal = unreal.EditorAssetLibrary
 
-# Texture role from its name, Megascans first (T_<name>_<id>_2K_D / _N / _ORDp), then generic.
-ROLES = (
-    ("rough", re.compile(r"(_ORDp?|_ORM|_ARD|_ORD)$", re.I), "G"),
-    ("rough", re.compile(r"(_R|rough(ness)?)$", re.I), "R"),
-    ("ao", re.compile(r"(_AO|ambient_?occlusion)$", re.I), None),
-    ("opacity", re.compile(r"(_O|opacity|alpha)$", re.I), None),     # decals
-    ("normal", re.compile(r"(_N|normal(gl|dx)?)$", re.I), None),
-    ("basecolor", re.compile(r"(_D|_BC|basecolou?r|albedo|diffuse)$", re.I), None),
-)
-IMAGE = (".png", ".jpg", ".jpeg", ".tga", ".exr", ".tif", ".tiff")
 
 
 def log(msg):
     unreal.log_warning("[Surfaces] " + msg)
-
-
-def role_of(name):
-    stem = re.sub(r"_(1|2|4|8)K", "", name, flags=re.I)
-    for role, rx, ch in ROLES:
-        if rx.search(stem):
-            return role, ch
-    return None, None
 
 
 def textures_by_folder():
@@ -75,16 +61,6 @@ def textures_by_folder():
     return out
 
 
-def word_sets(entry):
-    """match, then each set of match_any: a folder matches a set when it holds every word."""
-    sets = [entry.get("match", [])] + entry.get("match_any", [])
-    return [[w.lower() for w in ws] for ws in sets if ws]
-
-
-def _norm(path):
-    return re.sub(r"[\s_\-]+", "", path.lower())
-
-
 def find_folder(entry, folders):
     sid = entry["id"].lower()
     by_id = sorted(f for f in folders if sid in f.lower())
@@ -98,34 +74,7 @@ def find_folder(entry, folders):
 
 
 def loose_images(entry):
-    """Images of one loose export: <LOOSE>/<id>/, else the first folder under LOOSE (any depth)
-    whose path matches a word set (Fab exports keep their listing name, e.g. "Roman Limestone
-    Wall"). One file per role, the 2K one when there are several resolutions."""
-    src = os.path.join(LOOSE, entry["id"])
-    roots = [src] if os.path.isdir(src) else []
-    if not roots:
-        for words in word_sets(entry):
-            for d, _, _ in sorted(os.walk(LOOSE)):
-                rel = _norm(os.path.relpath(d, LOOSE))
-                if rel != "." and all(_norm(w) in rel for w in words):
-                    roots.append(d)
-                    break
-            if roots:
-                break
-    if not roots:
-        return []
-    found = {}
-    for d, _, files in sorted(os.walk(roots[0])):
-        for fn in sorted(files):
-            if not fn.lower().endswith(IMAGE):
-                continue
-            role, _ = role_of(os.path.splitext(fn)[0])
-            if not role or role == "ao":     # AO is not used by the layers
-                continue
-            path = os.path.join(d, fn)
-            if role not in found or ("2k" in fn.lower() and "2k" not in os.path.basename(found[role]).lower()):
-                found[role] = path
-    return sorted(found.values())
+    return _loose_images(entry, LOOSE)
 
 
 def import_loose(entry):
