@@ -70,6 +70,10 @@ LANDMARKS = [
      {"wall": "#d6cbb4", "roof": "#5b6168"}),          # corner tower of 79 rue de la Republique
     ("bassin-republique", "Bassin de la place de la République", "basin", ("way", "129172257"), None,
      {"wall": "#cfc8ba", "top": "#5f7378"}),           # stone coping, water (jets: props, later)
+    # No OSM footprint: position estimated from the reference photo V4 (+-10 m, to be set on the
+    # top view V0), on the north edge of the basin, street side. Local metres.
+    ("carrousel-republique", "Carrousel de la place de la République", "carousel", ("local", "172,-251"), None,
+     {"wall": "#e9e2cf", "top": "#b8423a", "radius_m": 6.0}),   # cream drum, red canopy
     ("fontaine-bartholdi", "Fontaine Bartholdi", "monument", ("way", "55071957"), "Q10144",
      {"wall": "#8f8a80", "top": "#3f4a45"}),           # granite basin, lead group
 ]
@@ -195,6 +199,41 @@ def ring_walls(m, ring, z0, z1, col, outward=True):
         if ccw != outward:
             a, b = b, a
         m.quad((a[0], a[1], z0), (b[0], b[1], z0), (b[0], b[1], z1), (a[0], a[1], z1), col)
+
+
+def carousel_mesh(centre, r, mnt, origin, origin_alt, col_body, col_canopy, seg=16):
+    """A fairground carousel stand-in: platform drum, central column, ring of poles and a
+    conical canopy with a skirt (6.5 m high for a 12 m wide carousel)."""
+    m = meshkit.Mesh()
+    body, canopy = meshkit.hex_rgb(col_body), meshkit.hex_rgb(col_canopy)
+    gz = float(mnt.sample(np.array([centre.x + origin[0]]), np.array([centre.y + origin[1]]))[0]) - origin_alt
+    cx, cy = centre.x, centre.y
+
+    def ring(rad, z):
+        return [(cx + rad * math.cos(2 * math.pi * k / seg), cy + rad * math.sin(2 * math.pi * k / seg), z)
+                for k in range(seg)]
+
+    def band(rad, z0, z1, col):
+        lo, hi = ring(rad, z0), ring(rad, z1)
+        for k in range(seg):
+            j = (k + 1) % seg
+            m.quad(lo[k], lo[j], hi[j], hi[k], col)
+
+    band(r, gz - SINK_M, gz + 0.6, body)                       # platform drum
+    for k, (x, y, _z) in enumerate(ring(r * 0.85, 0.0)):       # poles
+        if k % 2 == 0:
+            m.box(np.array([x, y, gz + 0.6]), np.array([1.0, 0.0, 0.0]), 0.12, 2.8, 0.12,
+                  np.array([0.0, -1.0, 0.0]), body)
+    band(0.6, gz + 0.6, gz + 3.4, body)                        # central column
+    top = ring(r * 1.05, gz + 3.6)
+    apex = (cx, cy, gz + 6.5)
+    for k in range(seg):
+        m.tri(top[k], top[(k + 1) % seg], apex, canopy)        # cone
+    band(r * 1.05, gz + 3.0, gz + 3.6, canopy)                 # skirt
+    low = ring(r * 1.05, gz + 3.0)
+    for k in range(seg):                                       # canopy underside
+        m.tri(low[(k + 1) % seg], low[k], (cx, cy, gz + 3.4), body)
+    return m, {"height_m": 6.5}
 
 
 def basin_mesh(poly, mnt, origin, origin_alt, col_wall, col_water):
@@ -328,7 +367,7 @@ def build_zone(zone, write=True):
     out, meshes = [], {}
     for key, name, kind, ref, qid, style in LANDMARKS:
         try:
-            g = osm_geometry(osm, ref, origin)
+            g = Point(*map(float, ref[1].split(","))) if ref[0] == "local" else osm_geometry(osm, ref, origin)
         except KeyError:
             out.append({"key": key, "name": name, "error": "OSM element %s/%s not in the zone" % ref})
             continue
@@ -342,6 +381,10 @@ def build_zone(zone, write=True):
             mesh, st = volume_mesh(fp, mns, mnt, origin, origin_alt, ROOF_GRID_M, style["wall"], style["roof"])
             covered = [i for i, b in bd if b.area > 0 and b.intersection(g).area >= COVER_SHARE * b.area]
             rec.update(courtyards_m2=court, replaces_bdtopo=covered)
+        elif kind == "carousel":
+            mesh, st = carousel_mesh(g, style["radius_m"], mnt, origin, origin_alt, style["wall"], style["top"])
+            fp = g.buffer(style["radius_m"], 12)
+            rec["replaces_bdtopo"] = []
         elif kind == "basin":
             fp = g
             mesh, st = basin_mesh(g, mnt, origin, origin_alt, style["wall"], style["top"])
