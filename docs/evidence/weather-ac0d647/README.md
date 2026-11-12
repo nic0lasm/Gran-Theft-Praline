@@ -41,3 +41,4 @@ cloud_coverage_params=Cloud_GlobalCoverage (-0.20) in /Engine/EngineSky/Volumetr
 | overcast-lf-mean-005-strength0.jpg | gtp.CloudShadowLF.Mean 0.05, gtp.CloudShadowLF.Strength 0 | 7.19 / 8.75 |
 
 Status file in the three runs: cloud_shadow_light_function=loaded, lf_mean=0.850, lf_strength=0.500, lf_coverage=1.000, lf_contrast=3.00; cvar_mean=0.300 / 0.120 / 0.050, cvar_strength=0.000.
+| overcast-lf-mean-008-strength0-exposure1.jpg | gtp.CloudShadowLF.Mean 0.08, gtp.CloudShadowLF.Strength 0, r.ExposureOffset 1 (Development package) | 7.28 / 8.84 |
