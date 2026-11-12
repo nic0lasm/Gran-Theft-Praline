@@ -117,6 +117,13 @@
     "fries_box",
     "fry_carton",
     "container_box_paper"
+   ],
+   "avoid": [
+    "damaged",
+    "dirty",
+    "eaten",
+    "old",
+    "rolled"
    ]
   },
   "salt_shaker": {
@@ -271,6 +278,13 @@
    "interactive": false,
    "keywords": [
     "container_box_styrofoam"
+   ],
+   "avoid": [
+    "damaged",
+    "dirty",
+    "eaten",
+    "old",
+    "rolled"
    ]
   },
   "kvs_screen": {
@@ -304,6 +318,13 @@
    "keywords": [
     "food_tray",
     "metal_tray"
+   ],
+   "avoid": [
+    "damaged",
+    "dirty",
+    "eaten",
+    "old",
+    "rolled"
    ]
   },
   "speed_rack": {
@@ -349,6 +370,13 @@
     "cup_paper",
     "paper_cup",
     "soda_cup"
+   ],
+   "avoid": [
+    "damaged",
+    "dirty",
+    "eaten",
+    "old",
+    "rolled"
    ]
   },
   "lid_kit": {
@@ -478,6 +506,13 @@
    "keywords": [
     "bag_paper",
     "paper_bag"
+   ],
+   "avoid": [
+    "damaged",
+    "dirty",
+    "eaten",
+    "old",
+    "rolled"
    ]
   },
   "tray_stack": {
@@ -488,6 +523,13 @@
    "interactive": false,
    "keywords": [
     "tray"
+   ],
+   "avoid": [
+    "damaged",
+    "dirty",
+    "eaten",
+    "old",
+    "rolled"
    ]
   },
   "order_screen": {
@@ -627,6 +669,13 @@
    "interactive": true,
    "keywords": [
     "paper_bag"
+   ],
+   "avoid": [
+    "damaged",
+    "dirty",
+    "eaten",
+    "old",
+    "rolled"
    ]
   },
   "desk": {
@@ -843,6 +892,13 @@
    ],
    "keywords": [
     "tray"
+   ],
+   "avoid": [
+    "damaged",
+    "dirty",
+    "eaten",
+    "old",
+    "rolled"
    ]
   },
   "wrapper": {
@@ -850,7 +906,14 @@
    "tris_lod0": 800,
    "sections": 1,
    "items_per_instance": 1,
-   "interactive": true
+   "interactive": true,
+   "avoid": [
+    "damaged",
+    "dirty",
+    "eaten",
+    "old",
+    "rolled"
+   ]
   },
   "burger_box": {
    "size": "small",
@@ -861,6 +924,13 @@
    "keywords": [
     "burger_box",
     "container_box_paper"
+   ],
+   "avoid": [
+    "damaged",
+    "dirty",
+    "eaten",
+    "old",
+    "rolled"
    ]
   },
   "fry_carton": {
@@ -874,6 +944,13 @@
     "food_fries",
     "fries_carton",
     "fries_box"
+   ],
+   "avoid": [
+    "damaged",
+    "dirty",
+    "eaten",
+    "old",
+    "rolled"
    ]
   },
   "cup": {
@@ -891,6 +968,13 @@
     "cup_paper",
     "paper_cup",
     "soda_cup"
+   ],
+   "avoid": [
+    "damaged",
+    "dirty",
+    "eaten",
+    "old",
+    "rolled"
    ]
   },
   "lid": {
@@ -898,7 +982,14 @@
    "tris_lod0": 700,
    "sections": 1,
    "items_per_instance": 1,
-   "interactive": true
+   "interactive": true,
+   "avoid": [
+    "damaged",
+    "dirty",
+    "eaten",
+    "old",
+    "rolled"
+   ]
   },
   "straw": {
    "size": "micro",
@@ -916,7 +1007,14 @@
    "tris_lod0": 400,
    "sections": 1,
    "items_per_instance": 1,
-   "interactive": true
+   "interactive": true,
+   "avoid": [
+    "damaged",
+    "dirty",
+    "eaten",
+    "old",
+    "rolled"
+   ]
   },
   "sauce_packet": {
    "size": "micro",

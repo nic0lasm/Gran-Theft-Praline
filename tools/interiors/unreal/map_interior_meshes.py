@@ -120,12 +120,14 @@ def main():
     for cls, info in sorted(catalog["classes"].items()):
         words = info.get("keywords", [])
         dims = info.get("dims_m", [])
+        # Words that disqualify a mesh for this class: packaging on a counter is new, not litter.
+        avoid = [norm(w) for w in info.get("avoid", [])]
         choice = None
         for word in words:
             key = norm(word)
             hits = {}
             for name, path in found:
-                if not has_word(name, key):
+                if not has_word(name, key) or any(has_word(name, bad) for bad in avoid):
                     continue
                 if has_word(norm(folder(path)), key):
                     # The keyword names the model (its folder): a glTF or FBX with several nodes is
