@@ -1,17 +1,3 @@
-10:07 lumen12 fixed-8: fixed-8: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.2 | gpu p50 13.82 p95 20.91 | gate PASS
-10:09 pushed etat
-10:09 lumen12 fixed-12: fixed-12: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.3 | gpu p50 13.63 p95 20.61 | gate PASS
-10:12 lumen12 night-12: night-12: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.1 | gpu p50 15.45 p95 23.72 | gate PASS
-10:12 pushed lumen12
-10:12 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
-10:12 list42 starts (list41 stopped after the lumen12 push and its check)
-10:12 pushed etat
-10:14 pushed etat
-10:14 list43 starts (list42 stopped while it was waiting for the ilfix proof)
-10:14 pushed etat
-10:14 quarter3: PC proof VERDICT: OK found
-10:14 pushed etat
-10:14 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
 10:14 == q3-build start
 10:35 == q3-build exit=0
 10:35 quarter3 build exit=0; - 10:35 DefaultGame.ini restored;- 10:35 restore: map and city content identical to the start (md5,     1018 files);
@@ -58,3 +44,17 @@
 11:37 pushed loop-endurance-1
 11:37 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
 11:37 list45 starts (list44 stopped after the loop-endurance-1 push and its check)
+11:37 pushed etat
+11:37 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+11:37 == firstlaunch-a start (street-fixed 120 s, fresh -userdir) 
+11:39 firstlaunch-a: exit 0 | a: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.1 | gpu p50 18.45 p95 29.39 | gate FAIL | kept: Resolution=0 ViewDistance=3 AntiAliasing=3 Shadow=1 GlobalIllumination=1 Reflection=1 PostProcess=3 Texture=2 Effects=2 Foliage=2 Shading=3 Landscape=3 
+11:40 == firstlaunch-b start (street-fixed 120 s, fresh -userdir) -GfxCVars=sg.ViewDistanceQuality=2,sg.AntiAliasingQuality=2,sg.PostProcessQuality=2,sg.ShadingQuality=2,sg.LandscapeQuality=2
+11:42 firstlaunch-b: exit 0 | b: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.6 | gpu p50 14.54 p95 21.29 | gate PASS | kept: Resolution=0 ViewDistance=2 AntiAliasing=2 Shadow=1 GlobalIllumination=1 Reflection=1 PostProcess=2 Texture=2 Effects=2 Foliage=2 Shading=2 Landscape=2 
+11:42 == firstlaunch-c start (street-fixed 120 s, fresh -userdir) -GfxCVars=sg.ShadowQuality=1,sg.GlobalIlluminationQuality=1,sg.ReflectionQuality=1,sg.ViewDistanceQuality=1,sg.AntiAliasingQuality=1,sg.PostProcessQuality=1,sg.ShadingQuality=1,sg.EffectsQuality=1,sg.FoliageQuality=1,sg.LandscapeQuality=1,sg.TextureQuality=2
+11:44 firstlaunch-c: exit 0 | c: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.1 | gpu p50 13.28 p95 20.13 | gate PASS | kept: Resolution=0 ViewDistance=1 AntiAliasing=1 Shadow=1 GlobalIllumination=1 Reflection=1 PostProcess=1 Texture=2 Effects=1 Foliage=1 Shading=1 Landscape=1 
+11:44 == firstlaunch-d start (street-fixed 120 s, fresh -userdir) -GfxCVars=sg.PostProcessQuality=1
+11:46 firstlaunch-d: exit 0 | d: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.1 | gpu p50 18.37 p95 29.36 | gate FAIL | kept: Resolution=0 ViewDistance=3 AntiAliasing=3 Shadow=1 GlobalIllumination=1 Reflection=1 PostProcess=1 Texture=2 Effects=2 Foliage=2 Shading=3 Landscape=3 
+11:47 == firstlaunch-e start (street-fixed 120 s, fresh -userdir) -GfxCVars=sg.ShadingQuality=1
+11:49 firstlaunch-e: exit 0 | e: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.2 | gpu p50 18.02 p95 28.96 | gate FAIL | kept: Resolution=0 ViewDistance=3 AntiAliasing=3 Shadow=1 GlobalIllumination=1 Reflection=1 PostProcess=3 Texture=2 Effects=2 Foliage=2 Shading=1 Landscape=3 
+11:49 firstlaunch: variant closest to 20.6 ms GPU p95: c (off by .47 ms)
+11:50 firstlaunch still a: frame_00000.jpg

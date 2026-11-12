@@ -1,5 +1,5 @@
-# Mac state 2026-11-12 11:37 Paris
+# Mac state 2026-11-12 11:50 Paris
 
-- block: firstlaunch on cand12
-- last line: 11:37 list45 starts (list44 stopped after the loop-endurance-1 push and its check)
+- block: starting
+- last line: 11:50 firstlaunch still a: frame_00000.jpg
 - startup crashes: 3
