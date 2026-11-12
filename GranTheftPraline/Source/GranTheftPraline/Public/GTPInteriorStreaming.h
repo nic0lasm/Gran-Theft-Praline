@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Camera/CameraModifier.h"
 #include "Subsystems/WorldSubsystem.h"
 #include "GTPInteriorStreamingCore.h"
 #include "GTPInteriorStreaming.generated.h"
@@ -76,15 +77,27 @@ protected:
 
 	/**
 	 * Exposure inside a lit interior (EV100, with the extended luminance range). The day
-	 * exposure of the street (about EV 13 at 14:00) would leave a shop lit at 500-750 lux black:
-	 * a box post-process volume over each visible interior, above the environment one, holds
-	 * the camera between these bounds while it is inside. -InteriorExposure=0 turns it off.
+	 * exposure of the street (about EV 13 at 14:00) would leave a shop lit at 500-750 lux black.
+	 * While the player is inside an interior, a camera modifier (UGTPInteriorExposureModifier)
+	 * holds the camera between these bounds. Camera blends are applied after every post-process
+	 * volume, so the environment's unbound volume cannot win over it. -InteriorExposure=0 turns it off.
 	 */
 	UPROPERTY(Config)
 	float InteriorExposureMinEV = 8.0f;
 
 	UPROPERTY(Config)
 	float InteriorExposureMaxEV = 9.0f;
+
+	/** EV per second when adapting to the interior; the street volume's 1 EV/s leaves the shop dark for 5 s. */
+	UPROPERTY(Config)
+	float InteriorExposureSpeed = 4.0f;
+
+	/** Seconds to blend the exposure override in and out at the door. */
+	UPROPERTY(Config)
+	float InteriorExposureBlendSeconds = 0.5f;
+
+	/** Weight of the interior exposure override, 0 outside, 1 inside (read by the camera modifier). */
+	float GetInteriorExposureWeight() const { return ExposureWeight; }
 
 private:
 	struct FInterior
@@ -95,8 +108,6 @@ private:
 		FVector Size = FVector(2000.f, 2000.f, 800.f);   // cm, from the GTP_InteriorSize=WxDxH tag (metres)
 		TWeakObjectPtr<ULevelStreamingDynamic> Streaming;
 		TWeakObjectPtr<AActor> AnchorActor;
-		TWeakObjectPtr<class UBoxComponent> ExposureBox;
-		TWeakObjectPtr<class UPostProcessComponent> Exposure;
 		bool bRequested = false;
 		bool bWasVisible = false;
 	};
@@ -105,8 +116,7 @@ private:
 	void RequestLoad(FInterior& Interior);
 	void Release(FInterior& Interior);
 	void ApplyToLevel(ULevel* Level) const;
-	void AddExposure(FInterior& Interior);
-	void RemoveExposure(FInterior& Interior);
+	void UpdateExposure(float DeltaTime);
 	bool IsM1Profile() const;
 
 	TArray<FInterior> Interiors;
@@ -122,4 +132,22 @@ private:
 	bool bWaitingLogged = false;
 	FTransform StartAnchor;
 	void PlaceAtCounter(const FInterior& Interior);
+	bool bExposureOn = true;
+	float ExposureWeight = 0.f;
+	bool bExposureLogged = false;
+	TWeakObjectPtr<UCameraModifier> ExposureModifier;
+};
+
+/**
+ * Holds the auto exposure between the interior bounds while the player is inside an interior
+ * (UGTPInteriorStreaming::GetInteriorExposureWeight). Added to the local player's camera manager
+ * by the streaming subsystem; does nothing outside.
+ */
+UCLASS()
+class GRANTHEFTPRALINE_API UGTPInteriorExposureModifier : public UCameraModifier
+{
+	GENERATED_BODY()
+
+public:
+	virtual void ModifyPostProcess(float DeltaTime, float& PostProcessBlendWeight, FPostProcessSettings& PostProcessSettings) override;
 };
