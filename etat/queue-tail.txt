@@ -1,14 +1,3 @@
-09:03 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
-09:04 list40 starts (list39 stopped in the ilight2 blood step; Combat removed 1 file(s), tracked changes 0)
-09:04 pushed etat
-09:14 cand12: PC proof VERDICT: OK found
-09:14 pushed etat
-09:14 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
-09:14 == cand12-compile start
-09:14 == cand12-compile exit=0
-09:14 == cand12-blood start
-09:15 == cand12-blood exit=0
-09:15 cand12 blood: LogPython: Warning: [CombatMaterials] built /Game/Combat/Materials/M_GTP_BloodPool;
 09:15 == cand12-build start
 09:27 == cand12-build exit=0
 09:27 cand12 build exit=0; - interiors: OK, 26 s, log interiors.log;- interior maps cooked for this package only: /Game/Interiors/L_Interior_fastfood_bellecour ;- map md5 at the end: 1c92de0f813b89cb40aeb000cd92a1de, unchanged;- DefaultGame.ini md5 at the end: eb19ee3a657b09a9e28edc806259ad78, unchanged;- tracked changes at the end: 0, clone on a739e97;; ini md5 vs start same
@@ -58,3 +47,14 @@
 10:14 list43 starts (list42 stopped while it was waiting for the ilfix proof)
 10:14 pushed etat
 10:14 quarter3: PC proof VERDICT: OK found
+10:14 pushed etat
+10:14 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+10:14 == q3-build start
+10:35 == q3-build exit=0
+10:35 quarter3 build exit=0; - 10:35 DefaultGame.ini restored;- 10:35 restore: map and city content identical to the start (md5,     1018 files);
+10:35 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+10:35 == q3-bench start
+10:53 == q3-bench exit=0
+10:53 quarter3 stats: deliv: 4599 frames | GPU p50 15.88 p95 27.84 p99 29.64 | frames > 26 ms: 1, > 50 ms: 0 | GPU p95 per 10 s: 0-10s:29.2 10-20s:28.6 20-30s:24.6 30-40s:28.6 40-50s:28.1 50-60s:28.3 60-70s:24.4 70-80s:24.1 80-90s:28.3 90-100s:27.7 100-110s:28.0 110-120s:28.2 120-130s:15.2;deliv2: 4600 frames | GPU p50 15.78 p95 25.05 p99 29.50 | frames > 26 ms: 0, > 50 ms: 0 | GPU p95 per 10 s: 0-10s:29.1 10-20s:28.8 20-30s:25.1 30-40s:28.5 40-50s:27.9 50-60s:28.2 60-70s:24.0 70-80s:24.1 80-90s:24.3 90-100s:24.7 100-110s:24.2 110-120s:24.0 120-130s:14.5;deliv3: 4600 frames | GPU p50 15.95 p95 27.74 p99 29.69 | frames > 26 ms: 0, > 50 ms: 0 | GPU p95 per 10 s: 0-10s:29.2 10-20s:28.7 20-30s:27.1 30-40s:28.2 40-50s:28.5 50-60s:27.7 60-70s:27.3 70-80s:24.3 80-90s:25.0 90-100s:27.7 100-110s:28.2 110-120s:28.2 120-130s:16.7;off: 4600 frames | GPU p50 13.93 p95 22.08 p99 28.40 | frames > 26 ms: 0, > 50 ms: 0 | GPU 
+10:53 pushed quarter3
+10:53 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
