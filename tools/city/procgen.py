@@ -58,6 +58,14 @@ PARTY_PROBE_M = 0.6      # an edge whose outside is another footprint at this di
 STREET_PROBE_M = 4.0     # probe point in front of an edge to find the street
 STREET_MARGIN_M = 7.0    # probe within half road width + this margin => street facade
 MIN_FACADE_EDGE_M = 1.8  # shorter edges get a blank module
+# Mansard roof of the Second Empire blocks (rue de la Republique): the LiDAR cannot tell the
+# near-vertical zinc brisis from the wall (no slope within 3 m of the edge, 12/11), so a wall
+# measured above MANSARD_MIN_WALL_M ends with a mansard level: stone storeys up to the cornice,
+# then a brisis with one dormer per street bay (modules "dormer" / "mansard_blank").
+MANSARD_MIN_WALL_M = 19.0
+MANSARD_H_M = 3.2
+MANSARD_INSET_M = 0.8       # the brisis top stands this far behind the facade plane
+DORMER_MIN_BAY_M = 2.2
 MAX_ROOF_RISE_M = 9.0   # domes and spires are monuments, modelled by hand later
 RIDGE_TOLERANCE_M = 2.5  # 2012 ridges that the LiDAR contradicts by more than this are dropped
 
@@ -394,6 +402,14 @@ def storeys(typ, wall_h):
     return out
 
 
+def levels_for(typ, wall_h):
+    """Storeys from the ground to the eave, with the mansard level of a tall Haussmann block."""
+    if typ == "haussmann" and wall_h >= MANSARD_MIN_WALL_M:
+        stone = storeys(typ, wall_h - MANSARD_H_M)
+        return stone + [("mansard", wall_h - MANSARD_H_M, MANSARD_H_M)]
+    return storeys(typ, wall_h)
+
+
 def layout_building(ctx, b, poly, ground_z, roof, shops):
     """Module list for one building (see module fields in generate.py)."""
     wall_h = max(2.5, roof["eave_z"] - ground_z)
@@ -404,7 +420,7 @@ def layout_building(ctx, b, poly, ground_z, roof, shops):
     typ = typology_of(b, {e[6] for e in edges if e[6]}, wall_h)
     t = TYPOLOGY[typ]
     colour = stable_pick(b["id"], PALETTE[typ])
-    levels = storeys(typ, wall_h)
+    levels = levels_for(typ, wall_h)
 
     # Shops -> nearest street edge and bay.
     street_edges = [e for e in edges if e[5] == "street" and np.hypot(*(e[3] - e[2])) >= MIN_FACADE_EDGE_M]
@@ -429,6 +445,7 @@ def layout_building(ctx, b, poly, ground_z, roof, shops):
 
     modules = []
     entrance_done = False
+    stone_top = max(si for si, lv in enumerate(levels) if lv[0] != "mansard")
     for ri, ei, p0, p1, n, kind, street in edges:
         L = float(np.hypot(*(p1 - p0)))
         if kind == "party":
@@ -449,7 +466,9 @@ def layout_building(ctx, b, poly, ground_z, roof, shops):
         for si, (lk, z0, h) in enumerate(levels):
             for bi in range(nb):
                 tc = (bi + 0.5) / nb
-                if lk == "gf":
+                if lk == "mansard":
+                    mk = "dormer" if kind == "street" and bw >= DORMER_MIN_BAY_M else "mansard_blank"
+                elif lk == "gf":
                     if kind == "court":
                         mk = "court_window"
                     elif bi in slots:
@@ -468,10 +487,10 @@ def layout_building(ctx, b, poly, ground_z, roof, shops):
                     mk = "court_window"
                 elif typ == "monument":
                     mk = "monument_bay"
-                elif typ == "haussmann" and (si in (2, 5) or (si == len(levels) - 1 and si < 5)):
+                elif typ == "haussmann" and (si in (2, 5) or (si == stone_top and si < 5)):
                     # art bible: continuous balconies on the 2nd and 5th floors
                     mk = "window_balcony"
-                elif typ == "ancien" and si == len(levels) - 1 and len(levels) >= 4:
+                elif typ == "ancien" and si == stone_top and len(levels) >= 4:
                     mk = "window_small"
                 else:
                     mk = "window"
@@ -483,6 +502,7 @@ def layout_building(ctx, b, poly, ground_z, roof, shops):
                              sign_continued=bool(s.get("continued")))
                 modules.append(m)
     info = {"typology": typ, "colour": colour, "wall_h": wall_h, "levels": len(levels),
+            "mansard": levels[-1][0] == "mansard",
             "edges": {k: sum(1 for e in edges if e[5] == k) for k in ("street", "court", "party")},
             "edge_list": edges}
     return modules, info
