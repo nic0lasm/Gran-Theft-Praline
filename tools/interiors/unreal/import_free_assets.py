@@ -22,7 +22,7 @@ import unreal
 
 SOURCE = os.environ.get("GTP_FREE_ASSETS", "")
 DEST = "/Game/Interiors/Free"
-MODELS = (".gltf", ".glb", ".fbx")
+MODELS = (".gltf", ".glb", ".fbx", ".obj")
 TEXTURES = (".png", ".jpg", ".jpeg", ".exr", ".tga")
 MAPS = ("color", "basecolor", "albedo", "diff", "normalgl", "nor_gl", "roughness", "rough", "metalness", "metal",
         "ambientocclusion", "_ao", "displacement", "disp", "opacity")

@@ -1,8 +1,8 @@
 """Build the local class -> mesh map of the interiors from the assets imported in the project (step 3).
 
 Run in the Unreal Editor (pythonscript, headless) once free packs are imported. For every class of
-tools/interiors/catalog.json that lists keywords, looks for static meshes whose asset name contains
-one of them (words compared without case, spaces and dashes as underscores), under the roots given
+tools/interiors/catalog.json that lists keywords, looks for static meshes whose path (folders and
+asset name) contains one of them (words compared without case, spaces and dashes as underscores), under the roots given
 by GTP_INTERIOR_ROOTS (comma separated, default /Game). The first keyword wins over the next ones,
 and inside a keyword the mesh with the fewest LOD0 triangles that still has LODs is preferred (the
 M1 Mac draws the LOD chain, Nanite is inactive there). Writes Saved/InteriorBuild/mesh_map.json
@@ -39,7 +39,9 @@ def meshes():
             data = eal.find_asset_data(path)
             if str(data.asset_class_path.asset_name) != "StaticMesh":
                 continue
-            out.append((norm(str(data.asset_name)), path.split(".")[0]))
+            # Folder and asset name: imported packs keep the product name in the folder
+            # (/Game/Interiors/Free/Models/Urban_Trash_Cup_Paper_01/SM_...), Megascans name assets by id.
+            out.append((norm(path.split(".")[0]), path.split(".")[0]))
     return out
 
 
