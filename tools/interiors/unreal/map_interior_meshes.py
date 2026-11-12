@@ -46,15 +46,9 @@ def meshes():
 
 
 def triangles(mesh):
-    """LOD0 triangles. The StaticMeshEditorSubsystem is None in the pythonscript commandlet: run
-    this in a headless editor (-nullrhi -ExecutePythonScript); the older library is a fallback."""
-    sub = unreal.get_editor_subsystem(unreal.StaticMeshEditorSubsystem)
-    if sub is not None:
-        return sub.get_number_triangles(mesh, 0)
-    library = getattr(unreal, "EditorStaticMeshLibrary", None)
-    if library is not None:
-        return library.get_number_triangles(mesh, 0)
-    raise RuntimeError("no static mesh editor API: run in the editor (-nullrhi -ExecutePythonScript), not -run=pythonscript")
+    """LOD0 triangles, from the mesh itself (UE 5.8: StaticMeshEditorSubsystem has no
+    get_number_triangles, and it is None in the pythonscript commandlet)."""
+    return mesh.get_num_triangles(0)
 
 
 def describe(path):
