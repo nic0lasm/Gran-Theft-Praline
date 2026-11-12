@@ -335,6 +335,58 @@ void UGTPEnvironmentSubsystem::FindSceneComponents(UWorld& World)
 	}
 }
 
+void UGTPEnvironmentSubsystem::SetupCloudMaterial()
+{
+	if (CloudMaterial || !Holder)
+	{
+		return;
+	}
+	if (!Clouds.IsValid())
+	{
+		if (UWorld* World = GetWorld())
+		{
+			for (TActorIterator<AActor> It(World); It && !Clouds.IsValid(); ++It)
+			{
+				Clouds = It->FindComponentByClass<UVolumetricCloudComponent>();
+			}
+		}
+		if (!Clouds.IsValid())
+		{
+			CloudCoverageFound = TEXT("no VolumetricCloud component in the world");
+			return;
+		}
+	}
+
+	// Cloud coverage goes through a dynamic instance of the clouds' material.
+	const FObjectProperty* MaterialProp = FindFProperty<FObjectProperty>(UVolumetricCloudComponent::StaticClass(), TEXT("Material"));
+	UMaterialInterface* Base = MaterialProp ? Cast<UMaterialInterface>(MaterialProp->GetObjectPropertyValue_InContainer(Clouds.Get())) : nullptr;
+	FString Origin = Base ? TEXT("map") : TEXT("fallback");
+	if (!Base)
+	{
+		Base = CloudFallbackMaterial.LoadSynchronous();
+	}
+	if (!Base)
+	{
+		CloudCoverageFound = FString::Printf(TEXT("cloud component %s has no material (property %s) and no fallback"),
+			*Clouds->GetOwner()->GetName(), MaterialProp ? TEXT("found") : TEXT("not found"));
+		return;
+	}
+	CloudMaterial = UMaterialInstanceDynamic::Create(Base, Holder);
+	Clouds->SetMaterial(CloudMaterial);
+	FString Found;
+	for (const FName& Parameter : CloudCoverageParameters)
+	{
+		float Value = 0.f;
+		if (Base->GetScalarParameterValue(FHashedMaterialParameterInfo(Parameter), Value))
+		{
+			Found += FString::Printf(TEXT("%s%s (%.2f)"), Found.IsEmpty() ? TEXT("") : TEXT(", "), *Parameter.ToString(), Value);
+		}
+	}
+	CloudCoverageFound = Found.IsEmpty()
+		? FString::Printf(TEXT("none of the CloudCoverageParameters in %s (%s)"), *Base->GetPathName(), *Origin)
+		: FString::Printf(TEXT("%s in %s (%s)"), *Found, *Base->GetPathName(), *Origin);
+}
+
 void UGTPEnvironmentSubsystem::CreateOwnComponents(UWorld& World)
 {
 	FActorSpawnParameters Params;
@@ -388,30 +440,7 @@ void UGTPEnvironmentSubsystem::CreateOwnComponents(UWorld& World)
 		MoonLight = Moon;
 	}
 
-	// Cloud coverage goes through a dynamic instance of the map's cloud material.
-	if (Clouds.IsValid())
-	{
-		const FObjectProperty* MaterialProp = FindFProperty<FObjectProperty>(UVolumetricCloudComponent::StaticClass(), TEXT("Material"));
-		UMaterialInterface* Base = MaterialProp ? Cast<UMaterialInterface>(MaterialProp->GetObjectPropertyValue_InContainer(Clouds.Get())) : nullptr;
-		if (Base)
-		{
-			CloudMaterial = UMaterialInstanceDynamic::Create(Base, Holder);
-			Clouds->SetMaterial(CloudMaterial);
-			CloudCoverageFound.Reset();
-			for (const FName& Parameter : CloudCoverageParameters)
-			{
-				float Value = 0.f;
-				if (Base->GetScalarParameterValue(FHashedMaterialParameterInfo(Parameter), Value))
-				{
-					CloudCoverageFound += FString::Printf(TEXT("%s%s (%.2f)"), CloudCoverageFound.IsEmpty() ? TEXT("") : TEXT(", "), *Parameter.ToString(), Value);
-				}
-			}
-			if (CloudCoverageFound.IsEmpty())
-			{
-				CloudCoverageFound = FString::Printf(TEXT("none of the CloudCoverageParameters in %s"), *Base->GetPathName());
-			}
-		}
-	}
+	SetupCloudMaterial();
 
 	LoadedCollection = ParameterCollection.LoadSynchronous();
 	if (!LoadedCollection)
@@ -1020,6 +1049,17 @@ void UGTPEnvironmentSubsystem::Tick(float DeltaTime)
 	}
 
 	UpdateCarSignals();
+
+	if (!CloudMaterial && CloudSetupRetryTime > 0.f)
+	{
+		CloudSetupRetryTime -= DeltaTime;
+		CloudSetupTimer -= DeltaTime;
+		if (CloudSetupTimer <= 0.f)
+		{
+			CloudSetupTimer = 1.f;
+			SetupCloudMaterial();   // ApplyAtmosphere drives its coverage from the next tick
+		}
+	}
 
 	if (StatusRewriteTimer > 0.f)
 	{
