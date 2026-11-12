@@ -134,6 +134,13 @@ public:
 	/** Car fell into water: engine dead, wrecked, no more input. */
 	void Drown();
 
+	/**
+	 * Marks a teleport or a physics switch by the traffic or the police (How: a literal). AI cars
+	 * take no impact damage for a moment after it: the solver pushes a body out of whatever it
+	 * was placed into, and that push read as a 300 km/h crash.
+	 */
+	void NotePlaced(const TCHAR* How);
+
 	/** Seats a non-player driver (traffic, tests) without any sequence. */
 	UFUNCTION(BlueprintCallable, Category = "Vehicle|Seats")
 	void SeatOccupant(ACharacter* Character);
@@ -482,4 +489,6 @@ private:
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UStaticMeshComponent>> GlassComponents;
 	float LastImpactTime = -1000.f;
+	float LastPlacedTime = -1000.f;
+	const TCHAR* LastPlacedHow = TEXT("none");
 };
