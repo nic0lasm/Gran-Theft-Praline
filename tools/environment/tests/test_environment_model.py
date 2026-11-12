@@ -60,8 +60,9 @@ def test_light_budgets_follow_adr_0002():
     # art bible 5.3 / ADR-0002: at most 8 shadowed local lights and 100 unshadowed in m1
     assert m1["MaxShadowedLights"] <= 8 and m1["MaxLights"] <= 100
     assert m1["bVolumetricFog"] is False
-    # volumetric clouds cost about 12 ms in m1: the weather must not make them denser
-    assert m1["bDriveCloudCoverage"] is False
+    # m1 clouds follow the weather (overcast and rain no longer show a blue sky); measured on the
+    # M1 on 12/11: rain GPU p95 22.54 ms with the drive against 22.46 ms without (cand15b gate)
+    assert m1["bDriveCloudCoverage"] is True
 
 
 def test_measure_script_knows_every_ambience():
