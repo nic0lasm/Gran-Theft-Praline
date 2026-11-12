@@ -45,6 +45,31 @@ FOCUS = os.environ.get("GTP_CITY_FOCUS", "rue-de-la-republique")
 CITY_MAP = "/Game/Maps/L_City_" + "".join(p.capitalize() for p in FOCUS.split("-"))
 CUBE = "/Engine/BasicShapes/Cube"          # 100 cm cube centred on its origin
 GREY = "/Engine/BasicShapes/BasicShapeMaterial"
+# Stand-in materials for classes still without a mesh: a brushed steel fryer box reads as kitchen
+# equipment, a plain grey cube does not. Created once under STANDIN_DIR (local content, out of Git).
+STANDIN_DIR = "/Game/Interiors/StandIn"
+STANDIN = {  # family: (base colour, metallic, roughness)
+    "Steel": ((0.56, 0.57, 0.58), 1.0, 0.35),
+    "Black": ((0.02, 0.02, 0.022), 0.0, 0.3),
+    "Paper": ((0.82, 0.80, 0.74), 0.0, 0.85),
+    "Brown": ((0.18, 0.09, 0.04), 0.0, 0.7),
+    "Wood": ((0.36, 0.22, 0.12), 0.0, 0.55),
+}
+STANDIN_CLASSES = {
+    "Steel": ("fryer", "clamshell_grill", "holding_cabinet", "drink_tower", "shake_machine", "ice_bin", "dishwasher",
+              "bun_toaster", "assembly_table", "oil_filter_tray", "utensil_rack", "patty_tray", "bun_tray",
+              "condiment_station", "condiment_insert", "tray_return", "safe", "triple_sink", "speed_rack",
+              "wire_shelf", "fry_dump", "fry_basket", "fry_scoop", "holding_tray", "sauce_gun", "scraper", "spatula",
+              "utensil", "pastry_case", "milk_fridge", "frozen_case", "coffee_machine", "cash_drawer", "locker",
+              "wash_basin", "hand_dryer", "vent_grille", "floor_drain", "sprinkler"),
+    "Black": ("card_reader", "receipt_printer", "kvs_screen", "order_screen", "pos_terminal", "monitor",
+              "wall_menu_screen", "kiosk", "office_chair"),
+    "Paper": ("wrapper", "wrapper_kit", "receipt", "napkin", "napkin_kit", "lid", "lid_kit", "sauce_packet",
+              "sauce_packet_kit", "straw_box", "straw", "dessert_cup_kit", "cup", "cup_kit", "bag_kit", "fry_bag",
+              "burger_box", "burger_box_kit", "fry_carton", "fry_carton_kit", "case_box", "binder", "ceiling_tile"),
+    "Brown": ("patty", "bun", "pastry", "fry_single"),
+    "Wood": ("table_2", "table_4", "high_table", "desk", "bench", "booth", "booth_bench", "stool", "chair", "high_chair"),
+}
 LIGHT_BELOW_CEILING_CM = 55.0              # 15 cm under the drop ceiling (tiles at storey - 40 cm)
 UPLIGHT_Z_CM = 230.0                       # uplight panels at 2.3 m, above heads, under the 2.6 m+ drop ceiling
 UPLIGHT_SHARE = 0.25
@@ -113,6 +138,39 @@ def mesh_for(cls, mapping, missing):
     return eal.load_asset(CUBE), True
 
 
+def standin_material(cls, cache):
+    """The stand-in material of a grey class, created when missing; None keeps the grey cube."""
+    family = next((f for f, names in STANDIN_CLASSES.items() if cls in names), None)
+    if family is None:
+        return None
+    if family in cache:
+        return cache[family]
+    path = "%s/M_StandIn_%s" % (STANDIN_DIR, family)
+    if eal.does_asset_exist(path):
+        cache[family] = eal.load_asset(path)
+        return cache[family]
+    mel = unreal.MaterialEditingLibrary
+    colour, metallic, roughness = STANDIN[family]
+    try:
+        mat = unreal.AssetToolsHelpers.get_asset_tools().create_asset(
+            "M_StandIn_" + family, STANDIN_DIR, unreal.Material, unreal.MaterialFactoryNew())
+        col = mel.create_material_expression(mat, unreal.MaterialExpressionConstant3Vector, -400, 0)
+        col.set_editor_property("constant", unreal.LinearColor(colour[0], colour[1], colour[2], 1.0))
+        mel.connect_material_property(col, "", unreal.MaterialProperty.MP_BASE_COLOR)
+        for i, (value, prop) in enumerate(((metallic, unreal.MaterialProperty.MP_METALLIC),
+                                           (roughness, unreal.MaterialProperty.MP_ROUGHNESS))):
+            c = mel.create_material_expression(mat, unreal.MaterialExpressionConstant, -400, 150 + 120 * i)
+            c.set_editor_property("r", float(value))
+            mel.connect_material_property(c, "", prop)
+        mel.recompile_material(mat)
+        eal.save_loaded_asset(mat)
+    except Exception as error:
+        unreal.log_warning("[InteriorLevel] stand-in %s not created: %s" % (family, error))
+        mat = None
+    cache[family] = mat
+    return mat
+
+
 def hism_actor(label, mesh):
     actor = actor_sub.spawn_actor_from_class(unreal.StaticMeshActor, unreal.Vector(0, 0, 0))
     actor.set_actor_label(label)
@@ -134,6 +192,8 @@ def build_objects(spec, catalog, mapping, report):
     for p in il.generate_all(spec, catalog):
         groups.setdefault((p["class"], p["level"], p["min_density"]), []).append(p)
     missing = []
+    standins = {}
+    used_standins = {}
     for (cls, level, density), rows in sorted(groups.items()):
         info = catalog["classes"][cls]
         rule = rules[info["size"]]
@@ -143,6 +203,11 @@ def build_objects(spec, catalog, mapping, report):
         # Grey boxes: the 1 m cube scaled to the class size, resting on its placement point.
         scale = unreal.Vector(dims[0], dims[1], dims[2]) if grey else unreal.Vector(1, 1, 1)
         lift = dims[2] * 50.0 if grey else 0.0
+        if grey:
+            standin = standin_material(cls, standins)
+            if standin is not None:
+                comp.set_material(0, standin)
+                used_standins[cls] = standin.get_name()
         for p in rows:
             comp.add_instance(unreal.Transform(
                 unreal.Vector(p["x"] * 100.0, -p["y"] * 100.0, p["z"] * 100.0 + lift),
@@ -165,6 +230,7 @@ def build_objects(spec, catalog, mapping, report):
         report["groups"]["%s@L%d@D%d" % (cls, level, density)] = len(rows)
     report["missing_meshes"] = sorted(set(missing))
     report["grey_classes"] = sorted({cls for (cls, _l, _d) in groups if cls not in mapping})
+    report["standin_classes"] = used_standins
 
 
 def build_station_slots(spec, catalog):
