@@ -149,7 +149,8 @@ enum class EPause : int
 	None = 0,
 	Window = 1, // faces the facade
 	Phone = 2,  // stands where it is
-	Gawk = 3    // stands and looks at an event (a crash, a fight, a shot far away)
+	Gawk = 3,   // stands and looks at an event (a crash, a fight, a shot far away)
+	HandsUp = 4 // stands, hands up, facing an armed threat (until released)
 };
 
 struct FWalker
@@ -295,7 +296,7 @@ inline FPoint Facing(const FGraph& G, const FWalker& W)
 		const int Side = G.Edges[W.Edge].FacadeSide * (W.bForward ? 1 : -1);
 		return {Dir.Y * Side, -Dir.X * Side}; // left of (dx, dy) is (dy, -dx)
 	}
-	if (W.PauseKind == EPause::Gawk && W.Pause > 0.f)
+	if ((W.PauseKind == EPause::Gawk || W.PauseKind == EPause::HandsUp) && W.Pause > 0.f)
 	{
 		const float Dx = W.Threat.X - Pos.X;
 		const float Dy = W.Threat.Y - Pos.Y;
@@ -318,6 +319,9 @@ inline void Flee(const FGraph& G, FWalker& W, const FPoint& Threat, const FSetti
 	{
 		W.bForward = !W.bForward;
 		W.S = G.Edges[W.Edge].Length - W.S;
+		// Left and right swap with the direction: keep the same spot on the pavement.
+		W.Lateral = -W.Lateral;
+		W.LateralTarget = -W.LateralTarget;
 	}
 	W.FleeTimeLeft = S.FleeSeconds;
 	W.Threat = Threat;
@@ -350,7 +354,18 @@ inline bool Gawk(FWalker& W, const FPoint& Point, FRng& Rng, const FSettings& S)
 	W.Pause = Rng.Range(S.GawkMin, S.GawkMax);
 	W.PauseKind = EPause::Gawk;
 	W.Threat = Point;
+	W.LateralTarget = W.Lateral;
 	return true;
+}
+
+/** Stands still facing Point for Seconds, even if it was running (held up, ordered to stop). */
+inline void Freeze(FWalker& W, const FPoint& Point, float Seconds, EPause Kind)
+{
+	W.FleeTimeLeft = 0.f;
+	W.Pause = Seconds;
+	W.PauseKind = Kind;
+	W.Threat = Point;
+	W.LateralTarget = W.Lateral; // no sliding sideways while standing
 }
 
 /** Puts Follower beside and a little behind Leader on the same edge (a pair walking together). */

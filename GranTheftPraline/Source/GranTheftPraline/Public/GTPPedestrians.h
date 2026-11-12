@@ -314,6 +314,7 @@ private:
 	void Activate(FPerson& Person, const GTPWalk::FPoint& P, const GTPWalk::FPoint& D);
 	void SeparatePeople();
 	void SpreadPanic();
+	void OnThreatState(AActor* Body, int32 NewState);
 	void TickDemo();
 	void InitFarCrowd(UWorld& InWorld);
 	void TickFarCrowd(float DeltaTime);

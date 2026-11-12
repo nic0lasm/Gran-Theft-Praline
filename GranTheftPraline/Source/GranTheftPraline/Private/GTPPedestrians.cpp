@@ -15,8 +15,8 @@
 #include "GameFramework/PlayerController.h"
 #include "Camera/PlayerCameraManager.h"
 #include "GTPGraphicsProfile.h"
+#include "GTPThreat.h"
 #include "GTPAudioWorld.h"
-#include "GTPRagdoll.h"
 #include "GTPTraffic.h"
 #include "GTPVehicle.h"
 #include "Kismet/GameplayStatics.h"
@@ -476,6 +476,21 @@ void UGTPPedestrianSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 		if (bCheapRendering)
 		{
 			Actor->MakeCheap();
+		}
+		if (UGTPThreatSubsystem::IsEnabled())
+		{
+			// Armed people aiming at them: the shared fear system drives hands up, backing away and running
+			// (-ThreatResponse=1); locomotion stays with this subsystem.
+			if (UGTPThreatResponseComponent* Fear = NewObject<UGTPThreatResponseComponent>(Actor, TEXT("Fear")))
+			{
+				const float Pick = Rng.Next();
+				Fear->SetTemperament(Pick < 0.45f ? EGTPTemperament::Fleeing : (Pick < 0.85f ? EGTPTemperament::Compliant : EGTPTemperament::Frozen));
+				Fear->RegisterComponent();
+				Fear->OnThreatState.AddWeakLambda(this, [this](AActor* Body, EGTPThreatState /*Old*/, EGTPThreatState New)
+				{
+					OnThreatState(Body, static_cast<int32>(New));
+				});
+			}
 		}
 		P.Actor = Actor;
 	}
@@ -1048,6 +1063,50 @@ int32 UGTPPedestrianSubsystem::GawkAround(const FVector& Location, float Radius)
 		Count += GTPWalk::Gawk(P.Walker, Point, Rng, Settings) ? 1 : 0;
 	}
 	return Count;
+}
+
+void UGTPPedestrianSubsystem::OnThreatState(AActor* Body, int32 NewState)
+{
+	const UWorld* World = GetWorld();
+	const UGTPThreatSubsystem* Threat = World ? World->GetSubsystem<UGTPThreatSubsystem>() : nullptr;
+	if (!Threat)
+	{
+		return;
+	}
+	const FVector Origin = Threat->GetOrigin();
+	const GTPWalk::FPoint From{float(Origin.X), float(Origin.Y)};
+	for (FPerson& P : People)
+	{
+		if (!P.bActive || P.Actor.Get() != Body)
+		{
+			continue;
+		}
+		switch (static_cast<EGTPThreatState>(NewState))
+		{
+		case EGTPThreatState::Alarmed:
+			GTPWalk::Freeze(P.Walker, From, 3.f, GTPWalk::EPause::Gawk);
+			break;
+		case EGTPThreatState::HandsUp:
+		case EGTPThreatState::Complying:
+			GTPWalk::Freeze(P.Walker, From, 60.f, GTPWalk::EPause::HandsUp);
+			break;
+		case EGTPThreatState::Backing:
+		case EGTPThreatState::Fleeing:
+			GTPWalk::Flee(Graph, P.Walker, From, Settings);
+			++FledTotal;
+			OnPedestrianScared.Broadcast(P.Location, Threat->GetSource());
+			break;
+		case EGTPThreatState::Calm:
+			if (P.Walker.PauseKind == GTPWalk::EPause::HandsUp)
+			{
+				P.Walker.Pause = 0.f;
+			}
+			break;
+		default:
+			break;
+		}
+		return;
+	}
 }
 
 void UGTPPedestrianSubsystem::SpreadPanic()
