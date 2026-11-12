@@ -1,5 +1,5 @@
-# Mac state 2026-11-12 12:20 Paris
+# Mac state 2026-11-12 12:28 Paris
 
-- block: starting
-- last line: 12:18 == cand13-long600 start (600 s, no -userdir) -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -PoliceMax=3
+- block: demo13 on cand13
+- last line: 12:28 list47 starts (list46 stopped after the cand13 long600, before its interior runs)
 - startup crashes: 3
