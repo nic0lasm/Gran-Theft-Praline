@@ -168,6 +168,7 @@ void UGTPAIDriverComponent::PlaceGhost(int32 Lane, int32 Point, const FVector& L
 	SetGhost(true);
 	Vehicle->SetActorLocationAndRotation(Location + FVector(0.f, 0.f, GhostRideHeight), FRotator(0.f, YawDegrees, 0.f), false, nullptr,
 		ETeleportType::TeleportPhysics);
+	Vehicle->NotePlaced(TEXT("placed as ghost"));
 	Start(Network, Lane, Point);
 	GhostSpeed = FMath::Max(0.f, SpeedMs);
 	GhostAlong = 0.f;
@@ -240,6 +241,7 @@ void UGTPAIDriverComponent::SetGhost(bool bInGhost)
 	}
 	else
 	{
+		Vehicle->NotePlaced(TEXT("ghost wake"));
 		if (Body)
 		{
 			Body->SetSimulatePhysics(true);
@@ -1111,6 +1113,7 @@ AGTPVehicle* AGTPTrafficNetwork::CreateCar(const FTransform& Transform, ESpawnAc
 	{
 		return nullptr;
 	}
+	Car->NotePlaced(TEXT("spawn"));
 	if (LoadedDriverClass)
 	{
 		FActorSpawnParameters DriverParams;
@@ -1358,7 +1361,18 @@ void AGTPTrafficNetwork::Tick(float DeltaSeconds)
 		if (bVehicleGhost && AIDriver && Player && !Car->IsWrecked())
 		{
 			const float ToPlayer = static_cast<float>(FVector::Dist2D(Car->GetActorLocation(), Player->GetActorLocation()));
-			AIDriver->SetGhost(GTPGhost::WantsGhost(AIDriver->IsGhost(), ToPlayer, GhostDistance, GhostWakeDistance));
+			const bool bWantsGhost = GTPGhost::WantsGhost(AIDriver->IsGhost(), ToPlayer, GhostDistance, GhostWakeDistance);
+			// A ghost slides through other cars: woken inside one, the solver threw both apart at
+			// up to 128 m/s and one ended wrecked against a wall. It wakes once the place is clear.
+			const AActor* Inside = AIDriver->IsGhost() && !bWantsGhost && bPoolSpawnCheck ? FindCarAt(Car, Car->GetActorTransform()) : nullptr;
+			if (Inside)
+			{
+				GTP_TRACE(LogGTPTraffic, TEXT("traffic: %s stays a ghost, inside %s"), *Car->GetName(), *Inside->GetName());
+			}
+			else
+			{
+				AIDriver->SetGhost(bWantsGhost);
+			}
 		}
 		else if (!bVehicleGhost && AIDriver && AIDriver->IsGhost() && !Car->IsWrecked())
 		{
