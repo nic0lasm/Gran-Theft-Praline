@@ -103,6 +103,8 @@ private:
 	double DriveTime = 45.0;
 	bool bCarjack = false;
 	bool bChase = false;
+	double RamUntil = 0.0;
+	double SlowSince = 0.0;
 	double NextChaseLog = 0.0;
 	double CarjackRetarget = 0.0;
 	/** Drives along the traffic lanes once the car is on one (else holds the street heading). */
