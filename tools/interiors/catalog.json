@@ -139,7 +139,7 @@
    "keywords": [
     "platen_grill",
     "griddle",
-    "grill"
+    "clamshell_grill"
    ]
   },
   "spatula": {
@@ -193,8 +193,7 @@
    ],
    "keywords": [
     "hamburger_bun",
-    "burger_bun",
-    "bun"
+    "burger_bun"
    ]
   },
   "patty": {
@@ -424,7 +423,7 @@
    "items_per_instance": 1,
    "interactive": true,
    "keywords": [
-    "pos",
+    "pos_terminal",
     "cash_register"
    ]
   },
@@ -488,6 +487,7 @@
    "items_per_instance": 200,
    "interactive": false,
    "keywords": [
+    "napkin_holder",
     "napkin"
    ]
   },
@@ -560,7 +560,7 @@
     "wire_shelf",
     "shelving",
     "pallet_racking",
-    "shelf"
+    "metal_shelf"
    ]
   },
   "case_box": {
@@ -837,7 +837,13 @@
    "tris_lod0": 1200,
    "sections": 1,
    "items_per_instance": 1,
-   "interactive": true
+   "interactive": true,
+   "keywords": [
+    "french_fries",
+    "food_fries",
+    "fries_carton",
+    "fries_box"
+   ]
   },
   "cup": {
    "size": "small",
@@ -870,6 +876,7 @@
    "items_per_instance": 1,
    "interactive": true,
    "keywords": [
+    "drinking_straw",
     "straw"
    ]
   },
@@ -899,10 +906,7 @@
    "tris_lod0": 100,
    "sections": 1,
    "items_per_instance": 1,
-   "interactive": true,
-   "keywords": [
-    "fries"
-   ]
+   "interactive": true
   },
   "kiosk": {
    "size": "large",
@@ -969,9 +973,9 @@
    "items_per_instance": 1,
    "interactive": false,
    "keywords": [
-    "vent",
-    "duct",
-    "grille"
+    "air_vent",
+    "vent_grille",
+    "air_duct"
    ]
   },
   "wall_socket": {
@@ -1013,7 +1017,9 @@
    "interactive": true,
    "keywords": [
     "trash_can",
-    "bin"
+    "trash_bin",
+    "waste_bin",
+    "garbage_can"
    ]
   },
   "wall_menu_screen": {
