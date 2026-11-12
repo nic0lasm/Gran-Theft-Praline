@@ -295,3 +295,25 @@ Le quartier compte 124 carrefours à feux et 471 têtes de feu. Une tête dont l
 cellule streamée n'était pas chargée au départ trouve son sol quand elle
 arrive à distance de dessin. Elle reste cachée jusque-là, au lieu de flotter
 ou d'être enterrée.
+
+## 11. Trouver une voiture qui coûte au GPU (interrupteurs d'A/B)
+
+Sur le parcours street-demo, le temps GPU saute parfois d'environ 22 à
+28-30 ms et y reste, mais seulement avec le trafic. Ces interrupteurs existent
+déjà et isolent la cause une à une :
+
+| Suspect | Interrupteur |
+|---|---|
+| ombres des voitures proches | `-CarShadows=0` |
+| dessin statique au-delà de 30 m (défaut depuis le 11/11) | `-CarRenderStatic=-1` |
+| LOD complet près de la vue | `-CarNearLOD=1` |
+| marionnettes lointaines | `-FarTraffic=0` |
+| moins de voitures conduites | `-Traffic=8` |
+| paliers de distance et fantômes | `-VehicleLod=0` / `-VehicleGhost=0` |
+| voitures éclairées la nuit | `-LitCars=0` |
+
+`-TrafficDiag=1` ajoute une ligne toutes les 5 s (`traffic draw:`) avec chaque
+voiture à moins de 60 m de la caméra. Pour chacune, elle donne son LOD, son
+ombre, son dessin statique ou skinné, son état fantôme ou épave, le nombre de
+ses lumières allumées et de celles qui projettent une ombre, et sa vitesse. La
+ligne qui tombe sur le saut du GPU désigne la voiture.

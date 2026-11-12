@@ -6,6 +6,7 @@
 #include "GTPTrafficGhost.h"
 #include "GTPParkedCars.h"
 #include "GTPFarTraffic.h"
+#include "EngineUtils.h"
 #include "GTPKerbSpot.h"
 #include "GTPTrafficFar.h"
 #include "GTPLiteDriver.h"
@@ -1331,6 +1332,69 @@ void AGTPTrafficNetwork::LogBudget()
 	NetworkTickSeconds = 0.0;
 	BudgetTicks = 0;
 	BudgetFrame = GFrameCounter;
+	LogDrawState();
+}
+
+void AGTPTrafficNetwork::LogDrawState() const
+{
+	// -TrafficDiag=1: what each car near the view draws, every 5 s, to find a car that costs
+	// the GPU (docs/performance/vehicle-cost.md section 11). Off by default: nothing is done.
+	static const bool bDiag = []
+	{
+		int32 Switch = 0;
+		FParse::Value(FCommandLine::Get(), TEXT("TrafficDiag="), Switch);
+		return Switch != 0;
+	}();
+	if (!bDiag)
+	{
+		return;
+	}
+	const APlayerController* Viewer = GetWorld()->GetFirstPlayerController();
+	if (!Viewer || !Viewer->PlayerCameraManager)
+	{
+		return;
+	}
+	const FVector View = Viewer->PlayerCameraManager->GetCameraLocation();
+	int32 Near = 0, Shadowed = 0, Static = 0, Wrecks = 0, LitLights = 0, Skinned = 0;
+	FString Detail;
+	for (TActorIterator<AGTPVehicle> It(GetWorld()); It; ++It)
+	{
+		AGTPVehicle* Car = *It;
+		const USkeletalMeshComponent* Body = Car->GetMesh();
+		if (!Body || Car->IsHidden())
+		{
+			continue;
+		}
+		const float Distance = static_cast<float>(FVector::Dist(View, Car->GetActorLocation())) / 100.f;
+		const bool bStatic = Body->ComponentHasTag(TEXT("GTPRenderStatic"));
+		TInlineComponentArray<ULightComponent*> CarLights(Car);
+		int32 On = 0, ShadowLights = 0;
+		for (const ULightComponent* Light : CarLights)
+		{
+			if (Light->IsVisible())
+			{
+				++On;
+				ShadowLights += Light->CastShadows ? 1 : 0;
+			}
+		}
+		Wrecks += Car->IsWrecked() ? 1 : 0;
+		LitLights += On;
+		if (Distance > 60.f)
+		{
+			continue;
+		}
+		++Near;
+		Shadowed += Body->CastShadow ? 1 : 0;
+		Static += bStatic ? 1 : 0;
+		Skinned += bStatic ? 0 : 1;
+		const UGTPAIDriverComponent* Driver = Car->FindComponentByClass<UGTPAIDriverComponent>();
+		Detail += FString::Printf(TEXT(" | %s %.0fm lod%d%s%s%s%s lights%d/%d %.0fkmh"), *Car->GetName().Right(10), Distance,
+			Body->GetPredictedLODLevel(), Body->CastShadow ? TEXT(" shadow") : TEXT(""), bStatic ? TEXT(" static") : TEXT(""),
+			Driver && Driver->IsGhost() ? TEXT(" ghost") : TEXT(""), Car->IsWrecked() ? TEXT(" WRECK") : TEXT(""), On, ShadowLights,
+			Car->GetSpeedKmh());
+	}
+	GTP_TRACE(LogGTPTraffic, TEXT("traffic draw: %d cars within 60 m (%d casting shadows, %d static, %d skinned), %d wrecks, %d car lights on%s"),
+		Near, Shadowed, Static, Skinned, Wrecks, LitLights, *Detail);
 }
 
 // --- Traffic lights (version 0.4) --------------------------------------------

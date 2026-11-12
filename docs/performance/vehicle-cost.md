@@ -262,3 +262,24 @@ The quarter has 124 junctions with lights and 471 signal heads. A head whose
 streamed cell was not loaded at start finds its ground when it comes within
 draw distance. It stays hidden until then, instead of floating or being
 buried.
+
+## 11. Finding a car that costs the GPU (switches for an A/B)
+
+On the street-demo route, GPU time sometimes jumps from about 22 to 28-30 ms and
+stays there, but only with traffic on. These switches already exist and isolate
+the cause one at a time:
+
+| Suspect | Switch |
+|---|---|
+| shadows of near cars | `-CarShadows=0` |
+| static draw past 30 m (default since 11 Nov) | `-CarRenderStatic=-1` |
+| full LOD near the view | `-CarNearLOD=1` |
+| far puppet cars | `-FarTraffic=0` |
+| fewer driven cars | `-Traffic=8` |
+| distance tiers and ghosts | `-VehicleLod=0` / `-VehicleGhost=0` |
+| lit cars at night | `-LitCars=0` |
+
+`-TrafficDiag=1` adds a line every 5 s (`traffic draw:`) with every car within
+60 m of the camera. For each one it gives its LOD, shadow, static or skinned
+draw, ghost and wreck state, how many of its lights are on and how many cast
+shadows, and its speed. The line falling on the GPU jump points to the car.

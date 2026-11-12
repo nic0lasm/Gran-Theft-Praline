@@ -480,6 +480,7 @@ private:
 	int32 BudgetTicks = 0;
 	uint64 BudgetFrame = 0;
 	void LogBudget();
+	void LogDrawState() const;
 
 public:
 	/** Switches the skinned draw of a car body, tracked by a component tag so it is only changed once. */
