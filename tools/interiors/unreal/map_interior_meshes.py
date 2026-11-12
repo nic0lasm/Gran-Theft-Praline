@@ -3,7 +3,8 @@
 Run in a headless editor (-nullrhi -ExecutePythonScript through Content/Python/gtp_run.py) once free
 packs are imported. For every class of
 tools/interiors/catalog.json that lists keywords, looks for static meshes whose path (folders and
-asset name) contains one of them (words compared without case, spaces and dashes as underscores), under the roots given
+asset name) contains one of them as whole words (case, CamelCase, digits and separators ignored,
+plural allowed), under the roots given
 by GTP_INTERIOR_ROOTS (comma separated, default /Game). The first keyword wins over the next ones.
 When the keyword names a model folder, every mesh of that folder competes (a multi-node glTF or FBX
 is imported as one mesh per node). Inside a keyword, the mesh closest to the catalog size (dims_m)
@@ -16,6 +17,7 @@ it names assets that are not in Git. build_interior_level.py reads it through GT
 
 import json
 import math
+import re
 import os
 import sys
 
@@ -28,11 +30,26 @@ import interior_layout as il  # noqa: E402
 ROOTS = [r.strip() for r in os.environ.get("GTP_INTERIOR_ROOTS", "/Game").split(",") if r.strip()]
 # The generated interior levels are skipped, not the imported packs under /Game/Interiors/Free and /Fab.
 SKIP = ("/Game/Interiors/L_", "/Game/Maps", "/Game/Developers")
+# Packs whose licence is not recorded (credits blocked.txt from credits_from_manifest.py): never
+# placed until the listing is checked. GTP_INTERIOR_EXCLUDE adds folders (comma separated).
+BLOCKED = ("/Game/Interiors/Fab/ModernKitchenClutterPack",)
+SKIP += BLOCKED + tuple(p.strip() for p in os.environ.get("GTP_INTERIOR_EXCLUDE", "").split(",") if p.strip())
 eal = unreal.EditorAssetLibrary
 
 
 def norm(text):
-    return text.lower().replace(" ", "_").replace("-", "_")
+    """Words separated by single underscores, CamelCase and letter-digit boundaries split:
+    "SM_WallHungToilet" -> "sm_wall_hung_toilet", "Food_Tray1" -> "food_tray_1"."""
+    text = re.sub(r"([a-z])([A-Z])", r"\1_\2", text)
+    text = re.sub(r"([A-Za-z])([0-9])", r"\1_\2", text)
+    return "_" + "_".join(w for w in re.split(r"[^a-z0-9]+", text.lower()) if w) + "_"
+
+
+def has_word(name, key):
+    """The keyword as whole words of the name, plural allowed: "straw" is not "strawberry",
+    "bun" is in "hamburger_buns"."""
+    core = key.strip("_")
+    return any("_" + core + end + "_" in name for end in ("", "s", "es"))
 
 
 def meshes():
@@ -97,9 +114,9 @@ def main():
             key = norm(word)
             hits = {}
             for name, path in found:
-                if key not in name:
+                if not has_word(name, key):
                     continue
-                if key in norm(folder(path)):
+                if has_word(norm(folder(path)), key):
                     # The keyword names the model (its folder): a glTF or FBX with several nodes is
                     # imported as one mesh per node, so the whole folder competes, not the piece whose
                     # name happens to come first.
