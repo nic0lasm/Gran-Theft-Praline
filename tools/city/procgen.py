@@ -70,6 +70,7 @@ OPEN_SPACE_STEP_M = 2.0
 # then a brisis with one dormer per street bay (modules "dormer" / "mansard_blank").
 MANSARD_MIN_WALL_M = 19.0
 MANSARD_H_M = 3.2
+MANSARD_H_RANGE = (2.8, 3.8)   # the mansard takes up what the stone storeys cannot
 MANSARD_INSET_M = 0.8       # the brisis top stands this far behind the facade plane
 DORMER_MIN_BAY_M = 2.2
 MAX_ROOF_RISE_M = 9.0   # domes and spires are monuments, modelled by hand later
@@ -427,10 +428,23 @@ def storeys(typ, wall_h):
 
 
 def levels_for(typ, wall_h):
-    """Storeys from the ground to the eave, with the mansard level of a tall Haussmann block."""
+    """Storeys from the ground to the eave, with the mansard level of a tall Haussmann block.
+
+    The mansard height floats between MANSARD_H_RANGE so that the stone storeys stay close to
+    the nominal 3.3 m (rue de la Republique: ground 4.2, entresol 2.6, 4 x 3.3, cornice near
+    20 m); a fixed 3.2 m mansard gave upper storeys from 2.9 to 3.7 m (12/11)."""
     if typ == "haussmann" and wall_h >= MANSARD_MIN_WALL_M:
-        stone = storeys(typ, wall_h - MANSARD_H_M)
-        return stone + [("mansard", wall_h - MANSARD_H_M, MANSARD_H_M)]
+        t = TYPOLOGY[typ]
+        lo, hi = MANSARD_H_RANGE
+        best = None
+        for mh in [lo + k * 0.1 for k in range(int(round((hi - lo) / 0.1)) + 1)]:
+            stone = storeys(typ, wall_h - mh)
+            ups = [h for k, _, h in stone if k == "upper"]
+            err = max((abs(h - t["upper"]) for h in ups), default=9.0) + 0.05 * abs(mh - MANSARD_H_M)
+            if best is None or err < best[0] - 1e-9:
+                best = (err, mh, stone)
+        _, mh, stone = best
+        return stone + [("mansard", wall_h - mh, mh)]
     return storeys(typ, wall_h)
 
 

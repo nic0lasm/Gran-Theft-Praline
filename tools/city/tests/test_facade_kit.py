@@ -73,6 +73,11 @@ class MansardTests(unittest.TestCase):
         self.assertAlmostEqual(lv[-1][1] + lv[-1][2], 20.0, places=3)
         self.assertNotIn("mansard", [k for k, _, _ in lv[:-1]])
 
+    def test_stone_storeys_stay_near_nominal(self):
+        for wall in (19.5, 20.0, 21.0, 22.6, 23.2, 24.0, 26.5):
+            ups = [h for k, _, h in procgen.levels_for("haussmann", wall) if k == "upper"]
+            self.assertTrue(all(abs(h - 3.3) < 0.35 for h in ups), (wall, ups))
+
     def test_low_or_other_types_have_no_mansard(self):
         self.assertNotIn("mansard", [k for k, _, _ in procgen.levels_for("haussmann", 15.0)])
         self.assertNotIn("mansard", [k for k, _, _ in procgen.levels_for("ancien", 22.0)])
