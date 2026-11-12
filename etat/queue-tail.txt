@@ -1,4 +1,3 @@
-09:58 cand12-interior-exp0: crash no (exit 0), end t=119, reused=27 | interior-exp0: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.2 | gpu p50 12.20 p95 19.56 | gate PASS | 
 09:59 cand12 still default: frame_00000.jpg
 09:59 cand12 still exp0: frame_00000.jpg
 10:00 pushed cand12
@@ -58,3 +57,4 @@
 11:13 ilfix still counter: frame_00000.jpg | InteriorStreaming: interior exposure EV 8.0-9.0 on the camera (modifier added);InteriorStreaming: interior exposure applied in fastfood_bellecour t=0.75;
 11:14 ilfix still street-after-leave: frame_00000.jpg | InteriorStreaming: interior exposure EV 8.0-9.0 on the camera (modifier added);InteriorStreaming: interior exposure applied in fastfood_bellecour t=0.78;
 11:14 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+11:14 pushed etat
