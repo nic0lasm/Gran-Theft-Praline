@@ -470,7 +470,8 @@ module per bay:
 The modules are built by `tools/city/facade_kit/roof_kit.py` (hooked at the end of `kit.py`'s
 definitions; it adds the `MI_Roof_Zinc` slot). The brisis leans back by 0.8 m at the eave so the
 terrasson of the generated roof meets it. `place_facades.py` puts the cornice on the last stone
-storey, under the mansard.
+storey, under the mansard. The mansard height floats from 2.8 to 3.8 m so that the stone storeys
+stay near the nominal 3.3 m: on the slice, upper storeys p10 / median / p90 = 3.07 / 3.30 / 3.53 m.
 
 A shorter slice for the two-week visual target (Bellecour to the Jacobins):
 

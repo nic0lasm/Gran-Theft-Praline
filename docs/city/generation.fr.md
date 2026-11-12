@@ -489,7 +489,9 @@ pierre s'arrêtent dessous et portent la corniche, puis un module de toit par tr
 Les modules sont construits par `tools/city/facade_kit/roof_kit.py` (branché à la fin des
 définitions de `kit.py` ; il ajoute l'emplacement `MI_Roof_Zinc`). Le brisis recule de 0,8 m à
 l'égout pour que le terrasson du toit généré le rejoigne. `place_facades.py` pose la corniche sur
-le dernier étage de pierre, sous le comble.
+le dernier étage de pierre, sous le comble. La hauteur du comble varie de 2,8 à 3,8 m pour que les
+étages de pierre restent proches des 3,3 m nominaux : sur la tranche, étages courants p10 / médiane /
+p90 = 3,07 / 3,30 / 3,53 m.
 
 Une tranche plus courte pour la cible visuelle des deux semaines (Bellecour aux Jacobins) :
 
