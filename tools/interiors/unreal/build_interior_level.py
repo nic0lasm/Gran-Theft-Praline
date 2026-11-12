@@ -147,13 +147,22 @@ def standin_material(cls, cache):
         return cache[family]
     path = "%s/M_StandIn_%s" % (STANDIN_DIR, family)
     if eal.does_asset_exist(path):
-        cache[family] = eal.load_asset(path)
-        return cache[family]
+        mat = eal.load_asset(path)
+        if mat and not mat.get_editor_property("used_with_instanced_static_meshes"):
+            # Created by 994c26a without the flag: set it and rebuild the shaders once.
+            mat.set_editor_property("used_with_instanced_static_meshes", True)
+            unreal.MaterialEditingLibrary.recompile_material(mat)
+            eal.save_loaded_asset(mat)
+        cache[family] = mat
+        return mat
     mel = unreal.MaterialEditingLibrary
     colour, metallic, roughness = STANDIN[family]
     try:
         mat = unreal.AssetToolsHelpers.get_asset_tools().create_asset(
             "M_StandIn_" + family, STANDIN_DIR, unreal.Material, unreal.MaterialFactoryNew())
+        # Placed on instanced components: without the usage flag a cooked game falls back to the
+        # default material ("missing usage flag InstancedStaticMeshes").
+        mat.set_editor_property("used_with_instanced_static_meshes", True)
         col = mel.create_material_expression(mat, unreal.MaterialExpressionConstant3Vector, -400, 0)
         col.set_editor_property("constant", unreal.LinearColor(colour[0], colour[1], colour[2], 1.0))
         mel.connect_material_property(col, "", unreal.MaterialProperty.MP_BASE_COLOR)
@@ -348,7 +357,7 @@ def build_audio(spec, catalog):
 
 
 def shot_views(spec):
-    """Three stills for shoot_interior.py, placed from the zones: (name, eye m, target m, pitch)."""
+    """Three stills for shoot_interior.py, placed from the zones: (name, eye m, target m, pitch[, eye z cm])."""
     zones = {z["name"]: z["rect"] for z in spec["zones"]}
 
     def centre(name):
@@ -361,16 +370,20 @@ def shot_views(spec):
     dx0, dy0, dx1, dy1 = zones["dining_ground"]
     return [
         ("01_counter", (qx, zones["queue"][1] + 0.6), (cx + 2.0, cy), -8.0),
-        ("02_kitchen", (kx0 + 0.6, (ky0 + ky1) / 2.0), (kx1, (ky0 + ky1) / 2.0), -12.0),
+        # From the counter end, above the heads, across the whole kitchen: a view along its axis
+        # from the west end met a speed rack at arm's length.
+        ("02_kitchen", (kx1 - 0.6, ky0 + 0.3), (kx0 + 2.0, ky1 - 0.5), -20.0, 230.0),
         ("03_dining", (dx1 - 0.5, dy1 - 0.4), (dx0 + 1.0, dy0 + 1.0), -14.0),
     ]
 
 
 def build_shot_cameras(spec):
     """CameraActors tagged GTP_Shot=<name> (the frame flips y: UE y = -spec y)."""
-    for name, eye, target, pitch in shot_views(spec):
+    for view in shot_views(spec):
+        name, eye, target, pitch = view[:4]
+        eye_z = view[4] if len(view) > 4 else 165.0
         yaw = math.degrees(math.atan2(-(target[1] - eye[1]), target[0] - eye[0]))
-        cam = actor_sub.spawn_actor_from_class(unreal.CameraActor, unreal.Vector(eye[0] * 100.0, -eye[1] * 100.0, 165.0),
+        cam = actor_sub.spawn_actor_from_class(unreal.CameraActor, unreal.Vector(eye[0] * 100.0, -eye[1] * 100.0, eye_z),
                                                unreal.Rotator(0.0, pitch, yaw))
         cam.set_actor_label("Shot_" + name)
         cam.set_folder_path("Interior/Shots")
