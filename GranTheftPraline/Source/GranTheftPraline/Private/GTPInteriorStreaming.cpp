@@ -197,6 +197,14 @@ void UGTPInteriorStreaming::Update()
 		PlayerInteriorId = Inside;
 		GTP_TRACE(InteriorStreaming, TEXT("player %s %s t=%.2f"), Inside.IsEmpty() ? TEXT("left") : TEXT("entered"),
 		          Inside.IsEmpty() ? *Old : *Inside, GetWorld()->GetTimeSeconds());
+		for (const FInterior& Interior : Interiors)
+		{
+			if (Interior.Id == Inside && Interior.Exposure.IsValid() && PC->PlayerCameraManager)
+			{
+				const bool bCovers = Interior.Exposure->EncompassesPoint(PC->PlayerCameraManager->GetCameraLocation(), 0.f, nullptr);
+				GTP_TRACE(InteriorStreaming, TEXT("exposure box %s the camera"), bCovers ? TEXT("covers") : TEXT("does NOT cover"));
+			}
+		}
 		OnPlayerInteriorChanged.Broadcast(Old, Inside);
 	}
 	const std::vector<bool> Wanted = GTPInterior::Plan(Sites, static_cast<float>(Where.X), static_cast<float>(Where.Y), static_cast<float>(Where.Z), Rules);
@@ -349,7 +357,10 @@ void UGTPInteriorStreaming::AddExposure(FInterior& Interior)
 	// The box covers the interior frame (x along the front, -y to the back, z up from the anchor).
 	UBoxComponent* Box = NewObject<UBoxComponent>(Holder, NAME_None, RF_Transient);
 	Box->SetMobility(EComponentMobility::Movable);
-	Box->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	// The post process asks its parent shape for the distance to the camera, which needs a query
+	// body: query only, ignoring every channel, so nothing ever hits or overlaps it.
+	Box->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	Box->SetCollisionResponseToAllChannels(ECR_Ignore);
 	Box->SetGenerateOverlapEvents(false);
 	Box->SetHiddenInGame(true);
 	Box->SetBoxExtent(Interior.Size * 0.5f, false);

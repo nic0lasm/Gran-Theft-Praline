@@ -297,7 +297,23 @@ def build_lights(spec):
         comp.set_editor_property("use_temperature", True)
         comp.set_editor_property("attenuation_radius", max(x1 - x0, y1 - y0) * 120.0)
         comp.set_editor_property("cast_shadows", index < MAX_SHADOWED_LIGHTS)
-    return len(zones)
+        # Uplight: luminaires light the ceiling too, and software Lumen on the M1 bounces little,
+        # so a soft unshadowed panel just under the ceiling faces up with 15 % of the flux.
+        up = actor_sub.spawn_actor_from_class(unreal.RectLight, unreal.Vector(center[0], center[1], center[2] - 20.0),
+                                              unreal.Rotator(0.0, 90.0, 0.0))   # roll, pitch, yaw: facing up
+        up.set_actor_label("Uplight_" + zone["name"])
+        up.set_folder_path("Interior/Lights")
+        upc = up.get_component_by_class(unreal.RectLightComponent)
+        upc.set_editor_property("mobility", unreal.ComponentMobility.MOVABLE)
+        upc.set_editor_property("source_width", (x1 - x0) * 60.0)
+        upc.set_editor_property("source_height", (y1 - y0) * 60.0)
+        upc.set_editor_property("intensity_units", unreal.LightUnits.LUMENS)
+        upc.set_editor_property("intensity", 0.15 * lux * il.rect_area(zone["rect"]))
+        upc.set_editor_property("temperature", 4000.0)
+        upc.set_editor_property("use_temperature", True)
+        upc.set_editor_property("attenuation_radius", max(x1 - x0, y1 - y0) * 100.0)
+        upc.set_editor_property("cast_shadows", False)
+    return 2 * len(zones)
 
 
 def anchor_transform(spec):
