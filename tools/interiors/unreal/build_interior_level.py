@@ -376,11 +376,20 @@ def remove_previous(path, report):
             os.remove(target)
     registry = unreal.AssetRegistryHelpers.get_asset_registry()
     registry.scan_paths_synchronous(["/Game/" + relative], True)
+    try:
+        registry.scan_files_synchronous([targets[0]], True)   # forget the removed file
+    except Exception as error:   # older API: the path scan above is all there is
+        log("scan_files_synchronous unavailable: %s" % error)
     unreal.SystemLibrary.collect_garbage()
-    if eal.does_asset_exist(path) or os.path.exists(targets[0]):
+    # The disk is the verdict: the registry can keep a removed map for a while (PC 12/11), and
+    # the new level is saved over that path anyway.
+    if any(os.path.exists(target) for target in targets):
         report["errors"].append("cannot delete previous " + path)
         return False
-    log("previous %s deleted from disk" % path)
+    if eal.does_asset_exist(path):
+        log("previous %s deleted from disk; the asset registry still lists it" % path)
+    else:
+        log("previous %s deleted from disk" % path)
     return True
 
 
