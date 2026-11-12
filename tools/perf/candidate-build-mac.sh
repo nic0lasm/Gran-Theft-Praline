@@ -6,16 +6,22 @@
 #   TREES=1    leafy street trees (as tree-bench-mac.sh): prepare_trees_m1.py, pick with
 #              swap_street_trees.py (map read only), the leafy mesh folders added to
 #              DirectoriesToAlwaysCook in Config/DefaultGame.ini for the package only
+#   INTERIORS=1 every interior declared in tools/interiors/*.json (all but catalog.json) rebuilt by
+#              build_interior_level.py with its anchor in the city map (GTP_INTERIOR_ANCHOR=1), so
+#              the package cooks /Game/Interiors/L_Interior_<id>; stops if a level is missing.
+#              The generated levels are put back as found after the package (a level that was
+#              there before is restored, one the step created is removed), the map with the rest.
 # then ONE package (tools/build/package-mac.sh), then Content, the ini and the clone are put back
 # as found and the map md5 is checked.
 #
 # Usage, from the root of a clean clone checked out on the candidate, nothing else running:
 #   caffeinate -dimsu tools/perf/candidate-build-mac.sh [version=0.3]
 # Environment:
-#   BUILDS_DIR (default <repo>/Builds/candidate), DETAILS (1), TREES (1), UE_ROOT
+#   BUILDS_DIR (default <repo>/Builds/candidate), DETAILS (1), TREES (1), INTERIORS (1), UE_ROOT
 #   (default /Users/Shared/Epic Games/UE_5.8), PYTHON (python3 for regen_city.sh, with numpy,
 #   scipy, shapely, PIL), GTP_SHOP_GLASS (opaque), GTP_TREE_PATTERN (/M1/), MAP_MD5 (expected
-#   md5 of the city map at start; checked when set), SKIP_COMPILE=1 (editor already built for
+#   md5 of the city map at start; checked when set), GTP_INTERIOR_MESHES (mesh map of the
+#   interiors, grey boxes without), SKIP_COMPILE=1 (editor already built for
 #   this commit), HEARTBEAT_S (600), EXPECTED_S (forces every step length, to test the watchdog),
 #   DRY_RUN=1 (stubs for Unreal and the package, against a scratch layout under
 #   GranTheftPraline/Saved: checks the script end to end in seconds, anywhere).
@@ -34,6 +40,7 @@ version="${1:-0.3}"
 dry="${DRY_RUN:-0}"
 details="${DETAILS:-1}"
 trees="${TREES:-1}"
+interiors="${INTERIORS:-1}"
 builds_dir="${BUILDS_DIR:-$repo/Builds/candidate}"
 build_dir="$builds_dir/$version"
 project="$repo/GranTheftPraline/GranTheftPraline.uproject"
@@ -62,6 +69,7 @@ expected() {
     details) echo 960 ;;
     prepare) echo 600 ;;
     pick) echo 420 ;;
+    interiors) echo 300 ;;
     package) echo 1800 ;;
     *) echo 600 ;;
   esac
@@ -70,7 +78,8 @@ expected() {
 # --- tools, real or stubs ---------------------------------------------------------------------
 if test "$dry" = "1"; then
   for f in tools/city/regen_city.sh tools/city/unreal/editor_run.sh tools/environment/setup-environment-mac.sh \
-           tools/assets/unreal/prepare_trees_m1.py tools/city/unreal/swap_street_trees.py tools/build/package-mac.sh; do
+           tools/assets/unreal/prepare_trees_m1.py tools/city/unreal/swap_street_trees.py tools/build/package-mac.sh \
+           tools/interiors/unreal/build_interior_level.py; do
     test -f "$repo/$f" || { say "DRY RUN: missing $f"; exit 1; }
   done
   for f in tools/city/regen_city.sh tools/city/unreal/editor_run.sh tools/environment/setup-environment-mac.sh tools/build/package-mac.sh; do
@@ -89,6 +98,10 @@ if test "$dry" = "1"; then
     sleep "${DRY_SLEEP:-1}"
     case "$2" in
       *prepare_trees_m1.py) echo '{"errors": [], "meshes": []}' > "$3" ;;
+      *build_interior_level.py)
+        mkdir -p "$content/Interiors"; echo "level" > "$content/Interiors/L_Interior_$(basename "$GTP_INTERIOR_SPEC" .json).umap"
+        echo "map v3 with anchor" > "$content/Maps/L_City_RueDeLaRepublique.umap"
+        mkdir -p "$(dirname "$3")"; echo '{"errors": []}' > "$3" ;;
       *swap_street_trees.py) echo '{"mode": "pick", "errors": [], "swap_arg": "/Game/A/SM_Bare~/Game/B/M1/SM_Leafy", "cook_dirs": ["/Game/B/M1"], "picked": {"W14-63": {"trees": 104}, "W14-64": {"trees": 8}}}' > "$3" ;;
     esac
   }
@@ -119,7 +132,7 @@ locked=no; test "$dry" != "1" && screen_locked && locked=yes
 {
   echo "# Candidate build $version, $(TZ=Europe/Paris date '+%Y-%m-%d %H:%M') heure de Paris$(test "$dry" = 1 && echo ', DRY RUN (stubs)')"
   echo
-  echo "- commit $(git rev-parse --short HEAD), DETAILS=$details, TREES=$trees, build $build_dir"
+  echo "- commit $(git rev-parse --short HEAD), DETAILS=$details, TREES=$trees, INTERIORS=$interiors, build $build_dir"
   echo "- map md5 at start: $map_md5; screen locked at start: $locked (the build steps are headless)"
 } > "$report"
 if test -n "${MAP_MD5:-}" && test "$map_md5" != "$MAP_MD5"; then
@@ -160,6 +173,18 @@ put_back() {
       rsync -a --delete "$out/snapshot/$d/" "$real/" || say "restore of $d failed"
     done
     rm -rf "$out/snapshot"
+  fi
+  if test -f "$out/interiors.created"; then   # generated interior levels: as found
+    local f
+    while IFS= read -r f; do
+      test -n "$f" || continue
+      if test -e "$out/interiors-snapshot/$f"; then
+        rm -rf "${content:?}/$f"; clone_copy "$out/interiors-snapshot/$f" "$content/$f" || say "restore of $f failed"
+      else
+        rm -rf "${content:?}/$f"
+      fi
+    done < "$out/interiors.created"
+    rm -rf "$out/interiors-snapshot" "$out/interiors.created"
   fi
   test "$dry" = "1" || git checkout -q -- assets/geo/processed 2> /dev/null || true
 }
@@ -223,6 +248,20 @@ pick() {
   grep -q '"errors": \[\]' "$out/trees_pick.json"
 }
 
+# Interior levels: the files build_interior_level.py writes for spec <id> (relative to Content).
+interior_files() { echo "Interiors/L_Interior_$1.umap"; echo "__ExternalActors__/Interiors/L_Interior_$1"; echo "__ExternalObjects__/Interiors/L_Interior_$1"; }
+interior_ids() { local f; for f in "$repo"/tools/interiors/*.json; do test "$(basename "$f")" = catalog.json || basename "$f" .json; done; }
+build_interiors() {
+  local id f
+  for id in $(interior_ids); do
+    GTP_INTERIOR_SPEC="$repo/tools/interiors/$id.json" GTP_INTERIOR_ANCHOR=1 \
+      run_py interiors tools/interiors/unreal/build_interior_level.py "$repo/GranTheftPraline/Saved/InteriorBuild/$id.json" || return 1
+    test "$dry" = "1" || cp "$repo/GranTheftPraline/Saved/InteriorBuild/$id.json" "$out/interior-$id.json"
+    grep -q '"errors": \[\]' "$out/interior-$id.json" 2> /dev/null || test "$dry" = "1" || { echo "interior $id: errors in its report"; return 1; }
+    test -f "$content/Interiors/L_Interior_$id.umap" || { echo "interior $id: L_Interior_$id.umap missing after the build"; return 1; }
+  done
+}
+
 # --- the steps ----------------------------------------------------------------------------------
 test "${SKIP_COMPILE:-0}" = "1" || step compile compile
 if test "$details" = "1"; then
@@ -243,14 +282,31 @@ if test "$trees" = "1"; then
   add_cook_dirs
   echo "- leafy mesh folders cooked for this package only: $(json cook_dirs)" >> "$report"
 fi
+if test "$interiors" = "1"; then
+  if test "$snapshotted" != "1"; then   # the anchor goes into the city map: keep the map as found
+    mkdir -p "$out/snapshot"
+    clone_copy "$(cd -P "$content/Maps" && pwd)" "$out/snapshot/Maps"
+    snap_dirs="Maps"; snapshotted=1
+  fi
+  mkdir -p "$out/interiors-snapshot"; : > "$out/interiors.created"
+  for id in $(interior_ids); do
+    for f in $(interior_files "$id"); do
+      echo "$f" >> "$out/interiors.created"
+      if test -e "$content/$f"; then mkdir -p "$(dirname "$out/interiors-snapshot/$f")"; clone_copy "$content/$f" "$out/interiors-snapshot/$f"; fi
+    done
+  done
+  step interiors build_interiors
+  echo "- interiors built into the package: $(interior_ids | tr '\n' ' ')(check: game log 'InteriorStreaming: load' then 'visible' with -Interiors=1)" >> "$report"
+fi
 step package package_cmd
 put_back   # Content and the ini as found before anything else runs
 grep -q "commit=$(git rev-parse --short HEAD)" "$build_dir/build-info.txt" 2> /dev/null \
   || { echo "- package: build-info.txt does not carry commit $(git rev-parse --short HEAD)" >> "$report"; exit 1; }
 test "$trees" = "1" && cp "$out/trees_pick.json" "$build_dir/trees_pick.json"
-python3 - "$build_dir/candidate.json" "$(git rev-parse --short HEAD)" "$details" "$trees" "$play_args" <<'PY'
+python3 - "$build_dir/candidate.json" "$(git rev-parse --short HEAD)" "$details" "$trees" "$play_args" "$interiors" <<'PY'
 import json, sys
 json.dump({"commit": sys.argv[2], "details": sys.argv[3] == "1", "trees": sys.argv[4] == "1", "play_args": sys.argv[5],
+           "interiors": sys.argv[6] == "1",
            "check": "game log: 'city details mode N: X actors shown' with X > 0 (DETAILS=1) and "
                     "'street trees: variant leafy, N of M trees leafy' with N > 0 (TREES=1)"},
           open(sys.argv[1], "w"), indent=1)
