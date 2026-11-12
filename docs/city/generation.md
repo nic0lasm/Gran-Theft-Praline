@@ -516,6 +516,11 @@ square and the Bellecour stretch (Unreal Y 24 000 to 53 000) was never on the ax
 Y -50 050 to +52 361 cm. The ground mask is paving (G) along the whole street; asphalt (R) shows
 only where car streets cross it.
 
+Two landmarks for the slice (`landmarks.py`): the Pathé Bellecour building (OSM way 82377010) gets
+its LiDAR volume, corner tower included (35 m; the generic roof clipped it), and the basin of place
+de la République (way 129172257) a new `basin` kind: stone coping 0.45 m from the OSM outline and a
+water surface, since the LiDAR sees no volume there. The carousel has no OSM footprint yet.
+
 ## Limits and next steps
 
 1. **Editor test**: `tools/city/unreal/import_city.py` imports the greybox and
