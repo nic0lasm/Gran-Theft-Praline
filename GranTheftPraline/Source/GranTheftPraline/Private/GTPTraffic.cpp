@@ -1272,7 +1272,8 @@ void AGTPTrafficNetwork::Tick(float DeltaSeconds)
 			continue;
 		}
 		UGTPAIDriverComponent* AIDriver = Car->FindComponentByClass<UGTPAIDriverComponent>();
-		if (bVehicleGhost && AIDriver && Player)
+		// A wreck keeps its physics: no ghost switch on a car lying in a pile-up.
+		if (bVehicleGhost && AIDriver && Player && !Car->IsWrecked())
 		{
 			const float ToPlayer = static_cast<float>(FVector::Dist2D(Car->GetActorLocation(), Player->GetActorLocation()));
 			AIDriver->SetGhost(GTPGhost::WantsGhost(AIDriver->IsGhost(), ToPlayer, GhostDistance, GhostWakeDistance));
