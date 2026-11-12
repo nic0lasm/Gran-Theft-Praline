@@ -781,6 +781,17 @@ void AGTPVehicle::ReleaseCharacter(ACharacter* Character, const FVector& Locatio
 	}
 }
 
+void AGTPVehicle::PanicExit(const FVector& ThreatLocation)
+{
+	if (State != EGTPVehicleState::Driven || !Driver || Cast<APlayerController>(GetController()))
+	{
+		return;
+	}
+	bFleeAfterExit = true;
+	FleeFrom = ThreatLocation;
+	RequestExit();
+}
+
 void AGTPVehicle::RequestExit()
 {
 	if (State != EGTPVehicleState::Driven || !Driver)
@@ -942,6 +953,20 @@ void AGTPVehicle::DoExit(bool bBailOut)
 			Move->SetHandbrakeInput(true);
 		}
 	}
+	if (bFleeAfterExit)
+	{
+		// Threatened: runs away from the gun, no navigation mesh needed.
+		bFleeAfterExit = false;
+		if (AAIController* Brain = Cast<AAIController>(Character->GetController()))
+		{
+			FVector Away = (Location - FleeFrom).GetSafeNormal2D();
+			if (Away.IsNearlyZero())
+			{
+				Away = -GetActorRightVector();
+			}
+			Brain->MoveToLocation(Location + Away * VictimFleeDistance * 2.f, 50.f, false, false);
+		}
+	}
 	GTP_TRACE(LogGTPVehicle, TEXT("%s: driver out (%s)"), *GetName(), bBailOut ? TEXT("bail out") : TEXT("stopped"));
 }
 
@@ -960,6 +985,11 @@ void AGTPVehicle::OnBodyHit(UPrimitiveComponent* HitComponent, AActor* OtherActo
 		{
 			ReportPlayerCrime(this, OtherActor->ActorHasTag(GTPPolice::PoliceTag) ? EGTPCrimeKind::HitPolice : EGTPCrimeKind::HitVehicle);
 		}
+	}
+	// Rammed or touched by the player: the traffic driver reacts (GTPTrafficReactLogic.h).
+	if (const AGTPVehicle* Rammer = Cast<AGTPVehicle>(OtherActor))
+	{
+		bHitByPlayer |= Cast<APlayerController>(Rammer->GetController()) != nullptr;
 	}
 	const float Now = GetWorld()->GetTimeSeconds();
 	const float Mass = HitComponent ? HitComponent->GetMass() : 0.f;

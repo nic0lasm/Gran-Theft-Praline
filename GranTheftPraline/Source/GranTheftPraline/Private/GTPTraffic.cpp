@@ -9,6 +9,8 @@
 #include "GTPKerbSpot.h"
 #include "GTPTrafficFar.h"
 #include "GTPLiteDriver.h"
+#include "GTPHornComponent.h"
+#include "GTPThreat.h"
 #include "Misc/ScopeExit.h"
 #include "CoreGlobals.h"
 #include "ChaosWheeledVehicleMovementComponent.h"
@@ -299,7 +301,7 @@ float UGTPAIDriverComponent::FindObstacleMetres(const AGTPVehicle* Vehicle) cons
 	return ProbeAhead(Vehicle, ProbeLength, ProbeRadius);
 }
 
-float UGTPAIDriverComponent::ProbeAhead(const AGTPVehicle* Vehicle, float LengthCm, float RadiusCm)
+float UGTPAIDriverComponent::ProbeAhead(const AGTPVehicle* Vehicle, float LengthCm, float RadiusCm, AActor** OutHit)
 {
 	// A sweep straight ahead at bumper height sees cars and people (a seated driver has collision off).
 	const FVector Forward = Vehicle->GetActorForwardVector().GetSafeNormal2D();
@@ -313,9 +315,151 @@ float UGTPAIDriverComponent::ProbeAhead(const AGTPVehicle* Vehicle, float Length
 	FHitResult Hit;
 	if (Vehicle->GetWorld()->SweepSingleByObjectType(Hit, Start, End, FQuat::Identity, Objects, FCollisionShape::MakeSphere(RadiusCm), Params))
 	{
+		if (OutHit)
+		{
+			*OutHit = Hit.GetActor();
+		}
 		return static_cast<float>(Hit.Distance) * CmToM;
 	}
+	if (OutHit)
+	{
+		*OutHit = nullptr;
+	}
 	return -1.f;
+}
+
+// --- Reactions (GTPTrafficReactLogic.h) -----------------------------------------------
+
+void UGTPAIDriverComponent::InjectReaction(bool bAimed, bool bShot, bool bRammed)
+{
+	InjectAimLeft = bAimed ? 1.5f : InjectAimLeft;
+	bInjectShot |= bShot;
+	bInjectRammed |= bRammed;
+}
+
+bool UGTPAIDriverComponent::IsStillObstacle(const AActor* Actor) const
+{
+	if (!Actor || Actor->GetVelocity().Size2D() > 50.f)
+	{
+		return false;
+	}
+	// A traffic car standing in a queue (red light, junction) will move by itself:
+	// only one that is waiting for something that does not move counts as still.
+	if (const AGTPVehicle* Car = Cast<AGTPVehicle>(Actor))
+	{
+		if (Car->HasAIDriver() && !Car->IsWrecked())
+		{
+			if (const UGTPAIDriverComponent* Other = Car->FindComponentByClass<UGTPAIDriverComponent>())
+			{
+				const GTPTrafficReact::EState State = Other->GetReactState();
+				return State == GTPTrafficReact::EState::Waiting || State == GTPTrafficReact::EState::Shaken
+					|| State == GTPTrafficReact::EState::Flee;
+			}
+			// Police, mission drivers: they move on their own.
+			return false;
+		}
+	}
+	// The player's car, a wreck, an abandoned car, a person standing in the road.
+	return true;
+}
+
+bool UGTPAIDriverComponent::IsSideClear(const AGTPVehicle* Vehicle, float AheadM) const
+{
+	// Driving on the right: going round on the left, the width of a lane, from behind
+	// the car to well past the obstacle. Anything there (oncoming car, person, post, wall)
+	// says no. High enough not to touch the kerb.
+	const FVector Forward = Vehicle->GetActorForwardVector().GetSafeNormal2D();
+	const FVector Left = -Vehicle->GetActorRightVector().GetSafeNormal2D();
+	const FVector Base = Vehicle->GetActorLocation() + Left * (Network ? Network->ReactSettings.BypassOffset * 100.f : 290.f) + FVector(0.f, 0.f, 120.f);
+	const FVector Start = Base - Forward * 500.f;
+	const FVector End = Base + Forward * (FMath::Max(AheadM, 5.f) * 100.f + 2500.f);
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(GTPTrafficBypass), false, Vehicle);
+	FCollisionObjectQueryParams Objects;
+	Objects.AddObjectTypesToQuery(ECC_Pawn);
+	Objects.AddObjectTypesToQuery(ECC_Vehicle);
+	Objects.AddObjectTypesToQuery(ECC_PhysicsBody);
+	Objects.AddObjectTypesToQuery(ECC_WorldStatic);
+	Objects.AddObjectTypesToQuery(ECC_WorldDynamic);
+	FHitResult Hit;
+	return !Vehicle->GetWorld()->SweepSingleByObjectType(Hit, Start, End, FQuat::Identity, Objects, FCollisionShape::MakeSphere(95.f), Params);
+}
+
+GTPTrafficReact::FOutput UGTPAIDriverComponent::UpdateReactions(AGTPVehicle* Vehicle, float DeltaTime, float Speed, float ProbeM, AActor* ProbeHit)
+{
+	const GTPTrafficReact::FSettings& Tuning = Network->ReactSettings;
+	const APawn* Player = UGameplayStatics::GetPlayerPawn(this, 0);
+	const FVector Location = Vehicle->GetActorLocation();
+
+	GTPTrafficReact::FInput In;
+	In.Dt = DeltaTime;
+	In.Speed = FMath::Abs(Speed);
+	In.ObstacleM = ProbeM;
+	In.bObstacleStill = ProbeM >= 0.f && IsStillObstacle(ProbeHit);
+	In.bObstacleIsPlayer = ProbeHit && Player
+		&& (ProbeHit == Player || (Cast<AGTPVehicle>(ProbeHit) && Cast<APlayerController>(Cast<AGTPVehicle>(ProbeHit)->GetController())));
+	// The side sweep only when a bypass is about to be decided.
+	if (React.State == GTPTrafficReact::EState::Waiting && React.BlockedTime >= Tuning.BypassAfter)
+	{
+		In.bSideClear = IsSideClear(Vehicle, ProbeM);
+	}
+	if (const UGTPThreatSubsystem* Threats = GetWorld()->GetSubsystem<UGTPThreatSubsystem>())
+	{
+		if (Threats->HasThreat() && Threats->IsArmed() && Threats->GetSource() == Player)
+		{
+			const FVector ToCar = Location - Threats->GetOrigin();
+			In.bAimedAt = ToCar.Size() < Network->ReactAimRange
+				&& FVector::DotProduct(ToCar.GetSafeNormal(), Threats->GetAim().GetSafeNormal()) > FMath::Cos(FMath::DegreesToRadians(Network->ReactAimHalfAngle));
+		}
+		if (SeenShotSerial < 0)
+		{
+			SeenShotSerial = Threats->GetShotSerial();
+		}
+		if (Threats->GetShotSerial() != SeenShotSerial)
+		{
+			SeenShotSerial = Threats->GetShotSerial();
+			In.bShotNear = FVector::Dist(Threats->GetLastShotFrom(), Location) < Network->ReactShotRange;
+		}
+	}
+	In.bHitByPlayer = Vehicle->ConsumeHitByPlayer();
+	In.bAimedAt |= InjectAimLeft > 0.f;
+	InjectAimLeft -= DeltaTime;
+	In.bShotNear |= bInjectShot;
+	In.bHitByPlayer |= bInjectRammed;
+	bInjectShot = bInjectRammed = false;
+
+	const GTPTrafficReact::EState Before = React.State;
+	const GTPTrafficReact::FOutput Out = GTPTrafficReact::Step(React, In, Tuning);
+	if (Out.bChanged)
+	{
+		if (React.State == GTPTrafficReact::EState::Bypass)
+		{
+			BypassBlocker = ProbeHit;
+		}
+		const FString From(UTF8_TO_TCHAR(GTPTrafficReact::StateName(Before)));
+		const FString To(UTF8_TO_TCHAR(GTPTrafficReact::StateName(React.State)));
+		GTP_TRACE(LogGTPTraffic, TEXT("traffic react: %s %s -> %s (ahead %s %.1f m, %.0f km/h)"), *Vehicle->GetName(), *From, *To,
+			*GetNameSafe(ProbeHit), ProbeM, In.Speed * 3.6f);
+	}
+	if (Out.bBailOut)
+	{
+		const UGTPThreatSubsystem* Threats = GetWorld()->GetSubsystem<UGTPThreatSubsystem>();
+		const FVector From = Threats && Threats->HasThreat() ? Threats->GetOrigin() : (Player ? Player->GetActorLocation() : Location);
+		Vehicle->PanicExit(From);
+	}
+	// The horn only where someone can hear it (a voice per car is not free).
+	bool bHorn = Out.bHorn;
+	if (bHorn)
+	{
+		const APlayerController* Viewer = GetWorld()->GetFirstPlayerController();
+		const FVector View = Viewer && Viewer->PlayerCameraManager ? Viewer->PlayerCameraManager->GetCameraLocation() : Location;
+		bHorn = FVector::Dist(View, Location) < Network->ReactHornDistance;
+	}
+	if (bHorn != bHornOn)
+	{
+		bHornOn = bHorn;
+		UGTPHornComponent::SetHorn(Vehicle, bHorn);
+	}
+	return Out;
 }
 
 void UGTPAIDriverComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
@@ -353,8 +497,23 @@ void UGTPAIDriverComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 	// Nearest of: something in front (straight probe, then along the lanes for
 	// queues on bends), a red light, the stop line of a junction another car is crossing.
 	// A ghost skips the sweep (the queue along the lanes still sees the cars ahead).
-	float Obstacle = bGhost ? -1.f : FindObstacleMetres(Vehicle);
-	const float Queue = Network->GapAlongLanes(this, 40.f);
+	AActor* ProbeHit = nullptr;
+	const float Probe = bGhost ? -1.f : ProbeAhead(Vehicle, ProbeLength, ProbeRadius, &ProbeHit);
+	// Reactions to the street (GTPTrafficReactLogic.h): a ghost is too far for any of them.
+	GTPTrafficReact::FOutput Reaction;
+	if (!bGhost && Network->bTrafficReact)
+	{
+		Reaction = UpdateReactions(Vehicle, DeltaTime, Speed, Probe, ProbeHit);
+	}
+	else if (bHornOn)
+	{
+		bHornOn = false;
+		UGTPHornComponent::SetHorn(Vehicle, false);
+	}
+	// Going round: the car being passed is no obstacle any more, nor the queue behind it.
+	const bool bPassing = Reaction.bIgnoreBlocker && ProbeHit && ProbeHit == BypassBlocker.Get();
+	float Obstacle = bPassing ? -1.f : Probe;
+	const float Queue = Reaction.bIgnoreBlocker ? -1.f : Network->GapAlongLanes(this, 40.f);
 	if (Queue >= 0.f && (Obstacle < 0.f || Queue < Obstacle))
 	{
 		Obstacle = Queue;
@@ -367,7 +526,9 @@ void UGTPAIDriverComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 	const float ToLaneEnd = EndDir.IsNearlyZero()
 		? FMath::Sqrt(FMath::Square(static_cast<float>(LaneEnd.X) * CmToM - X) + FMath::Square(static_cast<float>(LaneEnd.Y) * CmToM - Y))
 		: static_cast<float>(FVector2D::DotProduct(FVector2D(LaneEnd.X * CmToM - X, LaneEnd.Y * CmToM - Y), EndDir));
-	const float LightStop = Network->GetTrafficLights().StopDistance(Route[0], Network->GetLightTime(), ToLaneEnd, Speed, Settings.ComfortDecel);
+	// Panic: red lights and junction turns are ignored.
+	const float LightStop = Reaction.bIgnoreSignals ? -1.f
+		: Network->GetTrafficLights().StopDistance(Route[0], Network->GetLightTime(), ToLaneEnd, Speed, Settings.ComfortDecel);
 	if (LightStop >= 0.f && (Obstacle < 0.f || LightStop < Obstacle))
 	{
 		Obstacle = LightStop;
@@ -378,7 +539,7 @@ void UGTPAIDriverComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 	{
 		Junctions.Drop(Network->GetJunctionTable(), static_cast<int>(Vehicle->GetUniqueID()), Lane.ToJunction);
 	}
-	const float StopLine = Junctions.Update(Network->GetJunctionTable(), static_cast<int>(Vehicle->GetUniqueID()), LightStop >= 0.f ? -1 : Lane.ToJunction,
+	const float StopLine = Reaction.bIgnoreSignals ? -1.f : Junctions.Update(Network->GetJunctionTable(), static_cast<int>(Vehicle->GetUniqueID()), LightStop >= 0.f ? -1 : Lane.ToJunction,
 		{static_cast<float>(LaneEnd.X) * CmToM, static_cast<float>(LaneEnd.Y) * CmToM}, X, Y, Speed, Settings.ComfortDecel, StoppedTime);
 	if (StopLine >= 0.f && (Obstacle < 0.f || StopLine < Obstacle))
 	{
@@ -405,9 +566,19 @@ void UGTPAIDriverComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 		NewLocation.Z = GhostGroundZ + GhostRideHeight;
 		Vehicle->SetActorLocationAndRotation(NewLocation, FRotator(0.f, FMath::RadiansToDegrees(NewYaw), 0.f), false, nullptr, ETeleportType::TeleportPhysics);
 	}
+	else if (Reaction.bHold)
+	{
+		// Shaken or getting out: brake and stay put.
+		Vehicle->SetAIDriveInput(0.f, 1.f, 0.f, Speed < 0.5f);
+	}
 	else
 	{
-		const FGTPDriveCommand Command = GTPDrive::Decide(Path, X, Y, Yaw, Speed, LaneSpeed, Obstacle, Settings, Closest);
+		// Going round: the car steers as if it stood LateralOffset to the right of where it
+		// is, so it drives that far to the left of its lane.
+		const FVector Right = Vehicle->GetActorRightVector().GetSafeNormal2D();
+		const float SteerX = X + Reaction.LateralOffset * static_cast<float>(Right.X);
+		const float SteerY = Y + Reaction.LateralOffset * static_cast<float>(Right.Y);
+		const FGTPDriveCommand Command = GTPDrive::Decide(Path, SteerX, SteerY, Yaw, Speed, LaneSpeed * Reaction.SpeedScale, Obstacle, Settings, Closest);
 		Vehicle->SetAIDriveInput(Command.Throttle, Command.Brake, Command.Steering, Command.Brake >= 1.f && Speed < 0.5f);
 	}
 
@@ -817,6 +988,14 @@ void AGTPTrafficNetwork::BeginPlay()
 	bPoolSpawnCheck = PoolSpawnCheckSwitch != 0;
 	GTP_TRACE(LogGTPTraffic, TEXT("traffic: car pool %s, cooldown %.1f s, spot check %d"), bTrafficPool ? TEXT("on") : TEXT("off"), PoolCooldown,
 		bPoolSpawnCheck ? 1 : 0);
+	int32 ReactSwitch = bTrafficReact ? 1 : 0;
+	FParse::Value(FCommandLine::Get(), TEXT("TrafficReact="), ReactSwitch);
+	bTrafficReact = ReactSwitch != 0;
+	ReactSettings.HonkAfter = ReactHonkAfter;
+	ReactSettings.BypassAfter = ReactBypassAfter;
+	ReactSettings.PanicSeconds = ReactPanicSeconds;
+	FParse::Value(FCommandLine::Get(), TEXT("TrafficReactDemo="), ReactDemoInterval);
+	GTP_TRACE(LogGTPTraffic, TEXT("traffic: reactions %s, demo every %.0f s"), bTrafficReact ? TEXT("on") : TEXT("off"), ReactDemoInterval);
 	int32 FarCars = NumFarCars;
 	FParse::Value(FCommandLine::Get(), TEXT("FarTraffic="), FarCars);
 	// -Traffic=0 turns all traffic off, far cars included (benches of other systems rely on it).
@@ -1254,6 +1433,51 @@ AGTPVehicle* AGTPTrafficNetwork::TakeFromPool(const FTransform& Transform)
 	return nullptr;
 }
 
+void AGTPTrafficNetwork::UpdateReactDemo()
+{
+	// -TrafficReactDemo=S: every S seconds the nearest driven car 10 to 50 m from the camera,
+	// in view, is aimed at, rammed or shot near, in turn, so a video shows every reaction.
+	const double Now = GetWorld()->GetTimeSeconds();
+	if (ReactDemoInterval <= 0.f || !bTrafficReact || Now < NextReactDemoTime)
+	{
+		return;
+	}
+	NextReactDemoTime = Now + ReactDemoInterval;
+	const APlayerController* Viewer = GetWorld()->GetFirstPlayerController();
+	if (!Viewer || !Viewer->PlayerCameraManager)
+	{
+		return;
+	}
+	const FVector View = Viewer->PlayerCameraManager->GetCameraLocation();
+	const FVector Look = Viewer->PlayerCameraManager->GetCameraRotation().Vector();
+	UGTPAIDriverComponent* Best = nullptr;
+	float BestDistance = 5000.f;
+	for (AGTPVehicle* Car : Cars)
+	{
+		UGTPAIDriverComponent* Driver = IsValid(Car) ? Car->FindComponentByClass<UGTPAIDriverComponent>() : nullptr;
+		if (!Driver || Driver->IsGhost() || Driver->GetReactState() != GTPTrafficReact::EState::Cruise)
+		{
+			continue;
+		}
+		const FVector To = Car->GetActorLocation() - View;
+		const float Distance = static_cast<float>(To.Size());
+		if (Distance > 1000.f && Distance < BestDistance && FVector::DotProduct(To.GetSafeNormal(), Look) > 0.5f)
+		{
+			Best = Driver;
+			BestDistance = Distance;
+		}
+	}
+	if (!Best)
+	{
+		GTP_TRACE(LogGTPTraffic, TEXT("traffic react demo: no car in view"));
+		return;
+	}
+	static const TCHAR* Events[] = {TEXT("aim"), TEXT("ram"), TEXT("shot")};
+	const int32 Event = ReactDemoStep++ % 3;
+	Best->InjectReaction(Event == 0, Event == 2, Event == 1);
+	GTP_TRACE(LogGTPTraffic, TEXT("traffic react demo: %s on %s at %.0f m"), Events[Event], *GetNameSafe(Best->GetOwner()), BestDistance / 100.f);
+}
+
 const AActor* AGTPTrafficNetwork::FindCarAt(const AGTPVehicle* Car, const FTransform& Transform) const
 {
 	const UPrimitiveComponent* Body = Cast<UPrimitiveComponent>(Car->GetRootComponent());
@@ -1358,6 +1582,7 @@ void AGTPTrafficNetwork::Tick(float DeltaSeconds)
 		}
 	}
 	UpdateSignalHeads();
+	UpdateReactDemo();
 	AIDrivers.RemoveAll([](const TWeakObjectPtr<UGTPAIDriverComponent>& Weak) { return !Weak.IsValid(); });
 
 	// New cars out of sight: one a second when it means spawning an actor (no burst of spawns),

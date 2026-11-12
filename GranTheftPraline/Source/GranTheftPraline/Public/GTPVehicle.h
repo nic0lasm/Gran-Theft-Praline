@@ -125,6 +125,20 @@ public:
 	void RequestExit();
 
 	/**
+	 * A non-player driver threatened at gunpoint: gets out (stopping first, or bailing
+	 * out when fast) and runs away from ThreatLocation once outside.
+	 */
+	void PanicExit(const FVector& ThreatLocation);
+
+	/** True once after the player's car (or the player) hit this car. */
+	bool ConsumeHitByPlayer()
+	{
+		const bool bHit = bHitByPlayer;
+		bHitByPlayer = false;
+		return bHit;
+	}
+
+	/**
 	 * Takes whoever sits at the wheel out at once and puts them at Location
 	 * (river recovery: the car sank). The player controller gets its character
 	 * back. Returns the character, or null when nobody was inside.
@@ -482,4 +496,7 @@ private:
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UStaticMeshComponent>> GlassComponents;
 	float LastImpactTime = -1000.f;
+	bool bHitByPlayer = false;
+	bool bFleeAfterExit = false;
+	FVector FleeFrom = FVector::ZeroVector;
 };
