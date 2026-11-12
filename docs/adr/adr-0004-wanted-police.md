@@ -92,3 +92,14 @@ A crime counts only if somebody saw or heard it (`GTPWitnessLogic.h`, tested in 
 ## Cost of a police unit and `-PoliceLite=1` (2026-11-12)
 
 M1 Shipping, fixed scene, `-WantedStars=2 -WantedHold -PoliceMax=6`, 600 s: GPU p50 18.1 ms and p95 29.2 ms against 13.2 / 20.2 without a chase, so about 0.8 ms (p50) and 1.5 ms (p95) per unit. Estimate by part (not measured per part): the roof lights are two unshadowed point lights with one lit at a time, about 0.05 to 0.1 ms per car; the emissive material and the seated driver cost almost nothing; the rest (about 0.6 to 1.3 ms) is the car body at full detail with its moving shadow, because a chase keeps every unit within 25 m of the player, so none gets the far LOD or the shadow cut. `-PoliceLite=1` (default off, for A/B): one light per car whose colour alternates, lights only within 30 m, shadow and full detail only within 15 m (instead of 25 m), and at most 3 units unless `-PoliceMax` is given. Expected: about 0.1 ms per unit from the lights and a third to a half of the body cost beyond 15 m; to be measured with a chase scene at 3 and 6 units, Lite off and on.
+
+## Officers on foot, shooting and the search (2026-11-12)
+
+Rules in `GTPPoliceTactics.h` (plain C++, tested in CI by `tactics_test`), behaviour in `AGTPPoliceOfficer` (a light body, no navigation mesh yet: it steers straight and slides along walls).
+
+- **Out of the car**: with the player on foot within 35 m of a unit, or at any time for a stuck unit within 60 m, the director puts an officer on the ground; quota by level 1/2/2/3/4, at most `MaxOfficers` (3, `-PoliceOfficers=N`, 0 = cars only; 2 with `-PoliceLite=1`). They count for sight, witnesses and arrest like the cars.
+- **On foot**: they run (4.3 m/s, slower than a sprinting player: officers alone do not catch a runner, the cars and the stars do) at the player while seen, to the last known position otherwise, then sweep a circle around it that widens by 0.6 m/s from 15 m up to 60 m, one sector per officer.
+- **Shooting**: never at one star; at two only for 20 s after the player fired, threatened or hit someone; from three stars on sight within 35 m with a clear line, through `UGTPWeaponComponent::FireAt`. Aim improves and fire speeds up with the level (spread 2.5 at three stars, 0.35 less per star; 1.1 s down to 0.5 s between shots).
+- **Off duty**: 15 s after the level is gone out of the player's sight, all of them after 60 s.
+- Not done: roadblocks and encirclement (logic in `feat/police-roadblocks`, frozen until the alleys scenario), a run animation (config `RunAnimation`, `-PoliceRunAnim=`), real paths through alleys.
+- Demo and proof: `-WantedStars=3 -WantedHold -PoliceOfficers=3` with the player on foot; the `wanted:` trace gives `officers=N`, the log `police: officer out`.
