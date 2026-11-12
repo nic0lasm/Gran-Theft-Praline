@@ -1,6 +1,3 @@
-06:15 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
-06:16 == lumen-dev12 start (30 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -PoliceMax=3 -GfxCVars=r.EyeAdaptation.CachedLightingPreExposure=12
-06:16 lumen-dev12: exit=0 crash=no last t=wanted: t=29 wanted=13 police=3 police-in-last-10=0 pool-drops=0 | lumen-dev12: 1001 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.01 p95 25.03 max 25.0 | gpu p50 18.21 p95 29.11 | gate FAIL
 06:16 lumen dev check: LogCsvProfiler: Display: Metadata set : commandline="" -Ambience=noon -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -PoliceMax=3 -GfxCVars=r.EyeAdaptation.CachedLightingPreExposure=12 -SkipTitle -FrameLogFile="GTAL-build/Builds/lumen/devcheck/frametimes.csv" -ExitAfter=30 -userdir="GTAL-build/Builds/lumen/devcheck/userdir" -abslog="HOME
 06:16 pushed lumen
 06:16 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
@@ -58,3 +55,6 @@
 07:07 cand11c witness street-fixed: 4600 frames | 25.0+-1 ms 99.9 % (exactly 25.0 99.8 %) | >26 3 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 36.7 | gpu p50 13.77 p95 20.73 | gate PASS | LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy | pool drops 0
 07:07 pushed cand11c
 07:07 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+07:07 pushed etat
+07:07 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+07:07 == loop-endurance-1-1 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
