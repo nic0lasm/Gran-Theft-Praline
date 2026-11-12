@@ -33,6 +33,8 @@
     VERSION_TAG    release tag (v0.9.0-rc1): sets ProjectVersion before the build
                    (tools\qa\stamp-version.ps1), as package-mac.sh does
     INTERIORS      1 (default) or 0
+    COOK_MAPS      extra maps for this package only, comma separated (/Game/...): added to
+                   MapsToCook like the interior levels, DefaultGame.ini put back afterwards
     INTERIOR_MINUTES  time limit of one interior build (default 20)
 
   Logs: Builds\<version>\package.log
@@ -132,7 +134,8 @@ $uatArgs = @(
   "-clientconfig=$Configuration",
   '-build', '-cook', '-stage', '-pak', '-iostore', '-package', '-archive',
   "-archivedirectory=$stagingDir",
-  '-compressed', '-prereqs', '-nop4', '-utf8output', '-unattended'
+  '-compressed', '-prereqs', '-nop4', '-utf8output', '-unattended',
+  '-ubtargs=-WaitMutex'   # wait for another UnrealBuildTool instead of failing (packages queued behind a compile)
 )
 $cmdLine = ((@($runUat) + $uatArgs) | ForEach-Object { Quote $_ }) -join ' '
 
@@ -235,6 +238,10 @@ function AddMapsToCook([string[]]$Maps) {
   [IO.File]::WriteAllText($gameIni, $text, (New-Object Text.UTF8Encoding($false)))
 }
 
+# Maps added to MapsToCook for this package only (interior levels, COOK_MAPS): logged in package.log.
+$cookMapsAdded = @()
+$extraMaps = @((EnvOr 'COOK_MAPS' '') -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+
 if ($interiors -and $DryRun) {
   Write-Output "Dry run, interiors step: $($interiorIds -join ', ') rebuilt with $editorCmd, then MapsToCook +"
   $interiorIds | ForEach-Object { Write-Output "  /Game/Interiors/L_Interior_$_" }
@@ -301,8 +308,28 @@ if ($interiors -and -not $DryRun) {
   if ($build.ExitCode -ne 0) { Fail "editor build failed (exit $($build.ExitCode), see $stepDir\editor-build.log)" }
   foreach ($id in $interiorIds) { RunInterior $id $stepDir }
   AddMapsToCook ($interiorIds | ForEach-Object { "/Game/Interiors/L_Interior_$_" })
+  $cookMapsAdded += @($interiorIds | ForEach-Object { "/Game/Interiors/L_Interior_$_" })
   Write-Output "Interiors: $($interiorIds -join ', ') built, added to MapsToCook for this package only"
 }
+if ($extraMaps.Count -gt 0 -and -not $DryRun) {
+  if ($null -eq $script:putBack) {
+    # No interiors step: save DefaultGame.ini here and put it back after the package.
+    $extraIniMd5 = Md5Of $gameIni
+    $extraIniBytes = [IO.File]::ReadAllBytes($gameIni)
+    $script:putBack = {
+      $script:putBack = $null   # once
+      try { [IO.File]::WriteAllBytes($gameIni, $extraIniBytes) } catch { [Console]::Error.WriteLine("put back DefaultGame.ini failed: $_"); $script:putBackFailed = $true }
+      $nowIni = Md5Of $gameIni
+      Write-Output "Put back: DefaultGame.ini md5 $nowIni ($(if ($nowIni -eq $extraIniMd5) { 'unchanged' } else { "CHANGED from $extraIniMd5" }))"
+      if ($nowIni -ne $extraIniMd5) { $script:putBackFailed = $true }
+    }
+  }
+  $extraMaps = @($extraMaps | Where-Object { $cookMapsAdded -notcontains $_ } | Select-Object -Unique)
+  if ($extraMaps.Count -gt 0) { AddMapsToCook $extraMaps; $cookMapsAdded += $extraMaps }
+}
+$cookMapsLine = "package-win: MapsToCook added for this package: $(if ($cookMapsAdded.Count -gt 0) { $cookMapsAdded -join ', ' } elseif ($DryRun) { @(@(@(if ($interiors) { $interiorIds | ForEach-Object { "/Game/Interiors/L_Interior_$_" } }) + $extraMaps) | Select-Object -Unique) -join ', ' } else { 'none' })"
+if ($DryRun -and $cookMapsLine.EndsWith(': ')) { $cookMapsLine += 'none' }
+Write-Output $cookMapsLine
 Write-Output "Packaging version $Version ($Configuration) into $outDir"
 Write-Output "Engine: $ueRoot"
 Write-Output "Full log: $logFile (watchdog: $stallMinutes min without output, $maxMinutes min max, $retries retry)"
@@ -372,6 +399,7 @@ function RunBuildCook([string]$AttemptLog) {
 
 $startTime = Get-Date
 Set-Content -LiteralPath $logFile -Value $null
+Add-Content -LiteralPath $logFile -Value $cookMapsLine
 $attempt = 0
 while ($true) {
   $attempt++
