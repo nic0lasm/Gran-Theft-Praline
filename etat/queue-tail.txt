@@ -1,4 +1,3 @@
-09:02 == ilight2-blood exit=0
 09:02 ilight2 blood: LogPython: Warning: [CombatMaterials] built /Game/Combat/Materials/M_GTP_BloodPool;
 09:02 == ilight2-build start
 09:02 list39 paused during the ilight2 blood step (ilight2 replaced by cand12)
@@ -58,3 +57,4 @@
 10:12 pushed lumen12
 10:12 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
 10:12 list42 starts (list41 stopped after the lumen12 push and its check)
+10:12 pushed etat
