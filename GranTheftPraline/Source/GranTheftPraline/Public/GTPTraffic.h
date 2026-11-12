@@ -439,6 +439,9 @@ private:
 	bool PutAway(AGTPVehicle* Car);
 	/** A pooled car at Transform, ready to drive; nullptr if the pool is empty. */
 	AGTPVehicle* TakeFromPool(const FTransform& Transform);
+	/** A visible vehicle other than Car inside Car's box placed at Transform, or null (-PoolSpawnCheck=0 skips the test). */
+	const AActor* FindCarAt(const AGTPVehicle* Car, const FTransform& Transform) const;
+	bool bPoolSpawnCheck = true;
 
 	UPROPERTY(Transient)
 	TArray<TSubclassOf<AGTPVehicle>> LoadedVehicleClasses;

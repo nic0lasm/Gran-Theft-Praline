@@ -526,6 +526,12 @@ void AGTPPoliceDirector::RepositionUnit(FUnit& Unit, const FVector& PlayerLocati
 	{
 		return;
 	}
+	// Never teleported into another car (traffic, puppet, parked): the solver does not survive a deep overlap.
+	if (const AActor* Blocker = Network->bPoolSpawnCheck ? Network->FindCarAt(Car, Transform) : nullptr)
+	{
+		GTP_TRACE(LogGTPWanted, TEXT("police: %s move blocked by %s"), *Car->GetName(), *Blocker->GetName());
+		return;
+	}
 	// A move instead of a new car and driver: no spawn hitch.
 	Car->SetActorLocationAndRotation(Transform.GetLocation(), Transform.GetRotation(), false, nullptr, ETeleportType::TeleportPhysics);
 	if (USkeletalMeshComponent* Body = Car->GetMesh())
