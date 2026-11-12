@@ -5,7 +5,7 @@ weathering, no texture). When tools/city/unreal/import_surfaces.py has resolved 
 surfaces of tools/city/surfaces.json, it writes Saved/CityImport/surfaces.json, and these hooks,
 called by the material generators before gtp_weather, put the textures in:
 
-  ground(mat, mask)    M_City_Ground: one layer per ground mask channel (sidewalk, pedestrian
+  ground(mat, mask)    M_City_Ground (with mud and oil stains as texture layers): one layer per mask channel (sidewalk, pedestrian
                        paving G, carriageway R, kerb B off the road), then a large grime
                        texture over all of it (decal_dirt); road markings and any layer
                        without a surface keep the procedural colour
@@ -20,7 +20,7 @@ stays as it is, so the generators run the same on a project without the scans.
 
 M1 budget (no Nanite there, every fetch is paid per pixel): textures capped at 2K by the import,
 shared wrap samplers, one BaseColor + Normal + roughness map per layer: ground mask + 4 layers =
-15 fetches with the grime, kit 4 (one is the 1x1 mip used to keep the building hue), shell 6. GTP_SURFACES_LITE=1
+17 fetches with the stains (mud, oil: colour + opacity each), kit 4 (one is the 1x1 mip used to keep the building hue), shell 6. GTP_SURFACES_LITE=1
 keeps only the colour maps (ground 5, kit 2, shell 2) if the perf pass asks for it.
 """
 
@@ -232,8 +232,27 @@ def ground(mat, mask):
         return v, vo
 
     col, _ = blend(0, col0, col0_out)
+    # Stains as texture layers, not decal actors (no draw call, no DBuffer pass on the M1): the
+    # decal's colour where its opacity map says so, scattered by two slow sines so the repeat
+    # does not read as a grid. Mud over all the ground, oil on the carriageway only.
+    for sid_list, region, region_out, period, strength in ((GROUND_GRIME, None, "", 450.0, 0.55),
+                                                          (("decal_oil",), mask, "R", 700.0, 0.7)):
+        sid, st = _pick(m, sid_list)
+        if not st or not st.get("opacity"):
+            continue
+        uv = g.mul(xy, g.const(1.0 / period))
+        a = g.mask(g.sample(st["opacity"], uv, "masks"), r=True)
+        x, y = g.mask(xy, r=True), g.mask(xy, g=True)
+        s1 = g.unary(unreal.MaterialExpressionSine, g.mul(x, g.const(1.0 / 730.0)))
+        s2 = g.unary(unreal.MaterialExpressionSine, g.mul(y, g.const(1.0 / 1130.0)))
+        scatter = g.unary(unreal.MaterialExpressionSaturate, g.mul(g.mul(s1, s2), g.const(3.0)))
+        a = g.mul(g.mul(a, scatter), g.const(strength))
+        if region is not None:
+            a = g.mul(a, region, b_out=region_out)
+        col = g.lerp(col, g.colour(st, uv), a)
+        _used["ground.stain." + sid] = sid
     gid, grime = _pick(m, GROUND_GRIME)
-    if grime:
+    if grime and not grime.get("opacity"):
         # Grime as a texture over the whole ground, not as decal actors: one fetch (plus its
         # 1x1 mip), no draw call, no DBuffer pass on the M1. Large repeat, half strength.
         uv = g.mul(xy, g.const(1.0 / float(grime.get("tile_cm", 200.0) * GRIME_SCALE)))
