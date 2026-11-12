@@ -3,8 +3,10 @@
 An interior level (tools/interiors/<id>.json, built by tools/interiors/unreal/build_interior_level.py)
 streams in behind a city facade. Its anchor gives the interior frame in Unreal centimetres:
 origin = shop_ue_cm + origin_offset_m (local metres, x east, y north, so north is Unreal -Y),
-x along front_direction_m, y inward, frame width x depth. The street modules of the ground
-storey whose pivot lies in that rectangle, widened by MARGIN_M, are not placed: the interior's
+x along front_direction_m, y inward, frame width x depth. Only the glass front (frame line y = 0)
+opens: the ground-storey modules, street or court side, whose pivot lies within FRONT_BAND_M of
+that line over the frame width widened by MARGIN_M are not placed; the other sides of the interior
+are blind walls and keep the city facade. The interior's
 own glass front and door take their place. The building shell has no wall where the facade
 modules are (meshkit.building_mesh with_modules=False), so the opening needs nothing else.
 Plain Python, used by unreal/place_facades.py and the tests.
@@ -16,6 +18,7 @@ import math
 import os
 
 MARGIN_M = 0.5
+FRONT_BAND_M = 1.0
 GROUND_STOREY = 0
 
 
@@ -44,19 +47,19 @@ def load_frames(interiors_dir):
     return frames
 
 
-def inside(frame, x, y, margin_cm=MARGIN_M * 100.0):
-    _id, (ox, oy), (fx, fy), (ix, iy), width, depth = frame
+def on_front(frame, x, y, margin_cm=MARGIN_M * 100.0, band_cm=FRONT_BAND_M * 100.0):
+    _id, (ox, oy), (fx, fy), (ix, iy), width, _depth = frame
     u = (x - ox) * fx + (y - oy) * fy
     v = (x - ox) * ix + (y - oy) * iy
-    return -margin_cm <= u <= width + margin_cm and -margin_cm <= v <= depth + margin_cm
+    return -margin_cm <= u <= width + margin_cm and abs(v) <= band_cm
 
 
 def cut_rows(rows, frames):
-    """Rows of facade_modules.csv without the ground street modules in front of an interior; and {id: count}."""
+    """Rows of facade_modules.csv without the ground modules on an interior's glass front; and {id: count}."""
     kept, cut = [], {}
     for r in rows:
-        if r["side"] == "street" and int(r["storey"]) == GROUND_STOREY:
-            hit = next((f for f in frames if inside(f, float(r["ue_x"]), float(r["ue_y"]))), None)
+        if int(r["storey"]) == GROUND_STOREY:
+            hit = next((f for f in frames if on_front(f, float(r["ue_x"]), float(r["ue_y"]))), None)
             if hit:
                 cut[hit[0]] = cut.get(hit[0], 0) + 1
                 continue
