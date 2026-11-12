@@ -1,5 +1,5 @@
-# Mac state 2026-11-12 06:38 Paris
+# Mac state 2026-11-12 06:41 Paris
 
-- block: 10 endurance on cand11
-- last line: 06:38 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+- block: starting
+- last line: 06:38 == loop-endurance-1-1 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
 - startup crashes: 3
