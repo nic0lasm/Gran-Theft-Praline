@@ -1,0 +1,60 @@
+11:49 firstlaunch: variant closest to 20.6 ms GPU p95: c (off by .47 ms)
+11:50 firstlaunch still a: frame_00000.jpg
+11:50 pushed etat
+11:50 firstlaunch still c: frame_00000.jpg
+11:51 pushed firstlaunch
+11:51 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+11:51 cand13: PC proof VERDICT: OK found
+11:51 list46 starts (list45 stopped after the firstlaunch push and its check)
+11:51 push etat failed
+11:51 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+11:51 == firstlaunch-f start (street-fixed 120 s, fresh -userdir) -GfxCVars=sg.AntiAliasingQuality=2
+11:53 firstlaunch-f: exit 0 | f: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.2 | gpu p50 14.67 p95 21.58 | gate PASS | kept: Resolution=0 ViewDistance=3 AntiAliasing=2 Shadow=1 GlobalIllumination=1 Reflection=1 PostProcess=3 Texture=2 Effects=2 Foliage=2 Shading=3 Landscape=3 
+11:53 == firstlaunch-g start (street-fixed 120 s, fresh -userdir) -GfxCVars=sg.ViewDistanceQuality=2
+11:55 firstlaunch-g: exit 0 | g: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.0 | gpu p50 17.96 p95 28.79 | gate FAIL | kept: Resolution=0 ViewDistance=2 AntiAliasing=3 Shadow=1 GlobalIllumination=1 Reflection=1 PostProcess=3 Texture=2 Effects=2 Foliage=2 Shading=3 Landscape=3 
+11:55 pushed firstlaunch
+11:55 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+11:55 cand13: PC proof VERDICT: OK found
+11:55 pushed etat
+11:55 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+11:55 == cand13-compile start
+11:56 == cand13-compile exit=0
+11:56 == cand13-blood start
+11:57 == cand13-blood exit=0
+11:57 cand13 blood: LogPython: Warning: [CombatMaterials] built /Game/Combat/Materials/M_GTP_BloodPool;
+11:57 == cand13-build start
+12:09 == cand13-build exit=0
+12:09 cand13 build exit=0; - interiors: OK, 26 s, log interiors.log;- interior maps cooked for this package only: /Game/Interiors/L_Interior_fastfood_bellecour ;- map md5 at the end: 1c92de0f813b89cb40aeb000cd92a1de, unchanged;- DefaultGame.ini md5 at the end: eb19ee3a657b09a9e28edc806259ad78, unchanged;- tracked changes at the end: 0, clone on 720796c;; ini md5 vs start same; pre-exposure in the packaged DefaultEngine.ini: 1
+12:09 cand13 restore: Combat removed 1 file(s); Content/Interiors entries 0; tracked changes 0
+12:09 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+12:18 cand13 street-fixed: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.1 | gpu p50 13.63 p95 20.71 | gate PASS | LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy | pool drops 0
+12:18 cand13 street-demo: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.1 | gpu p50 16.94 p95 24.51 | gate FAIL | LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy | pool drops 0
+12:18 cand13 night: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.1 | gpu p50 15.27 p95 23.44 | gate PASS | LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy | pool drops 0
+12:18 cand13 rain: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.4 | gpu p50 14.46 p95 22.46 | gate PASS | LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy | pool drops 0
+12:18 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+12:18 == cand13-long600 start (600 s, no -userdir) -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -PoliceMax=3
+12:20 pushed etat
+12:28 cand13-long600: crash no (exit 0), end t=597, reused=159 | long600: 23797 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 1 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 28.5 | gpu p50 14.07 p95 20.96 | gate PASS | 
+12:28 list47 starts (list46 stopped after the cand13 long600, before its interior runs)
+12:29 pushed etat
+12:29 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+12:31 demo13 def1: 4601 frames | GPU p50 15.27 p95 22.23 | >26 ms 0 | p95/10s (t s:ms) 0:21.8 10:19.8 20:20.6 30:22.1 40:22.9 50:23.0 60:21.9 70:22.3 80:22.0 90:22.1 100:22.5 110:22.6 120:14.9 | interior: InteriorStreaming: 1 interiors, off (-Interiors=1 to turn on), preload 40 m, unload 70 m, density 2;
+12:33 demo13 def2: 4601 frames | GPU p50 15.42 p95 22.48 | >26 ms 0 | p95/10s (t s:ms) 0:22.3 10:20.1 20:20.5 30:22.5 40:23.0 50:22.9 60:22.6 70:22.6 80:22.4 90:22.4 100:22.6 110:22.5 120:15.1 | interior: InteriorStreaming: 1 interiors, off (-Interiors=1 to turn on), preload 40 m, unload 70 m, density 2;
+12:35 demo13 pe8-1: 4601 frames | GPU p50 16.78 p95 24.38 | >26 ms 0 | p95/10s (t s:ms) 0:22.2 10:19.9 20:20.3 30:22.0 40:27.6 50:22.6 60:28.2 70:28.3 80:28.2 90:28.5 100:28.5 110:28.7 120:17.3 | interior: InteriorStreaming: 1 interiors, off (-Interiors=1 to turn on), preload 40 m, unload 70 m, density 2;
+12:37 pushed etat
+12:37 list48 starts (list47 stopped during demo13 pe8-2, whose bench run goes on)
+12:37 demo13 pe8-2: 4601 frames | GPU p50 16.35 p95 23.80 | >26 ms 0 | p95/10s (t s:ms) 0:21.4 10:20.1 20:21.1 30:22.5 40:22.9 50:23.3 60:22.2 70:22.5 80:28.8 90:28.6 100:28.4 110:28.0 120:16.6 | plateau after 60 s: YES (mean p95 of the 60-120 s slices 26.4 ms) | events 35-65 s: wanted: t=35 stars=2 phase=1 units=2 nearest=96 m seen=0 arrest=0.00 ; wanted: t=51 stars=2 phase=1 units=2 nearest=56 m seen=0 arrest=0.00 ; wanted: t=65 stars=2 phase=1 units=2 nearest=56 m seen=0 arrest=0.00
+12:37 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+12:39 demo13 noint1: 4601 frames | GPU p50 15.14 p95 22.11 | >26 ms 0 | p95/10s (t s:ms) 0:22.4 10:19.9 20:21.0 30:22.7 40:22.8 50:23.3 60:21.9 70:22.1 80:22.2 90:22.1 100:22.1 110:22.3 120:16.0 | plateau after 60 s: no (mean p95 of the 60-120 s slices 22.1 ms) | events 35-65 s: wanted: t=35 stars=2 phase=1 units=2 nearest=95 m seen=0 arrest=0.00 ; wanted: t=51 stars=2 phase=1 units=2 nearest=56 m seen=0 arrest=0.00 ; wanted: t=65 stars=2 phase=1 units=2 nearest=56 m seen=0 arrest=0.00
+12:41 demo13 noint2: 4601 frames | GPU p50 16.14 p95 23.00 | >26 ms 0 | p95/10s (t s:ms) 0:21.4 10:20.0 20:20.6 30:22.5 40:27.9 50:22.8 60:28.7 70:29.4 80:23.1 90:22.7 100:22.9 110:23.0 120:16.5 | plateau after 60 s: no (mean p95 of the 60-120 s slices 24.9 ms) | events 35-65 s: wanted: t=35 stars=2 phase=1 units=2 nearest=96 m seen=0 arrest=0.00 ; wanted: t=51 stars=2 phase=1 units=2 nearest=70 m seen=0 arrest=0.00 ; wanted: t=65 stars=2 phase=1 units=2 nearest=72 m seen=0 arrest=0.00
+12:41 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+12:41 pushed etat
+12:41 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+12:44 bimodal c12-1: 4601 frames | GPU p50 15.38 p95 22.51 | >26 ms 0 | p95/10s (t s:ms) 0:21.6 10:20.1 20:20.6 30:22.6 40:22.8 50:23.3 60:22.4 70:22.3 80:22.6 90:22.7 100:22.8 110:22.8 120:15.9 | plateau after 60 s: no (mean p95 of the 60-120 s slices 22.6 ms) | events 35-65 s: wanted: t=35 stars=2 phase=1 units=2 nearest=95 m seen=0 arrest=0.00 ; wanted: t=51 stars=2 phase=1 units=2 nearest=57 m seen=0 arrest=0.00 ; wanted: t=65 stars=2 phase=1 units=2 nearest=64 m seen=1 arrest=0.00
+12:46 bimodal c12-2: 4601 frames | GPU p50 16.31 p95 23.34 | >26 ms 1 | p95/10s (t s:ms) 0:21.5 10:20.3 20:20.8 30:22.5 40:23.1 50:22.9 60:22.4 70:22.2 80:28.4 90:28.8 100:28.8 110:28.7 120:17.0 | plateau after 60 s: YES (mean p95 of the 60-120 s slices 26.5 ms) | events 35-65 s: wanted: t=35 stars=2 phase=1 units=2 nearest=95 m seen=0 arrest=0.00 ; wanted: t=51 stars=2 phase=1 units=2 nearest=57 m seen=0 arrest=0.00 ; wanted: t=65 stars=2 phase=1 units=2 nearest=65 m seen=0 arrest=0.00
+12:48 bimodal c12-3: 4600 frames | GPU p50 16.80 p95 24.39 | >26 ms 0 | p95/10s (t s:ms) 0:21.7 10:20.6 20:20.9 30:22.4 40:25.6 50:23.0 60:27.7 70:27.7 80:28.4 90:28.2 100:28.9 110:29.1 120:18.6 | plateau after 60 s: YES (mean p95 of the 60-120 s slices 28.3 ms) | events 35-65 s: wanted: t=35 stars=2 phase=1 units=2 nearest=96 m seen=0 arrest=0.00 ; wanted: t=51 stars=2 phase=1 units=2 nearest=70 m seen=0 arrest=0.00 ; wanted: t=65 stars=2 phase=1 units=2 nearest=72 m seen=0 arrest=0.00
+12:50 pushed etat
+12:50 bimodal c13det-1: 4601 frames | GPU p50 16.56 p95 24.48 | >26 ms 0 | p95/10s (t s:ms) 0:21.6 10:20.6 20:22.3 30:22.8 40:24.5 50:27.9 60:27.5 70:27.2 80:28.0 90:28.0 100:27.3 110:27.7 120:16.7 | plateau after 60 s: YES (mean p95 of the 60-120 s slices 27.6 ms) | events 35-65 s: wanted: t=35 stars=2 phase=1 units=2 nearest=75 m seen=0 arrest=0.00 ; wanted: t=51 stars=2 phase=1 units=2 nearest=94 m seen=0 arrest=0.00 ; wanted: t=65 stars=2 phase=1 units=1 nearest=99 m seen=0 arrest=0.00
+12:53 bimodal c13det-2: 4601 frames | GPU p50 16.09 p95 22.67 | >26 ms 0 | p95/10s (t s:ms) 0:21.2 10:20.7 20:22.2 30:23.1 40:24.5 50:24.2 60:24.5 70:24.2 80:21.5 90:21.6 100:22.0 110:22.2 120:17.3 | plateau after 60 s: no (mean p95 of the 60-120 s slices 22.7 ms) | events 35-65 s: wanted: t=35 stars=2 phase=1 units=2 nearest=75 m seen=0 arrest=0.00 ; wanted: t=51 stars=2 phase=1 units=1 nearest=93 m seen=0 arrest=0.00 ; wanted: t=65 stars=2 phase=1 units=1 nearest=54 m seen=1 arrest=0.00
+12:55 bimodal c13pool0-1: 4601 frames | GPU p50 16.66 p95 23.89 | >26 ms 0 | p95/10s (t s:ms) 0:20.9 10:19.9 20:20.7 30:22.4 40:22.8 50:23.0 60:22.3 70:22.6 80:29.3 90:29.0 100:29.3 110:28.6 120:17.2 | plateau after 60 s: YES (mean p95 of the 60-120 s slices 26.9 ms) | events 35-65 s: wanted: t=35 stars=2 phase=1 units=2 nearest=96 m seen=0 arrest=0.00 ; wanted: t=51 stars=2 phase=1 units=2 nearest=57 m seen=0 arrest=0.00 ; wanted: t=65 stars=2 phase=1 units=2 nearest=66 m seen=0 arrest=0.00
+12:57 bimodal c13pool0-2: 4601 frames | GPU p50 16.96 p95 24.93 | >26 ms 0 | p95/10s (t s:ms) 0:21.8 10:20.2 20:20.8 30:22.6 40:25.8 50:26.9 60:28.0 70:28.1 80:28.8 90:29.1 100:29.2 110:28.8 120:18.1 | plateau after 60 s: YES (mean p95 of the 60-120 s slices 28.7 ms) | events 35-65 s: wanted: t=35 stars=2 phase=1 units=2 nearest=95 m seen=0 arrest=0.00 ; wanted: t=51 stars=2 phase=1 units=2 nearest=69 m seen=0 arrest=0.00 ; wanted: t=65 stars=2 phase=1 units=2 nearest=72 m seen=0 arrest=0.00

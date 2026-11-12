@@ -1,0 +1,1 @@
+wanted: t=35 stars=2 phase=1 units=2 nearest=75 m seen=0 arrest=0.00 ; wanted: t=51 stars=2 phase=1 units=1 nearest=93 m seen=0 arrest=0.00 ; wanted: t=65 stars=2 phase=1 units=1 nearest=54 m seen=1 arrest=0.00
