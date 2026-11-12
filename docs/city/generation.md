@@ -519,7 +519,8 @@ only where car streets cross it.
 Two landmarks for the slice (`landmarks.py`): the Pathé Bellecour building (OSM way 82377010) gets
 its LiDAR volume, corner tower included (35 m; the generic roof clipped it), and the basin of place
 de la République (way 129172257) a new `basin` kind: stone coping 0.45 m from the OSM outline and a
-water surface, since the LiDAR sees no volume there. The carousel has no OSM footprint yet.
+water surface, since the LiDAR sees no volume there. The carousel has no OSM footprint: a `carousel` stand-in (12 m, 6.5 m high) stands on the north
+edge of the basin, position estimated from photo V4 (+-10 m, to be set on the top view V0).
 
 ## Limits and next steps
 
