@@ -474,6 +474,10 @@ Première mise en œuvre de l'option B de l'ADR-0010, préparée et essayée hor
 - Pas encore : mobilier et détails dans les cellules loin de la rue de la République, masque de sol à l'échelle du quartier,
   niveaux de cellule dans la liste de cuisson pour un package.
 
+## Données de carte pour l'IA des PNJ (ajouté le 2026-11-12)
+
+`tools/city/npc_data.py --out <dossier> [--osm-extra <tuiles>]` écrit, pour la tranche République (Bellecour -> Jacobins) et dans le repère du jeu (cm Unreal), les données dont l'IA des PNJ a besoin : trottoirs et zones piétonnes OSM, passages piétons et leur contrôle, voies avec sens et feux, toutes les chaussées OSM avec leur sens unique, arrêts, portes des commerces sur la façade générée avec horaires, et un relevé des traboules et passages sous immeuble du centre. Les sorties ne sont pas versionnées (tables OSM) ; le README écrit avec elles donne sources et trous connus.
+
 ## Limites et suite
 
 1. **Test éditeur** : `tools/city/unreal/import_city.py` importe greybox et

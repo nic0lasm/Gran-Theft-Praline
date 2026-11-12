@@ -455,6 +455,10 @@ First implementation of ADR-0010 option B, prepared and tested off the Mac; not 
 - Not yet: furniture and details in the cells away from the rue de la Republique, a quarter-wide ground mask, the cell
   levels in the cook list for a package.
 
+## Map data for the NPC AI (added 2026-11-12)
+
+`tools/city/npc_data.py --out <dir> [--osm-extra <tiles>]` writes, for the République slice (Bellecour -> Jacobins) and in the game frame (Unreal cm), the data the NPC AI needs: OSM sidewalks and pedestrian areas, crossings with their control, driving lanes with direction and the signals on them, every OSM carriageway with its one-way flag, stops, shop doors on the generated facade with opening hours, and a survey of the traboules and building passages of the centre. Outputs are not committed (OSM tables); the README written with them lists sources and known gaps.
+
 ## Limits and next steps
 
 1. **Editor test**: `tools/city/unreal/import_city.py` imports the greybox and
