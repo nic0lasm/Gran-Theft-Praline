@@ -62,10 +62,22 @@ def combine_pipeline(report):
     pipeline = eal.load_asset(PIPELINE)
     try:
         mesh_pipeline = pipeline.get_editor_property("mesh_pipeline")
-        mesh_pipeline.set_editor_property("combine_static_meshes", True)
+        # UE 5.8: bCombineStaticMeshes is deprecated for CombineStaticMeshesBehavior, an enum whose
+        # name is not stable across versions: its type is read from the current value and the
+        # member that combines everything is picked by name.
+        current = mesh_pipeline.get_editor_property("combine_static_meshes_behavior")
+        enum = type(current)
+        members = [m for m in dir(enum) if m.isupper() and isinstance(getattr(enum, m), enum)]
+        report["combine_enum"] = {"type": enum.__name__, "members": members, "was": str(current)}
+        wanted = [m for m in members if "ALL" in m] or [m for m in members if "COMBINE" in m and "NO" not in m and "DONT" not in m]
+        if not wanted:
+            report["errors"].append("no 'combine all' member in %s: %s" % (enum.__name__, members))
+            return None
+        mesh_pipeline.set_editor_property("combine_static_meshes_behavior", getattr(enum, wanted[0]))
+        report["combine_enum"]["set"] = wanted[0]
         pipeline.set_editor_property("mesh_pipeline", mesh_pipeline)
     except Exception as error:
-        report["errors"].append("cannot set combine_static_meshes on the pipeline: %s" % error)
+        report["errors"].append("cannot set combine_static_meshes_behavior on the pipeline: %s" % error)
         return None
     eal.save_loaded_asset(pipeline)
     return pipeline
