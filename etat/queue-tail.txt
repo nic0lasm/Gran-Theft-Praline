@@ -1,9 +1,3 @@
-14:11 visuals rain cand13: captured 1440x1080 -> 1920 1080 
-14:11 pushed visuals-20261112
-14:11 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
-14:11 cand15: on hold (relay 12:40Z: a new head with the right AA value is coming); demo-src now
-14:11 list55 starts (list54 stopped after the visuals push and its check)
-14:11 visuals interior-counter-cand12: 1440x1080 -> 1440 810 (no upscale)
 14:11 visuals interior-counter-cand13: 1440x1080 -> 1440 810 (no upscale)
 14:11 visuals night-cand12: 1440x1080 -> 1440 810 (no upscale)
 14:11 visuals night-cand13: 1440x1080 -> 1440 810 (no upscale)
@@ -58,3 +52,9 @@
 15:04 cand15b weather still drive1: frame_00000.jpg
 15:04 pushed cand15b/weather
 15:05 cand15b still street: frame_00000.jpg | LogGTPPedestrians: active=24 drawn=13 wanted=24 spawned=24 fled=0 hit=0 far=0
+15:06 pushed etat
+15:06 cand15b still title: frame_00000.jpg | 
+15:06 cand15b: credits screen not captured (needs keyboard input in the game window; no command-line switch opens it)
+15:06 cand15b: gate 4/4 (street-demo median) and no crash in 600 s, endurance on cand15b
+15:06 pushed cand15b
+15:06 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
