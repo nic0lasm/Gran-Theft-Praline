@@ -537,6 +537,12 @@ sur la place et le tronçon Bellecour (Y Unreal de 24 000 à 53 000) n'était ja
 va de Y -50 050 à +52 361 cm. Le masque du sol est en dalles (G) sur toute la rue ; l'asphalte (R)
 n'apparaît qu'aux croisements avec des rues ouvertes aux voitures.
 
+Deux repères pour la tranche (`landmarks.py`) : l'immeuble du Pathé Bellecour (voie OSM 82377010)
+prend son volume LiDAR, tour d'angle comprise (35 m ; le toit générique la coupait), et le bassin de la
+place de la République (voie 129172257) un nouveau type `basin` : margelle en pierre de 0,45 m sur le
+contour OSM et un plan d'eau, car le LiDAR n'y voit aucun volume. Le carrousel n'a pas encore
+d'emprise OSM.
+
 ## Limites et suite
 
 1. **Test éditeur** : `tools/city/unreal/import_city.py` importe greybox et
