@@ -413,6 +413,12 @@ private:
 	UPROPERTY(Config)
 	TSoftObjectPtr<UMaterialInterface> CloudFallbackMaterial;
 
+	/** Value given to the coverage parameters = Offset + Scale x weather CloudCoverage (0-1). */
+	UPROPERTY(Config)
+	float CloudCoverageScale = 1.f;
+	UPROPERTY(Config)
+	float CloudCoverageOffset = 0.f;
+
 	/** Parameter collection read by the materials (tools/environment/unreal/setup_environment.py). */
 	UPROPERTY(Config)
 	TSoftObjectPtr<UMaterialParameterCollection> ParameterCollection;

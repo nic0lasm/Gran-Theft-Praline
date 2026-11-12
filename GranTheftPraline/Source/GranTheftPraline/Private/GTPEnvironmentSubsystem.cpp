@@ -1005,7 +1005,8 @@ void UGTPEnvironmentSubsystem::WriteStatusFile() const
 		Budget.MaxDistance, Budget.MaxLitCars, Budget.bCloudDomeAtNight ? TEXT("dome") : TEXT("volumetric"),
 		Budget.NightCloudSampleScale, Budget.NightCloudSunElevation, Budget.NightCloudRampStart,
 		AppliedCloudMode == 2 ? TEXT("dome") : (AppliedCloudMode == 1 ? TEXT("volumetric") : (AppliedCloudMode == 0 ? TEXT("none") : TEXT("not yet"))),
-		CloudDome ? TEXT("yes") : TEXT("no (dome assets missing: run setup-environment-mac.sh before packaging)"),
+		CloudDome ? TEXT("yes") : (!(Budget.bCloudDome || Budget.bCloudDomeWhenOvercast || Budget.bCloudDomeAtNight)
+			? TEXT("no (not used by this profile)") : TEXT("no (dome assets missing: run the environment setup before packaging)")),
 		bCarSignals ? 1 : 0, Budget.bDriveCloudCoverage ? 1 : 0, *CloudCoverageFound, *Describe());
 	if (!FFileHelper::SaveStringToFile(Text, *Path))
 	{
@@ -1217,7 +1218,8 @@ void UGTPEnvironmentSubsystem::ApplyAtmosphere()
 	{
 		for (const FName& Parameter : CloudCoverageParameters)
 		{
-			CloudMaterial->SetScalarParameterValue(Parameter, Weather.CloudCoverage);
+			// The engine material's Cloud_GlobalCoverage is not 0-1 (default -0.2): remapped.
+			CloudMaterial->SetScalarParameterValue(Parameter, CloudCoverageOffset + CloudCoverageScale * Weather.CloudCoverage);
 		}
 	}
 	const float River = Saturate(Weather.RiverFog + MorningRiverFog * Mist);
