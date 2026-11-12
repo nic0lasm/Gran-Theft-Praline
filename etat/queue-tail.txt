@@ -1,4 +1,3 @@
-14:13 == cand15b-blood exit=0
 14:13 cand15b blood: LogPython: Warning: [CombatMaterials] built /Game/Combat/Materials/M_GTP_BloodPool;
 14:13 == cand15b-build start
 14:25 == cand15b-build exit=0
@@ -58,3 +57,4 @@
 15:07 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
 15:07 endurance package: cand13
 15:07 endurance package now: cand15b
+15:07 pushed etat
