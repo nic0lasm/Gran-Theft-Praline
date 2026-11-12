@@ -156,6 +156,7 @@ void UGTPWantedComponent::ApplyCrime(EGTPCrimeKind Kind, const FVector& Location
 	{
 		LastKnownLocation = Location;
 	}
+	DispatchLeft = DispatchSeconds;
 	NotifyIfChanged();
 	GTP_TRACE(LogGTPWanted, TEXT("wanted: crime %d, heat %.0f, %d stars"), static_cast<int32>(Kind), State.GetHeat(), State.GetStars());
 }
@@ -163,6 +164,7 @@ void UGTPWantedComponent::ApplyCrime(EGTPCrimeKind Kind, const FVector& Location
 void UGTPWantedComponent::ForceStars(int32 Stars)
 {
 	State.ForceStars(Stars);
+	DispatchLeft = Stars > 0 ? DispatchSeconds : 0.f;
 	NotifyIfChanged();
 	if (const APlayerController* PC = Cast<APlayerController>(GetOwner()))
 	{
@@ -326,8 +328,15 @@ void UGTPWantedComponent::TickComponent(float DeltaTime, ELevelTick TickType, FA
 	{
 		LastKnownLocation = PlayerLocation;
 	}
+	// Dispatch: just after a crime the police are told where the player is, and the level cannot drop.
+	const bool bDispatched = DispatchLeft > 0.f;
+	if (bDispatched)
+	{
+		DispatchLeft -= DeltaTime;
+		LastKnownLocation = PlayerLocation;
+	}
 	// Until the first unit has arrived the level cannot drop: nobody has had the chance to look.
-	const bool bHold = bSeen || bHoldLevel || (bPoliceAvailable && Police.Num() == 0);
+	const bool bHold = bSeen || bHoldLevel || bDispatched || (bPoliceAvailable && Police.Num() == 0);
 
 	if (Now >= NextTraceTime)
 	{
@@ -882,6 +891,18 @@ void AGTPPoliceDirector::Tick(float DeltaSeconds)
 	const APlayerController* Viewer = GetWorld()->GetFirstPlayerController();
 
 	ManageOfficers(*Wanted, *Player, Stars, Now, DeltaSeconds);
+	if (Stars > 0 && Now >= NextUnitTraceTime)
+	{
+		NextUnitTraceTime = Now + 3.f;
+		for (const FUnit& Unit : Units)
+		{
+			if (const AGTPVehicle* Car = Unit.Car.Get())
+			{
+				GTP_TRACE(LogGTPWanted, TEXT("police unit: dist=%.0f m speed=%.0f km/h lanes=%d stopped=%.0f s stage=%d"),
+					FVector::Dist2D(Car->GetActorLocation(), Player->GetActorLocation()) * 0.01f, Car->GetSpeedKmh(), Unit.bOnLanes ? 1 : 0, Unit.StoppedTime, Unit.Stage);
+			}
+		}
+	}
 
 	for (int32 Index = Units.Num() - 1; Index >= 0; --Index)
 	{

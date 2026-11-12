@@ -127,6 +127,14 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Wanted")
 	float SightRange = 6500.f;
 
+	/**
+	 * After the level rises (a crime, forced stars) the police are told where the player is for this
+	 * long (s): witnesses and radio. The last known position follows the player and the level cannot
+	 * drop, so the first units drive to the player, not to where the crime happened.
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Wanted")
+	float DispatchSeconds = 25.f;
+
 	/** Police this close notice the player even behind cover (cm). */
 	UPROPERTY(EditAnywhere, Category = "Wanted")
 	float NoticeRange = 1200.f;
@@ -154,6 +162,7 @@ private:
 	TArray<TWeakObjectPtr<AGTPVehicle>> Police;
 	TArray<TWeakObjectPtr<AActor>> Officers;
 	float LastAggressiveTime = -1000.f;
+	float DispatchLeft = 0.f;
 	FVector LastKnownLocation = FVector::ZeroVector;
 
 	/** Crimes seen by a person who is calling the police: reported when due. */
@@ -323,6 +332,7 @@ private:
 	TArray<TWeakObjectPtr<class AGTPPoliceOfficer>> Officers;
 	GTPPoliceTactics::FSettings Tactics;
 	float NextDeployTime = 0.f;
+	float NextUnitTraceTime = 0.f;
 	float NoStarsSeconds = 0.f;
 	TSubclassOf<AGTPVehicle> LoadedPoliceClass;
 	TSubclassOf<ACharacter> LoadedDriverClass;
