@@ -46,12 +46,25 @@ def texture_mb(size_x, size_y, cap=None):
 
 
 def textures_of(mesh):
+    """Textures of every material slot. get_used_textures takes a UMaterial only: a material
+    instance gives its base material's textures plus its own texture parameter values."""
     found = {}
+    mel = unreal.MaterialEditingLibrary
     for index in range(len(mesh.static_materials)):
         material = mesh.get_material(index)
         if material is None:
             continue
-        for texture in unreal.MaterialEditingLibrary.get_used_textures(material):
+        base = material.get_base_material() if isinstance(material, unreal.MaterialInstance) else material
+        textures = list(mel.get_used_textures(base)) if isinstance(base, unreal.Material) else []
+        if isinstance(material, unreal.MaterialInstanceConstant):
+            try:
+                for name in mel.get_texture_parameter_names(base):
+                    value = mel.get_material_instance_texture_parameter_value(material, name)
+                    if value is not None:
+                        textures.append(value)
+            except Exception as error:   # an API difference costs the overrides, not the run
+                log("texture parameters of %s not read: %s" % (material.get_path_name(), error))
+        for texture in textures:
             if isinstance(texture, unreal.Texture2D):
                 found[texture.get_path_name()] = texture
     return list(found.values())
