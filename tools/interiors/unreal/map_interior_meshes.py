@@ -145,6 +145,9 @@ def main():
     os.makedirs(out, exist_ok=True)
     with open(os.path.join(out, "mesh_map.json"), "w", encoding="utf-8") as handle:
         json.dump(mapping, handle, indent=1)
+    # Every mesh seen, to tune the catalog keywords away from the machine that has the assets.
+    with open(os.path.join(out, "meshes_seen.txt"), "w", encoding="utf-8") as handle:
+        handle.write("\n".join(sorted(path for _name, path in found)) + "\n")
     with open(os.path.join(out, "mesh_map_report.json"), "w", encoding="utf-8") as handle:
         json.dump(report, handle, indent=1)
     unreal.log_warning("[Interior] mesh map: %d classes matched, %d unmatched, %d from multi-mesh folders"
