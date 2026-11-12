@@ -363,6 +363,14 @@ protected:
 	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Cost")
 	bool bTrafficPool = false;
 
+	/**
+	 * Seconds a car stays in the pool before it is reused (-PoolCooldown=S): its physics was
+	 * switched off when it was put away, and is never switched back on, teleported, in the same
+	 * frame or the next ones. The oldest pooled car is reused first.
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Cost")
+	float PoolCooldown = 2.f;
+
 	/** Parked cars along the kerbs as static instances (-ParkedCars=1, AGTPParkedCars, tools/city/parking.py). */
 	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Cost")
 	bool bParkedCars = false;
@@ -421,6 +429,8 @@ private:
 	/** Cars taken away and kept hidden for the next spawn (-TrafficPool=1): no spawn, no destroy. */
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<AGTPVehicle>> Pool;
+	/** Game time each pooled car was put away, same order as Pool. */
+	TArray<double> PoolSince;
 
 	/** 2D bounds of each lane (cm), filled when the lanes load, for LanesInRing. */
 	TArray<FBox2D> LaneBounds;
