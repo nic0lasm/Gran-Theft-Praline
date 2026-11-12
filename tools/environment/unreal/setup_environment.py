@@ -101,6 +101,7 @@ def rain_mesh():
     path = FOLDER + "/SM_RainLayer"
     if not eal.does_asset_exist(path):
         eal.duplicate_asset(ENGINE_CYLINDER, path)
+        eal.save_asset(path, only_if_is_dirty=False)   # a duplicate lives only in memory until saved
         report["created"].append(path)
     mesh = eal.load_asset(path)
     return mesh
@@ -110,6 +111,7 @@ def cloud_dome_mesh():
     path = FOLDER + "/SM_CloudDome"
     if not eal.does_asset_exist(path):
         eal.duplicate_asset(ENGINE_SPHERE, path)
+        eal.save_asset(path, only_if_is_dirty=False)   # a duplicate lives only in memory until saved
         report["created"].append(path)
     return eal.load_asset(path)
 
@@ -272,6 +274,16 @@ def cloud_parameters():
         return ["error: %s" % exc]
 
 
+def check_on_disk():
+    """Every asset of the folder must be a .uasset on disk, or the package will miss it."""
+    content = unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_content_dir())
+    for name in ("MPC_Environment", "T_RainStreaks", "T_PuddleNoise", "SM_RainLayer", "M_RainLayer",
+                 "SM_CloudDome", "M_CloudDome", "M_CloudShadowLF"):
+        rel = (FOLDER + "/" + name).replace("/Game/", "", 1) + ".uasset"
+        if not os.path.isfile(os.path.join(content, rel)):
+            report["errors"].append("not saved on disk: " + rel)
+
+
 def main():
     try:
         mpc = parameter_collection()
@@ -284,6 +296,7 @@ def main():
         cloud_shadow_material(mpc, puddles)
         patch_street_materials(mpc, puddles)
         report["cloud_material_scalar_parameters"] = cloud_parameters()
+        check_on_disk()
     except Exception as exc:
         report["errors"].append(str(exc))
     os.makedirs(SAVED, exist_ok=True)
