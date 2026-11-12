@@ -10,7 +10,13 @@
     "granite",
     "slab"
    ],
-   "fab": "light grey granite floor slabs, large format"
+   "fab": "light grey granite floor slabs, large format",
+   "match_any": [
+    [
+     "granite",
+     "paving"
+    ]
+   ]
   },
   {
    "id": "limestone_ashlar",
@@ -42,7 +48,18 @@
    "match": [
     "plaster"
    ],
-   "fab": "smooth beige or ochre facade plaster / stucco"
+   "fab": "smooth beige or ochre facade plaster / stucco",
+   "match_any": [
+    [
+     "plaster",
+     "facade"
+    ],
+    [
+     "painted",
+     "plaster",
+     "wall"
+    ]
+   ]
   },
   {
    "id": "granite_kerb",
@@ -109,7 +126,13 @@
     "cobble"
    ],
    "fab": "granite setts / cobblestones",
-   "note": "Street Cobblestone (Fab 11/11) left out: its maps are a 3D asset's, not a tileable surface (long bands on the PC A/B of 12/11)"
+   "note": "Cobblestone Floor (Fab 12/11). Street Cobblestone is a 3D asset's maps: never matched",
+   "match_any": [
+    [
+     "cobblestone",
+     "floor"
+    ]
+   ]
   },
   {
    "id": "concrete_sidewalk",
@@ -120,7 +143,13 @@
     "concrete",
     "pavement"
    ],
-   "fab": "concrete sidewalk"
+   "fab": "concrete sidewalk",
+   "match_any": [
+    [
+     "sidewalk",
+     "tiles"
+    ]
+   ]
   },
   {
    "id": "limestone_slab",
@@ -131,7 +160,13 @@
     "limestone",
     "floor"
    ],
-   "fab": "limestone floor slabs (sidewalks)"
+   "fab": "limestone floor slabs (sidewalks)",
+   "match_any": [
+    [
+     "stone",
+     "pavement"
+    ]
+   ]
   },
   {
    "id": "terracotta_tile",
@@ -142,7 +177,14 @@
     "roof",
     "tile"
    ],
-   "fab": "terracotta canal roof tiles"
+   "fab": "terracotta canal roof tiles",
+   "match_any": [
+    [
+     "red",
+     "roof",
+     "tiles"
+    ]
+   ]
   },
   {
    "id": "painted_metal_dark",

@@ -129,7 +129,13 @@ def loose_images(entry):
 
 def import_loose(entry):
     tasks = []
-    for path in loose_images(entry):
+    images = loose_images(entry)
+    folder = DEST + "/" + entry["id"]
+    if images and eal.does_directory_exist(folder):
+        # Our own import folder only: a source that changed (Street Cobblestone replaced by
+        # Cobblestone Floor, 12/11) must not leave its old maps for the role lookup to pick.
+        eal.delete_directory(folder)
+    for path in images:
         t = unreal.AssetImportTask()
         t.set_editor_property("filename", path)
         t.set_editor_property("destination_path", DEST + "/" + entry["id"])
