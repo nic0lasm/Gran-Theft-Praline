@@ -262,3 +262,9 @@ The quarter has 124 junctions with lights and 471 signal heads. A head whose
 streamed cell was not loaded at start finds its ground when it comes within
 draw distance. It stays hidden until then, instead of floating or being
 buried.
+
+## 11. Car lights by day (12/11/2026, to measure)
+
+The PC diagnostic counted up to 44 car lights on in broad daylight on street-demo. The code turns none on by day: the environment's headlights only come on at night, on the nearest `LitCars` cars. These lights come from the car blueprint, always on, on every traffic car.
+
+Fix: `MakeCheap` now switches the blueprint's lights off on traffic cars, puppets and police (the player keeps theirs). At night, headlights stay the environment's, capped at `LitCars`. `-CarBPLights=1` restores the old behaviour for the A/B. No wreck effect exists in C++: a wreck only draws what the blueprint adds in `OnWrecked`.

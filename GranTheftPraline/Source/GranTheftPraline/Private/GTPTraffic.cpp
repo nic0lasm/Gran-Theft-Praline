@@ -598,11 +598,25 @@ bool AGTPTrafficNetwork::FindJoinPoint(const FVector& Location, float MaxDistanc
 void AGTPTrafficNetwork::MakeCheap(AGTPVehicle* Car, ACharacter* Driver) const
 {
 	// Lights of AI cars never cast shadows: a shadowed spot light is a full extra shadow pass.
+	// The lights the car blueprint carries are also switched off (-CarBPLights=1 keeps them):
+	// they were on day and night on every car, up to 44 dynamic lights in view. Headlights at
+	// night come from the environment, on the nearest cars only (LitCars, GTPEnvironmentSubsystem).
+	static const bool bKeepBlueprintLights = []
+	{
+		int32 Switch = 0;
+		FParse::Value(FCommandLine::Get(), TEXT("CarBPLights="), Switch);
+		GTP_TRACE(LogGTPTraffic, TEXT("traffic: car blueprint lights %s (-CarBPLights=%d)"), Switch != 0 ? TEXT("kept") : TEXT("off"), Switch);
+		return Switch != 0;
+	}();
 	TArray<ULightComponent*> CarLights;
 	Car->GetComponents<ULightComponent>(CarLights);
 	for (ULightComponent* Light : CarLights)
 	{
 		Light->SetCastShadows(false);
+		if (!bKeepBlueprintLights && Light->IsVisible())
+		{
+			Light->SetVisibility(false, false);
+		}
 	}
 	if (Driver)
 	{
