@@ -1,21 +1,121 @@
 {
-  "version": 1,
-  "note": "Tranche rue de la Republique, Bellecour -> place de la Republique (au niveau des Jacobins). Coordonnees Unreal en cm (X est, Y sud), origine Lambert-93 842498 / 6519809 (manifest presqu-ile). yaw Unreal = cap boussole - 90. z_cm = hauteur de l'oeil au-dessus du sol trouve par trace verticale. Caps marques 'estime' : a figer apres la 1re serie (eventail +-20 deg).",
-  "views": [
-    {"id": "V1", "name": "bellecour-axe-nord", "x_cm": 8100, "y_cm": 52300, "eye_cm": 160, "yaw": 290, "pitch": 4, "hfov": 67.3, "res": [1920, 1440],
-     "date": "2026-06-12", "hour": 17.37, "weather": "Clear", "heading_source": "estime (coq du Pathe visible a gauche de l'axe)",
-     "reference": "references/V1-bellecour-axe-nord.jpg"},
-    {"id": "V2", "name": "pathe-facade", "x_cm": 10600, "y_cm": 48200, "eye_cm": 160, "yaw": 137, "pitch": 12, "hfov": 51.4, "res": [1440, 1920],
-     "date": "2026-12-05", "hour": 10.12, "weather": "Clear", "heading_source": "EXIF Commons (227 deg)",
-     "reference": "references/V2-pathe-facade.jpg"},
-    {"id": "V3", "name": "vitrines-trottoir", "x_cm": 14550, "y_cm": 36700, "eye_cm": 160, "yaw": 23, "pitch": 3, "hfov": 49.8, "res": [1440, 1920],
-     "date": "2026-07-11", "hour": 15.22, "weather": "Clear", "heading_source": "estime (facades est, ombres)",
-     "reference": "references/V3-vitrines-trottoir.jpg"},
-    {"id": "V4", "name": "place-republique-bassin", "x_cm": 16000, "y_cm": 30000, "eye_cm": 160, "yaw": 300, "pitch": 0, "hfov": 61.0, "res": [1920, 1280],
-     "date": "2026-11-05", "hour": 9.75, "weather": "Overcast", "heading_source": "estime (a confirmer)",
-     "reference": "references/V4-place-republique-bassin.jpg"},
-    {"id": "V5", "name": "nuit-pathe", "x_cm": 10200, "y_cm": 47000, "eye_cm": 160, "yaw": 115, "pitch": 8, "hfov": 67.3, "res": [1920, 1440],
-     "date": "2026-12-05", "hour": 17.63, "weather": "Clear", "heading_source": "estime (enseigne Pathe a droite)",
-     "reference": "references/V5-nuit-pathe.jpg"}
-  ]
+ "version": 1,
+ "note": "Tranche rue de la Republique, Bellecour -> place de la Republique (au niveau des Jacobins). Coordonnees Unreal en cm (X est, Y sud), origine Lambert-93 842498 / 6519809 (manifest presqu-ile). yaw Unreal = cap boussole - 90. z_cm = hauteur de l'oeil au-dessus du sol trouve par trace verticale. Caps marques 'estime' : a figer apres la 1re serie (eventail +-20 deg).",
+ "views": [
+  {
+   "id": "V0",
+   "name": "plan-vue-de-dessus",
+   "x_cm": 12500,
+   "y_cm": 41000,
+   "eye_cm": 40000,
+   "yaw": 270,
+   "pitch": -89.9,
+   "hfov": 50.0,
+   "res": [
+    1440,
+    1920
+   ],
+   "date": "2026-06-21",
+   "hour": 13.0,
+   "weather": "Clear",
+   "move_pawn": false,
+   "heading_source": "plan de calage : nord en haut, tranche Bellecour -> Republique",
+   "reference": null
+  },
+  {
+   "id": "V1",
+   "name": "bellecour-axe-nord",
+   "x_cm": 8100,
+   "y_cm": 52300,
+   "eye_cm": 160,
+   "yaw": 290,
+   "pitch": 4,
+   "hfov": 67.3,
+   "res": [
+    1920,
+    1440
+   ],
+   "date": "2026-06-12",
+   "hour": 17.37,
+   "weather": "Clear",
+   "heading_source": "estime (coq du Pathe visible a gauche de l'axe)",
+   "reference": "references/V1-bellecour-axe-nord.jpg"
+  },
+  {
+   "id": "V2",
+   "name": "pathe-facade",
+   "x_cm": 10600,
+   "y_cm": 48200,
+   "eye_cm": 160,
+   "yaw": 137,
+   "pitch": 12,
+   "hfov": 51.4,
+   "res": [
+    1440,
+    1920
+   ],
+   "date": "2026-12-05",
+   "hour": 10.12,
+   "weather": "Clear",
+   "heading_source": "EXIF Commons (227 deg)",
+   "reference": "references/V2-pathe-facade.jpg"
+  },
+  {
+   "id": "V3",
+   "name": "vitrines-trottoir",
+   "x_cm": 14550,
+   "y_cm": 36700,
+   "eye_cm": 160,
+   "yaw": 23,
+   "pitch": 3,
+   "hfov": 49.8,
+   "res": [
+    1440,
+    1920
+   ],
+   "date": "2026-07-11",
+   "hour": 15.22,
+   "weather": "Clear",
+   "heading_source": "estime (facades est, ombres)",
+   "reference": "references/V3-vitrines-trottoir.jpg"
+  },
+  {
+   "id": "V4",
+   "name": "place-republique-bassin",
+   "x_cm": 16000,
+   "y_cm": 30000,
+   "eye_cm": 160,
+   "yaw": 300,
+   "pitch": 0,
+   "hfov": 61.0,
+   "res": [
+    1920,
+    1280
+   ],
+   "date": "2026-11-05",
+   "hour": 9.75,
+   "weather": "Overcast",
+   "heading_source": "estime (a confirmer)",
+   "reference": "references/V4-place-republique-bassin.jpg"
+  },
+  {
+   "id": "V5",
+   "name": "nuit-pathe",
+   "x_cm": 10200,
+   "y_cm": 47000,
+   "eye_cm": 160,
+   "yaw": 115,
+   "pitch": 8,
+   "hfov": 67.3,
+   "res": [
+    1920,
+    1440
+   ],
+   "date": "2026-12-05",
+   "hour": 17.63,
+   "weather": "Clear",
+   "heading_source": "estime (enseigne Pathe a droite)",
+   "reference": "references/V5-nuit-pathe.jpg"
+  }
+ ]
 }
