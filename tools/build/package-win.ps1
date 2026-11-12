@@ -107,9 +107,35 @@ $uatArgs = @(
   "-clientconfig=$Configuration",
   '-build', '-cook', '-stage', '-pak', '-iostore', '-package', '-archive',
   "-archivedirectory=$stagingDir",
-  '-compressed', '-prereqs', '-nop4', '-utf8output', '-unattended'
+  '-compressed', '-prereqs', '-nop4', '-utf8output', '-unattended',
+  # another UnrealBuildTool may be running (compile check): wait for it instead of failing
+  '-ubtargs=-WaitMutex'
 )
 $cmdLine = ((@($runUat) + $uatArgs) | ForEach-Object { Quote $_ }) -join ' '
+
+# Levels opened only by name at run time (interiors) are not cooked by
+# DirectoriesToAlwaysCook, which skips maps: list them in MapsToCook for this
+# package only. INTERIORS=0 skips it; COOK_MAPS adds /Game/... paths (comma list).
+# DefaultGame.ini is put back right after the cook.
+$gameIni = Join-Path $projectDir 'Config\DefaultGame.ini'
+$iniBackup = $null
+$cookMaps = @()
+if ((EnvOr 'INTERIORS' '1') -eq '1') {
+  $interiorDir = Join-Path $projectDir 'Content\Interiors'
+  if (Test-Path -LiteralPath $interiorDir) {
+    $cookMaps += Get-ChildItem -LiteralPath $interiorDir -Filter 'L_Interior_*.umap' -File |
+      ForEach-Object { "/Game/Interiors/$($_.BaseName)" }
+  }
+}
+$extraMaps = EnvOr 'COOK_MAPS' ''
+if ($extraMaps -ne '') { $cookMaps += ($extraMaps -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' }) }
+
+function RestoreIni {
+  if ($null -ne $script:iniBackup) {
+    [IO.File]::WriteAllText($gameIni, $script:iniBackup, (New-Object Text.UTF8Encoding($false)))
+    $script:iniBackup = $null
+  }
+}
 
 Write-Output "Packaging version $Version ($Configuration) into $outDir"
 Write-Output "Engine: $ueRoot"
@@ -119,6 +145,7 @@ if ($DryRun) {
   if (-not $engineFound) { Write-Output "Warning: RunUAT not found: $runUat (set UE_ROOT)" }
   Write-Output "Dry run, command not started:"
   Write-Output "  cmd.exe /d /s /c `"$cmdLine`""
+  Write-Output "Maps added to MapsToCook: $(if ($cookMaps.Count) { $cookMaps -join ', ' } else { 'none' })"
   Write-Output "Game folder would be: $gameDir"
   exit 0
 }
@@ -178,6 +205,19 @@ function RunBuildCook([string]$AttemptLog) {
   return $result
 }
 
+if ($cookMaps.Count -gt 0) {
+  $iniText = [IO.File]::ReadAllText($gameIni)
+  $key = "[/Script/UnrealEd.ProjectPackagingSettings]"
+  $at = $iniText.IndexOf($key)
+  if ($at -lt 0) { Fail "no $key section in DefaultGame.ini" }
+  $iniBackup = $iniText
+  $lines = ($cookMaps | ForEach-Object { "+MapsToCook=(FilePath=`"$_`")" }) -join "`n"
+  # keep the line ending style: insert right after the section header line
+  $eol = $iniText.IndexOf("`n", $at)
+  $newText = $iniText.Substring(0, $eol + 1) + $lines + "`n" + $iniText.Substring($eol + 1)
+  [IO.File]::WriteAllText($gameIni, $newText, (New-Object Text.UTF8Encoding($false)))
+  Write-Output "MapsToCook added for this package: $($cookMaps -join ', ')"
+}
 $startTime = Get-Date
 Set-Content -LiteralPath $logFile -Value $null
 $attempt = 0
@@ -198,8 +238,10 @@ while ($true) {
   [Console]::Error.WriteLine("BuildCookRun failed (attempt $attempt). Last errors:")
   Select-String -LiteralPath $logFile -Pattern 'Error|error:' | Select-Object -Last 30 |
     ForEach-Object { [Console]::Error.WriteLine($_.Line) }
+  RestoreIni
   Fail "see $logFile"
 }
+RestoreIni
 
 # BuildCookRun archives into <archivedirectory>\Windows\ (older engines: WindowsNoEditor).
 $builtExe = Get-ChildItem -LiteralPath $stagingDir -Filter 'GranTheftPraline*.exe' -Recurse -Depth 2 -ErrorAction SilentlyContinue |
