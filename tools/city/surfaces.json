@@ -109,16 +109,7 @@
     "cobble"
    ],
    "fab": "granite setts / cobblestones",
-   "match_any": [
-    [
-     "street",
-     "cobblestone"
-    ],
-    [
-     "cobblestone"
-    ]
-   ],
-   "note": "Fab 11/11: Street Cobblestone"
+   "note": "Street Cobblestone (Fab 11/11) left out: its maps are a 3D asset's, not a tileable surface (long bands on the PC A/B of 12/11)"
   },
   {
    "id": "concrete_sidewalk",
