@@ -38,6 +38,21 @@ protected:
 	UPROPERTY(Config, EditDefaultsOnly, Category = "Classes", meta = (MetaClass = "/Script/Engine.Pawn"))
 	FSoftClassPath PlayerPawnClass;
 
+	/**
+	 * A visual that follows the player pawn: an Actor class (the sample's BP_Kellan, a MetaHuman) is spawned and
+	 * attached to the pawn at each spawn of the player; the pawn's own mesh keeps playing the animation but is hidden.
+	 * -PlayerVisual=<class path> overrides the config (empty = none, the pawn's own mesh shows).
+	 */
+	UPROPERTY(Config, EditDefaultsOnly, Category = "Classes", meta = (MetaClass = "/Script/Engine.Actor"))
+	FSoftClassPath PlayerVisualClass;
+
+	/** Where the visual sits relative to the pawn: Z -capsule half height puts the feet on the ground, yaw lines it up with the mesh. */
+	UPROPERTY(Config, EditDefaultsOnly, Category = "Classes")
+	FVector PlayerVisualOffset = FVector(0.f, 0.f, -90.f);
+
+	UPROPERTY(Config, EditDefaultsOnly, Category = "Classes")
+	float PlayerVisualYaw = 0.f;
+
 	/** Car parked in front of the player by -TestVehicle (a Blueprint child of AGTPVehicle). */
 	UPROPERTY(Config, EditDefaultsOnly, Category = "Classes", meta = (MetaClass = "/Script/GranTheftPraline.GTPVehicle"))
 	FSoftClassPath TestVehicleClass;
@@ -47,5 +62,7 @@ protected:
 	FVector TestVehicleOffset = FVector(280.f, 0.f, 30.f);
 
 private:
+	void ApplyPlayerVisual(APawn* Pawn);
+
 	bool bTestVehicleSpawned = false;
 };

@@ -10,6 +10,8 @@
 #include "Kismet/GameplayStatics.h"
 #include "Misc/Paths.h"
 #include "GameFramework/Pawn.h"
+#include "GameFramework/Character.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
 
@@ -76,6 +78,7 @@ void AGTPGameMode::StartPlay()
 void AGTPGameMode::RestartPlayer(AController* NewPlayer)
 {
 	Super::RestartPlayer(NewPlayer);
+	ApplyPlayerVisual(NewPlayer ? NewPlayer->GetPawn() : nullptr);
 
 	if (bTestVehicleSpawned || !FParse::Param(FCommandLine::Get(), TEXT("TestVehicle")))
 	{
@@ -102,4 +105,47 @@ void AGTPGameMode::RestartPlayer(AController* NewPlayer)
 	// Parked parallel to the street, as the player faces down it.
 	const AActor* Car = GetWorld()->SpawnActor<AGTPVehicle>(VehicleClass, Location, Yaw, Params);
 	UE_LOG(LogGTPGameMode, Log, TEXT("-TestVehicle: %s parked at %s"), Car ? *Car->GetName() : TEXT("nothing"), *Location.ToCompactString());
+}
+
+void AGTPGameMode::ApplyPlayerVisual(APawn* Pawn)
+{
+	FString Override;
+	if (FParse::Value(FCommandLine::Get(), TEXT("PlayerVisual="), Override))
+	{
+		PlayerVisualClass = FSoftClassPath(Override);
+	}
+	static const FName VisualTag(TEXT("GTPPlayerVisual"));
+	if (!Pawn || PlayerVisualClass.IsNull() || Pawn->ActorHasTag(VisualTag))
+	{
+		return;
+	}
+	UClass* VisualClass = PlayerVisualClass.TryLoadClass<AActor>();
+	if (!VisualClass)
+	{
+		UE_LOG(LogGTPGameMode, Warning, TEXT("PlayerVisualClass '%s' could not be loaded, the pawn keeps its own mesh."), *PlayerVisualClass.ToString());
+		return;
+	}
+	FActorSpawnParameters Params;
+	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	AActor* Visual = GetWorld()->SpawnActor<AActor>(VisualClass, Pawn->GetActorTransform(), Params);
+	if (!Visual)
+	{
+		return;
+	}
+	Visual->AttachToActor(Pawn, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+	Visual->SetActorRelativeLocation(PlayerVisualOffset);
+	Visual->SetActorRelativeRotation(FRotator(0.f, PlayerVisualYaw, 0.f));
+	Visual->SetActorEnableCollision(false);
+	Pawn->Tags.AddUnique(VisualTag);
+	if (const ACharacter* Character = Cast<ACharacter>(Pawn))
+	{
+		if (USkeletalMeshComponent* Own = Character->GetMesh())
+		{
+			// Hidden but still posed: the visual copies or retargets this pose.
+			Own->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;
+			Own->SetVisibility(false, false);
+			Own->SetCastShadow(false);
+		}
+	}
+	UE_LOG(LogGTPGameMode, Log, TEXT("Player visual: %s attached to %s"), *Visual->GetName(), *Pawn->GetName());
 }
