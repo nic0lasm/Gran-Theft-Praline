@@ -1,8 +1,3 @@
-10:00 list41 starts (list40 stopped after the cand12 push)
-10:00 pushed etat
-10:00 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
-10:01 lumen12 still interior-8: frame_00000.jpg | 
-10:01 lumen12 still interior-12: frame_00000.jpg | 
 10:02 lumen12 still noon-8: frame_00000.jpg | 
 10:03 lumen12 still noon-12: frame_00000.jpg | 
 10:04 lumen12 still night-8: frame_00000.jpg | 
@@ -58,3 +53,8 @@
 11:16 pushed ilfix
 11:16 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
 11:16 list44 starts (list43 stopped after the ilfix push and its check)
+11:16 pushed etat
+11:16 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+11:16 == loop-endurance-1-1 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
+11:26 loop-endurance-1-1: exit=0 crash=no last t=wanted: t=597 wanted=299 police=82 police-in-last-10=5 pool-drops=0 | loop-endurance-1-1: 23797 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.1 | gpu p50 18.03 p95 29.02 | gate FAIL
+11:27 == loop-endurance-1-2 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
