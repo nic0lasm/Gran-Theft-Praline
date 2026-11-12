@@ -471,6 +471,7 @@ bool AGTPPoliceDirector::SpawnUnit(const FVector& PlayerLocation)
 		return false;
 	}
 	Car->Tags.AddUnique(GTPPolice::PoliceTag);
+	Car->NotePlaced(TEXT("police spawn"));
 
 	FUnit& Unit = Units.AddDefaulted_GetRef();
 	Unit.Car = Car;
@@ -534,6 +535,7 @@ void AGTPPoliceDirector::RepositionUnit(FUnit& Unit, const FVector& PlayerLocati
 	}
 	// A move instead of a new car and driver: no spawn hitch.
 	Car->SetActorLocationAndRotation(Transform.GetLocation(), Transform.GetRotation(), false, nullptr, ETeleportType::TeleportPhysics);
+	Car->NotePlaced(TEXT("police move"));
 	if (USkeletalMeshComponent* Body = Car->GetMesh())
 	{
 		Body->SetPhysicsLinearVelocity(FVector::ZeroVector);
