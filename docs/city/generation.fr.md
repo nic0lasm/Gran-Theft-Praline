@@ -511,6 +511,12 @@ vitrine et la porte de l'intérieur se voient (`tools/city/interior_cutouts.py` 
 d'autre n'est ouvert. Fast-food Bellecour : 9 modules sur la façade place Bellecour (4 travées et 5 bandes) ;
 cette façade est aujourd'hui générée comme un côté cour, car la place n'est pas une rue nommée.
 
+Places et quais : une façade sans rue devant était classée côté cour. Désormais, trois rayons (normale
+et ±35°) qui parcourent 24 m sans croiser d'emprise en font une façade sur rue, nommée d'après la rue
+la plus proche (`procgen.faces_open_space`). Sur le focus République, 353 modules (7 bâtiments)
+deviennent des façades sur rue, place des Cordeliers, place de la Bourse et place Le Viste ; la
+façade du fast-food sur la place Bellecour reçoit des devantures.
+
 ## Limites et suite
 
 1. **Test éditeur** : `tools/city/unreal/import_city.py` importe greybox et

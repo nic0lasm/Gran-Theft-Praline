@@ -55,13 +55,22 @@ class FacadeTests(unittest.TestCase):
         a = Polygon([(0, 0), (10, 0), (10, 10), (0, 10)])
         b = Polygon([(10, 0), (20, 0), (20, 10), (10, 10)])
         road = (LineString([(-20, -6), (40, -6)]), 4.0, "Rue de la République")
-        ctx = procgen.Context({"a": a, "b": b}, [road])
+        c = Polygon([(-5, 16), (25, 16), (25, 26), (-5, 26)])   # the far side of a 6 m courtyard
+        ctx = procgen.Context({"a": a, "b": b, "c": c}, [road])
         kinds = {}
         for ri, ei, p0, p1, n in procgen.edge_frames(a):
             kinds[tuple(np.round(n).astype(int))] = procgen.classify_edge(ctx, "a", p0, p1, n)
         self.assertEqual(kinds[(1, 0)][0], "party")
         self.assertEqual(kinds[(0, -1)], ("street", "Rue de la République"))
         self.assertEqual(kinds[(0, 1)][0], "court")
+
+    def test_edge_on_a_square_is_a_street_front(self):
+        a = Polygon([(0, 0), (10, 0), (10, 10), (0, 10)])
+        road = (LineString([(-20, -6), (40, -6)]), 4.0, "Rue de la République")
+        ctx = procgen.Context({"a": a}, [road])
+        for ri, ei, p0, p1, n in procgen.edge_frames(a):
+            if tuple(np.round(n).astype(int)) == (0, 1):   # back edge, 14 m from any road, nothing behind
+                self.assertEqual(procgen.classify_edge(ctx, "a", p0, p1, n)[0], "street")
 
     def test_layout_places_shop_sign(self):
         a = Polygon([(0, 0), (20, 0), (20, 12), (0, 12)])
