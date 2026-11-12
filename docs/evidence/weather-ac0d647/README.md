@@ -31,3 +31,13 @@ cloud_coverage_params=Cloud_GlobalCoverage (-0.20) in /Engine/EngineSky/Volumetr
 ```
 
 'Rain mesh or material missing' in the logs: absent in both runs.
+
+## Cloud shadow light function, -Weather=Overcast -DriveClouds=1, -ExecCmds (GPU over t >= 20 s of an 80 s run, 960x540)
+
+| Still | -ExecCmds | GPU p50 / p95 ms |
+|---|---|---|
+| overcast-lf-mean-03-strength0.jpg | gtp.CloudShadowLF.Mean 0.3, gtp.CloudShadowLF.Strength 0 | 7.19 / 8.82 |
+| overcast-lf-mean-012-strength0.jpg | gtp.CloudShadowLF.Mean 0.12, gtp.CloudShadowLF.Strength 0 | 7.16 / 8.75 |
+| overcast-lf-mean-005-strength0.jpg | gtp.CloudShadowLF.Mean 0.05, gtp.CloudShadowLF.Strength 0 | 7.19 / 8.75 |
+
+Status file in the three runs: cloud_shadow_light_function=loaded, lf_mean=0.850, lf_strength=0.500, lf_coverage=1.000, lf_contrast=3.00; cvar_mean=0.300 / 0.120 / 0.050, cvar_strength=0.000.
