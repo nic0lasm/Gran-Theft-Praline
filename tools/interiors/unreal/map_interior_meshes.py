@@ -32,7 +32,8 @@ ROOTS = [r.strip() for r in os.environ.get("GTP_INTERIOR_ROOTS", "/Game").split(
 SKIP = ("/Game/Interiors/L_", "/Game/Maps", "/Game/Developers")
 # Packs whose licence is not recorded (credits blocked.txt from credits_from_manifest.py): never
 # placed until the listing is checked. GTP_INTERIOR_EXCLUDE adds folders (comma separated).
-BLOCKED = ("/Game/Interiors/Fab/ModernKitchenClutterPack",)
+BLOCKED = ("/Game/Interiors/Fab/ModernKitchenClutterPack",
+           "/Game/Interiors/Free/Models/eu_guest_wc_Combined")   # a kit: its pieces are the objects
 SKIP += BLOCKED + tuple(p.strip() for p in os.environ.get("GTP_INTERIOR_EXCLUDE", "").split(",") if p.strip())
 eal = unreal.EditorAssetLibrary
 
