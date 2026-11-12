@@ -555,6 +555,10 @@ private:
 	/** off, loaded or missing: reported in the status file. */
 	FString CloudShadowState = TEXT("off");
 
+	/** CloudCoverageParameters found in the map's cloud material (status file), "none" when
+	 *  the weather cannot change the volumetric clouds. */
+	FString CloudCoverageFound = TEXT("no cloud material");
+
 	/** The status file is written again once the night lights and cars have settled. */
 	float StatusRewriteTimer = 12.f;
 

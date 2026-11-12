@@ -78,9 +78,11 @@ refait ces calculs hors Unreal et les tests vérifient chaque état contre la bi
   proches sont allumées (m1 : 4, fidelity : 6, ultra : 10).
 - **Nuages** : qualité par profil (`bVolumetricClouds`, `CloudSampleScale`,
   `bCloudShadows`, `bDriveCloudCoverage`). Les nuages volumétriques coûtent
-  ≈ 12 ms GPU en m1 (mesure du 2026-11-10) : en m1, la météo ne change pas
-  leur couverture (le couvert passe par le soleil, le ciel et le brouillard),
-  en attendant la décision sur leur qualité. Par météo, `CloudSampleScale`
+  ≈ 12 ms GPU en m1 (mesure du 2026-11-10, bien moins depuis l'ombre en light
+  function). Depuis le 2026-11-12, la météo pilote aussi leur couverture en m1
+  (le temps couvert montrait un ciel bleu) ; `-DriveClouds=0` pour l'A/B, et le
+  fichier d'état liste le paramètre de couverture trouvé dans le matériau des
+  nuages de la carte (`cloud_coverage_params`). Par météo, `CloudSampleScale`
   multiplie celui du profil, et `bCloudDomeWhenOvercast` affiche le dôme 2D à
   la place des nuages volumétriques par temps couvert, pluie, orage et
   brouillard (`bPreferCloudDome`). Repli bon marché : `bCloudDome`
