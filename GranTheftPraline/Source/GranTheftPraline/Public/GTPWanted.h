@@ -240,6 +240,23 @@ protected:
 	UPROPERTY(Config, EditAnywhere, Category = "Police")
 	float LightBarDistance = 6000.f;
 
+	/**
+	 * Cheaper police for the M1 (-PoliceLite=1): one light per car (its colour alternates), lights
+	 * only within LiteLightDistance, shadows and full detail only within LiteDetailDistance (cm),
+	 * at most LiteMaxUnits cars unless -PoliceMax is given. Off by default until measured (A/B).
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Police|Cost")
+	bool bPoliceLite = false;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Police|Cost")
+	int32 LiteMaxUnits = 3;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Police|Cost")
+	float LiteLightDistance = 3000.f;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Police|Cost")
+	float LiteDetailDistance = 1500.f;
+
 	/** Police light bar blink period (s). */
 	UPROPERTY(Config, EditAnywhere, Category = "Police")
 	float LightPeriod = 0.5f;
@@ -272,6 +289,7 @@ private:
 	void DriveStraight(FUnit& Unit, const FVector& Target, float MaxSpeedKmh);
 	void DriveOnLanes(FUnit& Unit, const FVector& Goal, bool bHasGoal, float MaxSpeedKmh);
 	void AddLightBar(FUnit& Unit);
+	void UpdateUnitDetail(AGTPVehicle* Car, float DistanceToView) const;
 	bool SeatDriver(FUnit& Unit);
 	void RepositionUnit(FUnit& Unit, const FVector& PlayerLocation);
 	void BlinkLights(FUnit& Unit, bool bOn, bool bPhase);

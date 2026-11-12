@@ -362,6 +362,13 @@ AGTPPoliceDirector::AGTPPoliceDirector()
 void AGTPPoliceDirector::BeginPlay()
 {
 	Super::BeginPlay();
+	int32 LiteSwitch = bPoliceLite ? 1 : 0;
+	FParse::Value(FCommandLine::Get(), TEXT("PoliceLite="), LiteSwitch);
+	bPoliceLite = LiteSwitch != 0;
+	if (bPoliceLite)
+	{
+		MaxUnits = FMath::Min(MaxUnits, LiteMaxUnits);
+	}
 	FParse::Value(FCommandLine::Get(), TEXT("PoliceMax="), MaxUnits);
 	MaxUnits = FMath::Clamp(MaxUnits, 0, 6);
 	LoadedPoliceClass = PoliceVehicleClass.TryLoadClass<AGTPVehicle>();
@@ -524,6 +531,31 @@ void AGTPPoliceDirector::RepositionUnit(FUnit& Unit, const FVector& PlayerLocati
 	GTP_TRACE(LogGTPWanted, TEXT("police: %s moved to lane %d"), *Car->GetName(), Lane);
 }
 
+void AGTPPoliceDirector::UpdateUnitDetail(AGTPVehicle* Car, float DistanceToView) const
+{
+	// Same levers as the traffic cars (shadow, forced LOD, draw distance) with the tighter police distances.
+	USkeletalMeshComponent* Body = Car ? Car->GetMesh() : nullptr;
+	if (!Body)
+	{
+		return;
+	}
+	const bool bNear = DistanceToView < LiteDetailDistance;
+	if (static_cast<bool>(Body->CastShadow) != bNear)
+	{
+		Body->SetCastShadow(bNear);
+	}
+	const int32 Forced = bNear ? 0 : FMath::Clamp(Network->FarLOD + 1, 0, Body->GetNumLODs());
+	if (Body->GetForcedLOD() != Forced)
+	{
+		Body->SetForcedLOD(Forced);
+	}
+	const bool bDrawn = Network->DrawDistance <= 0.f || DistanceToView < Network->DrawDistance;
+	if (Body->IsVisible() != bDrawn)
+	{
+		Body->SetVisibility(bDrawn, true);
+	}
+}
+
 void AGTPPoliceDirector::AddLightBar(FUnit& Unit)
 {
 	AGTPVehicle* Car = Unit.Car.Get();
@@ -531,7 +563,7 @@ void AGTPPoliceDirector::AddLightBar(FUnit& Unit)
 	{
 		return;
 	}
-	for (int32 Side = 0; Side < 2; ++Side)
+	for (int32 Side = 0; Side < (bPoliceLite ? 1 : 2); ++Side)
 	{
 		UPointLightComponent* Light = NewObject<UPointLightComponent>(Car);
 		Light->SetupAttachment(Car->GetRootComponent());
@@ -556,6 +588,19 @@ void AGTPPoliceDirector::BlinkLights(FUnit& Unit, bool bOn, bool bPhase)
 		return;
 	}
 	Unit.LightState = Wanted;
+	if (bPoliceLite && Unit.Lights.Num() == 1)
+	{
+		// One light whose colour alternates: half the lights of the full bar.
+		if (UPointLightComponent* Light = Unit.Lights[0].Get())
+		{
+			if (Wanted != 0)
+			{
+				Light->SetLightColor(Wanted == 1 ? FLinearColor(0.1f, 0.25f, 1.f) : FLinearColor(1.f, 0.08f, 0.05f));
+			}
+			Light->SetVisibility(Wanted != 0);
+		}
+		return;
+	}
 	for (int32 Index = 0; Index < Unit.Lights.Num(); ++Index)
 	{
 		if (UPointLightComponent* Light = Unit.Lights[Index].Get())
@@ -762,13 +807,21 @@ void AGTPPoliceDirector::Tick(float DeltaSeconds)
 		}
 		DriveUnit(Unit, *Wanted, *Player, DeltaSeconds);
 		// With -VehicleLod=1 the light bar is dark beyond LightBarDistance: two lights nobody can tell apart from far away.
-		const bool bLightsNear = !Network->bVehicleLod
-			|| FVector::Dist(Car->GetActorLocation(), Player->GetActorLocation()) < LightBarDistance;
+		const float LightLimit = bPoliceLite ? LiteLightDistance : LightBarDistance;
+		const bool bLightsNear = !(Network->bVehicleLod || bPoliceLite)
+			|| FVector::Dist(Car->GetActorLocation(), Player->GetActorLocation()) < LightLimit;
 		BlinkLights(Unit, Stars > 0 && bLightsNear, bPhase);
 		UpdateSiren(Unit, Stars, Wanted->GetPhase() == EGTPWantedPhase::Pursuit);
 
 		const FVector View = Viewer && Viewer->PlayerCameraManager ? Viewer->PlayerCameraManager->GetCameraLocation() : Player->GetActorLocation();
-		Network->UpdateDetail(Car, static_cast<float>(FVector::Dist(View, Car->GetActorLocation())));
+		if (bPoliceLite)
+		{
+			UpdateUnitDetail(Car, static_cast<float>(FVector::Dist(View, Car->GetActorLocation())));
+		}
+		else
+		{
+			Network->UpdateDetail(Car, static_cast<float>(FVector::Dist(View, Car->GetActorLocation())));
+		}
 
 		// Taken away out of sight: too many for the level, too far, stuck, or the level is gone.
 		const bool bTooFar = FVector::Dist2D(Car->GetActorLocation(), Player->GetActorLocation()) > LeashDistance;
