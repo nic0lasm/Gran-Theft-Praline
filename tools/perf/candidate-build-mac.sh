@@ -253,6 +253,9 @@ interior_files() { echo "Interiors/L_Interior_$1.umap"; echo "__ExternalActors__
 interior_ids() { local f; for f in "$repo"/tools/interiors/*.json; do test "$(basename "$f")" = catalog.json || basename "$f" .json; done; }
 build_interiors() {
   local id f
+  local mesh_map="${GTP_INTERIOR_MESHES:-$repo/GranTheftPraline/Saved/InteriorBuild/mesh_map.json}"
+  if test -f "$mesh_map"; then export GTP_INTERIOR_MESHES="$mesh_map"; echo "interiors dressed with $mesh_map"
+  else unset GTP_INTERIOR_MESHES; echo "interiors: no mesh map ($mesh_map), grey boxes"; fi
   for id in $(interior_ids); do
     GTP_INTERIOR_SPEC="$repo/tools/interiors/$id.json" GTP_INTERIOR_ANCHOR=1 \
       run_py interiors tools/interiors/unreal/build_interior_level.py "$repo/GranTheftPraline/Saved/InteriorBuild/$id.json" || return 1

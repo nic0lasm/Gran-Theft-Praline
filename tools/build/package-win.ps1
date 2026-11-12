@@ -171,6 +171,15 @@ function RunInterior([string]$Id, [string]$LogDir) {
   [Environment]::SetEnvironmentVariable('GTP_PY_SCRIPT', $interiorScript, 'Process')
   [Environment]::SetEnvironmentVariable('GTP_INTERIOR_SPEC', (Join-Path $repoRoot "tools\interiors\$Id.json"), 'Process')
   [Environment]::SetEnvironmentVariable('GTP_INTERIOR_ANCHOR', '1', 'Process')
+  # The dressing: the class -> mesh map of map_interior_meshes.py, when this project has one and
+  # GTP_INTERIOR_MESHES does not name another (grey boxes without).
+  $meshMap = EnvOr 'GTP_INTERIOR_MESHES' (Join-Path $projectDir 'Saved\InteriorBuild\mesh_map.json')
+  if (Test-Path -LiteralPath $meshMap) {
+    [Environment]::SetEnvironmentVariable('GTP_INTERIOR_MESHES', $meshMap, 'Process')
+    Write-Output "Interior ${Id}: dressed with $meshMap"
+  } else {
+    Write-Output "Interior ${Id}: no mesh map ($meshMap), grey boxes"
+  }
   $done = Join-Path $LogDir "interior-$Id.done"
   if (Test-Path -LiteralPath $done) { Remove-Item -LiteralPath $done -Force }
   [Environment]::SetEnvironmentVariable('GTP_PY_DONE', $done, 'Process')
