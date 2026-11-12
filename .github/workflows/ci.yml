@@ -75,6 +75,10 @@ jobs:
         run: |
           g++ -O2 -std=c++17 -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/wanted_sim/wanted_test.cpp -o /tmp/wanted_test
           /tmp/wanted_test
+      - name: Police tactics rules
+        run: |
+          g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/wanted_sim/tactics_test.cpp -o /tmp/tactics_test
+          /tmp/tactics_test
       - name: Ghost mode of far traffic cars
         run: |
           g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/ghost_test/ghost_test.cpp -o /tmp/ghost_test
