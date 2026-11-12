@@ -160,6 +160,12 @@ void UGTPInteriorStreaming::Update()
 	const APlayerController* PC = GetWorld()->GetFirstPlayerController();
 	if (!PC)
 	{
+		if (!bLoggedFirstPlan)
+		{
+			GTP_TRACE(InteriorStreaming, TEXT("waiting for a player controller t=%.2f"), GetWorld()->GetTimeSeconds());
+			bLoggedFirstPlan = true;   // logged once; the first real plan logs again below
+			bWaitingLogged = true;
+		}
 		return;
 	}
 	const APawn* Pawn = PC->GetPawn();
@@ -190,6 +196,23 @@ void UGTPInteriorStreaming::Update()
 		OnPlayerInteriorChanged.Broadcast(Old, Inside);
 	}
 	const std::vector<bool> Wanted = GTPInterior::Plan(Sites, static_cast<float>(Where.X), static_cast<float>(Where.Y), static_cast<float>(Where.Z), Rules);
+	if (!bLoggedFirstPlan || bWaitingLogged)
+	{
+		bLoggedFirstPlan = true;
+		bWaitingLogged = false;
+		float Nearest = 1e30f;
+		for (const GTPInterior::FSite& Site : Sites)
+		{
+			Nearest = FMath::Min(Nearest, GTPInterior::Distance(Site, static_cast<float>(Where.X), static_cast<float>(Where.Y), static_cast<float>(Where.Z)));
+		}
+		int32 Count = 0;
+		for (const bool bWanted : Wanted)
+		{
+			Count += bWanted ? 1 : 0;
+		}
+		GTP_TRACE(InteriorStreaming, TEXT("first plan: player at %s (%s), nearest interior %.0f m, %d wanted, t=%.2f"), *Where.ToCompactString(),
+		          Pawn ? TEXT("pawn") : TEXT("camera"), Nearest / 100.f, Count, GetWorld()->GetTimeSeconds());
+	}
 	for (int32 Index = 0; Index < Interiors.Num(); ++Index)
 	{
 		FInterior& Interior = Interiors[Index];

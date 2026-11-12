@@ -101,6 +101,8 @@ private:
 	/** Test start (-InteriorStart=1): seconds before the player is taken back outside, < 0 when off. */
 	float LeaveIn = -1.f;
 	bool bStartDone = false;
+	bool bLoggedFirstPlan = false;
+	bool bWaitingLogged = false;
 	FTransform StartAnchor;
 	void PlaceAtCounter(const FInterior& Interior);
 };
