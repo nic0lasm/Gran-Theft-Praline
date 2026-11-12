@@ -395,7 +395,9 @@ def shot_views(spec):
         # From the counter end, above the heads, across the whole kitchen: a view along its axis
         # from the west end met a speed rack at arm's length.
         ("02_kitchen", (kx1 - 0.6, ky0 + 0.3), (kx0 + 2.0, ky1 - 0.5), -20.0, 230.0),
-        ("03_dining", (dx1 - 0.5, dy1 - 0.4), (dx0 + 1.0, dy0 + 1.0), -14.0),
+        # From the glass front by the kiosks, above the heads, across the room to the stairs corner:
+        # the old corner by the counter and kiosks had a kiosk at arm's length.
+        ("03_dining", (dx1 - 1.2, dy0 + 0.8), (dx0 + 1.5, dy1 - 1.0), -14.0, 210.0),
     ]
 
 
