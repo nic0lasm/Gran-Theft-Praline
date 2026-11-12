@@ -60,7 +60,8 @@
    ],
    "keywords": [
     "deep_fryer",
-    "fryer"
+    "fryer",
+    "friteuse"
    ]
   },
   "fry_basket": {
@@ -147,7 +148,8 @@
    "keywords": [
     "platen_grill",
     "griddle",
-    "clamshell_grill"
+    "clamshell_grill",
+    "plaque_grill"
    ]
   },
   "spatula": {
@@ -360,7 +362,8 @@
    "keywords": [
     "soda_dispenser",
     "soda_fountain",
-    "drink_dispenser"
+    "drink_dispenser",
+    "fontaine_soda"
    ]
   },
   "cup_kit": {
@@ -458,7 +461,11 @@
    "tris_lod0": 15000,
    "sections": 2,
    "items_per_instance": 1,
-   "interactive": false
+   "interactive": false,
+   "keywords": [
+    "machine_shake",
+    "shake_machine"
+   ]
   },
   "dessert_cup_kit": {
    "size": "small",

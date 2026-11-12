@@ -30,10 +30,11 @@ import interior_layout as il  # noqa: E402
 ROOTS = [r.strip() for r in os.environ.get("GTP_INTERIOR_ROOTS", "/Game").split(",") if r.strip()]
 # The generated interior levels are skipped, not the imported packs under /Game/Interiors/Free and /Fab.
 SKIP = ("/Game/Interiors/L_", "/Game/Maps", "/Game/Developers")
-# Packs whose licence is not recorded (credits blocked.txt from credits_from_manifest.py): never
-# placed until the listing is checked. GTP_INTERIOR_EXCLUDE adds folders (comma separated).
-BLOCKED = ("/Game/Interiors/Fab/ModernKitchenClutterPack",
-           "/Game/Interiors/Free/Models/eu_guest_wc_Combined")   # a kit: its pieces are the objects
+# Never placed: kits whose pieces are the objects. A pack whose licence is not recorded (credits
+# blocked.txt from credits_from_manifest.py) goes here until the listing is checked; Modern Kitchen
+# Clutter Pack left the list once its CC BY 4.0 licence was recorded (12/11).
+# GTP_INTERIOR_EXCLUDE adds folders (comma separated).
+BLOCKED = ("/Game/Interiors/Free/Models/eu_guest_wc_Combined",)
 SKIP += BLOCKED + tuple(p.strip() for p in os.environ.get("GTP_INTERIOR_EXCLUDE", "").split(",") if p.strip())
 eal = unreal.EditorAssetLibrary
 
