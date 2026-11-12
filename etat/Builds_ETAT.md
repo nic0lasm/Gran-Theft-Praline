@@ -1,5 +1,5 @@
 # Mac state 2026-11-12 15:07 Paris
 
-- block: starting
-- last line: 15:07 demo-src ped0-1 stopped (cand16 goes first, relay 14:05Z); list55 stopped
+- block: cand16: waiting for the PC proof (1a1418e)
+- last line: 15:07 endurance package now: cand15b
 - startup crashes: 3
