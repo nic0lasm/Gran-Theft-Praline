@@ -727,8 +727,8 @@ def main():
         if eal.does_directory_exist(river_dir):
             report["riverside_meshes"] = assign(river_dir, shell, {"SM_River_Water": water_material()})
         assign_kit(kit_instances(kit_master(), report), report)
-        report["shop_glass"] = SHOP_GLASS_MODE
-        report["surfaces"] = surfaces().report() + (" -> opaque fallback" if "shop_glass_fallback" in report else "")
+        report["shop_glass"] = SHOP_GLASS_MODE + (" -> opaque fallback" if "shop_glass_fallback" in report else "")
+        report["surfaces"] = surfaces().report()
         facade_check(report)
     except StopIteration:
         pass
