@@ -1,8 +1,3 @@
-12:28 cand13-long600: crash no (exit 0), end t=597, reused=159 | long600: 23797 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 1 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 28.5 | gpu p50 14.07 p95 20.96 | gate PASS | 
-12:28 list47 starts (list46 stopped after the cand13 long600, before its interior runs)
-12:29 pushed etat
-12:29 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
-12:31 demo13 def1: 4601 frames | GPU p50 15.27 p95 22.23 | >26 ms 0 | p95/10s (t s:ms) 0:21.8 10:19.8 20:20.6 30:22.1 40:22.9 50:23.0 60:21.9 70:22.3 80:22.0 90:22.1 100:22.5 110:22.6 120:14.9 | interior: InteriorStreaming: 1 interiors, off (-Interiors=1 to turn on), preload 40 m, unload 70 m, density 2;
 12:33 demo13 def2: 4601 frames | GPU p50 15.42 p95 22.48 | >26 ms 0 | p95/10s (t s:ms) 0:22.3 10:20.1 20:20.5 30:22.5 40:23.0 50:22.9 60:22.6 70:22.6 80:22.4 90:22.4 100:22.6 110:22.5 120:15.1 | interior: InteriorStreaming: 1 interiors, off (-Interiors=1 to turn on), preload 40 m, unload 70 m, density 2;
 12:35 demo13 pe8-1: 4601 frames | GPU p50 16.78 p95 24.38 | >26 ms 0 | p95/10s (t s:ms) 0:22.2 10:19.9 20:20.3 30:22.0 40:27.6 50:22.6 60:28.2 70:28.3 80:28.2 90:28.5 100:28.5 110:28.7 120:17.3 | interior: InteriorStreaming: 1 interiors, off (-Interiors=1 to turn on), preload 40 m, unload 70 m, density 2;
 12:37 pushed etat
@@ -58,3 +53,8 @@
 13:12 cand14 blood: LogPython: Warning: [CombatMaterials] built /Game/Combat/Materials/M_GTP_BloodPool;
 13:12 == cand14-build start
 13:21 pushed etat
+13:25 pushed etat
+13:26 == cand14-build exit=0
+13:26 cand14 build exit=0; - interiors: OK, 26 s, log interiors.log;- interior maps cooked for this package only: /Game/Interiors/L_Interior_fastfood_bellecour ;- map md5 at the end: 1c92de0f813b89cb40aeb000cd92a1de, unchanged;- DefaultGame.ini md5 at the end: 8903e75b281ca60504b93c023e0f9905, unchanged;- tracked changes at the end: 0, clone on d7487ca;; ini md5 vs start same
+13:26 cand14 restore: Combat removed 1 file(s); Content/Interiors entries 0; tracked changes 0
+13:26 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0

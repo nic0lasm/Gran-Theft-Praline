@@ -1,5 +1,5 @@
-# Mac state 2026-11-12 13:25 Paris
+# Mac state 2026-11-12 13:26 Paris
 
 - block: starting
-- last line: 13:21 pushed etat
+- last line: 13:26 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
 - startup crashes: 3
