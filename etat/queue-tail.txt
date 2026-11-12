@@ -1,6 +1,3 @@
-07:57 == crash-ilight-pool0-4 start (120 s, -userdir) -TrafficPool=0
-07:59 crash-ilight-pool0-4: exit=0 crash=no last t=wanted: t=119 context= reused=0 | reused/police in the last 15 s: 3 line(s) | crash-ilight-pool0-4: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00
-07:59 list37 paused after pool0-4; list39 starts (pool0 5-8, dev, poolfix, ilight2, quarter3)
 07:59 pushed etat
 07:59 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
 07:59 list39 starts after pool0-4 (list37 stopped)
@@ -58,3 +55,6 @@
 09:02 ilight2 blood: LogPython: Warning: [CombatMaterials] built /Game/Combat/Materials/M_GTP_BloodPool;
 09:02 == ilight2-build start
 09:02 list39 paused during the ilight2 blood step (ilight2 replaced by cand12)
+09:03 pushed etat
+09:03 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+09:04 list40 starts (list39 stopped in the ilight2 blood step; Combat removed 1 file(s), tracked changes 0)
