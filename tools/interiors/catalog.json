@@ -132,7 +132,12 @@
    "tris_lod0": 1500,
    "sections": 1,
    "items_per_instance": 1,
-   "interactive": true
+   "interactive": true,
+   "keywords": [
+    "shaker_salt",
+    "shaker_pepper",
+    "salt_shaker"
+   ]
   },
   "clamshell_grill": {
    "size": "large",
@@ -179,7 +184,11 @@
    "tris_lod0": 1500,
    "sections": 1,
    "items_per_instance": 1,
-   "interactive": true
+   "interactive": true,
+   "keywords": [
+    "dish_tray",
+    "plastic_tray"
+   ]
   },
   "bun_toaster": {
    "size": "medium",
@@ -196,7 +205,11 @@
    "tris_lod0": 1800,
    "sections": 1,
    "items_per_instance": 1,
-   "interactive": true
+   "interactive": true,
+   "keywords": [
+    "dish_tray",
+    "plastic_tray"
+   ]
   },
   "bun": {
    "size": "micro",
@@ -1209,7 +1222,9 @@
     0.5,
     1.4
    ],
-   "keywords": []
+   "keywords": [
+    "utility_cart"
+   ]
   },
   "condiment_station": {
    "size": "large",
