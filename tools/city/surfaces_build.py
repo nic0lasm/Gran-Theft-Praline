@@ -19,6 +19,9 @@ Usage (repository root):
   python tools/city/surfaces_build.py [--ab] [--lite] [--loose <folder>] [--res 2560x1440] [--editor <exe>] [--dry-run]
   --loose: Fab exports outside the project (e.g. the downloads-free folder next to the clone), found by
   their listing name (match / match_any in surfaces.json) and imported to /Game/Environment/Surfaces/<id>/.
+  The street map is never changed: its files are copied first and put back after each step, checked
+  by md5 (exit 1 if that fails); --map-md5 <md5> refuses to start on another map; --end-off puts the
+  procedural materials back at the end (otherwise the surfaces stay on).
   --lite: colour maps only (GTP_SURFACES_LITE=1). --dry-run: a stand-in for Unreal writes each
   report and hangs, to try the sequence, the limits and the forced stop in seconds.
 Report: Saved/CityImport/surfaces_build.json. Exit 0 when every step passed, 1 on a failed step,
@@ -26,6 +29,7 @@ Report: Saved/CityImport/surfaces_build.json. Exit 0 when every step passed, 1 o
 """
 
 import argparse
+import hashlib
 import json
 import os
 import shutil
@@ -42,6 +46,47 @@ AB = os.path.join(SAVED, "surfaces_ab")
 FOCUS = "rue-de-la-republique"
 MAP = "/Game/Maps/L_City_RueDeLaRepublique"
 GRACE_S, BEAT_S = 20, 60
+# The street map is the measurement reference and is not in Git: no step may change it.
+# apply_city_materials saves it only to lock the exposure, which the city build already did,
+# so the driver turns that off (GTP_CITY_EV100=off, GTP_PROTECT_REF_MAP=1) and, on top of
+# that, copies the map files before the first step and puts them back after each editor step,
+# checked by md5 (only materials and meshes change, which GTP_SURFACES=0 brings back).
+MAP_FILES = [os.path.join(qb.PROJECT_DIR, "Content", "Maps", "L_City_RueDeLaRepublique" + ext)
+             for ext in (".umap", "_BuiltData.uasset")]
+MAP_BACKUP = os.path.join(SAVED, "surfaces_map_backup")
+
+
+def md5(path):
+    h = hashlib.md5()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def backup_map():
+    os.makedirs(MAP_BACKUP, exist_ok=True)
+    out = {}
+    for p in MAP_FILES:
+        if os.path.exists(p):
+            shutil.copy2(p, os.path.join(MAP_BACKUP, os.path.basename(p)))
+            out[os.path.basename(p)] = md5(p)
+    return out
+
+
+def restore_map(ref):
+    """Put the map files back if a step changed them; returns the names restored."""
+    restored = []
+    for p in MAP_FILES:
+        name = os.path.basename(p)
+        if name not in ref:
+            continue
+        if not os.path.exists(p) or md5(p) != ref[name]:
+            shutil.copy2(os.path.join(MAP_BACKUP, name), p)
+            restored.append(name)
+        if md5(p) != ref[name]:
+            raise RuntimeError("map %s could not be restored (backup in %s)" % (name, MAP_BACKUP))
+    return restored
 
 
 def fake_cmd():
@@ -49,6 +94,7 @@ def fake_cmd():
             "time.sleep(1);d={'errors':[]};"
             "s=os.environ.get('GTP_FAKE_SHOTS');"
             "s and [os.makedirs(os.path.join(s,'shots'),exist_ok=True) or open(os.path.join(s,'shots','0%d.png'%i),'wb').write(b'x') for i in (1,2)];"
+            "m=os.environ.get('GTP_DRY_TOUCH_MAP');m and open(m,'ab').write(b'changed');"
             "json.dump(d,open(p,'w'));open(os.environ['GTP_LOG'],'a').write('Shutdown handler: cleanup\\n');time.sleep(3600)")
     return [sys.executable, "-c", code]
 
@@ -166,11 +212,27 @@ def main():
                     help="frame cap of the walks (0 = none, so the frame times show the GPU cost)")
     ap.add_argument("--editor", default=qb.default_editor())
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--map-md5", default="", help="md5 the .umap must have before anything runs (else stop)")
+    ap.add_argument("--end-off", action="store_true",
+                    help="finish with the procedural materials again (GTP_SURFACES=0), as before the run")
     args = ap.parse_args()
     t0 = time.time()
     result = {"ab": args.ab, "lite": args.lite, "dry_run": args.dry_run, "steps": [], "ok": False}
 
+    ref = {}
+
     def finish(code):
+        if ref:
+            try:
+                again = restore_map(ref)
+                result["map_md5"] = ref
+                result["map_unchanged"] = True
+                if again:
+                    result.setdefault("map_restored", []).extend(again)
+            except Exception as e:  # noqa: BLE001  say it loudly, keep the backup
+                result["map_unchanged"] = False
+                qb.stamp("MAP NOT RESTORED: %r" % e)
+                code = code or 1
         result["seconds"] = round(time.time() - t0)
         with open(os.path.join(SAVED, "surfaces_build.json"), "w", encoding="utf-8") as f:
             json.dump(result, f, indent=1)
@@ -186,8 +248,16 @@ def main():
         if qb.other_editors():
             qb.stamp("an Unreal editor is already running: one at a time")
             sys.exit(1)
-    on = {"GTP_SURFACES": "1", "GTP_SURFACES_LITE": "1" if args.lite else "0"}
-    off = {"GTP_SURFACES": "0"}
+    umap = os.path.basename(MAP_FILES[0])
+    if args.map_md5 and os.path.exists(MAP_FILES[0]) and md5(MAP_FILES[0]).lower() != args.map_md5.lower():
+        qb.stamp("the map is not the reference: %s %s, expected %s; nothing run" % (umap, md5(MAP_FILES[0]), args.map_md5))
+        sys.exit(1)
+    ref = backup_map()
+    qb.stamp("reference map md5: %s (backup in Saved/CityImport/surfaces_map_backup)"
+             % ", ".join("%s %s" % kv for kv in sorted(ref.items())))
+    guard = {"GTP_CITY_EV100": "off", "GTP_PROTECT_REF_MAP": "1"}
+    on = dict(guard, GTP_SURFACES="1", GTP_SURFACES_LITE="1" if args.lite else "0")
+    off = dict(guard, GTP_SURFACES="0")
     steps = [("import", "import_surfaces", "surfaces.json", 480,
               {"GTP_SURFACES_DIR": os.path.abspath(args.loose)} if args.loose else {}, False)]
     if args.ab:
@@ -196,29 +266,40 @@ def main():
     steps += [("on", "apply_city_materials", "materials_report.json", 480, on, False)]
     if args.ab:
         steps += [("shoot_on", "shoot_city", "play_report.json", 600, {}, True)]
-    names = []
-    for i, (name, script, rep, lim, env, game) in enumerate(steps):
-        qb.stamp("step %d/%d" % (i + 1, len(steps)))
-        if game and os.path.isdir(os.path.join(SAVED, "shots")):
-            shutil.rmtree(os.path.join(SAVED, "shots"))      # no still of an earlier run in the A/B
-        ok, secs, note = launch(name, script, rep, lim, env, game, args)
-        result["steps"].append({"step": name, "ok": ok, "seconds": secs, "note": note})
-        if not ok:
-            qb.stamp("%s failed: %s" % (name, note))
-            finish(3 if note == "time limit" else 1)
-        if name == "import":
-            with open(os.path.join(SAVED, "surfaces.json"), encoding="utf-8") as f:
-                m = json.load(f)
-            result["found"] = sorted(m.get("surfaces", {}))
-            result["missing"] = m.get("missing", [])
-            qb.stamp("surfaces found: %s; missing: %s" % (" ".join(result["found"]) or "none",
-                                                          " ".join(result["missing"])))
-        if name.startswith("shoot_"):
-            names = keep_shots(name[len("shoot_"):])
-            result[name + "_shots"] = names
-            with open(os.path.join(SAVED, "play_report.json"), encoding="utf-8") as f:
-                play = json.load(f)
-            result[name + "_frames"] = {k: play.get(k) for k in ("frame_ms_p50", "frame_ms_p95", "frames", "hitches_over_100ms") if k in play}
+    if args.end_off:
+        steps += [("end_off", "apply_city_materials", "materials_report.json", 480, off, False)]
+    try:
+        names = []
+        for i, (name, script, rep, lim, env, game) in enumerate(steps):
+            qb.stamp("step %d/%d" % (i + 1, len(steps)))
+            if game and os.path.isdir(os.path.join(SAVED, "shots")):
+                shutil.rmtree(os.path.join(SAVED, "shots"))      # no still of an earlier run in the A/B
+            ok, secs, note = launch(name, script, rep, lim, env, game, args)
+            result["steps"].append({"step": name, "ok": ok, "seconds": secs, "note": note})
+            changed = restore_map(ref) if ref else []
+            if changed:
+                qb.stamp("%s changed %s: restored from the backup" % (name, " ".join(changed)))
+                result.setdefault("map_restored", []).append({"step": name, "files": changed})
+            if not ok:
+                qb.stamp("%s failed: %s" % (name, note))
+                finish(3 if note == "time limit" else 1)
+            if name == "import":
+                with open(os.path.join(SAVED, "surfaces.json"), encoding="utf-8") as f:
+                    m = json.load(f)
+                result["found"] = sorted(m.get("surfaces", {}))
+                result["missing"] = m.get("missing", [])
+                qb.stamp("surfaces found: %s; missing: %s" % (" ".join(result["found"]) or "none",
+                                                              " ".join(result["missing"])))
+            if name.startswith("shoot_"):
+                names = keep_shots(name[len("shoot_"):])
+                result[name + "_shots"] = names
+                with open(os.path.join(SAVED, "play_report.json"), encoding="utf-8") as f:
+                    play = json.load(f)
+                result[name + "_frames"] = {k: play.get(k) for k in ("frame_ms_p50", "frame_ms_p95", "frames", "hitches_over_100ms") if k in play}
+    except Exception as e:  # noqa: BLE001  the map is put back by finish()
+        qb.stamp("stopped on %r" % e)
+        result["error"] = repr(e)
+        finish(1)
     if args.ab:
         result["pairs"] = pairs(names)
         qb.stamp("before/after: Saved/CityImport/surfaces_ab/ (%s)" % result["pairs"])

@@ -674,6 +674,10 @@ def lock_exposure(report, actor_sub, level_sub):
             st.set_editor_property(k, v)
         a.set_editor_property("settings", st)
         done += 1
+    if done and os.environ.get("GTP_PROTECT_REF_MAP") == "1":
+        # Reference map guard (PC 12/11): materials may change, the map file may not.
+        report["map_save_refused"] = "GTP_PROTECT_REF_MAP=1: exposure set in memory only, " + MAP + " not saved"
+        done = 0
     if done:
         level_sub.save_current_level()
     report["exposure_locked_ev100"] = ev if done else None
