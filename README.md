@@ -16,7 +16,7 @@
 
 <p align="center">
   <a href="https://github.com/nic0lasm/Gran-Theft-Praline/releases/tag/v0.3.0"><img alt="Download 0.3.0" src="https://img.shields.io/badge/download-0.3.0%20for%20macOS-success?logo=apple"></a>
-  <img alt="0.4 in progress" src="https://img.shields.io/badge/next-0.4%20The%20living%20street-orange">
+  <img alt="0.9.0 test build in preparation" src="https://img.shields.io/badge/next-0.9.0%20district%20test%20build-orange">
   <a href="https://github.com/nic0lasm/Gran-Theft-Praline/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/nic0lasm/Gran-Theft-Praline/actions/workflows/ci.yml/badge.svg?branch=main"></a>
   <img alt="Unreal Engine 5.8" src="https://img.shields.io/badge/Unreal%20Engine-5.8-0e1128?logo=unrealengine">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
@@ -141,10 +141,41 @@ Full details: [player character](docs/gameplay/player-character.md),
 | ✅ | **0.2** The dressed street | stroll down a faithful, dressed street on an M1 laptop | released Nov 10, 2026 |
 | ✅ | **0.3** Behind the wheel | steal a car and drive through traffic to the Rhône quay and Pont Lafayette | released Nov 10, 2026 |
 
-Version 0.3.0 is out, with the systems of the next versions as previews.
-Next up is 0.4 "The living street": finishing pedestrians, traffic lights,
-ragdolls and breakable street furniture, and winning back the frame time
-needed to keep 95 % of frames under 42 ms on the M1.
+Version 0.3.0 is the latest public release. Since then the work has moved
+fast on the `next` pre-release branch, towards **0.9.0, a district test
+build** for the author and a few friends, on Mac and Windows.
+
+### Already in `next` (candidate 16, version 0.9.0)
+
+Everything here was measured on the M1 Pro with a packaged build, and
+passed the merge gate (4 scenes, 25 ms frame target) before landing:
+
+- **The first interior: a fast-food on rue de la République (Bellecour).**
+  Lit and readable (average luminance 89/255, it was nearly black at 10/255
+  before), with customers queuing at the tills (6 customers, about 11 served
+  per minute). Real shop names in lettering, no logos.
+- **More pedestrians:** 24 simulated, up to 20 drawn (10 before).
+- **Weather-driven clouds** in the sky.
+- **Title screen** showing the version, with a **Credits** screen.
+- **First launch fixed on the M1:** 29.4 ms down to 20.9 ms GPU, by setting
+  anti-aliasing to Medium. The sporadic Mac crash (traffic car pool) is
+  fixed too.
+- **Frame times (GPU p95, M1):** fixed street 20.9 ms, demo drive 22.2 ms,
+  night 23.8 ms, rain 23.2 ms, interior 19.8 ms; 100 % of frames at
+  25 ± 1 ms.
+- **Endurance:** 5 runs of 600 s with a fresh user directory, no crash.
+  A Windows crash hunt also passes.
+
+### In progress, not in `next` yet
+
+Candidate 17 and the content around it, until measured on the M1:
+
+- an overcast grey sky, rain and dome meshes, lit shopfronts by day,
+  car lights switched off by day (they were a suspect for a random +6 ms
+  slowdown in the demo drive, whose cause is the traffic);
+- scanned surfaces for the street;
+- a second pedestrian look (a second free civilian mesh);
+- dressing the fast-food kitchen with free assets only.
 
 ## Roadmap
 
@@ -223,7 +254,7 @@ Step-by-step guide: [one-click macOS build](docs/build/one-click-build.md).
 | ---- | ---- |
 | Engine | Unreal Engine 5.8: Lumen, Virtual Shadow Maps, Substrate, TSR |
 | Code | C++ for the game systems, Blueprint for prototyping |
-| Platform | macOS on Apple Silicon (Metal) first, Windows later |
+| Platform | macOS on Apple Silicon (Metal) first; Windows packages are built for testing |
 | Gameplay foundations | Epic's free building blocks: Game Animation Sample, Gameplay Ability System, Chaos Vehicles, StateTree |
 | City | IGN (BD TOPO, LiDAR HD, RGE ALTI), data.grandlyon.com and OpenStreetMap, processed by [tools/city](tools/city/) and [tools/geo-pipeline](tools/geo-pipeline/) |
 | Art | Quixel Megascans, Poly Haven and ambientCG (CC0), Blender; see the [art bible](docs/art/art-bible.md) |

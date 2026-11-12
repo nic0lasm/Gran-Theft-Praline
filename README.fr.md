@@ -16,7 +16,7 @@
 
 <p align="center">
   <a href="https://github.com/nic0lasm/Gran-Theft-Praline/releases/tag/v0.3.0"><img alt="Télécharger la 0.3.0" src="https://img.shields.io/badge/t%C3%A9l%C3%A9charger-0.3.0%20pour%20macOS-success?logo=apple"></a>
-  <img alt="0.4 en cours" src="https://img.shields.io/badge/prochaine-0.4%20La%20rue%20vivante-orange">
+  <img alt="Build de test 0.9.0 en préparation" src="https://img.shields.io/badge/prochaine-0.9.0%20build%20de%20test%20du%20quartier-orange">
   <a href="https://github.com/nic0lasm/Gran-Theft-Praline/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/nic0lasm/Gran-Theft-Praline/actions/workflows/ci.yml/badge.svg?branch=main"></a>
   <img alt="Unreal Engine 5.8" src="https://img.shields.io/badge/Unreal%20Engine-5.8-0e1128?logo=unrealengine">
   <a href="LICENSE"><img alt="Licence : MIT" src="https://img.shields.io/badge/licence-MIT-blue.svg"></a>
@@ -144,10 +144,44 @@ Tous les détails : [personnage](docs/gameplay/player-character.fr.md),
 | ✅ | **0.2** La rue habillée | flâner dans une rue fidèle et habillée, sur un portable M1 | sortie le 10 nov. 2026 |
 | ✅ | **0.3** Au volant | voler une voiture et traverser la circulation jusqu'au quai du Rhône et au pont Lafayette | sortie le 10 nov. 2026 |
 
-La version 0.3.0 est sortie, avec en avant-première les systèmes des
-versions suivantes. Prochaine étape, la 0.4 « La rue vivante » : finir les
-piétons, les feux, les ragdolls et le mobilier cassable, et regagner le
-temps d'image qu'il faut pour garder 95 % des images sous 42 ms sur le M1.
+La version 0.3.0 est la dernière version publique. Depuis, le travail a
+beaucoup avancé sur la branche de pré-production `next`, vers la **0.9.0,
+un build de test du quartier** pour l'auteur et quelques proches, sur Mac
+et Windows.
+
+### Déjà dans `next` (candidat 16, version 0.9.0)
+
+Tout ce qui suit a été mesuré sur le M1 Pro avec un build packagé, et a
+passé la porte de fusion (4 scènes, cible d'image à 25 ms) avant d'entrer :
+
+- **Le premier intérieur : un fast-food de la rue de la République
+  (Bellecour).** Éclairé et lisible (luminance moyenne 89/255, il était
+  presque noir à 10/255), avec des clients en file aux caisses (6 clients,
+  environ 11 servis par minute). Vrais noms en lettrage, aucun logo.
+- **Plus de piétons :** 24 simulés, 20 dessinés au plus (10 avant).
+- **Nuages pilotés par la météo** dans le ciel.
+- **Écran titre** avec la version, et un écran **Crédits**.
+- **Premier lancement corrigé sur le M1 :** de 29,4 ms à 20,9 ms de GPU, en
+  réglant l'anticrénelage sur Moyen. Le plantage intermittent du Mac
+  (réserve de voitures du trafic) est aussi corrigé.
+- **Temps d'image (GPU p95, M1) :** rue fixe 20,9 ms, parcours démo
+  22,2 ms, nuit 23,8 ms, pluie 23,2 ms, intérieur 19,8 ms ; 100 % des
+  images à 25 ± 1 ms.
+- **Endurance :** 5 passes de 600 s avec un dossier utilisateur neuf, aucun
+  plantage. Une chasse aux plantages sur Windows passe aussi.
+
+### En cours, pas encore dans `next`
+
+Le candidat 17 et ce qui l'entoure, tant que ce n'est pas mesuré sur le M1 :
+
+- un ciel couvert gris, des maillages de pluie et de dôme, des vitrines
+  éclairées de jour, des lumières de voiture éteintes de jour (suspectes
+  d'un ralentissement aléatoire de +6 ms dans le parcours démo, dont la
+  cause est le trafic) ;
+- des surfaces scannées pour la rue ;
+- un second look de piéton (un second maillage civil gratuit) ;
+- l'habillage de la cuisine du fast-food, avec des assets gratuits
+  uniquement.
 
 ## Feuille de route
 
@@ -227,7 +261,7 @@ Guide pas à pas : [compilation macOS en un clic](docs/build/one-click-build.fr.
 | ---- | ---- |
 | Moteur | Unreal Engine 5.8 : Lumen, Virtual Shadow Maps, Substrate, TSR |
 | Code | C++ pour les systèmes de jeu, Blueprint pour le prototypage |
-| Plateforme | macOS Apple Silicon (Metal) d'abord, Windows plus tard |
+| Plateforme | macOS Apple Silicon (Metal) d'abord ; des packages Windows sont construits pour les tests |
 | Bases de gameplay | Les briques gratuites d'Epic : Game Animation Sample, Gameplay Ability System, Chaos Vehicles, StateTree |
 | Ville | IGN (BD TOPO, LiDAR HD, RGE ALTI), data.grandlyon.com et OpenStreetMap, traités par [tools/city](tools/city/) et [tools/geo-pipeline](tools/geo-pipeline/) |
 | Graphisme | Quixel Megascans, Poly Haven et ambientCG (CC0), Blender ; voir la [bible artistique](docs/art/art-bible.fr.md) |
