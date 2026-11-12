@@ -180,6 +180,31 @@ def standin_material(cls, cache):
     return mat
 
 
+def flag_for_instancing(mesh, done, report):
+    """Every object is an instanced static mesh: a material without the instanced usage flag renders
+    as the default checkerboard in a game and a package ("missing usage flag InstancedStaticMeshes"),
+    and the downloaded packs never set it. Set it on the base materials of the mesh, once, and save
+    (local content, out of Git)."""
+    for slot in mesh.get_editor_property("static_materials"):
+        iface = slot.get_editor_property("material_interface")
+        base = iface.get_base_material() if iface else None
+        if base is None:
+            continue
+        path = base.get_path_name()
+        if path in done:
+            continue
+        done.add(path)
+        if path.startswith("/Engine/") or base.get_editor_property("used_with_instanced_static_meshes"):
+            continue
+        try:
+            base.set_editor_property("used_with_instanced_static_meshes", True)
+            unreal.MaterialEditingLibrary.recompile_material(base)
+            eal.save_loaded_asset(base)
+            report.setdefault("instancing_flag_set", []).append(path)
+        except Exception as error:
+            report.setdefault("warnings", []).append("usage flag on %s: %s" % (path, error))
+
+
 def fit_mesh(mesh, dims):
     """(uniform scale, lift cm) so a downloaded mesh has its class size and rests on its point.
     Free models come in any unit (a hand dryer 36 m wide, a shelf 156 m) and with any pivot (paper
@@ -220,6 +245,7 @@ def build_objects(spec, catalog, mapping, report):
     missing = []
     standins = {}
     used_standins = {}
+    flagged = set()
     for (cls, level, density), rows in sorted(groups.items()):
         info = catalog["classes"][cls]
         rule = rules[info["size"]]
@@ -230,6 +256,7 @@ def build_objects(spec, catalog, mapping, report):
         scale = unreal.Vector(dims[0], dims[1], dims[2]) if grey else unreal.Vector(1, 1, 1)
         lift = dims[2] * 50.0 if grey else 0.0
         if not grey:
+            flag_for_instancing(mesh, flagged, report)
             factor, lift = fit_mesh(mesh, dims)
             scale = unreal.Vector(factor, factor, factor)
             if factor != 1.0:
