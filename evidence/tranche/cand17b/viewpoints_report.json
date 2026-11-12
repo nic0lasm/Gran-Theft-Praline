@@ -1,0 +1,96 @@
+{
+    "spec":  "points-de-vue.json",
+    "fan":  true,
+    "shots":  [
+                  {
+                      "shot":  "V1",
+                      "ground_z_cm":  -81.30848407745361,
+                      "yaw":  290.0,
+                      "file":  "V1.jpg"
+                  },
+                  {
+                      "shot":  "V1_l20",
+                      "ground_z_cm":  -81.30848407745361,
+                      "yaw":  270.0,
+                      "file":  "V1_l20.jpg"
+                  },
+                  {
+                      "shot":  "V1_r20",
+                      "ground_z_cm":  -81.30848407745361,
+                      "yaw":  310.0,
+                      "file":  "V1_r20.jpg"
+                  },
+                  {
+                      "shot":  "V2",
+                      "ground_z_cm":  -76.4000415802002,
+                      "yaw":  137.0,
+                      "file":  "V2.jpg"
+                  },
+                  {
+                      "shot":  "V2_l20",
+                      "ground_z_cm":  -76.4000415802002,
+                      "yaw":  117.0,
+                      "file":  "V2_l20.jpg"
+                  },
+                  {
+                      "shot":  "V2_r20",
+                      "ground_z_cm":  -76.4000415802002,
+                      "yaw":  157.0,
+                      "file":  "V2_r20.jpg"
+                  },
+                  {
+                      "shot":  "V3",
+                      "ground_z_cm":  -61.89674139022827,
+                      "yaw":  23.0,
+                      "file":  "V3.jpg"
+                  },
+                  {
+                      "shot":  "V3_l20",
+                      "ground_z_cm":  -61.89674139022827,
+                      "yaw":  3.0,
+                      "file":  "V3_l20.jpg"
+                  },
+                  {
+                      "shot":  "V3_r20",
+                      "ground_z_cm":  -61.89674139022827,
+                      "yaw":  43.0,
+                      "file":  "V3_r20.jpg"
+                  },
+                  {
+                      "shot":  "V4",
+                      "ground_z_cm":  -7.379353046417236,
+                      "yaw":  300.0,
+                      "file":  "V4.jpg"
+                  },
+                  {
+                      "shot":  "V4_l20",
+                      "ground_z_cm":  -7.379353046417236,
+                      "yaw":  280.0,
+                      "file":  "V4_l20.jpg"
+                  },
+                  {
+                      "shot":  "V4_r20",
+                      "ground_z_cm":  -7.379353046417236,
+                      "yaw":  320.0,
+                      "file":  "V4_r20.jpg"
+                  },
+                  {
+                      "shot":  "V5",
+                      "ground_z_cm":  -73.27526807785034,
+                      "yaw":  115.0,
+                      "file":  "V5.jpg"
+                  },
+                  {
+                      "shot":  "V5_l20",
+                      "ground_z_cm":  -73.27526807785034,
+                      "yaw":  95.0,
+                      "file":  "V5_l20.jpg"
+                  },
+                  {
+                      "shot":  "V5_r20",
+                      "ground_z_cm":  -73.27526807785034,
+                      "yaw":  135.0,
+                      "file":  "V5_r20.jpg"
+                  }
+              ]
+}
