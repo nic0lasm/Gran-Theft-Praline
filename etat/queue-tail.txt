@@ -1,5 +1,3 @@
-07:46 == crash-ilight-u3 start (120 s, -userdir) 
-07:48 crash-ilight-u3: exit=0 crash=no last t=wanted: t=119 context= reused=18 | reused/police in the last 15 s: 4 line(s) | crash-ilight-u3: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 2
 07:48 == crash-ilight-u4 start (120 s, -userdir) 
 07:49 crash-ilight-u4: exit=139 crash=YES last t=wanted: t=75 context= reused=13 | reused/police in the last 15 s: 3 line(s) | FileNotFoundError: [Errno 2] No such file or directory: 'GTAL-build/Builds/ilight/cr
 07:49 crash-ilight: Shipping crash on try 4
@@ -58,3 +56,5 @@
 09:01 poolfix-8: crash no (exit 0), end t=119, reused=17, wrecked-last-10s=0, pool lines=25
 09:01 pushed crash-ilight
 09:01 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+09:01 pushed etat
+09:01 interior-light2: PC proof VERDICT: OK found
