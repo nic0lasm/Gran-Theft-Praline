@@ -17,6 +17,7 @@ Usage:
   python3 tools/city/generate.py --name presqu-ile --focus all      # every building of the zone
   python3 tools/city/generate.py --name presqu-ile --focus "Rue de la République" \
       --clip=-80,-570,300,-180 --out republique-tranche          # Bellecour -> Jacobins slice
+  add --also-street "Place de la République" to give the kit to every facade bordering the square
 """
 
 import argparse
@@ -185,6 +186,10 @@ def main():
                     help="also take the buildings whose centroid is in this box (local metres, "
                          "x east, y north); repeatable. E.g. the Rhone quays and the Lafayette "
                          "bridge head for the drivable loop of 0.3: 250,-60,700,220")
+    ap.add_argument("--also-street", action="append", default=[], metavar="NAME[:BUFFER_M]",
+                    help="also take the buildings whose footprint is within BUFFER_M (default 8) of this "
+                         "street or square, e.g. the facades bordering a square the focus street "
+                         "crosses; applied after --clip; repeatable. E.g. 'Place de la République'")
     ap.add_argument("--cell", metavar="X0,Y0,X1,Y1",
                     help="streaming cell mode (tools/city/cells.py): take every building whose centroid "
                          "is in this box, local metres; --focus is then only the output name")
@@ -246,6 +251,22 @@ def main():
             clip = box(*[float(v) for v in args.clip.split(",")])
             selected = [b for b in selected if clip.contains(b["poly"].centroid)]
             street = [g for g in (s.intersection(clip) for s in street) if not g.is_empty and g.length > 0]
+        # Facades bordering a square the street crosses (--also-street): taken by footprint distance,
+        # after the clip, so the far side of the square is generated even when its centroids fall
+        # outside the slice box.
+        border = []
+        for spec in args.also_street:
+            name, _, buf = spec.partition(":")
+            lines = [r[0] for r in roads if r[2] == name]
+            if not lines:
+                sys.exit(f"--also-street: no road named {name!r} in BD TOPO for this zone")
+            border.append((unary_union(lines), float(buf or 8.0)))
+        if border:
+            have = {id(b) for b in selected}
+            added = [b for b in buildings if id(b) not in have
+                     and any(b["poly"].distance(geom) <= buf for geom, buf in border)]
+            print(f"--also-street: {len(added)} more buildings")
+            selected += added
         longest = chain_axis(street)
         for d in np.arange(0, longest.length, 10.0):
             p = longest.interpolate(d)
@@ -359,6 +380,7 @@ def main():
         kinds[r["kind"]] = kinds.get(r["kind"], 0) + 1
     report = {
         "zone": args.name, "focus": args.focus, "buffer_m": args.buffer, "extra_bbox": args.extra_bbox,
+        "also_street": args.also_street,
         "clip": args.clip,
         "bdtopo_buildings": len(selected),
         "left_to_landmarks": sorted(replaced),

@@ -575,3 +575,21 @@ sur la photo V4 (±10 m, à recaler sur la vue de dessus V0).
 Sans le manifeste, ou avec `GTP_SURFACES=0`, les matériaux restent procéduraux.
 
 Budget M1 : au plus 15 lectures de texture pour le sol (la saleté comprise, en texture plutôt qu’en acteurs décals), 4 pour le kit et 6 pour les coques, toutes avec des samplers partagés. `GTP_SURFACES_LITE=1` ne garde que les cartes de couleur.
+
+## Toute la place de la République (ajouté le 2026-11-12, tranche République)
+
+La zone de 45 m autour de la rue ne prenait que les façades de la place de la République proches
+de l'axe de la rue de la République. Le côté est de la place, le fond de son bord nord et les
+angles sur la rue Childebert restaient des volumes du fond de carte, gris dans la vue large V4.
+`generate.py --also-street NOM[:TAMPON_M]` ajoute tout bâtiment dont l'emprise est à moins de
+TAMPON_M (8 m par défaut) des tronçons BD TOPO nommés NOM. Il s'applique après `--clip`, si bien
+que le fond de la place est généré même quand son centroïde sort de la boîte de la tranche. À
+8 m, on ne prend que les façades sur la place ; dès 12 m, les bâtiments en fond d'îlot et le
+Grand Hôtel-Dieu entrent. `faces_open_space` fait ensuite des côtés de la place des façades sur
+rue : devantures, balcons et mansarde.
+
+`regen_city.sh` passe `--also-street "Place de la République"` par défaut
+(`GTP_CITY_ALSO_STREET`, vide pour s'en passer). Focus République (2026-11-12, machine cloud) :
+4 bâtiments de plus, 235 en tout, 19 341 modules (+337), 417 k triangles (+8 k) ; le fond de carte
+passe à 1 585 volumes. Tranche (`--clip=-80,-570,300,-180`) : 6 bâtiments de plus, 63 en tout,
+4 267 modules.
