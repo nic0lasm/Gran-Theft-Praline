@@ -1118,8 +1118,14 @@ bool AGTPTrafficNetwork::SpawnCar()
 	{
 		if (UGTPAIDriverComponent* ReusedDriver = Reused->FindComponentByClass<UGTPAIDriverComponent>())
 		{
-			ReusedDriver->Start(this, Lane, Point);
-			ReusedDriver->SetGhost(false);
+			// Back on the road the way a far puppet wakes: kinematic ghost, plain teleport, and
+			// the ghost switch of the next ticks turns the Chaos vehicle back on near the player.
+			// Physics used to come back in the very frame of a ResetPhysics teleport, and a car
+			// spawned beyond the ghost distance went kinematic again the next frame: the Mac
+			// crashes (8 of 8) are all in the Chaos suspension graph (CreateGraphEdge).
+			const FVector Ground = Transform.GetLocation() - FVector(0.f, 0.f, 40.f);
+			ReusedDriver->PlaceGhost(Lane, Point, Ground, static_cast<float>(Transform.Rotator().Yaw), 0.f);
+			Reused->SetActorEnableCollision(true);
 			if (!AIDrivers.Contains(ReusedDriver))
 			{
 				AIDrivers.Add(ReusedDriver);
@@ -1223,8 +1229,7 @@ AGTPVehicle* AGTPTrafficNetwork::TakeFromPool(const FTransform& Transform)
 			PoolSince.Insert(Now - PoolCooldown, 0);
 			return nullptr;
 		}
-		Car->SetActorTransform(Transform, false, nullptr, ETeleportType::ResetPhysics);
-		Car->SetActorEnableCollision(true);
+		// Placed by the caller as a ghost (PlaceGhost), collision on once it is there.
 		Car->SetActorHiddenInGame(false);
 		if (ACharacter* Driver = Car->GetDriver())
 		{
@@ -1321,6 +1326,11 @@ void AGTPTrafficNetwork::Tick(float DeltaSeconds)
 		{
 			const float ToPlayer = static_cast<float>(FVector::Dist2D(Car->GetActorLocation(), Player->GetActorLocation()));
 			AIDriver->SetGhost(GTPGhost::WantsGhost(AIDriver->IsGhost(), ToPlayer, GhostDistance, GhostWakeDistance));
+		}
+		else if (!bVehicleGhost && AIDriver && AIDriver->IsGhost() && !Car->IsWrecked())
+		{
+			// A pooled car comes back as a ghost: without the ghost switch, physics on a tick later.
+			AIDriver->SetGhost(false);
 		}
 		const APlayerController* Viewer = GetWorld()->GetFirstPlayerController();
 		const FVector View = Viewer && Viewer->PlayerCameraManager ? Viewer->PlayerCameraManager->GetCameraLocation()
