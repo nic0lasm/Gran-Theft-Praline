@@ -108,10 +108,15 @@ def budget_mesh(cls, info, path, report):
         settings += [unreal.StaticMeshReductionSettings(percent_triangles=keep * share, screen_size=0.0) for share in LOD_CHAIN]
         options = unreal.StaticMeshReductionOptions(auto_compute_lod_screen_size=True, reduction_settings=settings)
         sub.set_lods(mesh, options)
-        eal.save_loaded_asset(mesh)
+        if mesh.get_path_name().startswith("/Game/"):
+            eal.save_loaded_asset(mesh)
         if mesh.get_num_triangles(0) > budget * TOLERANCE * 1.1:
             report["warnings"].append("%s: LOD0 %d triangles after the budget, over %d" % (path, mesh.get_num_triangles(0), budget))
         for texture in textures:
+            # Engine and plug-in textures (glTF defaults, DefaultNormal...) are shared by every
+            # project on the machine: never capped nor saved.
+            if not texture.get_path_name().startswith("/Game/"):
+                continue
             current = texture.get_editor_property("max_texture_size")
             if current == 0 or current > cap:
                 texture.set_editor_property("max_texture_size", cap)
