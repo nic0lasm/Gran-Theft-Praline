@@ -1,0 +1,60 @@
+06:38 push cand11b failed
+06:38 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+06:38 pushed etat
+06:38 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+06:38 == loop-endurance-1-1 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
+06:41 pushed etat
+06:42 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+06:43 pushed etat
+06:45 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+06:48 loop-endurance-1-1 (list33): loop-endurance-1-1: 23795 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 6 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 49.2 | gpu p50 18.50 p95 29.46 | gate FAIL last t=
+06:48 list34 starts (list33 stopped), evidence branch feat/mac-evidence-20261112b
+06:48 pushed etat
+06:48 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+06:48 == cand11c-compile start
+06:49 == cand11c-compile exit=0
+06:49 == cand11c-blood start
+06:50 == cand11c-blood exit=0
+06:50 cand11c blood: LogPython: Warning: [CombatMaterials] built /Game/Combat/Materials/M_GTP_BloodPool;
+06:50 == cand11c-build start
+07:01 == cand11c-build exit=0
+07:01 cand11c build exit=0; MapsToCook: ; L_Interior in package.log: 0; - map md5 at the end: 1c92de0f813b89cb40aeb000cd92a1de, unchanged;- DefaultGame.ini md5 at the end: eb19ee3a657b09a9e28edc806259ad78, unchanged;- tracked changes at the end: 0, clone on 2be7b36;; ini md5 vs start same
+07:01 cand11c restore: Combat removed 1 file(s); Content/Interiors entries 0; tracked changes 0
+07:01 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+07:02 == cand11c-interior start (120 s, no -userdir)
+07:04 cand11c-interior: exit=0 | interior: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.01 max 25.1 | gpu p50 12.05 p95 19.56 | gate PASS | InteriorStreaming: first plan: player at V(X=17329.84, Y=23097.69, Z=141.40) (pawn), nearest interior 321 m, 1 wanted, t=0.03;InteriorStreaming: load /Game/Interiors/L_Interior_fastfood_bellecour t=0.03;InteriorStreaming: visible /Game/Interiors/L_Interior_fastfood_bellecour t=0.20;InteriorStreaming: test start: player at the counter of fastfood_bellecour (GTP_Station=till_3) t=0.20;
+07:05 cand11c still: frame_00000.jpg
+07:05 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+07:07 cand11c witness street-fixed: 4600 frames | 25.0+-1 ms 99.9 % (exactly 25.0 99.8 %) | >26 3 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 36.7 | gpu p50 13.77 p95 20.73 | gate PASS | LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy | pool drops 0
+07:07 pushed cand11c
+07:07 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+07:07 pushed etat
+07:07 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+07:07 == loop-endurance-1-1 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
+07:09 pushed etat
+07:10 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+07:17 loop-endurance-1-1 (list35): loop-endurance-1-1: 23798 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 1 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 26.6 | gpu p50 18.24 p95 29.36 | gate FAIL last t= police=0
+07:17 list36 starts (list35 stopped)
+07:18 pushed etat
+07:18 interior-light: PC proof VERDICT: OK found
+07:18 pushed etat
+07:18 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+07:18 == ilight-compile start
+07:18 == ilight-compile exit=0
+07:18 == ilight-blood start
+07:19 == ilight-blood exit=0
+07:19 ilight blood: LogPython: Warning: [CombatMaterials] built /Game/Combat/Materials/M_GTP_BloodPool;
+07:19 == ilight-build start
+07:31 == ilight-build exit=0
+07:31 ilight build exit=0; - interiors: OK, 26 s, log interiors.log;- interior maps cooked for this package only: /Game/Interiors/L_Interior_fastfood_bellecour ;- map md5 at the end: 1c92de0f813b89cb40aeb000cd92a1de, unchanged;- DefaultGame.ini md5 at the end: eb19ee3a657b09a9e28edc806259ad78, unchanged;- tracked changes at the end: 0, clone on 8d80513;; ini md5 vs start same
+07:31 ilight restore: Combat removed 1 file(s); Content/Interiors entries 0; tracked changes 0
+07:31 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+07:31 == ilight-interior-default start (120 s, no -userdir) 
+07:33 ilight-interior-default: exit=138 | FileNotFoundError: [Errno 2] No such file or directory: 'GTAL-build/Builds/ilight/interior-default/frametimes.csv' | InteriorStreaming: load /Game/Interiors/L_Interior_fastfood_bellecour t=0.03;InteriorStreaming: exposure EV 8.0-9.0 inside fastfood_bellecour;InteriorStreaming: visible /Game/Interiors/L_Interior_fastfood_bellecour t=0.21;InteriorStreaming: test start: player at the counter of fastfood_bellecour (GTP_Station=till_3) t=0.21;
+07:33 == ilight-interior-exp0 start (120 s, no -userdir) -InteriorExposure=0
+07:35 ilight-interior-exp0: exit=0 | interior-exp0: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.7 | gpu p50 11.89 p95 19.38 | gate PASS | InteriorStreaming: load /Game/Interiors/L_Interior_fastfood_bellecour t=0.03;InteriorStreaming: visible /Game/Interiors/L_Interior_fastfood_bellecour t=0.21;InteriorStreaming: test start: player at the counter of fastfood_bellecour (GTP_Station=till_3) t=0.21;
+07:36 ilight still default: frame_00000.jpg
+07:37 ilight still exp0: frame_00000.jpg
+07:38 ilight still street: frame_00000.jpg
+07:38 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+07:40 ilight witness street-fixed: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.8 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.5 | gpu p50 13.64 p95 20.69 | gate PASS | LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy | pool drops 0

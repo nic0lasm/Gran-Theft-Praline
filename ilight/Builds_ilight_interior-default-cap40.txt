@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "GTAL-build/Builds/capstats2.py", line 2, in <module>
+    r = list(csv.DictReader(open(sys.argv[1])))
+                            ~~~~^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'GTAL-build/Builds/ilight/interior-default/frametimes.csv'

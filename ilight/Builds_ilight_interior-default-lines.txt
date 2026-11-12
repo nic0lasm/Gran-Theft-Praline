@@ -1,0 +1,8 @@
+InteriorStreaming: 1 interiors, on, preload 100000 m, unload 100000 m, density 2
+InteriorStreaming: first plan: player at V(X=17329.84, Y=23097.69, Z=141.40) (pawn), nearest interior 321 m, 1 wanted, t=0.03
+InteriorStreaming: load /Game/Interiors/L_Interior_fastfood_bellecour t=0.03
+InteriorStreaming: density 2 applied, 12 components hidden
+InteriorStreaming: exposure EV 8.0-9.0 inside fastfood_bellecour
+InteriorStreaming: visible /Game/Interiors/L_Interior_fastfood_bellecour t=0.21
+InteriorStreaming: test start: player at the counter of fastfood_bellecour (GTP_Station=till_3) t=0.21
+InteriorStreaming: player entered fastfood_bellecour t=0.28
