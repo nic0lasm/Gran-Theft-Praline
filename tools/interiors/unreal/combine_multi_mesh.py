@@ -77,6 +77,13 @@ def combine_pipeline(report):
         report["combine_enum"]["set"] = wanted[0]
         # mesh_pipeline is a read-only sub-object returned by reference: setting its property is
         # enough, and writing it back on the pipeline is refused.
+        # No Nanite build: the budget turns Nanite off on these props anyway (no Nanite on the M1),
+        # and building it made one combined burger take 695 s on the PC.
+        try:
+            mesh_pipeline.set_editor_property("build_nanite", False)
+            report["combine_enum"]["build_nanite"] = False
+        except Exception as error:
+            report["combine_enum"]["build_nanite"] = "not set: %s" % error
         pipeline.modify()
     except Exception as error:
         report["errors"].append("cannot set combine_static_meshes_behavior on the pipeline: %s" % error)
@@ -100,6 +107,14 @@ def import_combined(filename, dest, report):
         report["errors"].append("import of %s refused" % filename)
     eal.save_directory(dest, only_if_is_dirty=False, recursive=True)
     return len(static_meshes(dest))
+
+
+def write(report, t0):
+    report["seconds"] = round(time.time() - t0, 1)
+    out = os.path.join(SAVED, "InteriorImport")
+    os.makedirs(out, exist_ok=True)
+    with open(os.path.join(out, "combine_report.json"), "w", encoding="utf-8") as handle:
+        json.dump(report, handle, indent=1)
 
 
 def main():
@@ -127,11 +142,8 @@ def main():
         report["combined"].append({"name": name, "pieces": len(pieces), "file": filename, "meshes_after": count})
         if count != 1:
             report["errors"].append("%s: %d static meshes after the combined import (1 expected)" % (name, count))
-    report["seconds"] = round(time.time() - t0, 1)
-    out = os.path.join(SAVED, "InteriorImport")
-    os.makedirs(out, exist_ok=True)
-    with open(os.path.join(out, "combine_report.json"), "w", encoding="utf-8") as handle:
-        json.dump(report, handle, indent=1)
+        write(report, t0)   # after every model: a stopped run keeps what it did
+    write(report, t0)
     log("%d combined, %d already, %d single, %d without source, %d errors" % (
         len(report["combined"]), len(report["already"]), report["single"], len(report["no_source"]), len(report["errors"])))
 
