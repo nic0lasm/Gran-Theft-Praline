@@ -13,6 +13,7 @@ Writes <out>/<id>[_l20|_r20].png and <out>/viewpoints_report.json.
 """
 
 import json
+import math
 import os
 
 import unreal
@@ -21,7 +22,7 @@ SPEC = os.environ["GTP_VIEWPOINTS"]
 PROJECT = unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_dir())
 OUT = os.environ.get("GTP_VIEWS_OUT", os.path.join(PROJECT, "Saved", "Viewpoints"))
 FAN = os.environ.get("GTP_VIEW_FAN", "0") == "1"
-WARMUP_S, SETTLE_S, AFTER_SHOT_S = 15.0, 6.0, 2.0
+WARMUP_S, SETTLE_S, AFTER_SHOT_S = 15.0, 12.0, 2.0  # settle covers crowd spawn around the moved pawn
 
 with open(SPEC, encoding="utf-8") as f:
     VIEWS = json.load(f)["views"]
@@ -83,13 +84,21 @@ def setup(pc, v, yaw_offset):
     cmd(pc, "gtp.Date %s" % v["date"])
     cmd(pc, "gtp.Time %.3f" % v["hour"])
     cmd(pc, "gtp.Weather %s 0" % v["weather"])
-    # Keep the pawn out of frame: park it under the camera.
     gz = ground_z(pc, v["x_cm"], v["y_cm"])
     z = (gz if gz is not None else 0.0) + v["eye_cm"]
     cam = camera(pc)
     cam.get_editor_property("camera_component").set_editor_property("field_of_view", float(v["hfov"]))
-    rot = unreal.Rotator(roll=0.0, pitch=float(v["pitch"]), yaw=float(v["yaw"]) + yaw_offset)
+    yaw = float(v["yaw"]) + yaw_offset
+    rot = unreal.Rotator(roll=0.0, pitch=float(v["pitch"]), yaw=yaw)
     cam.set_actor_location_and_rotation(unreal.Vector(v["x_cm"], v["y_cm"], z), rot, False, True)
+    # Pedestrians and traffic stream around the player: bring the (hidden) pawn 3 m behind the
+    # camera, otherwise the crowd stays at the PlayerStart and every view is empty.
+    pawn = pc.get_controlled_pawn()
+    if pawn and v.get("move_pawn", True):
+        bx, by = -300.0 * math.cos(math.radians(yaw)), -300.0 * math.sin(math.radians(yaw))
+        pz = (gz if gz is not None else 0.0) + 100.0
+        pawn.set_actor_location(unreal.Vector(v["x_cm"] + bx, v["y_cm"] + by, pz), False, True)
+        pawn.set_actor_hidden_in_game(True)
     return gz
 
 
