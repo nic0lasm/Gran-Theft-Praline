@@ -503,7 +503,7 @@ def shop_interior_master():
 # exposure (EV100 about 3.5, times EmissiveScale); under the day exposure (EV100 14 to 14.5,
 # 2000 times less sensitive) the rooms read black (PC stills, 12/11). By day the room is
 # multiplied by DayGlow, at night by 1 (MPC CityLights, the night factor of the environment).
-SHOP_DAY_GLOW = float(os.environ.get("GTP_SHOP_DAY_GLOW", "1200"))   # 250 was still grey (PC d247b59)
+SHOP_DAY_GLOW = float(os.environ.get("GTP_SHOP_DAY_GLOW", "600"))   # 250 grey, 1200 washed out in full sun (PC f208523)
 
 
 def day_boost(g):
