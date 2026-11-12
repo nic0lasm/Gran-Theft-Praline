@@ -231,6 +231,41 @@ def place_terrain(terrain, terrain_meta, report):
     report["terrain_bounds_check"] = terrain_check
 
 
+def place_backdrop(report):
+    """Low-definition volumes of the buildings around the street (tools/city/backdrop.py), so the
+    wide views do not end on the horizon. One merged mesh per 250 m cell, shell material, no
+    collision, no distance field; they cast shadows (the sun over place Bellecour). GTP_CITY_BACKDROP=0
+    skips them."""
+    meta_path = os.path.join(GEN, "backdrop.json")
+    if os.environ.get("GTP_CITY_BACKDROP", "1") == "0" or LEVEL != "street" or not os.path.exists(meta_path):
+        report["backdrop"] = "none"
+        return
+    with open(meta_path, encoding="utf-8") as f:
+        meta = json.load(f)
+    meshes = import_glb(os.path.join(GEN, "backdrop.glb"), ROOT + "/Backdrop/" + CAMEL)
+    shell_path = ROOT + "/Materials/M_City_Shell"
+    shell = eal.load_asset(shell_path) if eal.does_asset_exist(shell_path) else None
+    placed = 0
+    for n in meta["nodes"]:
+        m = meshes.get(n["name"])
+        if m is None:
+            report["errors"].append("backdrop mesh missing: " + n["name"])
+            continue
+        if shell:
+            for i in range(len(m.get_editor_property("static_materials"))):
+                m.set_material(i, shell)
+            eal.save_loaded_asset(m)
+        pos = (0.0, 0.0, 0.0) if terrain_baked(m, n) else tuple(n["ue_cm"])
+        comp = place_mesh(m, pos, n["name"], "City/Backdrop").static_mesh_component
+        comp.modify()
+        comp.set_collision_profile_name("NoCollision")
+        comp.set_collision_enabled(unreal.CollisionEnabled.NO_COLLISION)
+        comp.set_editor_property("affect_distance_field_lighting", False)
+        comp.set_editor_property("component_tags", [unreal.Name("GTP_Cull_proxy")])
+        placed += 1
+    report["backdrop"] = dict(meta.get("report", {}), placed=placed)
+
+
 def build_quarter(report, t0):
     """Persistent level of the streamed quarter: lighting, terrain, far proxies, player start."""
     with open(os.path.join(TERRAIN, "terrain.json")) as f:
@@ -407,6 +442,7 @@ def main():
             continue
         place_mesh(m, (0.0, 0.0, 0.0), n["name"], "City/Landmarks")
     report["landmarks"] = sorted(marks)
+    place_backdrop(report)
     # Fall-in safety (riverside.py "recovery"): tagged trigger boxes over the water and quay
     # exits at street level; the game swims or fishes out whoever enters them.
     rec = (river_meta or {}).get("recovery")
