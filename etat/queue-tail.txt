@@ -1,12 +1,3 @@
-17:00 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
-17:00 pushed etat
-17:00 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
-17:00 == loop-endurance-4-1 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
-17:10 loop-endurance-4-1: exit=0 crash=no last t=wanted: t=598 wanted=299 police=83 police-in-last-10=5 pool-drops=0 | loop-endurance-4-1: 23796 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.7 | gpu p50 15.83 p95 22.91 | gate PASS
-17:11 == loop-endurance-4-2 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
-17:11 pushed etat
-17:21 loop-endurance-4-2: exit=0 crash=no last t=wanted: t=598 wanted=299 police=87 police-in-last-10=5 pool-drops=0 | loop-endurance-4-2: 23796 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.3 | gpu p50 14.00 p95 20.93 | gate PASS
-17:21 pushed loop-endurance-4
 17:21 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
 17:21 pushed etat
 17:21 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
@@ -58,3 +49,12 @@
 19:05 pushed etat
 19:05 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
 19:06 == loop-endurance-10-1 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
+19:12 pushed etat
+19:13 loop-endurance-10-1: STARTUP CRASH (exit 139, no log, 462 s after the previous close; total 4), relaunch in 60 s: yes
+19:14 == loop-endurance-10-1 start (600 s), relaunch after a startup crash: -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
+19:24 loop-endurance-10-1: exit=0 crash=no last t=wanted: t=598 wanted=299 police=88 police-in-last-10=5 pool-drops=0 | loop-endurance-10-1: 23796 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.5 | gpu p50 14.29 p95 21.21 | gate PASS
+19:25 == loop-endurance-10-2 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
+19:35 loop-endurance-10-2: exit=0 crash=no last t=wanted: t=598 wanted=299 police=85 police-in-last-10=5 pool-drops=0 | loop-endurance-10-2: 23796 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 1 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 32.5 | gpu p50 14.10 p95 21.13 | gate PASS
+19:35 pushed loop-endurance-10
+19:35 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+19:35 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
