@@ -287,6 +287,10 @@ private:
 	void ReadCommandLine();
 	void ApplyBudgetForProfile(UWorld& World);
 	void ApplyCloudQuality();
+
+	/** Dynamic instance of the clouds' material for the coverage; retried while the clouds or
+	 *  their material are not there yet (streamed level, component without material). */
+	void SetupCloudMaterial();
 	void UpdateClouds(const FGTPWeatherPreset& Weather);
 
 	void AdvanceTime(float DeltaTime);
@@ -404,6 +408,10 @@ private:
 	/** Cloud material scalar parameters that receive CloudCoverage (unknown names are ignored). */
 	UPROPERTY(Config)
 	TArray<FName> CloudCoverageParameters;
+
+	/** Material given to the clouds when their component has none (the engine's default clouds). */
+	UPROPERTY(Config)
+	TSoftObjectPtr<UMaterialInterface> CloudFallbackMaterial;
 
 	/** Parameter collection read by the materials (tools/environment/unreal/setup_environment.py). */
 	UPROPERTY(Config)
@@ -557,7 +565,11 @@ private:
 
 	/** CloudCoverageParameters found in the map's cloud material (status file), "none" when
 	 *  the weather cannot change the volumetric clouds. */
-	FString CloudCoverageFound = TEXT("no cloud material");
+	FString CloudCoverageFound = TEXT("not set up yet");
+
+	/** Seconds left to retry SetupCloudMaterial (once per second). */
+	float CloudSetupRetryTime = 30.f;
+	float CloudSetupTimer = 1.f;
 
 	/** The status file is written again once the night lights and cars have settled. */
 	float StatusRewriteTimer = 12.f;
