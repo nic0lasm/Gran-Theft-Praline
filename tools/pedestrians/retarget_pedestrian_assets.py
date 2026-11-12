@@ -63,17 +63,18 @@ try:
         unreal.EditorAssetLibrary.save_loaded_asset(retargeter)
     log("retargeter %s ready" % rt_path)
     batch = unreal.IKRetargetBatchOperation
-    sequences = [unreal.load_asset(a) for a in anims]
-    results = batch.duplicate_and_retarget(sequences, src, dst, retargeter, "", "", "_" + dst.get_name(), False)
+    # UE 5.8: AssetData in, AssetData out; prefix before suffix, then the target folder.
+    sequences = [unreal.EditorAssetLibrary.find_asset_data(a) for a in anims]
+    results = batch.duplicate_and_retarget(sequences, src, dst, retargeter, "", "", "", "_" + dst.get_name(), out_dir)
     for r in results:
-        log("animation %s" % r.get_path_name())
-        unreal.EditorAssetLibrary.save_loaded_asset(r)
+        package = str(r.package_name)
+        log("animation %s saved %s" % (package, unreal.EditorAssetLibrary.save_asset(package, only_if_is_dirty=False)))
 except Exception as exc:  # noqa: BLE001 (best effort, the log says what failed)
     log("FAILED retarget: %r" % (exc,))
 
 try:
     sub = unreal.get_editor_subsystem(unreal.SkeletalMeshEditorSubsystem)
-    sub.regenerate_lod(dst, lods, [], False)
+    sub.regenerate_lod(dst, lods, False, False)  # count, regenerate even if imported, generate base LOD
     log("LODs regenerated to %d on %s" % (lods, dst.get_path_name()))
     unreal.EditorAssetLibrary.save_loaded_asset(dst)
 except Exception as exc:  # noqa: BLE001
