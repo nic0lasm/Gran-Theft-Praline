@@ -397,6 +397,19 @@ void UGTPEnvironmentSubsystem::CreateOwnComponents(UWorld& World)
 		{
 			CloudMaterial = UMaterialInstanceDynamic::Create(Base, Holder);
 			Clouds->SetMaterial(CloudMaterial);
+			CloudCoverageFound.Reset();
+			for (const FName& Parameter : CloudCoverageParameters)
+			{
+				float Value = 0.f;
+				if (Base->GetScalarParameterValue(FHashedMaterialParameterInfo(Parameter), Value))
+				{
+					CloudCoverageFound += FString::Printf(TEXT("%s%s (%.2f)"), CloudCoverageFound.IsEmpty() ? TEXT("") : TEXT(", "), *Parameter.ToString(), Value);
+				}
+			}
+			if (CloudCoverageFound.IsEmpty())
+			{
+				CloudCoverageFound = FString::Printf(TEXT("none of the CloudCoverageParameters in %s"), *Base->GetPathName());
+			}
 		}
 	}
 
@@ -665,6 +678,11 @@ void UGTPEnvironmentSubsystem::ApplyBudgetForProfile(UWorld& World)
 	if (FParse::Value(FCommandLine::Get(), TEXT("NightDistance="), DistanceFlag) && DistanceFlag > 0.f)
 	{
 		Budget.MaxDistance = DistanceFlag;
+	}
+	IntFlag = -1;
+	if (FParse::Value(FCommandLine::Get(), TEXT("DriveClouds="), IntFlag) && IntFlag >= 0)
+	{
+		Budget.bDriveCloudCoverage = IntFlag != 0;
 	}
 	IntFlag = -1;
 	if (FParse::Value(FCommandLine::Get(), TEXT("CarSignals="), IntFlag) && IntFlag >= 0)
@@ -949,7 +967,7 @@ void UGTPEnvironmentSubsystem::WriteStatusFile() const
 	const FGTPWeatherPreset Weather = BlendedWeather();
 	FString Text = FString::Printf(TEXT("daynight=on\nprofile=%s\nvolumetric_clouds=%d\ncloud_dome=%d\ncloud_dome_when_overcast=%d\n")
 		TEXT("cloud_shadow_map=%d\ncloud_shadow_light_function=%s\nlf_mean=%.3f\nlf_strength=%.3f\nlf_coverage=%.3f\nlf_contrast=%.2f\n")
-		TEXT("cvar_mean=%.3f\ncvar_strength=%.3f\ncvar_coverage=%.3f\nnight_budget=%d lights, %d shadowed, %.0f cm, %d lit cars\nnight_clouds=%s, samples x%.2f below %.1f deg (ramp from %.1f deg)\ncloud_mode_applied=%s\ncloud_dome_component=%s\ncar_signals=%d\nstatus=%s\n"),
+		TEXT("cvar_mean=%.3f\ncvar_strength=%.3f\ncvar_coverage=%.3f\nnight_budget=%d lights, %d shadowed, %.0f cm, %d lit cars\nnight_clouds=%s, samples x%.2f below %.1f deg (ramp from %.1f deg)\ncloud_mode_applied=%s\ncloud_dome_component=%s\ncar_signals=%d\ndrive_cloud_coverage=%d\ncloud_coverage_params=%s\nstatus=%s\n"),
 		*Budget.Profile, Budget.bVolumetricClouds ? 1 : 0, Budget.bCloudDome ? 1 : 0, Budget.bCloudDomeWhenOvercast ? 1 : 0,
 		Budget.bCloudShadows ? 1 : 0, *CloudShadowState, Weather.CloudShadowMean, Weather.CloudShadowStrength,
 		Weather.CloudShadowCoverage, CVarCloudShadowContrast.GetValueOnGameThread(),
@@ -959,7 +977,7 @@ void UGTPEnvironmentSubsystem::WriteStatusFile() const
 		Budget.NightCloudSampleScale, Budget.NightCloudSunElevation, Budget.NightCloudRampStart,
 		AppliedCloudMode == 2 ? TEXT("dome") : (AppliedCloudMode == 1 ? TEXT("volumetric") : (AppliedCloudMode == 0 ? TEXT("none") : TEXT("not yet"))),
 		CloudDome ? TEXT("yes") : TEXT("no (dome assets missing: run setup-environment-mac.sh before packaging)"),
-		bCarSignals ? 1 : 0, *Describe());
+		bCarSignals ? 1 : 0, Budget.bDriveCloudCoverage ? 1 : 0, *CloudCoverageFound, *Describe());
 	if (!FFileHelper::SaveStringToFile(Text, *Path))
 	{
 		GTP_TRACE(LogGTPEnvironment, TEXT("daynight: cannot write %s"), *Path);

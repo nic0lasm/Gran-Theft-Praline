@@ -76,9 +76,10 @@ redoes these computations outside Unreal and the tests check every state against
   fidelity: 6, ultra: 10).
 - **Clouds**: quality per profile (`bVolumetricClouds`, `CloudSampleScale`,
   `bCloudShadows`, `bDriveCloudCoverage`). Volumetric clouds cost about 12 ms
-  GPU in m1 (measured 2026-11-10): in m1 the weather does not change their
-  coverage (overcast goes through the sun, sky and fog) until the decision on
-  their quality. Per weather, `CloudSampleScale` multiplies the profile's,
+  GPU in m1 (measured 2026-11-10, much less since the light function shadow).
+  Since 2026-11-12 the weather drives their coverage in m1 too (overcast showed a
+  blue sky); `-DriveClouds=0` for A/B, and the status file lists which coverage
+  parameter the map's cloud material has (`cloud_coverage_params`). Per weather, `CloudSampleScale` multiplies the profile's,
   and `bCloudDomeWhenOvercast` shows the 2D dome instead of the volumetric
   clouds in overcast, rain, storm and fog (`bPreferCloudDome`). Cheap fallback: `bCloudDome` turns the volumetric clouds
   off and shows an unlit 2D cloud dome around the camera (`M_CloudDome`,
