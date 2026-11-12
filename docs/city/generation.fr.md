@@ -503,6 +503,13 @@ rue ; `--out` nomme le dossier de sortie. Résultat (2026-11-12, machine cloud) 
 85 volumes, 3 964 modules dont 270 lucarnes et 78 travées de comble aveugles, 86 k triangles,
 5,7 s. Côté rue, 26 bâtiments sur 45 ont 7 niveaux (rez-de-chaussée, entresol, 4 étages, comble).
 
+Intérieurs visitables : `place_facades.py` ne pose pas les travées du rez-de-chaussée côté rue dont
+le pivot tombe dans le cadre d'un intérieur de `tools/interiors/*.json` (ancre et cadre, élargis de
+0,5 m) : la vitrine et la porte de l'intérieur se voient (`tools/city/interior_cutouts.py` ;
+`GTP_INTERIOR_CUTOUTS=0` les garde). La coque n'a pas de mur derrière les modules de façade, rien
+d'autre n'est ouvert. Fast-food Bellecour : 8 modules, 5 travées de boutique et l'entrée côté rue
+de la République, plus 3 bandes aveugles.
+
 ## Limites et suite
 
 1. **Test éditeur** : `tools/city/unreal/import_city.py` importe greybox et

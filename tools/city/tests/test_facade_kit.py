@@ -78,5 +78,30 @@ class MansardTests(unittest.TestCase):
         self.assertNotIn("mansard", [k for k, _, _ in procgen.levels_for("ancien", 22.0)])
 
 
+class InteriorCutoutTests(unittest.TestCase):
+    def setUp(self):
+        import interior_cutouts
+        self.ic = interior_cutouts
+        # 19 x 16 m interior whose front runs east from (1000, 2000) cm; inward = local north = Unreal -Y
+        self.frame = ("shop", (1000.0, 2000.0), (1.0, 0.0), (0.0, -1.0), 1900.0, 1600.0)
+
+    def row(self, x, y, storey=0, side="street"):
+        return {"ue_x": str(x), "ue_y": str(y), "storey": str(storey), "side": side}
+
+    def test_ground_street_bays_in_front_are_cut(self):
+        rows = [self.row(1500, 2000), self.row(1500, 2030), self.row(1500, 2000, storey=1),
+                self.row(1500, 2000, side="court"), self.row(3100, 2000), self.row(1500, 300)]
+        kept, cut = self.ic.cut_rows(rows, [self.frame])
+        self.assertEqual(cut, {"shop": 2})
+        self.assertEqual(len(kept), 4)
+
+    def test_repo_interiors_load(self):
+        frames = self.ic.load_frames(os.path.join(HERE, "..", "..", "interiors"))
+        for _id, _o, front, inward, w, d in frames:
+            self.assertAlmostEqual(math.hypot(*front), 1.0)
+            self.assertAlmostEqual(front[0] * inward[0] + front[1] * inward[1], 0.0)
+            self.assertGreater(w * d, 0)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -39,6 +39,7 @@ import unreal
 
 REPO = os.path.abspath(os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_dir()), ".."))
 sys.path.insert(0, os.path.join(REPO, "tools", "city", "facade_kit"))
+sys.path.insert(0, os.path.join(REPO, "tools", "city"))
 import kit_layout  # noqa: E402
 
 ZONE = os.environ.get("GTP_CITY_ZONE", "presqu-ile")
@@ -68,6 +69,9 @@ CULL_START_SHARE = 0.8
 # those families are not placed at all; the shell's own walls show instead. Courtyard facades
 # are a third of the quarter's modules and are only seen from inside the courtyards
 # (budget lever, ADR-0010; measure with and without).
+# Ground street bays in front of an enterable interior (tools/interiors/*.json anchors) are left out:
+# the interior's glass front and door replace them. GTP_INTERIOR_CUTOUTS=0 keeps every bay.
+INTERIOR_CUTOUTS = os.environ.get("GTP_INTERIOR_CUTOUTS", "1") != "0"
 FACADE_SKIP = {f.strip() for f in os.environ.get("GTP_FACADE_SKIP", "").split(",") if f.strip()}
 
 # LODs of the kit modules (fil optimisation, 10/11): the 21 242 street-map instances were
@@ -429,6 +433,10 @@ def main():
         manifest = json.load(f)
     with open(os.path.join(GEN, "facade_modules.csv"), encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
+    if INTERIOR_CUTOUTS:
+        import interior_cutouts  # noqa: PLC0415  (tools/city, plain Python)
+        rows, report["interior_cutouts"] = interior_cutouts.cut_rows(
+            rows, interior_cutouts.load_frames(os.path.join(REPO, "tools", "interiors")))
     meshes = import_kit()
     bad = check_sizes(meshes, manifest)
     if not bad and not KIT_REUSE:
