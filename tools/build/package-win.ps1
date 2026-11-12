@@ -171,18 +171,31 @@ function RunInterior([string]$Id, [string]$LogDir) {
   [Environment]::SetEnvironmentVariable('GTP_PY_SCRIPT', $interiorScript, 'Process')
   [Environment]::SetEnvironmentVariable('GTP_INTERIOR_SPEC', (Join-Path $repoRoot "tools\interiors\$Id.json"), 'Process')
   [Environment]::SetEnvironmentVariable('GTP_INTERIOR_ANCHOR', '1', 'Process')
-  # The script value is quoted: unquoted, Unreal stops reading it at the first ')'.
-  $editorArgs = (Quote $projectFile) + ' -run=pythonscript "-script=__import__(''gtp_run'').main()"' +
+  $done = Join-Path $LogDir "interior-$Id.done"
+  if (Test-Path -LiteralPath $done) { Remove-Item -LiteralPath $done -Force }
+  [Environment]::SetEnvironmentVariable('GTP_PY_DONE', $done, 'Process')
+  # A full editor, headless: editor subsystems (level, actors, static meshes) are None in the
+  # pythonscript commandlet. gtp_run writes $done when the script returns; the editor can then
+  # hang on exit, so it is stopped after a grace period. The value is quoted after '=', the form
+  # Unreal reads whole (as -ExecCmds="...").
+  $editorArgs = (Quote $projectFile) + ' -ExecutePythonScript="__import__(''gtp_run'').main()"' +
     ' -nullrhi -unattended -nosplash -nosound -stdout -FullStdOutLogOutput -abslog="' + $log + '"'
   Write-Output "Interior ${Id}: building the level headless (log $log)"
   $proc = Start-Process -FilePath $editorCmd -ArgumentList $editorArgs -RedirectStandardOutput "$log.out" `
     -RedirectStandardError "$log.err" -NoNewWindow -PassThru
   $null = $proc.Handle
-  $limitMs = [int](EnvOr 'INTERIOR_MINUTES' '20') * 60 * 1000
-  if (-not $proc.WaitForExit($limitMs)) {
+  $limit = (Get-Date).AddMinutes([int](EnvOr 'INTERIOR_MINUTES' '20'))
+  while (-not $proc.HasExited -and -not (Test-Path -LiteralPath $done)) {
+    if ((Get-Date) -gt $limit) {
+      StopTree $proc.Id
+      $proc.WaitForExit()
+      Fail "interior ${Id}: build over $(EnvOr 'INTERIOR_MINUTES' '20') min, stopped (see $log)"
+    }
+    Start-Sleep -Seconds 5
+  }
+  if (-not $proc.WaitForExit(20000)) {
+    Write-Output "Interior ${Id}: script done, editor still open after 20 s: stopped"
     StopTree $proc.Id
-    $proc.WaitForExit()
-    Fail "interior ${Id}: build over $(EnvOr 'INTERIOR_MINUTES' '20') min, stopped (see $log)"
   }
   $proc.WaitForExit()
   # The exit code alone is not the verdict (an unrelated asset that fails to load gives 1): the
