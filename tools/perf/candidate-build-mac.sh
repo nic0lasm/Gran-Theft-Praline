@@ -105,7 +105,7 @@ if test "$dry" = "1"; then
       *swap_street_trees.py) echo '{"mode": "pick", "errors": [], "swap_arg": "/Game/A/SM_Bare~/Game/B/M1/SM_Leafy", "cook_dirs": ["/Game/B/M1"], "picked": {"W14-63": {"trees": 104}, "W14-64": {"trees": 8}}}' > "$3" ;;
     esac
   }
-  package_cmd() { sleep "${DRY_SLEEP:-1}"; grep -c 'DirectoriesToAlwaysCook' "$game_ini"; mkdir -p "$build_dir/GranTheftPraline.app/Contents/MacOS"; printf 'version=%s\ncommit=%s\n' "$version" "$(git rev-parse --short HEAD)" > "$build_dir/build-info.txt"; }
+  package_cmd() { sleep "${DRY_SLEEP:-1}"; grep -c 'DirectoriesToAlwaysCook' "$game_ini"; grep 'MapsToCook' "$game_ini"; mkdir -p "$build_dir/GranTheftPraline.app/Contents/MacOS"; printf 'version=%s\ncommit=%s\n' "$version" "$(git rev-parse --short HEAD)" > "$build_dir/build-info.txt"; }
 else
   # shellcheck source=../city/unreal/editor_run.sh
   . "$repo/tools/city/unreal/editor_run.sh"
@@ -231,7 +231,7 @@ step() {   # step <name> <command...>: watchdog, heartbeat, one line in the repo
 
 json() { python3 -c 'import json,sys; v=json.load(open(sys.argv[1]))[sys.argv[2]]; print(" ".join(v) if isinstance(v, list) else v)' "$out/trees_pick.json" "$1"; }
 add_cook_dirs() {
-  cp "$game_ini" "$out/DefaultGame.ini.orig"
+  test -f "$out/DefaultGame.ini.orig" || cp "$game_ini" "$out/DefaultGame.ini.orig"
   python3 - "$game_ini" $(json cook_dirs) <<'PY'
 import sys
 path, dirs = sys.argv[1], sys.argv[2:]
@@ -296,6 +296,18 @@ if test "$interiors" = "1"; then
     done
   done
   step interiors build_interiors
+  # DirectoriesToAlwaysCook skips maps: a level opened only by name (LoadLevelInstance) is cooked
+  # when it is listed in MapsToCook. Added for this package only, the ini is put back afterwards.
+  test -f "$out/DefaultGame.ini.orig" || cp "$game_ini" "$out/DefaultGame.ini.orig"
+  python3 - "$game_ini" $(for id in $(interior_ids); do echo "/Game/Interiors/L_Interior_$id"; done) <<'PY'
+import sys
+path, maps = sys.argv[1], sys.argv[2:]
+s = open(path).read()
+key = "[/Script/UnrealEd.ProjectPackagingSettings]\n"
+assert key in s, "no packaging section in DefaultGame.ini"
+open(path, "w").write(s.replace(key, key + "".join('+MapsToCook=(FilePath="%s")\n' % m for m in maps), 1))
+PY
+  echo "- interior maps cooked for this package only: $(interior_ids | sed 's#^#/Game/Interiors/L_Interior_#' | tr '\n' ' ')" >> "$report"
   echo "- interiors built into the package: $(interior_ids | tr '\n' ' ')(check: game log 'InteriorStreaming: load' then 'visible' with -Interiors=1)" >> "$report"
 fi
 step package package_cmd
