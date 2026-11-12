@@ -36,6 +36,7 @@ public:
 	int32 GetCustomerCount() const { return Customers.Num(); }
 
 private:
+	void ApplyPending();
 	void Apply(const GTPCustomers::FEvent& Event);
 	bool IsFrozen() const;
 
@@ -46,6 +47,7 @@ private:
 	size_t EventsSeen = 0;
 	float Accumulator = 0.f;
 	float SinceLog = 0.f;
+	float SinceAcquire = 0.f;
 	int32 Refused = 0;
 	bool bOpen = false;
 };

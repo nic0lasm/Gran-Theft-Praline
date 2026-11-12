@@ -14,6 +14,7 @@ DEFINE_LOG_CATEGORY_STATIC(CustomerQueue, Log, All);   // lines read "CustomerQu
 namespace
 {
 constexpr float CustomerStepSeconds = 0.1f;
+constexpr float CustomerAcquireGap = 0.25f;   // seconds between two pedestrians lent
 const TCHAR* CustomerSpotPrefix = TEXT("GTP_CustomerSpot=q");   // q<line>_<place>
 }
 
@@ -86,12 +87,10 @@ void UGTPCustomerSubsystem::OpenShop(ULevel* InteriorLevel, const FString& Inter
 	SinceLog = 0.f;
 	Refused = 0;
 	bOpen = true;
-	for (; EventsSeen < Run.Events.size(); ++EventsSeen)
-	{
-		Apply(Run.Events[EventsSeen]);
-	}
-	GTP_TRACE(CustomerQueue, TEXT("shop %s open: %d lines, %d spots, %d customers in (%d refused by the pool)"), *ShopId, Spots.Num(),
-	          TotalSpots, Customers.Num(), Refused);
+	SinceAcquire = CustomerAcquireGap;
+	ApplyPending();   // the first customer now, the others over the next frames
+	GTP_TRACE(CustomerQueue, TEXT("shop %s open: %d lines, %d spots, %d customers coming in, one every %.2f s"), *ShopId, Spots.Num(),
+	          TotalSpots, Run.Count(), CustomerAcquireGap);
 }
 
 void UGTPCustomerSubsystem::CloseShop()
@@ -112,6 +111,25 @@ void UGTPCustomerSubsystem::CloseShop()
 	Customers.Reset();
 	Spots.Reset();
 	bOpen = false;
+}
+
+void UGTPCustomerSubsystem::ApplyPending()
+{
+	// One pedestrian lent per CustomerAcquireGap at most: lending switches a pedestrian to full
+	// detail, and six at once on the frame the shop opens gave a 63 ms frame on the M1.
+	for (; EventsSeen < Run.Events.size(); ++EventsSeen)
+	{
+		const GTPCustomers::FEvent& Event = Run.Events[EventsSeen];
+		if (Event.Kind == GTPCustomers::ECustomerEvent::Arrived)
+		{
+			if (SinceAcquire < CustomerAcquireGap)
+			{
+				return;   // the rest waits, in order
+			}
+			SinceAcquire = 0.f;
+		}
+		Apply(Event);
+	}
 }
 
 void UGTPCustomerSubsystem::Apply(const GTPCustomers::FEvent& Event)
@@ -182,10 +200,8 @@ void UGTPCustomerSubsystem::Tick(float DeltaTime)
 		Accumulator -= CustomerStepSeconds;
 		Run.Step(CustomerStepSeconds, bFrozen);
 	}
-	for (; EventsSeen < Run.Events.size(); ++EventsSeen)
-	{
-		Apply(Run.Events[EventsSeen]);
-	}
+	SinceAcquire += DeltaTime;
+	ApplyPending();
 	SinceLog += DeltaTime;
 	if (SinceLog >= 60.f)
 	{
