@@ -503,12 +503,13 @@ rue ; `--out` nomme le dossier de sortie. Résultat (2026-11-12, machine cloud) 
 85 volumes, 3 964 modules dont 270 lucarnes et 78 travées de comble aveugles, 86 k triangles,
 5,7 s. Côté rue, 26 bâtiments sur 45 ont 7 niveaux (rez-de-chaussée, entresol, 4 étages, comble).
 
-Intérieurs visitables : `place_facades.py` ne pose pas les travées du rez-de-chaussée côté rue dont
-le pivot tombe dans le cadre d'un intérieur de `tools/interiors/*.json` (ancre et cadre, élargis de
-0,5 m) : la vitrine et la porte de l'intérieur se voient (`tools/city/interior_cutouts.py` ;
+Intérieurs visitables : `place_facades.py` ne pose pas les travées du rez-de-chaussée sur la vitrine
+d'un intérieur de `tools/interiors/*.json` (pivot à moins de 1 m de la ligne y = 0 du cadre, sur sa
+largeur plus 0,5 m ; les autres côtés sont des murs pleins et gardent la façade de ville) : la
+vitrine et la porte de l'intérieur se voient (`tools/city/interior_cutouts.py` ;
 `GTP_INTERIOR_CUTOUTS=0` les garde). La coque n'a pas de mur derrière les modules de façade, rien
-d'autre n'est ouvert. Fast-food Bellecour : 8 modules, 5 travées de boutique et l'entrée côté rue
-de la République, plus 3 bandes aveugles.
+d'autre n'est ouvert. Fast-food Bellecour : 9 modules sur la façade place Bellecour (4 travées et 5 bandes) ;
+cette façade est aujourd'hui générée comme un côté cour, car la place n'est pas une rue nommée.
 
 ## Limites et suite
 
