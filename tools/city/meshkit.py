@@ -127,6 +127,16 @@ def add_module(mesh, mod):
                      sign_colour(mod.get("sign_brand") or mod.get("sign_name")))
     elif k == "entrance":
         wall_with_opening(mesh, a, u, n, w, h, min(w - 0.6, 1.6), min(h - 0.4, 3.2), 0.0, wall, FRAME)
+    elif k in ("dormer", "mansard_blank"):
+        # zinc brisis leaning back to the eave, a dormer standing on it (greybox of roof_kit.py)
+        inset = 0.8
+        top = a + np.array([0, 0, h]) - n * inset
+        mesh.quad(a, a + u * w, top + u * w, top, ROOF_COLOURS["zinc"])
+        if k == "dormer":
+            dw, dh = min(1.3, 0.45 * w), min(h - 0.5, 2.2)
+            c = a + u * (w / 2) + np.array([0, 0, 0.35])
+            mesh.box(c + n * 0.1, u, dw, dh, inset - 0.05, -n, hex_rgb(mod["colour"]))
+            mesh.box(c + n * 0.1 + np.array([0, 0, dh * 0.2]), u, dw * 0.6, dh * 0.6, 0.02, n, GLASS)
     elif k == "monument_bay":
         wall_with_opening(mesh, a, u, n, w, h, 0.35 * w, 0.7 * h, 0.15 * h, wall, GLASS)
     else:

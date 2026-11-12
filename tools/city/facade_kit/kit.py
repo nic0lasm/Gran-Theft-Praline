@@ -27,6 +27,7 @@ import bpy
 from kit_layout import FAMILY_OF_TYPOLOGY, KIND_TO_MODULE, module_for, sign_frame  # noqa: F401  (re-exported)
 
 from kit_layout import FASCIA, HAUSSMANN, LYONNAIS  # noqa: E402
+import roof_kit  # noqa: E402  (mansard modules, Ville v2)
 WALL_DEPTH = 0.45
 
 MATERIALS = {
@@ -492,7 +493,7 @@ def _defs():
         "SM_Facade_Lyonnais_Blank": (L, "upper", lambda b: blank(b, L["bay"], L["upper"], "MI_Facade_Render")),
         "SM_Facade_Lyonnais_Genoise": (L, None, lambda b: lyon_genoise(b, L["bay"])),
         "SM_Sign_Panel": ({"bay": 1.0, "panel": 1.0}, "panel", sign_panel),
-    }
+    } | roof_kit.defs(MATERIALS)
 
 
 def sign_panel(b):

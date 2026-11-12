@@ -474,6 +474,35 @@ Première mise en œuvre de l'option B de l'ADR-0010, préparée et essayée hor
 - Pas encore : mobilier et détails dans les cellules loin de la rue de la République, masque de sol à l'échelle du quartier,
   niveaux de cellule dans la liste de cuisson pour un package.
 
+## Toits à la Mansart et tranche République (ajouté le 2026-11-12)
+
+Les immeubles Second Empire de la rue de la République se terminent par un comble en zinc à la
+Mansart, pas par des étages de pierre en plus. Le LiDAR voit le brisis presque vertical : le
+générateur empilait donc 7 ou 8 étages de pierre jusqu'à l'égout. `procgen.levels_for()` termine
+désormais un mur haussmannien de 19 m ou plus par un niveau de comble de 3,2 m : les étages de
+pierre s'arrêtent dessous et portent la corniche, puis un module de toit par travée :
+
+- `dormer` (côté rue, travées de 2,2 m ou plus) : `SM_Roof_Haussmann_Dormer`, brisis en zinc avec
+  une lucarne en pierre (fenêtre à battants, appui, jambages, linteau, fronton cintré, joues en zinc).
+- `mansard_blank` (côté cour, travées étroites) : `SM_Roof_Haussmann_MansardBlank`, brisis seul.
+
+Les modules sont construits par `tools/city/facade_kit/roof_kit.py` (branché à la fin des
+définitions de `kit.py` ; il ajoute l'emplacement `MI_Roof_Zinc`). Le brisis recule de 0,8 m à
+l'égout pour que le terrasson du toit généré le rejoigne. `place_facades.py` pose la corniche sur
+le dernier étage de pierre, sous le comble.
+
+Une tranche plus courte pour la cible visuelle des deux semaines (Bellecour aux Jacobins) :
+
+```
+python3 tools/city/generate.py --name presqu-ile --focus "Rue de la République" \
+  --clip=-80,-570,300,-180 --out republique-tranche
+```
+
+`--clip X0,Y0,X1,Y1` garde les bâtiments dont le centre est dans la boîte et coupe l'axe de la
+rue ; `--out` nomme le dossier de sortie. Résultat (2026-11-12, machine cloud) : 58 bâtiments,
+85 volumes, 3 964 modules dont 270 lucarnes et 78 travées de comble aveugles, 86 k triangles,
+5,7 s. Côté rue, 26 bâtiments sur 45 ont 7 niveaux (rez-de-chaussée, entresol, 4 étages, comble).
+
 ## Limites et suite
 
 1. **Test éditeur** : `tools/city/unreal/import_city.py` importe greybox et

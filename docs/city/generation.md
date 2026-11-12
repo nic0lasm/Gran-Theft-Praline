@@ -455,6 +455,35 @@ First implementation of ADR-0010 option B, prepared and tested off the Mac; not 
 - Not yet: furniture and details in the cells away from the rue de la Republique, a quarter-wide ground mask, the cell
   levels in the cook list for a package.
 
+## Mansard roofs and the République slice (added 2026-11-12)
+
+The Second Empire blocks of rue de la République end with a zinc mansard, not with more stone
+storeys. The LiDAR sees the brisis as near-vertical, so the generator used to stack 7 or 8 stone
+storeys up to the eave. `procgen.levels_for()` now ends a Haussmann wall of 19 m or more with a
+mansard level of 3.2 m: the stone storeys stop under it and carry the cornice, then one roof
+module per bay:
+
+- `dormer` (street side, bays of 2.2 m or more): `SM_Roof_Haussmann_Dormer`, zinc brisis with a
+  stone lucarne (window with casement, sill, jambs, lintel, segmental pediment, zinc cheeks).
+- `mansard_blank` (court side, narrow bays): `SM_Roof_Haussmann_MansardBlank`, brisis only.
+
+The modules are built by `tools/city/facade_kit/roof_kit.py` (hooked at the end of `kit.py`'s
+definitions; it adds the `MI_Roof_Zinc` slot). The brisis leans back by 0.8 m at the eave so the
+terrasson of the generated roof meets it. `place_facades.py` puts the cornice on the last stone
+storey, under the mansard.
+
+A shorter slice for the two-week visual target (Bellecour to the Jacobins):
+
+```
+python3 tools/city/generate.py --name presqu-ile --focus "Rue de la République" \
+  --clip=-80,-570,300,-180 --out republique-tranche
+```
+
+`--clip X0,Y0,X1,Y1` keeps the buildings whose centroid is in the box and clips the street axis;
+`--out` names the output folder. Result (2026-11-12, cloud machine): 58 buildings, 85 volumes,
+3 964 modules of which 270 dormers and 78 blank mansard bays, 86 k triangles, 5.7 s. On the street
+side 26 buildings out of 45 get 7 levels (ground floor, entresol, 4 storeys, mansard).
+
 ## Limits and next steps
 
 1. **Editor test**: `tools/city/unreal/import_city.py` imports the greybox and

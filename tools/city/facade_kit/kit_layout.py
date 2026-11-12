@@ -16,6 +16,7 @@ KIND_TO_MODULE = {
         "shopfront_closed": "SM_Facade_Haussmann_ShopClosed", "entrance": "SM_Facade_Haussmann_Entrance",
         "gf_window": "SM_Facade_Haussmann_ShopClosed", "blank": "SM_Facade_Haussmann_Blank",
         "monument_bay": "SM_Facade_Haussmann_Window", "_eave": "SM_Facade_Haussmann_Cornice",
+        "dormer": "SM_Roof_Haussmann_Dormer", "mansard_blank": "SM_Roof_Haussmann_MansardBlank",
     },
     "lyonnais": {
         "window": "SM_Facade_Lyonnais_Window", "window_balcony": "SM_Facade_Lyonnais_Window",
@@ -24,6 +25,8 @@ KIND_TO_MODULE = {
         "shopfront_closed": "SM_Facade_Lyonnais_Shop", "entrance": "SM_Facade_Lyonnais_Entrance",
         "gf_window": "SM_Facade_Lyonnais_GroundWindow", "blank": "SM_Facade_Lyonnais_Blank",
         "monument_bay": "SM_Facade_Lyonnais_Window", "_eave": "SM_Facade_Lyonnais_Genoise",
+        # procgen gives a mansard level to Haussmann walls only; the same modules if that changes
+        "dormer": "SM_Roof_Haussmann_Dormer", "mansard_blank": "SM_Roof_Haussmann_MansardBlank",
     },
 }
 FAMILY_OF_TYPOLOGY = {"haussmann": "haussmann", "ancien": "lyonnais", "moderne": "lyonnais",
