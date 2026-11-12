@@ -74,6 +74,18 @@ protected:
 	UPROPERTY(Config)
 	float UpdateSeconds = 0.25f;
 
+	/**
+	 * Exposure inside a lit interior (EV100, with the extended luminance range). The day
+	 * exposure of the street (about EV 13 at 14:00) would leave a shop lit at 500-750 lux black:
+	 * a box post-process volume over each visible interior, above the environment one, holds
+	 * the camera between these bounds while it is inside. -InteriorExposure=0 turns it off.
+	 */
+	UPROPERTY(Config)
+	float InteriorExposureMinEV = 8.0f;
+
+	UPROPERTY(Config)
+	float InteriorExposureMaxEV = 9.0f;
+
 private:
 	struct FInterior
 	{
@@ -82,6 +94,9 @@ private:
 		FTransform Anchor;
 		FVector Size = FVector(2000.f, 2000.f, 800.f);   // cm, from the GTP_InteriorSize=WxDxH tag (metres)
 		TWeakObjectPtr<ULevelStreamingDynamic> Streaming;
+		TWeakObjectPtr<AActor> AnchorActor;
+		TWeakObjectPtr<class UBoxComponent> ExposureBox;
+		TWeakObjectPtr<class UPostProcessComponent> Exposure;
 		bool bRequested = false;
 		bool bWasVisible = false;
 	};
@@ -90,6 +105,8 @@ private:
 	void RequestLoad(FInterior& Interior);
 	void Release(FInterior& Interior);
 	void ApplyToLevel(ULevel* Level) const;
+	void AddExposure(FInterior& Interior);
+	void RemoveExposure(FInterior& Interior);
 	bool IsM1Profile() const;
 
 	TArray<FInterior> Interiors;

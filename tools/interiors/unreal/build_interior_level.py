@@ -45,7 +45,11 @@ FOCUS = os.environ.get("GTP_CITY_FOCUS", "rue-de-la-republique")
 CITY_MAP = "/Game/Maps/L_City_" + "".join(p.capitalize() for p in FOCUS.split("-"))
 CUBE = "/Engine/BasicShapes/Cube"          # 100 cm cube centred on its origin
 GREY = "/Engine/BasicShapes/BasicShapeMaterial"
-MAX_SHADOWED_LIGHTS = 6                    # ADR-0012 budget on M1
+MAX_SHADOWED_LIGHTS = 4                    # movable shadowed lights, under the ADR-0012 budget of 6 on M1
+# Target illuminance per zone (lux): a fast-food room is lit at 500, the counter and the kitchen
+# more (EN 12464-1 orders of magnitude), back rooms less. Exposure inside: UGTPInteriorStreaming.
+ZONE_LUX = {"dining_ground": 500, "dining_upper": 500, "kiosks": 600, "queue": 600, "counter": 750, "kitchen": 750,
+            "storage": 300, "walk_in": 300, "stairs": 250, "crew_room": 300, "toilets": 250}
 WALL_CM = 20.0
 DOOR_WIDTH_CM = 200.0
 
@@ -281,9 +285,16 @@ def build_lights(spec):
         light.set_actor_label("Light_" + zone["name"])
         light.set_folder_path("Interior/Lights")
         comp = light.get_component_by_class(unreal.RectLightComponent)
+        # Movable: a streamed level has no baked lighting, and unbuilt static or stationary lights
+        # leave it black. Lumens from the target illuminance of the zone over its floor area.
+        comp.set_editor_property("mobility", unreal.ComponentMobility.MOVABLE)
         comp.set_editor_property("source_width", (x1 - x0) * 60.0)
         comp.set_editor_property("source_height", (y1 - y0) * 60.0)
-        comp.set_editor_property("intensity", 40.0)
+        comp.set_editor_property("intensity_units", unreal.LightUnits.LUMENS)
+        lux = ZONE_LUX.get(zone["name"], 400)
+        comp.set_editor_property("intensity", lux * il.rect_area(zone["rect"]))
+        comp.set_editor_property("temperature", 4000.0)
+        comp.set_editor_property("use_temperature", True)
         comp.set_editor_property("attenuation_radius", max(x1 - x0, y1 - y0) * 120.0)
         comp.set_editor_property("cast_shadows", index < MAX_SHADOWED_LIGHTS)
     return len(zones)

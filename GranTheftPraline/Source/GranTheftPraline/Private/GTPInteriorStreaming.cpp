@@ -1,6 +1,8 @@
 #include "GTPInteriorStreaming.h"
 
 #include "Camera/PlayerCameraManager.h"
+#include "Components/BoxComponent.h"
+#include "Components/PostProcessComponent.h"
 #include "Components/PrimitiveComponent.h"
 #include "Engine/GameInstance.h"
 #include "Engine/Level.h"
@@ -81,6 +83,7 @@ void UGTPInteriorStreaming::OnWorldBeginPlay(UWorld& InWorld)
 			continue;
 		}
 		Interior.Anchor = Actor->GetActorTransform();
+		Interior.AnchorActor = Actor;
 		Interior.Id = UTF8_TO_TCHAR(GTPInterior::IdFromLevel(TCHAR_TO_UTF8(*Interior.Level)).c_str());
 		Interiors.Add(MoveTemp(Interior));
 	}
@@ -124,6 +127,7 @@ void UGTPInteriorStreaming::Tick(float DeltaTime)
 		if (bVisible && !Interior.bWasVisible)
 		{
 			ApplyToLevel(Streaming->GetLoadedLevel());
+			AddExposure(Interior);
 			if (UGTPKitchenSubsystem* Kitchen = GetWorld()->GetSubsystem<UGTPKitchenSubsystem>())
 			{
 				Kitchen->StartService(Streaming->GetLoadedLevel(), Interior.Id, Interior.Anchor);   // inert without -InteriorStaff=
@@ -261,6 +265,7 @@ void UGTPInteriorStreaming::Release(FInterior& Interior)
 		}
 	}
 	Interior.bWasVisible = false;
+	RemoveExposure(Interior);
 	if (ULevelStreamingDynamic* Streaming = Interior.Streaming.Get())
 	{
 		Streaming->SetShouldBeVisible(false);
@@ -330,6 +335,57 @@ void UGTPInteriorStreaming::PlaceAtCounter(const FInterior& Interior)
 	}
 	bStartDone = true;
 	GTP_TRACE(InteriorStreaming, TEXT("test start: no till slot in %s"), *Interior.Level);
+}
+
+void UGTPInteriorStreaming::AddExposure(FInterior& Interior)
+{
+	int32 Flag = 1;
+	FParse::Value(FCommandLine::Get(), TEXT("InteriorExposure="), Flag);
+	AActor* Holder = Interior.AnchorActor.Get();
+	if (Flag == 0 || !Holder || Interior.Exposure.IsValid())
+	{
+		return;
+	}
+	// The box covers the interior frame (x along the front, -y to the back, z up from the anchor).
+	UBoxComponent* Box = NewObject<UBoxComponent>(Holder, NAME_None, RF_Transient);
+	Box->SetMobility(EComponentMobility::Movable);
+	Box->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	Box->SetGenerateOverlapEvents(false);
+	Box->SetHiddenInGame(true);
+	Box->SetBoxExtent(Interior.Size * 0.5f, false);
+	Box->SetWorldTransform(FTransform(Interior.Anchor.GetRotation(),
+	                                  Interior.Anchor.TransformPosition(FVector(Interior.Size.X * 0.5f, -Interior.Size.Y * 0.5f, Interior.Size.Z * 0.5f))));
+	Box->RegisterComponent();
+	UPostProcessComponent* PostProcess = NewObject<UPostProcessComponent>(Holder, NAME_None, RF_Transient);
+	PostProcess->SetMobility(EComponentMobility::Movable);
+	PostProcess->bUnbound = false;          // bounded by its parent box
+	PostProcess->Priority = 1001.f;         // above the environment's unbound volume (1000)
+	PostProcess->BlendRadius = 60.f;        // the doorway blends street and shop
+	PostProcess->BlendWeight = 1.f;
+	FPostProcessSettings& S = PostProcess->Settings;
+	S.bOverride_AutoExposureMinBrightness = true;
+	S.bOverride_AutoExposureMaxBrightness = true;
+	S.AutoExposureMinBrightness = InteriorExposureMinEV;
+	S.AutoExposureMaxBrightness = FMath::Max(InteriorExposureMinEV, InteriorExposureMaxEV);
+	PostProcess->SetupAttachment(Box);
+	PostProcess->RegisterComponent();
+	Interior.ExposureBox = Box;
+	Interior.Exposure = PostProcess;
+	GTP_TRACE(InteriorStreaming, TEXT("exposure EV %.1f-%.1f inside %s"), InteriorExposureMinEV, InteriorExposureMaxEV, *Interior.Id);
+}
+
+void UGTPInteriorStreaming::RemoveExposure(FInterior& Interior)
+{
+	if (UPostProcessComponent* PostProcess = Interior.Exposure.Get())
+	{
+		PostProcess->DestroyComponent();
+	}
+	if (UBoxComponent* Box = Interior.ExposureBox.Get())
+	{
+		Box->DestroyComponent();
+	}
+	Interior.Exposure.Reset();
+	Interior.ExposureBox.Reset();
 }
 
 FTransform UGTPInteriorStreaming::GetInteriorAnchor(const FString& Id) const
