@@ -220,6 +220,7 @@ if ($cookMaps.Count -gt 0) {
 }
 $startTime = Get-Date
 Set-Content -LiteralPath $logFile -Value $null
+if ($cookMaps.Count -gt 0) { Add-Content -LiteralPath $logFile -Value "package-win: MapsToCook added for this package: $($cookMaps -join ', ')" }
 $attempt = 0
 while ($true) {
   $attempt++
