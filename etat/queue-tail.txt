@@ -1,4 +1,3 @@
-12:20 pushed etat
 12:28 cand13-long600: crash no (exit 0), end t=597, reused=159 | long600: 23797 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 1 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 28.5 | gpu p50 14.07 p95 20.96 | gate PASS | 
 12:28 list47 starts (list46 stopped after the cand13 long600, before its interior runs)
 12:29 pushed etat
@@ -58,3 +57,4 @@
 13:12 == cand14-blood exit=0
 13:12 cand14 blood: LogPython: Warning: [CombatMaterials] built /Game/Combat/Materials/M_GTP_BloodPool;
 13:12 == cand14-build start
+13:21 pushed etat
