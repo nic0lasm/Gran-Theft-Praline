@@ -63,7 +63,7 @@ void AGTPLiteDriver::BeginPlay()
 	if (!DriverMesh)
 	{
 		// The player is in a car (the pawn is the vehicle): the player character class's own mesh.
-		const AGameModeBase* Mode = GetWorld() ? GetWorld()->GetAuthGameMode() : nullptr;
+		AGameModeBase* Mode = GetWorld() ? GetWorld()->GetAuthGameMode() : nullptr;
 		const UClass* PawnClass = Mode ? Mode->GetDefaultPawnClassForController(nullptr) : nullptr;
 		const ACharacter* Template = PawnClass ? Cast<ACharacter>(PawnClass->GetDefaultObject()) : nullptr;
 		if (Template && Template->GetMesh())
