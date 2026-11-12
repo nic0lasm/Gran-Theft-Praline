@@ -1,0 +1,40 @@
+LogGTPWanted: wanted: t=87 stars=2 phase=1 units=1 nearest=113 m seen=0 arrest=0.00
+LogGTPTraffic: traffic: BP_Renault_ClioV_C_2147479714 reused on lane 150
+LogGTPWanted: wanted: t=89 stars=2 phase=1 units=1 nearest=113 m seen=0 arrest=0.00
+LogGTPVehicle: BP_Renault_ClioV_C_2147479469: wrecked
+LogGTPTraffic: traffic budget: 25 driven (12 ghosts), 0 pooled, 24 far | drivers 0.093 ms/frame (27.2 us per driver tick), network 0.004 ms/frame, far 0.041 ms/frame
+LogGTPPedestrians: active=50 drawn=20 wanted=50 spawned=50 fled=179 hit=1 far=30
+LogGTPFarTraffic: far traffic: 24 placed of 24, 0 handed over, 0 started again (last 5 s)
+LogGTPWanted: wanted: t=91 stars=2 phase=1 units=0 nearest=-1 m seen=0 arrest=0.00
+LogGTPWanted: wanted: t=93 stars=2 phase=1 units=0 nearest=-1 m seen=0 arrest=0.00
+LogGTPTraffic: traffic budget: 25 driven (12 ghosts), 0 pooled, 24 far | drivers 0.097 ms/frame (29.8 us per driver tick), network 0.002 ms/frame, far 0.029 ms/frame
+LogGTPFarTraffic: far traffic: 24 placed of 24, 0 handed over, 0 started again (last 5 s)
+LogGTPWanted: wanted: t=95 stars=2 phase=1 units=0 nearest=-1 m seen=0 arrest=0.00
+LogGTPWanted: police: BP_Renault_ClioV_C_2147478753 on lane 152 at V(X=4348.00, Y=42259.00, Z=-3.59)
+LogGTPVehicle: BP_Renault_ClioV_C_2147479782: wrecked
+LogGTPWanted: wanted: t=97 stars=2 phase=1 units=1 nearest=106 m seen=0 arrest=0.00
+LogGTPWanted: police: BP_Renault_ClioV_C_2147478715 on lane 153 at V(X=4625.00, Y=45078.00, Z=-13.41)
+LogGTPWanted: wanted: t=99 stars=2 phase=1 units=2 nearest=78 m seen=0 arrest=0.00
+LogGTPTraffic: traffic budget: 25 driven (11 ghosts), 0 pooled, 24 far | drivers 0.070 ms/frame (23.6 us per driver tick), network 0.002 ms/frame, far 0.040 ms/frame
+LogGTPPedestrians: active=50 drawn=20 wanted=50 spawned=50 fled=188 hit=1 far=30
+LogGTPFarTraffic: far traffic: 24 placed of 24, 0 handed over, 0 started again (last 5 s)
+LogGTPWanted: wanted: t=101 stars=2 phase=1 units=2 nearest=78 m seen=0 arrest=0.00
+LogGTPWanted: wanted: t=103 stars=2 phase=1 units=2 nearest=78 m seen=0 arrest=0.00
+LogGTPTraffic: traffic budget: 25 driven (11 ghosts), 0 pooled, 24 far | drivers 0.053 ms/frame (19.2 us per driver tick), network 0.002 ms/frame, far 0.044 ms/frame
+LogGTPFarTraffic: far traffic: 24 placed of 24, 0 handed over, 0 started again (last 5 s)
+LogGTPWanted: wanted: t=105 stars=2 phase=1 units=2 nearest=78 m seen=0 arrest=0.00
+LogGTPWanted: wanted: t=107 stars=2 phase=1 units=2 nearest=78 m seen=0 arrest=0.00
+LogGTPWanted: police: BP_Renault_ClioV_C_2147478680 on lane 163 at V(X=3167.00, Y=47119.00, Z=-14.37)
+LogGTPWanted: wanted: t=109 stars=2 phase=1 units=2 nearest=64 m seen=0 arrest=0.00
+LogGTPWanted: police: BP_Renault_ClioV_C_2147478646 on lane 153 at V(X=4657.00, Y=43106.00, Z=-9.98)
+LogGTPTraffic: traffic budget: 25 driven (11 ghosts), 0 pooled, 24 far | drivers 0.052 ms/frame (18.9 us per driver tick), network 0.002 ms/frame, far 0.037 ms/frame
+LogGTPPedestrians: active=50 drawn=20 wanted=50 spawned=50 fled=188 hit=1 far=30
+LogGTPFarTraffic: far traffic: 24 placed of 24, 0 handed over, 0 started again (last 5 s)
+LogGTPWanted: wanted: t=111 stars=2 phase=1 units=2 nearest=64 m seen=0 arrest=0.00
+LogGTPWanted: wanted: t=113 stars=2 phase=1 units=2 nearest=64 m seen=0 arrest=0.00
+LogGTPTraffic: traffic budget: 24 driven (11 ghosts), 1 pooled, 24 far | drivers 0.039 ms/frame (14.3 us per driver tick), network 0.002 ms/frame, far 0.022 ms/frame
+LogGTPFarTraffic: far traffic: 24 placed of 24, 0 handed over, 0 started again (last 5 s)
+LogGTPWanted: wanted: t=115 stars=2 phase=1 units=2 nearest=64 m seen=0 arrest=0.00
+LogGTPTraffic: traffic: BP_Renault_ClioV_C_2147479529 reused on lane 228
+LogGTPWanted: wanted: t=117 stars=2 phase=1 units=2 nearest=64 m seen=0 arrest=0.00
+LogGTPWanted: wanted: t=119 stars=2 phase=1 units=2 nearest=64 m seen=0 arrest=0.00
