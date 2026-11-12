@@ -91,3 +91,11 @@ Cause est nulle pour l'instant (la voiture n'est pas encore identifiée).
 Pas d'évitement entre personnes, un seul maillage et un seul jeu d'animations,
 ni assis ni scènes de boutique, pas de réaction aux tirs (les événements sont
 prêts).
+
+## Prêter des piétons (commerces, scènes)
+
+`UGTPPedestrianSubsystem::AcquireFromPool(Location, YawDegrees)` prête un piéton du pool (immobile,
+dessiné en plein détail, laissé tranquille par le pool) et `ReturnToPool(Actor)` le rend. On prend
+d'abord un piéton libre, sinon le marcheur le plus loin du joueur (jamais un ragdoll). Renvoie
+`nullptr` si les piétons sont coupés ou si personne n'est disponible. L'emprunteur joue sa propre
+boucle avec `AGTPPedestrian::PlayLoop` et doit rendre l'acteur ; `GetBorrowedCount()` les compte.

@@ -547,7 +547,7 @@ bool UGTPPedestrianSubsystem::PromoteToPool(const GTPWalk::FWalker& Walker, cons
 {
 	for (FPerson& P : People)
 	{
-		if (!P.bActive && P.Actor.IsValid())
+		if (!P.bActive && !P.bBorrowed && P.Actor.IsValid())
 		{
 			P.Walker = Walker;
 			P.Leader = -1;
@@ -724,7 +724,7 @@ bool UGTPPedestrianSubsystem::TrySpawn(FPerson& Person)
 			const int32 LeaderIndex = static_cast<int32>(&Person - People.GetData());
 			for (FPerson& Other : People)
 			{
-				if (!Other.bActive && Other.Actor.IsValid() && &Other != &Person)
+				if (!Other.bActive && !Other.bBorrowed && Other.Actor.IsValid() && &Other != &Person)
 				{
 					Other.Walker = GTPWalk::FWalker();
 					GTPWalk::Follow(Graph, Other.Walker, Person.Walker, Settings);
@@ -780,6 +780,71 @@ void UGTPPedestrianSubsystem::SeparatePeople()
 			}
 		}
 	}
+}
+
+AGTPPedestrian* UGTPPedestrianSubsystem::AcquireFromPool(const FVector& Location, float YawDegrees)
+{
+	FPerson* Pick = nullptr;
+	for (FPerson& P : People)
+	{
+		if (!P.bActive && !P.bBorrowed && P.Actor.IsValid())
+		{
+			Pick = &P;
+			break;
+		}
+	}
+	if (!Pick)
+	{
+		// Nobody free: take the walker farthest from the player (never a ragdoll).
+		float Best = -1.f;
+		for (FPerson& P : People)
+		{
+			if (P.bActive && !P.bBorrowed && P.Actor.IsValid() && !P.Actor->IsRagdoll() && P.Distance > Best)
+			{
+				Best = P.Distance;
+				Pick = &P;
+			}
+		}
+		if (Pick)
+		{
+			Retire(*Pick);
+		}
+	}
+	if (!Pick)
+	{
+		return nullptr;
+	}
+	AGTPPedestrian* Actor = Pick->Actor.Get();
+	Pick->bBorrowed = true;
+	Pick->bActive = false;
+	Actor->ResetBody();
+	Actor->SetDetail(true, true, -1);
+	Actor->SetActorLocationAndRotation(Location, FRotator(0.f, YawDegrees, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
+	Actor->PlayLoop(Idle.Get() ? Idle.Get() : Walk.Get(), 1.f);
+	return Actor;
+}
+
+void UGTPPedestrianSubsystem::ReturnToPool(AGTPPedestrian* Actor)
+{
+	for (FPerson& P : People)
+	{
+		if (P.bBorrowed && P.Actor.Get() == Actor)
+		{
+			P.bBorrowed = false;
+			Retire(P);
+			return;
+		}
+	}
+}
+
+int32 UGTPPedestrianSubsystem::GetBorrowedCount() const
+{
+	int32 Count = 0;
+	for (const FPerson& P : People)
+	{
+		Count += P.bBorrowed ? 1 : 0;
+	}
+	return Count;
 }
 
 void UGTPPedestrianSubsystem::Retire(FPerson& Person)
@@ -1048,7 +1113,7 @@ void UGTPPedestrianSubsystem::Tick(float DeltaTime)
 		{
 			for (FPerson& P : People)
 			{
-				if (!P.bActive)
+				if (!P.bActive && !P.bBorrowed)
 				{
 					TrySpawn(P);
 					break;

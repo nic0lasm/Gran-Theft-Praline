@@ -87,3 +87,11 @@ Cause is null for now (the car is not identified yet).
 
 No avoidance between people, one mesh and one animation set, no sitting or
 shop scenes, no reaction to shots yet (the events exist for it).
+
+## Lending pedestrians (shops, scenes)
+
+`UGTPPedestrianSubsystem::AcquireFromPool(Location, YawDegrees)` lends one pedestrian of the pool
+(idle, drawn with full detail, left alone by the pool) and `ReturnToPool(Actor)` gives it back.
+A free one is taken first, else the walker farthest from the player (never a ragdoll). Returns
+`nullptr` when pedestrians are off or nobody can be lent. The borrower plays its own loop with
+`AGTPPedestrian::PlayLoop` and must return the actor; a borrowed one counts in `GetBorrowedCount()`.
