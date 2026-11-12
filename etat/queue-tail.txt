@@ -1,56 +1,3 @@
-17:42 pushed etat
-17:42 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
-17:42 receiver 8765 started for 30 min (owner approval 17:41): endurance pass in progress is not representative for GPU (transfer)
-17:42 == loop-endurance-6-1 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
-17:44 receiver 8765 stopped (transfer done, SHA verified)
-17:52 loop-endurance-6-1: exit=0 crash=no last t=wanted: t=598 wanted=299 police=85 police-in-last-10=5 pool-drops=0 | loop-endurance-6-1: 23796 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.2 | gpu p50 14.07 p95 21.08 | gate PASS
-17:52 == loop-endurance-6-2 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
-18:02 loop-endurance-6-2: exit=0 crash=no last t=wanted: t=598 wanted=299 police=87 police-in-last-10=5 pool-drops=0 | loop-endurance-6-2: 23794 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 4 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 33.8 | gpu p50 14.27 p95 21.21 | gate PASS
-18:03 pushed loop-endurance-6
-18:03 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
-18:03 pushed etat
-18:03 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
-18:03 == loop-endurance-7-1 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
-18:12 pushed etat
-18:13 loop-endurance-7-1: exit=0 crash=no last t=wanted: t=598 wanted=299 police=83 police-in-last-10=5 pool-drops=0 | loop-endurance-7-1: 23795 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 1 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 27.7 | gpu p50 14.48 p95 21.39 | gate PASS
-18:13 == loop-endurance-7-2 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
-18:23 loop-endurance-7-2: exit=0 crash=no last t=wanted: t=598 wanted=299 police=89 police-in-last-10=5 pool-drops=0 | loop-endurance-7-2: 23796 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.2 | gpu p50 14.18 p95 21.16 | gate PASS
-18:23 pushed loop-endurance-7
-18:23 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
-18:24 pushed etat
-18:24 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
-18:24 == loop-endurance-8-1 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
-18:34 loop-endurance-8-1: exit=0 crash=no last t=wanted: t=598 wanted=299 police=79 police-in-last-10=5 pool-drops=0 | loop-endurance-8-1: 23796 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.2 | gpu p50 14.28 p95 21.20 | gate PASS
-18:34 == loop-endurance-8-2 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
-18:44 loop-endurance-8-2: exit=0 crash=no last t=wanted: t=598 wanted=299 police=88 police-in-last-10=6 pool-drops=0 | loop-endurance-8-2: 23796 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 1 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 30.4 | gpu p50 14.00 p95 20.96 | gate PASS
-18:44 pushed loop-endurance-8
-18:44 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
-18:44 pushed etat
-18:44 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
-18:45 == loop-endurance-9-1 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
-18:47 receiver 8765 started again for 30 min (owner approval 18:47): endurance pass in progress is not representative for GPU (transfer)
-18:48 receiver 8765 closed again at once (PC not ready yet, coordinator 17:47Z); nothing received
-18:48 receiver 8765 open 30 min (owner approval 18:47): endurance pass in progress not representative for GPU (transfer)
-18:49 receiver 8765 stopped (pedestrian assets received)
-18:55 loop-endurance-9-1: exit=0 crash=no last t=wanted: t=598 wanted=299 police=87 police-in-last-10=6 pool-drops=0 | loop-endurance-9-1: 23796 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.2 | gpu p50 14.05 p95 21.04 | gate PASS
-18:55 == loop-endurance-9-2 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
-19:05 loop-endurance-9-2: exit=0 crash=no last t=wanted: t=598 wanted=299 police=88 police-in-last-10=5 pool-drops=0 | loop-endurance-9-2: 23796 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 1 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 26.1 | gpu p50 14.17 p95 21.16 | gate PASS
-19:05 pushed loop-endurance-9
-19:05 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
-19:05 pushed etat
-19:05 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
-19:06 == loop-endurance-10-1 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
-19:12 pushed etat
-19:13 loop-endurance-10-1: STARTUP CRASH (exit 139, no log, 462 s after the previous close; total 4), relaunch in 60 s: yes
-19:14 == loop-endurance-10-1 start (600 s), relaunch after a startup crash: -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
-19:24 loop-endurance-10-1: exit=0 crash=no last t=wanted: t=598 wanted=299 police=88 police-in-last-10=5 pool-drops=0 | loop-endurance-10-1: 23796 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.5 | gpu p50 14.29 p95 21.21 | gate PASS
-19:25 == loop-endurance-10-2 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
-19:35 loop-endurance-10-2: exit=0 crash=no last t=wanted: t=598 wanted=299 police=85 police-in-last-10=5 pool-drops=0 | loop-endurance-10-2: 23796 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 1 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 32.5 | gpu p50 14.10 p95 21.13 | gate PASS
-19:35 pushed loop-endurance-10
-19:35 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
-19:35 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
-19:35 pushed etat
-19:35 == list56 end
 21:36 pushed etat
 21:36 list58b: another queue, game or editor is running: not started
 21:37 pushed etat
@@ -58,3 +5,56 @@
 21:37 endurance package: cand13
 21:37 endurance package now: cand15b
 21:37 pushed etat
+21:37 pushed etat
+21:37 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+21:37 cand17b: ProjectVersion ProjectVersion=0.9.0; pedestrian defaults: MaxVisible=20 
+21:37 == cand17b-envsetup start
+21:38 == cand17b-envsetup exit=0
+21:38 cand17b env setup exit=0; map md5 before 1c92de0f813b89cb40aeb000cd92a1de after 1c92de0f813b89cb40aeb000cd92a1de (unchanged); SM on disk: SM_CloudDome.uasset SM_RainLayer.uasset ; Weather now: MPC_Environment.uasset M_CloudDome.uasset M_CloudShadowLF.uasset M_RainLayer.uasset SM_CloudDome.uasset SM_RainLayer.uasset T_PuddleNoise.uasset T_RainStreaks.uasset ; report errors: "errors": []
+21:38 == cand17b-compile start
+21:38 == cand17b-compile exit=0
+21:38 == cand17b-blood start
+21:38 == cand17b-blood exit=0
+21:38 cand17b blood: LogPython: Warning: [CombatMaterials] built /Game/Combat/Materials/M_GTP_BloodPool;
+21:38 == cand17b-build start
+21:51 == cand17b-build exit=0
+21:51 cand17b stamp_version --check: exit 0 (ProjectVersion=0.9.0)
+21:51 cand17b build exit=0; - interiors: OK, 26 s, log interiors.log;- interior maps cooked for this package only: /Game/Interiors/L_Interior_fastfood_bellecour ;- map md5 at the end: 1c92de0f813b89cb40aeb000cd92a1de, unchanged;- DefaultGame.ini md5 at the end: a0d4648437c9409b10303dcc5f5609ba, unchanged;- tracked changes at the end: 0, clone on dfc3d2e;; ini md5 vs start same
+21:51 cand17b restore: Combat removed 1 file(s); Content/Interiors entries 0; tracked changes 0
+21:51 cand17b env restore: Weather 6 file(s), NightLights md5 70ff568fc6a2792a13d125c9ebb545c0
+21:51 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+21:51 cand17b: gate args without the pedestrian overrides (shipped defaults): -Sky=lightfunction -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -PoliceMax=3 
+22:00 cand17b street-fixed: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.1 | gpu p50 13.55 p95 20.56 | gate PASS | LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy | pool drops 0
+22:00 cand17b street-demo: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.1 | gpu p50 15.67 p95 22.31 | gate PASS | LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy | pool drops 0
+22:00 cand17b night: 2376 frames | 25.0+-1 ms 99.9 % (exactly 25.0 99.5 %) | >26 3 | >50 1 | >100 1 | frame p50 25.00 p95 25.00 max 484.7 | gpu p50 15.29 p95 23.23 | gate FAIL | LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy | pool drops 0
+22:00 cand17b rain: 4599 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.7 %) | >26 2 | >50 1 | >100 0 | frame p50 25.00 p95 25.00 max 69.0 | gpu p50 14.00 p95 21.46 | gate PASS | LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy | pool drops 0
+22:02 cand17b street-demo pass 2: demo2: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.8 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.2 | gpu p50 16.95 p95 24.49 | gate FAIL | plateau after 60 s: YES (mean p95 of the 60-120 s slices 28.5 ms)
+22:05 cand17b street-demo pass 3: demo3: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.8 %) | >26 1 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 34.5 | gpu p50 15.73 p95 22.59 | gate PASS | plateau after 60 s: no (mean p95 of the 60-120 s slices 22.6 ms)
+22:07 cand17b night pass 2: night2: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.1 | gpu p50 15.09 p95 22.53 | gate PASS | high mode (any 10 s slice >= 26 ms): no
+22:10 cand17b night pass 3: night3: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.8 %) | >26 1 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 30.4 | gpu p50 16.24 p95 25.37 | gate FAIL | high mode (any 10 s slice >= 26 ms): YES, 6 slice(s) from 50 s
+22:10 cand17b night: first pass FAIL, GPU p95 median of 3 = 23.23 ms
+22:10 cand17b pedestrians in street-fixed: LogGTPPedestrians: active=24 drawn=16 wanted=24 spawned=27 fled=5 hit=0 far=0
+22:10 cand17b pedestrians in night: LogGTPPedestrians: active=24 drawn=14 wanted=24 spawned=24 fled=5 hit=0 far=0
+22:10 cand17b gate: street-demo GPU p95 median of 3 = 22.59 ms; gate 4/4 with the street-demo median
+22:10 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+22:11 == cand17b-long600 start (600 s, no -userdir) -Sky=lightfunction -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -PoliceMax=3 
+22:21 cand17b-long600: crash no (exit 0), end t=598, reused=128 | long600: 23796 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 1 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 30.2 | gpu p50 13.71 p95 20.65 | gate PASS
+22:21 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+22:21 == cand17b-interior start (120 s, no -userdir)
+22:23 cand17b-interior: crash no (exit 0) | interior: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.1 | gpu p50 12.00 p95 19.41 | gate PASS | CustomerQueue: shop fastfood_bellecour open: 4 lines, 20 spots, 6 customers coming in, one every 0.25 s; | frames > 50 ms in the first 15 s: 
+22:24 cand17b still counter: frame_00000.jpg | CustomerQueue: shop fastfood_bellecour open: 4 lines, 20 spots, 6 customers coming in, one every 0.25 s
+22:24 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+22:24 == cand17b-weather drive0 start (120 s, direct, no -userdir)
+22:26 cand17b weather overcast -DriveClouds=0: overcast-drive0: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.1 | gpu p50 13.86 p95 20.95 | gate PASS | cloud_mode_applied=volumetric;cloud_dome_component=no (not used by this profile);drive_cloud_coverage=0;cloud_coverage_params=Cloud_GlobalCoverage (-0.20) in /Engine/EngineSky/VolumetricClouds/m_SimpleVolumetricCloud_Inst.m_SimpleVolumetricCloud_Inst (fallback);
+22:27 == cand17b-weather drive1 start (120 s, direct, no -userdir)
+22:29 cand17b weather overcast -DriveClouds=1: overcast-drive1: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.1 | gpu p50 13.38 p95 20.62 | gate PASS | cloud_mode_applied=volumetric;cloud_dome_component=no (not used by this profile);drive_cloud_coverage=1;cloud_coverage_params=Cloud_GlobalCoverage (-0.20) in /Engine/EngineSky/VolumetricClouds/m_SimpleVolumetricCloud_Inst.m_SimpleVolumetricCloud_Inst (fallback);
+22:30 cand17b weather still drive0: frame_00000.jpg
+22:30 cand17b weather still drive1: frame_00000.jpg
+22:31 pushed cand17b/weather
+22:31 cand17b still street: frame_00000.jpg | LogGTPPedestrians: active=24 drawn=13 wanted=24 spawned=24 fled=0 hit=0 far=0
+22:32 cand17b still title: frame_00000.jpg | 
+22:33 cand17b still rain (rain-cand13 framing): 1440 810 
+22:33 cand17b: credits screen not captured (needs keyboard input in the game window; no command-line switch opens it)
+22:33 cand17b: gate 4/4 (street-demo median) and no crash in 600 s, endurance on cand17b
+22:33 pushed cand17b
+22:33 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0

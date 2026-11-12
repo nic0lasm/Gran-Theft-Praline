@@ -1,5 +1,5 @@
-# Mac state 2026-11-12 21:37 Paris
+# Mac state 2026-11-12 22:33 Paris
 
-- block: cand17b dfc3d2e
-- last line: 21:37 pushed etat
+- block: 3 endurance passes on cand17b
+- last line: 22:33 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
 - startup crashes: 4
