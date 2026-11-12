@@ -86,11 +86,14 @@ def folder(path):
 
 
 def size_error(hit, dims):
-    """How far the mesh is from the catalog size of the class: |log| of the ratio of the largest
-    sides, so a handle or a drawer of a 1 m object scores badly against the whole object."""
-    want = max(dims or [0.0]) or 1.0
-    have = max(hit["size_m"]) or 1e-3
-    return abs(math.log(have / want))
+    """How far the mesh is from the catalog size of the class: the mean |log| of the ratios of the
+    sides, sorted, so a locker door (2 cm thick) or a handle loses against the whole object even
+    when its largest side matches. Without catalog dims, the largest side against 1 m."""
+    have = sorted(max(v, 0.02) for v in hit["size_m"])
+    if not dims:
+        return abs(math.log(have[-1] / 1.0))
+    want = sorted(max(v, 0.02) for v in dims)
+    return sum(abs(math.log(h / w)) for h, w in zip(have, want)) / 3.0
 
 
 def main():

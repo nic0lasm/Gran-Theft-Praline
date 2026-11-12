@@ -3,7 +3,8 @@
 Run in a headless editor (-nullrhi -ExecutePythonScript through Content/Python/gtp_run.py): the
 static mesh editor subsystem is None in the pythonscript commandlet. Reads Saved/InteriorBuild/mesh_map.json and, for
 every mesh under /Game/Interiors/Free or /Game/Interiors/Fab (nothing else is ever modified):
-  - triangles: LOD0 reduced to the class budget of tools/interiors/catalog.json (tris_lod0, 25 %
+  - triangles: Nanite off and LOD0 rebuilt from the source first (with Nanite on, LOD0 is only
+    the Nanite fallback), then LOD0 reduced to the class budget of tools/interiors/catalog.json (tris_lod0, 25 %
     tolerance), then a chain of 3 LODs (50 %, 25 %, 10 %): the M1 draws the LOD chain;
   - Nanite off on these props: the M1 has no Nanite, and LODs keep both machines alike;
   - textures: largest mip capped by the size class of the object (micro 256, small 512, medium
@@ -75,12 +76,11 @@ def budget_mesh(cls, info, path, report):
     if mesh is None:
         report["errors"].append("cannot load " + path)
         return
+    nanite = mesh.get_editor_property("nanite_settings")
     entry = {"path": path, "size": info["size"], "budget": info["tris_lod0"], "tris_before": mesh.get_num_triangles(0),
-             "lods_before": mesh.get_num_lods(), "textures": 0, "texture_mb_before": 0.0, "texture_mb_after": 0.0}
+             "lods_before": mesh.get_num_lods(), "nanite_before": bool(nanite.enabled), "textures": 0,
+             "texture_mb_before": 0.0, "texture_mb_after": 0.0}
     budget = info["tris_lod0"]
-    keep = 1.0
-    if entry["tris_before"] > budget * TOLERANCE:
-        keep = max(0.01, float(budget) / entry["tris_before"])
     cap = TEXTURE_CAP[info["size"]]
     textures = textures_of(mesh)
     entry["textures"] = len(textures)
@@ -88,21 +88,38 @@ def budget_mesh(cls, info, path, report):
         sx, sy = texture.blueprint_get_size_x(), texture.blueprint_get_size_y()
         entry["texture_mb_before"] += texture_mb(sx, sy)
         entry["texture_mb_after"] += texture_mb(sx, sy, cap)
+
+    def keep_for(tris):
+        return max(0.001, float(budget) / tris) if tris > budget * TOLERANCE else 1.0
+
     if APPLY:
+        # The source counts, not LOD0 as it stands: with Nanite on, LOD0 is the Nanite fallback (a
+        # 542 k triangle scanned cup showed 2.6 k), and an earlier reduction would be counted twice.
+        # Nanite off and LOD0 rebuilt at 100 % give the source; the chain is then cut from it.
+        if nanite.enabled:
+            nanite.enabled = False
+            mesh.set_editor_property("nanite_settings", nanite)
+        full = unreal.StaticMeshReductionOptions(auto_compute_lod_screen_size=True,
+                                                 reduction_settings=[unreal.StaticMeshReductionSettings(percent_triangles=1.0, screen_size=1.0)])
+        sub.set_lods(mesh, full)
+        entry["tris_source"] = mesh.get_num_triangles(0)
+        keep = keep_for(entry["tris_source"])
         settings = [unreal.StaticMeshReductionSettings(percent_triangles=keep, screen_size=1.0)]
         settings += [unreal.StaticMeshReductionSettings(percent_triangles=keep * share, screen_size=0.0) for share in LOD_CHAIN]
         options = unreal.StaticMeshReductionOptions(auto_compute_lod_screen_size=True, reduction_settings=settings)
         sub.set_lods(mesh, options)
-        nanite = mesh.get_editor_property("nanite_settings")
-        if nanite.enabled:
-            nanite.enabled = False
-            mesh.set_editor_property("nanite_settings", nanite)
         eal.save_loaded_asset(mesh)
+        if mesh.get_num_triangles(0) > budget * TOLERANCE * 1.1:
+            report["warnings"].append("%s: LOD0 %d triangles after the budget, over %d" % (path, mesh.get_num_triangles(0), budget))
         for texture in textures:
             current = texture.get_editor_property("max_texture_size")
             if current == 0 or current > cap:
                 texture.set_editor_property("max_texture_size", cap)
                 eal.save_loaded_asset(texture)
+    else:
+        keep = keep_for(entry["tris_before"])
+        if nanite.enabled:
+            entry["note"] = "Nanite on: tris_before is the Nanite fallback, the source is larger (known after apply)"
     entry["tris_after"] = mesh.get_num_triangles(0) if APPLY else int(entry["tris_before"] * keep)
     entry["lods_after"] = mesh.get_num_lods() if APPLY else 1 + len(LOD_CHAIN)
     entry["texture_mb_before"] = round(entry["texture_mb_before"], 1)
@@ -112,7 +129,7 @@ def budget_mesh(cls, info, path, report):
 
 def main():
     catalog = il.load_json(il.DEFAULT_CATALOG)
-    report = {"apply": APPLY, "classes": {}, "skipped": {}, "errors": []}
+    report = {"apply": APPLY, "classes": {}, "skipped": {}, "errors": [], "warnings": []}
     if sub is None:
         # None in the pythonscript commandlet: this script needs a headless editor.
         report["errors"].append("StaticMeshEditorSubsystem is None: run in the editor (-nullrhi -ExecutePythonScript), not -run=pythonscript")
@@ -136,8 +153,10 @@ def main():
     entries = report["classes"].values()
     report["totals"] = {
         "meshes": len(report["classes"]),
-        "over_budget_before": sum(1 for e in entries if e["tris_before"] > e["budget"] * TOLERANCE),
+        "over_budget_before": sum(1 for e in entries if e.get("tris_source", e["tris_before"]) > e["budget"] * TOLERANCE),
         "tris_before": sum(e["tris_before"] for e in entries),
+        "tris_source": sum(e.get("tris_source", e["tris_before"]) for e in entries),
+        "nanite_meshes": sum(1 for e in entries if e["nanite_before"]),
         "tris_after": sum(e["tris_after"] for e in entries),
         "texture_mb_before": round(sum(e["texture_mb_before"] for e in entries), 1),
         "texture_mb_after": round(sum(e["texture_mb_after"] for e in entries), 1),
