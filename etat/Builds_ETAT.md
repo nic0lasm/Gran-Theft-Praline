@@ -1,5 +1,5 @@
-# Mac state 2026-11-12 11:15 Paris
+# Mac state 2026-11-12 11:16 Paris
 
-- block: starting
-- last line: 11:14 pushed etat
+- block: 10 endurance on cand12
+- last line: 11:16 list44 starts (list43 stopped after the ilfix push and its check)
 - startup crashes: 3
