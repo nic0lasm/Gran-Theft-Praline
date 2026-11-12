@@ -268,3 +268,9 @@ buried.
 The PC diagnostic counted up to 44 car lights on in broad daylight on street-demo. The code turns none on by day: the environment's headlights only come on at night, on the nearest `LitCars` cars. These lights come from the car blueprint, always on, on every traffic car.
 
 Fix: `MakeCheap` now switches the blueprint's lights off on traffic cars, puppets and police (the player keeps theirs). At night, headlights stay the environment's, capped at `LitCars`. `-CarBPLights=1` restores the old behaviour for the A/B. No wreck effect exists in C++: a wreck only draws what the blueprint adds in `OnWrecked`.
+
+## 12. Traffic no longer wrecks itself (12/11/2026, to measure)
+
+A car has 1,000 health and loses 0.12 per cm/s of impact above 300 cm/s: wrecking in a single hit takes a speed change of about 310 km/h. Only an infinite-mass body produces that: a ghost car (kinematic, teleported along its lane) brushing a driven car. Hence 0 to 5 wrecks in 90 s with a fixed camera.
+
+Rule: a hit between two AI cars, or from a moving kinematic body, no longer deals damage unless the player's car is one of the two. Walls still damage. `-TrafficCrashDamage=1` restores the old rule. The log names every ignored hit and who caused each wreck.

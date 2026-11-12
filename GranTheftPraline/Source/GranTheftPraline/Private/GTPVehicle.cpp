@@ -973,8 +973,32 @@ void AGTPVehicle::OnBodyHit(UPrimitiveComponent* HitComponent, AActor* OtherActo
 	{
 		return;
 	}
+	// Traffic does not wreck itself: a hit between two AI cars, or from a moving kinematic body (a
+	// ghost car teleported along its lane, a pedestrian capsule), deals no damage unless the player's
+	// car is one of the two. Ghost cars carry an infinite mass, so brushing one gave a driven car
+	// enough speed change to wreck at once. -TrafficCrashDamage=1 restores the old rule.
+	static const bool bTrafficCrashDamage = []
+	{
+		int32 Switch = 0;
+		FParse::Value(FCommandLine::Get(), TEXT("TrafficCrashDamage="), Switch);
+		return Switch != 0;
+	}();
+	const AGTPVehicle* OtherCar = Cast<AGTPVehicle>(OtherActor);
+	const bool bPlayerInvolved = Cast<APlayerController>(GetController()) != nullptr
+		|| (OtherCar && Cast<APlayerController>(OtherCar->GetController()) != nullptr);
+	const bool bKinematicOther = OtherComp && OtherComp->Mobility == EComponentMobility::Movable && !OtherComp->IsSimulatingPhysics();
+	if (!bTrafficCrashDamage && !bPlayerInvolved && (OtherCar || bKinematicOther))
+	{
+		GTP_TRACE(LogGTPVehicle, TEXT("%s: AI impact from %s ignored (%.0f cm/s)"), *GetName(), *GetNameSafe(OtherActor), DeltaV);
+		return;
+	}
 	LastImpactTime = Now;
+	const float HealthBefore = Health;
 	ApplyZoneDamage(ZoneFromWorldLocation(Hit.ImpactPoint), (DeltaV - MinImpactSpeed) * DamagePerImpactSpeed);
+	if (bWrecked && HealthBefore > 0.f)
+	{
+		GTP_TRACE(LogGTPVehicle, TEXT("%s: wrecked by an impact with %s (%.0f cm/s)"), *GetName(), *GetNameSafe(OtherActor), DeltaV);
+	}
 }
 
 EGTPDamageZone AGTPVehicle::ZoneFromWorldLocation(const FVector& WorldLocation) const
