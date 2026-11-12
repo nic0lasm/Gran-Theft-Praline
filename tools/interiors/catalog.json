@@ -195,10 +195,7 @@
    "tris_lod0": 14000,
    "sections": 2,
    "items_per_instance": 1,
-   "interactive": true,
-   "keywords": [
-    "toaster"
-   ]
+   "interactive": true
   },
   "bun_tray": {
    "size": "small",

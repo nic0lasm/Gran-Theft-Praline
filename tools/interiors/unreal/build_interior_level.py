@@ -108,6 +108,121 @@ def box_actor(label, folder, center, size, mesh=None):
     return actor
 
 
+# Shell surfaces without textures: a procedural tile grid (world aligned, so it never stretches
+# with the box scale), painted walls with a tiled wainscot, a matt ceiling. Created once under
+# STANDIN_DIR; plain static mesh actors, no instancing flag needed.
+SHELL_TILE_CM = {"Floor": 60.0, "Wainscot": 20.0}
+WAINSCOT_TOP = -50.0 + 120.0 / 3.6   # cube local z of 1.2 m on a 3.6 m storey wall
+
+
+class _Graph:
+    def __init__(self, mat):
+        self.mat, self.y = mat, 0
+        self.mel = unreal.MaterialEditingLibrary
+
+    def node(self, cls, **props):
+        e = self.mel.create_material_expression(self.mat, cls, -900, self.y)
+        self.y += 120
+        for k, v in props.items():
+            e.set_editor_property(k, v)
+        return e
+
+    def link(self, a, b, pin=""):
+        for name in ((pin,) if pin else ("", "Input", "X")):
+            if self.mel.connect_material_expressions(a, "", b, name):
+                return
+        raise RuntimeError("cannot connect %s -> %s.%s" % (a.get_name(), b.get_name(), pin))
+
+    def const(self, v):
+        if isinstance(v, (int, float)):
+            return self.node(unreal.MaterialExpressionConstant, r=float(v))
+        return self.node(unreal.MaterialExpressionConstant3Vector, constant=unreal.LinearColor(v[0], v[1], v[2], 1.0))
+
+    def op(self, cls, a, b):
+        e = self.node(cls)
+        self.link(a, e, "A")
+        self.link(b, e, "B")
+        return e
+
+    def unary(self, cls, a, **props):
+        e = self.node(cls, **props)
+        self.link(a, e)
+        return e
+
+    def lerp(self, a, b, alpha):
+        e = self.node(unreal.MaterialExpressionLinearInterpolate)
+        self.link(a, e, "A")
+        self.link(b, e, "B")
+        self.link(alpha, e, "Alpha")
+        return e
+
+    def joints(self, uv, tile_cm, width=0.035):
+        """0 on a tile, 1 on its joint: per axis |frac(uv / tile) - 0.5|, the max of both, sharpened."""
+        f = self.unary(unreal.MaterialExpressionFrac, self.op(unreal.MaterialExpressionDivide, uv, self.const(tile_cm)))
+        d = self.unary(unreal.MaterialExpressionAbs, self.op(unreal.MaterialExpressionSubtract, f, self.const(0.5)))
+        m = self.op(unreal.MaterialExpressionMax,
+                    self.unary(unreal.MaterialExpressionComponentMask, d, r=True, g=False, b=False, a=False),
+                    self.unary(unreal.MaterialExpressionComponentMask, d, r=False, g=True, b=False, a=False))
+        edge = self.op(unreal.MaterialExpressionMultiply,
+                       self.op(unreal.MaterialExpressionSubtract, m, self.const(0.5 - width)), self.const(1.0 / width))
+        return self.unary(unreal.MaterialExpressionSaturate, edge)
+
+
+def shell_material(kind):
+    """M_Shell_<kind> (Floor, Wall, Ceiling), created when missing; None on failure (grey kept)."""
+    path = "%s/M_Shell_%s" % (STANDIN_DIR, kind)
+    if eal.does_asset_exist(path):
+        return eal.load_asset(path)
+    mel = unreal.MaterialEditingLibrary
+    try:
+        mat = unreal.AssetToolsHelpers.get_asset_tools().create_asset(
+            "M_Shell_" + kind, STANDIN_DIR, unreal.Material, unreal.MaterialFactoryNew())
+        g = _Graph(mat)
+        world = g.node(unreal.MaterialExpressionWorldPosition)
+        if kind == "Floor":
+            # Dark porcelain tiles, 60 cm, light grout: the usual fast-food floor.
+            uv = g.unary(unreal.MaterialExpressionComponentMask, world, r=True, g=True, b=False, a=False)
+            joint = g.joints(uv, SHELL_TILE_CM["Floor"], 0.02)
+            colour = g.lerp(g.const((0.055, 0.05, 0.047)), g.const((0.16, 0.15, 0.14)), joint)
+            rough = g.lerp(g.const(0.28), g.const(0.85), joint)
+        elif kind == "Wall":
+            # Warm paint above, small dark red tiles up to 1.2 m (cube local z), grout between them.
+            across = g.op(unreal.MaterialExpressionAdd,
+                          g.unary(unreal.MaterialExpressionComponentMask, world, r=True, g=False, b=False, a=False),
+                          g.unary(unreal.MaterialExpressionComponentMask, world, r=False, g=True, b=False, a=False))
+            up = g.unary(unreal.MaterialExpressionComponentMask, world, r=False, g=False, b=True, a=False)
+            uv = g.node(unreal.MaterialExpressionAppendVector)
+            g.link(across, uv, "A")
+            g.link(up, uv, "B")
+            joint = g.joints(uv, SHELL_TILE_CM["Wainscot"], 0.05)
+            tiles = g.lerp(g.const((0.23, 0.045, 0.035)), g.const((0.5, 0.48, 0.45)), joint)
+            local = g.node(unreal.MaterialExpressionLocalPosition)
+            lz = g.unary(unreal.MaterialExpressionComponentMask, local, r=False, g=False, b=True, a=False)
+            # 1 above the wainscot top, 0 below, 1 cm blend.
+            above = g.unary(unreal.MaterialExpressionSaturate,
+                            g.op(unreal.MaterialExpressionMultiply,
+                                 g.op(unreal.MaterialExpressionSubtract, lz, g.const(WAINSCOT_TOP)), g.const(2.0)))
+            colour = g.lerp(tiles, g.const((0.62, 0.57, 0.5)), above)
+            rough = g.lerp(g.lerp(g.const(0.25), g.const(0.85), joint), g.const(0.8), above)
+        else:
+            colour, rough = g.const((0.78, 0.77, 0.74)), g.const(0.92)
+        mel.connect_material_property(colour, "", unreal.MaterialProperty.MP_BASE_COLOR)
+        mel.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS)
+        mel.recompile_material(mat)
+        save_in_project(mat)
+        return mat
+    except Exception as error:
+        unreal.log_warning("[InteriorLevel] shell material %s not created: %s" % (kind, error))
+        return None
+
+
+def shell_paint(actor, kind):
+    mat = shell_material(kind)
+    if mat is not None:
+        actor.static_mesh_component.set_material(0, mat)
+    return actor
+
+
 def build_shell(spec):
     frame = spec["frame"]
     width, depth, storey = frame["width"] * 100, frame["depth"] * 100, frame["storey_height"] * 100
@@ -115,11 +230,11 @@ def build_shell(spec):
     count = 0
     for level in levels:
         z0 = level * storey
-        box_actor("Floor_L%d" % level, "Interior/Shell", (width / 2, -depth / 2, z0 - WALL_CM / 2), (width, depth, WALL_CM))
-        box_actor("Ceiling_L%d" % level, "Interior/Shell", (width / 2, -depth / 2, z0 + storey - WALL_CM / 2), (width, depth, WALL_CM))
-        box_actor("WallBack_L%d" % level, "Interior/Shell", (width / 2, -depth, z0 + storey / 2), (width, WALL_CM, storey))
-        box_actor("WallWest_L%d" % level, "Interior/Shell", (0, -depth / 2, z0 + storey / 2), (WALL_CM, depth, storey))
-        box_actor("WallEast_L%d" % level, "Interior/Shell", (width, -depth / 2, z0 + storey / 2), (WALL_CM, depth, storey))
+        shell_paint(box_actor("Floor_L%d" % level, "Interior/Shell", (width / 2, -depth / 2, z0 - WALL_CM / 2), (width, depth, WALL_CM)), "Floor")
+        shell_paint(box_actor("Ceiling_L%d" % level, "Interior/Shell", (width / 2, -depth / 2, z0 + storey - WALL_CM / 2), (width, depth, WALL_CM)), "Ceiling")
+        shell_paint(box_actor("WallBack_L%d" % level, "Interior/Shell", (width / 2, -depth, z0 + storey / 2), (width, WALL_CM, storey)), "Wall")
+        shell_paint(box_actor("WallWest_L%d" % level, "Interior/Shell", (0, -depth / 2, z0 + storey / 2), (WALL_CM, depth, storey)), "Wall")
+        shell_paint(box_actor("WallEast_L%d" % level, "Interior/Shell", (width, -depth / 2, z0 + storey / 2), (WALL_CM, depth, storey)), "Wall")
         count += 5
     # Glass front on the place, ground floor, with the door gap on the rue de la Republique side.
     glass_w = width - DOOR_WIDTH_CM
