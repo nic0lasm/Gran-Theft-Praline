@@ -488,6 +488,7 @@ def shop_interior_master():
     room = g.mul(custom, g.sub(g.const(1.0), g.mul(fres, g.const(0.8))))
     emis = g.mul(room, g.node(unreal.MaterialExpressionScalarParameter, parameter_name="EmissiveScale",
                               default_value=1.0))
+    emis = g.mul(emis, day_boost(g))
     mel.connect_material_property(g.const((0.02, 0.022, 0.025)), "", unreal.MaterialProperty.MP_BASE_COLOR)
     mel.connect_material_property(g.const(0.04), "", unreal.MaterialProperty.MP_ROUGHNESS)
     mel.connect_material_property(g.const(0.0), "", unreal.MaterialProperty.MP_METALLIC)
@@ -496,6 +497,27 @@ def shop_interior_master():
     weather(mat, ("wet", "emissive"))
     g.done()
     return mat
+
+
+# Daylight boost of the shop rooms seen through the windows. The glow (1.4) was set for the night
+# exposure (EV100 about 3.5, times EmissiveScale); under the day exposure (EV100 14 to 14.5,
+# 2000 times less sensitive) the rooms read black (PC stills, 12/11). By day the room is
+# multiplied by DayGlow, at night by 1 (MPC CityLights, the night factor of the environment).
+SHOP_DAY_GLOW = float(os.environ.get("GTP_SHOP_DAY_GLOW", "250"))
+
+
+def day_boost(g):
+    path = os.path.join(REPO, "tools", "environment", "unreal")
+    day = g.node(unreal.MaterialExpressionScalarParameter, parameter_name="DayGlow", default_value=SHOP_DAY_GLOW)
+    if not os.path.exists(os.path.join(path, "gtp_weather.py")):
+        return g.const(1.0)
+    import sys
+    if path not in sys.path:
+        sys.path.insert(0, path)
+    import gtp_weather
+    night = g.node(unreal.MaterialExpressionCollectionParameter, collection=gtp_weather.collection(),
+                   parameter_name="CityLights")
+    return g.lerp(day, g.const(1.0), night)
 
 
 def interior_or_none(report):
