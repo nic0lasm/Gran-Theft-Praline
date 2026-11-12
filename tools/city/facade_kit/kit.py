@@ -20,6 +20,7 @@ material slot names follow the bible (MI_*). Needs Blender 4.2+ (bpy).
 """
 
 import math
+import os
 
 import bmesh
 import bpy
@@ -51,7 +52,10 @@ MATERIALS = {
     "MI_Shop_Display": (0.25, 0.22, 0.2, 0.6, 0.0),
     "MI_Sign_Panel": (0.5, 0.5, 0.5, 0.35, 0.0),
     "MI_Glass_Shop": (0.9, 0.92, 0.92, 0.02, 0.0),
+    "MI_Persienne": (0.62, 0.60, 0.56, 0.5, 0.0),   # folded metal shutters, painted (v1 kit)
 }
+# Kit version: 1 = Haussmann bays in relief (haussmann.py, PC/Nanite), 0 = the v0 boxes.
+KIT_V = os.environ.get("GTP_KIT_V", "1")
 # Lit shop interiors seen through the glazing (colour, strength).
 EMISSIVE = {"MI_Shop_Interior": (1.0, 0.92, 0.8, 1.2)}
 TRANSMISSIVE = {"MI_Glass_Shop": 1.0}
@@ -72,14 +76,89 @@ class Builder:
             self.slots.append(name)
         return self.slots.index(name)
 
-    def box(self, x0, x1, y0, y1, z0, z1, mat):
+    def box(self, x0, x1, y0, y1, z0, z1, mat, bevel=0.0, axis=None):
+        """Axis-aligned box. bevel > 0 chamfers its edges (all, or only those along `axis`,
+        "x" or "z") so light catches the arrises: the v1 kit's stone and joinery."""
         if x1 - x0 < 1e-4 or y1 - y0 < 1e-4 or z1 - z0 < 1e-4:
             return
         v = [self.bm.verts.new((x, y, z)) for x in (x0, x1) for y in (y0, y1) for z in (z0, z1)]
         faces = [(0, 1, 3, 2), (4, 6, 7, 5), (0, 4, 5, 1), (2, 3, 7, 6), (0, 2, 6, 4), (1, 5, 7, 3)]
         mi = self._mat(mat)
+        made = []
         for f in faces:
-            self.bm.faces.new([v[i] for i in f]).material_index = mi
+            face = self.bm.faces.new([v[i] for i in f])
+            face.material_index = mi
+            made.append(face)
+        if bevel > 0:
+            dims = sorted((x1 - x0, y1 - y0, z1 - z0))
+            w = min(bevel, (0.45 if axis else 0.25) * dims[0])
+            if w > 0.0015:
+                k = {"x": 0, "y": 1, "z": 2}.get(axis)
+                edges = {e for f in made for e in f.edges}
+                if k is not None:
+                    edges = {e for e in edges if abs(e.verts[0].co[k] - e.verts[1].co[k]) > 1e-5}
+                bmesh.ops.bevel(self.bm, geom=list(edges), offset=w, offset_type="OFFSET", segments=1,
+                                profile=0.5, affect="EDGES", clamp_overlap=True)
+
+    def sweep(self, pts, a0, a1, mat, axis="x"):
+        """Closed polygon extruded along an axis: pts [(y, z)] along x, or [(x, y)] along z.
+        Mouldings, consoles and architraves of the v1 kit."""
+        clean = []
+        for p in pts:
+            if not clean or abs(p[0] - clean[-1][0]) + abs(p[1] - clean[-1][1]) > 1e-5:
+                clean.append(p)
+        if len(clean) > 2 and abs(clean[0][0] - clean[-1][0]) + abs(clean[0][1] - clean[-1][1]) < 1e-5:
+            clean.pop()
+        if len(clean) < 3 or a1 - a0 < 1e-4:
+            return
+        mi = self._mat(mat)
+        if axis == "x":
+            a = [self.bm.verts.new((a0, p, q)) for p, q in clean]
+            b = [self.bm.verts.new((a1, p, q)) for p, q in clean]
+        else:
+            a = [self.bm.verts.new((p, q, a0)) for p, q in clean]
+            b = [self.bm.verts.new((p, q, a1)) for p, q in clean]
+        self.bm.faces.new(a).material_index = mi
+        self.bm.faces.new(list(reversed(b))).material_index = mi
+        n = len(clean)
+        for k in range(n):
+            j = (k + 1) % n
+            self.bm.faces.new((a[k], a[j], b[j], b[k])).material_index = mi
+
+    def bar(self, p0, p1, r, mat, seg=4):
+        """Round (or, with seg=4, square) bar between two points: ironwork."""
+        d = [p1[i] - p0[i] for i in range(3)]
+        ln = math.sqrt(sum(c * c for c in d))
+        if ln < 1e-4:
+            return
+        d = [c / ln for c in d]
+        ref = (0.0, 0.0, 1.0) if abs(d[2]) < 0.9 else (1.0, 0.0, 0.0)
+        u = [d[1] * ref[2] - d[2] * ref[1], d[2] * ref[0] - d[0] * ref[2], d[0] * ref[1] - d[1] * ref[0]]
+        un = math.sqrt(sum(c * c for c in u))
+        u = [c / un for c in u]
+        w = [d[1] * u[2] - d[2] * u[1], d[2] * u[0] - d[0] * u[2], d[0] * u[1] - d[1] * u[0]]
+        mi = self._mat(mat)
+        rings = []
+        for p in (p0, p1):
+            ring = []
+            for k in range(seg):
+                a = 2 * math.pi * (k + 0.5) / seg
+                c, s = r * math.cos(a), r * math.sin(a)
+                ring.append(self.bm.verts.new(tuple(p[i] + c * u[i] + s * w[i] for i in range(3))))
+            rings.append(ring)
+        r0, r1 = rings
+        for k in range(seg):
+            n = (k + 1) % seg
+            self.bm.faces.new((r0[k], r0[n], r1[n], r1[k])).material_index = mi
+        self.bm.faces.new(list(reversed(r0))).material_index = mi
+        self.bm.faces.new(r1).material_index = mi
+
+    def ring(self, cx, y, cz, rad, r, mat, n=12, plane="xz"):
+        """Circle of bars in the facade plane (ironwork motif)."""
+        pts = [(cx + rad * math.cos(2 * math.pi * k / n), y, cz + rad * math.sin(2 * math.pi * k / n))
+               for k in range(n)]
+        for k in range(n):
+            self.bar(pts[k], pts[(k + 1) % n], r, mat)
 
     def cyl(self, x, y, z0, z1, r, mat, seg=6, axis="z", length=None):
         """Cylinder along z (from z0 to z1) or along x (z0..z1 then mean x from x to x+length)."""
@@ -459,7 +538,7 @@ def lyon_genoise(b, W):
 # module name -> (family nominal sizes, nominal height key, builder)
 def _defs():
     H, L = HAUSSMANN, LYONNAIS
-    return {
+    d = {
         "SM_Facade_Haussmann_Window": (H, "upper", lambda b: haus_window(b, H["bay"], H["upper"])),
         "SM_Facade_Haussmann_Window_B": (H, "upper", lambda b: haus_window(b, H["bay"], H["upper"], style="B")),
         "SM_Facade_Haussmann_Window_C": (H, "upper", lambda b: haus_window(b, H["bay"], H["upper"], style="C")),
@@ -493,7 +572,12 @@ def _defs():
         "SM_Facade_Lyonnais_Blank": (L, "upper", lambda b: blank(b, L["bay"], L["upper"], "MI_Facade_Render")),
         "SM_Facade_Lyonnais_Genoise": (L, None, lambda b: lyon_genoise(b, L["bay"])),
         "SM_Sign_Panel": ({"bay": 1.0, "panel": 1.0}, "panel", sign_panel),
-    } | roof_kit.defs(MATERIALS)
+    }
+    d.update(roof_kit.defs(MATERIALS))
+    if KIT_V != "0":
+        import haussmann
+        d.update(haussmann.defs())
+    return d
 
 
 def sign_panel(b):
