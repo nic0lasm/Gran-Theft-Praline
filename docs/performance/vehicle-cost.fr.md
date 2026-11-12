@@ -301,3 +301,9 @@ ou d'être enterrée.
 Le diagnostic du PC comptait jusqu'à 44 lumières de voiture allumées en plein jour sur street-demo. Le code n'en allume aucune de jour : les phares de l'environnement ne s'allument que la nuit, sur les `LitCars` voitures les plus proches. Ces lumières viennent du blueprint de la voiture, allumées en permanence sur chaque voiture du trafic.
 
 Correctif : `MakeCheap` éteint désormais les lumières du blueprint sur les voitures du trafic, les marionnettes et la police (le joueur garde les siennes). La nuit, les phares restent ceux de l'environnement, plafonnés à `LitCars`. `-CarBPLights=1` rend l'ancien comportement pour l'A/B. Aucun effet d'épave n'existe en C++ : une épave ne dessine que ce que le blueprint ajoute dans `OnWrecked`.
+
+## 12. Le trafic ne s'épave plus tout seul (12/11/2026, à mesurer)
+
+Une voiture a 1 000 points de vie et perd 0,12 point par cm/s de choc au-delà de 300 cm/s : pour s'épaver d'un seul choc, il faut un écart de vitesse d'environ 310 km/h. Seul un corps de masse infinie le produit : une voiture fantôme (cinématique, téléportée le long de sa voie) qui frôle une voiture conduite. D'où 0 à 5 épaves en 90 s, caméra fixe.
+
+Règle : un choc entre deux voitures IA, ou avec un corps cinématique en mouvement, ne fait plus de dégâts, sauf si la voiture du joueur est l'une des deux. Les murs abîment toujours. `-TrafficCrashDamage=1` rend l'ancienne règle. Le journal nomme chaque choc ignoré et l'auteur de chaque épave.
