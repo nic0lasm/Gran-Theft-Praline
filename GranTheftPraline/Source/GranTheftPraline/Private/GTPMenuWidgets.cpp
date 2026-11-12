@@ -169,6 +169,7 @@ void UGTPTitleMenuWidget::BuildButtons()
 	AddButton(GTPLoc("menu.play"))->OnClicked.AddDynamic(this, &UGTPTitleMenuWidget::HandlePlay);
 	AddButton(GTPLoc("menu.settings"))->OnClicked.AddDynamic(this, &UGTPTitleMenuWidget::HandleSettings);
 	AddButton(GTPLoc("menu.controls"))->OnClicked.AddDynamic(this, &UGTPTitleMenuWidget::HandleControls);
+	AddButton(GTPLoc("menu.credits"))->OnClicked.AddDynamic(this, &UGTPTitleMenuWidget::HandleCredits);
 	AddButton(GTPLoc("menu.quit"))->OnClicked.AddDynamic(this, &UGTPTitleMenuWidget::HandleQuit);
 }
 
@@ -199,6 +200,14 @@ void UGTPTitleMenuWidget::HandleControls()
 	}
 }
 
+void UGTPTitleMenuWidget::HandleCredits()
+{
+	if (AGTPPlayerController* Controller = GetGTPController())
+	{
+		Controller->OpenCreditsMenu();
+	}
+}
+
 void UGTPTitleMenuWidget::HandleQuit()
 {
 	UGTPAudioMix::PlayUI(this, EGTPUISound::Confirm);
@@ -221,6 +230,7 @@ void UGTPPauseMenuWidget::BuildButtons()
 	AddButton(GTPLoc("menu.pause.resume"))->OnClicked.AddDynamic(this, &UGTPPauseMenuWidget::HandleResume);
 	AddButton(GTPLoc("menu.settings"))->OnClicked.AddDynamic(this, &UGTPPauseMenuWidget::HandleSettings);
 	AddButton(GTPLoc("menu.controls"))->OnClicked.AddDynamic(this, &UGTPPauseMenuWidget::HandleControls);
+	AddButton(GTPLoc("menu.credits"))->OnClicked.AddDynamic(this, &UGTPPauseMenuWidget::HandleCredits);
 	AddButton(GTPLoc("menu.pause.quit"))->OnClicked.AddDynamic(this, &UGTPPauseMenuWidget::HandleQuit);
 }
 
@@ -262,12 +272,64 @@ void UGTPPauseMenuWidget::HandleControls()
 	}
 }
 
+void UGTPPauseMenuWidget::HandleCredits()
+{
+	if (AGTPPlayerController* Controller = GetGTPController())
+	{
+		Controller->OpenCreditsMenu();
+	}
+}
+
 void UGTPPauseMenuWidget::HandleQuit()
 {
 	UGTPAudioMix::PlayUI(this, EGTPUISound::Confirm);
 	if (AGTPPlayerController* Controller = GetGTPController())
 	{
 		Controller->QuitToDesktop();
+	}
+}
+
+// ---------------------------------------------------------------------------
+// UGTPCreditsMenuWidget
+
+FText UGTPCreditsMenuWidget::GetHeading() const
+{
+	return GTPLoc("credits.heading");
+}
+
+FText UGTPCreditsMenuWidget::GetSubtitle() const
+{
+	static const char* Lines[] = {"credits.project", "credits.engine", "credits.data_ign", "credits.data_osm",
+		"credits.content_epic", "credits.content_cc0", "credits.tools", "credits.thanks"};
+	FString Out;
+	for (const char* Key : Lines)
+	{
+		Out += GTPLocString(Key) + TEXT("\n");
+	}
+	return FText::FromString(Out);
+}
+
+void UGTPCreditsMenuWidget::BuildButtons()
+{
+	AddButton(GTPLoc("menu.back"))->OnClicked.AddDynamic(this, &UGTPCreditsMenuWidget::HandleBack);
+}
+
+FReply UGTPCreditsMenuWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
+{
+	const FKey Key = InKeyEvent.GetKey();
+	if (Key == EKeys::Escape || Key == EKeys::Gamepad_Special_Right || Key == EKeys::Gamepad_FaceButton_Right)
+	{
+		HandleBack();
+		return FReply::Handled();
+	}
+	return Super::NativeOnKeyDown(InGeometry, InKeyEvent);
+}
+
+void UGTPCreditsMenuWidget::HandleBack()
+{
+	if (AGTPPlayerController* Controller = GetGTPController())
+	{
+		Controller->CloseSettingsMenu();
 	}
 }
 

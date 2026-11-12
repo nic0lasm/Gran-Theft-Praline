@@ -41,6 +41,14 @@ freiner, tourner, frein à main, regarder derrière, carte, pause. Les lignes so
 `GTPControls.h` et suivent les assignations (déplacement à pied et saut sont dans les
 assets Enhanced Input et ne sont pas encore listés).
 
+## Écran des crédits
+
+Le bouton **Crédits** (menus titre et pause) liste la licence du projet et les sources sur lesquelles le jeu
+s'appuie : Unreal Engine, IGN BD TOPO / LiDAR HD (Etalab 2.0), OpenStreetMap (ODbL), contenus Epic, Poly Haven
+(CC0), outils, et une note sur les marques. Les textes sont dans la table de chaînes (`credits.*`) ; ajouter une
+ligne là et dans `UGTPCreditsMenuWidget::GetSubtitle`. Nouvelle partie / Continuer / Charger attendent la
+sauvegarde de partie.
+
 ## Textes
 
 Tous les textes des menus sont dans une seule table,
