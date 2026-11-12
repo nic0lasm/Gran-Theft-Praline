@@ -1,4 +1,3 @@
-17:42 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
 17:42 pushed etat
 17:42 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
 17:42 receiver 8765 started for 30 min (owner approval 17:41): endurance pass in progress is not representative for GPU (transfer)
@@ -58,3 +57,4 @@
 21:37 list58b starts
 21:37 endurance package: cand13
 21:37 endurance package now: cand15b
+21:37 pushed etat
