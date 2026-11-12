@@ -372,6 +372,12 @@ void UGTPPedestrianSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 	}
 	Wanted = ChooseDensity();
 	FParse::Value(FCommandLine::Get(), TEXT("PedDemo="), DemoMode);
+	if (!DemoMode.IsEmpty())
+	{
+		// Demo: people appear around the player, in view, so that the event can be filmed.
+		MinSpawnDistance = 500.f;
+		MaxSpawnDistance = FMath::Min(MaxSpawnDistance, 3500.f);
+	}
 	int32 Override = 0;
 	if (FParse::Value(FCommandLine::Get(), TEXT("PedMaxVisible="), Override))
 	{
@@ -1151,11 +1157,20 @@ void UGTPPedestrianSubsystem::TickDemo()
 		return;
 	}
 	// The closest drawn person is where the event happens.
+	// Preferably somebody in view, 8 to 22 m away (closest to 14 m); else the closest drawn one.
 	FPerson* Best = nullptr;
+	float BestScore = TNumericLimits<float>::Max();
 	for (FPerson& P : People)
 	{
-		if (P.bActive && P.bDrawn && !P.bBorrowed && (!Best || P.Distance < Best->Distance))
+		if (!P.bActive || !P.bDrawn || P.bBorrowed)
 		{
+			continue;
+		}
+		const bool bInView = P.Distance >= 800.f && P.Distance <= 2200.f && IsSeen(P.Location);
+		const float Score = bInView ? FMath::Abs(P.Distance - 1400.f) : 100000.f + P.Distance;
+		if (Score < BestScore)
+		{
+			BestScore = Score;
 			Best = &P;
 		}
 	}
