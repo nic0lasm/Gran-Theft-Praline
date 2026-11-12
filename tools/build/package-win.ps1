@@ -7,10 +7,21 @@
   Win64 under a watchdog, moves the staged game into Builds\<version>\ and
   writes build-info.txt next to it.
 
-  Usage: powershell -ExecutionPolicy Bypass -File tools\build\package-win.ps1 [version] [configuration] [-DryRun]
+  Usage: powershell -ExecutionPolicy Bypass -File tools\build\package-win.ps1 [version] [configuration] [-DryRun] [-NoInteriors]
     version        default: ProjectVersion from Config\DefaultGame.ini, as major.minor (0.1.0 -> 0.1)
     configuration  Shipping (default), Development or Test
     -DryRun        resolve paths and print the BuildCookRun command, run nothing
+    -NoInteriors   skip the interiors step (also INTERIORS=0)
+
+  Interiors (on by default, as INTERIORS=1 in tools/perf/candidate-build-mac.sh): before the
+  package, every interior declared in tools\interiors\*.json (all but catalog.json) is rebuilt
+  headless by tools\interiors\unreal\build_interior_level.py with its anchor in the city map
+  (GTP_INTERIOR_ANCHOR=1), and its level is added to MapsToCook for this package only
+  (DirectoriesToAlwaysCook skips maps). The script stops in clear if a level is missing or its
+  report has errors. Afterwards, whatever happens: DefaultGame.ini is put back byte for byte,
+  Content\Maps is put back as found and its md5 checked, a generated interior level that was
+  there before is restored and one the step created is removed. Needs the editor built for this
+  commit (the step builds GranTheftPralineEditor first, quick when it is up to date).
 
   Environment:
     UE_ROOT        Unreal Engine install (default: C:\Program Files\Epic Games\UE_5.8)
@@ -21,6 +32,8 @@
                    is incremental, so a retry resumes most of the work)
     VERSION_TAG    release tag (v0.9.0-rc1): sets ProjectVersion before the build
                    (tools\qa\stamp-version.ps1), as package-mac.sh does
+    INTERIORS      1 (default) or 0
+    INTERIOR_MINUTES  time limit of one interior build (default 20)
 
   Logs: Builds\<version>\package.log
 #>
@@ -28,15 +41,27 @@
 param(
   [Parameter(Position = 0)][string]$Version = '',
   [Parameter(Position = 1)][string]$Configuration = 'Shipping',
-  [switch]$DryRun
+  [switch]$DryRun,
+  [switch]$NoInteriors
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+# Put back what the interiors step changed; set once the step has saved its arrival state.
+$script:putBack = $null
+$script:putBackFailed = $false
+
 function Fail([string]$Message) {
   [Console]::Error.WriteLine("package-win: $Message")
+  if ($null -ne $script:putBack) { & $script:putBack }
   exit 1
+}
+
+# Any terminating error after the interiors step started: put the project back, then stop.
+trap {
+  if ($null -ne $script:putBack) { & $script:putBack }
+  break
 }
 
 function EnvOr([string]$Name, [string]$Default) {
@@ -111,6 +136,151 @@ $uatArgs = @(
 )
 $cmdLine = ((@($runUat) + $uatArgs) | ForEach-Object { Quote $_ }) -join ' '
 
+# --- interiors ------------------------------------------------------------------------------
+$interiors = (-not $NoInteriors) -and ((EnvOr 'INTERIORS' '1') -ne '0')
+$contentDir = Join-Path $projectDir 'Content'
+$gameIni = Join-Path $projectDir 'Config\DefaultGame.ini'
+$mapsDir = Join-Path $contentDir 'Maps'
+$cityMap = Join-Path $mapsDir 'L_City_RueDeLaRepublique.umap'
+$editorCmd = Join-Path $ueRoot 'Engine\Binaries\Win64\UnrealEditor-Cmd.exe'
+$buildBat = Join-Path $ueRoot 'Engine\Build\BatchFiles\Build.bat'
+$interiorScript = Join-Path $repoRoot 'tools\interiors\unreal\build_interior_level.py'
+$interiorIds = @()
+if ($interiors) {
+  $interiorIds = @(Get-ChildItem -LiteralPath (Join-Path $repoRoot 'tools\interiors') -Filter '*.json' -File |
+    Where-Object { $_.Name -ne 'catalog.json' } | Sort-Object Name | ForEach-Object { $_.BaseName })
+  if ($interiorIds.Count -eq 0) { Fail 'interiors step on but no interior declared in tools\interiors\*.json' }
+  if (-not (Test-Path -LiteralPath $interiorScript)) { Fail "missing $interiorScript" }
+  if (-not (Test-Path -LiteralPath (Join-Path $contentDir 'Python\gtp_run.py'))) { Fail 'Content\Python\gtp_run.py missing' }
+}
+
+# The files build_interior_level.py writes for one interior, relative to Content.
+function InteriorFiles([string]$Id) {
+  return @("Interiors\L_Interior_$Id.umap", "__ExternalActors__\Interiors\L_Interior_$Id", "__ExternalObjects__\Interiors\L_Interior_$Id")
+}
+
+function Md5Of([string]$Path) {
+  if (-not (Test-Path -LiteralPath $Path)) { return 'missing' }
+  return (Get-FileHash -LiteralPath $Path -Algorithm MD5).Hash.ToLowerInvariant()
+}
+
+function RunInterior([string]$Id, [string]$LogDir) {
+  $report = Join-Path $projectDir "Saved\InteriorBuild\$Id.json"
+  if (Test-Path -LiteralPath $report) { Remove-Item -LiteralPath $report -Force }
+  $log = Join-Path $LogDir "interior-$Id.log"
+  [Environment]::SetEnvironmentVariable('GTP_PY_SCRIPT', $interiorScript, 'Process')
+  [Environment]::SetEnvironmentVariable('GTP_INTERIOR_SPEC', (Join-Path $repoRoot "tools\interiors\$Id.json"), 'Process')
+  [Environment]::SetEnvironmentVariable('GTP_INTERIOR_ANCHOR', '1', 'Process')
+  # The script value is quoted: unquoted, Unreal stops reading it at the first ')'.
+  $editorArgs = (Quote $projectFile) + ' -run=pythonscript "-script=__import__(''gtp_run'').main()"' +
+    ' -nullrhi -unattended -nosplash -nosound -stdout -FullStdOutLogOutput -abslog="' + $log + '"'
+  Write-Output "Interior ${Id}: building the level headless (log $log)"
+  $proc = Start-Process -FilePath $editorCmd -ArgumentList $editorArgs -RedirectStandardOutput "$log.out" `
+    -RedirectStandardError "$log.err" -NoNewWindow -PassThru
+  $null = $proc.Handle
+  $limitMs = [int](EnvOr 'INTERIOR_MINUTES' '20') * 60 * 1000
+  if (-not $proc.WaitForExit($limitMs)) {
+    StopTree $proc.Id
+    $proc.WaitForExit()
+    Fail "interior ${Id}: build over $(EnvOr 'INTERIOR_MINUTES' '20') min, stopped (see $log)"
+  }
+  $proc.WaitForExit()
+  # The exit code alone is not the verdict (an unrelated asset that fails to load gives 1): the
+  # report and the level are. It is always printed.
+  Write-Output "Interior ${Id}: editor exit code $($proc.ExitCode)"
+  if (-not (Test-Path -LiteralPath $report)) { Fail "interior ${Id}: no report $report (see $log)" }
+  $parsed = Get-Content -LiteralPath $report -Raw | ConvertFrom-Json
+  $errors = @($parsed.errors)
+  if ($errors.Count -gt 0) {
+    $errors | ForEach-Object { [Console]::Error.WriteLine("interior ${Id}: $_") }
+    Fail "interior ${Id}: $($errors.Count) errors in $report"
+  }
+  if (-not (Test-Path -LiteralPath (Join-Path $contentDir "Interiors\L_Interior_$Id.umap"))) {
+    Fail "interior ${Id}: L_Interior_$Id.umap missing after the build"
+  }
+  Copy-Item -LiteralPath $report -Destination (Join-Path $LogDir "interior-$Id.json") -Force
+}
+
+function AddMapsToCook([string[]]$Maps) {
+  $text = [IO.File]::ReadAllText($gameIni)
+  $eol = "`n"
+  if ($text.Contains("`r`n")) { $eol = "`r`n" }
+  $key = '[/Script/UnrealEd.ProjectPackagingSettings]' + $eol
+  $at = $text.IndexOf($key)
+  if ($at -lt 0) { Fail 'no [/Script/UnrealEd.ProjectPackagingSettings] section in DefaultGame.ini' }
+  $lines = ($Maps | ForEach-Object { "+MapsToCook=(FilePath=`"$_`")" + $eol }) -join ''
+  $text = $text.Insert($at + $key.Length, $lines)
+  [IO.File]::WriteAllText($gameIni, $text, (New-Object Text.UTF8Encoding($false)))
+}
+
+if ($interiors -and $DryRun) {
+  Write-Output "Dry run, interiors step: $($interiorIds -join ', ') rebuilt with $editorCmd, then MapsToCook +"
+  $interiorIds | ForEach-Object { Write-Output "  /Game/Interiors/L_Interior_$_" }
+  Write-Output "  DefaultGame.ini md5 $(Md5Of $gameIni), city map md5 $(Md5Of $cityMap): both put back and checked after the package"
+}
+
+if ($interiors -and -not $DryRun) {
+  if (-not (Test-Path -LiteralPath $editorCmd)) { Fail "UnrealEditor-Cmd.exe not found: $editorCmd (set UE_ROOT)" }
+  if (-not (Test-Path -LiteralPath $cityMap)) { Fail "city map not found: $cityMap" }
+  $stepDir = Join-Path $projectDir ('Saved\package-win-interiors-' + (Get-Date).ToString('yyyyMMdd-HHmmss'))
+  New-Item -ItemType Directory -Force -Path $stepDir | Out-Null
+  $mapMd5 = Md5Of $cityMap
+  $iniMd5 = Md5Of $gameIni
+  $iniBytes = [IO.File]::ReadAllBytes($gameIni)
+  $mapsReal = (Get-Item -LiteralPath $mapsDir).FullName
+  $snapshot = Join-Path $stepDir 'snapshot'
+  Copy-Item -LiteralPath $mapsReal -Destination (Join-Path $snapshot 'Maps') -Recurse -Force
+  $created = @()
+  foreach ($id in $interiorIds) {
+    foreach ($rel in (InteriorFiles $id)) {
+      $created += $rel
+      $src = Join-Path $contentDir $rel
+      if (Test-Path -LiteralPath $src) {
+        $dest = Join-Path $snapshot $rel
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $dest) | Out-Null
+        Copy-Item -LiteralPath $src -Destination $dest -Recurse -Force
+      }
+    }
+  }
+  Write-Output "Interiors: arrival state saved in $stepDir (city map md5 $mapMd5, DefaultGame.ini md5 $iniMd5)"
+  $script:putBack = {
+    $script:putBack = $null   # once
+    $problems = 0
+    try { [IO.File]::WriteAllBytes($gameIni, $iniBytes) } catch { [Console]::Error.WriteLine("put back DefaultGame.ini failed: $_"); $problems++ }
+    foreach ($rel in $created) {
+      $target = Join-Path $contentDir $rel
+      $saved = Join-Path $snapshot $rel
+      try {
+        if (Test-Path -LiteralPath $target) { Remove-Item -LiteralPath $target -Recurse -Force }
+        if (Test-Path -LiteralPath $saved) { Copy-Item -LiteralPath $saved -Destination $target -Recurse -Force }
+      } catch { [Console]::Error.WriteLine("put back $rel failed: $_"); $problems++ }
+    }
+    try {
+      Get-ChildItem -LiteralPath $mapsReal -Force | Remove-Item -Recurse -Force
+      Get-ChildItem -LiteralPath (Join-Path $snapshot 'Maps') -Force | Copy-Item -Destination $mapsReal -Recurse -Force
+    } catch { [Console]::Error.WriteLine("put back Content\Maps failed: $_"); $problems++ }
+    $nowMap = Md5Of $cityMap
+    $nowIni = Md5Of $gameIni
+    Write-Output "Put back: city map md5 $nowMap ($(if ($nowMap -eq $mapMd5) { 'unchanged' } else { "CHANGED from $mapMd5" })), DefaultGame.ini md5 $nowIni ($(if ($nowIni -eq $iniMd5) { 'unchanged' } else { "CHANGED from $iniMd5" }))"
+    if ($nowMap -ne $mapMd5 -or $nowIni -ne $iniMd5) { $problems++ }
+    if ($problems -eq 0) {
+      Remove-Item -LiteralPath $snapshot -Recurse -Force
+    } else {
+      [Console]::Error.WriteLine("package-win: put back incomplete, the arrival state is kept in $snapshot")
+      $script:putBackFailed = $true
+    }
+  }
+  Write-Output 'Interiors: building the editor for this commit'
+  $buildLine = (Quote $buildBat) + ' GranTheftPralineEditor Win64 Development ' + (Quote "-project=$projectFile") + ' -WaitMutex'
+  $build = Start-Process -FilePath 'cmd.exe' -ArgumentList "/d /s /c `"$buildLine`"" -NoNewWindow -PassThru `
+    -RedirectStandardOutput (Join-Path $stepDir 'editor-build.log') -RedirectStandardError (Join-Path $stepDir 'editor-build.err')
+  $null = $build.Handle
+  $build.WaitForExit()
+  if ($build.ExitCode -ne 0) { Fail "editor build failed (exit $($build.ExitCode), see $stepDir\editor-build.log)" }
+  foreach ($id in $interiorIds) { RunInterior $id $stepDir }
+  AddMapsToCook ($interiorIds | ForEach-Object { "/Game/Interiors/L_Interior_$_" })
+  Write-Output "Interiors: $($interiorIds -join ', ') built, added to MapsToCook for this package only"
+}
 Write-Output "Packaging version $Version ($Configuration) into $outDir"
 Write-Output "Engine: $ueRoot"
 Write-Output "Full log: $logFile (watchdog: $stallMinutes min without output, $maxMinutes min max, $retries retry)"
@@ -200,6 +370,9 @@ while ($true) {
     ForEach-Object { [Console]::Error.WriteLine($_.Line) }
   Fail "see $logFile"
 }
+
+if ($null -ne $script:putBack) { & $script:putBack }
+if ($script:putBackFailed) { Fail 'the interiors step could not put the project back as found (see above)' }
 
 # BuildCookRun archives into <archivedirectory>\Windows\ (older engines: WindowsNoEditor).
 $builtExe = Get-ChildItem -LiteralPath $stagingDir -Filter 'GranTheftPraline*.exe' -Recurse -Depth 2 -ErrorAction SilentlyContinue |
