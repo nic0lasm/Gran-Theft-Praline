@@ -152,7 +152,7 @@ def standin_material(cls, cache):
             # Created by 994c26a without the flag: set it and rebuild the shaders once.
             mat.set_editor_property("used_with_instanced_static_meshes", True)
             unreal.MaterialEditingLibrary.recompile_material(mat)
-            eal.save_loaded_asset(mat)
+            save_in_project(mat)
         cache[family] = mat
         return mat
     mel = unreal.MaterialEditingLibrary
@@ -172,7 +172,7 @@ def standin_material(cls, cache):
             c.set_editor_property("r", float(value))
             mel.connect_material_property(c, "", prop)
         mel.recompile_material(mat)
-        eal.save_loaded_asset(mat)
+        save_in_project(mat)
     except Exception as error:
         unreal.log_warning("[InteriorLevel] stand-in %s not created: %s" % (family, error))
         mat = None
@@ -180,26 +180,80 @@ def standin_material(cls, cache):
     return mat
 
 
+def save_in_project(asset):
+    """Save an asset only when it belongs to the project (/Game): the engine and plug-in content is
+    shared by every project on the machine and is never written."""
+    path = asset.get_path_name() if asset else ""
+    if not path.startswith("/Game/"):
+        raise RuntimeError("refusing to save outside the project: " + path)
+    return eal.save_loaded_asset(asset)
+
+
+STANDIN_PARENTS = "/Game/Interiors/StandIn/Parents"   # project copies of plug-in base materials
+
+
+def project_base(iface, done, report):
+    """The base material of a slot as a project asset. Only /Game is ever changed or saved: when the
+    base lives in the engine or a plug-in (Interchange's M_GLTF for glTF imports), a copy is made
+    under STANDIN_PARENTS and the project's material instance is reparented to it. None when the
+    slot is not a project material instance over such a base (left as it is, with a warning)."""
+    base = iface.get_base_material()
+    if base is None:
+        return None
+    path = base.get_path_name()
+    if path.startswith("/Game/"):
+        return base
+    if not (isinstance(iface, unreal.MaterialInstanceConstant) and iface.get_path_name().startswith("/Game/")):
+        if path not in done:
+            done.add(path)
+            report.setdefault("warnings", []).append("base material outside the project, left as is: " + path)
+        return None
+    copy_path = "%s/%s" % (STANDIN_PARENTS, base.get_name())
+    copy = eal.load_asset(copy_path) if eal.does_asset_exist(copy_path) else eal.duplicate_asset(path, copy_path)
+    if copy is None:
+        report.setdefault("warnings", []).append("cannot copy %s into the project" % path)
+        return None
+    # The instance's direct parent may itself be a plug-in instance: walk up to the first /Game
+    # instance whose parent is outside the project and reparent that one.
+    node = iface
+    while True:
+        parent = node.get_editor_property("parent")
+        if parent is None or not isinstance(parent, unreal.MaterialInstanceConstant) or not parent.get_path_name().startswith("/Game/"):
+            break
+        node = parent
+    if node.get_editor_property("parent") != copy:
+        unreal.MaterialEditingLibrary.set_material_instance_parent(node, copy)
+        save_in_project(node)
+        report.setdefault("reparented", []).append(node.get_path_name())
+    return copy
+
+
 def flag_for_instancing(mesh, done, report):
     """Every object is an instanced static mesh: a material without the instanced usage flag renders
     as the default checkerboard in a game and a package ("missing usage flag InstancedStaticMeshes"),
-    and the downloaded packs never set it. Set it on the base materials of the mesh, once, and save
-    (local content, out of Git)."""
+    and the downloaded packs never set it. Set it on the base materials of the mesh, once, and save.
+    Never outside /Game: an engine or plug-in base is copied into the project first (project_base)."""
     for slot in mesh.get_editor_property("static_materials"):
         iface = slot.get_editor_property("material_interface")
-        base = iface.get_base_material() if iface else None
+        if iface is None:
+            continue
+        try:
+            base = project_base(iface, done, report)
+        except Exception as error:
+            report.setdefault("warnings", []).append("base of %s: %s" % (iface.get_path_name(), error))
+            continue
         if base is None:
             continue
         path = base.get_path_name()
         if path in done:
             continue
         done.add(path)
-        if path.startswith("/Engine/") or base.get_editor_property("used_with_instanced_static_meshes"):
+        if not path.startswith("/Game/") or base.get_editor_property("used_with_instanced_static_meshes"):
             continue
         try:
             base.set_editor_property("used_with_instanced_static_meshes", True)
             unreal.MaterialEditingLibrary.recompile_material(base)
-            eal.save_loaded_asset(base)
+            save_in_project(base)
             report.setdefault("instancing_flag_set", []).append(path)
         except Exception as error:
             report.setdefault("warnings", []).append("usage flag on %s: %s" % (path, error))
