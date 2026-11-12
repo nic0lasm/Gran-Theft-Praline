@@ -96,7 +96,8 @@
    "keywords": [
     "fry_station",
     "fry_dump",
-    "fries_station"
+    "fries_station",
+    "food_fries"
    ]
   },
   "fry_scoop": {
@@ -149,7 +150,9 @@
    "items_per_instance": 1,
    "interactive": true,
    "keywords": [
-    "spatula"
+    "spatula",
+    "solid_turner",
+    "turner"
    ]
   },
   "scraper": {
@@ -157,7 +160,10 @@
    "tris_lod0": 900,
    "sections": 1,
    "items_per_instance": 1,
-   "interactive": false
+   "interactive": false,
+   "keywords": [
+    "turner"
+   ]
   },
   "patty_tray": {
    "size": "small",
@@ -236,7 +242,8 @@
    "items_per_instance": 1,
    "interactive": false,
    "keywords": [
-    "gastronorm"
+    "gastronorm",
+    "metallic_container"
    ]
   },
   "sauce_gun": {
@@ -244,7 +251,10 @@
    "tris_lod0": 3000,
    "sections": 1,
    "items_per_instance": 1,
-   "interactive": true
+   "interactive": true,
+   "keywords": [
+    "ketchup_bottle"
+   ]
   },
   "wrapper_kit": {
    "size": "small",
@@ -258,14 +268,20 @@
    "tris_lod0": 2400,
    "sections": 1,
    "items_per_instance": 20,
-   "interactive": false
+   "interactive": false,
+   "keywords": [
+    "container_box_styrofoam"
+   ]
   },
   "kvs_screen": {
    "size": "medium",
    "tris_lod0": 2500,
    "sections": 2,
    "items_per_instance": 1,
-   "interactive": false
+   "interactive": false,
+   "keywords": [
+    "sm_tv"
+   ]
   },
   "holding_cabinet": {
    "size": "large",
@@ -387,7 +403,8 @@
    "keywords": [
     "cake_display",
     "bakery",
-    "display_case"
+    "display_case",
+    "supermarket_fridge"
    ]
   },
   "pastry": {
@@ -478,7 +495,10 @@
    "tris_lod0": 1500,
    "sections": 2,
    "items_per_instance": 1,
-   "interactive": false
+   "interactive": false,
+   "keywords": [
+    "sm_tv"
+   ]
   },
   "napkin_kit": {
    "size": "small",
@@ -530,7 +550,10 @@
    "tris_lod0": 3000,
    "sections": 1,
    "items_per_instance": 1,
-   "interactive": false
+   "interactive": false,
+   "keywords": [
+    "metal_rack"
+   ]
   },
   "utensil": {
    "size": "micro",
@@ -601,7 +624,10 @@
    "tris_lod0": 800,
    "sections": 1,
    "items_per_instance": 1,
-   "interactive": true
+   "interactive": true,
+   "keywords": [
+    "paper_bag"
+   ]
   },
   "desk": {
    "size": "large",
@@ -626,7 +652,8 @@
    "interactive": true,
    "keywords": [
     "office_chair",
-    "chair_mixed"
+    "chair_mixed",
+    "sm_chair"
    ]
   },
   "safe": {
@@ -685,7 +712,10 @@
    "tris_lod0": 1500,
    "sections": 1,
    "items_per_instance": 1,
-   "interactive": false
+   "interactive": false,
+   "keywords": [
+    "bench"
+   ]
   },
   "table_2": {
    "size": "medium",
@@ -733,7 +763,8 @@
    ],
    "keywords": [
     "high_table",
-    "bar_table"
+    "bar_table",
+    "sm_bar"
    ]
   },
   "booth": {
@@ -920,7 +951,8 @@
     1.9
    ],
    "keywords": [
-    "kiosk"
+    "kiosk",
+    "pay_display"
    ]
   },
   "ceiling_tile": {
@@ -1038,7 +1070,10 @@
    "tris_lod0": 5000,
    "sections": 1,
    "items_per_instance": 1,
-   "interactive": true
+   "interactive": true,
+   "keywords": [
+    "bar_chair"
+   ]
   },
   "tray_return": {
    "size": "large",
@@ -1050,7 +1085,8 @@
     1.2,
     0.5,
     1.4
-   ]
+   ],
+   "keywords": []
   },
   "condiment_station": {
    "size": "large",
@@ -1062,7 +1098,8 @@
     1.0,
     0.5,
     1.0
-   ]
+   ],
+   "keywords": []
   },
   "toilet": {
    "size": "medium",
@@ -1112,7 +1149,8 @@
     1.2,
     4.5,
     3.6
-   ]
+   ],
+   "keywords": []
   }
  }
 }
