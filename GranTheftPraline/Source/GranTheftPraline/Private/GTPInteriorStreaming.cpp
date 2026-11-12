@@ -11,6 +11,7 @@
 #include "GameFramework/Actor.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
+#include "GTPCustomers.h"
 #include "GTPGraphicsProfile.h"
 #include "GTPKitchen.h"
 #include "GTPLog.h"
@@ -132,6 +133,10 @@ void UGTPInteriorStreaming::Tick(float DeltaTime)
 			if (UGTPKitchenSubsystem* Kitchen = GetWorld()->GetSubsystem<UGTPKitchenSubsystem>())
 			{
 				Kitchen->StartService(Streaming->GetLoadedLevel(), Interior.Id, Interior.Anchor);   // inert without -InteriorStaff=
+			}
+			if (UGTPCustomerSubsystem* Shop = GetWorld()->GetSubsystem<UGTPCustomerSubsystem>())
+			{
+				Shop->OpenShop(Streaming->GetLoadedLevel(), Interior.Id);   // -InteriorCustomers=0 turns it off
 			}
 			GTP_TRACE(InteriorStreaming, TEXT("visible %s t=%.2f"), *Interior.Level, GetWorld()->GetTimeSeconds());
 		}
@@ -264,6 +269,10 @@ void UGTPInteriorStreaming::Release(FInterior& Interior)
 		if (UGTPKitchenSubsystem* Kitchen = GetWorld()->GetSubsystem<UGTPKitchenSubsystem>())
 		{
 			Kitchen->StopService();
+		}
+		if (UGTPCustomerSubsystem* Shop = GetWorld()->GetSubsystem<UGTPCustomerSubsystem>())
+		{
+			Shop->CloseShop();
 		}
 	}
 	Interior.bWasVisible = false;

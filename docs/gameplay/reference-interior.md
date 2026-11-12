@@ -87,6 +87,14 @@ door → kiosk or queue → till → wait (screen shows their number) → pickup
 eat (time by meal) → tray return → exit. Target occupancy by hour (lunch peak, quiet
 afternoon, late evening). M1 up to 12 customers inside, PC 25.
 
+In the game today (first slice): `UGTPCustomerSubsystem` borrows pool pedestrians
+(`AcquireFromPool`) for the queue only. One line per till: the first place in the clear band in
+front of the till, the waiting places in a column of the queue zone (spots `GTP_CustomerSpot=q<line>_<place>`
+placed by `build_interior_level.py`). `GTPCustomerQueue.h` serves the front customer every
+12-24 s, the others step forward and a newcomer comes in every 3-7 s up to `-InteriorCustomers=N`
+(default 6, 0 for none). An armed threat in the shop freezes the queue. A served customer goes
+back to the pool. Still to come: walking between places, kiosks, tables, fleeing a hold-up.
+
 ## 6. Hold-up of several employees
 
 Rules in `GTPHoldUpModel.h` (tested in CI):

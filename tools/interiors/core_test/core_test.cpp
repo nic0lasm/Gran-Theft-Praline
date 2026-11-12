@@ -1,6 +1,7 @@
 // Checks of the till and hold-up rules (GTPCashDrawerModel.h, GTPHoldUpModel.h), no engine needed:
 //   g++ -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/interiors/core_test/core_test.cpp -o core_test && ./core_test
 #include "GTPCashDrawerModel.h"
+#include "GTPCustomerQueue.h"
 #include "GTPHoldUpModel.h"
 #include "GTPHoldUpTills.h"
 #include "GTPInteriorStreamingCore.h"
@@ -363,6 +364,47 @@ static void TillChecks()
 	Check(Empty.End(false) == EOutcome::Aborted, "leaving without cash: aborted");
 }
 
+static void CustomerChecks()
+{
+	using namespace GTPCustomers;
+	FRun Run;
+	Run.Begin({4, 4, 4}, 7, 3);
+	Check(Run.Count() == 7, "customers: the shop starts with MaxPeople");
+	Check(Run.Lines[0].People.size() == 3 && Run.Lines[2].People.size() == 2, "customers: spread over the lines, shortest first");
+	Run.Events.clear();
+	for (int Step = 0; Step < 200; ++Step)
+	{
+		Run.Step(0.1, true);
+	}
+	Check(Run.Events.empty() && Run.Count() == 7, "customers: frozen during a hold-up");
+	int Served = 0;
+	int Arrived = 0;
+	bool bInOrder = true;
+	for (int Step = 0; Step < 6000; ++Step)   // 10 minutes
+	{
+		const size_t Before = Run.Events.size();
+		Run.Step(0.1, false);
+		for (size_t Index = Before; Index < Run.Events.size(); ++Index)
+		{
+			const FEvent& Event = Run.Events[Index];
+			Served += Event.Kind == ECustomerEvent::Served ? 1 : 0;
+			Arrived += Event.Kind == ECustomerEvent::Arrived ? 1 : 0;
+			bInOrder = bInOrder && Event.Index < Run.Lines[size_t(Event.Line)].Spots;
+		}
+		if (Run.Count() > 7)
+		{
+			bInOrder = false;
+		}
+	}
+	Check(bInOrder, "customers: never more than MaxPeople, never past the last spot");
+	Check(Served >= 60 && Served <= 160, "customers: about one served per line every 12-24 s");
+	Check(Run.Count() >= 4, "customers: the lines stay busy");
+	Check(Arrived >= Served - 7, "customers: newcomers replace those served");
+	FRun Small;
+	Small.Begin({2}, 9, 1);
+	Check(Small.MaxPeople == 2 && Small.Count() == 2, "customers: no more than the spots");
+}
+
 int main()
 {
 	CashChecks();
@@ -372,6 +414,7 @@ int main()
 	WalletChecks();
 	InteriorIdChecks();
 	TillChecks();
+	CustomerChecks();
 	std::printf(Failures == 0 ? "all checks passed\n" : "%d check(s) failed\n", Failures);
 	return Failures == 0 ? 0 : 1;
 }
