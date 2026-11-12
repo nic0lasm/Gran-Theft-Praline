@@ -73,7 +73,8 @@ def launch(name, script, report, limit_s, env_extra, game, args):
         w, h = args.res.split("x")
         cmd = [args.editor, PROJECT, MAP, "-game", "-windowed", "-ResX=" + w, "-ResY=" + h, "-nosound",
                "-NoScreenMessages", "-unattended", "-NSAppSleepDisabled", "YES", "-abslog=" + log,
-               "-ExecCmds=r.SetRes %sw, py __import__('gtp_run').main()" % args.res]
+               "-ExecCmds=r.SetRes %sw, r.VSync 0, t.MaxFPS %d, py __import__('gtp_run').main()"
+               % (args.res, args.max_fps)]
     else:
         env["GTP_NULLRHI"] = "1"
         cmd = [args.editor, PROJECT, "-nullrhi", "-unattended", "-nosplash", "-nosound", "-NSAppSleepDisabled", "YES",
@@ -161,6 +162,8 @@ def main():
     ap.add_argument("--loose", default=os.environ.get("GTP_SURFACES_DIR", ""),
                     help="folder of loose Fab exports (one folder per listing), imported first")
     ap.add_argument("--res", default="2560x1440")
+    ap.add_argument("--max-fps", type=int, default=0,
+                    help="frame cap of the walks (0 = none, so the frame times show the GPU cost)")
     ap.add_argument("--editor", default=qb.default_editor())
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
