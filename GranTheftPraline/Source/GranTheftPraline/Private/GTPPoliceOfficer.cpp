@@ -5,6 +5,7 @@
 #include "Engine/World.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
+#include "GTPLog.h"
 #include "GTPVehicle.h"
 #include "GTPWanted.h"
 #include "GTPWeapon.h"
@@ -97,6 +98,10 @@ void AGTPPoliceOfficer::Tick(float DeltaSeconds)
 	}
 	else
 	{
+		if (SearchSeconds <= 0.f)
+		{
+			GTP_TRACE(LogTemp, TEXT("police: officer lost sight, searching (slot %d/%d)"), SlotIndex, SlotCount);
+		}
 		SearchSeconds += DeltaSeconds;
 		float Ox = 0.f, Oy = 0.f;
 		GTPPoliceTactics::SearchOffset(Tactics, SlotIndex, SlotCount, SearchSeconds, Ox, Oy);
@@ -122,7 +127,8 @@ void AGTPPoliceOfficer::Tick(float DeltaSeconds)
 	FireCooldown = FMath::Max(0.f, FireCooldown - DeltaSeconds);
 	if (Weapon && bSees && GTPPoliceTactics::MayFire(Tactics, Stars, Wanted->IsPlayerAggressive(), Distance, true, FireCooldown))
 	{
-		Weapon->FireAt(Player + FVector(0.f, 0.f, 40.f), GTPPoliceTactics::SpreadFactor(Tactics, Stars));
+		const bool bFired = Weapon->FireAt(Player + FVector(0.f, 0.f, 40.f), GTPPoliceTactics::SpreadFactor(Tactics, Stars));
+		GTP_TRACE(LogTemp, TEXT("police: officer %s at %.0f m stars=%d"), bFired ? TEXT("fires") : TEXT("dry"), Distance * 0.01f, Stars);
 		FireCooldown = GTPPoliceTactics::FireInterval(Tactics, Stars);
 	}
 }
