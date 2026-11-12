@@ -1,5 +1,5 @@
 # Mac state 2026-11-12 23:13 Paris
 
-- block: list done
-- last line: 23:13 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+- block: night59 endurance on cand17b
+- last line: 23:13 night59 starts (endurance on cand17b until 07:30)
 - startup crashes: 4
