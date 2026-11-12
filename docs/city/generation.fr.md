@@ -540,8 +540,9 @@ n'apparaît qu'aux croisements avec des rues ouvertes aux voitures.
 Deux repères pour la tranche (`landmarks.py`) : l'immeuble du Pathé Bellecour (voie OSM 82377010)
 prend son volume LiDAR, tour d'angle comprise (35 m ; le toit générique la coupait), et le bassin de la
 place de la République (voie 129172257) un nouveau type `basin` : margelle en pierre de 0,45 m sur le
-contour OSM et un plan d'eau, car le LiDAR n'y voit aucun volume. Le carrousel n'a pas encore
-d'emprise OSM.
+contour OSM et un plan d'eau, car le LiDAR n'y voit aucun volume. Le carrousel n'a pas d'emprise
+OSM : un volume `carousel` (12 m, 6,5 m de haut) est posé au bord nord du bassin, position estimée
+sur la photo V4 (±10 m, à recaler sur la vue de dessus V0).
 
 ## Limites et suite
 
