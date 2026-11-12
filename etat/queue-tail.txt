@@ -1,33 +1,3 @@
-14:58 == cand15b-weather drive0 start (120 s, direct, no -userdir)
-15:00 cand15b weather overcast -DriveClouds=0: overcast-drive0: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 1 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 30.9 | gpu p50 14.15 p95 21.18 | gate PASS | cloud_mode_applied=volumetric;drive_cloud_coverage=0;cloud_coverage_params=no cloud material;
-15:01 == cand15b-weather drive1 start (120 s, direct, no -userdir)
-15:03 cand15b weather overcast -DriveClouds=1: overcast-drive1: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.1 | gpu p50 14.12 p95 21.18 | gate PASS | cloud_mode_applied=volumetric;drive_cloud_coverage=1;cloud_coverage_params=no cloud material;
-15:04 cand15b weather still drive0: frame_00000.jpg
-15:04 cand15b weather still drive1: frame_00000.jpg
-15:04 pushed cand15b/weather
-15:05 cand15b still street: frame_00000.jpg | LogGTPPedestrians: active=24 drawn=13 wanted=24 spawned=24 fled=0 hit=0 far=0
-15:06 pushed etat
-15:06 cand15b still title: frame_00000.jpg | 
-15:06 cand15b: credits screen not captured (needs keyboard input in the game window; no command-line switch opens it)
-15:06 cand15b: gate 4/4 (street-demo median) and no crash in 600 s, endurance on cand15b
-15:06 pushed cand15b
-15:06 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
-15:06 pushed etat
-15:06 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
-15:07 demo-src ped0-1 stopped (cand16 goes first, relay 14:05Z); list55 stopped
-15:07 pushed etat
-15:07 list56 starts (list55 stopped after the cand15b push and its check)
-15:07 visuals interior-counter-cand12: 1440x1080 -> 1440 810 (no upscale)
-15:07 visuals interior-counter-cand13: 1440x1080 -> 1440 810 (no upscale)
-15:07 visuals night-cand12: 1440x1080 -> 1440 810 (no upscale)
-15:07 visuals night-cand13: 1440x1080 -> 1440 810 (no upscale)
-15:07 visuals rain-cand12: 1440x1080 -> 1440 810 (no upscale)
-15:07 visuals rain-cand13: 1440x1080 -> 1440 810 (no upscale)
-15:07 visuals street-noon-cand12: 1440x1080 -> 1440 810 (no upscale)
-15:07 visuals street-noon-cand13: 1440x1080 -> 1440 810 (no upscale)
-15:07 pushed visuals-20261112
-15:07 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
-15:07 endurance package: cand13
 15:07 endurance package now: cand15b
 15:07 pushed etat
 15:08 pushed etat
@@ -58,3 +28,33 @@
 15:24 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
 15:25 == loop-endurance-2-1 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
 15:35 loop-endurance-2-1: exit=0 crash=no last t=wanted: t=597 wanted=299 police=87 police-in-last-10=5 pool-drops=0 | loop-endurance-2-1: 23797 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.7 | gpu p50 14.04 p95 20.91 | gate PASS
+15:35 pushed etat
+15:35 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+15:35 cand16: ProjectVersion ProjectVersion=0.9.0; pedestrian defaults: MaxVisible=20 
+15:35 == cand16-envsetup start
+15:35 == cand16-envsetup exit=0
+15:35 cand16 env setup exit=0; map md5 before 1c92de0f813b89cb40aeb000cd92a1de after 1c92de0f813b89cb40aeb000cd92a1de (unchanged); Weather now: MPC_Environment.uasset M_CloudDome.uasset M_CloudShadowLF.uasset M_RainLayer.uasset T_PuddleNoise.uasset T_RainStreaks.uasset ; report errors: "errors": []
+15:35 == cand16-compile start
+15:36 == cand16-compile exit=0
+15:36 == cand16-blood start
+15:36 == cand16-blood exit=0
+15:36 cand16 blood: LogPython: Warning: [CombatMaterials] built /Game/Combat/Materials/M_GTP_BloodPool;
+15:36 == cand16-build start
+15:49 == cand16-build exit=0
+15:49 cand16 stamp_version --check: exit 0 (ProjectVersion=0.9.0)
+15:49 cand16 build exit=0; - interiors: OK, 27 s, log interiors.log;- interior maps cooked for this package only: /Game/Interiors/L_Interior_fastfood_bellecour ;- map md5 at the end: 1c92de0f813b89cb40aeb000cd92a1de, unchanged;- DefaultGame.ini md5 at the end: fc66e1142c433767db1976344c236276, unchanged;- tracked changes at the end: 0, clone on 1a1418e;; ini md5 vs start same
+15:49 cand16 restore: Combat removed 1 file(s); Content/Interiors entries 0; tracked changes 0
+15:49 cand16 env restore: Weather 6 file(s), NightLights md5 70ff568fc6a2792a13d125c9ebb545c0
+15:49 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+15:49 cand16: gate args without the pedestrian overrides (shipped defaults): -Sky=lightfunction -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -PoliceMax=3 
+16:00 cand16 street-fixed: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.3 | gpu p50 13.92 p95 20.92 | gate PASS | LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy | pool drops 0
+16:00 cand16 street-demo: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.1 | gpu p50 16.70 p95 25.29 | gate FAIL | LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy | pool drops 0
+16:00 cand16 night: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.4 | gpu p50 15.52 p95 23.81 | gate PASS | LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy | pool drops 0
+16:00 cand16 rain: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 1 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 27.5 | gpu p50 14.72 p95 23.17 | gate PASS | LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy | pool drops 0
+16:03 cand16 street-demo pass 2: demo2: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 1 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 26.5 | gpu p50 15.48 p95 22.24 | gate PASS | plateau after 60 s: no (mean p95 of the 60-120 s slices 22.4 ms)
+16:06 cand16 street-demo pass 3: demo3: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.1 | gpu p50 14.86 p95 21.70 | gate PASS | plateau after 60 s: no (mean p95 of the 60-120 s slices 21.4 ms)
+16:06 cand16 pedestrians in street-fixed: LogGTPPedestrians: active=24 drawn=13 wanted=24 spawned=26 fled=0 hit=0 far=0
+16:06 cand16 pedestrians in night: LogGTPPedestrians: active=24 drawn=20 wanted=24 spawned=27 fled=4 hit=0 far=0
+16:06 cand16 gate: street-demo GPU p95 median of 3 = 22.24 ms; gate 4/4 with the street-demo median
+16:06 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+16:06 == cand16-long600 start (600 s, no -userdir) -Sky=lightfunction -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -PoliceMax=3 
