@@ -1,13 +1,3 @@
-16:00 cand16 street-demo: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.1 | gpu p50 16.70 p95 25.29 | gate FAIL | LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy | pool drops 0
-16:00 cand16 night: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.4 | gpu p50 15.52 p95 23.81 | gate PASS | LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy | pool drops 0
-16:00 cand16 rain: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 1 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 27.5 | gpu p50 14.72 p95 23.17 | gate PASS | LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy | pool drops 0
-16:03 cand16 street-demo pass 2: demo2: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 1 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 26.5 | gpu p50 15.48 p95 22.24 | gate PASS | plateau after 60 s: no (mean p95 of the 60-120 s slices 22.4 ms)
-16:06 cand16 street-demo pass 3: demo3: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.1 | gpu p50 14.86 p95 21.70 | gate PASS | plateau after 60 s: no (mean p95 of the 60-120 s slices 21.4 ms)
-16:06 cand16 pedestrians in street-fixed: LogGTPPedestrians: active=24 drawn=13 wanted=24 spawned=26 fled=0 hit=0 far=0
-16:06 cand16 pedestrians in night: LogGTPPedestrians: active=24 drawn=20 wanted=24 spawned=27 fled=4 hit=0 far=0
-16:06 cand16 gate: street-demo GPU p95 median of 3 = 22.24 ms; gate 4/4 with the street-demo median
-16:06 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
-16:06 == cand16-long600 start (600 s, no -userdir) -Sky=lightfunction -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -PoliceMax=3 
 16:11 pushed etat
 16:16 cand16-long600: crash no (exit 0), end t=597, reused=151 | long600: 23797 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.2 | gpu p50 14.04 p95 20.92 | gate PASS
 16:16 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
@@ -58,3 +48,13 @@
 17:42 loop-endurance-5-2: exit=0 crash=no last t=wanted: t=598 wanted=299 police=88 police-in-last-10=5 pool-drops=0 | loop-endurance-5-2: 23796 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.2 | gpu p50 14.04 p95 20.99 | gate PASS
 17:42 pushed loop-endurance-5
 17:42 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+17:42 pushed etat
+17:42 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+17:42 receiver 8765 started for 30 min (owner approval 17:41): endurance pass in progress is not representative for GPU (transfer)
+17:42 == loop-endurance-6-1 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
+17:44 receiver 8765 stopped (transfer done, SHA verified)
+17:52 loop-endurance-6-1: exit=0 crash=no last t=wanted: t=598 wanted=299 police=85 police-in-last-10=5 pool-drops=0 | loop-endurance-6-1: 23796 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.2 | gpu p50 14.07 p95 21.08 | gate PASS
+17:52 == loop-endurance-6-2 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
+18:02 loop-endurance-6-2: exit=0 crash=no last t=wanted: t=598 wanted=299 police=87 police-in-last-10=5 pool-drops=0 | loop-endurance-6-2: 23794 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 4 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 33.8 | gpu p50 14.27 p95 21.21 | gate PASS
+18:03 pushed loop-endurance-6
+18:03 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
