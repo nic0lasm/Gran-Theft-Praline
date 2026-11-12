@@ -30,6 +30,7 @@ int main()
 	Expect(ScaledEndCm(300, 10) == 300, "a 3 m end is not raised");
 	Expect(ScaledEndCm(2147483000, 60) > 0, "no overflow on a huge end");
 	Expect(StartCm(2400) == 1920, "fade starts at 80 %");
+	Expect(DefaultCellDetailPct == 100 && ScaledEndCm(4000, DefaultCellDetailPct) == 4000, "default leaves distances as generated");
 	for (int End = 1; End < 200000; End += 997)
 	{
 		for (int Pct = -20; Pct <= 140; Pct += 7)

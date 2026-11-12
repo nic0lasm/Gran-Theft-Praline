@@ -74,7 +74,7 @@ void UGTPCityRenderTuning::OnWorldBeginPlay(UWorld& InWorld)
 	FParse::Value(FCommandLine::Get(), TEXT("CityCellDefaults="), CellDefaults);
 	bCellDefaults = CellDefaults != 0;
 	// Whole percent, bounded (GTPCityTuningCore.h, tested off the engine).
-	int32 Pct = GTPCityTuning::DefaultCellDetailPct;
+	int32 Pct = GTPCityTuning::DefaultCellDetailPct;   // -CityCellDetailPct=60: shorter, for A/B
 	FParse::Value(FCommandLine::Get(), TEXT("CityCellDetailPct="), Pct);
 	CellDetailPct = GTPCityTuning::ClampPct(Pct);
 	int32 Report = 0;
@@ -95,10 +95,9 @@ bool UGTPCityRenderTuning::IsCellLevel(const FString& LevelPackageName)
 
 void UGTPCityRenderTuning::CellDefaultCull(TMap<FString, float>& Out)
 {
-	// Compensation of the cells' furniture and details (optimisation thread, 11/11): courtyard
-	// facades and shop signs drawn closer; the props and details percentage is CellDetailPct.
+	// Courtyard facades are hidden from the street by the buildings in front: drawn to 60 m only.
+	// Shop signs keep their generated distance (45 and 60 m gave no GPU change on M1, 12/11).
 	Out.Add(TEXT("court"), 60.f);
-	Out.Add(TEXT("sign"), 45.f);
 }
 
 void UGTPCityRenderTuning::Deinitialize()
@@ -131,7 +130,7 @@ void UGTPCityRenderTuning::Apply(ULevel* Level)
 		CellDefaultCull(Cull);
 		if (!bShadowBelowGiven)
 		{
-			ShadowBelow = 1.0f;   // furniture and details under 1 m cast no shadow in the cells
+			ShadowBelow = 0.5f;   // as generated (place_props.py NO_SHADOW_BELOW_M): image unchanged
 		}
 		SetPct = CellDetailPct;
 	}

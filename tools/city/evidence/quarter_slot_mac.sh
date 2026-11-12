@@ -14,7 +14,7 @@
 #   per cell  import 5 min, facade kit and signs 10 min, materials 3 min
 #   package   Development, into <BUILDS_DIR>/quarter/             20 min
 #   benches (5 by default)  LAUNCH_S + 2 min each
-#   stills (STILLS, deliv and nodefaults by default; STILLS=0 skips)  about 2 min each, after
+#   stills (STILLS, deliv and pct60 by default; STILLS=0 skips)  about 2 min each, after
 #           every bench, never during one
 # Modes: BUILD_ONLY=1 stops after the package (every editor step runs -nullrhi, so a locked
 # Mac screen is fine): about 1 h 30 with 5 cells (65 min measured without furniture and details), guard limit about 3 h. SKIP_BUILD=1 runs the
@@ -218,8 +218,23 @@ except OSError:
 print("- **%s**: %d frames, p50 %.1f ms, p95 %.1f ms, p99 %.1f ms, max %.1f ms, %.1f %% <= 33.3 ms, %d frames > 100 ms%s"
       % (sys.argv[3], len(ms), q(0.5), q(0.95), q(0.99), ms[-1], 100.0 * sum(m <= 33.3 for m in ms) / len(ms),
          len(hitches), (" at " + ", ".join("%.1f s" % float(r["time_s"]) for r in hitches[:8])) if hitches else ""))
+gpu = [float(r["gpu_ms"]) for r in rows if r.get("gpu_ms") not in (None, "")]
+if gpu:
+    g = sorted(gpu)
+    gq = lambda p: g[min(len(g) - 1, int(p * len(g)))]  # noqa: E731
+    print("    GPU p50 %.2f / p95 %.2f / p99 %.2f ms" % (gq(0.5), gq(0.95), gq(0.99)))
+    # Where the p95 comes from: GPU p95 per 10 s of the run (cell loads show up as windows)
+    win = {}
+    for r in rows:
+        if r.get("gpu_ms") not in (None, ""):
+            win.setdefault(int(float(r["time_s"]) // 10), []).append(float(r["gpu_ms"]))
+    cells = []
+    for k in sorted(win):
+        w = sorted(win[k])
+        cells.append("%d-%ds %.1f/%.1f" % (k * 10, k * 10 + 10, w[len(w) // 2], w[min(len(w) - 1, int(0.95 * len(w)))]))
+    print("    GPU p50/p95 per 10 s: " + ", ".join(cells))
 for l in log[:40]:
-    print("    " + l[-140:])
+    print("    " + (l if "CityRenderTuning" in l else l[-140:]))
 PY
 }
 
@@ -285,10 +300,10 @@ launch() {  # launch <step args...>
   if test "$dry" != 1; then sleep 20; fi
   step "$@"
 }
-# BENCHES: "<tag> <game args>;..." on the same package. Default: the shippable cells (their
-# render defaults, UGTPCityRenderTuning), the cells without those defaults, the previous 70 % distances, the cells without
-# furniture and details (a cull of 0 hides a family), and proxies only.
-benches="${BENCHES:-deliv -CityCells=1 -CityTuneReport=1;nodefaults -CityCells=1 -CityCellDefaults=0 -CityTuneReport=1;pct70 -CityCells=1 -CityCellDetailPct=70 -CityTuneReport=1;bare -CityCells=1 -CityCull=props_small=0,props_medium=0,props_large=0,details_small=0,details_medium=0,details_large=0 -CityTuneReport=1;off -CityCells=0}"
+# BENCHES: "<tag> <game args>;..." on the same package. Default: the shippable cells three times
+# (run-to-run spread of the GPU p95, about 2 ms on 12/11), 60 % furniture and detail distances,
+# proxies only. Each summary gives the GPU p95 per 10 s, to find what makes the p95.
+benches="${BENCHES:-deliv -CityCells=1 -CityTuneReport=1;deliv2 -CityCells=1 -CityTuneReport=1;deliv3 -CityCells=1 -CityTuneReport=1;pct60 -CityCells=1 -CityCellDetailPct=60 -CityTuneReport=1;off -CityCells=0}"
 IFS=';' read -r -a bench_list <<< "$benches"
 for run in "${bench_list[@]}"; do
   set -- $run
@@ -299,7 +314,7 @@ done
 # --- stills, separate pass, never during a measure (project rule) -------------------------------
 # STILLS: "<tag> <game args>;..." Same deterministic demo route for each, one still every 10 s
 # from the 5th second, so stills-<tag>/frame_0000N.jpg show the same shot in every variant:
-# the image cost of the cell render defaults (deliv against nodefaults) for a card to Nico.
+# what 60 % distances would cost in image (deliv against pct60), kept for Nico.
 stills() {  # stills <tag> <game args...>
   local tag="$1"; shift
   local exe; exe="$(find "$out/quarter/GranTheftPraline.app/Contents/MacOS" -maxdepth 1 -type f -perm -u+x | head -n 1)"
@@ -311,7 +326,7 @@ stills() {  # stills <tag> <game args...>
   ls "$out/stills-$tag"/*.jpg > /dev/null 2>&1
 }
 if test "${STILLS:-}" != "0"; then
-  stills_list="${STILLS:-deliv -CityCells=1;nodefaults -CityCells=1 -CityCellDefaults=0}"
+  stills_list="${STILLS:-deliv -CityCells=1;pct60 -CityCells=1 -CityCellDetailPct=60}"
   IFS=';' read -r -a still_runs <<< "$stills_list"
   for run in "${still_runs[@]}"; do
     set -- $run

@@ -467,10 +467,11 @@ Première mise en œuvre de l'option B de l'ADR-0010, préparée et essayée hor
   la rue coupée à la boîte de la cellule, rien en double à une couture ; 1 909 dans les cinq
   cellules de la rue, à peu près les 1 890 de la map de rue). `quarter_slot_mac.sh` et
   `quarter_build.py` posent le mobilier et les détails dans chaque niveau de cellule
-  (`place_props.py`, jeux `props` et `details`). Compensation du budget, active par défaut dans
-  les seuls niveaux de cellule (`UGTPCityRenderTuning`) : façades de cour et enseignes jusqu'à
-  60 m et 45 m, distances du mobilier et des détails à 60 % (`-CityCellDetailPct=`, de 10 à 100), pas d'ombre sous
-  1 m ; `-CityCellDefaults=0` la coupe, `-CityCull` l'emporte, une distance de 0 masque une famille.
+  (`place_props.py`, jeux `props` et `details`). Réglages de rendu, actifs par défaut dans
+  les seuls niveaux de cellule (`UGTPCityRenderTuning`) : façades de cour jusqu'à 60 m
+  (cachées de la rue de toute façon) ; ombres et distances du mobilier et des détails telles que
+  générées : sur M1 (12/11), 60 %, 70 % et 100 %, ou mobilier et détails masqués, donnent le même
+  GPU p50. `-CityCellDetailPct=<10..100>` les raccourcit pour un A/B ; `-CityCellDefaults=0` la coupe, `-CityCull` l'emporte, une distance de 0 masque une famille.
 - Pas encore : mobilier et détails dans les cellules loin de la rue de la République, masque de sol à l'échelle du quartier,
   niveaux de cellule dans la liste de cuisson pour un package.
 
