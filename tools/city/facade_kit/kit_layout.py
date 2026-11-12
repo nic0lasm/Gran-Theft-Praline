@@ -44,11 +44,12 @@ VARIANTS = {
                                           "SM_Facade_Haussmann_WindowBalcony_C"],
     "SM_Facade_Haussmann_Shop": ["SM_Facade_Haussmann_Shop", "SM_Facade_Haussmann_Shop",
                                  "SM_Facade_Haussmann_Shop_B", "SM_Facade_Haussmann_Shop_C"],
-    # ground-floor bays with no OSM shop: still shop windows on these streets; one in eight shuttered
+    # ground-floor bays with no OSM shop: still open, lit shop windows on these streets by day
+    # (art direction, cand17b V3: whole frontages of lowered shutters read as a dead street)
     "SM_Facade_Haussmann_ShopClosed": ["SM_Facade_Haussmann_ShopClosed", "SM_Facade_Haussmann_ShopClosed",
                                        "SM_Facade_Haussmann_ShopClosed", "SM_Facade_Haussmann_ShopClosed_B",
                                        "SM_Facade_Haussmann_ShopClosed_B", "SM_Facade_Haussmann_ShopClosed_C",
-                                       "SM_Facade_Haussmann_ShopClosed_C", "SM_Facade_Haussmann_ShopShutter"],
+                                       "SM_Facade_Haussmann_ShopClosed_C"],
 }
 
 # Shop fascia (sign band): height, top below the storey top, and the y of its
