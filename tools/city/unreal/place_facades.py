@@ -57,6 +57,7 @@ SIZE_TOLERANCE_CM = 40.0
 
 # Draw distances per module family, metres (fil optimisation: numbers to tune after the m1
 # measure). Culling starts at CULL_START_SHARE of the end to avoid popping. 0 = never culled.
+ROOF_KINDS = ("dormer", "mansard_blank")   # mansard level (procgen.levels_for, facade_kit/roof_kit.py)
 CULL_END_M = {"ground": 250.0, "upper": 250.0, "eave": 250.0, "court": 250.0, "sign": 150.0}
 # Bench override without a code change, e.g. GTP_FACADE_CULL="court=80,upper=180".
 for _kv in filter(None, os.environ.get("GTP_FACADE_CULL", "").split(",")):
@@ -453,7 +454,8 @@ def main():
 
     top, base = {}, {}
     for r in rows:
-        top[r["building_id"]] = max(top.get(r["building_id"], 0), int(r["storey"]))
+        if r["kind"] not in ROOF_KINDS:   # the cornice crowns the last stone storey, under a mansard
+            top[r["building_id"]] = max(top.get(r["building_id"], 0), int(r["storey"]))
         base[r["building_id"]] = min(base.get(r["building_id"], 1e9), float(r["ue_z"]))
     comps, counts = {}, {}
 
@@ -514,7 +516,7 @@ def main():
         add(name, x, y, z, yaw, w / nominal["nominal_width_m"], h / nominal["nominal_height_m"], r["colour"],
             base[r["building_id"]])
         fam = kit_layout.FAMILY_OF_TYPOLOGY[r["typology"]]
-        if r["side"] == "street" and int(r["storey"]) == top[r["building_id"]]:
+        if r["side"] == "street" and r["kind"] not in ROOF_KINDS and int(r["storey"]) == top.get(r["building_id"]):
             eave = kit_layout.KIND_TO_MODULE[fam]["_eave"]
             add(eave, x, y, z + h * 100, yaw, w / manifest["modules"][eave]["nominal_width_m"], 1.0, r["colour"],
                 base[r["building_id"]])

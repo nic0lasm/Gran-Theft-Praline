@@ -12,22 +12,24 @@ import kit_layout  # noqa: E402
 import procgen  # noqa: E402
 
 KINDS = {"shop", "shopfront_closed", "entrance", "gf_window", "entresol_window", "window", "window_balcony",
-         "window_small", "court_window", "monument_bay", "blank"}
+         "window_small", "court_window", "monument_bay", "blank", "dormer", "mansard_blank"}
 
 
 class KitLayoutTests(unittest.TestCase):
     def test_every_kind_has_a_module(self):
         for typ in procgen.TYPOLOGY:
             for kind in KINDS:
-                self.assertTrue(kit_layout.module_for(typ, kind).startswith("SM_Facade_"))
+                self.assertTrue(kit_layout.module_for(typ, kind).startswith(("SM_Facade_", "SM_Roof_")))
 
     def test_kinds_match_procgen(self):
         src = open(os.path.join(HERE, "..", "procgen.py"), encoding="utf-8").read()
         emitted = set(re.findall(r'mk = "([a-z_]+)"', src)) | {"blank"}
+        emitted |= set(re.findall(r'"(dormer|mansard_blank)"', src))
         self.assertEqual(emitted, KINDS)
 
     def test_modules_are_built_by_the_kit(self):
         src = open(os.path.join(HERE, "..", "facade_kit", "kit.py"), encoding="utf-8").read()
+        src += open(os.path.join(HERE, "..", "facade_kit", "roof_kit.py"), encoding="utf-8").read()
         built = set(re.findall(r'"(SM_[A-Za-z]+_[A-Za-z_]+)": \(', src))
         used = {m for fam in kit_layout.KIND_TO_MODULE.values() for m in fam.values()}
         used |= {v for opts in kit_layout.VARIANTS.values() for v in opts} | set(kit_layout.FASCIA_FRONT_Y)
@@ -62,6 +64,18 @@ class KitLayoutTests(unittest.TestCase):
             front = (math.sin(a), -math.cos(a))  # rotate (0, -1)
             self.assertAlmostEqual(front[0], nx, places=2)
             self.assertAlmostEqual(front[1], ny, places=2)
+
+
+class MansardTests(unittest.TestCase):
+    def test_tall_haussmann_ends_with_a_mansard(self):
+        lv = procgen.levels_for("haussmann", 20.0)
+        self.assertEqual(lv[-1][0], "mansard")
+        self.assertAlmostEqual(lv[-1][1] + lv[-1][2], 20.0, places=3)
+        self.assertNotIn("mansard", [k for k, _, _ in lv[:-1]])
+
+    def test_low_or_other_types_have_no_mansard(self):
+        self.assertNotIn("mansard", [k for k, _, _ in procgen.levels_for("haussmann", 15.0)])
+        self.assertNotIn("mansard", [k for k, _, _ in procgen.levels_for("ancien", 22.0)])
 
 
 if __name__ == "__main__":
