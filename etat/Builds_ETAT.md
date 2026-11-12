@@ -1,5 +1,5 @@
-# Mac state 2026-11-12 15:06 Paris
+# Mac state 2026-11-12 15:07 Paris
 
-- block: demo-src on cand13
-- last line: 15:06 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+- block: starting
+- last line: 15:07 demo-src ped0-1 stopped (cand16 goes first, relay 14:05Z); list55 stopped
 - startup crashes: 3

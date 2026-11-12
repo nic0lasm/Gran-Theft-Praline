@@ -1,6 +1,3 @@
-14:11 visuals interior-counter-cand13: 1440x1080 -> 1440 810 (no upscale)
-14:11 visuals night-cand12: 1440x1080 -> 1440 810 (no upscale)
-14:11 visuals night-cand13: 1440x1080 -> 1440 810 (no upscale)
 14:11 visuals rain-cand12: 1440x1080 -> 1440 810 (no upscale)
 14:11 visuals rain-cand13: 1440x1080 -> 1440 810 (no upscale)
 14:11 visuals street-noon-cand12: 1440x1080 -> 1440 810 (no upscale)
@@ -58,3 +55,6 @@
 15:06 cand15b: gate 4/4 (street-demo median) and no crash in 600 s, endurance on cand15b
 15:06 pushed cand15b
 15:06 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+15:06 pushed etat
+15:06 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+15:07 demo-src ped0-1 stopped (cand16 goes first, relay 14:05Z); list55 stopped
