@@ -22,6 +22,7 @@ Usage (repository root):
   The street map is never changed: its files are copied first and put back after each step, checked
   by md5 (exit 1 if that fails); --map-md5 <md5> refuses to start on another map; --end-off puts the
   procedural materials back at the end (otherwise the surfaces stay on).
+  --pack <zip> --loose <folder>: no Unreal, the chosen 2K maps only, to carry them to the Mac.
   --lite: colour maps only (GTP_SURFACES_LITE=1). --dry-run: a stand-in for Unreal writes each
   report and hangs, to try the sequence, the limits and the forced stop in seconds.
 Report: Saved/CityImport/surfaces_build.json. Exit 0 when every step passed, 1 on a failed step,
@@ -202,6 +203,31 @@ def pairs(names):
     return "%d pairs" % done
 
 
+def pack(args):
+    """The 2K maps the import would take from --loose, in one zip laid out <id>/<file>: unzipped
+    anywhere, that folder is a --loose for the other machine (the id folders are found first)."""
+    import zipfile
+    import surface_files
+    if not args.loose or not os.path.isdir(args.loose):
+        qb.stamp("--pack needs --loose <folder of Fab exports>")
+        return 1
+    with open(os.path.join(HERE, "surfaces.json"), encoding="utf-8") as f:
+        catalog = json.load(f)["surfaces"]
+    n, size, found = 0, 0, []
+    with zipfile.ZipFile(args.pack, "w", zipfile.ZIP_STORED) as z:     # jpg/png: already compressed
+        for e in catalog:
+            files = surface_files.loose_images(e, args.loose)
+            if not files:
+                continue
+            found.append(e["id"])
+            for p in files:
+                z.write(p, e["id"] + "/" + os.path.basename(p))
+                n += 1
+                size += os.path.getsize(p)
+    qb.stamp("%s: %d files, %.0f MB, surfaces %s" % (args.pack, n, size / 1e6, " ".join(found)))
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--ab", action="store_true", help="shoot without, then with the surfaces")
@@ -213,10 +239,14 @@ def main():
                     help="frame cap of the walks (0 = none, so the frame times show the GPU cost)")
     ap.add_argument("--editor", default=qb.default_editor())
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--pack", default="", help="with --loose: write the chosen 2K images to this zip "
+                    "(<id>/<file>, for --loose on another machine) and stop; no Unreal")
     ap.add_argument("--map-md5", default="", help="md5 the .umap must have before anything runs (else stop)")
     ap.add_argument("--end-off", action="store_true",
                     help="finish with the procedural materials again (GTP_SURFACES=0), as before the run")
     args = ap.parse_args()
+    if args.pack:
+        sys.exit(pack(args))
     t0 = time.time()
     result = {"ab": args.ab, "lite": args.lite, "dry_run": args.dry_run, "steps": [], "ok": False}
 
