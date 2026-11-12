@@ -795,7 +795,9 @@ void AGTPTrafficNetwork::BeginPlay()
 	int32 TrafficPoolSwitch = bTrafficPool ? 1 : 0;
 	FParse::Value(FCommandLine::Get(), TEXT("TrafficPool="), TrafficPoolSwitch);
 	bTrafficPool = TrafficPoolSwitch != 0;
-	GTP_TRACE(LogGTPTraffic, TEXT("traffic: car pool %s"), bTrafficPool ? TEXT("on") : TEXT("off"));
+	FParse::Value(FCommandLine::Get(), TEXT("PoolCooldown="), PoolCooldown);
+	PoolCooldown = FMath::Max(PoolCooldown, 0.f);
+	GTP_TRACE(LogGTPTraffic, TEXT("traffic: car pool %s, cooldown %.1f s"), bTrafficPool ? TEXT("on") : TEXT("off"), PoolCooldown);
 	int32 FarCars = NumFarCars;
 	FParse::Value(FCommandLine::Get(), TEXT("FarTraffic="), FarCars);
 	// -Traffic=0 turns all traffic off, far cars included (benches of other systems rely on it).
@@ -1123,6 +1125,11 @@ bool AGTPTrafficNetwork::SpawnCar()
 		}
 		Reused->Destroy();
 	}
+	else if (bTrafficPool && Pool.Num() > 0)
+	{
+		// Pooled cars are cooling down: wait for them rather than spawn a new car (a spawn hitch).
+		return false;
+	}
 	AGTPVehicle* Car = CreateCar(Transform, ESpawnActorCollisionHandlingMethod::DontSpawnIfColliding);
 	UGTPAIDriverComponent* AIDriver = Car ? Car->FindComponentByClass<UGTPAIDriverComponent>() : nullptr;
 	if (!AIDriver)
@@ -1152,15 +1159,28 @@ bool AGTPTrafficNetwork::PutAway(AGTPVehicle* Car)
 	{
 		Driver->SetActorHiddenInGame(true);
 	}
-	Pool.AddUnique(Car);
+	if (!Pool.Contains(Car))
+	{
+		Pool.Add(Car);
+		PoolSince.Add(GetWorld()->GetTimeSeconds());
+	}
 	return true;
 }
 
 AGTPVehicle* AGTPTrafficNetwork::TakeFromPool(const FTransform& Transform)
 {
+	PoolSince.SetNum(Pool.Num());
+	const double Now = GetWorld()->GetTimeSeconds();
 	while (Pool.Num() > 0)
 	{
-		AGTPVehicle* Car = Pool.Pop();
+		// Oldest first, and only once it has cooled down: never a car put away a moment ago.
+		AGTPVehicle* Car = Pool[0];
+		if (IsValid(Car) && Now - PoolSince[0] < PoolCooldown)
+		{
+			return nullptr;
+		}
+		Pool.RemoveAt(0);
+		PoolSince.RemoveAt(0);
 		if (!IsValid(Car))
 		{
 			continue;
