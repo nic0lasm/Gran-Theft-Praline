@@ -21,7 +21,8 @@ sys.path.insert(0, os.path.join(REPO, "tools", "interiors"))
 import interior_layout as il  # noqa: E402
 
 ROOTS = [r.strip() for r in os.environ.get("GTP_INTERIOR_ROOTS", "/Game").split(",") if r.strip()]
-SKIP = ("/Game/Interiors", "/Game/Maps", "/Game/Developers")
+# The generated interior levels are skipped, not the imported packs under /Game/Interiors/Free and /Fab.
+SKIP = ("/Game/Interiors/L_", "/Game/Maps", "/Game/Developers")
 eal = unreal.EditorAssetLibrary
 
 

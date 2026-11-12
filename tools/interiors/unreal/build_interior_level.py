@@ -238,6 +238,39 @@ def build_audio(spec, catalog):
     return count
 
 
+def shot_views(spec):
+    """Three stills for shoot_interior.py, placed from the zones: (name, eye m, target m, pitch)."""
+    zones = {z["name"]: z["rect"] for z in spec["zones"]}
+
+    def centre(name):
+        x0, y0, x1, y1 = zones[name]
+        return (x0 + x1) / 2.0, (y0 + y1) / 2.0
+
+    qx, _qy = centre("queue")
+    cx, cy = centre("counter")
+    kx0, ky0, kx1, ky1 = zones["kitchen"]
+    dx0, dy0, dx1, dy1 = zones["dining_ground"]
+    return [
+        ("01_counter", (qx, zones["queue"][1] + 0.6), (cx + 2.0, cy), -8.0),
+        ("02_kitchen", (kx0 + 0.6, (ky0 + ky1) / 2.0), (kx1, (ky0 + ky1) / 2.0), -12.0),
+        ("03_dining", (dx1 - 0.5, dy1 - 0.4), (dx0 + 1.0, dy0 + 1.0), -14.0),
+    ]
+
+
+def build_shot_cameras(spec):
+    """CameraActors tagged GTP_Shot=<name> (the frame flips y: UE y = -spec y)."""
+    for name, eye, target, pitch in shot_views(spec):
+        yaw = math.degrees(math.atan2(-(target[1] - eye[1]), target[0] - eye[0]))
+        cam = actor_sub.spawn_actor_from_class(unreal.CameraActor, unreal.Vector(eye[0] * 100.0, -eye[1] * 100.0, 165.0),
+                                               unreal.Rotator(0.0, pitch, yaw))
+        cam.set_actor_label("Shot_" + name)
+        cam.set_folder_path("Interior/Shots")
+        cam.set_editor_property("tags", [unreal.Name("GTP_Shot=" + name)])
+        cam.camera_component.set_editor_property("field_of_view", 75.0)
+        cam.camera_component.set_editor_property("constrain_aspect_ratio", False)
+    return 3
+
+
 def build_lights(spec):
     storey = spec["frame"]["storey_height"] * 100
     zones = sorted(spec["zones"], key=lambda z: -il.rect_area(z["rect"]))
@@ -343,6 +376,7 @@ def main():
     report["lights"] = build_lights(spec)
     report["station_slots"] = build_station_slots(spec, catalog)
     report["audio"] = build_audio(spec, catalog)
+    report["shot_cameras"] = build_shot_cameras(spec)
     level_sub.save_current_level()
     if WITH_ANCHOR:
         place_anchor(spec, report)

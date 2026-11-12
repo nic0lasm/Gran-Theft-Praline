@@ -16,11 +16,11 @@ DEFINE_LOG_CATEGORY_STATIC(HoldUp, Log, All);   // lines read "HoldUp: ..." in e
 
 namespace
 {
-constexpr float StepSeconds = 0.1f;
+constexpr float HoldUpStepSeconds = 0.1f;
 /** Where staff run to: the back of the storage room, in the interior frame (cm). */
-const FVector BackExitLocal(1500.f, -1550.f, 0.f);
+const FVector HoldUpBackExitLocal(1500.f, -1550.f, 0.f);
 
-const TCHAR* EventName(GTPHoldUp::EEvent Kind)
+const TCHAR* HoldUpEventName(GTPHoldUp::EEvent Kind)
 {
 	using GTPHoldUp::EEvent;
 	switch (Kind)
@@ -66,7 +66,7 @@ void UGTPHoldUpSubsystem::BeginShop(const FString& InInteriorId, const FTransfor
 	Run.Begin(TillCount, 1000u + uint64(Serial));
 	Run.Staff.resize(size_t(Crew.Num()));
 	Staff.Reset();
-	const FVector BackExit = Anchor.TransformPosition(BackExitLocal);
+	const FVector BackExit = Anchor.TransformPosition(HoldUpBackExitLocal);
 	int32 NextTill = 0;
 	for (int32 Index = 0; Index < Crew.Num(); ++Index)
 	{
@@ -176,7 +176,7 @@ void UGTPHoldUpSubsystem::HandleEvent(const GTPHoldUp::FEventRecord& Event)
 	using GTPHoldUp::EEvent;
 	const int32 TillIndex = Run.Staff.size() > size_t(Event.Staff) && Event.Staff >= 0 ? Run.Staff[size_t(Event.Staff)].Till : -1;
 	const FVector TillAt = Tills.IsValidIndex(TillIndex) ? Tills[TillIndex] + FVector(0.f, 0.f, 95.f) : Anchor.GetLocation();
-	GTP_TRACE(HoldUp, TEXT("%s, staff %d, %.2f euros, t=%.1f"), EventName(Event.Kind), Event.Staff, Event.Cents / 100.0, Run.Time);
+	GTP_TRACE(HoldUp, TEXT("%s, staff %d, %.2f euros, t=%.1f"), HoldUpEventName(Event.Kind), Event.Staff, Event.Cents / 100.0, Run.Time);
 	switch (Event.Kind)
 	{
 	case EEvent::Alerted:
@@ -186,7 +186,7 @@ void UGTPHoldUpSubsystem::HandleEvent(const GTPHoldUp::FEventRecord& Event)
 		UGTPPlaceAudio::PlayShop(this, TillAt, EGTPShopSound::TillOpen);
 		break;
 	case EEvent::StaffEscaped:
-		UGTPPlaceAudio::PlayShop(this, Anchor.TransformPosition(BackExitLocal), EGTPShopSound::AlarmBuzzer);   // the back door
+		UGTPPlaceAudio::PlayShop(this, Anchor.TransformPosition(HoldUpBackExitLocal), EGTPShopSound::AlarmBuzzer);   // the back door
 		break;
 	case EEvent::CashHandedOver:
 	{
@@ -196,9 +196,9 @@ void UGTPHoldUpSubsystem::HandleEvent(const GTPHoldUp::FEventRecord& Event)
 		{
 			UGTPPlaceAudio::PlayShop(this, TillAt, EGTPShopSound::Coins);
 		}
-		if (UGTPWalletSubsystem* Wallet = UGTPWalletSubsystem::Get(this))
+		if (UGTPWalletSubsystem* Purse = UGTPWalletSubsystem::Get(this))
 		{
-			Wallet->AddCents(Event.Cents, TEXT("holdup_till"), FName(*FString::Printf(TEXT("holdup#%d/till%d"), Serial, Till)));
+			Purse->AddCents(Event.Cents, TEXT("holdup_till"), FName(*FString::Printf(TEXT("holdup#%d/till%d"), Serial, Till)));
 		}
 		if (UGTPMissionSubsystem* Missions = GetWorld()->GetSubsystem<UGTPMissionSubsystem>())
 		{
@@ -225,7 +225,7 @@ void UGTPHoldUpSubsystem::Tick(float DeltaTime)
 		return;
 	}
 	Accumulator = FMath::Min(Accumulator + DeltaTime, 0.5f);
-	if (Accumulator < StepSeconds)
+	if (Accumulator < HoldUpStepSeconds)
 	{
 		return;
 	}
@@ -244,10 +244,10 @@ void UGTPHoldUpSubsystem::Tick(float DeltaTime)
 		Member.State = static_cast<GTPHoldUpTills::EThreat>(static_cast<uint8>(Threat->GetState()));
 		Member.SecondsSinceAimed = Threat->GetSecondsSinceAimed();
 	}
-	while (Accumulator >= StepSeconds)
+	while (Accumulator >= HoldUpStepSeconds)
 	{
-		Accumulator -= StepSeconds;
-		Run.Step(StepSeconds, bThreat);
+		Accumulator -= HoldUpStepSeconds;
+		Run.Step(HoldUpStepSeconds, bThreat);
 	}
 	for (; EventsSeen < Run.Events.size(); ++EventsSeen)
 	{

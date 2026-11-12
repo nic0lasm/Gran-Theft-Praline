@@ -14,12 +14,12 @@ DEFINE_LOG_CATEGORY_STATIC(KitchenService, Log, All);   // lines read "KitchenSe
 
 namespace
 {
-const TCHAR* StationPrefix = TEXT("GTP_Station=");
-constexpr float StepSeconds = 1.f / 30.f;
-constexpr float ArriveCm = 40.f;
+const TCHAR* KitchenStationPrefix = TEXT("GTP_Station=");
+constexpr float KitchenStepSeconds = 1.f / 30.f;
+constexpr float KitchenArriveCm = 40.f;
 
 /** Station family a task happens at (names of tools/interiors/fastfood_bellecour.json). */
-const TCHAR* StationFor(GTPKitchen::ETask Task)
+const TCHAR* KitchenStationFor(GTPKitchen::ETask Task)
 {
 	using GTPKitchen::ETask;
 	switch (Task)
@@ -72,7 +72,7 @@ void AGTPStaffCharacter::Tick(float DeltaSeconds)
 	}
 	FVector ToSlot = Slot.GetLocation() - GetActorLocation();
 	ToSlot.Z = 0.f;
-	if (ToSlot.Size() > ArriveCm)
+	if (ToSlot.Size() > KitchenArriveCm)
 	{
 		AddMovementInput(ToSlot.GetSafeNormal(), 1.f);
 		return;
@@ -117,9 +117,9 @@ void UGTPKitchenSubsystem::StartService(ULevel* InteriorLevel, const FString& In
 		for (const FName& Tag : Actor->Tags)
 		{
 			const FString S = Tag.ToString();
-			if (S.StartsWith(StationPrefix))
+			if (S.StartsWith(KitchenStationPrefix))
 			{
-				Slots.Add(S.RightChop(FCString::Strlen(StationPrefix)), Actor->GetActorTransform());
+				Slots.Add(S.RightChop(FCString::Strlen(KitchenStationPrefix)), Actor->GetActorTransform());
 			}
 		}
 	}
@@ -144,7 +144,7 @@ void UGTPKitchenSubsystem::StartService(ULevel* InteriorLevel, const FString& In
 		Crew.Add(GetWorld()->SpawnActor<AGTPStaffCharacter>(AGTPStaffCharacter::StaticClass(), Start, Params));
 	}
 	bRunning = true;
-	if (UGTPHoldUpSubsystem* HoldUp = GetWorld()->GetSubsystem<UGTPHoldUpSubsystem>())
+	if (UGTPHoldUpSubsystem* Robbery = GetWorld()->GetSubsystem<UGTPHoldUpSubsystem>())
 	{
 		TArray<AGTPStaffCharacter*> Characters;
 		TArray<uint8> Roles;
@@ -167,16 +167,16 @@ void UGTPKitchenSubsystem::StartService(ULevel* InteriorLevel, const FString& In
 		{
 			Tills.Add(Slots[Name].GetLocation());
 		}
-		HoldUp->BeginShop(InteriorId, Anchor, Tills, Characters, Roles);
+		Robbery->BeginShop(InteriorId, Anchor, Tills, Characters, Roles);
 	}
 	GTP_TRACE(KitchenService, TEXT("service started: %d staff, %d station slots, %d customers/h"), CrewSize, Slots.Num(), Kitchen.Params.CustomersPerHour);
 }
 
 void UGTPKitchenSubsystem::StopService()
 {
-	if (UGTPHoldUpSubsystem* HoldUp = GetWorld()->GetSubsystem<UGTPHoldUpSubsystem>())
+	if (UGTPHoldUpSubsystem* Robbery = GetWorld()->GetSubsystem<UGTPHoldUpSubsystem>())
 	{
-		HoldUp->EndShop();
+		Robbery->EndShop();
 	}
 	for (const TWeakObjectPtr<AGTPStaffCharacter>& Staff : Crew)
 	{
@@ -191,7 +191,7 @@ void UGTPKitchenSubsystem::StopService()
 
 bool UGTPKitchenSubsystem::FindSlot(GTPKitchen::ETask Task, int32 StaffIndex, int32 Target, FTransform& Out) const
 {
-	const TCHAR* Family = StationFor(Task);
+	const TCHAR* Family = KitchenStationFor(Task);
 	if (!Family)
 	{
 		return false;
@@ -240,10 +240,10 @@ void UGTPKitchenSubsystem::Tick(float DeltaTime)
 		return;
 	}
 	Accumulator = FMath::Min(Accumulator + DeltaTime, 0.5f);   // never catch up more than half a second after a hitch
-	while (Accumulator >= StepSeconds)
+	while (Accumulator >= KitchenStepSeconds)
 	{
-		Accumulator -= StepSeconds;
-		Kitchen.Step(StepSeconds);
+		Accumulator -= KitchenStepSeconds;
+		Kitchen.Step(KitchenStepSeconds);
 	}
 	for (; EventsSent < Kitchen.Events.size(); ++EventsSent)
 	{
