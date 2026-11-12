@@ -1,12 +1,3 @@
-10:53 quarter3 stats: deliv: 4599 frames | GPU p50 15.88 p95 27.84 p99 29.64 | frames > 26 ms: 1, > 50 ms: 0 | GPU p95 per 10 s: 0-10s:29.2 10-20s:28.6 20-30s:24.6 30-40s:28.6 40-50s:28.1 50-60s:28.3 60-70s:24.4 70-80s:24.1 80-90s:28.3 90-100s:27.7 100-110s:28.0 110-120s:28.2 120-130s:15.2;deliv2: 4600 frames | GPU p50 15.78 p95 25.05 p99 29.50 | frames > 26 ms: 0, > 50 ms: 0 | GPU p95 per 10 s: 0-10s:29.1 10-20s:28.8 20-30s:25.1 30-40s:28.5 40-50s:27.9 50-60s:28.2 60-70s:24.0 70-80s:24.1 80-90s:24.3 90-100s:24.7 100-110s:24.2 110-120s:24.0 120-130s:14.5;deliv3: 4600 frames | GPU p50 15.95 p95 27.74 p99 29.69 | frames > 26 ms: 0, > 50 ms: 0 | GPU p95 per 10 s: 0-10s:29.2 10-20s:28.7 20-30s:27.1 30-40s:28.2 40-50s:28.5 50-60s:27.7 60-70s:27.3 70-80s:24.3 80-90s:25.0 90-100s:27.7 100-110s:28.2 110-120s:28.2 120-130s:16.7;off: 4600 frames | GPU p50 13.93 p95 22.08 p99 28.40 | frames > 26 ms: 0, > 50 ms: 0 | GPU 
-10:53 pushed quarter3
-10:53 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
-10:53 pushed etat
-10:53 ilfix: PC proof VERDICT: OK found
-10:53 pushed etat
-10:53 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
-10:53 == ilfix-compile start
-10:54 == ilfix-compile exit=0
 10:54 == ilfix-blood start
 10:55 == ilfix-blood exit=0
 10:55 ilfix blood: LogPython: Warning: [CombatMaterials] built /Game/Combat/Materials/M_GTP_BloodPool;
@@ -58,3 +49,12 @@
 11:51 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
 11:51 cand13: PC proof VERDICT: OK found
 11:51 list46 starts (list45 stopped after the firstlaunch push and its check)
+11:51 push etat failed
+11:51 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+11:51 == firstlaunch-f start (street-fixed 120 s, fresh -userdir) -GfxCVars=sg.AntiAliasingQuality=2
+11:53 firstlaunch-f: exit 0 | f: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.2 | gpu p50 14.67 p95 21.58 | gate PASS | kept: Resolution=0 ViewDistance=3 AntiAliasing=2 Shadow=1 GlobalIllumination=1 Reflection=1 PostProcess=3 Texture=2 Effects=2 Foliage=2 Shading=3 Landscape=3 
+11:53 == firstlaunch-g start (street-fixed 120 s, fresh -userdir) -GfxCVars=sg.ViewDistanceQuality=2
+11:55 firstlaunch-g: exit 0 | g: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.0 | gpu p50 17.96 p95 28.79 | gate FAIL | kept: Resolution=0 ViewDistance=2 AntiAliasing=3 Shadow=1 GlobalIllumination=1 Reflection=1 PostProcess=3 Texture=2 Effects=2 Foliage=2 Shading=3 Landscape=3 
+11:55 pushed firstlaunch
+11:55 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+11:55 cand13: PC proof VERDICT: OK found

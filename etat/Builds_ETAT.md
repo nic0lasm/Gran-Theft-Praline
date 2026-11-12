@@ -1,5 +1,5 @@
-# Mac state 2026-11-12 11:51 Paris
+# Mac state 2026-11-12 11:55 Paris
 
-- block: firstlaunch f+g on cand12
-- last line: 11:51 list46 starts (list45 stopped after the firstlaunch push and its check)
+- block: cand13 720796c
+- last line: 11:55 cand13: PC proof VERDICT: OK found
 - startup crashes: 3
