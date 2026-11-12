@@ -29,7 +29,8 @@ def node(mat, cls, x, y, **props):
 
 
 def link(a, b, inp, out=""):
-    for name in ((inp,) if inp else ("", "Input", "X")):
+    names = inp if isinstance(inp, tuple) else ((inp,) if inp else ("", "Input", "X"))
+    for name in names:
         if mel.connect_material_expressions(a, out, b, name):
             return
     raise RuntimeError("cannot connect %s -> %s.%s" % (a.get_name(), b.get_name(), inp))
@@ -67,7 +68,7 @@ def build():
     exp = node(mat, unreal.MaterialExpressionConstant, -260, 120, r=0.6)
     soft = node(mat, unreal.MaterialExpressionPower, -120, 0)
     link(sat, soft, "Base")
-    link(exp, soft, "Exponent")
+    link(exp, soft, ("Exp", "Exponent"))  # UE 5.8 names the Power exponent pin "Exp"
 
     colour = node(mat, unreal.MaterialExpressionConstant3Vector, -260, -200, constant=unreal.LinearColor(0.11, 0.004, 0.004, 1.0))
     rough = node(mat, unreal.MaterialExpressionConstant, -260, -100, r=0.12)
