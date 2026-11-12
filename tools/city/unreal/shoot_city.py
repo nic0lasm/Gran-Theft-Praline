@@ -71,13 +71,44 @@ def pose(dist):
     return unreal.Vector(b[0], b[1], b[2] + 100.0), math.degrees(math.atan2(b[1] - a[1], b[0] - a[0]))
 
 
+# GTP_SHOOT_CAMERA=1: the view comes from a camera actor moved along the street, not from the
+# pawn's camera. On the PC A/B of 12/11 the five stills all showed the Bellecour start: the game
+# camera did not follow the teleported pawn nor its control rotation.
+SHOOT_CAMERA = os.environ.get("GTP_SHOOT_CAMERA", "0") == "1"
+_camera = {}
+
+
+def camera(pc):
+    cam = _camera.get("actor")
+    if cam is None:
+        xf = unreal.Transform()
+        cam = unreal.GameplayStatics.begin_deferred_actor_spawn_from_class(pc.get_world(), unreal.CameraActor, xf)
+        cam = unreal.GameplayStatics.finish_spawning_actor(cam, xf)
+        comp = cam.get_editor_property("camera_component")
+        comp.set_editor_property("constrain_aspect_ratio", False)
+        comp.set_editor_property("field_of_view", 90.0)
+        _camera["actor"] = cam
+    if pc.get_view_target() != cam:
+        pc.set_view_target_with_blend(cam, 0.0)
+    return cam
+
+
 def place(dist, look_offset=0.0):
     pc = controller()
     pawn = pc.get_controlled_pawn()
     loc, yaw = pose(dist)
     pawn.set_actor_location_and_rotation(loc, unreal.Rotator(0.0, 0.0, yaw), False, True)
     pc.set_ignore_look_input(True)
-    pc.set_control_rotation(unreal.Rotator(roll=0.0, pitch=-6.0, yaw=yaw + look_offset))
+    rot = unreal.Rotator(roll=0.0, pitch=-6.0, yaw=yaw + look_offset)
+    pc.set_control_rotation(rot)
+    if SHOOT_CAMERA and not _camera.get("failed"):
+        eye = unreal.Vector(loc.x, loc.y, loc.z + 70.0)     # eye height, about 1.7 m
+        try:
+            camera(pc).set_actor_location_and_rotation(eye, rot, False, True)
+        except Exception as e:  # noqa: BLE001  keep the pawn view, say why
+            _camera["failed"] = True
+            state["result"]["shoot_camera_error"] = repr(e)
+            log("shoot camera unavailable, pawn view kept: %r" % e)
 
 
 def go(phase):
