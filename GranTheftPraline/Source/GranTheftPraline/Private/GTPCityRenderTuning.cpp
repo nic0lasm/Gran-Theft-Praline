@@ -77,11 +77,16 @@ void UGTPCityRenderTuning::OnWorldBeginPlay(UWorld& InWorld)
 	int32 Pct = GTPCityTuning::DefaultCellDetailPct;   // -CityCellDetailPct=60: shorter, for A/B
 	FParse::Value(FCommandLine::Get(), TEXT("CityCellDetailPct="), Pct);
 	CellDetailPct = GTPCityTuning::ClampPct(Pct);
+	FString NoShadow;
+	if (FParse::Value(FCommandLine::Get(), TEXT("CityNoShadow="), NoShadow, false))
+	{
+		NoShadow.ParseIntoArray(NoShadowFamilies, TEXT(","));
+	}
 	int32 Report = 0;
 	FParse::Value(FCommandLine::Get(), TEXT("CityTuneReport="), Report);
 	// Cell levels get their defaults as they stream in, so the subsystem listens whenever the
 	// defaults are on; the persistent level is only touched by explicit levers.
-	if (CullM.Num() > 0 || ShadowBelowM >= 0.f || bHideProxies || Report != 0)
+	if (CullM.Num() > 0 || ShadowBelowM >= 0.f || bHideProxies || NoShadowFamilies.Num() > 0 || Report != 0)
 	{
 		Apply(InWorld.PersistentLevel);
 	}
@@ -206,6 +211,12 @@ void UGTPCityRenderTuning::Apply(ULevel* Level)
 					// Generated distances (size class or per-row cull_m) scaled down as a whole.
 					const int32 End = GTPCityTuning::ScaledEndCm(Ism->InstanceEndCullDistance, SetPct);
 					Ism->SetCullDistances(GTPCityTuning::StartCm(End), End);
+					bTouched = true;
+				}
+				if (NoShadowFamilies.Contains(Family) && Comp->CastShadow)
+				{
+					// e.g. facade modules: the building shell already casts the building's shadow
+					Comp->SetCastShadow(false);
 					bTouched = true;
 				}
 				if (bHideProxies && Family == TEXT("proxy") && Comp->IsVisible())

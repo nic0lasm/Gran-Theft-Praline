@@ -21,6 +21,7 @@ class ULevel;
  *   -CityPropShadowBelow=1.0                      props smaller than this (m) cast no shadow
  *   -CityCull=proxy=400,terrain=600               also works on the quarter's plain components
  *   -CityProxies=0                                far proxies never drawn (cost of the proxies)
+ *   -CityNoShadow=upper,eave,court                these families cast no dynamic shadow
  *   -CityTuneReport=1                             only the log line, nothing changed
  *   A distance of 0 hides the family (-CityCull=details_small=0,props_small=0: A/B on one package).
  * Streamed cells (L_City_Cell*) get defaults, budget compensation of their furniture and details:
@@ -60,6 +61,7 @@ private:
 	TMap<FString, float> CullM;
 	float ShadowBelowM = -1.f;
 	bool bHideProxies = false;
+	TArray<FString> NoShadowFamilies;
 	bool bShadowBelowGiven = false;
 	bool bCellDefaults = true;
 	int32 CellDetailPct = 100;

@@ -14,6 +14,7 @@
 #   per cell  import 5 min, facade kit and signs 10 min, materials 3 min
 #   package   Development, into <BUILDS_DIR>/quarter/             20 min
 #   benches (5 by default)  LAUNCH_S + 2 min each
+#   GPU profile (GPU_PROFILE=1, PROFILES, PROFILE_AT)  about 2 min each: ProfileGPU, stat RHI
 #   stills (STILLS, deliv and pct60 by default; STILLS=0 skips)  about 2 min each, after
 #           every bench, never during one
 # Modes: BUILD_ONLY=1 stops after the package (every editor step runs -nullrhi, so a locked
@@ -304,13 +305,47 @@ launch() {  # launch <step args...>
 # (run-to-run spread of the GPU p95, about 2 ms on 12/11), 60 % furniture and detail distances,
 # proxies only. Each summary gives the GPU p95 per 10 s, to find what makes the p95.
 benches="${BENCHES:-deliv -CityCells=1 -CityTuneReport=1;deliv2 -CityCells=1 -CityTuneReport=1;deliv3 -CityCells=1 -CityTuneReport=1;pct60 -CityCells=1 -CityCellDetailPct=60 -CityTuneReport=1;off -CityCells=0}"
+if test "$benches" = none; then benches=""; fi   # BENCHES=none: profiles or stills only
 IFS=';' read -r -a bench_list <<< "$benches"
-for run in "${bench_list[@]}"; do
+for run in ${bench_list[@]+"${bench_list[@]}"}; do
   set -- $run
   if screen_locked; then echo "- $(paris) screen locked before bench $1: skipped" >> "$report"; continue; fi
   launch "bench $1" $(( ${LAUNCH_S:-120} + 120 )) "bench-$1.log" bench "$@"
   summary "$1"
 done
+# --- GPU profile (GPU_PROFILE=1), separate pass, never during a measure ---------------------------
+# The quarter package is Development: ProfileGPU dumps the GPU pass tree to the game log, with one
+# line per material draw (r.ShowMaterialDrawEvents=1), and stat dumpframe writes the RHI counters
+# (draw calls, primitives) under stat RHI. Same deterministic route for each variant, the profile
+# at PROFILE_AT s (default 60, in the street). Output: profile-<tag>.log (whole game log) and
+# profile-<tag>.txt (TimedExec, LogRHI and stat lines).
+gpu_profile() {  # gpu_profile <tag> <game args...>
+  local tag="$1"; shift
+  local at="${PROFILE_AT:-60}"
+  local exe; exe="$(find "$out/quarter/GranTheftPraline.app/Contents/MacOS" -maxdepth 1 -type f -perm -u+x | head -n 1)"
+  test -n "$exe" || { echo "no executable in $out/quarter" >&2; return 1; }
+  local glog=~/Library/Logs/GranTheftPraline/GranTheftPraline.log
+  rm -f "$glog" 2> /dev/null || true
+  "$exe" /Game/Maps/L_City_Quarter -SkipTitle -TestVehicle -DemoRoute -DemoDeterministic=1 \
+    -DemoDriveTime=$(( at + 20 )) "$@" -ExecCmds="r.ShowMaterialDrawEvents 1" \
+    "-ExecAt=$at=stat+RHI|$(( at + 2 ))=ProfileGPU|$(( at + 4 ))=stat+dumpframe+-ms=0.05|$(( at + 6 ))=stat+none" \
+    -ExitAfter=$(( at + 20 )) || true
+  cp "$glog" "$out/profile-$tag.log" 2> /dev/null || true
+  grep -E "TimedExec|LogRHI|Stat|DrawPrimitive|Draw calls|Triangles|Primitives|CityStreaming: visible" \
+    "$out/profile-$tag.log" > "$out/profile-$tag.txt" 2> /dev/null || true
+  grep -q "TimedExec: t=" "$out/profile-$tag.txt"
+}
+if test "${GPU_PROFILE:-0}" = 1; then
+  profiles="${PROFILES:-deliv -CityCells=1;off -CityCells=0}"
+  IFS=';' read -r -a profile_runs <<< "$profiles"
+  for run in "${profile_runs[@]}"; do
+    set -- $run
+    if screen_locked; then echo "- $(paris) screen locked before profile $1: skipped" >> "$report"; continue; fi
+    launch "profile $1" $(( ${PROFILE_AT:-60} + 80 )) "profile-$1-run.log" gpu_profile "$@"
+    echo "- profile $1: $(grep -c LogRHI "$out/profile-$1.txt" 2> /dev/null || true) LogRHI lines in $out/profile-$1.txt" >> "$report"
+  done
+fi
+
 # --- stills, separate pass, never during a measure (project rule) -------------------------------
 # STILLS: "<tag> <game args>;..." Same deterministic demo route for each, one still every 10 s
 # from the 5th second, so stills-<tag>/frame_0000N.jpg show the same shot in every variant:
