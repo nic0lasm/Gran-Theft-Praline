@@ -116,6 +116,7 @@ def launch(name, script, report, limit_s, env_extra, game, args):
             env["GTP_FAKE_SHOTS"] = SAVED
         cmd = fake_cmd()
     elif game:
+        env["GTP_SHOOT_CAMERA"] = "1"      # stills along the street, not five times the start
         w, h = args.res.split("x")
         cmd = [args.editor, PROJECT, MAP, "-game", "-windowed", "-ResX=" + w, "-ResY=" + h, "-nosound",
                "-NoScreenMessages", "-unattended", "-NSAppSleepDisabled", "YES", "-abslog=" + log,
