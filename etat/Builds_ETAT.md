@@ -1,5 +1,5 @@
-# Mac state 2026-11-12 07:18 Paris
+# Mac state 2026-11-12 07:41 Paris
 
-- block: interior-light 8d80513
-- last line: 07:18 interior-light: PC proof VERDICT: OK found
+- block: starting
+- last line: 07:41 list36 paused after the ilight push; list37 starts (crash-ilight)
 - startup crashes: 3
