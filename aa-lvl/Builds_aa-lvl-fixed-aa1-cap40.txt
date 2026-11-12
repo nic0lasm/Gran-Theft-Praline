@@ -1,0 +1,1 @@
+fixed-aa1: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 1 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 26.4 | gpu p50 13.66 p95 20.68 | gate PASS

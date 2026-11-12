@@ -1,0 +1,1 @@
+rain-aa2b: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.6 | gpu p50 15.42 p95 28.25 | gate FAIL

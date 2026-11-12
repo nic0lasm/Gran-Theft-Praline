@@ -1,0 +1,1 @@
+rain-aa0: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.5 | gpu p50 14.22 p95 22.13 | gate PASS

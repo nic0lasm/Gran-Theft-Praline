@@ -1,0 +1,1 @@
+night-aa1: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.1 | gpu p50 15.71 p95 24.39 | gate FAIL
