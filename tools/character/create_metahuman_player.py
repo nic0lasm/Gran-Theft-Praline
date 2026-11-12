@@ -39,16 +39,20 @@ kellan_bp = unreal.load_asset(source)
 kellan_class = kellan_bp.generated_class()
 path = OUT_DIR + "/" + NAME
 if eal.does_asset_exist(path):
-    eal.delete_asset(path)
-factory = unreal.BlueprintFactory()
-factory.set_editor_property("parent_class", kellan_class)
-bp = unreal.AssetToolsHelpers.get_asset_tools().create_asset(NAME, OUT_DIR, unreal.Blueprint, factory)
-log("created %s (parent %s)" % (path, kellan_class.get_name()))
+    # Unattended runs cannot delete over an existing asset: reuse it (idempotent, properties are copied again).
+    bp = unreal.load_asset(path)
+    log("reusing %s" % path)
+else:
+    factory = unreal.BlueprintFactory()
+    factory.set_editor_property("parent_class", kellan_class)
+    bp = unreal.AssetToolsHelpers.get_asset_tools().create_asset(NAME, OUT_DIR, unreal.Blueprint, factory)
+    log("created %s (parent %s)" % (path, kellan_class.get_name()))
 
 try:
     ours = unreal.load_asset(OURS).generated_class()
     ours_cdo = unreal.get_default_object(ours)
-    parent_cdo = unreal.get_default_object(ours.get_super_class())
+    # BlueprintGeneratedClass has no get_super_class in 5.8: our blueprint's parent is the sample's character.
+    parent_cdo = unreal.get_default_object(unreal.load_class(None, "/Game/Blueprints/SandboxCharacter_CMC.SandboxCharacter_CMC_C"))
     target_cdo = unreal.get_default_object(bp.generated_class())
     copied = []
     for prop in dir(ours_cdo):
