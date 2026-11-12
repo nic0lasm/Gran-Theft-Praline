@@ -35,8 +35,12 @@ else
     test -f "$d/facade_modules.csv" && gens+=("${d%/}")
   done
 fi
-test "${#gens[@]}" -gt 0 || { echo "no city outputs under $gen_root" >&2; exit 1; }
-python3 "$repo/tools/environment/build_night_lights.py" "${gens[@]}"
+# Without the city outputs (bench clone), the night lights file is left as it is.
+if test "${#gens[@]}" -gt 0; then
+  python3 "$repo/tools/environment/build_night_lights.py" "${gens[@]}"
+else
+  echo "no city outputs under $gen_root: night lights file left as it is, weather assets only"
+fi
 
 # The project path has a space and Unreal splits -ExecutePythonScript on
 # spaces: Content/Python/gtp_run.py runs the script named by GTP_PY_SCRIPT, nothing is
