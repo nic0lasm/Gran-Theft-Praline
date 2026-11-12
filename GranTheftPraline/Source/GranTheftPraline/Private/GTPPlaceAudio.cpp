@@ -224,25 +224,30 @@ void UGTPPlaceAudio::Stop()
 {
 	FWorldDelegates::LevelAddedToWorld.Remove(AddedHandle);
 	FWorldDelegates::LevelRemovedFromWorld.Remove(RemovedHandle);
-	for (UAudioComponent* Voice : Voices)
+	// While the world tears down, its audio components and the audio device go away on their
+	// own (the device may even be switching): touch nothing, only forget.
+	UWorld* World = WorldPtr.Get();
+	const bool bLiveWorld = World && !World->bIsTearingDown;
+	if (bLiveWorld)
 	{
-		if (Voice)
+		for (UAudioComponent* Voice : Voices)
 		{
-			Voice->Stop();
+			if (IsValid(Voice))
+			{
+				Voice->Stop();
+			}
 		}
-	}
-	if (RoomTone)
-	{
-		RoomTone->Stop();
-	}
-	if (UWorld* World = WorldPtr.Get())
-	{
+		if (IsValid(RoomTone))
+		{
+			RoomTone->Stop();
+		}
 		if (bIndoorMixOn && IndoorMix)
 		{
 			UGameplayStatics::PopSoundMixModifier(World, IndoorMix);
 		}
 	}
 	bIndoorMixOn = false;
+	RoomTone = nullptr;
 	Voices.Reset();
 	VoiceEmitter.Reset();
 	Emitters.Reset();
