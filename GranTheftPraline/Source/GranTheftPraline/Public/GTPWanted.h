@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "GTPPoliceTactics.h"
 #include "Components/ActorComponent.h"
 #include "GameFramework/Actor.h"
 #include "UObject/SoftObjectPath.h"
@@ -114,6 +115,14 @@ public:
 	void UnregisterPolice(AGTPVehicle* Car);
 	const TArray<TWeakObjectPtr<AGTPVehicle>>& GetPolice() const { return Police; }
 
+	/** Officers on foot (AGTPPoliceOfficer): they see, witness and arrest like the cars. */
+	void RegisterOfficer(AActor* Officer);
+	void UnregisterOfficer(AActor* Officer);
+	int32 GetOfficerCount() const { return Officers.Num(); }
+
+	/** True for a while after the player fired, threatened or hit someone: two stars then shoot back. */
+	bool IsPlayerAggressive() const;
+
 	/** Distance from which police see the player when nothing is in the way (cm). */
 	UPROPERTY(EditAnywhere, Category = "Wanted")
 	float SightRange = 6500.f;
@@ -134,7 +143,7 @@ public:
 	float BustedSeconds = 3.f;
 
 private:
-	bool CanSeePlayer(const AGTPVehicle* Car, const FVector& PlayerLocation) const;
+	bool CanSeePlayer(const AActor* Watcher, const FVector& PlayerLocation) const;
 	void ApplyCrime(EGTPCrimeKind Kind, const FVector& Location);
 	void TickPendingReports(float Now);
 	void OnBusted();
@@ -143,6 +152,8 @@ private:
 
 	FGTPWantedState State;
 	TArray<TWeakObjectPtr<AGTPVehicle>> Police;
+	TArray<TWeakObjectPtr<AActor>> Officers;
+	float LastAggressiveTime = -1000.f;
 	FVector LastKnownLocation = FVector::ZeroVector;
 
 	/** Crimes seen by a person who is calling the police: reported when due. */
@@ -257,6 +268,13 @@ protected:
 	UPROPERTY(Config, EditAnywhere, Category = "Police|Cost")
 	float LiteDetailDistance = 1500.f;
 
+	/**
+	 * Officers on foot (AGTPPoliceOfficer): at most this many at once (-PoliceOfficers=N, 0 = none,
+	 * the cars alone). They get out of a car when the player is on foot nearby, or the car is stuck.
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Police|Officers")
+	int32 MaxOfficers = 3;
+
 	/** Police light bar blink period (s). */
 	UPROPERTY(Config, EditAnywhere, Category = "Police")
 	float LightPeriod = 0.5f;
@@ -295,11 +313,17 @@ private:
 	void BlinkLights(FUnit& Unit, bool bOn, bool bPhase);
 	bool HasLineOfSight(const AGTPVehicle* Car, const AActor& Player, const FVector& Target) const;
 	void RemoveUnit(int32 Index);
+	void ManageOfficers(UGTPWantedComponent& Wanted, const APawn& Player, int32 Stars, float Now, float DeltaSeconds);
+	void RemoveOfficer(int32 Index, UGTPWantedComponent& Wanted);
 
 	UPROPERTY(Transient)
 	TObjectPtr<AGTPTrafficNetwork> Network;
 
 	TArray<FUnit> Units;
+	TArray<TWeakObjectPtr<class AGTPPoliceOfficer>> Officers;
+	GTPPoliceTactics::FSettings Tactics;
+	float NextDeployTime = 0.f;
+	float NoStarsSeconds = 0.f;
 	TSubclassOf<AGTPVehicle> LoadedPoliceClass;
 	TSubclassOf<ACharacter> LoadedDriverClass;
 	float NextSpawnTime = 0.f;

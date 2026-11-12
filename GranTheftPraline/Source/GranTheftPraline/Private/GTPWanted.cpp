@@ -6,6 +6,7 @@
 #include "GTPVehicle.h"
 #include "GTPPedestrians.h"
 #include "GTPLiteDriver.h"
+#include "GTPPoliceOfficer.h"
 #include "AIController.h"
 #include "CollisionQueryParams.h"
 #include "Components/PointLightComponent.h"
@@ -141,6 +142,11 @@ void UGTPWantedComponent::ApplyCrime(EGTPCrimeKind Kind, const FVector& Location
 	{
 		return;
 	}
+	if (Kind == EGTPCrimeKind::ShotsFired || Kind == EGTPCrimeKind::ArmedThreat || Kind == EGTPCrimeKind::Assault
+		|| Kind == EGTPCrimeKind::Killing || Kind == EGTPCrimeKind::KillPolice || Kind == EGTPCrimeKind::HitPolice)
+	{
+		LastAggressiveTime = static_cast<float>(GetWorld()->GetTimeSeconds());
+	}
 	const int32 Before = State.GetStars();
 	if (!State.AddCrime(Kind, static_cast<float>(GetWorld()->GetTimeSeconds())))
 	{
@@ -225,7 +231,22 @@ void UGTPWantedComponent::UnregisterPolice(AGTPVehicle* Car)
 	Police.Remove(Car);
 }
 
-bool UGTPWantedComponent::CanSeePlayer(const AGTPVehicle* Car, const FVector& PlayerLocation) const
+void UGTPWantedComponent::RegisterOfficer(AActor* Officer)
+{
+	Officers.AddUnique(Officer);
+}
+
+void UGTPWantedComponent::UnregisterOfficer(AActor* Officer)
+{
+	Officers.Remove(Officer);
+}
+
+bool UGTPWantedComponent::IsPlayerAggressive() const
+{
+	return GetWorld() && GetWorld()->GetTimeSeconds() - LastAggressiveTime < 20.0;
+}
+
+bool UGTPWantedComponent::CanSeePlayer(const AActor* Car, const FVector& PlayerLocation) const
 {
 	const double Distance = FVector::Dist(Car->GetActorLocation(), PlayerLocation);
 	if (Distance <= NoticeRange)
@@ -288,6 +309,18 @@ void UGTPWantedComponent::TickComponent(float DeltaTime, ELevelTick TickType, FA
 		Nearest = Nearest < 0.f ? Metres : FMath::Min(Nearest, Metres);
 		bSeen = bSeen || CanSeePlayer(Car, PlayerLocation);
 	}
+	for (int32 Index = Officers.Num() - 1; Index >= 0; --Index)
+	{
+		const AActor* Officer = Officers[Index].Get();
+		if (!IsValid(Officer))
+		{
+			Officers.RemoveAt(Index);
+			continue;
+		}
+		const float Metres = static_cast<float>(FVector::Dist(Officer->GetActorLocation(), PlayerLocation)) * WantedCmToM;
+		Nearest = Nearest < 0.f ? Metres : FMath::Min(Nearest, Metres);
+		bSeen = bSeen || CanSeePlayer(Officer, PlayerLocation);
+	}
 	bSeenNow = bSeen;
 	if (bSeen)
 	{
@@ -299,8 +332,8 @@ void UGTPWantedComponent::TickComponent(float DeltaTime, ELevelTick TickType, FA
 	if (Now >= NextTraceTime)
 	{
 		NextTraceTime = Now + 2.f;
-		GTP_TRACE(LogGTPWanted, TEXT("wanted: t=%.0f stars=%d phase=%d units=%d nearest=%.0f m seen=%d arrest=%.2f"), Now, State.GetStars(),
-			static_cast<int32>(State.GetPhase()), Police.Num(), Nearest, bSeen ? 1 : 0, State.GetArrestProgress());
+		GTP_TRACE(LogGTPWanted, TEXT("wanted: t=%.0f stars=%d phase=%d units=%d officers=%d nearest=%.0f m seen=%d arrest=%.2f"), Now, State.GetStars(),
+			static_cast<int32>(State.GetPhase()), Police.Num(), Officers.Num(), Nearest, bSeen ? 1 : 0, State.GetArrestProgress());
 	}
 
 	const AGTPVehicle* Vehicle = Cast<AGTPVehicle>(Pawn);
@@ -363,12 +396,14 @@ AGTPPoliceDirector::AGTPPoliceDirector()
 void AGTPPoliceDirector::BeginPlay()
 {
 	Super::BeginPlay();
+	FParse::Value(FCommandLine::Get(), TEXT("PoliceOfficers="), MaxOfficers);
 	int32 LiteSwitch = bPoliceLite ? 1 : 0;
 	FParse::Value(FCommandLine::Get(), TEXT("PoliceLite="), LiteSwitch);
 	bPoliceLite = LiteSwitch != 0;
 	if (bPoliceLite)
 	{
 		MaxUnits = FMath::Min(MaxUnits, LiteMaxUnits);
+		MaxOfficers = FMath::Min(MaxOfficers, 2);
 	}
 	FParse::Value(FCommandLine::Get(), TEXT("PoliceMax="), MaxUnits);
 	MaxUnits = FMath::Clamp(MaxUnits, 0, 6);
@@ -749,6 +784,78 @@ void AGTPPoliceDirector::RemoveUnit(int32 Index)
 	Units.RemoveAtSwap(Index);
 }
 
+void AGTPPoliceDirector::RemoveOfficer(int32 Index, UGTPWantedComponent& Wanted)
+{
+	if (AGTPPoliceOfficer* Officer = Officers[Index].Get())
+	{
+		Wanted.UnregisterOfficer(Officer);
+		Officer->Destroy();
+	}
+	Officers.RemoveAtSwap(Index);
+}
+
+void AGTPPoliceDirector::ManageOfficers(UGTPWantedComponent& Wanted, const APawn& Player, int32 Stars, float Now, float DeltaSeconds)
+{
+	for (int32 Index = Officers.Num() - 1; Index >= 0; --Index)
+	{
+		if (!IsValid(Officers[Index].Get()))
+		{
+			Officers.RemoveAtSwap(Index);
+		}
+	}
+	if (MaxOfficers <= 0)
+	{
+		return;
+	}
+	NoStarsSeconds = Stars > 0 ? 0.f : NoStarsSeconds + DeltaSeconds;
+	if (Stars == 0)
+	{
+		// The level is gone: officers go off duty out of sight, all of them after a minute.
+		for (int32 Index = Officers.Num() - 1; Index >= 0; --Index)
+		{
+			const AGTPPoliceOfficer* Officer = Officers[Index].Get();
+			if (NoStarsSeconds > 60.f || (NoStarsSeconds > 15.f && !Network->IsSeenByPlayer(Officer->GetActorLocation())))
+			{
+				RemoveOfficer(Index, Wanted);
+			}
+		}
+		return;
+	}
+	for (int32 Index = 0; Index < Officers.Num(); ++Index)
+	{
+		Officers[Index]->SetSlot(Index, Officers.Num());
+	}
+	if (Now < NextDeployTime)
+	{
+		return;
+	}
+	const bool bOnFoot = Cast<AGTPVehicle>(&Player) == nullptr;
+	for (const FUnit& Unit : Units)
+	{
+		const AGTPVehicle* Car = Unit.Car.Get();
+		if (!IsValid(Car) || Unit.Stage != 0)
+		{
+			continue;
+		}
+		const float Distance = static_cast<float>(FVector::Dist2D(Car->GetActorLocation(), Player.GetActorLocation()));
+		if (!GTPPoliceTactics::ShouldDeploy(Tactics, Stars, bOnFoot, Distance, Unit.StoppedTime > 4.f, Officers.Num(), MaxOfficers))
+		{
+			continue;
+		}
+		const FTransform Where(Car->GetActorRotation(), Car->GetActorLocation() + Car->GetActorRightVector() * 220.f + FVector(0.f, 0.f, 100.f));
+		FActorSpawnParameters Params;
+		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+		if (AGTPPoliceOfficer* Officer = GetWorld()->SpawnActor<AGTPPoliceOfficer>(AGTPPoliceOfficer::StaticClass(), Where, Params))
+		{
+			Officers.Add(Officer);
+			Wanted.RegisterOfficer(Officer);
+			GTP_TRACE(LogGTPWanted, TEXT("police: officer out (%d) stars=%d"), Officers.Num(), Stars);
+		}
+		NextDeployTime = Now + 2.f;
+		break;
+	}
+}
+
 void AGTPPoliceDirector::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
@@ -773,6 +880,8 @@ void AGTPPoliceDirector::Tick(float DeltaSeconds)
 	const float Now = static_cast<float>(GetWorld()->GetTimeSeconds());
 	const bool bPhase = FMath::Fmod(Now, LightPeriod * 2.f) < LightPeriod;
 	const APlayerController* Viewer = GetWorld()->GetFirstPlayerController();
+
+	ManageOfficers(*Wanted, *Player, Stars, Now, DeltaSeconds);
 
 	for (int32 Index = Units.Num() - 1; Index >= 0; --Index)
 	{
