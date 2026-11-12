@@ -35,6 +35,11 @@ def norm(path):
     return re.sub(r"[\s_\-]+", "", path.lower())
 
 
+def excluded(entry, path):
+    """True when the path holds one of the entry's exclude words (e.g. a decal for a surface)."""
+    return any(norm(w) in norm(path) for w in entry.get("exclude", []))
+
+
 def loose_images(entry, loose):
     """Images of one loose export: <loose>/<id>/, else the first folder under loose (any depth)
     whose path matches a word set (Fab exports keep their listing name, e.g. "Roman Limestone
@@ -45,7 +50,7 @@ def loose_images(entry, loose):
         for words in word_sets(entry):
             for d, _, _ in sorted(os.walk(loose)):
                 rel = norm(os.path.relpath(d, loose))
-                if rel != "." and all(norm(w) in rel for w in words):
+                if rel != "." and all(norm(w) in rel for w in words) and not excluded(entry, rel):
                     roots.append(d)
                     break
             if roots:
