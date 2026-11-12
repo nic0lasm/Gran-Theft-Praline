@@ -1,5 +1,5 @@
-# Mac state 2026-11-12 06:43 Paris
+# Mac state 2026-11-12 06:48 Paris
 
-- block: starting
-- last line: 06:42 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+- block: cand11c 2be7b36
+- last line: 06:48 list34 starts (list33 stopped), evidence branch feat/mac-evidence-20261112b
 - startup crashes: 3
