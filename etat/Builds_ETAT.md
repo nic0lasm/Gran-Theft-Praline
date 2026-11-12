@@ -1,5 +1,5 @@
 # Mac state 2026-11-12 15:08 Paris
 
-- block: starting
-- last line: 15:07 pushed etat
+- block: demo-src on cand13
+- last line: 15:08 cand16: no PC proof yet, demo-src passes one by one meanwhile (relay 14:08Z)
 - startup crashes: 3
