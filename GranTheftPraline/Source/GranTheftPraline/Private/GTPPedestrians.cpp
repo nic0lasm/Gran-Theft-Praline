@@ -456,6 +456,24 @@ void UGTPPedestrianSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 		Run = Walk;
 	}
 
+	// Look 0 is the default character; every ExtraLook that loads completely (mesh and walk) is added.
+	Looks.Reset();
+	Looks.Add({nullptr, Walk, Idle, Run});
+	for (const FGTPPedestrianLook& Extra : ExtraLooks)
+	{
+		USkeletalMesh* ExtraMesh = Cast<USkeletalMesh>(Extra.Mesh.TryLoad());
+		UAnimSequenceBase* ExtraWalk = Cast<UAnimSequenceBase>(Extra.Walk.TryLoad());
+		if (!ExtraMesh || !ExtraWalk)
+		{
+			GTP_TRACE(LogGTPPedestrians, TEXT("extra look skipped: mesh %s, walk %s"), *Extra.Mesh.ToString(), *Extra.Walk.ToString());
+			continue;
+		}
+		UAnimSequenceBase* ExtraIdle = Cast<UAnimSequenceBase>(Extra.Idle.TryLoad());
+		UAnimSequenceBase* ExtraRun = Cast<UAnimSequenceBase>(Extra.Run.TryLoad());
+		Looks.Add({ExtraMesh, ExtraWalk, ExtraIdle ? ExtraIdle : ExtraWalk, ExtraRun ? ExtraRun : ExtraWalk});
+	}
+	GTP_TRACE(LogGTPPedestrians, TEXT("looks: %d (%d extra)"), Looks.Num(), Looks.Num() - 1);
+
 	People.SetNum(Wanted);
 	FActorSpawnParameters Params;
 	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
@@ -466,7 +484,15 @@ void UGTPPedestrianSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 		{
 			continue;
 		}
-		Actor->GetBody()->SetSkeletalMesh(PickMesh());
+		if (Looks.Num() > 1 && Rng.Next() < ExtraLookShare)
+		{
+			P.Look = 1 + FMath::Min(Looks.Num() - 2, static_cast<int32>(Rng.Next() * (Looks.Num() - 1)));
+			Actor->GetBody()->SetSkeletalMesh(Looks[P.Look].Mesh);
+		}
+		else
+		{
+			Actor->GetBody()->SetSkeletalMesh(PickMesh());
+		}
 		Actor->ApplyLook(Rng.Range(1.f - HeightSpread, 1.f + HeightSpread), Palette(Rng.Next()), TintParameters);
 		Actor->GetBody()->SetRelativeRotation(FRotator(0.f, MeshYawOffset, 0.f));
 		Actor->SetDetail(false, false, -1);
@@ -897,20 +923,22 @@ void UGTPPedestrianSubsystem::Update(FPerson& Person, float DeltaTime)
 
 	const bool bRun = R.bFleeing && R.bMoving;
 	const bool bStand = !R.bMoving;
+	const FLoadedLook& Anims = Looks.IsValidIndex(Person.Look) ? Looks[Person.Look] : Looks[0];
 	if (Person.bDrawn)
 	{
 		if (bStand)
 		{
-			const bool bPhone = Person.Walker.PauseKind == GTPWalk::EPause::Phone && Phone;
-			Actor->PlayLoop(bPhone ? Phone.Get() : Idle.Get(), 1.f);
+			// The phone loop is made for the default skeleton only.
+			const bool bPhone = Person.Walker.PauseKind == GTPWalk::EPause::Phone && Phone && Person.Look == 0;
+			Actor->PlayLoop(bPhone ? Phone.Get() : Anims.Idle.Get(), 1.f);
 		}
 		else if (bRun)
 		{
-			Actor->PlayLoop(Run, R.Speed / RunAnimationSpeed);
+			Actor->PlayLoop(Anims.Run, R.Speed / RunAnimationSpeed);
 		}
 		else
 		{
-			Actor->PlayLoop(Walk, R.Speed / AnimationWalkSpeed);
+			Actor->PlayLoop(Anims.Walk, R.Speed / AnimationWalkSpeed);
 		}
 	}
 }

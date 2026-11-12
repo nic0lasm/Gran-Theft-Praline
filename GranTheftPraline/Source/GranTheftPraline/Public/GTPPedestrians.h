@@ -15,6 +15,25 @@ class USkeletalMesh;
 class USkeletalMeshComponent;
 
 /**
+ * An extra pedestrian look: another character with its own skeleton and so its own (retargeted)
+ * animations. DefaultGame.ini: +ExtraLooks=(Mesh="...",Walk="...",Idle="...",Run="...").
+ */
+USTRUCT()
+struct FGTPPedestrianLook
+{
+	GENERATED_BODY()
+
+	UPROPERTY(Config)
+	FSoftObjectPath Mesh;
+	UPROPERTY(Config)
+	FSoftObjectPath Walk;
+	UPROPERTY(Config)
+	FSoftObjectPath Idle;
+	UPROPERTY(Config)
+	FSoftObjectPath Run;
+};
+
+/**
  * A person on foot, not the player: a skeletal mesh played by a single animation
  * (no animation blueprint, no movement component, no physics until hit). The
  * pedestrian subsystem moves it; the actor itself never ticks.
@@ -255,6 +274,14 @@ protected:
 	UPROPERTY(Config)
 	float RagdollSeconds = 8.f;
 
+	/** Other characters mixed into the crowd (own skeleton, own animations). Empty = everybody looks alike. */
+	UPROPERTY(Config)
+	TArray<FGTPPedestrianLook> ExtraLooks;
+
+	/** Share of the crowd (0..1) that takes one of the ExtraLooks. */
+	UPROPERTY(Config)
+	float ExtraLookShare = 0.5f;
+
 	/** A car this close (cm) to a crossing, moving, makes people wait at the kerb. */
 	UPROPERTY(Config)
 	float CrossingLookRadius = 2200.f;
@@ -273,6 +300,8 @@ private:
 		bool bRunning = false;
 		bool bIdle = false;
 		bool bDrawn = false;
+		/** Index in Looks of this person's character (0 = the default one). */
+		int32 Look = 0;
 		/** Index of the partner this person follows (a pair walking together), -1 = walks alone. */
 		int32 Leader = -1;
 		float FarAccumulated = 0.f;
@@ -303,6 +332,16 @@ private:
 
 	/** Best animation of the mesh's skeleton whose name has one of Words (walk, idle...). */
 	static UAnimSequenceBase* FindAnimation(const USkeletalMesh* Mesh, const TArray<FString>& Words);
+
+	/** A loaded character: mesh and its animations. Looks[0] is the default one. */
+	struct FLoadedLook
+	{
+		TObjectPtr<USkeletalMesh> Mesh;
+		TObjectPtr<UAnimSequenceBase> Walk;
+		TObjectPtr<UAnimSequenceBase> Idle;
+		TObjectPtr<UAnimSequenceBase> Run;
+	};
+	TArray<FLoadedLook> Looks;
 
 	GTPWalk::FGraph Graph;
 	GTPWalk::FSettings Settings;
