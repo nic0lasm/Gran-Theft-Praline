@@ -21,7 +21,7 @@
 
 namespace
 {
-	constexpr float SenseInterval = 0.25f;
+	constexpr float PlaceSenseInterval = 0.25f;
 	/** Two emitters of the same loop closer than this are one (four fryers in a row sound as two). */
 	constexpr float MergeDistance = 150.f;
 	/** Rooms are slightly smaller than their walls, so standing in the doorway is still outside. */
@@ -461,7 +461,7 @@ void UGTPPlaceAudio::Tick(float DeltaTime)
 	SenseTimer -= DeltaTime;
 	if (SenseTimer <= 0.f)
 	{
-		SenseTimer = SenseInterval;
+		SenseTimer = PlaceSenseInterval;
 		UpdateVoices(Listener);
 	}
 	UpdateShopLife(Listener, DeltaTime);

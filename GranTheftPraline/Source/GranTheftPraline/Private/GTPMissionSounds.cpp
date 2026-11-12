@@ -6,7 +6,7 @@
 
 namespace
 {
-	constexpr float LookupInterval = 0.5f;
+	constexpr float MissionLookupInterval = 0.5f;
 	/** After this many lookups (10 s) without a subsystem, missions are off: stop looking. */
 	constexpr int32 MaxLookups = 20;
 	constexpr float RewardDelay = 1.1f;
@@ -66,7 +66,7 @@ void UGTPMissionSounds::Tick(float DeltaTime)
 		LookupLeft -= DeltaTime;
 		if (LookupLeft <= 0.f)
 		{
-			LookupLeft = LookupInterval;
+			LookupLeft = MissionLookupInterval;
 			Bind();
 		}
 	}
