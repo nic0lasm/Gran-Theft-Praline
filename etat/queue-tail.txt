@@ -1,7 +1,4 @@
 11:55 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
-11:55 cand13: PC proof VERDICT: OK found
-11:55 pushed etat
-11:55 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
 11:55 == cand13-compile start
 11:56 == cand13-compile exit=0
 11:56 == cand13-blood start
@@ -58,3 +55,6 @@
 13:03 list49 starts (list48 stopped after the cand13 push and its check)
 13:03 pushed etat
 13:03 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+13:05 pushed etat
+13:06 police-demo p0-1: 4601 frames | GPU p50 15.19 p95 22.18 | >26 ms 0 | p95/10s (t s:ms) 0:21.2 10:20.0 20:20.9 30:22.5 40:22.9 50:23.0 60:22.1 70:22.2 80:22.3 90:22.1 100:22.2 110:22.5 120:14.9 | plateau after 60 s: no (mean p95 of the 60-120 s slices 22.2 ms) nearest police:   | LogGTPWanted: police: off
+13:08 police-demo p0-2: 4601 frames | GPU p50 16.03 p95 22.69 | >26 ms 0 | p95/10s (t s:ms) 0:21.6 10:19.9 20:20.8 30:22.0 40:24.7 50:22.8 60:28.6 70:28.3 80:22.4 90:22.2 100:22.4 110:23.0 120:17.8 | plateau after 60 s: no (mean p95 of the 60-120 s slices 24.5 ms) nearest police:   | LogGTPWanted: police: off

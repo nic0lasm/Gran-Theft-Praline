@@ -1,5 +1,5 @@
-# Mac state 2026-11-12 13:05 Paris
+# Mac state 2026-11-12 13:09 Paris
 
 - block: starting
-- last line: 13:03 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+- last line: 13:08 police-demo p0-2: 4601 frames | GPU p50 16.03 p95 22.69 | >26 ms 0 | p95/10s (t s:ms) 0:21.6 10:19.9 20:20.8 30:22.0 40:24.7 50:22.8 60:28.6 70:28.3 80:22.4 90:22.2 100:22.4 110:23.0 120:17.8 | plateau after 60 s: no (mean p95 of the 60-120 s slices 24.5 ms) nearest police:   | LogGTPWanted: police: off
 - startup crashes: 3
