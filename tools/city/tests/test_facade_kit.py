@@ -88,11 +88,12 @@ class InteriorCutoutTests(unittest.TestCase):
     def row(self, x, y, storey=0, side="street"):
         return {"ue_x": str(x), "ue_y": str(y), "storey": str(storey), "side": side}
 
-    def test_ground_street_bays_in_front_are_cut(self):
-        rows = [self.row(1500, 2000), self.row(1500, 2030), self.row(1500, 2000, storey=1),
-                self.row(1500, 2000, side="court"), self.row(3100, 2000), self.row(1500, 300)]
+    def test_only_the_ground_bays_on_the_glass_front_are_cut(self):
+        rows = [self.row(1500, 2000), self.row(1500, 2080), self.row(1500, 2000, side="court"),
+                self.row(1500, 2000, storey=1), self.row(3100, 2000), self.row(1500, 1850),
+                self.row(1500, 300)]
         kept, cut = self.ic.cut_rows(rows, [self.frame])
-        self.assertEqual(cut, {"shop": 2})
+        self.assertEqual(cut, {"shop": 3})
         self.assertEqual(len(kept), 4)
 
     def test_repo_interiors_load(self):
