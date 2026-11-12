@@ -110,3 +110,8 @@ A free one is taken first, else the walker farthest from the player (never a rag
   `UGTPAudioWorld::OnLoudSound` (the full chain: runners, then gawkers).
 - Checked offline: `tools/pedestrians/check_walk_logic.py` (panic never beyond the 2nd generation, every
   gawker faces the event and walks on afterwards, nobody teleports).
+- **Held up.** With `-ThreatResponse=1` every pooled pedestrian gets a `UGTPThreatResponseComponent`
+  (temperament: 45 % flee, 40 % comply, 15 % frozen). `OnThreatState` drives them: alarmed = stand and
+  look, hands up / complying = frozen facing the aggressor (`EPause::HandsUp`, until the fear drops),
+  backing / fleeing = run away from him. `-ThreatDemo` (threat subsystem) exercises it.
+- Fix: a walker turned round by `Flee` no longer jumps sideways (its lateral offset is mirrored with the direction).

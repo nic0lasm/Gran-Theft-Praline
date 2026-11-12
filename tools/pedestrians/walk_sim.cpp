@@ -284,6 +284,32 @@ int main(int Argc, char** Argv)
 	}
 	std::printf("panic: caught=%d max_generation=%d; gawk: taken=%d facing=%d resumed=%d\n", PanicCaught, PanicMaxGen, GawkTaken, GawkFacing, GawkResumed);
 
+	// Held up: a running walker frozen facing the aggressor stays put and faces it until released.
+	int HeldOk = 0, HeldTrials = 20;
+	for (int k = 0; k < HeldTrials; ++k)
+	{
+		FWalker H;
+		Place(G, H, Rng, S);
+		FPoint P0, D0;
+		Locate(G, H, P0, D0);
+		const FPoint Aggressor = {P0.X + D0.Y * 400.f + 50.f, P0.Y - D0.X * 400.f};
+		Flee(G, H, Aggressor, S);
+		Freeze(H, Aggressor, 5.f, EPause::HandsUp);
+		Locate(G, H, P0, D0);
+		bool Still = true;
+		for (float T = 0; T < 4.f; T += Dt)
+		{
+			Still &= !Step(G, H, Dt, Rng, S, false).bMoving;
+		}
+		FPoint P1, D1;
+		Locate(G, H, P1, D1);
+		const FPoint F = Facing(G, H);
+		const float Dx = Aggressor.X - P1.X, Dy = Aggressor.Y - P1.Y;
+		const float Len = std::sqrt(Dx * Dx + Dy * Dy);
+		HeldOk += (Still && Distance(P0, P1) < 5.f && (F.X * Dx + F.Y * Dy) / Len > 0.95f) ? 1 : 0;
+	}
+	std::printf("held up: %d/%d still and facing the aggressor\n", HeldOk, HeldTrials);
+
 	// Waiting at a crossing: while a car is near (and under CrossingWaitMax) nobody steps onto it.
 	int Stepped = 0, Waited = 0;
 	for (size_t e = 0; e < G.Edges.size(); ++e)
@@ -319,7 +345,7 @@ int main(int Argc, char** Argv)
 	std::printf("edges=%zu nodes=%zu walkers=%d seconds=%.0f visited=%zu walking=%.2f waiting=%.3f max_jump_cm=%.0f teleports=%d flee_ok=%d/%d crossing_breaches=%d\n",
 		G.Edges.size(), G.NodeEdges.size(), Walkers, Seconds, Visited.size(), Walking, WaitTime / TotalTime,
 		MaxJump, Teleports, FleeOk, FleeTrials, Stepped);
-	const bool Pass = Teleports == 0 && Stepped == 0 && Avoiding <= Plain && Avoiding12 <= Plain12 + 0.0005 && PairSpread < 500.0 && Walking > 0.8 && FleeOk >= FleeTrials * 0.9 && PanicMaxGen <= S.PanicMaxGeneration && PanicCaught >= 1 && GawkTaken > 5 && GawkFacing == GawkTaken && GawkResumed >= GawkTaken * 0.9 && Visited.size() * 2 >= G.Edges.size();
+	const bool Pass = Teleports == 0 && Stepped == 0 && Avoiding <= Plain && Avoiding12 <= Plain12 + 0.0005 && PairSpread < 500.0 && Walking > 0.8 && FleeOk >= FleeTrials * 0.9 && PanicMaxGen <= S.PanicMaxGeneration && PanicCaught >= 1 && HeldOk == HeldTrials && GawkTaken > 5 && GawkFacing == GawkTaken && GawkResumed >= GawkTaken * 0.9 && Visited.size() * 2 >= G.Edges.size();
 	std::printf("%s\n", Pass ? "PASS" : "FAIL");
 	return Pass ? 0 : 1;
 }
