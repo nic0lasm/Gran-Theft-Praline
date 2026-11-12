@@ -58,6 +58,12 @@ PARTY_PROBE_M = 0.6      # an edge whose outside is another footprint at this di
 STREET_PROBE_M = 4.0     # probe point in front of an edge to find the street
 STREET_MARGIN_M = 7.0    # probe within half road width + this margin => street facade
 MIN_FACADE_EDGE_M = 1.8  # shorter edges get a blank module
+# A facade on a square or a quay (place Bellecour, place des Jacobins) has no road within the
+# probe, yet it is no courtyard: three rays (normal, +-35 deg) that leave the block without
+# meeting another footprint over OPEN_SPACE_M mark it as a street front (named after the nearest
+# road, empty if none). Measured courtyards of the Presqu'ile are under 20 m across.
+OPEN_SPACE_M = 24.0
+OPEN_SPACE_STEP_M = 2.0
 # Mansard roof of the Second Empire blocks (rue de la Republique): the LiDAR cannot tell the
 # near-vertical zinc brisis from the wall (no slope within 3 m of the edge, 12/11), so a wall
 # measured above MANSARD_MIN_WALL_M ends with a mansard level: stone storeys up to the cornice,
@@ -325,6 +331,12 @@ class Context:
                 return True
         return False
 
+    def inside_any(self, pt):
+        """True when pt is inside any footprint, the building's own included (a carved courtyard
+        is outside its own part, the far side of a U-shaped block is inside it)."""
+        p = Point(pt)
+        return len(self.tree.query(p, predicate="intersects")) > 0
+
     def street_at(self, pt):
         """(name, distance beyond the carriageway edge) of the road in front of pt, or (None, inf)."""
         if self.road_tree is None:
@@ -365,7 +377,19 @@ def classify_edge(ctx, bid, p0, p1, n):
     name, d = ctx.street_at((p0 + p1) / 2 + n * STREET_PROBE_M)
     if d <= STREET_MARGIN_M:
         return "street", name
+    if faces_open_space(ctx, bid, (p0 + p1) / 2, n):
+        return "street", name or ""
     return "court", None
+
+
+def faces_open_space(ctx, bid, mid, n):
+    c, s_ = math.cos(math.radians(35)), math.sin(math.radians(35))
+    for dx, dy in ((n[0], n[1]), (c * n[0] - s_ * n[1], s_ * n[0] + c * n[1]),
+                   (c * n[0] + s_ * n[1], -s_ * n[0] + c * n[1])):
+        for k in range(1, int(OPEN_SPACE_M / OPEN_SPACE_STEP_M) + 1):
+            if ctx.inside_any(mid + np.array([dx, dy]) * (k * OPEN_SPACE_STEP_M)):
+                return False
+    return True
 
 
 def typology_of(b, street_names, wall_h):
