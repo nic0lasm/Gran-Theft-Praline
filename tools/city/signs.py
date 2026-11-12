@@ -58,13 +58,17 @@ FONTS = {
     "serif": ["/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf",
               "/System/Library/Fonts/Supplemental/Georgia Bold.ttf"],
 }
+# Windows PC (12/11): the same faces from %WINDIR%\Fonts.
+_WIN_FONTS = os.path.join(os.environ.get("WINDIR", "C:/Windows"), "Fonts")
+FONTS["sans"].append(os.path.join(_WIN_FONTS, "arialbd.ttf"))
+FONTS["serif"].append(os.path.join(_WIN_FONTS, "georgiab.ttf"))
 
 
 def font_path(kind):
     for p in FONTS[kind]:
         if os.path.exists(p):
             return p
-    return None
+    raise SystemExit("signs.py: no %s font found, tried %s" % (kind, FONTS[kind]))
 
 
 def hex_rgb(h):
