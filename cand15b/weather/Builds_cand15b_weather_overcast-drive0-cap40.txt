@@ -1,0 +1,1 @@
+overcast-drive0: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 1 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 30.9 | gpu p50 14.15 p95 21.18 | gate PASS
