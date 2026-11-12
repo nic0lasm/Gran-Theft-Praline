@@ -189,6 +189,42 @@ def build_station_slots(spec, catalog):
     return len(seen)
 
 
+def customer_spots(spec, catalog):
+    """Queue spots for UGTPCustomerSubsystem: line k = place 0 in the clear band in front of till k
+    (the dining tables start 1.2 m from the counter), then the waiting places in a column of the
+    queue zone, front to back. [(line, place, x m, y m)] in the spec frame, everyone facing the
+    counter (+y in the spec, yaw -90 in Unreal)."""
+    zones = {z["name"]: z["rect"] for z in spec["zones"] if z.get("level", 0) == 0}
+    tills = {}
+    for p in il.generate_all(spec, catalog):
+        tag = p.get("station") or ""
+        if tag.startswith("till_") and tag not in tills and p["level"] == 0:
+            tills[tag] = p
+    counter_y = zones["counter"][1]
+    qx0, qy0, qx1, _qy1 = zones["queue"]
+    columns = [x for x in (qx0 + 0.6, qx0 + 3.0, qx0 + 4.2, qx0 + 5.4) if x < qx1 - 0.3]   # clear of the bin at x0 + 1.9
+    spots = []
+    for line, tag in enumerate(sorted(tills)[:len(columns)]):
+        spots.append((line, 0, tills[tag]["x"], counter_y - 0.55))
+        y = counter_y - 0.6
+        place = 1
+        while y >= qy0 + 0.4:
+            spots.append((line, place, columns[line], y))
+            y -= 0.9
+            place += 1
+    return spots
+
+
+def build_customer_spots(spec, catalog):
+    for line, place, x, y in customer_spots(spec, catalog):
+        point = actor_sub.spawn_actor_from_class(unreal.TargetPoint, unreal.Vector(x * 100.0, -y * 100.0, 0.0),
+                                                 unreal.Rotator(0.0, 0.0, -90.0))   # roll, pitch, yaw: facing the counter
+        point.set_actor_label("Customer_q%d_%d" % (line, place))
+        point.set_folder_path("Interior/Customers")
+        point.set_editor_property("tags", [unreal.Name("GTP_CustomerSpot=q%d_%d" % (line, place))])
+    return len(customer_spots(spec, catalog))
+
+
 # Classes that hum, for the place audio (feat/audio-0.9, UGTPPlaceAudio): one emitter per object,
 # the audio merges those closer than 1.5 m. Hoods sit above the hot stations.
 AUDIO_LOOPS = {"fryer": "Fryer", "clamshell_grill": "Grill", "milk_fridge": "Cold", "ice_bin": "Cold",
@@ -417,6 +453,7 @@ def main():
     build_objects(spec, catalog, mapping, report)
     report["lights"] = build_lights(spec)
     report["station_slots"] = build_station_slots(spec, catalog)
+    report["customer_spots"] = build_customer_spots(spec, catalog)
     report["audio"] = build_audio(spec, catalog)
     report["shot_cameras"] = build_shot_cameras(spec)
     level_sub.save_current_level()

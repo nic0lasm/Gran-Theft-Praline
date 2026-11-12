@@ -89,6 +89,15 @@ ou file → caisse → attente (l'écran affiche leur numéro) → retrait → t
 (durée selon le menu) → retour du plateau → sortie. Fréquentation cible par heure (pic de midi,
 après-midi calme, fin de soirée). M1 jusqu'à 12 clients dedans, PC 25.
 
+Dans le jeu aujourd'hui (première tranche) : `UGTPCustomerSubsystem` emprunte des piétons du pool
+(`AcquireFromPool`) pour la file seulement. Une file par caisse : la première place dans la bande
+libre devant la caisse, les places d'attente en colonne dans la zone de file (repères
+`GTP_CustomerSpot=q<file>_<place>` posés par `build_interior_level.py`). `GTPCustomerQueue.h` sert
+le client de tête toutes les 12 à 24 s, les autres avancent et un nouveau entre toutes les 3 à 7 s
+jusqu'à `-InteriorCustomers=N` (6 par défaut, 0 pour aucun). Une menace armée dans la boutique
+fige la file. Un client servi retourne au pool. À venir : marche entre les places, bornes, tables,
+fuite pendant un braquage.
+
 ## 6. Braquage de plusieurs employés
 
 Règles dans `GTPHoldUpModel.h` (testées en CI) :
