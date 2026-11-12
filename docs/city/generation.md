@@ -551,3 +551,20 @@ edge of the basin, position estimated from photo V4 (+-10 m, to be set on the to
 Without the manifest, or with `GTP_SURFACES=0`, the materials stay procedural.
 
 M1 budget: the ground uses at most 15 texture fetches (grime included, as a texture rather than decal actors), the kit 4 and the shells 6, all through shared samplers. `GTP_SURFACES_LITE=1` keeps only the colour maps.
+
+## The whole of place de la République (added 2026-11-12, République slice)
+
+The 45 m street zone took only the facades of place de la République that stand near the axis of
+rue de la République: the east side of the square, the far side of its north edge and the corner
+blocks on rue Childebert stayed backdrop volumes, grey in the wide view V4.
+`generate.py --also-street NAME[:BUFFER_M]` adds every building whose footprint lies within
+BUFFER_M (default 8 m) of the BD TOPO road lines named NAME, after `--clip`, so the far side of
+the square is generated even when its centroids fall outside the slice box. 8 m takes the
+facades on the square only; from 12 m the back buildings of the blocks and the Grand Hôtel-Dieu
+come in. `faces_open_space` then makes the square sides street fronts, so they get shopfronts,
+balconies and the mansard.
+
+`regen_city.sh` passes `--also-street "Place de la République"` by default
+(`GTP_CITY_ALSO_STREET`, empty to skip). République focus (2026-11-12, cloud machine): 4 more
+buildings, 235 in all, 19 341 modules (+337), 417 k triangles (+8 k); the backdrop drops to 1 585
+volumes. Slice (`--clip=-80,-570,300,-180`): 6 more buildings, 63 in all, 4 267 modules.
