@@ -1,5 +1,5 @@
-# Mac state 2026-11-12 10:09 Paris
+# Mac state 2026-11-12 10:12 Paris
 
-- block: starting
-- last line: 10:07 lumen12 fixed-8: fixed-8: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.2 | gpu p50 13.82 p95 20.91 | gate PASS
+- block: ilfix: waiting for the PC proof (fe05c38)
+- last line: 10:12 list42 starts (list41 stopped after the lumen12 push and its check)
 - startup crashes: 3
