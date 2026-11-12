@@ -1,5 +1,5 @@
-# Mac state 2026-11-12 15:08 Paris
+# Mac state 2026-11-12 15:11 Paris
 
-- block: demo-src on cand13
-- last line: 15:08 cand16: no PC proof yet, demo-src passes one by one meanwhile (relay 14:08Z)
+- block: starting
+- last line: 15:11 demo-src: ped0-1 ran without the gate args (lost line), kept as ped0-1-noargs; demo-src restarted
 - startup crashes: 3
