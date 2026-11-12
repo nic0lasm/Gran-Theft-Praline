@@ -185,6 +185,32 @@ def add_lods(meshes, manifest, report):
                           "lod_counts": sorted(set(done.values()))}
 
 
+# Nanite on the kit (PC, DX12): the v1 Haussmann bays carry their mouldings and ironwork as
+# geometry (3 to 8 k triangles each, 13 k instances on the street). Default on Windows; the M1
+# has no Nanite and keeps the reduced LODs. GTP_KIT_NANITE=0/1 overrides.
+KIT_NANITE = os.environ.get("GTP_KIT_NANITE", "1" if sys.platform == "win32" else "0") == "1"
+
+
+def enable_nanite(meshes, report):
+    if not KIT_NANITE:
+        report["kit_nanite"] = "off"
+        return
+    done = []
+    for name, mesh in meshes.items():
+        if name == "SM_Sign_Panel":
+            continue
+        try:
+            ns = mesh.get_editor_property("nanite_settings")
+            if not ns.get_editor_property("enabled"):
+                ns.set_editor_property("enabled", True)
+                mesh.set_editor_property("nanite_settings", ns)
+                eal.save_loaded_asset(mesh)
+            done.append(name)
+        except Exception as e:  # noqa: BLE001  a mesh without Nanite still draws
+            report.setdefault("errors", []).append("nanite %s: %r" % (name, e))
+    report["kit_nanite"] = len(done)
+
+
 def check_sizes(meshes, manifest):
     """Module width along X and height along Z must match the nominal bay (cm)."""
     bad = []
@@ -441,6 +467,7 @@ def main():
     bad = check_sizes(meshes, manifest)
     if not bad and not KIT_REUSE:
         add_lods(meshes, manifest, report)
+        enable_nanite(meshes, report)
     report["kit_modules"] = len(meshes)
     if bad:
         report["errors"].append("kit size check failed: %s" % (bad[:4],))
