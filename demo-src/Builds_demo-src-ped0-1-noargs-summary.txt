@@ -1,0 +1,5 @@
+ped0-1: 4601 frames | GPU p50 16.71 p95 24.70 | >26 ms 0 | p95/10s (t s:ms) 0:21.0 10:20.2 20:20.4 30:22.0 40:22.7 50:22.8 60:22.3 70:22.3 80:29.7 90:29.8 100:29.6 110:29.6 120:26.4
+28 ms bump from 40 s: YES at 80s:29.7 90s:29.8 100s:29.6 110s:29.6
+args:  -Pedestrians=0
+LogGTPTraffic: traffic: car pool on, cooldown 2.0 s
+LogGTPTraffic: traffic: draw levers driver -0 m, lights -0 m, static 30 m, near LOD 0, shadows on (negative = off)

@@ -1,0 +1,5 @@
+traf0-1: 4601 frames | GPU p50 13.70 p95 20.66 | >26 ms 0 | p95/10s (t s:ms) 0:22.0 10:19.9 20:20.5 30:21.7 40:21.3 50:20.3 60:20.9 70:20.8 80:20.3 90:20.5 100:20.7 110:19.8 120:19.3
+28 ms bump from 40 s: no
+args: -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -VehicleLod=1 -WantedStars=2 -WantedHold -PoliceMax=3  -Traffic=0
+LogGTPPedestrians: active=50 drawn=20 wanted=50 spawned=50 fled=0 hit=0 far=30
+LogGTPPedestrians: active=50 drawn=20 wanted=50 spawned=56 fled=0 hit=0 far=30

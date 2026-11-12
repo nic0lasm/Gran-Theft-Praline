@@ -1,0 +1,5 @@
+ped0-2: 4601 frames | GPU p50 16.35 p95 23.81 | >26 ms 0 | p95/10s (t s:ms) 0:21.8 10:20.0 20:20.6 30:22.3 40:22.5 50:23.1 60:22.1 70:22.4 80:28.5 90:28.6 100:28.1 110:27.7 120:24.6
+28 ms bump from 40 s: YES at 80s:28.5 90s:28.6 100s:28.1 110s:27.7
+args: -Sky=lightfunction -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -PoliceMax=3  -Pedestrians=0
+LogGTPTraffic: traffic: car pool on, cooldown 2.0 s
+LogGTPTraffic: traffic: draw levers driver -0 m, lights -0 m, static 30 m, near LOD 0, shadows on (negative = off)

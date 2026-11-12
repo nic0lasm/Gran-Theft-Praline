@@ -1,0 +1,60 @@
+14:55 cand15b-long600: crash no (exit 0), end t=597, reused=105 | long600: 23797 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.2 | gpu p50 14.54 p95 21.36 | gate PASS
+14:55 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+14:55 == cand15b-interior start (120 s, no -userdir)
+14:57 cand15b-interior: crash no (exit 0) | interior: 4598 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 2 | >50 1 | >100 0 | frame p50 25.00 p95 25.02 max 63.3 | gpu p50 12.30 p95 19.69 | gate PASS | CustomerQueue: shop fastfood_bellecour open: 4 lines, 20 spots, 6 customers in (0 refused by the pool);
+14:58 cand15b still counter: frame_00000.jpg | CustomerQueue: shop fastfood_bellecour open: 4 lines, 20 spots, 6 customers in (0 refused by the pool)
+14:58 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+14:58 == cand15b-weather drive0 start (120 s, direct, no -userdir)
+15:00 cand15b weather overcast -DriveClouds=0: overcast-drive0: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 1 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 30.9 | gpu p50 14.15 p95 21.18 | gate PASS | cloud_mode_applied=volumetric;drive_cloud_coverage=0;cloud_coverage_params=no cloud material;
+15:01 == cand15b-weather drive1 start (120 s, direct, no -userdir)
+15:03 cand15b weather overcast -DriveClouds=1: overcast-drive1: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.1 | gpu p50 14.12 p95 21.18 | gate PASS | cloud_mode_applied=volumetric;drive_cloud_coverage=1;cloud_coverage_params=no cloud material;
+15:04 cand15b weather still drive0: frame_00000.jpg
+15:04 cand15b weather still drive1: frame_00000.jpg
+15:04 pushed cand15b/weather
+15:05 cand15b still street: frame_00000.jpg | LogGTPPedestrians: active=24 drawn=13 wanted=24 spawned=24 fled=0 hit=0 far=0
+15:06 pushed etat
+15:06 cand15b still title: frame_00000.jpg | 
+15:06 cand15b: credits screen not captured (needs keyboard input in the game window; no command-line switch opens it)
+15:06 cand15b: gate 4/4 (street-demo median) and no crash in 600 s, endurance on cand15b
+15:06 pushed cand15b
+15:06 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+15:06 pushed etat
+15:06 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+15:07 demo-src ped0-1 stopped (cand16 goes first, relay 14:05Z); list55 stopped
+15:07 pushed etat
+15:07 list56 starts (list55 stopped after the cand15b push and its check)
+15:07 visuals interior-counter-cand12: 1440x1080 -> 1440 810 (no upscale)
+15:07 visuals interior-counter-cand13: 1440x1080 -> 1440 810 (no upscale)
+15:07 visuals night-cand12: 1440x1080 -> 1440 810 (no upscale)
+15:07 visuals night-cand13: 1440x1080 -> 1440 810 (no upscale)
+15:07 visuals rain-cand12: 1440x1080 -> 1440 810 (no upscale)
+15:07 visuals rain-cand13: 1440x1080 -> 1440 810 (no upscale)
+15:07 visuals street-noon-cand12: 1440x1080 -> 1440 810 (no upscale)
+15:07 visuals street-noon-cand13: 1440x1080 -> 1440 810 (no upscale)
+15:07 pushed visuals-20261112
+15:07 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+15:07 endurance package: cand13
+15:07 endurance package now: cand15b
+15:07 pushed etat
+15:08 pushed etat
+15:08 list56 starts (list55 stopped after the cand15b push and its check)
+15:08 endurance package: cand13
+15:08 endurance package now: cand15b
+15:08 cand16: no PC proof yet, demo-src passes one by one meanwhile (relay 14:08Z)
+15:08 pushed etat
+15:08 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+15:11 demo-src ped0-1: 4601 frames | GPU p50 16.71 p95 24.70 | >26 ms 0 | p95/10s (t s:ms) 0:21.0 10:20.2 20:20.4 30:22.0 40:22.7 50:22.8 60:22.3 70:22.3 80:29.7 90:29.8 100:29.6 110:29.6 120:26.4 | 28 ms bump from 40 s: YES at 80s:29.7 90s:29.8 100s:29.6 110s:29.6 | LogGTPTraffic: traffic: car pool on, cooldown 2.0 s
+15:11 demo-src: ped0-1 ran without the gate args (lost line), kept as ped0-1-noargs; demo-src restarted
+15:11 pushed etat
+15:11 list56 starts (list55 stopped after the cand15b push and its check)
+15:11 endurance package: cand13
+15:11 endurance package now: cand15b
+15:11 cand16: no PC proof yet, demo-src passes one by one meanwhile (relay 14:08Z)
+15:11 pushed etat
+15:11 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+15:14 demo-src ped0-1: 4601 frames | GPU p50 17.17 p95 24.77 | >26 ms 0 | p95/10s (t s:ms) 0:22.4 10:20.1 20:20.6 30:22.2 40:24.6 50:22.8 60:28.1 70:29.2 80:29.2 90:29.4 100:29.1 110:29.0 120:24.9 | 28 ms bump from 40 s: YES at 60s:28.1 70s:29.2 80s:29.2 90s:29.4 100s:29.1 110s:29.0 | LogGTPTraffic: traffic: car pool on, cooldown 2.0 s
+15:16 demo-src ped0-2: 4601 frames | GPU p50 16.35 p95 23.81 | >26 ms 0 | p95/10s (t s:ms) 0:21.8 10:20.0 20:20.6 30:22.3 40:22.5 50:23.1 60:22.1 70:22.4 80:28.5 90:28.6 100:28.1 110:27.7 120:24.6 | 28 ms bump from 40 s: YES at 80s:28.5 90s:28.6 100s:28.1 110s:27.7 | LogGTPTraffic: traffic: car pool on, cooldown 2.0 s
+15:18 demo-src ped0-3: 4601 frames | GPU p50 15.16 p95 22.13 | >26 ms 0 | p95/10s (t s:ms) 0:21.6 10:20.0 20:20.5 30:22.0 40:22.4 50:22.8 60:22.1 70:21.9 80:22.0 90:22.2 100:22.4 110:22.4 120:22.0 | 28 ms bump from 40 s: no | LogGTPTraffic: traffic: car pool on, cooldown 2.0 s
+15:20 demo-src traf0-1: 4601 frames | GPU p50 13.70 p95 20.66 | >26 ms 0 | p95/10s (t s:ms) 0:22.0 10:19.9 20:20.5 30:21.7 40:21.3 50:20.3 60:20.9 70:20.8 80:20.3 90:20.5 100:20.7 110:19.8 120:19.3 | 28 ms bump from 40 s: no | LogGTPPedestrians: active=50 drawn=20 wanted=50 spawned=50 fled=0 hit=0 far=30
+15:22 demo-src traf0-2: 4601 frames | GPU p50 13.44 p95 20.30 | >26 ms 0 | p95/10s (t s:ms) 0:20.8 10:19.5 20:20.1 30:21.4 40:20.9 50:20.1 60:20.0 70:20.0 80:20.2 90:20.1 100:20.5 110:20.7 120:20.8 | 28 ms bump from 40 s: no | LogGTPPedestrians: active=50 drawn=20 wanted=50 spawned=50 fled=0 hit=0 far=30
+15:24 demo-src traf0-3: 4601 frames | GPU p50 13.26 p95 20.55 | >26 ms 0 | p95/10s (t s:ms) 0:21.2 10:19.9 20:19.9 30:21.7 40:21.5 50:21.0 60:20.9 70:20.9 80:19.7 90:19.3 100:19.5 110:20.1 120:19.4 | 28 ms bump from 40 s: no | LogGTPPedestrians: active=50 drawn=20 wanted=50 spawned=50 fled=0 hit=0 far=30
