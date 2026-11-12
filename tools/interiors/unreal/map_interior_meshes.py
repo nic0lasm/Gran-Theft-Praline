@@ -81,7 +81,14 @@ def describe(path):
     return {"path": path, "lods": mesh.get_num_lods(), "tris_lod0": triangles(mesh), "size_m": [round(v, 3) for v in size]}
 
 
+MODELS = "/Game/Interiors/Free/Models/"
+
+
 def folder(path):
+    """The model a mesh belongs to: /Game/Interiors/Free/Models/<name> for the free imports, even
+    when the importer nested the meshes (<name>/<name>/StaticMeshes/Object_16); else its folder."""
+    if path.startswith(MODELS):
+        return MODELS + path[len(MODELS):].split("/", 1)[0]
     return path.rsplit("/", 1)[0]
 
 
@@ -128,6 +135,8 @@ def main():
                         hits[other] = True
                 else:
                     hits[path] = True
+            # A model combined by combine_multi_mesh.py stands for its pieces: they leave the race.
+            hits = {p: True for p in hits if folder(p) + "_Combined" not in by_folder}
             if hits:
                 described = [info_of(path) for path in hits]
                 # Closest to the catalog size first (pieces and other objects lose), then LODs, then

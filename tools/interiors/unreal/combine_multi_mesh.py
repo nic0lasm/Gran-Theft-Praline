@@ -21,7 +21,8 @@ ROOT = "/Game/Interiors/Free/Models"
 PIPELINE_SOURCE = "/Interchange/Pipelines/DefaultAssetsPipeline"
 PIPELINE = "/Game/Interiors/Free/Pipelines/GTP_CombineMeshesPipeline"
 # Kits of different objects (a washroom set): their pieces are the objects, never combined.
-KITS = ("eu_guest_wc",) + tuple(n.strip() for n in os.environ.get("GTP_COMBINE_SKIP", "").split(",") if n.strip())
+KITS = ("eu_guest_wc", "hamburger_buns", "basic_pc_monitors", "binder_notebook", "multi_cleaner_bottle",
+        "air_duct_kit_hvac_pipes_air_conditioning", "modular_airduct_rectangular_01", "present_52_gadget_sf") + tuple(n.strip() for n in os.environ.get("GTP_COMBINE_SKIP", "").split(",") if n.strip())
 ONLY = [n.strip() for n in os.environ.get("GTP_COMBINE_ONLY", "").split(",") if n.strip()]
 SAVED = unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_saved_dir())
 eal = unreal.EditorAssetLibrary
@@ -32,8 +33,10 @@ def log(text):
 
 
 def static_meshes(folder):
+    """Every static mesh of a model, nested folders included (a glTF can land in
+    <name>/<name>/StaticMeshes/)."""
     out = []
-    for path in eal.list_assets(folder, recursive=False, include_folder=False):
+    for path in eal.list_assets(folder, recursive=True, include_folder=False):
         data = eal.find_asset_data(path)
         if str(data.asset_class_path.asset_name) == "StaticMesh":
             out.append(path.split(".")[0])
