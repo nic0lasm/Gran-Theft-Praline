@@ -75,7 +75,9 @@ def combine_pipeline(report):
             return None
         mesh_pipeline.set_editor_property("combine_static_meshes_behavior", getattr(enum, wanted[0]))
         report["combine_enum"]["set"] = wanted[0]
-        pipeline.set_editor_property("mesh_pipeline", mesh_pipeline)
+        # mesh_pipeline is a read-only sub-object returned by reference: setting its property is
+        # enough, and writing it back on the pipeline is refused.
+        pipeline.modify()
     except Exception as error:
         report["errors"].append("cannot set combine_static_meshes_behavior on the pipeline: %s" % error)
         return None
