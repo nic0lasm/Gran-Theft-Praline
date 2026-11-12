@@ -159,6 +159,8 @@ class _G:
     def tint(self, col, surf):
         """Surfaces with a tint (a red painted roof standing in for zinc): grey, then the tint
         times twice the grey, so the scan's light and dark patches stay."""
+        if surf.get("gain"):
+            col = self.mul(col, self.const(float(surf["gain"])))
         if not surf.get("tint"):
             return col
         grey = self.node(unreal.MaterialExpressionDesaturation)
