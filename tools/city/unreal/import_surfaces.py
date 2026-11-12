@@ -205,8 +205,9 @@ def main():
                 continue
             s = {"folder": folder, "tile_cm": e.get("tile_cm", 200), "role": e.get("role", ""),
                  "priority": e.get("priority", 3)}
-            if e.get("tint"):
-                s["tint"] = e["tint"]
+            for k in ("tint", "gain"):
+                if e.get(k):
+                    s[k] = e[k]
             found.pop("ao", None)          # not used: the ORDp red channel or nothing
             for role, (p, ch) in found.items():
                 prepare(p, role, report["changed"])

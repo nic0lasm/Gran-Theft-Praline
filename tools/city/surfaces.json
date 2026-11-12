@@ -1,5 +1,5 @@
 {
- "about": "Scanned surfaces of the street (Megascans, Fab free, 2K, Unreal export: T_*_D, T_*_N, T_*_ORDp). Never in Git: they live in the project Content. id = folder name under /Game/Environment/Surfaces/<id>/ (or any folder whose path holds the id), match = name words that find a Megascans folder when the id is not in its path. tile_cm = real size of one texture repeat. Used by tools/city/unreal/import_surfaces.py and gtp_surfaces.py. match_any = other word sets that also find it (any one set, every word in it). tint = linear RGB: the colour map is turned grey and multiplied by it (a red painted roof becomes zinc).",
+ "about": "Scanned surfaces of the street (Megascans, Fab free, 2K, Unreal export: T_*_D, T_*_N, T_*_ORDp). Never in Git: they live in the project Content. id = folder name under /Game/Environment/Surfaces/<id>/ (or any folder whose path holds the id), match = name words that find a Megascans folder when the id is not in its path. tile_cm = real size of one texture repeat. Used by tools/city/unreal/import_surfaces.py and gtp_surfaces.py. match_any = other word sets that also find it (any one set, every word in it). tint = linear RGB: the colour map is turned grey and multiplied by it (a red painted roof becomes zinc). gain = multiplier on the colour map.",
  "surfaces": [
   {
    "id": "granite_slab_light",
@@ -16,7 +16,9 @@
      "granite",
      "paving"
     ]
-   ]
+   ],
+   "gain": 1.6,
+   "note": "Granite Paving Slabs (Fab 12/11); gain 1.6: the scan read darker than the street's light granite (PC A/B 12/11)"
   },
   {
    "id": "limestone_ashlar",
