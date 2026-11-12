@@ -25,6 +25,12 @@ void AGTPGameMode::InitGame(const FString& MapName, const FString& Options, FStr
 {
 	Super::InitGame(MapName, Options, ErrorMessage);
 
+	// -PlayerPawn=<class path> tries another player character (the MetaHuman, an A/B) without touching the config.
+	FString PawnOverride;
+	if (FParse::Value(FCommandLine::Get(), TEXT("PlayerPawn="), PawnOverride) && !PawnOverride.IsEmpty())
+	{
+		PlayerPawnClass = FSoftClassPath(PawnOverride);
+	}
 	if (PlayerPawnClass.IsNull())
 	{
 		return;
