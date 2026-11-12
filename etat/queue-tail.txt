@@ -1,6 +1,3 @@
-13:10 police-demo: -Police=0 plateau in 1 of 3 pass(es)
-13:11 pushed etat
-13:11 police-demo: pdef passes skipped (relay 12:10Z), pdef-1 stopped
 13:11 pushed police-demo
 13:11 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
 13:11 list50 starts (list49 stopped after the police-demo push and its check)
@@ -58,3 +55,6 @@
 14:04 cand14 gate: street-demo GPU p95 median of 3 = 24.86 ms; gate 1/4 with the street-demo median; endurance stays on cand13 (no new cand14 gate before the coordinator's decision)
 14:04 pushed cand14
 14:04 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+14:04 pushed etat
+14:04 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+14:05 visuals street-noon cand12: captured 1440x1080 -> 1920 1080 
