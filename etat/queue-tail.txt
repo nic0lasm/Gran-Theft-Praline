@@ -1,36 +1,3 @@
-07:59 list39 starts after pool0-4 (list37 stopped)
-07:59 == crash-ilight-pool0-5 start (120 s, -userdir) -TrafficPool=0
-08:01 crash-ilight-pool0-5: exit=0 crash=no last t=wanted: t=119 context= reused=0 wrecked-last-10s=0 | reused/police in the last 15 s: 3 line(s) | crash-ilight-pool0-5: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00
-08:02 == crash-ilight-pool0-6 start (120 s, -userdir) -TrafficPool=0
-08:04 crash-ilight-pool0-6: exit=0 crash=no last t=wanted: t=119 context= reused=0 wrecked-last-10s=0 | reused/police in the last 15 s: 2 line(s) | crash-ilight-pool0-6: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00
-08:04 == crash-ilight-pool0-7 start (120 s, -userdir) -TrafficPool=0
-08:06 crash-ilight-pool0-7: exit=0 crash=no last t=wanted: t=119 context= reused=0 wrecked-last-10s=0 | reused/police in the last 15 s: 2 line(s) | crash-ilight-pool0-7: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 
-08:06 == crash-ilight-pool0-8 start (120 s, -userdir) -TrafficPool=0
-08:08 crash-ilight-pool0-8: exit=0 crash=no last t=wanted: t=119 context= reused=0 wrecked-last-10s=0 | reused/police in the last 15 s: 3 line(s) | crash-ilight-pool0-8: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00
-08:08 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
-08:08 == ilight-dev-build start
-08:22 == ilight-dev-build exit=0
-08:22 ilight-dev build exit=0; - tracked changes at the end: 0, clone on 8d80513
-08:22 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
-08:22 == crash-ilight-dev1 start (120 s, -userdir) 
-08:24 crash-ilight-dev1: exit=0 crash=no last t=wanted: t=117 context= reused=19 wrecked-last-10s=0 | reused/police in the last 15 s: 5 line(s) | crash-ilight-dev1: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p9
-08:25 == crash-ilight-dev2 start (120 s, -userdir) 
-08:27 crash-ilight-dev2: exit=0 crash=no last t=wanted: t=117 context= reused=20 wrecked-last-10s=2 | reused/police in the last 15 s: 2 line(s) | crash-ilight-dev2: 4598 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.01 p95
-08:27 == crash-ilight-dev3 start (120 s, -userdir) 
-08:29 crash-ilight-dev3: exit=0 crash=no last t=wanted: t=117 context= reused=21 wrecked-last-10s=0 | reused/police in the last 15 s: 4 line(s) | crash-ilight-dev3: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.8 %) | >26 0 | >50 0 | >100 0 | frame p50 25.01 p95
-08:29 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
-08:29 == poolfix-build start
-08:42 == poolfix-build exit=0
-08:42 poolfix build exit=0; - tracked changes at the end: 0, clone on ddee55e
-08:42 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
-08:42 == poolfix-1 start (120 s, interior pass, no -userdir)
-08:44 poolfix-1: crash no (exit 0), end t=119, reused=18, wrecked-last-10s=3, pool lines=25
-08:45 == poolfix-2 start (120 s, interior pass, no -userdir)
-08:47 poolfix-2: crash no (exit 0), end t=119, reused=21, wrecked-last-10s=0, pool lines=25
-08:47 == poolfix-3 start (120 s, interior pass, no -userdir)
-08:49 poolfix-3: crash no (exit 0), end t=119, reused=19, wrecked-last-10s=0, pool lines=25
-08:49 == poolfix-4 start (120 s, interior pass, no -userdir)
-08:51 poolfix-4: crash no (exit 0), end t=119, reused=17, wrecked-last-10s=0, pool lines=25
 08:52 == poolfix-5 start (120 s, interior pass, no -userdir)
 08:54 poolfix-5: crash no (exit 0), end t=119, reused=26, wrecked-last-10s=0, pool lines=25
 08:54 == poolfix-6 start (120 s, interior pass, no -userdir)
@@ -58,3 +25,36 @@
 09:04 list40 starts (list39 stopped in the ilight2 blood step; Combat removed 1 file(s), tracked changes 0)
 09:04 pushed etat
 09:14 cand12: PC proof VERDICT: OK found
+09:14 pushed etat
+09:14 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+09:14 == cand12-compile start
+09:14 == cand12-compile exit=0
+09:14 == cand12-blood start
+09:15 == cand12-blood exit=0
+09:15 cand12 blood: LogPython: Warning: [CombatMaterials] built /Game/Combat/Materials/M_GTP_BloodPool;
+09:15 == cand12-build start
+09:27 == cand12-build exit=0
+09:27 cand12 build exit=0; - interiors: OK, 26 s, log interiors.log;- interior maps cooked for this package only: /Game/Interiors/L_Interior_fastfood_bellecour ;- map md5 at the end: 1c92de0f813b89cb40aeb000cd92a1de, unchanged;- DefaultGame.ini md5 at the end: eb19ee3a657b09a9e28edc806259ad78, unchanged;- tracked changes at the end: 0, clone on a739e97;; ini md5 vs start same
+09:27 cand12 restore: Combat removed 1 file(s); Content/Interiors entries 0; tracked changes 0
+09:27 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+09:36 cand12 street-fixed: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.1 | gpu p50 13.74 p95 20.82 | gate PASS | LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy | pool drops 0
+09:36 cand12 street-demo: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.0 | gpu p50 15.19 p95 22.22 | gate PASS | LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy | pool drops 0
+09:36 cand12 night: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.0 | gpu p50 15.28 p95 23.40 | gate PASS | LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy | pool drops 0
+09:36 cand12 rain: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.1 | gpu p50 14.57 p95 22.69 | gate PASS | LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy | pool drops 0
+09:36 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+09:36 == cand12-long600 start (600 s, no -userdir) -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -PoliceMax=3
+09:46 cand12-long600: crash no (exit 0), end t=597, reused=161 | long600: 23798 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.01 max 25.1 | gpu p50 13.89 p95 20.79 | gate PASS | 
+09:46 == cand12-interior1 start (120 s, no -userdir) -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -PoliceMax=3 -Interiors=1 -InteriorStart=1 -InteriorStaff=8
+09:48 cand12-interior1: crash no (exit 0), end t=119, reused=14 | interior1: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.01 max 25.2 | gpu p50 12.50 p95 19.91 | gate PASS | InteriorStreaming: exposure EV 8.0-9.0 inside fastfood_bellecour;InteriorStreaming: exposure box covers the camera;
+09:49 == cand12-interior2 start (120 s, no -userdir) -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -PoliceMax=3 -Interiors=1 -InteriorStart=1 -InteriorStaff=8
+09:51 cand12-interior2: crash no (exit 0), end t=119, reused=18 | interior2: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.01 max 25.0 | gpu p50 12.43 p95 19.94 | gate PASS | InteriorStreaming: exposure EV 8.0-9.0 inside fastfood_bellecour;InteriorStreaming: exposure box covers the camera;
+09:51 == cand12-interior3 start (120 s, no -userdir) -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -PoliceMax=3 -Interiors=1 -InteriorStart=1 -InteriorStaff=8
+09:53 cand12-interior3: crash no (exit 0), end t=119, reused=19 | interior3: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.01 max 25.1 | gpu p50 12.33 p95 19.76 | gate PASS | InteriorStreaming: exposure EV 8.0-9.0 inside fastfood_bellecour;InteriorStreaming: exposure box covers the camera;
+09:53 == cand12-interior4 start (120 s, no -userdir) -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -PoliceMax=3 -Interiors=1 -InteriorStart=1 -InteriorStaff=8
+09:55 cand12-interior4: crash no (exit 0), end t=119, reused=21 | interior4: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.8 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.2 | gpu p50 12.51 p95 19.91 | gate PASS | InteriorStreaming: exposure EV 8.0-9.0 inside fastfood_bellecour;InteriorStreaming: exposure box covers the camera;
+09:56 == cand12-interior-exp0 start (120 s, no -userdir) -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -PoliceMax=3 -Interiors=1 -InteriorStart=1 -InteriorStaff=8 -InteriorExposure=0
+09:58 cand12-interior-exp0: crash no (exit 0), end t=119, reused=27 | interior-exp0: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.2 | gpu p50 12.20 p95 19.56 | gate PASS | 
+09:59 cand12 still default: frame_00000.jpg
+09:59 cand12 still exp0: frame_00000.jpg
+10:00 pushed cand12
+10:00 list40 paused after the cand12 push; list41 starts (lumen12)

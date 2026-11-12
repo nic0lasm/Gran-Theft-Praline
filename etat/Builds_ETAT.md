@@ -1,5 +1,5 @@
-# Mac state 2026-11-12 09:14 Paris
+# Mac state 2026-11-12 10:00 Paris
 
-- block: cand12 a739e97
-- last line: 09:14 cand12: PC proof VERDICT: OK found
+- block: starting
+- last line: 10:00 list40 paused after the cand12 push; list41 starts (lumen12)
 - startup crashes: 3
