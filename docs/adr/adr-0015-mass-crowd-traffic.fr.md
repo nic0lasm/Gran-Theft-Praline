@@ -58,6 +58,44 @@ de la ville.
 - La tranche peut glisser d'une à deux semaines (risque accepté par le chef de projet).
 - Premier objectif mesurable : 150 piétons et plus dans la tranche, coût GPU mesuré sur le PC (semaine 1).
 
+## Détails du trafic (fil Trafic)
+
+- **ZoneGraph tiré de nos données** (branche `feat/mass-zonegraph`) : `tools/city/zonegraph.py` transforme
+  `lanes.csv` (voies à sens unique, numéros de carrefour, voies suivantes) et `walkways.csv` en une table de
+  formes : des splines « Car » à sens unique, coupées 6 m avant chaque carrefour ; un polygone par carrefour
+  (tags Car et Intersection) dont les points de profil de voie sont ces extrémités coupées, pour que ZoneGraph
+  trace les virages à l'intérieur et que MassTraffic y trouve ses intersections ; des splines « Pedestrian » à
+  double sens, avec le tag Crossing sur les passages. L'étape d'éditeur `place_zonegraph.py` confie la table à
+  un importeur C++ (`UGTPZoneGraphImport`, module GTPMass), qui place les acteurs ZoneShape et ajoute les tags
+  et profils de voie manquants : du C++ plutôt que du Python, car l'API des points de ZoneShape n'est pas
+  exposée à Python. Les tables de la tranche produites par `npc_data.py` (voies avec sens et signalisation)
+  se branchent par `--lanes` et `--walkways`.
+- **Feux** : les intersections de MassTraffic ont leurs propres cycles ; les nôtres (`GTPTrafficLights.h`,
+  testés) leur donnent périodes et phases, pour que les feux dessinés dans la rue (`-SignalHeads`) restent
+  synchrones.
+- **Voiture proche = notre acteur Chaos.** MassTraffic confie la voiture proche du joueur à une classe
+  d'acteur Chaos ; la nôtre est `AGTPVehicle` (portières, vol, dégâts, saut en marche, délits signalés à la
+  police). Sa conduite reste la nôtre : `GTPDriveLogic.h` pour les pédales et `GTPTrafficReactLogic.h` pour le
+  klaxon, le contournement, la panique, la fuite et le choc (branche `feat/traffic-reactions`, testée en CI),
+  pilotés par un pont GTPMass à la place du suiveur de voie quand Mass est actif.
+- **Voitures lointaines** : les instances de MassTraffic remplacent `AGTPFarTraffic` ; la réserve et le mode
+  fantôme ne restent que sous `-Traffic=legacy`.
+- **Modèles de voitures** : MassTraffic en demande plusieurs ; City Sample Vehicles (gratuit, Epic) et le pack
+  gratuit de voitures pilotables relevé par le recensement passent hors Git par le manifeste Fab. D'ici là, la
+  Clio reste le seul modèle.
+- **Police** : des acteurs Chaos qui s'insèrent dans le trafic Mass ; les voitures s'écartent devant les
+  sirènes grâce à une annotation ZoneGraph (étape 4).
+
+## Questions ouvertes (trafic)
+
+- Sens du profil de voie sur les points des polygones de carrefour : l'importeur oriente les points
+  « in » dans le sens de la voie et inverse le profil sur les points « out » ; la première vue de debug sur le
+  PC le confirme ou l'inverse.
+- Comment les données ZoneGraph sont reconstruites après l'import (automatiquement dans l'éditeur, ou par un
+  appel explicite) : vérifié au premier passage sur le Mac.
+- Si MassTraffic a encore besoin, en 5.8, des correctifs du CityTrafficBuilder de City Sample (liste dans le
+  README de Myxcil/MassTraffic-Test, lue seulement, rien de copié).
+
 ## Questions ouvertes (piétons)
 
 - Seuils de LOD Mass entre acteur, ISM et instances AnimToTexture : à mesurer.
