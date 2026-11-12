@@ -84,6 +84,9 @@ private:
 	void HandleControls();
 
 	UFUNCTION()
+	void HandleCredits();
+
+	UFUNCTION()
 	void HandleQuit();
 };
 
@@ -109,7 +112,27 @@ private:
 	void HandleControls();
 
 	UFUNCTION()
+	void HandleCredits();
+
+	UFUNCTION()
 	void HandleQuit();
+};
+
+/** Credits: the project licence, the data sources and the tools it builds on (texts in the string table). */
+UCLASS()
+class GRANTHEFTPRALINE_API UGTPCreditsMenuWidget : public UGTPMenuWidget
+{
+	GENERATED_BODY()
+
+protected:
+	virtual void BuildButtons() override;
+	virtual FText GetHeading() const override;
+	virtual FText GetSubtitle() const override;
+	virtual FReply NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) override;
+
+private:
+	UFUNCTION()
+	void HandleBack();
 };
 
 /**

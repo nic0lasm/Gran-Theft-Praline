@@ -464,6 +464,19 @@ void AGTPPlayerController::ToggleFullMap()
 	SetPause(bFullMapOpen);
 }
 
+void AGTPPlayerController::OpenCreditsMenu()
+{
+	if (SettingsMenu || (!TitleMenu && !PauseMenu))
+	{
+		return;
+	}
+	bSettingsFromTitle = TitleMenu != nullptr;
+	HideMenu(TitleMenu);
+	HideMenu(PauseMenu);
+	SettingsMenu = CreateWidget<UGTPMenuWidget>(this, UGTPCreditsMenuWidget::StaticClass());
+	ShowMenu(SettingsMenu);
+}
+
 void AGTPPlayerController::OpenSettingsMenu(bool bControlsScreen)
 {
 	if (SettingsMenu || (!TitleMenu && !PauseMenu))

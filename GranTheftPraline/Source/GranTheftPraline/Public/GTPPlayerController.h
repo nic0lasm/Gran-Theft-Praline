@@ -60,6 +60,8 @@ public:
 	bool IsFullMapOpen() const { return bFullMapOpen; }
 
 	void OpenSettingsMenu(bool bControlsScreen = false);
+	/** Credits screen, same route as the settings (Back returns to the menu that opened it). */
+	void OpenCreditsMenu();
 	void CloseSettingsMenu();
 
 	/** Leaves the game and returns to the desktop. */

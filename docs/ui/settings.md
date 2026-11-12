@@ -39,6 +39,13 @@ interact, get in / out, change view, recentre, throttle, brake, steer, handbrake
 behind, map, pause. The rows are in `GTPControls.h` and are updated with the bindings
 (on-foot movement and jump are in the Enhanced Input assets and are not listed yet).
 
+## Credits screen
+
+The **Credits** button (title and pause menus) lists the licence of the project and the sources the game
+builds on: Unreal Engine, IGN BD TOPO / LiDAR HD (Etalab 2.0), OpenStreetMap (ODbL), Epic content, Poly Haven (CC0),
+tools, and a note on brands. Texts are in the string table (`credits.*`); add a line there and in
+`UGTPCreditsMenuWidget::GetSubtitle`. New game / Continue / Load wait for the SaveGame system.
+
 ## Texts
 
 All menu texts live in one table, `Source/GranTheftPraline/Public/GTPStringTable.h`:
