@@ -40,6 +40,7 @@ ROLES = (
     ("rough", re.compile(r"(_ORDp?|_ORM|_ARD|_ORD)$", re.I), "G"),
     ("rough", re.compile(r"(_R|rough(ness)?)$", re.I), "R"),
     ("ao", re.compile(r"(_AO|ambient_?occlusion)$", re.I), None),
+    ("opacity", re.compile(r"(_O|opacity|alpha)$", re.I), None),     # decals
     ("normal", re.compile(r"(_N|normal(gl|dx)?)$", re.I), None),
     ("basecolor", re.compile(r"(_D|_BC|basecolou?r|albedo|diffuse)$", re.I), None),
 )
