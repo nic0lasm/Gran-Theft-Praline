@@ -1,5 +1,3 @@
-06:17 cand11b: PC proof VERDICT: OK found
-06:17 pushed etat
 06:17 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
 06:17 == cand11b-compile start
 06:17 list33 paused during cand11b compile for the userdir split (c)
@@ -58,3 +56,5 @@
 07:10 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
 07:17 loop-endurance-1-1 (list35): loop-endurance-1-1: 23798 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 1 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 26.6 | gpu p50 18.24 p95 29.36 | gate FAIL last t= police=0
 07:17 list36 starts (list35 stopped)
+07:18 pushed etat
+07:18 interior-light: PC proof VERDICT: OK found
