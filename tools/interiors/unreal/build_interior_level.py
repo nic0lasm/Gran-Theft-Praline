@@ -45,6 +45,9 @@ FOCUS = os.environ.get("GTP_CITY_FOCUS", "rue-de-la-republique")
 CITY_MAP = "/Game/Maps/L_City_" + "".join(p.capitalize() for p in FOCUS.split("-"))
 CUBE = "/Engine/BasicShapes/Cube"          # 100 cm cube centred on its origin
 GREY = "/Engine/BasicShapes/BasicShapeMaterial"
+LIGHT_BELOW_CEILING_CM = 55.0              # 15 cm under the drop ceiling (tiles at storey - 40 cm)
+UPLIGHT_Z_CM = 230.0                       # uplight panels at 2.3 m, above heads, under the 2.6 m+ drop ceiling
+UPLIGHT_SHARE = 0.25
 MAX_SHADOWED_LIGHTS = 4                    # movable shadowed lights, under the ADR-0012 budget of 6 on M1
 # Target illuminance per zone (lux): a fast-food room is lit at 500, the counter and the kitchen
 # more (EN 12464-1 orders of magnitude), back rooms less. Exposure inside: UGTPInteriorStreaming.
@@ -280,7 +283,9 @@ def build_lights(spec):
     zones = sorted(spec["zones"], key=lambda z: -il.rect_area(z["rect"]))
     for index, zone in enumerate(zones):
         x0, y0, x1, y1 = zone["rect"]
-        center = ((x0 + x1) * 50.0, -(y0 + y1) * 50.0, zone["level"] * storey + storey - 40.0)
+        # Just under the drop ceiling (ceiling tiles and panels sit at storey - 40 cm, interior_layout
+        # fixture_z): a light in the tile plane is blocked by the tiles and only lights the slab above.
+        center = ((x0 + x1) * 50.0, -(y0 + y1) * 50.0, zone["level"] * storey + storey - LIGHT_BELOW_CEILING_CM)
         light = actor_sub.spawn_actor_from_class(unreal.RectLight, unreal.Vector(*center), unreal.Rotator(0.0, -90.0, 0.0))   # roll, pitch, yaw: facing down
         light.set_actor_label("Light_" + zone["name"])
         light.set_folder_path("Interior/Lights")
@@ -298,8 +303,9 @@ def build_lights(spec):
         comp.set_editor_property("attenuation_radius", max(x1 - x0, y1 - y0) * 120.0)
         comp.set_editor_property("cast_shadows", index < MAX_SHADOWED_LIGHTS)
         # Uplight: luminaires light the ceiling too, and software Lumen on the M1 bounces little,
-        # so a soft unshadowed panel just under the ceiling faces up with 15 % of the flux.
-        up = actor_sub.spawn_actor_from_class(unreal.RectLight, unreal.Vector(center[0], center[1], center[2] - 20.0),
+        # so a soft unshadowed panel at head height faces up with a quarter of the flux: it lights the
+        # drop ceiling and the upper walls evenly instead of a hot band right under the tiles.
+        up = actor_sub.spawn_actor_from_class(unreal.RectLight, unreal.Vector(center[0], center[1], zone["level"] * storey + UPLIGHT_Z_CM),
                                               unreal.Rotator(0.0, 90.0, 0.0))   # roll, pitch, yaw: facing up
         up.set_actor_label("Uplight_" + zone["name"])
         up.set_folder_path("Interior/Lights")
@@ -308,7 +314,7 @@ def build_lights(spec):
         upc.set_editor_property("source_width", (x1 - x0) * 60.0)
         upc.set_editor_property("source_height", (y1 - y0) * 60.0)
         upc.set_editor_property("intensity_units", unreal.LightUnits.LUMENS)
-        upc.set_editor_property("intensity", 0.15 * lux * il.rect_area(zone["rect"]))
+        upc.set_editor_property("intensity", UPLIGHT_SHARE * lux * il.rect_area(zone["rect"]))
         upc.set_editor_property("temperature", 4000.0)
         upc.set_editor_property("use_temperature", True)
         upc.set_editor_property("attenuation_radius", max(x1 - x0, y1 - y0) * 100.0)

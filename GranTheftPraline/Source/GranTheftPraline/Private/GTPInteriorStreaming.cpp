@@ -2,6 +2,7 @@
 
 #include "Camera/PlayerCameraManager.h"
 #include "Components/PrimitiveComponent.h"
+#include "Components/RectLightComponent.h"
 #include "Engine/GameInstance.h"
 #include "Engine/Level.h"
 #include "Engine/LevelStreamingDynamic.h"
@@ -419,11 +420,28 @@ void UGTPInteriorStreaming::ApplyToLevel(ULevel* Level) const
 	}
 	const bool bM1 = IsM1Profile();
 	int32 Hidden = 0;
+	int32 Lights = 0;
+	int32 Shadowed = 0;
 	for (AActor* Actor : Level->Actors)
 	{
 		if (!Actor)
 		{
 			continue;
+		}
+		TInlineComponentArray<URectLightComponent*> RectLights(Actor);
+		for (const URectLightComponent* Light : RectLights)
+		{
+			// The effective values once cooked: a dark shop is told apart from a wrong exposure here.
+			if (Lights++ == 0)
+			{
+				GTP_TRACE(InteriorStreaming, TEXT("light %s: %.0f %s, radius %.0f cm, source %.0fx%.0f cm, %s, shadows %d, visible %d, z %.0f cm"),
+				          *Actor->GetActorNameOrLabel(), Light->Intensity,
+				          Light->IntensityUnits == ELightUnits::Lumens ? TEXT("lm") : (Light->IntensityUnits == ELightUnits::Candelas ? TEXT("cd") : TEXT("unitless")),
+				          Light->AttenuationRadius, Light->SourceWidth, Light->SourceHeight,
+				          Light->Mobility == EComponentMobility::Movable ? TEXT("movable") : TEXT("NOT movable"), Light->CastShadows ? 1 : 0,
+				          Light->IsVisible() ? 1 : 0, Light->GetComponentLocation().Z);
+			}
+			Shadowed += Light->CastShadows ? 1 : 0;
 		}
 		TInlineComponentArray<UPrimitiveComponent*> Components(Actor);
 		for (UPrimitiveComponent* Component : Components)
@@ -448,5 +466,5 @@ void UGTPInteriorStreaming::ApplyToLevel(ULevel* Level) const
 			}
 		}
 	}
-	GTP_TRACE(InteriorStreaming, TEXT("density %d applied, %d components hidden"), Density, Hidden);
+	GTP_TRACE(InteriorStreaming, TEXT("density %d applied, %d components hidden, %d rect lights (%d shadowed)"), Density, Hidden, Lights, Shadowed);
 }
