@@ -1,5 +1,5 @@
-# Mac state 2026-11-12 13:43 Paris
+# Mac state 2026-11-12 13:55 Paris
 
-- block: aa-lvl on cand13
-- last line: 13:43 endurance package: cand13
+- block: starting
+- last line: 13:53 aa-lvl rain-ref: 4601 frames | GPU p50 14.27 p95 22.19 | >26 ms 0 | p95/10s (t s:ms) 0:21.6 10:22.0 20:22.2 30:22.0 40:22.0 50:21.9 60:22.4 70:22.7 80:22.7 90:23.0 100:23.0 110:22.9 120:14.1 | high mode (any 10 s slice >= 26 ms): no
 - startup crashes: 3
