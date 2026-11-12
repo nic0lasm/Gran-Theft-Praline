@@ -1,0 +1,1 @@
+night-12: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.1 | gpu p50 15.45 p95 23.72 | gate PASS
