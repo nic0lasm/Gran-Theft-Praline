@@ -1,5 +1,3 @@
-08:52 == poolfix-5 start (120 s, interior pass, no -userdir)
-08:54 poolfix-5: crash no (exit 0), end t=119, reused=26, wrecked-last-10s=0, pool lines=25
 08:54 == poolfix-6 start (120 s, interior pass, no -userdir)
 08:56 poolfix-6: crash no (exit 0), end t=119, reused=29, wrecked-last-10s=0, pool lines=25
 08:56 == poolfix-7 start (120 s, interior pass, no -userdir)
@@ -58,3 +56,5 @@
 09:59 cand12 still exp0: frame_00000.jpg
 10:00 pushed cand12
 10:00 list40 paused after the cand12 push; list41 starts (lumen12)
+10:00 pushed etat
+10:00 list41 starts (list40 stopped after the cand12 push)

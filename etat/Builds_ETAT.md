@@ -1,5 +1,5 @@
 # Mac state 2026-11-12 10:00 Paris
 
-- block: starting
-- last line: 10:00 list40 paused after the cand12 push; list41 starts (lumen12)
+- block: lumen12
+- last line: 10:00 list41 starts (list40 stopped after the cand12 push)
 - startup crashes: 3
