@@ -113,6 +113,13 @@ public:
 	int32 ScareAround(const FVector& Location, float Radius, AActor* Cause = nullptr);
 
 	/**
+	 * People within Radius (cm) of Location who are not running stop and look at it for a few seconds
+	 * (a crash, a fight, a shot far away). Returns how many. Called by the car-hit reaction and,
+	 * beyond the scare radius, by loud sounds.
+	 */
+	int32 GawkAround(const FVector& Location, float Radius);
+
+	/**
 	 * Lends one pedestrian of the pool (a customer in a shop, a bystander in a scene): placed at
 	 * Location facing YawDegrees, idle, drawn with full detail. The pool never moves or retires
 	 * it until ReturnToPool; the borrower may play its own looping animation with
@@ -306,6 +313,8 @@ private:
 	bool TrySpawn(FPerson& Person);
 	void Activate(FPerson& Person, const GTPWalk::FPoint& P, const GTPWalk::FPoint& D);
 	void SeparatePeople();
+	void SpreadPanic();
+	void TickDemo();
 	void InitFarCrowd(UWorld& InWorld);
 	void TickFarCrowd(float DeltaTime);
 	bool PlaceFarAgent(int32 Index);
@@ -324,6 +333,9 @@ private:
 	GTPWalk::FGraph Graph;
 	GTPWalk::FSettings Settings;
 	GTPWalk::FRng Rng{0x50454421u};
+	/** -PedDemo=panic|gawk|shot: repeats that event next to the closest drawn person (for filming and measuring). */
+	FString DemoMode;
+	float NextDemo = 8.f;
 	TArray<FPerson> People;
 	int32 Wanted = 0;
 

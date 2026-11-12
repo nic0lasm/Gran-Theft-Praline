@@ -99,3 +99,16 @@ dessiné en plein détail, laissé tranquille par le pool) et `ReturnToPool(Acto
 d'abord un piéton libre, sinon le marcheur le plus loin du joueur (jamais un ragdoll). Renvoie
 `nullptr` si les piétons sont coupés ou si personne n'est disponible. L'emprunteur joue sa propre
 boucle avec `AGTPPedestrian::PlayLoop` et doit rendre l'acteur ; `GetBorrowedCount()` les compte.
+
+## Rue vivante : panique, curiosité, événements de démo
+
+- **La panique se propage.** Celui qui se met à courir (voiture rapide, coup de feu, accident) passe
+  la panique une fois aux gens calmes dans `PanicRadius` (7 m, 65 % chacun, deux rangs au plus :
+  `PanicMaxGeneration`) : un groupe se disperse comme un troupeau (`GTPWalk::CatchPanic`).
+- **Curiosité.** Au-delà du rayon d'effroi d'un bruit fort (2,5 fois) et autour d'une voiture qui
+  renverse quelqu'un (25 m), les gens s'arrêtent et regardent l'endroit 4 à 9 s (`GTPWalk::Gawk`, pause
+  de type Gawk, face à l'événement), puis repartent. Pas ceux qui courent déjà, ni les ragdolls, ni
+  les piétons prêtés.
+- **Événements de démo**, pour filmer et mesurer : `-PedDemo=panic|gawk|shot` rejoue cet événement
+  toutes les 25 s près du piéton dessiné le plus proche (le premier 8 s après le début).
+- Vérifié hors moteur : `tools/pedestrians/check_walk_logic.py`.

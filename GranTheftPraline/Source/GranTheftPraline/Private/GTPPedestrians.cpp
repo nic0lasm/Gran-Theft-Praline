@@ -366,9 +366,12 @@ void UGTPPedestrianSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 		AudioWorld->OnLoudSound.AddWeakLambda(this, [this](const FVector& Location, float Radius, AActor* Cause)
 		{
 			ScareAround(Location, Radius, Cause);
+			// Further than the ones who ran: stop and look.
+			GawkAround(Location, Radius * 2.5f);
 		});
 	}
 	Wanted = ChooseDensity();
+	FParse::Value(FCommandLine::Get(), TEXT("PedDemo="), DemoMode);
 	int32 Override = 0;
 	if (FParse::Value(FCommandLine::Get(), TEXT("PedMaxVisible="), Override))
 	{
@@ -909,6 +912,7 @@ void UGTPPedestrianSubsystem::Update(FPerson& Person, float DeltaTime)
 				Person.RagdollLeft = RagdollSeconds;
 				++HitTotal;
 				OnPedestrianHit.Broadcast(Person.Location, nullptr);
+				GawkAround(Person.Location, 2500.f);
 				return;
 			}
 		}
@@ -1031,6 +1035,96 @@ int32 UGTPPedestrianSubsystem::ScareAround(const FVector& Location, float Radius
 	return Count;
 }
 
+int32 UGTPPedestrianSubsystem::GawkAround(const FVector& Location, float Radius)
+{
+	int32 Count = 0;
+	const GTPWalk::FPoint Point{float(Location.X), float(Location.Y)};
+	for (FPerson& P : People)
+	{
+		if (!P.bActive || P.bBorrowed || (P.Actor.IsValid() && P.Actor->IsRagdoll()) || FVector::Dist2D(P.Location, Location) > Radius)
+		{
+			continue;
+		}
+		Count += GTPWalk::Gawk(P.Walker, Point, Rng, Settings) ? 1 : 0;
+	}
+	return Count;
+}
+
+void UGTPPedestrianSubsystem::SpreadPanic()
+{
+	// Each person who starts running passes the panic on once to the quiet people around, a few steps at most.
+	for (FPerson& P : People)
+	{
+		if (!P.bActive)
+		{
+			continue;
+		}
+		if (P.Walker.FleeTimeLeft <= 0.f)
+		{
+			P.bPanicSpread = false;
+			continue;
+		}
+		if (P.bPanicSpread)
+		{
+			continue;
+		}
+		P.bPanicSpread = true;
+		for (FPerson& Other : People)
+		{
+			if (&Other == &P || !Other.bActive || Other.bBorrowed || (Other.Actor.IsValid() && Other.Actor->IsRagdoll())
+				|| FVector::Dist2D(Other.Location, P.Location) > Settings.PanicRadius)
+			{
+				continue;
+			}
+			if (GTPWalk::CatchPanic(Graph, Other.Walker, P.Walker.Generation, P.Pos, Settings, Rng))
+			{
+				++FledTotal;
+				OnPedestrianScared.Broadcast(Other.Location, nullptr);
+			}
+		}
+	}
+}
+
+void UGTPPedestrianSubsystem::TickDemo()
+{
+	if (DemoMode.IsEmpty() || Clock < NextDemo)
+	{
+		return;
+	}
+	// The closest drawn person is where the event happens.
+	FPerson* Best = nullptr;
+	for (FPerson& P : People)
+	{
+		if (P.bActive && P.bDrawn && !P.bBorrowed && (!Best || P.Distance < Best->Distance))
+		{
+			Best = &P;
+		}
+	}
+	if (!Best)
+	{
+		return;
+	}
+	NextDemo = Clock + 25.f;
+	const FVector Where = Best->Location;
+	GTP_TRACE(LogGTPPedestrians, TEXT("demo %s at %s"), *DemoMode, *Where.ToCompactString());
+	if (DemoMode == TEXT("panic"))
+	{
+		ScareAround(Where, 400.f, nullptr);
+	}
+	else if (DemoMode == TEXT("gawk"))
+	{
+		OnPedestrianHit.Broadcast(Where, nullptr);
+		GawkAround(Where, 2500.f);
+	}
+	else if (DemoMode == TEXT("shot"))
+	{
+		if (UGTPAudioWorld* AudioWorld = GetWorld() ? GetWorld()->GetSubsystem<UGTPAudioWorld>() : nullptr)
+		{
+			AudioWorld->OnLoudSound.Broadcast(Where, 1500.f, nullptr);
+		}
+	}
+}
+
 void UGTPPedestrianSubsystem::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
@@ -1051,6 +1145,8 @@ void UGTPPedestrianSubsystem::Tick(float DeltaTime)
 	}
 
 	SeparatePeople();
+	SpreadPanic();
+	TickDemo();
 	TickFarCrowd(DeltaTime);
 	for (FPerson& P : People)
 	{

@@ -134,13 +134,22 @@ struct FSettings
 	float GroupSide = 80.f;         // ...and this far beside (cm)
 	float SeparationDistance = 90.f; // people closer than this step sideways round each other (cm)
 	float SeparationNudge = 70.f;   // how far sideways (cm)
+	// Panic spreads from person to person (herd), a few steps only.
+	float PanicRadius = 700.f;
+	float PanicChance = 0.65f;
+	int PanicMaxGeneration = 2;
+	// Far from a shot or a crash people stop and look.
+	float GawkChance = 0.6f;
+	float GawkMin = 4.f;
+	float GawkMax = 9.f;
 };
 
 enum class EPause : int
 {
 	None = 0,
 	Window = 1, // faces the facade
-	Phone = 2   // stands where it is
+	Phone = 2,  // stands where it is
+	Gawk = 3    // stands and looks at an event (a crash, a fight, a shot far away)
 };
 
 struct FWalker
@@ -156,6 +165,8 @@ struct FWalker
 	float CrossingWait = 0.f;
 	float FleeTimeLeft = 0.f;
 	FPoint Threat;
+	/** 0 = frightened by the event itself, n = caught the panic from somebody of generation n - 1. */
+	int Generation = 0;
 };
 
 inline int NodeAhead(const FGraph& G, const FWalker& W)
@@ -284,6 +295,16 @@ inline FPoint Facing(const FGraph& G, const FWalker& W)
 		const int Side = G.Edges[W.Edge].FacadeSide * (W.bForward ? 1 : -1);
 		return {Dir.Y * Side, -Dir.X * Side}; // left of (dx, dy) is (dy, -dx)
 	}
+	if (W.PauseKind == EPause::Gawk && W.Pause > 0.f)
+	{
+		const float Dx = W.Threat.X - Pos.X;
+		const float Dy = W.Threat.Y - Pos.Y;
+		const float Len = std::sqrt(Dx * Dx + Dy * Dy);
+		if (Len > 1.f)
+		{
+			return {Dx / Len, Dy / Len};
+		}
+	}
 	return Dir;
 }
 
@@ -301,6 +322,35 @@ inline void Flee(const FGraph& G, FWalker& W, const FPoint& Threat, const FSetti
 	W.FleeTimeLeft = S.FleeSeconds;
 	W.Threat = Threat;
 	W.Pause = 0.f;
+	W.Generation = 0;
+}
+
+/**
+ * Somebody near flees: this walker may catch the panic (fresh sources of generation Generation, at
+ * SourcePos). Not when already running, when the chain is long enough, or by chance. Returns true when caught.
+ */
+inline bool CatchPanic(const FGraph& G, FWalker& W, int SourceGeneration, const FPoint& SourcePos, const FSettings& S, FRng& Rng)
+{
+	if (W.FleeTimeLeft > 0.f || SourceGeneration + 1 > S.PanicMaxGeneration || Rng.Next() >= S.PanicChance)
+	{
+		return false;
+	}
+	Flee(G, W, SourcePos, S);
+	W.Generation = SourceGeneration + 1;
+	return true;
+}
+
+/** Stops and looks at Point (a crash, a fight, a distant shot) for a few seconds; not while running. */
+inline bool Gawk(FWalker& W, const FPoint& Point, FRng& Rng, const FSettings& S)
+{
+	if (W.FleeTimeLeft > 0.f || Rng.Next() >= S.GawkChance)
+	{
+		return false;
+	}
+	W.Pause = Rng.Range(S.GawkMin, S.GawkMax);
+	W.PauseKind = EPause::Gawk;
+	W.Threat = Point;
+	return true;
 }
 
 /** Puts Follower beside and a little behind Leader on the same edge (a pair walking together). */

@@ -95,3 +95,18 @@ shop scenes, no reaction to shots yet (the events exist for it).
 A free one is taken first, else the walker farthest from the player (never a ragdoll). Returns
 `nullptr` when pedestrians are off or nobody can be lent. The borrower plays its own loop with
 `AGTPPedestrian::PlayLoop` and must return the actor; a borrowed one counts in `GetBorrowedCount()`.
+
+## Living street: panic, curiosity, demo events
+
+- **Panic spreads.** Whoever starts running (a fast car, a shot, a crash) passes the panic once to the
+  quiet people within `PanicRadius` (7 m, 65 % each, at most two steps: `PanicMaxGeneration`), so a
+  group scatters like a herd instead of one person at a time (`GTPWalk::CatchPanic`).
+- **Curiosity.** Beyond the scare radius of a loud sound (2.5 times it) and around a car hit
+  (25 m), people stop and look at the spot for 4 to 9 s (`GTPWalk::Gawk`, pause kind Gawk, facing
+  the event), then walk on. Not those already running, not ragdolls, not lent ones.
+- **Demo events** for filming and measuring: `-PedDemo=panic|gawk|shot` repeats that event every 25 s
+  next to the closest drawn person (first one 8 s after the start). `panic` scares 4 m around,
+  `gawk` plays a car hit (hit sound and gawkers), `shot` sends a loud sound through
+  `UGTPAudioWorld::OnLoudSound` (the full chain: runners, then gawkers).
+- Checked offline: `tools/pedestrians/check_walk_logic.py` (panic never beyond the 2nd generation, every
+  gawker faces the event and walks on afterwards, nobody teleports).

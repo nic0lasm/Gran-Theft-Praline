@@ -216,6 +216,74 @@ int main(int Argc, char** Argv)
 		}
 	}
 
+	// Panic spreads: one frightened walker in a crowd of 60 on the same street frightens some others,
+	// never beyond PanicMaxGeneration, and nobody teleports. Gawking: those who take it face the event
+	// while they stand, and they walk on afterwards.
+	int PanicCaught = 0, PanicMaxGen = 0, GawkFacing = 0, GawkTaken = 0, GawkResumed = 0;
+	{
+		FRng R2(99);
+		std::vector<FWalker> C(60);
+		for (auto& w : C)
+		{
+			Place(G, w, R2, S);
+		}
+		FPoint Src, SrcD;
+		Locate(G, C[0], Src, SrcD);
+		Flee(G, C[0], {Src.X - SrcD.X * 200.f, Src.Y - SrcD.Y * 200.f}, S);
+		for (float T = 0; T < 20.f; T += Dt)
+		{
+			for (size_t i = 0; i < C.size(); ++i)
+			{
+				Step(G, C[i], Dt, R2, S, false);
+			}
+			for (size_t i = 0; i < C.size(); ++i)
+			{
+				if (C[i].FleeTimeLeft <= 0.f)
+				{
+					continue;
+				}
+				FPoint Pi, Di;
+				Locate(G, C[i], Pi, Di);
+				for (size_t j = 0; j < C.size(); ++j)
+				{
+					FPoint Pj, Dj;
+					Locate(G, C[j], Pj, Dj);
+					if (i != j && Distance(Pi, Pj) < S.PanicRadius && CatchPanic(G, C[j], C[i].Generation, Pi, S, R2))
+					{
+						++PanicCaught;
+						PanicMaxGen = std::max(PanicMaxGen, C[j].Generation);
+					}
+				}
+			}
+		}
+		const FPoint Event = Src;
+		for (size_t i = 1; i < C.size(); ++i)
+		{
+			C[i].FleeTimeLeft = 0.f;
+			C[i].Pause = 0.f;
+			FPoint Pi, Di;
+			Locate(G, C[i], Pi, Di);
+			if (Distance(Pi, Event) < 5.f || !Gawk(C[i], Event, R2, S))
+			{
+				continue;
+			}
+			++GawkTaken;
+			const FPoint F = Facing(G, C[i]);
+			const float Dx = Event.X - Pi.X, Dy = Event.Y - Pi.Y;
+			const float Len = std::sqrt(Dx * Dx + Dy * Dy);
+			GawkFacing += (F.X * Dx + F.Y * Dy) / Len > 0.95f ? 1 : 0;
+			const float Wait = C[i].Pause;
+			bool Moved = false;
+			for (float T = 0; T < Wait + 2.f; T += Dt)
+			{
+				const FStepResult Rs = Step(G, C[i], Dt, R2, S, false);
+				Moved |= Rs.bMoving && T > Wait;
+			}
+			GawkResumed += Moved ? 1 : 0;
+		}
+	}
+	std::printf("panic: caught=%d max_generation=%d; gawk: taken=%d facing=%d resumed=%d\n", PanicCaught, PanicMaxGen, GawkTaken, GawkFacing, GawkResumed);
+
 	// Waiting at a crossing: while a car is near (and under CrossingWaitMax) nobody steps onto it.
 	int Stepped = 0, Waited = 0;
 	for (size_t e = 0; e < G.Edges.size(); ++e)
@@ -251,7 +319,7 @@ int main(int Argc, char** Argv)
 	std::printf("edges=%zu nodes=%zu walkers=%d seconds=%.0f visited=%zu walking=%.2f waiting=%.3f max_jump_cm=%.0f teleports=%d flee_ok=%d/%d crossing_breaches=%d\n",
 		G.Edges.size(), G.NodeEdges.size(), Walkers, Seconds, Visited.size(), Walking, WaitTime / TotalTime,
 		MaxJump, Teleports, FleeOk, FleeTrials, Stepped);
-	const bool Pass = Teleports == 0 && Stepped == 0 && Avoiding <= Plain && Avoiding12 <= Plain12 + 0.0005 && PairSpread < 500.0 && Walking > 0.8 && FleeOk >= FleeTrials * 0.9 && Visited.size() * 2 >= G.Edges.size();
+	const bool Pass = Teleports == 0 && Stepped == 0 && Avoiding <= Plain && Avoiding12 <= Plain12 + 0.0005 && PairSpread < 500.0 && Walking > 0.8 && FleeOk >= FleeTrials * 0.9 && PanicMaxGen <= S.PanicMaxGeneration && PanicCaught >= 1 && GawkTaken > 5 && GawkFacing == GawkTaken && GawkResumed >= GawkTaken * 0.9 && Visited.size() * 2 >= G.Edges.size();
 	std::printf("%s\n", Pass ? "PASS" : "FAIL");
 	return Pass ? 0 : 1;
 }
