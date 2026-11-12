@@ -1,5 +1,5 @@
-# Mac state 2026-11-12 07:09 Paris
+# Mac state 2026-11-12 07:17 Paris
 
-- block: starting
-- last line: 07:07 == loop-endurance-1-1 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
+- block: interior-light: waiting for the PC proof (8d80513)
+- last line: 07:17 list36 starts (list35 stopped)
 - startup crashes: 3
