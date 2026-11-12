@@ -62,7 +62,7 @@ def budget_mesh(cls, info, path, report):
     if mesh is None:
         report["errors"].append("cannot load " + path)
         return
-    entry = {"path": path, "size": info["size"], "budget": info["tris_lod0"], "tris_before": sub.get_number_triangles(mesh, 0),
+    entry = {"path": path, "size": info["size"], "budget": info["tris_lod0"], "tris_before": mesh.get_num_triangles(0),
              "lods_before": mesh.get_num_lods(), "textures": 0, "texture_mb_before": 0.0, "texture_mb_after": 0.0}
     budget = info["tris_lod0"]
     keep = 1.0
@@ -90,7 +90,7 @@ def budget_mesh(cls, info, path, report):
             if current == 0 or current > cap:
                 texture.set_editor_property("max_texture_size", cap)
                 eal.save_loaded_asset(texture)
-    entry["tris_after"] = sub.get_number_triangles(mesh, 0) if APPLY else int(entry["tris_before"] * keep)
+    entry["tris_after"] = mesh.get_num_triangles(0) if APPLY else int(entry["tris_before"] * keep)
     entry["lods_after"] = mesh.get_num_lods() if APPLY else 1 + len(LOD_CHAIN)
     entry["texture_mb_before"] = round(entry["texture_mb_before"], 1)
     entry["texture_mb_after"] = round(entry["texture_mb_after"], 1)
