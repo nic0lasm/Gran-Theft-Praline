@@ -585,3 +585,6 @@ backdrop volume within 150 m all around. République focus: 239 buildings, 20 66
 The player start moves from 8 m to 30 m along the axis (`SPAWN_ALONG_AXIS_CM`, measured along the
 polyline): the look-around pan of the demo (±60°) sees kit facades on both sides and the street
 is clear for 150 m ahead.
+## ZoneGraph for Mass (added 2026-11-12, ADR-0015)
+
+`tools/city/zonegraph.py` turns the driving lanes (`traffic.py`) and the walkways (`pedestrians.py`) into `gen/<focus>/zonegraph/zonegraph.json`: one-way "Car" splines cut 6 m before each junction, one polygon per junction (tags Car and Intersection) whose points are those cut ends, and two-way "Pedestrian" splines for the walkways (tag Crossing on crossings). `--lanes` and `--walkways` take the clipped tables of `npc_data.py` instead. `run_city_import.sh` then calls `tools/city/unreal/place_zonegraph.py`, which hands the table to the C++ importer `UGTPZoneGraphImport` (module GTPMass) and saves the map: the ZoneGraph is never drawn by hand. `GTP_ZONEGRAPH=0` skips the step; its failures are reported in `Saved/CityImport/zonegraph_report.json`, not fatal, until the first editor runs are clean. To check on the map: `ZoneGraph debug draw` in the editor viewport (Show > ZoneGraph).

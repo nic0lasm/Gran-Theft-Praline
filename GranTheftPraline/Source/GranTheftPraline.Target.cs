@@ -8,5 +8,6 @@ public class GranTheftPralineTarget : TargetRules
 		DefaultBuildSettings = BuildSettingsVersion.Latest;
 		IncludeOrderVersion = EngineIncludeOrderVersion.Latest;
 		ExtraModuleNames.Add("GranTheftPraline");
+		ExtraModuleNames.Add("GTPMass");
 	}
 }
