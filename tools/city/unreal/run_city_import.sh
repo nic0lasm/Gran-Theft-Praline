@@ -107,6 +107,20 @@ if [ "${FACADES_ONLY:-0}" != "1" ] && test -f "$gen/details_placement.csv"; then
   fi
 fi
 
+# ZoneGraph for Mass (ADR-0015): lanes, junctions, walkways and crossings from the generated
+# tables, placed by the GTPMass importer; never drawn by hand. GTP_ZONEGRAPH=0 skips it.
+# Failures are reported, not fatal, until the first runs on the Mac and the PC are clean.
+if [ "${FACADES_ONLY:-0}" != "1" ] && [ "${GTP_ZONEGRAPH:-1}" != "0" ]; then
+  stamp "zonegraph"
+  if python3 "$repo/tools/city/zonegraph.py" --zone "$zone" --focus "$focus" > /dev/null; then
+    GTP_PY_SCRIPT="$py_dir/place_zonegraph.py" EDITOR_DONE_FILE="$out/zonegraph_report.json" EDITOR_MAX_S=300 run_editor zonegraph "$editor" "$project" $headless -unattended -nosplash -nosound -NSAppSleepDisabled YES "-ExecutePythonScript=__import__('gtp_run').main()" \
+      || echo "zonegraph editor step failed" >&2
+    test -f "$out/zonegraph_report.json" && cat "$out/zonegraph_report.json" || echo "place_zonegraph.py wrote no report" >&2
+  else
+    echo "zonegraph.py failed: no ZoneGraph on this map" >&2
+  fi
+fi
+
 # Art bible ground and shell materials in place of the greybox one.
 GTP_PY_SCRIPT="$py_dir/apply_city_materials.py" EDITOR_DONE_FILE="$out/materials_report.json" EDITOR_MAX_S=360 run_editor materials "$editor" "$project" $headless -unattended -nosplash -nosound -NSAppSleepDisabled YES "-ExecutePythonScript=__import__('gtp_run').main()"
 grep -q '"errors": \[\]' "$out/materials_report.json" || { cat "$out/materials_report.json"; exit 1; }
