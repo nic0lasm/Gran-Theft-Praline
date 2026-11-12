@@ -484,11 +484,13 @@ python3 tools/city/generate.py --name presqu-ile --focus "Rue de la République"
 3 964 modules of which 270 dormers and 78 blank mansard bays, 86 k triangles, 5.7 s. On the street
 side 26 buildings out of 45 get 7 levels (ground floor, entresol, 4 storeys, mansard).
 
-Enterable interiors: `place_facades.py` leaves out the ground street bays whose pivot lies in an
-interior frame of `tools/interiors/*.json` (anchor and frame, widened by 0.5 m), so the interior's
-own glass front and door show (`tools/city/interior_cutouts.py`; `GTP_INTERIOR_CUTOUTS=0` keeps
+Enterable interiors: `place_facades.py` leaves out the ground bays on the glass front of an interior
+of `tools/interiors/*.json` (pivot within 1 m of the frame line y = 0, over the frame width plus
+0.5 m; the other sides are blind walls and keep the city facade), so the interior's own glass front
+and door show (`tools/city/interior_cutouts.py`; `GTP_INTERIOR_CUTOUTS=0` keeps
 them). The shell has no wall behind the facade modules, so nothing else is opened. Fast-food
-Bellecour: 8 modules, 5 shop bays and the entrance on rue de la République plus 3 blank slivers.
+Bellecour: 9 modules on the place Bellecour front (4 bays and 5 slivers); that front is generated
+as a court side today, because the square is not a named road.
 
 ## Limits and next steps
 
