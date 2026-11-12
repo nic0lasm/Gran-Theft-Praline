@@ -47,6 +47,7 @@ GROUND_LAYERS = {
 GROUND_GRIME = ("decal_dirt", "decal_cracks")
 GRIME_SCALE = 3.0        # the grime repeats every 3 tiles of its own size (about 6 m)
 GRIME_STRENGTH = 0.5
+KIT_DETAIL = float(os.environ.get("GTP_SURFACES_DETAIL", "0.6"))   # share of the stone detail kept
 ROOF = ("zinc_roof", "slate_roof")
 ROOF_TILE = ("terracotta_tile",)
 STONE = ("limestone_ashlar",)
@@ -280,7 +281,8 @@ def kit(mat):
         det = g.lerp(_detail(g, *picks[0]), _detail(g, *picks[1]), is_render)
     else:
         det = _detail(g, *picks[0])
-    det = g.lerp(g.const((1.0, 1.0, 1.0)), det, use)
+    # Half to two thirds of the scan's contrast: full strength read blotchy from 30 m (PC 12/11).
+    det = g.lerp(g.const((1.0, 1.0, 1.0)), det, g.mul(use, g.const(KIT_DETAIL)))
     col0, col0_out = _input(mat, unreal.MaterialProperty.MP_BASE_COLOR)
     mel.connect_material_property(g.mul(col0, det, col0_out), "", unreal.MaterialProperty.MP_BASE_COLOR)
     if not LITE:
@@ -344,6 +346,7 @@ def shell(mat):
         ny = g.unary(unreal.MaterialExpressionAbs, g.mask(n, g=True))
         side = g.unary(unreal.MaterialExpressionSaturate, g.mul(g.sub(nx, ny), g.const(8.0)))
         det = g.lerp(_detail(g, stone, xz), _detail(g, stone, yz), side)
+        det = g.lerp(g.const((1.0, 1.0, 1.0)), det, g.const(KIT_DETAIL))
         det = g.lerp(det, g.const((1.0, 1.0, 1.0)), roof_a)
         col = (g.mul(col[0], det, col[1]), "")
         _used["shell.stone"] = sid
