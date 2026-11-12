@@ -472,6 +472,12 @@ Première mise en œuvre de l'option B de l'ADR-0010, préparée et essayée hor
   (cachées de la rue de toute façon) ; ombres et distances du mobilier et des détails telles que
   générées : sur M1 (12/11), 60 %, 70 % et 100 %, ou mobilier et détails masqués, donnent le même
   GPU p50. `-CityCellDetailPct=<10..100>` les raccourcit pour un A/B ; `-CityCellDefaults=0` la coupe, `-CityCull` l'emporte, une distance de 0 masque une famille.
+- Profil du quartier (2026-11-12) : `quarter_slot_mac.sh` avec `GPU_PROFILE=1` (et
+  `BENCHES=none STILLS=0 SKIP_BUILD=1` sur un package existant) lance ProfileGPU, `stat RHI` et
+  `stat dumpframe` à `PROFILE_AT` secondes (60) du parcours déterministe du package Development,
+  pour `PROFILES` (deliv et off par défaut), via `-ExecAt=<s>=<commande>|...` (`UGTPTimedExec`,
+  `+` pour une espace). `-CityNoShadow=upper,eave,court` retire l'ombre dynamique de ces familles
+  de façade (la coque garde l'ombre du bâtiment).
 - Pas encore : mobilier et détails dans les cellules loin de la rue de la République, masque de sol à l'échelle du quartier,
   niveaux de cellule dans la liste de cuisson pour un package.
 

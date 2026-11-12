@@ -454,6 +454,12 @@ First implementation of ADR-0010 option B, prepared and tested off the Mac; not 
   on M1 (12/11) 60 %, 70 % and 100 % distances, and the furniture and details hidden, gave the same
   GPU p50. `-CityCellDetailPct=<10..100>` shortens them for an A/B;
   `-CityCellDefaults=0` turns it off, `-CityCull` wins over it, a distance of 0 hides a family.
+- Profiling the quarter (2026-11-12): `quarter_slot_mac.sh` with `GPU_PROFILE=1` (and
+  `BENCHES=none STILLS=0 SKIP_BUILD=1` on an existing package) runs ProfileGPU, `stat RHI` and
+  `stat dumpframe` at `PROFILE_AT` seconds (60) of the deterministic route on the Development
+  package, for `PROFILES` (deliv and off by default), through `-ExecAt=<s>=<command>|...`
+  (`UGTPTimedExec`, `+` for a space). `-CityNoShadow=upper,eave,court` removes the dynamic
+  shadow of those facade families (the shell keeps the building's shadow).
 - Not yet: furniture and details in the cells away from the rue de la Republique, a quarter-wide ground mask, the cell
   levels in the cook list for a package.
 
