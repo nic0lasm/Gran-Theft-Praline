@@ -45,6 +45,8 @@ else
 fi
 step "generation (focus street + $extra)"
 "$py" "$repo/tools/city/generate.py" --name "$zone" --focus "$focus_name" --extra-bbox "$extra" > /dev/null
+step "backdrop (low-definition volumes within 600 m, tools/city/backdrop.py)"
+"$py" "$repo/tools/city/backdrop.py" --name "$zone" --focus "$focus" > /dev/null
 test "${GTP_CITY_LANDMARKS:-1}" = "0" || "$py" "$repo/tools/city/landmarks.py" --name "$zone" --focus "$focus" > /dev/null
 test -f "$repo/assets/geo/processed/$zone/terrain/terrain.glb" || "$py" "$repo/tools/city/terrain.py" --name "$zone" > /dev/null
 step "signs, carriageways fitted to the kerbs, street furniture"
