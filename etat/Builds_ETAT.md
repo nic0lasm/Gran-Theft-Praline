@@ -1,5 +1,5 @@
-# Mac state 2026-11-12 14:11 Paris
+# Mac state 2026-11-12 14:12 Paris
 
-- block: cand15b: waiting for the PC proof (f6c4d71)
-- last line: 14:11 endurance package: cand13
+- block: cand15b f6c4d71
+- last line: 14:12 pushed etat
 - startup crashes: 3

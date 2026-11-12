@@ -1,4 +1,3 @@
-13:36 cand14 rain: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.0 | gpu p50 15.33 p95 28.12 | gate FAIL | LogGTPCityDetails: city details mode 1: 37 actors shown, 0 hidden | LogGTPStreetTrees: street trees: variant light, 112 of 112 trees leafy | pool drops 0
 13:38 cand14 street-demo pass 2: demo2: 4601 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.00 max 25.4 | gpu p50 16.78 p95 24.86 | gate FAIL | plateau after 60 s: YES (mean p95 of the 60-120 s slices 26.7 ms)
 13:38 pushed etat
 13:40 pushed etat
@@ -58,3 +57,4 @@
 14:11 pushed visuals-20261112
 14:11 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
 14:11 endurance package: cand13
+14:12 pushed etat
