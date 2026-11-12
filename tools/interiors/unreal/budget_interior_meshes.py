@@ -142,17 +142,29 @@ def main():
     mapping = il.load_json(map_path) if os.path.exists(map_path) else {}
     if not mapping:
         report["errors"].append("no mesh map at " + map_path + " (run map_interior_meshes.py first)")
+    # A mesh shared by several classes (fries for fry_carton and fry_dump) is cut once, to the
+    # smallest budget and size class among them, then reported under each class.
+    strictest = {}
+    for cls, path in mapping.items():
+        info = catalog["classes"].get(cls)
+        if info and (path not in strictest or info["tris_lod0"] < strictest[path]["tris_lod0"]):
+            strictest[path] = info
+    done = {}
     for cls, path in sorted(mapping.items()):
+        if path in done and cls in catalog["classes"]:
+            report["classes"][cls] = dict(report["classes"][done[path]], shared_with=done[path])
+            continue
         if not path.startswith(ALLOWED):
             report["skipped"][cls] = path + " (outside /Game/Interiors/Free and /Fab: left as it is)"
             continue
         if cls not in catalog["classes"]:
             report["skipped"][cls] = "not in the catalog"
             continue
-        budget_mesh(cls, catalog["classes"][cls], path, report)
-    entries = report["classes"].values()
+        budget_mesh(cls, strictest.get(path, catalog["classes"][cls]), path, report)
+        done[path] = cls
+    entries = [e for e in report["classes"].values() if "shared_with" not in e]
     report["totals"] = {
-        "meshes": len(report["classes"]),
+        "meshes": len(entries),
         "over_budget_before": sum(1 for e in entries if e.get("tris_source", e["tris_before"]) > e["budget"] * TOLERANCE),
         "tris_before": sum(e["tris_before"] for e in entries),
         "tris_source": sum(e.get("tris_source", e["tris_before"]) for e in entries),
