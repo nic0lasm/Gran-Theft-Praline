@@ -133,6 +133,10 @@ private:
 	bool bLoggedFirstPlan = false;
 	bool bWaitingLogged = false;
 	FTransform StartAnchor;
+	/** Test start point, and seconds left to watch for a fall through the floor. */
+	FVector StartWhere = FVector::ZeroVector;
+	FRotator StartRot = FRotator::ZeroRotator;
+	float StartWatch = 0.f;
 	void PlaceAtCounter(const FInterior& Interior);
 	bool bExposureOn = true;
 	float ExposureWeight = 0.f;

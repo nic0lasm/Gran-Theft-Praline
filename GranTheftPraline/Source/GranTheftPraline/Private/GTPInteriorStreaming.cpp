@@ -146,6 +146,24 @@ void UGTPInteriorStreaming::Tick(float DeltaTime)
 		}
 		Interior.bWasVisible = bVisible;
 	}
+	if (StartWatch > 0.f)
+	{
+		// Test start guard: a player found more than 1.5 m under the start point in the first 5 s
+		// fell through the floor; put back without the overlap check, once per fall, and logged.
+		const float Before = StartWatch;
+		StartWatch -= DeltaTime;
+		APawn* Pawn = GetWorld()->GetFirstPlayerController() ? GetWorld()->GetFirstPlayerController()->GetPawn() : nullptr;
+		if (Pawn && Pawn->GetActorLocation().Z < StartWhere.Z - 150.f)
+		{
+			GTP_TRACE(InteriorStreaming, TEXT("test start: player fell to %s, placed again t=%.2f"), *Pawn->GetActorLocation().ToString(),
+			          GetWorld()->GetTimeSeconds());
+			Pawn->TeleportTo(StartWhere, StartRot, false, true);
+		}
+		if (Pawn && Before > 4.f && StartWatch <= 4.f)
+		{
+			GTP_TRACE(InteriorStreaming, TEXT("test start: player at %s one second later"), *Pawn->GetActorLocation().ToString());
+		}
+	}
 	if (LeaveIn >= 0.f)
 	{
 		LeaveIn -= DeltaTime;
@@ -329,18 +347,50 @@ void UGTPInteriorStreaming::PlaceAtCounter(const FInterior& Interior)
 	if (First)
 	{
 		const FVector Till = First->GetActorLocation();
-		const FVector Front = Interior.Anchor.GetRotation().RotateVector(FVector(0.f, 250.f, 0.f));   // towards the shop front
-		const FVector Where = Till + Front + FVector(0.f, 0.f, 100.f);
+		// Customer spots of the level: the player must not stand on one, a customer lent there later
+		// would overlap the capsule and the push out can go through the 20 cm floor.
+		TArray<FVector> Spots;
+		for (const AActor* Actor : Streaming->GetLoadedLevel()->Actors)
+		{
+			if (Actor && Actor->Tags.ContainsByPredicate([](const FName& Tag) { return Tag.ToString().StartsWith(TEXT("GTP_CustomerSpot=")); }))
+			{
+				Spots.Add(Actor->GetActorLocation());
+			}
+		}
+		const FQuat AnchorRot = Interior.Anchor.GetRotation();
+		FVector Where = Till + AnchorRot.RotateVector(FVector(0.f, 250.f, 0.f)) + FVector(0.f, 0.f, 100.f);   // towards the shop front
+		static const float SideCm[] = {0.f, 60.f, -60.f, 120.f, -120.f, 180.f, -180.f, 240.f, -240.f};
+		for (const float Ahead : {250.f, 330.f})
+		{
+			bool bFound = false;
+			for (const float Side : SideCm)
+			{
+				const FVector Candidate = Till + AnchorRot.RotateVector(FVector(Side, Ahead, 0.f)) + FVector(0.f, 0.f, 100.f);
+				if (!Spots.ContainsByPredicate([&Candidate](const FVector& Spot) { return FVector::Dist2D(Spot, Candidate) < 90.f; }))
+				{
+					Where = Candidate;
+					bFound = true;
+					break;
+				}
+			}
+			if (bFound)
+			{
+				break;
+			}
+		}
 		const FRotator Look = (Till + FVector(0.f, 0.f, 150.f) - (Where + FVector(0.f, 0.f, 60.f))).Rotation();
 		Pawn->TeleportTo(Where, FRotator(0.f, Look.Yaw, 0.f));
 		PC->SetControlRotation(Look);
 		bStartDone = true;
 		StartAnchor = Interior.Anchor;
+		StartWhere = Where;
+		StartRot = FRotator(0.f, Look.Yaw, 0.f);
+		StartWatch = 5.f;
 		float After = -1.f;
 		FParse::Value(FCommandLine::Get(), TEXT("InteriorStartLeaveAfter="), After);
 		LeaveIn = After;
-		GTP_TRACE(InteriorStreaming, TEXT("test start: player at the counter of %s (%s) t=%.2f"), *Interior.Id, *FirstName,
-		          GetWorld()->GetTimeSeconds());
+		GTP_TRACE(InteriorStreaming, TEXT("test start: player at the counter of %s (%s) at %s, %d customer spots kept clear t=%.2f"),
+		          *Interior.Id, *FirstName, *Where.ToString(), Spots.Num(), GetWorld()->GetTimeSeconds());
 		return;
 	}
 	bStartDone = true;
