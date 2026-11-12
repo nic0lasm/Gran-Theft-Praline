@@ -11,6 +11,7 @@
 #include "GTPPlayerController.h"
 #include "GTPVehicle.h"
 #include "GTPVehicleInteractionComponent.h"
+#include "GTPWanted.h"
 #include "HAL/PlatformTime.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
@@ -50,7 +51,8 @@ namespace
 void UGTPDemoRoute::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
-	bCarjack = FParse::Param(FCommandLine::Get(), TEXT("DemoCarjack"));
+	bChase = FParse::Param(FCommandLine::Get(), TEXT("PoliceChaseDemo"));
+	bCarjack = FParse::Param(FCommandLine::Get(), TEXT("DemoCarjack")) || bChase;
 	if (!bCarjack && !FParse::Param(FCommandLine::Get(), TEXT("DemoRoute")))
 	{
 		return;
@@ -62,6 +64,10 @@ void UGTPDemoRoute::Initialize(FSubsystemCollectionBase& Collection)
 		{
 			WalkStreetCm = static_cast<float>(FMath::Clamp(WalkCm, 500.0, 50000.0));
 		}
+	}
+	if (bChase)
+	{
+		DriveTime = 120.0;
 	}
 	FParse::Value(FCommandLine::Get(), TEXT("DemoDriveTime="), DriveTime);
 	bToRiver = FParse::Param(FCommandLine::Get(), TEXT("DemoToRiver"));
@@ -442,6 +448,25 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 			SetPhase(EPhase::Done);
 			break;
 		}
+		float Cruise = CruiseKmh;
+		if (bChase)
+		{
+			Cruise = T >= 60.0 ? 85.f : 60.f;
+			UGTPWantedComponent* Wanted = PC->FindComponentByClass<UGTPWantedComponent>();
+			if (Wanted)
+			{
+				if (T >= 8.0 && T < 60.0)
+				{
+					Wanted->EnsureMinStars(T >= 30.0 ? 3 : 2);
+				}
+				if (Now >= NextChaseLog)
+				{
+					NextChaseLog = Now + 5.0;
+					GTP_TRACE(LogGTPDemo, TEXT("DemoChase t=%.0f stars=%d phase=%d seen=%d kmh=%.0f"), static_cast<float>(T), Wanted->GetStars(),
+						Wanted->GetPhaseIndex(), Wanted->IsSeenNow() ? 1 : 0, Driven->GetSpeedKmh());
+				}
+			}
+		}
 		// On a traffic lane: drive it like the AI drivers do (bends, junctions turned
 		// at random, stop behind whatever is in front). The street of the start is
 		// closed to cars and has no lane: hold its heading until a lane is near.
@@ -499,7 +524,7 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 		if (Follower.IsActive())
 		{
 			FGTPDriveCommand Command;
-			if (Follower.Step(Driven->GetActorLocation(), static_cast<float>(Driven->GetActorRotation().Yaw), Driven->GetSpeedKmh(), CruiseKmh,
+			if (Follower.Step(Driven->GetActorLocation(), static_cast<float>(Driven->GetActorRotation().Yaw), Driven->GetSpeedKmh(), Cruise,
 				UGTPAIDriverComponent::ProbeAhead(Driven, 4000.f, 90.f), Command))
 			{
 				DriveInputs(Driven, Command.Throttle, Command.Brake, Command.Steering, false);
@@ -550,7 +575,7 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 		{
 			StuckSince = 0.0;
 		}
-		const float Throttle = Speed < CruiseKmh ? FMath::Clamp((CruiseKmh - Speed) / 15.f, 0.25f, 0.8f) : 0.f;
+		const float Throttle = Speed < Cruise ? FMath::Clamp((Cruise - Speed) / 15.f, 0.25f, 0.8f) : 0.f;
 		DriveInputs(Driven, Throttle, 0.f, Steering, false);
 		if (T >= DriveTime)
 		{
