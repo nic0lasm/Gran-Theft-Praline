@@ -20,6 +20,7 @@
 #include "Engine/StaticMesh.h"
 #include "Materials/MaterialInterface.h"
 #include "Engine/World.h"
+#include "Engine/OverlapResult.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/GameModeBase.h"
 #include "GameFramework/PlayerController.h"
@@ -811,7 +812,11 @@ void AGTPTrafficNetwork::BeginPlay()
 	bTrafficPool = TrafficPoolSwitch != 0;
 	FParse::Value(FCommandLine::Get(), TEXT("PoolCooldown="), PoolCooldown);
 	PoolCooldown = FMath::Max(PoolCooldown, 0.f);
-	GTP_TRACE(LogGTPTraffic, TEXT("traffic: car pool %s, cooldown %.1f s"), bTrafficPool ? TEXT("on") : TEXT("off"), PoolCooldown);
+	int32 PoolSpawnCheckSwitch = 1;
+	FParse::Value(FCommandLine::Get(), TEXT("PoolSpawnCheck="), PoolSpawnCheckSwitch);
+	bPoolSpawnCheck = PoolSpawnCheckSwitch != 0;
+	GTP_TRACE(LogGTPTraffic, TEXT("traffic: car pool %s, cooldown %.1f s, spot check %d"), bTrafficPool ? TEXT("on") : TEXT("off"), PoolCooldown,
+		bPoolSpawnCheck ? 1 : 0);
 	int32 FarCars = NumFarCars;
 	FParse::Value(FCommandLine::Get(), TEXT("FarTraffic="), FarCars);
 	// -Traffic=0 turns all traffic off, far cars included (benches of other systems rely on it).
@@ -1222,6 +1227,16 @@ AGTPVehicle* AGTPTrafficNetwork::TakeFromPool(const FTransform& Transform)
 			}
 			continue;
 		}
+		// The lane spot was checked against the traffic cars only: a police car, a puppet or a
+		// parked car may stand there. Teleporting a simulated car into another one gave the
+		// solver a deep overlap (Mac crash right after "reused on lane", police on the same lane).
+		if (const AActor* Blocker = bPoolSpawnCheck ? FindCarAt(Car, Transform) : nullptr)
+		{
+			GTP_TRACE(LogGTPTraffic, TEXT("traffic: %s reuse blocked by %s"), *Car->GetName(), *Blocker->GetName());
+			Pool.Insert(Car, 0);
+			PoolSince.Insert(Now - PoolCooldown, 0);
+			return nullptr;
+		}
 		Car->SetActorTransform(Transform, false, nullptr, ETeleportType::ResetPhysics);
 		Car->SetActorEnableCollision(true);
 		Car->SetActorHiddenInGame(false);
@@ -1230,6 +1245,35 @@ AGTPVehicle* AGTPTrafficNetwork::TakeFromPool(const FTransform& Transform)
 			Driver->SetActorHiddenInGame(false);
 		}
 		return Car;
+	}
+	return nullptr;
+}
+
+const AActor* AGTPTrafficNetwork::FindCarAt(const AGTPVehicle* Car, const FTransform& Transform) const
+{
+	const UPrimitiveComponent* Body = Cast<UPrimitiveComponent>(Car->GetRootComponent());
+	if (!Body)
+	{
+		return nullptr;
+	}
+	// The car's own box at the new place, 30 cm wider on each side.
+	const FBox Local = Body->CalcBounds(FTransform::Identity).GetBox();
+	const FVector Extent = Local.GetExtent() + FVector(30.f);
+	const FVector Center = Transform.TransformPosition(Local.GetCenter());
+	TArray<FOverlapResult> Overlaps;
+	const FCollisionObjectQueryParams Objects(FCollisionObjectQueryParams::InitType::AllDynamicObjects);
+	FCollisionQueryParams Query(SCENE_QUERY_STAT(GTPPoolReuse), false, Car);
+	if (!GetWorld()->OverlapMultiByObjectType(Overlaps, Center, Transform.GetRotation(), Objects, FCollisionShape::MakeBox(Extent), Query))
+	{
+		return nullptr;
+	}
+	for (const FOverlapResult& Overlap : Overlaps)
+	{
+		const AActor* Other = Overlap.GetActor();
+		if (Other && Other != Car && Other->IsA<AGTPVehicle>() && !Other->IsHidden())
+		{
+			return Other;
+		}
 	}
 	return nullptr;
 }
