@@ -484,3 +484,7 @@ First implementation of ADR-0010 option B, prepared and tested off the Mac; not 
 Without the manifest, or with `GTP_SURFACES=0`, the materials stay procedural.
 
 M1 budget: the ground uses at most 15 texture fetches (grime included, as a texture rather than decal actors), the kit 4 and the shells 6, all through shared samplers. `GTP_SURFACES_LITE=1` keeps only the colour maps.
+
+## ZoneGraph for Mass (added 2026-11-12, ADR-0015)
+
+`tools/city/zonegraph.py` turns the driving lanes (`traffic.py`) and the walkways (`pedestrians.py`) into `gen/<focus>/zonegraph/zonegraph.json`: one-way "Car" splines cut 6 m before each junction, one polygon per junction (tags Car and Intersection) whose points are those cut ends, and two-way "Pedestrian" splines for the walkways (tag Crossing on crossings). `--lanes` and `--walkways` take the clipped tables of `npc_data.py` instead. `run_city_import.sh` then calls `tools/city/unreal/place_zonegraph.py`, which hands the table to the C++ importer `UGTPZoneGraphImport` (module GTPMass) and saves the map: the ZoneGraph is never drawn by hand. `GTP_ZONEGRAPH=0` skips the step; its failures are reported in `Saved/CityImport/zonegraph_report.json`, not fatal, until the first editor runs are clean. To check on the map: `ZoneGraph debug draw` in the editor viewport (Show > ZoneGraph).

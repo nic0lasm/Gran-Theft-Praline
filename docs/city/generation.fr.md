@@ -505,3 +505,7 @@ Première mise en œuvre de l'option B de l'ADR-0010, préparée et essayée hor
 Sans le manifeste, ou avec `GTP_SURFACES=0`, les matériaux restent procéduraux.
 
 Budget M1 : au plus 15 lectures de texture pour le sol (la saleté comprise, en texture plutôt qu’en acteurs décals), 4 pour le kit et 6 pour les coques, toutes avec des samplers partagés. `GTP_SURFACES_LITE=1` ne garde que les cartes de couleur.
+
+## ZoneGraph pour Mass (ajouté le 12/11/2026, ADR-0015)
+
+`tools/city/zonegraph.py` transforme les voies de circulation (`traffic.py`) et les cheminements piétons (`pedestrians.py`) en `gen/<focus>/zonegraph/zonegraph.json` : des splines « Car » à sens unique, coupées 6 m avant chaque carrefour, un polygone par carrefour (tags Car et Intersection) dont les points sont ces extrémités coupées, et des splines « Pedestrian » à double sens pour les cheminements (tag Crossing sur les passages). `--lanes` et `--walkways` prennent à la place les tables découpées de `npc_data.py`. `run_city_import.sh` appelle ensuite `tools/city/unreal/place_zonegraph.py`, qui confie la table à l'importeur C++ `UGTPZoneGraphImport` (module GTPMass) puis sauvegarde la map : le ZoneGraph n'est jamais dessiné à la main. `GTP_ZONEGRAPH=0` saute l'étape ; ses échecs sont consignés dans `Saved/CityImport/zonegraph_report.json` sans arrêter l'import, tant que les premiers passages dans l'éditeur ne sont pas propres. Pour vérifier sur la map : affichage du ZoneGraph dans la vue de l'éditeur (Show > ZoneGraph).
