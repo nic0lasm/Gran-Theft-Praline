@@ -26,6 +26,7 @@ Steps (idempotent, only material assets and the mesh slots change, the map is no
 
 import json
 import os
+import sys
 import time
 
 import unreal
@@ -79,6 +80,7 @@ KIT_SLOTS = {
     "MI_Shop_Display": (0.25, 0.22, 0.2, 0.6, 0.0),
     "MI_Sign_Panel": (0.5, 0.5, 0.5, 0.35, 0.0),
     "MI_Glass_Shop": (0.05, 0.06, 0.065, 0.05, 0.0),   # translucent: M_City_GlassShop
+    "MI_Persienne": (0.62, 0.60, 0.56, 0.5, 0.0),      # folded metal shutters (facade kit v1)
     "MI_Roof_Zinc": (0.40, 0.42, 0.44, 0.45, 0.6),      # mansard modules (facade_kit/roof_kit.py)
 }
 KIT_EMISSIVE = {"MI_Shop_Interior": (1.0, 0.92, 0.8, 1.2)}
@@ -87,7 +89,8 @@ KIT_WEATHERING = {"MI_Window_PaintedWood": 0.5, "MI_Shutter_Painted": 0.5, "MI_D
                   "MI_Shopfront_Wood": 0.4, "MI_Ironwork_Painted": 0.3, "MI_Sign_Fascia": 0.3,
                   "MI_Shopfront_Aluminium": 0.2, "MI_Shopfront_Steel": 0.2, "MI_Shutter_Metal": 0.4,
                   "MI_Glass_Window": 0.15, "MI_Glass_Shop": 0.1, "MI_Shop_Interior": 0.0,
-                  "MI_Shop_Floor": 0.0, "MI_Shop_Display": 0.0, "MI_Sign_Panel": 0.0}
+                  "MI_Shop_Floor": 0.0, "MI_Shop_Display": 0.0, "MI_Sign_Panel": 0.0,
+                  "MI_Persienne": 0.5}
 # Stone slots take the building colour place_facades.py writes in per-instance custom data 0-2.
 KIT_BUILDING_COLOUR = ("MI_Facade_LimestoneCream", "MI_Facade_Render", "MI_Facade_PierreDoree")
 
@@ -521,6 +524,94 @@ def day_boost(g):
     return g.lerp(day, g.const(1.0), night)
 
 
+# Upper-floor windows (MI_Glass_Window): opaque glossy glass over a fake flat by interior mapping,
+# like the shops: a room per window (cell = one 3.3 m bay x one storey x 4 m deep, in the module's
+# local frame), wallpaper and parquet varied per instance, sheer curtains or drapes, lit at night
+# in about one window out of three. Reflections come from the glass itself (Lumen). PC default;
+# GTP_WINDOW_GLASS=opaque keeps the dark v0 glass (M1 fallback).
+WINDOW_GLASS = "MI_Glass_Window"
+WINDOW_GLASS_MODE = os.environ.get("GTP_WINDOW_GLASS", "interior" if sys.platform == "win32" else "opaque")
+WINDOW_DAY_GLOW = float(os.environ.get("GTP_WINDOW_DAY_GLOW", "150"))
+WINDOW_HLSL = r"""
+float3 d = normalize(-V);
+float3 cell = float3(330.0, 400.0, 330.0);
+float3 u = float3(frac((P.x + 165.0) / cell.x), 0.0, frac(P.z / cell.z));
+float3 dn = float3(d.x / cell.x, abs(d.y) / cell.y, d.z / cell.z);
+float tx = (dn.x > 0 ? 1.0 - u.x : -u.x) / (abs(dn.x) > 1e-5 ? dn.x : 1e-5);
+float tz = (dn.z > 0 ? 1.0 - u.z : -u.z) / (abs(dn.z) > 1e-5 ? dn.z : 1e-5);
+float ty = 1.0 / max(dn.y, 1e-5);
+float t = min(min(tx, tz), ty);
+float3 h = u + dn * t;
+float r1 = frac(Seed * 7.31 + 0.17), r2 = frac(Seed * 13.7 + 0.53), r3 = frac(Seed * 29.1 + 0.71);
+float3 paper = lerp(lerp(float3(0.78, 0.74, 0.66), float3(0.62, 0.68, 0.66), r1), float3(0.72, 0.6, 0.5), r2 * r2);
+float3 col;
+if (t == ty) {                                    // back wall: a door or a picture, a dado rail
+    float door = step(0.55, r3) * step(abs(h.x - 0.3 - r1 * 0.4), 0.1) * step(h.z, 0.72);
+    float pict = (1.0 - step(0.55, r3)) * step(abs(h.x - 0.5), 0.12) * step(abs(h.z - 0.55), 0.08);
+    col = paper * (0.9 + 0.1 * step(0.3, h.z));
+    col = lerp(col, float3(0.32, 0.2, 0.12), door);
+    col = lerp(col, lerp(float3(0.5, 0.35, 0.2), float3(0.2, 0.3, 0.45), r2), pict);
+} else if (t == tz) {
+    float plank = frac(h.x * 22.0 + floor(h.y * 3.0) * 0.37);
+    col = dn.z < 0 ? lerp(float3(0.26, 0.15, 0.08), float3(0.33, 0.2, 0.11), plank) : float3(0.9, 0.88, 0.84);
+} else {
+    col = paper * 0.85;
+}
+col *= 0.45 + 0.55 * saturate(1.0 - h.y * 0.7);   // daylight falls off into the room
+// curtains, seen at the glass: none, sheer net, drapes at the sides, or both
+float x = u.x;
+float folds = 0.75 + 0.25 * sin(x * 260.0 + r1 * 6.0);
+float sheer = step(0.35, r2) * 0.6;
+float drape = step(0.5, r1) * (step(x, 0.39) + step(0.61, x));
+float3 net = float3(0.92, 0.9, 0.86) * folds;
+float3 cloth = lerp(float3(0.55, 0.12, 0.1), float3(0.75, 0.68, 0.55), r3) * folds;
+col = lerp(col, net, sheer);
+col = lerp(col, cloth, saturate(drape) * 0.95);
+float lit = step(0.66, frac(Seed * 3.17 + 0.29));
+float3 warm = float3(1.0, 0.82, 0.6) * lit * 1.2 + 0.015;
+return col * lerp(Day, 1.0, Night) * lerp(float3(1.0, 1.0, 1.0), warm, Night);
+"""
+
+
+def window_interior_master():
+    mat = new_material("M_City_WindowInterior")
+    mat.set_editor_property("used_with_instanced_static_meshes", True)
+    g = Graph(mat)
+    lp = g.node(unreal.MaterialExpressionTransformPosition,
+                transform_source_type=unreal.MaterialPositionTransformSource.TRANSFORMPOSSOURCE_WORLD,
+                transform_type=unreal.MaterialPositionTransformSource.TRANSFORMPOSSOURCE_LOCAL)
+    g.link(g.world_position(), "", lp, "")
+    cv = g.node(unreal.MaterialExpressionTransform,
+                transform_source_type=unreal.MaterialVectorCoordTransformSource.TRANSFORMSOURCE_WORLD,
+                transform_type=unreal.MaterialVectorCoordTransform.TRANSFORM_LOCAL)
+    g.link(g.node(unreal.MaterialExpressionCameraVectorWS), "", cv, "")
+    seed = g.node(unreal.MaterialExpressionPerInstanceRandom)
+    day = g.node(unreal.MaterialExpressionScalarParameter, parameter_name="DayGlow", default_value=WINDOW_DAY_GLOW)
+    night = g.const(0.0)
+    path = os.path.join(REPO, "tools", "environment", "unreal")
+    if os.path.exists(os.path.join(path, "gtp_weather.py")):
+        if path not in sys.path:
+            sys.path.insert(0, path)
+        import gtp_weather
+        night = g.node(unreal.MaterialExpressionCollectionParameter, collection=gtp_weather.collection(),
+                       parameter_name="CityLights")
+    custom = g.node(unreal.MaterialExpressionCustom, code=WINDOW_HLSL,
+                    output_type=unreal.CustomMaterialOutputType.CMOT_FLOAT3, description="WindowInterior",
+                    inputs=[custom_input(n) for n in ("P", "V", "Seed", "Day", "Night")])
+    for src, name in ((lp, "P"), (cv, "V"), (seed, "Seed"), (day, "Day"), (night, "Night")):
+        g.link(src, "", custom, name)
+    fres = g.node(unreal.MaterialExpressionFresnel)
+    emis = g.mul(custom, g.sub(g.const(1.0), g.mul(fres, g.const(0.85))))
+    mel.connect_material_property(g.const((0.015, 0.017, 0.02)), "", unreal.MaterialProperty.MP_BASE_COLOR)
+    mel.connect_material_property(g.const(0.03), "", unreal.MaterialProperty.MP_ROUGHNESS)
+    mel.connect_material_property(g.const(0.0), "", unreal.MaterialProperty.MP_METALLIC)
+    mel.connect_material_property(g.const(1.0), "", unreal.MaterialProperty.MP_SPECULAR)
+    mel.connect_material_property(emis, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+    weather(mat, ("wet", "emissive"))
+    g.done()
+    return mat
+
+
 def interior_or_none(report):
     """M_City_ShopInterior, or None (opaque glass) when it cannot be built or does not compile
     for this editor's shader platform (Metal on the Mac): the regeneration goes on either way."""
@@ -545,6 +636,15 @@ def interior_or_none(report):
 
 def kit_instances(master, report=None):
     out = {}
+    window = None
+    if WINDOW_GLASS_MODE == "interior":
+        try:
+            window = window_interior_master()
+        except Exception as e:  # noqa: BLE001  keep the dark v0 glass
+            if report is not None:
+                report["window_glass_error"] = repr(e)
+    if report is not None:
+        report["window_glass"] = "interior" if window else "opaque"
     glass = shop_glass_master() if SHOP_GLASS_MODE == "translucent" else \
         interior_or_none(report if report is not None else {}) if SHOP_GLASS_MODE == "interior" else None
     for name, (r, gr, b, rough, metal) in KIT_SLOTS.items():
@@ -553,7 +653,12 @@ def kit_instances(master, report=None):
             eal.delete_asset(path)
         mic = asset_tools.create_asset(path.rsplit("/", 1)[1], MAT_DIR, unreal.MaterialInstanceConstant,
                                        unreal.MaterialInstanceConstantFactoryNew())
-        mel.set_material_instance_parent(mic, glass if (name == SHOP_GLASS and glass) else master)
+        mel.set_material_instance_parent(mic, glass if (name == SHOP_GLASS and glass) else
+                                         window if (name == WINDOW_GLASS and window) else master)
+        if name == WINDOW_GLASS and window:
+            eal.save_loaded_asset(mic)
+            out[name] = mic
+            continue
         mel.set_material_instance_vector_parameter_value(mic, "BaseColor", unreal.LinearColor(r, gr, b, 1.0))
         if name == SHOP_GLASS and glass is None:
             er, eg, eb, k = SHOP_GLASS_FAKE_GLOW

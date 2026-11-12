@@ -245,8 +245,10 @@ def main():
     street = bpy.data.collections.new("Street")
     scene.collection.children.link(street)
     top = {}
+    roof_kinds = ("dormer", "mansard_blank")   # the cornice crowns the last stone storey (place_facades.py)
     for r in rows:
-        top[r["building_id"]] = max(top.get(r["building_id"], 0), int(r["storey"]))
+        if r["kind"] not in roof_kinds:
+            top[r["building_id"]] = max(top.get(r["building_id"], 0), int(r["storey"]))
     placed = signs = 0
     for r in rows:
         x, y, z = float(r["x_m"]), float(r["y_m"]), float(r["z_m"])
@@ -258,7 +260,7 @@ def main():
         w, h, yaw = float(r["width_m"]), float(r["height_m"]), float(r["ue_yaw"])
         place(name + "_i", obj.data, street, x, y, z, yaw, w / nw, h / nh, r["colour"])
         placed += 1
-        if r["side"] == "street" and int(r["storey"]) == top[r["building_id"]]:
+        if r["side"] == "street" and r["kind"] not in roof_kinds and int(r["storey"]) == top.get(r["building_id"]):
             eave = kit.KIND_TO_MODULE[fam]["_eave"]
             place(eave + "_i", modules[eave][0].data, street, x, y, z + h, yaw, w / nw, 1.0, r["colour"])
         sg = sign_of.get(r["shop_osm_id"]) if r["kind"] == "shop" else None
