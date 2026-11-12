@@ -17,6 +17,7 @@ FAMILIES = {
     "Métropole de Lyon": (["métropole de lyon", "grand lyon", "grandlyon"], ["Métropole de Lyon"]),
     "OpenStreetMap": (["openstreetmap", "odbl"], ["OpenStreetMap", "ODbL"]),
     "CC BY-SA 4.0": (["cc by-sa"], ["CC BY-SA 4.0"]),
+    "CC BY 4.0": (["cc by 4.0"], ["CC BY 4.0", "creativecommons.org/licenses/by/4.0"]),
     "Poly Haven / CC0": (["poly haven", "polyhaven", "cc0"], ["CC0", "Poly Haven"]),
     "Megascans / Fab": (["megascans", "fab "], ["Megascans", "Fab"]),
     "ambientCG": (["ambientcg"], ["ambientCG"]),
