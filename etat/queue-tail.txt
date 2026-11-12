@@ -1,6 +1,3 @@
-16:11 pushed etat
-16:16 cand16-long600: crash no (exit 0), end t=597, reused=151 | long600: 23797 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.2 | gpu p50 14.04 p95 20.92 | gate PASS
-16:16 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
 16:16 == cand16-interior start (120 s, no -userdir)
 16:18 cand16-interior: crash no (exit 0) | interior: 4600 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.1 | gpu p50 12.37 p95 19.77 | gate PASS | CustomerQueue: shop fastfood_bellecour open: 4 lines, 20 spots, 6 customers coming in, one every 0.25 s; | frames > 50 ms in the first 15 s: 
 16:19 cand16 still counter: frame_00000.jpg | CustomerQueue: shop fastfood_bellecour open: 4 lines, 20 spots, 6 customers coming in, one every 0.25 s
@@ -58,3 +55,6 @@
 18:02 loop-endurance-6-2: exit=0 crash=no last t=wanted: t=598 wanted=299 police=87 police-in-last-10=5 pool-drops=0 | loop-endurance-6-2: 23794 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 4 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 33.8 | gpu p50 14.27 p95 21.21 | gate PASS
 18:03 pushed loop-endurance-6
 18:03 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+18:03 pushed etat
+18:03 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+18:03 == loop-endurance-7-1 start (600 s): -Sky=lightfunction -Pedestrians=50 -PedMaxVisible=20 -PedFar=30 -Traffic=25 -VehicleLod=1 -WantedStars=2 -WantedHold -WantedDelay=1 -PoliceMax=6
