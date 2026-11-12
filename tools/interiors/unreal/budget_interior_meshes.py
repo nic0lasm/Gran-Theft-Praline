@@ -1,6 +1,7 @@
 """Bring the meshes chosen for the interiors within their budget (step 3, after map_interior_meshes.py).
 
-Run in the Unreal Editor (pythonscript, headless). Reads Saved/InteriorBuild/mesh_map.json and, for
+Run in a headless editor (-nullrhi -ExecutePythonScript through Content/Python/gtp_run.py): the
+static mesh editor subsystem is None in the pythonscript commandlet. Reads Saved/InteriorBuild/mesh_map.json and, for
 every mesh under /Game/Interiors/Free or /Game/Interiors/Fab (nothing else is ever modified):
   - triangles: LOD0 reduced to the class budget of tools/interiors/catalog.json (tris_lod0, 25 %
     tolerance), then a chain of 3 LODs (50 %, 25 %, 10 %): the M1 draws the LOD chain;
@@ -99,6 +100,14 @@ def budget_mesh(cls, info, path, report):
 def main():
     catalog = il.load_json(il.DEFAULT_CATALOG)
     report = {"apply": APPLY, "classes": {}, "skipped": {}, "errors": []}
+    if sub is None:
+        # None in the pythonscript commandlet: this script needs a headless editor.
+        report["errors"].append("StaticMeshEditorSubsystem is None: run in the editor (-nullrhi -ExecutePythonScript), not -run=pythonscript")
+        os.makedirs(SAVED, exist_ok=True)
+        with open(os.path.join(SAVED, "mesh_budget_report.json"), "w", encoding="utf-8") as handle:
+            json.dump(report, handle, indent=1)
+        log(report["errors"][0])
+        return
     map_path = os.path.join(SAVED, "mesh_map.json")
     mapping = il.load_json(map_path) if os.path.exists(map_path) else {}
     if not mapping:
