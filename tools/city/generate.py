@@ -106,6 +106,35 @@ def load_shops(proc):
     return by_building
 
 
+AXIS_GAP_M = 150.0   # pieces of one street split by a square (place de la Republique) are chained
+
+
+def chain_axis(lines):
+    """One line along the whole street: the merged pieces chained end to end across gaps such as
+    a square, longest first. The longest piece alone (before 12/11) left out the Bellecour ->
+    place de la Republique stretch, so the player start fell on the square, not at Bellecour."""
+    merged = shapely.line_merge(unary_union(lines))
+    pieces = sorted(getattr(merged, "geoms", [merged]), key=lambda g: -g.length)
+    coords = list(pieces[0].coords)
+    rest = [list(g.coords) for g in pieces[1:]]
+    while rest:
+        best = None
+        for k, c in enumerate(rest):
+            for at_end in (True, False):
+                end = coords[-1] if at_end else coords[0]
+                for rev in (False, True):
+                    cc = c[::-1] if rev else c
+                    d = math.dist(end, cc[0] if at_end else cc[-1])
+                    if best is None or d < best[0]:
+                        best = (d, k, at_end, cc)
+        d, k, at_end, cc = best
+        if d > AXIS_GAP_M:
+            break
+        coords = coords + cc if at_end else cc + coords
+        rest.pop(k)
+    return LineString(coords)
+
+
 def ue_yaw(nx, ny):
     """Unreal yaw (degrees) of a module facing outward along (nx, ny) local (east, north)."""
     return round(math.degrees(math.atan2(-ny, nx)), 2)
@@ -122,7 +151,7 @@ def ground_height(poly, mnt, to_world, origin_alt):
     return float(np.min(z)) if len(z) else 0.0
 
 
-def write_shell_cells(out, shell_items, cell_m=250.0):
+def write_shell_cells(out, shell_items, cell_m=250.0, prefix="SM_ShellCell_", stem="shell_cells"):
     """The shells merged per 250 m streaming cell (ADR-0010 grid, cells.py names): one mesh and
     one draw per cell instead of one per building. import_city.py uses it with GTP_SHELL_MERGE=1.
     Vertices stay at their place (node origin at the cell's corner, ground 0)."""
@@ -137,12 +166,12 @@ def write_shell_cells(out, shell_items, cell_m=250.0):
         return ("p" if v >= 0 else "m") + "%04d" % abs(int(round(v)))
     items, nodes = [], []
     for (x0, y0), (mesh, names) in sorted(cells.items()):
-        mname = "SM_ShellCell_%s_%s" % (f(x0), f(y0))
+        mname = "%s%s_%s" % (prefix, f(x0), f(y0))
         items.append((mname, mesh, (x0, y0, 0.0)))
         nodes.append({"name": mname, "cell": "cell-%s-%s" % (f(x0), f(y0)), "buildings": names,
                       "triangles": mesh.tris, "ue_cm": list(cl.to_unreal(x0, y0, 0.0))})
-    meshkit.write_glb(os.path.join(out, "shell_cells.glb"), items)
-    with open(os.path.join(out, "shell_cells.json"), "w", encoding="utf-8") as fh:
+    meshkit.write_glb(os.path.join(out, stem + ".glb"), items)
+    with open(os.path.join(out, stem + ".json"), "w", encoding="utf-8") as fh:
         json.dump({"cell_m": cell_m, "nodes": nodes}, fh, indent=1)
 
 
@@ -217,8 +246,7 @@ def main():
             clip = box(*[float(v) for v in args.clip.split(",")])
             selected = [b for b in selected if clip.contains(b["poly"].centroid)]
             street = [g for g in (s.intersection(clip) for s in street) if not g.is_empty and g.length > 0]
-        merged = shapely.line_merge(unary_union(street))
-        longest = max(getattr(merged, "geoms", [merged]), key=lambda g: g.length)
+        longest = chain_axis(street)
         for d in np.arange(0, longest.length, 10.0):
             p = longest.interpolate(d)
             gz = mnt.sample(np.array([p.x + origin[0]]), np.array([p.y + origin[1]]))[0] - origin_alt
