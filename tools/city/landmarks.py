@@ -66,6 +66,10 @@ LANDMARKS = [
      {"surface": "paving_stones"}),
     ("fontaine-des-jacobins", "Fontaine des Jacobins", "monument", ("way", "25101472"), None,
      {"wall": "#d8d2c4", "top": "#d8d2c4"}),           # white marble
+    ("pathe-bellecour", "Pathé Bellecour (tour et coq)", "building", ("way", "82377010"), None,
+     {"wall": "#d6cbb4", "roof": "#5b6168"}),          # corner tower of 79 rue de la Republique
+    ("bassin-republique", "Bassin de la place de la République", "basin", ("way", "129172257"), None,
+     {"wall": "#cfc8ba", "top": "#5f7378"}),           # stone coping, water (jets: props, later)
     ("fontaine-bartholdi", "Fontaine Bartholdi", "monument", ("way", "55071957"), "Q10144",
      {"wall": "#8f8a80", "top": "#3f4a45"}),           # granite basin, lead group
 ]
@@ -168,6 +172,52 @@ def monument_footprint(geom, mns, mnt, origin, search_m):
 
 
 # --- Mesh ----------------------------------------------------------------------------
+BASIN_COPING_H_M = 0.45    # stone coping above the paving
+BASIN_COPING_W_M = 0.5
+BASIN_WATER_M = 0.15       # water surface under the coping top
+
+
+def flat_polygon(m, poly, z, col):
+    """Upward triangles of a flat polygon (Delaunay of its outline, kept inside)."""
+    for t in polys(shapely.delaunay_triangles(poly)):
+        if poly.buffer(0.01).contains(t.centroid):
+            (ax, ay), (bx, by), (cx, cy) = list(t.exterior.coords)[:3]
+            if (bx - ax) * (cy - ay) - (by - ay) * (cx - ax) < 0:
+                bx, by, cx, cy = cx, cy, bx, by
+            m.tri((ax, ay, z), (bx, by, z), (cx, cy, z), col)
+
+
+def ring_walls(m, ring, z0, z1, col, outward=True):
+    pts = list(ring.coords)[:-1]
+    ccw = shapely.geometry.LinearRing(pts).is_ccw
+    for k in range(len(pts)):
+        a, b = pts[k], pts[(k + 1) % len(pts)]
+        if ccw != outward:
+            a, b = b, a
+        m.quad((a[0], a[1], z0), (b[0], b[1], z0), (b[0], b[1], z1), (a[0], a[1], z1), col)
+
+
+def basin_mesh(poly, mnt, origin, origin_alt, col_wall, col_water):
+    """A fountain basin from its OSM outline: stone coping and a flat water surface. The LiDAR
+    sees no volume there (the coping is under half a metre, the water is at street level)."""
+    m = meshkit.Mesh()
+    wall, water = meshkit.hex_rgb(col_wall), meshkit.hex_rgb(col_water)
+    poly = poly.simplify(0.1)
+    c = poly.centroid
+    gz = float(np.nanmedian(mnt.sample(np.array([c.x + origin[0]]), np.array([c.y + origin[1]])))) - origin_alt
+    top = gz + BASIN_COPING_H_M
+    inner = max(polys(poly.buffer(-BASIN_COPING_W_M)), key=lambda q: q.area, default=None)
+    for p in polys(poly):
+        ring_walls(m, p.exterior, gz - SINK_M, top, wall, outward=True)
+    if inner is not None:
+        ring_walls(m, inner.exterior, top - BASIN_WATER_M - 0.05, top, wall, outward=False)
+        flat_polygon(m, poly.difference(inner), top, wall)
+        flat_polygon(m, inner, top - BASIN_WATER_M, water)
+    else:
+        flat_polygon(m, poly, top, wall)
+    return m, {"height_m": round(BASIN_COPING_H_M, 2)}
+
+
 def volume_mesh(fp, mns, mnt, origin, origin_alt, grid_m, col_wall, col_top, split_share=None):
     """Walls along every ring of fp from the ground to the LiDAR edge, roof as a heightfield."""
     m = meshkit.Mesh()
@@ -292,6 +342,10 @@ def build_zone(zone, write=True):
             mesh, st = volume_mesh(fp, mns, mnt, origin, origin_alt, ROOF_GRID_M, style["wall"], style["roof"])
             covered = [i for i, b in bd if b.area > 0 and b.intersection(g).area >= COVER_SHARE * b.area]
             rec.update(courtyards_m2=court, replaces_bdtopo=covered)
+        elif kind == "basin":
+            fp = g
+            mesh, st = basin_mesh(g, mnt, origin, origin_alt, style["wall"], style["top"])
+            rec["replaces_bdtopo"] = []
         else:
             fp = monument_footprint(g, mns, mnt, origin, style.get("search_m", 6.0))
             mesh, st = volume_mesh(fp, mns, mnt, origin, origin_alt, MONUMENT_GRID_M, style["wall"], style["top"],
