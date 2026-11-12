@@ -6,7 +6,8 @@
 # report says "not in this build"). Nothing is compiled or packaged, the clone's files are not changed.
 #
 # Run from the root of the GTAL-build clone, nothing else running (one command):
-#   git fetch -q origin feat/sky-slot3 && mkdir -p Builds/night-slot && git show origin/feat/sky-slot3:tools/environment/slot-night-mac.sh > Builds/night-slot/run.sh && bash Builds/night-slot/run.sh
+#   bash tools/environment/slot-night-mac.sh
+# (only tools of this checkout are used: check out the candidate first, nothing is fetched)
 # Environment:
 #   BUILD      packaged build dir (default Builds/perf-cumul/0.3)
 #   DRY_RUN=1  prerequisites and 2 short runs only
@@ -28,7 +29,6 @@
 # killed at 2x its planned time; the whole pass stops at 35 min.
 set -uo pipefail
 
-ref_branch="origin/feat/sky-slot3"
 repo="$(pwd)"
 test -d "$repo/GranTheftPraline" || { echo "night: run from the root of the GTAL-build clone" >&2; exit 1; }
 stamp="$(date +%Y%m%d-%H%M%S)"
@@ -90,11 +90,10 @@ log "prerequisites"
 if pgrep -f "UnrealEditor( |$)|GranTheftPraline-Mac" > /dev/null; then die "an Unreal editor or the game is running"; fi
 exe="$(find "$build/GranTheftPraline.app/Contents/MacOS" -maxdepth 1 -type f -perm -u+x 2>/dev/null | head -n 1)"
 test -n "$exe" || die "no packaged build at $build"
-git fetch -q origin feat/sky-slot3 2>/dev/null || log "fetch failed, using the local $ref_branch"
 for f in tools/environment/still_stats.py tools/perf/summarize.py; do
-  git show "$ref_branch:$f" > "$out/tools/$(basename "$f")" 2>/dev/null || die "cannot read $f from $ref_branch"
+  cp "$repo/$f" "$out/tools/$(basename "$f")" 2>/dev/null || die "cannot read $f in this checkout"
 done
-echo "Code of the tools: $(git rev-parse --short "$ref_branch")" >> "$report"
+echo "Code of the tools: this checkout, $(git rev-parse --short HEAD)" >> "$report"
 
 # run name seconds args... : one launch, still at 25 s, frame log of the whole run.
 run() {

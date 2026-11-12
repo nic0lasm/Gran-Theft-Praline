@@ -6,7 +6,8 @@
 # files are not changed: only the build of slot 1 is launched.
 #
 # Run from the root of the GTAL-build clone, nothing else running (one command):
-#   git fetch -q origin feat/sky-slot3 && mkdir -p Builds/sky-slot3 && git show origin/feat/sky-slot3:tools/environment/slot3-sky-mac.sh > Builds/sky-slot3/run.sh && bash Builds/sky-slot3/run.sh
+#   bash tools/environment/slot3-sky-mac.sh
+# (only tools of this checkout are used: check out the candidate first, nothing is fetched)
 # Environment:
 #   BUILD      packaged build dir (default Builds/perf-cumul/0.3, from slot 1)
 #   DRY_RUN=1  check the prerequisites and run 3 short stills only
@@ -19,7 +20,6 @@
 # at 2x its planned time (90 s); the whole pass stops at 70 min.
 set -uo pipefail
 
-ref_branch="origin/feat/sky-slot3"
 repo="$(pwd)"
 test -d "$repo/GranTheftPraline" || { echo "slot3: run from the root of the GTAL-build clone" >&2; exit 1; }
 stamp="$(date +%Y%m%d-%H%M%S)"
@@ -84,12 +84,11 @@ log "prerequisites"
 if pgrep -f "UnrealEditor( |$)|GranTheftPraline-Mac" > /dev/null; then die "an Unreal editor or the game is running"; fi
 exe="$(find "$build/GranTheftPraline.app/Contents/MacOS" -maxdepth 1 -type f -perm -u+x 2>/dev/null | head -n 1)"
 test -n "$exe" || die "no packaged build at $build (slot 1 packages Builds/perf-cumul/0.3)"
-git fetch -q origin feat/sky-slot3 2>/dev/null || log "fetch failed, using the local $ref_branch"
 for f in tools/environment/still_stats.py tools/perf/summarize.py; do
-  git show "$ref_branch:$f" > "$out/tools/$(basename "$f")" 2>/dev/null || die "cannot read $f from $ref_branch"
+  cp "$repo/$f" "$out/tools/$(basename "$f")" 2>/dev/null || die "cannot read $f in this checkout"
 done
 python3 -c 'import sys' || die "python3 missing"
-echo "Code of the tools: $(git rev-parse --short "$ref_branch")" >> "$report"
+echo "Code of the tools: this checkout, $(git rev-parse --short HEAD)" >> "$report"
 
 # One still: name, then game arguments. Prints "mean ground patch spots gpu_p50 gpu_p95";
 # spots compares with the still in $flat_img (same view, no cloud shadow), nan without one.
