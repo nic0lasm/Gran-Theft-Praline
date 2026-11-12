@@ -18,7 +18,10 @@ import unreal
 REPO = os.path.abspath(os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_dir()), ".."))
 SPEC_ID = os.environ.get("GTP_INTERIOR_SPEC", "fastfood_bellecour")
 OUT = os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_saved_dir()), "InteriorBuild", "shots")
-WARMUP_S, SETTLE_S, TIMEOUT_S = 15.0, 3.0, 240.0
+# Warm-up: a freshly built level compiles its shaders in -game (checkerboard default material
+# until then): 90 s by default, GTP_SHOT_WARMUP_S overrides.
+WARMUP_S = float(os.environ.get("GTP_SHOT_WARMUP_S", "90"))
+SETTLE_S, TIMEOUT_S = 3.0, 240.0 + WARMUP_S
 
 state = {"t": 0.0, "phase_t": 0.0, "phase": "warmup", "index": 0, "target": None, "shots": [], "error": None}
 

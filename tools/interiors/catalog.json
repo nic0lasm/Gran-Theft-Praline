@@ -1164,6 +1164,9 @@
    "interactive": false,
    "keywords": [
     "drain"
+   ],
+   "avoid": [
+    "pipe"
    ]
   },
   "fire_extinguisher": {

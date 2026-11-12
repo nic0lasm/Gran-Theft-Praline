@@ -180,6 +180,23 @@ def standin_material(cls, cache):
     return mat
 
 
+def fit_mesh(mesh, dims):
+    """(uniform scale, lift cm) so a downloaded mesh has its class size and rests on its point.
+    Free models come in any unit (a hand dryer 36 m wide, a shelf 156 m) and with any pivot (paper
+    bags floating). The scale is the geometric mean of the sorted side ratios, capped so the largest
+    side stays within 1.3 x the class's; kept at 1 when the mesh is already within 20 %."""
+    bounds = mesh.get_bounds()
+    ext = bounds.box_extent
+    have = sorted([max(ext.x * 2.0, 0.1), max(ext.y * 2.0, 0.1), max(ext.z * 2.0, 0.1)])   # cm
+    want = sorted([d * 100.0 for d in dims])
+    factor = math.exp(sum(math.log(w / h) for h, w in zip(have, want)) / 3.0)
+    factor = min(factor, 1.3 * want[-1] / have[-1])
+    if 0.8 <= factor <= 1.25:
+        factor = 1.0
+    bottom = bounds.origin.z - ext.z
+    return factor, -bottom * factor
+
+
 def hism_actor(label, mesh):
     actor = actor_sub.spawn_actor_from_class(unreal.StaticMeshActor, unreal.Vector(0, 0, 0))
     actor.set_actor_label(label)
@@ -212,6 +229,11 @@ def build_objects(spec, catalog, mapping, report):
         # Grey boxes: the 1 m cube scaled to the class size, resting on its placement point.
         scale = unreal.Vector(dims[0], dims[1], dims[2]) if grey else unreal.Vector(1, 1, 1)
         lift = dims[2] * 50.0 if grey else 0.0
+        if not grey:
+            factor, lift = fit_mesh(mesh, dims)
+            scale = unreal.Vector(factor, factor, factor)
+            if factor != 1.0:
+                report.setdefault("rescaled", {})[cls] = round(factor, 4)
         if grey:
             standin = standin_material(cls, standins)
             if standin is not None:
