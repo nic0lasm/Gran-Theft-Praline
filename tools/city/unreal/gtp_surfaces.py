@@ -161,7 +161,7 @@ class _G:
         if not surf.get("tint"):
             return col
         grey = self.node(unreal.MaterialExpressionDesaturation)
-        self.link(col, "", grey, "Input")
+        self.link(col, "", grey, "")       # first input: its pin has no name on 5.8 (PC 12/11)
         grey.set_editor_property("luminance_factors", unreal.LinearColor(0.3, 0.59, 0.11, 0.0))
         return self.mul(self.mul(grey, self.const(tuple(surf["tint"]))), self.const(2.0))
 
