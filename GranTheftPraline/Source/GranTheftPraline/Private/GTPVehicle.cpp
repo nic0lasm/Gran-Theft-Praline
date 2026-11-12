@@ -1057,13 +1057,29 @@ void AGTPVehicle::OnBodyHit(UPrimitiveComponent* HitComponent, AActor* OtherActo
 		GTP_TRACE(LogGTPVehicle, TEXT("%s: AI impact from %s ignored (%.0f cm/s)"), *GetName(), *GetNameSafe(OtherActor), DeltaV);
 		return;
 	}
+	const float SincePlaced = Now - LastPlacedTime;
+	if (!bTrafficCrashDamage && !bPlayerInvolved && SincePlaced < 1.5f)
+	{
+		GTP_TRACE(LogGTPVehicle, TEXT("%s: impact from %s ignored %.2f s after %s (%.0f cm/s)"), *GetName(), *GetNameSafe(OtherActor),
+			SincePlaced, LastPlacedHow, DeltaV);
+		return;
+	}
 	LastImpactTime = Now;
 	const float HealthBefore = Health;
 	ApplyZoneDamage(ZoneFromWorldLocation(Hit.ImpactPoint), (DeltaV - MinImpactSpeed) * DamagePerImpactSpeed);
 	if (bWrecked && HealthBefore > 0.f)
 	{
-		GTP_TRACE(LogGTPVehicle, TEXT("%s: wrecked by an impact with %s (%.0f cm/s)"), *GetName(), *GetNameSafe(OtherActor), DeltaV);
+		const USkeletalMeshComponent* Body = GetMesh();
+		GTP_TRACE(LogGTPVehicle, TEXT("%s: wrecked by an impact with %s (%.0f cm/s) | %s%s, %s, %.0f km/h, %.1f s after %s"), *GetName(),
+			*GetNameSafe(OtherActor), DeltaV, *GetClass()->GetName(), ActorHasTag(GTPPolice::PoliceTag) ? TEXT(" police") : TEXT(""),
+			Body && Body->IsSimulatingPhysics() ? TEXT("simulated") : TEXT("kinematic"), GetSpeedKmh(), SincePlaced, LastPlacedHow);
 	}
+}
+
+void AGTPVehicle::NotePlaced(const TCHAR* How)
+{
+	LastPlacedTime = GetWorld() ? static_cast<float>(GetWorld()->GetTimeSeconds()) : 0.f;
+	LastPlacedHow = How;
 }
 
 EGTPDamageZone AGTPVehicle::ZoneFromWorldLocation(const FVector& WorldLocation) const
