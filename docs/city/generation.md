@@ -492,6 +492,12 @@ them). The shell has no wall behind the facade modules, so nothing else is opene
 Bellecour: 9 modules on the place Bellecour front (4 bays and 5 slivers); that front is generated
 as a court side today, because the square is not a named road.
 
+Squares and quays: a facade with no road in front used to be a courtyard. Now three rays (normal
+and +-35 deg) that run 24 m without meeting a footprint make it a street front named after the
+nearest road (`procgen.faces_open_space`). On the République focus, 353 modules (7 buildings)
+change to street fronts, on place des Cordeliers, place de la Bourse and place Le Viste; the
+fast-food front on place Bellecour gets shopfronts.
+
 ## Limits and next steps
 
 1. **Editor test**: `tools/city/unreal/import_city.py` imports the greybox and
