@@ -1,8 +1,6 @@
 #include "GTPInteriorStreaming.h"
 
 #include "Camera/PlayerCameraManager.h"
-#include "Components/BoxComponent.h"
-#include "Components/PostProcessComponent.h"
 #include "Components/PrimitiveComponent.h"
 #include "Engine/GameInstance.h"
 #include "Engine/Level.h"
@@ -98,6 +96,9 @@ void UGTPInteriorStreaming::OnWorldBeginPlay(UWorld& InWorld)
 	FParse::Value(FCommandLine::Get(), TEXT("InteriorDensity="), RequestedDensity);
 	Density = GTPInterior::ClampDensity(RequestedDensity);
 	bEnabled = Interiors.Num() > 0 && Flag != 0;
+	int32 ExposureFlag = 1;
+	FParse::Value(FCommandLine::Get(), TEXT("InteriorExposure="), ExposureFlag);
+	bExposureOn = ExposureFlag != 0;
 	int32 Start = 0;
 	if (FParse::Value(FCommandLine::Get(), TEXT("InteriorStart="), Start) && Start != 0)
 	{
@@ -127,7 +128,6 @@ void UGTPInteriorStreaming::Tick(float DeltaTime)
 		if (bVisible && !Interior.bWasVisible)
 		{
 			ApplyToLevel(Streaming->GetLoadedLevel());
-			AddExposure(Interior);
 			if (UGTPKitchenSubsystem* Kitchen = GetWorld()->GetSubsystem<UGTPKitchenSubsystem>())
 			{
 				Kitchen->StartService(Streaming->GetLoadedLevel(), Interior.Id, Interior.Anchor);   // inert without -InteriorStaff=
@@ -157,6 +157,7 @@ void UGTPInteriorStreaming::Tick(float DeltaTime)
 		SinceUpdate = 0.f;
 		Update();
 	}
+	UpdateExposure(DeltaTime);
 }
 
 void UGTPInteriorStreaming::Update()
@@ -197,14 +198,6 @@ void UGTPInteriorStreaming::Update()
 		PlayerInteriorId = Inside;
 		GTP_TRACE(InteriorStreaming, TEXT("player %s %s t=%.2f"), Inside.IsEmpty() ? TEXT("left") : TEXT("entered"),
 		          Inside.IsEmpty() ? *Old : *Inside, GetWorld()->GetTimeSeconds());
-		for (const FInterior& Interior : Interiors)
-		{
-			if (Interior.Id == Inside && Interior.Exposure.IsValid() && PC->PlayerCameraManager)
-			{
-				const bool bCovers = Interior.Exposure->EncompassesPoint(PC->PlayerCameraManager->GetCameraLocation(), 0.f, nullptr);
-				GTP_TRACE(InteriorStreaming, TEXT("exposure box %s the camera"), bCovers ? TEXT("covers") : TEXT("does NOT cover"));
-			}
-		}
 		OnPlayerInteriorChanged.Broadcast(Old, Inside);
 	}
 	const std::vector<bool> Wanted = GTPInterior::Plan(Sites, static_cast<float>(Where.X), static_cast<float>(Where.Y), static_cast<float>(Where.Z), Rules);
@@ -273,7 +266,6 @@ void UGTPInteriorStreaming::Release(FInterior& Interior)
 		}
 	}
 	Interior.bWasVisible = false;
-	RemoveExposure(Interior);
 	if (ULevelStreamingDynamic* Streaming = Interior.Streaming.Get())
 	{
 		Streaming->SetShouldBeVisible(false);
@@ -345,58 +337,53 @@ void UGTPInteriorStreaming::PlaceAtCounter(const FInterior& Interior)
 	GTP_TRACE(InteriorStreaming, TEXT("test start: no till slot in %s"), *Interior.Level);
 }
 
-void UGTPInteriorStreaming::AddExposure(FInterior& Interior)
+void UGTPInteriorStreaming::UpdateExposure(float DeltaTime)
 {
-	int32 Flag = 1;
-	FParse::Value(FCommandLine::Get(), TEXT("InteriorExposure="), Flag);
-	AActor* Holder = Interior.AnchorActor.Get();
-	if (Flag == 0 || !Holder || Interior.Exposure.IsValid())
+	if (!bExposureOn)
 	{
 		return;
 	}
-	// The box covers the interior frame (x along the front, -y to the back, z up from the anchor).
-	UBoxComponent* Box = NewObject<UBoxComponent>(Holder, NAME_None, RF_Transient);
-	Box->SetMobility(EComponentMobility::Movable);
-	// The post process asks its parent shape for the distance to the camera, which needs a query
-	// body: query only, ignoring every channel, so nothing ever hits or overlaps it.
-	Box->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-	Box->SetCollisionResponseToAllChannels(ECR_Ignore);
-	Box->SetGenerateOverlapEvents(false);
-	Box->SetHiddenInGame(true);
-	Box->SetBoxExtent(Interior.Size * 0.5f, false);
-	Box->SetWorldTransform(FTransform(Interior.Anchor.GetRotation(),
-	                                  Interior.Anchor.TransformPosition(FVector(Interior.Size.X * 0.5f, -Interior.Size.Y * 0.5f, Interior.Size.Z * 0.5f))));
-	Box->RegisterComponent();
-	UPostProcessComponent* PostProcess = NewObject<UPostProcessComponent>(Holder, NAME_None, RF_Transient);
-	PostProcess->SetMobility(EComponentMobility::Movable);
-	PostProcess->bUnbound = false;          // bounded by its parent box
-	PostProcess->Priority = 1001.f;         // above the environment's unbound volume (1000)
-	PostProcess->BlendRadius = 60.f;        // the doorway blends street and shop
-	PostProcess->BlendWeight = 1.f;
-	FPostProcessSettings& S = PostProcess->Settings;
-	S.bOverride_AutoExposureMinBrightness = true;
-	S.bOverride_AutoExposureMaxBrightness = true;
-	S.AutoExposureMinBrightness = InteriorExposureMinEV;
-	S.AutoExposureMaxBrightness = FMath::Max(InteriorExposureMinEV, InteriorExposureMaxEV);
-	PostProcess->SetupAttachment(Box);
-	PostProcess->RegisterComponent();
-	Interior.ExposureBox = Box;
-	Interior.Exposure = PostProcess;
-	GTP_TRACE(InteriorStreaming, TEXT("exposure EV %.1f-%.1f inside %s"), InteriorExposureMinEV, InteriorExposureMaxEV, *Interior.Id);
+	APlayerController* PC = GetWorld()->GetFirstPlayerController();
+	APlayerCameraManager* Camera = PC ? PC->PlayerCameraManager.Get() : nullptr;
+	if (Camera && !ExposureModifier.IsValid())
+	{
+		ExposureModifier = Camera->AddNewCameraModifier(UGTPInteriorExposureModifier::StaticClass());
+		GTP_TRACE(InteriorStreaming, TEXT("interior exposure EV %.1f-%.1f on the camera (%s)"), InteriorExposureMinEV, InteriorExposureMaxEV,
+		          ExposureModifier.IsValid() ? TEXT("modifier added") : TEXT("modifier refused"));
+	}
+	const float Target = PlayerInteriorId.IsEmpty() ? 0.f : 1.f;
+	const float Step = InteriorExposureBlendSeconds > 0.f ? DeltaTime / InteriorExposureBlendSeconds : 1.f;
+	ExposureWeight = FMath::Clamp(ExposureWeight + FMath::Clamp(Target - ExposureWeight, -Step, Step), 0.f, 1.f);
+	if (Target > 0.f && ExposureWeight >= 1.f && !bExposureLogged)
+	{
+		bExposureLogged = true;   // once per entry
+		GTP_TRACE(InteriorStreaming, TEXT("interior exposure applied in %s t=%.2f"), *PlayerInteriorId, GetWorld()->GetTimeSeconds());
+	}
+	else if (Target == 0.f)
+	{
+		bExposureLogged = false;
+	}
 }
 
-void UGTPInteriorStreaming::RemoveExposure(FInterior& Interior)
+void UGTPInteriorExposureModifier::ModifyPostProcess(float DeltaTime, float& PostProcessBlendWeight, FPostProcessSettings& PostProcessSettings)
 {
-	if (UPostProcessComponent* PostProcess = Interior.Exposure.Get())
+	const UWorld* World = CameraOwner ? CameraOwner->GetWorld() : nullptr;
+	const UGTPInteriorStreaming* Streaming = World ? World->GetSubsystem<UGTPInteriorStreaming>() : nullptr;
+	const float Weight = Streaming ? Streaming->GetInteriorExposureWeight() : 0.f;
+	PostProcessBlendWeight = Weight;
+	if (Weight <= 0.f)
 	{
-		PostProcess->DestroyComponent();
+		return;
 	}
-	if (UBoxComponent* Box = Interior.ExposureBox.Get())
-	{
-		Box->DestroyComponent();
-	}
-	Interior.Exposure.Reset();
-	Interior.ExposureBox.Reset();
+	FPostProcessSettings& S = PostProcessSettings;
+	S.bOverride_AutoExposureMinBrightness = true;
+	S.bOverride_AutoExposureMaxBrightness = true;
+	S.AutoExposureMinBrightness = Streaming->InteriorExposureMinEV;
+	S.AutoExposureMaxBrightness = FMath::Max(Streaming->InteriorExposureMinEV, Streaming->InteriorExposureMaxEV);
+	S.bOverride_AutoExposureSpeedDown = true;
+	S.bOverride_AutoExposureSpeedUp = true;
+	S.AutoExposureSpeedDown = Streaming->InteriorExposureSpeed;
+	S.AutoExposureSpeedUp = Streaming->InteriorExposureSpeed;
 }
 
 FTransform UGTPInteriorStreaming::GetInteriorAnchor(const FString& Id) const
