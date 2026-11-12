@@ -448,9 +448,11 @@ First implementation of ADR-0010 option B, prepared and tested off the Mac; not 
   rue de la Republique (`details.py --focus <cell> --cell=x0,y0,x1,y1`: the street zone clipped to
   the cell box, so nothing twice at a seam; 1 909 in the five street cells, about the street
   map's 1 890). `quarter_slot_mac.sh` and `quarter_build.py` place the furniture and the details
-  in each cell level (`place_props.py`, sets `props` and `details`). Budget compensation, on by
-  default in the cell levels only (`UGTPCityRenderTuning`): courtyard facades and shop signs end
-  at 60 m and 45 m, furniture and detail distances at 60 % (`-CityCellDetailPct=`, 10 to 100), no shadow under 1 m;
+  in each cell level (`place_props.py`, sets `props` and `details`). Render defaults, on by
+  default in the cell levels only (`UGTPCityRenderTuning`): courtyard facades end at 60 m
+  (hidden from the street anyway); shadows and furniture and detail distances stay as generated:
+  on M1 (12/11) 60 %, 70 % and 100 % distances, and the furniture and details hidden, gave the same
+  GPU p50. `-CityCellDetailPct=<10..100>` shortens them for an A/B;
   `-CityCellDefaults=0` turns it off, `-CityCull` wins over it, a distance of 0 hides a family.
 - Not yet: furniture and details in the cells away from the rue de la Republique, a quarter-wide ground mask, the cell
   levels in the cook list for a package.

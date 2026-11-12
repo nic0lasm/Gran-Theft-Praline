@@ -24,8 +24,8 @@ class ULevel;
  *   -CityTuneReport=1                             only the log line, nothing changed
  *   A distance of 0 hides the family (-CityCull=details_small=0,props_small=0: A/B on one package).
  * Streamed cells (L_City_Cell*) get defaults, budget compensation of their furniture and details:
- *   court=60, sign=45, no shadow under 1 m, props and details distances at -CityCellDetailPct=
- *   percent (60, bounded 10..100, GTPCityTuningCore.h). -CityCull and -CityPropShadowBelow win
+ *   court=60 (hidden from the street anyway); shadows and furniture and detail distances as
+ *   generated, -CityCellDetailPct=<10..100> shortens the distances (GTPCityTuningCore.h). -CityCull and -CityPropShadowBelow win
  *   over them; -CityCellDefaults=0 turns them off.
  * Applied to the persistent level at begin play and to every streamed cell as it is added.
  * One log line per application:
@@ -62,6 +62,6 @@ private:
 	bool bHideProxies = false;
 	bool bShadowBelowGiven = false;
 	bool bCellDefaults = true;
-	int32 CellDetailPct = 60;
+	int32 CellDetailPct = 100;
 	FDelegateHandle LevelAddedHandle;
 };
