@@ -1,5 +1,5 @@
 # Mac state 2026-11-12 13:11 Paris
 
-- block: starting
-- last line: 13:10 police-demo: -Police=0 plateau in 1 of 3 pass(es)
+- block: cand14 d7487ca
+- last line: 13:11 list50 starts (list49 stopped after the police-demo push and its check)
 - startup crashes: 3
