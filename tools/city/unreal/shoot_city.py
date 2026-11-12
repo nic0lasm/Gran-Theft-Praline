@@ -81,9 +81,20 @@ _camera = {}
 def camera(pc):
     cam = _camera.get("actor")
     if cam is None:
-        xf = unreal.Transform()
-        cam = unreal.GameplayStatics.begin_deferred_actor_spawn_from_class(pc.get_world(), unreal.CameraActor, xf)
-        cam = unreal.GameplayStatics.finish_spawning_actor(cam, xf)
+        # The 5.8 Python API has no actor spawn in a game world (the deferred spawn is internal):
+        # the cheat manager's "summon" spawns one, then it is found by class.
+        w = pc.get_world()
+        state["result"]["shoot_pawn"] = pc.get_controlled_pawn().get_class().get_name()
+        vt = pc.get_view_target()
+        state["result"]["shoot_view_target_before"] = vt.get_class().get_name() if vt else None
+        cams = [a for a in unreal.ObjectIterator(unreal.CameraActor) if a.get_world() == w]
+        if not cams:
+            unreal.SystemLibrary.execute_console_command(w, "EnableCheats")
+            unreal.SystemLibrary.execute_console_command(w, "summon CameraActor")
+            cams = [a for a in unreal.ObjectIterator(unreal.CameraActor) if a.get_world() == w]
+        if not cams:
+            raise RuntimeError("no CameraActor after summon (cheats off?)")
+        cam = cams[-1]
         comp = cam.get_editor_property("camera_component")
         comp.set_editor_property("constrain_aspect_ratio", False)
         comp.set_editor_property("field_of_view", 90.0)
