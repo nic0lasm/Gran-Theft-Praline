@@ -1,5 +1,7 @@
 #include "GTPVehicle.h"
 
+#include "Kismet/GameplayStatics.h"
+
 #include "GTPCameraModeComponent.h"
 #include "GTPLog.h"
 #include "GTPPlayerReaction.h"
@@ -138,6 +140,11 @@ void AGTPVehicle::ApplyCityCarTuning()
 	Move->DownforceCoefficient = 0.1f;
 	// Brake held while stopped reverses, as in most open-world games.
 	Move->bReverseAsBrake = true;
+	// Traffic and police cars are never possessed: their driver is a seated
+	// character. With the engine default (inputs need a local controller) Chaos
+	// replaces the pedals of an unpossessed car with its replicated state, zero,
+	// so the car idles in neutral at 850 rpm whatever SetThrottleInput asks.
+	Move->SetRequiresControllerForInputs(false);
 
 	Move->WheelSetups.SetNum(4);
 	Move->WheelSetups[0].WheelClass = UGTPWheelFront::StaticClass();
@@ -238,6 +245,8 @@ void AGTPVehicle::BeginPlay()
 	// Parked cars do not roll away.
 	if (UChaosWheeledVehicleMovementComponent* Move = GetWheeledMovement())
 	{
+		// Again here in case a Blueprint turned it back on (see ApplyCityCarTuning).
+		Move->SetRequiresControllerForInputs(false);
 		Move->SetHandbrakeInput(true);
 	}
 }
@@ -272,6 +281,62 @@ void AGTPVehicle::SetAIDriveInput(float Throttle, float Brake, float Steering, b
 	Move->SetBrakeInput(FMath::Clamp(Brake, 0.f, 1.f));
 	Move->SetSteeringInput(FMath::Clamp(Steering, -1.f, 1.f));
 	Move->SetHandbrakeInput(bHandbrake);
+
+	// A car pulling away from a stop: a sleeping body ignores the pedals, and a
+	// gearbox left in neutral by the ghost mode or a parked state stays there.
+	if (ThrottleAmount > 0.05f && Brake < 0.05f && FMath::Abs(GetSpeedKmh()) < 1.f)
+	{
+		if (USkeletalMeshComponent* Body = GetMesh())
+		{
+			if (Body->IsSimulatingPhysics() && !Body->IsAnyRigidBodyAwake())
+			{
+				Body->WakeAllRigidBodies();
+			}
+		}
+		if (Move->GetCurrentGear() == 0)
+		{
+			Move->SetTargetGear(1, true);
+		}
+	}
+	TraceDriveDiag(Brake, bHandbrake);
+}
+
+bool AGTPVehicle::IsDriveDiagWanted()
+{
+	static const bool bWanted = []
+	{
+		int32 Switch = 0;
+		FParse::Value(FCommandLine::Get(), TEXT("DriveDiag="), Switch);
+		return Switch != 0;
+	}();
+	return bWanted;
+}
+
+void AGTPVehicle::TraceDriveDiag(float Brake, bool bHandbrake)
+{
+	// -DriveDiag=1: every 5 s, the drivetrain of each AI-driven car within 60 m
+	// of the player (gear, rpm, speed, pedals, controller, physics state).
+	if (!IsDriveDiagWanted())
+	{
+		return;
+	}
+	const UWorld* World = GetWorld();
+	if (!World || World->GetTimeSeconds() - LastDriveDiagTime < 5.f)
+	{
+		return;
+	}
+	const APawn* Player = UGameplayStatics::GetPlayerPawn(this, 0);
+	if (!Player || FVector::DistSquared(Player->GetActorLocation(), GetActorLocation()) > FMath::Square(6000.f))
+	{
+		return;
+	}
+	LastDriveDiagTime = World->GetTimeSeconds();
+	const UChaosWheeledVehicleMovementComponent* Move = GetWheeledMovement();
+	const USkeletalMeshComponent* Body = GetMesh();
+	UE_LOG(LogGTPVehicle, Log, TEXT("drive diag %s: gear=%d rpm=%.0f kmh=%.1f throttle=%.2f brake=%.2f handbrake=%d controller=%d simulating=%d awake=%d movetick=%d"),
+		*GetName(), Move ? Move->GetCurrentGear() : -99, GetEngineRpm(), GetSpeedKmh(), ThrottleAmount, Brake, bHandbrake ? 1 : 0,
+		GetController() ? 1 : 0, Body && Body->IsSimulatingPhysics() ? 1 : 0, Body && Body->IsAnyRigidBodyAwake() ? 1 : 0,
+		Move && Move->IsComponentTickEnabled() ? 1 : 0);
 }
 
 void AGTPVehicle::SetScriptedDriveInput(float Throttle, float Brake, float Steering, bool bHandbrake)

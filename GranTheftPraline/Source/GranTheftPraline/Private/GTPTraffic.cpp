@@ -243,6 +243,7 @@ void UGTPAIDriverComponent::SetGhost(bool bInGhost)
 		if (Body)
 		{
 			Body->SetSimulatePhysics(true);
+			Body->WakeAllRigidBodies();
 			Body->SetPhysicsLinearVelocity(Vehicle->GetActorForwardVector().GetSafeNormal2D() * GhostSpeed * 100.f);
 		}
 		if (Movement)

@@ -469,6 +469,11 @@ private:
 
 	float ThrottleAmount = 0.f;
 
+	/** -DriveDiag=1 trace, see TraceDriveDiag. */
+	static bool IsDriveDiagWanted();
+	void TraceDriveDiag(float Brake, bool bHandbrake);
+	float LastDriveDiagTime = -100.f;
+
 	bool bInteriorView = false;
 	bool bLookingBehind = false;
 	float LastLookInputTime = -1000.f;
