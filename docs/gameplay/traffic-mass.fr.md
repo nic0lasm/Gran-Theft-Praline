@@ -43,6 +43,17 @@ ADR-0015 (piétons et trafic sur Mass). Anglais : [traffic-mass.md](traffic-mass
    voitures garées, voitures roulantes, lancés dans cet ordre).
 5. Packager, lancer avec `-Traffic=mass`.
 
+## Blueprints de voitures de City Sample
+
+Ils dérivent de `ACitySampleMassVehicleBase`, une classe du module de jeu City Sample (pas du plugin
+Traffic), que notre projet n'a pas. Lue d'après son interface seulement : un acteur avec un
+composant d'agent Mass, recyclable par Mass, et une fonction appelable en Blueprint (flou des roues).
+`AGTPMassVehicleBase` (module GTPMass) en est notre propre version, et une CoreRedirect dans
+`Config/DefaultEngine.ini` y renvoie l'ancienne classe : les Blueprints se chargent tels quels.
+Copier plutôt le module de jeu City Sample a été écarté : tout un module de jeu (mode de jeu,
+joueur, HUD, foule) avec ses propres dépendances de plugins, pour une petite classe de base. Le
+flou des roues n'est pas fait (roues nettes).
+
 ## Points ouverts
 
 - Près du joueur, MassTraffic remplace ses entités par des acteurs physiques issus de ses propres

@@ -20,6 +20,7 @@ public class GTPMass : ModuleRules
 			"MassCommon",
 			"MassSimulation",
 			"MassSpawner",
+			"MassActors",
 			"GranTheftPraline"
 		});
 
