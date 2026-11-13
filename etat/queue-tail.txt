@@ -1,5 +1,3 @@
-23:13 night59 starts (endurance on cand17b until 07:30)
-23:14 pushed etat
 23:14 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
 23:24 night59-1: no crash (exit 0) 23:14:21-23:24:24, end t=599, police=76 | night59-1: 23799 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 2 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 28.1 | gpu p50 11.04 p95 20.78 | gate PASS
 23:34 night59-2: no crash (exit 0) 23:24:44-23:34:46, end t=598, police=85 | night59-2: 23793 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.8 %) | >26 0 | >50 0 | >100 0 | frame p50 25.01 p95 25.03 max 25.3 | gpu p50 13.68 p95 20.67 | gate PASS
@@ -58,3 +56,5 @@
 07:26 night59-47: no crash (exit 0) 07:16:27-07:26:29, end t=598, police=77 | night59-47: 23796 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 1 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 26.7 | gpu p50 13.85 p95 20.89 | gate PASS
 07:26 pushed night59
 07:26 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+07:26 pushed etat
+07:26 == night59 end

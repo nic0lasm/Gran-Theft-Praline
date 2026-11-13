@@ -1,5 +1,5 @@
-# Mac state 2026-11-13 07:26 Paris
+# Mac state 2026-11-13 16:01 Paris
 
-- block: night59 done
-- last line: 07:26 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+- block: starting
+- last line: 07:26 == night59 end
 - startup crashes: 4
