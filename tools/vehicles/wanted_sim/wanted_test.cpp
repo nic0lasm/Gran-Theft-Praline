@@ -153,6 +153,48 @@ int main()
 		CHECK(!T.AddCrime(EGTPCrimeKind::ArmedThreat, 1.f));
 		CHECK(T.GetStars() == 1);
 	}
+	{
+		// The crime table of docs/gameplay/wanted.md: one crime alone gives this many stars.
+		struct Row { EGTPCrimeKind Kind; int Stars; };
+		const Row Table[] = {
+			{EGTPCrimeKind::CarTheft, 1}, {EGTPCrimeKind::HitPedestrian, 1}, {EGTPCrimeKind::HitVehicle, 0},
+			{EGTPCrimeKind::HitPolice, 1}, {EGTPCrimeKind::Assault, 0}, {EGTPCrimeKind::ShotsFired, 1},
+			{EGTPCrimeKind::ArmedThreat, 1}, {EGTPCrimeKind::Killing, 2}, {EGTPCrimeKind::KillPolice, 3}};
+		for (const Row& R : Table)
+		{
+			FGTPWantedState S;
+			S.AddCrime(R.Kind, 0.f);
+			CHECK(S.GetStars() == R.Stars);
+		}
+		// Stealing a car in front of police and then firing at them gets to three stars within seconds.
+		FGTPWantedState Chain;
+		Chain.AddCrime(EGTPCrimeKind::CarTheft, 0.f);
+		Chain.AddCrime(EGTPCrimeKind::HitPolice, 1.f);
+		Chain.AddCrime(EGTPCrimeKind::ShotsFired, 2.f);
+		Chain.AddCrime(EGTPCrimeKind::HitVehicle, 3.f);
+		CHECK(Chain.GetStars() >= 2);
+	}
+	{
+		// Hiding: out of sight and still, the search runs twice as fast.
+		FGTPWantedState Slow, Fast;
+		Slow.ForceStars(2);
+		Fast.ForceStars(2);
+		int SlowSteps = 0, FastSteps = 0;
+		while (Slow.GetStars() > 0 && SlowSteps < 10000) { Slow.Tick(0.1f, false, 1.f); ++SlowSteps; }
+		while (Fast.GetStars() > 0 && FastSteps < 10000) { Fast.Tick(0.1f, false, 2.f); ++FastSteps; }
+		CHECK(FastSteps * 2 <= SlowSteps + 2 && FastSteps > 0);
+		// Changing car out of sight keeps a share of the search; it does nothing with no stars.
+		FGTPWantedState Swap;
+		CHECK(!Swap.ShortenSearch(0.35f));
+		Swap.ForceStars(3);
+		CHECK(Swap.GetPhase() == EGTPWantedPhase::Pursuit);
+		CHECK(Swap.ShortenSearch(0.35f));
+		CHECK(Swap.GetPhase() == EGTPWantedPhase::Searching);
+		CHECK(Swap.GetSearchProgress() >= 0.64f);
+		// Seen again: the search starts over.
+		Swap.Tick(0.1f, true);
+		CHECK(Swap.GetPhase() == EGTPWantedPhase::Pursuit);
+	}
 	std::printf(Failures ? "FAILED (%d)\n" : "OK\n", Failures);
 	return Failures ? 1 : 0;
 }

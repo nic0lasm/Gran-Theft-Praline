@@ -121,7 +121,7 @@ public:
 	}
 
 	/** One step. bSeen: some police unit has the player in sight now. */
-	void Tick(float DeltaSeconds, bool bSeen)
+	void Tick(float DeltaSeconds, bool bSeen, float SearchRate = 1.f)
 	{
 		if (GetStars() == 0)
 		{
@@ -134,11 +134,25 @@ public:
 			RestartSearch();
 			return;
 		}
-		SearchLeft -= DeltaSeconds;
+		SearchLeft -= DeltaSeconds * SearchRate;
 		if (SearchLeft <= 0.f)
 		{
 			Clear();
 		}
+	}
+
+	/**
+	 * The player changed car or clothes out of sight: only Keep (0..1) of the search time stays.
+	 * No effect while police have the player in sight (no search running) or with no stars.
+	 */
+	bool ShortenSearch(float Keep)
+	{
+		if (GetStars() == 0 || SearchTotal <= 0.f)
+		{
+			return false;
+		}
+		SearchLeft = std::min(SearchLeft, SearchTotal * std::min(Keep, 0.99f));
+		return true;
 	}
 
 	/** Returns true when the player is arrested this step. */

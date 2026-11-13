@@ -70,6 +70,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	int32 AddAmmo(int32 Rounds) { return GTPWeapon::AddAmmo(State, Spec, Rounds); }
 
+	/** Arrest: the police take the gun and the ammunition. */
+	void StripAmmo() { State.Magazine = 0; State.Reserve = 0; }
+
 	// The HUD reads these every frame (interface thread).
 	UFUNCTION(BlueprintPure, Category = "Weapon")
 	bool IsDrawn() const { return bDrawn; }

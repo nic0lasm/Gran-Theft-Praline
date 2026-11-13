@@ -1,6 +1,9 @@
 #include "GTPWanted.h"
 
 #include "GTPSirenComponent.h"
+#include "GTPCombat.h"
+#include "GTPWeapon.h"
+#include "Engine/TargetPoint.h"
 
 #include "GTPLog.h"
 #include "GTPVehicle.h"
@@ -196,6 +199,103 @@ void UGTPWantedComponent::BeginPlay()
 		ScriptedTime = static_cast<float>(GetWorld()->GetTimeSeconds()) + Delay;
 	}
 	bHoldLevel = FParse::Param(FCommandLine::Get(), TEXT("WantedHold"));
+	BindCombat();
+}
+
+void UGTPWantedComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	if (UGTPCombatSubsystem* Combat = UGTPCombatSubsystem::Get(this))
+	{
+		Combat->OnShotFired.RemoveAll(this);
+		Combat->OnDamageDealt.RemoveAll(this);
+		Combat->OnPawnKilled.RemoveAll(this);
+		Combat->OnArmedThreat.RemoveAll(this);
+		Combat->OnPlayerDied.RemoveAll(this);
+		Combat->OnPlayerRespawned.RemoveAll(this);
+	}
+	Super::EndPlay(EndPlayReason);
+}
+
+// Crimes table (docs/gameplay/wanted.md): what the player does -> crime -> heat -> stars. Witnesses decide whether it counts.
+void UGTPWantedComponent::BindCombat()
+{
+	UGTPCombatSubsystem* Combat = UGTPCombatSubsystem::Get(this);
+	if (!Combat)
+	{
+		return;
+	}
+	auto IsPlayerBody = [this](const AActor* Actor)
+	{
+		const APlayerController* PC = Cast<APlayerController>(GetOwner());
+		return Actor && PC && Actor == PC->GetPawn();
+	};
+	auto IsPolice = [](const AActor* Actor)
+	{
+		return Actor && Actor->ActorHasTag(GTPPolice::PoliceTag);
+	};
+	Combat->OnShotFired.AddWeakLambda(this, [this, IsPlayerBody](AActor* Shooter, const FVector& Origin, const FVector&, FName, const FHitResult&, bool)
+	{
+		if (IsPlayerBody(Shooter))
+		{
+			ReportCrime(EGTPCrimeKind::ShotsFired, Origin);
+		}
+	});
+	Combat->OnArmedThreat.AddWeakLambda(this, [this, IsPlayerBody](AActor* Source, const FVector& Origin, const FVector&)
+	{
+		if (IsPlayerBody(Source))
+		{
+			ReportCrime(EGTPCrimeKind::ArmedThreat, Origin);
+		}
+	});
+	Combat->OnDamageDealt.AddWeakLambda(this, [this, IsPlayerBody, IsPolice](AActor* Instigator, AActor* Victim, float, GTPDamage::EZone, bool, float)
+	{
+		if (IsPlayerBody(Instigator) && Victim && !IsPlayerBody(Victim))
+		{
+			ReportCrime(IsPolice(Victim) ? EGTPCrimeKind::HitPolice : EGTPCrimeKind::Assault, Victim->GetActorLocation(), true);
+		}
+	});
+	Combat->OnPawnKilled.AddWeakLambda(this, [this, IsPlayerBody, IsPolice](AActor* Killer, AActor* Victim, bool)
+	{
+		if (IsPlayerBody(Killer) && Victim && !IsPlayerBody(Victim))
+		{
+			ReportCrime(IsPolice(Victim) ? EGTPCrimeKind::KillPolice : EGTPCrimeKind::Killing, Victim->GetActorLocation(), true);
+		}
+	});
+	Combat->OnPlayerDied.AddWeakLambda(this, [this](const FVector&)
+	{
+		OnPlayerKilled();
+	});
+	Combat->OnPlayerRespawned.AddWeakLambda(this, [this](const FVector&, FName)
+	{
+		OnPlayerRespawnedAfterDeath();
+	});
+}
+
+void UGTPWantedComponent::OnPlayerKilled()
+{
+	bDeadNow = true;
+	PendingReports.Reset();
+	GTP_TRACE(LogGTPWanted, TEXT("wanted: player died (wasted)"));
+	OnWasted.Broadcast();
+}
+
+void UGTPWantedComponent::OnPlayerRespawnedAfterDeath()
+{
+	// Dead and back at the hospital: the police forget (as in GTA). The weapon is the one the combat code gives.
+	bDeadNow = false;
+	bArrestWarned = false;
+	ClearWanted();
+}
+
+// A different body or car out of sight: the police look for the old one.
+void UGTPWantedComponent::TrackCarChange(const APawn* Pawn, bool bSeen)
+{
+	const APawn* Previous = LastPlayerPawn.Get();
+	LastPlayerPawn = Pawn;
+	if (Previous && Pawn && Previous != Pawn && !bSeen && State.ShortenSearch(CarChangeKeep))
+	{
+		GTP_TRACE(LogGTPWanted, TEXT("wanted: changed vehicle out of sight, search shortened"));
+	}
 }
 
 void UGTPWantedComponent::EnsureMinStars(int32 Stars)
@@ -291,9 +391,11 @@ void UGTPWantedComponent::TickComponent(float DeltaTime, ELevelTick TickType, FA
 	}
 	const APlayerController* PC = Cast<APlayerController>(GetOwner());
 	const APawn* Pawn = PC ? PC->GetPawn() : nullptr;
-	if (!Pawn || State.GetStars() == 0)
+	if (!Pawn || State.GetStars() == 0 || bDeadNow)
 	{
 		bSeenNow = false;
+		bArrestWarned = false;
+		LastPlayerPawn = Pawn;
 		NotifyIfChanged();
 		return;
 	}
@@ -350,8 +452,22 @@ void UGTPWantedComponent::TickComponent(float DeltaTime, ELevelTick TickType, FA
 	const AGTPVehicle* Vehicle = Cast<AGTPVehicle>(Pawn);
 	const float SpeedKmh = Vehicle ? FMath::Abs(Vehicle->GetSpeedKmh()) : 0.f;
 	const int32 StarsBefore = State.GetStars();
-	State.Tick(DeltaTime, bHold);
-	if (State.UpdateArrest(DeltaTime, bArrestEnabled ? Nearest : -1.f, SpeedKmh, Vehicle == nullptr))
+	TrackCarChange(Pawn, bSeen);
+	// Hiding: out of sight, still, and nobody close makes the search run faster.
+	const bool bHiding = !bHold && Pawn->GetVelocity().Size() < HiddenSpeedCmS && (Nearest < 0.f || Nearest * 100.f > HiddenMinDistance);
+	State.Tick(DeltaTime, bHold, bHiding ? HiddenSearchRate : 1.f);
+	const bool bBusted = State.UpdateArrest(DeltaTime, bArrestEnabled ? Nearest : -1.f, SpeedKmh, Vehicle == nullptr);
+	if (State.GetArrestProgress() > 0.f && !bArrestWarned)
+	{
+		// The warning: police are on top of a player who cannot get away.
+		bArrestWarned = true;
+		OnArrestWarning.Broadcast();
+	}
+	else if (State.GetArrestProgress() <= 0.f)
+	{
+		bArrestWarned = false;
+	}
+	if (bBusted)
 	{
 		OnBusted();
 	}
@@ -370,6 +486,7 @@ void UGTPWantedComponent::OnBusted()
 	BustedBannerLeft = BustedSeconds;
 	NotifyIfChanged();
 	OnArrested.Broadcast();
+	bArrestWarned = false;
 	APlayerController* PC = Cast<APlayerController>(GetOwner());
 	if (!PC)
 	{
@@ -379,6 +496,15 @@ void UGTPWantedComponent::OnBusted()
 	{
 		Vehicle->RequestExit();
 	}
+	if (bArrestTakesWeapon && PC->GetPawn())
+	{
+		// Hands up: the weapon is holstered and the police keep it and the ammunition.
+		if (UGTPWeaponComponent* Weapon = PC->GetPawn()->FindComponentByClass<UGTPWeaponComponent>())
+		{
+			Weapon->SetDrawn(false);
+			Weapon->StripAmmo();
+		}
+	}
 	PC->SetIgnoreMoveInput(true);
 	GetWorld()->GetTimerManager().SetTimer(BustedTimer, this, &UGTPWantedComponent::EndBusted, BustedSeconds, false);
 }
@@ -387,10 +513,32 @@ void UGTPWantedComponent::EndBusted()
 {
 	if (APlayerController* PC = Cast<APlayerController>(GetOwner()))
 	{
-		if (ArrestReturnEnabled && PC->GetPawn())
+		if (APawn* Pawn = PC->GetPawn())
 		{
-			// Back to the game at the station: the police have taken the player there.
-			PC->GetPawn()->TeleportTo(ArrestReturnLocation, PC->GetPawn()->GetActorRotation());
+			// Back to the game at the station: the police have taken the player there (a point tagged
+			// GTPPoliceStation, else the configured place, else the player start).
+			bool bMoved = false;
+			for (TActorIterator<ATargetPoint> It(GetWorld()); It && !bMoved; ++It)
+			{
+				if (It->ActorHasTag(TEXT("GTPPoliceStation")))
+				{
+					bMoved = Pawn->TeleportTo(It->GetActorLocation() + FVector(0.f, 0.f, 100.f), It->GetActorRotation());
+				}
+			}
+			if (!bMoved && ArrestReturnEnabled)
+			{
+				bMoved = Pawn->TeleportTo(ArrestReturnLocation, Pawn->GetActorRotation());
+			}
+			if (!bMoved)
+			{
+				if (const AGameModeBase* GameMode = GetWorld()->GetAuthGameMode())
+				{
+					if (const AActor* Start = GameMode->FindPlayerStart(PC))
+					{
+						Pawn->TeleportTo(Start->GetActorLocation() + FVector(0.f, 0.f, 100.f), Start->GetActorRotation());
+					}
+				}
+			}
 		}
 		PC->SetIgnoreMoveInput(false);
 	}
@@ -708,8 +856,9 @@ void AGTPPoliceDirector::AddLightBar(FUnit& Unit)
 		Light->SetupAttachment(Car->GetRootComponent());
 		Light->SetRelativeLocation(LightBarOffset + FVector(0.f, Side == 0 ? -30.f : 30.f, 0.f));
 		Light->SetIntensityUnits(ELightUnits::Candelas);
-		Light->SetIntensity(600.f);
-		Light->SetAttenuationRadius(1500.f);
+		// Readable from the end of the street: bright and wide, no shadow.
+		Light->SetIntensity(3000.f);
+		Light->SetAttenuationRadius(4500.f);
 		Light->SetLightColor(Side == 0 ? FLinearColor(0.1f, 0.25f, 1.f) : FLinearColor(1.f, 0.08f, 0.05f));
 		Light->SetCastShadows(false);
 		Light->SetVisibility(false);
@@ -980,11 +1129,13 @@ void AGTPPoliceDirector::ManageOfficers(UGTPWantedComponent& Wanted, const APawn
 	{
 		Officers[Index]->SetSlot(Index, Officers.Num());
 	}
+	PlayerStillSeconds = Player.GetVelocity().Size() < 140.f ? PlayerStillSeconds + DeltaSeconds : 0.f;
 	if (Now < NextDeployTime)
 	{
 		return;
 	}
-	const bool bOnFoot = Cast<AGTPVehicle>(&Player) == nullptr;
+	// On foot, or parked and not going anywhere: officers get out, point guns and close in.
+	const bool bOnFoot = Cast<AGTPVehicle>(&Player) == nullptr || PlayerStillSeconds > 2.f;
 	for (const FUnit& Unit : Units)
 	{
 		const AGTPVehicle* Car = Unit.Car.Get();
