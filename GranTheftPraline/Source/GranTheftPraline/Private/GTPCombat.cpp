@@ -743,6 +743,11 @@ void UGTPCombatSubsystem::BenchShot()
 	{
 		Weapon->SetDrawn(true);
 	}
+	// Shoulder aim held, as a player fires in GTA: the aim pose, the upper-body mask and the aim camera show.
+	if (!Weapon->IsAiming())
+	{
+		Weapon->SetAiming(true);
+	}
 	if (Weapon->GetReserve() < 24)
 	{
 		Weapon->AddAmmo(96);
