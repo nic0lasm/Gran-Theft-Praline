@@ -54,6 +54,14 @@ protected:
 	UPROPERTY(Config, EditDefaultsOnly, Category = "Classes")
 	FString PlayerVisualBodyName = TEXT("Body");
 
+	/**
+	 * IK Retargeter put on the body's "Retarget Pose From Mesh" node at run time: the sample's MetaHuman is wired for a
+	 * MetaHuman source, ours is a UEFN mannequin (the sample ships RTG_UEFN_to_Metahuman_nrw). Empty = leave it.
+	 * -PlayerVisualRetargeter= overrides.
+	 */
+	UPROPERTY(Config, EditDefaultsOnly, Category = "Classes")
+	FString PlayerVisualRetargeter = TEXT("/Game/MetaHumans/Common/Common/Rigs/RTG_UEFN_to_Metahuman_nrw.RTG_UEFN_to_Metahuman_nrw");
+
 	UPROPERTY(Config, EditDefaultsOnly, Category = "Classes")
 	float PlayerVisualYaw = -90.f;
 

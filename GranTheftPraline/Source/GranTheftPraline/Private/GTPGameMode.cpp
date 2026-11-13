@@ -12,6 +12,8 @@
 #include "GameFramework/Pawn.h"
 #include "GameFramework/Character.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Animation/AnimInstance.h"
+#include "UObject/UnrealType.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
 
@@ -114,6 +116,10 @@ void AGTPGameMode::ApplyPlayerVisual(APawn* Pawn)
 	{
 		PlayerVisualClass = FSoftClassPath(Override);
 	}
+	if (FParse::Value(FCommandLine::Get(), TEXT("PlayerVisualRetargeter="), Override))
+	{
+		PlayerVisualRetargeter = Override;
+	}
 	if (FParse::Value(FCommandLine::Get(), TEXT("PlayerVisualBody="), Override))
 	{
 		PlayerVisualBodyName = Override;
@@ -146,7 +152,8 @@ void AGTPGameMode::ApplyPlayerVisual(APawn* Pawn)
 	TWeakObjectPtr<AActor> WeakVisual(Visual);
 	TWeakObjectPtr<APawn> WeakPawn(Pawn);
 	const FString BodyName = PlayerVisualBodyName;
-	auto Enforce = [WeakVisual, WeakPawn, BodyName](const TCHAR* When)
+	const FString RetargeterPath = PlayerVisualRetargeter;
+	auto Enforce = [WeakVisual, WeakPawn, BodyName, RetargeterPath](const TCHAR* When)
 	{
 		AActor* V = WeakVisual.Get();
 		APawn* P = WeakPawn.Get();
@@ -184,6 +191,36 @@ void AGTPGameMode::ApplyPlayerVisual(APawn* Pawn)
 					Body->SetRelativeLocationAndRotation(FVector::ZeroVector, FRotator::ZeroRotator);
 					UE_LOG(LogGTPGameMode, Log, TEXT("  body %s re-attached to the pawn's mesh %s"), *Body->GetName(), *Own->GetName());
 				}
+				if (Body && Part->GetName() == BodyName && !RetargeterPath.IsEmpty())
+				{
+					// The body's "Retarget Pose From Mesh" node: point it at the UEFN-to-MetaHuman retargeter.
+					UAnimInstance* Anim = Body->GetAnimInstance();
+					UObject* Retargeter = Anim ? StaticLoadObject(UObject::StaticClass(), nullptr, *RetargeterPath) : nullptr;
+					int32 Changed = 0;
+					if (Anim && Retargeter)
+					{
+						for (TFieldIterator<FStructProperty> It(Anim->GetClass()); It; ++It)
+						{
+							if (!It->Struct || !It->Struct->GetName().Contains(TEXT("RetargetPoseFromMesh")))
+							{
+								continue;
+							}
+							void* Node = It->ContainerPtrToValuePtr<void>(Anim);
+							FObjectProperty* Prop = FindFProperty<FObjectProperty>(It->Struct, TEXT("IKRetargeterAsset"));
+							if (Prop && Prop->GetObjectPropertyValue_InContainer(Node) != Retargeter)
+							{
+								Prop->SetObjectPropertyValue_InContainer(Node, Retargeter);
+								++Changed;
+							}
+						}
+						if (Changed > 0)
+						{
+							Body->InitAnim(true);
+						}
+					}
+					UE_LOG(LogGTPGameMode, Log, TEXT("  body anim %s: retargeter %s, %d node(s) changed"),
+						Anim ? *Anim->GetClass()->GetName() : TEXT("none yet"), Retargeter ? *Retargeter->GetName() : TEXT("not loaded"), Changed);
+				}
 			}
 		}
 		for (UPrimitiveComponent* Part : Parts)
@@ -203,5 +240,7 @@ void AGTPGameMode::ApplyPlayerVisual(APawn* Pawn)
 	Enforce(TEXT("spawn"));
 	FTimerHandle Later;
 	GetWorldTimerManager().SetTimer(Later, FTimerDelegate::CreateLambda([Enforce]() { Enforce(TEXT("after 1.5 s")); }), 1.5f, false);
+	FTimerHandle Latest;
+	GetWorldTimerManager().SetTimer(Latest, FTimerDelegate::CreateLambda([Enforce]() { Enforce(TEXT("after 4 s")); }), 4.f, false);
 	UE_LOG(LogGTPGameMode, Log, TEXT("Player visual: %s attached to %s"), *Visual->GetName(), *Pawn->GetName());
 }
