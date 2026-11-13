@@ -227,7 +227,7 @@ void UGTPWeaponComponent::SetAiming(bool bAim)
 	{
 		if (UGTPCombatSubsystem* Combat = UGTPCombatSubsystem::Get(this))
 		{
-			Combat->NotifyAim(GetOwner(), FVector::ZeroVector, FVector::ForwardVector, false);
+			Combat->NotifyAim(GetShooter(), FVector::ZeroVector, FVector::ForwardVector, false);
 		}
 	}
 	// Facing the aim is done in Tick (the owner turns to the control yaw).
@@ -515,7 +515,7 @@ bool UGTPWeaponComponent::Fire(const FVector& ViewOrigin, const FVector& ViewDir
 	UGTPCombatSubsystem* Combat = UGTPCombatSubsystem::Get(this);
 	if (Combat)
 	{
-		Combat->NotifyShot(Owner, Muzzle, BulletDir, GetWeaponKey(), Hit, bHit);
+		Combat->NotifyShot(GetShooter(), Muzzle, BulletDir, GetWeaponKey(), Hit, bHit);
 	}
 	SpawnFlash();
 	PlayClip(TEXT("_Fire"));
@@ -541,7 +541,7 @@ bool UGTPWeaponComponent::Fire(const FVector& ViewOrigin, const FVector& ViewDir
 		if (bBody)
 		{
 			FGTPCombatHit CombatHit;
-			CombatHit.Instigator = Owner;
+			CombatHit.Instigator = GetShooter();
 			CombatHit.Victim = HitActor;
 			CombatHit.Bone = Hit.BoneName;
 			CombatHit.Location = Hit.ImpactPoint;
@@ -599,7 +599,7 @@ void UGTPWeaponComponent::TickComponent(float DeltaTime, ELevelTick TickType, FA
 		}
 		if (UGTPCombatSubsystem* Combat = UGTPCombatSubsystem::Get(this))
 		{
-			Combat->NotifyAim(Pawn, GetMuzzle(), Aim.Vector(), true);
+			Combat->NotifyAim(GetShooter(), GetMuzzle(), Aim.Vector(), true);
 		}
 	}
 }

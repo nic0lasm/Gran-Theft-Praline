@@ -129,6 +129,13 @@ public:
 	void SetDriveBy(AActor* Car);
 	bool IsDriveBy() const { return DriveByCar.IsValid(); }
 
+	/**
+	 * Who the world sees shooting: the owner, or at the wheel the car the player drives (the
+	 * player's pawn), so the police crime table, the threat system and the HUD treat a
+	 * drive-by like a shot on foot.
+	 */
+	AActor* GetShooter() const { return DriveByCar.IsValid() ? DriveByCar.Get() : GetOwner(); }
+
 	/** AI: one shot toward Target with its own spread factor (2.5 = police at two stars). */
 	bool FireAt(const FVector& Target, float SpreadFactor);
 

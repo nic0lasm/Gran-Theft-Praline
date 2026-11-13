@@ -146,10 +146,14 @@ What the batch adds on top of the above:
   mouse, or the right bumper while aiming (the handbrake comes back afterwards), fires out of the side windows or
   the windscreen, never straight back (`GTPDriveBy`: 150° either side, -30° to +35°). Spread ×1.6, growing with
   speed (+2.5° at 108 km/h). The player's car is never hit by its own driver's shots.
-- **Police and panic**: every player shot goes to the threat system (pedestrians flee, the Mass crowd too) and
-  becomes a crime for the police, GTA-like: shots fired, armed threat (only when someone is in the sights),
-  assault (punch), officer hit, killing, police killing. Witnesses decide whether it counts (`GTPWitnessLogic`).
-  The `-CombatBench=1` bench never calls the police, so the scene stays the same from one pass to the next.
+- **Police and panic**: every player shot goes to the threat system (pedestrians flee, the Mass crowd too, and
+  traffic brakes or flees). Crimes go through one table only, the police thread's
+  (`UGTPWantedComponent::BindCombat`, docs/gameplay/wanted.md), bound to the combat delegates: shots fired, armed
+  threat, assault, officer hit, killing, police killing; witnesses decide whether it counts. Combat guarantees
+  two things to that table: `OnArmedThreat` fires only when someone is in the sights (12°, 25 m), not when aiming
+  at an empty street; at the wheel the shooter announced is the player's car (`UGTPWeaponComponent::GetShooter`),
+  so a shot through the window counts like a shot on foot. `UGTPCombatSubsystem::IsBenchRunning()` tells
+  listeners the `-CombatBench=1` bench is running.
 - **Lyra** (Epic content, out of Git, migrated on the PC with its original paths): muzzle flash
   `NS_WeaponFire_MuzzleFlash_Rifle` (warmed up at load), impacts `NS_ImpactConcrete` and `NS_ImpactGlass`
   (`ImpactSystems`). Weapon meshes and animations: paths to fill in `Looks` and `Clips` (`UGTPWeaponComponent`)

@@ -150,10 +150,13 @@ Ce que le lot ajoute, au-dessus de ce qui précède :
   ou le pare-brise, jamais droit derrière (`GTPDriveBy` : 150° de chaque côté, de -30° à +35°). La dispersion est
   ×1,6 et grandit avec la vitesse (+2,5° à 108 km/h). La voiture du joueur n'est jamais touchée par ses tirs.
 - **Police et panique** : chaque tir du joueur va au système de menace (les piétons fuient, y compris la foule
-  Mass) et devient un délit pour la police, comme dans GTA : coups de feu, menace armée (seulement si quelqu'un
-  est dans le viseur), agression (coup de poing), policier touché, meurtre, meurtre de policier. Les témoins
-  décident si ça compte (`GTPWitnessLogic`). Le banc `-CombatBench=1` n'appelle jamais la police, pour que la
-  scène reste identique d'une passe à l'autre.
+  Mass, et le trafic freine ou fuit). Les délits passent par une seule table, celle du fil Police
+  (`UGTPWantedComponent::BindCombat`, docs/gameplay/wanted.md), branchée sur les délégués du combat : coups de feu,
+  menace armée, agression, policier touché, meurtre, meurtre de policier ; les témoins décident si ça compte.
+  Le combat garantit deux choses à cette table : `OnArmedThreat` ne part que si quelqu'un est dans le viseur
+  (12°, 25 m), pas en visant une rue vide ; au volant, le tireur annoncé est la voiture du joueur
+  (`UGTPWeaponComponent::GetShooter`), donc un tir par la vitre compte comme un tir à pied.
+  `UGTPCombatSubsystem::IsBenchRunning()` dit aux écouteurs que le banc `-CombatBench=1` tourne.
 - **Lyra** (contenu Epic, hors Git, migré sur le PC avec ses chemins d'origine) : flamme de bouche
   `NS_WeaponFire_MuzzleFlash_Rifle` (préchauffée au chargement), impacts `NS_ImpactConcrete` et `NS_ImpactGlass`
   (`ImpactSystems`). Meshes d'armes et animations : chemins à renseigner dans `Looks` et `Clips`

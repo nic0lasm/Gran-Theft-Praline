@@ -8,7 +8,6 @@
 #include "GTPPoliceOfficer.h"
 #include "GTPSurfaceLogic.h"
 #include "GTPVehicle.h"
-#include "GTPWanted.h"
 #include "GTPThreat.h"
 #include "GTPWeapon.h"
 #include "Components/DecalComponent.h"
@@ -132,19 +131,6 @@ bool UGTPCombatSubsystem::IsPlayer(const AActor* Actor) const
 	// The player's body seated in the car the player drives (drive-by).
 	const AGTPVehicle* Car = Cast<AGTPVehicle>(GetPlayerPawn());
 	return Car && Car->GetDriver() == Actor;
-}
-
-void UGTPCombatSubsystem::ReportPlayerCrime(EGTPCrimeKind Kind, const FVector& Location, bool bVictimInvolved)
-{
-	// The firefight bench must stay the same scene every run: no police called.
-	if (BenchTimer.IsValid())
-	{
-		return;
-	}
-	if (UGTPWantedComponent* Wanted = UGTPWantedComponent::Find(this))
-	{
-		Wanted->ReportCrime(Kind, Location, bVictimInvolved);
-	}
 }
 
 AActor* UGTPCombatSubsystem::FindAimTarget(const FVector& Origin, const FVector& Direction, float ConeDeg, float MaxDistanceM, const AActor* Ignore) const
@@ -379,19 +365,6 @@ FGTPDamageOutcome UGTPCombatSubsystem::ApplyHit(const FGTPCombatHit& Hit)
 		LastPlayerHitTime = GetWorld()->GetTimeSeconds();
 		bLastPlayerHitKilled = Outcome.bKilled;
 	}
-	if (bFromPlayer)
-	{
-		// The police thread's crime kinds (feat/wanted-api): witnesses decide whether it counts.
-		const bool bPolice = Cast<AGTPPoliceOfficer>(Victim) != nullptr;
-		if (Outcome.bKilled)
-		{
-			ReportPlayerCrime(bPolice ? EGTPCrimeKind::KillPolice : EGTPCrimeKind::Killing, Victim->GetActorLocation(), false);
-		}
-		else if (Hit.bMelee || bPolice)
-		{
-			ReportPlayerCrime(bPolice ? EGTPCrimeKind::HitPolice : EGTPCrimeKind::Assault, Victim->GetActorLocation(), true);
-		}
-	}
 	OnDamageDealt.Broadcast(Instigator, Victim, Outcome.HealthLost + Outcome.ArmorLost, Zone, Hit.bMelee, Outcome.HealthAfter);
 	if (Outcome.bKilled)
 	{
@@ -407,10 +380,6 @@ void UGTPCombatSubsystem::NotifyShot(AActor* Shooter, const FVector& Origin, con
 	{
 		Threat->NotifyShot(Origin, bHit ? Hit.GetActor() : nullptr);
 	}
-	if (IsPlayer(Shooter))
-	{
-		ReportPlayerCrime(EGTPCrimeKind::ShotsFired, Origin, false);
-	}
 	OnShotFired.Broadcast(Shooter, Origin, Direction, Weapon, Hit, bHit);
 }
 
@@ -423,20 +392,25 @@ void UGTPCombatSubsystem::NotifyAim(AActor* Source, const FVector& Origin, const
 		{
 			Threat->SetThreat(Source, true, Origin, Aim);
 		}
-		if (!bThreatActive)
+		bThreatActive = true;
+		// OnArmedThreat means someone is in the player's sights (the police crime table turns it into
+		// an armed threat): aiming at an empty street is not one. Looked for twice a second, once per aim.
+		const double Now = GetWorld()->GetTimeSeconds();
+		if (!bThreatBroadcast && Now >= NextThreatCheckTime)
 		{
-			bThreatActive = true;
-			OnArmedThreat.Broadcast(Source, Origin, Aim);
-			// Aiming at someone is a crime (GTA-like); aiming at an empty street is not.
-			if (IsPlayer(Source) && FindAimTarget(Origin, Aim, ThreatConeDeg, ThreatDistanceM, Source))
+			NextThreatCheckTime = Now + 0.5;
+			if (!IsPlayer(Source) || FindAimTarget(Origin, Aim, ThreatConeDeg, ThreatDistanceM, Source))
 			{
-				ReportPlayerCrime(EGTPCrimeKind::ArmedThreat, Origin, true);
+				bThreatBroadcast = true;
+				OnArmedThreat.Broadcast(Source, Origin, Aim);
 			}
 		}
 	}
 	else if (bThreatActive)
 	{
 		bThreatActive = false;
+		bThreatBroadcast = false;
+		NextThreatCheckTime = 0.0;
 		if (Threat && Threat->GetSource() == Source)
 		{
 			Threat->ClearThreat();

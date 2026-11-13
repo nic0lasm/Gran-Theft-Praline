@@ -4,7 +4,6 @@
 #include "Engine/HitResult.h"
 #include "GTPDamageLogic.h"
 #include "GTPHealth.h"
-#include "GTPWantedLogic.h"
 #include "Subsystems/WorldSubsystem.h"
 #include "GTPCombat.generated.h"
 
@@ -91,6 +90,12 @@ public:
 	/** Best living body near the line Origin + Direction (cone in degrees), nullptr when none. */
 	AActor* FindAimTarget(const FVector& Origin, const FVector& Direction, float ConeDeg, float MaxDistanceM, const AActor* Ignore) const;
 
+	/** The -CombatBench firefight runs: listeners that call the police skip it (same scene every pass). */
+	bool IsBenchRunning() const { return BenchTimer.IsValid(); }
+
+	/** The player, the player's body seated in the car the player drives, or that car. */
+	bool IsPlayerActor(const AActor* Actor) const { return IsPlayer(Actor); }
+
 	/** HUD hit marker: seconds since the player last hit someone, and whether that hit killed. */
 	float GetSecondsSincePlayerHit(bool& bKilled) const;
 
@@ -140,7 +145,7 @@ protected:
 	UPROPERTY(Config)
 	float AimSnapDistanceM = 40.f;
 
-	/** Aiming counts as an armed threat (police, witnesses) when a body is this close to the aim. */
+	/** OnArmedThreat (the police crime table) fires when a body is this close to the player's aim. */
 	UPROPERTY(Config)
 	float ThreatConeDeg = 12.f;
 	UPROPERTY(Config)
@@ -160,7 +165,6 @@ private:
 	void SpawnBloodPool(AActor* Body);
 	void AddBloodStain(AActor* Body);
 	bool IsPlayer(const AActor* Actor) const;
-	void ReportPlayerCrime(EGTPCrimeKind Kind, const FVector& Location, bool bVictimInvolved);
 
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UGTPHealthComponent>> Bodies;
@@ -183,6 +187,8 @@ private:
 	double LastPlayerHitTime = -1000.0;
 	bool bLastPlayerHitKilled = false;
 	bool bThreatActive = false;
+	bool bThreatBroadcast = false;
+	double NextThreatCheckTime = 0.0;
 	FTimerHandle HealthTimer;
 	FTimerHandle EquipTimer;
 	FTimerHandle RespawnTimer;
