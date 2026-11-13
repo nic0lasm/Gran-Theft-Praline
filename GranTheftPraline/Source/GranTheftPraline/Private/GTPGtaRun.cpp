@@ -168,13 +168,27 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckParked(FString& Detail)
 			return EResult::Pending;
 		}
 		// The theft library of the traffic thread: a locked car with an alarm at the kerb, the player at its door, the enter key.
-		AGTPVehicle* Car = UGTPTheftDemoLibrary::PlaceAlarmCar(World, Character->GetActorLocation(), 3000.f);
+		// Up to three cars: one with both doors blocked (wall, post, another car) stays parked and
+		// the next one takes another kerb spot.
+		AGTPVehicle* Car = nullptr;
+		for (int32 Attempt = 0; Attempt < 3 && !Car; ++Attempt)
+		{
+			AGTPVehicle* Candidate = UGTPTheftDemoLibrary::PlaceAlarmCar(World, Character->GetActorLocation(), 3000.f);
+			if (!Candidate)
+			{
+				break;
+			}
+			if (UGTPTheftDemoLibrary::PlaceAtDriverDoor(Character, Candidate))
+			{
+				Car = Candidate;
+			}
+		}
 		if (!Car)
 		{
-			Detail = TEXT("no kerb space for an alarm car");
+			Detail = TEXT("no alarm car with a free door (see the theft demo lines)");
 			return EResult::Fail;
 		}
-		if (!UGTPTheftDemoLibrary::PlaceAtDriverDoor(Character, Car) || !UGTPTheftDemoLibrary::PressEnter(World))
+		if (!UGTPTheftDemoLibrary::PressEnter(World))
 		{
 			Detail = FString::Printf(TEXT("could not start the entry into %s"), *Car->GetName());
 			return EResult::Fail;

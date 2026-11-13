@@ -9,6 +9,8 @@
 #include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "GameFramework/Character.h"
+#include "Components/CapsuleComponent.h"
+#include "Engine/OverlapResult.h"
 #include "GameFramework/PlayerController.h"
 #include "Kismet/GameplayStatics.h"
 
@@ -80,25 +82,62 @@ bool UGTPTheftDemoLibrary::IsStopped(const AGTPVehicle* Car)
 
 bool UGTPTheftDemoLibrary::PlaceAtDriverDoor(ACharacter* Character, AGTPVehicle* Car)
 {
-	if (!Character || !Car)
+	if (!Character || !Car || !Character->GetCapsuleComponent())
 	{
 		return false;
 	}
-	// A metre out from the door, on the driver's side, facing the car.
-	const FVector Door = Car->GetDoorLocation(EGTPVehicleSide::Left);
-	FVector Out = (Door - Car->GetActorLocation()).GetSafeNormal2D();
-	if (Out.IsNearlyZero())
+	UWorld* World = Car->GetWorld();
+	const UCapsuleComponent* Capsule = Character->GetCapsuleComponent();
+	const float HalfHeight = Capsule->GetScaledCapsuleHalfHeight();
+	const FCollisionShape Shape = FCollisionShape::MakeCapsule(Capsule->GetScaledCapsuleRadius(), HalfHeight);
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(GTPTheftDemoDoor), false, Character);
+	Params.AddIgnoredActor(Car);
+	// The driver door first, then the passenger door (the character walks round), a little
+	// farther out each time. The capsule stands on the ground found under the spot: placed at the
+	// car's origin height it sank into the road and the teleport was refused (package, 13/11).
+	FString Causes;
+	for (const EGTPVehicleSide Side : {EGTPVehicleSide::Left, EGTPVehicleSide::Right})
 	{
-		Out = -Car->GetActorRightVector();
+		const FVector Door = Car->GetDoorLocation(Side);
+		FVector Out = (Door - Car->GetActorLocation()).GetSafeNormal2D();
+		if (Out.IsNearlyZero())
+		{
+			Out = Side == EGTPVehicleSide::Left ? -Car->GetActorRightVector() : Car->GetActorRightVector();
+		}
+		for (const float Distance : {70.f, 120.f, 180.f})
+		{
+			FVector Spot = Door + Out * Distance;
+			FHitResult Ground;
+			if (!World->LineTraceSingleByChannel(Ground, FVector(Spot.X, Spot.Y, Car->GetActorLocation().Z + 300.0),
+					FVector(Spot.X, Spot.Y, Car->GetActorLocation().Z - 500.0), ECC_Visibility, Params))
+			{
+				Causes += FString::Printf(TEXT(" %s+%.0f: no ground;"), Side == EGTPVehicleSide::Left ? TEXT("left") : TEXT("right"), Distance);
+				continue;
+			}
+			Spot.Z = Ground.ImpactPoint.Z + HalfHeight + 3.0;
+			TArray<FOverlapResult> Blocking;
+			World->OverlapMultiByChannel(Blocking, Spot, FQuat::Identity, ECC_Pawn, Shape, Params);
+			const FOverlapResult* Blocker = Blocking.FindByPredicate([](const FOverlapResult& Overlap) { return Overlap.bBlockingHit; });
+			if (Blocker)
+			{
+				Causes += FString::Printf(TEXT(" %s+%.0f: %s;"), Side == EGTPVehicleSide::Left ? TEXT("left") : TEXT("right"), Distance,
+					*GetNameSafe(Blocker->GetActor()));
+				continue;
+			}
+			const FRotator Facing(0.f, (-Out).Rotation().Yaw, 0.f);
+			Character->SetActorLocationAndRotation(Spot, Facing, false, nullptr, ETeleportType::TeleportPhysics);
+			if (AController* Controller = Character->GetController())
+			{
+				Controller->SetControlRotation(FRotator(-10.f, Facing.Yaw, 0.f));
+			}
+			GTP_TRACE(LogGTPTheftDemo, TEXT("theft demo: player at the %s door of %s, %.0f cm out%s%s"),
+				Side == EGTPVehicleSide::Left ? TEXT("driver") : TEXT("passenger"), *Car->GetName(), Distance,
+				Causes.IsEmpty() ? TEXT("") : TEXT(" (blocked before:"), Causes.IsEmpty() ? TEXT("") : *(Causes + TEXT(")")));
+			return true;
+		}
 	}
-	const FVector Spot = Door + Out * 100.f + FVector(0.f, 0.f, 20.f);
-	const bool bMoved = Character->TeleportTo(Spot, FRotator(0.f, (-Out).Rotation().Yaw, 0.f));
-	if (AController* Controller = Character->GetController())
-	{
-		Controller->SetControlRotation(FRotator(-10.f, (-Out).Rotation().Yaw, 0.f));
-	}
-	GTP_TRACE(LogGTPTheftDemo, TEXT("theft demo: player at the door of %s (%s)"), *Car->GetName(), bMoved ? TEXT("placed") : TEXT("blocked"));
-	return bMoved;
+	GTP_TRACE(LogGTPTheftDemo, TEXT("theft demo: no free spot by the doors of %s:%s"), *Car->GetName(), *Causes);
+	return false;
 }
 
 bool UGTPTheftDemoLibrary::PressEnter(UObject* WorldContext)
