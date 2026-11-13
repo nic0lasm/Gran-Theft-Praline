@@ -205,3 +205,19 @@ is taken: Lyra stands on GAS and ShooterCore, which ADR-0011 leaves out. We take
   only the threat system remains: no broadcast of loud sounds.
 - **Lyra sounds**: `lyra_weapons_setup.py` also lists the full paths of the fire and dry fire sounds found after
   the migration, for the audio settings.
+
+### Upper body and retarget (13/11, after the migration)
+
+- **First run on the PC**: the Lyra assets are there, the retarget was blocked: no UEFN IK rig at the sample's
+  path and no Lyra mannequin mesh. The script now builds its own retargeter (`RTG_GTP_UE5_to_UEFN`) from the
+  first IK rigs found (target: the pedestrians' `IK_SKM_UEFN_Mannequin` when the sample's is missing), maps the
+  chains by name (the method `create_pedestrian_retargeter.py` proved on 5.8), never reuses another thread's
+  retargeter, takes Lyra's `SKM_Manny` as source mesh (or any mesh on the animations' skeleton), and calls the
+  5.8 batch retarget with keywords (`target_path`).
+- **Upper body only**: the player's blueprint (`SandboxCharacter_CMC_ABP`) has only `DefaultSlot`. Clips played
+  in a slot go through a blend mask made at load from the player's skeleton (`UpperBodyRoot`, `spine_01` and its
+  children; the legs weigh 0), so drawing, reloading and the aim pose leave the legs walking. No change to the
+  blueprint. Without the bone, or if the mask cannot be made, clips play on the full body as before (logged once).
+- **Clips**: full-pose Lyra actions (`MM_*_Equip`, `_Reload`, `_DryFire`, `_Idle_ADS`) in `DefaultSlot`. Lyra's
+  Fire exists only as an additive: it waits for an additive slot in the player's blueprint, the camera kick and
+  the flash carry the shot until then.

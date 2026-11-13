@@ -7,6 +7,7 @@
 #include "GTPWeapon.generated.h"
 
 class UAnimSequenceBase;
+class UBlendProfile;
 class UNiagaraSystem;
 class USkeletalMesh;
 class USkeletalMeshComponent;
@@ -219,6 +220,14 @@ protected:
 	UPROPERTY(Config)
 	FName AnimSlot = TEXT("DefaultSlot");
 
+	/**
+	 * GTA-like: aiming, reloading and drawing move the upper body only, the legs keep walking.
+	 * Clips played in a slot are masked to this bone and its children (a blend mask made at
+	 * load from the player's skeleton, no change to its animation blueprint). None = full body.
+	 */
+	UPROPERTY(Config)
+	FName UpperBodyRoot = TEXT("spine_01");
+
 	/** Ammunition the player starts with in reserve: pistol, carbine (0 = not carried). */
 	UPROPERTY(Config)
 	int32 PlayerPistolReserve = 36;
@@ -248,6 +257,9 @@ private:
 	float GetSpeedShare() const;
 	void PlayClip(const TCHAR* Suffix);
 	void SetAimLoop(bool bOn);
+	/** Plays Sequence in Slot through the upper-body mask (when there is one). */
+	void PlayInSlot(UAnimSequenceBase* Sequence, FName Slot, float BlendIn, float BlendOut, int32 LoopCount);
+	UBlendProfile* GetUpperBodyMask();
 	const FGTPWeaponClip* FindClip(const TCHAR* Suffix) const;
 	void Broadcast(EGTPWeaponEvent Event) { OnWeaponEvent.Broadcast(this, Event); }
 	void LoadLooks();
@@ -273,6 +285,9 @@ private:
 	TArray<TObjectPtr<UNiagaraSystem>> LoadedFlashes;
 	UPROPERTY(Transient)
 	TMap<FName, TObjectPtr<UAnimSequenceBase>> LoadedClips;
+	UPROPERTY(Transient)
+	TObjectPtr<UBlendProfile> UpperBodyMask;
+	bool bUpperBodyMaskTried = false;
 
 	bool bDrawn = false;
 	bool bAiming = false;

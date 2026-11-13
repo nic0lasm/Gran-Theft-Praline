@@ -6,6 +6,8 @@
 #include "Animation/AnimInstance.h"
 #include "Animation/AnimMontage.h"
 #include "Animation/AnimSequenceBase.h"
+#include "Animation/BlendProfile.h"
+#include "Animation/Skeleton.h"
 #include "CollisionQueryParams.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/SkeletalMesh.h"
@@ -16,6 +18,8 @@
 #include "NiagaraComponent.h"
 #include "NiagaraFunctionLibrary.h"
 #include "NiagaraSystem.h"
+#include "UObject/EnumProperty.h"
+#include "UObject/UnrealType.h"
 #include "GTPLog.h"
 
 namespace
@@ -692,7 +696,77 @@ void UGTPWeaponComponent::PlayClip(const TCHAR* Suffix)
 	{
 		return; // an additive pose in a full-pose slot would twist the body
 	}
-	Anim->PlaySlotAnimationAsDynamicMontage(Sequence, Slot, 0.08f, 0.12f);
+	PlayInSlot(Sequence, Slot, 0.08f, 0.12f, 1);
+}
+
+UBlendProfile* UGTPWeaponComponent::GetUpperBodyMask()
+{
+	if (bUpperBodyMaskTried)
+	{
+		return UpperBodyMask;
+	}
+	bUpperBodyMaskTried = true;
+	const ACharacter* Character = Cast<ACharacter>(GetOwner());
+	const USkeletalMesh* BodyMesh = Character && Character->GetMesh() ? Character->GetMesh()->GetSkeletalMeshAsset() : nullptr;
+	USkeleton* Skeleton = BodyMesh ? BodyMesh->GetSkeleton() : nullptr;
+	if (UpperBodyRoot.IsNone() || !Skeleton || Skeleton->GetReferenceSkeleton().FindBoneIndex(UpperBodyRoot) == INDEX_NONE)
+	{
+		GTP_TRACE(LogGTPCombat, TEXT("weapon: no upper-body mask (root %s), clips play on the full body"), *UpperBodyRoot.ToString());
+		return nullptr;
+	}
+	// A blend mask: per-bone weight = scale x montage weight; the bones left out weigh 0 (the legs).
+	// OwningSkeleton and Mode are set through reflection: the editor normally sets them.
+	UBlendProfile* Mask = NewObject<UBlendProfile>(Skeleton, NAME_None, RF_Transient);
+	bool bSkeletonSet = false;
+	bool bModeSet = false;
+	if (FObjectPropertyBase* SkeletonProp = FindFProperty<FObjectPropertyBase>(UBlendProfile::StaticClass(), TEXT("OwningSkeleton")))
+	{
+		SkeletonProp->SetObjectPropertyValue_InContainer(Mask, Skeleton);
+		bSkeletonSet = true;
+	}
+	const int64 MaskMode = static_cast<int64>(EBlendProfileMode::BlendMask);
+	if (FEnumProperty* ModeEnum = FindFProperty<FEnumProperty>(UBlendProfile::StaticClass(), TEXT("Mode")))
+	{
+		ModeEnum->GetUnderlyingProperty()->SetIntPropertyValue(ModeEnum->ContainerPtrToValuePtr<void>(Mask), MaskMode);
+		bModeSet = true;
+	}
+	else if (FByteProperty* ModeByte = FindFProperty<FByteProperty>(UBlendProfile::StaticClass(), TEXT("Mode")))
+	{
+		ModeByte->SetIntPropertyValue(ModeByte->ContainerPtrToValuePtr<void>(Mask), MaskMode);
+		bModeSet = true;
+	}
+	if (!bSkeletonSet || !bModeSet)
+	{
+		GTP_TRACE(LogGTPCombat, TEXT("weapon: blend mask not settable (skeleton %d, mode %d), clips play on the full body"), bSkeletonSet ? 1 : 0, bModeSet ? 1 : 0);
+		return nullptr;
+	}
+	Mask->SetBoneBlendScale(UpperBodyRoot, 1.f, true, true);
+	UpperBodyMask = Mask;
+	GTP_TRACE(LogGTPCombat, TEXT("weapon: upper-body mask from %s (%d bones)"), *UpperBodyRoot.ToString(), Mask->GetNumBlendEntries());
+	return Mask;
+}
+
+void UGTPWeaponComponent::PlayInSlot(UAnimSequenceBase* Sequence, FName Slot, float BlendIn, float BlendOut, int32 LoopCount)
+{
+	const ACharacter* Character = Cast<ACharacter>(GetOwner());
+	UAnimInstance* Anim = Character && Character->GetMesh() ? Character->GetMesh()->GetAnimInstance() : nullptr;
+	if (!Anim || !Sequence)
+	{
+		return;
+	}
+	UBlendProfile* Mask = GetUpperBodyMask();
+	if (!Mask)
+	{
+		Anim->PlaySlotAnimationAsDynamicMontage(Sequence, Slot, BlendIn, BlendOut, 1.f, LoopCount);
+		return;
+	}
+	FMontageBlendSettings In;
+	In.Blend.BlendTime = BlendIn;
+	In.BlendProfile = Mask;
+	FMontageBlendSettings Out;
+	Out.Blend.BlendTime = BlendOut;
+	Out.BlendProfile = Mask;
+	Anim->PlaySlotAnimationAsDynamicMontage_WithBlendSettings(Sequence, Slot, In, Out, 1.f, LoopCount);
 }
 
 void UGTPWeaponComponent::SetAimLoop(bool bOn)
@@ -721,6 +795,6 @@ void UGTPWeaponComponent::SetAimLoop(bool bOn)
 		return;
 	}
 	// Held as long as the aim lasts (a large loop count), stopped by SetAimLoop(false).
-	Anim->PlaySlotAnimationAsDynamicMontage(Sequence, Slot, 0.12f, 0.15f, 1.f, 100000);
+	PlayInSlot(Sequence, Slot, 0.12f, 0.15f, 100000);
 	AimLoopSlot = Slot;
 }
