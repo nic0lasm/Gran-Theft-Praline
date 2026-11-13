@@ -258,6 +258,14 @@ void AGTPGameMode::ApplyPlayerVisual(APawn* Pawn)
 									++Changed;
 								}
 							}
+							if (FBoolProperty* Attached = FindFProperty<FBoolProperty>(It->Struct, TEXT("bUseAttachedParent")))
+							{
+								if (Attached->GetPropertyValue_InContainer(Node))
+								{
+									Attached->SetPropertyValue_InContainer(Node, false);
+									++Changed;
+								}
+							}
 							if (FEnumProperty* Mode = FindFProperty<FEnumProperty>(It->Struct, TEXT("RetargetFrom")))
 							{
 								const int64 Custom = Mode->GetEnum()->GetValueByName(TEXT("CustomSkeletalMeshComponent"));
