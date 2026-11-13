@@ -197,6 +197,12 @@ void UGTPCrowdSubsystem::Tick(float DeltaTime)
 		PlayerGroundZ = PlayerLocation.Z - 90.f;
 	}
 	UpdateNear(DeltaTime);
+	NextPanicSpread -= DeltaTime;
+	if (NextPanicSpread <= 0.f)
+	{
+		NextPanicSpread = 0.2f;
+		SpreadPanic();
+	}
 	if (Instances)
 	{
 		Instances->MarkRenderStateDirty();
@@ -575,6 +581,40 @@ void UGTPCrowdSubsystem::UpdateNear(float DeltaTime)
 		else
 		{
 			Actor->PlayLoop(Walk, W->Speed / WalkAnimationSpeed);
+		}
+	}
+}
+
+void UGTPCrowdSubsystem::SpreadPanic()
+{
+	// Each person who starts running passes the panic on once to the quiet people around, a few steps at most
+	// (same rule as the legacy pedestrians: GTPWalk::CatchPanic).
+	PanicSpread.SetNumZeroed(Entities.Num());
+	for (int32 Index = 0; Index < Entities.Num(); ++Index)
+	{
+		FGTPCrowdWalkerFragment* W = WalkerOf(Index);
+		if (!W || W->Walker.Edge < 0)
+		{
+			continue;
+		}
+		if (W->Walker.FleeTimeLeft <= 0.f)
+		{
+			PanicSpread[Index] = 0;
+			continue;
+		}
+		if (PanicSpread[Index])
+		{
+			continue;
+		}
+		PanicSpread[Index] = 1;
+		const GTPWalk::FPoint Source{float(W->Location.X), float(W->Location.Y)};
+		for (int32 Other = 0; Other < Entities.Num(); ++Other)
+		{
+			FGTPCrowdWalkerFragment* O = Other != Index ? WalkerOf(Other) : nullptr;
+			if (O && O->Walker.Edge >= 0 && FVector::Dist2D(O->Location, W->Location) <= Settings.PanicRadius)
+			{
+				GTPWalk::CatchPanic(Graph, O->Walker, W->Walker.Generation, Source, Settings, ReactionRng);
+			}
 		}
 	}
 }

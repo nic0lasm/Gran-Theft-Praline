@@ -176,6 +176,7 @@ private:
 	void Spawn(UWorld& InWorld);
 	void SetupNearActors(UWorld& InWorld);
 	void UpdateNear(float DeltaTime);
+	void SpreadPanic();
 	void OnLoud(const FVector& Where, float Radius, AActor* Cause);
 	void OnActorThreat(AActor* Body, int32 NewState);
 	void HitByPlayerVehicle(int32 Slot);
@@ -214,5 +215,7 @@ private:
 	TObjectPtr<UAnimSequenceBase> HandsUp;
 
 	GTPWalk::FRng ReactionRng{777u};
+	TArray<uint8> PanicSpread;
+	float NextPanicSpread = 0.f;
 	FDelegateHandle LoudHandle;
 };
