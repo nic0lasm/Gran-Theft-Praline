@@ -484,6 +484,14 @@ void AGTPGameMode::ApplyPlayerVisual(APawn* Pawn)
 					if (Current->Get() != Want)
 					{
 						*Current = Want;
+						// No displacement of its own: the pawn moves the body.
+						for (const TCHAR* Name : {TEXT("bForceRootLock"), TEXT("ForceRootLock")})
+						{
+							if (FBoolProperty* Lock = FindFProperty<FBoolProperty>(Want->GetClass(), Name))
+							{
+								Lock->SetPropertyValue_InContainer(Want, true);
+							}
+						}
 						Skel->SetAnimationMode(EAnimationMode::AnimationSingleNode);
 						Skel->SetAnimation(Want);
 						Skel->Play(true);
