@@ -287,7 +287,8 @@ pour lancer la discussion, surtout avant un gros chantier.
 ## Crédits et licence
 
 - Données géographiques : contient des données de l'**IGN** (BD TOPO, LiDAR
-  HD, RGE ALTI) et de la **Métropole de Lyon** (Licence Ouverte / Etalab), et
+  HD, RGE ALTI, BD ORTHO) et de la **Métropole de Lyon** (Licence Ouverte / Etalab ; le
+  décor lointain utilise sa maquette 3D texturée de Lyon 2018, Licence Ouverte v2), et
   **© les contributeurs d'OpenStreetMap** ([ODbL](https://opendatacommons.org/licenses/odbl/)).
 - Photos de la vraie ville dans ce README : **Corentin Eustacchi**, Wikimedia
   Commons, [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/deed.fr),

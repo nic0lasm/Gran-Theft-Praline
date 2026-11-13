@@ -63,6 +63,14 @@ def main():
     if os.path.exists(lm_path):
         with open(lm_path, encoding="utf-8") as f:
             have |= set(json.load(f).get("replaced_bdtopo", []))   # the landmarks bring their own volume
+    # The far decor (far_decor.py, run before) brings the textured 2018 model of these buildings.
+    covered = 0
+    far_path = os.path.join(gen, "far_decor.json")
+    if os.environ.get("GTP_CITY_FAR_DECOR", "1") != "0" and os.path.exists(far_path):
+        with open(far_path, encoding="utf-8") as f:
+            far = set(json.load(f).get("covered_bdtopo", []))
+        covered = len(far - have)
+        have |= far
     with open(os.path.join(proc, "manifest.json"), encoding="utf-8") as f:
         manifest = json.load(f)
     origin, origin_alt = manifest["origin_lambert93_m"], manifest["origin_altitude_m"]
@@ -97,7 +105,7 @@ def main():
     with open(os.path.join(out, "backdrop.json"), encoding="utf-8") as f:
         meta = json.load(f)
     meta["report"] = {"focus": a.focus, "radius_m": a.radius, "buildings": len(items), "skipped": skipped,
-                      "left_to_street_map": len(have), "triangles": tris, "cells": len(meta["nodes"]),
+                      "left_to_street_map": len(have) - covered, "left_to_far_decor": covered, "triangles": tris, "cells": len(meta["nodes"]),
                       "seconds": round(time.time() - t0, 1)}
     with open(os.path.join(out, "backdrop.json"), "w", encoding="utf-8") as f:
         json.dump(meta, f, indent=1)

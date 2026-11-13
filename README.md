@@ -280,8 +280,9 @@ start the conversation, especially before a large piece of work.
 
 ## Credits and licence
 
-- Geographic data: contains data from **IGN** (BD TOPO, LiDAR HD, RGE ALTI)
-  and **Métropole de Lyon** (Licence Ouverte / Etalab Open Licence), and
+- Geographic data: contains data from **IGN** (BD TOPO, LiDAR HD, RGE ALTI, BD ORTHO)
+  and **Métropole de Lyon** (Licence Ouverte / Etalab Open Licence; the far decor uses its
+  textured 3D model of Lyon 2018, Licence Ouverte v2), and
   **© OpenStreetMap contributors** ([ODbL](https://opendatacommons.org/licenses/odbl/)).
 - Photos of the real city in this README: **Corentin Eustacchi**, Wikimedia
   Commons, [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/),

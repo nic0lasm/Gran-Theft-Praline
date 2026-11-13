@@ -12,6 +12,8 @@ L'origine exacte de chaque asset est dans [assets/SOURCES.md](assets/SOURCES.md)
 | Donnée | Source | Licence | Mention |
 | ---- | ---- | ---- | ---- |
 | BD TOPO (bâtiments, routes), LiDAR HD, RGE ALTI | IGN, via data.geopf.fr | Licence Ouverte Etalab 2.0 | Contient des données de l'IGN |
+| Maquette 3D texturée de Lyon 2018 (Maquettes 3D texturées, CityGML LOD2 : bâtiments, ponts, édifices remarquables) pour le décor lointain | Métropole de Lyon (data.grandlyon.com) | Licence Ouverte v2 | Contient des données de la Métropole de Lyon (maquette 3D 2018) |
+| Orthophotographie (BD ORTHO) sous le relief du décor lointain | IGN, via data.geopf.fr | Licence Ouverte Etalab 2.0 | Contient des données de l'IGN |
 | Arbres d'alignement, bordures, mobilier, données administratives | Métropole de Lyon (data.grandlyon.com) | Licence Ouverte / Etalab | Contient des données de la Métropole de Lyon |
 | Commerces, bancs, fontaines, identifiants de marques | OpenStreetMap | ODbL 1.0 | © les contributeurs d'OpenStreetMap (https://www.openstreetmap.org/copyright) |
 | Noms et couleurs de marques | Wikidata | CC0 | — |

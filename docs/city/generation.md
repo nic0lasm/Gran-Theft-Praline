@@ -588,3 +588,44 @@ is clear for 150 m ahead.
 ## ZoneGraph for Mass (added 2026-11-12, ADR-0015)
 
 `tools/city/zonegraph.py` turns the driving lanes (`traffic.py`) and the walkways (`pedestrians.py`) into `gen/<focus>/zonegraph/zonegraph.json`: one-way "Car" splines cut 6 m before each junction, one polygon per junction (tags Car and Intersection) whose points are those cut ends, and two-way "Pedestrian" splines for the walkways (tag Crossing on crossings). `--lanes` and `--walkways` take the clipped tables of `npc_data.py` instead. `run_city_import.sh` then calls `tools/city/unreal/place_zonegraph.py`, which hands the table to the C++ importer `UGTPZoneGraphImport` (module GTPMass) and saves the map: the ZoneGraph is never drawn by hand. `GTP_ZONEGRAPH=0` skips the step; its failures are reported in `Saved/CityImport/zonegraph_report.json`, not fatal, until the first editor runs are clean. To check on the map: `ZoneGraph debug draw` in the editor viewport (Show > ZoneGraph).
+
+## Far decor: the real Lyon to the horizon (added 2026-11-13)
+
+Beyond the street map and its grey backdrop, the wide views of the slice must reach Fourvière,
+the Croix-Rousse slopes, the Saône and Rhône quays and the roofs of the Presqu'île.
+`tools/city/far_decor.py` builds that decor from the Métropole de Lyon's textured 3D model of
+2018 (Maquettes 3D texturées, CityGML LOD2, one aerial photo sheet per building, Licence Ouverte
+v2, credit "Métropole de Lyon") and an IGN terrain (RGE ALTI at 10 m) draped with the BD ORTHO
+orthophoto at 1 m/px (Licence Ouverte Etalab 2.0, credit "IGN"). Nothing of it goes in Git.
+
+- `fetch` downloads the arrondissement zips (`--arr`, default 1ER to 7EME, about 2-3 GB each,
+  the server does not resume) into `assets/geo/raw/<zone>/citygml/`, and the far terrain
+  (5.4 km square around the zone) and its orthophoto into `.../far/`.
+- `prep` turns each zip (or its extracted folder) into `citygml/cache/<stem>.npz` in local metres
+  (EPSG:3946 to Lambert-93 done in the script, no pyproj) and the building sheets reduced to
+  512 px; buildings, bridges (PONT) and the remarkable buildings are kept, the TIN is not. The
+  BATI files are CityGML 2.0 and most remarkable ones (Fourvière basilica, Saint-Jean, the metal
+  tower) CityGML 1.0: objects and textures are matched on their local XML names. The zip can then
+  be deleted.
+- `build` keeps every CityGML object within 2.5 km of the street axis that the street map does
+  not generate (its centroid is not in a generated BD TOPO footprint or a landmark, and the
+  bridge `riverside.py` models stays its own), merges them per 500 m tile and per atlas (sheets
+  at 512 px within 150 m of the axis, 256 px within 600 m, 128 px beyond; each atlas cut to the
+  power-of-two size it uses), and adds the terrain per 1 km tile: shared edge samples, every 10 m
+  within 300 m of the axis, 20 m within 1.2 km, 40 m beyond (`--terrain-steps`), a 6 m skirt on
+  every tile edge so a coarse tile never opens a crack against a fine one, a hole over the zone's
+  own LiDAR terrain and 0.5 m lower. Output: `gen/<focus>/far_decor.glb` (JPEG atlases inside)
+  and `far_decor.json` (nodes, report with triangles and texture weight, `covered_bdtopo`).
+
+`backdrop.py` leaves out the BD TOPO buildings listed in `covered_bdtopo`, so a grey volume only
+stands where the 2018 model has no building. `import_city.py` (`place_far_decor`) places every
+mesh at the origin (vertices in place, node translation 0: no baked-or-not question), folder
+City/FarDecor, tag `GTP_Cull_far` (nothing culls it by default; `-CityCull=far=<m>` can), no
+collision, no distance field. Each mesh gets an instance of its own parent `M_City_FarDecor`
+(atlas as base colour, rough, two-sided) saved with the "used with Nanite" and instancing
+flags: the glTF importer's instances hang from a parent outside /Game whose saved usages cannot
+be set, and the cooked game draws such a Nanite mesh with the default material (11/11). Nanite
+and building shadows on Windows only (`GTP_FAR_NANITE=0/1` overrides; the M1 has no Nanite);
+atlases capped at 4096 px on Windows, 2048 elsewhere (`GTP_FAR_TEX_MAX`); the terrain casts no
+shadow. `regen_city.sh` runs `prep` when a zip is there and `build` when the cache is there
+(`GTP_CITY_FAR_DECOR=0` skips it, `GTP_CITY_FAR_FETCH=1` downloads first).

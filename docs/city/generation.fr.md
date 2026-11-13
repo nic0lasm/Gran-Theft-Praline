@@ -614,3 +614,48 @@ la rue est dégagée sur 150 m devant.
 ## ZoneGraph pour Mass (ajouté le 12/11/2026, ADR-0015)
 
 `tools/city/zonegraph.py` transforme les voies de circulation (`traffic.py`) et les cheminements piétons (`pedestrians.py`) en `gen/<focus>/zonegraph/zonegraph.json` : des splines « Car » à sens unique, coupées 6 m avant chaque carrefour, un polygone par carrefour (tags Car et Intersection) dont les points sont ces extrémités coupées, et des splines « Pedestrian » à double sens pour les cheminements (tag Crossing sur les passages). `--lanes` et `--walkways` prennent à la place les tables découpées de `npc_data.py`. `run_city_import.sh` appelle ensuite `tools/city/unreal/place_zonegraph.py`, qui confie la table à l'importeur C++ `UGTPZoneGraphImport` (module GTPMass) puis sauvegarde la map : le ZoneGraph n'est jamais dessiné à la main. `GTP_ZONEGRAPH=0` saute l'étape ; ses échecs sont consignés dans `Saved/CityImport/zonegraph_report.json` sans arrêter l'import, tant que les premiers passages dans l'éditeur ne sont pas propres. Pour vérifier sur la map : affichage du ZoneGraph dans la vue de l'éditeur (Show > ZoneGraph).
+
+## Décor lointain : le vrai Lyon jusqu'à l'horizon (ajouté le 2026-11-13)
+
+Au-delà de la carte de la rue et de son fond gris, les vues larges de la tranche doivent
+atteindre Fourvière, les pentes de la Croix-Rousse, les quais de Saône et du Rhône et les toits
+de la Presqu'île. `tools/city/far_decor.py` construit ce décor à partir de la maquette 3D
+texturée 2018 de la Métropole de Lyon (Maquettes 3D texturées, CityGML LOD2, une planche de
+photo aérienne par bâtiment, Licence Ouverte v2, crédit « Métropole de Lyon »). Il y ajoute un
+relief IGN (RGE ALTI à 10 m) drapé de l'orthophotographie BD ORTHO à 1 m/px (Licence Ouverte
+Etalab 2.0, crédit « IGN »). Rien de tout cela ne va dans Git.
+
+- `fetch` télécharge les zips d'arrondissement (`--arr`, par défaut du 1ER au 7EME, 2 à 3 Go
+  chacun, le serveur ne reprend pas un téléchargement coupé) dans `assets/geo/raw/<zone>/citygml/`,
+  et le relief lointain (carré de 5,4 km autour de la zone) et son ortho dans `.../far/`.
+- `prep` transforme chaque zip (ou son dossier extrait) en `citygml/cache/<stem>.npz` en mètres
+  locaux (EPSG:3946 vers Lambert-93 calculé dans le script, sans pyproj), avec les planches
+  réduites à 512 px. Il garde les bâtiments, les ponts (PONT) et les édifices remarquables, mais
+  pas le TIN. Les fichiers BATI sont en CityGML 2.0 et la plupart des remarquables (basilique de
+  Fourvière, Saint-Jean, tour métallique) en CityGML 1.0 : objets et textures sont reconnus par
+  leur nom XML local. Le zip peut ensuite être supprimé.
+- `build` garde tout objet CityGML à moins de 2,5 km de l'axe de la rue que la carte de la rue ne
+  génère pas (son centroïde n'est ni dans une emprise BD TOPO générée ni dans un repère, et le
+  pont que modélise `riverside.py` reste le sien). Il les fusionne par carré de 500 m et par atlas
+  (planches à 512 px à moins de 150 m de l'axe, 256 px à moins de 600 m, 128 px au-delà ; chaque
+  atlas recadré à la puissance de deux qu'il occupe). Il ajoute le relief par carré de 1 km :
+  points de bord partagés, un point tous les 10 m à moins de 300 m de l'axe, 20 m à moins de
+  1,2 km, 40 m au-delà (`--terrain-steps`), une jupe de 6 m sur chaque bord pour qu'un carré
+  grossier n'ouvre jamais de fente contre un carré fin, un trou sur le relief LiDAR de la zone,
+  et 0,5 m plus bas. Sortie : `gen/<focus>/far_decor.glb` (atlas JPEG intégrés) et
+  `far_decor.json` (nœuds, rapport avec triangles et poids des textures, `covered_bdtopo`).
+
+`backdrop.py` laisse de côté les bâtiments BD TOPO listés dans `covered_bdtopo` : un volume gris
+ne reste que là où la maquette 2018 n'a pas de bâtiment. `import_city.py` (`place_far_decor`)
+pose chaque maillage à l'origine (sommets en place, translation des nœuds nulle : la question
+« cuit ou pas » ne se pose pas), dossier City/FarDecor, étiquette `GTP_Cull_far` (rien ne le
+coupe par défaut ; `-CityCull=far=<m>` le peut), sans collision, sans champ de distance. Chaque
+maillage reçoit une instance de son propre parent `M_City_FarDecor` (atlas en couleur de base,
+mat, double face), enregistré avec les drapeaux « utilisé avec Nanite » et instanciation : les
+instances de l'importeur glTF dépendent d'un parent hors de /Game dont on ne peut pas enregistrer
+les usages, et le jeu cuit dessine un tel maillage Nanite avec le matériau par défaut (11/11).
+Nanite et ombres des bâtiments sous Windows seulement (`GTP_FAR_NANITE=0/1` pour forcer ; le M1
+n'a pas Nanite) ; atlas plafonnés à 4096 px sous Windows, 2048 ailleurs (`GTP_FAR_TEX_MAX`) ; le
+relief ne porte pas d'ombre. `regen_city.sh` lance `prep` quand un zip est là et `build` quand le
+cache est là (`GTP_CITY_FAR_DECOR=0` pour s'en passer, `GTP_CITY_FAR_FETCH=1` pour télécharger
+d'abord).

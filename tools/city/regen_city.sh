@@ -8,6 +8,8 @@
 #   PYTHON (default python3; a venv with numpy, scipy, shapely, PIL), UE_ROOT,
 #   GTP_CITY_ZONE (presqu-ile), GTP_CITY_FOCUS (rue-de-la-republique),
 #   GTP_CITY_EXTRA_BBOX (250,-60,700,220: quai du Rhone and pont Lafayette),
+#   GTP_CITY_FAR_DECOR (1: the far decor of tools/city/far_decor.py when its cache is there; 0 to skip),
+#   GTP_CITY_FAR_FETCH (0; 1 downloads the CityGML zips and the far terrain first),
 #   GTP_CITY_ALSO_STREET (Place de la République;Place Le Viste:15: every facade bordering these
 #     squares gets the kit; NAME[:BUFFER_M] separated by ";", empty to skip),
 #   EDITOR_HEADLESS (default -nullrhi; empty for a windowed editor),
@@ -55,6 +57,23 @@ while test -n "$rest"; do
   case "$rest" in *";"*) rest="${rest#*;}" ;; *) rest="" ;; esac
 done
 "$py" "$repo/tools/city/generate.py" "$@" > /dev/null
+step "far decor (textured 2018 model of the Metropole + IGN terrain to the horizon, tools/city/far_decor.py)"
+# GTP_CITY_FAR_DECOR=0 skips it (backdrop.py and import_city.py then ignore far_decor.*);
+# GTP_CITY_FAR_FETCH=1 also downloads the arrondissement zips (2-4 GB each) and the far terrain.
+# Without the cache (assets/geo/raw/<zone>/citygml/cache), a far_decor.glb/.json already in gen/
+# (built elsewhere and copied, the generation being deterministic) is kept as it is; with neither,
+# the grey backdrop stands alone, as before.
+if test "${GTP_CITY_FAR_DECOR:-1}" != "0"; then
+  test "${GTP_CITY_FAR_FETCH:-0}" != "1" || "$py" "$repo/tools/city/far_decor.py" fetch --name "$zone"
+  if ls "$repo/assets/geo/raw/$zone/citygml/"*.zip > /dev/null 2>&1; then
+    "$py" "$repo/tools/city/far_decor.py" prep --name "$zone"
+  fi
+  if test -d "$repo/assets/geo/raw/$zone/citygml/cache"; then
+    "$py" "$repo/tools/city/far_decor.py" build --name "$zone" --focus "$focus"
+  elif test -f "$repo/assets/geo/processed/$zone/gen/$focus/far_decor.json"; then
+    echo "   no CityGML cache: keeping the far_decor.glb/.json already in gen/$focus"
+  fi
+fi
 step "backdrop (low-definition volumes within 600 m, tools/city/backdrop.py)"
 "$py" "$repo/tools/city/backdrop.py" --name "$zone" --focus "$focus" > /dev/null
 test "${GTP_CITY_LANDMARKS:-1}" = "0" || "$py" "$repo/tools/city/landmarks.py" --name "$zone" --focus "$focus" > /dev/null

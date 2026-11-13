@@ -42,6 +42,7 @@ import csv
 import json
 import math
 import os
+import sys
 import time
 
 import unreal
@@ -251,6 +252,125 @@ def place_terrain(terrain, terrain_meta, report):
         # read by UGTPCityRenderTuning (-CityCull=terrain=<m>)
         a.static_mesh_component.set_editor_property("component_tags", [unreal.Name("GTP_Cull_terrain")])
     report["terrain_bounds_check"] = terrain_check
+
+
+# Far decor (tools/city/far_decor.py). Nanite where the kit has it (PC, DX12), like place_facades.py;
+# the M1 has none and keeps plain meshes without shadows. GTP_FAR_NANITE=0/1 overrides.
+FAR_NANITE = os.environ.get("GTP_FAR_NANITE", "1" if sys.platform == "win32" else "0") == "1"
+FAR_TEX_MAX = int(os.environ.get("GTP_FAR_TEX_MAX", "4096" if sys.platform == "win32" else "2048"))
+FAR_USAGES = ("used_with_nanite", "used_with_instanced_static_meshes")
+
+
+def far_decor_material():
+    """M_City_FarDecor: the atlas as base colour, rough and two-sided (a few CityGML faces are
+    reversed). Our own parent, saved with its usage flags: the glTF importer's instances have a
+    parent outside /Game whose saved usages we cannot set, and a Nanite mesh whose material lacks
+    "used with Nanite" draws with the default material in the cooked game (11/11)."""
+    path = ROOT + "/Materials/M_City_FarDecor"
+    mel = unreal.MaterialEditingLibrary
+    if eal.does_asset_exist(path):
+        mat = eal.load_asset(path)
+    else:
+        mat = asset_tools.create_asset("M_City_FarDecor", ROOT + "/Materials", unreal.Material,
+                                       unreal.MaterialFactoryNew())
+        tex = mel.create_material_expression(mat, unreal.MaterialExpressionTextureSampleParameter2D, -500, 0)
+        tex.set_editor_property("parameter_name", "Atlas")
+        tex.set_editor_property("texture", unreal.load_asset("/Engine/EngineResources/DefaultTexture"))
+        mel.connect_material_property(tex, "RGB", unreal.MaterialProperty.MP_BASE_COLOR)
+        for value, prop, y in ((0.85, unreal.MaterialProperty.MP_ROUGHNESS, 200),
+                               (0.3, unreal.MaterialProperty.MP_SPECULAR, 300)):
+            c = mel.create_material_expression(mat, unreal.MaterialExpressionConstant, -300, y)
+            c.set_editor_property("r", value)
+            mel.connect_material_property(c, "", prop)
+        mat.set_editor_property("two_sided", True)
+    for flag in FAR_USAGES:
+        mat.set_editor_property(flag, True)
+    mel.recompile_material(mat)
+    eal.save_loaded_asset(mat)
+    return mat
+
+
+def far_decor_instance(parent, mesh, textures, dest):
+    """One instance per merged mesh with its atlas (the texture the glb names T_<mesh name without SM_>)."""
+    tex = textures.get(mesh.get_name()[3:])
+    if tex is None:
+        return None
+    tex.set_editor_property("lod_group", unreal.TextureGroup.TEXTUREGROUP_WORLD)
+    tex.set_editor_property("max_texture_size", FAR_TEX_MAX)
+    eal.save_loaded_asset(tex)
+    name = "MI_" + mesh.get_name()[3:]
+    path = dest + "/" + name
+    if eal.does_asset_exist(path):
+        eal.delete_asset(path)
+    mi = asset_tools.create_asset(name, dest, unreal.MaterialInstanceConstant,
+                                  unreal.MaterialInstanceConstantFactoryNew())
+    mel = unreal.MaterialEditingLibrary
+    mel.set_material_instance_parent(mi, parent)
+    mel.set_material_instance_texture_parameter_value(mi, "Atlas", tex)
+    eal.save_loaded_asset(mi)
+    return mi
+
+
+def place_far_decor(report):
+    """The real Lyon to the horizon (tools/city/far_decor.py): the Metropole's textured 3D model
+    of 2018 merged per 500 m tile and texture atlas, and the IGN terrain with its orthophoto, all
+    vertices in place (node translation 0, so placed at the origin whether the importer bakes or
+    not). No collision, no distance field; the terrain casts no shadow, nor do the buildings
+    without Nanite. Each mesh gets an instance of M_City_FarDecor with its atlas. Tag
+    GTP_Cull_far (-CityCull=far=<m> can hide it; nothing culls it by default).
+    GTP_CITY_FAR_DECOR=0 skips it. Returns True when placed (the backdrop then leaves out the
+    buildings it covers: backdrop.py read far_decor.json at generation time)."""
+    meta_path = os.path.join(GEN, "far_decor.json")
+    glb = os.path.join(GEN, "far_decor.glb")
+    if os.environ.get("GTP_CITY_FAR_DECOR", "1") == "0" or LEVEL != "street" or not os.path.exists(glb):
+        report["far_decor"] = "none"
+        return False
+    with open(meta_path, encoding="utf-8") as f:
+        meta = json.load(f)
+    dest = ROOT + "/FarDecor/" + CAMEL
+    meshes = import_glb(glb, dest)
+    textures = {}
+    for p in eal.list_assets(dest, recursive=True):
+        if str(eal.find_asset_data(p).asset_class_path.asset_name) == "Texture2D":
+            t = eal.load_asset(p)
+            key = t.get_name()
+            while key.startswith("T_"):          # T_FarDecor_<tile>_<n>, whatever prefix the importer adds
+                key = key[2:]
+            textures[key] = t
+    parent = far_decor_material()
+    placed, missing, untextured = 0, [], []
+    for n in meta["nodes"]:
+        m = meshes.get(n["name"])
+        if m is None:
+            missing.append(n["name"])
+            continue
+        mi = far_decor_instance(parent, m, textures, dest)
+        if mi is None:
+            untextured.append(n["name"])
+        else:
+            for i in range(len(m.get_editor_property("static_materials"))):
+                m.set_material(i, mi)
+        ns = m.get_editor_property("nanite_settings")
+        ns.set_editor_property("enabled", FAR_NANITE)
+        m.set_editor_property("nanite_settings", ns)
+        eal.save_loaded_asset(m)
+        comp = place_mesh(m, (0.0, 0.0, 0.0), n["name"], "City/FarDecor").static_mesh_component
+        comp.modify()
+        comp.set_collision_profile_name("NoCollision")
+        comp.set_collision_enabled(unreal.CollisionEnabled.NO_COLLISION)
+        comp.set_editor_property("affect_distance_field_lighting", False)
+        comp.set_editor_property("cast_shadow", n["kind"] == "buildings" and FAR_NANITE)
+        comp.set_editor_property("component_tags", [unreal.Name("GTP_Cull_far")])
+        placed += 1
+    if missing:
+        report["errors"].append("far decor meshes missing: %d (%s)" % (len(missing), missing[:3]))
+    if untextured:
+        report["errors"].append("far decor atlases not found: %d (%s)" % (len(untextured), untextured[:3]))
+    report["far_decor"] = {"placed": placed, "nanite": FAR_NANITE, "tex_max": FAR_TEX_MAX,
+                           "textures_found": len(textures), "buildings": meta["report"].get("kept"),
+                           "building_triangles": meta["report"].get("building_triangles"),
+                           "terrain_triangles": meta["report"].get("terrain_triangles")}
+    return placed > 0
 
 
 def place_backdrop(report):
@@ -464,6 +584,7 @@ def main():
             continue
         place_mesh(m, (0.0, 0.0, 0.0), n["name"], "City/Landmarks")
     report["landmarks"] = sorted(marks)
+    place_far_decor(report)
     place_backdrop(report)
     # Fall-in safety (riverside.py "recovery"): tagged trigger boxes over the water and quay
     # exits at street level; the game swims or fishes out whoever enters them.
