@@ -39,7 +39,7 @@ protected:
 	FSoftClassPath PlayerPawnClass;
 
 	/**
-	 * A visual that follows the player pawn: an Actor class (the sample's BP_Kellan, a MetaHuman) is spawned and
+	 * A visual that follows the player pawn: an Actor class (Nicolito's MetaHuman blueprint) is spawned and
 	 * attached to the pawn at each spawn of the player; the pawn's own mesh keeps playing the animation but is hidden.
 	 * -PlayerVisual=<class path> overrides the config (empty = none, the pawn's own mesh shows).
 	 */

@@ -231,12 +231,14 @@ Lyra n'est repris : Lyra repose sur GAS et ShooterCore, que l'ADR-0011 écarte. 
 - **Clips** : actions Lyra en pose complète (`MM_*_Equip`, `_Reload`, `_DryFire`, `_Idle_ADS`) dans
   `DefaultSlot`. Le Fire de Lyra n'existe qu'en additif : il attend un slot additif dans le blueprint du joueur ;
   d'ici là, le recul de la caméra et la flamme portent le tir.
-- **Kellan (visuel MetaHuman)** : l'arme va dans la main qu'on voit. Quand le mesh du pion est caché et que le
+- **Nicolito, le joueur (visuel MetaHuman)** : l'arme va dans la main qu'on voit. Quand le mesh du pion est caché et que le
   corps du visuel y est accroché, l'arme est attachée au `hand_r` du corps, placée à chaque image sur la prise du
   `weapon_r` du pion, décalée de l'écart entre les deux mains (bonne orientation quels que soient les axes des os
   du corps) ; sinon sur le `weapon_r` du pion. Avec `-PlayerVisualBaked`, dégainer remet le corps en retarget à
-  l'exécution (il suit le pion, clips d'arme compris) et ranger le ramène aux clips cuits. Kellan est le visuel
-  par défaut (`PlayerVisualClass` dans `DefaultGame.ini`, retarget à l'exécution avec `RTG_UEFNped_to_Metahuman` ;
+  l'exécution (il suit le pion, clips d'arme compris) et ranger le ramène aux clips cuits. Le visuel par
+  défaut est un MetaHuman (`PlayerVisualClass` dans `DefaultGame.ini`, retarget à l'exécution avec
+  `RTG_UEFNped_to_Metahuman` ; Kellan, du Game Animation Sample, tient le rôle jusqu'à ce que le MetaHuman de
+  Nicolito existe, simple changement de config ;
   `bPlayerVisualBaked=True` au même endroit ou `-PlayerVisualBaked` passe aux clips cuits) ; `-PlayerVisual=`
   (vide) montre le mannequin pour les tests d'armes.
 - **Bancs de test** : `-CombatBench=1` tire toutes les 0,45 s debout, visée à l'épaule tenue (pose et caméra de
