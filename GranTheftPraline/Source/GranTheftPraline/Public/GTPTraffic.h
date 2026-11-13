@@ -124,6 +124,7 @@ public:
 
 	/** Seconds the car has been standing still. */
 	float GetStoppedTime() const { return StoppedTime; }
+	int32 GetWedgeCount() const { return WedgeCount; }
 
 	/**
 	 * Seconds between two decisions (0 = every frame). The pedals keep their
@@ -193,6 +194,7 @@ private:
 	float GhostGroundAge = 1.f;  // seconds since that ground trace
 	float PushTime = 0.f;        // seconds pressing the throttle without moving (wedged on something)
 	float BackOffTime = 0.f;     // seconds left reversing out of it
+	int32 WedgeCount = 0;        // back-offs since it last drove freely
 
 	/** Reactions (GTPTrafficReactLogic.h) and what feeds them. */
 	GTPTrafficReact::FOutput UpdateReactions(AGTPVehicle* Vehicle, float DeltaTime, float Speed, float ProbeM, AActor* ProbeHit);
