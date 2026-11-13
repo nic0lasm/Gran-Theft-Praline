@@ -9,7 +9,7 @@ ADR-0015 (piétons et trafic sur Mass). Anglais : [traffic-mass.md](traffic-mass
   posent déjà nos voies (tag `Car`, profil à sens unique) et les polygones de carrefour (tags `Car`
   et `Intersection`), comme MassTraffic les attend.
 - **Compilation** : le module `GTPMass` ne lie MassTraffic que si
-  `Plugins/MassTraffic/MassTraffic.uplugin` existe (`WITH_GTP_MASSTRAFFIC`). Sans lui, le jeu
+  `Plugins/Traffic/Traffic.uplugin` (plugin « Traffic » de City Sample, module MassTraffic) existe (`WITH_GTP_MASSTRAFFIC`). Sans lui, le jeu
   compile comme avant.
 - **Interrupteur** : `-Traffic=mass`. Le réseau historique (`AGTPTrafficNetwork`) garde alors les
   feux, les voitures garées à voler, les accidents et la police, mais ne conduit plus aucune
@@ -23,11 +23,14 @@ ADR-0015 (piétons et trafic sur Mass). Anglais : [traffic-mass.md](traffic-mass
 
 ## Installation (PC)
 
-1. City Sample (Fab, gratuit) téléchargé ; copier son dossier `Plugins/MassTraffic` dans
-   `GranTheftPraline/Plugins/MassTraffic` (ignoré par Git : code Epic, hors de notre licence MIT).
+1. City Sample (Fab, gratuit) téléchargé ; copier ses dossiers `Plugins/Traffic` et
+   `Plugins/RuleProcessor`, tels quels, dans `GranTheftPraline/Plugins/` (ignorés par Git : code
+   Epic, hors de notre licence MIT). Traffic demande aussi ChaosVehiclesPlugin, ZoneGraph, MassAI,
+   MassCrowd, MassGameplay et AnimToTexture, déjà activés.
    Appliquer les correctifs listés dans le README de github.com/Myxcil/MassTraffic-Test (on lit,
    on ne copie rien).
-2. Activer le plugin dans le `.uproject` local (pas poussé tant que le plugin est hors Git).
+2. Si `Traffic.uplugin` ou `RuleProcessor.uplugin` indique `"EnabledByDefault": false`, les activer
+   dans le `.uproject` local (pas poussé tant que les plugins sont hors Git).
 3. Compiler la cible éditeur, lancer `place_zonegraph.py` puis `place_masstraffic.py`.
 4. Lire le rapport : filtres de voies posés, configurations trouvées, classes de générateurs de
    points du plugin. Les générateurs sont réglés sur les spawners à ce premier passage.

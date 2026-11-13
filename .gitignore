@@ -49,6 +49,8 @@ GranTheftPraline/Plugins/CityBrands/
 # MassTraffic, copied from City Sample (Epic code, not covered by the MIT licence):
 # docs/gameplay/traffic-mass.md
 GranTheftPraline/Plugins/MassTraffic/
+GranTheftPraline/Plugins/Traffic/
+GranTheftPraline/Plugins/RuleProcessor/
 # Epic vehicles migrated from City Sample Vehicles and the Vehicle Variety Pack
 /GranTheftPraline/Content/Vehicles/Epic/
 

@@ -28,11 +28,14 @@ public class GTPMass : ModuleRules
 			"Json"
 		});
 
-		// MassTraffic is Epic code copied from City Sample into Plugins/MassTraffic, out of Git
+		// MassTraffic is Epic code: City Sample's plugin "Traffic" (module MassTraffic) and the
+		// RuleProcessor plugin it needs, copied from City Sample into Plugins/Traffic and
+		// Plugins/RuleProcessor, out of Git
 		// (docs/gameplay/traffic-mass.md). Without it the module builds and
 		// -Traffic=mass falls back to the legacy traffic.
-		string MassTrafficDir = Path.Combine(ModuleDirectory, "..", "..", "Plugins", "MassTraffic");
-		bool bMassTraffic = File.Exists(Path.Combine(MassTrafficDir, "MassTraffic.uplugin"));
+		string PluginsDir = Path.Combine(ModuleDirectory, "..", "..", "Plugins");
+		bool bMassTraffic = File.Exists(Path.Combine(PluginsDir, "Traffic", "Traffic.uplugin"))
+			|| File.Exists(Path.Combine(PluginsDir, "MassTraffic", "MassTraffic.uplugin"));
 		if (bMassTraffic)
 		{
 			PrivateDependencyModuleNames.Add("MassTraffic");

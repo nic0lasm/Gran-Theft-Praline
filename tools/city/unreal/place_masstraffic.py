@@ -1,7 +1,7 @@
 """Place the MassTraffic spawners of the city map (ADR-0015, docs/gameplay/traffic-mass.md), inside
 the Unreal Editor, the same way as place_zonegraph.py (no UI).
 
-Needs MassTraffic copied from City Sample into Plugins/MassTraffic (out of Git) and the ZoneGraph
+Needs City Sample's plugins Traffic (module MassTraffic) and RuleProcessor copied into Plugins/ (out of Git) and the ZoneGraph
 already placed (place_zonegraph.py: lanes tagged Car, junctions tagged Car + Intersection).
 
 What it does, reporting everything in Saved/CityImport/masstraffic_report.json:
@@ -140,7 +140,7 @@ def main():
     t0 = time.time()
     report = {"map": MAP, "errors": [], "spawners": []}
     if getattr(unreal, "MassTrafficSettings", None) is None and not any("MassTraffic" in c for c in dir(unreal)):
-        report["errors"].append("MassTraffic not installed (Plugins/MassTraffic): nothing done")
+        report["errors"].append("MassTraffic not loaded (Plugins/Traffic and Plugins/RuleProcessor from City Sample): nothing done")
         return write(report, t0)
     level_sub.load_level(MAP)
     world = editor_sub.get_editor_world()
