@@ -272,6 +272,9 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail)
 	}
 	const FVector Head = Victim->GetActorLocation() + FVector(0.f, 0.f, 60.f);
 	const FVector Aim = (Head - Eye).GetSafeNormal();
+	// The view looks at the person, as a player aims: the weapon aims where the view looks (it turns the body
+	// and tells the threat system every frame), so turning only the body was undone at the next frame.
+	PC->SetControlRotation(Aim.Rotation());
 	Character->SetActorRotation(FRotator(0.f, Aim.Rotation().Yaw, 0.f));
 	Threat->SetThreat(Character, true, Eye, Aim);
 	int32 Hands = 0, Fleeing = 0, Alarmed = 0;
