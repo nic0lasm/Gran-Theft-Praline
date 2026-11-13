@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include <vector>
 #include "Containers/Ticker.h"
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "GTPTraffic.h"
@@ -112,6 +113,16 @@ private:
 	int32 HeldHere = 0;
 	FVector LastHeldPlace = FVector::ZeroVector;
 	bool RelocateChaseCar(class AGTPVehicle* Driven, class APlayerController* PC, double Now);
+
+	/** Chase demo: the fixed route (a polyline built once from the lanes, then followed by pure pursuit). */
+	bool DriveChaseRoute(class AGTPVehicle* Driven, class APlayerController* PC, double Now, double T, float CruiseKmh);
+	void BuildChaseRoute(class AGTPTrafficNetwork& Network, const class AGTPVehicle& Driven);
+	std::vector<FGTPDrivePoint> ChasePath;
+	int ChaseClosest = 0;
+	FGTPDriveSettings ChaseSettings;
+	double NextRouteBuild = 0.0;
+	double ChaseSlowSince = 0.0;
+	double NextRouteDiag = 0.0;
 	double NextChaseLog = 0.0;
 	double CarjackRetarget = 0.0;
 	/** Drives along the traffic lanes once the car is on one (else holds the street heading). */
