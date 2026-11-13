@@ -1190,6 +1190,17 @@ void UGTPPedestrianSubsystem::TickDemo()
 		OnPedestrianHit.Broadcast(Where, nullptr);
 		GawkAround(Where, 2500.f);
 	}
+	else if (DemoMode == TEXT("holdup"))
+	{
+		// A gun pointed at everybody within 12 m: they freeze with their hands up (the threat response does the same in play).
+		for (FPerson& P : People)
+		{
+			if (P.bActive && P.bDrawn && !P.bBorrowed && FVector::Dist(P.Actor.IsValid() ? P.Actor->GetActorLocation() : Where, Where) < 1200.f)
+			{
+				GTPWalk::Freeze(P.Walker, Where, 20.f, GTPWalk::EPause::HandsUp);
+			}
+		}
+	}
 	else if (DemoMode == TEXT("shot"))
 	{
 		if (UGTPAudioWorld* AudioWorld = GetWorld() ? GetWorld()->GetSubsystem<UGTPAudioWorld>() : nullptr)
