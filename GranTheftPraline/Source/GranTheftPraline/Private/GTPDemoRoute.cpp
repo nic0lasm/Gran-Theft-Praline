@@ -631,9 +631,15 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 				}
 			}
 			if (Follower.Step(Driven->GetActorLocation(), static_cast<float>(Driven->GetActorRotation().Yaw), Driven->GetSpeedKmh(), Cruise,
-				Now < RamUntil ? 1000.f : UGTPAIDriverComponent::ProbeAhead(Driven, 4000.f, 90.f), Command))
+				Now < RamUntil ? 1000.f : (bChase ? UGTPAIDriverComponent::ProbeAhead(Driven, 2200.f, 70.f) : UGTPAIDriverComponent::ProbeAhead(Driven, 4000.f, 90.f)), Command))
 			{
 				DriveInputs(Driven, Command.Throttle, Command.Brake, Command.Steering, false);
+				if (bChase && Now >= NextDriveDiag)
+				{
+					NextDriveDiag = Now + 1.0;
+					GTP_TRACE(LogGTPDemo, TEXT("DemoDrive t=%.0f kmh=%.0f lane=%d throttle=%.2f brake=%.2f steer=%.2f cruise=%.0f"), static_cast<float>(T),
+						Driven->GetSpeedKmh(), Follower.GetLane(), Command.Throttle, Command.Brake, Command.Steering, Cruise);
+				}
 				if (bDeterministic && Follower.GetLane() != LastLoggedLane)
 				{
 					// The route is the lane sequence: two runs took the same way when these lines match.
