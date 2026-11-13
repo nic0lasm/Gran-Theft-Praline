@@ -203,6 +203,20 @@ def bellecour_start(axis):
     return (x0, y0, z0 + 120.0), 0.0
 
 
+def cell_baked(mesh, node, cell_cm):
+    """True if a merged cell mesh (generate.write_shell_cells: backdrop, shell cells) came in with
+    its translation baked. Its node origin is the cell's south-west corner (ue_cm), so a baked mesh
+    is centred near ue_cm + (C/2, -C/2) and an unbaked one near (C/2, -C/2). terrain_baked's test
+    (nearer ue_cm than the origin) misjudged the cells next to the origin: on the PC (13/11) the
+    importer baked them and SM_Backdrop_p0000_m0250 landed one cell south, on the start of rue de
+    la Republique, a beige wall with no collision."""
+    box = mesh.get_bounding_box()
+    cx, cy = (box.min.x + box.max.x) / 2, (box.min.y + box.max.y) / 2
+    h = cell_cm / 2.0
+    ux, uy = node["ue_cm"][0], node["ue_cm"][1]
+    return math.hypot(cx - (ux + h), cy - (uy - h)) < math.hypot(cx - h, cy + h)
+
+
 def terrain_baked(mesh, tile):
     """True if the terrain tile came in with its translation baked (bounds far from its pivot)."""
     box = mesh.get_bounding_box()
@@ -263,7 +277,7 @@ def place_backdrop(report):
             for i in range(len(m.get_editor_property("static_materials"))):
                 m.set_material(i, shell)
             eal.save_loaded_asset(m)
-        pos = (0.0, 0.0, 0.0) if terrain_baked(m, n) else tuple(n["ue_cm"])
+        pos = (0.0, 0.0, 0.0) if cell_baked(m, n, meta.get("cell_m", 250.0) * 100.0) else tuple(n["ue_cm"])
         comp = place_mesh(m, pos, n["name"], "City/Backdrop").static_mesh_component
         comp.modify()
         comp.set_collision_profile_name("NoCollision")
@@ -304,7 +318,7 @@ def build_quarter(report, t0):
         if m is None:
             report["errors"].append("cell proxy missing: " + n["name"])
             continue
-        pos = (0.0, 0.0, 0.0) if terrain_baked(m, n) else tuple(n["ue_cm"])
+        pos = (0.0, 0.0, 0.0) if cell_baked(m, n, meta.get("cell_m", 250.0) * 100.0) else tuple(n["ue_cm"])
         a = place_mesh(m, pos, n["name"], "City/CellProxies")
         # Far stand-in only: no collision (the cell level brings its own), no shadow, no
         # distance field or Lumen contribution (ADR-0010 condition 2).
@@ -419,7 +433,7 @@ def main():
             if m is None:
                 report["errors"].append("shell cell mesh missing: " + n["name"])
                 continue
-            pos = (0.0, 0.0, 0.0) if terrain_baked(m, n) else tuple(n["ue_cm"])
+            pos = (0.0, 0.0, 0.0) if cell_baked(m, n, cells_meta.get("cell_m", 250.0) * 100.0) else tuple(n["ue_cm"])
             place_mesh(m, pos, n["name"], "City/Buildings")
         report["shell_cells"] = len(cells)
     else:
