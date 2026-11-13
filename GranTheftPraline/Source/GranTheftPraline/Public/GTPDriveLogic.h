@@ -101,18 +101,38 @@ namespace GTPDrive
 		return Path[N - 1];
 	}
 
-	/** Highest speed for the sharpest bend within Horizon metres ahead (m/s). */
+	/**
+	 * Highest speed for the sharpest bend within Horizon metres ahead (m/s). The bend at a vertex is measured
+	 * over a baseline of BendBaseline metres each side, not between neighbouring points: lane points a metre
+	 * apart carry a few degrees of noise that, taken as bends, held the car under 40 km/h on a straight road.
+	 */
 	inline float BendSpeed(const std::vector<FGTPDrivePoint>& Path, int From, float Horizon, const FGTPDriveSettings& S, float LaneSpeed)
 	{
+		constexpr float BendBaseline = 6.f;
 		const int N = static_cast<int>(Path.size());
 		float Travelled = 0.f;
 		float Speed = LaneSpeed;
 		for (int I = (From < 1 ? 1 : From); I + 1 < N && Travelled < Horizon; ++I)
 		{
-			const float Ax = Path[I].X - Path[I - 1].X, Ay = Path[I].Y - Path[I - 1].Y;
-			const float Bx = Path[I + 1].X - Path[I].X, By = Path[I + 1].Y - Path[I].Y;
+			Travelled += std::hypot(Path[I].X - Path[I - 1].X, Path[I].Y - Path[I - 1].Y);
+			// Back and forward until BendBaseline metres of path (or the end of the known path).
+			int Back = I;
+			float BackLen = 0.f;
+			while (Back > 0 && BackLen < BendBaseline)
+			{
+				BackLen += std::hypot(Path[Back].X - Path[Back - 1].X, Path[Back].Y - Path[Back - 1].Y);
+				--Back;
+			}
+			int Fwd = I;
+			float FwdLen = 0.f;
+			while (Fwd + 1 < N && FwdLen < BendBaseline)
+			{
+				FwdLen += std::hypot(Path[Fwd + 1].X - Path[Fwd].X, Path[Fwd + 1].Y - Path[Fwd].Y);
+				++Fwd;
+			}
+			const float Ax = Path[I].X - Path[Back].X, Ay = Path[I].Y - Path[Back].Y;
+			const float Bx = Path[Fwd].X - Path[I].X, By = Path[Fwd].Y - Path[I].Y;
 			const float La = std::hypot(Ax, Ay), Lb = std::hypot(Bx, By);
-			Travelled += La;
 			if (La < 1e-3f || Lb < 1e-3f)
 			{
 				continue;
@@ -125,7 +145,8 @@ namespace GTPDrive
 			const float Radius = 0.5f * (La + Lb) / Turn;
 			const float VBend = std::sqrt(S.MaxLateralAccel * Radius);
 			// Slow down in time: v^2 = vBend^2 + 2 a d.
-			const float VHere = std::sqrt(VBend * VBend + 2.f * S.ComfortDecel * (Travelled > 0.f ? Travelled - La : 0.f));
+			const float Distance = Travelled > 0.f ? Travelled : 0.f;
+			const float VHere = std::sqrt(VBend * VBend + 2.f * S.ComfortDecel * Distance);
 			if (VHere < Speed)
 			{
 				Speed = VHere;
