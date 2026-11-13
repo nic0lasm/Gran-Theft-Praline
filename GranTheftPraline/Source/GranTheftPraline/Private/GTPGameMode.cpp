@@ -11,6 +11,7 @@
 #include "Misc/Paths.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/Character.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Animation/AnimInstance.h"
 #include "UObject/UnrealType.h"
@@ -269,5 +270,24 @@ void AGTPGameMode::ApplyPlayerVisual(APawn* Pawn)
 	GetWorldTimerManager().SetTimer(Later, FTimerDelegate::CreateLambda([Enforce]() { Enforce(TEXT("after 1.5 s")); }), 1.5f, false);
 	FTimerHandle Latest;
 	GetWorldTimerManager().SetTimer(Latest, FTimerDelegate::CreateLambda([Enforce]() { Enforce(TEXT("after 4 s")); }), 4.f, false);
+	// Every 2 s: does the pawn's own pose move while the pawn moves? (class of its anim, speed, a foot bone)
+	FTimerHandle Probe;
+	GetWorldTimerManager().SetTimer(Probe, FTimerDelegate::CreateLambda([WeakPawn]()
+	{
+		const ACharacter* C = Cast<ACharacter>(WeakPawn.Get());
+		USkeletalMeshComponent* M = C ? C->GetMesh() : nullptr;
+		if (!M)
+		{
+			return;
+		}
+		const FName Foot(TEXT("foot_l"));
+		const FVector FootRel = M->GetBoneIndex(Foot) != INDEX_NONE
+			? M->GetBoneTransform(Foot, FTransform::Identity).GetLocation() - M->GetComponentLocation() : FVector::ZeroVector;
+		UE_LOG(LogGTPGameMode, Log, TEXT("pawn pose probe: anim %s, actor speed %.0f, movement speed %.0f, mode %d, foot_l rel %s, anim tick %d"),
+			M->GetAnimInstance() ? *M->GetAnimInstance()->GetClass()->GetName() : TEXT("none"),
+			C->GetVelocity().Size(), C->GetCharacterMovement() ? C->GetCharacterMovement()->Velocity.Size() : -1.f,
+			C->GetCharacterMovement() ? static_cast<int32>(C->GetCharacterMovement()->MovementMode.GetValue()) : -1,
+			*FootRel.ToCompactString(), M->IsComponentTickEnabled() ? 1 : 0);
+	}), 2.f, true);
 	UE_LOG(LogGTPGameMode, Log, TEXT("Player visual: %s attached to %s"), *Visual->GetName(), *Pawn->GetName());
 }
