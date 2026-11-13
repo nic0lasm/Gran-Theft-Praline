@@ -2,43 +2,90 @@
 
 #include "GTPCombat.h"
 #include "GTPPedestrians.h"
+#include "GTPVehicle.h"
 #include "Animation/AnimInstance.h"
 #include "Animation/AnimMontage.h"
+#include "Animation/AnimSequenceBase.h"
 #include "CollisionQueryParams.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Engine/SkeletalMesh.h"
 #include "Engine/World.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/Controller.h"
 #include "GameFramework/PlayerController.h"
+#include "NiagaraComponent.h"
+#include "NiagaraFunctionLibrary.h"
+#include "NiagaraSystem.h"
 #include "GTPLog.h"
+
+namespace
+{
+	/** Loads an asset once per run; a missing one is reported once and never tried again. */
+	UObject* WeaponLoadOnce(const FSoftObjectPath& Path)
+	{
+		static TSet<FSoftObjectPath> Missing;
+		if (Path.IsNull() || Missing.Contains(Path))
+		{
+			return nullptr;
+		}
+		UObject* Object = Path.ResolveObject();
+		if (!Object)
+		{
+			Object = Path.TryLoad();
+		}
+		if (!Object)
+		{
+			Missing.Add(Path);
+			UE_LOG(LogGTPCombat, Log, TEXT("weapon: %s not in Content, played without it"), *Path.ToString());
+		}
+		return Object;
+	}
+
+	FGTPWeaponLook MakeWeaponLook(const TCHAR* Prefix, const TCHAR* Flash)
+	{
+		FGTPWeaponLook Look;
+		Look.ClipPrefix = Prefix;
+		Look.MuzzleFlash = FSoftObjectPath(Flash);
+		return Look;
+	}
+}
 
 UGTPWeaponComponent::UGTPWeaponComponent()
 {
 	PrimaryComponentTick.bCanEverTick = true;
 	PrimaryComponentTick.bStartWithTickEnabled = false;
+	// Lyra's rifle flash serves both until a pistol flash exists (assets out of Git: missing = no flash).
+	const TCHAR* Flash = TEXT("/Game/Effects/Particles/Weapons/NS_WeaponFire_MuzzleFlash_Rifle.NS_WeaponFire_MuzzleFlash_Rifle");
+	Looks = {MakeWeaponLook(TEXT("AM_Pistol"), Flash), MakeWeaponLook(TEXT("AM_Carbine"), Flash)};
+	// A pistol until BeginPlay builds the real loadout, so every getter is safe before it.
+	Loadout = GTPArsenal::FLoadout::Make({GTPArsenal::EKind::Pistol}, {0});
 }
 
-void UGTPWeaponComponent::ApplySpec()
+UGTPWeaponComponent* UGTPWeaponComponent::FindHeld(const APawn* Pawn)
 {
-	if (bSpecApplied)
+	if (const AGTPVehicle* Car = Cast<AGTPVehicle>(Pawn))
+	{
+		const ACharacter* Driver = Car->GetDriver();
+		return Driver ? Driver->FindComponentByClass<UGTPWeaponComponent>() : nullptr;
+	}
+	return Pawn ? Pawn->FindComponentByClass<UGTPWeaponComponent>() : nullptr;
+}
+
+void UGTPWeaponComponent::BuildLoadout()
+{
+	if (bLoadoutBuilt)
 	{
 		return;
 	}
-	bSpecApplied = true;
-	Spec.MagazineSize = FMath::Max(1, MagazineSize);
-	Spec.MaxReserve = FMath::Max(0, MaxReserve);
-	Spec.RoundsPerMinute = RoundsPerMinute;
-	Spec.ReloadSeconds = ReloadSeconds;
-	Spec.RangeM = RangeM;
-	Spec.HipSpreadDeg = HipSpreadDeg;
-	Spec.AimSpreadDeg = AimSpreadDeg;
-	Spec.BloomPerShotDeg = BloomPerShotDeg;
-	Spec.MaxBloomDeg = MaxBloomDeg;
-	Spec.MoveSpreadDeg = MoveSpreadDeg;
-	Spec.RecoilPitchDeg = RecoilPitchDeg;
-	Spec.Damage.Base = BaseDamage;
-	Spec.Damage.HeadFactor = HeadFactor;
-	State = GTPWeapon::MakeState(Spec, StartReserve);
+	bLoadoutBuilt = true;
+	std::vector<GTPArsenal::EKind> Kinds = {GTPArsenal::EKind::Pistol};
+	std::vector<int> Reserves = {bPlayerControlled ? PlayerPistolReserve : NpcPistolReserve};
+	if (bPlayerControlled && PlayerCarbineReserve > 0)
+	{
+		Kinds.push_back(GTPArsenal::EKind::Carbine);
+		Reserves.push_back(PlayerCarbineReserve);
+	}
+	Loadout = GTPArsenal::FLoadout::Make(Kinds, Reserves);
 	// Seeded from the owner's name so a deterministic demo replays the same shots.
 	Rng = GTPWeapon::FRandom(static_cast<uint32>(GetTypeHash(GetOwner() ? GetOwner()->GetName() : FString())) | 1u);
 }
@@ -46,12 +93,115 @@ void UGTPWeaponComponent::ApplySpec()
 void UGTPWeaponComponent::BeginPlay()
 {
 	Super::BeginPlay();
-	ApplySpec();
+	BuildLoadout();
+	// Loaded here, not at the first shot: no hitch when the fight starts.
+	LoadLooks();
+}
+
+void UGTPWeaponComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	if (GunMesh)
+	{
+		GunMesh->DestroyComponent();
+		GunMesh = nullptr;
+	}
+	Super::EndPlay(EndPlayReason);
+}
+
+void UGTPWeaponComponent::LoadLooks()
+{
+	if (bLooksLoaded)
+	{
+		return;
+	}
+	bLooksLoaded = true;
+	const int32 Count = static_cast<int32>(GTPArsenal::EKind::Count);
+	LoadedMeshes.SetNum(Count);
+	LoadedFlashes.SetNum(Count);
+	for (int32 K = 0; K < Count && K < Looks.Num(); ++K)
+	{
+		if (!Loadout.Has(static_cast<GTPArsenal::EKind>(K)))
+		{
+			continue;
+		}
+		LoadedMeshes[K] = Cast<USkeletalMesh>(WeaponLoadOnce(Looks[K].Mesh));
+		LoadedFlashes[K] = Cast<UNiagaraSystem>(WeaponLoadOnce(Looks[K].MuzzleFlash));
+		if (bPlayerControlled && LoadedFlashes[K] && GetWorld())
+		{
+			// One hidden spawn far below the street: shaders and pipeline states ready before the first shot.
+			UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, LoadedFlashes[K], FVector(0.f, 0.f, -100000.f), FRotator::ZeroRotator,
+				FVector::OneVector, true, true, ENCPoolMethod::AutoRelease, false);
+		}
+	}
+	for (const FGTPWeaponClip& Clip : Clips)
+	{
+		if (UAnimSequenceBase* Anim = Cast<UAnimSequenceBase>(WeaponLoadOnce(Clip.Asset)))
+		{
+			LoadedClips.Add(Clip.Name, Anim);
+		}
+	}
+}
+
+const FGTPWeaponLook* UGTPWeaponComponent::GetLook() const
+{
+	const int32 K = static_cast<int32>(Loadout.CurrentKind());
+	return Looks.IsValidIndex(K) ? &Looks[K] : nullptr;
+}
+
+FName UGTPWeaponComponent::GetWeaponKey() const
+{
+	const int32 K = static_cast<int32>(Loadout.CurrentKind());
+	return WeaponKeys.IsValidIndex(K) ? WeaponKeys[K] : NAME_None;
+}
+
+APlayerController* UGTPWeaponComponent::GetPlayerController() const
+{
+	// In a car the driver is not possessed: the car's controller aims for it.
+	const APawn* Pawn = Cast<APawn>(DriveByCar.IsValid() ? DriveByCar.Get() : GetOwner());
+	return Pawn ? Cast<APlayerController>(Pawn->GetController()) : nullptr;
+}
+
+FRotator UGTPWeaponComponent::GetAimRotation() const
+{
+	if (const APlayerController* PC = GetPlayerController())
+	{
+		return PC->GetControlRotation();
+	}
+	const APawn* Pawn = Cast<APawn>(GetOwner());
+	return Pawn ? Pawn->GetControlRotation() : FRotator::ZeroRotator;
+}
+
+void UGTPWeaponComponent::UpdateMesh()
+{
+	ACharacter* Character = Cast<ACharacter>(GetOwner());
+	const int32 K = static_cast<int32>(Loadout.CurrentKind());
+	USkeletalMesh* Mesh = LoadedMeshes.IsValidIndex(K) ? LoadedMeshes[K].Get() : nullptr;
+	if (!Character || !Character->GetMesh() || (!Mesh && !GunMesh))
+	{
+		return;
+	}
+	if (!GunMesh)
+	{
+		GunMesh = NewObject<USkeletalMeshComponent>(Character, TEXT("GTPGunMesh"));
+		GunMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		GunMesh->SetGenerateOverlapEvents(false);
+		GunMesh->bReceivesDecals = false;
+		GunMesh->RegisterComponent();
+		USkeletalMeshComponent* Body = Character->GetMesh();
+		const FName Socket = Body->DoesSocketExist(HandSocket) ? HandSocket : HandFallbackSocket;
+		GunMesh->AttachToComponent(Body, FAttachmentTransformRules::SnapToTargetNotIncludingScale, Socket);
+	}
+	if (Mesh && GunMesh->GetSkeletalMeshAsset() != Mesh)
+	{
+		GunMesh->SetSkeletalMeshAsset(Mesh);
+	}
+	// GTA-like: the gun is in the hand only while drawn.
+	GunMesh->SetVisibility(bDrawn && Mesh != nullptr && !Loadout.IsSwitching());
 }
 
 void UGTPWeaponComponent::SetDrawn(bool bDraw)
 {
-	ApplySpec();
+	BuildLoadout();
 	if (bDraw == bDrawn)
 	{
 		return;
@@ -61,10 +211,11 @@ void UGTPWeaponComponent::SetDrawn(bool bDraw)
 	if (!bDrawn)
 	{
 		SetAiming(false);
-		GTPWeapon::ReleaseTrigger(State);
+		GTPWeapon::ReleaseTrigger(Loadout.State());
 		CancelReload();
 	}
-	PlayClip(bDrawn ? TEXT("AM_Pistol_Draw") : TEXT("AM_Pistol_Holster"));
+	UpdateMesh();
+	PlayClip(bDrawn ? TEXT("_Draw") : TEXT("_Holster"));
 	Broadcast(bDrawn ? EGTPWeaponEvent::Drawn : EGTPWeaponEvent::Holstered);
 }
 
@@ -82,24 +233,85 @@ void UGTPWeaponComponent::SetAiming(bool bAim)
 	// Facing the aim is done in Tick (the owner turns to the control yaw).
 }
 
-void UGTPWeaponComponent::PullTrigger()
+bool UGTPWeaponComponent::SelectKind(GTPArsenal::EKind Kind)
 {
-	ApplySpec();
-	if (!bDrawn)
+	if (!Loadout.Select(Kind, bDrawn ? SwitchSeconds : 0.f))
+	{
+		return false;
+	}
+	UpdateMesh();
+	Broadcast(EGTPWeaponEvent::Switched);
+	return true;
+}
+
+void UGTPWeaponComponent::CycleWeapon(int32 Step)
+{
+	BuildLoadout();
+	const GTPArsenal::EKind Next = Loadout.Next(Step < 0 ? -1 : 1);
+	if (IsDriveBy() && !Loadout.Specs[static_cast<size_t>(Next)].bOneHanded)
+	{
+		return; // two hands on a long weapon and one on the wheel: no
+	}
+	const bool bWasDrawn = bDrawn;
+	SelectKind(Next);
+	if (!bWasDrawn)
+	{
+		SetDrawn(true);
+	}
+	else
+	{
+		SetComponentTickEnabled(true);
+		PlayClip(TEXT("_Draw"));
+	}
+}
+
+void UGTPWeaponComponent::GiveWeapon(GTPArsenal::EKind Kind, int32 Reserve)
+{
+	BuildLoadout();
+	if (Loadout.Give(Kind, Reserve))
+	{
+		bLooksLoaded = false;
+		LoadLooks();
+	}
+}
+
+void UGTPWeaponComponent::SetDriveBy(AActor* Car)
+{
+	BuildLoadout();
+	if (Car == DriveByCar.Get())
 	{
 		return;
 	}
+	SetDrawn(false);
+	if (Car)
+	{
+		OnFootKind = Loadout.CurrentKind();
+		const GTPArsenal::EKind OneHanded = Loadout.FirstOneHanded();
+		if (OneHanded != GTPArsenal::EKind::Count)
+		{
+			Loadout.Select(OneHanded, 0.f);
+		}
+		DriveByCar = Car;
+	}
+	else
+	{
+		DriveByCar.Reset();
+		Loadout.Select(OnFootKind, 0.f);
+	}
+	UpdateMesh();
+}
+
+bool UGTPWeaponComponent::TryFireFromView()
+{
 	FVector Origin = FVector::ZeroVector;
 	FVector Direction = FVector::ForwardVector;
 	const APawn* Pawn = Cast<APawn>(GetOwner());
-	const AController* Controller = Pawn ? Pawn->GetController() : nullptr;
-	if (const APlayerController* PC = Cast<APlayerController>(Controller))
+	const AController* Controller = GetPlayerController();
+	if (!Controller && Pawn)
 	{
-		FRotator ViewRotation;
-		PC->GetPlayerViewPoint(Origin, ViewRotation);
-		Direction = ViewRotation.Vector();
+		Controller = Pawn->GetController();
 	}
-	else if (Controller)
+	if (Controller)
 	{
 		FRotator ViewRotation;
 		Controller->GetPlayerViewPoint(Origin, ViewRotation);
@@ -110,32 +322,44 @@ void UGTPWeaponComponent::PullTrigger()
 		Origin = GetMuzzle();
 		Direction = GetOwner()->GetActorForwardVector();
 	}
-	Fire(Origin, Direction, 1.f);
+	return Fire(Origin, Direction, 1.f);
+}
+
+void UGTPWeaponComponent::PullTrigger()
+{
+	BuildLoadout();
+	if (!bDrawn)
+	{
+		return;
+	}
+	TryFireFromView();
 }
 
 void UGTPWeaponComponent::ReleaseTrigger()
 {
-	GTPWeapon::ReleaseTrigger(State);
+	GTPWeapon::ReleaseTrigger(Loadout.State());
 }
 
 bool UGTPWeaponComponent::FireAt(const FVector& Target, float SpreadFactor)
 {
-	ApplySpec();
+	BuildLoadout();
 	if (!bDrawn)
 	{
 		SetDrawn(true);
 	}
-	GTPWeapon::ReleaseTrigger(State); // AI: each call is a new press
+	GTPWeapon::ReleaseTrigger(Loadout.State()); // AI: each call is a new press
 	const FVector Origin = GetMuzzle();
-	return Fire(Origin, (Target - Origin).GetSafeNormal(), FMath::Max(0.1f, SpreadFactor));
+	const bool bFired = Fire(Origin, (Target - Origin).GetSafeNormal(), FMath::Max(0.1f, SpreadFactor));
+	GTPWeapon::ReleaseTrigger(Loadout.State());
+	return bFired;
 }
 
 void UGTPWeaponComponent::Reload()
 {
-	ApplySpec();
-	if (bDrawn && GTPWeapon::StartReload(State, Spec))
+	BuildLoadout();
+	if (bDrawn && !Loadout.IsSwitching() && GTPWeapon::StartReload(Loadout.State(), Loadout.Spec()))
 	{
-		PlayClip(TEXT("AM_Pistol_Reload"));
+		PlayClip(TEXT("_Reload"));
 		Broadcast(EGTPWeaponEvent::ReloadStarted);
 		bWasReloading = true;
 	}
@@ -143,9 +367,9 @@ void UGTPWeaponComponent::Reload()
 
 void UGTPWeaponComponent::CancelReload()
 {
-	if (State.IsReloading())
+	if (Loadout.State().IsReloading())
 	{
-		GTPWeapon::CancelReload(State);
+		GTPWeapon::CancelReload(Loadout.State());
 		bWasReloading = false;
 		Broadcast(EGTPWeaponEvent::ReloadCancelled);
 	}
@@ -154,51 +378,107 @@ void UGTPWeaponComponent::CancelReload()
 float UGTPWeaponComponent::GetSpeedShare() const
 {
 	const AActor* Owner = GetOwner();
+	if (IsDriveBy())
+	{
+		return 0.f; // the car's speed counts through GTPDriveBy instead
+	}
 	return Owner && FullSpeedCmS > 0.f ? FMath::Clamp(static_cast<float>(Owner->GetVelocity().Size2D()) / FullSpeedCmS, 0.f, 1.f) : 0.f;
 }
 
 float UGTPWeaponComponent::GetSpreadDegrees() const
 {
-	return bDrawn ? GTPWeapon::SpreadDeg(State, Spec, bAiming, GetSpeedShare()) : 0.f;
+	if (!bDrawn)
+	{
+		return 0.f;
+	}
+	const float Base = GTPWeapon::SpreadDeg(Loadout.State(), Loadout.Spec(), bAiming, GetSpeedShare());
+	if (const AActor* Car = DriveByCar.Get())
+	{
+		const GTPDriveBy::FSettings DriveBy;
+		return Base * DriveBy.SpreadFactor + GTPDriveBy::SpeedSpreadDeg(static_cast<float>(Car->GetVelocity().Size()) * 0.01f, DriveBy);
+	}
+	return Base;
 }
 
 FVector UGTPWeaponComponent::GetMuzzle() const
 {
+	if (const FGTPWeaponLook* Look = GetLook())
+	{
+		if (GunMesh && GunMesh->IsVisible() && GunMesh->DoesSocketExist(Look->MuzzleSocket))
+		{
+			return GunMesh->GetSocketLocation(Look->MuzzleSocket);
+		}
+	}
 	if (const ACharacter* Character = Cast<ACharacter>(GetOwner()))
 	{
 		const USkeletalMeshComponent* Mesh = Character->GetMesh();
-		if (Mesh && Mesh->DoesSocketExist(MuzzleSocket))
+		if (Mesh && Mesh->DoesSocketExist(HandFallbackSocket))
 		{
-			return Mesh->GetSocketLocation(MuzzleSocket);
+			return Mesh->GetSocketLocation(HandFallbackSocket);
 		}
 		return Character->GetActorLocation() + FVector(0.f, 0.f, Character->BaseEyeHeight * 0.8f);
 	}
 	return GetOwner() ? GetOwner()->GetActorLocation() : FVector::ZeroVector;
 }
 
+void UGTPWeaponComponent::SpawnFlash()
+{
+	const int32 K = static_cast<int32>(Loadout.CurrentKind());
+	UNiagaraSystem* Flash = LoadedFlashes.IsValidIndex(K) ? LoadedFlashes[K].Get() : nullptr;
+	if (!Flash)
+	{
+		return;
+	}
+	const FGTPWeaponLook* Look = GetLook();
+	if (GunMesh && GunMesh->IsVisible() && Look && GunMesh->DoesSocketExist(Look->MuzzleSocket))
+	{
+		UNiagaraFunctionLibrary::SpawnSystemAttached(Flash, GunMesh, Look->MuzzleSocket, FVector::ZeroVector, FRotator::ZeroRotator,
+			EAttachLocation::SnapToTarget, true, true, ENCPoolMethod::AutoRelease);
+		return;
+	}
+	UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, Flash, GetMuzzle(), GetAimRotation(), FVector::OneVector, true, true,
+		ENCPoolMethod::AutoRelease);
+}
+
 bool UGTPWeaponComponent::Fire(const FVector& ViewOrigin, const FVector& ViewDirection, float SpreadFactor)
 {
 	UWorld* World = GetWorld();
 	AActor* Owner = GetOwner();
-	if (!World || !Owner)
+	if (!World || !Owner || Loadout.IsSwitching())
 	{
 		return false;
 	}
-	GTPWeapon::FShot Shot;
-	GTPWeapon::FSpec Effective = Spec;
+	AActor* Car = DriveByCar.Get();
+	GTPWeapon::FSpec Effective = Loadout.Spec();
 	Effective.HipSpreadDeg *= SpreadFactor;
 	Effective.AimSpreadDeg *= SpreadFactor;
+	if (Car)
+	{
+		// Out of a window only, wider, and wider still at speed.
+		const GTPDriveBy::FSettings DriveBy;
+		const FRotator Relative = (ViewDirection.Rotation() - Car->GetActorRotation()).GetNormalized();
+		if (!GTPDriveBy::CanShoot(static_cast<float>(Relative.Yaw), static_cast<float>(Relative.Pitch), DriveBy))
+		{
+			return false;
+		}
+		const float Extra = GTPDriveBy::SpeedSpreadDeg(static_cast<float>(Car->GetVelocity().Size()) * 0.01f, DriveBy);
+		Effective.HipSpreadDeg = Effective.HipSpreadDeg * DriveBy.SpreadFactor + Extra;
+		Effective.AimSpreadDeg = Effective.AimSpreadDeg * DriveBy.SpreadFactor + Extra;
+	}
+	GTPWeapon::FShot Shot;
+	GTPWeapon::FState& State = Loadout.State();
 	const bool bWasReloadingBefore = State.IsReloading();
 	const GTPWeapon::EFire Result = GTPWeapon::PullTrigger(State, Effective, bAiming, GetSpeedShare(), false, Rng, Shot);
 	if (Result == GTPWeapon::EFire::Empty)
 	{
+		PlayClip(TEXT("_DryFire"));
 		Broadcast(EGTPWeaponEvent::DryFire);
 		return false;
 	}
 	if (Result == GTPWeapon::EFire::Reloading && !bWasReloadingBefore)
 	{
 		// The empty magazine started a reload by itself.
-		PlayClip(TEXT("AM_Pistol_Reload"));
+		PlayClip(TEXT("_Reload"));
 		Broadcast(EGTPWeaponEvent::ReloadStarted);
 		bWasReloading = true;
 	}
@@ -210,11 +490,15 @@ bool UGTPWeaponComponent::Fire(const FVector& ViewOrigin, const FVector& ViewDir
 	// Deviate the view direction inside the cone.
 	const FRotator Base = ViewDirection.Rotation();
 	const FVector Dir = (Base + FRotator(Shot.PitchDeg, Shot.YawDeg, 0.f)).Vector();
-	const float RangeCm = Spec.RangeM * 100.f;
+	const float RangeCm = Loadout.Spec().RangeM * 100.f;
 
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(GTPWeaponShot), false, Owner);
 	Params.bReturnPhysicalMaterial = true;
-	// 1. From the view: what the player points at (skip the first metre: the own shoulder).
+	if (Car)
+	{
+		Params.AddIgnoredActor(Car); // never the own car, glass included
+	}
+	// 1. From the view: what the player points at (skip the first half metre: the own shoulder).
 	FHitResult ViewHit;
 	const FVector ViewStart = ViewOrigin + Dir * 50.f;
 	FVector Target = ViewOrigin + Dir * RangeCm;
@@ -222,7 +506,7 @@ bool UGTPWeaponComponent::Fire(const FVector& ViewOrigin, const FVector& ViewDir
 	{
 		Target = ViewHit.ImpactPoint;
 	}
-	// 2. From the hand to that point: walls between the gun and the target stop the bullet.
+	// 2. From the muzzle to that point: walls between the gun and the target stop the bullet.
 	const FVector Muzzle = GetMuzzle();
 	const FVector BulletDir = (Target - Muzzle).GetSafeNormal();
 	FHitResult Hit;
@@ -231,15 +515,16 @@ bool UGTPWeaponComponent::Fire(const FVector& ViewOrigin, const FVector& ViewDir
 	UGTPCombatSubsystem* Combat = UGTPCombatSubsystem::Get(this);
 	if (Combat)
 	{
-		Combat->NotifyShot(Owner, Muzzle, BulletDir, WeaponKey, Hit, bHit);
+		Combat->NotifyShot(Owner, Muzzle, BulletDir, GetWeaponKey(), Hit, bHit);
 	}
-	PlayClip(TEXT("AM_Pistol_Fire"));
+	SpawnFlash();
+	PlayClip(TEXT("_Fire"));
 	Broadcast(EGTPWeaponEvent::Fired);
 
 	// Recoil on the player's view.
 	if (bPlayerControlled)
 	{
-		if (APlayerController* PC = Cast<APlayerController>(Cast<APawn>(Owner) ? Cast<APawn>(Owner)->GetController() : nullptr))
+		if (APlayerController* PC = GetPlayerController())
 		{
 			FRotator Control = PC->GetControlRotation();
 			Control.Pitch += Shot.KickPitchDeg;
@@ -261,7 +546,7 @@ bool UGTPWeaponComponent::Fire(const FVector& ViewOrigin, const FVector& ViewDir
 			CombatHit.Bone = Hit.BoneName;
 			CombatHit.Location = Hit.ImpactPoint;
 			CombatHit.Direction = BulletDir;
-			CombatHit.Damage = Spec.Damage;
+			CombatHit.Damage = Loadout.Spec().Damage;
 			CombatHit.DistanceM = static_cast<float>(FVector::Dist(Muzzle, Hit.ImpactPoint)) * 0.01f;
 			Combat->ApplyHit(CombatHit);
 		}
@@ -276,49 +561,70 @@ bool UGTPWeaponComponent::Fire(const FVector& ViewOrigin, const FVector& ViewDir
 void UGTPWeaponComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-	const float Back = GTPWeapon::Tick(State, Spec, DeltaTime);
-	if (bWasReloading && !State.IsReloading())
+	if (Loadout.TickSwitch(DeltaTime))
+	{
+		UpdateMesh(); // the new gun appears in the hand
+	}
+	const float Back = GTPWeapon::Tick(Loadout.State(), Loadout.Spec(), DeltaTime);
+	if (bWasReloading && !Loadout.State().IsReloading())
 	{
 		bWasReloading = false;
 		Broadcast(EGTPWeaponEvent::ReloadFinished);
 	}
 
 	APawn* Pawn = Cast<APawn>(GetOwner());
-	APlayerController* PC = Pawn ? Cast<APlayerController>(Pawn->GetController()) : nullptr;
-	if (bPlayerControlled && PC && Back > 0.f)
+	APlayerController* PC = bPlayerControlled ? GetPlayerController() : nullptr;
+	if (PC && Back > 0.f)
 	{
 		FRotator Control = PC->GetControlRotation();
 		Control.Pitch -= Back;
 		PC->SetControlRotation(Control);
 	}
 
+	// Automatic weapon: fires for as long as the player holds the trigger.
+	if (bPlayerControlled && bDrawn && Loadout.Spec().bAutomatic && Loadout.State().bTriggerHeld)
+	{
+		TryFireFromView();
+	}
+
 	if (IsAiming() && Pawn)
 	{
-		// Face where the view looks while aiming.
-		const float ControlYaw = static_cast<float>(Pawn->GetControlRotation().Yaw);
-		FRotator Facing = Pawn->GetActorRotation();
-		Facing.Yaw = FMath::FixedTurn(static_cast<float>(Facing.Yaw), ControlYaw, 720.f * DeltaTime);
-		Pawn->SetActorRotation(Facing);
+		const FRotator Aim = GetAimRotation();
+		if (!IsDriveBy())
+		{
+			// Face where the view looks while aiming (seated: the body stays in the seat).
+			FRotator Facing = Pawn->GetActorRotation();
+			Facing.Yaw = FMath::FixedTurn(static_cast<float>(Facing.Yaw), static_cast<float>(Aim.Yaw), 720.f * DeltaTime);
+			Pawn->SetActorRotation(Facing);
+		}
 		if (UGTPCombatSubsystem* Combat = UGTPCombatSubsystem::Get(this))
 		{
-			Combat->NotifyAim(Pawn, GetMuzzle(), Pawn->GetControlRotation().Vector(), true);
+			Combat->NotifyAim(Pawn, GetMuzzle(), Aim.Vector(), true);
 		}
 	}
 }
 
-void UGTPWeaponComponent::PlayClip(FName Name)
+void UGTPWeaponComponent::PlayClip(const TCHAR* Suffix)
 {
-	const TSoftObjectPtr<UAnimMontage>* Clip = Clips.Find(Name);
+	const FGTPWeaponLook* Look = GetLook();
 	const ACharacter* Character = Cast<ACharacter>(GetOwner());
-	if (!Clip || Clip->IsNull() || !Character || !Character->GetMesh())
+	if (!Look || Look->ClipPrefix.IsEmpty() || !Character || !Character->GetMesh())
 	{
 		return;
 	}
-	if (UAnimMontage* Montage = Clip->LoadSynchronous())
+	const TObjectPtr<UAnimSequenceBase>* Found = LoadedClips.Find(FName(*(Look->ClipPrefix + Suffix)));
+	UAnimSequenceBase* Clip = Found ? Found->Get() : nullptr;
+	UAnimInstance* Anim = Character->GetMesh()->GetAnimInstance();
+	if (!Clip || !Anim)
 	{
-		if (UAnimInstance* Anim = Character->GetMesh()->GetAnimInstance())
-		{
-			Anim->Montage_Play(Montage);
-		}
+		return;
+	}
+	if (UAnimMontage* Montage = Cast<UAnimMontage>(Clip))
+	{
+		Anim->Montage_Play(Montage);
+	}
+	else
+	{
+		Anim->PlaySlotAnimationAsDynamicMontage(Clip, AnimSlot, 0.08f, 0.12f);
 	}
 }

@@ -1,5 +1,5 @@
 // Checks the combat rules (the headers the game compiles): health and armour,
-// damage and impacts, the pistol, aim assist, bare-hands fighting and cover.
+// damage and impacts, the pistol, the carbine and the loadout, drive-by, aim assist, bare-hands fighting and cover.
 // No Unreal. ADR-0011.
 //   g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public
 //       tools/combat/combat_logic_test.cpp -o /tmp/combat_logic_test && /tmp/combat_logic_test
@@ -248,6 +248,68 @@ static void TestAimAssist()
 	CHECK(Friction(1.f) > Friction(0.5f) && Friction(1.f) < 1.f);
 }
 
+static void TestArsenal()
+{
+	using namespace GTPArsenal;
+	// The carbine holds the trigger: three shots in 0.3 s without releasing it.
+	{
+		const GTPWeapon::FSpec C = Carbine();
+		GTPWeapon::FState St = GTPWeapon::MakeState(C, 60);
+		GTPWeapon::FRandom Rng(7u);
+		GTPWeapon::FShot Shot;
+		int Fired = 0;
+		for (int I = 0; I < 30; ++I)
+		{
+			if (GTPWeapon::PullTrigger(St, C, true, 0.f, false, Rng, Shot) == GTPWeapon::EFire::Fired) ++Fired;
+			GTPWeapon::Tick(St, C, 0.01f);
+		}
+		CHECK(Fired == 3);
+		CHECK(St.Magazine == 27);
+		// Recoil climbs while held, then comes back.
+		CHECK(St.RecoilPitchDeg > 0.9f);
+		for (int I = 0; I < 100; ++I) GTPWeapon::Tick(St, C, 0.01f);
+		CHECK(Near(St.RecoilPitchDeg, 0.f));
+		CHECK(!C.bOneHanded && Pistol().bOneHanded);
+		// Officer (100 health): 4 carbine torso shots at 10 m, 2 to the head.
+		GTPHealth::FSettings HS;
+		GTPHealth::FState Cop = GTPHealth::MakeState(HS);
+		int Shots = 0;
+		while (!Cop.bDead && Shots < 20) { GTPHealth::ApplyDamage(Cop, HS, GTPDamage::ComputeDamage(C.Damage, GTPDamage::EZone::Torso, 10.f, false)); ++Shots; }
+		CHECK(Shots == 4);
+	}
+	// Loadout: pistol first, switch, magazines kept, reload stopped by the switch.
+	{
+		FLoadout L = FLoadout::Make({EKind::Pistol, EKind::Carbine}, {36, 90});
+		CHECK(L.CurrentKind() == EKind::Pistol && L.Has(EKind::Carbine));
+		CHECK(L.State().Reserve == 36 && L.States[1].Reserve == 90 && L.States[1].Magazine == 30);
+		L.State().Magazine = 3;
+		CHECK(GTPWeapon::StartReload(L.State(), L.Spec()));
+		L.State().bRightShoulder = false;
+		CHECK(L.Next() == EKind::Carbine && L.Next(-1) == EKind::Carbine);
+		CHECK(L.Select(EKind::Carbine, 0.4f));
+		CHECK(L.IsSwitching() && L.CurrentKind() == EKind::Carbine);
+		CHECK(!L.State().bRightShoulder);            // the shoulder follows
+		CHECK(!L.States[0].IsReloading() && L.States[0].Magazine == 3); // pistol reload stopped, rounds kept
+		CHECK(!L.TickSwitch(0.2f) && L.TickSwitch(0.25f) && !L.IsSwitching());
+		CHECK(!L.Select(EKind::Carbine, 0.4f));      // already in hand
+		CHECK(L.FirstOneHanded() == EKind::Pistol);
+		// Pistol only: Next stays, no carbine to select, Give adds it once.
+		FLoadout P = FLoadout::Make({EKind::Pistol}, {24});
+		CHECK(P.Next() == EKind::Pistol && !P.Select(EKind::Carbine, 0.f));
+		CHECK(P.Give(EKind::Carbine, 60) && !P.Give(EKind::Carbine, 30) && P.States[1].Reserve == 90);
+		FLoadout Long = FLoadout::Make({EKind::Carbine}, {60});
+		CHECK(Long.FirstOneHanded() == EKind::Count);
+	}
+	// Drive-by: sides and windscreen yes, straight back no; spread grows with speed.
+	{
+		using namespace GTPDriveBy;
+		CHECK(CanShoot(-90.f, 0.f) && CanShoot(90.f, 10.f) && CanShoot(0.f, -5.f));
+		CHECK(!CanShoot(175.f, 0.f) && !CanShoot(-160.f, 0.f) && !CanShoot(90.f, 60.f) && !CanShoot(90.f, -45.f));
+		CHECK(Near(SpeedSpreadDeg(0.f), 0.f) && Near(SpeedSpreadDeg(15.f), 1.25f) && Near(SpeedSpreadDeg(80.f), 2.5f));
+		CHECK(WindowFor(-90.f) == EWindow::Left && WindowFor(10.f) == EWindow::Windscreen && WindowFor(120.f) == EWindow::Right);
+	}
+}
+
 static void TestMelee()
 {
 	using namespace GTPMelee;
@@ -425,6 +487,7 @@ int main()
 	TestDamage();
 	TestPistol();
 	TestAimAssist();
+	TestArsenal();
 	TestMelee();
 	TestCover();
 	TestBalance();

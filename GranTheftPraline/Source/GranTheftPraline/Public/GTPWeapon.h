@@ -2,11 +2,16 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "UObject/SoftObjectPath.h"
 #include "GTPWeaponLogic.h"
 #include "GTPWeapon.generated.h"
 
-class UAnimMontage;
-class USoundBase;
+class UAnimSequenceBase;
+class UNiagaraSystem;
+class USkeletalMesh;
+class USkeletalMeshComponent;
+class APawn;
+class APlayerController;
 
 UENUM(BlueprintType)
 enum class EGTPWeaponEvent : uint8
@@ -17,18 +22,60 @@ enum class EGTPWeaponEvent : uint8
 	DryFire,
 	ReloadStarted,
 	ReloadFinished,
-	ReloadCancelled
+	ReloadCancelled,
+	/** Another weapon taken in hand (GetWeaponKey is the new one). */
+	Switched
 };
 
 DECLARE_MULTICAST_DELEGATE_TwoParams(FGTPWeaponEventSignature, class UGTPWeaponComponent* /*Weapon*/, EGTPWeaponEvent /*Event*/);
 
+/** How one weapon of the arsenal looks and moves (assets out of Git; any of them may be missing). */
+USTRUCT()
+struct FGTPWeaponLook
+{
+	GENERATED_BODY()
+
+	/** Mesh in the hand (Lyra SK_Pistol / SK_Rifle once migrated). Empty = no visible gun. */
+	UPROPERTY()
+	FSoftObjectPath Mesh;
+
+	/** Socket of the mesh the bullets and the flash leave from. */
+	UPROPERTY()
+	FName MuzzleSocket = TEXT("Muzzle");
+
+	/** Clip name prefix: <Prefix>_Draw, _Holster, _Fire, _Reload, _DryFire, _Aim (see Clips). */
+	UPROPERTY()
+	FString ClipPrefix;
+
+	UPROPERTY()
+	FSoftObjectPath MuzzleFlash;
+};
+
+/** One animation by name (a montage, or a sequence played in AnimSlot). */
+USTRUCT()
+struct FGTPWeaponClip
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	FName Name;
+
+	UPROPERTY()
+	FSoftObjectPath Asset;
+};
+
 /**
- * A firearm in a body's hands (version 0.7: the fictional 9 mm pistol), used the same way
- * by the player (inputs from UGTPCombatInput) and by police AI (FireAt). Rules in
- * GTPWeaponLogic.h. It ticks only while the weapon is drawn. A shot traces from the
- * camera (player) or the eyes (AI) along the spread, then from the hand to that point,
- * and hands the hit to UGTPCombatSubsystem::ApplyHit. While an armed body aims, the
- * subsystem tells the threat system (people put their hands up, flee).
+ * The firearms in a body's hands: the fictional 9 mm pistol and, for the player, the
+ * fictional carbine (GTPArsenal in GTPWeaponLogic.h), used the same way by the player
+ * (UGTPCombatInput) and by police AI (FireAt, pistol only). It ticks only while a weapon
+ * is drawn. A shot traces from the camera (player) or the eyes (AI) along the spread,
+ * then from the muzzle to that point, and hands the hit to UGTPCombatSubsystem::ApplyHit.
+ * The carbine fires while the trigger is held. While an armed body aims, the subsystem
+ * tells the threat system (people put their hands up, flee) and the police.
+ *
+ * Drive-by: while the player drives, SetDriveBy(Car) puts a one-handed weapon in the
+ * hand; aiming and firing go out of the side windows or the windscreen (GTPDriveBy),
+ * the car itself is never hit by its driver's shots.
  */
 UCLASS(Config = Game, ClassGroup = (Gameplay), meta = (BlueprintSpawnableComponent))
 class GRANTHEFTPRALINE_API UGTPWeaponComponent : public UActorComponent
@@ -38,7 +85,11 @@ class GRANTHEFTPRALINE_API UGTPWeaponComponent : public UActorComponent
 public:
 	UGTPWeaponComponent();
 
+	/** The gun a pawn holds: its own, or at the wheel of a car the seated driver's (HUD, sounds, inputs). */
+	static UGTPWeaponComponent* FindHeld(const APawn* Pawn);
+
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
@@ -49,7 +100,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	void SetAiming(bool bAim);
 
-	/** Trigger down (the player's fire input, or AI). */
+	/** Trigger down (the player's fire input, or AI). The carbine keeps firing while it stays down. */
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	void PullTrigger();
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
@@ -62,13 +113,27 @@ public:
 	void CancelReload();
 
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
-	void SwapShoulder() { State.bRightShoulder = !State.bRightShoulder; }
+	void SwapShoulder() { Loadout.State().bRightShoulder = !Loadout.State().bRightShoulder; }
+
+	/** Next (Step 1) or previous (-1) carried weapon; draws it. Refused in a car for two-handed ones. */
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	void CycleWeapon(int32 Step = 1);
+
+	/** Gives the carbine (pickup, mission); with ammunition. */
+	void GiveWeapon(GTPArsenal::EKind Kind, int32 Reserve);
+
+	/**
+	 * The player sits in Car (nullptr: back on foot). Holsters; in the car only one-handed
+	 * weapons come out, and the one held on foot comes back when the player gets out.
+	 */
+	void SetDriveBy(AActor* Car);
+	bool IsDriveBy() const { return DriveByCar.IsValid(); }
 
 	/** AI: one shot toward Target with its own spread factor (2.5 = police at two stars). */
 	bool FireAt(const FVector& Target, float SpreadFactor);
 
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
-	int32 AddAmmo(int32 Rounds) { return GTPWeapon::AddAmmo(State, Spec, Rounds); }
+	int32 AddAmmo(int32 Rounds) { return GTPWeapon::AddAmmo(Loadout.State(), Loadout.Spec(), Rounds); }
 
 	// The HUD reads these every frame (interface thread).
 	UFUNCTION(BlueprintPure, Category = "Weapon")
@@ -76,84 +141,106 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Weapon")
 	bool IsAiming() const { return bDrawn && bAiming; }
 	UFUNCTION(BlueprintPure, Category = "Weapon")
-	bool IsReloading() const { return State.IsReloading(); }
+	bool IsReloading() const { return Loadout.State().IsReloading(); }
 	UFUNCTION(BlueprintPure, Category = "Weapon")
-	int32 GetMagazine() const { return State.Magazine; }
+	int32 GetMagazine() const { return Loadout.State().Magazine; }
 	UFUNCTION(BlueprintPure, Category = "Weapon")
-	int32 GetReserve() const { return State.Reserve; }
+	int32 GetReserve() const { return Loadout.State().Reserve; }
 	/** Key of the weapon's name in the string table (GTPStringTable). */
 	UFUNCTION(BlueprintPure, Category = "Weapon")
-	FName GetWeaponKey() const { return WeaponKey; }
+	FName GetWeaponKey() const;
 	/** Current half-angle of the cone (degrees): the reticle radius. */
 	UFUNCTION(BlueprintPure, Category = "Weapon")
 	float GetSpreadDegrees() const;
 	UFUNCTION(BlueprintPure, Category = "Weapon")
-	bool IsRightShoulder() const { return State.bRightShoulder; }
+	bool IsRightShoulder() const { return Loadout.State().bRightShoulder; }
+	/** Whether the weapon in hand is automatic (the HUD shows it). */
+	UFUNCTION(BlueprintPure, Category = "Weapon")
+	bool IsAutomatic() const { return Loadout.Spec().bAutomatic; }
 
-	const GTPWeapon::FSpec& GetSpec() const { return Spec; }
+	GTPArsenal::EKind GetKind() const { return Loadout.CurrentKind(); }
+	const GTPWeapon::FSpec& GetSpec() const { return Loadout.Spec(); }
 
 	/** Draw, fire, reload...: animation, sound and HUD listen here. */
 	FGTPWeaponEventSignature OnWeaponEvent;
 
-	/** Montages by name: AM_Pistol_Draw, AM_Pistol_Holster, AM_Pistol_Fire, AM_Pistol_Reload. */
-	UPROPERTY(EditAnywhere, Category = "Weapon")
-	TMap<FName, TSoftObjectPtr<UAnimMontage>> Clips;
-
-	/** Whether this body is the player (camera trace, aim assist, recoil on the view). */
+	/** Whether this body is the player (camera trace, recoil on the view, the long weapon). */
 	UPROPERTY(EditAnywhere, Category = "Weapon")
 	bool bPlayerControlled = false;
 
 protected:
+	/** String table keys, in GTPArsenal::EKind order. */
 	UPROPERTY(Config)
-	FName WeaponKey = TEXT("Weapon.Pistol9");
+	TArray<FName> WeaponKeys = {TEXT("Weapon.Pistol9"), TEXT("Weapon.Carbine")};
+
+	/** Looks, in GTPArsenal::EKind order. */
 	UPROPERTY(Config)
-	int32 MagazineSize = 12;
+	TArray<FGTPWeaponLook> Looks;
+
+	/** Animations by name: <ClipPrefix>_Draw, _Holster, _Fire, _Reload, _DryFire. Missing = none. */
 	UPROPERTY(Config)
-	int32 MaxReserve = 96;
+	TArray<FGTPWeaponClip> Clips;
+
+	/** Slot that plays a clip given as a plain sequence (a montage keeps its own). */
 	UPROPERTY(Config)
-	int32 StartReserve = 36;
+	FName AnimSlot = TEXT("DefaultSlot");
+
+	/** Ammunition the player starts with in reserve: pistol, carbine (0 = not carried). */
 	UPROPERTY(Config)
-	float RoundsPerMinute = 330.f;
+	int32 PlayerPistolReserve = 36;
 	UPROPERTY(Config)
-	float ReloadSeconds = 1.5f;
+	int32 PlayerCarbineReserve = 90;
 	UPROPERTY(Config)
-	float RangeM = 60.f;
+	int32 NpcPistolReserve = 36;
+
 	UPROPERTY(Config)
-	float HipSpreadDeg = 3.0f;
-	UPROPERTY(Config)
-	float AimSpreadDeg = 0.5f;
-	UPROPERTY(Config)
-	float BloomPerShotDeg = 0.7f;
-	UPROPERTY(Config)
-	float MaxBloomDeg = 4.0f;
-	UPROPERTY(Config)
-	float MoveSpreadDeg = 2.0f;
-	UPROPERTY(Config)
-	float RecoilPitchDeg = 1.4f;
-	UPROPERTY(Config)
-	float BaseDamage = 20.f;
-	UPROPERTY(Config)
-	float HeadFactor = 2.5f;
+	float SwitchSeconds = 0.45f;
+
 	/** Running speed that counts as "full movement" for the spread (cm/s). */
 	UPROPERTY(Config)
 	float FullSpeedCmS = 500.f;
-	/** Muzzle socket on the character mesh (falls back to the right hand). */
+
+	/** Hand socket the gun mesh sits in (falls back to HandFallbackSocket). */
 	UPROPERTY(Config)
-	FName MuzzleSocket = TEXT("hand_r");
+	FName HandSocket = TEXT("weapon_r");
+	UPROPERTY(Config)
+	FName HandFallbackSocket = TEXT("hand_r");
 
 private:
-	void ApplySpec();
+	void BuildLoadout();
 	bool Fire(const FVector& ViewOrigin, const FVector& ViewDirection, float SpreadFactor);
+	bool TryFireFromView();
 	FVector GetMuzzle() const;
 	float GetSpeedShare() const;
-	void PlayClip(FName Name);
+	void PlayClip(const TCHAR* Suffix);
 	void Broadcast(EGTPWeaponEvent Event) { OnWeaponEvent.Broadcast(this, Event); }
+	void LoadLooks();
+	void UpdateMesh();
+	APlayerController* GetPlayerController() const;
+	FRotator GetAimRotation() const;
+	void SpawnFlash();
+	const FGTPWeaponLook* GetLook() const;
+	bool SelectKind(GTPArsenal::EKind Kind);
 
-	GTPWeapon::FSpec Spec;
-	GTPWeapon::FState State;
+	GTPArsenal::FLoadout Loadout;
 	GTPWeapon::FRandom Rng;
+	TWeakObjectPtr<AActor> DriveByCar;
+	GTPArsenal::EKind OnFootKind = GTPArsenal::EKind::Pistol;
+
+	UPROPERTY(Transient)
+	TObjectPtr<USkeletalMeshComponent> GunMesh;
+
+	/** Loaded once per weapon kind (nullptr when the asset is missing). */
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<USkeletalMesh>> LoadedMeshes;
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UNiagaraSystem>> LoadedFlashes;
+	UPROPERTY(Transient)
+	TMap<FName, TObjectPtr<UAnimSequenceBase>> LoadedClips;
+
 	bool bDrawn = false;
 	bool bAiming = false;
 	bool bWasReloading = false;
-	bool bSpecApplied = false;
+	bool bLoadoutBuilt = false;
+	bool bLooksLoaded = false;
 };

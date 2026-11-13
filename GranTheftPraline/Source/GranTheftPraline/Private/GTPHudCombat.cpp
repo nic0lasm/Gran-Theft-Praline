@@ -69,7 +69,7 @@ bool GTPHudCombat::Draw(UCanvas* Canvas, const APlayerController* Controller, fl
 	const FVector2D Centre(Canvas->ClipX * 0.5f, Canvas->ClipY * 0.5f);
 
 	// Weapon: reticle and line.
-	const UGTPWeaponComponent* Weapon = Pawn->FindComponentByClass<UGTPWeaponComponent>();
+	const UGTPWeaponComponent* Weapon = UGTPWeaponComponent::FindHeld(Pawn); // at the wheel too (drive-by)
 	if (Weapon && Weapon->IsDrawn())
 	{
 		const float Fov = Controller->PlayerCameraManager ? Controller->PlayerCameraManager->GetFOVAngle() : 90.f;

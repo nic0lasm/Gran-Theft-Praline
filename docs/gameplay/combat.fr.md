@@ -121,3 +121,43 @@ Accepté par le fil Optimisation le 2026-11-11 avec trois amendements, intégré
 3. Poings, esquive, garde, neutralisation (`UGTPCombatMeleeComponent`).
 4. Couverture (`UGTPCoverComponent`), tir à l'aveugle.
 5. Police qui tire à deux étoiles (avec le fil Police), vidéo d'un combat de 2 min.
+
+## Tir façon GTA (lot du 13/11)
+
+Ce que le lot ajoute, au-dessus de ce qui précède :
+
+- **Deux armes** (règles dans `GTPWeaponLogic.h`, namespace `GTPArsenal`, testées hors Unreal) :
+
+  | | Pistolet 9 mm (fictif) | Carabine (fictive) |
+  |---|---|---|
+  | Tir | semi-automatique, 330 coups/min | automatique, 600 coups/min (gâchette tenue) |
+  | Chargeur / réserve de départ | 12 / 36 | 30 / 90 |
+  | Recharge | 1,5 s | 2,2 s |
+  | Portée | 60 m | 90 m |
+  | Dispersion hanche / visée | 3° / 0,5° | 4,5° / 0,6° |
+  | Recul par coup | 1,4°, revient à 10°/s | 0,75°, revient à 4°/s (la rafale monte) |
+  | Dégâts torse à 10 m | 20 (policier : 5 coups) | 26 (policier : 4 coups) |
+  | Depuis une voiture | oui (une main) | non (deux mains) |
+
+  Le joueur a les deux ; la police et le personnel n'ont que le pistolet. Changer d'arme prend 0,45 s.
+- **Visée à l'épaule** : en visant, la caméra à pied (`UGTPFollowCameraComponent`) passe à 135 cm derrière
+  l'épaule, décalée de 58 cm, champ 62°, sans recentrage automatique. Le changement d'épaule glisse d'un côté à
+  l'autre. Réglages `Aim*` dans `DefaultGame.ini`.
+- **Visée assistée à la manette** : la gâchette gauche accroche le corps le plus proche du réticule (9°, 40 m,
+  les policiers d'abord, jamais un mort ni quelqu'un derrière un mur). La souris n'est jamais assistée.
+- **Tir depuis la voiture** : au volant, viser (clic droit, ou bumper gauche à la manette) sort le pistolet ;
+  clic gauche, ou bumper droit pendant la visée (le frein à main reprend ensuite), tire par les vitres latérales
+  ou le pare-brise, jamais droit derrière (`GTPDriveBy` : 150° de chaque côté, de -30° à +35°). La dispersion est
+  ×1,6 et grandit avec la vitesse (+2,5° à 108 km/h). La voiture du joueur n'est jamais touchée par ses tirs.
+- **Police et panique** : chaque tir du joueur va au système de menace (les piétons fuient, y compris la foule
+  Mass) et devient un délit pour la police, comme dans GTA : coups de feu, menace armée (seulement si quelqu'un
+  est dans le viseur), agression (coup de poing), policier touché, meurtre, meurtre de policier. Les témoins
+  décident si ça compte (`GTPWitnessLogic`). Le banc `-CombatBench=1` n'appelle jamais la police, pour que la
+  scène reste identique d'une passe à l'autre.
+- **Lyra** (contenu Epic, hors Git, migré sur le PC avec ses chemins d'origine) : flamme de bouche
+  `NS_WeaponFire_MuzzleFlash_Rifle` (préchauffée au chargement), impacts `NS_ImpactConcrete` et `NS_ImpactGlass`
+  (`ImpactSystems`). Meshes d'armes et animations : chemins à renseigner dans `Looks` et `Clips`
+  (`UGTPWeaponComponent`) d'après le rapport du PC. Chaque asset absent est signalé une fois dans le journal ;
+  le jeu tourne sans.
+
+Commandes ajoutées : arme suivante = molette, 2, ou bumper gauche à pied ; arme précédente = molette vers le haut.

@@ -9,6 +9,7 @@
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
+#include "GTPWeapon.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogGTPFollowCamera, Log, All);
 
@@ -155,9 +156,9 @@ void UGTPFollowCameraComponent::UpdateRecenter(APlayerController* PC, const ACha
 		return;
 	}
 
-	if (!bAutoRecenter)
+	if (!bAutoRecenter || AimAlpha > 0.05f)
 	{
-		return;
+		return; // never drift while aiming a gun
 	}
 	const UCharacterMovementComponent* Movement = Character->GetCharacterMovement();
 	const FVector Velocity = Character->GetVelocity() * FVector(1.f, 1.f, 0.f);
@@ -229,6 +230,14 @@ void UGTPFollowCameraComponent::UpdateCamera(APlayerController* PC, const AChara
 	bHasState = true;
 	const FRotator Rotation(FRotator::NormalizeAxis(SmoothedRotation.Pitch), SmoothedRotation.Yaw, 0.f);
 
+	// Aiming a gun: in over the shoulder the weapon names (GTA-like).
+	const UGTPWeaponComponent* Weapon = Character->FindComponentByClass<UGTPWeaponComponent>();
+	const bool bAiming = Weapon && Weapon->IsAiming();
+	const float TargetSide = (Weapon && !Weapon->IsRightShoulder()) ? -1.f : 1.f;
+	const float AimRate = SmoothAlpha(AimBlendSpeed, DeltaTime);
+	AimAlpha = bInstant ? (bAiming ? 1.f : 0.f) : FMath::Lerp(AimAlpha, bAiming ? 1.f : 0.f, AimRate);
+	ShoulderSide = bInstant ? TargetSide : FMath::Lerp(ShoulderSide, TargetSide, AimRate);
+
 	// Framing: farther when sprinting, closer crouched or looking up.
 	const float SprintAlpha = SprintFullSpeed > SprintBlendStartSpeed
 		? FMath::Clamp((Speed - SprintBlendStartSpeed) / (SprintFullSpeed - SprintBlendStartSpeed), 0.f, 1.f)
@@ -239,9 +248,12 @@ void UGTPFollowCameraComponent::UpdateCamera(APlayerController* PC, const AChara
 	{
 		TargetArm *= FMath::Lerp(1.f, LookUpArmScale, FMath::Clamp(ViewPitch / 60.f, 0.f, 1.f));
 	}
-	CurrentArm = bInstant ? TargetArm : FMath::Lerp(CurrentArm, TargetArm, SmoothAlpha(ArmSpeed, DeltaTime));
+	TargetArm = FMath::Lerp(TargetArm, AimArmLength, AimAlpha);
+	// The aim framing follows at its own (faster) rate, the free framing at ArmSpeed.
+	CurrentArm = bInstant ? TargetArm : FMath::Lerp(CurrentArm, TargetArm, SmoothAlpha(FMath::Lerp(ArmSpeed, AimBlendSpeed, AimAlpha), DeltaTime));
+	const FVector2D Shoulder = FMath::Lerp(ShoulderOffset, AimShoulderOffset, AimAlpha);
 
-	const FVector Desired = SmoothedPivot + Rotation.RotateVector(FVector(-CurrentArm, ShoulderOffset.X, ShoulderOffset.Y));
+	const FVector Desired = SmoothedPivot + Rotation.RotateVector(FVector(-CurrentArm, Shoulder.X * ShoulderSide, Shoulder.Y));
 
 	// Collision: sweep from the unlagged pivot (inside the capsule, never in a wall).
 	float HitFraction = 1.f;
@@ -267,7 +279,7 @@ void UGTPFollowCameraComponent::UpdateCamera(APlayerController* PC, const AChara
 	const FVector Location = RawPivot + (Desired - RawPivot) * CollisionFraction;
 	CurrentDistance = FVector::Dist(Location, RawPivot);
 
-	const float TargetFOV = FMath::Lerp(BaseFOV, SprintFOV, SprintAlpha);
+	const float TargetFOV = FMath::Lerp(FMath::Lerp(BaseFOV, SprintFOV, SprintAlpha), AimFOV, AimAlpha);
 	CurrentFOV = bInstant ? TargetFOV : FMath::Lerp(CurrentFOV, TargetFOV, SmoothAlpha(FOVSpeed, DeltaTime));
 
 	Camera->SetActorLocationAndRotation(Location, Rotation);

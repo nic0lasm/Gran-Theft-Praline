@@ -78,6 +78,7 @@ inline constexpr FStringEntry Entries[] = {
 	{"prompt.exit_vehicle", "Descendre", "Get out"},
 	{"hud.reloading", "Rechargement…", "Reloading…"},
 	{"Weapon.Pistol9", "Pistolet 9 mm", "9 mm pistol"},
+	{"Weapon.Carbine", "Carabine", "Carbine"},
 	{"Weapon.Fist", "Poings", "Fists"},
 	// Missions (converted from Content/Data/Missions/strings.tsv)
 	{"mission.start.prompt", "Commencer : {0}", "Start: {0}"},
