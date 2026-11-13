@@ -1,7 +1,3 @@
-23:14 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
-23:24 night59-1: no crash (exit 0) 23:14:21-23:24:24, end t=599, police=76 | night59-1: 23799 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 2 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 28.1 | gpu p50 11.04 p95 20.78 | gate PASS
-23:34 night59-2: no crash (exit 0) 23:24:44-23:34:46, end t=598, police=85 | night59-2: 23793 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.8 %) | >26 0 | >50 0 | >100 0 | frame p50 25.01 p95 25.03 max 25.3 | gpu p50 13.68 p95 20.67 | gate PASS
-23:45 night59-3: no crash (exit 0) 23:35:07-23:45:09, end t=598, police=80 | night59-3: 23793 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.7 %) | >26 1 | >50 0 | >100 0 | frame p50 25.01 p95 25.03 max 27.6 | gpu p50 14.02 p95 20.99 | gate PASS
 23:55 night59-4: no crash (exit 0) 23:45:29-23:55:31, end t=598, police=83 | night59-4: 23793 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.8 %) | >26 0 | >50 0 | >100 0 | frame p50 25.01 p95 25.03 max 25.1 | gpu p50 13.90 p95 20.92 | gate PASS
 00:05 pushed etat
 00:05 night59-5: no crash (exit 0) 23:55:51-00:05:53, end t=285, police=36 | night59-5: 23797 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.8 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.2 | gpu p50 13.89 p95 20.76 | gate PASS
@@ -58,3 +54,7 @@
 07:26 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
 07:26 pushed etat
 07:26 == night59 end
+16:01 pushed etat
+16:01 list60 starts
+16:01 endurance package: cand13
+16:01 endurance package now: cand15b
