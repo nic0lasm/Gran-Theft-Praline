@@ -297,6 +297,8 @@ static void TestArsenal()
 		FLoadout P = FLoadout::Make({EKind::Pistol}, {24});
 		CHECK(P.Next() == EKind::Pistol && !P.Select(EKind::Carbine, 0.f));
 		CHECK(P.Give(EKind::Carbine, 60) && !P.Give(EKind::Carbine, 30) && P.States[1].Reserve == 90);
+		P.StripAll();
+		CHECK(P.States[0].Magazine == 0 && P.States[0].Reserve == 0 && P.States[1].Reserve == 0 && P.Has(EKind::Carbine));
 		FLoadout Long = FLoadout::Make({EKind::Carbine}, {60});
 		CHECK(Long.FirstOneHanded() == EKind::Count);
 	}

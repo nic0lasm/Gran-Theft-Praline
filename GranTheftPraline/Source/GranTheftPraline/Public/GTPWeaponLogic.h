@@ -464,6 +464,17 @@ struct FLoadout
 		return EKind::Count;
 	}
 
+	/** Arrest: every carried weapon loses its magazine and reserve (it stays carried, empty). */
+	void StripAll()
+	{
+		for (GTPWeapon::FState& S : States)
+		{
+			GTPWeapon::CancelReload(S);
+			S.Magazine = 0;
+			S.Reserve = 0;
+		}
+	}
+
 	/** Advances the switch; returns true on the step it ends. */
 	bool TickSwitch(float Dt)
 	{

@@ -135,8 +135,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	int32 AddAmmo(int32 Rounds) { return GTPWeapon::AddAmmo(Loadout.State(), Loadout.Spec(), Rounds); }
 
-	/** Arrest: the police take the gun and the ammunition. */
-	void StripAmmo() { State.Magazine = 0; State.Reserve = 0; }
+	/** Arrest: the police take the guns and the ammunition (every weapon carried). */
+	void StripAmmo() { Loadout.StripAll(); }
 
 	// The HUD reads these every frame (interface thread).
 	UFUNCTION(BlueprintPure, Category = "Weapon")
