@@ -223,6 +223,14 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail)
 		Detail = TEXT("no weapon or no threat subsystem (-ThreatResponse=0?)");
 		return EResult::Fail;
 	}
+	// Busted in the chase: the police took the ammunition. Aiming needs a loaded gun, so it comes back here, not at the shot.
+	if (Weapon->GetMagazine() + Weapon->GetReserve() <= 0)
+	{
+		const int32 Given = Weapon->AddAmmo(36);
+		Weapon->SetDrawn(true);
+		Weapon->Reload();
+		GTP_TRACE(LogGTPGtaRun, TEXT("GTARun: player re-armed after the arrest (+%d rounds)"), Given);
+	}
 	const FVector Eye = Character->GetActorLocation() + FVector(0.f, 0.f, 60.f);
 	AActor* Victim = nullptr;
 	double Best = 1800.0;
