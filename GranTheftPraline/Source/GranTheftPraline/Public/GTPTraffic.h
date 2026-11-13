@@ -56,6 +56,14 @@ struct GRANTHEFTPRALINE_API FGTPLaneFollower
 	/** Chases and demos: the speed given to Step is the limit, not the lane's posted speed. */
 	bool bIgnoreLaneLimit = false;
 
+	/** Chases and demos: corners taken at 5 m/s2 instead of the calm 2.2, braking harder, firmer throttle (a flight, not a drive). */
+	void SetHardDriving()
+	{
+		Settings.MaxLateralAccel = 5.f;
+		Settings.ComfortDecel = 6.f;
+		Settings.ThrottleGain = 0.8f;
+	}
+
 	bool IsActive() const { return Network.IsValid() && Route.Num() > 0; }
 
 	/** Index of the lane being followed, INDEX_NONE when idle (logged by the deterministic demo to compare two runs). */
