@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "Engine/TimerHandle.h"
 #include "WheeledVehiclePawn.h"
+#include "GTPCarjackLogic.h"
 #include "GTPVehicle.generated.h"
 
 class AController;
@@ -203,9 +204,16 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Vehicle")
 	float GetThrottleAmount() const { return ThrottleAmount; }
 
-	/** True while someone sits at the wheel of a car that is not wrecked. */
+	/** True while someone sits at the wheel of a car that is not wrecked, once the engine has started. */
 	UFUNCTION(BlueprintPure, Category = "Vehicle")
-	bool IsEngineRunning() const { return Driver != nullptr && !bWrecked; }
+	bool IsEngineRunning() const;
+
+	/**
+	 * A non-player driver brakes and stays put for Seconds: the player walked up to the
+	 * car to take it (UGTPVehicleInteractionComponent). Read by the traffic driver.
+	 */
+	void RequestAIStop(float Seconds);
+	bool IsAIStopRequested() const;
 
 	/**
 	 * Driving inputs for a non-player driver (UGTPAIDriverComponent).
@@ -334,6 +342,13 @@ protected:
 	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Seats")
 	float MaxEntrySpeedKmh = 12.f;
 
+	/** Starting the engine of a car that was not running, and hot-wiring one entered through a broken window (s). */
+	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Seats")
+	float EngineStartSeconds = 0.7f;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Seats")
+	float HotwireSeconds = 1.4f;
+
 	/** How far a driver pulled out of the car runs off (cm). */
 	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Seats")
 	float VictimFleeDistance = 2500.f;
@@ -385,6 +400,31 @@ protected:
 
 	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Camera")
 	float InteriorFOV = 85.f;
+
+	/** The chase camera pulls back this much more at FOVMaxSpeedKmh (cm). */
+	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Camera")
+	float ChaseSpeedExtraDistance = 150.f;
+
+	/** Share of the way the recentring camera turns towards where the car is going rather than where it points (slides). */
+	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Camera")
+	float VelocityLookWeight = 0.6f;
+
+	/** Camera jolt of the hardest impact (cm). */
+	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Camera")
+	float ImpactShakeCm = 22.f;
+
+	/** Arcade help for the player's car (GTPCarjackLogic.h): torque, handbrake turns, stability, damage. */
+	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Driving")
+	float PlayerTorque = 240.f;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Driving")
+	float DriftRearGrip = 0.55f;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Driving")
+	float DriftYawAccel = 160.f;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Driving")
+	float StabilityDamping = 1.6f;
 
 	/** Driver eye position for the interior view, in actor space (cm). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Vehicle|Camera")
@@ -464,6 +504,11 @@ private:
 	// Camera
 	void UpdateChaseCamera(float DeltaSeconds);
 
+	// Arcade driving help and model profiles
+	void UpdateDriveAssist(float DeltaSeconds);
+	void SetRearGrip(float Multiplier);
+	void ApplyModelProfile();
+
 	// Damage
 	UFUNCTION()
 	void OnBodyHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
@@ -512,5 +557,18 @@ private:
 	const TCHAR* LastPlacedHow = TEXT("none");
 	bool bHitByPlayer = false;
 	bool bFleeAfterExit = false;
+
+	GTPCarjack::FDriveAssist Assist;
+	bool bPlayerAssist = false;
+	bool bHandbrakeHeld = false;
+	float SteerInput = 0.f;
+	float BaseTorque = 130.f;
+	float RearGripBase = 1.f;
+	float RearGripNow = 1.f;
+	float AppliedPower = 1.f;
+	float UpsideDownTime = 0.f;
+	float ImpactShake = 0.f;
+	double AIStopUntil = -1.0;
+	double EngineStartUntil = -1.0;
 	FVector FleeFrom = FVector::ZeroVector;
 };

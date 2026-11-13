@@ -3,6 +3,7 @@
 #include "Kismet/GameplayStatics.h"
 
 #include "GTPCameraModeComponent.h"
+#include "GTPCarjackVictim.h"
 #include "GTPLog.h"
 #include "GTPPlayerReaction.h"
 #include "GTPEngineSoundComponent.h"
@@ -16,6 +17,7 @@
 #include "Animation/AnimMontage.h"
 #include "Camera/CameraComponent.h"
 #include "ChaosWheeledVehicleMovementComponent.h"
+#include "ChaosVehicleWheel.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/DamageEvents.h"
@@ -249,6 +251,75 @@ void AGTPVehicle::BeginPlay()
 		Move->SetRequiresControllerForInputs(false);
 		Move->SetHandbrakeInput(true);
 	}
+	ApplyModelProfile();
+	if (UChaosWheeledVehicleMovementComponent* Move = GetWheeledMovement())
+	{
+		BaseTorque = Move->EngineSetup.MaxTorque;
+		if (Move->Wheels.Num() > 2 && Move->Wheels[2])
+		{
+			RearGripBase = Move->Wheels[2]->FrictionForceMultiplier;
+			RearGripNow = RearGripBase;
+		}
+	}
+	Assist.PlayerTorque = PlayerTorque;
+	Assist.DriftRearGrip = DriftRearGrip;
+	Assist.DriftYawAccel = DriftYawAccel;
+	Assist.StabilityDamping = StabilityDamping;
+}
+
+void AGTPVehicle::ApplyModelProfile()
+{
+	// Driving profiles of docs/gameplay/vehicles.md section 4, by model, for the models
+	// whose Blueprint (tools/vehicles/unreal/import_vehicle.py) keeps the city car tuning.
+	UChaosWheeledVehicleMovementComponent* Move = GetWheeledMovement();
+	USkeletalMeshComponent* Body = GetMesh();
+	if (!Move || !Body)
+	{
+		return;
+	}
+	const FString Model = GetClass()->GetName();
+	float Torque = 0.f;
+	float MassKg = 0.f;
+	if (Model.Contains(TEXT("Kangoo")) || Model.Contains(TEXT("Berlingo")) || Model.Contains(TEXT("Trafic")))
+	{
+		// Van: heavier, slower, long braking.
+		Torque = 200.f;
+		MassKg = 1500.f;
+	}
+	else if (Model.Contains(TEXT("208")))
+	{
+		Torque = 140.f;
+		MassKg = 1160.f;
+	}
+	if (Torque > 0.f)
+	{
+		Move->EngineSetup.MaxTorque = Torque;
+		Move->SetMaxEngineTorque(Torque);
+	}
+	if (MassKg > 0.f)
+	{
+		Body->SetMassOverrideInKg(NAME_None, MassKg, true);
+	}
+}
+
+bool AGTPVehicle::IsEngineRunning() const
+{
+	const UWorld* World = GetWorld();
+	return Driver != nullptr && !bWrecked && (!World || World->GetTimeSeconds() >= EngineStartUntil);
+}
+
+void AGTPVehicle::RequestAIStop(float Seconds)
+{
+	if (const UWorld* World = GetWorld())
+	{
+		AIStopUntil = FMath::Max(AIStopUntil, World->GetTimeSeconds() + Seconds);
+	}
+}
+
+bool AGTPVehicle::IsAIStopRequested() const
+{
+	const UWorld* World = GetWorld();
+	return World && World->GetTimeSeconds() < AIStopUntil;
 }
 
 float AGTPVehicle::GetSpeedKmh() const
@@ -396,7 +467,8 @@ void AGTPVehicle::OnThrottle(const FInputActionValue& Value)
 	UChaosWheeledVehicleMovementComponent* Move = GetWheeledMovement();
 	if (Move && State == EGTPVehicleState::Driven && !bWrecked)
 	{
-		ThrottleAmount = FMath::Clamp(Value.Get<float>(), 0.f, 1.f);
+		// The engine is still starting (or being hot-wired): nothing yet.
+		ThrottleAmount = IsEngineRunning() ? FMath::Clamp(Value.Get<float>(), 0.f, 1.f) : 0.f;
 		Move->SetThrottleInput(ThrottleAmount);
 	}
 }
@@ -432,12 +504,14 @@ void AGTPVehicle::OnSteer(const FInputActionValue& Value)
 	UChaosWheeledVehicleMovementComponent* Move = GetWheeledMovement();
 	if (Move && State == EGTPVehicleState::Driven)
 	{
-		Move->SetSteeringInput(FMath::Clamp(Value.Get<float>(), -1.f, 1.f));
+		SteerInput = FMath::Clamp(Value.Get<float>(), -1.f, 1.f);
+		Move->SetSteeringInput(SteerInput);
 	}
 }
 
 void AGTPVehicle::OnSteerReleased()
 {
+	SteerInput = 0.f;
 	if (UChaosWheeledVehicleMovementComponent* Move = GetWheeledMovement())
 	{
 		Move->SetSteeringInput(0.f);
@@ -449,6 +523,7 @@ void AGTPVehicle::OnHandbrakeStarted()
 	UChaosWheeledVehicleMovementComponent* Move = GetWheeledMovement();
 	if (Move && State == EGTPVehicleState::Driven)
 	{
+		bHandbrakeHeld = true;
 		Move->SetHandbrakeInput(true);
 	}
 }
@@ -456,6 +531,7 @@ void AGTPVehicle::OnHandbrakeStarted()
 void AGTPVehicle::OnHandbrakeCompleted()
 {
 	UChaosWheeledVehicleMovementComponent* Move = GetWheeledMovement();
+	bHandbrakeHeld = false;
 	if (Move && State == EGTPVehicleState::Driven)
 	{
 		Move->SetHandbrakeInput(false);
@@ -492,6 +568,8 @@ void AGTPVehicle::OnLookBehindCompleted()
 void AGTPVehicle::ClearDrivingInput()
 {
 	ThrottleAmount = 0.f;
+	SteerInput = 0.f;
+	bHandbrakeHeld = false;
 	if (UChaosWheeledVehicleMovementComponent* Move = GetWheeledMovement())
 	{
 		Move->SetThrottleInput(0.f);
@@ -520,12 +598,24 @@ void AGTPVehicle::PossessedBy(AController* NewController)
 	{
 		SetInteriorView(PC->GetCameraMode() && PC->GetCameraMode()->IsFirstPerson());
 	}
+	// The player's car gets the arcade torque (GTA pick-up); AI cars keep the real one.
+	bPlayerAssist = Cast<APlayerController>(NewController) != nullptr;
+	AppliedPower = -1.f;
 }
 
 void AGTPVehicle::UnPossessed()
 {
 	Super::UnPossessed();
 	ClearDrivingInput();
+	if (bPlayerAssist)
+	{
+		bPlayerAssist = false;
+		SetRearGrip(RearGripBase);
+		if (UChaosWheeledVehicleMovementComponent* Move = GetWheeledMovement())
+		{
+			Move->SetMaxEngineTorque(BaseTorque);
+		}
+	}
 	if (UChaosWheeledVehicleMovementComponent* Move = GetWheeledMovement())
 	{
 		// A car left behind by a bail out keeps rolling; otherwise it parks.
@@ -547,7 +637,91 @@ void AGTPVehicle::Tick(float DeltaSeconds)
 	Super::Tick(DeltaSeconds);
 	if (State == EGTPVehicleState::Driven && IsLocallyControlled())
 	{
+		if (bPlayerAssist)
+		{
+			UpdateDriveAssist(DeltaSeconds);
+		}
 		UpdateChaseCamera(DeltaSeconds);
+	}
+}
+
+void AGTPVehicle::SetRearGrip(float Multiplier)
+{
+	UChaosWheeledVehicleMovementComponent* Move = GetWheeledMovement();
+	if (!Move || FMath::IsNearlyEqual(Multiplier, RearGripNow, 0.01f))
+	{
+		return;
+	}
+	RearGripNow = Multiplier;
+	for (int32 Wheel = 2; Wheel < Move->Wheels.Num(); ++Wheel)
+	{
+		Move->SetWheelFrictionMultiplier(Wheel, Multiplier);
+	}
+}
+
+void AGTPVehicle::UpdateDriveAssist(float DeltaSeconds)
+{
+	UChaosWheeledVehicleMovementComponent* Move = GetWheeledMovement();
+	USkeletalMeshComponent* Body = GetMesh();
+	if (!Move || !Body || !Body->IsSimulatingPhysics() || bWrecked)
+	{
+		return;
+	}
+	const float Speed = GetSpeedKmh();
+
+	// Power: arcade torque, less of it when the car is badly damaged.
+	const float Power = GTPCarjack::PowerFromHealth(GetHealthRatio(), Assist);
+	if (!FMath::IsNearlyEqual(Power, AppliedPower, 0.02f))
+	{
+		AppliedPower = Power;
+		Move->SetMaxEngineTorque(Assist.PlayerTorque * Power);
+	}
+
+	// Handbrake turns: less rear grip, and the tail swings with the steering.
+	const bool bDrift = bHandbrakeHeld && FMath::Abs(Speed) >= Assist.DriftMinSpeedKmh;
+	SetRearGrip(bDrift ? RearGripBase * Assist.DriftRearGrip : RearGripBase);
+	const FVector Velocity = Body->GetPhysicsLinearVelocity();
+	const FVector Forward = GetActorForwardVector().GetSafeNormal2D();
+	float SlipDeg = 0.f;
+	if (Velocity.Size2D() > 300.f)
+	{
+		const FVector Heading = Velocity.GetSafeNormal2D();
+		SlipDeg = static_cast<float>(FMath::RadiansToDegrees(FMath::Atan2(FVector::CrossProduct(Forward, Heading).Z, FVector::DotProduct(Forward, Heading))));
+	}
+	const float YawRate = static_cast<float>(Body->GetPhysicsAngularVelocityInDegrees().Z);
+	const float YawAccel = GTPCarjack::YawAssist(bHandbrakeHeld, Speed, SteerInput, SlipDeg, YawRate, Assist);
+	if (YawAccel != 0.f)
+	{
+		Body->AddTorqueInDegrees(FVector(0.f, 0.f, YawAccel), NAME_None, true);
+	}
+
+	// A car beaten on one side pulls to that side.
+	const float FullDent = FullDentDamage > 0.f ? FullDentDamage : 1.f;
+	const float Pull = GTPCarjack::PullFromDents(FMath::Clamp(ZoneDamage[static_cast<int32>(EGTPDamageZone::Left)] / FullDent, 0.f, 1.f),
+		FMath::Clamp(ZoneDamage[static_cast<int32>(EGTPDamageZone::Right)] / FullDent, 0.f, 1.f), Assist);
+	if (Pull != 0.f)
+	{
+		Move->SetSteeringInput(FMath::Clamp(SteerInput + Pull * FMath::Clamp(FMath::Abs(Speed) / 30.f, 0.f, 1.f), -1.f, 1.f));
+	}
+
+	// On its roof or side and stopped: put back on its wheels after a moment, as in GTA.
+	if (GetActorUpVector().Z < 0.25f && FMath::Abs(Speed) < 5.f)
+	{
+		UpsideDownTime += DeltaSeconds;
+		if (UpsideDownTime > 2.5f)
+		{
+			UpsideDownTime = 0.f;
+			SetActorLocationAndRotation(GetActorLocation() + FVector(0.f, 0.f, 120.f), FRotator(0.f, GetActorRotation().Yaw, 0.f), false, nullptr,
+				ETeleportType::TeleportPhysics);
+			Body->SetPhysicsLinearVelocity(FVector::ZeroVector);
+			Body->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
+			NotePlaced(TEXT("flipped back"));
+			GTP_TRACE(LogGTPVehicle, TEXT("%s: put back on its wheels"), *GetName());
+		}
+	}
+	else
+	{
+		UpsideDownTime = 0.f;
 	}
 }
 
@@ -560,7 +734,20 @@ void AGTPVehicle::UpdateChaseCamera(float DeltaSeconds)
 	}
 	const float Speed = FMath::Abs(GetSpeedKmh());
 	const float SpeedAlpha = FOVMaxSpeedKmh > 0.f ? FMath::Clamp(Speed / FOVMaxSpeedKmh, 0.f, 1.f) : 0.f;
-	ChaseCamera->SetFieldOfView(FMath::Lerp(BaseFOV, MaxSpeedFOV, SpeedAlpha));
+	ChaseCamera->SetFieldOfView(FMath::Lerp(BaseFOV, MaxSpeedFOV, SpeedAlpha) + ImpactShake * 4.f);
+	// Further back at speed, so the road ahead stays in view.
+	ChaseArm->TargetArmLength = FMath::FInterpTo(ChaseArm->TargetArmLength, ChaseDistance + SpeedAlpha * ChaseSpeedExtraDistance, DeltaSeconds, 2.f);
+	// Impact jolt, fading in a fraction of a second.
+	if (ImpactShake > 0.01f)
+	{
+		ChaseCamera->SetRelativeLocation(FVector(0.f, FMath::FRandRange(-1.f, 1.f), FMath::FRandRange(-1.f, 1.f)) * ImpactShake * ImpactShakeCm);
+		ImpactShake *= FMath::Exp(-8.f * DeltaSeconds);
+	}
+	else if (ImpactShake > 0.f)
+	{
+		ImpactShake = 0.f;
+		ChaseCamera->SetRelativeLocation(FVector::ZeroVector);
+	}
 
 	if (bInteriorView || bLookingBehind)
 	{
@@ -571,7 +758,15 @@ void AGTPVehicle::UpdateChaseCamera(float DeltaSeconds)
 	if (SinceLook > RecenterDelay && Speed > RecenterMinSpeedKmh)
 	{
 		const FRotator Current = PC->GetControlRotation();
-		const FRotator Target(ChasePitch, GetActorRotation().Yaw, 0.f);
+		// In a slide the camera looks part of the way towards where the car is going.
+		float TargetYaw = static_cast<float>(GetActorRotation().Yaw);
+		const FVector Velocity = GetVelocity();
+		if (Velocity.Size2D() > 500.f && GetSpeedKmh() > 0.f)
+		{
+			const float Slide = FRotator::NormalizeAxis(static_cast<float>(Velocity.Rotation().Yaw) - TargetYaw);
+			TargetYaw += FMath::Clamp(Slide, -60.f, 60.f) * VelocityLookWeight;
+		}
+		const FRotator Target(ChasePitch, TargetYaw, 0.f);
 		PC->SetControlRotation(FMath::RInterpTo(Current, Target, DeltaSeconds, RecenterSpeed));
 	}
 }
@@ -687,11 +882,10 @@ bool AGTPVehicle::BeginEnter(ACharacter* Character, AController* DriverControlle
 			const FVector Out = (Door - GetActorLocation()).GetSafeNormal2D();
 			ReleaseCharacter(Victim, Door + Out * 110.f + FVector(0.f, 0.f, Victim->GetSimpleCollisionHalfHeight()), Facing);
 			Victim->LaunchCharacter(Out * 250.f, true, false);
-			// A non-player driver runs off, away from the car (no navigation mesh needed).
-			if (AAIController* VictimAI = Cast<AAIController>(Victim->GetController()))
+			// A non-player driver runs off, comes back at the thief, or cowers (GTPCarjackLogic.h).
+			if (Cast<AAIController>(Victim->GetController()))
 			{
-				const FVector FleeTo = Door + Out * VictimFleeDistance + GetActorForwardVector() * (VictimFleeDistance * 0.5f);
-				VictimAI->MoveToLocation(FleeTo, 50.f, false, false);
+				UGTPCarjackVictimComponent::Start(Victim, this, Character);
 			}
 		}
 		Duration = PlayMontageOr(Character, CarjackMontage, CarjackDuration);
@@ -730,6 +924,14 @@ void AGTPVehicle::FinishEnter()
 	bLocked = false;
 	DriverController->SetIgnoreMoveInput(false);
 	State = EGTPVehicleState::Driven;
+	// A parked car starts (or is hot-wired through the broken window); a car taken from its
+	// driver is already running.
+	if (PendingEntry != EGTPEntryKind::Carjack)
+	{
+		const float Start = PendingEntry == EGTPEntryKind::BreakWindow ? HotwireSeconds : EngineStartSeconds;
+		EngineStartUntil = GetWorld()->GetTimeSeconds() + Start;
+		GTP_TRACE(LogGTPVehicle, TEXT("%s: engine starting (%.1f s)"), *GetName(), Start);
+	}
 	DriverController->Possess(this);
 }
 
@@ -1082,6 +1284,10 @@ void AGTPVehicle::OnBodyHit(UPrimitiveComponent* HitComponent, AActor* OtherActo
 	if (DeltaV < MinImpactSpeed)
 	{
 		return;
+	}
+	if (bPlayerAssist)
+	{
+		ImpactShake = FMath::Max(ImpactShake, FMath::Clamp(DeltaV / 1200.f, 0.2f, 1.f));
 	}
 	// Traffic does not wreck itself: a hit between two AI cars, or from a moving kinematic body (a
 	// ghost car teleported along its lane, a pedestrian capsule), deals no damage unless the player's

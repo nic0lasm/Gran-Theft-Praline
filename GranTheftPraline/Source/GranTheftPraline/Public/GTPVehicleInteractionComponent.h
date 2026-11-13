@@ -38,6 +38,24 @@ protected:
 	UPROPERTY(Config, EditAnywhere, Category = "Vehicle")
 	float ViewAlignmentWeight = 150.f;
 
+	/**
+	 * Taking a car that still rolls (traffic): within this distance of a door and under this
+	 * speed, its driver is made to stop and the player gets in as soon as it does (cm, km/h).
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Vehicle")
+	float FlagDownDistance = 650.f;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Vehicle")
+	float FlagDownMaxSpeedKmh = 45.f;
+
 private:
 	APlayerController* GetPlayerController() const;
+
+	/** Moving AI car near the character, or null. */
+	AGTPVehicle* FindRollingCar() const;
+	void TryPendingEntry();
+
+	TWeakObjectPtr<AGTPVehicle> PendingCar;
+	FTimerHandle PendingTimer;
+	float PendingLeft = 0.f;
 };
