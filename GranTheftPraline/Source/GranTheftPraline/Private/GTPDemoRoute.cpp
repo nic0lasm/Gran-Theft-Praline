@@ -360,7 +360,7 @@ void UGTPDemoRoute::BuildChaseRoute(AGTPTrafficNetwork& Network, const AGTPVehic
 	GTP_TRACE(LogGTPDemo, TEXT("Demo chase: fixed route of %d lanes, %.0f m, from lane %d"), LaneCount, LengthCm / 100.0, StartLane);
 }
 
-bool UGTPDemoRoute::DriveChaseRoute(AGTPVehicle* Driven, APlayerController* PC, double Now, double T, float CruiseKmh)
+bool UGTPDemoRoute::DriveChaseRoute(AGTPVehicle* Driven, APlayerController* PC, double Now, double T, float ChaseCruiseKmh)
 {
 	TActorIterator<AGTPTrafficNetwork> Network(Driven->GetWorld());
 	if (!Network)
@@ -374,7 +374,7 @@ bool UGTPDemoRoute::DriveChaseRoute(AGTPVehicle* Driven, APlayerController* PC, 
 		ChaseSettings.ComfortDecel = 5.f;
 		ChaseSettings.SafeGap = 5.f;
 		ChaseSettings.ThrottleGain = 0.8f;
-		BuildChaseRoute(*Network, *Driven);
+		BuildChaseRoute(**Network, *Driven);
 	}
 	if (ChasePath.empty())
 	{
@@ -407,8 +407,8 @@ bool UGTPDemoRoute::DriveChaseRoute(AGTPVehicle* Driven, APlayerController* PC, 
 	}
 	const float Obstacle = UGTPAIDriverComponent::ProbeAhead(Driven, 900.f, 60.f);
 	FGTPDriveCommand Command = GTPDrive::Decide(ChasePath, static_cast<float>(Location.X) * 0.01f, static_cast<float>(Location.Y) * 0.01f,
-		FMath::DegreesToRadians(static_cast<float>(Driven->GetActorRotation().Yaw)), SpeedKmh / 3.6f, CruiseKmh / 3.6f, Obstacle, ChaseSettings, ChaseClosest);
-	if (Command.Brake < 0.05f && SpeedKmh < CruiseKmh - 4.f)
+		FMath::DegreesToRadians(static_cast<float>(Driven->GetActorRotation().Yaw)), SpeedKmh / 3.6f, ChaseCruiseKmh / 3.6f, Obstacle, ChaseSettings, ChaseClosest);
+	if (Command.Brake < 0.05f && SpeedKmh < ChaseCruiseKmh - 4.f)
 	{
 		Command.Throttle = FMath::Max(Command.Throttle, 0.7f);
 	}

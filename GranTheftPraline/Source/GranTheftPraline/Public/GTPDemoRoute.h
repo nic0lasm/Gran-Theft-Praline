@@ -115,7 +115,7 @@ private:
 	bool RelocateChaseCar(class AGTPVehicle* Driven, class APlayerController* PC, double Now);
 
 	/** Chase demo: the fixed route (a polyline built once from the lanes, then followed by pure pursuit). */
-	bool DriveChaseRoute(class AGTPVehicle* Driven, class APlayerController* PC, double Now, double T, float CruiseKmh);
+	bool DriveChaseRoute(class AGTPVehicle* Driven, class APlayerController* PC, double Now, double T, float ChaseCruiseKmh);
 	void BuildChaseRoute(class AGTPTrafficNetwork& Network, const class AGTPVehicle& Driven);
 	std::vector<FGTPDrivePoint> ChasePath;
 	int ChaseClosest = 0;
