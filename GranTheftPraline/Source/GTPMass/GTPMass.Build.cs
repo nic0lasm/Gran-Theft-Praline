@@ -14,6 +14,7 @@ public class GTPMass : ModuleRules
 			"CoreUObject",
 			"Engine",
 			"ZoneGraph",
+			"MassCore",
 			"MassEntity",
 			"MassCommon",
 			"MassSimulation",
