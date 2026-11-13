@@ -515,8 +515,8 @@ SHOP_DAY_GLOW = float(os.environ.get("GTP_SHOP_DAY_GLOW", "600"))   # 250 grey, 
 # at dusk (V5, 17:38 in December, PC 13/11) and dim at midnight. EyeAdaptationInverse (no input:
 # 1 / exposure) times NightScreen gives the room's value on screen; 1.0 is about a white wall in
 # daylight. The day path is unchanged (DayGlow, exposure EV100 14).
-SHOP_NIGHT_SCREEN = float(os.environ.get("GTP_SHOP_NIGHT_SCREEN", "1.6"))
-WINDOW_NIGHT_SCREEN = float(os.environ.get("GTP_WINDOW_NIGHT_SCREEN", "1.2"))
+SHOP_NIGHT_SCREEN = float(os.environ.get("GTP_SHOP_NIGHT_SCREEN", "0.7"))
+WINDOW_NIGHT_SCREEN = float(os.environ.get("GTP_WINDOW_NIGHT_SCREEN", "0.6"))
 
 
 def city_lights(g):
