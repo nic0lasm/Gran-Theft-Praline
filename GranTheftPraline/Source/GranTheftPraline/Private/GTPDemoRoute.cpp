@@ -68,7 +68,7 @@ void UGTPDemoRoute::Initialize(FSubsystemCollectionBase& Collection)
 	}
 	if (bChase)
 	{
-		DriveTime = 120.0;
+		DriveTime = 150.0;
 	}
 	FParse::Value(FCommandLine::Get(), TEXT("DemoDriveTime="), DriveTime);
 	bToRiver = FParse::Param(FCommandLine::Get(), TEXT("DemoToRiver"));
@@ -502,11 +502,31 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 		if (bChase)
 		{
 			Cruise = T >= 60.0 ? 70.f : 40.f;
+			// The way ahead is kept clear of the city's traffic (a demo cannot queue behind a taxi): traffic cars
+			// within 35 m in front of the player are taken off the road twice a second.
+			if (Now >= NextClear)
+			{
+				NextClear = Now + 0.5;
+				TActorIterator<AGTPTrafficNetwork> Network(Driven->GetWorld());
+				for (TActorIterator<AGTPVehicle> It(Driven->GetWorld()); Network && It; ++It)
+				{
+					AGTPVehicle* Other = *It;
+					if (Other == Driven || !Other->HasAIDriver() || Other->ActorHasTag(TEXT("GTPPolice")))
+					{
+						continue;
+					}
+					const FVector Offset = Other->GetActorLocation() - Driven->GetActorLocation();
+					if (Offset.Size2D() < 3500.f && FVector::DotProduct(Offset.GetSafeNormal2D(), Driven->GetActorForwardVector().GetSafeNormal2D()) > 0.5f)
+					{
+						Network->Recycle(Other);
+					}
+				}
+			}
 			UGTPWantedComponent* Wanted = PC->FindComponentByClass<UGTPWantedComponent>();
 			if (Wanted)
 			{
 				// Nobody can arrest the player before the flight starts: the chase must show first.
-				Wanted->SetArrestEnabled(T >= 60.0);
+				Wanted->SetArrestEnabled(T >= 100.0);
 				if (T >= 8.0 && T < 60.0)
 				{
 					Wanted->EnsureMinStars(T >= 30.0 ? 3 : 2);
@@ -631,7 +651,7 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 				}
 			}
 			if (Follower.Step(Driven->GetActorLocation(), static_cast<float>(Driven->GetActorRotation().Yaw), Driven->GetSpeedKmh(), Cruise,
-				Now < RamUntil ? 1000.f : (bChase ? UGTPAIDriverComponent::ProbeAhead(Driven, 2200.f, 70.f) : UGTPAIDriverComponent::ProbeAhead(Driven, 4000.f, 90.f)), Command))
+				Now < RamUntil ? 1000.f : (bChase ? UGTPAIDriverComponent::ProbeAhead(Driven, 900.f, 60.f) : UGTPAIDriverComponent::ProbeAhead(Driven, 4000.f, 90.f)), Command))
 			{
 				if (bChase && Command.Brake < 0.05f && Driven->GetSpeedKmh() < Cruise - 4.f)
 				{

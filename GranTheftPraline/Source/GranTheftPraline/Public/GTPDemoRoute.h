@@ -38,9 +38,9 @@ class APlayerController;
  * to the nearest car with a non-player driver, steps in front of it so that
  * it stops, presses the enter action at the driver door (the driver is pulled
  * out) and drives on. Each step is logged.
- * -PoliceChaseDemo = -DemoCarjack plus a scripted chase (default 120 s of driving): the stolen
+ * -PoliceChaseDemo = -DemoCarjack plus a scripted chase (default 150 s of driving): the stolen
  * car runs at 40 km/h, the level is raised to 2 stars 8 s after the wheel is taken and to 3 after 30 s,
- * from 60 s on the player flees at 70 km/h (40 km/h before) and the level is left to fall by itself. Logged as
+ * from 60 s on the player flees (arrest possible from 100 s) at 70 km/h (40 km/h before) and the level is left to fall by itself. Logged as
  * "DemoChase t=... stars=... phase=..." every 5 s.
  */
 UCLASS()
@@ -108,6 +108,7 @@ private:
 	int32 ChaseStuckCount = 0;
 	double NextDriveDiag = 0.0;
 	double NextRelocate = 0.0;
+	double NextClear = 0.0;
 	double NextChaseLog = 0.0;
 	double CarjackRetarget = 0.0;
 	/** Drives along the traffic lanes once the car is on one (else holds the street heading). */
