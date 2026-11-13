@@ -164,15 +164,15 @@ void UGTPCrowdSubsystem::Spawn(UWorld& InWorld)
 	for (int32 Index = 0; Index < CrowdCount; ++Index)
 	{
 		const FMassEntityHandle Entity = EntityManager.CreateEntity(Archetype);
-		FGTPCrowdWalkerFragment& Walk = EntityManager.GetFragmentDataChecked<FGTPCrowdWalkerFragment>(Entity);
+		FGTPCrowdWalkerFragment& WalkFrag = EntityManager.GetFragmentDataChecked<FGTPCrowdWalkerFragment>(Entity);
 		FGTPCrowdLookFragment& Look = EntityManager.GetFragmentDataChecked<FGTPCrowdLookFragment>(Entity);
-		if (PlaceAroundPlayer(Walk.Walker, Rng))
+		if (PlaceAroundPlayer(WalkFrag.Walker, Rng))
 		{
 			GTPWalk::FPoint P, D;
-			GTPWalk::Locate(Graph, Walk.Walker, P, D);
-			Walk.Location = FVector(P.X, P.Y, 0.f);
-			Walk.GroundZ = GroundAt(Walk.Location);
-			Walk.Yaw = FMath::RadiansToDegrees(FMath::Atan2(D.Y, D.X));
+			GTPWalk::Locate(Graph, WalkFrag.Walker, P, D);
+			WalkFrag.Location = FVector(P.X, P.Y, 0.f);
+			WalkFrag.GroundZ = GroundAt(WalkFrag.Location);
+			WalkFrag.Yaw = FMath::RadiansToDegrees(FMath::Atan2(D.Y, D.X));
 			++Placed;
 		}
 		Look.Scale = Rng.Range(1.f - HeightSpread, 1.f + HeightSpread);
