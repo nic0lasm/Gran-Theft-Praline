@@ -26,6 +26,9 @@ Status 13/11/2026: prepared, not compiled, waiting for City Sample on the PC. De
    MIT licence). Traffic also needs ChaosVehiclesPlugin, ZoneGraph, MassAI, MassCrowd, MassGameplay
    and AnimToTexture, already enabled.
    Apply the fixes listed in the README of github.com/Myxcil/MassTraffic-Test (read, nothing copied).
+   Then `python tools/vehicles/patch_citysample_traffic.py <project>/GranTheftPraline`: it turns
+   off MSVC's false C4723 ("divide by 0") in MassTrafficSubsystem.cpp, which otherwise fails the
+   Development package (idempotent, original kept as .orig, md5 report).
 2. `Traffic.uplugin` is not enabled by default: the `.uproject` lists it as `"Optional": true`, so
    it loads where the plugin is copied and is skipped without error elsewhere (Mac, CI).
    RuleProcessor is enabled by default.
