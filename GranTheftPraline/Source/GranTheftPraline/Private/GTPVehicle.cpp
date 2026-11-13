@@ -280,6 +280,12 @@ void AGTPVehicle::SetAIDriveInput(float Throttle, float Brake, float Steering, b
 	// the brake at a light or in a queue otherwise backed away (front-wheel drive, the
 	// handbrake holds only the rear wheels). The player's pedals keep reverse-as-brake.
 	Move->bReverseAsBrake = bReverse;
+	// Out of reverse when the AI no longer asks for it: the automatic gearbox keeps gear -1
+	// after backing out, and the throttle then drove the car backwards (-45 km/h measured).
+	if (!bReverse && Move->GetCurrentGear() < 0)
+	{
+		Move->SetTargetGear(Throttle > 0.05f ? 1 : 0, true);
+	}
 	ThrottleAmount = FMath::Clamp(Throttle, 0.f, 1.f);
 	Move->SetThrottleInput(ThrottleAmount);
 	Move->SetBrakeInput(FMath::Clamp(Brake, 0.f, 1.f));
