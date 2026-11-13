@@ -8,8 +8,10 @@ What it does, and reports in Saved/GTPCombat/lyra-weapons-setup.txt:
 1. Checks which migrated Lyra assets are present (meshes, montages, aim poses,
    muzzle flash, impacts, decals) and lists the missing ones.
 2. Retargets the Lyra weapon animations (UE5 Mannequin skeleton) onto the player's
-   skeleton (UEFN Mannequin) with an IK retargeter found in the project, into
-   /Game/Combat/Weapons/Anim/ with the suffix _UEFN. Nothing of Lyra is modified.
+   skeleton (UEFN Mannequin) into /Game/Combat/Weapons/Anim/ with the suffix _UEFN,
+   with its own retargeter (RTG_GTP_UE5_to_UEFN, chains mapped by name) built from the
+   first IK rigs found for each side. Source mesh: Lyra's SKM_Manny (or any mesh on the
+   animations' skeleton). Nothing of Lyra is modified.
 3. Lists the slot names found in the player's animation blueprints (the Lyra
    montages play in UpperBody and FullBodyAdditivePreAim) and whether the player's
    skeleton has a weapon_r socket or bone (else hand_r with an offset).
@@ -41,13 +43,25 @@ EFFECTS = [
     "/Game/Effects/Particles/Impacts/NS_ImpactGlass",
     "/Game/Effects/Materials/Decals/M_GlassBulletHoles_Decal",
 ]
-# Our clip names (UGTPWeaponComponent::Clips) <- words in the Lyra montage names.
-CLIP_WORDS = [("_Fire", "_Fire"), ("_Reload", "_Reload"), ("_Draw", "_Equip"), ("_DryFire", "_DryFire")]
 PREFIX = {"pistol": "AM_Pistol", "carbine": "AM_Carbine"}
-# IK rigs of the Game Animation Sample, used to build a retargeter when the project has none.
-SOURCE_RIG = "/Game/Characters/UE5_Mannequins/Rigs/IK_UE5_Mannequin_Retarget"
-TARGET_RIG = "/Game/Characters/UEFN_Mannequin/Rigs/IK_UEFN_Mannequin"
+# IK rigs for our retargeter, first found wins (Game Animation Sample, Lyra, the pedestrians' UEFN rig).
+SOURCE_RIGS = [
+    "/Game/Characters/UE5_Mannequins/Rigs/IK_UE5_Mannequin_Retarget",
+    "/Game/Characters/Heroes/Mannequin/Rigs/IK_Mannequin",
+]
+TARGET_RIGS = [
+    "/Game/Characters/UEFN_Mannequin/Rigs/IK_UEFN_Mannequin",
+    "/Game/Characters/Pedestrians/Retargeted/IK_SKM_UEFN_Mannequin",
+]
 MADE_RTG = "/Game/Combat/Weapons/RTG_GTP_UE5_to_UEFN"
+# Lyra's mannequin, the source mesh of the weapon animations.
+SOURCE_MESHES = ["/Game/Characters/Heroes/Mannequin/Meshes/SKM_Manny", "/Game/Characters/Heroes/Mannequin/Meshes/SKM_Quinn"]
+# Full-pose actions: the player's animation blueprint has no additive slot, so these play instead of
+# the additive montages (Lyra's Fire exists only as an additive: it needs an additive slot).
+ACTIONS = "/Game/Characters/Heroes/Mannequin/Animations/Actions"
+LYRA_WORD = {"pistol": "Pistol", "carbine": "Rifle"}
+ACTION_WORDS = ["Equip", "Reload", "DryFire", "Fire"]
+SLOT = "DefaultSlot"
 # Lyra weapon sounds, found by name wherever the migration put them.
 SOUND_NAMES = ["MSS_Weapons_Pistol_Fire", "MSS_Weapons_Rifle_Fire", "Weapons_Pistol_DryFire_01", "Weapons_Rifle_DryFire_01"]
 SLOT_NAMES = ["DefaultSlot", "UpperBody", "UpperBodyAdditive", "FullBody", "FullBodyAdditivePreAim", "Arms"]
@@ -88,27 +102,36 @@ def check_present():
 
 
 def find_retargeter():
-    candidates = assets_of_class("IKRetargeter")
-    names = [str(c.package_name) for c in candidates]
-    say("IK retargeters in the project: %s" % (", ".join(names) or "none"))
-    best = None
-    for c in candidates:
-        n = str(c.asset_name).lower()
-        if "uefn" in n and ("ue5" in n or "manny" in n or "mannequin" in n):
-            best = c
-            break
-    if best:
-        return best.get_asset()
+    names = [str(c.package_name) for c in assets_of_class("IKRetargeter")]
+    say("IK retargeters in the project (not used, ours is built from the rigs): %s" % (", ".join(names) or "none"))
     return make_retargeter()
 
 
+def first_asset(paths):
+    for path in paths:
+        asset = load(path)
+        if asset:
+            return path, asset
+    return None, None
+
+
+def chain_names(rig):
+    controller = unreal.IKRigController.get_controller(rig)
+    for fn in ("get_retarget_chains", "get_retarget_chain_names"):
+        if hasattr(controller, fn):
+            return [str(c.chain_name) if hasattr(c, "chain_name") else str(c) for c in getattr(controller, fn)()]
+    return []
+
+
 def make_retargeter():
-    """Builds UE5 Mannequin -> UEFN Mannequin from the sample's IK rigs (chains mapped by name)."""
+    """Builds UE5 Mannequin -> UEFN Mannequin from the first IK rigs found (chains mapped by name)."""
     if eal.does_asset_exist(MADE_RTG):
+        say("retargeter kept: %s" % MADE_RTG)
         return eal.load_asset(MADE_RTG)
-    source, target = load(SOURCE_RIG), load(TARGET_RIG)
+    source_path, source = first_asset(SOURCE_RIGS)
+    target_path, target = first_asset(TARGET_RIGS)
     if not source or not target:
-        say("no IK rig to build a retargeter (%s: %s, %s: %s)" % (SOURCE_RIG, bool(source), TARGET_RIG, bool(target)))
+        say("BLOCKED: no IK rig to build a retargeter (source %s, target %s)" % (source_path, target_path))
         return None
     folder, name = MADE_RTG.rsplit("/", 1)
     try:
@@ -122,13 +145,60 @@ def make_retargeter():
         if hasattr(controller, "assign_ik_rig_to_all_ops"):
             controller.assign_ik_rig_to_all_ops(unreal.RetargetSourceOrTarget.SOURCE, source)
             controller.assign_ik_rig_to_all_ops(unreal.RetargetSourceOrTarget.TARGET, target)
-        controller.auto_map_chains(unreal.AutoMapChainType.FUZZY, True)
+        for mode in ("EXACT", "FUZZY"):
+            try:
+                controller.auto_map_chains(getattr(unreal.AutoMapChainType, mode), True)
+                break
+            except Exception as error:
+                say("auto_map_chains %s failed: %s" % (mode, error))
+        # Then by name, case-insensitive (the method create_pedestrian_retargeter.py proved on 5.8).
+        by_lower = {n.lower(): n for n in chain_names(source)}
+        mapped = []
+        for chain in chain_names(target):
+            wanted = by_lower.get(chain.lower())
+            if not wanted:
+                continue
+            for args in ((wanted, chain), (unreal.Name(wanted), unreal.Name(chain))):
+                try:
+                    controller.set_source_chain(*args)
+                    mapped.append(chain)
+                    break
+                except Exception:
+                    pass
+        say("chains mapped by name: %s" % (", ".join(mapped) or "none"))
+        for side in (unreal.RetargetSourceOrTarget.SOURCE, unreal.RetargetSourceOrTarget.TARGET):
+            try:
+                controller.auto_align_all_bones(side)
+            except Exception as error:
+                say("auto_align_all_bones skipped (%s)" % error)
         eal.save_loaded_asset(rtg)
-        say("built retargeter %s from %s and %s" % (MADE_RTG, SOURCE_RIG, TARGET_RIG))
+        say("built retargeter %s from %s and %s" % (MADE_RTG, source_path, target_path))
         return rtg
     except Exception as error:
         say("BLOCKED: could not build a retargeter (%s)" % error)
         return None
+
+
+def find_source_mesh(skeleton):
+    """Lyra's mannequin, else any skeletal mesh on the animations' skeleton (read from the registry, nothing loaded)."""
+    for path in SOURCE_MESHES:
+        mesh = load(path)
+        if mesh and (skeleton is None or mesh.skeleton == skeleton):
+            return mesh
+    if skeleton is None:
+        return None
+    wanted = skeleton.get_path_name()
+    for data in assets_of_class("SkeletalMesh"):
+        if wanted in str(data.get_tag_value("Skeleton") or ""):
+            return data.get_asset()
+    return None
+
+
+def is_additive(anim):
+    try:
+        return anim.get_editor_property("additive_anim_type") != unreal.AdditiveAnimationType.AAT_NONE
+    except Exception:
+        return False
 
 
 def find_mesh(word, skeleton=None):
@@ -152,10 +222,30 @@ def retarget(sources, source_mesh, target_mesh, rtg):
         todo.append(eal.find_asset_data(src.get_path_name()))
     if not todo:
         return
-    made = unreal.IKRetargetBatchOperation.duplicate_and_retarget(todo, source_mesh, target_mesh, rtg, "", "", "", SUFFIX, True)
+    op = unreal.IKRetargetBatchOperation
+    made = None
+    attempts = (
+        dict(assets_to_retarget=todo, source_mesh=source_mesh, target_mesh=target_mesh, ik_retarget_asset=rtg,
+             target_path=OUT_DIR, search="", replace="", prefix="", suffix=SUFFIX, overwrite_existing_files=False),
+        dict(assets_to_retarget=todo, source_mesh=source_mesh, target_mesh=target_mesh, ik_retarget_asset=rtg,
+             search="", replace="", prefix="", suffix=SUFFIX),
+    )
+    for kwargs in attempts:
+        try:
+            made = op.duplicate_and_retarget(**kwargs)
+            break
+        except Exception as error:
+            say("duplicate_and_retarget (%s) failed: %s" % (", ".join(sorted(kwargs)), error))
+    if made is None:
+        say("BLOCKED: no duplicate_and_retarget call worked")
+        return
     for data in made:
+        if not hasattr(data, "package_name"):  # an object rather than asset data
+            say("retargeted %s" % data.get_path_name())
+            continue
         old = str(data.package_name)
         if old.startswith(OUT_DIR):
+            say("retargeted %s" % old)
             continue
         new = OUT_DIR + "/" + str(data.asset_name)
         if eal.does_asset_exist(new):
@@ -209,11 +299,18 @@ def main():
     sources = []
     for kind, folder in ANIM_FOLDERS.items():
         if eal.does_directory_exist(folder):
-            sources += [eal.load_asset(p) for p in eal.list_assets(folder, recursive=False) if "/AM_" in p]
+            sources += [eal.load_asset(p) for p in eal.list_assets(folder, recursive=False) if "/AM_MM_" in p]
         if load(AIM_POSES[kind]):
             sources.append(load(AIM_POSES[kind]))
+        for word in ACTION_WORDS:
+            action = load("%s/MM_%s_%s" % (ACTIONS, LYRA_WORD[kind], word))
+            if action:
+                sources.append(action)
+                say("action %s: %s" % (action.get_name(), "additive" if is_additive(action) else "full pose"))
+            else:
+                say("action MM_%s_%s: not migrated" % (LYRA_WORD[kind], word))
     source_skeleton = sources[0].get_editor_property("skeleton") if sources else None
-    source_mesh = find_mesh("SK_Mannequin", source_skeleton) if source_skeleton else None
+    source_mesh = find_source_mesh(source_skeleton)
     say("source mesh: %s ; target mesh: %s ; retargeter: %s" % (
         source_mesh.get_path_name() if source_mesh else "NONE", target_mesh.get_path_name() if target_mesh else "NONE",
         rtg.get_path_name() if rtg else "NONE"))
@@ -231,18 +328,33 @@ def main():
         mesh = MESHES[kind] + "." + os.path.basename(MESHES[kind]) if eal.does_asset_exist(MESHES[kind]) else ""
         say('+Looks=(Mesh="%s",MuzzleSocket="Muzzle",ClipPrefix="%s",MuzzleFlash="%s")' % (
             mesh, PREFIX[kind], "/Game/Effects/Particles/Weapons/NS_WeaponFire_MuzzleFlash_Rifle.NS_WeaponFire_MuzzleFlash_Rifle"))
-    for path in eal.list_assets(OUT_DIR, recursive=False) if eal.does_directory_exist(OUT_DIR) else []:
-        name = os.path.basename(path).split(".")[0]
-        kind = "pistol" if "Pistol" in name else ("carbine" if "Rifle" in name else None)
-        if not kind:
-            continue
-        asset = OUT_DIR + "/" + name + "." + name
-        if "Idle_ADS" in name:
-            say('.Clips=(Name="%s_AimLoop",Asset="%s")' % (PREFIX[kind], asset))
-            continue
-        for ours, word in CLIP_WORDS:
-            if name.endswith(word + SUFFIX):
-                say('.Clips=(Name="%s%s",Asset="%s")' % (PREFIX[kind], ours, asset))
+    # Every clip in the slot the player's blueprint has, on the upper body only (UGTPWeaponComponent::UpperBodyRoot).
+    # Full-pose action first, else the montage; an additive one is listed but never played in a full-pose slot.
+    for kind in ("pistol", "carbine"):
+        lyra = LYRA_WORD[kind]
+        for ours, word in (("_Draw", "Equip"), ("_Reload", "Reload"), ("_DryFire", "DryFire"), ("_Fire", "Fire"), ("_AimLoop", "Idle_ADS")):
+            chosen = None
+            for name in ("MM_%s_%s%s" % (lyra, word, SUFFIX), "AM_MM_%s_%s%s" % (lyra, word, SUFFIX)):
+                anim = load(OUT_DIR + "/" + name)
+                if not anim:
+                    continue
+                seq = anim
+                if isinstance(anim, unreal.AnimMontage):
+                    try:
+                        seq = anim.get_editor_property("slot_anim_tracks")[0].anim_track.anim_segments[0].get_editor_property("anim_reference")
+                    except Exception:
+                        seq = None
+                if seq and not is_additive(seq):
+                    chosen = name
+                    break
+                chosen = chosen or (name + " (additive: needs an additive slot)")
+            if not chosen:
+                say("; %s%s: no retargeted animation" % (PREFIX[kind], ours))
+                continue
+            if "additive" in chosen:
+                say("; %s%s: %s" % (PREFIX[kind], ours, chosen))
+                continue
+            say('.Clips=(Name="%s%s",Asset="%s/%s.%s",Slot="%s")' % (PREFIX[kind], ours, OUT_DIR, chosen, chosen, SLOT))
     say("== 5. Lyra weapon sounds (full paths)")
     found = {}
     for data in registry.get_assets_by_path("/Game", recursive=True):
