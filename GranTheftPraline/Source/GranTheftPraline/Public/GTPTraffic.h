@@ -513,6 +513,8 @@ private:
 	int32 ReactDemoStep = 0;
 	int32 ReactDemoWaits = 0;
 	bool bReactDemoMoved = false;
+	TWeakObjectPtr<UGTPAIDriverComponent> ReactDemoTarget;
+	double ReactDemoMoveTime = 0.0;
 	bool MovePlayerAhead(const UGTPAIDriverComponent* Driver);
 	bool bPoolSpawnCheck = true;
 

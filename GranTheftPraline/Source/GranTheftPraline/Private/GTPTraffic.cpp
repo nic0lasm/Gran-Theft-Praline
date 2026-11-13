@@ -1486,6 +1486,9 @@ void AGTPTrafficNetwork::UpdateReactDemo()
 	float BestDistance = 0.f;
 	bool bBestIdeal = false;
 	int32 Candidates = 0;
+	// The car to go and stand in front of when none is ideal: the fastest one driving forward.
+	UGTPAIDriverComponent* Mover = nullptr;
+	float MoverSpeed = 8.f;
 	for (AGTPVehicle* Car : Cars)
 	{
 		UGTPAIDriverComponent* Driver = IsValid(Car) ? Car->FindComponentByClass<UGTPAIDriverComponent>() : nullptr;
@@ -1505,6 +1508,11 @@ void AGTPTrafficNetwork::UpdateReactDemo()
 		const bool bMoving = Car->GetSpeedKmh() > 8.f;
 		const bool bNear = Distance >= 1000.f && Distance <= 2500.f;
 		const float Score = Distance / 100.f + (bInView ? 0.f : 40.f) + (bMoving ? 0.f : 30.f) + (Distance < 1000.f ? 20.f : 0.f);
+		if (Car->GetSpeedKmh() > MoverSpeed)
+		{
+			Mover = Driver;
+			MoverSpeed = Car->GetSpeedKmh();
+		}
 		if (Score < BestScore)
 		{
 			Best = Driver;
@@ -1519,20 +1527,42 @@ void AGTPTrafficNetwork::UpdateReactDemo()
 		NextReactDemoTime = Now + 2.0;
 		return;
 	}
+	// After a move: wait for that car (up to 4 s, every half second) to come 8 to 30 m
+	// in front of the camera, then fire on it.
+	if (UGTPAIDriverComponent* Target = ReactDemoTarget.Get(); Target && bReactDemoMoved)
+	{
+		const AGTPVehicle* TargetCar = Cast<AGTPVehicle>(Target->GetOwner());
+		const FVector To = TargetCar ? TargetCar->GetActorLocation() - View : FVector::ZeroVector;
+		const float Distance = static_cast<float>(To.Size());
+		const bool bReady = TargetCar && Distance >= 800.f && Distance <= 3000.f && FVector::DotProduct(To.GetSafeNormal(), Look) > 0.7f;
+		if (TargetCar && !bReady && Distance > 800.f && Now < ReactDemoMoveTime + 4.0 && Target->GetReactState() == GTPTrafficReact::EState::Cruise)
+		{
+			NextReactDemoTime = Now + 0.5;
+			return;
+		}
+		if (TargetCar && Target->GetReactState() == GTPTrafficReact::EState::Cruise)
+		{
+			Best = Target;
+			BestDistance = Distance;
+			bBestIdeal = bReady;
+		}
+	}
 	if (!bBestIdeal && ReactDemoWaits < 2)
 	{
 		++ReactDemoWaits;
 		NextReactDemoTime = Now + 2.0;
 		return;
 	}
-	if (!bBestIdeal && !bReactDemoMoved && MovePlayerAhead(Best))
+	if (!bBestIdeal && !bReactDemoMoved && MovePlayerAhead(Mover ? Mover : Best))
 	{
-		// The player now stands on the kerb ahead of that car, facing it: the next
-		// pass, a second later, finds it coming into view 15 to 25 m away.
+		// The player now stands on the kerb ahead of that car, facing it.
 		bReactDemoMoved = true;
-		NextReactDemoTime = Now + 1.0;
+		ReactDemoTarget = Mover ? Mover : Best;
+		ReactDemoMoveTime = Now;
+		NextReactDemoTime = Now + 0.5;
 		return;
 	}
+	ReactDemoTarget.Reset();
 	ReactDemoWaits = 0;
 	bReactDemoMoved = false;
 	static const TCHAR* Events[] = {TEXT("aim"), TEXT("ram"), TEXT("shot")};
