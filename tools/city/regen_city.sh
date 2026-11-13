@@ -82,4 +82,9 @@ if test -f "$repo/tools/city/traffic.py"; then
   step "traffic lanes"
   "$py" "$repo/tools/city/traffic.py" --zone "$zone" --focus "$focus" --map "$(basename "$map")"
 fi
+if test -f "$repo/tools/city/parking.py"; then
+  step "parked car slots"
+  # Only used with -ParkedCars=1; a failure here leaves the old slots and does not stop the run.
+  "$py" "$repo/tools/city/parking.py" --zone "$zone" --focus "$focus" --map "$(basename "$map")" || echo "parking: failed, old slots kept" >&2
+fi
 step "done"
