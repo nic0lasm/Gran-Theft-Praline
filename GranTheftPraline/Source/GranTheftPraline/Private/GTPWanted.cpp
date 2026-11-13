@@ -801,14 +801,28 @@ void AGTPPoliceDirector::StopWarningHorn()
 	HornCar.Reset();
 }
 
-bool AGTPPoliceDirector::IsRoadblockSite(const APawn& Player, const FGTPTrafficLane& Lane, int32 Level, FVector& OutPoint, FVector& OutAlong, double& OutDistance) const
+FVector2D AGTPPoliceDirector::GetTravelDirection(const APawn& Player) const
 {
 	const FVector Velocity = Player.GetVelocity();
-	if (Lane.Points.Num() < 4 || Velocity.Size2D() < 400.f)
+	if (Velocity.Size2D() >= 400.f)
+	{
+		LastTravelDirection = FVector2D(Velocity.X, Velocity.Y).GetSafeNormal();
+	}
+	else if (LastTravelDirection.IsNearlyZero())
+	{
+		const FVector Forward = Player.GetActorForwardVector();
+		LastTravelDirection = FVector2D(Forward.X, Forward.Y).GetSafeNormal();
+	}
+	return LastTravelDirection;
+}
+
+bool AGTPPoliceDirector::IsRoadblockSite(const APawn& Player, const FGTPTrafficLane& Lane, int32 Level, FVector& OutPoint, FVector& OutAlong, double& OutDistance) const
+{
+	if (Lane.Points.Num() < 4)
 	{
 		return false;
 	}
-	const FVector2D Direction = FVector2D(Velocity.X, Velocity.Y).GetSafeNormal();
+	const FVector2D Direction = GetTravelDirection(Player);
 	const int32 Index = Lane.Points.Num() / 2;
 	const FVector Point = Lane.Points[Index];
 	const FVector Offset = Point - Player.GetActorLocation();
@@ -884,11 +898,6 @@ bool AGTPPoliceDirector::PlaceRoadblockCar(const APawn& Player, int32 CarIndex, 
 
 bool AGTPPoliceDirector::SpawnRoadblockCar(const APawn& Player, int32 CarIndex)
 {
-	if (Player.GetVelocity().Size2D() < 400.f)
-	{
-		GTP_TRACE(LogGTPWanted, TEXT("police: no roadblock: the player is going %.0f km/h"), Player.GetVelocity().Size2D() * 0.036f);
-		return false;
-	}
 	const TArray<FGTPTrafficLane>& Lanes = Network->GetLanes();
 	FRandomStream& Dice = Random;
 	// Sites chosen by EQS (a generator over the lanes, UGTPPoliceQueries) first.

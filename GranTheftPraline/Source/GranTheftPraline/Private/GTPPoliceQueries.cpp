@@ -49,6 +49,8 @@ void UGTPEnvGenerator_RoadblockSites::GenerateItems(FEnvQueryInstance& QueryInst
 	}
 	TArray<FVector> Sites;
 	Director->CollectRoadblockSites(*Player, Sites);
+	// Generated before any test: tells the generator from the filter when a query comes back empty.
+	GTP_TRACE(LogGTPQueries, TEXT("eqs: roadblock generator made %d items (player %.0f km/h)"), Sites.Num(), Player->GetVelocity().Size2D() * 0.036f);
 	for (const FVector& Site : Sites)
 	{
 		QueryInstance.AddItemData<UEnvQueryItemType_Point>(Site);

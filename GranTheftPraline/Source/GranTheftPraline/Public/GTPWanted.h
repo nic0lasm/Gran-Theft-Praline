@@ -404,6 +404,9 @@ public:
 	void CollectRoadblockSites(const APawn& Player, TArray<FVector>& OutSites, int32 Level = 1) const;
 
 private:
+	/** Where the player is heading: their velocity, else the last direction they were driving in, else where the car points. */
+	FVector2D GetTravelDirection(const APawn& Player) const;
+	mutable FVector2D LastTravelDirection = FVector2D::ZeroVector;
 	bool IsRoadblockSite(const APawn& Player, const FGTPTrafficLane& Lane, int32 Level, FVector& OutPoint, FVector& OutAlong, double& OutDistance) const;
 	bool FindSpawnPoint(const FVector& PlayerLocation, int32& OutLane, int32& OutPoint, FTransform& OutTransform) const;
 	void DriveUnit(FUnit& Unit, UGTPWantedComponent& Wanted, const AActor& Player, float DeltaSeconds);
