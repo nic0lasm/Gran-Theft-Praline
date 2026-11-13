@@ -238,9 +238,9 @@ void AGTPGameMode::ApplyPlayerVisual(APawn* Pawn)
 							void* Node = It->ContainerPtrToValuePtr<void>(Anim);
 							for (TFieldIterator<FProperty> Pr(It->Struct); Pr; ++Pr)
 							{
-								FString V;
-								Pr->ExportText_InContainer(0, V, Node, Node, nullptr, PPF_None);
-								UE_LOG(LogGTPGameMode, Log, TEXT("  node %s (%s) = %s"), *Pr->GetName(), *Pr->GetClass()->GetName(), *V.Left(80));
+								FString NodeText;
+								Pr->ExportText_InContainer(0, NodeText, Node, Node, nullptr, PPF_None);
+								UE_LOG(LogGTPGameMode, Log, TEXT("  node %s (%s) = %s"), *Pr->GetName(), *Pr->GetClass()->GetName(), *NodeText.Left(80));
 							}
 							if (FWeakObjectProperty* Src = FindFProperty<FWeakObjectProperty>(It->Struct, TEXT("SourceMeshComponent")))
 							{
