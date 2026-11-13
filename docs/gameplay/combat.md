@@ -230,3 +230,6 @@ is taken: Lyra stands on GAS and ShooterCore, which ADR-0011 leaves out. We take
   the default visual (`PlayerVisualClass` in `DefaultGame.ini`, runtime retarget with `RTG_UEFNped_to_Metahuman`;
   `bPlayerVisualBaked=True` there or `-PlayerVisualBaked` switches to the baked clips); `-PlayerVisual=` (empty)
   shows the mannequin for weapon tests.
+- **Test benches**: `-CombatBench=1` fires every 0.45 s standing, shoulder aim held (aim pose, aim camera);
+  `-CombatBench=2` walks a slow circle (half speed, 15 degrees a second) and fires from the hip, so the wide camera
+  shows the legs walking while the reload plays on the upper body.

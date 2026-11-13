@@ -187,6 +187,8 @@ private:
 	void RespawnPlayer();
 	void WarmUpEffects();
 	void BenchShot();
+	/** -CombatBench=2: the player walks a slow circle while firing from the hip (reload on the move). */
+	void BenchWalk();
 	void SpawnBloodPool(AActor* Body);
 	void SpawnBulletHole(const FHitResult& Hit, bool bGlass);
 	void AddBloodStain(AActor* Body);
@@ -225,5 +227,8 @@ private:
 	FTimerHandle EquipTimer;
 	FTimerHandle RespawnTimer;
 	FTimerHandle BenchTimer;
+	FTimerHandle BenchWalkTimer;
 	int32 BenchShots = 0;
+	int32 BenchMode = 0;
+	float BenchWalkSeconds = 0.f;
 };

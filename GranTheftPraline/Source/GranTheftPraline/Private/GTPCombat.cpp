@@ -92,8 +92,14 @@ void UGTPCombatSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 	FParse::Value(FCommandLine::Get(), TEXT("-CombatBench="), Bench);
 	if (Bench != 0)
 	{
-		GTP_TRACE(LogGTPCombat, TEXT("combat: firefight bench on (a shot every 0.45 s)"));
+		BenchMode = Bench;
+		GTP_TRACE(LogGTPCombat, TEXT("combat: firefight bench on (a shot every 0.45 s, %s)"),
+			Bench == 2 ? TEXT("walking a circle, hip fire") : TEXT("standing, shoulder aim"));
 		InWorld.GetTimerManager().SetTimer(BenchTimer, FTimerDelegate::CreateUObject(this, &UGTPCombatSubsystem::BenchShot), 0.45f, true, 3.0f);
+		if (Bench == 2)
+		{
+			InWorld.GetTimerManager().SetTimer(BenchWalkTimer, FTimerDelegate::CreateUObject(this, &UGTPCombatSubsystem::BenchWalk), 0.02f, true, 3.0f);
+		}
 	}
 	FTimerHandle WarmUp;
 	InWorld.GetTimerManager().SetTimer(WarmUp, FTimerDelegate::CreateUObject(this, &UGTPCombatSubsystem::WarmUpEffects), 1.0f, false);
@@ -107,6 +113,7 @@ void UGTPCombatSubsystem::Deinitialize()
 		World->GetTimerManager().ClearTimer(EquipTimer);
 		World->GetTimerManager().ClearTimer(RespawnTimer);
 		World->GetTimerManager().ClearTimer(BenchTimer);
+		World->GetTimerManager().ClearTimer(BenchWalkTimer);
 	}
 	Bodies.Reset();
 	Super::Deinitialize();
@@ -730,6 +737,20 @@ void UGTPCombatSubsystem::SpawnBloodPool(AActor* Body)
 	}
 }
 
+void UGTPCombatSubsystem::BenchWalk()
+{
+	APlayerController* PC = GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr;
+	APawn* Pawn = PC ? PC->GetPawn() : nullptr;
+	if (!Pawn || !Cast<ACharacter>(Pawn))
+	{
+		return;
+	}
+	// Half speed on a slow turn (15 degrees a second): a circle of about 6 m, seen from every side by the camera.
+	BenchWalkSeconds += 0.02f;
+	const FRotator Heading(0.f, 15.f * BenchWalkSeconds, 0.f);
+	Pawn->AddMovementInput(Heading.Vector(), 0.5f);
+}
+
 void UGTPCombatSubsystem::BenchShot()
 {
 	APlayerController* PC = GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr;
@@ -743,10 +764,12 @@ void UGTPCombatSubsystem::BenchShot()
 	{
 		Weapon->SetDrawn(true);
 	}
-	// Shoulder aim held, as a player fires in GTA: the aim pose, the upper-body mask and the aim camera show.
-	if (!Weapon->IsAiming())
+	// Standing: shoulder aim held, as a player fires in GTA (aim pose, aim camera). Walking: from the hip, so
+	// the wide camera shows the legs walking while the reload plays on the upper body.
+	const bool bAim = BenchMode != 2;
+	if (Weapon->IsAiming() != bAim)
 	{
-		Weapon->SetAiming(true);
+		Weapon->SetAiming(bAim);
 	}
 	if (Weapon->GetReserve() < 24)
 	{
