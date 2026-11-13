@@ -245,7 +245,6 @@ private:
 	TArray<uint8> PanicSpread;
 	float NextPanicSpread = 0.f;
 	FDelegateHandle LoudHandle;
-	double LastLoudTime = -10.0;
+	TMap<const AActor*, double> LastLoudBySource;
 	double LastLoudLog = -10.0;
-	FVector LastLoudWhere = FVector::ZeroVector;
 };
