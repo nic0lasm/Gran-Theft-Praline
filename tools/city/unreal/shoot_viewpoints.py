@@ -183,6 +183,13 @@ def tick(dt):
         if cm:   # where the frame is really taken from (V0 came out as the player view, cand20)
             loc, rot = cm.get_camera_location(), cm.get_camera_rotation()
             state["report"][-1]["pov"] = [round(loc.x), round(loc.y), round(loc.z), round(rot.pitch, 1), round(rot.yaw, 1)]
+        try:   # the environment state the frame is lit with (wet facades lower the roughness)
+            mpc = unreal.load_asset("/Game/Environment/Weather/MPC_Environment")
+            w = pc.get_world()
+            state["report"][-1]["mpc"] = {k: round(unreal.KismetMaterialLibrary.get_scalar_parameter_value(w, mpc, k), 3)
+                                          for k in ("CityLights", "Wetness", "Puddles", "EmissiveScale")}
+        except Exception as e:  # noqa: BLE001
+            state["report"][-1]["mpc"] = repr(e)
         c = state.get("cam")
         if c:
             cl = c.get_actor_location()
