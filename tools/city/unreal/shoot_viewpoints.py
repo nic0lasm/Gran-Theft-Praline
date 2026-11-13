@@ -158,6 +158,14 @@ def tick(dt):
         camera(pc)
         hide_ui(pc)
         state["report"][-1]["view_target"] = pc.get_view_target().get_name() if pc.get_view_target() else None
+        cm = unreal.GameplayStatics.get_player_camera_manager(pc.get_world(), 0)
+        if cm:   # where the frame is really taken from (V0 came out as the player view, cand20)
+            loc, rot = cm.get_camera_location(), cm.get_camera_rotation()
+            state["report"][-1]["pov"] = [round(loc.x), round(loc.y), round(loc.z), round(rot.pitch, 1), round(rot.yaw, 1)]
+        c = state.get("cam")
+        if c:
+            cl = c.get_actor_location()
+            state["report"][-1]["cam_actor"] = [round(cl.x), round(cl.y), round(cl.z)]
         path = os.path.join(OUT, name + ".png")
         cmd(pc, 'HighResShot %dx%d filename="%s"' % (v["res"][0], v["res"][1], path))
         state["report"][-1]["file"] = path
