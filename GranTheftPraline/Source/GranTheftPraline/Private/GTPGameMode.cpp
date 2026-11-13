@@ -11,6 +11,7 @@
 #include "Misc/Paths.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/Character.h"
+#include "Animation/AnimSequence.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "AssetRegistry/AssetData.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -437,6 +438,61 @@ void AGTPGameMode::ApplyPlayerVisual(APawn* Pawn)
 	GetWorldTimerManager().SetTimer(Later, FTimerDelegate::CreateLambda([Enforce]() { Enforce(TEXT("after 1.5 s")); }), 1.5f, false);
 	FTimerHandle Latest;
 	GetWorldTimerManager().SetTimer(Latest, FTimerDelegate::CreateLambda([Enforce]() { Enforce(TEXT("after 4 s")); }), 4.f, false);
+	// Baked animations (retarget_player_animations.py, "MH_" prefix): the body plays them itself, no runtime retargeting.
+	if (FParse::Param(FCommandLine::Get(), TEXT("PlayerVisualBaked")))
+	{
+		FAssetRegistryModule& Reg = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+		TArray<FAssetData> Anims;
+		Reg.Get().GetAssetsByClass(UAnimSequence::StaticClass()->GetClassPathName(), Anims, true);
+		TWeakObjectPtr<UAnimSequence> IdleAnim, WalkAnim, RunAnim;
+		for (const FAssetData& A : Anims)
+		{
+			const FString N = A.AssetName.ToString();
+			if (!N.StartsWith(TEXT("MH_")))
+			{
+				continue;
+			}
+			UAnimSequence* Seq = Cast<UAnimSequence>(A.GetAsset());
+			if (N.Contains(TEXT("Idle"))) { IdleAnim = Seq; }
+			else if (N.Contains(TEXT("Walk"))) { WalkAnim = Seq; }
+			else if (N.Contains(TEXT("Run"))) { RunAnim = Seq; }
+		}
+		UE_LOG(LogGTPGameMode, Log, TEXT("baked player animations: idle %s walk %s run %s"),
+			IdleAnim.IsValid() ? *IdleAnim->GetName() : TEXT("none"), WalkAnim.IsValid() ? *WalkAnim->GetName() : TEXT("none"), RunAnim.IsValid() ? *RunAnim->GetName() : TEXT("none"));
+		if (WalkAnim.IsValid())
+		{
+			FTimerHandle Baked;
+			TSharedRef<TWeakObjectPtr<UAnimSequence>> Current = MakeShared<TWeakObjectPtr<UAnimSequence>>();
+			GetWorldTimerManager().SetTimer(Baked, FTimerDelegate::CreateLambda([WeakVisual, WeakPawn, BodyName, IdleAnim, WalkAnim, RunAnim, Current]()
+			{
+				AActor* V = WeakVisual.Get();
+				const APawn* P = WeakPawn.Get();
+				if (!V || !P)
+				{
+					return;
+				}
+				TArray<USkeletalMeshComponent*> Skels;
+				V->GetComponents(Skels);
+				for (USkeletalMeshComponent* Skel : Skels)
+				{
+					if (Skel->GetName() != BodyName)
+					{
+						continue;
+					}
+					const float Speed = P->GetVelocity().Size2D();
+					UAnimSequence* Want = Speed < 20.f && IdleAnim.IsValid() ? IdleAnim.Get() : (Speed > 380.f && RunAnim.IsValid() ? RunAnim.Get() : WalkAnim.Get());
+					if (Current->Get() != Want)
+					{
+						*Current = Want;
+						Skel->SetAnimationMode(EAnimationMode::AnimationSingleNode);
+						Skel->SetAnimation(Want);
+						Skel->Play(true);
+						Skel->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;
+					}
+				}
+			}), 0.15f, true, 2.f);
+		}
+	}
 	// Every 2 s: does the pawn's own pose move while the pawn moves? (class of its anim, speed, a foot bone)
 	FTimerHandle Probe;
 	GetWorldTimerManager().SetTimer(Probe, FTimerDelegate::CreateLambda([WeakPawn]()
