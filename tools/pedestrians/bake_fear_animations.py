@@ -6,7 +6,7 @@
 Needs /Game/MCO_Mocap_Basics (MoCap Online Free) migrated into the game project, and the IK Rig of the UE4 mannequin
 (found by name: an IKRigDefinition containing "UE4" and "Mannequin"; GTP_SOURCE_RIG overrides). Makes
 /Game/MetaHumans/GTP/RTG_UE4_to_Metahuman (chains mapped by name) and bakes the animations whose name contains one of
-GTP_FEAR_WORDS (default scared,fear,cower,crouch,panic,run,fall,death,dying,flinch,stumble) to
+GTP_FEAR_WORDS (default scared,crouch,run_f,jog_f,death,walk_f; only the In_Place versions) to
 /Game/MetaHumans/GTP/Anims with the prefix "MF_", root locked, pelvis travel frozen for the locomotion ones.
 Lines "FEAR ...". Everything stays under /Game, not versioned.
 """
@@ -18,7 +18,7 @@ TARGET_RIG = "/Game/MetaHumans/Common/Common/Rigs/IK_Metahuman_Retarget"
 FOLDER = "/Game/MetaHumans/GTP"
 ANIMS = FOLDER + "/Anims"
 NAME = "RTG_UE4_to_Metahuman"
-words = [w for w in (os.environ.get("GTP_FEAR_WORDS") or "scared,fear,cower,crouch,panic,run,fall,death,dying,flinch,stumble").lower().split(",") if w]
+words = [w for w in (os.environ.get("GTP_FEAR_WORDS") or "scared,crouch,run_f,jog_f,death,walk_f").lower().split(",") if w]
 
 registry = unreal.AssetRegistryHelpers.get_asset_registry()
 registry.wait_for_completion()
@@ -84,7 +84,8 @@ if not (source_mesh and target_mesh):
 
 selected = []
 for d in registry.get_assets_by_path("/Game/MCO_Mocap_Basics", recursive=True):
-    if str(d.asset_class_path.asset_name) == "AnimSequence" and any(w in str(d.asset_name).lower() for w in words):
+    in_place = "in_place" in str(d.package_name).lower()
+    if str(d.asset_class_path.asset_name) == "AnimSequence" and in_place and any(w in str(d.asset_name).lower() for w in words):
         selected.append(d)
         unreal.log("FEAR selected %s" % d.asset_name)
 if not selected:
