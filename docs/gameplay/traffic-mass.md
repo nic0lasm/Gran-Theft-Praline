@@ -26,8 +26,9 @@ Status 13/11/2026: prepared, not compiled, waiting for City Sample on the PC. De
    MIT licence). Traffic also needs ChaosVehiclesPlugin, ZoneGraph, MassAI, MassCrowd, MassGameplay
    and AnimToTexture, already enabled.
    Apply the fixes listed in the README of github.com/Myxcil/MassTraffic-Test (read, nothing copied).
-2. If `Traffic.uplugin` or `RuleProcessor.uplugin` says `"EnabledByDefault": false`, enable them in
-   the local `.uproject` (not pushed while the plugins are out of Git).
+2. `Traffic.uplugin` is not enabled by default: the `.uproject` lists it as `"Optional": true`, so
+   it loads where the plugin is copied and is skipped without error elsewhere (Mac, CI).
+   RuleProcessor is enabled by default.
 3. Build the editor target, run `place_zonegraph.py` then `place_masstraffic.py`.
    City Sample's traffic configs and spawner Blueprints live in the City Sample project's own
    content (/Game/AI/Traffic, /Game/AI/Traffic/Spawners, /Game/Vehicle/veh*): they are copied to

@@ -158,6 +158,11 @@
 			"Enabled": true
 		},
 		{
+			"Name": "Traffic",
+			"Enabled": true,
+			"Optional": true
+		},
+		{
 			"Name": "AnimToTexture",
 			"Enabled": true
 		}

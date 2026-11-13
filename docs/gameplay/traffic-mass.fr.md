@@ -29,8 +29,9 @@ ADR-0015 (piétons et trafic sur Mass). Anglais : [traffic-mass.md](traffic-mass
    MassCrowd, MassGameplay et AnimToTexture, déjà activés.
    Appliquer les correctifs listés dans le README de github.com/Myxcil/MassTraffic-Test (on lit,
    on ne copie rien).
-2. Si `Traffic.uplugin` ou `RuleProcessor.uplugin` indique `"EnabledByDefault": false`, les activer
-   dans le `.uproject` local (pas poussé tant que les plugins sont hors Git).
+2. `Traffic.uplugin` n'est pas activé par défaut : le `.uproject` le liste avec `"Optional": true`,
+   il se charge là où le plugin est copié et il est ignoré sans erreur ailleurs (Mac, CI).
+   RuleProcessor est activé par défaut.
 3. Compiler la cible éditeur, lancer `place_zonegraph.py` puis `place_masstraffic.py`.
    Les configurations du trafic et les Blueprints de spawners de City Sample sont dans le Content
    du projet City Sample (/Game/AI/Traffic, /Game/AI/Traffic/Spawners, /Game/Vehicle/veh*) : ils
