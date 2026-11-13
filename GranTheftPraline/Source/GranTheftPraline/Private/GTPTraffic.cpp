@@ -150,6 +150,9 @@ void UGTPAIDriverComponent::Start(AGTPTrafficNetwork* InNetwork, int32 Lane, int
 	Route.Add(Lane);
 	Closest = StartPoint;
 	StoppedTime = 0.f;
+	PushTime = 0.f;
+	BackOffTime = 0.f;
+	WedgeCount = 0;
 	GhostSpeed = 0.f;
 	GhostAlong = 0.f;
 	bAtDeadEnd = false;
@@ -593,11 +596,14 @@ void UGTPAIDriverComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 		else
 		{
 			PushTime = Command.Throttle > 0.5f && FMath::Abs(Speed) < 0.3f ? PushTime + DeltaTime : 0.f;
+			// Free again once it drives at 10 km/h.
+			WedgeCount = Speed > 3.f ? 0 : WedgeCount;
 			if (PushTime > 3.f)
 			{
 				PushTime = 0.f;
 				BackOffTime = 1.5f;
-				GTP_TRACE(LogGTPTraffic, TEXT("%s: wedged, backing off"), *Vehicle->GetName());
+				++WedgeCount;
+				GTP_TRACE(LogGTPTraffic, TEXT("%s: wedged, backing off (%d)"), *Vehicle->GetName(), WedgeCount);
 			}
 			Vehicle->SetAIDriveInput(Command.Throttle, Command.Brake, Command.Steering, Command.Brake >= 1.f && Speed < 0.5f);
 		}
@@ -1687,7 +1693,8 @@ void AGTPTrafficNetwork::Tick(float DeltaSeconds)
 			: (Player ? Player->GetActorLocation() : Car->GetActorLocation());
 		UpdateDetail(Car, static_cast<float>(FVector::Dist(View, Car->GetActorLocation())));
 		const bool bFar = Player && FVector::Dist2D(Car->GetActorLocation(), Player->GetActorLocation()) > MaxCarDistance;
-		const bool bStuck = AIDriver && (AIDriver->IsAtDeadEnd() || AIDriver->GetStoppedTime() > StuckSeconds);
+		// Three back-offs that did not free it: taken away like a car stopped too long.
+		const bool bStuck = AIDriver && (AIDriver->IsAtDeadEnd() || AIDriver->GetStoppedTime() > StuckSeconds || AIDriver->GetWedgeCount() >= 3);
 		if ((bFar || bStuck) && !IsSeenByPlayer(Car->GetActorLocation()))
 		{
 			Recycle(Car);
