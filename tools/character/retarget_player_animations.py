@@ -72,6 +72,32 @@ for a in batch:
         unreal.EditorAssetLibrary.save_loaded_asset(a.get_asset() if hasattr(a, "get_asset") else a)
     except Exception as err:
         unreal.log("ANIMS save failed: %s" % err)
+def pin_pelvis(asset, bone="pelvis"):
+    """The retarget moved the walk's travel onto the pelvis: keep its height, freeze its horizontal place."""
+    model = asset.get_data_model() if hasattr(asset, "get_data_model") else None
+    if model is None:
+        unreal.log("ANIMS %s: no data model" % asset.get_name())
+        return
+    try:
+        frames = int(model.get_number_of_keys())
+        transforms = [model.get_bone_track_transform_at_key(bone, i) if hasattr(model, "get_bone_track_transform_at_key")
+                      else model.get_bone_track_transform(bone, i) for i in range(frames)]
+        first = transforms[0].translation
+        drift = max(abs(t.translation.x - first.x) + abs(t.translation.y - first.y) for t in transforms)
+        unreal.log("ANIMS %s pelvis drift before %.1f cm over %d keys" % (asset.get_name(), drift, frames))
+        pos = [unreal.Vector(first.x, first.y, t.translation.z) for t in transforms]
+        quat = [t.rotation for t in transforms]
+        scale = [t.scale3d for t in transforms]
+        ctrl = asset.controller
+        ctrl.open_bracket("PinPelvis")
+        ctrl.set_bone_track_keys(bone, pos, quat, scale)
+        ctrl.close_bracket()
+        unreal.log("ANIMS %s pelvis pinned" % asset.get_name())
+    except Exception as err:
+        unreal.log("ANIMS %s pelvis pin failed: %s; data model methods: %s" % (
+            asset.get_name(), err, ", ".join(sorted(m for m in dir(model) if "bone" in m or "track" in m))))
+
+
 # Animations made by an earlier run (same names or renamed copies): lock their root too.
 for d in registry.get_assets_by_path(folder, recursive=False):
     existing = d.get_asset()
@@ -81,6 +107,8 @@ for d in registry.get_assets_by_path(folder, recursive=False):
                 existing.set_editor_property(prop, value)
             except Exception as err:
                 unreal.log("ANIMS %s could not set %s: %s" % (d.asset_name, prop, err))
+        if "Walk" in str(d.asset_name) or "Run" in str(d.asset_name):
+            pin_pelvis(existing, os.environ.get("GTP_PELVIS", "pelvis"))
         unreal.EditorAssetLibrary.save_loaded_asset(existing)
         unreal.log("ANIMS root locked %s" % d.asset_name)
 unreal.log("ANIMS done %d" % len(batch))
