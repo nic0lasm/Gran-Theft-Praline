@@ -1,7 +1,8 @@
 """Make our drivable cars out of Epic's City Sample Vehicles, inside the Unreal Editor (no UI).
 
-City Sample's cars (Fab, free, migrated out of Git into /Game/Vehicles/Epic/ or left in
-/Game/CitySampleVehicles/) are Chaos WheeledVehiclePawns on the skeleton SK_Vehicle, whose wheel
+City Sample's cars (Fab, free, out of Git) are taken from the full City Sample project, copied at
+their own path /Game/Vehicle/ by tools/vehicles/copy_citysample_content.py (or from the City Sample
+Vehicles pack, /Game/CitySampleVehicles/ or /Game/Vehicles/Epic/). They are Chaos WheeledVehiclePawns on the skeleton SK_Vehicle, whose wheel
 bones (Phys_Wheel_FL/FR/BL/BR) are the ones AGTPVehicle expects. For each car listed in CARS this
 script creates /Game/Vehicles/Epic/GTP/BP_GTP_<Name>, a child of AGTPVehicle (stealing, damage,
 traffic, police), and copies onto it from Epic's Blueprint:
@@ -29,7 +30,7 @@ eal = unreal.EditorAssetLibrary
 tools = unreal.AssetToolsHelpers.get_asset_tools()
 
 OUT = "/Game/Vehicles/Epic/GTP"
-ROOTS = ("/Game/Vehicles/Epic", "/Game/CitySampleVehicles")
+ROOTS = ("/Game/Vehicle", "/Game/Vehicles/Epic", "/Game/CitySampleVehicles")
 # Epic number -> our name. Cars and vans that fit a European city street; trucks, the bus and
 # the trailer are left out of the traffic (too big for the Presqu'ile's lanes).
 CARS = {
@@ -61,10 +62,42 @@ def find_epic_blueprints():
             if str(data.asset_class_path.asset_name) != "Blueprint":
                 continue
             name = str(data.asset_name)
-            match = re.search(r"vehicle(\d\d)_", name, re.IGNORECASE)
-            if match and match.group(1) not in found and str(data.package_path) != OUT:
-                found[match.group(1)] = str(data.package_name)
-    return found
+            match = re.search(r"veh(?:icle)?_?(\d\d)", name, re.IGNORECASE)
+            if not name.startswith("BP_") or "trailer" in name.lower():
+                continue
+            if match and str(data.package_path) != OUT:
+                found.setdefault(match.group(1), []).append((name, str(data.package_name)))
+    # Several Blueprints per car in the full City Sample (variants): the plain BP_vehicleNN_Kind
+    # first, else the shortest name. All candidates go to the report.
+    chosen = {}
+    for number, candidates in found.items():
+        candidates.sort(key=lambda c: (re.fullmatch(r"BP_vehicle\d\d_[A-Za-z]+", c[0]) is None, len(c[0])))
+        chosen[number] = candidates[0][1]
+    find_epic_blueprints.candidates = {n: [c[1] for c in cs] for n, cs in found.items()}
+    return chosen
+
+
+def missing_dependencies(package, limit=400):
+    """Packages the Blueprint needs (recursively, /Game only) that are not in the project: what
+    the file copy left behind, to copy next."""
+    registry = unreal.AssetRegistryHelpers.get_asset_registry()
+    options = unreal.AssetRegistryDependencyOptions(include_soft_package_references=False, include_hard_package_references=True)
+    seen, todo, missing = set(), [package], []
+    while todo and len(seen) < limit:
+        current = todo.pop()
+        if current in seen:
+            continue
+        seen.add(current)
+        for dep in registry.get_dependencies(current, options) or []:
+            dep = str(dep)
+            if not dep.startswith("/Game/") or dep in seen:
+                continue
+            if not eal.does_asset_exist(dep):
+                missing.append(dep)
+                seen.add(dep)
+            else:
+                todo.append(dep)
+    return sorted(set(missing))
 
 
 def copy_movement(source, target, report_entry):
@@ -77,6 +110,7 @@ def copy_movement(source, target, report_entry):
 
 def make_one(number, name, source_path, report):
     entry = {"epic": source_path}
+    entry["missing_dependencies"] = missing_dependencies(source_path)
     source_cls = eal.load_blueprint_class(source_path)
     if source_cls is None:
         entry["error"] = "cannot load"
@@ -120,6 +154,7 @@ def main():
         eal.make_directory(OUT)
     epic = find_epic_blueprints()
     report["epic_found"] = epic
+    report["epic_candidates"] = getattr(find_epic_blueprints, "candidates", {})
     for number, name in CARS.items():
         if number not in epic:
             report["missing"].append(number)
