@@ -205,10 +205,6 @@ void AGTPGameMode::ApplyPlayerVisual(APawn* Pawn)
 					Body->bNoSkeletonUpdate = false;
 					Body->SetComponentTickEnabled(true);
 					Body->AddTickPrerequisiteComponent(Own);
-					if (Body->GetAnimInstance())
-					{
-						Body->GetAnimInstance()->SetRootMotionMode(ERootMotionMode::NoRootMotionExtraction);
-					}
 				}
 				if (Body && Part->GetName() == BodyName && !RetargeterPath.IsEmpty())
 				{
