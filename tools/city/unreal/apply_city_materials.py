@@ -452,7 +452,7 @@ float ty = 1.0 / max(dn.y, 1e-5);
 float t = min(min(tx, tz), ty);
 float3 h = u + dn * t;
 float hash = frac(sin(dot(id, float2(12.9898, 78.233)) + Seed) * 43758.5453);
-float3 wallc = lerp(float3(0.62, 0.58, 0.52), float3(0.50, 0.55, 0.58), hash) * 0.8;
+float3 wallc = lerp(float3(0.66, 0.58, 0.48), float3(0.58, 0.52, 0.46), hash) * 0.8;   // warm: grey-blue read as glass (PC V5)
 // goods on shelves: coloured blocks in rows, a dark shelf board under each row
 float2 sq = t == ty ? h.xz : float2(h.y, h.z);   // back wall: across x; side walls: along the depth
 float row = frac(sq.y * 5.0);
@@ -473,8 +473,8 @@ if (t == ty) {                                   // back wall: full shelving
         float strip = step(frac(h.y * 2.5 + 0.1), 0.12) * step(0.15, h.x) * step(h.x, 0.85);
         col = lerp(float3(0.30, 0.29, 0.27), float3(1.6, 1.5, 1.3), strip);
     }
-} else {                                         // side walls: shelving from 0.3 of the depth
-    col = lerp(wallc, shelves, shelfy * step(0.3, h.y));
+} else {                                         // side walls: shelving over the whole depth (seen at an angle
+    col = lerp(wallc, shelves, shelfy * step(0.04, h.y));   // from the pavement, they fill the window)
 }
 col *= 0.6 + 0.4 * saturate(1.0 - h.y * 0.7);    // light falls off into the room
 return col * Glow;
