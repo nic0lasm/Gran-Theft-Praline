@@ -18,7 +18,8 @@ DEFINE_LOG_CATEGORY(LogGTPThreat);
 
 bool UGTPThreatSubsystem::IsEnabled()
 {
-	int32 Value = 0;
+	// On by default (hands up under a threat); -ThreatResponse=0 turns it off.
+	int32 Value = 1;
 	FParse::Value(FCommandLine::Get(), TEXT("-ThreatResponse="), Value);
 	return Value != 0;
 }

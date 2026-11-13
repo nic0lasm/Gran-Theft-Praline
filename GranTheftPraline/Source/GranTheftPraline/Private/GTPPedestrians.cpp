@@ -15,6 +15,7 @@
 #include "GameFramework/PlayerController.h"
 #include "Camera/PlayerCameraManager.h"
 #include "GTPGraphicsProfile.h"
+#include "GTPHealth.h"
 #include "GTPThreat.h"
 #include "GTPAudioWorld.h"
 #include "GTPTraffic.h"
@@ -64,9 +65,9 @@ AGTPPedestrian::AGTPPedestrian()
 	Body->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::OnlyTickPoseWhenRendered;
 }
 
-void AGTPPedestrian::ApplyLook(float HeightScale, const FLinearColor& Clothes, const TArray<FName>& TintParameters)
+void AGTPPedestrian::ApplyLook(float HeightScale, const FLinearColor& Clothes, const TArray<FName>& TintParameters, float WidthScale)
 {
-	SetActorScale3D(FVector(HeightScale));
+	SetActorScale3D(FVector(HeightScale * WidthScale, HeightScale * WidthScale, HeightScale));
 	for (int32 Slot = 0; Slot < Body->GetNumMaterials(); ++Slot)
 	{
 		if (UMaterialInstanceDynamic* Material = Body->CreateAndSetMaterialInstanceDynamic(Slot))
@@ -371,6 +372,21 @@ void UGTPPedestrianSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 		});
 	}
 	Wanted = ChooseDensity();
+	{
+		FString ProfileName = TEXT("m1");
+		if (const UGameInstance* GI = InWorld.GetGameInstance())
+		{
+			if (const UGTPGraphicsProfile* Gfx = GI->GetSubsystem<UGTPGraphicsProfile>())
+			{
+				ProfileName = Gfx->GetActiveProfile();
+			}
+		}
+		if (ProfileName == TEXT("ultra"))
+		{
+			MaxVisible = FMath::Max(MaxVisible, MaxVisibleUltra);
+			FarCrowdCount = FMath::Max(FarCrowdCount, FarCrowdUltra);
+		}
+	}
 	FParse::Value(FCommandLine::Get(), TEXT("PedDemo="), DemoMode);
 	if (!DemoMode.IsEmpty())
 	{
@@ -500,7 +516,7 @@ void UGTPPedestrianSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 			continue;
 		}
 		Actor->GetBody()->SetSkeletalMesh(PickMesh());
-		Actor->ApplyLook(Rng.Range(1.f - HeightSpread, 1.f + HeightSpread), Palette(Rng.Next()), TintParameters);
+		Actor->ApplyLook(Rng.Range(1.f - HeightSpread, 1.f + HeightSpread), Palette(Rng.Next()), TintParameters, Rng.Range(1.f - WidthSpread, 1.f + WidthSpread));
 		Actor->GetBody()->SetRelativeRotation(FRotator(0.f, MeshYawOffset, 0.f));
 		Actor->SetDetail(false, false, -1);
 		if (bCheapRendering)
@@ -912,6 +928,73 @@ void UGTPPedestrianSubsystem::Retire(FPerson& Person)
 	}
 }
 
+void UGTPPedestrianSubsystem::CallPoliceFrom(const FVector& Where)
+{
+	// The closest person who saw it (drawn, standing or walking, not frightened yet) takes out the phone.
+	// The crime itself reaches the police through the witness logic of the wanted component.
+	if (Rng.Next() >= CallPoliceChance)
+	{
+		return;
+	}
+	FPerson* Best = nullptr;
+	float BestDistance = 3000.f;
+	for (FPerson& P : People)
+	{
+		if (!P.bActive || !P.bDrawn || P.bBorrowed || P.bFighter || (P.Actor.IsValid() && P.Actor->IsRagdoll()) || P.Walker.FleeTimeLeft > 0.f)
+		{
+			continue;
+		}
+		const float D = FVector::Dist2D(P.Location, Where);
+		if (D > 300.f && D < BestDistance)
+		{
+			BestDistance = D;
+			Best = &P;
+		}
+	}
+	if (Best)
+	{
+		GTPWalk::Freeze(Best->Walker, {float(Where.X), float(Where.Y)}, 8.f, GTPWalk::EPause::Phone);
+	}
+}
+
+void UGTPPedestrianSubsystem::UpdateFighter(FPerson& Person, float DeltaTime)
+{
+	AGTPPedestrian* Actor = Person.Actor.Get();
+	AActor* Target = Person.FightTarget.Get();
+	Person.FightLeft -= DeltaTime;
+	if (!Actor || !Target || Person.FightLeft <= 0.f)
+	{
+		// Calms down and leaves the scene: a new passer-by takes the place.
+		Person.bFighter = false;
+		Retire(Person);
+		return;
+	}
+	const FVector To = Target->GetActorLocation() - Person.Location;
+	const float Distance = To.Size2D();
+	const FVector Dir = To.GetSafeNormal2D();
+	const float RunSpeed = 340.f;
+	if (Distance > 110.f)
+	{
+		Person.Location += Dir * RunSpeed * DeltaTime;
+		Actor->PlayLoop(Run, RunSpeed / RunAnimationSpeed);
+	}
+	else
+	{
+		Actor->PlayLoop(Idle.Get(), 1.f);
+		Person.FightCooldown -= DeltaTime;
+		if (Person.FightCooldown <= 0.f)
+		{
+			Person.FightCooldown = 1.2f;
+			if (UGTPHealthComponent* Health = Target->FindComponentByClass<UGTPHealthComponent>())
+			{
+				Health->ApplyDamage(FightDamage, EGTPDamageCause::Melee, Actor, true);
+			}
+		}
+	}
+	Person.Yaw = FRotator::NormalizeAxis(Dir.Rotation().Yaw);
+	Actor->SetActorLocationAndRotation(FVector(Person.Location.X, Person.Location.Y, Person.GroundZ), FRotator(0.f, Person.Yaw, 0.f), false, nullptr, ETeleportType::None);
+}
+
 void UGTPPedestrianSubsystem::Update(FPerson& Person, float DeltaTime)
 {
 	AGTPPedestrian* Actor = Person.Actor.Get();
@@ -923,6 +1006,11 @@ void UGTPPedestrianSubsystem::Update(FPerson& Person, float DeltaTime)
 	if (Actor->IsRagdoll())
 	{
 		Person.RagdollLeft -= DeltaTime;
+		return;
+	}
+	if (Person.bFighter)
+	{
+		UpdateFighter(Person, DeltaTime);
 		return;
 	}
 
@@ -958,6 +1046,7 @@ void UGTPPedestrianSubsystem::Update(FPerson& Person, float DeltaTime)
 				++HitTotal;
 				OnPedestrianHit.Broadcast(Person.Location, nullptr);
 				GawkAround(Person.Location, 2500.f);
+				CallPoliceFrom(Person.Location);
 				return;
 			}
 		}
@@ -1071,6 +1160,18 @@ int32 UGTPPedestrianSubsystem::ScareAround(const FVector& Location, float Radius
 	{
 		if (!P.bActive || (P.Actor.IsValid() && P.Actor->IsRagdoll()) || FVector::Dist2D(P.Location, Location) > Radius)
 		{
+			continue;
+		}
+		const APawn* CausePawn = Cast<APawn>(Cause);
+		if (CausePawn && CausePawn->IsPlayerControlled() && !P.bBorrowed && !P.bFighter && Rng.Next() < FightBackChance)
+		{
+			// Some do not run: they go for the player.
+			P.bFighter = true;
+			P.FightLeft = FightSeconds;
+			P.FightCooldown = 0.6f;
+			P.FightTarget = Cause;
+			P.Walker.Pause = 0.f;
+			++Count;
 			continue;
 		}
 		GTPWalk::Flee(Graph, P.Walker, {float(Location.X), float(Location.Y)}, Settings);

@@ -30,7 +30,7 @@ public:
 	USkeletalMeshComponent* GetBody() const { return Body; }
 
 	/** Height scale and clothing colour of this person (variety from one mesh). */
-	void ApplyLook(float HeightScale, const FLinearColor& Clothes, const TArray<FName>& TintParameters);
+	void ApplyLook(float HeightScale, const FLinearColor& Clothes, const TArray<FName>& TintParameters, float WidthScale = 1.f);
 
 	/** Plays Animation looping at PlayRate (no change when it is already playing). */
 	void PlayLoop(UAnimSequenceBase* Animation, float PlayRate);
@@ -156,6 +156,31 @@ protected:
 
 	UPROPERTY(Config)
 	int32 DensityUltra = 40;
+
+	/** Ultra profile: a dense street (people simulated as full characters, drawn at once, and the far crowd). */
+	UPROPERTY(Config)
+	int32 MaxVisibleUltra = 80;
+
+	UPROPERTY(Config)
+	int32 FarCrowdUltra = 300;
+
+	/** Body width varies by up to this fraction around 1 (silhouette variety, besides height and clothes). */
+	UPROPERTY(Config)
+	float WidthSpread = 0.10f;
+
+	/** Chance that a person who sees the player attack somebody (or hit one) takes out the phone: nearest witness, cosmetic call. */
+	UPROPERTY(Config)
+	float CallPoliceChance = 0.6f;
+
+	/** Chance that a person frightened by the player on foot fights back instead of fleeing. */
+	UPROPERTY(Config)
+	float FightBackChance = 0.06f;
+
+	UPROPERTY(Config)
+	float FightDamage = 6.f;
+
+	UPROPERTY(Config)
+	float FightSeconds = 14.f;
 
 	/** At most this many people are drawn at once, the closest ones (0 = no limit). */
 	UPROPERTY(Config)
@@ -303,6 +328,10 @@ private:
 		bool bBorrowed = false;
 		/** This fleeing person has already passed its panic on (reset when it stops running). */
 		bool bPanicSpread = false;
+		bool bFighter = false;
+		float FightLeft = 0.f;
+		float FightCooldown = 0.f;
+		TWeakObjectPtr<AActor> FightTarget;
 		/** Index of the partner this person follows (a pair walking together), -1 = walks alone. */
 		int32 Leader = -1;
 		float FarAccumulated = 0.f;
@@ -322,6 +351,8 @@ private:
 	void SpreadPanic();
 	void OnThreatState(AActor* Body, int32 NewState);
 	void TickDemo();
+	void CallPoliceFrom(const FVector& Where);
+	void UpdateFighter(FPerson& Person, float DeltaTime);
 	void InitFarCrowd(UWorld& InWorld);
 	void TickFarCrowd(float DeltaTime);
 	bool PlaceFarAgent(int32 Index);

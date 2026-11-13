@@ -112,3 +112,15 @@ boucle avec `AGTPPedestrian::PlayLoop` et doit rendre l'acteur ; `GetBorrowedCou
 - **Événements de démo**, pour filmer et mesurer : `-PedDemo=panic|gawk|shot` rejoue cet événement
   toutes les 25 s près du piéton dessiné le plus proche (le premier 8 s après le début).
 - Vérifié hors moteur : `tools/pedestrians/check_walk_logic.py`.
+
+## Foule dense et réactions (feat/pedestrian-crowd)
+
+- Profil Ultra : `DensityUltra=120` personnages complets, `MaxVisibleUltra=80` dessinés à la fois, `FarCrowdUltra=300` silhouettes
+  en instances au-delà du pool (`-PedFar=N`, `-PedMaxVisible=N`, `-Pedestrians=N` pour forcer). Les lointains deviennent des
+  personnages complets à moins de `PromoteDistance`.
+- Silhouettes : taille, largeur (`WidthSpread`), couleur de vêtements, personnages supplémentaires (`Meshes`).
+- Réactions : panique qui se propage, badauds, mains en l'air sous la menace (réponse aux menaces active par défaut,
+  `-ThreatResponse=0` la coupe ; la boucle vient de `tools/pedestrians/make_handsup_animation.py`), fuite, ragdoll au choc
+  d'une voiture, attroupement autour d'un accident, le témoin le plus proche sort son téléphone (`CallPoliceChance` ; le crime
+  arrive à la police par la logique de témoins du composant de recherche), quelques personnes ripostent (`FightBackChance`).
+- Démos : `-PedDemo=panic|gawk|shot|holdup`.

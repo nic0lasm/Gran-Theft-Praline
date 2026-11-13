@@ -115,3 +115,16 @@ A free one is taken first, else the walker farthest from the player (never a rag
   look, hands up / complying = frozen facing the aggressor (`EPause::HandsUp`, until the fear drops),
   backing / fleeing = run away from him. `-ThreatDemo` (threat subsystem) exercises it.
 - Fix: a walker turned round by `Flee` no longer jumps sideways (its lateral offset is mirrored with the direction).
+
+## Dense crowd and reactions (feat/pedestrian-crowd)
+
+- Ultra profile: `DensityUltra=120` full characters, `MaxVisibleUltra=80` drawn at once, `FarCrowdUltra=300` people as
+  instances beyond the pool (`-PedFar=N`, `-PedMaxVisible=N`, `-Pedestrians=N` override). Far people become full characters
+  when they come within `PromoteDistance`.
+- Silhouettes: height (`HeightSpread`), width (`WidthSpread`), clothing colour, extra characters (`Meshes`).
+- Reactions: panic spreading, gawking, hands up under a threat (threat response is now on by default, `-ThreatResponse=0`
+  turns it off; the hands-up loop is made by `tools/pedestrians/make_handsup_animation.py`), flight, ragdoll when hit by
+  a car, crowd gathering around an accident, the nearest witness takes out the phone (`CallPoliceChance`; the crime itself
+  reaches the police through the witness logic of the wanted component), a few people fight back (`FightBackChance`,
+  `FightDamage`).
+- Demos: `-PedDemo=panic|gawk|shot|holdup`.
