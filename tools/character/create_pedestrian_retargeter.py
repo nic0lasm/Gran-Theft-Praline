@@ -32,6 +32,15 @@ else:
 ctrl = unreal.IKRetargeterController.get_controller(asset)
 ctrl.set_ik_rig(unreal.RetargetSourceOrTarget.SOURCE, src)
 ctrl.set_ik_rig(unreal.RetargetSourceOrTarget.TARGET, tgt)
+# Since UE 5.6 the chain mapping lives in the ops: make sure the default ops exist first.
+for fn in ("add_default_ops", "add_default_op", "reset_ops_to_default", "add_default_retarget_ops"):
+    if hasattr(ctrl, fn):
+        try:
+            getattr(ctrl, fn)()
+            unreal.log("RTG %s done" % fn)
+        except Exception as err:
+            unreal.log("RTG %s failed: %s" % (fn, err))
+unreal.log("RTG controller op methods: %s" % ", ".join(sorted(m for m in dir(ctrl) if not m.startswith("_") and "op" in m)))
 for mode in ("EXACT", "FUZZY"):
     try:
         ctrl.auto_map_chains(getattr(unreal.AutoMapChainType, mode), True)
@@ -54,6 +63,22 @@ def chain_names(rig):
     return []
 
 
+# Explicit mapping, by name (case-insensitive); root has no source, "head" takes "Head".
+source_by_lower = {n.lower(): n for n in chain_names(src)}
+for name in chain_names(tgt):
+    wanted = source_by_lower.get(name.lower())
+    if not wanted:
+        continue
+    done = False
+    for args in ((wanted, name), (unreal.Name(wanted), unreal.Name(name)), (name, wanted)):
+        try:
+            ctrl.set_source_chain(*args)
+            done = True
+            break
+        except Exception as err:
+            last = err
+    if not done:
+        unreal.log("RTG set_source_chain failed for %s: %s" % (name, last))
 for name in chain_names(tgt):
     mapped = "?"
     for fn in ("get_source_chain", "get_source_chain_for_target"):
