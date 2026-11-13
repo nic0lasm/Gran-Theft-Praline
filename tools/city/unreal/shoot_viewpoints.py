@@ -1,7 +1,10 @@
 """Shoot the five reference viewpoints of the street slice, in -game mode.
 
 Started like tools/city/unreal/shoot_city.py: copy to a path without spaces, then
-  UnrealEditor <uproject> <map> -game -ExecCmds="py <copy>" -DemoDeterministic=1
+  UnrealEditor <uproject> <map> -game -SkipTitle -ExecCmds="py <copy>" -DemoDeterministic=1
+Without -SkipTitle the title screen pauses the world (13/11): HighResShot does not show the menu,
+but nothing ticks behind it, so the time of day never reaches the exposure or the night lights and
+the crowd never spawns. The script unpauses the world anyway and reports it.
 Environment:
   GTP_VIEWPOINTS  path to points-de-vue.json (required)
   GTP_VIEWS_OUT   output folder (default <project>/Saved/Viewpoints)
@@ -107,6 +110,12 @@ def tick(dt):
     state["phase_t"] += dt
     pc = controller()
     ph = state["phase"]
+    if pc and unreal.GameplayStatics.is_game_paused(pc.get_world()):
+        unreal.GameplayStatics.set_game_paused(pc.get_world(), False)
+        if not state.get("unpaused"):
+            state["unpaused"] = True
+            state["report"].append({"warning": "world was paused (title screen?): unpaused; launch with -SkipTitle"})
+            log("world was paused (title screen?): unpaused; launch with -SkipTitle")
     if ph == "warmup":
         if pc and pc.get_controlled_pawn() and state["phase_t"] >= WARMUP_S:
             state["phase"], state["phase_t"] = "place", 0.0
