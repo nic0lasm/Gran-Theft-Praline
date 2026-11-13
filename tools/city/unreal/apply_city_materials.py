@@ -459,8 +459,9 @@ float row = frac(sq.y * 5.0);
 float shelfy = step(0.12, sq.y) * step(sq.y, 0.82);
 float goods = frac(sin(floor(sq.x * 16.0) * 7.13 + floor(sq.y * 5.0) * 3.7 + hash * 11.0) * 9137.0);
 float gap = step(0.12, frac(sq.x * 16.0)) * step(0.3, row) * step(row, 0.92);
-float3 item = lerp(float3(0.50, 0.16, 0.10), float3(0.12, 0.26, 0.48), goods);
-item = lerp(item, float3(0.75, 0.68, 0.45), step(0.7, goods)) * (0.45 + 0.4 * goods);
+float3 item = lerp(float3(0.55, 0.20, 0.10), float3(0.40, 0.28, 0.16), goods);   // reds, browns, ochres
+item = lerp(item, float3(0.16, 0.24, 0.36), step(0.8, goods));                   // a few blues
+item = lerp(item, float3(0.80, 0.70, 0.48), step(0.6, goods) * step(goods, 0.8)) * (0.45 + 0.4 * goods);
 float3 shelves = row < 0.3 ? float3(0.10, 0.08, 0.07) : lerp(float3(0.06, 0.05, 0.05), item, gap);
 float3 col;
 if (t == ty) {                                   // back wall: full shelving
@@ -477,6 +478,7 @@ if (t == ty) {                                   // back wall: full shelving
     col = lerp(wallc, shelves, shelfy * step(0.04, h.y));   // from the pavement, they fill the window)
 }
 col *= 0.6 + 0.4 * saturate(1.0 - h.y * 0.7);    // light falls off into the room
+col *= float3(1.15, 0.95, 0.72);                 // warm shop lighting (3000 K): cold rooms read as vending machines (PC V5)
 return col * Glow;
 """
 
