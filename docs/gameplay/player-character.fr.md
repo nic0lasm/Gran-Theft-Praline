@@ -238,3 +238,18 @@ Contrôle de cuisson : `-run=cook -targetplatform=Mac -map=/Game/Maps/L_RueRepub
 réussit en 58 s, 2 899 paquets, 0 erreur, 0 avertissement ; notre
 Blueprint de joueur, nos actions et contextes d'entrée sont dans le
 registre d'assets cuit.
+
+## 10. Nicolito, le visage du joueur (décision du 13/11/2026)
+
+Le joueur est un homme blanc fictif nommé Nicolito (pas la ressemblance d'une personne réelle). Le responsable du
+projet a écarté le MetaHuman Kellan du Game Animation Sample et choisi, parmi trois voies gratuites, un visage de
+la foule du City Sample (personnages dérivés de MetaHuman, déjà sur le PC avec le City Sample complet). Kellan
+tient le rôle d'ici là ; le remplacement se fait par `PlayerVisualClass` et son dossier de cuisson dans
+`DefaultGame.ini`, puisque le corps suit le pion par le retarget à l'exécution et que les clips d'arme jouent sur
+le pion.
+
+Étapes, chacune par la file du PC : `tools/character/citysample_crowd_survey.py` (Python simple, lecture seule)
+liste les dossiers de la foule et leur poids, les têtes, corps, tenues et coiffures par nom, et les paquets qui
+exigent les classes C++ propres au sample ; puis trois visages d'hommes en capture, parmi lesquels le responsable
+du projet choisit ; puis la tête, le corps, la tenue et la coiffure retenus assemblés dans le blueprint de
+Nicolito, dans notre projet.

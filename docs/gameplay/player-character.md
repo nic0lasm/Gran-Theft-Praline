@@ -226,3 +226,16 @@ budgeted in 0.2. No error from our assets in the log. Vaulting
 Cook check: `-run=cook -targetplatform=Mac -map=/Game/Maps/L_RueRepublique`
 succeeds in 58 s, 2,899 packages, 0 errors, 0 warnings; our player
 Blueprint, input actions and contexts are in the cooked asset registry.
+
+## 10. Nicolito, the player's face (decision of 2026-11-13)
+
+The player is a fictional white man named Nicolito (not the likeness of a real person). The project lead set
+aside the Game Animation Sample's MetaHuman Kellan and chose, among three free routes, a face from the City Sample
+crowd (MetaHuman-derived characters, already on the PC with the complete City Sample). Kellan stands in until
+then; the swap is `PlayerVisualClass` and its cook folder in `DefaultGame.ini`, since the body follows the pawn
+by the run-time retarget and the weapon clips play on the pawn.
+
+Steps, each through the PC's queue: `tools/character/citysample_crowd_survey.py` (plain Python, read only) lists
+the crowd folders and their weight, the heads, bodies, outfits and hair by name, and the packages that need the
+sample's own C++ classes; then three male faces in captures for the project lead to choose from; then the chosen
+head, body, outfit and hair assembled into Nicolito's blueprint in our project.
