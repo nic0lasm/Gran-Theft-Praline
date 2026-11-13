@@ -10,6 +10,7 @@ class AGTPVehicle;
 class UAnimSequenceBase;
 class UInstancedStaticMeshComponent;
 class UStaticMesh;
+class UAnimInstance;
 class USceneComponent;
 class USkeletalMesh;
 class USkeletalMeshComponent;
@@ -44,6 +45,12 @@ public:
 	/** Shadow, level of detail and drawing, set by distance from the viewer. */
 	void SetDetail(bool bVisible, bool bCastShadow, int32 ForcedLOD);
 
+	/**
+	 * Dresses the person as an assembled character (City Sample Crowds): BodyMesh on the body, each garment a
+	 * skeletal mesh component following the body's pose, a face with its own animation. Null entries are skipped.
+	 */
+	void Dress(USkeletalMesh* BodyMesh, const TArray<USkeletalMesh*>& Clothes, USkeletalMesh* Face, TSubclassOf<UAnimInstance> FaceAnim);
+
 	bool IsRagdoll() const { return bRagdoll; }
 
 	/** Hit by a car: physics takes over, the subsystem takes the body away a few seconds later. */
@@ -61,6 +68,9 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UAnimSequenceBase> CurrentAnimation;
+
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<USkeletalMeshComponent>> Parts;
 
 	bool bRagdoll = false;
 	float AnimInterval = 0.f;

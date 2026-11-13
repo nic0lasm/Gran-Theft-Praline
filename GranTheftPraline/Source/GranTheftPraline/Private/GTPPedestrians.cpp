@@ -1,6 +1,7 @@
 #include "GTPPedestrians.h"
 
 #include "AssetRegistry/AssetRegistryModule.h"
+#include "Animation/AnimInstance.h"
 #include "Animation/AnimSequence.h"
 #include "Animation/AnimSequenceBase.h"
 #include "Components/InstancedStaticMeshComponent.h"
@@ -81,6 +82,56 @@ void AGTPPedestrian::ApplyLook(float HeightScale, const FLinearColor& Clothes, c
 	}
 }
 
+void AGTPPedestrian::Dress(USkeletalMesh* BodyMesh, const TArray<USkeletalMesh*>& Clothes, USkeletalMesh* Face, TSubclassOf<UAnimInstance> FaceAnim)
+{
+	if (BodyMesh)
+	{
+		Body->SetSkeletalMesh(BodyMesh);
+	}
+	for (USkeletalMeshComponent* Old : Parts)
+	{
+		if (Old)
+		{
+			Old->DestroyComponent();
+		}
+	}
+	Parts.Reset();
+	auto AddPart = [this](USkeletalMesh* Mesh, const TCHAR* Name) -> USkeletalMeshComponent*
+	{
+		if (!Mesh)
+		{
+			return nullptr;
+		}
+		USkeletalMeshComponent* Part = NewObject<USkeletalMeshComponent>(this, Name);
+		Part->SetSkeletalMesh(Mesh);
+		Part->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Part->SetGenerateOverlapEvents(false);
+		Part->SetCanEverAffectNavigation(false);
+		Part->bCastContactShadow = false;
+		Part->bReceivesDecals = false;
+		Part->AttachToComponent(Body, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+		Part->RegisterComponent();
+		Parts.Add(Part);
+		return Part;
+	};
+	int32 Index = 0;
+	for (USkeletalMesh* Garment : Clothes)
+	{
+		if (USkeletalMeshComponent* Part = AddPart(Garment, *FString::Printf(TEXT("Garment%d"), Index++)))
+		{
+			Part->SetLeaderPoseComponent(Body);
+		}
+	}
+	if (USkeletalMeshComponent* FacePart = AddPart(Face, TEXT("Face")))
+	{
+		if (FaceAnim)
+		{
+			FacePart->SetAnimationMode(EAnimationMode::AnimationBlueprint);
+			FacePart->SetAnimInstanceClass(FaceAnim);
+		}
+	}
+}
+
 void AGTPPedestrian::MakeCheap()
 {
 	Body->bCastContactShadow = false;
@@ -135,6 +186,13 @@ void AGTPPedestrian::SetDetail(bool bVisible, bool bCastShadow, int32 ForcedLOD)
 	{
 		bShadow = bCastShadow;
 		Body->SetCastShadow(bCastShadow);
+		for (USkeletalMeshComponent* Part : Parts)
+		{
+			if (Part)
+			{
+				Part->SetCastShadow(bCastShadow);
+			}
+		}
 	}
 	if (ForcedLOD != LOD)
 	{
