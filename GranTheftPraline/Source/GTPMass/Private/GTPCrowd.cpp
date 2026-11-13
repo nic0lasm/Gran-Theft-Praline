@@ -8,6 +8,7 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/SkeletalMesh.h"
 #include "GameFramework/Character.h"
+#include "Animation/AnimInstance.h"
 #include "GTPAudioWorld.h"
 #include "GTPPedestrians.h"
 #include "GTPThreat.h"
@@ -351,6 +352,24 @@ FGTPCrowdLookFragment* UGTPCrowdSubsystem::LookOf(int32 EntityIndex)
 
 void UGTPCrowdSubsystem::SetupNearActors(UWorld& InWorld)
 {
+	// Assembled characters (City Sample Crowds) use the animations baked for the MetaHuman skeleton.
+	{
+		USkeletalMesh* Probe = nullptr;
+		if (!CrowdCharacterRoot.IsEmpty())
+		{
+			Probe = LoadObject<USkeletalMesh>(nullptr, *(CrowdCharacterRoot + TEXT("/Male/NormalWeight/Meshes/m_tal_nrw_body.m_tal_nrw_body")));
+		}
+		const UAnimSequenceBase* BakedWalk = Probe ? Cast<UAnimSequenceBase>(CrowdWalkAnimation.TryLoad()) : nullptr;
+		bAssembled = Probe && BakedWalk;
+		if (bAssembled)
+		{
+			WalkAnimation = CrowdWalkAnimation;
+			IdleAnimation = CrowdIdleAnimation;
+			RunAnimation = CrowdRunAnimation;
+		}
+		UE_LOG(LogGTPCrowd, Log, TEXT("crowd: assembled City Sample characters %s (body %s, baked walk %s)"),
+			bAssembled ? TEXT("on") : TEXT("off, mannequins"), Probe ? TEXT("found") : TEXT("missing"), BakedWalk ? TEXT("found") : TEXT("missing"));
+	}
 	Walk = Cast<UAnimSequenceBase>(WalkAnimation.TryLoad());
 	Idle = Cast<UAnimSequenceBase>(IdleAnimation.TryLoad());
 	Run = Cast<UAnimSequenceBase>(RunAnimation.TryLoad());
@@ -359,6 +378,10 @@ void UGTPCrowdSubsystem::SetupNearActors(UWorld& InWorld)
 	if (const ACharacter* Player = Cast<ACharacter>(UGameplayStatics::GetPlayerPawn(&InWorld, 0)))
 	{
 		Mesh = Player->GetMesh() ? Player->GetMesh()->GetSkeletalMeshAsset() : nullptr;
+	}
+	if (bAssembled && !Mesh)
+	{
+		Mesh = LoadObject<USkeletalMesh>(nullptr, *(CrowdCharacterRoot + TEXT("/Male/NormalWeight/Meshes/m_tal_nrw_body.m_tal_nrw_body")));
 	}
 	if (!Mesh || !Walk)
 	{
@@ -379,7 +402,12 @@ void UGTPCrowdSubsystem::SetupNearActors(UWorld& InWorld)
 			continue;
 		}
 		Actor->GetBody()->SetSkeletalMesh(Mesh);
-		Actor->GetBody()->SetRelativeRotation(FRotator(0.f, MeshYawOffset, 0.f));
+		if (bAssembled)
+		{
+			DressFromCitySample(Actor);
+		}
+		// The mannequin faces +Y, the MetaHuman bodies of the pack face +X.
+		Actor->GetBody()->SetRelativeRotation(FRotator(0.f, bAssembled ? 0.f : MeshYawOffset, 0.f));
 		Actor->ApplyLook(ReactionRng.Range(1.f - HeightSpread, 1.f + HeightSpread), FLinearColor::White, {FName(TEXT("Tint"))}, ReactionRng.Range(0.92f, 1.08f));
 		Actor->SetDetail(false, false, -1);
 		if (UGTPThreatSubsystem::IsEnabled())
@@ -617,4 +645,46 @@ void UGTPCrowdSubsystem::SpreadPanic()
 			}
 		}
 	}
+}
+
+bool UGTPCrowdSubsystem::DressFromCitySample(AGTPPedestrian* Actor)
+{
+	// Path pattern of the pack: <Root>/<Female|Male>/<NormalWeight|OverWeight|UnderWeight>/Meshes/<f|m>_tal_<nrw|ovw|unw>_<part>.
+	const bool bFemale = ReactionRng.Next() < 0.5f;
+	const float WeightPick = ReactionRng.Next();
+	const TCHAR* WeightDir = WeightPick < 0.6f ? TEXT("NormalWeight") : (WeightPick < 0.8f ? TEXT("OverWeight") : TEXT("UnderWeight"));
+	const TCHAR* WeightTag = WeightPick < 0.6f ? TEXT("nrw") : (WeightPick < 0.8f ? TEXT("ovw") : TEXT("unw"));
+	const FString Sex = bFemale ? TEXT("Female") : TEXT("Male");
+	const FString Prefix = bFemale ? TEXT("f") : TEXT("m");
+	auto Pick = [this](const TArray<FString>& Options) -> FString
+	{
+		return Options[FMath::Min(Options.Num() - 1, static_cast<int32>(ReactionRng.Next() * Options.Num()))];
+	};
+	auto Load = [&](const FString& Part) -> USkeletalMesh*
+	{
+		const FString Name = FString::Printf(TEXT("%s_tal_%s_%s"), *Prefix, WeightTag, *Part);
+		return LoadObject<USkeletalMesh>(nullptr, *FString::Printf(TEXT("%s/%s/%s/Meshes/%s.%s"), *CrowdCharacterRoot, *Sex, WeightDir, *Name, *Name));
+	};
+	USkeletalMesh* Body = Load(TEXT("body"));
+	if (!Body)
+	{
+		return false;
+	}
+	TArray<USkeletalMesh*> Clothes;
+	Clothes.Add(Load(Pick(bFemale
+		? TArray<FString>{TEXT("buttonDown"), TEXT("buttonOpen"), TEXT("scoopneck"), TEXT("turtleneck"), TEXT("buttonDown_blazer"), TEXT("scoopneck_croppedJacket")}
+		: TArray<FString>{TEXT("buttonDown"), TEXT("buttonOpen"), TEXT("crewneck"), TEXT("turtleneck"), TEXT("buttonDown_tie"), TEXT("crewneck_blazer")})));
+	Clothes.Add(Load(Pick(bFemale
+		? TArray<FString>{TEXT("jeans"), TEXT("slacks"), TEXT("skirt"), TEXT("jeans_belt")}
+		: TArray<FString>{TEXT("jeans"), TEXT("jeansLong"), TEXT("slacks"), TEXT("slacks_belt")})));
+	Clothes.Add(Load(Pick(bFemale
+		? TArray<FString>{TEXT("loafers"), TEXT("oxfords"), TEXT("dressFlats")}
+		: TArray<FString>{TEXT("loafers"), TEXT("oxfords")})));
+	const int32 FaceIndex = 1 + FMath::Min(5, static_cast<int32>(ReactionRng.Next() * 6));
+	const FString FaceName = FString::Printf(TEXT("%s_%03d_nrw_FaceMesh"), *Prefix, FaceIndex);
+	USkeletalMesh* Face = LoadObject<USkeletalMesh>(nullptr, *FString::Printf(TEXT("%s/%s/%s_%03d/Face/%s.%s"),
+		*CrowdCharacterRoot, *Sex, *Prefix, FaceIndex, *FaceName, *FaceName));
+	TSubclassOf<UAnimInstance> FaceAnim = FaceAnimClass.TryLoadClass<UAnimInstance>();
+	Actor->Dress(Body, Clothes, Face, FaceAnim);
+	return true;
 }

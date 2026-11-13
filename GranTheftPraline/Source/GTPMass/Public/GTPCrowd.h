@@ -166,6 +166,27 @@ protected:
 	UPROPERTY(Config)
 	FSoftObjectPath HandsUpAnimation = FSoftObjectPath(TEXT("/Game/Characters/Pedestrians/Anims/A_HandsUp.A_HandsUp"));
 
+	/**
+	 * City Sample Crowds characters (copied to the game from the Game Animation Sample project, not in Git):
+	 * body, garments and face assembled per person. Empty root = the mannequin of the player.
+	 */
+	UPROPERTY(Config)
+	FString CrowdCharacterRoot = TEXT("/Game/CitySampleCrowd/Character");
+
+	/** Face animation of the assembled characters. */
+	UPROPERTY(Config)
+	FSoftClassPath FaceAnimClass = FSoftClassPath(TEXT("/Game/CitySampleCrowd/Character/Shared/Rig/ABP_CrowdCharacter_Head.ABP_CrowdCharacter_Head_C"));
+
+	/** Walk, idle and run baked for the MetaHuman skeleton (tools/character/retarget_player_animations.py). */
+	UPROPERTY(Config)
+	FSoftObjectPath CrowdWalkAnimation = FSoftObjectPath(TEXT("/Game/MetaHumans/GTP/Anims/MH_M_Neutral_Walk_Loop_F_L_20.MH_M_Neutral_Walk_Loop_F_L_20"));
+
+	UPROPERTY(Config)
+	FSoftObjectPath CrowdIdleAnimation = FSoftObjectPath(TEXT("/Game/MetaHumans/GTP/Anims/MH_M_Relaxed_Stand_Idle_Loop.MH_M_Relaxed_Stand_Idle_Loop"));
+
+	UPROPERTY(Config)
+	FSoftObjectPath CrowdRunAnimation = FSoftObjectPath(TEXT("/Game/MetaHumans/GTP/Anims/MH_M_Neutral_Run_Loop_F_R_20.MH_M_Neutral_Run_Loop_F_R_20"));
+
 	UPROPERTY(Config)
 	float WalkAnimationSpeed = 140.f;
 
@@ -175,6 +196,7 @@ protected:
 private:
 	void Spawn(UWorld& InWorld);
 	void SetupNearActors(UWorld& InWorld);
+	bool DressFromCitySample(AGTPPedestrian* Actor);
 	void UpdateNear(float DeltaTime);
 	void SpreadPanic();
 	void OnLoud(const FVector& Where, float Radius, AActor* Cause);
@@ -215,6 +237,7 @@ private:
 	TObjectPtr<UAnimSequenceBase> HandsUp;
 
 	GTPWalk::FRng ReactionRng{777u};
+	bool bAssembled = false;
 	TArray<uint8> PanicSpread;
 	float NextPanicSpread = 0.f;
 	FDelegateHandle LoudHandle;
