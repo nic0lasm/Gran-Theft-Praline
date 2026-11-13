@@ -475,6 +475,14 @@ void UGTPCrowdSubsystem::SetupNearActors(UWorld& InWorld)
 void UGTPCrowdSubsystem::OnLoud(const FVector& Where, float Radius, AActor* /*Cause*/)
 {
 	// Everybody within earshot runs from the noise, near or far.
+	// Sirens and engines re-emit every frame: one pass per half second is plenty.
+	const double Now = FPlatformTime::Seconds();
+	if (Now - LastLoudTime < 0.5 && FVector::DistSquared(Where, LastLoudWhere) < 250000.0)
+	{
+		return;
+	}
+	LastLoudTime = Now;
+	LastLoudWhere = Where;
 	const GTPWalk::FPoint Point{float(Where.X), float(Where.Y)};
 	int32 Fled = 0;
 	for (int32 Index = 0; Index < Entities.Num(); ++Index)
@@ -486,7 +494,11 @@ void UGTPCrowdSubsystem::OnLoud(const FVector& Where, float Radius, AActor* /*Ca
 			++Fled;
 		}
 	}
-	UE_LOG(LogGTPCrowd, Log, TEXT("crowd: loud sound r=%.0f cm, %d of %d flee"), Radius, Fled, Entities.Num());
+	if (Now - LastLoudLog > 2.0)
+	{
+		LastLoudLog = Now;
+		UE_LOG(LogGTPCrowd, Log, TEXT("crowd: loud sound r=%.0f cm, %d of %d flee"), Radius, Fled, Entities.Num());
+	}
 }
 
 void UGTPCrowdSubsystem::OnActorThreat(AActor* Body, int32 NewState)
