@@ -349,6 +349,7 @@ void AGTPGameMode::ApplyPlayerVisual(APawn* Pawn)
 							Body->InitAnim(true);
 						}
 					}
+					bool bVariableChanged = false;
 					// The sample's retarget blueprint reads its source from this variable: set it to the pawn's mesh.
 					if (Anim)
 					{
@@ -360,6 +361,13 @@ void AGTPGameMode::ApplyPlayerVisual(APawn* Pawn)
 							}
 							if (FObjectProperty* ObjProp = CastField<FObjectProperty>(*It))
 							{
+								// The node's pin is bound to this variable: it must hold the retargeter we want.
+								if (It->GetName() == TEXT("IKRetargeter") && Retargeter && ObjProp->GetObjectPropertyValue_InContainer(Anim) != Retargeter)
+								{
+									ObjProp->SetObjectPropertyValue_InContainer(Anim, Retargeter);
+									UE_LOG(LogGTPGameMode, Log, TEXT("  anim variable IKRetargeter set to %s"), *Retargeter->GetName());
+									bVariableChanged = true;
+								}
 								if (It->GetName() == TEXT("ParentSkeletalMeshComponent") && ObjProp->GetObjectPropertyValue_InContainer(Anim) != Own)
 								{
 									ObjProp->SetObjectPropertyValue_InContainer(Anim, Own);
@@ -370,6 +378,30 @@ void AGTPGameMode::ApplyPlayerVisual(APawn* Pawn)
 							It->ExportText_InContainer(0, Value, Anim, Anim, nullptr, PPF_None);
 							UE_LOG(LogGTPGameMode, Log, TEXT("  anim var %s (%s) = %s"), *It->GetName(), *It->GetClass()->GetName(), *Value.Left(120));
 						}
+					}
+					// A node scale of 0 collapses the output: a retarget scale must be at least 1 cm.
+					if (Anim)
+					{
+						for (TFieldIterator<FStructProperty> It(Anim->GetClass()); It; ++It)
+						{
+							if (!It->Struct || !It->Struct->GetName().Contains(TEXT("RetargetPoseFromMesh")))
+							{
+								continue;
+							}
+							void* Node = It->ContainerPtrToValuePtr<void>(Anim);
+							if (FFloatProperty* Scale = FindFProperty<FFloatProperty>(It->Struct, TEXT("TargetActorScale")))
+							{
+								if (Scale->GetPropertyValue_InContainer(Node) <= 0.f)
+								{
+									Scale->SetPropertyValue_InContainer(Node, 1.f);
+									bVariableChanged = true;
+								}
+							}
+						}
+					}
+					if (bVariableChanged)
+					{
+						Body->InitAnim(true);
 					}
 					UE_LOG(LogGTPGameMode, Log, TEXT("  body anim %s: retargeter %s, %d node(s) changed"),
 						Anim ? *Anim->GetClass()->GetName() : TEXT("none yet"), Retargeter ? *Retargeter->GetName() : TEXT("not loaded"), Changed);
