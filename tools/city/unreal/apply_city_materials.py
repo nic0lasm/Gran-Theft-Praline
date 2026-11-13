@@ -545,7 +545,7 @@ SHOP_DAY_GLOW = float(os.environ.get("GTP_SHOP_DAY_GLOW", "1000"))   # darker ro
 # daylight. The day path is unchanged (DayGlow, exposure EV100 14).
 SHOP_NIGHT_SCREEN = float(os.environ.get("GTP_SHOP_NIGHT_SCREEN", "0.2"))   # 0.7 and 0.35: white aplats at night (PC V5 13/11)
 SHOP_NIGHT_SPECULAR = float(os.environ.get("GTP_SHOP_NIGHT_SPECULAR", "0.0"))   # 0.25 still reflected: at grazing angles Fresnel tends to 1 whatever F0; 0 switches the specular off (PC V5 13/11)
-WINDOW_NIGHT_SCREEN = float(os.environ.get("GTP_WINDOW_NIGHT_SCREEN", "0.6"))
+WINDOW_NIGHT_SCREEN = float(os.environ.get("GTP_WINDOW_NIGHT_SCREEN", "0.3"))   # 0.6: pale white windows, and lit windows seen between thin balcony bars flickered under TSR (PC V5 +18, 13/11)
 
 
 def city_lights(g):
