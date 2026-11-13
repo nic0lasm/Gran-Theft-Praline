@@ -215,6 +215,22 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckShoot(FString& Detail)
 	{
 		return EResult::Pending;
 	}
+	// Busted in the chase (step 2): the police took the ammunition, as in GTA. The run tests the
+	// shot, not the arrest, so the pistol gets a box of rounds back and loads it before firing.
+	if (Weapon->GetMagazine() + Weapon->GetReserve() <= 0)
+	{
+		const int32 Given = Weapon->AddAmmo(36);
+		Weapon->SetDrawn(true);
+		Weapon->Reload();
+		GTP_TRACE(LogGTPGtaRun, TEXT("GTARun: player re-armed after the arrest (+%d rounds)"), Given);
+	}
+	if (Weapon->IsReloading())
+	{
+		// Not a try: the magazine is going in.
+		NextShot = Now + 0.25;
+		Detail = TEXT("reloading");
+		return EResult::Pending;
+	}
 	// The nearest other person, else a point ahead.
 	FVector Target = Character->GetActorLocation() + Character->GetActorForwardVector() * 2000.f;
 	double Best = 4000.0;
