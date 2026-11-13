@@ -11,6 +11,8 @@
 #include "Misc/Paths.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/Character.h"
+#include "AssetRegistry/AssetRegistryModule.h"
+#include "AssetRegistry/AssetData.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Animation/AnimInstance.h"
@@ -227,6 +229,35 @@ void AGTPGameMode::ApplyPlayerVisual(APawn* Pawn)
 						}
 					}
 					int32 Changed = 0;
+					// The retargeter asset ships without a source IK rig: give it the pawn skeleton's rig (found by name), in memory only.
+					if (Retargeter && Own)
+					{
+						if (FObjectProperty* SrcRig = FindFProperty<FObjectProperty>(Retargeter->GetClass(), TEXT("SourceIKRigAsset")))
+						{
+							if (!SrcRig->GetObjectPropertyValue_InContainer(Retargeter))
+							{
+								FAssetRegistryModule& Reg = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+								TArray<FAssetData> Rigs;
+								Reg.Get().GetAssetsByClass(FTopLevelAssetPath(TEXT("/Script/IKRig"), TEXT("IKRigDefinition")), Rigs, true);
+								const FString MeshName = Own->GetSkeletalMeshAsset() ? Own->GetSkeletalMeshAsset()->GetName() : FString();
+								for (const FAssetData& Rig : Rigs)
+								{
+									UE_LOG(LogGTPGameMode, Log, TEXT("  ik rig candidate %s"), *Rig.GetObjectPathString());
+								}
+								for (const FAssetData& Rig : Rigs)
+								{
+									const FString Name = Rig.AssetName.ToString();
+									if (Name.Contains(TEXT("UEFN")) && !Name.Contains(TEXT("Metahuman")) && !Name.Contains(TEXT("UE4")))
+									{
+										SrcRig->SetObjectPropertyValue_InContainer(Retargeter, Rig.GetAsset());
+										UE_LOG(LogGTPGameMode, Log, TEXT("  retargeter source rig set to %s"), *Rig.GetObjectPathString());
+										++Changed;
+										break;
+									}
+								}
+							}
+						}
+					}
 					if (Anim && Retargeter)
 					{
 						for (TFieldIterator<FStructProperty> It(Anim->GetClass()); It; ++It)
