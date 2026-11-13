@@ -550,6 +550,7 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 		if (Follower.IsActive())
 		{
 			FGTPDriveCommand Command;
+			Follower.bIgnoreLaneLimit = bChase;
 			// Held up for more than 3 s by a car in a narrow street (a chase demo cannot wait): push through for 3 s.
 			if (bChase && T > 4.0)
 			{

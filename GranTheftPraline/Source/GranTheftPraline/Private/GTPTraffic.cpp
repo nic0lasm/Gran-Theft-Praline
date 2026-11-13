@@ -106,7 +106,7 @@ bool FGTPLaneFollower::Step(const FVector& Location, float YawDegrees, float Spe
 		return false;
 	}
 	const float Speed = SpeedKmh / 3.6f;
-	const float LaneSpeed = FMath::Min(Net->GetLanes()[Route[0]].SpeedKmh, MaxSpeedKmh) / 3.6f;
+	const float LaneSpeed = (bIgnoreLaneLimit ? MaxSpeedKmh : FMath::Min(Net->GetLanes()[Route[0]].SpeedKmh, MaxSpeedKmh)) / 3.6f;
 	Out = GTPDrive::Decide(Path, static_cast<float>(Location.X) * CmToM, static_cast<float>(Location.Y) * CmToM,
 		FMath::DegreesToRadians(YawDegrees), Speed, LaneSpeed, ObstacleMetres, Settings, Closest);
 	if (Closest >= CurrentLaneLength && Route.Num() > 1)
