@@ -401,10 +401,10 @@ public:
 	 * Lane places where a roadblock across the player's road would work: 140 to 240 m ahead of a player driving
 	 * fast, on a road parallel to their travel. Geometry only; called by the EQS generator (UGTPPoliceQueries).
 	 */
-	void CollectRoadblockSites(const APawn& Player, TArray<FVector>& OutSites) const;
+	void CollectRoadblockSites(const APawn& Player, TArray<FVector>& OutSites, int32 Level = 1) const;
 
 private:
-	bool IsRoadblockSite(const APawn& Player, const FGTPTrafficLane& Lane, bool bRelaxed, FVector& OutPoint, FVector& OutAlong, double& OutDistance) const;
+	bool IsRoadblockSite(const APawn& Player, const FGTPTrafficLane& Lane, int32 Level, FVector& OutPoint, FVector& OutAlong, double& OutDistance) const;
 	bool FindSpawnPoint(const FVector& PlayerLocation, int32& OutLane, int32& OutPoint, FTransform& OutTransform) const;
 	void DriveUnit(FUnit& Unit, UGTPWantedComponent& Wanted, const AActor& Player, float DeltaSeconds);
 	void DriveStraight(FUnit& Unit, const FVector& Target, float MaxSpeedKmh);

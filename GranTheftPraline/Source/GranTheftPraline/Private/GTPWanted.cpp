@@ -801,7 +801,7 @@ void AGTPPoliceDirector::StopWarningHorn()
 	HornCar.Reset();
 }
 
-bool AGTPPoliceDirector::IsRoadblockSite(const APawn& Player, const FGTPTrafficLane& Lane, bool bRelaxed, FVector& OutPoint, FVector& OutAlong, double& OutDistance) const
+bool AGTPPoliceDirector::IsRoadblockSite(const APawn& Player, const FGTPTrafficLane& Lane, int32 Level, FVector& OutPoint, FVector& OutAlong, double& OutDistance) const
 {
 	const FVector Velocity = Player.GetVelocity();
 	if (Lane.Points.Num() < 4 || Velocity.Size2D() < 400.f)
@@ -813,17 +813,24 @@ bool AGTPPoliceDirector::IsRoadblockSite(const APawn& Player, const FGTPTrafficL
 	const FVector Point = Lane.Points[Index];
 	const FVector Offset = Point - Player.GetActorLocation();
 	const double Distance = FVector::Dist2D(Point, Player.GetActorLocation());
-	// An answer from the query is a few seconds old and the player has moved: wider limits then.
-	const double Min = bRelaxed ? 11000.0 : 14000.0;
-	const double Max = bRelaxed ? 27000.0 : 24000.0;
+	// Level 0: 140 to 240 m straight ahead. The lanes of the quarter do not always go that far in the player's
+	// direction (the map ends, the street bends): levels 1 and 2 look nearer and wider, and the EQS answer is a few
+	// seconds old, so it is judged at level 1.
+	static const double Mins[3] = {14000.0, 8000.0, 5000.0};
+	static const double Maxs[3] = {24000.0, 27000.0, 30000.0};
+	static const float Cosines[3] = {0.85f, 0.75f, 0.6f};
+	static const double Parallels[3] = {0.6, 0.5, 0.35};
+	const int32 L = FMath::Clamp(Level, 0, 2);
+	const double Min = Mins[L];
+	const double Max = Maxs[L];
 	if (Distance < Min || Distance > Max
-		|| !GTPPoliceTactics::IsAhead(static_cast<float>(Offset.X), static_cast<float>(Offset.Y), static_cast<float>(Direction.X), static_cast<float>(Direction.Y), bRelaxed ? 0.75f : 0.85f))
+		|| !GTPPoliceTactics::IsAhead(static_cast<float>(Offset.X), static_cast<float>(Offset.Y), static_cast<float>(Direction.X), static_cast<float>(Direction.Y), Cosines[L]))
 	{
 		return false;
 	}
 	const FVector Along = (Lane.Points[Index + 1] - Point).GetSafeNormal2D();
 	// A road the player is driving along, not a cross street.
-	if (FMath::Abs(FVector2D::DotProduct(FVector2D(Along.X, Along.Y), Direction)) < 0.6)
+	if (FMath::Abs(FVector2D::DotProduct(FVector2D(Along.X, Along.Y), Direction)) < Parallels[L])
 	{
 		return false;
 	}
@@ -833,7 +840,7 @@ bool AGTPPoliceDirector::IsRoadblockSite(const APawn& Player, const FGTPTrafficL
 	return true;
 }
 
-void AGTPPoliceDirector::CollectRoadblockSites(const APawn& Player, TArray<FVector>& OutSites) const
+void AGTPPoliceDirector::CollectRoadblockSites(const APawn& Player, TArray<FVector>& OutSites, int32 Level) const
 {
 	if (!Network)
 	{
@@ -843,7 +850,7 @@ void AGTPPoliceDirector::CollectRoadblockSites(const APawn& Player, TArray<FVect
 	{
 		FVector Point, Along;
 		double Distance = 0.0;
-		if (IsRoadblockSite(Player, Lane, false, Point, Along, Distance))
+		if (IsRoadblockSite(Player, Lane, Level, Point, Along, Distance))
 		{
 			OutSites.Add(Point);
 		}
@@ -854,9 +861,10 @@ bool AGTPPoliceDirector::PlaceRoadblockCar(const APawn& Player, int32 CarIndex, 
 {
 	FHitResult Ground;
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(GTPPoliceBlockGround), false);
-	if (!GetWorld()->LineTraceSingleByChannel(Ground, Point + FVector(0.f, 0.f, 500.f), Point - FVector(0.f, 0.f, 2000.f), ECC_Visibility, Params)
-		|| Network->IsSeenByPlayer(Point))
+	const bool bGround = GetWorld()->LineTraceSingleByChannel(Ground, Point + FVector(0.f, 0.f, 500.f), Point - FVector(0.f, 0.f, 2000.f), ECC_Visibility, Params);
+	if (!bGround || Network->IsSeenByPlayer(Point))
 	{
+		GTP_TRACE(LogGTPWanted, TEXT("police: roadblock site refused at %.0f m: %s"), Distance * 0.01, bGround ? TEXT("in the player's view") : TEXT("no ground"));
 		return false;
 	}
 	// Two cars nose to tail at an angle across the lane (a V): the first on the lane axis, the second a car's width further.
@@ -895,7 +903,7 @@ bool AGTPPoliceDirector::SpawnRoadblockCar(const APawn& Player, int32 CarIndex)
 				FVector Point, Along;
 				double Distance = 0.0;
 				if (Lane.Points.Num() >= 4 && FVector::DistSquared(Lane.Points[Lane.Points.Num() / 2], Site) < 100.0
-					&& IsRoadblockSite(Player, Lane, true, Point, Along, Distance))
+					&& IsRoadblockSite(Player, Lane, 1, Point, Along, Distance))
 				{
 					if (PlaceRoadblockCar(Player, CarIndex, Point, Along, Distance))
 					{
@@ -906,29 +914,34 @@ bool AGTPPoliceDirector::SpawnRoadblockCar(const APawn& Player, int32 CarIndex)
 			}
 		}
 	}
-	// No answer yet, or nothing fit: look at every lane (it is done at most every 6 s) and take a few of the places that fit.
-	TArray<FVector> Fallback;
-	CollectRoadblockSites(Player, Fallback);
-	for (int32 Try = 0; Try < 8 && Fallback.Num() > 0; ++Try)
+	// No answer yet, or nothing fit: look at every lane (at most every 6 s), from the strict window to the widest.
+	int32 Found[3] = {0, 0, 0};
+	for (int32 Level = 0; Level < 3; ++Level)
 	{
-		const FVector Site = Fallback[Dice.RandRange(0, Fallback.Num() - 1)];
-		for (const FGTPTrafficLane& Lane : Lanes)
+		TArray<FVector> Fallback;
+		CollectRoadblockSites(Player, Fallback, Level);
+		Found[Level] = Fallback.Num();
+		for (int32 Try = 0; Try < 8 && Fallback.Num() > 0; ++Try)
 		{
-			FVector Point, Along;
-			double Distance = 0.0;
-			if (Lane.Points.Num() >= 4 && FVector::DistSquared(Lane.Points[Lane.Points.Num() / 2], Site) < 100.0
-				&& IsRoadblockSite(Player, Lane, false, Point, Along, Distance))
+			const FVector Site = Fallback[Dice.RandRange(0, Fallback.Num() - 1)];
+			for (const FGTPTrafficLane& Lane : Lanes)
 			{
-				if (PlaceRoadblockCar(Player, CarIndex, Point, Along, Distance))
+				FVector Point, Along;
+				double Distance = 0.0;
+				if (Lane.Points.Num() >= 4 && FVector::DistSquared(Lane.Points[Lane.Points.Num() / 2], Site) < 100.0
+					&& IsRoadblockSite(Player, Lane, Level, Point, Along, Distance))
 				{
-					return true;
+					if (PlaceRoadblockCar(Player, CarIndex, Point, Along, Distance))
+					{
+						return true;
+					}
+					break;
 				}
-				break;
 			}
 		}
 	}
-	GTP_TRACE(LogGTPWanted, TEXT("police: no roadblock placed: %d lane sites ahead, %d from EQS, player %.0f km/h"), Fallback.Num(),
-		Queries ? Queries->GetRoadblockSites().Num() : 0, Player.GetVelocity().Size2D() * 0.036f);
+	GTP_TRACE(LogGTPWanted, TEXT("police: no roadblock placed: lane sites ahead %d / %d / %d (strict, wide, widest), %d from EQS, %d lanes, player %.0f km/h, %d units"),
+		Found[0], Found[1], Found[2], Queries ? Queries->GetRoadblockSites().Num() : 0, Lanes.Num(), Player.GetVelocity().Size2D() * 0.036f, Units.Num());
 	return false;
 }
 

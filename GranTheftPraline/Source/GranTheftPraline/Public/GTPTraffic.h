@@ -59,6 +59,9 @@ struct GRANTHEFTPRALINE_API FGTPLaneFollower
 	/** Chases and demos: at a junction take the exit that turns the least (a flight keeps to the main axes). */
 	bool bPreferStraight = false;
 
+	/** Metres of lane planned ahead (0 = the default 50). A flight at 90 km/h needs more, or the end of the path brakes it. */
+	float AheadMeters = 0.f;
+
 	/** Chases and demos: corners taken at 5 m/s2 instead of the calm 2.2, braking harder, firmer throttle (a flight, not a drive). */
 	void SetHardDriving()
 	{

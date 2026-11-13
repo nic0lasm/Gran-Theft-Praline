@@ -84,7 +84,8 @@ void FGTPLaneFollower::Plan()
 	{
 		AheadM += Lanes[Route[Index]].LengthCm() * CmToM;
 	}
-	while (AheadM < RouteAheadM)
+	const float WantedAheadM = FMath::Max(RouteAheadM, AheadMeters);
+	while (AheadM < WantedAheadM)
 	{
 		int32 Next = bHasGoal ? Net->PickNextToward(Route.Last(), Goal) : Net->PickNext(Route.Last(), GTPDeterminism::IsOn() ? &OwnRandom : nullptr);
 		if (Next != INDEX_NONE && bPreferStraight && !bHasGoal)

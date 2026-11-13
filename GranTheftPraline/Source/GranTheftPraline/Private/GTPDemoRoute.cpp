@@ -607,6 +607,7 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 			{
 				Follower.SetHardDriving();
 				Follower.bPreferStraight = true;
+				Follower.AheadMeters = 160.f;
 			}
 			// Held up for more than 2.5 s (a car in a narrow street, a corner cut too short): first push through for
 			// 3 s, then, if it happens again, back off for 2 s with the wheels turned and go on.
@@ -672,7 +673,8 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 					SlowSince = 0.0;
 				}
 			}
-			const float ObstacleM = Now < RamUntil ? 1000.f : (bChase ? UGTPAIDriverComponent::ProbeAhead(Driven, 900.f, 60.f) : UGTPAIDriverComponent::ProbeAhead(Driven, 4000.f, 90.f));
+			// The first seconds at the wheel ignore what stands ahead: the taken car starts from a kerb, among the others.
+			const float ObstacleM = (Now < RamUntil || (bChase && T < 6.0)) ? 1000.f : (bChase ? UGTPAIDriverComponent::ProbeAhead(Driven, 900.f, 60.f) : UGTPAIDriverComponent::ProbeAhead(Driven, 4000.f, 90.f));
 			if (Follower.Step(Driven->GetActorLocation(), static_cast<float>(Driven->GetActorRotation().Yaw), Driven->GetSpeedKmh(), Cruise, ObstacleM, Command))
 			{
 				if (bChase)
