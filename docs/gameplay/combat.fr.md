@@ -222,8 +222,9 @@ Lyra n'est repris : Lyra repose sur GAS et ShooterCore, que l'ADR-0011 écarte. 
   comme mesh source (ou tout mesh sur le squelette des animations) et appelle le retarget par lot de 5.8 avec des
   mots-clés (`target_path`).
 - **Haut du corps seulement** : le blueprint du joueur (`SandboxCharacter_CMC_ABP`) n'a que `DefaultSlot`. Les
-  clips joués dans un slot passent par un masque de mélange créé au chargement à partir du squelette du joueur
-  (`UpperBodyRoot`, `spine_01` et ses enfants ; les jambes pèsent 0) : dégainer, recharger et la pose de visée
+  clips joués dans un slot passent par un profil de mélange créé au chargement à partir du squelette du joueur, en
+  mode WeightFactor (`UpperBodyRoot`, `spine_01` et ses enfants pèsent 1, tous les autres os 0 ; un profil BlendMask
+  déclenche une assertion dans un slot de montage en 5.8) : dégainer, recharger et la pose de visée
   laissent les jambes marcher. Aucune modification du blueprint. Sans l'os, ou si le masque ne peut pas être
   créé, les clips jouent sur tout le corps comme avant (signalé une fois dans le journal).
 - **Clips** : actions Lyra en pose complète (`MM_*_Equip`, `_Reload`, `_DryFire`, `_Idle_ADS`) dans

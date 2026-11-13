@@ -215,8 +215,8 @@ is taken: Lyra stands on GAS and ShooterCore, which ADR-0011 leaves out. We take
   retargeter, takes Lyra's `SKM_Manny` as source mesh (or any mesh on the animations' skeleton), and calls the
   5.8 batch retarget with keywords (`target_path`).
 - **Upper body only**: the player's blueprint (`SandboxCharacter_CMC_ABP`) has only `DefaultSlot`. Clips played
-  in a slot go through a blend mask made at load from the player's skeleton (`UpperBodyRoot`, `spine_01` and its
-  children; the legs weigh 0), so drawing, reloading and the aim pose leave the legs walking. No change to the
+  in a slot go through a blend profile made at load from the player's skeleton, in WeightFactor mode (`UpperBodyRoot`,
+  `spine_01` and its children weigh 1, every other bone 0; a BlendMask profile asserts in a montage slot in 5.8), so drawing, reloading and the aim pose leave the legs walking. No change to the
   blueprint. Without the bone, or if the mask cannot be made, clips play on the full body as before (logged once).
 - **Clips**: full-pose Lyra actions (`MM_*_Equip`, `_Reload`, `_DryFire`, `_Idle_ADS`) in `DefaultSlot`. Lyra's
   Fire exists only as an additive: it waits for an additive slot in the player's blueprint, the camera kick and

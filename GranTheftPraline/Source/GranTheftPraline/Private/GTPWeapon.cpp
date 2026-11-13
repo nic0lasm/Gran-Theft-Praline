@@ -769,8 +769,9 @@ UBlendProfile* UGTPWeaponComponent::GetUpperBodyMask()
 		GTP_TRACE(LogGTPCombat, TEXT("weapon: no upper-body mask (root %s), clips play on the full body"), *UpperBodyRoot.ToString());
 		return nullptr;
 	}
-	// A blend mask: per-bone weight = scale x montage weight; the bones left out weigh 0 (the legs).
-	// OwningSkeleton and Mode are set through reflection: the editor normally sets them.
+	// A WeightFactor profile (the mode a montage's slot supports: a BlendMask asserts in 5.8): per-bone weight =
+	// montage weight x factor. Every bone gets an entry, 1 under UpperBodyRoot and 0 elsewhere (the legs), since a
+	// bone left out of the profile would follow the montage. OwningSkeleton and Mode are set through reflection.
 	UBlendProfile* Mask = NewObject<UBlendProfile>(Skeleton, NAME_None, RF_Transient);
 	bool bSkeletonSet = false;
 	bool bModeSet = false;
@@ -779,25 +780,45 @@ UBlendProfile* UGTPWeaponComponent::GetUpperBodyMask()
 		SkeletonProp->SetObjectPropertyValue_InContainer(Mask, Skeleton);
 		bSkeletonSet = true;
 	}
-	const int64 MaskMode = static_cast<int64>(EBlendProfileMode::BlendMask);
+	const int64 WeightMode = static_cast<int64>(EBlendProfileMode::WeightFactor);
 	if (FEnumProperty* ModeEnum = FindFProperty<FEnumProperty>(UBlendProfile::StaticClass(), TEXT("Mode")))
 	{
-		ModeEnum->GetUnderlyingProperty()->SetIntPropertyValue(ModeEnum->ContainerPtrToValuePtr<void>(Mask), MaskMode);
-		bModeSet = true;
+		void* Value = ModeEnum->ContainerPtrToValuePtr<void>(Mask);
+		ModeEnum->GetUnderlyingProperty()->SetIntPropertyValue(Value, WeightMode);
+		bModeSet = ModeEnum->GetUnderlyingProperty()->GetSignedIntPropertyValue(Value) == WeightMode;
 	}
 	else if (FByteProperty* ModeByte = FindFProperty<FByteProperty>(UBlendProfile::StaticClass(), TEXT("Mode")))
 	{
-		ModeByte->SetIntPropertyValue(ModeByte->ContainerPtrToValuePtr<void>(Mask), MaskMode);
-		bModeSet = true;
+		void* Value = ModeByte->ContainerPtrToValuePtr<void>(Mask);
+		ModeByte->SetIntPropertyValue(Value, WeightMode);
+		bModeSet = ModeByte->GetSignedIntPropertyValue(Value) == WeightMode;
 	}
+	// Only the WeightFactor mode goes to a montage: anything else and the clips play on the full body.
 	if (!bSkeletonSet || !bModeSet)
 	{
 		GTP_TRACE(LogGTPCombat, TEXT("weapon: blend mask not settable (skeleton %d, mode %d), clips play on the full body"), bSkeletonSet ? 1 : 0, bModeSet ? 1 : 0);
 		return nullptr;
 	}
-	Mask->SetBoneBlendScale(UpperBodyRoot, 1.f, true, true);
+	const FReferenceSkeleton& Ref = Skeleton->GetReferenceSkeleton();
+	const int32 RootIndex = Ref.FindBoneIndex(UpperBodyRoot);
+	int32 UpperBones = 0;
+	for (int32 Bone = 0; Bone < Ref.GetNum(); ++Bone)
+	{
+		bool bUpper = false;
+		for (int32 Up = Bone; Up != INDEX_NONE; Up = Ref.GetParentIndex(Up))
+		{
+			if (Up == RootIndex)
+			{
+				bUpper = true;
+				break;
+			}
+		}
+		Mask->SetBoneBlendScale(Bone, bUpper ? 1.f : 0.f, false, true);
+		UpperBones += bUpper ? 1 : 0;
+	}
 	UpperBodyMask = Mask;
-	GTP_TRACE(LogGTPCombat, TEXT("weapon: upper-body mask from %s (%d bones)"), *UpperBodyRoot.ToString(), Mask->GetNumBlendEntries());
+	GTP_TRACE(LogGTPCombat, TEXT("weapon: upper-body mask from %s (weight factor, %d of %d bones, %d entries)"),
+		*UpperBodyRoot.ToString(), UpperBones, Ref.GetNum(), Mask->GetNumBlendEntries());
 	return Mask;
 }
 
