@@ -114,6 +114,10 @@ void AGTPGameMode::ApplyPlayerVisual(APawn* Pawn)
 	{
 		PlayerVisualClass = FSoftClassPath(Override);
 	}
+	if (FParse::Value(FCommandLine::Get(), TEXT("PlayerVisualBody="), Override))
+	{
+		PlayerVisualBodyName = Override;
+	}
 	static const FName VisualTag(TEXT("GTPPlayerVisual"));
 	if (!Pawn || PlayerVisualClass.IsNull() || Pawn->ActorHasTag(VisualTag))
 	{
@@ -141,7 +145,8 @@ void AGTPGameMode::ApplyPlayerVisual(APawn* Pawn)
 	// enforced again 1.5 s later, with a trace of every component for the log.
 	TWeakObjectPtr<AActor> WeakVisual(Visual);
 	TWeakObjectPtr<APawn> WeakPawn(Pawn);
-	auto Enforce = [WeakVisual, WeakPawn](const TCHAR* When)
+	const FString BodyName = PlayerVisualBodyName;
+	auto Enforce = [WeakVisual, WeakPawn, BodyName](const TCHAR* When)
 	{
 		AActor* V = WeakVisual.Get();
 		APawn* P = WeakPawn.Get();
@@ -165,6 +170,22 @@ void AGTPGameMode::ApplyPlayerVisual(APawn* Pawn)
 			V->GetAttachParentActor() ? *V->GetAttachParentActor()->GetName() : TEXT("nothing"));
 		TArray<UPrimitiveComponent*> Parts;
 		V->GetComponents<UPrimitiveComponent>(Parts);
+		// The retarget of the MetaHuman's body reads the mesh it is attached to ("use attached parent"):
+		// the body hangs from the pawn's own (hidden) mesh, which keeps posing the skeleton.
+		if (const ACharacter* Character = Cast<ACharacter>(P))
+		{
+			USkeletalMeshComponent* Own = Character->GetMesh();
+			for (UPrimitiveComponent* Part : Parts)
+			{
+				USkeletalMeshComponent* Body = Cast<USkeletalMeshComponent>(Part);
+				if (Own && Body && Part->GetName() == BodyName && Body->GetAttachParent() != Own)
+				{
+					Body->AttachToComponent(Own, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+					Body->SetRelativeLocationAndRotation(FVector::ZeroVector, FRotator::ZeroRotator);
+					UE_LOG(LogGTPGameMode, Log, TEXT("  body %s re-attached to the pawn's mesh %s"), *Body->GetName(), *Own->GetName());
+				}
+			}
+		}
 		for (UPrimitiveComponent* Part : Parts)
 		{
 			USkeletalMeshComponent* Skel = Cast<USkeletalMeshComponent>(Part);
