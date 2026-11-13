@@ -59,7 +59,11 @@ void AGTPGameMode::StartPlay()
 {
 	Super::StartPlay();
 	int32 Traffic = -1;
-	FParse::Value(FCommandLine::Get(), TEXT("Traffic="), Traffic);
+	// -Traffic=mass reads as 0 as a number: the network still runs (lights, parked cars, police).
+	if (!AGTPTrafficNetwork::IsMassTrafficRequested())
+	{
+		FParse::Value(FCommandLine::Get(), TEXT("Traffic="), Traffic);
+	}
 	if (Traffic == 0)
 	{
 		return;

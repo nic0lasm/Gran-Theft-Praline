@@ -283,6 +283,12 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Incidents")
 	int32 MaxIncidents = 2;
 
+	/** -Traffic=mass on the command line (MassTraffic of City Sample, module GTPMass). */
+	static bool IsMassTrafficRequested();
+
+	/** Requested and the MassTraffic plugin is loaded: this network then drives no car of its own. */
+	static bool IsMassTrafficWanted();
+
 	/** Two traffic cars crashed (AGTPVehicle::OnBodyHit): the drivers argue, flee or drive off. */
 	void NotifyTrafficCrash(AGTPVehicle* A, AGTPVehicle* B, float SpeedChange);
 
