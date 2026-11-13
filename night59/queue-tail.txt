@@ -1,0 +1,60 @@
+23:13 pushed etat
+23:13 == list58b end
+23:13 night59 starts (endurance on cand17b until 07:30)
+23:14 pushed etat
+23:14 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
+23:24 night59-1: no crash (exit 0) 23:14:21-23:24:24, end t=599, police=76 | night59-1: 23799 frames | 25.0+-1 ms 100.0 % (exactly 25.0 100.0 %) | >26 2 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 28.1 | gpu p50 11.04 p95 20.78 | gate PASS
+23:34 night59-2: no crash (exit 0) 23:24:44-23:34:46, end t=598, police=85 | night59-2: 23793 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.8 %) | >26 0 | >50 0 | >100 0 | frame p50 25.01 p95 25.03 max 25.3 | gpu p50 13.68 p95 20.67 | gate PASS
+23:45 night59-3: no crash (exit 0) 23:35:07-23:45:09, end t=598, police=80 | night59-3: 23793 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.7 %) | >26 1 | >50 0 | >100 0 | frame p50 25.01 p95 25.03 max 27.6 | gpu p50 14.02 p95 20.99 | gate PASS
+23:55 night59-4: no crash (exit 0) 23:45:29-23:55:31, end t=598, police=83 | night59-4: 23793 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.8 %) | >26 0 | >50 0 | >100 0 | frame p50 25.01 p95 25.03 max 25.1 | gpu p50 13.90 p95 20.92 | gate PASS
+00:05 pushed etat
+00:05 night59-5: no crash (exit 0) 23:55:51-00:05:53, end t=285, police=36 | night59-5: 23797 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.8 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.2 | gpu p50 13.89 p95 20.76 | gate PASS
+00:16 night59-6: no crash (exit 0) 00:06:14-00:16:16, end t=598, police=84 | night59-6: 23795 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.8 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.3 | gpu p50 13.88 p95 20.95 | gate PASS
+00:26 night59-7: no crash (exit 0) 00:16:36-00:26:38, end t=597, police=81 | night59-7: 23797 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 4 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 34.1 | gpu p50 13.88 p95 20.89 | gate PASS
+00:37 night59-8: no crash (exit 0) 00:26:58-00:37:00, end t=598, police=86 | night59-8: 23795 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.9 | gpu p50 13.88 p95 20.93 | gate PASS
+00:47 night59-9: no crash (exit 0) 00:37:21-00:47:23, end t=598, police=84 | night59-9: 23795 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.8 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.2 | gpu p50 13.80 p95 20.86 | gate PASS
+00:57 night59-10: no crash (exit 0) 00:47:43-00:57:45, end t=598, police=81 | night59-10: 23791 frames | 25.0+-1 ms 99.9 % (exactly 25.0 99.7 %) | >26 14 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 39.3 | gpu p50 14.00 p95 21.03 | gate PASS
+01:05 pushed etat
+01:08 night59-11: no crash (exit 0) 00:58:05-01:08:08, end t=45, police=5 | night59-11: 23796 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.8 %) | >26 10 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 49.6 | gpu p50 12.43 p95 19.34 | gate PASS
+01:23 night59-12: CRASH (exit 142) start 01:08:28, stdout end 01:23:28, end t=?, police=0, lines 1 | memory then: 01:23:24 Pages_free=194780 Pages_inactive=255621 Pages_speculative=39009 Pages_wired_down=123792 Pages_occupied_by_compressor=94494 Swapouts=1658165 
+01:33 night59-13: no crash (exit 0) 01:23:48-01:33:51, end t=599, police=87 | night59-13: 23798 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 1 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 35.0 | gpu p50 13.45 p95 20.31 | gate PASS
+01:44 night59-14: no crash (exit 0) 01:34:11-01:44:13, end t=598, police=85 | night59-14: 23794 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 1 | >50 1 | >100 0 | frame p50 25.00 p95 25.02 max 71.6 | gpu p50 13.76 p95 20.78 | gate PASS
+01:54 night59-15: no crash (exit 0) 01:44:33-01:54:35, end t=598, police=82 | night59-15: 23795 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.9 | gpu p50 13.81 p95 20.87 | gate PASS
+02:04 night59-16: no crash (exit 0) 01:54:56-02:04:58, end t=598, police=85 | night59-16: 23795 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.2 | gpu p50 13.74 p95 20.74 | gate PASS
+02:06 pushed etat
+02:15 night59-17: no crash (exit 0) 02:05:18-02:15:20, end t=598, police=86 | night59-17: 23795 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.8 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.4 | gpu p50 13.86 p95 20.89 | gate PASS
+02:25 night59-18: no crash (exit 0) 02:15:40-02:25:42, end t=598, police=87 | night59-18: 23795 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.7 | gpu p50 13.77 p95 20.75 | gate PASS
+02:36 night59-19: no crash (exit 0) 02:26:03-02:36:05, end t=598, police=82 | night59-19: 23795 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 2 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 26.5 | gpu p50 13.96 p95 21.00 | gate PASS
+02:46 night59-20: no crash (exit 0) 02:36:25-02:46:27, end t=598, police=88 | night59-20: 23795 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.8 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.5 | gpu p50 13.53 p95 20.51 | gate PASS
+02:56 night59-21: no crash (exit 0) 02:46:47-02:56:49, end t=598, police=87 | night59-21: 23796 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 1 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 33.1 | gpu p50 14.05 p95 21.04 | gate PASS
+03:06 pushed etat
+03:07 night59-22: no crash (exit 0) 02:57:09-03:07:12, end t=598, police=81 | night59-22: 23793 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 2 | >50 1 | >100 0 | frame p50 25.00 p95 25.02 max 83.1 | gpu p50 13.78 p95 20.79 | gate PASS
+03:17 night59-23: no crash (exit 0) 03:07:32-03:17:34, end t=598, police=75 | night59-23: 23795 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.2 | gpu p50 13.95 p95 20.92 | gate PASS
+03:27 night59-24: no crash (exit 0) 03:17:54-03:27:56, end t=598, police=85 | night59-24: 23796 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.4 | gpu p50 13.82 p95 20.86 | gate PASS
+03:38 night59-25: no crash (exit 0) 03:28:16-03:38:19, end t=598, police=83 | night59-25: 23796 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.2 | gpu p50 13.79 p95 20.85 | gate PASS
+03:48 night59-26: no crash (exit 0) 03:38:39-03:48:41, end t=598, police=86 | night59-26: 23796 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.3 | gpu p50 13.98 p95 21.00 | gate PASS
+03:59 night59-27: no crash (exit 0) 03:49:01-03:59:03, end t=598, police=82 | night59-27: 23796 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.4 | gpu p50 13.91 p95 20.93 | gate PASS
+04:06 pushed etat
+04:09 night59-28: no crash (exit 0) 03:59:24-04:09:26, end t=598, police=84 | night59-28: 23795 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.8 | gpu p50 13.80 p95 20.83 | gate PASS
+04:19 night59-29: no crash (exit 0) 04:09:46-04:19:48, end t=598, police=89 | night59-29: 23795 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.8 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.6 | gpu p50 13.75 p95 20.83 | gate PASS
+04:30 night59-30: no crash (exit 0) 04:20:08-04:30:10, end t=598, police=83 | night59-30: 23794 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.8 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.3 | gpu p50 13.73 p95 20.71 | gate PASS
+04:40 night59-31: no crash (exit 0) 04:30:30-04:40:33, end t=598, police=83 | night59-31: 23796 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.1 | gpu p50 13.54 p95 20.51 | gate PASS
+04:50 night59-32: no crash (exit 0) 04:40:53-04:50:55, end t=598, police=87 | night59-32: 23796 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.1 | gpu p50 13.83 p95 20.83 | gate PASS
+05:01 night59-33: no crash (exit 0) 04:51:15-05:01:17, end t=598, police=85 | night59-33: 23795 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.8 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.2 | gpu p50 13.85 p95 20.91 | gate PASS
+05:06 pushed etat
+05:11 night59-34: no crash (exit 0) 05:01:37-05:11:40, end t=598, police=85 | night59-34: 23793 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.8 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.2 | gpu p50 13.82 p95 20.77 | gate PASS
+05:22 night59-35: no crash (exit 0) 05:12:00-05:22:02, end t=598, police=74 | night59-35: 23795 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.8 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.3 | gpu p50 13.91 p95 20.96 | gate PASS
+05:32 night59-36: no crash (exit 0) 05:22:22-05:32:24, end t=598, police=87 | night59-36: 23790 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 2 | >50 1 | >100 1 | frame p50 25.00 p95 25.02 max 155.7 | gpu p50 13.86 p95 20.85 | gate FAIL
+05:42 night59-37: no crash (exit 0) 05:32:44-05:42:47, end t=598, police=83 | night59-37: 23796 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.2 | gpu p50 13.79 p95 20.85 | gate PASS
+05:53 night59-38: no crash (exit 0) 05:43:07-05:53:09, end t=598, police=72 | night59-38: 23795 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.3 | gpu p50 14.08 p95 21.33 | gate PASS
+06:03 night59-39: no crash (exit 0) 05:53:29-06:03:31, end t=598, police=85 | night59-39: 23794 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.8 %) | >26 3 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 34.7 | gpu p50 14.04 p95 21.00 | gate PASS
+06:06 pushed etat
+06:13 night59-40: no crash (exit 0) 06:03:51-06:13:53, end t=598, police=79 | night59-40: 23795 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.3 | gpu p50 13.79 p95 20.83 | gate PASS
+06:24 night59-41: no crash (exit 0) 06:14:14-06:24:16, end t=598, police=80 | night59-41: 23795 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.3 | gpu p50 13.83 p95 20.80 | gate PASS
+06:34 night59-42: no crash (exit 0) 06:24:36-06:34:38, end t=598, police=85 | night59-42: 23795 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 1 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 26.3 | gpu p50 13.90 p95 20.88 | gate PASS
+06:45 night59-43: no crash (exit 0) 06:34:58-06:45:00, end t=598, police=85 | night59-43: 23796 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.1 | gpu p50 13.60 p95 20.53 | gate PASS
+06:55 night59-44: no crash (exit 0) 06:45:21-06:55:23, end t=598, police=82 | night59-44: 23796 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.1 | gpu p50 13.69 p95 20.75 | gate PASS
+07:05 night59-45: no crash (exit 0) 06:55:43-07:05:45, end t=598, police=81 | night59-45: 23796 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 1 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 34.7 | gpu p50 13.92 p95 21.02 | gate PASS
+07:06 pushed etat
+07:16 night59-46: no crash (exit 0) 07:06:05-07:16:07, end t=598, police=85 | night59-46: 23796 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.2 | gpu p50 13.71 p95 20.75 | gate PASS
+07:26 night59-47: no crash (exit 0) 07:16:27-07:26:29, end t=598, police=77 | night59-47: 23796 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 1 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 26.7 | gpu p50 13.85 p95 20.89 | gate PASS
