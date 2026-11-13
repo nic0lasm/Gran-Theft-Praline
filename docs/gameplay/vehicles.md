@@ -281,6 +281,11 @@ Written in one batch, not compiled yet (`GTPIncidentLogic.h`, checked offline by
   traffic reads the player's weapon itself: aiming (cone of 10 degrees, 20 m) and shots (35 m).
 - **Bailing out of a moving car**: from 20 km/h (40 before) the player jumps, rolls or is
   thrown, and is hurt, depending on the speed (ADR-0006).
+- **Following a moving car (IDM)**: behind a moving car the traffic now uses the Intelligent
+  Driver Model (Treiber et al. 2000, the law used by CARLA-style traffic managers, retained
+  in the reuse survey) with a 1.4 s time gap, instead of aiming to stop behind every car; a
+  queue moves off together. Still obstacles, lights and stop lines keep the old stop rule.
+  `tools/vehicles/idm_test`.
 - **Shooting from a car**: not done; the weapon only fires on foot.
 
 ## 9. Making a drivable car

@@ -292,6 +292,12 @@ Pas de plugin Water ni de volume physique : de simples événements de chevauche
   20 m) et tirs (35 m).
 - **Sortie d'une voiture en marche** : dès 20 km/h (40 avant), le joueur saute, roule ou est
   projeté, et se blesse, selon la vitesse (ADR-0006).
+- **Suivi d'une voiture qui roule (IDM)** : derrière une voiture en mouvement, le trafic
+  applique désormais l'Intelligent Driver Model (Treiber et al. 2000, la loi des
+  gestionnaires de trafic façon CARLA, retenue dans le recensement de réutilisation) avec un
+  écart de 1,4 s, au lieu de viser l'arrêt derrière chaque voiture ; une file redémarre
+  d'un bloc. Obstacles immobiles, feux et lignes d'arrêt gardent l'ancienne règle d'arrêt.
+  `tools/vehicles/idm_test`.
 - **Tir depuis une voiture** : pas fait ; l'arme ne tire qu'à pied.
 
 ## 9. Préparer une voiture conduisible

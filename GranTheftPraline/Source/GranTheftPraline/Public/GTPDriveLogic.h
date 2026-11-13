@@ -7,7 +7,10 @@
 //
 // - Steering: pure pursuit towards a point LookAhead metres along the path.
 // - Speed: the lane's limit, lowered before bends (lateral acceleration cap)
-//   and to stop SafeGap metres behind whatever is ahead.
+//   and to stop SafeGap metres behind whatever is ahead. Behind a moving car whose
+//   speed is known, the Intelligent Driver Model (Treiber, Hennecke, Helbing 2000,
+//   the car-following law also used by CARLA-style traffic managers) sets the speed:
+//   a time gap instead of a stop at every car, so queues move off together.
 // - Pedals: proportional throttle, brake when too fast; never both.
 // - Junctions: one car at a time crosses a junction (FGTPJunctionTable);
 //   the others wait at a stop line. Lights and priorities come in 0.9.
@@ -31,6 +34,9 @@ struct FGTPDriveSettings
 	float MaxLateralAccel = 2.2f;        // calm city driving
 	float ComfortDecel = 3.5f;
 	float SafeGap = 4.f;                 // metres kept to the obstacle ahead, bumper to bumper
+	float IdmTimeGap = 1.4f;             // seconds kept behind a moving car (IDM T)
+	float IdmMaxAccel = 1.6f;            // m/s2 (IDM a)
+	float IdmHorizon = 1.f;              // seconds: the IDM acceleration becomes a target speed
 	float ThrottleGain = 0.35f;
 	float BrakeGain = 0.4f;
 };
@@ -128,8 +134,29 @@ namespace GTPDrive
 	 * Yaw: heading of the car. Speed: forward speed (m/s). ObstacleDistance:
 	 * free distance ahead along the path (negative = nothing seen).
 	 */
+	/**
+	 * Intelligent Driver Model: speed to aim for behind a leader Gap metres ahead
+	 * (bumper to bumper) going LeaderSpeed (m/s), for a car at Speed wanting Desired.
+	 */
+	inline float IdmSpeed(float Speed, float Desired, float Gap, float LeaderSpeed, const FGTPDriveSettings& S)
+	{
+		if (Desired < 0.1f)
+		{
+			return 0.f;
+		}
+		const float V = Speed > 0.f ? Speed : 0.f;
+		const float Approach = V - LeaderSpeed;
+		const float Dynamic = V * S.IdmTimeGap + V * Approach / (2.f * std::sqrt(S.IdmMaxAccel * S.ComfortDecel));
+		const float Wanted = S.SafeGap + (Dynamic > 0.f ? Dynamic : 0.f);
+		const float Free = Gap > 0.1f ? Gap : 0.1f;
+		const float Ratio = V / Desired;
+		const float Accel = S.IdmMaxAccel * (1.f - Ratio * Ratio * Ratio * Ratio - (Wanted / Free) * (Wanted / Free));
+		const float Next = V + Accel * S.IdmHorizon;
+		return Clamp(Next, 0.f, Desired);
+	}
+
 	inline FGTPDriveCommand Decide(const std::vector<FGTPDrivePoint>& Path, float X, float Y, float Yaw, float Speed,
-		float LaneSpeed, float ObstacleDistance, const FGTPDriveSettings& S, int& InOutClosest)
+		float LaneSpeed, float ObstacleDistance, const FGTPDriveSettings& S, int& InOutClosest, float LeaderSpeed = -1.f)
 	{
 		FGTPDriveCommand Out;
 		if (Path.size() < 2)
@@ -146,7 +173,16 @@ namespace GTPDrive
 		Out.Steering = std::fabs(Alpha) > 1.5708f ? (Alpha > 0.f ? 1.f : -1.f) : Clamp(Steer / S.MaxSteerAngle, -1.f, 1.f);
 
 		float Want = BendSpeed(Path, InOutClosest, 40.f, S, LaneSpeed);
-		if (ObstacleDistance >= 0.f)
+		if (ObstacleDistance >= 0.f && LeaderSpeed > 0.5f && ObstacleDistance > S.SafeGap * 0.5f)
+		{
+			// A moving car ahead: follow it at a time gap (IDM).
+			const float VFollow = IdmSpeed(Speed, Want, ObstacleDistance, LeaderSpeed, S);
+			if (VFollow < Want)
+			{
+				Want = VFollow;
+			}
+		}
+		else if (ObstacleDistance >= 0.f)
 		{
 			const float Free = ObstacleDistance - S.SafeGap;
 			const float VStop = Free > 0.f ? std::sqrt(2.f * S.ComfortDecel * Free) : 0.f;

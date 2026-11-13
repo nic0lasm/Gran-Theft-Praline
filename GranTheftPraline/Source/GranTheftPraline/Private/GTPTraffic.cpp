@@ -612,7 +612,14 @@ void UGTPAIDriverComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 		const FVector Right = Vehicle->GetActorRightVector().GetSafeNormal2D();
 		const float SteerX = X + Reaction.LateralOffset * static_cast<float>(Right.X);
 		const float SteerY = Y + Reaction.LateralOffset * static_cast<float>(Right.Y);
-		const FGTPDriveCommand Command = GTPDrive::Decide(Path, SteerX, SteerY, Yaw, Speed, LaneSpeed * Reaction.SpeedScale * TemperamentSpeed, Obstacle, Settings, Closest);
+		// The car ahead's speed along our heading, when the probe's hit is what limits us (IDM).
+		float LeaderSpeed = -1.f;
+		if (ProbeHit && !bPassing && Obstacle >= 0.f && Obstacle == Probe && Cast<AGTPVehicle>(ProbeHit))
+		{
+			LeaderSpeed = FMath::Max(0.f, static_cast<float>(FVector::DotProduct(ProbeHit->GetVelocity(), Vehicle->GetActorForwardVector())) * CmToM);
+		}
+		const FGTPDriveCommand Command = GTPDrive::Decide(Path, SteerX, SteerY, Yaw, Speed, LaneSpeed * Reaction.SpeedScale * TemperamentSpeed, Obstacle, Settings,
+			Closest, LeaderSpeed);
 		// Wedged against something the probe does not see (kerb, bollard, a car's
 		// corner): full throttle for 3 s without moving, then back off 1.5 s
 		// steering the other way, and try again.
