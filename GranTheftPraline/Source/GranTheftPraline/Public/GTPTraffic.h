@@ -283,6 +283,13 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Incidents")
 	int32 MaxIncidents = 2;
 
+	/**
+	 * A street parked car at the kerb within RadiusCm of Near, managed like the others (asleep
+	 * far away, taken away out of sight). Out of sight first, in view when nothing else is free.
+	 * For scripted runs (UGTPTheftDemoLibrary); null when no kerb spot is free.
+	 */
+	AGTPVehicle* SpawnStreetParkedNear(const FVector& Near, float RadiusCm, bool bLocked, bool bAlarm);
+
 	/** -Traffic=mass on the command line (MassTraffic of City Sample, module GTPMass). */
 	static bool IsMassTrafficRequested();
 

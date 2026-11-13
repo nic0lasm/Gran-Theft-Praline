@@ -2285,3 +2285,18 @@ bool AGTPTrafficNetwork::IsMassTrafficWanted()
 {
 	return IsMassTrafficRequested() && FModuleManager::Get().IsModuleLoaded(TEXT("MassTraffic"));
 }
+
+AGTPVehicle* AGTPTrafficNetwork::SpawnStreetParkedNear(const FVector& Near, float RadiusCm, bool bLocked, bool bAlarm)
+{
+	AGTPVehicle* Car = SpawnParkedVehicle(TEXT("GTPStreetParked"), Near, RadiusCm);
+	if (!Car)
+	{
+		return nullptr;
+	}
+	Car->bLocked = bLocked;
+	Car->bAlarm = bAlarm;
+	StreetParked.Add({Car, GetWorld()->GetTimeSeconds()});
+	GTP_TRACE(LogGTPTraffic, TEXT("traffic: street parked %s placed on request%s%s"), *Car->GetName(), bLocked ? TEXT(" locked") : TEXT(""),
+		bAlarm ? TEXT(" alarm") : TEXT(""));
+	return Car;
+}
