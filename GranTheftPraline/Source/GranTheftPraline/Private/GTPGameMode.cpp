@@ -197,6 +197,19 @@ void AGTPGameMode::ApplyPlayerVisual(APawn* Pawn)
 					Body->SetRelativeLocationAndRotation(FVector::ZeroVector, FRotator::ZeroRotator);
 					UE_LOG(LogGTPGameMode, Log, TEXT("  body %s re-attached to the pawn's mesh %s"), *Body->GetName(), *Own->GetName());
 				}
+				if (Own && Body && Part->GetName() == BodyName)
+				{
+					// The body must be evaluated every frame, after the pawn's own pose (no update-rate skipping, no render gate).
+					Body->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;
+					Body->bEnableUpdateRateOptimizations = false;
+					Body->bNoSkeletonUpdate = false;
+					Body->SetComponentTickEnabled(true);
+					Body->AddTickPrerequisiteComponent(Own);
+					if (Body->GetAnimInstance())
+					{
+						Body->GetAnimInstance()->SetRootMotionMode(ERootMotionMode::NoRootMotionExtraction);
+					}
+				}
 				if (Body && Part->GetName() == BodyName && !RetargeterPath.IsEmpty())
 				{
 					// The body's "Retarget Pose From Mesh" node: point it at the UEFN-to-MetaHuman retargeter.
@@ -283,6 +296,17 @@ void AGTPGameMode::ApplyPlayerVisual(APawn* Pawn)
 		const FName Foot(TEXT("foot_l"));
 		const FVector FootRel = M->GetBoneIndex(Foot) != INDEX_NONE
 			? M->GetSocketTransform(Foot, RTS_Component).GetLocation() : FVector::ZeroVector;
+		for (USceneComponent* Child : M->GetAttachChildren())
+		{
+			if (const USkeletalMeshComponent* B = Cast<USkeletalMeshComponent>(Child))
+			{
+				const FName Hand(TEXT("hand_l"));
+				UE_LOG(LogGTPGameMode, Log, TEXT("body pose probe: %s anim %s, hand_l rel %s, tick %d, update rate opt %d"), *B->GetName(),
+					B->GetAnimInstance() ? *B->GetAnimInstance()->GetClass()->GetName() : TEXT("none"),
+					B->GetBoneIndex(Hand) != INDEX_NONE ? *B->GetSocketTransform(Hand, RTS_Component).GetLocation().ToCompactString() : TEXT("no bone"),
+					B->IsComponentTickEnabled() ? 1 : 0, B->bEnableUpdateRateOptimizations ? 1 : 0);
+			}
+		}
 		UE_LOG(LogGTPGameMode, Log, TEXT("pawn pose probe: anim %s, actor speed %.0f, movement speed %.0f, mode %d, foot_l rel %s, anim tick %d"),
 			M->GetAnimInstance() ? *M->GetAnimInstance()->GetClass()->GetName() : TEXT("none"),
 			C->GetVelocity().Size(), C->GetCharacterMovement() ? C->GetCharacterMovement()->Velocity.Size() : -1.f,
