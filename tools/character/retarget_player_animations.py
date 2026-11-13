@@ -74,28 +74,23 @@ for a in batch:
         unreal.log("ANIMS save failed: %s" % err)
 def pin_pelvis(asset, bone="pelvis"):
     """The retarget moved the walk's travel onto the pelvis: keep its height, freeze its horizontal place."""
-    model = asset.get_data_model() if hasattr(asset, "get_data_model") else None
-    if model is None:
-        unreal.log("ANIMS %s: no data model" % asset.get_name())
-        return
+    ctrl = getattr(asset, "controller", None)
     try:
-        frames = int(model.get_number_of_keys())
-        transforms = [model.get_bone_track_transform_at_key(bone, i) if hasattr(model, "get_bone_track_transform_at_key")
-                      else model.get_bone_track_transform(bone, i) for i in range(frames)]
+        frames = int(unreal.AnimationLibrary.get_num_frames(asset))
+        transforms = [unreal.AnimationLibrary.get_bone_pose_for_frame(asset, bone, i, False) for i in range(frames)]
         first = transforms[0].translation
         drift = max(abs(t.translation.x - first.x) + abs(t.translation.y - first.y) for t in transforms)
-        unreal.log("ANIMS %s pelvis drift before %.1f cm over %d keys" % (asset.get_name(), drift, frames))
+        unreal.log("ANIMS %s pelvis drift before %.1f cm over %d frames" % (asset.get_name(), drift, frames))
         pos = [unreal.Vector(first.x, first.y, t.translation.z) for t in transforms]
         quat = [t.rotation for t in transforms]
         scale = [t.scale3d for t in transforms]
-        ctrl = asset.controller
         ctrl.open_bracket("PinPelvis")
         ctrl.set_bone_track_keys(bone, pos, quat, scale)
         ctrl.close_bracket()
         unreal.log("ANIMS %s pelvis pinned" % asset.get_name())
     except Exception as err:
-        unreal.log("ANIMS %s pelvis pin failed: %s; data model methods: %s" % (
-            asset.get_name(), err, ", ".join(sorted(m for m in dir(model) if "bone" in m or "track" in m))))
+        unreal.log("ANIMS %s pelvis pin failed: %s; library methods: %s" % (
+            asset.get_name(), err, ", ".join(sorted(m for m in dir(unreal.AnimationLibrary) if "bone" in m or "pose" in m))))
 
 
 # Animations made by an earlier run (same names or renamed copies): lock their root too.
