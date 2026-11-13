@@ -612,6 +612,17 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 					if (Now - SlowSince > 2.0 && Now >= RamUntil)
 					{
 						SlowSince = 0.0;
+						{
+							// What holds the car: the first thing within 8 m ahead (any channel the car collides with) and the car's own state.
+							FHitResult Ahead;
+							FCollisionQueryParams HeldParams(SCENE_QUERY_STAT(GTPChaseHeld), false, Driven);
+							const FVector From = Driven->GetActorLocation() + FVector(0.f, 0.f, 60.f);
+							const FVector To = From + Driven->GetActorForwardVector() * 800.f;
+							const bool bHit = Driven->GetWorld()->SweepSingleByChannel(Ahead, From, To, FQuat::Identity, ECC_Vehicle, FCollisionShape::MakeSphere(60.f), HeldParams);
+							GTP_TRACE(LogGTPDemo, TEXT("Demo chase: held up at %s yaw=%.0f gear=%d, ahead: %s (%s) at %.1f m"), *Driven->GetActorLocation().ToCompactString(),
+								Driven->GetActorRotation().Yaw, Driven->GetGear(), bHit ? *GetNameSafe(Ahead.GetActor()) : TEXT("nothing"),
+								bHit ? *GetNameSafe(Ahead.GetComponent()) : TEXT("-"), bHit ? Ahead.Distance / 100.f : -1.f);
+						}
 						// The demo must not wait on the city's traffic: cars of the traffic within 25 m are taken off the road.
 						{
 							TActorIterator<AGTPTrafficNetwork> Network(Driven->GetWorld());
