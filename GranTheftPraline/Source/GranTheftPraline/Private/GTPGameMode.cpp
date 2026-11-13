@@ -228,6 +228,46 @@ void AGTPGameMode::ApplyPlayerVisual(APawn* Pawn)
 								++Changed;
 							}
 						}
+						// Source: name the pawn's mesh explicitly instead of relying on the attach parent resolved at init.
+						for (TFieldIterator<FStructProperty> It(Anim->GetClass()); It; ++It)
+						{
+							if (!It->Struct || !It->Struct->GetName().Contains(TEXT("RetargetPoseFromMesh")))
+							{
+								continue;
+							}
+							void* Node = It->ContainerPtrToValuePtr<void>(Anim);
+							for (TFieldIterator<FProperty> Pr(It->Struct); Pr; ++Pr)
+							{
+								FString V;
+								Pr->ExportText_InContainer(0, V, Node, Node, nullptr, PPF_None);
+								UE_LOG(LogGTPGameMode, Log, TEXT("  node %s (%s) = %s"), *Pr->GetName(), *Pr->GetClass()->GetName(), *V.Left(80));
+							}
+							if (FWeakObjectProperty* Src = FindFProperty<FWeakObjectProperty>(It->Struct, TEXT("SourceMeshComponent")))
+							{
+								if (Src->GetObjectPropertyValue_InContainer(Node) != Own)
+								{
+									Src->SetObjectPropertyValue_InContainer(Node, Own);
+									++Changed;
+								}
+							}
+							else if (FObjectProperty* SrcObj = FindFProperty<FObjectProperty>(It->Struct, TEXT("SourceMeshComponent")))
+							{
+								if (SrcObj->GetObjectPropertyValue_InContainer(Node) != Own)
+								{
+									SrcObj->SetObjectPropertyValue_InContainer(Node, Own);
+									++Changed;
+								}
+							}
+							if (FEnumProperty* Mode = FindFProperty<FEnumProperty>(It->Struct, TEXT("RetargetFrom")))
+							{
+								const int64 Custom = Mode->GetEnum()->GetValueByName(TEXT("CustomSkeletalMeshComponent"));
+								if (Custom != INDEX_NONE && Mode->GetUnderlyingProperty()->GetSignedIntPropertyValue(Mode->ContainerPtrToValuePtr<void>(Node)) != Custom)
+								{
+									Mode->GetUnderlyingProperty()->SetIntPropertyValue(Mode->ContainerPtrToValuePtr<void>(Node), Custom);
+									++Changed;
+								}
+							}
+						}
 						if (Changed > 0)
 						{
 							Body->InitAnim(true);
