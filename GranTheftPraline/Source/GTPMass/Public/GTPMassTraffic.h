@@ -8,7 +8,7 @@
  * Switch to the MassTraffic plugin of City Sample (ADR-0015, docs/gameplay/traffic-mass.md).
  *
  * -Traffic=mass: the legacy network keeps its lights, street parked cars and police, but drives
- * no car of its own (AGTPTrafficNetwork::IsMassTrafficWanted); the Mass spawners placed by
+ * no car of its own (AGTPTrafficNetwork::IsMassTrafficWanted, which also asks for spawners in the map); the Mass spawners placed by
  * tools/city/unreal/place_masstraffic.py (tag GTPMassTraffic, no spawn on begin play) spawn
  * the traffic and the parked cars on our ZoneGraph lanes. Without the plugin (not installed,
  * WITH_GTP_MASSTRAFFIC=0) nothing happens here and the legacy traffic drives as before.

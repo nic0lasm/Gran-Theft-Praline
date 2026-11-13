@@ -307,8 +307,12 @@ public:
 	/** -Traffic=mass on the command line (MassTraffic of City Sample, module GTPMass). */
 	static bool IsMassTrafficRequested();
 
-	/** Requested and the MassTraffic plugin is loaded: this network then drives no car of its own. */
-	static bool IsMassTrafficWanted();
+	/**
+	 * Requested, the MassTraffic plugin is loaded and the map has its spawners (tag GTPMassTraffic,
+	 * place_masstraffic.py): this network then drives no car of its own. Otherwise the legacy
+	 * traffic drives, so -Traffic=mass never leaves the streets empty.
+	 */
+	static bool IsMassTrafficWanted(const UWorld* World);
 
 	/** Two traffic cars crashed (AGTPVehicle::OnBodyHit): the drivers argue, flee or drive off. */
 	void NotifyTrafficCrash(AGTPVehicle* A, AGTPVehicle* B, float SpeedChange);

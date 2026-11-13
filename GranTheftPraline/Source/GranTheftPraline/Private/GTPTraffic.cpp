@@ -17,6 +17,7 @@
 #include "GameFramework/Controller.h"
 #include "Misc/ScopeExit.h"
 #include "Modules/ModuleManager.h"
+#include "EngineUtils.h"
 #include "CoreGlobals.h"
 #include "ChaosWheeledVehicleMovementComponent.h"
 #include "AIController.h"
@@ -1058,8 +1059,11 @@ void AGTPTrafficNetwork::BeginPlay()
 	{
 		// MassTraffic drives the cars (module GTPMass); lights, street parked cars and police stay here.
 		// Without the plugin: the legacy traffic, as if nothing was asked.
-		WantedCars = IsMassTrafficWanted() ? 0 : NumCars;
-		GTP_TRACE(LogGTPTraffic, TEXT("traffic: -Traffic=mass, MassTraffic %s"), IsMassTrafficWanted() ? TEXT("drives") : TEXT("missing, legacy traffic"));
+		const bool bMass = IsMassTrafficWanted(GetWorld());
+		WantedCars = bMass ? 0 : NumCars;
+		GTP_TRACE(LogGTPTraffic, TEXT("traffic: -Traffic=mass, %s"), bMass ? TEXT("MassTraffic drives")
+			: (FModuleManager::Get().IsModuleLoaded(TEXT("MassTraffic")) ? TEXT("no MassTraffic spawner in the map, legacy traffic")
+				: TEXT("MassTraffic plugin not loaded, legacy traffic")));
 	}
 	else
 	{
@@ -2339,9 +2343,21 @@ bool AGTPTrafficNetwork::IsMassTrafficRequested()
 	return FParse::Value(FCommandLine::Get(), TEXT("Traffic="), Mode) && Mode.Equals(TEXT("mass"), ESearchCase::IgnoreCase);
 }
 
-bool AGTPTrafficNetwork::IsMassTrafficWanted()
+bool AGTPTrafficNetwork::IsMassTrafficWanted(const UWorld* World)
 {
-	return IsMassTrafficRequested() && FModuleManager::Get().IsModuleLoaded(TEXT("MassTraffic"));
+	if (!World || !IsMassTrafficRequested() || !FModuleManager::Get().IsModuleLoaded(TEXT("MassTraffic")))
+	{
+		return false;
+	}
+	static const FName SpawnerTag(TEXT("GTPMassTraffic"));
+	for (TActorIterator<AActor> It(World); It; ++It)
+	{
+		if (It->ActorHasTag(SpawnerTag))
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
 AGTPVehicle* AGTPTrafficNetwork::SpawnStreetParkedNear(const FVector& Near, float RadiusCm, bool bLocked, bool bAlarm)
