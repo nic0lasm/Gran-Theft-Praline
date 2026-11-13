@@ -202,21 +202,50 @@ bool AGTPFarTraffic::Place(FFarCar& Car, bool bOutOfSight)
 			return false;
 		}
 	}
-	for (int32 Try = 0; Try < 30; ++Try)
+	// Draw from the lane points that lie in the ring, not from whole lanes: when
+	// only a few lanes cross the ring (a start far from the streets), most of
+	// their points are outside it and whole-lane draws keep missing.
+	TArray<TPair<int32, int32>> Spots;
+	for (const int32 Lane : Candidates)
 	{
-		const int32 Lane = Player ? Candidates[Random.RandRange(0, Candidates.Num() - 1)] : Random.RandRange(0, Lanes.Num() - 1);
 		const TArray<FVector>& Points = Lanes[Lane].Points;
 		if (Points.Num() < 4 || Lanes[Lane].Next.Num() == 0)
 		{
 			continue;
 		}
-		const int32 Point = Random.RandRange(1, Points.Num() - 3);
-		const FVector& Location = Points[Point];
-		const double Distance = FVector::Dist2D(Location, PlayerLocation);
-		if (Player && (Distance < SpawnMinDistance || Distance > MaxDistance))
+		for (int32 Point = 1; Point <= Points.Num() - 3; ++Point)
 		{
-			continue;
+			const double Distance = FVector::Dist2D(Points[Point], PlayerLocation);
+			if (Distance >= SpawnMinDistance && Distance <= MaxDistance)
+			{
+				Spots.Emplace(Lane, Point);
+			}
 		}
+	}
+	for (int32 Try = 0; Try < 60; ++Try)
+	{
+		int32 Lane = INDEX_NONE;
+		int32 Point = INDEX_NONE;
+		if (Player)
+		{
+			if (Spots.Num() == 0)
+			{
+				break;
+			}
+			const TPair<int32, int32>& Spot = Spots[Random.RandRange(0, Spots.Num() - 1)];
+			Lane = Spot.Key;
+			Point = Spot.Value;
+		}
+		else
+		{
+			Lane = Random.RandRange(0, Lanes.Num() - 1);
+			if (Lanes[Lane].Points.Num() < 4 || Lanes[Lane].Next.Num() == 0)
+			{
+				continue;
+			}
+			Point = Random.RandRange(1, Lanes[Lane].Points.Num() - 3);
+		}
+		const FVector& Location = Lanes[Lane].Points[Point];
 		bool bFree = true;
 		for (const FFarCar& Other : Cars)
 		{
