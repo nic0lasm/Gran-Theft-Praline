@@ -5,6 +5,8 @@
 #include "GameFramework/Character.h"
 #include "GameFramework/PlayerController.h"
 #include "GTPLog.h"
+#include "GTPPedestrians.h"
+#include "GTPThreat.h"
 #include "GTPTheftDemo.h"
 #include "GTPVehicle.h"
 #include "GTPWanted.h"
@@ -16,10 +18,10 @@ DEFINE_LOG_CATEGORY_STATIC(LogGTPGtaRun, Log, All);
 
 namespace
 {
-	constexpr int32 StepCount = 4;
-	const TCHAR* StepNames[StepCount] = { TEXT("carjack"), TEXT("chase"), TEXT("parked"), TEXT("shoot") };
+	constexpr int32 StepCount = 5;
+	const TCHAR* StepNames[StepCount] = { TEXT("carjack"), TEXT("chase"), TEXT("parked"), TEXT("aim"), TEXT("shoot") };
 	// Time limits (s) per step, counted from the step's start.
-	const double StepLimits[StepCount] = { 90.0, 170.0, 200.0, 30.0 };
+	const double StepLimits[StepCount] = { 90.0, 170.0, 200.0, 40.0, 30.0 };
 
 	APlayerController* FirstController(const UWorld* World)
 	{
@@ -60,6 +62,7 @@ void UGTPGtaRun::BeginStep(int32 Index)
 	ShotsFired = 0;
 	ShotAttempts = 0;
 	NextShot = 0.0;
+	bAimExitRequested = false;
 	GTP_TRACE(LogGTPGtaRun, TEXT("GTARun step %d: %s start (t=%.0f s)"), Step + 1, StepNames[Step], FPlatformTime::Seconds() - RunStart);
 }
 
@@ -103,6 +106,7 @@ bool UGTPGtaRun::Tick(float /*DeltaTime*/)
 	case 0: Result = CheckCarjack(Detail); break;
 	case 1: Result = CheckChase(Detail); break;
 	case 2: Result = CheckParked(Detail); break;
+	case 3: Result = CheckAim(Detail); break;
 	default: Result = CheckShoot(Detail); break;
 	}
 	if (Result == EResult::Pending && FPlatformTime::Seconds() - StepStart > StepLimits[Step])
@@ -192,6 +196,80 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckParked(FString& Detail)
 	return EResult::Pending;
 }
 
+UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail)
+{
+	// Hold-up: draw the weapon and aim at the nearest pedestrian; somebody must raise his hands or run.
+	UWorld* World = GetWorld();
+	APlayerController* PC = FirstController(World);
+	if (!PC || !PC->GetPawn())
+	{
+		return EResult::Pending;
+	}
+	if (AGTPVehicle* Car = Cast<AGTPVehicle>(PC->GetPawn()))
+	{
+		if (!bAimExitRequested)
+		{
+			bAimExitRequested = true;
+			Car->RequestExit();
+		}
+		Detail = TEXT("getting out");
+		return EResult::Pending;
+	}
+	ACharacter* Character = Cast<ACharacter>(PC->GetPawn());
+	UGTPWeaponComponent* Weapon = Character ? Character->FindComponentByClass<UGTPWeaponComponent>() : nullptr;
+	UGTPThreatSubsystem* Threat = World ? World->GetSubsystem<UGTPThreatSubsystem>() : nullptr;
+	if (!Weapon || !Threat)
+	{
+		Detail = TEXT("no weapon or no threat subsystem (-ThreatResponse=0?)");
+		return EResult::Fail;
+	}
+	const FVector Eye = Character->GetActorLocation() + FVector(0.f, 0.f, 60.f);
+	AActor* Victim = nullptr;
+	double Best = 1800.0;
+	for (TActorIterator<AGTPPedestrian> It(World); It; ++It)
+	{
+		const FVector Where = It->GetActorLocation();
+		const double Distance = FVector::Dist(Where, Character->GetActorLocation());
+		if (Where.Z > -50000.0 && Distance < Best)
+		{
+			Best = Distance;
+			Victim = *It;
+		}
+	}
+	if (!Victim)
+	{
+		Detail = TEXT("no pedestrian within 18 m");
+		return EResult::Pending;
+	}
+	Weapon->SetDrawn(true);
+	Weapon->SetAiming(true);
+	const FVector Head = Victim->GetActorLocation() + FVector(0.f, 0.f, 60.f);
+	const FVector Aim = (Head - Eye).GetSafeNormal();
+	Character->SetActorRotation(FRotator(0.f, Aim.Rotation().Yaw, 0.f));
+	Threat->SetThreat(Character, true, Eye, Aim);
+	int32 Hands = 0, Fleeing = 0, Alarmed = 0;
+	for (TActorIterator<AGTPPedestrian> It(World); It; ++It)
+	{
+		if (const UGTPThreatResponseComponent* Fear = It->FindComponentByClass<UGTPThreatResponseComponent>())
+		{
+			switch (Fear->GetState())
+			{
+			case EGTPThreatState::HandsUp: case EGTPThreatState::Complying: ++Hands; break;
+			case EGTPThreatState::Fleeing: case EGTPThreatState::Backing: ++Fleeing; break;
+			case EGTPThreatState::Alarmed: ++Alarmed; break;
+			default: break;
+			}
+		}
+	}
+	Detail = FString::Printf(TEXT("aiming at %s (%.0f cm): %d hands up, %d fleeing, %d alarmed"), *Victim->GetName(), Best, Hands, Fleeing, Alarmed);
+	if (Hands + Fleeing > 0)
+	{
+		Threat->ClearThreat();
+		return EResult::Ok;
+	}
+	return EResult::Pending;
+}
+
 UGTPGtaRun::EResult UGTPGtaRun::CheckShoot(FString& Detail)
 {
 	UWorld* World = GetWorld();
@@ -251,6 +329,16 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckShoot(FString& Detail)
 				Best = Distance;
 				Target = It->GetActorLocation() + FVector(0.f, 0.f, 40.f);
 			}
+		}
+	}
+	for (TActorIterator<AGTPPedestrian> It(World); It; ++It)
+	{
+		const FVector Where = It->GetActorLocation();
+		const double Distance = FVector::Dist(Where, Character->GetActorLocation());
+		if (Where.Z > -50000.0 && Distance < Best)
+		{
+			Best = Distance;
+			Target = Where + FVector(0.f, 0.f, 40.f);
 		}
 	}
 	Weapon->SetDrawn(true);

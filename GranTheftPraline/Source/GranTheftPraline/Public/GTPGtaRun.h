@@ -47,6 +47,7 @@ private:
 	EResult CheckCarjack(FString& Detail);
 	EResult CheckChase(FString& Detail);
 	EResult CheckParked(FString& Detail);
+	EResult CheckAim(FString& Detail);
 	EResult CheckShoot(FString& Detail);
 
 	FTSTicker::FDelegateHandle TickHandle;
@@ -64,6 +65,7 @@ private:
 	bool bParkedStarted = false;
 	bool bExitRequested = false;
 	bool bParkedExitRequested = false;
+	bool bAimExitRequested = false;
 	int32 ShotsFired = 0;
 	double NextShot = 0.0;
 	int32 ShotAttempts = 0;

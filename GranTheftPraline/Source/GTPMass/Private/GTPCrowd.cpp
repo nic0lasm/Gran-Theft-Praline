@@ -62,6 +62,11 @@ void UGTPCrowdSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 		CrowdCount = FMath::Max(0, Override);
 	}
 	Spawn(InWorld);
+	// Hear the shots even when no near character could be dressed (no mesh yet): the far crowd still runs.
+	if (UGTPAudioWorld* Audio = InWorld.GetSubsystem<UGTPAudioWorld>())
+	{
+		LoudHandle = Audio->OnLoudSound.AddUObject(this, &UGTPCrowdSubsystem::OnLoud);
+	}
 }
 
 void UGTPCrowdSubsystem::Deinitialize()
@@ -464,10 +469,6 @@ void UGTPCrowdSubsystem::SetupNearActors(UWorld& InWorld)
 		NearActors.Add(Actor);
 		NearEntity.Add(INDEX_NONE);
 	}
-	if (UGTPAudioWorld* Audio = InWorld.GetSubsystem<UGTPAudioWorld>())
-	{
-		LoudHandle = Audio->OnLoudSound.AddUObject(this, &UGTPCrowdSubsystem::OnLoud);
-	}
 	UE_LOG(LogGTPCrowd, Log, TEXT("crowd: %d near characters, hands-up animation %s"), NearActors.Num(), HandsUp ? TEXT("found") : TEXT("missing"));
 }
 
@@ -475,14 +476,17 @@ void UGTPCrowdSubsystem::OnLoud(const FVector& Where, float Radius, AActor* /*Ca
 {
 	// Everybody within earshot runs from the noise, near or far.
 	const GTPWalk::FPoint Point{float(Where.X), float(Where.Y)};
+	int32 Fled = 0;
 	for (int32 Index = 0; Index < Entities.Num(); ++Index)
 	{
 		FGTPCrowdWalkerFragment* W = WalkerOf(Index);
 		if (W && W->Walker.Edge >= 0 && FVector::Dist2D(W->Location, Where) <= Radius)
 		{
 			GTPWalk::Flee(Graph, W->Walker, Point, Settings);
+			++Fled;
 		}
 	}
+	UE_LOG(LogGTPCrowd, Log, TEXT("crowd: loud sound r=%.0f cm, %d of %d flee"), Radius, Fled, Entities.Num());
 }
 
 void UGTPCrowdSubsystem::OnActorThreat(AActor* Body, int32 NewState)
@@ -498,6 +502,7 @@ void UGTPCrowdSubsystem::OnActorThreat(AActor* Body, int32 NewState)
 	{
 		return;
 	}
+	UE_LOG(LogGTPCrowd, Log, TEXT("crowd: %s threat state %d"), *Body->GetName(), NewState);
 	const FVector Origin = Threat->GetOrigin();
 	const GTPWalk::FPoint From{float(Origin.X), float(Origin.Y)};
 	switch (static_cast<EGTPThreatState>(NewState))
