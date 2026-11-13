@@ -56,7 +56,7 @@ if ($gens.Count -gt 0) {
     & $python (Join-Path $repo 'tools\environment\build_night_lights.py') @gens
     if ($LASTEXITCODE -ne 0) { throw "build_night_lights.py failed ($LASTEXITCODE)" }
 } else {
-    Write-Host "no city outputs under $genRoot: night lights file left as it is, weather assets only"
+    Write-Host "no city outputs under ${genRoot}: night lights file left as it is, weather assets only"
 }
 
 # The clone path has a space: gtp_run.py (Content/Python) runs the script named by GTP_PY_SCRIPT.
