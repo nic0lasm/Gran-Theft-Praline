@@ -727,10 +727,18 @@ void AGTPPoliceDirector::DriveOnLanes(FUnit& Unit, const FVector& Goal, bool bHa
 	if (!Unit.bOnLanes || !Unit.Follower.IsActive())
 	{
 		Unit.Follower = FGTPLaneFollower();
-		if (!Unit.Follower.StartNear(Network, Location, Yaw, 1500.f))
+		if (!Unit.Follower.StartNear(Network, Location, Yaw, 1500.f) && !Unit.Follower.StartNear(Network, Location, Yaw, 8000.f))
 		{
-			// Off the lanes (after a straight chase): hold still until the next try.
-			Car->SetAIDriveInput(0.f, 1.f, 0.f, true);
+			// Off the lanes (after a straight chase): head for the goal in a straight line, slowly, until a lane is near.
+			Unit.Follower = FGTPLaneFollower();
+			if (bHasGoal)
+			{
+				DriveStraight(Unit, Goal, FMath::Min(MaxSpeedKmh, 30.f));
+			}
+			else
+			{
+				Car->SetAIDriveInput(0.f, 1.f, 0.f, true);
+			}
 			return;
 		}
 		Unit.Follower.bIgnoreLaneLimit = true;
