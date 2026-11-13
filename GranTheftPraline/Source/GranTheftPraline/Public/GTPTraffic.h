@@ -510,6 +510,8 @@ private:
 	double NextReactDemoTime = 0.0;
 	int32 ReactDemoStep = 0;
 	int32 ReactDemoWaits = 0;
+	bool bReactDemoMoved = false;
+	bool MovePlayerAhead(const UGTPAIDriverComponent* Driver);
 	bool bPoolSpawnCheck = true;
 
 	UPROPERTY(Transient)

@@ -1512,18 +1512,70 @@ void AGTPTrafficNetwork::UpdateReactDemo()
 		NextReactDemoTime = Now + 2.0;
 		return;
 	}
-	if (!bBestIdeal && ReactDemoWaits < 4)
+	if (!bBestIdeal && ReactDemoWaits < 2)
 	{
 		++ReactDemoWaits;
 		NextReactDemoTime = Now + 2.0;
 		return;
 	}
+	if (!bBestIdeal && !bReactDemoMoved && MovePlayerAhead(Best))
+	{
+		// The player now stands on the kerb ahead of that car, facing it: the next
+		// pass, a second later, finds it coming into view 15 to 25 m away.
+		bReactDemoMoved = true;
+		NextReactDemoTime = Now + 1.0;
+		return;
+	}
 	ReactDemoWaits = 0;
+	bReactDemoMoved = false;
 	static const TCHAR* Events[] = {TEXT("aim"), TEXT("ram"), TEXT("shot")};
 	const int32 Event = ReactDemoStep++ % 3;
 	Best->InjectReaction(Event == 0, Event == 2, Event == 1);
 	GTP_TRACE(LogGTPTraffic, TEXT("traffic react demo: %s on %s at %.0f m, %.0f km/h, %s (%d candidates)"), Events[Event], *GetNameSafe(Best->GetOwner()),
 		BestDistance / 100.f, Cast<AGTPVehicle>(Best->GetOwner()) ? Cast<AGTPVehicle>(Best->GetOwner())->GetSpeedKmh() : 0.f, bBestIdeal ? TEXT("in view") : TEXT("best found"), Candidates);
+}
+
+bool AGTPTrafficNetwork::MovePlayerAhead(const UGTPAIDriverComponent* Driver)
+{
+	// -TrafficReactDemo only: no driving car near the camera, so the player on foot goes
+	// to the kerb 25 m ahead of one, 4 m to its right, and looks at it.
+	const AGTPVehicle* Car = Driver ? Cast<AGTPVehicle>(Driver->GetOwner()) : nullptr;
+	APlayerController* Viewer = GetWorld()->GetFirstPlayerController();
+	ACharacter* Player = Viewer ? Cast<ACharacter>(Viewer->GetPawn()) : nullptr;
+	if (!Car || !Player)
+	{
+		return false;
+	}
+	const FVector Forward = Car->GetActorForwardVector().GetSafeNormal2D();
+	const FVector Right = FVector::CrossProduct(FVector::UpVector, Forward);
+	const FVector Ahead = Car->GetActorLocation() + Forward * 2500.f;
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(GTPReactDemoMove), false, Car);
+	Params.AddIgnoredActor(Player);
+	for (const float Side : {400.f, 250.f, -400.f})
+	{
+		const FVector Spot = Ahead + Right * Side;
+		FHitResult Hit;
+		// Not through a wall from the lane, and ground under the spot.
+		if (GetWorld()->LineTraceSingleByChannel(Hit, Ahead + FVector(0.f, 0.f, 100.f), Spot + FVector(0.f, 0.f, 100.f), ECC_Visibility, Params))
+		{
+			continue;
+		}
+		if (!GetWorld()->LineTraceSingleByChannel(Hit, Spot + FVector(0.f, 0.f, 500.f), Spot - FVector(0.f, 0.f, 2000.f), ECC_Visibility, Params))
+		{
+			continue;
+		}
+		const float HalfHeight = Player->GetSimpleCollisionHalfHeight();
+		const FVector Feet = Hit.ImpactPoint + FVector(0.f, 0.f, HalfHeight + 5.f);
+		const FRotator Facing = (Car->GetActorLocation() - Feet).GetSafeNormal2D().Rotation();
+		if (!Player->TeleportTo(Feet, Facing))
+		{
+			continue;
+		}
+		Viewer->SetControlRotation(FRotator(-5.f, Facing.Yaw, 0.f));
+		GTP_TRACE(LogGTPTraffic, TEXT("traffic react demo: player moved 25 m ahead of %s (%.0f m to the side)"), *Car->GetName(), Side / 100.f);
+		return true;
+	}
+	return false;
 }
 
 const AActor* AGTPTrafficNetwork::FindCarAt(const AGTPVehicle* Car, const FTransform& Transform) const
