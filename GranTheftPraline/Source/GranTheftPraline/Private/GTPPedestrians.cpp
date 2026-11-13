@@ -1197,7 +1197,7 @@ void UGTPPedestrianSubsystem::TickDemo()
 		{
 			if (P.bActive && P.bDrawn && !P.bBorrowed && FVector::Dist(P.Actor.IsValid() ? P.Actor->GetActorLocation() : Where, Where) < 1200.f)
 			{
-				GTPWalk::Freeze(P.Walker, Where, 20.f, GTPWalk::EPause::HandsUp);
+				GTPWalk::Freeze(P.Walker, GTPWalk::FPoint{float(Where.X), float(Where.Y)}, 20.f, GTPWalk::EPause::HandsUp);
 			}
 		}
 	}
