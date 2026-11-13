@@ -148,7 +148,7 @@ jobs:
           g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/combat/combat_logic_test.cpp -o /tmp/combat_logic_test
           /tmp/combat_logic_test
       - name: Unreal combat scripts compile
-        run: python -m py_compile tools/combat/unreal/make_blood_material.py
+        run: python -m py_compile tools/combat/unreal/make_blood_material.py tools/combat/unreal/lyra_weapons_setup.py
       - name: Headers clean under strict conversion warnings (MSVC is stricter than g++)
         run: |
           for h in GTPHealthLogic GTPDamageLogic GTPWeaponLogic GTPCombatMeleeLogic GTPCoverLogic; do

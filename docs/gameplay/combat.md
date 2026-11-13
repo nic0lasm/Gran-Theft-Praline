@@ -160,3 +160,29 @@ What the batch adds on top of the above:
   from the PC's report. Each missing asset is logged once; the game runs without it.
 
 Added controls: next weapon = mouse wheel down, 2, or left bumper on foot; previous weapon = wheel up.
+
+### Lyra port (evening of 13/11)
+
+From the PC's survey (`/mnt/project-files/combat/lyra-armes-valeurs.md`). Epic content, out of Git; no Lyra code
+is taken: Lyra stands on GAS and ShooterCore, which ADR-0011 leaves out. We take its assets.
+
+- **Guns in the hand**: `SK_Pistol` and `SK_Rifle` (Lyra paths), shots and flash from their `Muzzle` socket,
+  visible only when drawn. Placement: the player's `weapon_r` socket when it exists, else `hand_r` with
+  `AttachOffset` (set from the script's report).
+- **Animations**: the Lyra montages (Fire, Reload, Equip, DryFire for both weapons) and the aim poses
+  `MM_*_Idle_ADS` are on the UE5 Mannequin skeleton; the player is a UEFN Mannequin. The script
+  `tools/combat/unreal/lyra_weapons_setup.py` (editor, Python) retargets them into `/Game/Combat/Weapons/Anim/`
+  (suffix `_UEFN`), lists the slots in the player's animation blueprints, says whether `weapon_r` exists, and
+  writes the `DefaultGame.ini` lines matching what really exists (`Saved/GTPCombat/lyra-weapons-setup.txt`).
+- **Slots**: Lyra plays Fire in `FullBodyAdditivePreAim` and the rest in `UpperBody`. If the player's animation
+  blueprint lacks them, a clip can force its slot (`Clips=(…,Slot="DefaultSlot")`); an additive animation never
+  plays in a non-additive slot. The aim pose (`_AimLoop`) is held for the whole aim, in its slot. Without an
+  upper-body slot it stays off: that is the main blocker, lifted by a change to the animation blueprint
+  (`UpperBody` slot + AimOffset), a Content asset.
+- **Impacts**: `NS_ImpactConcrete` and `NS_ImpactGlass` (if they do not depend on Lyra's data channels), bullet
+  hole decals: ours (`M_GTP_BulletHole`, made by `make_blood_material.py`) and Lyra's on glass. 24 at most, 30 s,
+  attached to what was hit, warmed up at load.
+- **Sounds**: Lyra's fire MetaSounds (`MSS_Weapons_Pistol_Fire`, `MSS_Weapons_Rifle_Fire`) and the dry click are
+  offered to the audio thread, which owns combat sound playback.
+- **Values**: Lyra's readable multipliers (aim 0.65; crouch 0.6 to 0.65; jump 1.25 to 1.6) are close to ours;
+  Lyra's fire rate, magazine, reload and damage cannot be read from Python, ours stay those of the table above.

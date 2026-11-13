@@ -432,6 +432,10 @@ void UGTPCombatSubsystem::SpawnImpact(const FHitResult& Hit, const FVector& Dire
 	bool bGlass = false;
 	Context.SurfaceId = Context.bHitPawn ? GTPSurfaceId::Asphalt : CombatSurfaceOf(Hit, bGlass);
 	Context.bGlass = bGlass;
+	if (!Context.bHitPawn && !Context.bHitVehicle && Context.SurfaceId != GTPSurfaceId::Water)
+	{
+		SpawnBulletHole(Hit, bGlass);
+	}
 	const int32 Kind = static_cast<int32>(GTPDamage::ImpactFor(Context));
 	UNiagaraSystem* System = LoadedImpacts.IsValidIndex(Kind) ? LoadedImpacts[Kind].Get() : nullptr;
 	if (!System)
@@ -474,6 +478,18 @@ void UGTPCombatSubsystem::WarmUpEffects()
 	}
 	// Loaded here, never during a fight (a missing package would stall the game thread).
 	LoadedBloodPool = BloodPoolMaterial.IsNull() ? nullptr : Cast<UMaterialInterface>(BloodPoolMaterial.TryLoad());
+	LoadedBulletHole = BulletHoleMaterial.IsNull() ? nullptr : Cast<UMaterialInterface>(BulletHoleMaterial.TryLoad());
+	LoadedGlassHole = GlassHoleMaterial.IsNull() ? nullptr : Cast<UMaterialInterface>(GlassHoleMaterial.TryLoad());
+	for (UMaterialInterface* Decal : {LoadedBulletHole.Get(), LoadedGlassHole.Get(), LoadedBloodPool.Get()})
+	{
+		if (Decal)
+		{
+			// Far below the street for a moment: the decal shaders are ready before the first shot.
+			UGameplayStatics::SpawnDecalAtLocation(World, Decal, FVector(4.f, 4.f, 4.f), FVector(0.f, 0.f, -100000.f), FRotator::ZeroRotator, 0.2f);
+		}
+	}
+	GTP_TRACE(LogGTPCombat, TEXT("combat: bullet holes %s, glass holes %s"), LoadedBulletHole ? TEXT("on") : TEXT("off"),
+		LoadedGlassHole ? TEXT("on") : TEXT("off"));
 	GTP_TRACE(LogGTPCombat, TEXT("combat: %d impact effects loaded and warmed up, blood pool %s"), Loaded, LoadedBloodPool ? TEXT("on") : TEXT("off"));
 }
 
@@ -582,6 +598,41 @@ void UGTPCombatSubsystem::AddBloodStain(AActor* Body)
 	Amount = FMath::Min(1.f, Amount + BloodStainPerHit);
 	// Materials without the parameter ignore it (the realism thread adds it to the clothes).
 	Mesh->SetScalarParameterValueOnMaterials(TEXT("GTPBlood"), Amount);
+}
+
+void UGTPCombatSubsystem::SpawnBulletHole(const FHitResult& Hit, bool bGlass)
+{
+	UWorld* World = GetWorld();
+	UMaterialInterface* Material = bGlass && LoadedGlassHole ? LoadedGlassHole.Get() : LoadedBulletHole.Get();
+	if (!World || !Material || MaxBulletHoles <= 0)
+	{
+		return; // loaded once in WarmUpEffects; missing asset = no holes
+	}
+	BulletHoles.RemoveAll([](const TWeakObjectPtr<UDecalComponent>& D) { return !D.IsValid(); });
+	while (BulletHoles.Num() >= MaxBulletHoles)
+	{
+		if (UDecalComponent* Oldest = BulletHoles[0].Get())
+		{
+			Oldest->DestroyComponent();
+		}
+		BulletHoles.RemoveAt(0);
+	}
+	const float Size = BulletHoleSizeCm * (bGlass ? 2.5f : 1.f);
+	FRotator Rotation = (-Hit.ImpactNormal).Rotation();
+	Rotation.Roll = FMath::FRandRange(0.f, 360.f);
+	// Attached to what was hit (a door, a bin that moves later), thin so it does not wrap round corners.
+	UDecalComponent* Decal = nullptr;
+	if (USceneComponent* Surface = Hit.GetComponent())
+	{
+		Decal = UGameplayStatics::SpawnDecalAttached(Material, FVector(4.f, Size, Size), Surface, NAME_None, Hit.ImpactPoint, Rotation,
+			EAttachLocation::KeepWorldPosition, BulletHoleLifeSeconds);
+	}
+	if (Decal)
+	{
+		Decal->SetFadeOut(FMath::Max(0.f, BulletHoleLifeSeconds - 5.f), 5.f, false);
+		Decal->SetFadeScreenSize(0.002f);
+		BulletHoles.Add(Decal);
+	}
 }
 
 void UGTPCombatSubsystem::SpawnBloodPool(AActor* Body)

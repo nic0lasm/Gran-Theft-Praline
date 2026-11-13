@@ -164,3 +164,31 @@ Ce que le lot ajoute, au-dessus de ce qui précède :
   le jeu tourne sans.
 
 Commandes ajoutées : arme suivante = molette, 2, ou bumper gauche à pied ; arme précédente = molette vers le haut.
+
+### Portage Lyra (13/11 au soir)
+
+D'après le relevé du PC (`/mnt/project-files/combat/lyra-armes-valeurs.md`). Contenu Epic, hors Git ; aucun code
+Lyra n'est repris : Lyra repose sur GAS et ShooterCore, que l'ADR-0011 écarte. On prend ses assets.
+
+- **Armes en main** : `SK_Pistol` et `SK_Rifle` (chemins Lyra), tirs et flamme depuis leur socket `Muzzle`,
+  visibles seulement dégainées. Placement : socket `weapon_r` du joueur s'il existe, sinon `hand_r` avec
+  `AttachOffset` (à régler d'après le rapport du script).
+- **Animations** : les montages Lyra (Fire, Reload, Equip, DryFire des deux armes) et les poses de visée
+  `MM_*_Idle_ADS` sont sur le squelette UE5 Mannequin ; le joueur est en UEFN Mannequin. Le script
+  `tools/combat/unreal/lyra_weapons_setup.py` (éditeur, Python) les retargete dans `/Game/Combat/Weapons/Anim/`
+  (suffixe `_UEFN`), liste les slots présents dans les animation blueprints du joueur, dit si `weapon_r` existe,
+  et écrit les lignes de `DefaultGame.ini` qui correspondent à ce qui existe vraiment
+  (`Saved/GTPCombat/lyra-weapons-setup.txt`).
+- **Slots** : Lyra joue Fire en `FullBodyAdditivePreAim` et le reste en `UpperBody`. Si l'animation blueprint du
+  joueur n'a pas ces slots, un clip peut forcer son slot (`Clips=(…,Slot="DefaultSlot")`) ; une animation additive
+  n'est jamais jouée dans un slot non additif. La pose de visée (`_AimLoop`) se tient pendant toute la visée, dans
+  le slot donné. Sans slot haut du corps, elle reste coupée : c'est le blocage principal, à lever par une
+  modification de l'animation blueprint (slot `UpperBody` + AimOffset), qui est un asset de Content.
+- **Impacts** : `NS_ImpactConcrete` et `NS_ImpactGlass` (s'ils ne dépendent pas des data channels de Lyra),
+  impacts de balles en décalque : le nôtre (`M_GTP_BulletHole`, fait par `make_blood_material.py`) et celui de
+  Lyra sur le verre. 24 au plus, 30 s, accrochés à ce qui est touché, préchauffés au chargement.
+- **Sons** : les MetaSounds de tir Lyra (`MSS_Weapons_Pistol_Fire`, `MSS_Weapons_Rifle_Fire`) et le clic à vide
+  sont proposés au fil Audio, qui possède la lecture des sons de combat.
+- **Valeurs** : les multiplicateurs lisibles de Lyra (visée 0,65 ; accroupi 0,6 à 0,65 ; saut 1,25 à 1,6) sont
+  proches des nôtres ; la cadence, le chargeur, la recharge et les dégâts de Lyra ne se lisent pas en Python,
+  les nôtres restent ceux du tableau ci-dessus.

@@ -126,6 +126,22 @@ protected:
 	UPROPERTY(Config)
 	FSoftObjectPath BloodPoolMaterial = FSoftObjectPath(TEXT("/Game/Combat/Materials/M_GTP_BloodPool.M_GTP_BloodPool"));
 
+	/** Bullet hole decal on walls, ground, furniture (tools/combat/unreal/make_blood_material.py builds it). Missing = none. */
+	UPROPERTY(Config)
+	FSoftObjectPath BulletHoleMaterial = FSoftObjectPath(TEXT("/Game/Combat/Materials/M_GTP_BulletHole.M_GTP_BulletHole"));
+
+	/** On glass (Lyra's M_GlassBulletHoles_Decal once migrated); missing = the plain hole. */
+	UPROPERTY(Config)
+	FSoftObjectPath GlassHoleMaterial;
+
+	/** Bullet holes in the world at once (the oldest goes first), their life and size. */
+	UPROPERTY(Config)
+	int32 MaxBulletHoles = 24;
+	UPROPERTY(Config)
+	float BulletHoleLifeSeconds = 30.f;
+	UPROPERTY(Config)
+	float BulletHoleSizeCm = 5.f;
+
 	/** Blood pools in the world at once; the oldest goes first. */
 	UPROPERTY(Config)
 	int32 MaxBloodPools = 8;
@@ -163,6 +179,7 @@ private:
 	void WarmUpEffects();
 	void BenchShot();
 	void SpawnBloodPool(AActor* Body);
+	void SpawnBulletHole(const FHitResult& Hit, bool bGlass);
 	void AddBloodStain(AActor* Body);
 	bool IsPlayer(const AActor* Actor) const;
 
@@ -177,12 +194,17 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UMaterialInterface> LoadedBloodPool;
+	UPROPERTY(Transient)
+	TObjectPtr<UMaterialInterface> LoadedBulletHole;
+	UPROPERTY(Transient)
+	TObjectPtr<UMaterialInterface> LoadedGlassHole;
 
 	TWeakObjectPtr<APawn> EquippedPawn;
 	TWeakObjectPtr<APawn> DeadPawn;
 	FVector DeathLocation = FVector::ZeroVector;
 	TArray<double> LiveImpactEnds;
 	TArray<TWeakObjectPtr<class UDecalComponent>> BloodPools;
+	TArray<TWeakObjectPtr<class UDecalComponent>> BulletHoles;
 	TMap<TWeakObjectPtr<AActor>, float> BloodStains;
 	double LastPlayerHitTime = -1000.0;
 	bool bLastPlayerHitKilled = false;

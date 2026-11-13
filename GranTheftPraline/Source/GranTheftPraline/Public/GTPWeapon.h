@@ -49,9 +49,18 @@ struct FGTPWeaponLook
 
 	UPROPERTY()
 	FSoftObjectPath MuzzleFlash;
+
+	/** Gun placement relative to the hand socket (Lyra attaches to weapon_r; on hand_r it needs an offset). */
+	UPROPERTY()
+	FTransform AttachOffset;
 };
 
-/** One animation by name (a montage, or a sequence played in AnimSlot). */
+/**
+ * One animation by name: a montage (played in its own slot, or its first sequence in Slot
+ * when Slot is set: the player's animation blueprint may lack Lyra's UpperBody slots), or a
+ * sequence played in Slot (AnimSlot when empty). An additive sequence only plays in a slot
+ * whose name says Additive, never as a full pose.
+ */
 USTRUCT()
 struct FGTPWeaponClip
 {
@@ -62,6 +71,9 @@ struct FGTPWeaponClip
 
 	UPROPERTY()
 	FSoftObjectPath Asset;
+
+	UPROPERTY()
+	FName Slot;
 };
 
 /**
@@ -187,7 +199,10 @@ protected:
 	UPROPERTY(Config)
 	TArray<FGTPWeaponLook> Looks;
 
-	/** Animations by name: <ClipPrefix>_Draw, _Holster, _Fire, _Reload, _DryFire. Missing = none. */
+	/**
+	 * Animations by name: <ClipPrefix>_Draw, _Holster, _Fire, _Reload, _DryFire, and _AimLoop
+	 * (held while aiming, e.g. Lyra's MM_Pistol_Idle_ADS retargeted). Missing = none.
+	 */
 	UPROPERTY(Config)
 	TArray<FGTPWeaponClip> Clips;
 
@@ -223,6 +238,8 @@ private:
 	FVector GetMuzzle() const;
 	float GetSpeedShare() const;
 	void PlayClip(const TCHAR* Suffix);
+	void SetAimLoop(bool bOn);
+	const FGTPWeaponClip* FindClip(const TCHAR* Suffix) const;
 	void Broadcast(EGTPWeaponEvent Event) { OnWeaponEvent.Broadcast(this, Event); }
 	void LoadLooks();
 	void UpdateMesh();
@@ -253,4 +270,6 @@ private:
 	bool bWasReloading = false;
 	bool bLoadoutBuilt = false;
 	bool bLooksLoaded = false;
+	/** Slot the aim loop plays in while it plays (NAME_None = not playing). */
+	FName AimLoopSlot;
 };

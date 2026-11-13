@@ -191,6 +191,10 @@ void UGTPWeaponComponent::UpdateMesh()
 		const FName Socket = Body->DoesSocketExist(HandSocket) ? HandSocket : HandFallbackSocket;
 		GunMesh->AttachToComponent(Body, FAttachmentTransformRules::SnapToTargetNotIncludingScale, Socket);
 	}
+	if (const FGTPWeaponLook* Look = GetLook())
+	{
+		GunMesh->SetRelativeTransform(Look->AttachOffset);
+	}
 	if (Mesh && GunMesh->GetSkeletalMeshAsset() != Mesh)
 	{
 		GunMesh->SetSkeletalMeshAsset(Mesh);
@@ -223,6 +227,10 @@ void UGTPWeaponComponent::SetAiming(bool bAim)
 {
 	const bool bWas = IsAiming();
 	bAiming = bAim;
+	if (bWas != IsAiming())
+	{
+		SetAimLoop(IsAiming());
+	}
 	if (bWas && !IsAiming())
 	{
 		if (UGTPCombatSubsystem* Combat = UGTPCombatSubsystem::Get(this))
@@ -235,9 +243,15 @@ void UGTPWeaponComponent::SetAiming(bool bAim)
 
 bool UGTPWeaponComponent::SelectKind(GTPArsenal::EKind Kind)
 {
+	const bool bWasAiming = IsAiming();
 	if (!Loadout.Select(Kind, bDrawn ? SwitchSeconds : 0.f))
 	{
 		return false;
+	}
+	if (bWasAiming)
+	{
+		SetAimLoop(false); // the new weapon's aim pose
+		SetAimLoop(true);
 	}
 	UpdateMesh();
 	Broadcast(EGTPWeaponEvent::Switched);
@@ -604,27 +618,90 @@ void UGTPWeaponComponent::TickComponent(float DeltaTime, ELevelTick TickType, FA
 	}
 }
 
-void UGTPWeaponComponent::PlayClip(const TCHAR* Suffix)
+const FGTPWeaponClip* UGTPWeaponComponent::FindClip(const TCHAR* Suffix) const
 {
 	const FGTPWeaponLook* Look = GetLook();
+	if (!Look || Look->ClipPrefix.IsEmpty())
+	{
+		return nullptr;
+	}
+	const FName Name(*(Look->ClipPrefix + Suffix));
+	return Clips.FindByPredicate([Name](const FGTPWeaponClip& Clip) { return Clip.Name == Name; });
+}
+
+namespace
+{
+	/** The sequence a clip plays in an explicit slot: the clip itself, or a montage's first segment. */
+	UAnimSequenceBase* WeaponClipSequence(UAnimSequenceBase* Clip)
+	{
+		if (UAnimMontage* Montage = Cast<UAnimMontage>(Clip))
+		{
+			if (Montage->SlotAnimTracks.Num() > 0 && Montage->SlotAnimTracks[0].AnimTrack.AnimSegments.Num() > 0)
+			{
+				return Montage->SlotAnimTracks[0].AnimTrack.AnimSegments[0].GetAnimReference().Get();
+			}
+			return nullptr;
+		}
+		return Clip;
+	}
+}
+
+void UGTPWeaponComponent::PlayClip(const TCHAR* Suffix)
+{
 	const ACharacter* Character = Cast<ACharacter>(GetOwner());
-	if (!Look || Look->ClipPrefix.IsEmpty() || !Character || !Character->GetMesh())
+	const FGTPWeaponClip* Entry = FindClip(Suffix);
+	if (!Entry || !Character || !Character->GetMesh())
 	{
 		return;
 	}
-	const TObjectPtr<UAnimSequenceBase>* Found = LoadedClips.Find(FName(*(Look->ClipPrefix + Suffix)));
+	const TObjectPtr<UAnimSequenceBase>* Found = LoadedClips.Find(Entry->Name);
 	UAnimSequenceBase* Clip = Found ? Found->Get() : nullptr;
 	UAnimInstance* Anim = Character->GetMesh()->GetAnimInstance();
 	if (!Clip || !Anim)
 	{
 		return;
 	}
-	if (UAnimMontage* Montage = Cast<UAnimMontage>(Clip))
+	UAnimMontage* Montage = Cast<UAnimMontage>(Clip);
+	if (Montage && Entry->Slot.IsNone())
 	{
 		Anim->Montage_Play(Montage);
+		return;
 	}
-	else
+	const FName Slot = Entry->Slot.IsNone() ? AnimSlot : Entry->Slot;
+	UAnimSequenceBase* Sequence = WeaponClipSequence(Clip);
+	if (!Sequence || (Sequence->IsValidAdditive() && !Slot.ToString().Contains(TEXT("Additive"))))
 	{
-		Anim->PlaySlotAnimationAsDynamicMontage(Clip, AnimSlot, 0.08f, 0.12f);
+		return; // an additive pose in a full-pose slot would twist the body
 	}
+	Anim->PlaySlotAnimationAsDynamicMontage(Sequence, Slot, 0.08f, 0.12f);
+}
+
+void UGTPWeaponComponent::SetAimLoop(bool bOn)
+{
+	const ACharacter* Character = Cast<ACharacter>(GetOwner());
+	UAnimInstance* Anim = Character && Character->GetMesh() ? Character->GetMesh()->GetAnimInstance() : nullptr;
+	if (!Anim)
+	{
+		return;
+	}
+	if (!bOn)
+	{
+		if (!AimLoopSlot.IsNone())
+		{
+			Anim->StopSlotAnimation(0.15f, AimLoopSlot);
+			AimLoopSlot = NAME_None;
+		}
+		return;
+	}
+	const FGTPWeaponClip* Entry = FindClip(TEXT("_AimLoop"));
+	const TObjectPtr<UAnimSequenceBase>* Found = Entry ? LoadedClips.Find(Entry->Name) : nullptr;
+	UAnimSequenceBase* Sequence = Found ? WeaponClipSequence(Found->Get()) : nullptr;
+	const FName Slot = Entry && !Entry->Slot.IsNone() ? Entry->Slot : AnimSlot;
+	if (!Sequence || IsDriveBy() || (Sequence->IsValidAdditive() && !Slot.ToString().Contains(TEXT("Additive"))))
+	{
+		return;
+	}
+	// Held as long as the aim lasts (a large loop count), stopped by SetAimLoop(false).
+	Anim->PlaySlotAnimationAsDynamicMontage(Sequence, Slot, 0.12f, 0.15f, 1.f, 100000);
+	AimLoopSlot = Slot;
 }
