@@ -1,5 +1,5 @@
-# Mac state 2026-11-13 16:01 Paris
+# Mac state 2026-11-13 16:14 Paris
 
-- block: next2c2 2c2a93c
-- last line: 16:01 endurance package now: cand15b
+- block: FAIL next2c2 build
+- last line: 16:14 BLOCK FAIL: next2c2 build
 - startup crashes: 4
