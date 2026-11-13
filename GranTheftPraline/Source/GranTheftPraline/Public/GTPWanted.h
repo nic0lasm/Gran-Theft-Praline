@@ -311,6 +311,7 @@ private:
 		int8 SirenState = -1;
 		/** Obstacle probe ignored until then (s): a unit stopped behind traffic pushes through (ramming). */
 		float RamUntil = 0.f;
+		float NextWakeTime = 0.f;
 		float LastObstacle = -1.f;
 		float LastThrottle = 0.f;
 		float LastBrake = 0.f;

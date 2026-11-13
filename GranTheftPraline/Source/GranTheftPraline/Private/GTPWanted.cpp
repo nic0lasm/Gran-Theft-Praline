@@ -8,6 +8,7 @@
 #include "GTPLiteDriver.h"
 #include "GTPPoliceOfficer.h"
 #include "AIController.h"
+#include "ChaosVehicleMovementComponent.h"
 #include "CollisionQueryParams.h"
 #include "Components/PointLightComponent.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -765,6 +766,24 @@ void AGTPPoliceDirector::DriveUnit(FUnit& Unit, UGTPWantedComponent& Wanted, con
 	}
 	const float ChaseKmh = GTPWanted::ChaseSpeedKmh(Stars);
 	const float NowSeconds = static_cast<float>(GetWorld()->GetTimeSeconds());
+	// Throttle held and the car does not move: not traffic, the vehicle itself (asleep, parked, no gear). Wake it.
+	if (Unit.StoppedTime > 3.f && Unit.LastThrottle > 0.8f && Unit.LastObstacle < 0.f && NowSeconds >= Unit.NextWakeTime)
+	{
+		Unit.NextWakeTime = NowSeconds + 5.f;
+		if (UChaosVehicleMovementComponent* Move = Car->GetVehicleMovementComponent())
+		{
+			Move->SetParked(false);
+			Move->SetHandbrakeInput(false);
+			Move->SetUseAutomaticGears(true);
+			Move->SetTargetGear(1, true);
+		}
+		if (USkeletalMeshComponent* Body = Car->GetMesh())
+		{
+			Body->WakeAllRigidBodies();
+			GTP_TRACE(LogGTPWanted, TEXT("police unit: not moving with the throttle held, woken (simulating=%d gravity=%d mass=%.0f kg)"),
+				Body->IsSimulatingPhysics() ? 1 : 0, Body->IsGravityEnabled() ? 1 : 0, Body->GetMass());
+		}
+	}
 	// Stopped far from the player in a chase: push through whatever is in the way for a few seconds.
 	if (Unit.StoppedTime > 4.f && NowSeconds >= Unit.RamUntil && FVector::Dist2D(Location, Player.GetActorLocation()) > 1500.f)
 	{
@@ -918,6 +937,12 @@ void AGTPPoliceDirector::Tick(float DeltaSeconds)
 				GTP_TRACE(LogGTPWanted, TEXT("police unit: dist=%.0f m speed=%.0f km/h lanes=%d stopped=%.0f s stage=%d obstacle=%.1f m throttle=%.2f brake=%.2f"),
 					FVector::Dist2D(Car->GetActorLocation(), Player->GetActorLocation()) * 0.01f, Car->GetSpeedKmh(), Unit.bOnLanes ? 1 : 0, Unit.StoppedTime, Unit.Stage,
 					Unit.LastObstacle, Unit.LastThrottle, Unit.LastBrake);
+				if (const UChaosVehicleMovementComponent* Move = Car->GetVehicleMovementComponent())
+				{
+					GTP_TRACE(LogGTPWanted, TEXT("police unit physics: gear=%d rpm=%.0f forward=%.0f cm/s simulating=%d class=%s"), Move->GetCurrentGear(),
+						Move->GetEngineRotationSpeed(), Move->GetForwardSpeed(), Car->GetMesh() && Car->GetMesh()->IsSimulatingPhysics() ? 1 : 0,
+						*Car->GetClass()->GetName());
+				}
 			}
 		}
 	}
