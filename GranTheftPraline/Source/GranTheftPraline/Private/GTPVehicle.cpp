@@ -332,7 +332,7 @@ void AGTPVehicle::TraceDriveDiag(float Brake, bool bHandbrake)
 	}
 	LastDriveDiagTime = World->GetTimeSeconds();
 	const UChaosWheeledVehicleMovementComponent* Move = GetWheeledMovement();
-	const USkeletalMeshComponent* Body = GetMesh();
+	USkeletalMeshComponent* Body = GetMesh();
 	UE_LOG(LogGTPVehicle, Log, TEXT("drive diag %s: gear=%d rpm=%.0f kmh=%.1f throttle=%.2f brake=%.2f handbrake=%d controller=%d simulating=%d awake=%d movetick=%d"),
 		*GetName(), Move ? Move->GetCurrentGear() : -99, GetEngineRpm(), GetSpeedKmh(), ThrottleAmount, Brake, bHandbrake ? 1 : 0,
 		GetController() ? 1 : 0, Body && Body->IsSimulatingPhysics() ? 1 : 0, Body && Body->IsAnyRigidBodyAwake() ? 1 : 0,
