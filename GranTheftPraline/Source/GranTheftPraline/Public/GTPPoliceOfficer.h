@@ -42,6 +42,7 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 private:
 	bool HasLineOfSight(const FVector& From, const AActor& Target) const;
@@ -53,6 +54,7 @@ private:
 	int32 SlotIndex = 0;
 	int32 SlotCount = 1;
 	float FireCooldown = 0.f;
+	float SpawnTime = 0.f;
 	float SearchSeconds = 0.f;
 	float NextLosTime = 0.f;
 	bool bLosCached = false;

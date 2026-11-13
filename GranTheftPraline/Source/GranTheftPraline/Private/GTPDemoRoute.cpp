@@ -583,15 +583,34 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 			{
 				if (Now < UnstickUntil)
 				{
-					DriveInputs(Driven, 0.f, 0.6f, -UnstickSteer, false);
+					DriveInputs(Driven, 0.f, 1.f, -UnstickSteer, false);
 					break;
 				}
 				if (FMath::Abs(Driven->GetSpeedKmh()) < 3.f)
 				{
 					SlowSince = SlowSince <= 0.0 ? Now : SlowSince;
-					if (Now - SlowSince > 2.5 && Now >= RamUntil)
+					if (Now - SlowSince > 2.0 && Now >= RamUntil)
 					{
 						SlowSince = 0.0;
+						// The demo must not wait on the city's traffic: cars of the traffic within 25 m are taken off the road.
+						{
+							TActorIterator<AGTPTrafficNetwork> Network(Driven->GetWorld());
+							int32 Cleared = 0;
+							for (TActorIterator<AGTPVehicle> It(Driven->GetWorld()); Network && It; ++It)
+							{
+								AGTPVehicle* Other = *It;
+								if (Other != Driven && Other->HasAIDriver() && !Other->ActorHasTag(TEXT("GTPPolice"))
+									&& FVector::Dist(Other->GetActorLocation(), Driven->GetActorLocation()) < 2500.f)
+								{
+									Network->Recycle(Other);
+									++Cleared;
+								}
+							}
+							if (Cleared > 0)
+							{
+								GTP_TRACE(LogGTPDemo, TEXT("Demo chase: %d traffic car(s) taken off the road around the player"), Cleared);
+							}
+						}
 						if (++ChaseStuckCount % 2 == 1)
 						{
 							RamUntil = Now + 3.0;
