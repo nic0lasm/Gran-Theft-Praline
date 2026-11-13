@@ -86,7 +86,27 @@ void FGTPLaneFollower::Plan()
 	}
 	while (AheadM < RouteAheadM)
 	{
-		const int32 Next = bHasGoal ? Net->PickNextToward(Route.Last(), Goal) : Net->PickNext(Route.Last(), GTPDeterminism::IsOn() ? &OwnRandom : nullptr);
+		int32 Next = bHasGoal ? Net->PickNextToward(Route.Last(), Goal) : Net->PickNext(Route.Last(), GTPDeterminism::IsOn() ? &OwnRandom : nullptr);
+		if (Next != INDEX_NONE && bPreferStraight && !bHasGoal)
+		{
+			// The exit whose first segment keeps the heading of the end of this lane the best.
+			const TArray<FVector>& From = Lanes[Route.Last()].Points;
+			const FVector Heading = From.Num() >= 2 ? (From.Last() - From[From.Num() - 2]).GetSafeNormal2D() : FVector::ZeroVector;
+			float BestDot = -2.f;
+			for (const int32 Candidate : Lanes[Route.Last()].Next)
+			{
+				const TArray<FVector>& To = Lanes[Candidate].Points;
+				if (To.Num() >= 2)
+				{
+					const float Dot = static_cast<float>(FVector::DotProduct(Heading, (To[1] - To[0]).GetSafeNormal2D()));
+					if (Dot > BestDot)
+					{
+						BestDot = Dot;
+						Next = Candidate;
+					}
+				}
+			}
+		}
 		if (Next == INDEX_NONE)
 		{
 			break;

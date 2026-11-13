@@ -110,6 +110,10 @@ private:
 	double NextRelocate = 0.0;
 	double NextClear = 0.0;
 	double NextChaseLog = 0.0;
+	/** Seconds well under the cruise speed by cause (GTPDrive::ELimit), logged every 10 s. */
+	float LimitSeconds[5] = {0.f, 0.f, 0.f, 0.f, 0.f};
+	double NextLimitLog = 0.0;
+	double LastLimitTime = 0.0;
 	double CarjackRetarget = 0.0;
 	/** Drives along the traffic lanes once the car is on one (else holds the street heading). */
 	FGTPLaneFollower Follower;
