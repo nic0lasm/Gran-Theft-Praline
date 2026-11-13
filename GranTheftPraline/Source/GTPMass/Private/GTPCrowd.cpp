@@ -544,7 +544,11 @@ void UGTPCrowdSubsystem::OnActorThreat(AActor* Body, int32 NewState)
 
 void UGTPCrowdSubsystem::HitByPlayerVehicle(int32 Slot)
 {
-	AGTPPedestrian* Actor = NearActors[Slot];
+	AGTPPedestrian* Actor = NearActors.IsValidIndex(Slot) ? NearActors[Slot].Get() : nullptr;
+	if (!IsValid(Actor) || !NearEntity.IsValidIndex(Slot))
+	{
+		return;
+	}
 	FGTPCrowdWalkerFragment* W = WalkerOf(NearEntity[Slot]);
 	const APawn* Pawn = UGameplayStatics::GetPlayerPawn(GetWorld(), 0);
 	if (!Actor || !W || !Pawn)
@@ -571,6 +575,30 @@ void UGTPCrowdSubsystem::HitByPlayerVehicle(int32 Slot)
 void UGTPCrowdSubsystem::UpdateNear(float DeltaTime)
 {
 	if (NearActors.Num() == 0)
+	{
+		return;
+	}
+	// A near actor destroyed under us (level change, kill volume, recycling) leaves its slot: purge it, free its person.
+	for (int32 Slot = NearActors.Num() - 1; Slot >= 0; --Slot)
+	{
+		if (!IsValid(NearActors[Slot]))
+		{
+			if (NearEntity.IsValidIndex(Slot) && NearEntity[Slot] != INDEX_NONE)
+			{
+				if (FGTPCrowdLookFragment* Look = LookOf(NearEntity[Slot]))
+				{
+					Look->bNear = false;
+				}
+			}
+			UE_LOG(LogGTPCrowd, Warning, TEXT("crowd: near actor %d was destroyed, slot dropped"), Slot);
+			NearActors.RemoveAt(Slot);
+			if (NearEntity.IsValidIndex(Slot))
+			{
+				NearEntity.RemoveAt(Slot);
+			}
+		}
+	}
+	if (NearActors.Num() == 0 || NearEntity.Num() != NearActors.Num())
 	{
 		return;
 	}
