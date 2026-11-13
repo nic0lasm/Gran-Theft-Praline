@@ -97,6 +97,14 @@ code du combat. Rien n'est branché sous `-Combat=0`.
 - **Corps à corps :** Light, Heavy (15 dégâts et plus), Block, Swish (esquive, coup raté).
 - **Manipulation :** DryFire, MagOut, MagIn, Slide, joués à la main du porteur.
 - **Budget :** classe `Weapons`, 6 voix ; impacts et coups partagent les 6 voix d'impact.
+- **Par arme** (`WeaponVoices`, clé envoyée avec chaque tir) :
+  - le pistolet (`Weapon.Pistol9`) et la carabine (`Weapon.Carbine`, 600 coups/min) ont chacun
+    un tir proche et un tir à vide enregistrés (contenu d'exemple Lyra, migré sur le PC, hors Git) ;
+  - s'ils ne se chargent pas, les sons synthétisés jouent à leur place ; pour la carabine, ils sont
+    abaissés (hauteur 0,86) et 15 % plus forts ;
+  - le tir lointain et la traîne de rue restent synthétisés ;
+  - en tir automatique, une seule traîne et une seule alerte de panique par rafale de 0,3 s ;
+  - les tirs du joueur ne sifflent jamais à ses oreilles, à pied comme par la vitre de sa voiture.
 ## Intérieurs et missions (0.9)
 
 `tools/audio/make_places.py` (graine 17, 32 fichiers, aucun enregistrement) écrit trois dossiers :

@@ -26,9 +26,13 @@ class GRANTHEFTPRALINE_API UGTPCombatAudio : public UBlueprintFunctionLibrary
 	GENERATED_BODY()
 
 public:
-	/** A shot from Origin towards Direction (Range in cm: where the bullet stops, for the whizz). */
+	/**
+	 * A shot from Origin towards Direction (Range in cm: where the bullet stops, for the whizz).
+	 * Weapon is the combat weapon key (Weapon.Pistol9, Weapon.Carbine): its own sound
+	 * (UGTPAudioSettings::WeaponVoices); automatic fire gets one tail per burst.
+	 */
 	UFUNCTION(BlueprintCallable, Category = "Audio|Combat", meta = (WorldContext = "WorldContext"))
-	static void PlayShot(const UObject* WorldContext, AActor* Shooter, FVector Origin, FVector Direction, float Range = 10000.f);
+	static void PlayShot(const UObject* WorldContext, AActor* Shooter, FVector Origin, FVector Direction, float Range = 10000.f, FName Weapon = NAME_None);
 
 	UFUNCTION(BlueprintCallable, Category = "Audio|Combat", meta = (WorldContext = "WorldContext"))
 	static void PlayBulletImpact(const UObject* WorldContext, FVector Location, EGTPBulletImpact Kind);
@@ -45,7 +49,7 @@ public:
 
 	/** Dry fire, magazine out and in, slide: at the weapon holder. */
 	UFUNCTION(BlueprintCallable, Category = "Audio|Combat", meta = (WorldContext = "WorldContext"))
-	static void PlayWeaponHandling(const UObject* WorldContext, AActor* Holder, EGTPWeaponSound Sound);
+	static void PlayWeaponHandling(const UObject* WorldContext, AActor* Holder, EGTPWeaponSound Sound, FName Weapon = NAME_None);
 
 	/** Melee damage from which a blow sounds heavy (the third blow of a combo is 18). */
 	static constexpr float HeavyDamage = 15.f;

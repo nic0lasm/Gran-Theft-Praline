@@ -67,7 +67,7 @@ namespace
 	}
 }
 
-void UGTPCombatAudio::PlayShot(const UObject* WorldContext, AActor* Shooter, FVector Origin, FVector Direction, float Range)
+void UGTPCombatAudio::PlayShot(const UObject* WorldContext, AActor* Shooter, FVector Origin, FVector Direction, float Range, FName Weapon)
 {
 	UWorld* World = WorldContext ? WorldContext->GetWorld() : nullptr;
 	UGTPAudioMix* Mix = UGTPAudioMix::Get(WorldContext);
@@ -81,22 +81,41 @@ void UGTPCombatAudio::PlayShot(const UObject* WorldContext, AActor* Shooter, FVe
 	ListenerOf(World, Listener, ListenerPawn);
 	const float Distance = FVector::Dist(Listener, Origin);
 	const float Travel = Distance / SpeedOfSound;
+	const FGTPWeaponVoice* Voice = Settings->FindWeaponVoice(Weapon);
+	const float WeaponPitch = Voice ? Voice->Pitch : 1.f;
+	const float WeaponVolume = Voice ? Voice->Volume : 1.f;
 	const float Pitch = FMath::FRandRange(0.96f, 1.04f);
 
 	const bool bClose = Distance <= Settings->CloseShotDistance;
 	// Sound travels: a shot 170 m away is heard half a second after its flash.
-	PlayAtAfter(World, Mix, Mix->PickWeapon(bClose ? EGTPWeaponSound::ShotClose : EGTPWeaponSound::ShotFar), EGTPAudioCategory::Weapons,
-		Origin, Settings->ShotVolume, Pitch, bClose ? 0.f : Travel);
+	float ShotPitch = 1.f;
+	float ShotVolume = 1.f;
+	USoundBase* Shot = bClose ? Mix->PickWeaponFor(Weapon, EGTPWeaponSound::ShotClose, ShotPitch, ShotVolume) : Mix->PickWeapon(EGTPWeaponSound::ShotFar);
+	if (!bClose)
+	{
+		ShotPitch = WeaponPitch;
+		ShotVolume = WeaponVolume;
+	}
+	PlayAtAfter(World, Mix, Shot, EGTPAudioCategory::Weapons, Origin, Settings->ShotVolume * ShotVolume, Pitch * ShotPitch, bClose ? 0.f : Travel);
 
-	float EchoDelay = 0.09f;
-	float EchoLevel = 0.5f;
-	EchoFor(Mix->SampleZone(Origin), EchoDelay, EchoLevel);
-	PlayAtAfter(World, Mix, Mix->PickWeapon(EGTPWeaponSound::Tail), EGTPAudioCategory::Weapons, Origin, Settings->ShotVolume * EchoLevel, Pitch,
-		Travel + EchoDelay);
+	// Automatic fire (a carbine at 600 rounds a minute): one street tail and one panic per burst gap.
+	const bool bBurstStart = Mix->ShooterReady(Shooter, Voice ? Voice->BurstGap : 0.f, World->GetTimeSeconds());
+	if (bBurstStart)
+	{
+		float EchoDelay = 0.09f;
+		float EchoLevel = 0.5f;
+		EchoFor(Mix->SampleZone(Origin), EchoDelay, EchoLevel);
+		PlayAtAfter(World, Mix, Mix->PickWeapon(EGTPWeaponSound::Tail), EGTPAudioCategory::Weapons, Origin, Settings->ShotVolume * WeaponVolume * EchoLevel,
+			Pitch * WeaponPitch, Travel + EchoDelay);
+	}
 
-	// Whizz: the bullet line passes near the listener (not the shooter's own ears).
+	// Whizz: the bullet line passes near the listener, not when the player fired it
+	// (on foot, or through the window of the car they drive: Shooter is then the car).
 	const FVector Dir = Direction.GetSafeNormal();
-	if (!Dir.IsNearlyZero() && ListenerPawn != Shooter)
+	const APawn* ShooterPawn = Cast<APawn>(Shooter);
+	const bool bOwnShot = Shooter && (ListenerPawn == Shooter || (ShooterPawn && ShooterPawn->IsPlayerControlled())
+		|| (ListenerPawn && ListenerPawn->GetAttachParentActor() == Shooter));
+	if (!Dir.IsNearlyZero() && !bOwnShot)
 	{
 		const float Along = FVector::DotProduct(Listener - Origin, Dir);
 		if (Along > 300.f && Along < Range)
@@ -112,7 +131,10 @@ void UGTPCombatAudio::PlayShot(const UObject* WorldContext, AActor* Shooter, FVe
 	if (UGTPAudioWorld* AudioWorld = World->GetSubsystem<UGTPAudioWorld>())
 	{
 		AudioWorld->DuckForGunshot();
-		AudioWorld->OnLoudSound.Broadcast(Origin, Settings->ShotScareRadius, Shooter);
+		if (bBurstStart)
+		{
+			AudioWorld->OnLoudSound.Broadcast(Origin, Settings->ShotScareRadius, Shooter);
+		}
 	}
 }
 
@@ -190,7 +212,7 @@ void UGTPCombatAudio::PlayMelee(const UObject* WorldContext, FVector Location, E
 	Mix->PlayAt(World, Mix->PickMelee(Sound), EGTPAudioCategory::Impacts, Location, FMath::FRandRange(0.85f, 1.f), FMath::FRandRange(0.92f, 1.08f));
 }
 
-void UGTPCombatAudio::PlayWeaponHandling(const UObject* WorldContext, AActor* Holder, EGTPWeaponSound Sound)
+void UGTPCombatAudio::PlayWeaponHandling(const UObject* WorldContext, AActor* Holder, EGTPWeaponSound Sound, FName Weapon)
 {
 	UWorld* World = WorldContext ? WorldContext->GetWorld() : nullptr;
 	UGTPAudioMix* Mix = UGTPAudioMix::Get(WorldContext);
@@ -198,5 +220,8 @@ void UGTPCombatAudio::PlayWeaponHandling(const UObject* WorldContext, AActor* Ho
 	{
 		return;
 	}
-	Mix->PlayAt(World, Mix->PickWeapon(Sound), EGTPAudioCategory::Weapons, Holder->GetActorLocation() + FVector(0.f, 0.f, 100.f), 0.8f, FMath::FRandRange(0.97f, 1.03f));
+	float Pitch = 1.f;
+	float Volume = 1.f;
+	USoundBase* Wave = Mix->PickWeaponFor(Weapon, Sound, Pitch, Volume);
+	Mix->PlayAt(World, Wave, EGTPAudioCategory::Weapons, Holder->GetActorLocation() + FVector(0.f, 0.f, 100.f), 0.8f * Volume, Pitch * FMath::FRandRange(0.97f, 1.03f));
 }

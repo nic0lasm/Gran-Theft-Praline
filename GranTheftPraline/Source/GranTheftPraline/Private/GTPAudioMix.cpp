@@ -652,6 +652,72 @@ USoundBase* UGTPAudioMix::PickWeapon(EGTPWeaponSound Sound)
 	return PickFrom(Bank.Sounds, Bank.Last);
 }
 
+USoundBase* UGTPAudioMix::PickWeaponFor(FName Weapon, EGTPWeaponSound Sound, float& OutPitch, float& OutVolume)
+{
+	OutPitch = 1.f;
+	OutVolume = 1.f;
+	const FGTPWeaponVoice* Voice = GetDefault<UGTPAudioSettings>()->FindWeaponVoice(Weapon);
+	if (!Voice)
+	{
+		return PickWeapon(Sound);
+	}
+	const FSoftObjectPath* Path = Sound == EGTPWeaponSound::ShotClose ? &Voice->Shot : Sound == EGTPWeaponSound::DryFire ? &Voice->DryFire : nullptr;
+	if (Path && Path->IsValid())
+	{
+		const FString Key = Path->ToString();
+		if (const TObjectPtr<USoundBase>* Found = WeaponOverrides.Find(Key))
+		{
+			if (*Found)
+			{
+				return Found->Get();
+			}
+		}
+		else
+		{
+			USoundBase* Loaded = Cast<USoundBase>(Path->TryLoad());
+			if (Loaded)
+			{
+				// In memory only, like the banks: the game plays it through its Weapons class.
+				Loaded->SoundClassObject = GetClass(EGTPAudioCategory::Weapons);
+			}
+			GTP_TRACE(LogGTPAudio, TEXT("[Audio] weapon %s: %s %s"), *Voice->Weapon.ToString(), *Key, Loaded ? TEXT("loaded") : TEXT("missing, synthesised sound kept"));
+			WeaponOverrides.Add(Key, Loaded);
+			if (Loaded)
+			{
+				return Loaded;
+			}
+		}
+	}
+	OutPitch = Voice->Pitch;
+	OutVolume = Voice->Volume;
+	return PickWeapon(Sound);
+}
+
+bool UGTPAudioMix::ShooterReady(const AActor* Shooter, float Gap, double Now)
+{
+	if (Gap <= 0.f || !Shooter)
+	{
+		return true;
+	}
+	if (LastBurst.Num() > 64)
+	{
+		for (auto It = LastBurst.CreateIterator(); It; ++It)
+		{
+			if (!It.Key().IsValid() || Now - It.Value() > 5.0)
+			{
+				It.RemoveCurrent();
+			}
+		}
+	}
+	double& Last = LastBurst.FindOrAdd(Shooter, -1e9);
+	if (Now - Last < Gap)
+	{
+		return false;
+	}
+	Last = Now;
+	return true;
+}
+
 USoundBase* UGTPAudioMix::PickBulletImpact(EGTPBulletImpact Kind)
 {
 	FBank& Bank = BulletBanks[FMath::Clamp(static_cast<int32>(Kind), 0, static_cast<int32>(UE_ARRAY_COUNT(BulletBanks)) - 1)];

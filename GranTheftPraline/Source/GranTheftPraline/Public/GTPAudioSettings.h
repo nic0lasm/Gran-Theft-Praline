@@ -81,6 +81,40 @@ struct FGTPEngineProfile
 };
 
 /**
+ * Sound of one weapon of the combat system (its key, e.g. Weapon.Carbine, sent with each shot).
+ * Recorded sounds (Shot, DryFire: soft paths, e.g. the Lyra sample content migrated on the PC)
+ * replace the synthesised close shot and dry fire when they load; otherwise the synthesised
+ * ones play with this weapon's pitch and volume. The far shot and the street tail stay
+ * synthesised (they depend on distance and zone).
+ */
+USTRUCT()
+struct FGTPWeaponVoice
+{
+	GENERATED_BODY()
+
+	/** Weapon key; "" = every other weapon. */
+	UPROPERTY(EditAnywhere, Category = "Weapon")
+	FName Weapon;
+
+	UPROPERTY(EditAnywhere, Category = "Weapon")
+	FSoftObjectPath Shot;
+
+	UPROPERTY(EditAnywhere, Category = "Weapon")
+	FSoftObjectPath DryFire;
+
+	/** Pitch and volume of the synthesised sounds for this weapon (a carbine is lower and louder). */
+	UPROPERTY(EditAnywhere, Category = "Weapon")
+	float Pitch = 1.f;
+
+	UPROPERTY(EditAnywhere, Category = "Weapon")
+	float Volume = 1.f;
+
+	/** Automatic fire: one street tail and one panic broadcast per this many seconds per shooter. */
+	UPROPERTY(EditAnywhere, Category = "Weapon")
+	float BurstGap = 0.f;
+};
+
+/**
  * Audio mix of the game (ADR-0009), section [/Script/GranTheftPraline.GTPAudioSettings]
  * of Config/DefaultGame.ini. Sound classes, mixes, concurrency and
  * attenuation are built in code at start-up from these values, so the mix
@@ -310,6 +344,28 @@ public:
 	/** People within this of a shot run away (OnLoudSound, cm). */
 	UPROPERTY(Config, EditAnywhere, Category = "Combat")
 	float ShotScareRadius = 3000.f;
+
+	/** Per weapon sounds (FGTPWeaponVoice). */
+	UPROPERTY(Config, EditAnywhere, Category = "Combat")
+	TArray<FGTPWeaponVoice> WeaponVoices;
+
+	/** The voice of a weapon key, else the "" entry, else null. */
+	const FGTPWeaponVoice* FindWeaponVoice(FName Weapon) const
+	{
+		const FGTPWeaponVoice* Fallback = nullptr;
+		for (const FGTPWeaponVoice& Voice : WeaponVoices)
+		{
+			if (!Weapon.IsNone() && Voice.Weapon == Weapon)
+			{
+				return &Voice;
+			}
+			if (Voice.Weapon.IsNone())
+			{
+				Fallback = &Voice;
+			}
+		}
+		return Fallback;
+	}
 
 	/** Police radio while wanted: level, random gap between two chatters (s). */
 	UPROPERTY(Config, EditAnywhere, Category = "Radio")

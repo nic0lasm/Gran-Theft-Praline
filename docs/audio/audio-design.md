@@ -94,6 +94,13 @@ are called directly by the combat code. Nothing is bound under `-Combat=0`.
 - **Melee:** Light, Heavy (15 damage and more), Block, Swish (dodge, missed blow).
 - **Handling:** DryFire, MagOut, MagIn, Slide at the holder.
 - **Budget:** `Weapons` class, 6 voices; impacts and blows share the 6 impact voices.
+- **Per weapon** (`WeaponVoices`, key sent with each shot): the pistol (`Weapon.Pistol9`) and the
+  carbine (`Weapon.Carbine`, 600 rounds a minute) each have a recorded close shot and dry fire
+  (Lyra sample content, migrated on the PC, not in Git). When they do not load, the synthesised
+  sounds play, pitched 0.86 and 15 % louder for the carbine. The far shot and the street tail stay
+  synthesised. Automatic fire gets one tail and one panic broadcast per 0.3 s burst. The player's
+  own shots never whizz, on foot or through the window of the car they drive.
+
 ## Interiors and missions (0.9)
 
 `tools/audio/make_places.py` (seed 17, 32 files, no recording) writes `Interior/` (seamless 12 s

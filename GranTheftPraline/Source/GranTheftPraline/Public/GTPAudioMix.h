@@ -74,6 +74,15 @@ public:
 	USoundBase* PickRadio(EGTPRadioCall Call);
 	USoundBase* PickUI(EGTPUISound Sound);
 	USoundBase* PickWeapon(EGTPWeaponSound Sound);
+
+	/**
+	 * Sound of a weapon (UGTPAudioSettings::WeaponVoices): its recorded Shot or DryFire when set and
+	 * loadable, else the synthesised bank; OutPitch and OutVolume carry the weapon's own setting.
+	 */
+	USoundBase* PickWeaponFor(FName Weapon, EGTPWeaponSound Sound, float& OutPitch, float& OutVolume);
+
+	/** False when Shooter fired less than Gap seconds ago (automatic fire: one tail per burst); records the time. */
+	bool ShooterReady(const AActor* Shooter, float Gap, double Now);
 	USoundBase* PickBulletImpact(EGTPBulletImpact Kind);
 	USoundBase* PickMelee(EGTPMeleeSound Sound);
 
@@ -163,6 +172,12 @@ private:
 	/** Keeps the bank sounds loaded (the FBank arrays are not seen by the garbage collector). */
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<USoundBase>> AllSounds;
+
+	/** Recorded weapon sounds already loaded, by soft path ("" when it failed: not tried again). */
+	UPROPERTY(Transient)
+	TMap<FString, TObjectPtr<USoundBase>> WeaponOverrides;
+
+	TMap<TWeakObjectPtr<const AActor>, double> LastBurst;
 
 	UPROPERTY(Transient)
 	TObjectPtr<USoundClass> MutedClass;

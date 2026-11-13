@@ -64,7 +64,7 @@ void UGTPCombatSounds::Tick(float DeltaTime)
 			if (UGTPWeaponComponent* Weapon = WeaponPtr.Get())
 			{
 				++Handling;
-				UGTPCombatAudio::PlayWeaponHandling(Weapon, Weapon->GetOwner(), EGTPWeaponSound::MagIn);
+				UGTPCombatAudio::PlayWeaponHandling(Weapon, Weapon->GetOwner(), EGTPWeaponSound::MagIn, Weapon->GetWeaponKey());
 			}
 		}
 	}
@@ -92,7 +92,7 @@ void UGTPCombatSounds::BindPlayerWeapon()
 	}
 }
 
-void UGTPCombatSounds::OnShotFired(AActor* Shooter, const FVector& Origin, const FVector& Direction, FName /*Weapon*/, const FHitResult& Hit, bool bHit)
+void UGTPCombatSounds::OnShotFired(AActor* Shooter, const FVector& Origin, const FVector& Direction, FName Weapon, const FHitResult& Hit, bool bHit)
 {
 	UWorld* World = WorldPtr.Get();
 	if (!World)
@@ -103,7 +103,7 @@ void UGTPCombatSounds::OnShotFired(AActor* Shooter, const FVector& Origin, const
 	// The whizz only counts the part of the line the bullet really flew.
 	const FVector Impact = Hit.bBlockingHit ? FVector(Hit.ImpactPoint) : FVector::ZeroVector;
 	const float Range = bHit && Hit.bBlockingHit ? FVector::Dist(Origin, Impact) : MissRange;
-	UGTPCombatAudio::PlayShot(World, Shooter, Origin, Direction, Range);
+	UGTPCombatAudio::PlayShot(World, Shooter, Origin, Direction, Range, Weapon);
 	if (Hit.bBlockingHit)
 	{
 		++Impacts;
@@ -133,11 +133,11 @@ void UGTPCombatSounds::OnWeaponEvent(UGTPWeaponComponent* Weapon, EGTPWeaponEven
 	{
 	case EGTPWeaponEvent::DryFire:
 		++Handling;
-		UGTPCombatAudio::PlayWeaponHandling(Weapon, Holder, EGTPWeaponSound::DryFire);
+		UGTPCombatAudio::PlayWeaponHandling(Weapon, Holder, EGTPWeaponSound::DryFire, Weapon->GetWeaponKey());
 		break;
 	case EGTPWeaponEvent::ReloadStarted:
 		++Handling;
-		UGTPCombatAudio::PlayWeaponHandling(Weapon, Holder, EGTPWeaponSound::MagOut);
+		UGTPCombatAudio::PlayWeaponHandling(Weapon, Holder, EGTPWeaponSound::MagOut, Weapon->GetWeaponKey());
 		MagInLeft = Weapon->GetSpec().ReloadSeconds * MagInShare;
 		break;
 	case EGTPWeaponEvent::ReloadFinished:
@@ -145,11 +145,11 @@ void UGTPCombatSounds::OnWeaponEvent(UGTPWeaponComponent* Weapon, EGTPWeaponEven
 		{
 			// A reload shorter than expected: the magazine still goes in before the slide.
 			++Handling;
-			UGTPCombatAudio::PlayWeaponHandling(Weapon, Holder, EGTPWeaponSound::MagIn);
+			UGTPCombatAudio::PlayWeaponHandling(Weapon, Holder, EGTPWeaponSound::MagIn, Weapon->GetWeaponKey());
 		}
 		MagInLeft = -1.f;
 		++Handling;
-		UGTPCombatAudio::PlayWeaponHandling(Weapon, Holder, EGTPWeaponSound::Slide);
+		UGTPCombatAudio::PlayWeaponHandling(Weapon, Holder, EGTPWeaponSound::Slide, Weapon->GetWeaponKey());
 		break;
 	case EGTPWeaponEvent::ReloadCancelled:
 		MagInLeft = -1.f;
