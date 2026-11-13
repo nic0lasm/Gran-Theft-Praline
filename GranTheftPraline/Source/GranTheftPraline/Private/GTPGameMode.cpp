@@ -167,9 +167,14 @@ void AGTPGameMode::ApplyPlayerVisual(APawn* Pawn)
 			{
 				// Hidden but still posed: the visual copies or retargets this pose.
 				Own->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;
-				Own->SetHiddenInGame(true, true);
-				Own->SetVisibility(false, true);
+				// Not HiddenInGame (it can stop the pose evaluation the visual copies): drawn nowhere instead.
+				Own->SetVisibility(false, false);
+				Own->SetRenderInMainPass(false);
+				Own->SetRenderInDepthPass(false);
 				Own->SetCastShadow(false);
+				Own->bNoSkeletonUpdate = false;
+				UE_LOG(LogGTPGameMode, Log, TEXT("  pawn mesh: anim tick option %d, noSkeletonUpdate %d, visible %d, hiddenInGame %d"),
+					static_cast<int32>(Own->VisibilityBasedAnimTickOption), Own->bNoSkeletonUpdate ? 1 : 0, Own->IsVisible() ? 1 : 0, Own->bHiddenInGame ? 1 : 0);
 			}
 		}
 		UE_LOG(LogGTPGameMode, Log, TEXT("Player visual (%s): actor at %s, hidden %d, scale %s, attached to %s"), When,
@@ -216,6 +221,28 @@ void AGTPGameMode::ApplyPlayerVisual(APawn* Pawn)
 						if (Changed > 0)
 						{
 							Body->InitAnim(true);
+						}
+					}
+					// The sample's retarget blueprint reads its source from this variable: set it to the pawn's mesh.
+					if (Anim)
+					{
+						for (TFieldIterator<FProperty> It(Anim->GetClass()); It; ++It)
+						{
+							if (It->GetOwnerClass() == UAnimInstance::StaticClass() || It->GetOwnerClass() == UObject::StaticClass())
+							{
+								continue;
+							}
+							if (FObjectProperty* ObjProp = CastField<FObjectProperty>(*It))
+							{
+								if (It->GetName() == TEXT("ParentSkeletalMeshComponent") && ObjProp->GetObjectPropertyValue_InContainer(Anim) != Own)
+								{
+									ObjProp->SetObjectPropertyValue_InContainer(Anim, Own);
+									UE_LOG(LogGTPGameMode, Log, TEXT("  anim variable ParentSkeletalMeshComponent set to %s"), *Own->GetName());
+								}
+							}
+							FString Value;
+							It->ExportText_InContainer(0, Value, Anim, Anim, nullptr, PPF_None);
+							UE_LOG(LogGTPGameMode, Log, TEXT("  anim var %s (%s) = %s"), *It->GetName(), *It->GetClass()->GetName(), *Value.Left(120));
 						}
 					}
 					UE_LOG(LogGTPGameMode, Log, TEXT("  body anim %s: retargeter %s, %d node(s) changed"),
