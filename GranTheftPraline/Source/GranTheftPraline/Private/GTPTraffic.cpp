@@ -1457,8 +1457,8 @@ AGTPVehicle* AGTPTrafficNetwork::TakeFromPool(const FTransform& Transform)
 
 void AGTPTrafficNetwork::UpdateReactDemo()
 {
-	// -TrafficReactDemo=S: every S seconds the nearest driven car 10 to 50 m from the camera,
-	// in view, is aimed at, rammed or shot near, in turn, so a video shows every reaction.
+	// -TrafficReactDemo=S: every S seconds a driving car 10 to 25 m in front of the camera
+	// is aimed at, rammed or shot near, in turn, so a video shows every reaction.
 	const double Now = GetWorld()->GetTimeSeconds();
 	if (ReactDemoInterval <= 0.f || !bTrafficReact || Now < NextReactDemoTime)
 	{
@@ -1472,53 +1472,58 @@ void AGTPTrafficNetwork::UpdateReactDemo()
 	}
 	const FVector View = Viewer->PlayerCameraManager->GetCameraLocation();
 	const FVector Look = Viewer->PlayerCameraManager->GetCameraRotation().Vector();
-	// A car in view within 50 m first; while the player drives, the nearest one within 90 m
-	// whatever the direction (the camera turns with the car, cars spawn out of sight).
+	// The car to film: driving (over 8 km/h), 10 to 25 m away, in front of the camera.
+	// Each miss adds to the score as metres: out of view +40, slow +30, too near +20.
+	// A car that is not ideal is used only after a few 2 s waits for a better one.
 	UGTPAIDriverComponent* Best = nullptr;
-	UGTPAIDriverComponent* Nearest = nullptr;
-	float BestDistance = 5000.f;
-	float NearestDistance = 9000.f;
+	float BestScore = TNumericLimits<float>::Max();
+	float BestDistance = 0.f;
+	bool bBestIdeal = false;
 	int32 Candidates = 0;
 	for (AGTPVehicle* Car : Cars)
 	{
 		UGTPAIDriverComponent* Driver = IsValid(Car) ? Car->FindComponentByClass<UGTPAIDriverComponent>() : nullptr;
-		if (!Driver || !Car->HasAIDriver() || Car->IsWrecked() || Driver->GetReactState() != GTPTrafficReact::EState::Cruise)
+		if (!Driver || Driver->IsGhost() || !Car->HasAIDriver() || Car->IsWrecked() || Driver->GetReactState() != GTPTrafficReact::EState::Cruise)
 		{
 			continue;
 		}
 		const FVector To = Car->GetActorLocation() - View;
 		const float Distance = static_cast<float>(To.Size());
-		if (Distance <= 1000.f)
+		if (Distance < 600.f || Distance > 9000.f)
 		{
 			continue;
 		}
 		++Candidates;
-		if (!Driver->IsGhost() && Distance < BestDistance && FVector::DotProduct(To.GetSafeNormal(), Look) > 0.5f)
+		const bool bInView = FVector::DotProduct(To.GetSafeNormal(), Look) > 0.7f;
+		const bool bMoving = FMath::Abs(Car->GetSpeedKmh()) > 8.f;
+		const bool bNear = Distance >= 1000.f && Distance <= 2500.f;
+		const float Score = Distance / 100.f + (bInView ? 0.f : 40.f) + (bMoving ? 0.f : 30.f) + (Distance < 1000.f ? 20.f : 0.f);
+		if (Score < BestScore)
 		{
 			Best = Driver;
+			BestScore = Score;
 			BestDistance = Distance;
+			bBestIdeal = bInView && bMoving && bNear;
 		}
-		if (!Driver->IsGhost() && Distance < NearestDistance)
-		{
-			Nearest = Driver;
-			NearestDistance = Distance;
-		}
-	}
-	if (!Best && Nearest)
-	{
-		Best = Nearest;
-		BestDistance = NearestDistance;
 	}
 	if (!Best)
 	{
-		GTP_TRACE(LogGTPTraffic, TEXT("traffic react demo: no car within 90 m (%d cruising cars, %d driven in all)"), Candidates, Cars.Num());
+		GTP_TRACE(LogGTPTraffic, TEXT("traffic react demo: no car within 90 m (%d driven in all)"), Cars.Num());
 		NextReactDemoTime = Now + 2.0;
 		return;
 	}
+	if (!bBestIdeal && ReactDemoWaits < 4)
+	{
+		++ReactDemoWaits;
+		NextReactDemoTime = Now + 2.0;
+		return;
+	}
+	ReactDemoWaits = 0;
 	static const TCHAR* Events[] = {TEXT("aim"), TEXT("ram"), TEXT("shot")};
 	const int32 Event = ReactDemoStep++ % 3;
 	Best->InjectReaction(Event == 0, Event == 2, Event == 1);
-	GTP_TRACE(LogGTPTraffic, TEXT("traffic react demo: %s on %s at %.0f m"), Events[Event], *GetNameSafe(Best->GetOwner()), BestDistance / 100.f);
+	GTP_TRACE(LogGTPTraffic, TEXT("traffic react demo: %s on %s at %.0f m, %.0f km/h, %s (%d candidates)"), Events[Event], *GetNameSafe(Best->GetOwner()),
+		BestDistance / 100.f, Cast<AGTPVehicle>(Best->GetOwner()) ? Cast<AGTPVehicle>(Best->GetOwner())->GetSpeedKmh() : 0.f, bBestIdeal ? TEXT("in view") : TEXT("best found"), Candidates);
 }
 
 const AActor* AGTPTrafficNetwork::FindCarAt(const AGTPVehicle* Car, const FTransform& Transform) const

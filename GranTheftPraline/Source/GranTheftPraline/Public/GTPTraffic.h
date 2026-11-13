@@ -509,6 +509,7 @@ private:
 	float ReactDemoInterval = 0.f;
 	double NextReactDemoTime = 0.0;
 	int32 ReactDemoStep = 0;
+	int32 ReactDemoWaits = 0;
 	bool bPoolSpawnCheck = true;
 
 	UPROPERTY(Transient)
