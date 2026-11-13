@@ -507,7 +507,7 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 		float Cruise = CruiseKmh;
 		if (bChase)
 		{
-			Cruise = T >= 12.0 ? 75.f : 40.f;
+			Cruise = T >= 12.0 ? 90.f : 40.f;
 			// The way ahead is kept clear of the city's traffic (a demo cannot queue behind a taxi): traffic cars
 			// within 35 m in front of the player are taken off the road twice a second.
 			if (Now >= NextClear)

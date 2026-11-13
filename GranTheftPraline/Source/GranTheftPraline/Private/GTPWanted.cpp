@@ -804,7 +804,7 @@ void AGTPPoliceDirector::StopWarningHorn()
 bool AGTPPoliceDirector::IsRoadblockSite(const APawn& Player, const FGTPTrafficLane& Lane, bool bRelaxed, FVector& OutPoint, FVector& OutAlong, double& OutDistance) const
 {
 	const FVector Velocity = Player.GetVelocity();
-	if (Lane.Points.Num() < 4 || Velocity.Size2D() < 600.f)
+	if (Lane.Points.Num() < 4 || Velocity.Size2D() < 400.f)
 	{
 		return false;
 	}
@@ -876,8 +876,9 @@ bool AGTPPoliceDirector::PlaceRoadblockCar(const APawn& Player, int32 CarIndex, 
 
 bool AGTPPoliceDirector::SpawnRoadblockCar(const APawn& Player, int32 CarIndex)
 {
-	if (Player.GetVelocity().Size2D() < 600.f)
+	if (Player.GetVelocity().Size2D() < 400.f)
 	{
+		GTP_TRACE(LogGTPWanted, TEXT("police: no roadblock: the player is going %.0f km/h"), Player.GetVelocity().Size2D() * 0.036f);
 		return false;
 	}
 	const TArray<FGTPTrafficLane>& Lanes = Network->GetLanes();
@@ -905,17 +906,29 @@ bool AGTPPoliceDirector::SpawnRoadblockCar(const APawn& Player, int32 CarIndex)
 			}
 		}
 	}
-	// No answer yet, or nothing fit: the random scan of the lanes.
-	for (int32 Try = 0; Try < 120 && Lanes.Num() > 0; ++Try)
+	// No answer yet, or nothing fit: look at every lane (it is done at most every 6 s) and take a few of the places that fit.
+	TArray<FVector> Fallback;
+	CollectRoadblockSites(Player, Fallback);
+	for (int32 Try = 0; Try < 8 && Fallback.Num() > 0; ++Try)
 	{
-		FVector Point, Along;
-		double Distance = 0.0;
-		if (IsRoadblockSite(Player, Lanes[Dice.RandRange(0, Lanes.Num() - 1)], false, Point, Along, Distance)
-			&& PlaceRoadblockCar(Player, CarIndex, Point, Along, Distance))
+		const FVector Site = Fallback[Dice.RandRange(0, Fallback.Num() - 1)];
+		for (const FGTPTrafficLane& Lane : Lanes)
 		{
-			return true;
+			FVector Point, Along;
+			double Distance = 0.0;
+			if (Lane.Points.Num() >= 4 && FVector::DistSquared(Lane.Points[Lane.Points.Num() / 2], Site) < 100.0
+				&& IsRoadblockSite(Player, Lane, false, Point, Along, Distance))
+			{
+				if (PlaceRoadblockCar(Player, CarIndex, Point, Along, Distance))
+				{
+					return true;
+				}
+				break;
+			}
 		}
 	}
+	GTP_TRACE(LogGTPWanted, TEXT("police: no roadblock placed: %d lane sites ahead, %d from EQS, player %.0f km/h"), Fallback.Num(),
+		Queries ? Queries->GetRoadblockSites().Num() : 0, Player.GetVelocity().Size2D() * 0.036f);
 	return false;
 }
 
