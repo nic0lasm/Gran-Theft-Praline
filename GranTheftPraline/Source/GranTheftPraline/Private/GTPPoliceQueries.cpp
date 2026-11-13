@@ -124,6 +124,7 @@ void UGTPPoliceQueries::OnRoadblockFinished(TSharedPtr<FEnvQueryResult> Result)
 	RoadblockSites.Reset();
 	if (!Result.IsValid() || !Result->IsSuccessful())
 	{
+		GTP_TRACE(LogGTPQueries, TEXT("eqs: roadblock sites: query %s"), Result.IsValid() ? TEXT("failed (no item?)") : TEXT("gave no result"));
 		return;
 	}
 	for (int32 Index = 0; Index < Result->Items.Num(); ++Index)
