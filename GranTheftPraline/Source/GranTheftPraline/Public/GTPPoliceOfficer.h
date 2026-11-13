@@ -36,6 +36,9 @@ public:
 		SlotCount = FMath::Max(1, InCount);
 	}
 
+	/** Points chosen by EQS (UGTPPoliceQueries), best first: the officer visits them in turn while searching; empty = the circle sweep. */
+	void SetSearchPoints(const TArray<FVector>& Points) { SearchPoints = Points; }
+
 	/** Looping run animation; empty = the mesh's reference pose (slides). -PoliceRunAnim= overrides. */
 	UPROPERTY(Config, EditAnywhere, Category = "Police")
 	FSoftObjectPath RunAnimation;
@@ -50,6 +53,7 @@ private:
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<UGTPWeaponComponent> Weapon;
 
+	TArray<FVector> SearchPoints;
 	GTPPoliceTactics::FSettings Tactics;
 	int32 SlotIndex = 0;
 	int32 SlotCount = 1;

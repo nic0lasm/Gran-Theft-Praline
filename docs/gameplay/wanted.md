@@ -38,3 +38,7 @@ A unit within 7 m of a player on foot or under 12 km/h, three seconds in a row. 
 ## Dead
 
 When the player dies (`OnPlayerDied`), pending reports are dropped; at the respawn at the hospital the stars are cleared.
+
+## Switches
+
+`-PolicePerception=0|1|2` (off, perception only, both = default), `-PoliceEqs=0` (officers sweep a fixed circle again), `-Police=0`, `-WantedStars=N`, `-WantedHold`, `-Witnesses=0`.

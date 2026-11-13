@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "GTPPoliceBrainLogic.h"
 #include "GTPPoliceTactics.h"
 #include "Components/ActorComponent.h"
 #include "GameFramework/Actor.h"
@@ -15,6 +16,8 @@ class ACharacter;
 class AGTPVehicle;
 class AGTPTrafficNetwork;
 class UPointLightComponent;
+class UGTPPoliceSenses;
+class UGTPPoliceQueries;
 
 /** Fired when the player is arrested (after the level was cleared). */
 DECLARE_MULTICAST_DELEGATE(FGTPArrestedDelegate);
@@ -129,6 +132,12 @@ public:
 	void UnregisterOfficer(AActor* Officer);
 	int32 GetOfficerCount() const { return Officers.Num(); }
 
+	/** The police eyes and ears (AIPerception), set by the director; null with -PolicePerception=0. */
+	void SetSenses(UGTPPoliceSenses* InSenses) { Senses = InSenses; }
+
+	/** Seconds since a unit last had the player in sight. */
+	float GetSecondsSinceSeen() const;
+
 	/** True for a while after the player fired, threatened or hit someone: two stars then shoot back. */
 	bool IsPlayerAggressive() const;
 
@@ -228,6 +237,8 @@ private:
 	float BustedBannerLeft = 0.f;
 	FTimerHandle BustedTimer;
 	TWeakObjectPtr<const APawn> LastPlayerPawn;
+	TWeakObjectPtr<UGTPPoliceSenses> Senses;
+	float LastSeenTime = -1000.f;
 	bool bArrestWarned = false;
 	bool bDeadNow = false;
 };
@@ -358,6 +369,8 @@ private:
 		bool bBlock = false;
 		/** Seconds slower than 15 km/h with something close ahead: the unit shoves through it. */
 		float SlowTime = 0.f;
+		/** Tactical state (GTPPoliceBrainLogic.h): drives the siren, logged with the unit. */
+		GTPPoliceBrain::EState Brain = GTPPoliceBrain::EState::Idle;
 		float LastObstacle = -1.f;
 		float LastThrottle = 0.f;
 		float LastBrake = 0.f;
@@ -393,6 +406,15 @@ private:
 	bool bAheadSpawn = false;
 	FVector2D AheadDirection = FVector2D::ZeroVector;
 	float NextBlockTime = 0.f;
+	UPROPERTY(Transient)
+	TObjectPtr<UGTPPoliceSenses> Senses;
+
+	/** EQS questions (search points for the officers); null with -PoliceEqs=0. */
+	UPROPERTY(Transient)
+	TObjectPtr<UGTPPoliceQueries> Queries;
+	float NextSearchQueryTime = 0.f;
+	float PushedSearchPointsTime = -1000.f;
+
 	/** Seconds the player has been (nearly) still in a car: officers get out to arrest them. */
 	float PlayerStillSeconds = 0.f;
 	TArray<TWeakObjectPtr<class AGTPPoliceOfficer>> Officers;

@@ -2,6 +2,8 @@
 
 #include "GTPSirenComponent.h"
 #include "GTPCombat.h"
+#include "GTPPoliceSenses.h"
+#include "GTPPoliceQueries.h"
 #include "GTPWeapon.h"
 #include "Engine/TargetPoint.h"
 
@@ -67,11 +69,22 @@ UGTPWantedComponent* UGTPWantedComponent::Find(const UObject* WorldContext)
 	return PC ? PC->FindComponentByClass<UGTPWantedComponent>() : nullptr;
 }
 
+float UGTPWantedComponent::GetSecondsSinceSeen() const
+{
+	return GetWorld() ? static_cast<float>(GetWorld()->GetTimeSeconds()) - LastSeenTime : 1000.f;
+}
+
 void UGTPWantedComponent::ReportCrime(EGTPCrimeKind Kind, const FVector& Location, bool bVictimInvolved)
 {
 	if (BustedBannerLeft > 0.f || !GetWorld() || !IsComponentTickEnabled())
 	{
 		return;
+	}
+	if (Kind != EGTPCrimeKind::ArmedThreat)
+	{
+		// Every crime makes noise the police units nearby can hear (a shot, a crash, a scream).
+		const APlayerController* Owner = Cast<APlayerController>(GetOwner());
+		UGTPPoliceSenses::ReportNoise(this, Location, Owner ? Owner->GetPawn() : nullptr, 1.f);
 	}
 	if (!bRequireWitnesses || WitnessesDisabledByCommandLine())
 	{
@@ -391,6 +404,10 @@ void UGTPWantedComponent::TickComponent(float DeltaTime, ELevelTick TickType, FA
 	}
 	const APlayerController* PC = Cast<APlayerController>(GetOwner());
 	const APawn* Pawn = PC ? PC->GetPawn() : nullptr;
+	if (UGTPPoliceSenses* Eyes = Senses.Get())
+	{
+		Eyes->SetTarget(PC ? PC->GetPawn() : nullptr);
+	}
 	if (!Pawn || State.GetStars() == 0 || bDeadNow)
 	{
 		bSeenNow = false;
@@ -427,10 +444,30 @@ void UGTPWantedComponent::TickComponent(float DeltaTime, ELevelTick TickType, FA
 		Nearest = Nearest < 0.f ? Metres : FMath::Min(Nearest, Metres);
 		bSeen = bSeen || CanSeePlayer(Officer, PlayerLocation);
 	}
+	// Perception (sight and hearing of the units) next to the line-of-sight test above; see UGTPPoliceSenses for the modes.
+	bool bPerceived = false;
+	if (UGTPPoliceSenses* Eyes = Senses.Get())
+	{
+		bPerceived = Eyes->AnySees();
+		if (UGTPPoliceSenses::GetMode() == 1)
+		{
+			bSeen = bPerceived;
+		}
+		else
+		{
+			bSeen = bSeen || bPerceived;
+		}
+		if (!bSeen && Eyes->WasHeardRecently(Now, 2.f))
+		{
+			// A shot or a crash heard: they head for the noise, but nobody has seen the player (no level hold).
+			LastKnownLocation = Eyes->GetSensedLocation();
+		}
+	}
 	bSeenNow = bSeen;
 	if (bSeen)
 	{
 		LastKnownLocation = PlayerLocation;
+		LastSeenTime = Now;
 	}
 	// Dispatch: just after a crime the police are told where the player is, and the level cannot drop.
 	const bool bDispatched = DispatchLeft > 0.f;
@@ -445,8 +482,8 @@ void UGTPWantedComponent::TickComponent(float DeltaTime, ELevelTick TickType, FA
 	if (Now >= NextTraceTime)
 	{
 		NextTraceTime = Now + 2.f;
-		GTP_TRACE(LogGTPWanted, TEXT("wanted: t=%.0f stars=%d phase=%d units=%d officers=%d nearest=%.0f m seen=%d arrest=%.2f"), Now, State.GetStars(),
-			static_cast<int32>(State.GetPhase()), Police.Num(), Officers.Num(), Nearest, bSeen ? 1 : 0, State.GetArrestProgress());
+		GTP_TRACE(LogGTPWanted, TEXT("wanted: t=%.0f stars=%d phase=%d units=%d officers=%d nearest=%.0f m seen=%d arrest=%.2f perceived=%d"), Now, State.GetStars(),
+			static_cast<int32>(State.GetPhase()), Police.Num(), Officers.Num(), Nearest, bSeen ? 1 : 0, State.GetArrestProgress(), bPerceived ? 1 : 0);
 	}
 
 	const AGTPVehicle* Vehicle = Cast<AGTPVehicle>(Pawn);
@@ -574,6 +611,16 @@ void AGTPPoliceDirector::BeginPlay()
 	{
 		// Camera-less occupant: no camera host is ever created for a police driver.
 		LoadedDriverClass = AGTPLiteDriver::StaticClass();
+	}
+	if (UGTPPoliceSenses::GetMode() != 0)
+	{
+		Senses = NewObject<UGTPPoliceSenses>(this, TEXT("GTPPoliceSenses"));
+		Senses->RegisterComponent();
+	}
+	if (UGTPPoliceQueries::IsEnabled())
+	{
+		Queries = NewObject<UGTPPoliceQueries>(this, TEXT("GTPPoliceQueries"));
+		Queries->Init();
 	}
 	NextSpawnTime = GetWorld()->GetTimeSeconds() + 3.f;
 	GTP_TRACE(LogGTPWanted, TEXT("police: on, up to %d units, class %s"), MaxUnits, LoadedPoliceClass ? *LoadedPoliceClass->GetName() : TEXT("traffic cars"));
@@ -1134,6 +1181,23 @@ void AGTPPoliceDirector::ManageOfficers(UGTPWantedComponent& Wanted, const APawn
 	{
 		return;
 	}
+	// While searching, ask EQS for places to look; officers get the answer when it comes.
+	if (Queries && Wanted.GetPhase() == EGTPWantedPhase::Searching && Officers.Num() > 0 && Now >= NextSearchQueryTime)
+	{
+		NextSearchQueryTime = Now + 6.f;
+		Queries->RequestSearchPoints();
+	}
+	if (Queries && Queries->GetSearchPointsTime() > PushedSearchPointsTime)
+	{
+		PushedSearchPointsTime = Queries->GetSearchPointsTime();
+		for (const TWeakObjectPtr<AGTPPoliceOfficer>& Officer : Officers)
+		{
+			if (Officer.IsValid())
+			{
+				Officer->SetSearchPoints(Queries->GetSearchPoints());
+			}
+		}
+	}
 	// On foot, or parked and not going anywhere: officers get out, point guns and close in.
 	const bool bOnFoot = Cast<AGTPVehicle>(&Player) == nullptr || PlayerStillSeconds > 2.f;
 	for (const FUnit& Unit : Units)
@@ -1155,6 +1219,12 @@ void AGTPPoliceDirector::ManageOfficers(UGTPWantedComponent& Wanted, const APawn
 		{
 			Officers.Add(Officer);
 			Wanted.RegisterOfficer(Officer);
+			if (Senses)
+			{
+				Officer->AIControllerClass = AAIController::StaticClass();
+				Officer->SpawnDefaultController();
+				Senses->Attach(Cast<AAIController>(Officer->GetController()));
+			}
 			GTP_TRACE(LogGTPWanted, TEXT("police: officer out (%d) stars=%d"), Officers.Num(), Stars);
 		}
 		NextDeployTime = Now + 2.f;
@@ -1196,9 +1266,9 @@ void AGTPPoliceDirector::Tick(float DeltaSeconds)
 		{
 			if (const AGTPVehicle* Car = Unit.Car.Get())
 			{
-				GTP_TRACE(LogGTPWanted, TEXT("police unit: dist=%.0f m speed=%.0f km/h lanes=%d stopped=%.0f s stage=%d obstacle=%.1f m throttle=%.2f brake=%.2f"),
+				GTP_TRACE(LogGTPWanted, TEXT("police unit: dist=%.0f m speed=%.0f km/h lanes=%d stopped=%.0f s stage=%d obstacle=%.1f m throttle=%.2f brake=%.2f brain=%d"),
 					FVector::Dist2D(Car->GetActorLocation(), Player->GetActorLocation()) * 0.01f, Car->GetSpeedKmh(), Unit.bOnLanes ? 1 : 0, Unit.StoppedTime, Unit.Stage,
-					Unit.LastObstacle, Unit.LastThrottle, Unit.LastBrake);
+					Unit.LastObstacle, Unit.LastThrottle, Unit.LastBrake, static_cast<int32>(Unit.Brain));
 				if (const UChaosWheeledVehicleMovementComponent* Move = Cast<UChaosWheeledVehicleMovementComponent>(Car->GetVehicleMovementComponent()))
 				{
 					GTP_TRACE(LogGTPWanted, TEXT("police unit physics: gear=%d rpm=%.0f forward=%.0f cm/s simulating=%d class=%s"), Move->GetCurrentGear(),
@@ -1233,6 +1303,11 @@ void AGTPPoliceDirector::Tick(float DeltaSeconds)
 		{
 			AddLightBar(Unit);
 			Wanted->RegisterPolice(Car);
+			if (Senses)
+			{
+				Wanted->SetSenses(Senses);
+				Senses->Attach(Cast<AAIController>(Car->GetController()));
+			}
 			Unit.Stage = 0;
 			continue;
 		}
@@ -1260,7 +1335,15 @@ void AGTPPoliceDirector::Tick(float DeltaSeconds)
 		const bool bLightsNear = !(Network->bVehicleLod || bPoliceLite)
 			|| FVector::Dist(Car->GetActorLocation(), Player->GetActorLocation()) < LightLimit;
 		BlinkLights(Unit, Stars > 0 && bLightsNear, bPhase);
-		UpdateSiren(Unit, Stars, Wanted->GetPhase() == EGTPWantedPhase::Pursuit);
+		GTPPoliceBrain::FInput BrainIn;
+		BrainIn.Stars = Stars;
+		BrainIn.bSensed = Wanted->IsSeenNow();
+		BrainIn.SecondsSinceSensed = Wanted->GetSecondsSinceSeen();
+		BrainIn.DistanceM = static_cast<float>(FVector::Dist2D(Car->GetActorLocation(), Player->GetActorLocation())) * 0.01f;
+		BrainIn.bTargetHelpless = Cast<AGTPVehicle>(Player) == nullptr || Player->GetVelocity().Size() < 330.f;
+		BrainIn.bIsRoadblock = Unit.bBlock;
+		Unit.Brain = GTPPoliceBrain::Decide(BrainIn, Unit.Brain);
+		UpdateSiren(Unit, Stars, GTPPoliceBrain::WantsYelp(Unit.Brain));
 
 		const FVector View = Viewer && Viewer->PlayerCameraManager ? Viewer->PlayerCameraManager->GetCameraLocation() : Player->GetActorLocation();
 		if (bPoliceLite)
