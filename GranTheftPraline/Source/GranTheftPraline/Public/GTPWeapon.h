@@ -255,11 +255,15 @@ private:
 	bool Fire(const FVector& ViewOrigin, const FVector& ViewDirection, float SpreadFactor);
 	bool TryFireFromView();
 	FVector GetMuzzle() const;
+	/** Player only: from the eyes to what the reticle covers (the view's line to the first obstacle). */
+	bool GetReticleAim(FVector& OutOrigin, FVector& OutDirection) const;
 	float GetSpeedShare() const;
 	void PlayClip(const TCHAR* Suffix);
 	void SetAimLoop(bool bOn);
-	/** While aiming: starts the aim pose again after a clip ended it, and logs where the hand is (player). */
+	/** While aiming: starts the aim pose again after a clip ended it. */
 	void KeepAimLoop(float DeltaTime);
+	/** Player with a gun out, every 2 s: where the hands are on the pawn's mesh and on the visible body. */
+	void ProbeHands(float DeltaTime);
 	/** Plays Sequence in Slot through the upper-body mask (when there is one). */
 	UAnimMontage* PlayInSlot(UAnimSequenceBase* Sequence, FName Slot, float BlendIn, float BlendOut, int32 LoopCount);
 	UBlendProfile* GetUpperBodyMask();

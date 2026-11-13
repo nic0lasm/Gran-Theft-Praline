@@ -237,6 +237,15 @@ is taken: Lyra stands on GAS and ShooterCore, which ADR-0011 leaves out. We take
   montage ended the aim pose: Lyra's Fire montage (same montage group) at every shot, the reload and the draw in
   `DefaultSlot`, and nothing started it again. Fire now plays without stopping the other montages, and while the
   aim lasts the aim pose comes back as soon as its slot is free again (checked at most every 0.3 s). The player's
-  log says `weapon: aim pose … playing` when it starts, and every 2 s while aiming `weapon: aim probe`: slot
-  active, montage weight, and where `hand_r` is from the head (height, reach forward) on the pawn and on the
-  visible body: a raised hand well ahead of the head is an aim, a hand far below and level with the body is not.
+  log says `weapon: aim pose … playing` when it starts, and every 2 s with a gun out `weapon: hand probe (aim|hip)`:
+  slot active, montage weight, and where the hands are from the head (`hand_r` height, reach forward and side,
+  `hand_l` height) on the pawn and on the visible body: a raised hand well ahead of the head is an aim, a hand far
+  below and level with the body is not. Measured on candidate 28b: the pose plays on the pawn (hand 12 cm under the
+  head, 43 cm ahead) but not on the MetaHuman body (53 cm under, 3 cm behind): the runtime retarget does not carry
+  it, under investigation.
+- **Who is aimed at (fix of 13/11 night)**: the player on foot reports the threat from the eyes to what the reticle
+  covers (the view's line to the first obstacle), as he shoots from the view, no longer from the muzzle. The
+  muzzle sits in the visible body's hand: with that hand down at the hip, a pedestrian 2 m away fell outside the 12
+  degree cone and nobody reacted (the hold-up step of `-GTARun` failed at 226 cm, passed at 498 cm). Drive-by keeps
+  the muzzle. The hold-up step of `-GTARun` puts the view on the point the pedestrian's fear tests, as a player
+  puts the reticle on someone.
