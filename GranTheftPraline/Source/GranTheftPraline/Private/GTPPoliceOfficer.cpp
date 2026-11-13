@@ -43,6 +43,7 @@ void AGTPPoliceOfficer::BeginPlay()
 		Move->SetComponentTickEnabled(true);
 	}
 	SetActorTickEnabled(true);
+	SpawnTime = GetWorld() ? static_cast<float>(GetWorld()->GetTimeSeconds()) : 0.f;
 	FString AnimOverride;
 	FSoftObjectPath Path = RunAnimation;
 	if (FParse::Value(FCommandLine::Get(), TEXT("PoliceRunAnim="), AnimOverride) && !AnimOverride.IsEmpty())
@@ -57,6 +58,13 @@ void AGTPPoliceOfficer::BeginPlay()
 			GetMesh()->Play(true);
 		}
 	}
+}
+
+void AGTPPoliceOfficer::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	GTP_TRACE(LogTemp, TEXT("police: officer ends (reason %d) at %s after %.1f s"), static_cast<int32>(EndPlayReason), *GetActorLocation().ToCompactString(),
+		GetWorld() ? GetWorld()->GetTimeSeconds() - SpawnTime : 0.0);
+	Super::EndPlay(EndPlayReason);
 }
 
 bool AGTPPoliceOfficer::HasLineOfSight(const FVector& From, const AActor& Target) const
