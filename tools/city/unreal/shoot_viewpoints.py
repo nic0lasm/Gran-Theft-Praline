@@ -58,17 +58,26 @@ def cmd(pc, text):
 
 
 def camera(pc):
+    """Our own camera actor, summoned for the shots. A camera actor of the game itself (with
+    -SkipTitle the world has one that follows the player: cam_actor and pov moved with the pawn and
+    kept its rotation, V0 never left eye level, PC 13/11) is never borrowed."""
     if state["cam"] is None:
         w = pc.get_world()
-        cams = [a for a in unreal.ObjectIterator(unreal.CameraActor) if a.get_world() == w]
-        if not cams:
-            cmd(pc, "EnableCheats")
-            cmd(pc, "summon CameraActor")
-            cams = [a for a in unreal.ObjectIterator(unreal.CameraActor) if a.get_world() == w]
-        if not cams:
-            raise RuntimeError("no CameraActor after summon (cheats off?)")
-        state["cam"] = cams[-1]
-        state["cam"].get_editor_property("camera_component").set_editor_property("constrain_aspect_ratio", False)
+        before = {a.get_name() for a in unreal.ObjectIterator(unreal.CameraActor) if a.get_world() == w}
+        cmd(pc, "EnableCheats")
+        cmd(pc, "summon CameraActor")
+        new = [a for a in unreal.ObjectIterator(unreal.CameraActor) if a.get_world() == w and a.get_name() not in before]
+        if not new:
+            raise RuntimeError("no new CameraActor after summon (cheats off?)")
+        cam = new[-1]
+        try:
+            cam.detach_from_actor(unreal.DetachmentRule.KEEP_WORLD, unreal.DetachmentRule.KEEP_WORLD,
+                                  unreal.DetachmentRule.KEEP_WORLD)
+        except Exception as e:  # noqa: BLE001
+            state.setdefault("ui_errors", []).append("detach: %r" % (e,))
+        state["cam"] = cam
+        state["borrowed_cameras"] = sorted(before)
+        cam.get_editor_property("camera_component").set_editor_property("constrain_aspect_ratio", False)
     if pc.get_view_target() != state["cam"]:
         pc.set_view_target_with_blend(state["cam"], 0.0)
     return state["cam"]
@@ -180,7 +189,8 @@ def tick(dt):
         state["phase_t"] = 0.0
     elif ph == "quit" and state["phase_t"] >= AFTER_SHOT_S:
         with open(os.path.join(OUT, "viewpoints_report.json"), "w") as fh:
-            json.dump({"spec": SPEC, "fan": FAN, "shots": state["report"], "ui_errors": state.get("ui_errors", [])[:5]},
+            json.dump({"spec": SPEC, "fan": FAN, "shots": state["report"], "ui_errors": state.get("ui_errors", [])[:5],
+                       "game_cameras": state.get("borrowed_cameras", [])},
                       fh, indent=2)
         log("done: %d shots" % len(state["report"]))
         unreal.unregister_slate_post_tick_callback(state["handle"])
