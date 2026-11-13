@@ -42,6 +42,10 @@ EFFECTS = [
 # Our clip names (UGTPWeaponComponent::Clips) <- words in the Lyra montage names.
 CLIP_WORDS = [("_Fire", "_Fire"), ("_Reload", "_Reload"), ("_Draw", "_Equip"), ("_DryFire", "_DryFire")]
 PREFIX = {"pistol": "AM_Pistol", "carbine": "AM_Carbine"}
+# IK rigs of the Game Animation Sample, used to build a retargeter when the project has none.
+SOURCE_RIG = "/Game/Characters/UE5_Mannequins/Rigs/IK_UE5_Mannequin_Retarget"
+TARGET_RIG = "/Game/Characters/UEFN_Mannequin/Rigs/IK_UEFN_Mannequin"
+MADE_RTG = "/Game/Combat/Weapons/RTG_GTP_UE5_to_UEFN"
 SLOT_NAMES = ["DefaultSlot", "UpperBody", "UpperBodyAdditive", "FullBody", "FullBodyAdditivePreAim", "Arms"]
 
 eal = unreal.EditorAssetLibrary
@@ -89,7 +93,38 @@ def find_retargeter():
         if "uefn" in n and ("ue5" in n or "manny" in n or "mannequin" in n):
             best = c
             break
-    return best.get_asset() if best else None
+    if best:
+        return best.get_asset()
+    return make_retargeter()
+
+
+def make_retargeter():
+    """Builds UE5 Mannequin -> UEFN Mannequin from the sample's IK rigs (chains mapped by name)."""
+    if eal.does_asset_exist(MADE_RTG):
+        return eal.load_asset(MADE_RTG)
+    source, target = load(SOURCE_RIG), load(TARGET_RIG)
+    if not source or not target:
+        say("no IK rig to build a retargeter (%s: %s, %s: %s)" % (SOURCE_RIG, bool(source), TARGET_RIG, bool(target)))
+        return None
+    folder, name = MADE_RTG.rsplit("/", 1)
+    try:
+        rtg = unreal.AssetToolsHelpers.get_asset_tools().create_asset(name, folder, unreal.IKRetargeter, unreal.IKRetargetFactory())
+        controller = unreal.IKRetargeterController.get_controller(rtg)
+        controller.set_ik_rig(unreal.RetargetSourceOrTarget.SOURCE, source)
+        controller.set_ik_rig(unreal.RetargetSourceOrTarget.TARGET, target)
+        # UE 5.6+ retargeters are an op stack; older ones have no such calls.
+        if hasattr(controller, "add_default_ops"):
+            controller.add_default_ops()
+        if hasattr(controller, "assign_ik_rig_to_all_ops"):
+            controller.assign_ik_rig_to_all_ops(unreal.RetargetSourceOrTarget.SOURCE, source)
+            controller.assign_ik_rig_to_all_ops(unreal.RetargetSourceOrTarget.TARGET, target)
+        controller.auto_map_chains(unreal.AutoMapChainType.FUZZY, True)
+        eal.save_loaded_asset(rtg)
+        say("built retargeter %s from %s and %s" % (MADE_RTG, SOURCE_RIG, TARGET_RIG))
+        return rtg
+    except Exception as error:
+        say("BLOCKED: could not build a retargeter (%s)" % error)
+        return None
 
 
 def find_mesh(word, skeleton=None):
