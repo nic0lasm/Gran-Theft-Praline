@@ -237,3 +237,6 @@ Lyra n'est repris : Lyra repose sur GAS et ShooterCore, que l'ADR-0011 écarte. 
   par défaut (`PlayerVisualClass` dans `DefaultGame.ini`, retarget à l'exécution avec `RTG_UEFNped_to_Metahuman` ;
   `bPlayerVisualBaked=True` au même endroit ou `-PlayerVisualBaked` passe aux clips cuits) ; `-PlayerVisual=`
   (vide) montre le mannequin pour les tests d'armes.
+- **Bancs de test** : `-CombatBench=1` tire toutes les 0,45 s debout, visée à l'épaule tenue (pose et caméra de
+  visée) ; `-CombatBench=2` marche en cercle lent (demi-vitesse, 15 degrés par seconde) et tire à la hanche : la
+  caméra large montre les jambes qui marchent pendant que la recharge joue sur le haut du corps.
