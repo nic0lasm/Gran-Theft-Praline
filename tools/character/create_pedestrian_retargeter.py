@@ -10,6 +10,8 @@ Lines "RTG ...": the chain mapping, to check the arms and legs are mapped. Use i
 -PlayerVisualRetargeter=/Game/MetaHumans/GTP/RTG_UEFNped_to_Metahuman.RTG_UEFNped_to_Metahuman
 Everything stays under /Game.
 """
+import os
+
 import unreal
 
 SOURCE = "/Game/Characters/Pedestrians/Retargeted/IK_SKM_UEFN_Mannequin"
@@ -90,5 +92,30 @@ for name in chain_names(tgt):
             break
     unreal.log("RTG chain target %s <- source %s" % (name, mapped))
 unreal.log("RTG source chains: %s" % ", ".join(chain_names(src)))
+# Retarget poses: select "Default Pose" on both sides, make the target stance match the source one, list the ops.
+for side in (unreal.RetargetSourceOrTarget.SOURCE, unreal.RetargetSourceOrTarget.TARGET):
+    try:
+        names = [str(n) for n in ctrl.get_retarget_pose_names(side)]
+        unreal.log("RTG %s retarget poses: %s, current %s" % (side, names, ctrl.get_current_retarget_pose_name(side)))
+        if names:
+            ctrl.set_current_retarget_pose(unreal.Name(names[0]), side)
+    except Exception as err:
+        unreal.log("RTG retarget pose API failed (%s): %s" % (side, err))
+if os.environ.get("GTP_RTG_ALIGN", "1") == "1":
+    for side in (unreal.RetargetSourceOrTarget.SOURCE, unreal.RetargetSourceOrTarget.TARGET):
+        try:
+            ctrl.auto_align_all_bones(side)
+            unreal.log("RTG auto_align_all_bones %s done" % side)
+        except Exception as err:
+            unreal.log("RTG auto_align_all_bones failed (%s): %s" % (side, err))
+try:
+    count = ctrl.get_num_retarget_ops() if hasattr(ctrl, "get_num_retarget_ops") else -1
+    unreal.log("RTG ops: %s" % count)
+    for i in range(max(count, 0)):
+        op = ctrl.get_retarget_op_at_index(i)
+        unreal.log("RTG op %d: %s enabled=%s" % (i, op, ctrl.get_op_enabled(i) if hasattr(ctrl, "get_op_enabled") else "?"))
+except Exception as err:
+    unreal.log("RTG ops listing failed: %s" % err)
+unreal.log("RTG retargeter properties: %s" % ", ".join(sorted(p for p in dir(asset) if not p.startswith("_") and ("scale" in p.lower() or "pose" in p.lower()))))
 unreal.EditorAssetLibrary.save_asset(path)
 unreal.log("RTG saved %s" % path)
