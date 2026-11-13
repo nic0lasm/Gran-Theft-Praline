@@ -254,10 +254,18 @@ int32 UGTPPedestrianSubsystem::GetActiveCount() const
 
 int32 UGTPPedestrianSubsystem::ChooseDensity() const
 {
-	int32 FromCommandLine = -1;
-	if (FParse::Value(FCommandLine::Get(), TEXT("Pedestrians="), FromCommandLine))
+	// -Pedestrians=N sets the density, =mass leaves the people to the Mass crowd (GTPMass), =legacy keeps this system.
+	FString Mode;
+	if (FParse::Value(FCommandLine::Get(), TEXT("Pedestrians="), Mode))
 	{
-		return FMath::Max(0, FromCommandLine);
+		if (Mode.Equals(TEXT("mass"), ESearchCase::IgnoreCase))
+		{
+			return 0;
+		}
+		if (!Mode.Equals(TEXT("legacy"), ESearchCase::IgnoreCase))
+		{
+			return FMath::Max(0, FCString::Atoi(*Mode));
+		}
 	}
 	FString Profile = TEXT("m1");
 	if (const UGameInstance* GI = GetWorld()->GetGameInstance())
