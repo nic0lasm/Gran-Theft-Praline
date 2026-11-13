@@ -635,7 +635,11 @@ def interior_or_none(report):
         report["shop_glass_fallback"] = "interior material not built: %r" % (e,)
         return None
     # Without a GPU (-nullrhi, run_city_import.sh) the statistics are empty: trust the build then.
-    stats = None if os.environ.get("GTP_NULLRHI") == "1" else getattr(mel, "get_statistics", None)
+    # On Windows (DX12 SM6) the statistics read 0 instructions while the shader is still compiling
+    # (cand20b: "does not compile", although the window variant of the same code draws): trust the
+    # build there too; the check stays for the Mac, where it caught a real Metal failure.
+    stats = None if (os.environ.get("GTP_NULLRHI") == "1" or sys.platform == "win32") else \
+        getattr(mel, "get_statistics", None)
     if stats is not None:
         try:
             n = stats(mat).get_editor_property("num_pixel_shader_instructions")
