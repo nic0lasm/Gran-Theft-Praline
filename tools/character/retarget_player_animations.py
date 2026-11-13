@@ -37,10 +37,13 @@ for p in paths:
     a = unreal.load_asset(p)
     unreal.log("ANIMS source %s -> %s" % (p, a))
     if a:
-        assets.append(a)
+        assets.append(unreal.EditorAssetLibrary.find_asset_data(p))
 batch = unreal.IKRetargetBatchOperation.duplicate_and_retarget(
     assets, source_mesh, target_mesh, rtg, "", "", "MH_", "", False)
 for a in batch:
-    unreal.log("ANIMS made %s" % a.get_path_name())
-    unreal.EditorAssetLibrary.save_loaded_asset(a)
+    unreal.log("ANIMS made %s" % a)
+    try:
+        unreal.EditorAssetLibrary.save_loaded_asset(a.get_asset() if hasattr(a, "get_asset") else a)
+    except Exception as err:
+        unreal.log("ANIMS save failed: %s" % err)
 unreal.log("ANIMS done %d" % len(batch))
