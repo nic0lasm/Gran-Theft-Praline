@@ -25,8 +25,8 @@
   {
    "id": "V1",
    "name": "bellecour-axe-nord",
-   "x_cm": 8100,
-   "y_cm": 52300,
+   "x_cm": 8600,
+   "y_cm": 52190,
    "eye_cm": 160,
    "yaw": 290,
    "pitch": 4,
@@ -39,15 +39,16 @@
    "hour": 17.37,
    "weather": "Clear",
    "heading_source": "estime (coq du Pathe visible a gauche de l'axe)",
-   "reference": "references/V1-bellecour-axe-nord.jpg"
+   "reference": "references/V1-bellecour-axe-nord.jpg",
+   "position_source": "recale 2026-11-13 sur la ville v2 (fix/street-start-clear) : sur l'axe de la rue (generate.chain_axis), 2 m apres son extremite sud ; oeil a plus de 3 m de toute emprise (controle par rayons, cloud)"
   },
   {
    "id": "V2",
    "name": "pathe-facade",
-   "x_cm": 10600,
-   "y_cm": 48200,
+   "x_cm": 11240,
+   "y_cm": 44940,
    "eye_cm": 160,
-   "yaw": 137,
+   "yaw": 130,
    "pitch": 12,
    "hfov": 51.4,
    "res": [
@@ -58,15 +59,16 @@
    "hour": 10.12,
    "weather": "Clear",
    "heading_source": "EXIF Commons (227 deg)",
-   "reference": "references/V2-pathe-facade.jpg"
+   "reference": "references/V2-pathe-facade.jpg",
+   "position_source": "recale 2026-11-13 sur la ville v2 (fix/street-start-clear) : sur l'axe, 79 m au nord de son extremite sud, facade ouest a 9 m ; cap 220 (EXIF 227) : fuite de la rangee ouest a 20 deg a gauche du centre, sommet de la tour du Pathe (52 m) au centre, comme sur la photo ; oeil a plus de 3 m de toute emprise (controle par rayons, cloud)"
   },
   {
    "id": "V3",
    "name": "vitrines-trottoir",
-   "x_cm": 14550,
-   "y_cm": 36700,
+   "x_cm": 13880,
+   "y_cm": 36750,
    "eye_cm": 160,
-   "yaw": 23,
+   "yaw": 15,
    "pitch": 3,
    "hfov": 49.8,
    "res": [
@@ -77,7 +79,8 @@
    "hour": 15.22,
    "weather": "Clear",
    "heading_source": "estime (facades est, ombres)",
-   "reference": "references/V3-vitrines-trottoir.jpg"
+   "reference": "references/V3-vitrines-trottoir.jpg",
+   "position_source": "recale 2026-11-13 sur la ville v2 (fix/street-start-clear) : 6 m a l'ouest de l'axe, facade ouest a 4,5 m, facades est a 18 m ; cap 105 (photo quasi perpendiculaire a la rue) ; oeil a plus de 3 m de toute emprise (controle par rayons, cloud)"
   },
   {
    "id": "V4",
@@ -101,8 +104,8 @@
   {
    "id": "V5",
    "name": "nuit-pathe",
-   "x_cm": 10200,
-   "y_cm": 47000,
+   "x_cm": 10750,
+   "y_cm": 46240,
    "eye_cm": 160,
    "yaw": 115,
    "pitch": 8,
@@ -115,7 +118,8 @@
    "hour": 17.63,
    "weather": "Clear",
    "heading_source": "estime (enseigne Pathe a droite)",
-   "reference": "references/V5-nuit-pathe.jpg"
+   "reference": "references/V5-nuit-pathe.jpg",
+   "position_source": "recale 2026-11-13 sur la ville v2 (fix/street-start-clear) : sur l'axe, 65 m au nord de l'extremite sud ; facade du Pathe a droite ; oeil a plus de 3 m de toute emprise (controle par rayons, cloud)"
   }
  ]
 }
