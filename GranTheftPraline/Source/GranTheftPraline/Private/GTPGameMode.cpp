@@ -4,6 +4,7 @@
 #include "GTPPlayerController.h"
 #include "GTPTraffic.h"
 #include "GTPWanted.h"
+#include "GTPWeapon.h"
 #include "GTPVehicle.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
@@ -115,6 +116,192 @@ void AGTPGameMode::RestartPlayer(AController* NewPlayer)
 	// Parked parallel to the street, as the player faces down it.
 	const AActor* Car = GetWorld()->SpawnActor<AGTPVehicle>(VehicleClass, Location, Yaw, Params);
 	UE_LOG(LogGTPGameMode, Log, TEXT("-TestVehicle: %s parked at %s"), Car ? *Car->GetName() : TEXT("nothing"), *Location.ToCompactString());
+}
+
+/**
+ * Points the MetaHuman body's "Retarget Pose From Mesh" at the pawn's own (hidden) mesh and the
+ * UEFN-to-MetaHuman retargeter, in memory. Run at spawn, and again whenever the body goes back to its
+ * animation blueprint (the baked mode returns to it while a weapon is drawn).
+ */
+static void ConfigureBodyRetarget(USkeletalMeshComponent* Body, USkeletalMeshComponent* Own, const FString& RetargeterPath)
+{
+	if (!Body || RetargeterPath.IsEmpty())
+	{
+		return;
+	}
+	// The body's "Retarget Pose From Mesh" node: point it at the UEFN-to-MetaHuman retargeter.
+	UAnimInstance* Anim = Body->GetAnimInstance();
+	UObject* Retargeter = Anim ? StaticLoadObject(UObject::StaticClass(), nullptr, *RetargeterPath) : nullptr;
+	if (Own && Retargeter)
+	{
+		UE_LOG(LogGTPGameMode, Log, TEXT("  pawn mesh asset %s, skeleton %s"),
+			Own->GetSkeletalMeshAsset() ? *Own->GetSkeletalMeshAsset()->GetPathName() : TEXT("none"),
+			Own->GetSkeletalMeshAsset() && Own->GetSkeletalMeshAsset()->GetSkeleton() ? *Own->GetSkeletalMeshAsset()->GetSkeleton()->GetPathName() : TEXT("none"));
+		for (TFieldIterator<FProperty> Pr(Retargeter->GetClass()); Pr; ++Pr)
+		{
+			if (Pr->GetName().Contains(TEXT("IKRig")) || Pr->GetName().Contains(TEXT("Source")) || Pr->GetName().Contains(TEXT("Target")))
+			{
+				FString RetText;
+				Pr->ExportText_InContainer(0, RetText, Retargeter, Retargeter, nullptr, PPF_None);
+				UE_LOG(LogGTPGameMode, Log, TEXT("  retargeter %s = %s"), *Pr->GetName(), *RetText.Left(160));
+			}
+		}
+	}
+	int32 Changed = 0;
+	// The retargeter asset ships without a source IK rig: give it the pawn skeleton's rig (found by name), in memory only.
+	if (Retargeter && Own)
+	{
+		if (FObjectProperty* SrcRig = FindFProperty<FObjectProperty>(Retargeter->GetClass(), TEXT("SourceIKRigAsset")))
+		{
+			if (!SrcRig->GetObjectPropertyValue_InContainer(Retargeter))
+			{
+				FAssetRegistryModule& Reg = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+				TArray<FAssetData> Rigs;
+				Reg.Get().GetAssetsByClass(FTopLevelAssetPath(TEXT("/Script/IKRig"), TEXT("IKRigDefinition")), Rigs, true);
+				const FString MeshName = Own->GetSkeletalMeshAsset() ? Own->GetSkeletalMeshAsset()->GetName() : FString();
+				for (const FAssetData& Rig : Rigs)
+				{
+					UE_LOG(LogGTPGameMode, Log, TEXT("  ik rig candidate %s"), *Rig.GetObjectPathString());
+				}
+				for (const FAssetData& Rig : Rigs)
+				{
+					const FString Name = Rig.AssetName.ToString();
+					if (Name.Contains(TEXT("UEFN")) && !Name.Contains(TEXT("Metahuman")) && !Name.Contains(TEXT("UE4")))
+					{
+						SrcRig->SetObjectPropertyValue_InContainer(Retargeter, Rig.GetAsset());
+						UE_LOG(LogGTPGameMode, Log, TEXT("  retargeter source rig set to %s"), *Rig.GetObjectPathString());
+						++Changed;
+						break;
+					}
+				}
+			}
+		}
+	}
+	if (Anim && Retargeter)
+	{
+		for (TFieldIterator<FStructProperty> It(Anim->GetClass()); It; ++It)
+		{
+			if (!It->Struct || !It->Struct->GetName().Contains(TEXT("RetargetPoseFromMesh")))
+			{
+				continue;
+			}
+			void* Node = It->ContainerPtrToValuePtr<void>(Anim);
+			FObjectProperty* Prop = FindFProperty<FObjectProperty>(It->Struct, TEXT("IKRetargeterAsset"));
+			if (Prop && Prop->GetObjectPropertyValue_InContainer(Node) != Retargeter)
+			{
+				Prop->SetObjectPropertyValue_InContainer(Node, Retargeter);
+				++Changed;
+			}
+		}
+		// Source: name the pawn's mesh explicitly instead of relying on the attach parent resolved at init.
+		for (TFieldIterator<FStructProperty> It(Anim->GetClass()); It; ++It)
+		{
+			if (!It->Struct || !It->Struct->GetName().Contains(TEXT("RetargetPoseFromMesh")))
+			{
+				continue;
+			}
+			void* Node = It->ContainerPtrToValuePtr<void>(Anim);
+			for (TFieldIterator<FProperty> Pr(It->Struct); Pr; ++Pr)
+			{
+				FString NodeText;
+				Pr->ExportText_InContainer(0, NodeText, Node, Node, nullptr, PPF_None);
+				UE_LOG(LogGTPGameMode, Log, TEXT("  node %s (%s) = %s"), *Pr->GetName(), *Pr->GetClass()->GetName(), *NodeText.Left(80));
+			}
+			if (FWeakObjectProperty* Src = FindFProperty<FWeakObjectProperty>(It->Struct, TEXT("SourceMeshComponent")))
+			{
+				if (Src->GetObjectPropertyValue_InContainer(Node) != Own)
+				{
+					Src->SetObjectPropertyValue_InContainer(Node, Own);
+					++Changed;
+				}
+			}
+			else if (FObjectProperty* SrcObj = FindFProperty<FObjectProperty>(It->Struct, TEXT("SourceMeshComponent")))
+			{
+				if (SrcObj->GetObjectPropertyValue_InContainer(Node) != Own)
+				{
+					SrcObj->SetObjectPropertyValue_InContainer(Node, Own);
+					++Changed;
+				}
+			}
+			if (FBoolProperty* Attached = FindFProperty<FBoolProperty>(It->Struct, TEXT("bUseAttachedParent")))
+			{
+				if (Attached->GetPropertyValue_InContainer(Node))
+				{
+					Attached->SetPropertyValue_InContainer(Node, false);
+					++Changed;
+				}
+			}
+			if (FEnumProperty* Mode = FindFProperty<FEnumProperty>(It->Struct, TEXT("RetargetFrom")))
+			{
+				const int64 Custom = Mode->GetEnum()->GetValueByName(TEXT("CustomSkeletalMeshComponent"));
+				if (Custom != INDEX_NONE && Mode->GetUnderlyingProperty()->GetSignedIntPropertyValue(Mode->ContainerPtrToValuePtr<void>(Node)) != Custom)
+				{
+					Mode->GetUnderlyingProperty()->SetIntPropertyValue(Mode->ContainerPtrToValuePtr<void>(Node), Custom);
+					++Changed;
+				}
+			}
+		}
+		if (Changed > 0)
+		{
+			Body->InitAnim(true);
+		}
+	}
+	bool bVariableChanged = false;
+	// The sample's retarget blueprint reads its source from this variable: set it to the pawn's mesh.
+	if (Anim)
+	{
+		for (TFieldIterator<FProperty> It(Anim->GetClass()); It; ++It)
+		{
+			if (It->GetOwnerClass() == UAnimInstance::StaticClass() || It->GetOwnerClass() == UObject::StaticClass())
+			{
+				continue;
+			}
+			if (FObjectProperty* ObjProp = CastField<FObjectProperty>(*It))
+			{
+				// The node's pin is bound to this variable: it must hold the retargeter we want.
+				if (It->GetName() == TEXT("IKRetargeter") && Retargeter && ObjProp->GetObjectPropertyValue_InContainer(Anim) != Retargeter)
+				{
+					ObjProp->SetObjectPropertyValue_InContainer(Anim, Retargeter);
+					UE_LOG(LogGTPGameMode, Log, TEXT("  anim variable IKRetargeter set to %s"), *Retargeter->GetName());
+					bVariableChanged = true;
+				}
+				if (It->GetName() == TEXT("ParentSkeletalMeshComponent") && ObjProp->GetObjectPropertyValue_InContainer(Anim) != Own)
+				{
+					ObjProp->SetObjectPropertyValue_InContainer(Anim, Own);
+					UE_LOG(LogGTPGameMode, Log, TEXT("  anim variable ParentSkeletalMeshComponent set to %s"), *Own->GetName());
+				}
+			}
+			FString Value;
+			It->ExportText_InContainer(0, Value, Anim, Anim, nullptr, PPF_None);
+			UE_LOG(LogGTPGameMode, Log, TEXT("  anim var %s (%s) = %s"), *It->GetName(), *It->GetClass()->GetName(), *Value.Left(120));
+		}
+	}
+	// A node scale of 0 collapses the output: a retarget scale must be at least 1 cm.
+	if (Anim)
+	{
+		for (TFieldIterator<FStructProperty> It(Anim->GetClass()); It; ++It)
+		{
+			if (!It->Struct || !It->Struct->GetName().Contains(TEXT("RetargetPoseFromMesh")))
+			{
+				continue;
+			}
+			void* Node = It->ContainerPtrToValuePtr<void>(Anim);
+			if (FFloatProperty* Scale = FindFProperty<FFloatProperty>(It->Struct, TEXT("TargetActorScale")))
+			{
+				if (Scale->GetPropertyValue_InContainer(Node) <= 0.f)
+				{
+					Scale->SetPropertyValue_InContainer(Node, 1.f);
+					bVariableChanged = true;
+				}
+			}
+		}
+	}
+	if (bVariableChanged)
+	{
+		Body->InitAnim(true);
+	}
+	UE_LOG(LogGTPGameMode, Log, TEXT("  body anim %s: retargeter %s, %d node(s) changed"),
+		Anim ? *Anim->GetClass()->GetName() : TEXT("none yet"), Retargeter ? *Retargeter->GetName() : TEXT("not loaded"), Changed);
 }
 
 void AGTPGameMode::ApplyPlayerVisual(APawn* Pawn)
@@ -237,179 +424,7 @@ void AGTPGameMode::ApplyPlayerVisual(APawn* Pawn)
 				}
 				if (Body && Part->GetName() == BodyName && !RetargeterPath.IsEmpty())
 				{
-					// The body's "Retarget Pose From Mesh" node: point it at the UEFN-to-MetaHuman retargeter.
-					UAnimInstance* Anim = Body->GetAnimInstance();
-					UObject* Retargeter = Anim ? StaticLoadObject(UObject::StaticClass(), nullptr, *RetargeterPath) : nullptr;
-					if (Own && Retargeter)
-					{
-						UE_LOG(LogGTPGameMode, Log, TEXT("  pawn mesh asset %s, skeleton %s"),
-							Own->GetSkeletalMeshAsset() ? *Own->GetSkeletalMeshAsset()->GetPathName() : TEXT("none"),
-							Own->GetSkeletalMeshAsset() && Own->GetSkeletalMeshAsset()->GetSkeleton() ? *Own->GetSkeletalMeshAsset()->GetSkeleton()->GetPathName() : TEXT("none"));
-						for (TFieldIterator<FProperty> Pr(Retargeter->GetClass()); Pr; ++Pr)
-						{
-							if (Pr->GetName().Contains(TEXT("IKRig")) || Pr->GetName().Contains(TEXT("Source")) || Pr->GetName().Contains(TEXT("Target")))
-							{
-								FString RetText;
-								Pr->ExportText_InContainer(0, RetText, Retargeter, Retargeter, nullptr, PPF_None);
-								UE_LOG(LogGTPGameMode, Log, TEXT("  retargeter %s = %s"), *Pr->GetName(), *RetText.Left(160));
-							}
-						}
-					}
-					int32 Changed = 0;
-					// The retargeter asset ships without a source IK rig: give it the pawn skeleton's rig (found by name), in memory only.
-					if (Retargeter && Own)
-					{
-						if (FObjectProperty* SrcRig = FindFProperty<FObjectProperty>(Retargeter->GetClass(), TEXT("SourceIKRigAsset")))
-						{
-							if (!SrcRig->GetObjectPropertyValue_InContainer(Retargeter))
-							{
-								FAssetRegistryModule& Reg = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
-								TArray<FAssetData> Rigs;
-								Reg.Get().GetAssetsByClass(FTopLevelAssetPath(TEXT("/Script/IKRig"), TEXT("IKRigDefinition")), Rigs, true);
-								const FString MeshName = Own->GetSkeletalMeshAsset() ? Own->GetSkeletalMeshAsset()->GetName() : FString();
-								for (const FAssetData& Rig : Rigs)
-								{
-									UE_LOG(LogGTPGameMode, Log, TEXT("  ik rig candidate %s"), *Rig.GetObjectPathString());
-								}
-								for (const FAssetData& Rig : Rigs)
-								{
-									const FString Name = Rig.AssetName.ToString();
-									if (Name.Contains(TEXT("UEFN")) && !Name.Contains(TEXT("Metahuman")) && !Name.Contains(TEXT("UE4")))
-									{
-										SrcRig->SetObjectPropertyValue_InContainer(Retargeter, Rig.GetAsset());
-										UE_LOG(LogGTPGameMode, Log, TEXT("  retargeter source rig set to %s"), *Rig.GetObjectPathString());
-										++Changed;
-										break;
-									}
-								}
-							}
-						}
-					}
-					if (Anim && Retargeter)
-					{
-						for (TFieldIterator<FStructProperty> It(Anim->GetClass()); It; ++It)
-						{
-							if (!It->Struct || !It->Struct->GetName().Contains(TEXT("RetargetPoseFromMesh")))
-							{
-								continue;
-							}
-							void* Node = It->ContainerPtrToValuePtr<void>(Anim);
-							FObjectProperty* Prop = FindFProperty<FObjectProperty>(It->Struct, TEXT("IKRetargeterAsset"));
-							if (Prop && Prop->GetObjectPropertyValue_InContainer(Node) != Retargeter)
-							{
-								Prop->SetObjectPropertyValue_InContainer(Node, Retargeter);
-								++Changed;
-							}
-						}
-						// Source: name the pawn's mesh explicitly instead of relying on the attach parent resolved at init.
-						for (TFieldIterator<FStructProperty> It(Anim->GetClass()); It; ++It)
-						{
-							if (!It->Struct || !It->Struct->GetName().Contains(TEXT("RetargetPoseFromMesh")))
-							{
-								continue;
-							}
-							void* Node = It->ContainerPtrToValuePtr<void>(Anim);
-							for (TFieldIterator<FProperty> Pr(It->Struct); Pr; ++Pr)
-							{
-								FString NodeText;
-								Pr->ExportText_InContainer(0, NodeText, Node, Node, nullptr, PPF_None);
-								UE_LOG(LogGTPGameMode, Log, TEXT("  node %s (%s) = %s"), *Pr->GetName(), *Pr->GetClass()->GetName(), *NodeText.Left(80));
-							}
-							if (FWeakObjectProperty* Src = FindFProperty<FWeakObjectProperty>(It->Struct, TEXT("SourceMeshComponent")))
-							{
-								if (Src->GetObjectPropertyValue_InContainer(Node) != Own)
-								{
-									Src->SetObjectPropertyValue_InContainer(Node, Own);
-									++Changed;
-								}
-							}
-							else if (FObjectProperty* SrcObj = FindFProperty<FObjectProperty>(It->Struct, TEXT("SourceMeshComponent")))
-							{
-								if (SrcObj->GetObjectPropertyValue_InContainer(Node) != Own)
-								{
-									SrcObj->SetObjectPropertyValue_InContainer(Node, Own);
-									++Changed;
-								}
-							}
-							if (FBoolProperty* Attached = FindFProperty<FBoolProperty>(It->Struct, TEXT("bUseAttachedParent")))
-							{
-								if (Attached->GetPropertyValue_InContainer(Node))
-								{
-									Attached->SetPropertyValue_InContainer(Node, false);
-									++Changed;
-								}
-							}
-							if (FEnumProperty* Mode = FindFProperty<FEnumProperty>(It->Struct, TEXT("RetargetFrom")))
-							{
-								const int64 Custom = Mode->GetEnum()->GetValueByName(TEXT("CustomSkeletalMeshComponent"));
-								if (Custom != INDEX_NONE && Mode->GetUnderlyingProperty()->GetSignedIntPropertyValue(Mode->ContainerPtrToValuePtr<void>(Node)) != Custom)
-								{
-									Mode->GetUnderlyingProperty()->SetIntPropertyValue(Mode->ContainerPtrToValuePtr<void>(Node), Custom);
-									++Changed;
-								}
-							}
-						}
-						if (Changed > 0)
-						{
-							Body->InitAnim(true);
-						}
-					}
-					bool bVariableChanged = false;
-					// The sample's retarget blueprint reads its source from this variable: set it to the pawn's mesh.
-					if (Anim)
-					{
-						for (TFieldIterator<FProperty> It(Anim->GetClass()); It; ++It)
-						{
-							if (It->GetOwnerClass() == UAnimInstance::StaticClass() || It->GetOwnerClass() == UObject::StaticClass())
-							{
-								continue;
-							}
-							if (FObjectProperty* ObjProp = CastField<FObjectProperty>(*It))
-							{
-								// The node's pin is bound to this variable: it must hold the retargeter we want.
-								if (It->GetName() == TEXT("IKRetargeter") && Retargeter && ObjProp->GetObjectPropertyValue_InContainer(Anim) != Retargeter)
-								{
-									ObjProp->SetObjectPropertyValue_InContainer(Anim, Retargeter);
-									UE_LOG(LogGTPGameMode, Log, TEXT("  anim variable IKRetargeter set to %s"), *Retargeter->GetName());
-									bVariableChanged = true;
-								}
-								if (It->GetName() == TEXT("ParentSkeletalMeshComponent") && ObjProp->GetObjectPropertyValue_InContainer(Anim) != Own)
-								{
-									ObjProp->SetObjectPropertyValue_InContainer(Anim, Own);
-									UE_LOG(LogGTPGameMode, Log, TEXT("  anim variable ParentSkeletalMeshComponent set to %s"), *Own->GetName());
-								}
-							}
-							FString Value;
-							It->ExportText_InContainer(0, Value, Anim, Anim, nullptr, PPF_None);
-							UE_LOG(LogGTPGameMode, Log, TEXT("  anim var %s (%s) = %s"), *It->GetName(), *It->GetClass()->GetName(), *Value.Left(120));
-						}
-					}
-					// A node scale of 0 collapses the output: a retarget scale must be at least 1 cm.
-					if (Anim)
-					{
-						for (TFieldIterator<FStructProperty> It(Anim->GetClass()); It; ++It)
-						{
-							if (!It->Struct || !It->Struct->GetName().Contains(TEXT("RetargetPoseFromMesh")))
-							{
-								continue;
-							}
-							void* Node = It->ContainerPtrToValuePtr<void>(Anim);
-							if (FFloatProperty* Scale = FindFProperty<FFloatProperty>(It->Struct, TEXT("TargetActorScale")))
-							{
-								if (Scale->GetPropertyValue_InContainer(Node) <= 0.f)
-								{
-									Scale->SetPropertyValue_InContainer(Node, 1.f);
-									bVariableChanged = true;
-								}
-							}
-						}
-					}
-					if (bVariableChanged)
-					{
-						Body->InitAnim(true);
-					}
-					UE_LOG(LogGTPGameMode, Log, TEXT("  body anim %s: retargeter %s, %d node(s) changed"),
-						Anim ? *Anim->GetClass()->GetName() : TEXT("none yet"), Retargeter ? *Retargeter->GetName() : TEXT("not loaded"), Changed);
+					ConfigureBodyRetarget(Body, Own, RetargeterPath);
 				}
 			}
 		}
@@ -467,7 +482,7 @@ void AGTPGameMode::ApplyPlayerVisual(APawn* Pawn)
 		{
 			FTimerHandle Baked;
 			TSharedRef<TWeakObjectPtr<UAnimSequence>> Current = MakeShared<TWeakObjectPtr<UAnimSequence>>();
-			GetWorldTimerManager().SetTimer(Baked, FTimerDelegate::CreateLambda([WeakVisual, WeakPawn, BodyName, IdleAnim, WalkAnim, RunAnim, Current]()
+			GetWorldTimerManager().SetTimer(Baked, FTimerDelegate::CreateLambda([WeakVisual, WeakPawn, BodyName, RetargeterPath, IdleAnim, WalkAnim, RunAnim, Current]()
 			{
 				AActor* V = WeakVisual.Get();
 				const APawn* P = WeakPawn.Get();
@@ -481,6 +496,22 @@ void AGTPGameMode::ApplyPlayerVisual(APawn* Pawn)
 				{
 					if (Skel->GetName() != BodyName)
 					{
+						continue;
+					}
+					// A weapon out: the body follows the pawn's pose again (runtime retarget), so drawing, aiming
+					// and reloading show; back to the baked clips once it is holstered.
+					const ACharacter* PawnCharacter = Cast<ACharacter>(P);
+					const UGTPWeaponComponent* Gun = PawnCharacter ? PawnCharacter->FindComponentByClass<UGTPWeaponComponent>() : nullptr;
+					if (Gun && Gun->IsDrawn())
+					{
+						if (Skel->GetAnimationMode() != EAnimationMode::AnimationBlueprint)
+						{
+							Skel->SetAnimationMode(EAnimationMode::AnimationBlueprint);
+							ConfigureBodyRetarget(Skel, PawnCharacter->GetMesh(), RetargeterPath);
+							*Current = nullptr;
+							UE_LOG(LogGTPGameMode, Log, TEXT("baked body: weapon drawn, runtime retarget (%s)"),
+								Skel->GetAnimInstance() ? *Skel->GetAnimInstance()->GetClass()->GetName() : TEXT("no anim"));
+						}
 						continue;
 					}
 					const float Speed = P->GetVelocity().Size2D();
