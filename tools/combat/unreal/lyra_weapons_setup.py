@@ -254,6 +254,14 @@ def retarget(sources, source_mesh, target_mesh, rtg):
             say("retargeted %s" % new)
         else:
             say("retargeted %s (left in place, could not move)" % old)
+    # The batch retarget leaves its results in memory only: write them to disk, or the game finds nothing.
+    saved = 0
+    for path in eal.list_assets(OUT_DIR, recursive=True, include_folder=False):
+        if eal.save_asset(path, only_if_is_dirty=False):
+            saved += 1
+        else:
+            say("NOT SAVED %s" % path)
+    say("saved %d assets in %s" % (saved, OUT_DIR))
 
 
 def scan_slots(target_skeleton):
