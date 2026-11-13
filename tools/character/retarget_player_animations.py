@@ -62,6 +62,14 @@ if batch is None:
     raise SystemExit("ANIMS no call variant worked")
 for a in batch:
     unreal.log("ANIMS made %s" % a)
+    # The pawn moves the body: the animations must not carry their own displacement (root motion).
+    asset = a.get_asset() if hasattr(a, "get_asset") else a
+    for prop, value in (("force_root_lock", True), ("enable_root_motion", False)):
+        try:
+            asset.set_editor_property(prop, value)
+            unreal.log("ANIMS %s %s = %s" % (asset.get_name(), prop, value))
+        except Exception as err:
+            unreal.log("ANIMS %s could not set %s: %s" % (asset.get_name(), prop, err))
     try:
         unreal.EditorAssetLibrary.save_loaded_asset(a.get_asset() if hasattr(a, "get_asset") else a)
     except Exception as err:
