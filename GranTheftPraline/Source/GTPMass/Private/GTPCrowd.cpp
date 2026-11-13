@@ -9,6 +9,8 @@
 #include "Engine/SkeletalMesh.h"
 #include "GameFramework/Character.h"
 #include "Animation/AnimInstance.h"
+#include "Animation/AnimSequence.h"
+#include "AssetRegistry/AssetRegistryModule.h"
 #include "GTPAudioWorld.h"
 #include "GTPPedestrians.h"
 #include "GTPThreat.h"
@@ -374,6 +376,41 @@ void UGTPCrowdSubsystem::SetupNearActors(UWorld& InWorld)
 	Idle = Cast<UAnimSequenceBase>(IdleAnimation.TryLoad());
 	Run = Cast<UAnimSequenceBase>(RunAnimation.TryLoad());
 	HandsUp = Cast<UAnimSequenceBase>(HandsUpAnimation.TryLoad());
+	// Fear animations baked from MoCap Online (tools/pedestrians/bake_fear_animations.py, prefix MF_), found by name.
+	if (bAssembled)
+	{
+		FAssetRegistryModule& Reg = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+		TArray<FAssetData> Anims;
+		Reg.Get().GetAssetsByPath(FName(TEXT("/Game/MetaHumans/GTP/Anims")), Anims, false);
+		auto Find = [&Anims](std::initializer_list<const TCHAR*> Words) -> UAnimSequenceBase*
+		{
+			for (const FAssetData& A : Anims)
+			{
+				const FString N = A.AssetName.ToString();
+				bool bAll = N.StartsWith(TEXT("MF_"));
+				for (const TCHAR* W : Words)
+				{
+					bAll = bAll && N.Contains(W);
+				}
+				if (bAll)
+				{
+					return Cast<UAnimSequenceBase>(A.GetAsset());
+				}
+			}
+			return nullptr;
+		};
+		FearRun = Find({TEXT("Scared"), TEXT("Run")});
+		if (!FearRun)
+		{
+			FearRun = Find({TEXT("Run")});
+		}
+		Cower = Find({TEXT("Cower")});
+		if (!Cower)
+		{
+			Cower = Find({TEXT("Crouch")});
+		}
+		UE_LOG(LogGTPCrowd, Log, TEXT("crowd: fear animations: run %s, cower %s"), FearRun ? *FearRun->GetName() : TEXT("none"), Cower ? *Cower->GetName() : TEXT("none"));
+	}
 	USkeletalMesh* Mesh = nullptr;
 	if (const ACharacter* Player = Cast<ACharacter>(UGameplayStatics::GetPlayerPawn(&InWorld, 0)))
 	{
@@ -600,11 +637,12 @@ void UGTPCrowdSubsystem::UpdateNear(float DeltaTime)
 		if (!bMoving)
 		{
 			const bool bHandsUp = W->Walker.PauseKind == GTPWalk::EPause::HandsUp && HandsUp;
-			Actor->PlayLoop(bHandsUp ? HandsUp.Get() : Idle.Get(), 1.f);
+			const bool bGawk = W->Walker.PauseKind == GTPWalk::EPause::Gawk && Cower;
+			Actor->PlayLoop(bHandsUp ? HandsUp.Get() : (bGawk ? Cower.Get() : Idle.Get()), 1.f);
 		}
 		else if (W->Walker.FleeTimeLeft > 0.f && Run)
 		{
-			Actor->PlayLoop(Run, W->Speed / RunAnimationSpeed);
+			Actor->PlayLoop(FearRun ? FearRun.Get() : Run.Get(), W->Speed / RunAnimationSpeed);
 		}
 		else
 		{

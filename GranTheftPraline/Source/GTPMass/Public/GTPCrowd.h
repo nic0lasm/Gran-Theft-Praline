@@ -235,6 +235,10 @@ private:
 	TObjectPtr<UAnimSequenceBase> Run;
 	UPROPERTY(Transient)
 	TObjectPtr<UAnimSequenceBase> HandsUp;
+	UPROPERTY(Transient)
+	TObjectPtr<UAnimSequenceBase> FearRun;
+	UPROPERTY(Transient)
+	TObjectPtr<UAnimSequenceBase> Cower;
 
 	GTPWalk::FRng ReactionRng{777u};
 	bool bAssembled = false;
