@@ -525,8 +525,15 @@ bool AGTPPoliceDirector::SpawnUnit(const FVector& PlayerLocation)
 	Unit.Settings.ComfortDecel = 5.f;
 	Unit.Settings.SafeGap = 6.f;
 	Unit.Settings.ThrottleGain = 0.5f;
-	// The driver, the light bar and the registration come on the next frames: one heavy step per frame.
-	Unit.Stage = 1;
+	// The driver is seated in the frame the car is made, like the traffic's cars (a car that got its driver a
+	// frame later stayed in neutral on the PC); the light bar and the registration come on the next frames.
+	if (!SeatDriver(Unit))
+	{
+		Car->Destroy();
+		Units.Pop();
+		return false;
+	}
+	Unit.Stage = 2;
 	GTP_TRACE(LogGTPWanted, TEXT("police: %s on lane %d at %s"), *Car->GetName(), Lane, *Transform.GetLocation().ToCompactString());
 	return true;
 }
@@ -768,6 +775,14 @@ void AGTPPoliceDirector::DriveUnit(FUnit& Unit, UGTPWantedComponent& Wanted, con
 	const float ChaseKmh = GTPWanted::ChaseSpeedKmh(Stars);
 	const float NowSeconds = static_cast<float>(GetWorld()->GetTimeSeconds());
 	// Throttle held and the car does not move: not traffic, the vehicle itself (asleep, parked, no gear). Wake it.
+	if (Unit.StoppedTime > 1.f && Unit.LastThrottle > 0.5f && Unit.LastObstacle < 0.f)
+	{
+		// First gear forced every frame while the car does not move with the throttle held.
+		if (UChaosVehicleMovementComponent* Move = Car->GetVehicleMovementComponent())
+		{
+			Move->SetTargetGear(1, true);
+		}
+	}
 	if (Unit.StoppedTime > 3.f && Unit.LastThrottle > 0.8f && Unit.LastObstacle < 0.f && NowSeconds >= Unit.NextWakeTime)
 	{
 		Unit.NextWakeTime = NowSeconds + 5.f;
