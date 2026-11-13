@@ -427,6 +427,16 @@ def shop_glass_master():
     return mat
 
 
+# The interior mapping works in each window's own frame. The kit is drawn by instanced components
+# (HISM, Nanite on Windows): "Local" space is the component's, shared by thousands of instances
+# spread over the street, so the room grid fell anywhere and read as flat colour blocks (PC 13/11).
+# "Instance & Particle Space" is the instance's own frame. Older engines without it keep Local.
+INSTANCE_POS = getattr(unreal.MaterialPositionTransformSource, "TRANSFORMPOSSOURCE_INSTANCE",
+                       unreal.MaterialPositionTransformSource.TRANSFORMPOSSOURCE_LOCAL)
+INSTANCE_VEC = getattr(unreal.MaterialVectorCoordTransform, "TRANSFORM_INSTANCE",
+                       unreal.MaterialVectorCoordTransform.TRANSFORM_LOCAL)
+
+
 # GTP_SHOP_GLASS=interior: opaque glass showing a fake lit shop room by interior mapping (one
 # ray-box test per pixel in the module's local frame): no translucency, no overdraw, and the
 # kit's room geometry behind it is not needed. Room cell = one shop bay.
@@ -474,11 +484,11 @@ def shop_interior_master():
     g = Graph(mat)
     lp = g.node(unreal.MaterialExpressionTransformPosition,
                 transform_source_type=unreal.MaterialPositionTransformSource.TRANSFORMPOSSOURCE_WORLD,
-                transform_type=unreal.MaterialPositionTransformSource.TRANSFORMPOSSOURCE_LOCAL)
+                transform_type=INSTANCE_POS)
     g.link(g.world_position(), "", lp, "")
     cv = g.node(unreal.MaterialExpressionTransform,
                 transform_source_type=unreal.MaterialVectorCoordTransformSource.TRANSFORMSOURCE_WORLD,
-                transform_type=unreal.MaterialVectorCoordTransform.TRANSFORM_LOCAL)
+                transform_type=INSTANCE_VEC)
     g.link(g.node(unreal.MaterialExpressionCameraVectorWS), "", cv, "")
     glow = g.node(unreal.MaterialExpressionScalarParameter, parameter_name="Glow", default_value=1.4)
     seed = g.node(unreal.MaterialExpressionScalarParameter, parameter_name="Seed", default_value=0.0)
@@ -600,11 +610,11 @@ def window_interior_master():
     g = Graph(mat)
     lp = g.node(unreal.MaterialExpressionTransformPosition,
                 transform_source_type=unreal.MaterialPositionTransformSource.TRANSFORMPOSSOURCE_WORLD,
-                transform_type=unreal.MaterialPositionTransformSource.TRANSFORMPOSSOURCE_LOCAL)
+                transform_type=INSTANCE_POS)
     g.link(g.world_position(), "", lp, "")
     cv = g.node(unreal.MaterialExpressionTransform,
                 transform_source_type=unreal.MaterialVectorCoordTransformSource.TRANSFORMSOURCE_WORLD,
-                transform_type=unreal.MaterialVectorCoordTransform.TRANSFORM_LOCAL)
+                transform_type=INSTANCE_VEC)
     g.link(g.node(unreal.MaterialExpressionCameraVectorWS), "", cv, "")
     seed = g.node(unreal.MaterialExpressionPerInstanceRandom)
     night = city_lights(g) or g.const(0.0)
