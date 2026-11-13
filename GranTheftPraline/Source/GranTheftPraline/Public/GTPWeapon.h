@@ -264,6 +264,9 @@ private:
 	void Broadcast(EGTPWeaponEvent Event) { OnWeaponEvent.Broadcast(this, Event); }
 	void LoadLooks();
 	void UpdateMesh();
+	/** Puts the gun in the hand that shows: the player visual's body (hand_r) when the pawn's own mesh is hidden. */
+	void PlaceGun();
+	USkeletalMeshComponent* FindVisibleBody() const;
 	APlayerController* GetPlayerController() const;
 	FRotator GetAimRotation() const;
 	void SpawnFlash();

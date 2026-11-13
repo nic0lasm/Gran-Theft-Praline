@@ -191,14 +191,8 @@ void UGTPWeaponComponent::UpdateMesh()
 		GunMesh->SetGenerateOverlapEvents(false);
 		GunMesh->bReceivesDecals = false;
 		GunMesh->RegisterComponent();
-		USkeletalMeshComponent* Body = Character->GetMesh();
-		const FName Socket = Body->DoesSocketExist(HandSocket) ? HandSocket : HandFallbackSocket;
-		GunMesh->AttachToComponent(Body, FAttachmentTransformRules::SnapToTargetNotIncludingScale, Socket);
 	}
-	if (const FGTPWeaponLook* Look = GetLook())
-	{
-		GunMesh->SetRelativeTransform(Look->AttachOffset);
-	}
+	PlaceGun();
 	if (Mesh && GunMesh->GetSkeletalMeshAsset() != Mesh)
 	{
 		GunMesh->SetSkeletalMeshAsset(Mesh);
@@ -437,6 +431,63 @@ float UGTPWeaponComponent::GetSpreadDegrees() const
 	return Base;
 }
 
+USkeletalMeshComponent* UGTPWeaponComponent::FindVisibleBody() const
+{
+	const ACharacter* Character = Cast<ACharacter>(GetOwner());
+	const USkeletalMeshComponent* Own = Character ? Character->GetMesh() : nullptr;
+	if (!Own || Own->IsVisible())
+	{
+		return nullptr; // the pawn's own mesh shows: the gun stays on it
+	}
+	// The player visual's body hangs from the pawn's hidden mesh (GTPGameMode::ApplyPlayerVisual).
+	static const FName Hand(TEXT("hand_r"));
+	TArray<USceneComponent*> Children;
+	Own->GetChildrenComponents(false, Children);
+	for (USceneComponent* Child : Children)
+	{
+		USkeletalMeshComponent* Skel = Cast<USkeletalMeshComponent>(Child);
+		if (Skel && Skel != GunMesh && Skel->IsVisible() && !Skel->LeaderPoseComponent.IsValid() && Skel->GetBoneIndex(Hand) != INDEX_NONE)
+		{
+			return Skel;
+		}
+	}
+	return nullptr;
+}
+
+void UGTPWeaponComponent::PlaceGun()
+{
+	const ACharacter* Character = Cast<ACharacter>(GetOwner());
+	USkeletalMeshComponent* Own = Character ? Character->GetMesh() : nullptr;
+	if (!GunMesh || !Own)
+	{
+		return;
+	}
+	const FName Socket = Own->DoesSocketExist(HandSocket) ? HandSocket : HandFallbackSocket;
+	const FGTPWeaponLook* Look = GetLook();
+	const FTransform Offset = Look ? Look->AttachOffset : FTransform::Identity;
+	static const FName Hand(TEXT("hand_r"));
+	USkeletalMeshComponent* Visible = FindVisibleBody();
+	if (!Visible || Own->GetBoneIndex(Hand) == INDEX_NONE)
+	{
+		if (GunMesh->GetAttachParent() != Own || GunMesh->GetAttachSocketName() != Socket)
+		{
+			GunMesh->AttachToComponent(Own, FAttachmentTransformRules::SnapToTargetNotIncludingScale, Socket);
+		}
+		GunMesh->SetRelativeTransform(Offset);
+		return;
+	}
+	// In the visible body's hand: the grip of the pawn's weapon_r (right for its hand whatever the body's bone
+	// axes), moved by the gap between the two hands (the body is retargeted, its proportions differ).
+	FTransform World = Offset * Own->GetSocketTransform(Socket);
+	World.AddToTranslation(Visible->GetSocketLocation(Hand) - Own->GetSocketLocation(Hand));
+	World.SetScale3D(FVector::OneVector);
+	if (GunMesh->GetAttachParent() != Visible || GunMesh->GetAttachSocketName() != Hand)
+	{
+		GunMesh->AttachToComponent(Visible, FAttachmentTransformRules::KeepWorldTransform, Hand);
+	}
+	GunMesh->SetWorldTransform(World);
+}
+
 FVector UGTPWeaponComponent::GetMuzzle() const
 {
 	if (const FGTPWeaponLook* Look = GetLook())
@@ -601,6 +652,10 @@ void UGTPWeaponComponent::TickComponent(float DeltaTime, ELevelTick TickType, FA
 	if (Loadout.TickSwitch(DeltaTime))
 	{
 		UpdateMesh(); // the new gun appears in the hand
+	}
+	if (bDrawn && GunMesh && GunMesh->IsVisible())
+	{
+		PlaceGun(); // follows the visible body's hand (the gap between the two hands moves with the pose)
 	}
 	const float Back = GTPWeapon::Tick(Loadout.State(), Loadout.Spec(), DeltaTime);
 	if (bWasReloading && !Loadout.State().IsReloading())

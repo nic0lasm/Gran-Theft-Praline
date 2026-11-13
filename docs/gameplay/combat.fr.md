@@ -229,3 +229,9 @@ Lyra n'est repris : Lyra repose sur GAS et ShooterCore, que l'ADR-0011 écarte. 
 - **Clips** : actions Lyra en pose complète (`MM_*_Equip`, `_Reload`, `_DryFire`, `_Idle_ADS`) dans
   `DefaultSlot`. Le Fire de Lyra n'existe qu'en additif : il attend un slot additif dans le blueprint du joueur ;
   d'ici là, le recul de la caméra et la flamme portent le tir.
+- **Kellan (visuel MetaHuman)** : l'arme va dans la main qu'on voit. Quand le mesh du pion est caché et que le
+  corps du visuel y est accroché, l'arme est attachée au `hand_r` du corps, placée à chaque image sur la prise du
+  `weapon_r` du pion, décalée de l'écart entre les deux mains (bonne orientation quels que soient les axes des os
+  du corps) ; sinon sur le `weapon_r` du pion. Avec `-PlayerVisualBaked`, dégainer remet le corps en retarget à
+  l'exécution (il suit le pion, clips d'arme compris) et ranger le ramène aux clips cuits. La tranche utilise le
+  retarget à l'exécution ; `-PlayerVisual=` (vide) montre le mannequin pour les tests d'armes.

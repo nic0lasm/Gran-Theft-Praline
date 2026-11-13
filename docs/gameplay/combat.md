@@ -221,3 +221,9 @@ is taken: Lyra stands on GAS and ShooterCore, which ADR-0011 leaves out. We take
 - **Clips**: full-pose Lyra actions (`MM_*_Equip`, `_Reload`, `_DryFire`, `_Idle_ADS`) in `DefaultSlot`. Lyra's
   Fire exists only as an additive: it waits for an additive slot in the player's blueprint, the camera kick and
   the flash carry the shot until then.
+- **Kellan (MetaHuman visual)**: the gun goes in the hand that shows. When the pawn's own mesh is hidden and the
+  visual's body hangs from it, the gun is attached to the body's `hand_r`, placed each frame at the grip of the
+  pawn's `weapon_r` moved by the gap between the two hands (right orientation whatever the body's bone axes);
+  otherwise on the pawn's `weapon_r`. With `-PlayerVisualBaked`, drawing a weapon puts the body back on the runtime
+  retarget (it follows the pawn, weapon clips included) and holstering returns it to the baked clips. The slice
+  uses the runtime retarget; `-PlayerVisual=` (empty) shows the mannequin for weapon tests.
