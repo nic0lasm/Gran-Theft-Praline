@@ -447,6 +447,16 @@ void UGTPPedestrianSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 	Run = Resolve(RunAnimation, TEXT("PedRun="), {TEXT("run"), TEXT("jog")});
 	// Optional: no default search, a phone loop is only played if one is named.
 	Phone = Cast<UAnimSequenceBase>(PhoneAnimation.TryLoad());
+	HandsUp = Resolve(HandsUpAnimation, TEXT("PedHandsUp="), {TEXT("handsup")});
+	if (!HandsUp)
+	{
+		HandsUp = FindAnimation(LoadedMeshes[0], {TEXT("hands"), TEXT("up")});
+	}
+	if (!HandsUp)
+	{
+		HandsUp = FindAnimation(LoadedMeshes[0], {TEXT("surrender")});
+	}
+	GTP_TRACE(LogGTPPedestrians, TEXT("hands-up animation: %s"), HandsUp ? *HandsUp->GetPathName() : TEXT("none found (set HandsUpAnimation or -PedHandsUp=)"));
 	GTP_TRACE(LogGTPPedestrians, TEXT("animations: walk=%s idle=%s run=%s"),
 		Walk ? *Walk->GetPathName() : TEXT("none"), Idle ? *Idle->GetPathName() : TEXT("none"), Run ? *Run->GetPathName() : TEXT("none"));
 	if (LoadedMeshes.Num() == 0 || !Walk)
@@ -992,7 +1002,8 @@ void UGTPPedestrianSubsystem::Update(FPerson& Person, float DeltaTime)
 		if (bStand)
 		{
 			const bool bPhone = Person.Walker.PauseKind == GTPWalk::EPause::Phone && Phone;
-			Actor->PlayLoop(bPhone ? Phone.Get() : Idle.Get(), 1.f);
+			const bool bHandsUp = Person.Walker.PauseKind == GTPWalk::EPause::HandsUp && HandsUp;
+			Actor->PlayLoop(bHandsUp ? HandsUp.Get() : bPhone ? Phone.Get() : Idle.Get(), 1.f);
 		}
 		else if (bRun)
 		{

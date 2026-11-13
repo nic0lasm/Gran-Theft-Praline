@@ -178,6 +178,10 @@ protected:
 	UPROPERTY(Config)
 	FSoftObjectPath PhoneAnimation;
 
+	// Hands-up loop for held-up people; empty = searched by name among the skeleton's animations (-PedHandsUp= overrides).
+	UPROPERTY(Config)
+	FSoftObjectPath HandsUpAnimation;
+
 	/** Walking speed the walk animation was made for (cm/s): play rate = speed / this. */
 	UPROPERTY(Config)
 	float AnimationWalkSpeed = 140.f;
@@ -389,5 +393,8 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UAnimSequenceBase> Phone;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UAnimSequenceBase> HandsUp;
 
 };
