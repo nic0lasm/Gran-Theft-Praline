@@ -76,9 +76,9 @@ int32 AGTPParkedCars::Build(const FString& File)
 		// AGTPTrafficNetwork::FindSpawnPoint (visibility channel, which every street
 		// mesh blocks): the city v2 ground is not found as a WorldStatic object.
 		FHitResult Hit;
-		const FVector Top(SlotX, SlotY, 3000.0);
-		if (!GetWorld()->LineTraceSingleByChannel(Hit, Top, Top - FVector(0.0, 0.0, 6000.0), ECC_Visibility, Params)
-			&& !GetWorld()->LineTraceSingleByObjectType(Hit, Top, Top - FVector(0.0, 0.0, 6000.0), Ground, Params))
+		const FVector Top(SlotX, SlotY, 500.0);
+		if (!GetWorld()->LineTraceSingleByChannel(Hit, Top, Top - FVector(0.0, 0.0, 3500.0), ECC_Visibility, Params)
+			&& !GetWorld()->LineTraceSingleByObjectType(Hit, Top, Top - FVector(0.0, 0.0, 3500.0), Ground, Params))
 		{
 			if (Missed++ == 0)
 			{
