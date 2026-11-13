@@ -733,6 +733,7 @@ void AGTPPoliceDirector::DriveOnLanes(FUnit& Unit, const FVector& Goal, bool bHa
 			Car->SetAIDriveInput(0.f, 1.f, 0.f, true);
 			return;
 		}
+		Unit.Follower.bIgnoreLaneLimit = true;
 		Unit.bOnLanes = true;
 	}
 	if (bHasGoal)

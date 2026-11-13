@@ -51,6 +51,9 @@ struct GRANTHEFTPRALINE_API FGTPLaneFollower
 	/** One decision; false when the route ended (dead end) or there is none. */
 	bool Step(const FVector& Location, float YawDegrees, float SpeedKmh, float MaxSpeedKmh, float ObstacleMetres, FGTPDriveCommand& Out);
 
+	/** Chases and demos: the speed given to Step is the limit, not the lane's posted speed. */
+	bool bIgnoreLaneLimit = false;
+
 	bool IsActive() const { return Network.IsValid() && Route.Num() > 0; }
 
 	/** Index of the lane being followed, INDEX_NONE when idle (logged by the deterministic demo to compare two runs). */
