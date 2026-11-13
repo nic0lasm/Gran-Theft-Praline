@@ -2,6 +2,7 @@
 
 #include "ChaosVehicleMovementComponent.h"
 #include "Engine/GameInstance.h"
+#include "CollisionQueryParams.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "GameFramework/Character.h"
@@ -259,6 +260,29 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 				// The route's own time starts here, whatever the level took to load.
 				RouteStart = Now;
 				LastLoggedSlot = -1;
+			}
+			if (bChase)
+			{
+				// The rue de la République is a pedestrian street with no lane: start on the quai Jean Moulin
+				// (four lanes, straight for 220 m, heading north). -PoliceChaseStart=X,Y overrides it.
+				FVector2D Start(38879.0, -4528.0);
+				FString StartText;
+				if (FParse::Value(FCommandLine::Get(), TEXT("PoliceChaseStart="), StartText))
+				{
+					FString Left, Right;
+					if (StartText.Split(TEXT(","), &Left, &Right))
+					{
+						Start = FVector2D(FCString::Atod(*Left), FCString::Atod(*Right));
+					}
+				}
+				FHitResult Ground;
+				FCollisionQueryParams Params(SCENE_QUERY_STAT(GTPChaseStart), false, Pawn);
+				const FVector Above(Start.X, Start.Y, Pawn->GetActorLocation().Z + 3000.0);
+				const bool bFound = Pawn->GetWorld()->LineTraceSingleByChannel(Ground, Above, Above - FVector(0.0, 0.0, 8000.0), ECC_Visibility, Params);
+				const FVector Spot(Start.X, Start.Y, bFound ? Ground.ImpactPoint.Z + 100.0 : Pawn->GetActorLocation().Z);
+				Pawn->SetActorLocationAndRotation(Spot, FRotator(0.f, -93.f, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
+				PC->SetControlRotation(FRotator(0.f, -93.f, 0.f));
+				GTP_TRACE(LogGTPDemo, TEXT("Demo chase: start on the quai Jean Moulin at %.0f, %.0f (ground %s)"), Start.X, Start.Y, bFound ? TEXT("found") : TEXT("not found"));
 			}
 			StreetYaw = Pawn->GetActorRotation().Yaw;
 			StartControlYaw = PC->GetControlRotation().Yaw;
