@@ -6,6 +6,7 @@
 #include "GTPWeaponLogic.h"
 #include "GTPWeapon.generated.h"
 
+class UAnimMontage;
 class UAnimSequenceBase;
 class UBlendProfile;
 class UNiagaraSystem;
@@ -257,8 +258,10 @@ private:
 	float GetSpeedShare() const;
 	void PlayClip(const TCHAR* Suffix);
 	void SetAimLoop(bool bOn);
+	/** While aiming: starts the aim pose again after a clip ended it, and logs where the hand is (player). */
+	void KeepAimLoop(float DeltaTime);
 	/** Plays Sequence in Slot through the upper-body mask (when there is one). */
-	void PlayInSlot(UAnimSequenceBase* Sequence, FName Slot, float BlendIn, float BlendOut, int32 LoopCount);
+	UAnimMontage* PlayInSlot(UAnimSequenceBase* Sequence, FName Slot, float BlendIn, float BlendOut, int32 LoopCount);
 	UBlendProfile* GetUpperBodyMask();
 	const FGTPWeaponClip* FindClip(const TCHAR* Suffix) const;
 	void Broadcast(EGTPWeaponEvent Event) { OnWeaponEvent.Broadcast(this, Event); }
@@ -299,4 +302,6 @@ private:
 	bool bLooksLoaded = false;
 	/** Slot the aim loop plays in while it plays (NAME_None = not playing). */
 	FName AimLoopSlot;
+	float AimProbeLeft = 0.f;
+	float AimRestartLeft = 0.f;
 };
