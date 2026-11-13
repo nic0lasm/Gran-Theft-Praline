@@ -297,6 +297,25 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 		PC->SetControlRotation(FRotator(-8.f, StartControlYaw + Pan, 0.f));
 		if (T >= LookAroundTime)
 		{
+			if (bChase)
+			{
+				// No hunt for a moving car: the free test car (-TestVehicle) is brought to the player's side.
+				Car = FindCar();
+				if (AGTPVehicle* Free = Car.Get())
+				{
+					const FVector Forward = FRotator(0.f, Pawn->GetActorRotation().Yaw, 0.f).Vector();
+					FHitResult Ground;
+					FCollisionQueryParams Params(SCENE_QUERY_STAT(GTPChaseCar), false, Free);
+					Params.AddIgnoredActor(Pawn);
+					const FVector Above = Pawn->GetActorLocation() + Forward * 500.f + FVector(0.f, 0.f, 500.f);
+					const bool bFound = Pawn->GetWorld()->LineTraceSingleByChannel(Ground, Above, Above - FVector(0.f, 0.f, 3000.f), ECC_Visibility, Params);
+					const FVector Spot = bFound ? FVector(Above.X, Above.Y, Ground.ImpactPoint.Z + 60.f) : Above;
+					Free->SetActorLocationAndRotation(Spot, FRotator(0.f, Pawn->GetActorRotation().Yaw, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
+					GTP_TRACE(LogGTPDemo, TEXT("Demo chase: the free car %s is put 5 m ahead of the player"), *Free->GetName());
+					SetPhase(EPhase::WalkToCar);
+					break;
+				}
+			}
 			SetPhase(bCarjack ? EPhase::Carjack : EPhase::WalkStreet);
 		}
 		break;
@@ -455,6 +474,13 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 				GTP_TRACE(LogGTPDemo, TEXT("Demo carjack: driver pulled out, player at the wheel of %s, driving off"), *Pawn->GetName());
 			}
 			StreetYaw = Pawn->GetActorRotation().Yaw;
+			if (bChase)
+			{
+				if (UGTPWantedComponent* Wanted = PC->FindComponentByClass<UGTPWantedComponent>())
+				{
+					Wanted->ReportCrime(EGTPCrimeKind::CarTheft, Pawn->GetActorLocation());
+				}
+			}
 			SetPhase(EPhase::Drive);
 		}
 		else if (T >= EnterMaxTime)
