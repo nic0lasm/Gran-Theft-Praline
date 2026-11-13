@@ -4,7 +4,7 @@
     -script="<repo>/tools/character/retarget_player_animations.py" -unattended -nosplash -nullrhi
 
 Uses the retargeter made by create_pedestrian_retargeter.py (run it first). The duplicated animations land
-next to their sources with the prefix "MH_" (the game finds them by that name). Everything stays under /Game (not versioned).
+in /Game/MetaHumans/GTP/Anims with the prefix "MH_" (the game finds them by that name). Everything stays under /Game (not versioned).
 Env: GTP_RTG_ANIMS = comma separated list of source animation paths (default: the pedestrians' walk/idle/run).
 """
 import os
@@ -38,8 +38,28 @@ for p in paths:
     unreal.log("ANIMS source %s -> %s" % (p, a))
     if a:
         assets.append(unreal.EditorAssetLibrary.find_asset_data(p))
-batch = unreal.IKRetargetBatchOperation.duplicate_and_retarget(
-    assets, source_mesh, target_mesh, rtg, "", "", "MH_", "", False)
+op = unreal.IKRetargetBatchOperation
+unreal.log("ANIMS signature: %s" % op.duplicate_and_retarget.__doc__)
+folder = "/Game/MetaHumans/GTP/Anims"
+unreal.EditorAssetLibrary.make_directory(folder)
+batch = None
+attempts = (
+    dict(assets_to_retarget=assets, source_mesh=source_mesh, target_mesh=target_mesh, ik_retarget_asset=rtg,
+         target_path=folder, search="", replace="", prefix="MH_", suffix="", remap_referenced_assets=False),
+    dict(assets_to_retarget=assets, source_mesh=source_mesh, target_mesh=target_mesh, ik_retarget_asset=rtg,
+         search="", replace="", prefix="MH_", suffix="", remap_referenced_assets=False),
+    dict(assets_to_retarget=assets, source_mesh=source_mesh, target_mesh=target_mesh, ik_retarget_asset=rtg,
+         target_path=folder, prefix="MH_"),
+)
+for kwargs in attempts:
+    try:
+        batch = op.duplicate_and_retarget(**kwargs)
+        unreal.log("ANIMS call worked with %s" % sorted(kwargs))
+        break
+    except Exception as err:
+        unreal.log("ANIMS call failed (%s): %s" % (sorted(kwargs), err))
+if batch is None:
+    raise SystemExit("ANIMS no call variant worked")
 for a in batch:
     unreal.log("ANIMS made %s" % a)
     try:
