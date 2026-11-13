@@ -568,3 +568,20 @@ balconies and the mansard.
 (`GTP_CITY_ALSO_STREET`, empty to skip). République focus (2026-11-12, cloud machine): 4 more
 buildings, 235 in all, 19 341 modules (+337), 417 k triangles (+8 k); the backdrop drops to 1 585
 volumes. Slice (`--clip=-80,-570,300,-180`): 6 more buildings, 63 in all, 4 267 modules.
+
+## Street fronts by footprint and a clear start (added 2026-11-13)
+
+The 18d package showed a blind wall at the start: a deep building whose only front is on rue de
+la République (BD TOPO 240874130, 12 m east of the start) had its centroid beyond the 45 m zone,
+so it stood on the street as a backdrop volume, with no windows and no collision; the demo walk
+and the camera went into it. `generate.py --front` (default 14 m) now also takes every building
+whose footprint is within 14 m of the focus street lines: 3 on the République focus. The corner
+of place Le Viste seen when turning back (240874625) comes in through `--also-street
+"Place Le Viste:15"`, which `regen_city.sh` passes by default with place de la République
+(`GTP_CITY_ALSO_STREET`, items separated by ";"). Ray check from the start (cloud machine): no
+backdrop volume within 150 m all around. République focus: 239 buildings, 20 669 modules,
+446 k triangles; backdrop 1 581 volumes.
+
+The player start moves from 8 m to 30 m along the axis (`SPAWN_ALONG_AXIS_CM`, measured along the
+polyline): the look-around pan of the demo (±60°) sees kit facades on both sides and the street
+is clear for 150 m ahead.

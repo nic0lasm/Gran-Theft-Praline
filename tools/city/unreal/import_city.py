@@ -66,7 +66,9 @@ LIGHT_SOURCE_MAP = "/Game/ReferenceScene/Maps/ReferenceStreet_" + LIGHT_STATE
 LIGHT_CLASSES = (unreal.DirectionalLight, unreal.SkyLight, unreal.SkyAtmosphere, unreal.ExponentialHeightFog,
                  unreal.VolumetricCloud, unreal.PostProcessVolume, unreal.Light)
 KILL_Z = -5000.0
-SPAWN_ALONG_AXIS_CM = 800.0   # start 8 m into the street from its Bellecour end
+SPAWN_ALONG_AXIS_CM = 3000.0  # start 30 m into the street from its Bellecour end: kit facades on both
+#   sides of the look-around pan (at 8 m it faced the Pathé volume and the corner of place Le Viste),
+#   and 150 m of clear street ahead for the demo walk (ray-checked 2026-11-13)
 
 eal = unreal.EditorAssetLibrary
 asset_tools = unreal.AssetToolsHelpers.get_asset_tools()
@@ -186,13 +188,19 @@ def place_mesh(mesh, loc, label, folder):
 
 
 def bellecour_start(axis):
-    """Start a few metres into the street from its Bellecour (south, larger Y) end, facing up it."""
+    """Start SPAWN_ALONG_AXIS_CM along the street from its Bellecour (south, larger Y) end, facing up it.
+    The axis has a point every 10 m: walk along it, then face the next stretch."""
     pts = axis if axis[0][1] > axis[-1][1] else list(reversed(axis))
-    (x0, y0, z0), (x1, y1, _) = pts[0], pts[1]
-    dist = math.hypot(x1 - x0, y1 - y0) or 1.0
-    t = min(1.0, SPAWN_ALONG_AXIS_CM / dist)
-    loc = (x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, z0 + 120.0)
-    return loc, math.degrees(math.atan2(y1 - y0, x1 - x0))
+    left = SPAWN_ALONG_AXIS_CM
+    for (x0, y0, z0), (x1, y1, z1) in zip(pts, pts[1:]):
+        seg = math.hypot(x1 - x0, y1 - y0) or 1.0
+        if left <= seg or (x1, y1, z1) == tuple(pts[-1]):
+            t = min(1.0, left / seg)
+            loc = (x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, z0 + (z1 - z0) * t + 120.0)
+            return loc, math.degrees(math.atan2(y1 - y0, x1 - x0))
+        left -= seg
+    (x0, y0, z0) = pts[0]
+    return (x0, y0, z0 + 120.0), 0.0
 
 
 def terrain_baked(mesh, tile):

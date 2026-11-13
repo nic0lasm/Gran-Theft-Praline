@@ -8,8 +8,8 @@
 #   PYTHON (default python3; a venv with numpy, scipy, shapely, PIL), UE_ROOT,
 #   GTP_CITY_ZONE (presqu-ile), GTP_CITY_FOCUS (rue-de-la-republique),
 #   GTP_CITY_EXTRA_BBOX (250,-60,700,220: quai du Rhone and pont Lafayette),
-#   GTP_CITY_ALSO_STREET (Place de la République: every facade bordering the square gets the kit;
-#     empty to skip),
+#   GTP_CITY_ALSO_STREET (Place de la République;Place Le Viste:15: every facade bordering these
+#     squares gets the kit; NAME[:BUFFER_M] separated by ";", empty to skip),
 #   EDITOR_HEADLESS (default -nullrhi; empty for a windowed editor),
 #   GTP_SHOP_GLASS (translucent | opaque | interior), GTP_CITY_LANDMARKS=0 (generic shells for the Opera
 #   and the Hotel de Ville), SKIP_PLAY=1 to skip the screenshot run.
@@ -21,7 +21,7 @@ zone="${GTP_CITY_ZONE:-presqu-ile}"
 focus="${GTP_CITY_FOCUS:-rue-de-la-republique}"
 focus_name="${GTP_CITY_FOCUS_NAME:-Rue de la République}"
 extra="${GTP_CITY_EXTRA_BBOX:-250,-60,700,220}"
-also_street="${GTP_CITY_ALSO_STREET-Place de la République}"
+also_street="${GTP_CITY_ALSO_STREET-Place de la République;Place Le Viste:15}"
 ue_root="${UE_ROOT:-/Users/Shared/Epic Games/UE_5.8}"
 editor="$ue_root/Engine/Binaries/Mac/UnrealEditor.app/Contents/MacOS/UnrealEditor"
 project="$repo/GranTheftPraline/GranTheftPraline.uproject"
@@ -47,11 +47,14 @@ else
   rm -f "$repo/assets/geo/processed/$zone/landmarks.json" "$repo/assets/geo/processed/$zone/gen/$focus/landmarks."*
 fi
 step "generation (focus street + $extra)"
-if test -n "$also_street"; then
-  "$py" "$repo/tools/city/generate.py" --name "$zone" --focus "$focus_name" --extra-bbox "$extra" --also-street "$also_street" > /dev/null
-else
-  "$py" "$repo/tools/city/generate.py" --name "$zone" --focus "$focus_name" --extra-bbox "$extra" > /dev/null
-fi
+set -- --name "$zone" --focus "$focus_name" --extra-bbox "$extra"
+rest="$also_street"
+while test -n "$rest"; do
+  item="${rest%%;*}"
+  test -z "$item" || set -- "$@" --also-street "$item"
+  case "$rest" in *";"*) rest="${rest#*;}" ;; *) rest="" ;; esac
+done
+"$py" "$repo/tools/city/generate.py" "$@" > /dev/null
 step "backdrop (low-definition volumes within 600 m, tools/city/backdrop.py)"
 "$py" "$repo/tools/city/backdrop.py" --name "$zone" --focus "$focus" > /dev/null
 test "${GTP_CITY_LANDMARKS:-1}" = "0" || "$py" "$repo/tools/city/landmarks.py" --name "$zone" --focus "$focus" > /dev/null

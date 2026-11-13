@@ -182,6 +182,10 @@ def main():
     ap.add_argument("--focus", default="Rue de la République",
                     help="street name (BAN spelling) whose buildings are generated, or 'all'")
     ap.add_argument("--buffer", type=float, default=45.0, help="metres around the focus street")
+    ap.add_argument("--front", type=float, default=14.0,
+                    help="also take the buildings whose footprint is within this many metres of the focus "
+                         "street lines: a deep building with a narrow street front has its centroid beyond "
+                         "--buffer and would stand as a blind backdrop volume on the street")
     ap.add_argument("--extra-bbox", action="append", default=[], metavar="X0,Y0,X1,Y1",
                     help="also take the buildings whose centroid is in this box (local metres, "
                          "x east, y north); repeatable. E.g. the Rhone quays and the Lafayette "
@@ -242,6 +246,11 @@ def main():
             sys.exit(f"no road named {args.focus!r} in BD TOPO for this zone")
         zone = unary_union(street).buffer(args.buffer)
         selected = [b for b in buildings if zone.intersects(b["poly"].centroid.buffer(1.0))]
+        street_lines = unary_union(street)
+        have = {id(b) for b in selected}
+        fronts = [b for b in buildings if id(b) not in have and b["poly"].distance(street_lines) <= args.front]
+        print(f"--front: {len(fronts)} more buildings with a front on the street")
+        selected += fronts
         if args.extra_bbox:
             boxes = [box(*[float(v) for v in e.split(",")]) for e in args.extra_bbox]
             have = {id(b) for b in selected}
@@ -379,7 +388,7 @@ def main():
     for r in mod_rows:
         kinds[r["kind"]] = kinds.get(r["kind"], 0) + 1
     report = {
-        "zone": args.name, "focus": args.focus, "buffer_m": args.buffer, "extra_bbox": args.extra_bbox,
+        "zone": args.name, "focus": args.focus, "buffer_m": args.buffer, "front_m": args.front, "extra_bbox": args.extra_bbox,
         "also_street": args.also_street,
         "clip": args.clip,
         "bdtopo_buildings": len(selected),

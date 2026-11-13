@@ -593,3 +593,21 @@ rue : devantures, balcons et mansarde.
 4 bâtiments de plus, 235 en tout, 19 341 modules (+337), 417 k triangles (+8 k) ; le fond de carte
 passe à 1 585 volumes. Tranche (`--clip=-80,-570,300,-180`) : 6 bâtiments de plus, 63 en tout,
 4 267 modules.
+
+## Façades sur rue par l'emprise, et départ dégagé (ajouté le 2026-11-13)
+
+Le package 18d montrait un mur aveugle au départ. Un bâtiment profond, dont la seule façade donne
+sur la rue de la République (BD TOPO 240874130, à 12 m à l'est du départ), avait son centroïde
+hors de la zone de 45 m. Il restait donc sur la rue comme volume du fond de carte, sans fenêtres
+et sans collision ; la marche de démo et la caméra entraient dedans. `generate.py --front` (14 m
+par défaut) prend aussi tout bâtiment dont l'emprise est à moins de 14 m des tronçons de la rue :
+3 sur le focus République. L'angle de la place Le Viste, vu au demi-tour (240874625), entre par
+`--also-street "Place Le Viste:15"`, que `regen_city.sh` passe par défaut avec la place de la
+République (`GTP_CITY_ALSO_STREET`, éléments séparés par « ; »). Contrôle par rayons depuis le
+départ (machine cloud) : aucun volume du fond de carte à moins de 150 m, dans toutes les
+directions. Focus République : 239 bâtiments, 20 669 modules, 446 k triangles ; fond de carte
+1 581 volumes.
+
+Le départ du joueur passe de 8 m à 30 m le long de l'axe (`SPAWN_ALONG_AXIS_CM`, mesuré le long de
+la polyligne). Le panoramique de la démo (±60°) voit alors des façades du kit des deux côtés, et
+la rue est dégagée sur 150 m devant.
