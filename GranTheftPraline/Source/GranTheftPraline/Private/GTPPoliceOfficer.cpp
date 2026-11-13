@@ -117,7 +117,14 @@ void AGTPPoliceOfficer::Tick(float DeltaSeconds)
 		const FVector Last = Wanted->GetLastKnownLocation();
 		// Go to the last known position first, then sweep the circle around it.
 		const bool bAtLast = FVector::Dist2D(Here, Last) < Tactics.ArriveRadius * 3.f;
-		Goal = SearchSeconds > 4.f && bAtLast ? Last + FVector(Ox, Oy, 0.f) : Last;
+		FVector Sweep = Last + FVector(Ox, Oy, 0.f);
+		if (SearchPoints.Num() > 0)
+		{
+			// EQS points: each officer starts on a different one and moves to the next every 8 s.
+			const int32 Pick = (SlotIndex + static_cast<int32>(SearchSeconds / 8.f)) % SearchPoints.Num();
+			Sweep = FVector(SearchPoints[Pick].X, SearchPoints[Pick].Y, Here.Z);
+		}
+		Goal = SearchSeconds > 4.f && bAtLast ? Sweep : Last;
 	}
 
 	// Close in until about two metres, then hold (the arrest is the wanted component's, by proximity).

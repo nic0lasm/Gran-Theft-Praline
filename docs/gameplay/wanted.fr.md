@@ -38,3 +38,7 @@ Une unité à moins de 7 m d'un joueur à pied ou sous 12 km/h, trois secondes d
 ## Mort
 
 À la mort du joueur (`OnPlayerDied`), les signalements en attente sont abandonnés ; à la réapparition à l'hôpital, les étoiles sont effacées.
+
+## Interrupteurs
+
+`-PolicePerception=0|1|2` (coupée, perception seule, les deux = défaut), `-PoliceEqs=0` (les policiers balaient de nouveau un cercle fixe), `-Police=0`, `-WantedStars=N`, `-WantedHold`, `-Witnesses=0`.
