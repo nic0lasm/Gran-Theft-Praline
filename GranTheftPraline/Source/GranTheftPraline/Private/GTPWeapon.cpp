@@ -762,7 +762,7 @@ UBlendProfile* UGTPWeaponComponent::GetUpperBodyMask()
 	}
 	bUpperBodyMaskTried = true;
 	const ACharacter* Character = Cast<ACharacter>(GetOwner());
-	const USkeletalMesh* BodyMesh = Character && Character->GetMesh() ? Character->GetMesh()->GetSkeletalMeshAsset() : nullptr;
+	USkeletalMesh* BodyMesh = Character && Character->GetMesh() ? Character->GetMesh()->GetSkeletalMeshAsset() : nullptr;
 	USkeleton* Skeleton = BodyMesh ? BodyMesh->GetSkeleton() : nullptr;
 	if (UpperBodyRoot.IsNone() || !Skeleton || Skeleton->GetReferenceSkeleton().FindBoneIndex(UpperBodyRoot) == INDEX_NONE)
 	{
