@@ -98,6 +98,10 @@ def setup(pc, v, yaw_offset):
     yaw = float(v["yaw"]) + yaw_offset
     rot = unreal.Rotator(roll=0.0, pitch=float(v["pitch"]), yaw=yaw)
     cam.set_actor_location_and_rotation(unreal.Vector(v["x_cm"], v["y_cm"], z), rot, False, True)
+    # The game's camera takes the controller's rotation (pov stayed at pitch -10, yaw -71.2 on every
+    # view once the world ran unpaused, PC 13/11): give the controller the view's rotation too.
+    pc.set_control_rotation(rot)
+    cam.get_editor_property("camera_component").set_editor_property("use_pawn_control_rotation", False)
     # Pedestrians and traffic stream around the player: bring the (hidden) pawn 3 m behind the
     # camera, otherwise the crowd stays at the PlayerStart and every view is empty.
     pawn = pc.get_controlled_pawn()
