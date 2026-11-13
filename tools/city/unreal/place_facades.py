@@ -159,6 +159,29 @@ def import_kit():
     return out
 
 
+def kit_collision(meshes):
+    """Complex-as-simple collision on every kit module. The building shells (import_city.py) have
+    no wall behind the facade modules, so without it a pawn walks through a street facade and the
+    camera ends up inside the building: black frames in the 18d and 18dd6fb packages (13/11).
+    Done on reused kits too (idempotent), so an old import gets it. GTP_KIT_COLLISION=0 skips it."""
+    if os.environ.get("GTP_KIT_COLLISION", "1") == "0":
+        return "off"
+    sm_sub = unreal.get_editor_subsystem(unreal.StaticMeshEditorSubsystem)
+    done = 0
+    for mesh in meshes.values():
+        body = mesh.get_editor_property("body_setup")
+        if body is None:
+            continue
+        if body.get_editor_property("collision_trace_flag") != unreal.CollisionTraceFlag.CTF_USE_COMPLEX_AS_SIMPLE:
+            body.set_editor_property("collision_trace_flag", unreal.CollisionTraceFlag.CTF_USE_COMPLEX_AS_SIMPLE)
+            mesh.set_editor_property("body_setup", body)
+            for section in range(mesh.get_num_sections(0)):
+                sm_sub.enable_section_collision(mesh, True, 0, section)
+            eal.save_loaded_asset(mesh)
+        done += 1
+    return done
+
+
 def add_lods(meshes, manifest, report):
     if os.environ.get("GTP_KIT_LODS", "1") == "0":
         report["kit_lods"] = "off"
@@ -469,6 +492,7 @@ def main():
         add_lods(meshes, manifest, report)
         enable_nanite(meshes, report)
     report["kit_modules"] = len(meshes)
+    report["kit_collision"] = kit_collision(meshes)
     if bad:
         report["errors"].append("kit size check failed: %s" % (bad[:4],))
         log("STOP: kit modules do not have their nominal size: %s" % (bad[:4],))
