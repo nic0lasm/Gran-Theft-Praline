@@ -282,7 +282,7 @@ void AGTPGameMode::ApplyPlayerVisual(APawn* Pawn)
 		}
 		const FName Foot(TEXT("foot_l"));
 		const FVector FootRel = M->GetBoneIndex(Foot) != INDEX_NONE
-			? M->GetBoneTransform(Foot, FTransform::Identity).GetLocation() - M->GetComponentLocation() : FVector::ZeroVector;
+			? M->GetSocketTransform(Foot, RTS_Component).GetLocation() : FVector::ZeroVector;
 		UE_LOG(LogGTPGameMode, Log, TEXT("pawn pose probe: anim %s, actor speed %.0f, movement speed %.0f, mode %d, foot_l rel %s, anim tick %d"),
 			M->GetAnimInstance() ? *M->GetAnimInstance()->GetClass()->GetName() : TEXT("none"),
 			C->GetVelocity().Size(), C->GetCharacterMovement() ? C->GetCharacterMovement()->Velocity.Size() : -1.f,
