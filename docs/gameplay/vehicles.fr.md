@@ -266,6 +266,34 @@ Pas de plugin Water ni de volume physique : de simples événements de chevauche
   contourne plus tôt, accélère sous la menace d'une arme ou quand on le percute), craintif
   (15 % : plus lent, sort aussitôt sous la menace).
 
+### 8.5 Deuxième passe du 13/11 : voitures à voler, accidents, armes, sauts en marche
+
+Écrit d'un bloc, pas encore compilé (`GTPIncidentLogic.h`, vérifié hors moteur par
+`tools/vehicles/incident_test`).
+
+- **Voitures garées le long des rues** : une dizaine de vraies voitures (Clio V, 208, Kangoo)
+  garées au bord du trottoir entre 50 et 110 m du joueur, hors de sa vue, retirées au-delà de
+  150 m quand il ne les voit pas. 60 % sont fermées (une vitre à casser), 40 % de celles-ci ont
+  une alarme : le klaxon sonne par à-coups 15 s quand la vitre est cassée ou que la voiture
+  garée est heurtée. Physique seulement à moins de 35 m. `-StreetParked=N` (0 = aucune).
+- **Accidents entre voitures du trafic** (à moins de 80 m du joueur, choc d'au moins
+  4,5 m/s, deux à la fois au plus) : un léger accrochage finit par un coup de klaxon (ou, une
+  fois sur trois, une dispute) ; sinon, une fois sur cinq, celui qui a percuté accélère et
+  s'enfuit pendant que l'autre sort et l'invective ; un conducteur craintif peut s'enfuir à
+  pied ; le plus souvent les deux sortent, s'avancent l'un vers l'autre, se disputent 6 à
+  10 s avec une bousculade de temps en temps, retournent à leur voiture et repartent.
+  Au-delà de 22 m/s, tout le monde s'enfuit. Une arme, un tir ou une voiture volée met fin à
+  la scène : ils s'enfuient. `UGTPTrafficArgueComponent` ; `-TrafficIncidents=0` coupe.
+- **Les conducteurs du trafic sortent vraiment** : braqué, craintif ou après un accident, le
+  conducteur s'arrête et quitte la voiture (avant, `PanicExit` ne faisait rien sur une
+  voiture du trafic).
+- **Réactions aux armes actives par défaut** : sans le système de menace
+  (`-ThreatResponse=1`), le trafic lit lui-même l'arme du joueur : visée (cône de 10 degrés,
+  20 m) et tirs (35 m).
+- **Sortie d'une voiture en marche** : dès 20 km/h (40 avant), le joueur saute, roule ou est
+  projeté, et se blesse, selon la vitesse (ADR-0006).
+- **Tir depuis une voiture** : pas fait ; l'arme ne tire qu'à pied.
+
 ## 9. Préparer une voiture conduisible
 
 ### 9.1 Première voiture d'essai (sans Tripo)

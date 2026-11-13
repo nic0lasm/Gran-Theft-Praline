@@ -11,6 +11,10 @@
 #include "GTPLiteDriver.h"
 #include "GTPHornComponent.h"
 #include "GTPThreat.h"
+#include "GTPIncidentLogic.h"
+#include "GTPTrafficIncident.h"
+#include "GTPWeapon.h"
+#include "GameFramework/Controller.h"
 #include "Misc/ScopeExit.h"
 #include "CoreGlobals.h"
 #include "ChaosWheeledVehicleMovementComponent.h"
@@ -428,6 +432,26 @@ GTPTrafficReact::FOutput UGTPAIDriverComponent::UpdateReactions(AGTPVehicle* Veh
 		{
 			SeenShotSerial = Threats->GetShotSerial();
 			In.bShotNear = FVector::Dist(Threats->GetLastShotFrom(), Location) < Network->ReactShotRange;
+		}
+	}
+	else
+	{
+		// Threat system off (the default): the player's weapon, read by the network.
+		FVector AimOrigin, AimDirection;
+		if (Network->GetPlayerAim(AimOrigin, AimDirection))
+		{
+			const FVector ToCar = Location - AimOrigin;
+			In.bAimedAt = ToCar.Size() < Network->ReactAimRange
+				&& FVector::DotProduct(ToCar.GetSafeNormal(), AimDirection) > FMath::Cos(FMath::DegreesToRadians(Network->ReactAimHalfAngle));
+		}
+		if (SeenShotSerial < 0)
+		{
+			SeenShotSerial = Network->GetPlayerShotSerial();
+		}
+		if (Network->GetPlayerShotSerial() != SeenShotSerial)
+		{
+			SeenShotSerial = Network->GetPlayerShotSerial();
+			In.bShotNear = FVector::Dist(Network->GetPlayerShotFrom(), Location) < Network->ReactShotRange;
 		}
 	}
 	In.bHitByPlayer = Vehicle->ConsumeHitByPlayer();
@@ -1706,6 +1730,9 @@ void AGTPTrafficNetwork::Tick(float DeltaSeconds)
 	}
 	UpdateSignalHeads();
 	UpdateReactDemo();
+	UpdatePlayerShots(Player);
+	UpdateStreetParked(Player);
+	UpdateIncidents(Player);
 	AIDrivers.RemoveAll([](const TWeakObjectPtr<UGTPAIDriverComponent>& Weak) { return !Weak.IsValid(); });
 
 	// New cars out of sight: one a second when it means spawning an actor (no burst of spawns),
@@ -1995,4 +2022,235 @@ float AGTPTrafficNetwork::GapAlongLanes(const UGTPAIDriverComponent* Driver, flo
 		}
 	}
 	return Best;
+}
+
+// --- The player's weapon, read when the threat system is off ------------------
+
+bool AGTPTrafficNetwork::GetPlayerAim(FVector& OutOrigin, FVector& OutDirection) const
+{
+	const APawn* Player = UGameplayStatics::GetPlayerPawn(this, 0);
+	const UGTPWeaponComponent* Weapon = Player ? Player->FindComponentByClass<UGTPWeaponComponent>() : nullptr;
+	if (!Weapon || !Weapon->IsAiming() || !Player->GetController())
+	{
+		return false;
+	}
+	OutOrigin = Player->GetActorLocation();
+	OutDirection = Player->GetController()->GetControlRotation().Vector();
+	return true;
+}
+
+void AGTPTrafficNetwork::UpdatePlayerShots(const APawn* Player)
+{
+	// A magazine that went down since the last tick: shots were fired (a reload raises it).
+	const UGTPWeaponComponent* Weapon = Player ? Player->FindComponentByClass<UGTPWeaponComponent>() : nullptr;
+	if (!Weapon)
+	{
+		LastPlayerMagazine = -1;
+		return;
+	}
+	const int32 Magazine = Weapon->GetMagazine();
+	if (LastPlayerMagazine >= 0 && Magazine < LastPlayerMagazine)
+	{
+		++PlayerShotSerial;
+		PlayerShotFrom = Player->GetActorLocation();
+		GTP_TRACE(LogGTPTraffic, TEXT("traffic: player fired %d shot(s)"), LastPlayerMagazine - Magazine);
+	}
+	LastPlayerMagazine = Magazine;
+}
+
+// --- Real cars parked along the streets, to steal --------------------------------
+
+void AGTPTrafficNetwork::UpdateStreetParked(const APawn* Player)
+{
+	if (StreetParkedWanted < 0)
+	{
+		int32 Count = NumStreetParked;
+		FParse::Value(FCommandLine::Get(), TEXT("StreetParked="), Count);
+		StreetParkedWanted = FMath::Max(0, Count);
+		GTP_TRACE(LogGTPTraffic, TEXT("traffic: %d street parked cars to steal (-StreetParked=N)"), StreetParkedWanted);
+	}
+	const int32 Wanted = StreetParkedWanted;
+	if (!Player || Wanted == 0 || Lanes.Num() == 0)
+	{
+		return;
+	}
+	const FVector PlayerLocation = Player->GetActorLocation();
+	for (int32 Index = StreetParked.Num() - 1; Index >= 0; --Index)
+	{
+		AGTPVehicle* Car = StreetParked[Index].Car.Get();
+		if (!IsValid(Car))
+		{
+			StreetParked.RemoveAt(Index);
+			continue;
+		}
+		// Taken by someone, or wrecked: not ours to manage any more.
+		if (Car->GetDriver() != nullptr || Car->GetVehicleState() != EGTPVehicleState::Parked || Car->IsWrecked())
+		{
+			Car->SetParkedAsleep(false);
+			StreetParked.RemoveAt(Index);
+			continue;
+		}
+		const float Distance = static_cast<float>(FVector::Dist2D(Car->GetActorLocation(), PlayerLocation));
+		Car->SetParkedAsleep(Distance > StreetParkedWakeDistance);
+		if (Distance > StreetParkedRemoveDistance && !IsSeenByPlayer(Car->GetActorLocation()))
+		{
+			Car->Destroy();
+			StreetParked.RemoveAt(Index);
+		}
+	}
+	const double Now = GetWorld()->GetTimeSeconds();
+	if (StreetParked.Num() >= Wanted || Now < NextStreetParkedTime)
+	{
+		return;
+	}
+	// One a second, out of sight, 50 to 110 m away in a random direction.
+	NextStreetParkedTime = Now + 1.0;
+	const float Angle = Random.FRandRange(0.f, 6.2831853f);
+	const float Range = Random.FRandRange(6000.f, 9500.f);
+	const FVector Near = PlayerLocation + FVector(FMath::Cos(Angle), FMath::Sin(Angle), 0.f) * Range;
+	AGTPVehicle* Car = SpawnParkedVehicle(TEXT("GTPStreetParked"), Near, 1500.f);
+	if (!Car)
+	{
+		return;
+	}
+	if (FVector::Dist2D(Car->GetActorLocation(), PlayerLocation) < 4000.f || IsSeenByPlayer(Car->GetActorLocation()))
+	{
+		// Popped up close or in view: no.
+		Car->Destroy();
+		return;
+	}
+	Car->bLocked = Random.FRand() < StreetParkedLockedShare;
+	Car->bAlarm = Car->bLocked && Random.FRand() < StreetParkedAlarmShare;
+	Car->SetParkedAsleep(true);
+	StreetParked.Add({Car, Now});
+	GTP_TRACE(LogGTPTraffic, TEXT("traffic: street parked %s%s%s (%d/%d)"), *Car->GetName(), Car->bLocked ? TEXT(" locked") : TEXT(""),
+		Car->bAlarm ? TEXT(" alarm") : TEXT(""), StreetParked.Num(), Wanted);
+}
+
+// --- Crashes between traffic cars (GTPIncidentLogic.h) ----------------------------
+
+void AGTPTrafficNetwork::UpdateIncidents(const APawn* Player)
+{
+	for (int32 Index = IncidentCars.Num() - 1; Index >= 0; --Index)
+	{
+		AGTPVehicle* Car = IncidentCars[Index].Get();
+		if (!IsValid(Car) || Car->HasAIDriver() || (Car->GetDriver() && Car->GetDriver()->IsPlayerControlled()))
+		{
+			IncidentCars.RemoveAt(Index);
+			continue;
+		}
+		// Left in the street (the driver ran): taken away far out of sight.
+		if (!Car->GetDriver() && Player && FVector::Dist2D(Car->GetActorLocation(), Player->GetActorLocation()) > StreetParkedRemoveDistance
+			&& !IsSeenByPlayer(Car->GetActorLocation()))
+		{
+			Car->Destroy();
+			IncidentCars.RemoveAt(Index);
+		}
+	}
+}
+
+void AGTPTrafficNetwork::NotifyTrafficCrash(AGTPVehicle* A, AGTPVehicle* B, float SpeedChange)
+{
+	static const bool bIncidents = []
+	{
+		int32 Switch = 1;
+		FParse::Value(FCommandLine::Get(), TEXT("TrafficIncidents="), Switch);
+		return Switch != 0;
+	}();
+	const APawn* Player = UGameplayStatics::GetPlayerPawn(this, 0);
+	if (!bIncidents || !A || !B || !Player || SpeedChange < IncidentMinSpeedChange || IncidentCars.Num() >= MaxIncidents * 2
+		|| !A->HasAIDriver() || !B->HasAIDriver() || IncidentCars.Contains(A) || IncidentCars.Contains(B)
+		|| FVector::Dist2D(A->GetActorLocation(), Player->GetActorLocation()) > IncidentRange)
+	{
+		return;
+	}
+	UGTPAIDriverComponent* DriverA = A->FindComponentByClass<UGTPAIDriverComponent>();
+	UGTPAIDriverComponent* DriverB = B->FindComponentByClass<UGTPAIDriverComponent>();
+	ACharacter* PersonA = A->GetDriver();
+	ACharacter* PersonB = B->GetDriver();
+	// Traffic of this network only: police and mission drivers have their own rules.
+	if (A->ActorHasTag(TEXT("GTPPolice")) || B->ActorHasTag(TEXT("GTPPolice")) || !DriverA || !DriverB
+		|| DriverA->GetNetwork() != this || DriverB->GetNetwork() != this)
+	{
+		return;
+	}
+	if (DriverA->IsGhost() || DriverB->IsGhost() || !PersonA || !PersonB
+		|| !Cast<AAIController>(PersonA->GetController()) || !Cast<AAIController>(PersonB->GetController()))
+	{
+		return;
+	}
+	const bool bTimidA = DriverA->GetTemperament() == GTPTrafficReact::ETemperament::Timid;
+	const bool bTimidB = DriverB->GetTemperament() == GTPTrafficReact::ETemperament::Timid;
+	const GTPIncident::FSettings IncidentSettings;
+	const GTPIncident::EOutcome Outcome = GTPIncident::PickOutcome(Random.FRand(), SpeedChange, bTimidA || bTimidB, IncidentSettings);
+	// The one going faster hit the other.
+	const bool bAStruck = FMath::Abs(A->GetSpeedKmh()) >= FMath::Abs(B->GetSpeedKmh());
+	AGTPVehicle* Striker = bAStruck ? A : B;
+	AGTPVehicle* Struck = bAStruck ? B : A;
+	const FVector Where = (A->GetActorLocation() + B->GetActorLocation()) * 0.5;
+	GTP_TRACE(LogGTPTraffic, TEXT("traffic incident: %s and %s crashed (%.0f cm/s): %s"), *A->GetName(), *B->GetName(), SpeedChange,
+		UTF8_TO_TCHAR(GTPIncident::OutcomeName(Outcome)));
+	switch (Outcome)
+	{
+	case GTPIncident::EOutcome::DriveOn:
+		// Shaken, a blast of the horn, and on.
+		DriverA->InjectReaction(false, false, true);
+		DriverB->InjectReaction(false, false, true);
+		return;
+	case GTPIncident::EOutcome::HitAndRun:
+	{
+		Striker->FindComponentByClass<UGTPAIDriverComponent>()->InjectReaction(false, true, false);
+		UGTPTrafficArgueComponent::Start(Struck->GetDriver(), Struck, nullptr, this);
+		IncidentCars.Add(Struck);
+		return;
+	}
+	case GTPIncident::EOutcome::FleeOnFoot:
+		if (SpeedChange >= IncidentSettings.PanicSpeedChange)
+		{
+			A->AIGetOut(true, Where);
+			B->AIGetOut(true, Where);
+		}
+		else
+		{
+			// The timid one runs, the other gets out and shouts after them.
+			AGTPVehicle* Runner = bTimidA ? A : B;
+			AGTPVehicle* Stayer = Runner == A ? B : A;
+			ACharacter* RunnerPerson = Runner->GetDriver();
+			Runner->AIGetOut(true, Where);
+			UGTPTrafficArgueComponent::Start(Stayer->GetDriver(), Stayer, RunnerPerson, this);
+		}
+		IncidentCars.Add(A);
+		IncidentCars.Add(B);
+		return;
+	case GTPIncident::EOutcome::Argue:
+		UGTPTrafficArgueComponent::Start(PersonA, A, PersonB, this);
+		UGTPTrafficArgueComponent::Start(PersonB, B, PersonA, this);
+		IncidentCars.Add(A);
+		IncidentCars.Add(B);
+		return;
+	}
+}
+
+bool AGTPTrafficNetwork::ReclaimCar(AGTPVehicle* Car, ACharacter* Driver)
+{
+	if (!IsValid(Car) || !IsValid(Driver) || Car->IsWrecked() || Car->GetDriver() || Car->GetVehicleState() != EGTPVehicleState::Parked)
+	{
+		return false;
+	}
+	UGTPAIDriverComponent* AIDriver = Car->FindComponentByClass<UGTPAIDriverComponent>();
+	int32 Lane = INDEX_NONE, Point = 0;
+	if (!AIDriver || !FindNearestLane(Car->GetActorLocation(), static_cast<float>(Car->GetActorRotation().Yaw), 800.f, Lane, Point))
+	{
+		return false;
+	}
+	Car->SeatOccupant(Driver);
+	if (!Car->HasAIDriver())
+	{
+		return false;
+	}
+	AIDriver->Start(this, Lane, Point);
+	Cars.AddUnique(Car);
+	IncidentCars.Remove(Car);
+	GTP_TRACE(LogGTPTraffic, TEXT("traffic incident: %s back in %s, drives on from lane %d"), *Driver->GetName(), *Car->GetName(), Lane);
+	return true;
 }

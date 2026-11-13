@@ -258,6 +258,31 @@ Written in one batch, compiled and tried later (`GTPCarjackLogic.h`, checked off
   temperament: calm (55 %), hurried (30 %: 15 % faster, honks and goes round sooner, floors
   it at gunpoint or when rammed), timid (15 %: slower, gets out at once at gunpoint).
 
+### 8.5 Second pass of 13/11: cars to steal, crashes, guns, bailing out
+
+Written in one batch, not compiled yet (`GTPIncidentLogic.h`, checked offline by
+`tools/vehicles/incident_test`).
+
+- **Cars parked along the streets**: about ten real cars (Clio V, 208, Kangoo) are parked at
+  the kerb 50 to 110 m around the player, out of sight, and taken away beyond 150 m when
+  unseen. 60 % are locked (a window to break), 40 % of those have an alarm: the horn pulses
+  for 15 s when the window is broken or the parked car is hit. Physics only within 35 m.
+  `-StreetParked=N` (0 = none).
+- **Crashes between traffic cars** (within 80 m of the player, a change of speed of
+  4.5 m/s or more, two at a time at most): a light bump ends in a blast of the horn (or, one
+  time in three, an argument); otherwise one time in five the one who hit floors it while
+  the other gets out and shouts after them; a timid driver may run away on foot; most often
+  both get out, walk up to each other, argue 6 to 10 s with a shove now and then, walk back
+  and drive on. Above 22 m/s everyone runs. A gun, a shot or a stolen car ends it: they run.
+  `UGTPTrafficArgueComponent`; `-TrafficIncidents=0` turns it off.
+- **Traffic drivers get out for real**: a driver at gunpoint, a timid one, or after a crash
+  now stops and leaves the car (before, `PanicExit` did nothing on a traffic car).
+- **Reactions to guns on by default**: without the threat system (`-ThreatResponse=1`), the
+  traffic reads the player's weapon itself: aiming (cone of 10 degrees, 20 m) and shots (35 m).
+- **Bailing out of a moving car**: from 20 km/h (40 before) the player jumps, rolls or is
+  thrown, and is hurt, depending on the speed (ADR-0006).
+- **Shooting from a car**: not done; the weapon only fires on foot.
+
 ## 9. Making a drivable car
 
 ### 9.1 First test car (no Tripo)

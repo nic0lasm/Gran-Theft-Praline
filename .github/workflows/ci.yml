@@ -105,6 +105,12 @@ jobs:
           /tmp/carjack_test
           printf '#include "GTPCarjackLogic.h"\nint main() { return 0; }\n' > /tmp/hdr.cpp
           clang++ -std=c++17 -fsyntax-only -Wall -Wextra -Werror -Wconversion -Wsign-conversion -Wshadow -Wdouble-promotion -I GranTheftPraline/Source/GranTheftPraline/Public /tmp/hdr.cpp
+      - name: Crashes between traffic cars and arguing drivers
+        run: |
+          g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/incident_test/incident_test.cpp -o /tmp/incident_test
+          /tmp/incident_test
+          printf '#include "GTPIncidentLogic.h"\nint main() { return 0; }\n' > /tmp/hdr.cpp
+          clang++ -std=c++17 -fsyntax-only -Wall -Wextra -Werror -Wconversion -Wsign-conversion -Wshadow -Wdouble-promotion -I GranTheftPraline/Source/GranTheftPraline/Public /tmp/hdr.cpp
       - name: Far traffic drawn as instances
         run: |
           g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/far_test/far_test.cpp -o /tmp/far_test
