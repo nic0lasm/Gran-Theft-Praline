@@ -30,6 +30,10 @@ WARMUP_S, SETTLE_S, AFTER_SHOT_S = 15.0, 12.0, 2.0  # settle covers crowd spawn 
 with open(SPEC, encoding="utf-8") as f:
     VIEWS = json.load(f)["views"]
 SHOTS = []
+# The first shot of a run came out as the player's view (V0, cand20) although the camera actor was
+# the view target: shoot the first view once more at the start, as a throwaway "_warm" image.
+if VIEWS:
+    SHOTS.append((VIEWS[0], 0.0, "_warm"))
 for v in VIEWS:
     SHOTS.append((v, 0.0, v["id"]))
     if FAN:
@@ -114,12 +118,15 @@ def hide_ui(pc):
             hud.set_editor_property("show_hud", False)
     except Exception as e:  # noqa: BLE001
         state.setdefault("ui_errors", []).append(repr(e))
-    try:
-        for w in unreal.WidgetBlueprintLibrary.get_all_widgets_of_class(pc.get_world(), unreal.UserWidget, True):
-            if w.get_visibility() != unreal.SlateVisibility.HIDDEN:
+    try:   # WidgetBlueprintLibrary is not exposed to Python on Windows (cand20): iterate the widgets
+        for w in unreal.ObjectIterator(unreal.UserWidget):
+            if w.is_in_viewport() and w.get_visibility() != unreal.SlateVisibility.HIDDEN:
                 w.set_visibility(unreal.SlateVisibility.HIDDEN)
     except Exception as e:  # noqa: BLE001
         state.setdefault("ui_errors", []).append(repr(e))
+    if not state.get("messages_off"):
+        state["messages_off"] = True
+        cmd(pc, "DisableAllScreenMessages")
 
 
 def tick(dt):
