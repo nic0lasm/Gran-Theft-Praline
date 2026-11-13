@@ -677,8 +677,13 @@ USoundBase* UGTPAudioMix::PickWeaponFor(FName Weapon, EGTPWeaponSound Sound, flo
 			USoundBase* Loaded = Cast<USoundBase>(Path->TryLoad());
 			if (Loaded)
 			{
-				// In memory only, like the banks: the game plays it through its Weapons class.
+				// In memory only, like the banks: the game plays it through its Weapons class and
+				// the main submix. Recorded sounds from sample projects (Lyra) bring their own
+				// submixes, sends and modulation buses that no code of ours drives: cut them off.
 				Loaded->SoundClassObject = GetClass(EGTPAudioCategory::Weapons);
+				Loaded->SoundSubmixObject = nullptr;
+				Loaded->SoundSubmixSends.Reset();
+				Loaded->ModulationSettings = FSoundModulationDefaultRoutingSettings();
 			}
 			GTP_TRACE(LogGTPAudio, TEXT("[Audio] weapon %s: %s %s"), *Voice->Weapon.ToString(), *Key, Loaded ? TEXT("loaded") : TEXT("missing, synthesised sound kept"));
 			WeaponOverrides.Add(Key, Loaded);

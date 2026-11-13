@@ -99,7 +99,9 @@ are called directly by the combat code. Nothing is bound under `-Combat=0`.
   (Lyra sample content, migrated on the PC, not in Git). When they do not load, the synthesised
   sounds play, pitched 0.86 and 15 % louder for the carbine. The far shot and the street tail stay
   synthesised. Automatic fire gets one tail and one panic broadcast per 0.3 s burst. The player's
-  own shots never whizz, on foot or through the window of the car they drive.
+  own shots never whizz, on foot or through the window of the car they drive. The recorded
+  sounds are routed through our Weapons class and the main submix only: their own Lyra
+  submixes, sends and modulation buses are cut off in memory (nothing of ours drives them).
 
 ## Interiors and missions (0.9)
 

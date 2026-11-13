@@ -104,7 +104,10 @@ code du combat. Rien n'est branché sous `-Combat=0`.
     abaissés (hauteur 0,86) et 15 % plus forts ;
   - le tir lointain et la traîne de rue restent synthétisés ;
   - en tir automatique, une seule traîne et une seule alerte de panique par rafale de 0,3 s ;
-  - les tirs du joueur ne sifflent jamais à ses oreilles, à pied comme par la vitre de sa voiture.
+  - les tirs du joueur ne sifflent jamais à ses oreilles, à pied comme par la vitre de sa voiture ;
+  - les sons enregistrés passent seulement par notre classe Weapons et le submix principal ;
+    leurs submixes, envois et bus de modulation Lyra sont coupés en mémoire, car aucun code de
+    chez nous ne les pilote.
 ## Intérieurs et missions (0.9)
 
 `tools/audio/make_places.py` (graine 17, 32 fichiers, aucun enregistrement) écrit trois dossiers :
