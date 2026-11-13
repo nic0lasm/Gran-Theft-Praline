@@ -86,6 +86,14 @@ void UGTPWantedComponent::ReportCrime(EGTPCrimeKind Kind, const FVector& Locatio
 	{
 		return;
 	}
+	// The combat bench (-CombatBench=1) must play the same scene every pass: no police reaction to it.
+	if (const UGTPCombatSubsystem* Combat = UGTPCombatSubsystem::Get(this))
+	{
+		if (Combat->IsBenchRunning())
+		{
+			return;
+		}
+	}
 	if (Kind != EGTPCrimeKind::ArmedThreat)
 	{
 		// Every crime makes noise the police units nearby can hear (a shot, a crash, a scream).
@@ -544,7 +552,8 @@ void UGTPWantedComponent::OnBusted()
 	if (bArrestTakesWeapon && PC->GetPawn())
 	{
 		// Hands up: the weapon is holstered and the police keep it and the ammunition.
-		if (UGTPWeaponComponent* Weapon = PC->GetPawn()->FindComponentByClass<UGTPWeaponComponent>())
+		// FindHeld also finds the gun of a driver still seated (the exit is not over yet).
+		if (UGTPWeaponComponent* Weapon = UGTPWeaponComponent::FindHeld(PC->GetPawn()))
 		{
 			Weapon->SetDrawn(false);
 			Weapon->StripAmmo();
