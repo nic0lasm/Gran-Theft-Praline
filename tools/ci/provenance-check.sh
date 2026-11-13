@@ -35,7 +35,14 @@ if git grep -Iil -E "$MARKERS" HEAD -- . ; then
   err "forbidden markers found in tracked files (see above)"
 fi
 
-# 4. Branch naming
+# 4. Machine paths in tracked contents (a user's home, a work drive): the repository is public.
+# Stored encoded so this file does not trip its own check; /Users/Shared (the engine install) is allowed.
+PATHS="$(printf '%s' 'KFtBLVphLXpdOltcXC9dK1VzZXJzW1xcL10pfCgvVXNlcnMvW0EtWmEtejAtOS5fLV0rLyl8KFtBLVphLXpdOltcXC9dK0dUQUwtV29yayl8KFwuXC4vVXNlcnMvKXwoL2hvbWUvW2EtejAtOS5fLV0rLyk=' | base64 -d)"
+if git grep -IEn "$PATHS" HEAD -- . | grep -vE '/Users/Shared/'; then
+  err "machine paths found in tracked files (see above): use <project>, UE_ROOT or an argument instead"
+fi
+
+# 5. Branch naming
 branch="${GITHUB_HEAD_REF:-${GITHUB_REF_NAME:-$(git rev-parse --abbrev-ref HEAD)}}"
 case "$branch" in
   main|next|feat/*|fix/*) ;;
