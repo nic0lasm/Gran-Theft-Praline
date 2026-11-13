@@ -137,8 +137,9 @@ What the batch adds on top of the above:
   | From a car | yes (one hand) | no (two hands) |
 
   The player carries both; police and shop staff only the pistol. Switching takes 0.45 s.
-- **Over-the-shoulder aim**: while aiming, the on-foot camera (`UGTPFollowCameraComponent`) comes in to 135 cm
-  behind the shoulder, 58 cm to the side, 62° field of view, no auto-recenter. The shoulder swap slides across.
+- **Over-the-shoulder aim**: while aiming, the on-foot camera (`UGTPFollowCameraComponent`) comes in to 175 cm
+  behind the shoulder, 52 cm to the side, 4 cm up, 60° field of view, no auto-recenter: the character in the lower
+  left third, head to waist, arms and gun in view (135 cm and 14 cm up showed only the head). The shoulder swap slides across.
   `Aim*` settings in `DefaultGame.ini`.
 - **Gamepad aim assist**: the left trigger snaps to the body nearest the reticle (9°, 40 m, police first, never
   a dead body or someone behind a wall). The mouse is never assisted.

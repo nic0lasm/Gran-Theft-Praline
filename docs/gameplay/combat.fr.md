@@ -140,8 +140,9 @@ Ce que le lot ajoute, au-dessus de ce qui précède :
   | Depuis une voiture | oui (une main) | non (deux mains) |
 
   Le joueur a les deux ; la police et le personnel n'ont que le pistolet. Changer d'arme prend 0,45 s.
-- **Visée à l'épaule** : en visant, la caméra à pied (`UGTPFollowCameraComponent`) passe à 135 cm derrière
-  l'épaule, décalée de 58 cm, champ 62°, sans recentrage automatique. Le changement d'épaule glisse d'un côté à
+- **Visée à l'épaule** : en visant, la caméra à pied (`UGTPFollowCameraComponent`) passe à 175 cm derrière
+  l'épaule, décalée de 52 cm, 4 cm plus haut, champ 60°, sans recentrage automatique : le personnage dans le tiers
+  bas gauche, de la tête à la taille, bras et arme visibles (135 cm et 14 cm plus haut ne montraient que la tête). Le changement d'épaule glisse d'un côté à
   l'autre. Réglages `Aim*` dans `DefaultGame.ini`.
 - **Visée assistée à la manette** : la gâchette gauche accroche le corps le plus proche du réticule (9°, 40 m,
   les policiers d'abord, jamais un mort ni quelqu'un derrière un mur). La souris n'est jamais assistée.
