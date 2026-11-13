@@ -30,10 +30,10 @@ COLUMNS = ["kind", "x", "y", "z", "yaw", "pitch", "width_cm", "height_cm", "lume
            "shadow", "map"]
 
 # W1-04: old-style lamp, 4.5 m high, lantern centre about 0.4 m under the top.
-STREET_LAMP = dict(catalog="W1-04", head_cm=410.0, lumens=6000.0, kelvin=3000.0, radius_cm=2500.0)
+STREET_LAMP = dict(catalog="W1-04", head_cm=410.0, lumens=3000.0, kelvin=3000.0, radius_cm=2000.0)
 # Shop front: light just outside the window, near its top, aimed down at the pavement.
 SHOP = dict(out_cm=60.0, height_cm=260.0, pitch=-25.0, width_share=0.8, panel_height_cm=150.0,
-            lumens=2500.0, kelvin=4000.0, radius_cm=1200.0)
+            lumens=1500.0, kelvin=4000.0, radius_cm=1000.0)
 SHOP_KINDS = ("shop", "shopfront_closed", "gf_window")
 SCONCE = dict(catalog="W14-43", lumens=800.0, kelvin=2700.0, radius_cm=800.0, out_cm=25.0)
 
