@@ -137,7 +137,7 @@ public:
 	int32 GetOfficerCount() const { return Officers.Num(); }
 
 	/** The police eyes and ears (AIPerception), set by the director; null with -PolicePerception=0. */
-	void SetSenses(UGTPPoliceSenses* InSenses) { Senses = InSenses; }
+	void SetSenses(UGTPPoliceSenses* InSenses);
 
 	/** Seconds since a unit last had the player in sight. */
 	float GetSecondsSinceSeen() const;

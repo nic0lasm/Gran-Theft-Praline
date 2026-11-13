@@ -70,6 +70,11 @@ UGTPWantedComponent* UGTPWantedComponent::Find(const UObject* WorldContext)
 	return PC ? PC->FindComponentByClass<UGTPWantedComponent>() : nullptr;
 }
 
+void UGTPWantedComponent::SetSenses(UGTPPoliceSenses* InSenses)
+{
+	Senses = InSenses;
+}
+
 float UGTPWantedComponent::GetSecondsSinceSeen() const
 {
 	return GetWorld() ? static_cast<float>(GetWorld()->GetTimeSeconds()) - LastSeenTime : 1000.f;
@@ -571,7 +576,7 @@ void UGTPWantedComponent::EndBusted()
 			}
 			if (!bMoved)
 			{
-				if (const AGameModeBase* GameMode = GetWorld()->GetAuthGameMode())
+				if (AGameModeBase* GameMode = GetWorld()->GetAuthGameMode())
 				{
 					if (const AActor* Start = GameMode->FindPlayerStart(PC))
 					{
