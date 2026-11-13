@@ -40,6 +40,17 @@ Status 13/11/2026: prepared, not compiled, waiting for City Sample on the PC. De
    cars, driving cars, started in that order).
 5. Package, launch with `-Traffic=mass`.
 
+## City Sample's car Blueprints
+
+They derive from `ACitySampleMassVehicleBase`, a class of the City Sample game module (not of the
+Traffic plugin), which our project does not have. Read from its interface only: an actor with a
+Mass agent component, poolable by Mass, and one Blueprint-callable function (wheel motion blur).
+`AGTPMassVehicleBase` (module GTPMass) is our own version of that, and a CoreRedirect in
+`Config/DefaultEngine.ini` points the old class at it, so the Blueprints load as they are. Copying
+the City Sample game module instead was ruled out: a whole game module (game mode, player, HUD,
+crowd) with its own plugin dependencies, for one small base class. The wheel blur is left out
+(wheels stay sharp).
+
 ## Open points
 
 - Near the player MassTraffic swaps its entities for physics actors from its own Blueprints. For
