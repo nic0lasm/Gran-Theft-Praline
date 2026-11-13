@@ -16,6 +16,7 @@
 #include "GTPWeapon.h"
 #include "GameFramework/Controller.h"
 #include "Misc/ScopeExit.h"
+#include "Modules/ModuleManager.h"
 #include "CoreGlobals.h"
 #include "ChaosWheeledVehicleMovementComponent.h"
 #include "AIController.h"
@@ -1032,7 +1033,17 @@ void AGTPTrafficNetwork::BeginPlay()
 		Lights.NumSignalledJunctions(), SignalHeads.Num());
 
 	WantedCars = NumCars;
-	FParse::Value(FCommandLine::Get(), TEXT("Traffic="), WantedCars);
+	if (IsMassTrafficRequested())
+	{
+		// MassTraffic drives the cars (module GTPMass); lights, street parked cars and police stay here.
+		// Without the plugin: the legacy traffic, as if nothing was asked.
+		WantedCars = IsMassTrafficWanted() ? 0 : NumCars;
+		GTP_TRACE(LogGTPTraffic, TEXT("traffic: -Traffic=mass, MassTraffic %s"), IsMassTrafficWanted() ? TEXT("drives") : TEXT("missing, legacy traffic"));
+	}
+	else
+	{
+		FParse::Value(FCommandLine::Get(), TEXT("Traffic="), WantedCars);
+	}
 	WantedCars = FMath::Clamp(WantedCars, 0, 40);
 	int32 VehicleLodSwitch = bVehicleLod ? 1 : 0;
 	FParse::Value(FCommandLine::Get(), TEXT("VehicleLod="), VehicleLodSwitch);
@@ -2260,4 +2271,17 @@ bool AGTPTrafficNetwork::ReclaimCar(AGTPVehicle* Car, ACharacter* Driver)
 	IncidentCars.Remove(Car);
 	GTP_TRACE(LogGTPTraffic, TEXT("traffic incident: %s back in %s, drives on from lane %d"), *Driver->GetName(), *Car->GetName(), Lane);
 	return true;
+}
+
+// --- MassTraffic switch (module GTPMass) -------------------------------------------
+
+bool AGTPTrafficNetwork::IsMassTrafficRequested()
+{
+	FString Mode;
+	return FParse::Value(FCommandLine::Get(), TEXT("Traffic="), Mode) && Mode.Equals(TEXT("mass"), ESearchCase::IgnoreCase);
+}
+
+bool AGTPTrafficNetwork::IsMassTrafficWanted()
+{
+	return IsMassTrafficRequested() && FModuleManager::Get().IsModuleLoaded(TEXT("MassTraffic"));
 }
