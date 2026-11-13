@@ -122,6 +122,8 @@ private:
 	FGTPDriveSettings ChaseSettings;
 	double NextRouteBuild = 0.0;
 	double ChaseSlowSince = 0.0;
+	int ChaseLastClosest = 0;
+	double ChaseProgressTime = 0.0;
 	double NextRouteDiag = 0.0;
 	double NextChaseLog = 0.0;
 	double CarjackRetarget = 0.0;

@@ -223,6 +223,48 @@ bool UGTPDemoRoute::Tick(float DeltaTime)
 	return bKeepGoing;
 }
 
+namespace
+{
+	/** Length (cm) of the straightest way on from a lane, never the same lane twice (0 for a dead end): the same walk as the chase route. */
+	double GreedyRouteLengthCm(const TArray<FGTPTrafficLane>& Lanes, int32 StartLane)
+	{
+		TSet<int32> Used;
+		int32 Lane = StartLane;
+		double Length = 0.0;
+		for (int32 Count = 0; Lane != INDEX_NONE && Count < 40; ++Count)
+		{
+			Used.Add(Lane);
+			const TArray<FVector>& Points = Lanes[Lane].Points;
+			for (int32 Index = 1; Index < Points.Num(); ++Index)
+			{
+				Length += FVector::Dist2D(Points[Index], Points[Index - 1]);
+			}
+			if (Points.Num() < 2)
+			{
+				break;
+			}
+			const FVector Last = (Points.Last() - Points[Points.Num() - 2]).GetSafeNormal2D();
+			int32 Best = INDEX_NONE;
+			float BestDot = -2.f;
+			for (const int32 Candidate : Lanes[Lane].Next)
+			{
+				if (!Lanes.IsValidIndex(Candidate) || Used.Contains(Candidate) || Lanes[Candidate].Points.Num() < 2)
+				{
+					continue;
+				}
+				const float Dot = static_cast<float>(FVector::DotProduct(Last, (Lanes[Candidate].Points[1] - Lanes[Candidate].Points[0]).GetSafeNormal2D()));
+				if (Dot > BestDot)
+				{
+					BestDot = Dot;
+					Best = Candidate;
+				}
+			}
+			Lane = Best;
+		}
+		return Length;
+	}
+}
+
 bool UGTPDemoRoute::RelocateChaseCar(AGTPVehicle* Driven, APlayerController* PC, double Now)
 {
 	if (!Driven || Now < NextRelocate)
@@ -245,6 +287,10 @@ bool UGTPDemoRoute::RelocateChaseCar(AGTPVehicle* Driven, APlayerController* PC,
 						if (Lane.Points.Num() < 10 || Lane.Next.Num() == 0)
 						{
 							continue;
+						}
+						if (GreedyRouteLengthCm(Lanes, static_cast<int32>(&Lane - Lanes.GetData())) < 15000.0)
+						{
+							continue; // a dead end of the map: the route would end at once
 						}
 						const int32 Index = Lane.Points.Num() / 3;
 						const FVector Point = Lane.Points[Index];
@@ -375,6 +421,8 @@ bool UGTPDemoRoute::DriveChaseRoute(AGTPVehicle* Driven, APlayerController* PC, 
 		ChaseSettings.SafeGap = 5.f;
 		ChaseSettings.ThrottleGain = 0.8f;
 		BuildChaseRoute(**Network, *Driven);
+		ChaseLastClosest = 0;
+		ChaseProgressTime = Now;
 	}
 	if (ChasePath.empty())
 	{
@@ -389,21 +437,19 @@ bool UGTPDemoRoute::DriveChaseRoute(AGTPVehicle* Driven, APlayerController* PC, 
 		RelocateChaseCar(Driven, PC, Now);
 		return true;
 	}
-	if (T > 4.0 && FMath::Abs(SpeedKmh) < 3.f)
+	// Held up: the route does not advance for 5 s (a car turning on the spot is not at rest, so speed alone is not enough).
+	if (ChaseClosest > ChaseLastClosest + 1 || ChaseLastClosest > ChaseClosest)
 	{
-		ChaseSlowSince = ChaseSlowSince <= 0.0 ? Now : ChaseSlowSince;
-		if (Now - ChaseSlowSince > 4.0)
-		{
-			ChaseSlowSince = 0.0;
-			ChasePath.clear();
-			GTP_TRACE(LogGTPDemo, TEXT("Demo chase: held up at %s, the car is moved on"), *Location.ToCompactString());
-			RelocateChaseCar(Driven, PC, Now);
-			return true;
-		}
+		ChaseLastClosest = ChaseClosest;
+		ChaseProgressTime = Now;
 	}
-	else
+	if (T > 4.0 && Now - ChaseProgressTime > 5.0)
 	{
-		ChaseSlowSince = 0.0;
+		ChaseProgressTime = Now;
+		ChasePath.clear();
+		GTP_TRACE(LogGTPDemo, TEXT("Demo chase: held up at %s, the car is moved on"), *Location.ToCompactString());
+		RelocateChaseCar(Driven, PC, Now);
+		return true;
 	}
 	const float Obstacle = UGTPAIDriverComponent::ProbeAhead(Driven, 900.f, 60.f);
 	FGTPDriveCommand Command = GTPDrive::Decide(ChasePath, static_cast<float>(Location.X) * 0.01f, static_cast<float>(Location.Y) * 0.01f,
