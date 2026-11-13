@@ -19,6 +19,12 @@ class UPointLightComponent;
 /** Fired when the player is arrested (after the level was cleared). */
 DECLARE_MULTICAST_DELEGATE(FGTPArrestedDelegate);
 
+/** Fired once when police close in on a player who cannot get away: "Police! Don't move!" (sound, subtitle). */
+DECLARE_MULTICAST_DELEGATE(FGTPArrestWarningDelegate);
+
+/** Fired when the player dies (the level is cleared at the respawn, as in GTA: wasted). */
+DECLARE_MULTICAST_DELEGATE(FGTPWastedDelegate);
+
 /** Fired when the stars or the phase change (Clear, Pursuit, Searching). */
 DECLARE_MULTICAST_DELEGATE_TwoParams(FGTPWantedChangedDelegate, int32 /*Stars*/, EGTPWantedPhase /*Phase*/);
 
@@ -53,6 +59,7 @@ public:
 	 * for the soak logs.
 	 */
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	/** False with -Police=0 or -NoPolice: no director, no stars, no hooks. */
 	static bool IsPoliceEnabled();
@@ -98,6 +105,8 @@ public:
 
 	/** Native events for missions and UI; unbind when done. */
 	FGTPArrestedDelegate OnArrested;
+	FGTPArrestWarningDelegate OnArrestWarning;
+	FGTPWastedDelegate OnWasted;
 	FGTPWantedChangedDelegate OnWantedChanged;
 
 	/** Sets the level directly (command line, tests). */
@@ -145,6 +154,29 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Wanted")
 	float NoticeRange = 1200.f;
 
+	/**
+	 * Out of sight, the search runs at HiddenSearchRate times the speed when the player keeps still (below
+	 * HiddenSpeedCmS), more than HiddenMinDistance from every police unit: hiding in a courtyard.
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Wanted")
+	float HiddenSearchRate = 2.f;
+	UPROPERTY(Config, EditAnywhere, Category = "Wanted")
+	float HiddenSpeedCmS = 150.f;
+	UPROPERTY(Config, EditAnywhere, Category = "Wanted")
+	float HiddenMinDistance = 2500.f;
+
+	/** Changing car or leaving the car out of sight keeps only this share of the search time (0..1). */
+	UPROPERTY(Config, EditAnywhere, Category = "Wanted")
+	float CarChangeKeep = 0.35f;
+
+	/**
+	 * After an arrest the player reappears at the point tagged GTPPoliceStation (a TargetPoint), else at
+	 * ArrestReturnLocation when ArrestReturnEnabled, else at the player start; the police take the weapon
+	 * and the ammunition, and the level is gone.
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Wanted")
+	bool bArrestTakesWeapon = true;
+
 	/** Where the player is taken after an arrest (world cm); ignored while ArrestReturnEnabled is false (the player stays where they stand). */
 	UPROPERTY(Config, EditAnywhere, Category = "Wanted")
 	bool ArrestReturnEnabled = false;
@@ -161,6 +193,10 @@ private:
 	void ApplyCrime(EGTPCrimeKind Kind, const FVector& Location);
 	void TickPendingReports(float Now);
 	void OnBusted();
+	void OnPlayerKilled();
+	void OnPlayerRespawnedAfterDeath();
+	void BindCombat();
+	void TrackCarChange(const APawn* Pawn, bool bSeen);
 	void NotifyIfChanged();
 	void EndBusted();
 
@@ -191,6 +227,9 @@ private:
 	bool bPoliceAvailable = false;
 	float BustedBannerLeft = 0.f;
 	FTimerHandle BustedTimer;
+	TWeakObjectPtr<const APawn> LastPlayerPawn;
+	bool bArrestWarned = false;
+	bool bDeadNow = false;
 };
 
 /**
@@ -265,7 +304,7 @@ protected:
 
 	/** With -VehicleLod=1 the light bar is off beyond this distance (cm). */
 	UPROPERTY(Config, EditAnywhere, Category = "Police")
-	float LightBarDistance = 6000.f;
+	float LightBarDistance = 12000.f;
 
 	/**
 	 * Cheaper police for the M1 (-PoliceLite=1): one light per car (its colour alternates), lights
@@ -279,7 +318,7 @@ protected:
 	int32 LiteMaxUnits = 3;
 
 	UPROPERTY(Config, EditAnywhere, Category = "Police|Cost")
-	float LiteLightDistance = 3000.f;
+	float LiteLightDistance = 5000.f;
 
 	UPROPERTY(Config, EditAnywhere, Category = "Police|Cost")
 	float LiteDetailDistance = 1500.f;
@@ -354,6 +393,8 @@ private:
 	bool bAheadSpawn = false;
 	FVector2D AheadDirection = FVector2D::ZeroVector;
 	float NextBlockTime = 0.f;
+	/** Seconds the player has been (nearly) still in a car: officers get out to arrest them. */
+	float PlayerStillSeconds = 0.f;
 	TArray<TWeakObjectPtr<class AGTPPoliceOfficer>> Officers;
 	GTPPoliceTactics::FSettings Tactics;
 	float NextDeployTime = 0.f;

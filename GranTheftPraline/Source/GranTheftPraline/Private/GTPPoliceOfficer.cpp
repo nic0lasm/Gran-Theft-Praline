@@ -32,6 +32,7 @@ AGTPPoliceOfficer::AGTPPoliceOfficer(const FObjectInitializer& ObjectInitializer
 		Body->SetCastShadow(true);
 	}
 	Weapon = CreateDefaultSubobject<UGTPWeaponComponent>(TEXT("Weapon"));
+	Tags.AddUnique(GTPPolice::PoliceTag);
 }
 
 void AGTPPoliceOfficer::BeginPlay()
