@@ -243,7 +243,9 @@ is taken: Lyra stands on GAS and ShooterCore, which ADR-0011 leaves out. We take
   `hand_l` height) on the pawn and on the visible body: a raised hand well ahead of the head is an aim, a hand far
   below and level with the body is not. Measured on candidate 28b: the pose plays on the pawn (hand 12 cm under the
   head, 43 cm ahead) but not on the MetaHuman body (53 cm under, 3 cm behind): the runtime retarget does not carry
-  it, under investigation.
+  it, under investigation: `tools/combat/unreal/player_visual_retarget.py` dumps the retargeters in use (ops, chain
+  mapping, arm settings, the MetaHuman rig's IK goals) without changing them, and builds our own
+  `RTG_GTP_UEFN_to_MetaHuman` to try with `-PlayerVisualRetargeter=`.
 - **Who is aimed at (fix of 13/11 night)**: the player on foot reports the threat from the eyes to what the reticle
   covers (the view's line to the first obstacle), as he shoots from the view, no longer from the muzzle. The
   muzzle sits in the visible body's hand: with that hand down at the hip, a pedestrian 2 m away fell outside the 12

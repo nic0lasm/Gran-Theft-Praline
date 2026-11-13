@@ -253,7 +253,10 @@ Lyra n'est repris : Lyra repose sur GAS et ShooterCore, que l'ADR-0011 écarte. 
   (`hand_r` : hauteur, avancée, côté ; `hand_l` : hauteur) sur le pion et sur le corps visible : une main levée bien
   devant la tête, c'est une visée ; une main très basse et à l'aplomb du corps, non. Mesuré sur le candidat 28b : la
   pose joue sur le pion (main 12 cm sous la tête, 43 cm devant) mais pas sur le corps MetaHuman (53 cm sous la tête,
-  3 cm en arrière) : le retarget à l'exécution ne la transmet pas, cause en cours de recherche.
+  3 cm en arrière) : le retarget à l'exécution ne la transmet pas, cause en cours de recherche :
+  `tools/combat/unreal/player_visual_retarget.py` vide les retargeters utilisés (ops, correspondance des chaînes,
+  réglages des bras, buts IK du rig MetaHuman) sans les modifier, et construit notre `RTG_GTP_UEFN_to_MetaHuman` à
+  essayer avec `-PlayerVisualRetargeter=`.
 - **Qui est mis en joue (correctif de la nuit du 13/11)** : le joueur à pied signale la menace depuis ses yeux vers
   ce que couvre le réticule (la ligne de la vue jusqu'au premier obstacle), comme il tire depuis la vue, et non plus
   depuis la bouche du canon. Celle-ci est dans la main du corps visible : main basse à la hanche, un piéton à 2 m
