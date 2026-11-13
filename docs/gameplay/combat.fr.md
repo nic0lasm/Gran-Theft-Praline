@@ -233,5 +233,7 @@ Lyra n'est repris : Lyra repose sur GAS et ShooterCore, que l'ADR-0011 écarte. 
   corps du visuel y est accroché, l'arme est attachée au `hand_r` du corps, placée à chaque image sur la prise du
   `weapon_r` du pion, décalée de l'écart entre les deux mains (bonne orientation quels que soient les axes des os
   du corps) ; sinon sur le `weapon_r` du pion. Avec `-PlayerVisualBaked`, dégainer remet le corps en retarget à
-  l'exécution (il suit le pion, clips d'arme compris) et ranger le ramène aux clips cuits. La tranche utilise le
-  retarget à l'exécution ; `-PlayerVisual=` (vide) montre le mannequin pour les tests d'armes.
+  l'exécution (il suit le pion, clips d'arme compris) et ranger le ramène aux clips cuits. Kellan est le visuel
+  par défaut (`PlayerVisualClass` dans `DefaultGame.ini`, retarget à l'exécution avec `RTG_UEFNped_to_Metahuman` ;
+  `bPlayerVisualBaked=True` au même endroit ou `-PlayerVisualBaked` passe aux clips cuits) ; `-PlayerVisual=`
+  (vide) montre le mannequin pour les tests d'armes.

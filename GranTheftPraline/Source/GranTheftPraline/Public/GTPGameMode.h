@@ -65,6 +65,14 @@ protected:
 	UPROPERTY(Config, EditDefaultsOnly, Category = "Classes")
 	float PlayerVisualYaw = -90.f;
 
+	/**
+	 * The visual's body plays the baked MH_ walk/idle/run clips instead of the runtime retarget (a way around a
+	 * T-pose), and goes back to the runtime retarget while a weapon is drawn. Off by default (the slice uses the
+	 * runtime retarget); -PlayerVisualBaked turns it on for one run.
+	 */
+	UPROPERTY(Config, EditDefaultsOnly, Category = "Classes")
+	bool bPlayerVisualBaked = false;
+
 	/** Car parked in front of the player by -TestVehicle (a Blueprint child of AGTPVehicle). */
 	UPROPERTY(Config, EditDefaultsOnly, Category = "Classes", meta = (MetaClass = "/Script/GranTheftPraline.GTPVehicle"))
 	FSoftClassPath TestVehicleClass;

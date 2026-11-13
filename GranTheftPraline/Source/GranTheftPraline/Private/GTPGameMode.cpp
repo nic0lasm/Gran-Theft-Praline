@@ -458,7 +458,7 @@ void AGTPGameMode::ApplyPlayerVisual(APawn* Pawn)
 	FTimerHandle Latest;
 	GetWorldTimerManager().SetTimer(Latest, FTimerDelegate::CreateLambda([Enforce]() { Enforce(TEXT("after 4 s")); }), 4.f, false);
 	// Baked animations (retarget_player_animations.py, "MH_" prefix): the body plays them itself, no runtime retargeting.
-	if (FParse::Param(FCommandLine::Get(), TEXT("PlayerVisualBaked")))
+	if (bPlayerVisualBaked || FParse::Param(FCommandLine::Get(), TEXT("PlayerVisualBaked")))
 	{
 		FAssetRegistryModule& Reg = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 		TArray<FAssetData> Anims;

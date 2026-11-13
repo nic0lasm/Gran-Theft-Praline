@@ -225,5 +225,7 @@ is taken: Lyra stands on GAS and ShooterCore, which ADR-0011 leaves out. We take
   visual's body hangs from it, the gun is attached to the body's `hand_r`, placed each frame at the grip of the
   pawn's `weapon_r` moved by the gap between the two hands (right orientation whatever the body's bone axes);
   otherwise on the pawn's `weapon_r`. With `-PlayerVisualBaked`, drawing a weapon puts the body back on the runtime
-  retarget (it follows the pawn, weapon clips included) and holstering returns it to the baked clips. The slice
-  uses the runtime retarget; `-PlayerVisual=` (empty) shows the mannequin for weapon tests.
+  retarget (it follows the pawn, weapon clips included) and holstering returns it to the baked clips. Kellan is
+  the default visual (`PlayerVisualClass` in `DefaultGame.ini`, runtime retarget with `RTG_UEFNped_to_Metahuman`;
+  `bPlayerVisualBaked=True` there or `-PlayerVisualBaked` switches to the baked clips); `-PlayerVisual=` (empty)
+  shows the mannequin for weapon tests.
