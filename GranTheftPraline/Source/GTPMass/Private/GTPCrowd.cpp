@@ -472,17 +472,18 @@ void UGTPCrowdSubsystem::SetupNearActors(UWorld& InWorld)
 	UE_LOG(LogGTPCrowd, Log, TEXT("crowd: %d near characters, hands-up animation %s"), NearActors.Num(), HandsUp ? TEXT("found") : TEXT("missing"));
 }
 
-void UGTPCrowdSubsystem::OnLoud(const FVector& Where, float Radius, AActor* /*Cause*/)
+void UGTPCrowdSubsystem::OnLoud(const FVector& Where, float Radius, AActor* Cause)
 {
 	// Everybody within earshot runs from the noise, near or far.
 	// Sirens and engines re-emit every frame: one pass per half second is plenty.
 	const double Now = FPlatformTime::Seconds();
-	if (Now - LastLoudTime < 0.5 && FVector::DistSquared(Where, LastLoudWhere) < 250000.0)
+	// One reaction per source and half second at most, wherever the source moves to (crashes re-emit every frame in a pile-up).
+	double& Last = LastLoudBySource.FindOrAdd(Cause);
+	if (Now - Last < 0.5)
 	{
 		return;
 	}
-	LastLoudTime = Now;
-	LastLoudWhere = Where;
+	Last = Now;
 	const GTPWalk::FPoint Point{float(Where.X), float(Where.Y)};
 	int32 Fled = 0;
 	for (int32 Index = 0; Index < Entities.Num(); ++Index)

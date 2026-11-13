@@ -247,7 +247,7 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail)
 	}
 	const FVector Eye = Character->GetActorLocation() + FVector(0.f, 0.f, 60.f);
 	AActor* Victim = nullptr;
-	double Best = 1800.0;
+	double Best = 4000.0;
 	for (TActorIterator<AGTPPedestrian> It(World); It; ++It)
 	{
 		const FVector Where = It->GetActorLocation();
@@ -260,11 +260,16 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail)
 	}
 	if (!Victim)
 	{
-		Detail = TEXT("no pedestrian within 18 m");
+		Detail = TEXT("no pedestrian within 40 m");
 		return EResult::Pending;
 	}
 	Weapon->SetDrawn(true);
 	Weapon->SetAiming(true);
+	// Hold-up range is under 10 m: walk up to the person first (the aim cone and the fear both grow with closeness).
+	if (Best > 800.0)
+	{
+		Character->AddMovementInput((Victim->GetActorLocation() - Character->GetActorLocation()).GetSafeNormal2D(), 1.f);
+	}
 	const FVector Head = Victim->GetActorLocation() + FVector(0.f, 0.f, 60.f);
 	const FVector Aim = (Head - Eye).GetSafeNormal();
 	Character->SetActorRotation(FRotator(0.f, Aim.Rotation().Yaw, 0.f));
