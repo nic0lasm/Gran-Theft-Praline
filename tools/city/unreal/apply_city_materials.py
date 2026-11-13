@@ -389,7 +389,7 @@ def kit_master():
     mel.connect_material_property(g.mask(emis, r=True, g=True, b=True), "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
     mat.set_editor_property("used_with_instanced_static_meshes", True)
     surfaces().kit(mat)
-    weather(mat, ("wet", "emissive"))
+    weather(mat, ("wet", "wet_matte", "emissive"))
     g.done()
     return mat
 

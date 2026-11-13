@@ -203,18 +203,18 @@ def railing(b, x0, x1, z0, height, y, posts=True):
     and the bottom, heavier posts about every 1.1 m."""
     top = z0 + height
     b.box(x0, x1, y - 0.035, y + 0.035, top - 0.045, top, IRON, bevel=0.012)        # handrail
-    b.box(x0, x1, y - 0.016, y + 0.016, top - 0.2, top - 0.18, IRON)
-    b.box(x0, x1, y - 0.016, y + 0.016, z0 + 0.13, z0 + 0.15, IRON)
+    b.box(x0, x1, y - 0.012, y + 0.012, top - 0.2, top - 0.18, IRON)
+    b.box(x0, x1, y - 0.012, y + 0.012, z0 + 0.13, z0 + 0.15, IRON)
     b.box(x0, x1, y - 0.02, y + 0.02, z0, z0 + 0.04, IRON)
     n = max(2, int(round((x1 - x0) / 0.11)))
     for k in range(n + 1):
         x = x0 + (x1 - x0) * k / n
-        b.bar((x, y, z0 + 0.04), (x, y, top - 0.045), 0.012, IRON)
+        b.bar((x, y, z0 + 0.04), (x, y, top - 0.045), 0.009, IRON)
     m = max(1, int(round((x1 - x0) / 0.22)))
     for k in range(m):
         cx = x0 + (x1 - x0) * (k + 0.5) / m
-        b.ring(cx, y, top - 0.11, 0.065, 0.010, IRON, n=10)
-        b.ring(cx, y, z0 + 0.095, 0.045, 0.009, IRON, n=8)
+        b.ring(cx, y, top - 0.11, 0.065, 0.007, IRON, n=10)
+        b.ring(cx, y, z0 + 0.095, 0.045, 0.006, IRON, n=8)
     if posts:
         p = max(1, int(round((x1 - x0) / 1.1)))
         for k in range(p + 1):

@@ -33,6 +33,9 @@ SCALARS = (("Wetness", 0.0), ("Puddles", 0.0), ("RainIntensity", 0.0), ("CityLig
 WALL_WETNESS = 0.35      # share of the wetness kept on vertical surfaces
 WET_DARKEN = 0.55        # albedo multiplier of a soaked porous surface
 WET_ROUGHNESS = 0.12
+# Facade kit (role "wet_matte"): thin wet metal and ledge tops at 0.12 caught every street lamp as
+# sub-pixel highlights that TSR cannot hold (balcony sparkle, PC V5 +18 13/11): wet stays matter there.
+WET_ROUGHNESS_MATTE = 0.4
 PUDDLE_ROUGHNESS = 0.03
 PUDDLE_TILE_CM = 600.0
 
@@ -168,7 +171,8 @@ def add_weather(mat, roles, mpc=None, puddle_tex=None):
             flat = g.saturate(g.lerp(-7.0, 1.0, up))
             puddle = g.mul(g.saturate(g.mul(level, 4.0)), flat)
         src, out = input_of(mat, unreal.MaterialProperty.MP_ROUGHNESS)
-        rough = g.lerp(src if src else 0.5, WET_ROUGHNESS, wet_rough, a_out=out)
+        rough = g.lerp(src if src else 0.5, WET_ROUGHNESS_MATTE if "wet_matte" in roles else WET_ROUGHNESS,
+                      wet_rough, a_out=out)
         if "puddles" in roles:
             rough = g.lerp(rough, PUDDLE_ROUGHNESS, puddle)
             darken = g.mul(darken, g.lerp(1.0, 0.85, puddle))
