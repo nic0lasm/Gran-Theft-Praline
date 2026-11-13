@@ -2,11 +2,13 @@
 
 #include "CoreMinimal.h"
 #include "EnvironmentQuery/EnvQueryContext.h"
+#include "EnvironmentQuery/EnvQueryGenerator.h"
 #include "EnvironmentQuery/EnvQueryTypes.h"
 #include "UObject/Object.h"
 #include "GTPPoliceQueries.generated.h"
 
 class UEnvQuery;
+class AGTPPoliceDirector;
 
 /** EQS context: the player's pawn. */
 UCLASS()
@@ -26,6 +28,22 @@ class UGTPEnvContext_LastKnown : public UEnvQueryContext
 
 public:
 	virtual void ProvideContext(FEnvQueryInstance& QueryInstance, FEnvQueryContextData& ContextData) const override;
+};
+
+/**
+ * EQS generator: places along the traffic lanes where a roadblock across the player's road would work
+ * (AGTPPoliceDirector::CollectRoadblockSites). The query owner must be the police director.
+ */
+UCLASS()
+class UGTPEnvGenerator_RoadblockSites : public UEnvQueryGenerator
+{
+	GENERATED_BODY()
+
+public:
+	UGTPEnvGenerator_RoadblockSites();
+	virtual void GenerateItems(FEnvQueryInstance& QueryInstance) const override;
+	virtual FText GetDescriptionTitle() const override;
+	virtual FText GetDescriptionDetails() const override;
 };
 
 /**
@@ -56,6 +74,10 @@ public:
 	const TArray<FVector>& GetSearchPoints() const { return SearchPoints; }
 	float GetSearchPointsTime() const { return SearchPointsTime; }
 
+	/** Asks for roadblock sites on the lanes ahead of the player; Director is the query owner. */
+	void RequestRoadblockSites(AGTPPoliceDirector* Director);
+	const TArray<FVector>& GetRoadblockSites() const { return RoadblockSites; }
+
 	/** Ring radius and spacing (cm). */
 	UPROPERTY(Config, EditAnywhere, Category = "Police")
 	float SearchRingRadius = 2500.f;
@@ -64,10 +86,16 @@ public:
 
 private:
 	void OnSearchFinished(TSharedPtr<FEnvQueryResult> Result);
+	void OnRoadblockFinished(TSharedPtr<FEnvQueryResult> Result);
 
 	UPROPERTY(Transient)
 	TObjectPtr<UEnvQuery> SearchQuery;
 
+	UPROPERTY(Transient)
+	TObjectPtr<UEnvQuery> RoadblockQuery;
+
+	TArray<FVector> RoadblockSites;
+	bool bRoadblockRunning = false;
 	TArray<FVector> SearchPoints;
 	float SearchPointsTime = -1000.f;
 	bool bRunning = false;

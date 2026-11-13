@@ -34,6 +34,37 @@ void UGTPEnvContext_LastKnown::ProvideContext(FEnvQueryInstance& QueryInstance, 
 	}
 }
 
+UGTPEnvGenerator_RoadblockSites::UGTPEnvGenerator_RoadblockSites()
+{
+	ItemType = UEnvQueryItemType_Point::StaticClass();
+}
+
+void UGTPEnvGenerator_RoadblockSites::GenerateItems(FEnvQueryInstance& QueryInstance) const
+{
+	const AGTPPoliceDirector* Director = Cast<AGTPPoliceDirector>(QueryInstance.Owner.Get());
+	const APawn* Player = Director ? UGameplayStatics::GetPlayerPawn(Director, 0) : nullptr;
+	if (!Player)
+	{
+		return;
+	}
+	TArray<FVector> Sites;
+	Director->CollectRoadblockSites(*Player, Sites);
+	for (const FVector& Site : Sites)
+	{
+		QueryInstance.AddItemData<UEnvQueryItemType_Point>(Site);
+	}
+}
+
+FText UGTPEnvGenerator_RoadblockSites::GetDescriptionTitle() const
+{
+	return FText::FromString(TEXT("Roadblock sites on the traffic lanes"));
+}
+
+FText UGTPEnvGenerator_RoadblockSites::GetDescriptionDetails() const
+{
+	return FText::FromString(TEXT("140-240 m ahead of a fast player, on a road along their travel"));
+}
+
 bool UGTPPoliceQueries::IsEnabled()
 {
 	static int32 Switch = -1;
@@ -67,6 +98,39 @@ void UGTPPoliceQueries::Init()
 	Option->Tests.Add(FromPlayer);
 
 	SearchQuery->GetOptionsMutable().Add(Option);
+
+	RoadblockQuery = NewObject<UEnvQuery>(this, TEXT("GTPRoadblockSites"));
+	UEnvQueryOption* BlockOption = NewObject<UEnvQueryOption>(RoadblockQuery);
+	BlockOption->Generator = NewObject<UGTPEnvGenerator_RoadblockSites>(BlockOption);
+	RoadblockQuery->GetOptionsMutable().Add(BlockOption);
+}
+
+void UGTPPoliceQueries::RequestRoadblockSites(AGTPPoliceDirector* Director)
+{
+	UWorld* World = GetWorld();
+	UEnvQueryManager* Manager = World ? UEnvQueryManager::GetCurrent(World) : nullptr;
+	if (!RoadblockQuery || !Manager || !Director || bRoadblockRunning)
+	{
+		return;
+	}
+	bRoadblockRunning = true;
+	FEnvQueryRequest Request(RoadblockQuery, Director);
+	Manager->RunQuery(Request, EEnvQueryRunMode::AllMatching, FQueryFinishedSignature::CreateUObject(this, &UGTPPoliceQueries::OnRoadblockFinished));
+}
+
+void UGTPPoliceQueries::OnRoadblockFinished(TSharedPtr<FEnvQueryResult> Result)
+{
+	bRoadblockRunning = false;
+	RoadblockSites.Reset();
+	if (!Result.IsValid() || !Result->IsSuccessful())
+	{
+		return;
+	}
+	for (int32 Index = 0; Index < Result->Items.Num(); ++Index)
+	{
+		RoadblockSites.Add(Result->GetItemAsLocation(Index));
+	}
+	GTP_TRACE(LogGTPQueries, TEXT("eqs: %d roadblock sites"), RoadblockSites.Num());
 }
 
 void UGTPPoliceQueries::RequestSearchPoints()

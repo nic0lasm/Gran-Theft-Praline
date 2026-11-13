@@ -265,6 +265,16 @@ void AGTPHUD::DrawWanted(float Scale)
 		GTPDrawText(Canvas, Font, Banner, FVector2D((Canvas->ClipX - Size.X) * 0.5f, Canvas->ClipY * 0.4f), TextScale, FLinearColor(0.95f, 0.25f, 0.2f), true);
 	}
 
+	// The police warning while they close in: "Police! Don't move!" (no voice asset yet: a subtitle and a horn).
+	if (Wanted->GetWarningTime() > 0.f && Wanted->GetBustedBannerTime() <= 0.f)
+	{
+		const FText Warning = FText::FromString(TEXT("POLICE ! NE BOUGEZ PLUS !"));
+		const float FontHeight = FMath::Max(1.f, static_cast<float>(MeasureText(Font, FText::FromString(TEXT("Ag")), 1.f).Y));
+		const float TextScale = 36.f * Scale / FontHeight;
+		const FVector2D Size = MeasureText(Font, Warning, TextScale);
+		GTPDrawText(Canvas, Font, Warning, FVector2D((Canvas->ClipX - Size.X) * 0.5f, Canvas->ClipY * 0.4f), TextScale, FLinearColor(0.35f, 0.55f, 1.f), true);
+	}
+
 	const int32 Stars = Wanted->GetStars();
 	if (Stars <= 0)
 	{
