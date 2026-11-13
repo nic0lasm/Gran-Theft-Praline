@@ -51,7 +51,7 @@ protected:
 	FVector PlayerVisualOffset = FVector(0.f, 0.f, -90.f);
 
 	UPROPERTY(Config, EditDefaultsOnly, Category = "Classes")
-	float PlayerVisualYaw = 0.f;
+	float PlayerVisualYaw = -90.f;
 
 	/** Car parked in front of the player by -TestVehicle (a Blueprint child of AGTPVehicle). */
 	UPROPERTY(Config, EditDefaultsOnly, Category = "Classes", meta = (MetaClass = "/Script/GranTheftPraline.GTPVehicle"))
