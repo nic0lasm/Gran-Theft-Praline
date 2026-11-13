@@ -134,6 +134,15 @@ public:
 	/** Gives the carbine (pickup, mission); with ammunition. */
 	void GiveWeapon(GTPArsenal::EKind Kind, int32 Reserve);
 
+	/** A gun picked up from the ground: the weapon if not carried, else ammunition. Returns rounds taken. */
+	int32 CollectAmmo(GTPArsenal::EKind Kind, int32 Rounds);
+
+	/** Rounds in the magazine and reserve of the weapon in hand (a dropped gun takes some). */
+	bool HasAmmo() const { return Loadout.State().Magazine + Loadout.State().Reserve > 0; }
+
+	/** The gun mesh of Kind when loaded (dropped guns show it), nullptr otherwise. */
+	USkeletalMesh* GetMeshFor(GTPArsenal::EKind Kind) const;
+
 	/**
 	 * The player sits in Car (nullptr: back on foot). Holsters; in the car only one-handed
 	 * weapons come out, and the one held on foot comes back when the player gets out.

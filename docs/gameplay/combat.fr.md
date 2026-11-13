@@ -192,3 +192,22 @@ Lyra n'est repris : Lyra repose sur GAS et ShooterCore, que l'ADR-0011 écarte. 
 - **Valeurs** : les multiplicateurs lisibles de Lyra (visée 0,65 ; accroupi 0,6 à 0,65 ; saut 1,25 à 1,6) sont
   proches des nôtres ; la cadence, le chargeur, la recharge et les dégâts de Lyra ne se lisent pas en Python,
   les nôtres restent ceux du tableau ci-dessus.
+
+### Désarmement et ramassage (nuit du 13/11)
+
+- **Qui lâche son arme** : un corps non joueur qui a encore des munitions lâche son arme quand il meurt, ou
+  quand il prend un coup lourd ou une neutralisation l'arme dégainée (`GTPPickup::Disarms`). Un policier désarmé
+  garde le composant d'arme mais n'a plus rien (`HasAmmo()` faux) : le fil Police le fait passer au corps à corps
+  ou à l'arrestation. Une arme déjà lâchée ne tombe jamais deux fois.
+- **Ce qui reste au sol** : `AGTPWeaponPickup`, le mesh de l'arme (ou une petite boîte sombre si le mesh manque)
+  qui tourne lentement, avec son chargeur plus la moitié de sa réserve, au moins 6 balles et au plus deux
+  chargeurs (`GTPPickup::DropRounds`). Six armes au sol au plus (`MaxPickups`, la plus ancienne part), 60 s
+  chacune (`PickupLifeSeconds`).
+- **Ramasser** : en marchant dessus, ou en roulant dessus (l'arme du conducteur, `FindHeld`). Une arme que le
+  joueur n'a pas est ajoutée avec ces balles en réserve (la carabine prise à un policier) ; sinon les balles vont
+  dans sa réserve jusqu'au maximum. Réserve pleine : l'arme reste au sol.
+- **Foule et tirs** : chaque tir entendu (`UGTPCombatAudio::PlayShot` → `UGTPAudioWorld::OnLoudSound`) fait fuir
+  la foule dans `ShotScareRadius`, et le système de menace fait fuir piétons et trafic. Avec `-Audio=0`, seul le
+  système de menace reste : aucun bruit fort n'est diffusé.
+- **Sons Lyra** : `lyra_weapons_setup.py` liste aussi les chemins complets des sons de tir et de tir à vide
+  trouvés après la migration, pour les réglages audio.

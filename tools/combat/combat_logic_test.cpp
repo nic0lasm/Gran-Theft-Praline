@@ -297,6 +297,22 @@ static void TestArsenal()
 		FLoadout P = FLoadout::Make({EKind::Pistol}, {24});
 		CHECK(P.Next() == EKind::Pistol && !P.Select(EKind::Carbine, 0.f));
 		CHECK(P.Give(EKind::Carbine, 60) && !P.Give(EKind::Carbine, 30) && P.States[1].Reserve == 90);
+		// Picking up: a new weapon comes with its rounds, a carried one tops up its reserve.
+		FLoadout Q = FLoadout::Make({EKind::Pistol}, {90});
+		CHECK(Q.Collect(EKind::Pistol, 20) == 6 && Q.States[0].Reserve == 96); // capped at 96
+		CHECK(Q.Collect(EKind::Pistol, 20) == 0);
+		CHECK(Q.Collect(EKind::Carbine, 40) == 40 && Q.Has(EKind::Carbine) && Q.States[1].Magazine == 30);
+		CHECK(Q.Collect(EKind::Carbine, 0) == 0);
+		// Dropped guns: magazine + half the reserve, at least 6, at most two magazines.
+		CHECK(GTPPickup::DropRounds(12, 36, 12) == 24 && GTPPickup::DropRounds(5, 4, 12) == 7);
+		CHECK(GTPPickup::DropRounds(0, 0, 12) == 6 && GTPPickup::DropRounds(30, 180, 30) == 60);
+		// Disarmed: killed while carrying, or a heavy blow / takedown while the gun is in hand.
+		CHECK(GTPPickup::Disarms(false, false, true, true, false));
+		CHECK(GTPPickup::Disarms(true, true, false, true, true));
+		CHECK(!GTPPickup::Disarms(true, true, false, true, false));  // holstered: kept
+		CHECK(!GTPPickup::Disarms(true, false, false, true, true));  // light blow: kept
+		CHECK(!GTPPickup::Disarms(false, false, false, true, true)); // shot, alive: kept
+		CHECK(!GTPPickup::Disarms(false, false, true, false, false)); // nothing to drop
 		P.StripAll();
 		CHECK(P.States[0].Magazine == 0 && P.States[0].Reserve == 0 && P.States[1].Reserve == 0 && P.Has(EKind::Carbine));
 		FLoadout Long = FLoadout::Make({EKind::Carbine}, {60});

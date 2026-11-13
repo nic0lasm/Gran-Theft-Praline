@@ -14,6 +14,8 @@ What it does, and reports in Saved/GTPCombat/lyra-weapons-setup.txt:
    montages play in UpperBody and FullBodyAdditivePreAim) and whether the player's
    skeleton has a weapon_r socket or bone (else hand_r with an offset).
 4. Prints the DefaultGame.ini lines (Looks, Clips) matching what exists.
+5. Prints the full paths of the Lyra weapon sounds (shots, dry fire), for the audio
+   settings (UGTPAudioSettings::WeaponVoices).
 Run it again after any change: retargeted assets that exist are kept.
 """
 import os
@@ -46,6 +48,8 @@ PREFIX = {"pistol": "AM_Pistol", "carbine": "AM_Carbine"}
 SOURCE_RIG = "/Game/Characters/UE5_Mannequins/Rigs/IK_UE5_Mannequin_Retarget"
 TARGET_RIG = "/Game/Characters/UEFN_Mannequin/Rigs/IK_UEFN_Mannequin"
 MADE_RTG = "/Game/Combat/Weapons/RTG_GTP_UE5_to_UEFN"
+# Lyra weapon sounds, found by name wherever the migration put them.
+SOUND_NAMES = ["MSS_Weapons_Pistol_Fire", "MSS_Weapons_Rifle_Fire", "Weapons_Pistol_DryFire_01", "Weapons_Rifle_DryFire_01"]
 SLOT_NAMES = ["DefaultSlot", "UpperBody", "UpperBodyAdditive", "FullBody", "FullBodyAdditivePreAim", "Arms"]
 
 eal = unreal.EditorAssetLibrary
@@ -239,6 +243,16 @@ def main():
         for ours, word in CLIP_WORDS:
             if name.endswith(word + SUFFIX):
                 say('.Clips=(Name="%s%s",Asset="%s")' % (PREFIX[kind], ours, asset))
+    say("== 5. Lyra weapon sounds (full paths)")
+    found = {}
+    for data in registry.get_assets_by_path("/Game", recursive=True):
+        name = str(data.asset_name)
+        if name in SOUND_NAMES:
+            found.setdefault(name, []).append(str(data.package_name) + "." + name)
+    for name in SOUND_NAMES:
+        for path in found.get(name, []) or ["MISSING"]:
+            say("%s %s" % (name, path))
+    missing += sum(1 for name in SOUND_NAMES if name not in found)
     say("missing Lyra assets: %d" % missing)
 
     out = os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_saved_dir()), "GTPCombat")
