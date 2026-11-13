@@ -223,7 +223,7 @@ protected:
 
 	/** Most police cars alive at once, 2 until the 0.3 traffic cost is measured (frame budget on M1, ADR-0002 and ADR-0004). -PoliceMax=N overrides. */
 	UPROPERTY(Config, EditAnywhere, Category = "Police")
-	int32 MaxUnits = 2;
+	int32 MaxUnits = 4;
 
 	/**
 	 * Character put at the wheel of police cars; empty = the traffic's driver
@@ -312,6 +312,10 @@ private:
 		/** Obstacle probe ignored until then (s): a unit stopped behind traffic pushes through (ramming). */
 		float RamUntil = 0.f;
 		float NextWakeTime = 0.f;
+		/** A roadblock car: stands across the road, handbrake on, lights on (counts apart from the chasing cars). */
+		bool bBlock = false;
+		/** Seconds slower than 15 km/h with something close ahead: the unit shoves through it. */
+		float SlowTime = 0.f;
 		float LastObstacle = -1.f;
 		float LastThrottle = 0.f;
 		float LastBrake = 0.f;
@@ -320,7 +324,9 @@ private:
 	/** Siren follows the lights: off without stars, yelp in pursuit, two-tone otherwise. */
 	void UpdateSiren(FUnit& Unit, int32 Stars, bool bPursuit);
 
-	bool SpawnUnit(const FVector& PlayerLocation);
+	bool SpawnUnit(const FVector& PlayerLocation, const FTransform* Placement = nullptr, bool bBlock = false);
+	/** Two cars across the road ahead of a fast player (3 stars and more): one call puts one car of the pair. */
+	bool SpawnRoadblockCar(const APawn& Player, int32 CarIndex);
 	bool FindSpawnPoint(const FVector& PlayerLocation, int32& OutLane, int32& OutPoint, FTransform& OutTransform) const;
 	void DriveUnit(FUnit& Unit, UGTPWantedComponent& Wanted, const AActor& Player, float DeltaSeconds);
 	void DriveStraight(FUnit& Unit, const FVector& Target, float MaxSpeedKmh);
@@ -339,6 +345,12 @@ private:
 	TObjectPtr<AGTPTrafficNetwork> Network;
 
 	TArray<FUnit> Units;
+	/** Level-dependent behaviour of the current frame (GTPPoliceTactics::Profile). */
+	GTPPoliceTactics::FProfile Profile;
+	/** Spawn bias: when set, FindSpawnPoint picks a point ahead of the player's travel direction, farther away. */
+	bool bAheadSpawn = false;
+	FVector2D AheadDirection = FVector2D::ZeroVector;
+	float NextBlockTime = 0.f;
 	TArray<TWeakObjectPtr<class AGTPPoliceOfficer>> Officers;
 	GTPPoliceTactics::FSettings Tactics;
 	float NextDeployTime = 0.f;
