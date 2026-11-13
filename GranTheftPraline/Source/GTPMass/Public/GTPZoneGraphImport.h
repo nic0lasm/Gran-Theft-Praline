@@ -29,8 +29,9 @@ public:
 	 * Points MassTraffic's ZoneGraph lane filters at our tags (place_masstraffic.py): every
 	 * FZoneGraphTagFilter of MassTrafficSettings whose name says Intersection gets IntersectionTag,
 	 * crosswalk and pedestrian ones are left, every other one gets LaneTag. The tags must already
-	 * be in the ZoneGraph settings (saved by BuildFromFile). The settings are written to their
-	 * default config file. Returns a JSON report: each property and what was done.
+	 * be in the ZoneGraph settings (saved by BuildFromFile). Only the filters set are written to the
+	 * settings' default config file (Config/DefaultPlugins.ini), not the whole object. Returns a
+	 * JSON report: each property and what was done.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "GTP|Mass")
 	static FString ConfigureTrafficLaneFilters(FName LaneTag, FName IntersectionTag);

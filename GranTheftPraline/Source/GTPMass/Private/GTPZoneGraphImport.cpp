@@ -4,6 +4,7 @@
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
 #include "UObject/UnrealType.h"
@@ -120,13 +121,29 @@ bool FindTag(FName Name, FZoneGraphTag& OutTag)
 	return false;
 }
 
-/** Writes Settings to its default config file (editor only); the file name, or why not. */
-FString SaveDefaultConfig(UObject* Settings)
+/**
+ * Writes only the named properties of Settings to its default config file (editor only), not the
+ * whole object: the file in Git then holds our values and nothing else. Returns the file and the
+ * properties written.
+ */
+FString SaveProperties(UObject* Settings, const TArray<FName>& Names)
 {
 #if WITH_EDITOR
-	return Settings->TryUpdateDefaultConfigFile() ? Settings->GetDefaultConfigFilename() : FString(TEXT("not saved"));
+	const FString File = Settings->GetDefaultConfigFilename();
+	TArray<FString> Saved;
+	for (const FName& Name : Names)
+	{
+		const FProperty* Property = Settings->GetClass()->FindPropertyByName(Name);
+		if (Property && Property->HasAnyPropertyFlags(CPF_Config))
+		{
+			Settings->UpdateSinglePropertyInConfigFile(Property, File);
+			Saved.Add(Name.ToString());
+		}
+	}
+	return FPaths::GetCleanFilename(File) + TEXT(": ") + (Saved.Num() ? FString::Join(Saved, TEXT(", ")) : FString(TEXT("nothing saved")));
 #else
 	(void)Settings;
+	(void)Names;
 	return TEXT("not saved: editor only");
 #endif
 }
@@ -331,7 +348,7 @@ FString UGTPZoneGraphImport::BuildFromFile(UObject* WorldContext, const FString&
 	}
 	// The tags and lane profiles added above go to the settings' default config file: the next
 	// editor run (place_masstraffic.py) and the game find them at the same bits as the shapes.
-	Report.Info.Add(TEXT("zonegraph_settings_saved_to"), SaveDefaultConfig(GetMutableDefault<UZoneGraphSettings>()));
+	Report.Info.Add(TEXT("zonegraph_settings_saved"), SaveProperties(GetMutableDefault<UZoneGraphSettings>(), {FName(TEXT("Tags")), FName(TEXT("LaneProfiles"))}));
 	UE_LOG(LogGTPZoneGraph, Log, TEXT("zonegraph import: %s"), *Report.ToJson());
 	return Report.ToJson();
 }
@@ -356,6 +373,7 @@ FString UGTPZoneGraphImport::ConfigureTrafficLaneFilters(FName LaneTag, FName In
 		Report.Error(TEXT("MassTrafficSettings not found: plugin Traffic not loaded"));
 		return Report.ToJson();
 	}
+	TArray<FName> Changed;
 	for (TFieldIterator<FStructProperty> It(Class); It; ++It)
 	{
 		const FStructProperty* Property = *It;
@@ -385,8 +403,9 @@ FString UGTPZoneGraphImport::ConfigureTrafficLaneFilters(FName LaneTag, FName In
 		}
 		Report.Info.Add(Name, (bIntersection ? IntersectionTag : LaneTag).ToString());
 		Report.Counts.FindOrAdd(TEXT("filters_set"))++;
+		Changed.Add(Property->GetFName());
 	}
-	Report.Info.Add(TEXT("masstraffic_settings_saved_to"), SaveDefaultConfig(Settings));
+	Report.Info.Add(TEXT("masstraffic_settings_saved"), SaveProperties(Settings, Changed));
 	UE_LOG(LogGTPZoneGraph, Log, TEXT("traffic lane filters: %s"), *Report.ToJson());
 	return Report.ToJson();
 }

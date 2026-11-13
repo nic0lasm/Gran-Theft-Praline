@@ -9,8 +9,8 @@ What it does, reporting everything in Saved/CityImport/masstraffic_report.json:
    UGTPZoneGraphImport::ConfigureTrafficLaneFilters (C++, module GTPMass: neither
    MassTrafficSettings nor ZoneGraphSettings is exposed to Python in 5.8). The filter properties
    are read by reflection, not assumed: every traffic-lane filter gets our tag Car, every
-   intersection filter Intersection. The tags must have been saved by place_zonegraph.py. The
-   settings go to their default config file, named in the report.
+   intersection filter Intersection. The tags must have been saved by place_zonegraph.py. Only
+   the filters set are written to the default config file (Config/DefaultPlugins.ini, in Git).
 2. Places, after removing the previous ones, City Sample's own spawner Blueprints
    (/Game/AI/Traffic/Spawners: intersections, parked cars, driving cars, kept at their City Sample
    paths), tagged GTPMassTraffic and GTPMassTrafficOrder<n>, with no spawn on begin play: the game
