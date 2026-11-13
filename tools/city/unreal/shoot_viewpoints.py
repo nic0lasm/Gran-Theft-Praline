@@ -105,6 +105,23 @@ def setup(pc, v, yaw_offset):
     return gz
 
 
+def hide_ui(pc):
+    """No HUD, minimap or notifications on the shots: with the world unpaused (no title screen)
+    the gameplay widgets are on screen and HighResShot can catch them."""
+    try:
+        hud = pc.get_hud()
+        if hud:
+            hud.set_editor_property("show_hud", False)
+    except Exception as e:  # noqa: BLE001
+        state.setdefault("ui_errors", []).append(repr(e))
+    try:
+        for w in unreal.WidgetBlueprintLibrary.get_all_widgets_of_class(pc.get_world(), unreal.UserWidget, True):
+            if w.get_visibility() != unreal.SlateVisibility.HIDDEN:
+                w.set_visibility(unreal.SlateVisibility.HIDDEN)
+    except Exception as e:  # noqa: BLE001
+        state.setdefault("ui_errors", []).append(repr(e))
+
+
 def tick(dt):
     state["t"] += dt
     state["phase_t"] += dt
@@ -124,11 +141,16 @@ def tick(dt):
             state["phase"], state["phase_t"] = "quit", 0.0
     elif ph == "place":
         v, off, name = SHOTS[state["i"]]
+        hide_ui(pc)
         gz = setup(pc, v, off)
         state["report"].append({"shot": name, "ground_z_cm": gz, "yaw": v["yaw"] + off})
         state["phase"], state["phase_t"] = "settle", 0.0
     elif ph == "settle" and state["phase_t"] >= SETTLE_S:
         v, off, name = SHOTS[state["i"]]
+        # The game may take the view back (first shot, V0): set the camera again, hide the UI again.
+        camera(pc)
+        hide_ui(pc)
+        state["report"][-1]["view_target"] = pc.get_view_target().get_name() if pc.get_view_target() else None
         path = os.path.join(OUT, name + ".png")
         cmd(pc, 'HighResShot %dx%d filename="%s"' % (v["res"][0], v["res"][1], path))
         state["report"][-1]["file"] = path
@@ -139,7 +161,8 @@ def tick(dt):
         state["phase_t"] = 0.0
     elif ph == "quit" and state["phase_t"] >= AFTER_SHOT_S:
         with open(os.path.join(OUT, "viewpoints_report.json"), "w") as fh:
-            json.dump({"spec": SPEC, "fan": FAN, "shots": state["report"]}, fh, indent=2)
+            json.dump({"spec": SPEC, "fan": FAN, "shots": state["report"], "ui_errors": state.get("ui_errors", [])[:5]},
+                      fh, indent=2)
         log("done: %d shots" % len(state["report"]))
         unreal.unregister_slate_post_tick_callback(state["handle"])
         unreal.SystemLibrary.quit_game(pc.get_world(), None, unreal.QuitPreference.QUIT, False)
