@@ -78,6 +78,14 @@ def camera(pc):
         state["cam"] = cam
         state["borrowed_cameras"] = sorted(before)
         cam.get_editor_property("camera_component").set_editor_property("constrain_aspect_ratio", False)
+    if not state.get("follow_off"):
+        # The game's follow camera (GTPFollowCameraComponent on the controller) takes the view back
+        # on every tick (cand20b: pov on the player's spring arm, cam_actor where we put it): stop it.
+        state["follow_off"] = []
+        for c in pc.get_components_by_class(unreal.ActorComponent):
+            if "FollowCamera" in c.get_class().get_name():
+                c.set_component_tick_enabled(False)
+                state["follow_off"].append(c.get_name())
     if pc.get_view_target() != state["cam"]:
         pc.set_view_target_with_blend(state["cam"], 0.0)
     return state["cam"]
@@ -190,7 +198,8 @@ def tick(dt):
     elif ph == "quit" and state["phase_t"] >= AFTER_SHOT_S:
         with open(os.path.join(OUT, "viewpoints_report.json"), "w") as fh:
             json.dump({"spec": SPEC, "fan": FAN, "shots": state["report"], "ui_errors": state.get("ui_errors", [])[:5],
-                       "game_cameras": state.get("borrowed_cameras", [])},
+                       "game_cameras": state.get("borrowed_cameras", []),
+                       "follow_camera_stopped": state.get("follow_off", [])},
                       fh, indent=2)
         log("done: %d shots" % len(state["report"]))
         unreal.unregister_slate_post_tick_callback(state["handle"])
