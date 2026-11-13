@@ -75,6 +75,9 @@ public:
 	/** An armed body aims (every step while it does); bAiming false once when it stops. */
 	void NotifyAim(AActor* Source, const FVector& Origin, const FVector& Aim, bool bAiming);
 
+	/** Takes the gun out of Body's hands and leaves it on the ground with some ammunition (AGTPWeaponPickup). */
+	void DropWeapon(AActor* Body, UGTPWeaponComponent* Gun);
+
 	/** A bullet hit something that is not a body: effect only. */
 	void SpawnImpact(const FHitResult& Hit, const FVector& Direction);
 
@@ -133,6 +136,12 @@ protected:
 	/** On glass (Lyra's M_GlassBulletHoles_Decal once migrated); missing = the plain hole. */
 	UPROPERTY(Config)
 	FSoftObjectPath GlassHoleMaterial;
+
+	/** Guns on the ground at once (the oldest goes first) and how long each stays. */
+	UPROPERTY(Config)
+	int32 MaxPickups = 6;
+	UPROPERTY(Config)
+	float PickupLifeSeconds = 60.f;
 
 	/** Bullet holes in the world at once (the oldest goes first), their life and size. */
 	UPROPERTY(Config)
@@ -205,6 +214,7 @@ private:
 	TArray<double> LiveImpactEnds;
 	TArray<TWeakObjectPtr<class UDecalComponent>> BloodPools;
 	TArray<TWeakObjectPtr<class UDecalComponent>> BulletHoles;
+	TArray<TWeakObjectPtr<class AGTPWeaponPickup>> Pickups;
 	TMap<TWeakObjectPtr<AActor>, float> BloodStains;
 	double LastPlayerHitTime = -1000.0;
 	bool bLastPlayerHitKilled = false;

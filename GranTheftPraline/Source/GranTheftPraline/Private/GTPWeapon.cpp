@@ -289,6 +289,25 @@ void UGTPWeaponComponent::GiveWeapon(GTPArsenal::EKind Kind, int32 Reserve)
 	}
 }
 
+USkeletalMesh* UGTPWeaponComponent::GetMeshFor(GTPArsenal::EKind Kind) const
+{
+	const int32 K = static_cast<int32>(Kind);
+	return LoadedMeshes.IsValidIndex(K) ? LoadedMeshes[K].Get() : nullptr;
+}
+
+int32 UGTPWeaponComponent::CollectAmmo(GTPArsenal::EKind Kind, int32 Rounds)
+{
+	BuildLoadout();
+	const bool bNew = !Loadout.Has(Kind);
+	const int32 Taken = Loadout.Collect(Kind, Rounds);
+	if (bNew && Taken > 0)
+	{
+		bLooksLoaded = false;
+		LoadLooks(); // the new gun's mesh, flash and clips
+	}
+	return Taken;
+}
+
 void UGTPWeaponComponent::SetDriveBy(AActor* Car)
 {
 	BuildLoadout();

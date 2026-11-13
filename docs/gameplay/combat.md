@@ -186,3 +186,22 @@ is taken: Lyra stands on GAS and ShooterCore, which ADR-0011 leaves out. We take
   offered to the audio thread, which owns combat sound playback.
 - **Values**: Lyra's readable multipliers (aim 0.65; crouch 0.6 to 0.65; jump 1.25 to 1.6) are close to ours;
   Lyra's fire rate, magazine, reload and damage cannot be read from Python, ours stay those of the table above.
+
+### Disarming and pickups (night of 13/11)
+
+- **Who drops**: a non-player body that holds ammunition drops its gun when it dies, or when it takes a heavy
+  blow or a takedown with its gun drawn (`GTPPickup::Disarms`). A disarmed officer keeps the weapon component but
+  has nothing left (`HasAmmo()` false): the police thread switches it to melee or arrest. A gun already dropped
+  never drops twice.
+- **What lies on the ground**: `AGTPWeaponPickup`, the gun's mesh (or a small dark box when the mesh is missing)
+  turning slowly, with its magazine plus half of its reserve, at least 6 rounds and at most two magazines
+  (`GTPPickup::DropRounds`). Six on the ground at most (`MaxPickups`, the oldest goes), 60 s each
+  (`PickupLifeSeconds`).
+- **Picking up**: walking over it, or driving over it (the driver's weapon, `FindHeld`). A weapon the player
+  lacks is added with those rounds as reserve (the carbine taken from an officer); otherwise the rounds go to
+  its reserve up to the maximum. Full: the pickup stays.
+- **Crowd and shots**: every shot heard (`UGTPCombatAudio::PlayShot` → `UGTPAudioWorld::OnLoudSound`) scares the
+  crowd within `ShotScareRadius`, and the threat system makes pedestrians and traffic flee. With `-Audio=0`
+  only the threat system remains: no broadcast of loud sounds.
+- **Lyra sounds**: `lyra_weapons_setup.py` also lists the full paths of the fire and dry fire sounds found after
+  the migration, for the audio settings.

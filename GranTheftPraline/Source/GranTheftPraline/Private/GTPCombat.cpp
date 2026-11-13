@@ -10,6 +10,7 @@
 #include "GTPVehicle.h"
 #include "GTPThreat.h"
 #include "GTPWeapon.h"
+#include "GTPWeaponPickup.h"
 #include "Components/DecalComponent.h"
 #include "Components/PrimitiveComponent.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -365,6 +366,18 @@ FGTPDamageOutcome UGTPCombatSubsystem::ApplyHit(const FGTPCombatHit& Hit)
 		LastPlayerHitTime = GetWorld()->GetTimeSeconds();
 		bLastPlayerHitKilled = Outcome.bKilled;
 	}
+	// Disarmed: an armed body that dies, or takes a heavy blow or a takedown gun in hand, drops its gun.
+	if (!bVictimIsPlayer)
+	{
+		if (UGTPWeaponComponent* VictimGun = Victim->FindComponentByClass<UGTPWeaponComponent>())
+		{
+			// HasAmmo: a gun already dropped (stripped) does not drop a second time.
+			if (GTPPickup::Disarms(Hit.bMelee, Hit.bHeavy, Outcome.bKilled, VictimGun->HasAmmo(), VictimGun->IsDrawn()))
+			{
+				DropWeapon(Victim, VictimGun);
+			}
+		}
+	}
 	OnDamageDealt.Broadcast(Instigator, Victim, Outcome.HealthLost + Outcome.ArmorLost, Zone, Hit.bMelee, Outcome.HealthAfter);
 	if (Outcome.bKilled)
 	{
@@ -598,6 +611,48 @@ void UGTPCombatSubsystem::AddBloodStain(AActor* Body)
 	Amount = FMath::Min(1.f, Amount + BloodStainPerHit);
 	// Materials without the parameter ignore it (the realism thread adds it to the clothes).
 	Mesh->SetScalarParameterValueOnMaterials(TEXT("GTPBlood"), Amount);
+}
+
+void UGTPCombatSubsystem::DropWeapon(AActor* Body, UGTPWeaponComponent* Gun)
+{
+	UWorld* World = GetWorld();
+	if (!World || !Body || !Gun || MaxPickups <= 0)
+	{
+		return;
+	}
+	const GTPArsenal::EKind Kind = Gun->GetKind();
+	const int32 Rounds = GTPPickup::DropRounds(Gun->GetMagazine(), Gun->GetReserve(), Gun->GetSpec().MagazineSize);
+	USkeletalMesh* Mesh = Gun->GetMeshFor(Kind);
+	// Out of the hand for good: holstered (the mesh hides) and empty.
+	Gun->SetDrawn(false);
+	Gun->StripAmmo();
+
+	// On the ground beside the body, toward where the blow or the bullet came from.
+	const FVector Side = Body->GetActorRightVector() * 70.f;
+	const FVector From = Body->GetActorLocation() + Side;
+	FHitResult Ground;
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(GTPWeaponDrop), false, Body);
+	const FVector Floor = World->LineTraceSingleByChannel(Ground, From, From - FVector(0.f, 0.f, 400.f), ECC_Visibility, Params)
+		? FVector(Ground.ImpactPoint) : From - FVector(0.f, 0.f, 90.f);
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	AGTPWeaponPickup* Pickup = World->SpawnActor<AGTPWeaponPickup>(Floor + FVector(0.f, 0.f, 80.f), FRotator(0.f, Body->GetActorRotation().Yaw, 0.f), SpawnParams);
+	if (!Pickup)
+	{
+		return;
+	}
+	Pickup->Setup(Kind, Rounds, Mesh, PickupLifeSeconds);
+	Pickups.RemoveAll([](const TWeakObjectPtr<AGTPWeaponPickup>& P) { return !P.IsValid(); });
+	while (Pickups.Num() >= MaxPickups)
+	{
+		if (AGTPWeaponPickup* Oldest = Pickups[0].Get())
+		{
+			Oldest->Destroy();
+		}
+		Pickups.RemoveAt(0);
+	}
+	Pickups.Add(Pickup);
+	GTP_TRACE(LogGTPCombat, TEXT("combat: %s dropped weapon %d with %d rounds"), *Body->GetName(), static_cast<int32>(Kind), Rounds);
 }
 
 void UGTPCombatSubsystem::SpawnBulletHole(const FHitResult& Hit, bool bGlass)

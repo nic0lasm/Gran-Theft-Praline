@@ -464,6 +464,25 @@ struct FLoadout
 		return EKind::Count;
 	}
 
+	/**
+	 * Picks up Rounds for Kind (a weapon on the ground): carried already = ammunition up to the
+	 * reserve cap, else the weapon itself. Returns the rounds taken (0 = nothing to take).
+	 */
+	int Collect(EKind Kind, int Rounds)
+	{
+		const size_t K = static_cast<size_t>(Kind);
+		if (K >= Owned.size() || Rounds <= 0)
+		{
+			return 0;
+		}
+		if (!Owned[K])
+		{
+			Give(Kind, Rounds);
+			return States[K].Reserve;
+		}
+		return GTPWeapon::AddAmmo(States[K], Specs[K], Rounds);
+	}
+
 	/** Arrest: every carried weapon loses its magazine and reserve (it stays carried, empty). */
 	void StripAll()
 	{
@@ -492,6 +511,35 @@ struct FLoadout
 	}
 };
 } // namespace GTPArsenal
+
+namespace GTPPickup
+{
+// Weapons left on the ground, GTA-like: a body that dies armed, or is disarmed by a heavy
+// blow or a takedown, drops its gun with some ammunition; walking over it picks it up.
+struct FSettings
+{
+	/** A dropped gun always holds at least this, at most two magazines. */
+	int MinRounds = 6;
+	/** Share of the reserve that falls with the gun (the rest is lost). */
+	float ReserveShare = 0.5f;
+};
+
+inline int DropRounds(int Magazine, int Reserve, int MagazineSize, const FSettings& S = FSettings())
+{
+	const int Rounds = std::max(0, Magazine) + static_cast<int>(static_cast<float>(std::max(0, Reserve)) * S.ReserveShare);
+	return std::clamp(Rounds, S.MinRounds, std::max(S.MinRounds, 2 * MagazineSize));
+}
+
+/** Whether this hit makes an armed body let go of its gun. bDrawn: gun in hand. */
+inline bool Disarms(bool bMelee, bool bHeavy, bool bKilled, bool bCarries, bool bDrawn)
+{
+	if (!bCarries)
+	{
+		return false;
+	}
+	return bKilled || (bMelee && bHeavy && bDrawn);
+}
+} // namespace GTPPickup
 
 namespace GTPDriveBy
 {
