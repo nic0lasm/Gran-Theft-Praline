@@ -250,7 +250,9 @@ Lyra n'est repris : Lyra repose sur GAS et ShooterCore, que l'ADR-0011 écarte. 
   les autres montages, et tant que la visée dure, la pose revient dès que son slot est libre (vérifié au plus
   toutes les 0,3 s). Le journal du joueur écrit `weapon: aim pose … playing` au départ, puis toutes les 2 s arme
   sortie `weapon: hand probe (aim|hip)` : slot actif, poids du montage, et position des mains par rapport à la tête
-  (`hand_r` : hauteur, avancée, côté ; `hand_l` : hauteur) sur le pion et sur le corps visible : une main levée bien
+  (`hand_r` : hauteur, avancée, côté ; `hand_l` : hauteur) sur le pion et sur le corps visible, puis
+  `weapon: frame probe` : hauteur des deux têtes au-dessus du centre de la capsule et place de la caméra (hauteur,
+  recul, côté, tangage, champ de vision) : une main levée bien
   devant la tête, c'est une visée ; une main très basse et à l'aplomb du corps, non. Mesuré sur le candidat 28b : la
   pose joue sur le pion (main 12 cm sous la tête, 43 cm devant) mais pas sur le corps MetaHuman (53 cm sous la tête,
   3 cm en arrière) : le retarget à l'exécution ne la transmet pas, cause en cours de recherche :

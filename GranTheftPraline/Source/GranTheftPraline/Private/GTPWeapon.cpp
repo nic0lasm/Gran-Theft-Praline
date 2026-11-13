@@ -9,6 +9,7 @@
 #include "Animation/AnimSequenceBase.h"
 #include "Animation/BlendProfile.h"
 #include "Animation/Skeleton.h"
+#include "Camera/PlayerCameraManager.h"
 #include "CollisionQueryParams.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/SkeletalMesh.h"
@@ -958,6 +959,28 @@ void UGTPWeaponComponent::ProbeHands(float DeltaTime)
 	GTP_TRACE(LogGTPCombat, TEXT("weapon: hand probe (%s): slot %s active %d weight %.2f; pawn %s; body %s"),
 		IsAiming() ? TEXT("aim") : TEXT("hip"), *Slot.ToString(), Anim->IsSlotActive(Slot) ? 1 : 0,
 		Anim->GetSlotMontageGlobalWeight(Slot), *Describe(Own), *Describe(FindVisibleBody()));
+
+	// The framing: where the heads and the camera are from the capsule's centre (a head under the frame means a
+	// camera too high or pitched up, or a body sunk under the capsule).
+	const FVector Centre = Character->GetActorLocation();
+	auto HeadHeight = [&Centre](const USkeletalMeshComponent* Mesh) -> FString
+	{
+		return Mesh && Mesh->GetBoneIndex(Head) != INDEX_NONE
+			? FString::Printf(TEXT("%.0f"), (Mesh->GetSocketLocation(Head) - Centre).Z) : FString(TEXT("-"));
+	};
+	FString CameraText(TEXT("-"));
+	if (const APlayerController* PC = GetPlayerController())
+	{
+		FVector View;
+		FRotator ViewRotation;
+		PC->GetPlayerViewPoint(View, ViewRotation);
+		const FVector Delta = View - Centre;
+		CameraText = FString::Printf(TEXT("%.0f up, %.0f behind, %.0f right, pitch %.0f, fov %.0f"), Delta.Z,
+			-FVector::DotProduct(Delta, Forward), FVector::DotProduct(Delta, Right), ViewRotation.Pitch,
+			PC->PlayerCameraManager ? PC->PlayerCameraManager->GetFOVAngle() : 0.f);
+	}
+	GTP_TRACE(LogGTPCombat, TEXT("weapon: frame probe: head above the capsule centre: pawn %s, body %s; camera %s"),
+		*HeadHeight(Own), *HeadHeight(FindVisibleBody()), *CameraText);
 }
 
 void UGTPWeaponComponent::SetAimLoop(bool bOn)

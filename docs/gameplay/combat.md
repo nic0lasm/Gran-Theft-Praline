@@ -240,7 +240,8 @@ is taken: Lyra stands on GAS and ShooterCore, which ADR-0011 leaves out. We take
   aim lasts the aim pose comes back as soon as its slot is free again (checked at most every 0.3 s). The player's
   log says `weapon: aim pose … playing` when it starts, and every 2 s with a gun out `weapon: hand probe (aim|hip)`:
   slot active, montage weight, and where the hands are from the head (`hand_r` height, reach forward and side,
-  `hand_l` height) on the pawn and on the visible body: a raised hand well ahead of the head is an aim, a hand far
+  `hand_l` height) on the pawn and on the visible body, then `weapon: frame probe`: both heads' height above the
+  capsule centre and the camera's place (up, behind, right, pitch, field of view): a raised hand well ahead of the head is an aim, a hand far
   below and level with the body is not. Measured on candidate 28b: the pose plays on the pawn (hand 12 cm under the
   head, 43 cm ahead) but not on the MetaHuman body (53 cm under, 3 cm behind): the runtime retarget does not carry
   it, under investigation: `tools/combat/unreal/player_visual_retarget.py` dumps the retargeters in use (ops, chain
