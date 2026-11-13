@@ -47,10 +47,15 @@ struct FGTPDriveCommand
 	float Brake = 0.f;
 	float Steering = 0.f;    // -1 left, +1 right (positive yaw rate)
 	float TargetSpeed = 0.f; // m/s, for debugging
+	/** What set TargetSpeed (logs of chases): see GTPDrive::ELimit. */
+	int Limit = 0;
 };
 
 namespace GTPDrive
 {
+	/** Why the car wants the speed it wants: the posted or given limit, a bend, a car it follows, an obstacle, the end of the known path. */
+	enum ELimit { LimitLane = 0, LimitBend = 1, LimitFollow = 2, LimitObstacle = 3, LimitPathEnd = 4, LimitCount = 5 };
+
 	inline float WrapAngle(float A)
 	{
 		while (A > 3.14159265f) A -= 6.2831853f;
@@ -173,6 +178,7 @@ namespace GTPDrive
 		Out.Steering = std::fabs(Alpha) > 1.5708f ? (Alpha > 0.f ? 1.f : -1.f) : Clamp(Steer / S.MaxSteerAngle, -1.f, 1.f);
 
 		float Want = BendSpeed(Path, InOutClosest, 40.f, S, LaneSpeed);
+		Out.Limit = Want < LaneSpeed - 0.3f ? LimitBend : LimitLane;
 		if (ObstacleDistance >= 0.f && LeaderSpeed > 0.5f && ObstacleDistance > S.SafeGap * 0.5f)
 		{
 			// A moving car ahead: follow it at a time gap (IDM).
@@ -180,6 +186,7 @@ namespace GTPDrive
 			if (VFollow < Want)
 			{
 				Want = VFollow;
+				Out.Limit = LimitFollow;
 			}
 		}
 		else if (ObstacleDistance >= 0.f)
@@ -189,6 +196,7 @@ namespace GTPDrive
 			if (VStop < Want)
 			{
 				Want = VStop;
+				Out.Limit = LimitObstacle;
 			}
 		}
 		// End of the known path: stop there.
@@ -197,6 +205,7 @@ namespace GTPDrive
 		const float VEnd = std::sqrt(2.f * S.ComfortDecel * (ToEnd > 1.f ? ToEnd - 1.f : 0.f));
 		if (VEnd < Want)
 		{
+			Out.Limit = LimitPathEnd;
 			Want = VEnd;
 		}
 		Out.TargetSpeed = Want;

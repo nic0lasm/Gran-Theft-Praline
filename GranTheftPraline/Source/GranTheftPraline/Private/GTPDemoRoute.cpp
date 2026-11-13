@@ -40,6 +40,12 @@ namespace
 	constexpr double PosLogInterval = 5.0;
 	constexpr int32 MaxStepsPerFrame = 6;
 
+	const TCHAR* LimitName(int32 Limit)
+	{
+		static const TCHAR* Names[] = { TEXT("lane"), TEXT("bend"), TEXT("follow"), TEXT("obstacle"), TEXT("pathend") };
+		return (Limit >= 0 && Limit < 5) ? Names[Limit] : TEXT("?");
+	}
+
 	const TCHAR* PhaseName(int32 Phase)
 	{
 		static const TCHAR* Names[] = { TEXT("wait for pawn"), TEXT("look around"), TEXT("walk street"), TEXT("turn back"),
@@ -600,6 +606,7 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 			if (bChase)
 			{
 				Follower.SetHardDriving();
+				Follower.bPreferStraight = true;
 			}
 			// Held up for more than 2.5 s (a car in a narrow street, a corner cut too short): first push through for
 			// 3 s, then, if it happens again, back off for 2 s with the wheels turned and go on.
@@ -665,9 +672,25 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 					SlowSince = 0.0;
 				}
 			}
-			if (Follower.Step(Driven->GetActorLocation(), static_cast<float>(Driven->GetActorRotation().Yaw), Driven->GetSpeedKmh(), Cruise,
-				Now < RamUntil ? 1000.f : (bChase ? UGTPAIDriverComponent::ProbeAhead(Driven, 900.f, 60.f) : UGTPAIDriverComponent::ProbeAhead(Driven, 4000.f, 90.f)), Command))
+			const float ObstacleM = Now < RamUntil ? 1000.f : (bChase ? UGTPAIDriverComponent::ProbeAhead(Driven, 900.f, 60.f) : UGTPAIDriverComponent::ProbeAhead(Driven, 4000.f, 90.f));
+			if (Follower.Step(Driven->GetActorLocation(), static_cast<float>(Driven->GetActorRotation().Yaw), Driven->GetSpeedKmh(), Cruise, ObstacleM, Command))
 			{
+				if (bChase)
+				{
+					// Where the time goes: seconds spent more than 8 km/h under the cruise speed, by what set the target speed.
+					const double Dt = FMath::Clamp(Now - LastLimitTime, 0.0, 0.5);
+					LastLimitTime = Now;
+					if (Driven->GetSpeedKmh() < Cruise - 8.f && Command.Limit >= 0 && Command.Limit < GTPDrive::LimitCount)
+					{
+						LimitSeconds[Command.Limit] += static_cast<float>(Dt);
+					}
+					if (Now >= NextLimitLog)
+					{
+						NextLimitLog = Now + 10.0;
+						GTP_TRACE(LogGTPDemo, TEXT("DemoLimit slow seconds: lane=%.0f bend=%.0f follow=%.0f obstacle=%.0f pathend=%.0f"), LimitSeconds[0], LimitSeconds[1],
+							LimitSeconds[2], LimitSeconds[3], LimitSeconds[4]);
+					}
+				}
 				if (bChase && Command.Brake < 0.05f && Driven->GetSpeedKmh() < Cruise - 4.f)
 				{
 					// The lane follower's throttle is soft (half of the time under 0.3 below the set speed): firmer for the chase.
@@ -677,8 +700,9 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 				if (bChase && Now >= NextDriveDiag)
 				{
 					NextDriveDiag = Now + 1.0;
-					GTP_TRACE(LogGTPDemo, TEXT("DemoDrive t=%.0f kmh=%.0f lane=%d throttle=%.2f brake=%.2f steer=%.2f cruise=%.0f"), static_cast<float>(T),
-						Driven->GetSpeedKmh(), Follower.GetLane(), Command.Throttle, Command.Brake, Command.Steering, Cruise);
+					GTP_TRACE(LogGTPDemo, TEXT("DemoDrive t=%.0f kmh=%.0f lane=%d throttle=%.2f brake=%.2f steer=%.2f cruise=%.0f want=%.0f limit=%s obstacle=%.0f m"), static_cast<float>(T),
+						Driven->GetSpeedKmh(), Follower.GetLane(), Command.Throttle, Command.Brake, Command.Steering, Cruise, Command.TargetSpeed * 3.6f,
+						LimitName(Command.Limit), ObstacleM);
 				}
 				if (bDeterministic && Follower.GetLane() != LastLoggedLane)
 				{
