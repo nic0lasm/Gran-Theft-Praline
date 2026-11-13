@@ -66,7 +66,7 @@ KIT_SLOTS = {
     "MI_Facade_PierreDoree": (0.62, 0.48, 0.30, 0.85, 0.0),
     "MI_Window_PaintedWood": (0.80, 0.79, 0.76, 0.45, 0.0),
     "MI_Glass_Window": (0.02, 0.025, 0.03, 0.04, 0.0),
-    "MI_Ironwork_Painted": (0.025, 0.025, 0.028, 0.55, 0.0),
+    "MI_Ironwork_Painted": (0.025, 0.025, 0.028, 0.75, 0.0),   # 0.55: thin bars sparkled under the street lamps (PC V5 13/11)
     "MI_Shutter_Painted": (0.30, 0.36, 0.33, 0.55, 0.0),
     "MI_Shopfront_Aluminium": (0.20, 0.20, 0.21, 0.35, 1.0),
     "MI_Shopfront_Wood": (0.10, 0.17, 0.15, 0.40, 0.0),
@@ -80,7 +80,7 @@ KIT_SLOTS = {
     "MI_Shop_Display": (0.25, 0.22, 0.2, 0.6, 0.0),
     "MI_Sign_Panel": (0.5, 0.5, 0.5, 0.35, 0.0),
     "MI_Glass_Shop": (0.05, 0.06, 0.065, 0.05, 0.0),   # translucent: M_City_GlassShop
-    "MI_Persienne": (0.62, 0.60, 0.56, 0.5, 0.0),      # folded metal shutters (facade kit v1)
+    "MI_Persienne": (0.62, 0.60, 0.56, 0.65, 0.0),     # folded metal shutters (facade kit v1)
     "MI_Roof_Zinc": (0.40, 0.42, 0.44, 0.45, 0.6),      # mansard modules (facade_kit/roof_kit.py)
 }
 KIT_EMISSIVE = {"MI_Shop_Interior": (1.0, 0.92, 0.8, 1.2)}
