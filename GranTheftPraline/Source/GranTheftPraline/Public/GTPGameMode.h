@@ -50,6 +50,10 @@ protected:
 	UPROPERTY(Config, EditDefaultsOnly, Category = "Classes")
 	FVector PlayerVisualOffset = FVector(0.f, 0.f, -90.f);
 
+	/** Name of the visual's body component that must hang from the pawn's mesh (-PlayerVisualBody= overrides); empty = none. */
+	UPROPERTY(Config, EditDefaultsOnly, Category = "Classes")
+	FString PlayerVisualBodyName = TEXT("Body");
+
 	UPROPERTY(Config, EditDefaultsOnly, Category = "Classes")
 	float PlayerVisualYaw = -90.f;
 
