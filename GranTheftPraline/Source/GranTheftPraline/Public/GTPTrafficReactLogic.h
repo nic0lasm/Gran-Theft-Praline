@@ -82,7 +82,66 @@ struct FSettings
 	/** Standing still after being rammed by the player, one long blast first. */
 	float ShakenSeconds = 2.5f;
 	float ShakenHornSeconds = 0.9f;
+	/** Temperament (ApplyTemperament): floors it instead of getting out when a gun is pointed
+	 *  at them stopped, and instead of stopping in shock when rammed. */
+	bool bFloorItWhenAimed = false;
+	bool bFloorItWhenHit = false;
 };
+
+/** Drivers are not all the same: most are calm, some in a hurry, some timid. */
+enum class ETemperament : uint8_t
+{
+	Calm,
+	Hurried,
+	Timid
+};
+
+inline const char* TemperamentName(ETemperament T)
+{
+	switch (T)
+	{
+	case ETemperament::Calm: return "calm";
+	case ETemperament::Hurried: return "hurried";
+	case ETemperament::Timid: return "timid";
+	}
+	return "?";
+}
+
+/** Temperament from a uniform roll in [0, 1): 55 % calm, 30 % hurried, 15 % timid. */
+inline ETemperament PickTemperament(float Roll)
+{
+	return Roll < 0.55f ? ETemperament::Calm : (Roll < 0.85f ? ETemperament::Hurried : ETemperament::Timid);
+}
+
+/** Settings of one driver from the common ones; OutSpeedFactor multiplies the lane speed. */
+inline FSettings ApplyTemperament(const FSettings& Base, ETemperament T, float& OutSpeedFactor)
+{
+	FSettings S = Base;
+	OutSpeedFactor = 1.f;
+	switch (T)
+	{
+	case ETemperament::Hurried:
+		OutSpeedFactor = 1.15f;
+		S.HonkAfter = Base.HonkAfter * 0.5f;
+		S.PlayerHonkAfter = Base.PlayerHonkAfter * 0.5f;
+		S.HonkRepeat = Base.HonkRepeat * 0.6f;
+		S.BypassAfter = Base.BypassAfter * 0.5f;
+		S.bFloorItWhenAimed = true;
+		S.bFloorItWhenHit = true;
+		break;
+	case ETemperament::Timid:
+		OutSpeedFactor = 0.9f;
+		S.HonkAfter = Base.HonkAfter * 2.f;
+		S.BypassAfter = Base.BypassAfter * 1.6f;
+		S.FleeAimSeconds = Base.FleeAimSeconds * 0.5f;
+		S.FleeMaxSpeed = Base.FleeMaxSpeed * 2.f;
+		S.ShakenSeconds = Base.ShakenSeconds * 1.6f;
+		break;
+	case ETemperament::Calm:
+		break;
+	}
+	return S;
+}
 
 /** What the driver perceives this step. */
 struct FInput
@@ -173,12 +232,13 @@ inline FOutput Step(FBrain& Brain, const FInput& In, const FSettings& S)
 
 	if (Brain.State != EState::Flee)
 	{
-		if (Brain.AimedTime >= S.FleeAimSeconds && In.Speed <= S.FleeMaxSpeed)
+		if (Brain.AimedTime >= S.FleeAimSeconds && In.Speed <= S.FleeMaxSpeed && !S.bFloorItWhenAimed)
 		{
 			Enter(Brain, EState::Flee);
 			Out.bBailOut = true;
 		}
-		else if (In.bShotNear || (In.bAimedAt && In.Speed > S.FleeMaxSpeed))
+		else if (In.bShotNear || (In.bAimedAt && (In.Speed > S.FleeMaxSpeed || S.bFloorItWhenAimed))
+			|| (In.bHitByPlayer && S.bFloorItWhenHit && Brain.State == EState::Cruise))
 		{
 			if (Brain.State != EState::Panic)
 			{

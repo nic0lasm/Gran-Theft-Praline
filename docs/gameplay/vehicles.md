@@ -232,6 +232,32 @@ No water plugin and no physics volume: plain overlap events, nearly free on the 
 - Stand-in signal heads (a coloured sphere on a pole at each stop line, no shadow, no collision) until the street furniture model exists. `-TrafficLights=0` turns the lights off, `-SignalHeads=0` hides the heads.
 - Simulation, 300 s on the rue de la République lanes: 3, 6 and 12 cars, no contact, no red light run.
 
+### 8.3 GTA pass of 13/11: stealing, driving feel, livelier traffic
+
+Written in one batch, compiled and tried later (`GTPCarjackLogic.h`, checked offline by
+`tools/vehicles/carjack_test`).
+
+- **Pulled-out driver**: flees (55 %), comes back at the thief (30 %: punches on foot,
+  bangs on the driver door once the thief is inside, gives up after three strikes, 8 s,
+  or when the car drives off) or cowers then flees (15 %). `UGTPCarjackVictimComponent`;
+  `-CarjackMood=flee|resist|cower` forces one.
+- **Taking a car that rolls**: F near a traffic car under 45 km/h (6.5 m): its driver
+  stops (`AGTPVehicle::RequestAIStop`), the player pulls them out as soon as it is slow
+  enough. Police cars do not stop.
+- **Starting**: a parked car starts in 0.7 s, a car with a broken window is hot-wired in
+  1.4 s (no throttle, no engine sound until then); a car taken from its driver is running.
+- **Driving feel, player's car only**: 240 N.m instead of 130 (AI cars keep the real
+  figure); handbrake above 20 km/h lowers rear grip and swings the tail with the steering;
+  slides without the handbrake are damped so the car straightens; under 35 % health the
+  engine loses up to 45 % of its power; a car dented on one side pulls to that side; a car
+  on its roof or side, stopped, is put back on its wheels after 2.5 s.
+- **Chase camera**: pulls back 1.5 m more at speed, looks part of the way into slides,
+  jolts on impacts.
+- **Traffic**: 22 driven cars (16 before) and 30 far ones; Clio V, 208 and Kangoo when their
+  Blueprints are in the build (van and 208 profiles by model); each driver has a
+  temperament: calm (55 %), hurried (30 %: 15 % faster, honks and goes round sooner, floors
+  it at gunpoint or when rammed), timid (15 %: slower, gets out at once at gunpoint).
+
 ## 9. Making a drivable car
 
 ### 9.1 First test car (no Tripo)

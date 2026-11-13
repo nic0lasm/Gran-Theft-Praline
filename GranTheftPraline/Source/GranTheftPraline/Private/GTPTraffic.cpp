@@ -156,6 +156,10 @@ void UGTPAIDriverComponent::Start(AGTPTrafficNetwork* InNetwork, int32 Lane, int
 	GhostSpeed = 0.f;
 	GhostAlong = 0.f;
 	bAtDeadEnd = false;
+	// Each driver has a temperament: speed, patience, what they do under threat.
+	const float Roll = GTPDeterminism::IsOn() ? DriverRandom.FRand() : FMath::FRand();
+	Temperament = GTPTrafficReact::PickTemperament(Roll);
+	DriverSettings = GTPTrafficReact::ApplyTemperament(Network->ReactSettings, Temperament, TemperamentSpeed);
 	PlanRoute();
 	SetComponentTickEnabled(true);
 }
@@ -392,7 +396,7 @@ bool UGTPAIDriverComponent::IsSideClear(const AGTPVehicle* Vehicle, float AheadM
 
 GTPTrafficReact::FOutput UGTPAIDriverComponent::UpdateReactions(AGTPVehicle* Vehicle, float DeltaTime, float Speed, float ProbeM, AActor* ProbeHit)
 {
-	const GTPTrafficReact::FSettings& Tuning = Network->ReactSettings;
+	const GTPTrafficReact::FSettings& Tuning = DriverSettings;
 	const APawn* Player = UGameplayStatics::GetPlayerPawn(this, 0);
 	const FVector Location = Vehicle->GetActorLocation();
 
@@ -443,8 +447,8 @@ GTPTrafficReact::FOutput UGTPAIDriverComponent::UpdateReactions(AGTPVehicle* Veh
 		}
 		const FString From(UTF8_TO_TCHAR(GTPTrafficReact::StateName(Before)));
 		const FString To(UTF8_TO_TCHAR(GTPTrafficReact::StateName(React.State)));
-		GTP_TRACE(LogGTPTraffic, TEXT("traffic react: %s %s -> %s (ahead %s %.1f m, %.0f km/h)"), *Vehicle->GetName(), *From, *To,
-			*GetNameSafe(ProbeHit), ProbeM, In.Speed * 3.6f);
+		GTP_TRACE(LogGTPTraffic, TEXT("traffic react: %s (%s) %s -> %s (ahead %s %.1f m, %.0f km/h)"), *Vehicle->GetName(),
+			UTF8_TO_TCHAR(GTPTrafficReact::TemperamentName(Temperament)), *From, *To, *GetNameSafe(ProbeHit), ProbeM, In.Speed * 3.6f);
 	}
 	if (Out.bBailOut)
 	{
@@ -572,9 +576,9 @@ void UGTPAIDriverComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 		NewLocation.Z = GhostGroundZ + GhostRideHeight;
 		Vehicle->SetActorLocationAndRotation(NewLocation, FRotator(0.f, FMath::RadiansToDegrees(NewYaw), 0.f), false, nullptr, ETeleportType::TeleportPhysics);
 	}
-	else if (Reaction.bHold)
+	else if (Reaction.bHold || Vehicle->IsAIStopRequested())
 	{
-		// Shaken or getting out: brake and stay put.
+		// Shaken, getting out, or the player walking up to take the car: brake and stay put.
 		Vehicle->SetAIDriveInput(0.f, 1.f, 0.f, Speed < 0.5f);
 	}
 	else
@@ -584,7 +588,7 @@ void UGTPAIDriverComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 		const FVector Right = Vehicle->GetActorRightVector().GetSafeNormal2D();
 		const float SteerX = X + Reaction.LateralOffset * static_cast<float>(Right.X);
 		const float SteerY = Y + Reaction.LateralOffset * static_cast<float>(Right.Y);
-		const FGTPDriveCommand Command = GTPDrive::Decide(Path, SteerX, SteerY, Yaw, Speed, LaneSpeed * Reaction.SpeedScale, Obstacle, Settings, Closest);
+		const FGTPDriveCommand Command = GTPDrive::Decide(Path, SteerX, SteerY, Yaw, Speed, LaneSpeed * Reaction.SpeedScale * TemperamentSpeed, Obstacle, Settings, Closest);
 		// Wedged against something the probe does not see (kerb, bollard, a car's
 		// corner): full throttle for 3 s without moving, then back off 1.5 s
 		// steering the other way, and try again.

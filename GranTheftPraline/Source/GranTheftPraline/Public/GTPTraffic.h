@@ -201,6 +201,9 @@ private:
 	bool IsSideClear(const AGTPVehicle* Vehicle, float AheadM) const;
 	bool IsStillObstacle(const AActor* Actor) const;
 	GTPTrafficReact::FBrain React;
+	GTPTrafficReact::FSettings DriverSettings;
+	GTPTrafficReact::ETemperament Temperament = GTPTrafficReact::ETemperament::Calm;
+	float TemperamentSpeed = 1.f;
 	TWeakObjectPtr<AActor> BypassBlocker;
 	int32 SeenShotSerial = -1;
 	bool bHornOn = false;

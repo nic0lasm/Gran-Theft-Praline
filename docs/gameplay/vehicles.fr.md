@@ -238,6 +238,34 @@ Pas de plugin Water ni de volume physique : de simples événements de chevauche
 - Têtes de feux provisoires (une sphère colorée sur un poteau à chaque ligne d'arrêt, sans ombre ni collision) en attendant le modèle de mobilier urbain. `-TrafficLights=0` coupe les feux, `-SignalHeads=0` masque les têtes.
 - Simulation, 300 s sur les voies de la rue de la République : 3, 6 et 12 voitures, aucun contact, aucun feu grillé.
 
+### 8.3 Passe GTA du 13/11 : vol, sensations de conduite, trafic plus vivant
+
+Écrit en un lot, compilé et essayé ensuite (`GTPCarjackLogic.h`, vérifié hors Unreal par
+`tools/vehicles/carjack_test`).
+
+- **Conducteur éjecté** : fuit (55 %), revient sur le voleur (30 % : coups de poing à pied,
+  coups sur la portière une fois le voleur à bord, abandonne après trois coups, 8 s, ou quand
+  la voiture part) ou se recroqueville puis fuit (15 %). `UGTPCarjackVictimComponent` ;
+  `-CarjackMood=flee|resist|cower` force une humeur.
+- **Voler une voiture qui roule** : F près d'une voiture du trafic à moins de 45 km/h (6,5 m) :
+  son conducteur s'arrête (`AGTPVehicle::RequestAIStop`), le joueur l'éjecte dès qu'elle est
+  assez lente. Les voitures de police ne s'arrêtent pas.
+- **Démarrage** : une voiture garée démarre en 0,7 s, une voiture à vitre brisée est câblée en
+  1,4 s (ni gaz ni bruit moteur avant) ; une voiture prise à son conducteur tourne déjà.
+- **Sensations, voiture du joueur seulement** : 240 N.m au lieu de 130 (les PNJ gardent la
+  valeur réelle) ; le frein à main au-dessus de 20 km/h réduit l'adhérence arrière et fait
+  pivoter l'arrière avec le volant ; les glissades sans frein à main sont amorties pour que la
+  voiture se redresse ; sous 35 % de santé le moteur perd jusqu'à 45 % de puissance ; une
+  voiture cabossée d'un côté tire de ce côté ; une voiture sur le toit ou le flanc, arrêtée, est
+  remise sur ses roues après 2,5 s.
+- **Caméra de poursuite** : recule de 1,5 m de plus à pleine vitesse, regarde en partie dans
+  le sens de la glisse, secoue aux chocs.
+- **Trafic** : 22 voitures conduites (16 avant) et 30 lointaines ; Clio V, 208 et Kangoo quand
+  leurs Blueprints sont dans le build (profils utilitaire et 208 par modèle) ; chaque
+  conducteur a un tempérament : calme (55 %), pressé (30 % : 15 % plus rapide, klaxonne et
+  contourne plus tôt, accélère sous la menace d'une arme ou quand on le percute), craintif
+  (15 % : plus lent, sort aussitôt sous la menace).
+
 ## 9. Préparer une voiture conduisible
 
 ### 9.1 Première voiture d'essai (sans Tripo)
