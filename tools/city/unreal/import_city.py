@@ -22,7 +22,12 @@ Steps (idempotent, the map is rebuilt each run; nothing else is touched):
      and terrain at their Lambert-93 positions, a PlayerStart at the Bellecour end
   3b. optional Rhone riverside (riverside.glb + riverside.json from tools/city/riverside.py):
      water without collision, bridge deck and quay parapets with collision, folder City/Riverside
+  3c. far decor (far_decor.*, tools/city/far_decor.py) in City/FarDecor and the grey backdrop
+     (backdrop.*) in City/Backdrop
   4. report in Saved/CityImport/report.json
+
+GTP_CITY_UPDATE=far loads the existing street map instead and replaces only City/FarDecor and
+City/Backdrop (one editor run; facades, props, materials and traffic stay as they are).
 
 Streaming cells (ADR-0010), GTP_CITY_LEVEL:
   street   (default) the self-contained test map above;
@@ -293,6 +298,13 @@ def far_decor_material():
 def far_decor_instance(parent, mesh, textures, dest):
     """One instance per merged mesh with its atlas (the texture the glb names T_<mesh name without SM_>)."""
     tex = textures.get(mesh.get_name()[3:])
+    if tex is None:                            # importer named it otherwise: the one its instance uses
+        cur = mesh.get_material(0)
+        if isinstance(cur, unreal.MaterialInstanceConstant):
+            for tp in cur.get_editor_property("texture_parameter_values") or []:
+                if tp.get_editor_property("parameter_value"):
+                    tex = tp.get_editor_property("parameter_value")
+                    break
     if tex is None:
         return None
     tex.set_editor_property("lod_group", unreal.TextureGroup.TEXTUREGROUP_WORLD)
@@ -315,7 +327,8 @@ def place_far_decor(report):
     """The real Lyon to the horizon (tools/city/far_decor.py): the Metropole's textured 3D model
     of 2018 merged per 500 m tile and texture atlas, and the IGN terrain with its orthophoto, all
     vertices in place (node translation 0, so placed at the origin whether the importer bakes or
-    not). No collision, no distance field; the terrain casts no shadow, nor do the buildings
+    not). No collision (except the statues and fountains near the street, kind "object", with
+    complex collision), no distance field; the terrain casts no shadow, nor do the buildings
     without Nanite. Each mesh gets an instance of M_City_FarDecor with its atlas. Tag
     GTP_Cull_far (-CityCull=far=<m> can hide it; nothing culls it by default).
     GTP_CITY_FAR_DECOR=0 skips it. Returns True when placed (the backdrop then leaves out the
@@ -354,12 +367,18 @@ def place_far_decor(report):
         ns.set_editor_property("enabled", FAR_NANITE)
         m.set_editor_property("nanite_settings", ns)
         eal.save_loaded_asset(m)
+        solid = n["kind"] == "object"        # a statue or fountain where the player walks (Jacobins, Bellecour)
+        if solid:
+            set_complex_collision([m])
         comp = place_mesh(m, (0.0, 0.0, 0.0), n["name"], "City/FarDecor").static_mesh_component
         comp.modify()
-        comp.set_collision_profile_name("NoCollision")
-        comp.set_collision_enabled(unreal.CollisionEnabled.NO_COLLISION)
+        if solid:
+            comp.set_collision_profile_name("BlockAll")
+        else:
+            comp.set_collision_profile_name("NoCollision")
+            comp.set_collision_enabled(unreal.CollisionEnabled.NO_COLLISION)
         comp.set_editor_property("affect_distance_field_lighting", False)
-        comp.set_editor_property("cast_shadow", n["kind"] == "buildings" and FAR_NANITE)
+        comp.set_editor_property("cast_shadow", solid or (n["kind"] == "buildings" and FAR_NANITE))
         comp.set_editor_property("component_tags", [unreal.Name("GTP_Cull_far")])
         placed += 1
     if missing:
@@ -367,6 +386,7 @@ def place_far_decor(report):
     if untextured:
         report["errors"].append("far decor atlases not found: %d (%s)" % (len(untextured), untextured[:3]))
     report["far_decor"] = {"placed": placed, "nanite": FAR_NANITE, "tex_max": FAR_TEX_MAX,
+                           "objects_with_collision": sum(1 for n in meta["nodes"] if n["kind"] == "object"),
                            "textures_found": len(textures), "buildings": meta["report"].get("kept"),
                            "building_triangles": meta["report"].get("building_triangles"),
                            "terrain_triangles": meta["report"].get("terrain_triangles")}
@@ -406,6 +426,28 @@ def place_backdrop(report):
         comp.set_editor_property("component_tags", [unreal.Name("GTP_Cull_proxy")])
         placed += 1
     report["backdrop"] = dict(meta.get("report", {}), placed=placed)
+
+
+def update_far(report, t0):
+    """GTP_CITY_UPDATE=far: replace only the far decor and the backdrop in the street map that is
+    already there (facades, props, details, materials, traffic and the rest stay untouched). One
+    editor run instead of the whole run_city_import.sh chain. Needs gen/<focus>/far_decor.* and a
+    backdrop.* regenerated with it (backdrop.py reads far_decor.json)."""
+    if LEVEL != "street" or not eal.does_asset_exist(MAP) or not level_sub.load_level(MAP):
+        report["errors"].append("update far: %s not found or not loaded" % MAP)
+        return write_report(report, t0)
+    removed = {}
+    for a in list(actor_sub.get_all_level_actors()):
+        folder = str(a.get_folder_path())
+        if folder in ("City/FarDecor", "City/Backdrop"):
+            removed[folder] = removed.get(folder, 0) + 1
+            actor_sub.destroy_actor(a)
+    report["update"] = {"mode": "far", "actors_removed": removed}
+    log("update far: removed %s" % removed)
+    place_far_decor(report)
+    place_backdrop(report)
+    level_sub.save_current_level()
+    write_report(report, t0)
 
 
 def build_quarter(report, t0):
@@ -479,6 +521,8 @@ def main():
     report = {"zone": ZONE, "focus": FOCUS, "map": MAP, "level": LEVEL, "errors": []}
     if LEVEL == "quarter":
         return build_quarter(report, t0)
+    if os.environ.get("GTP_CITY_UPDATE", "") == "far":
+        return update_far(report, t0)
     with open(os.path.join(GEN, "buildings_gen.csv"), encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
     with open(os.path.join(TERRAIN, "terrain.json")) as f:

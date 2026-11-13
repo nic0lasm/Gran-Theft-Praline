@@ -198,11 +198,15 @@ def download(url, path, chunk=1 << 22):
             with urllib.request.urlopen(req, timeout=300) as resp, open(part, "ab" if have else "wb") as out:
                 if have and resp.status != 206:
                     out.truncate(0)
+                expected, got = int(resp.headers.get("Content-Length") or -1), 0
                 while True:
                     b = resp.read(chunk)
                     if not b:
                         break
                     out.write(b)
+                    got += len(b)
+                if 0 <= expected != got:          # the server closed early without an error
+                    raise IOError(f"short read: {got} of {expected} bytes")
             os.replace(part, path)
             return
         except Exception as exc:  # noqa: BLE001
@@ -590,6 +594,31 @@ def jpeg(im, q=85):
     return b.getvalue()
 
 
+def load_cache(cache, stem):
+    """One prepped arrondissement: arrays of the npz, polygons sorted by object ("first" gives
+    each object's slice), centroid "cen" and vertex count "cnt" per object, "kinds" (building,
+    bridge, remarkable) and the "remarkable" mask."""
+    with np.load(os.path.join(cache, stem + ".npz")) as z:      # load once: NpzFile decompresses per access
+        d = {k: z[k] for k in z.files}
+    order = np.argsort(d["polys"][:, 0], kind="stable")
+    d["polys"] = d["polys"][order]
+    nb = len(d["bids"])
+    d["first"] = np.searchsorted(d["polys"][:, 0], np.arange(nb + 1))
+    sums, cnt = np.zeros((nb, 3)), np.zeros(nb)       # object centroid = mean of its vertices
+    for bi, s, n, _ in d["polys"]:
+        sums[bi] += d["v"][s:s + n].sum(0)
+        cnt[bi] += n
+    d["cen"], d["cnt"] = sums / np.maximum(cnt, 1)[:, None], cnt
+    if "kinds" not in d:                              # cache made before 13/11 19:30
+        d["kinds"] = np.array(["building"] * nb)
+    # remarkable objects: by file (REMARQUABLE), or for older caches by id (the BATI ids are
+    # cadastral, 6938x...; the remarkable ones are UUIDs or empty)
+    d["remarkable"] = (d["kinds"] == "remarkable") | \
+        np.array([k == "building" and not str(b).startswith("6938") for k, b in zip(d["kinds"], d["bids"])],
+                 dtype=bool)
+    return d
+
+
 def footprint(d, bi):
     """2D footprint of a CityGML object: union of its roof and ground faces seen from above
     (walls project to lines), or the convex hull of its vertices when it has none."""
@@ -636,27 +665,10 @@ def cmd_build(a):
     tiles = {}                                    # (tx, ty) -> list of (stem, building index, tex px)
     stats = {"citygml_buildings": 0, "kept": 0, "in_street_map": 0, "beyond_radius": 0, "riverside_bridges": 0,
              "copies_of_remarkable": 0, "remarkable": 0, "in_two_zips": 0, "small_faces_dropped": 0,
-             "overlaps_street_map": 0}
+             "overlaps_street_map": 0, "objects": 0}
     data = {}
     for stem in stems:
-        with np.load(os.path.join(cache, stem + ".npz")) as z:      # load once: NpzFile decompresses per access
-            d = {k: z[k] for k in z.files}
-        order = np.argsort(d["polys"][:, 0], kind="stable")
-        d["polys"] = d["polys"][order]
-        d["first"] = np.searchsorted(d["polys"][:, 0], np.arange(len(d["bids"]) + 1))
-        nb = len(d["bids"])
-        sums, cnt = np.zeros((nb, 3)), np.zeros(nb)       # building centroid = mean of its vertices
-        for bi, s, n, _ in d["polys"]:
-            sums[bi] += d["v"][s:s + n].sum(0)
-            cnt[bi] += n
-        d["cen"], d["cnt"] = sums / np.maximum(cnt, 1)[:, None], cnt
-        if "kinds" not in d:                              # cache made before 13/11 19:30
-            d["kinds"] = np.array(["building"] * nb)
-        # remarkable objects: by file (REMARQUABLE), or for older caches by id (the BATI ids are
-        # cadastral, 6938x...; the remarkable ones are UUIDs or empty)
-        d["remarkable"] = (d["kinds"] == "remarkable") | \
-            np.array([k == "building" and not str(b).startswith("6938") for k, b in zip(d["kinds"], d["bids"])])
-        data[stem] = d
+        data[stem] = load_cache(cache, stem)
     # the BATI files also hold a plain LOD2 copy of some remarkable buildings: drop it
     from shapely import MultiPoint
     from shapely.strtree import STRtree as _Tree
@@ -708,6 +720,11 @@ def cmd_build(a):
                 continue
             key = (int(math.floor(cx / a.tile)), int(math.floor(cy / a.tile)))
             px = a.close_tex if dist <= a.close_m else a.near_tex if dist <= a.near_m else a.far_tex
+            if d["remarkable"][bi] and dist <= a.object_m and fp is not None and fp.area <= a.object_max_m2:
+                # a statue or a fountain where the player walks (Jacobins, Bellecour, Terreaux): its own
+                # mesh, imported with collision, sheets at full size
+                key, px = ("obj", stats["objects"]), a.close_tex
+                stats["objects"] += 1
             tiles.setdefault(key, []).append((stem, bi, px, (cx, cy), dist))
             if fp is not None:
                 kept_fp.append(fp)
@@ -716,7 +733,7 @@ def cmd_build(a):
     # 2. per tile: atlases and merged meshes
     w = GlbWriter()
     nodes, covered_pts, tri_total, atlases = [], [], 0, 0
-    for key in sorted(tiles):
+    for key in sorted(tiles, key=lambda k: (isinstance(k[0], str), str(k))):
         items = sorted(tiles[key], key=lambda t: -t[2])
         atlas, groups = Atlas(a.atlas), []
         cur = {"v": [], "n": [], "uv": [], "i": [], "nv": 0, "atlas": atlas, "count": 0}
@@ -724,14 +741,18 @@ def cmd_build(a):
         def flush(cur):
             if not cur["v"]:
                 return
-            name = "SM_FarDecor_%s%04d_%s%04d_%d" % ("p" if key[0] >= 0 else "m", abs(key[0]),
-                                                    "p" if key[1] >= 0 else "m", abs(key[1]), len(groups))
+            if key[0] == "obj":
+                name = "SM_FarObject_%02d_%d" % (key[1], len(groups))
+            else:
+                name = "SM_FarDecor_%s%04d_%s%04d_%d" % ("p" if key[0] >= 0 else "m", abs(key[0]),
+                                                        "p" if key[1] >= 0 else "m", abs(key[1]), len(groups))
             img, (su, sv) = cur["atlas"].cropped()
             mat = w.material("T_" + name[3:], jpeg(img))
             V, N, UV = np.vstack(cur["v"]), np.vstack(cur["n"]), np.vstack(cur["uv"]) * [su, sv]
             I = np.vstack(cur["i"])
             w.mesh(name, V, N, UV, I, mat)
-            groups.append({"name": name, "kind": "buildings", "tile": list(key), "buildings": cur["count"],
+            groups.append({"name": name, "kind": "object" if key[0] == "obj" else "buildings", "tile": list(key),
+                           "buildings": cur["count"],
                            "triangles": int(len(I)), "atlas_px": list(img.size)})
 
         for stem, bi, px, cen, dist in items:
@@ -825,7 +846,7 @@ def cmd_build(a):
               "far_tex_px": a.far_tex, "far_min_area_m2": a.far_min_area, "atlas_px": a.atlas, "terrain_steps": a.terrain_steps,
               **stats, "meshes": len(nodes), "building_meshes": atlases, "building_triangles": tri_total,
               "terrain_triangles": terrain_tris, "covered_bdtopo_count": len(covered)}
-    px = sum(n["atlas_px"][0] * n["atlas_px"][1] for n in nodes if n["kind"] == "buildings") + \
+    px = sum(n["atlas_px"][0] * n["atlas_px"][1] for n in nodes if n["kind"] in ("buildings", "object")) + \
         sum(n["ortho_px"] ** 2 for n in nodes if n["kind"] == "terrain")
     report["texture_mpx"] = round(px / 1e6, 1)
     report["gpu_texture_mb_dxt1"] = round(px * 0.5 * 4 / 3 / 2 ** 20)   # BC1 with mips, before streaming
@@ -853,6 +874,10 @@ def main():
     ap.add_argument("--footprint-m", type=float, default=700.0,
                     help="within this distance, CityGML footprints decide the overlap with the street "
                          "map and which BD TOPO buildings the backdrop leaves out (beyond it: centroids)")
+    ap.add_argument("--object-m", type=float, default=400.0,
+                    help="remarkable objects (statues, fountains) this close to the axis get their own mesh, "
+                         "with collision")
+    ap.add_argument("--object-max-m2", type=float, default=600.0, help="footprint above which it is a building")
     ap.add_argument("--far-tex", type=int, default=128)
     ap.add_argument("--far-min-area", type=float, default=1.0,
                     help="faces smaller than this (m2) are dropped beyond --near-m (sculpture, railings)")

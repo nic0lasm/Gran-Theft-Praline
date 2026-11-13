@@ -625,8 +625,8 @@ photo aérienne par bâtiment, Licence Ouverte v2, crédit « Métropole de Lyon
 relief IGN (RGE ALTI à 10 m) drapé de l'orthophotographie BD ORTHO à 1 m/px (Licence Ouverte
 Etalab 2.0, crédit « IGN »). Rien de tout cela ne va dans Git.
 
-- `fetch` télécharge les zips d'arrondissement (`--arr`, par défaut du 1ER au 7EME, 2 à 3 Go
-  chacun, le serveur ne reprend pas un téléchargement coupé) dans `assets/geo/raw/<zone>/citygml/`,
+- `fetch` télécharge les zips d'arrondissement (`--arr`, par défaut du 1ER au 7EME, 2 à 4 Go
+  chacun ; le serveur coupe les longs transferts et ignore les requêtes Range : le script recommence, jusqu'à 6 fois) dans `assets/geo/raw/<zone>/citygml/`,
   et le relief lointain (carré de 5,4 km autour de la zone) et son ortho dans `.../far/`.
 - `prep` transforme chaque zip (ou son dossier extrait) en `citygml/cache/<stem>.npz` en mètres
   locaux (EPSG:3946 vers Lambert-93 calculé dans le script, sans pyproj), avec les planches
@@ -635,21 +635,34 @@ Etalab 2.0, crédit « IGN »). Rien de tout cela ne va dans Git.
   Fourvière, Saint-Jean, tour métallique) en CityGML 1.0 : objets et textures sont reconnus par
   leur nom XML local. Le zip peut ensuite être supprimé.
 - `build` garde tout objet CityGML à moins de 2,5 km de l'axe de la rue que la carte de la rue ne
-  génère pas (son centroïde n'est ni dans une emprise BD TOPO générée ni dans un repère, et le
-  pont que modélise `riverside.py` reste le sien). Il les fusionne par carré de 500 m et par atlas
+  génère pas : son emprise ne recouvre ni une emprise BD TOPO générée (réduite de 1 m,
+  recouvrement de plus de 40 m² ou du quart du bâtiment) ni un repère ; les ponts que modélise
+  `riverside.py` restent les siens ; les copies BATI d'un édifice remarquable et les ponts
+  présents dans deux zips sont écartés. Les petits objets remarquables proches de la tranche (à
+  moins de 400 m de l'axe, 600 m² au sol au plus : fontaines, statue de Bellecour) ont leur propre
+  maillage `SM_FarObject_*`. Il fusionne le reste par carré de 500 m et par atlas
   (planches à 512 px à moins de 150 m de l'axe, 256 px à moins de 600 m, 128 px au-delà ; chaque
   atlas recadré à la puissance de deux qu'il occupe). Il ajoute le relief par carré de 1 km :
   points de bord partagés, un point tous les 10 m à moins de 300 m de l'axe, 20 m à moins de
   1,2 km, 40 m au-delà (`--terrain-steps`), une jupe de 6 m sur chaque bord pour qu'un carré
   grossier n'ouvre jamais de fente contre un carré fin, un trou sur le relief LiDAR de la zone,
-  et 0,5 m plus bas. Sortie : `gen/<focus>/far_decor.glb` (atlas JPEG intégrés) et
+  et 0,5 m plus bas. Dans la zone, le relief propre de la zone garde le matériau de sol de la
+  ville : une couture se voit là où il rejoint l'ortho (pente de Fourvière). Sortie : `gen/<focus>/far_decor.glb` (atlas JPEG intégrés) et
   `far_decor.json` (nœuds, rapport avec triangles et poids des textures, `covered_bdtopo`).
+
+Mesuré le 13/11/2026 avec les 7 arrondissements : 18 785 objets CityGML lus, 13 008 gardés à
+moins de 2,5 km (dont 8 objets avec collision), 1,69 M triangles de bâtiments et 162 k de relief
+en 154 maillages (111 carrés de bâtiments, 8 objets, 35 carrés de relief), 565 Mpx d'atlas
+(environ 360 Mo en BC1 avec mips), `far_decor.glb` 228 Mo, construction en 3,5 min. Face au LiDAR
+de la carte de la rue (178 bâtiments communs), le faîtage de la maquette est à 0,07 m et son égout
+à 0,7 m (médianes).
 
 `backdrop.py` laisse de côté les bâtiments BD TOPO listés dans `covered_bdtopo` : un volume gris
 ne reste que là où la maquette 2018 n'a pas de bâtiment. `import_city.py` (`place_far_decor`)
 pose chaque maillage à l'origine (sommets en place, translation des nœuds nulle : la question
 « cuit ou pas » ne se pose pas), dossier City/FarDecor, étiquette `GTP_Cull_far` (rien ne le
-coupe par défaut ; `-CityCull=far=<m>` le peut), sans collision, sans champ de distance. Chaque
+coupe par défaut ; `-CityCull=far=<m>` le peut), sans champ de distance, et sans collision sauf sur les maillages
+`SM_FarObject_*` (complexe comme simple, BlockAll, ombres), là où le joueur peut s'y heurter. Chaque
 maillage reçoit une instance de son propre parent `M_City_FarDecor` (atlas en couleur de base,
 mat, double face), enregistré avec les drapeaux « utilisé avec Nanite » et instanciation : les
 instances de l'importeur glTF dépendent d'un parent hors de /Game dont on ne peut pas enregistrer
@@ -658,4 +671,7 @@ Nanite et ombres des bâtiments sous Windows seulement (`GTP_FAR_NANITE=0/1` pou
 n'a pas Nanite) ; atlas plafonnés à 4096 px sous Windows, 2048 ailleurs (`GTP_FAR_TEX_MAX`) ; le
 relief ne porte pas d'ombre. `regen_city.sh` lance `prep` quand un zip est là et `build` quand le
 cache est là (`GTP_CITY_FAR_DECOR=0` pour s'en passer, `GTP_CITY_FAR_FETCH=1` pour télécharger
-d'abord).
+d'abord). Sur une carte déjà construite, `GTP_CITY_UPDATE=far` fait charger la carte par
+`import_city.py`, qui ne remplace que les acteurs de City/FarDecor et City/Backdrop : une seule
+exécution d'éditeur, façades, accessoires, matériaux et trafic intacts ; avec en plus
+`GTP_CITY_FAR_DECOR=0`, il retire le décor lointain.

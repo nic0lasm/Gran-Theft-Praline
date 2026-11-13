@@ -13,6 +13,7 @@ asset's exact origin is in [assets/SOURCES.md](assets/SOURCES.md).
 | ---- | ---- | ---- | ---- |
 | BD TOPO (buildings, roads), LiDAR HD, RGE ALTI | IGN, via data.geopf.fr | Licence Ouverte Etalab 2.0 | Contains data from IGN |
 | Textured 3D model of Lyon 2018 (Maquettes 3D texturées, CityGML LOD2: buildings, bridges, landmarks) for the far decor | Métropole de Lyon (data.grandlyon.com) | Licence Ouverte v2 | Contains data from Métropole de Lyon (3D model 2018) |
+| Building year, storeys, materials and use (BDNB open, millésime 2026-02-b) for the building table | CSTB, Base de Données Nationale des Bâtiments (bdnb.io) | Licence Ouverte Etalab 2.0 | Contains data from the BDNB (CSTB) |
 | Orthophoto (BD ORTHO) under the far decor terrain | IGN, via data.geopf.fr | Licence Ouverte Etalab 2.0 | Contains data from IGN |
 | Street trees, kerbs, street furniture, administrative data | Métropole de Lyon (data.grandlyon.com) | Licence Ouverte / Etalab Open Licence | Contains data from Métropole de Lyon |
 | Shops, benches, fountains, brand identifiers | OpenStreetMap | ODbL 1.0 | © OpenStreetMap contributors (https://www.openstreetmap.org/copyright) |

@@ -598,8 +598,8 @@ the Croix-Rousse slopes, the Saône and Rhône quays and the roofs of the Presqu
 v2, credit "Métropole de Lyon") and an IGN terrain (RGE ALTI at 10 m) draped with the BD ORTHO
 orthophoto at 1 m/px (Licence Ouverte Etalab 2.0, credit "IGN"). Nothing of it goes in Git.
 
-- `fetch` downloads the arrondissement zips (`--arr`, default 1ER to 7EME, about 2-3 GB each,
-  the server does not resume) into `assets/geo/raw/<zone>/citygml/`, and the far terrain
+- `fetch` downloads the arrondissement zips (`--arr`, default 1ER to 7EME, about 2-4 GB each;
+  the server cuts long transfers and ignores Range requests, so the script starts again, up to 6 times) into `assets/geo/raw/<zone>/citygml/`, and the far terrain
   (5.4 km square around the zone) and its orthophoto into `.../far/`.
 - `prep` turns each zip (or its extracted folder) into `citygml/cache/<stem>.npz` in local metres
   (EPSG:3946 to Lambert-93 done in the script, no pyproj) and the building sheets reduced to
@@ -608,24 +608,39 @@ orthophoto at 1 m/px (Licence Ouverte Etalab 2.0, credit "IGN"). Nothing of it g
   tower) CityGML 1.0: objects and textures are matched on their local XML names. The zip can then
   be deleted.
 - `build` keeps every CityGML object within 2.5 km of the street axis that the street map does
-  not generate (its centroid is not in a generated BD TOPO footprint or a landmark, and the
-  bridge `riverside.py` models stays its own), merges them per 500 m tile and per atlas (sheets
+  not generate: its footprint does not overlap a generated BD TOPO footprint (shrunk 1 m, overlap
+  over 40 m² or a quarter of the building) or a landmark, the bridges `riverside.py` models stay
+  its own, the plain BATI copies of a remarkable building and the bridges found in two zips are
+  dropped. Small remarkable objects near the slice (within 400 m of the axis, at most 600 m² on
+  the ground: fountains, the Bellecour statue) get their own mesh `SM_FarObject_*`. The rest is
+  merged per 500 m tile and per atlas (sheets
   at 512 px within 150 m of the axis, 256 px within 600 m, 128 px beyond; each atlas cut to the
   power-of-two size it uses), and adds the terrain per 1 km tile: shared edge samples, every 10 m
   within 300 m of the axis, 20 m within 1.2 km, 40 m beyond (`--terrain-steps`), a 6 m skirt on
   every tile edge so a coarse tile never opens a crack against a fine one, a hole over the zone's
-  own LiDAR terrain and 0.5 m lower. Output: `gen/<focus>/far_decor.glb` (JPEG atlases inside)
+  own LiDAR terrain and 0.5 m lower. Inside the zone the zone's own terrain keeps the city ground
+  material, so a seam shows where it meets the orthophoto (Fourvière slope). Output: `gen/<focus>/far_decor.glb` (JPEG atlases inside)
   and `far_decor.json` (nodes, report with triangles and texture weight, `covered_bdtopo`).
+
+Measured on 2026-11-13 with the 7 arrondissements: 18 785 CityGML objects read, 13 008 kept
+within 2.5 km (8 of them objects with collision), 1.69 M building triangles and 162 k terrain
+triangles in 154 meshes (111 building tiles, 8 objects, 35 terrain tiles), 565 Mpx of atlases
+(about 360 MB in BC1 with mips), `far_decor.glb` 228 MB, build 3.5 min. Against the LiDAR of the
+street map (178 shared buildings) the model's ridge is 0.07 m off and its eave 0.7 m (medians).
 
 `backdrop.py` leaves out the BD TOPO buildings listed in `covered_bdtopo`, so a grey volume only
 stands where the 2018 model has no building. `import_city.py` (`place_far_decor`) places every
 mesh at the origin (vertices in place, node translation 0: no baked-or-not question), folder
 City/FarDecor, tag `GTP_Cull_far` (nothing culls it by default; `-CityCull=far=<m>` can), no
-collision, no distance field. Each mesh gets an instance of its own parent `M_City_FarDecor`
+distance field, and no collision except on the `SM_FarObject_*` meshes (complex as simple,
+BlockAll, shadows), which stand where the player can walk into them. Each mesh gets an instance of its own parent `M_City_FarDecor`
 (atlas as base colour, rough, two-sided) saved with the "used with Nanite" and instancing
 flags: the glTF importer's instances hang from a parent outside /Game whose saved usages cannot
 be set, and the cooked game draws such a Nanite mesh with the default material (11/11). Nanite
 and building shadows on Windows only (`GTP_FAR_NANITE=0/1` overrides; the M1 has no Nanite);
 atlases capped at 4096 px on Windows, 2048 elsewhere (`GTP_FAR_TEX_MAX`); the terrain casts no
 shadow. `regen_city.sh` runs `prep` when a zip is there and `build` when the cache is there
-(`GTP_CITY_FAR_DECOR=0` skips it, `GTP_CITY_FAR_FETCH=1` downloads first).
+(`GTP_CITY_FAR_DECOR=0` skips it, `GTP_CITY_FAR_FETCH=1` downloads first). On a map that is
+already built, `GTP_CITY_UPDATE=far` makes `import_city.py` load it and replace only the actors of
+City/FarDecor and City/Backdrop: one editor run, facades, props, materials and traffic untouched;
+with `GTP_CITY_FAR_DECOR=0` as well it takes the far decor out again.

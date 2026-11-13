@@ -288,7 +288,8 @@ pour lancer la discussion, surtout avant un gros chantier.
 
 - Données géographiques : contient des données de l'**IGN** (BD TOPO, LiDAR
   HD, RGE ALTI, BD ORTHO) et de la **Métropole de Lyon** (Licence Ouverte / Etalab ; le
-  décor lointain utilise sa maquette 3D texturée de Lyon 2018, Licence Ouverte v2), et
+  décor lointain utilise sa maquette 3D texturée de Lyon 2018, Licence Ouverte v2), de la
+  **BDNB** (CSTB, Licence Ouverte Etalab 2.0) pour les années et niveaux des bâtiments, et
   **© les contributeurs d'OpenStreetMap** ([ODbL](https://opendatacommons.org/licenses/odbl/)).
 - Photos de la vraie ville dans ce README : **Corentin Eustacchi**, Wikimedia
   Commons, [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/deed.fr),
