@@ -98,7 +98,7 @@ def entity_configs(report):
         return listed
     registry = unreal.AssetRegistryHelpers.get_asset_registry()
     found = []
-    for root in ("/MassTraffic", "/Game"):
+    for root in ("/Traffic", "/MassTraffic", "/Game"):
         for data in registry.get_assets_by_path(root, recursive=True):
             if str(data.asset_class_path.asset_name) != "MassEntityConfigAsset":
                 continue
