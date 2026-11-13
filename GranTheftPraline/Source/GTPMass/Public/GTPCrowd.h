@@ -6,10 +6,14 @@
 #include "MassEntityQuery.h"
 #include "Subsystems/WorldSubsystem.h"
 #include "GTPWalkLogic.h"
+#include "MassEntityHandle.h"
 #include "GTPCrowd.generated.h"
 
 class UInstancedStaticMeshComponent;
 class UStaticMesh;
+class AGTPPedestrian;
+class UAnimSequenceBase;
+class USkeletalMesh;
 
 /**
  * Pedestrian crowd on Mass (ADR-0015, docs/gameplay/pedestrians-mass.md). Hundreds of people are
@@ -39,6 +43,8 @@ struct GTPMASS_API FGTPCrowdLookFragment : public FMassFragment
 
 	int32 InstanceIndex = INDEX_NONE;
 	float Scale = 1.f;
+	/** Drawn as a full character this frame (the instance is hidden). */
+	bool bNear = false;
 };
 
 /** Tag of every crowd entity. */
@@ -141,8 +147,40 @@ protected:
 	UPROPERTY(Config)
 	float MeshYawOffset = -90.f;
 
+	/** Near people drawn as full characters (the pedestrian actors of the legacy system) and their animations. */
+	UPROPERTY(Config)
+	int32 NearCount = 24;
+
+	UPROPERTY(Config)
+	float NearRadius = 4000.f;
+
+	UPROPERTY(Config)
+	FSoftObjectPath WalkAnimation = FSoftObjectPath(TEXT("/Game/Characters/UEFN_Mannequin/Animations/Walk/M_Neutral_Walk_Loop_F_L_20.M_Neutral_Walk_Loop_F_L_20"));
+
+	UPROPERTY(Config)
+	FSoftObjectPath IdleAnimation = FSoftObjectPath(TEXT("/Game/Characters/UEFN_Mannequin/Animations/Idle/M_Relaxed_Stand_Idle_Loop.M_Relaxed_Stand_Idle_Loop"));
+
+	UPROPERTY(Config)
+	FSoftObjectPath RunAnimation = FSoftObjectPath(TEXT("/Game/Characters/UEFN_Mannequin/Animations/Run/M_Neutral_Run_Loop_F_R_20.M_Neutral_Run_Loop_F_R_20"));
+
+	UPROPERTY(Config)
+	FSoftObjectPath HandsUpAnimation = FSoftObjectPath(TEXT("/Game/Characters/Pedestrians/Anims/A_HandsUp.A_HandsUp"));
+
+	UPROPERTY(Config)
+	float WalkAnimationSpeed = 140.f;
+
+	UPROPERTY(Config)
+	float RunAnimationSpeed = 340.f;
+
 private:
 	void Spawn(UWorld& InWorld);
+	void SetupNearActors(UWorld& InWorld);
+	void UpdateNear(float DeltaTime);
+	void OnLoud(const FVector& Where, float Radius, AActor* Cause);
+	void OnActorThreat(AActor* Body, int32 NewState);
+	void HitByPlayerVehicle(int32 Slot);
+	FGTPCrowdWalkerFragment* WalkerOf(int32 EntityIndex);
+	FGTPCrowdLookFragment* LookOf(int32 EntityIndex);
 
 	GTPWalk::FGraph Graph;
 	GTPWalk::FSettings Settings;
@@ -159,4 +197,22 @@ private:
 
 	FMassArchetypeHandle Archetype;
 	TArray<FMassEntityHandle> Entities;
+
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<AGTPPedestrian>> NearActors;
+
+	/** Entity index served by each near actor (INDEX_NONE = free). */
+	TArray<int32> NearEntity;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UAnimSequenceBase> Walk;
+	UPROPERTY(Transient)
+	TObjectPtr<UAnimSequenceBase> Idle;
+	UPROPERTY(Transient)
+	TObjectPtr<UAnimSequenceBase> Run;
+	UPROPERTY(Transient)
+	TObjectPtr<UAnimSequenceBase> HandsUp;
+
+	GTPWalk::FRng ReactionRng{777u};
+	FDelegateHandle LoudHandle;
 };

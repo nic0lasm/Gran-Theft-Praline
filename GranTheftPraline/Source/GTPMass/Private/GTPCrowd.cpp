@@ -4,7 +4,13 @@
 #include "Engine/StaticMesh.h"
 #include "Engine/World.h"
 #include "GameFramework/Pawn.h"
+#include "Animation/AnimSequenceBase.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Engine/SkeletalMesh.h"
+#include "GameFramework/Character.h"
+#include "GTPAudioWorld.h"
 #include "GTPPedestrians.h"
+#include "GTPThreat.h"
 #include "Kismet/GameplayStatics.h"
 #include "MassCommonFragments.h"
 #include "MassEntityManager.h"
@@ -57,6 +63,18 @@ void UGTPCrowdSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 void UGTPCrowdSubsystem::Deinitialize()
 {
 	bRunning = false;
+	if (UGTPAudioWorld* Audio = GetWorld() ? GetWorld()->GetSubsystem<UGTPAudioWorld>() : nullptr)
+	{
+		Audio->OnLoudSound.Remove(LoudHandle);
+	}
+	for (AGTPPedestrian* A : NearActors)
+	{
+		if (A)
+		{
+			A->Destroy();
+		}
+	}
+	NearActors.Reset();
 	Entities.Reset();
 	if (InstanceActor)
 	{
@@ -161,6 +179,7 @@ void UGTPCrowdSubsystem::Spawn(UWorld& InWorld)
 		Look.InstanceIndex = Instances->AddInstance(FTransform(FRotator::ZeroRotator, FVector(0.f, 0.f, -100000.f), BaseScale * Look.Scale), false);
 		Entities.Add(Entity);
 	}
+	SetupNearActors(InWorld);
 	bRunning = true;
 	UE_LOG(LogGTPCrowd, Log, TEXT("crowd: %d people (%d placed) on %d walkway edges"), CrowdCount, Placed, static_cast<int32>(Graph.Edges.size()));
 }
@@ -177,6 +196,7 @@ void UGTPCrowdSubsystem::Tick(float DeltaTime)
 		PlayerLocation = Pawn->GetActorLocation();
 		PlayerGroundZ = PlayerLocation.Z - 90.f;
 	}
+	UpdateNear(DeltaTime);
 	if (Instances)
 	{
 		Instances->MarkRenderStateDirty();
@@ -293,8 +313,268 @@ void UGTPCrowdRepresentationProcessor::Execute(FMassEntityManager& EntityManager
 			{
 				continue;
 			}
-			const FTransform Transform(FRotator(0.f, W.Yaw + YawOffset, 0.f), FVector(W.Location.X, W.Location.Y, W.GroundZ), BaseScale * L.Scale);
+			const FTransform Transform = L.bNear
+				? FTransform(FRotator::ZeroRotator, FVector(0.f, 0.f, -100000.f), FVector(0.01f))
+				: FTransform(FRotator(0.f, W.Yaw + YawOffset, 0.f), FVector(W.Location.X, W.Location.Y, W.GroundZ), BaseScale * L.Scale);
 			Instances->UpdateInstanceTransform(L.InstanceIndex, Transform, true, false, true);
 		}
 	});
+}
+
+// ---------------------------------------------------------------- near people (full characters)
+
+FGTPCrowdWalkerFragment* UGTPCrowdSubsystem::WalkerOf(int32 EntityIndex)
+{
+	UMassEntitySubsystem* Mass = GetWorld() ? GetWorld()->GetSubsystem<UMassEntitySubsystem>() : nullptr;
+	if (!Mass || !Entities.IsValidIndex(EntityIndex))
+	{
+		return nullptr;
+	}
+	return Mass->GetMutableEntityManager().GetFragmentDataPtr<FGTPCrowdWalkerFragment>(Entities[EntityIndex]);
+}
+
+FGTPCrowdLookFragment* UGTPCrowdSubsystem::LookOf(int32 EntityIndex)
+{
+	UMassEntitySubsystem* Mass = GetWorld() ? GetWorld()->GetSubsystem<UMassEntitySubsystem>() : nullptr;
+	if (!Mass || !Entities.IsValidIndex(EntityIndex))
+	{
+		return nullptr;
+	}
+	return Mass->GetMutableEntityManager().GetFragmentDataPtr<FGTPCrowdLookFragment>(Entities[EntityIndex]);
+}
+
+void UGTPCrowdSubsystem::SetupNearActors(UWorld& InWorld)
+{
+	Walk = Cast<UAnimSequenceBase>(WalkAnimation.TryLoad());
+	Idle = Cast<UAnimSequenceBase>(IdleAnimation.TryLoad());
+	Run = Cast<UAnimSequenceBase>(RunAnimation.TryLoad());
+	HandsUp = Cast<UAnimSequenceBase>(HandsUpAnimation.TryLoad());
+	USkeletalMesh* Mesh = nullptr;
+	if (const ACharacter* Player = Cast<ACharacter>(UGameplayStatics::GetPlayerPawn(&InWorld, 0)))
+	{
+		Mesh = Player->GetMesh() ? Player->GetMesh()->GetSkeletalMeshAsset() : nullptr;
+	}
+	if (!Mesh || !Walk)
+	{
+		UE_LOG(LogGTPCrowd, Warning, TEXT("crowd: no near characters (mesh %s, walk %s)"), Mesh ? TEXT("ok") : TEXT("none"), Walk ? TEXT("ok") : TEXT("none"));
+		return;
+	}
+	if (!Idle)
+	{
+		Idle = Walk;
+	}
+	FActorSpawnParameters Params;
+	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	for (int32 Slot = 0; Slot < NearCount; ++Slot)
+	{
+		AGTPPedestrian* Actor = InWorld.SpawnActor<AGTPPedestrian>(FVector(0.f, 0.f, -100000.f), FRotator::ZeroRotator, Params);
+		if (!Actor)
+		{
+			continue;
+		}
+		Actor->GetBody()->SetSkeletalMesh(Mesh);
+		Actor->GetBody()->SetRelativeRotation(FRotator(0.f, MeshYawOffset, 0.f));
+		Actor->ApplyLook(ReactionRng.Range(1.f - HeightSpread, 1.f + HeightSpread), FLinearColor::White, {FName(TEXT("Tint"))}, ReactionRng.Range(0.92f, 1.08f));
+		Actor->SetDetail(false, false, -1);
+		if (UGTPThreatSubsystem::IsEnabled())
+		{
+			if (UGTPThreatResponseComponent* Fear = NewObject<UGTPThreatResponseComponent>(Actor, TEXT("Fear")))
+			{
+				const float Pick = ReactionRng.Next();
+				Fear->SetTemperament(Pick < 0.45f ? EGTPTemperament::Fleeing : (Pick < 0.85f ? EGTPTemperament::Compliant : EGTPTemperament::Frozen));
+				Fear->RegisterComponent();
+				Fear->OnThreatState.AddWeakLambda(this, [this](AActor* Body, EGTPThreatState /*Old*/, EGTPThreatState New)
+				{
+					OnActorThreat(Body, static_cast<int32>(New));
+				});
+			}
+		}
+		NearActors.Add(Actor);
+		NearEntity.Add(INDEX_NONE);
+	}
+	if (UGTPAudioWorld* Audio = InWorld.GetSubsystem<UGTPAudioWorld>())
+	{
+		LoudHandle = Audio->OnLoudSound.AddUObject(this, &UGTPCrowdSubsystem::OnLoud);
+	}
+	UE_LOG(LogGTPCrowd, Log, TEXT("crowd: %d near characters, hands-up animation %s"), NearActors.Num(), HandsUp ? TEXT("found") : TEXT("missing"));
+}
+
+void UGTPCrowdSubsystem::OnLoud(const FVector& Where, float Radius, AActor* /*Cause*/)
+{
+	// Everybody within earshot runs from the noise, near or far.
+	const GTPWalk::FPoint Point{float(Where.X), float(Where.Y)};
+	for (int32 Index = 0; Index < Entities.Num(); ++Index)
+	{
+		FGTPCrowdWalkerFragment* W = WalkerOf(Index);
+		if (W && W->Walker.Edge >= 0 && FVector::Dist2D(W->Location, Where) <= Radius)
+		{
+			GTPWalk::Flee(Graph, W->Walker, Point, Settings);
+		}
+	}
+}
+
+void UGTPCrowdSubsystem::OnActorThreat(AActor* Body, int32 NewState)
+{
+	const UGTPThreatSubsystem* Threat = GetWorld() ? GetWorld()->GetSubsystem<UGTPThreatSubsystem>() : nullptr;
+	const int32 Slot = NearActors.IndexOfByKey(Body);
+	if (!Threat || Slot == INDEX_NONE || NearEntity[Slot] == INDEX_NONE)
+	{
+		return;
+	}
+	FGTPCrowdWalkerFragment* W = WalkerOf(NearEntity[Slot]);
+	if (!W)
+	{
+		return;
+	}
+	const FVector Origin = Threat->GetOrigin();
+	const GTPWalk::FPoint From{float(Origin.X), float(Origin.Y)};
+	switch (static_cast<EGTPThreatState>(NewState))
+	{
+	case EGTPThreatState::Alarmed:
+		GTPWalk::Freeze(W->Walker, From, 3.f, GTPWalk::EPause::Gawk);
+		break;
+	case EGTPThreatState::HandsUp:
+	case EGTPThreatState::Complying:
+		GTPWalk::Freeze(W->Walker, From, 60.f, GTPWalk::EPause::HandsUp);
+		break;
+	case EGTPThreatState::Backing:
+	case EGTPThreatState::Fleeing:
+		GTPWalk::Flee(Graph, W->Walker, From, Settings);
+		break;
+	case EGTPThreatState::Calm:
+		if (W->Walker.PauseKind == GTPWalk::EPause::HandsUp)
+		{
+			W->Walker.Pause = 0.f;
+		}
+		break;
+	default:
+		break;
+	}
+}
+
+void UGTPCrowdSubsystem::HitByPlayerVehicle(int32 Slot)
+{
+	AGTPPedestrian* Actor = NearActors[Slot];
+	FGTPCrowdWalkerFragment* W = WalkerOf(NearEntity[Slot]);
+	const APawn* Pawn = UGameplayStatics::GetPlayerPawn(GetWorld(), 0);
+	if (!Actor || !W || !Pawn)
+	{
+		return;
+	}
+	const FVector Velocity = Pawn->GetVelocity();
+	if (Actor->StartRagdoll(Velocity * 0.4f + FVector(0.f, 0.f, 200.f)))
+	{
+		// The ones around stop and look.
+		const GTPWalk::FPoint Point{float(W->Location.X), float(W->Location.Y)};
+		for (int32 Index = 0; Index < Entities.Num(); ++Index)
+		{
+			FGTPCrowdWalkerFragment* Other = WalkerOf(Index);
+			if (Other && Other != W && Other->Walker.Edge >= 0 && FVector::Dist2D(Other->Location, W->Location) < 2500.f)
+			{
+				GTPWalk::Gawk(Other->Walker, Point, ReactionRng, Settings);
+			}
+		}
+		GTPWalk::Freeze(W->Walker, Point, 10.f, GTPWalk::EPause::None);
+	}
+}
+
+void UGTPCrowdSubsystem::UpdateNear(float DeltaTime)
+{
+	if (NearActors.Num() == 0)
+	{
+		return;
+	}
+	const FVector2D Player2D(PlayerLocation.X, PlayerLocation.Y);
+	// Candidates within the radius, the closest first, one per near actor.
+	TArray<TPair<float, int32>> Candidates;
+	for (int32 Index = 0; Index < Entities.Num(); ++Index)
+	{
+		const FGTPCrowdWalkerFragment* W = WalkerOf(Index);
+		if (W && W->Walker.Edge >= 0)
+		{
+			const float D = FVector2D::Distance(FVector2D(W->Location.X, W->Location.Y), Player2D);
+			if (D <= NearRadius)
+			{
+				Candidates.Emplace(D, Index);
+			}
+		}
+	}
+	Candidates.Sort([](const TPair<float, int32>& A, const TPair<float, int32>& B) { return A.Key < B.Key; });
+	TSet<int32> Wanted;
+	for (int32 I = 0; I < FMath::Min(Candidates.Num(), NearActors.Num()); ++I)
+	{
+		Wanted.Add(Candidates[I].Value);
+	}
+	// Release the actors whose person left the closest set, then give free actors to the new ones.
+	for (int32 Slot = 0; Slot < NearActors.Num(); ++Slot)
+	{
+		if (NearEntity[Slot] != INDEX_NONE && !Wanted.Contains(NearEntity[Slot]))
+		{
+			if (FGTPCrowdLookFragment* Look = LookOf(NearEntity[Slot]))
+			{
+				Look->bNear = false;
+			}
+			NearActors[Slot]->ResetBody();
+			NearActors[Slot]->SetDetail(false, false, -1);
+			NearActors[Slot]->SetActorLocation(FVector(0.f, 0.f, -100000.f), false, nullptr, ETeleportType::TeleportPhysics);
+			NearEntity[Slot] = INDEX_NONE;
+		}
+	}
+	for (const int32 EntityIndex : Wanted)
+	{
+		if (NearEntity.Contains(EntityIndex))
+		{
+			continue;
+		}
+		const int32 Free = NearEntity.IndexOfByKey(INDEX_NONE);
+		if (Free == INDEX_NONE)
+		{
+			break;
+		}
+		NearEntity[Free] = EntityIndex;
+		if (FGTPCrowdLookFragment* Look = LookOf(EntityIndex))
+		{
+			Look->bNear = true;
+		}
+		NearActors[Free]->SetDetail(true, true, -1);
+	}
+	// Follow the entities: position, and the animation that matches what the person does.
+	for (int32 Slot = 0; Slot < NearActors.Num(); ++Slot)
+	{
+		AGTPPedestrian* Actor = NearActors[Slot];
+		const int32 EntityIndex = NearEntity[Slot];
+		FGTPCrowdWalkerFragment* W = EntityIndex != INDEX_NONE ? WalkerOf(EntityIndex) : nullptr;
+		if (!Actor || !W)
+		{
+			continue;
+		}
+		if (Actor->IsRagdoll())
+		{
+			continue;
+		}
+		if (FVector::Dist2D(W->Location, PlayerLocation) < 170.f && GetWorld())
+		{
+			const APawn* Pawn = UGameplayStatics::GetPlayerPawn(GetWorld(), 0);
+			if (Pawn && Pawn->GetVelocity().Size2D() > 500.f)
+			{
+				HitByPlayerVehicle(Slot);
+				continue;
+			}
+		}
+		Actor->SetActorLocationAndRotation(FVector(W->Location.X, W->Location.Y, W->GroundZ), FRotator(0.f, W->Yaw, 0.f), false, nullptr, ETeleportType::None);
+		const bool bMoving = W->Speed > 1.f;
+		if (!bMoving)
+		{
+			const bool bHandsUp = W->Walker.PauseKind == GTPWalk::EPause::HandsUp && HandsUp;
+			Actor->PlayLoop(bHandsUp ? HandsUp.Get() : Idle.Get(), 1.f);
+		}
+		else if (W->Walker.FleeTimeLeft > 0.f && Run)
+		{
+			Actor->PlayLoop(Run, W->Speed / RunAnimationSpeed);
+		}
+		else
+		{
+			Actor->PlayLoop(Walk, W->Speed / WalkAnimationSpeed);
+		}
+	}
 }
