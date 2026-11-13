@@ -44,10 +44,29 @@ map: X = x·100, Y = −y·100, Z = z·100 (cm). The GeoJSON is therefore not in
 
 ## Measured (2026-11-13, 7 arrondissements)
 
-13 805 rows: 13 169 from the 2018 model, 636 from BD TOPO; 13 534 linked to the BDNB, 12 571
-with a year. Roofs: 10 201 pitched, 1 953 flat, 866 mixed, 183 mansard, 602 unknown. Slice:
-283 rows, 201 with shops on the ground floor, 258 with a year. Against the LiDAR of the street map
-(178 shared buildings) the ridge is 0.07 m off and the eave 0.7 m (median absolute differences).
+13 316 rows: 13 095 from the 2018 model, 221 from BD TOPO; 13 132 linked to the BDNB, 12 204
+with a year. Roofs: 10 151 pitched, 1 914 flat, 856 mixed, 179 mansard, 216 unknown. Slice:
+229 rows, 172 with shops on the ground floor, 212 with a year, no two footprints overlapping.
+Against the LiDAR of the street map (178 shared buildings) the ridge is 0.07 m off and the eave
+0.7 m (median absolute differences).
+
+One footprint is one building: the BATI copy of a remarkable building is dropped (the remarkable
+row keeps it, 74 copies), a BD TOPO building is left out when the model's footprints together
+cover half of it, and otherwise keeps only what they leave of it (ground from the zone's LiDAR).
+
+## PCG footprints and the Lyon facade grammar
+
+`tools/city/pcg_footprints.py --block <id> | --block-at x,y | --slice | --bbox` writes the chosen
+buildings as closed rings in Unreal cm with `max_height_cm` (= `@data.MaxHeight`) to
+`assets/geo/processed/<zone>/pcg/<name>.json` and `.csv`; a block is a set of touching
+footprints. `tools/city/unreal/create_footprint_splines.py` (GTP_PCG_FOOTPRINTS) places one actor
+with a closed spline per building, tagged `MaxHeight:<cm>`, `BuildingId:`, `Family:`, `Storeys:`,
+`Roof:`, `Shops:`. `tools/city/pcg_lyon.py` proposes the Lyon grammar for City Sample's PCG
+building primitives in Epic's Shape Grammar syntax: a family per style (haussmann, lyonnais,
+moderne; remarkable buildings keep their 2018 mesh), a storey plan that fits MaxHeight with the
+storey heights of `procgen.TYPOLOGY`, and one row grammar per storey role on the meshes of our
+facade kit (`/Game/Environment/Facades/LyonKit`), one variant per building. Not yet tried in an
+editor.
 
 ## Sources and limits
 

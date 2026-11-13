@@ -44,11 +44,39 @@ Le GeoJSON n'est donc pas en WGS84 : lire le bloc `metadata`.
 
 ## Mesures (13/11/2026, 7 arrondissements)
 
-13 805 lignes : 13 169 de la maquette 2018, 636 de BD TOPO ; 13 534 reliées à la BDNB, 12 571
-avec une année. Toits : 10 201 à pans, 1 953 plats, 866 mixtes, 183 mansardés, 602 inconnus.
-Tranche : 283 lignes, 201 avec commerce au rez-de-chaussée, 258 avec une année. Face au LiDAR de
-la carte de la rue (178 bâtiments communs), le faîtage est à 0,07 m et l'égout à 0,7 m (écarts
-absolus médians).
+13 316 lignes : 13 095 de la maquette 2018, 221 de BD TOPO ; 13 132 reliées à la BDNB, 12 204
+avec une année. Toits : 10 151 à pans, 1 914 plats, 856 mixtes, 179 mansardés, 216 inconnus.
+Tranche : 229 lignes, 172 avec commerce au rez-de-chaussée, 212 avec une année, aucune emprise
+n'en recouvre une autre. Face au LiDAR de la carte de la rue (178 bâtiments communs), le faîtage
+est à 0,07 m et l'égout à 0,7 m (écarts absolus médians).
+
+Une emprise = un bâtiment :
+- la copie BATI d'un édifice remarquable est écartée (la ligne remarquable le garde, 74 copies) ;
+- un bâtiment BD TOPO est écarté quand les emprises de la maquette en couvrent ensemble la
+  moitié ;
+- sinon il ne garde que ce qu'elles en laissent, avec le sol du LiDAR de la zone.
+
+## Emprises PCG et grammaire de façade lyonnaise
+
+`tools/city/pcg_footprints.py --block <id> | --block-at x,y | --slice | --bbox` écrit les
+bâtiments choisis :
+- forme : contours fermés en cm Unreal, avec `max_height_cm` (= `@data.MaxHeight`) ;
+- fichiers : `assets/geo/processed/<zone>/pcg/<nom>.json` et `.csv` ;
+- un îlot : des emprises qui se touchent.
+
+`tools/city/unreal/create_footprint_splines.py` (GTP_PCG_FOOTPRINTS) pose un acteur à spline
+fermée par bâtiment, avec les étiquettes `MaxHeight:<cm>`, `BuildingId:`, `Family:`,
+`Storeys:`, `Roof:` et `Shops:`.
+
+`tools/city/pcg_lyon.py` propose la grammaire lyonnaise pour les primitives de bâtiment PCG de
+City Sample, dans la syntaxe Shape Grammar d'Epic :
+- une famille par style (haussmann, lyonnais, moderne ; les édifices remarquables gardent leur
+  maillage 2018) ;
+- un plan d'étages qui tombe juste sur MaxHeight, avec les hauteurs de `procgen.TYPOLOGY` ;
+- une grammaire horizontale par rôle d'étage, sur les maillages de notre kit de façades
+  (`/Game/Environment/Facades/LyonKit`), une variante par bâtiment.
+
+Rien de tout cela n'a encore été essayé dans un éditeur.
 
 ## Sources et limites
 

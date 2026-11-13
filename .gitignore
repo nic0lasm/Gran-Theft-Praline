@@ -76,6 +76,7 @@ assets/geo/processed/*/gen/
 assets/geo/processed/*/terrain/
 # Building table of Lyon (tools/city/building_table.py: 2018 model, BDNB, OSM shops)
 assets/geo/processed/*/buildings_lyon/
+assets/geo/processed/*/pcg/
 # Driving lanes copied into the game by tools/city/traffic.py --map
 /GranTheftPraline/Content/City/Traffic/
 

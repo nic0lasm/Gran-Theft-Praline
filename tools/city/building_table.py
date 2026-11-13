@@ -244,7 +244,8 @@ def load_bdnb(raw):
 
 def cmd_build(a):
     from shapely import affinity
-    from shapely.geometry import LineString, Point, Polygon, mapping
+    from shapely.geometry import LineString, Point, Polygon, mapping, shape
+    from shapely.ops import unary_union
     from shapely.strtree import STRtree
     import procgen  # noqa: PLC0415
     t0 = time.time()
@@ -262,6 +263,11 @@ def cmd_build(a):
     # zone data: BD TOPO buildings, street map rows, shops, roads
     import generate  # noqa: PLC0415
     bd = {b["id"]: b for b in generate.load_buildings(proc)}
+    try:                      # LiDAR ground of the zone, for the BD TOPO rows the model lacks
+        import raster  # noqa: PLC0415
+        mnt = raster.Raster.load(raw, "mnt")
+    except (OSError, ValueError, KeyError):
+        mnt = None
     with open(os.path.join(proc, "buildings.csv"), encoding="utf-8") as f:
         bd_rows = {r["id"]: r for r in csv.DictReader(f)}
     bd_ids = list(bd)
@@ -419,21 +425,56 @@ def cmd_build(a):
                 props["shop_names"] = None
             feats.append({"type": "Feature", "geometry": mapping(fp), "properties": props})
             stats["rows_citygml"] += 1
-    # BD TOPO buildings of the zone the 2018 model lacks (built since, or missing)
+    # BD TOPO buildings of the zone the 2018 model lacks (built since, or missing). A BD TOPO
+    # building often spans several cadastral parcels of the model, each under the 30 % link
+    # above: it is covered when the model's footprints together cover half of it.
+    # The BATI files also hold plain copies of the remarkable buildings (Hôtel-Dieu, churches):
+    # the remarkable row keeps the building, as in far_decor.py.
+    marks = [shape(f["geometry"]) for f in feats if f["properties"]["remarkable"]]
+    if marks:
+        mark_tree, kept = STRtree(marks), []
+        for f in feats:
+            g = shape(f["geometry"])
+            near = [marks[k] for k in mark_tree.query(g)] if not f["properties"]["remarkable"] else []
+            if near and unary_union(near).intersection(g).area >= 0.5 * g.area:
+                stats["copies_of_remarkable"] = stats.get("copies_of_remarkable", 0) + 1
+                stats["rows_citygml"] -= 1
+                continue
+            kept.append(f)
+        feats = kept
+    cg_polys = [shape(f["geometry"]) for f in feats]
+    cg_tree = STRtree(cg_polys) if cg_polys else None
     for i in bd_ids:
         if i in covered_bd:
             continue
         b, r = bd[i], bd_rows.get(i, {})
-        c = b["poly"].centroid
+        fpoly = b["poly"]
+        near = [cg_polys[k] for k in cg_tree.query(fpoly)] if cg_tree is not None else []
+        if near:
+            model = unary_union(near)
+            if model.intersection(fpoly).area >= 0.5 * fpoly.area:
+                covered_bd.add(i)
+                continue
+            # what the model leaves of it, so no two rows overlap (one spline, one building)
+            rest = fpoly.difference(model).buffer(-0.25).buffer(0.25)
+            parts = [p for p in getattr(rest, "geoms", [rest]) if p.geom_type == "Polygon"]
+            if not parts:
+                continue
+            fpoly = max(parts, key=lambda p: p.area)
+        c = fpoly.centroid
         dist = axis.distance(c)
-        if dist > a.radius or b["poly"].area < 8.0:
+        if dist > a.radius or fpoly.area < 8.0:
             continue
         h = float(r.get("height_m") or 0) or None
+        ground = None
+        if mnt is not None:
+            ground = round(generate.ground_height(fpoly, mnt, lambda p: (p[0] + origin[0], p[1] + origin[1]),
+                                                  origin_alt), 2)
         g = gen_rows.get(i)
         style = g["typology"] if g else "inconnu"
         props = {"id": i, "source": "bdtopo", "arrondissement": None, "remarkable": False,
                  "centroid_x_m": round(c.x, 2), "centroid_y_m": round(c.y, 2), "dist_axis_m": round(dist, 1),
-                 "footprint_m2": round(b["poly"].area, 1), "ground_z_m": None, "eave_z_m": None, "ridge_z_m": None,
+                 "footprint_m2": round(fpoly.area, 1), "ground_z_m": ground, "eave_z_m": round(ground + h, 2) if ground is not None and h else None, "ridge_z_m": None,
                  "height_eave_m": h, "height_ridge_m": None, "roof_type": STREET_ROOF.get(g["roof_kind"], "unknown") if g else "unknown",
                  "roof_pitch_deg": None, "bdtopo_id": i, "in_street_map": bool(g) or i in replaced,
                  "street_map_roof": g["roof_kind"] if g else None,
@@ -446,8 +487,8 @@ def cmd_build(a):
                  "storeys_source": "carte-de-la-rue" if g else ("bdtopo" if r.get("floors") else "estime-hauteur"),
                  "ground_floor_shops": None, "ground_floor_commercial": None, "shop_names": None}
         if bdnb_tree is not None:
-            k, ar = best_overlap(bdnb_tree, bdnb_geoms, b["poly"])
-            if k is not None and ar >= 0.3 * b["poly"].area:
+            k, ar = best_overlap(bdnb_tree, bdnb_geoms, fpoly)
+            if k is not None and ar >= 0.3 * fpoly.area:
                 rb = bdnb[k]
                 year = rb.get("annee_construction")
                 props.update(bdnb_id=rb["batiment_groupe_id"], year_built=year, era=era_of(year),
@@ -461,10 +502,10 @@ def cmd_build(a):
                 stats["with_bdnb"] += 1
                 stats["with_year"] += int(bool(year))
         if shop_tree is not None:
-            inside = [shops[k] for k in shop_tree.query(b["poly"].buffer(3.0), predicate="contains")]
+            inside = [shops[k] for k in shop_tree.query(fpoly.buffer(3.0), predicate="contains")]
             props.update(ground_floor_shops=len(inside), ground_floor_commercial=len(inside) > 0,
                          shop_names="; ".join(sorted({n for _, _, n, _ in inside if n}))[:300] or None)
-        feats.append({"type": "Feature", "geometry": mapping(b["poly"]), "properties": props})
+        feats.append({"type": "Feature", "geometry": mapping(fpoly), "properties": props})
         stats["rows_bdtopo_only"] += 1
 
     out = os.path.join(proc, "buildings_lyon")
