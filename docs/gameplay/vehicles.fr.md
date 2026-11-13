@@ -298,7 +298,9 @@ Pas de plugin Water ni de volume physique : de simples événements de chevauche
   écart de 1,4 s, au lieu de viser l'arrêt derrière chaque voiture ; une file redémarre
   d'un bloc. Obstacles immobiles, feux et lignes d'arrêt gardent l'ancienne règle d'arrêt.
   `tools/vehicles/idm_test`.
-- **Tir depuis une voiture** : pas fait ; l'arme ne tire qu'à pied.
+- **Tir depuis une voiture** : fait côté combat (feat/combat-gta-shooting) ; le trafic réagit
+  aussi à la visée et aux tirs par la vitre (l'arme du conducteur assis dans la voiture du joueur
+  est lue).
 
 ### 8.6 Voitures City Sample d'Epic (13/11)
 

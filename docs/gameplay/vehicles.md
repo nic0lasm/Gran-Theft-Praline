@@ -286,7 +286,8 @@ Written in one batch, not compiled yet (`GTPIncidentLogic.h`, checked offline by
   in the reuse survey) with a 1.4 s time gap, instead of aiming to stop behind every car; a
   queue moves off together. Still obstacles, lights and stop lines keep the old stop rule.
   `tools/vehicles/idm_test`.
-- **Shooting from a car**: not done; the weapon only fires on foot.
+- **Shooting from a car**: done by the combat work (feat/combat-gta-shooting); traffic reacts to
+  drive-by aiming and shots too (the weapon of the driver seated in the player's car is read).
 
 ### 8.6 Epic's City Sample cars (13/11)
 

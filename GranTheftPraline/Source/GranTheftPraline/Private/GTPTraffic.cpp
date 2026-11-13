@@ -2044,10 +2044,24 @@ float AGTPTrafficNetwork::GapAlongLanes(const UGTPAIDriverComponent* Driver, flo
 
 // --- The player's weapon, read when the threat system is off ------------------
 
+namespace
+{
+	/** The player's weapon: on the character, or on the driver seated in the player's car (drive-by). */
+	const UGTPWeaponComponent* PlayerWeapon(const APawn* Player)
+	{
+		if (const AGTPVehicle* Car = Cast<AGTPVehicle>(Player))
+		{
+			const ACharacter* Seated = Car->GetDriver();
+			return Seated ? Seated->FindComponentByClass<UGTPWeaponComponent>() : nullptr;
+		}
+		return Player ? Player->FindComponentByClass<UGTPWeaponComponent>() : nullptr;
+	}
+}
+
 bool AGTPTrafficNetwork::GetPlayerAim(FVector& OutOrigin, FVector& OutDirection) const
 {
 	const APawn* Player = UGameplayStatics::GetPlayerPawn(this, 0);
-	const UGTPWeaponComponent* Weapon = Player ? Player->FindComponentByClass<UGTPWeaponComponent>() : nullptr;
+	const UGTPWeaponComponent* Weapon = PlayerWeapon(Player);
 	if (!Weapon || !Weapon->IsAiming() || !Player->GetController())
 	{
 		return false;
@@ -2060,7 +2074,7 @@ bool AGTPTrafficNetwork::GetPlayerAim(FVector& OutOrigin, FVector& OutDirection)
 void AGTPTrafficNetwork::UpdatePlayerShots(const APawn* Player)
 {
 	// A magazine that went down since the last tick: shots were fired (a reload raises it).
-	const UGTPWeaponComponent* Weapon = Player ? Player->FindComponentByClass<UGTPWeaponComponent>() : nullptr;
+	const UGTPWeaponComponent* Weapon = PlayerWeapon(Player);
 	if (!Weapon)
 	{
 		LastPlayerMagazine = -1;
