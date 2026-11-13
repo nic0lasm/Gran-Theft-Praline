@@ -297,6 +297,14 @@ def wheel_anim_class(mesh, blueprint_path, entry, from_blueprint=None):
                 entry.setdefault("anim_skipped", []).append(str(data.package_name) + " (other skeleton)")
                 continue
             entry["anim"] = str(data.package_name)
+            # Parent class from the asset registry: VehicleAnimationInstance (or an AnimBlueprint
+            # of it) is what lets Chaos turn and lift the wheels.
+            try:
+                entry["anim_parent"] = str(data.get_tag_value("ParentClass"))
+            except Exception as error:
+                entry["anim_parent"] = "unknown: %s" % error
+            entry["anim_check"] = ("child of VehicleAnimationInstance" if getattr(unreal, "VehicleAnimationInstance", None) is not None
+                                   else "not checked: VehicleAnimationInstance not exposed to Python")
             return abp.generated_class()
     skeleton = mesh.get_editor_property("skeleton")
     target = "%s/ABP_GTP_%s" % (OUT, skeleton.get_name())
