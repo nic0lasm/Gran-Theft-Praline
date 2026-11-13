@@ -694,6 +694,7 @@ void UGTPWeaponComponent::TickComponent(float DeltaTime, ELevelTick TickType, FA
 
 	if (IsAiming() && Pawn)
 	{
+		KeepAimLoop(DeltaTime);
 		const FRotator Aim = GetAimRotation();
 		if (!IsDriveBy())
 		{
@@ -755,7 +756,9 @@ void UGTPWeaponComponent::PlayClip(const TCHAR* Suffix)
 	UAnimMontage* Montage = Cast<UAnimMontage>(Clip);
 	if (Montage && Entry->Slot.IsNone())
 	{
-		Anim->Montage_Play(Montage);
+		// In its own slot, without stopping the others: Lyra's Fire montage would otherwise end the aim pose
+		// at every shot (same montage group) while its additive slot is missing from the player's blueprint.
+		Anim->Montage_Play(Montage, 1.f, EMontagePlayReturnType::MontageLength, 0.f, false);
 		return;
 	}
 	const FName Slot = Entry->Slot.IsNone() ? AnimSlot : Entry->Slot;
@@ -835,19 +838,18 @@ UBlendProfile* UGTPWeaponComponent::GetUpperBodyMask()
 	return Mask;
 }
 
-void UGTPWeaponComponent::PlayInSlot(UAnimSequenceBase* Sequence, FName Slot, float BlendIn, float BlendOut, int32 LoopCount)
+UAnimMontage* UGTPWeaponComponent::PlayInSlot(UAnimSequenceBase* Sequence, FName Slot, float BlendIn, float BlendOut, int32 LoopCount)
 {
 	const ACharacter* Character = Cast<ACharacter>(GetOwner());
 	UAnimInstance* Anim = Character && Character->GetMesh() ? Character->GetMesh()->GetAnimInstance() : nullptr;
 	if (!Anim || !Sequence)
 	{
-		return;
+		return nullptr;
 	}
 	UBlendProfile* Mask = GetUpperBodyMask();
 	if (!Mask)
 	{
-		Anim->PlaySlotAnimationAsDynamicMontage(Sequence, Slot, BlendIn, BlendOut, 1.f, LoopCount);
-		return;
+		return Anim->PlaySlotAnimationAsDynamicMontage(Sequence, Slot, BlendIn, BlendOut, 1.f, LoopCount);
 	}
 	FMontageBlendSettings In;
 	In.Blend.BlendTime = BlendIn;
@@ -855,7 +857,51 @@ void UGTPWeaponComponent::PlayInSlot(UAnimSequenceBase* Sequence, FName Slot, fl
 	FMontageBlendSettings Out;
 	Out.Blend.BlendTime = BlendOut;
 	Out.BlendProfile = Mask;
-	Anim->PlaySlotAnimationAsDynamicMontage_WithBlendSettings(Sequence, Slot, In, Out, 1.f, LoopCount);
+	return Anim->PlaySlotAnimationAsDynamicMontage_WithBlendSettings(Sequence, Slot, In, Out, 1.f, LoopCount);
+}
+
+void UGTPWeaponComponent::KeepAimLoop(float DeltaTime)
+{
+	const ACharacter* Character = Cast<ACharacter>(GetOwner());
+	USkeletalMeshComponent* Own = Character ? Character->GetMesh() : nullptr;
+	UAnimInstance* Anim = Own ? Own->GetAnimInstance() : nullptr;
+	if (!Anim || AimLoopSlot.IsNone() || IsDriveBy())
+	{
+		return;
+	}
+	// A reload, a draw or a dry click played in the same slot ended the aim pose: back to it once they are over
+	// (at most a few times a second, in case the clip cannot play on this skeleton).
+	AimRestartLeft -= DeltaTime;
+	if (AimRestartLeft <= 0.f && !Anim->IsSlotActive(AimLoopSlot))
+	{
+		AimRestartLeft = 0.3f;
+		SetAimLoop(true);
+	}
+	if (!bPlayerControlled)
+	{
+		return;
+	}
+	// Every 2 s: is the aim pose on the body? (hand height and reach from the head, pawn and visible body)
+	AimProbeLeft -= DeltaTime;
+	if (AimProbeLeft > 0.f)
+	{
+		return;
+	}
+	AimProbeLeft = 2.f;
+	static const FName Hand(TEXT("hand_r"));
+	static const FName Head(TEXT("head"));
+	const FVector Forward = Character->GetActorForwardVector();
+	auto Describe = [&Forward](const USkeletalMeshComponent* Mesh) -> FString
+	{
+		if (!Mesh || Mesh->GetBoneIndex(Hand) == INDEX_NONE || Mesh->GetBoneIndex(Head) == INDEX_NONE)
+		{
+			return TEXT("-");
+		}
+		const FVector Delta = Mesh->GetSocketLocation(Hand) - Mesh->GetSocketLocation(Head);
+		return FString::Printf(TEXT("hand_r %.0f cm from head height, %.0f cm ahead"), Delta.Z, FVector::DotProduct(Delta, Forward));
+	};
+	GTP_TRACE(LogGTPCombat, TEXT("weapon: aim probe: slot %s active %d weight %.2f; pawn %s; body %s"), *AimLoopSlot.ToString(),
+		Anim->IsSlotActive(AimLoopSlot) ? 1 : 0, Anim->GetSlotMontageGlobalWeight(AimLoopSlot), *Describe(Own), *Describe(FindVisibleBody()));
 }
 
 void UGTPWeaponComponent::SetAimLoop(bool bOn)
@@ -884,6 +930,11 @@ void UGTPWeaponComponent::SetAimLoop(bool bOn)
 		return;
 	}
 	// Held as long as the aim lasts (a large loop count), stopped by SetAimLoop(false).
-	PlayInSlot(Sequence, Slot, 0.12f, 0.15f, 100000);
+	const UAnimMontage* Montage = PlayInSlot(Sequence, Slot, 0.12f, 0.15f, 100000);
 	AimLoopSlot = Slot;
+	if (bPlayerControlled)
+	{
+		GTP_TRACE(LogGTPCombat, TEXT("weapon: aim pose %s in slot %s: %s"), *Sequence->GetName(), *Slot.ToString(),
+			Montage ? TEXT("playing") : TEXT("not played"));
+	}
 }
