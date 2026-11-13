@@ -94,6 +94,10 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Wanted")
 	float GetArrestProgress() const { return State.GetArrestProgress(); }
 
+	/** Seconds left of the police warning on screen ("Police! Don't move!"), 0 when not shown. */
+	UFUNCTION(BlueprintPure, Category = "Wanted")
+	float GetWarningTime() const { return WarningLeft; }
+
 	/** Seconds left of the "arrested" banner, 0 when not shown. */
 	UFUNCTION(BlueprintPure, Category = "Wanted")
 	float GetBustedBannerTime() const { return BustedBannerLeft; }
@@ -240,6 +244,7 @@ private:
 	TWeakObjectPtr<UGTPPoliceSenses> Senses;
 	float LastSeenTime = -1000.f;
 	bool bArrestWarned = false;
+	float WarningLeft = 0.f;
 	bool bDeadNow = false;
 };
 
@@ -379,9 +384,27 @@ private:
 	/** Siren follows the lights: off without stars, yelp in pursuit, two-tone otherwise. */
 	void UpdateSiren(FUnit& Unit, int32 Stars, bool bPursuit);
 
+	/** The warning of an arrest: the nearest police car sounds its horn for half a second. */
+	void OnArrestWarning();
+	void StopWarningHorn();
+	TWeakObjectPtr<AGTPVehicle> HornCar;
+	FTimerHandle HornTimer;
+	bool bWarningBound = false;
+
 	bool SpawnUnit(const FVector& PlayerLocation, const FTransform* Placement = nullptr, bool bBlock = false);
 	/** Two cars across the road ahead of a fast player (3 stars and more): one call puts one car of the pair. */
 	bool SpawnRoadblockCar(const APawn& Player, int32 CarIndex);
+	bool PlaceRoadblockCar(const APawn& Player, int32 CarIndex, const FVector& Point, const FVector& Along, double Distance);
+
+public:
+	/**
+	 * Lane places where a roadblock across the player's road would work: 140 to 240 m ahead of a player driving
+	 * fast, on a road parallel to their travel. Geometry only; called by the EQS generator (UGTPPoliceQueries).
+	 */
+	void CollectRoadblockSites(const APawn& Player, TArray<FVector>& OutSites) const;
+
+private:
+	bool IsRoadblockSite(const APawn& Player, const FGTPTrafficLane& Lane, bool bRelaxed, FVector& OutPoint, FVector& OutAlong, double& OutDistance) const;
 	bool FindSpawnPoint(const FVector& PlayerLocation, int32& OutLane, int32& OutPoint, FTransform& OutTransform) const;
 	void DriveUnit(FUnit& Unit, UGTPWantedComponent& Wanted, const AActor& Player, float DeltaSeconds);
 	void DriveStraight(FUnit& Unit, const FVector& Target, float MaxSpeedKmh);
@@ -413,6 +436,7 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<UGTPPoliceQueries> Queries;
 	float NextSearchQueryTime = 0.f;
+	float NextSiteQueryTime = 0.f;
 	float PushedSearchPointsTime = -1000.f;
 
 	/** Seconds the player has been (nearly) still in a car: officers get out to arrest them. */
