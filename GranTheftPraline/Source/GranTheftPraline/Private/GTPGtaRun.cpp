@@ -272,8 +272,12 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail)
 	}
 	const FVector Head = Victim->GetActorLocation() + FVector(0.f, 0.f, 60.f);
 	const FVector Aim = (Head - Eye).GetSafeNormal();
-	Character->SetActorRotation(FRotator(0.f, Aim.Rotation().Yaw, 0.f));
-	Threat->SetThreat(Character, true, Eye, Aim);
+	// The weapon reports the aim itself every frame, from the control rotation: turn the view, do not feed the threat by hand.
+	PC->SetControlRotation(Aim.Rotation());
+	if (!Weapon->IsAiming())
+	{
+		Threat->SetThreat(Character, true, Eye, Aim);
+	}
 	int32 Hands = 0, Fleeing = 0, Alarmed = 0;
 	for (TActorIterator<AGTPPedestrian> It(World); It; ++It)
 	{
