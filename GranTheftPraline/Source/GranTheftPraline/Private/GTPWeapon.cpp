@@ -5,6 +5,7 @@
 #include "GTPVehicle.h"
 #include "Animation/AnimInstance.h"
 #include "Animation/AnimMontage.h"
+#include "Animation/AnimSequence.h"
 #include "Animation/AnimSequenceBase.h"
 #include "Animation/BlendProfile.h"
 #include "Animation/Skeleton.h"
@@ -141,6 +142,18 @@ void UGTPWeaponComponent::LoadLooks()
 	{
 		if (UAnimSequenceBase* Anim = Cast<UAnimSequenceBase>(WeaponLoadOnce(Clip.Asset)))
 		{
+			// Upper-body clips: no root motion, the player keeps walking and turning while aiming or reloading
+			// (a root-motion montage would take the capsule over). In memory, the asset is not changed on disk.
+			UAnimSequenceBase* First = Anim;
+			if (const UAnimMontage* Montage = Cast<UAnimMontage>(Anim))
+			{
+				First = Montage->SlotAnimTracks.Num() > 0 && Montage->SlotAnimTracks[0].AnimTrack.AnimSegments.Num() > 0
+					? Montage->SlotAnimTracks[0].AnimTrack.AnimSegments[0].GetAnimReference().Get() : nullptr;
+			}
+			if (UAnimSequence* Sequence = Cast<UAnimSequence>(First))
+			{
+				Sequence->bEnableRootMotion = false;
+			}
 			LoadedClips.Add(Clip.Name, Anim);
 		}
 	}
