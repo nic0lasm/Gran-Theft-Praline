@@ -51,6 +51,8 @@ GranTheftPraline/Plugins/CityBrands/
 GranTheftPraline/Plugins/MassTraffic/
 GranTheftPraline/Plugins/Traffic/
 GranTheftPraline/Plugins/RuleProcessor/
+# City Sample's vehicle base class, copied by tools/vehicles/copy_citysample_vehicle_base.py
+GranTheftPraline/Plugins/CitySampleVehicleBase/
 # City Sample's traffic content, kept at its City Sample /Game paths (Epic content)
 /GranTheftPraline/Content/AI/Traffic/
 /GranTheftPraline/Content/AI/ZoneGraphBuilder/

@@ -32,6 +32,9 @@ ADR-0015 (piétons et trafic sur Mass). Anglais : [traffic-mass.md](traffic-mass
    Puis `python tools/vehicles/patch_citysample_traffic.py <project>/GranTheftPraline` : il coupe le
    faux C4723 de MSVC (« division par 0 ») dans MassTrafficSubsystem.cpp, qui sinon fait échouer le
    package Development (idempotent, original gardé en .orig, rapport md5).
+   Puis `python tools/vehicles/copy_citysample_vehicle_base.py --src <CitySample> --project
+   <project>/GranTheftPraline` : les Blueprints de voitures de City Sample ont besoin de la classe
+   ci-dessous.
 2. `Traffic.uplugin` n'est pas activé par défaut : le `.uproject` le liste avec `"Optional": true`,
    il se charge là où le plugin est copié et il est ignoré sans erreur ailleurs (Mac, CI).
    RuleProcessor est activé par défaut.
@@ -45,14 +48,24 @@ ADR-0015 (piétons et trafic sur Mass). Anglais : [traffic-mass.md](traffic-mass
 
 ## Blueprints de voitures de City Sample
 
-Ils dérivent de `ACitySampleMassVehicleBase`, une classe du module de jeu City Sample (pas du plugin
-Traffic), que notre projet n'a pas. Lue d'après son interface seulement : un acteur avec un
-composant d'agent Mass, recyclable par Mass, et une fonction appelable en Blueprint (flou des roues).
-`AGTPMassVehicleBase` (module GTPMass) en est notre propre version, et une CoreRedirect dans
-`Config/DefaultEngine.ini` y renvoie l'ancienne classe : les Blueprints se chargent tels quels.
-Copier plutôt le module de jeu City Sample a été écarté : tout un module de jeu (mode de jeu,
-joueur, HUD, foule) avec ses propres dépendances de plugins, pour une petite classe de base. Le
-flou des roues n'est pas fait (roues nettes).
+Les Blueprints de voitures de City Sample (`BP_vehicle` et ses enfants, utilisés par les
+configurations et les spawners de MassTraffic) dérivent de `ACitySampleMassVehicleBase`, une classe
+du module de jeu `CitySample` de City Sample (`Source/CitySample/Vehicles/CitySampleMassVehicleBase.h`
+et `.cpp`), pas du plugin Traffic, qui ne déclare aucune classe de véhicule, seulement deux
+interfaces. Sans elle, ils ne se chargent pas.
+
+`copy_citysample_vehicle_base.py` copie les deux fichiers d'Epic, tels quels, dans un plugin local
+`Plugins/CitySampleVehicleBase` (hors Git) dont le module s'appelle aussi `CitySample` : la classe
+garde son chemin `/Script/CitySample.CitySampleMassVehicleBase`, les Blueprints se chargent sans
+redirection ni code à nous pour la classe. Le script n'écrit que le descripteur du plugin, les
+règles du module et un fichier de module d'une ligne, et s'arrête (rien d'écrit) si les deux
+fichiers incluent d'autres fichiers du module de jeu City Sample. Le plugin s'active là où il est
+copié ; ailleurs (Mac, CI), rien ne change.
+
+Écarté : copier tout le module de jeu City Sample (mode de jeu, joueur, HUD et le reste, pour une
+classe) ; déclarer nos voitures comme types de véhicules MassTraffic (les configurations et les
+spawners d'Epic pointent tous sur `BP_vehicle` ; il faudrait refaire leurs configurations
+d'entités à la main dans l'éditeur).
 
 ## Points ouverts
 
