@@ -32,8 +32,11 @@ ADR-0015 (piétons et trafic sur Mass). Anglais : [traffic-mass.md](traffic-mass
 2. Si `Traffic.uplugin` ou `RuleProcessor.uplugin` indique `"EnabledByDefault": false`, les activer
    dans le `.uproject` local (pas poussé tant que les plugins sont hors Git).
 3. Compiler la cible éditeur, lancer `place_zonegraph.py` puis `place_masstraffic.py`.
-4. Lire le rapport : filtres de voies posés, configurations trouvées, classes de générateurs de
-   points du plugin. Les générateurs sont réglés sur les spawners à ce premier passage.
+   Les configurations du trafic et les Blueprints de spawners de City Sample sont dans le Content
+   du projet City Sample (/Game/AI/Traffic, /Game/AI/Traffic/Spawners, /Game/Vehicle/veh*) : ils
+   sont copiés aux mêmes chemins /Game dans notre projet (hors Git) pour garder leurs références.
+4. Lire le rapport : filtres de voies posés et spawners de City Sample placés (carrefours,
+   voitures garées, voitures roulantes, lancés dans cet ordre).
 5. Packager, lancer avec `-Traffic=mass`.
 
 ## Points ouverts

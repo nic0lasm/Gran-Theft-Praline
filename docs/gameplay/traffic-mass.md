@@ -29,8 +29,11 @@ Status 13/11/2026: prepared, not compiled, waiting for City Sample on the PC. De
 2. If `Traffic.uplugin` or `RuleProcessor.uplugin` says `"EnabledByDefault": false`, enable them in
    the local `.uproject` (not pushed while the plugins are out of Git).
 3. Build the editor target, run `place_zonegraph.py` then `place_masstraffic.py`.
-4. Read the report: lane filters set, entity configs found, spawn generator classes of the plugin.
-   The generators are set on the spawners on that first run.
+   City Sample's traffic configs and spawner Blueprints live in the City Sample project's own
+   content (/Game/AI/Traffic, /Game/AI/Traffic/Spawners, /Game/Vehicle/veh*): they are copied to
+   the same /Game paths in our project (out of Git), so their references hold.
+4. Read the report: lane filters set and City Sample's spawners placed (intersections, parked
+   cars, driving cars, started in that order).
 5. Package, launch with `-Traffic=mass`.
 
 ## Open points

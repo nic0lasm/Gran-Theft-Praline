@@ -10,11 +10,12 @@ What it does, reporting everything in Saved/CityImport/masstraffic_report.json:
    our tag Car, every intersection filter at Intersection. The settings are saved to
    Config/DefaultMassTraffic.ini by the editor (local file of the PC, not in Git while the plugin
    is not).
-2. Finds the Mass entity config assets of the plugin and of the content (names with "Traffic" or
-   "Parked"), or takes GTP_MASSTRAFFIC_CONFIGS (comma separated asset paths).
-3. Places, after removing the previous ones, one Mass spawner for driving cars and one for parked
-   cars, tagged GTPMassTraffic, with no spawn on begin play: the game starts them only with
-   -Traffic=mass (UGTPMassTrafficSubsystem). Counts: GTP_MASSTRAFFIC_CARS (default 120),
+2. Places, after removing the previous ones, City Sample's own spawner Blueprints
+   (/Game/AI/Traffic/Spawners: intersections, parked cars, driving cars, kept at their City Sample
+   paths), tagged GTPMassTraffic and GTPMassTrafficOrder<n>, with no spawn on begin play: the game
+   starts them in that order, only with -Traffic=mass (UGTPMassTrafficSubsystem).
+3. Without those Blueprints: plain Mass spawners with the entity configs found under
+   /Game/AI/Traffic (or GTP_MASSTRAFFIC_CONFIGS, comma separated asset paths), no generator set. Counts: GTP_MASSTRAFFIC_CARS (default 120),
    GTP_MASSTRAFFIC_PARKED (default 200).
 The map is saved. Nothing is changed when the plugin is absent.
 """
@@ -92,33 +93,66 @@ def configure_settings(report):
         report["errors"].append("settings not saved: %s" % error)
 
 
+# City Sample's own spawner Blueprints (AMassSpawner children with their entity configs and
+# ZoneGraph spawn-data generators already set), kept at their City Sample paths on the PC.
+# Order = start order in the game: intersections first (lights, lane gating), then parked cars,
+# then the driving cars that need both.
+SPAWNERS = (
+    ("Intersection", "/Game/AI/Traffic/Spawners/BP_MassTrafficIntersectionSpawner", None),
+    ("ParkedVehicle", "/Game/AI/Traffic/Spawners/BP_MassTrafficParkedVehicleSpawner", PARKED),
+    ("Vehicle", "/Game/AI/Traffic/Spawners/BP_MassTrafficVehicleSpawner", CARS),
+)
+
+
 def entity_configs(report):
+    """Fallback when the spawner Blueprints are missing: the Mass entity configs of the traffic."""
     listed = [p for p in os.environ.get("GTP_MASSTRAFFIC_CONFIGS", "").split(",") if p]
     if listed:
         return listed
     registry = unreal.AssetRegistryHelpers.get_asset_registry()
     found = []
-    for root in ("/Traffic", "/MassTraffic", "/Game"):
+    for root in ("/Game/AI/Traffic", "/Traffic"):
         for data in registry.get_assets_by_path(root, recursive=True):
             if str(data.asset_class_path.asset_name) != "MassEntityConfigAsset":
                 continue
             name = str(data.asset_name)
-            if "Traffic" in name or "Parked" in name or "Vehicle" in name:
+            if "Vehicle" in name or "Parked" in name:
                 found.append(str(data.package_name) + "." + name)
     report["entity_configs_found"] = found
     return found
 
 
-def place_spawner(world, name, configs, count, report):
-    spawner = actor_sub.spawn_actor_from_class(unreal.MassSpawner, unreal.Vector(0, 0, 0))
-    spawner.set_actor_label(name)
-    spawner.tags = [unreal.Name(TAG)]
+def tag_spawner(spawner, name, order, count, report):
+    spawner.set_actor_label("MassTraffic_" + name)
+    spawner.tags = [unreal.Name(TAG), unreal.Name("%sOrder%d" % (TAG, order))]
     spawner.set_folder_path("City/MassTraffic")
-    for prop, value in (("auto_spawn_on_begin_play", False), ("count", count)):
+    settings = [("auto_spawn_on_begin_play", False)]
+    if count is not None:
+        settings.append(("count", count))
+    for prop, value in settings:
         try:
             spawner.set_editor_property(prop, value)
         except Exception as error:
             report["errors"].append("%s.%s: %s" % (name, prop, error))
+
+
+def place_blueprint_spawners(report):
+    placed = 0
+    for order, (name, path, count) in enumerate(SPAWNERS):
+        cls = unreal.EditorAssetLibrary.load_blueprint_class(path) if unreal.EditorAssetLibrary.does_asset_exist(path) else None
+        if cls is None:
+            report["errors"].append("missing " + path)
+            continue
+        spawner = actor_sub.spawn_actor_from_class(cls, unreal.Vector(0, 0, 0))
+        tag_spawner(spawner, name, order, count, report)
+        report["spawners"].append({"name": name, "blueprint": path, "count": count, "order": order})
+        placed += 1
+    return placed
+
+
+def place_config_spawner(name, order, configs, count, report):
+    spawner = actor_sub.spawn_actor_from_class(unreal.MassSpawner, unreal.Vector(0, 0, 0))
+    tag_spawner(spawner, name, order, count, report)
     types = []
     for path in configs:
         asset = unreal.load_asset(path)
@@ -130,10 +164,8 @@ def place_spawner(world, name, configs, count, report):
         entry.set_editor_property("proportion", 1.0)
         types.append(entry)
     spawner.set_editor_property("entity_types", types)
-    report["spawners"].append({"name": name, "count": count, "configs": configs})
-    # The spawn points come from the plugin's ZoneGraph generators, set on the spawner by hand once
-    # their class names are known on the PC: listed here so the next run can set them.
-    report["generator_classes"] = sorted(c for c in dir(unreal) if "MassTraffic" in c and "Generator" in c)
+    report["spawners"].append({"name": name, "count": count, "configs": configs, "order": order,
+                               "note": "no spawn-data generator set: City Sample's spawner Blueprints are missing"})
 
 
 def main():
@@ -143,20 +175,21 @@ def main():
         report["errors"].append("MassTraffic not loaded (Plugins/Traffic and Plugins/RuleProcessor from City Sample): nothing done")
         return write(report, t0)
     level_sub.load_level(MAP)
-    world = editor_sub.get_editor_world()
     for actor in actor_sub.get_all_level_actors():
         if actor.actor_has_tag(TAG):
             actor_sub.destroy_actor(actor)
     configure_settings(report)
-    configs = entity_configs(report)
-    driving = [c for c in configs if "Parked" not in c]
-    parked = [c for c in configs if "Parked" in c]
-    if driving:
-        place_spawner(world, "MassTraffic_Driving", driving, CARS, report)
-    if parked:
-        place_spawner(world, "MassTraffic_Parked", parked, PARKED, report)
-    if not driving and not parked:
-        report["errors"].append("no Mass entity config for traffic found: set GTP_MASSTRAFFIC_CONFIGS")
+    if place_blueprint_spawners(report) == 0:
+        configs = entity_configs(report)
+        parked = [c for c in configs if "Parked" in c]
+        driving = [c for c in configs if "Parked" not in c]
+        if parked:
+            place_config_spawner("ParkedVehicle", 1, parked, PARKED, report)
+        if driving:
+            place_config_spawner("Vehicle", 2, driving, CARS, report)
+        if not parked and not driving:
+            report["errors"].append("no spawner Blueprint nor Mass entity config for traffic: set GTP_MASSTRAFFIC_CONFIGS")
+    report["generator_classes"] = sorted(c for c in dir(unreal) if "MassTraffic" in c and "Generator" in c)
     level_sub.save_current_level()
     write(report, t0)
 

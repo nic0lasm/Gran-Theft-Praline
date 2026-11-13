@@ -51,6 +51,10 @@ GranTheftPraline/Plugins/CityBrands/
 GranTheftPraline/Plugins/MassTraffic/
 GranTheftPraline/Plugins/Traffic/
 GranTheftPraline/Plugins/RuleProcessor/
+# City Sample's traffic content, kept at its City Sample /Game paths (Epic content)
+/GranTheftPraline/Content/AI/Traffic/
+/GranTheftPraline/Content/AI/ZoneGraphBuilder/
+/GranTheftPraline/Content/Vehicle/
 # Epic vehicles migrated from City Sample Vehicles and the Vehicle Variety Pack
 /GranTheftPraline/Content/Vehicles/Epic/
 
