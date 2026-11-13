@@ -231,7 +231,23 @@ public:
 
 	/** True when a non-player character sits at the wheel. */
 	UFUNCTION(BlueprintPure, Category = "Vehicle|Seats")
-	bool HasAIDriver() const { return Driver != nullptr && State != EGTPVehicleState::Driven; }
+	bool HasAIDriver() const { return Driver != nullptr && State != EGTPVehicleState::Driven && State != EGTPVehicleState::Exiting; }
+
+	/**
+	 * The non-player driver stops and gets out (bailing out when fast). bFlee: then runs from
+	 * From. The car is no longer traffic once they are out (crash, threat).
+	 */
+	void AIGetOut(bool bFlee, const FVector& From);
+
+	/** Alarm: the horn pulses for AlarmSeconds when a car with bAlarm is broken into or hit while parked. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vehicle|Seats")
+	bool bAlarm = false;
+
+	void TriggerAlarm();
+
+	/** A parked car far from the player: physics and the Chaos vehicle off; back on when the player comes near. */
+	void SetParkedAsleep(bool bAsleep);
+	bool IsParkedAsleep() const { return bParkedAsleep; }
 
 	// --- Camera ---------------------------------------------------------
 
@@ -348,6 +364,9 @@ protected:
 
 	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Seats")
 	float HotwireSeconds = 1.4f;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Seats")
+	float AlarmSeconds = 15.f;
 
 	/** How far a driver pulled out of the car runs off (cm). */
 	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Seats")
@@ -570,5 +589,10 @@ private:
 	float ImpactShake = 0.f;
 	double AIStopUntil = -1.0;
 	double EngineStartUntil = -1.0;
+	FTimerHandle AlarmTimer;
+	double AlarmUntil = -1.0;
+	bool bAlarmHornOn = false;
+	bool bParkedAsleep = false;
+	void PulseAlarm();
 	FVector FleeFrom = FVector::ZeroVector;
 };

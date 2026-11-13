@@ -11,6 +11,7 @@
 #include "GTPTraffic.generated.h"
 
 class ACharacter;
+class APawn;
 class AGTPVehicle;
 class AGTPTrafficNetwork;
 class AGTPFarTraffic;
@@ -121,6 +122,9 @@ public:
 
 	/** Demo and tests: the driver behaves as if aimed at, shot near, or rammed by the player (-TrafficReactDemo). */
 	void InjectReaction(bool bAimed, bool bShot, bool bRammed);
+
+	AGTPTrafficNetwork* GetNetwork() const { return Network; }
+	GTPTrafficReact::ETemperament GetTemperament() const { return Temperament; }
 
 	/** Seconds the car has been standing still. */
 	float GetStoppedTime() const { return StoppedTime; }
@@ -246,6 +250,49 @@ public:
 	/** Distance from the lane's centre line to the kerb spot of SpawnParkedVehicle (cm). */
 	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Missions")
 	float ParkOffset = 250.f;
+
+	// --- Real cars parked along the streets around the player, to steal (-StreetParked=N) ---
+
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Parked")
+	int32 NumStreetParked = 10;
+
+	/** Share of them locked (entered by breaking a window), and of the locked ones with an alarm. */
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Parked")
+	float StreetParkedLockedShare = 0.6f;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Parked")
+	float StreetParkedAlarmShare = 0.4f;
+
+	/** Physics on within this distance of the player, off beyond (cm); taken away out of sight past RemoveDistance. */
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Parked")
+	float StreetParkedWakeDistance = 3500.f;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Parked")
+	float StreetParkedRemoveDistance = 15000.f;
+
+	// --- Crashes between traffic cars (GTPTrafficIncident.h) ---
+
+	/** Change of speed of a crash between two traffic cars that makes the drivers react (cm/s). */
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Incidents")
+	float IncidentMinSpeedChange = 450.f;
+
+	/** Only crashes this close to the player play out (cm), at most MaxIncidents at once (cars left in the street). */
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Incidents")
+	float IncidentRange = 8000.f;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Incidents")
+	int32 MaxIncidents = 2;
+
+	/** Two traffic cars crashed (AGTPVehicle::OnBodyHit): the drivers argue, flee or drive off. */
+	void NotifyTrafficCrash(AGTPVehicle* A, AGTPVehicle* B, float SpeedChange);
+
+	/** A traffic driver back at their car after an incident: seated again and driving on from the nearest lane. */
+	bool ReclaimCar(AGTPVehicle* Car, ACharacter* Driver);
+
+	/** The player's weapon, read directly when the threat system is off (-ThreatResponse=0, the default). */
+	bool GetPlayerAim(FVector& OutOrigin, FVector& OutDirection) const;
+	int32 GetPlayerShotSerial() const { return PlayerShotSerial; }
+	FVector GetPlayerShotFrom() const { return PlayerShotFrom; }
 
 	// --- Reactions of the drivers (GTPTrafficReactLogic.h, docs/gameplay/traffic-reactions.md) ---
 
@@ -490,6 +537,23 @@ private:
 	void Recycle(AGTPVehicle* Car);
 	void MakeCheap(AGTPVehicle* Car, ACharacter* Driver) const;
 	void UpdateDetail(AGTPVehicle* Car, float DistanceToView) const;
+	void UpdateStreetParked(const APawn* Player);
+	void UpdatePlayerShots(const APawn* Player);
+
+	struct FStreetParked
+	{
+		TWeakObjectPtr<AGTPVehicle> Car;
+		double Born = 0.0;
+	};
+	TArray<FStreetParked> StreetParked;
+	double NextStreetParkedTime = 0.0;
+	int32 StreetParkedWanted = -1;
+	/** Cars left in the street by a crash: forgotten once driven again, removed far out of sight. */
+	TArray<TWeakObjectPtr<AGTPVehicle>> IncidentCars;
+	void UpdateIncidents(const APawn* Player);
+	int32 LastPlayerMagazine = -1;
+	int32 PlayerShotSerial = 0;
+	FVector PlayerShotFrom = FVector::ZeroVector;
 
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<AGTPVehicle>> Cars;

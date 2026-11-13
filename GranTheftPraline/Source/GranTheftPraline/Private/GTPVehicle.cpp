@@ -7,6 +7,8 @@
 #include "GTPLog.h"
 #include "GTPPlayerReaction.h"
 #include "GTPEngineSoundComponent.h"
+#include "GTPHornComponent.h"
+#include "GTPTraffic.h"
 #include "GTPPlayerController.h"
 #include "GTPVehicleInput.h"
 #include "GTPVehicleWheels.h"
@@ -840,6 +842,7 @@ bool AGTPVehicle::BeginEnter(ACharacter* Character, AController* DriverControlle
 	{
 		return false;
 	}
+	SetParkedAsleep(false);
 	PendingEntry = GetEntryKind();
 	EnteringCharacter = Character;
 	EnteringController = DriverController;
@@ -896,6 +899,7 @@ bool AGTPVehicle::BeginEnter(ACharacter* Character, AController* DriverControlle
 			ReportPlayerCrime(this, EGTPCrimeKind::CarTheft);
 		}
 		BreakGlass(ZoneOfSide(DriverSide));
+		TriggerAlarm();
 		Duration = PlayMontageOr(Character, BreakWindowMontage, BreakWindowDuration);
 		break;
 	default:
@@ -1065,13 +1069,96 @@ void AGTPVehicle::ReleaseCharacter(ACharacter* Character, const FVector& Locatio
 
 void AGTPVehicle::PanicExit(const FVector& ThreatLocation)
 {
-	if (State != EGTPVehicleState::Driven || !Driver || Cast<APlayerController>(GetController()))
+	if (!Driver || Cast<APlayerController>(GetController()))
+	{
+		return;
+	}
+	// Traffic drivers keep the car Parked while driving (HasAIDriver): they had no way out.
+	if (HasAIDriver())
+	{
+		AIGetOut(true, ThreatLocation);
+		return;
+	}
+	if (State != EGTPVehicleState::Driven)
 	{
 		return;
 	}
 	bFleeAfterExit = true;
 	FleeFrom = ThreatLocation;
 	RequestExit();
+}
+
+void AGTPVehicle::AIGetOut(bool bFlee, const FVector& From)
+{
+	if (!HasAIDriver() || bWrecked)
+	{
+		return;
+	}
+	bFleeAfterExit = bFlee;
+	FleeFrom = From;
+	SetAIDriveInput(0.f, 0.f, 0.f, false);
+	// Exiting: no longer traffic (HasAIDriver), the AI driver stops ticking and the network
+	// forgets the car. Stops first, the driver does not jump out of a moving car.
+	State = EGTPVehicleState::Exiting;
+	ClearDrivingInput();
+	ExitWaitTime = 0.f;
+	PollExit();
+	if (State == EGTPVehicleState::Exiting)
+	{
+		GetWorldTimerManager().SetTimer(SequenceTimer, this, &AGTPVehicle::PollExit, ExitPollInterval, true);
+	}
+}
+
+void AGTPVehicle::TriggerAlarm()
+{
+	if (!bAlarm || bWrecked || !GetWorld())
+	{
+		return;
+	}
+	const double Now = GetWorld()->GetTimeSeconds();
+	const bool bWasOn = AlarmUntil > Now;
+	AlarmUntil = Now + AlarmSeconds;
+	if (!bWasOn)
+	{
+		GTP_TRACE(LogGTPVehicle, TEXT("%s: alarm"), *GetName());
+		bAlarmHornOn = false;
+		PulseAlarm();
+		GetWorldTimerManager().SetTimer(AlarmTimer, this, &AGTPVehicle::PulseAlarm, 0.45f, true);
+	}
+}
+
+void AGTPVehicle::PulseAlarm()
+{
+	// The horn on and off, twice a second, until AlarmUntil.
+	const bool bOver = !GetWorld() || GetWorld()->GetTimeSeconds() >= AlarmUntil || bWrecked;
+	bAlarmHornOn = bOver ? false : !bAlarmHornOn;
+	UGTPHornComponent::SetHorn(this, bAlarmHornOn);
+	if (bOver)
+	{
+		GetWorldTimerManager().ClearTimer(AlarmTimer);
+	}
+}
+
+void AGTPVehicle::SetParkedAsleep(bool bAsleep)
+{
+	if (bParkedAsleep == bAsleep || (bAsleep && (Driver || State != EGTPVehicleState::Parked)))
+	{
+		return;
+	}
+	bParkedAsleep = bAsleep;
+	USkeletalMeshComponent* Body = GetMesh();
+	if (UChaosWheeledVehicleMovementComponent* Move = GetWheeledMovement())
+	{
+		Move->SetComponentTickEnabled(!bAsleep);
+	}
+	if (Body)
+	{
+		Body->SetSimulatePhysics(!bAsleep);
+	}
+	if (!bAsleep)
+	{
+		NotePlaced(TEXT("parked wake"));
+	}
 }
 
 void AGTPVehicle::RequestExit()
@@ -1193,7 +1280,10 @@ void AGTPVehicle::DoExit(bool bBailOut)
 	{
 		// Boxed in: stay inside, the player can drive out.
 		GTP_TRACE(LogGTPVehicle, TEXT("%s: no free exit"), *GetName());
-		State = EGTPVehicleState::Driven;
+		bFleeAfterExit = false;
+		// A traffic driver stays seated in a stopped car (it is no longer traffic); the
+		// player can drive out.
+		State = PawnController && PawnController->IsPlayerController() ? EGTPVehicleState::Driven : EGTPVehicleState::Parked;
 		if (UChaosWheeledVehicleMovementComponent* Move = GetWheeledMovement())
 		{
 			Move->SetBrakeInput(0.f);
@@ -1303,6 +1393,21 @@ void AGTPVehicle::OnBodyHit(UPrimitiveComponent* HitComponent, AActor* OtherActo
 	const bool bPlayerInvolved = Cast<APlayerController>(GetController()) != nullptr
 		|| (OtherCar && Cast<APlayerController>(OtherCar->GetController()) != nullptr);
 	const bool bKinematicOther = OtherComp && OtherComp->Mobility == EComponentMobility::Movable && !OtherComp->IsSimulatingPhysics();
+	if (!bPlayerInvolved && OtherCar && HasAIDriver() && OtherCar->HasAIDriver() && Now - LastPlacedTime > 3.f && Now - OtherCar->LastPlacedTime > 3.f)
+	{
+		// Two traffic cars crashed for real (not a ghost brushing or a placement): the drivers
+		// react (GTPTrafficIncident.h). Reported once, by the car with the lower address.
+		if (this < OtherCar)
+		{
+			if (const UGTPAIDriverComponent* Mine = FindComponentByClass<UGTPAIDriverComponent>())
+			{
+				if (AGTPTrafficNetwork* Network = Mine->GetNetwork(); Network && !Mine->IsGhost())
+				{
+					Network->NotifyTrafficCrash(this, const_cast<AGTPVehicle*>(OtherCar), DeltaV);
+				}
+			}
+		}
+	}
 	if (!bTrafficCrashDamage && !bPlayerInvolved && (OtherCar || bKinematicOther))
 	{
 		GTP_TRACE(LogGTPVehicle, TEXT("%s: AI impact from %s ignored (%.0f cm/s)"), *GetName(), *GetNameSafe(OtherActor), DeltaV);
@@ -1354,6 +1459,11 @@ void AGTPVehicle::ApplyZoneDamage(EGTPDamageZone Zone, float Amount)
 	}
 	const int32 Index = static_cast<int32>(Zone);
 	ZoneDamage[Index] += Amount;
+	if (!Driver && State == EGTPVehicleState::Parked)
+	{
+		SetParkedAsleep(false);
+		TriggerAlarm();
+	}
 
 	if (const FName* Morph = DentMorphTargets.Find(Zone))
 	{
