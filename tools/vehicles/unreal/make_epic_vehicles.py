@@ -11,13 +11,16 @@ traffic, police), and copies onto it from Epic's Blueprint:
     differential, steering, and the wheel setups with Epic's own wheel classes.
 Our code then adds the arcade help for the player only (PlayerTorque scaled to the car's torque).
 
-Mesh mode. The full City Sample's car Blueprints derive from a C++ class of the City Sample game
-module (CitySampleMassVehicleBase), which our project does not have: they cannot load. Then the car
-is built from its parts instead, without Epic's Blueprint: its skeletal mesh (found next to the
-Blueprint, on the skeleton SK_Vehicle; GTP_EPIC_MESH_<NN> forces one), the wheel AnimBlueprint (City
-Sample's when it loads, else a copy of the Vehicle template's, as import_vehicle.py does), wheel
-Blueprints of our own (children of UGTPWheelFront / UGTPWheelRear) and the Chaos figures read from
-City Sample's cars on 13/11 (TUNING below: mass, torque, gears, wheels, suspension, brakes).
+Mesh mode. The full City Sample's car Blueprints are MassTraffic's display actors: they derive from
+CitySampleMassVehicleBase (an AActor, not a Chaos vehicle, copied out of Git by
+tools/vehicles/copy_citysample_vehicle_base.py; without that copy they do not load at all). A Chaos
+Blueprint is taken first when one of the car's Blueprints is one. Otherwise the car is built from its
+parts, without Epic's Blueprint: its skeletal mesh (read from the Blueprint's own components, else
+found next to it on the skeleton SK_Vehicle; GTP_EPIC_MESH_<NN> forces one), the wheel AnimBlueprint
+(only a Chaos vehicle one: the Blueprint's, else one next to it, else a copy of the Vehicle
+template's, as import_vehicle.py does), wheel Blueprints of our own (children of UGTPWheelFront /
+UGTPWheelRear) and the Chaos figures read from City Sample's cars on 13/11 (TUNING below: mass,
+torque, gears, wheels, suspension, brakes).
 
 The Vehicle Variety Pack is not used: its Blueprints derive from PhysX's WheeledVehicle, gone in
 5.8 (only its skeletal meshes could be rigged again, later).
@@ -31,6 +34,7 @@ import json
 import os
 import re
 import time
+import traceback
 
 import unreal
 
@@ -82,6 +86,36 @@ def log(msg):
     unreal.log_warning("[epic_vehicles] " + msg)
 
 
+def load_class(path):
+    try:
+        return eal.load_blueprint_class(path)
+    except Exception:
+        return None
+
+
+def is_chaos(cls):
+    """True for a Chaos vehicle class (one MassTraffic display actor is not)."""
+    if cls is None:
+        return False
+    try:
+        return isinstance(unreal.get_default_object(cls), unreal.WheeledVehiclePawn)
+    except Exception:
+        return False
+
+
+def is_vehicle_anim(anim_class):
+    """True for a wheel AnimBlueprint Chaos can drive (child of VehicleAnimationInstance)."""
+    if anim_class is None:
+        return False
+    base = getattr(unreal, "VehicleAnimationInstance", None)
+    if base is None:
+        return True
+    try:
+        return isinstance(unreal.get_default_object(anim_class), base)
+    except Exception:
+        return False
+
+
 def find_epic_blueprints():
     """Number -> Blueprint package path, from names like BP_vehicle02_Car."""
     registry = unreal.AssetRegistryHelpers.get_asset_registry()
@@ -96,13 +130,20 @@ def find_epic_blueprints():
                 continue
             if match and str(data.package_path) != OUT:
                 found.setdefault(match.group(1), []).append((name, str(data.package_name)))
-    # Several Blueprints per car in the full City Sample (variants): the plain BP_vehicleNN_Kind
-    # first, else the shortest name. All candidates go to the report.
-    chosen = {}
+    # Several Blueprints per car in the full City Sample (variants, MassTraffic display actors):
+    # a Chaos vehicle first, then the plain BP_vehicleNN_Kind, else the shortest name. All
+    # candidates go to the report with their kind.
+    chosen, kinds = {}, {}
     for number, candidates in found.items():
         candidates.sort(key=lambda c: (re.fullmatch(r"BP_vehicle\d\d_[A-Za-z]+", c[0]) is None, len(c[0])))
-        chosen[number] = candidates[0][1]
-    find_epic_blueprints.candidates = {n: [c[1] for c in cs] for n, cs in found.items()}
+        kinds[number] = {}
+        if number in CARS:
+            for _, package in candidates:
+                cls = load_class(package)
+                kinds[number][package] = "chaos" if is_chaos(cls) else ("actor" if cls is not None else "not loaded")
+        chaos = [c[1] for c in candidates if kinds[number].get(c[1]) == "chaos"]
+        chosen[number] = chaos[0] if chaos else candidates[0][1]
+    find_epic_blueprints.candidates = {n: kinds[n] or [c[1] for c in cs] for n, cs in found.items()}
     return chosen
 
 
@@ -155,10 +196,62 @@ def blueprint_child(path, parent):
     return unreal.load_asset(path), unreal.get_default_object(eal.load_blueprint_class(path))
 
 
-def find_mesh(number, blueprint_path, entry):
+def path_of(asset):
+    return asset.get_path_name() if asset is not None else None
+
+
+def component_mesh(component):
+    for prop in ("skeletal_mesh_asset", "skeletal_mesh"):
+        try:
+            return component.get_editor_property(prop)
+        except Exception:
+            continue
+    return None
+
+
+def blueprint_skeletal_meshes(blueprint_path, cls, entry):
+    """(mesh, anim class) of the Blueprint's skeletal mesh components, inherited ones included.
+    Components added in a Blueprint are not on its CDO: they are read from the Blueprint's
+    subobjects, else from an instance spawned for a moment far below the level (not saved)."""
+    found = []
+    blueprint = unreal.load_asset(blueprint_path)
+    subsystem_class = getattr(unreal, "SubobjectDataSubsystem", None)
+    if blueprint is not None and subsystem_class is not None:
+        try:
+            subsystem = unreal.get_engine_subsystem(subsystem_class)
+            library = unreal.SubobjectDataBlueprintFunctionLibrary
+            for handle in subsystem.k2_gather_subobject_data_for_blueprint(blueprint):
+                template = library.get_object(library.get_data(handle))
+                if isinstance(template, unreal.SkeletalMeshComponent):
+                    found.append((template.get_name(), component_mesh(template), template.get_editor_property("anim_class")))
+            entry["components_from"] = "blueprint subobjects"
+        except Exception as error:
+            entry["components_error"] = str(error)
+    if not any(mesh for _, mesh, _ in found) and cls is not None:
+        actors = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
+        actor = actors.spawn_actor_from_class(cls, unreal.Vector(0, 0, -100000))
+        if actor is not None:
+            for component in actor.get_components_by_class(unreal.SkeletalMeshComponent):
+                found.append((component.get_name(), component_mesh(component), component.get_editor_property("anim_class")))
+            actors.destroy_actor(actor)
+            entry["components_from"] = "spawned instance"
+    found = [f for f in found if f[1] is not None]
+    # The car body: on the vehicle skeleton, not a part (wheel, door, glass...).
+    found.sort(key=lambda f: ((path_of(f[1].get_editor_property("skeleton")) or "").rsplit(".", 1)[-1] != "SK_Vehicle",
+                              SKIP_MESH.search(f[1].get_name()) is not None, f[0] != "Mesh"))
+    entry["blueprint_meshes"] = ["%s: %s" % (name, mesh.get_name()) for name, mesh, _ in found]
+    if not found:
+        return None, None
+    return found[0][1], found[0][2]
+
+
+def find_mesh(number, blueprint_path, entry, from_blueprint=None):
     forced = os.environ.get("GTP_EPIC_MESH_" + number)
     if forced:
         return unreal.load_asset(forced)
+    if from_blueprint is not None:
+        entry["mesh_from"] = "Epic Blueprint components"
+        return from_blueprint
     registry = unreal.AssetRegistryHelpers.get_asset_registry()
     folder = blueprint_path.rsplit("/", 1)[0]
     candidates = []
@@ -181,16 +274,30 @@ def find_mesh(number, blueprint_path, entry):
     return None
 
 
-def wheel_anim_class(mesh, blueprint_path, entry):
-    """City Sample's wheel AnimBlueprint when it loads, else a copy of the Vehicle template's."""
+def wheel_anim_class(mesh, blueprint_path, entry, from_blueprint=None):
+    """A Chaos wheel AnimBlueprint: the Epic Blueprint's, else one next to it, else a copy of the
+    Vehicle template's. MassTraffic's display actors may animate their wheels another way: such an
+    AnimBlueprint is skipped (listed in the report)."""
+    if is_vehicle_anim(from_blueprint):
+        entry["anim"] = from_blueprint.get_path_name()
+        return from_blueprint
+    if from_blueprint is not None:
+        entry.setdefault("anim_skipped", []).append(from_blueprint.get_path_name())
     registry = unreal.AssetRegistryHelpers.get_asset_registry()
     folder = blueprint_path.rsplit("/", 1)[0]
     for data in registry.get_assets_by_path(folder, recursive=True):
         if str(data.asset_class_path.asset_name) == "AnimBlueprint":
             abp = unreal.load_asset(str(data.package_name))
-            if abp is not None and abp.generated_class() is not None:
-                entry["anim"] = str(data.package_name)
-                return abp.generated_class()
+            if abp is None or abp.generated_class() is None:
+                continue
+            if not is_vehicle_anim(abp.generated_class()):
+                entry.setdefault("anim_skipped", []).append(str(data.package_name))
+                continue
+            if path_of(abp.get_editor_property("target_skeleton")) != path_of(mesh.get_editor_property("skeleton")):
+                entry.setdefault("anim_skipped", []).append(str(data.package_name) + " (other skeleton)")
+                continue
+            entry["anim"] = str(data.package_name)
+            return abp.generated_class()
     skeleton = mesh.get_editor_property("skeleton")
     target = "%s/ABP_GTP_%s" % (OUT, skeleton.get_name())
     if not eal.does_asset_exist(target):
@@ -214,10 +321,11 @@ def wheel_anim_class(mesh, blueprint_path, entry):
     return abp.generated_class()
 
 
-def build_from_parts(number, name, blueprint_path, entry):
-    """Mesh mode: Epic's Blueprint cannot load (parent class of the City Sample game module)."""
+def build_from_parts(number, name, blueprint_path, entry, source_cls=None):
+    """Mesh mode: Epic's Blueprint is not a Chaos vehicle (MassTraffic display actor), or does not load."""
     tuning = TUNING.get(number)
-    mesh = find_mesh(number, blueprint_path, entry)
+    blueprint_mesh, blueprint_anim = blueprint_skeletal_meshes(blueprint_path, source_cls, entry) if source_cls is not None else (None, None)
+    mesh = find_mesh(number, blueprint_path, entry, blueprint_mesh)
     if tuning is None or mesh is None:
         entry["error"] = "mesh mode: " + ("no tuning" if tuning is None else "no skeletal mesh found")
         return None
@@ -241,7 +349,7 @@ def build_from_parts(number, name, blueprint_path, entry):
     bp, cdo = blueprint_child(path, unreal.GTPVehicle)
     body = cdo.get_editor_property("mesh")
     body.set_editor_property("skeletal_mesh_asset", mesh)
-    anim = wheel_anim_class(mesh, blueprint_path, entry)
+    anim = wheel_anim_class(mesh, blueprint_path, entry, blueprint_anim)
     if anim is not None:
         body.set_editor_property("animation_mode", unreal.AnimationMode.ANIMATION_BLUEPRINT)
         body.set_editor_property("anim_class", anim)
@@ -270,9 +378,10 @@ def build_from_parts(number, name, blueprint_path, entry):
 def make_one(number, name, source_path, report):
     entry = {"epic": source_path}
     entry["missing_dependencies"] = missing_dependencies(source_path)
-    source_cls = eal.load_blueprint_class(source_path)
-    if source_cls is None:
-        built = build_from_parts(number, name, source_path, entry)
+    source_cls = load_class(source_path)
+    if not is_chaos(source_cls):
+        entry["epic_kind"] = "not loaded" if source_cls is None else "actor, not a Chaos vehicle"
+        built = build_from_parts(number, name, source_path, entry, source_cls)
         report["cars"][name] = entry
         if built is None:
             return
@@ -322,7 +431,11 @@ def main():
         if number not in epic:
             report["missing"].append(number)
             continue
-        make_one(number, name, epic[number], report)
+        try:
+            make_one(number, name, epic[number], report)
+        except Exception:  # one car's failure does not stop the others, and the report is written
+            report["cars"].setdefault(name, {})["error"] = traceback.format_exc()
+            log("%s failed: %s" % (name, traceback.format_exc()))
     report["seconds"] = round(time.time() - t0, 1)
     out = os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_saved_dir()), "VehicleImport")
     os.makedirs(out, exist_ok=True)

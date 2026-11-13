@@ -300,6 +300,13 @@ is the police car (`PoliceVehicleClass`). Missing classes are skipped, so nothin
 the script has run on the PC. The Vehicle Variety Pack is not usable as is: its Blueprints derive
 from PhysX's WheeledVehicle, gone in 5.8.
 
+In the full City Sample project (the pack alone is no longer on the PC), a car's Blueprints are
+MassTraffic display actors (`CitySampleMassVehicleBase`, an actor, not a Chaos vehicle). The script
+then takes a Chaos Blueprint of that car if there is one; otherwise it reads the body's skeletal
+mesh from the Blueprint's components and puts the Chaos figures read from the pack on our class
+(Chaos wheel AnimBlueprint only: a display actor's is skipped). One failed car no longer stops the
+others, and the report is always written.
+
 What the Clio, 208 and Kangoo take from City Sample's city car (vehicle02, 1 200 kg): soft
 springs on a high preload with long travel (100 / 300, +10 / -17 cm instead of 250 / 50,
 +8 / -10) so the body rolls and dives, 45 degree steering (38 before) for tighter U-turns, and

@@ -314,6 +314,14 @@ absentes sont ignorées : rien ne change tant que le script n'a pas tourné sur 
 Variety Pack est inutilisable tel quel : ses Blueprints dérivent du WheeledVehicle de PhysX,
 disparu en 5.8.
 
+Dans le projet City Sample complet (le pack seul n'est plus sur le PC), les Blueprints d'une voiture
+sont des acteurs d'affichage de MassTraffic (`CitySampleMassVehicleBase`, un acteur, pas un véhicule
+Chaos). Le script prend alors un Blueprint Chaos de cette voiture s'il en existe un ; sinon il lit
+le maillage squelettique de la caisse dans les composants du Blueprint et pose sur notre classe les
+réglages Chaos relevés dans le pack (AnimBlueprint de roues Chaos seulement : celui d'un acteur
+d'affichage est écarté). L'échec d'une voiture n'arrête plus les autres, et le rapport est
+toujours écrit.
+
 Ce que les Clio, 208 et Kangoo reprennent de la citadine de City Sample (vehicle02, 1 200 kg) :
 ressorts souples sur forte précharge avec grand débattement (100 / 300, +10 / -17 cm au lieu de
 250 / 50, +8 / -10), pour que la caisse prenne du roulis et plonge au freinage ; braquage de
