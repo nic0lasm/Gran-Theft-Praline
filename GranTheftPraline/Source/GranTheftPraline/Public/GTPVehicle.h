@@ -212,7 +212,7 @@ public:
 	 * Ignored while the player drives or once the car is wrecked.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Vehicle")
-	void SetAIDriveInput(float Throttle, float Brake, float Steering, bool bHandbrake);
+	void SetAIDriveInput(float Throttle, float Brake, float Steering, bool bHandbrake, bool bReverse = false);
 
 	/**
 	 * Same pedals as SetAIDriveInput for the player's own car driven by a test tool

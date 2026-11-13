@@ -269,13 +269,17 @@ int32 AGTPVehicle::GetGear() const
 	return Move ? Move->GetCurrentGear() : 0;
 }
 
-void AGTPVehicle::SetAIDriveInput(float Throttle, float Brake, float Steering, bool bHandbrake)
+void AGTPVehicle::SetAIDriveInput(float Throttle, float Brake, float Steering, bool bHandbrake, bool bReverse)
 {
 	UChaosWheeledVehicleMovementComponent* Move = GetWheeledMovement();
 	if (!Move || !HasAIDriver() || bWrecked)
 	{
 		return;
 	}
+	// The brake reverses a stopped car only when the AI asks for it: an AI car held on
+	// the brake at a light or in a queue otherwise backed away (front-wheel drive, the
+	// handbrake holds only the rear wheels). The player's pedals keep reverse-as-brake.
+	Move->bReverseAsBrake = bReverse;
 	ThrottleAmount = FMath::Clamp(Throttle, 0.f, 1.f);
 	Move->SetThrottleInput(ThrottleAmount);
 	Move->SetBrakeInput(FMath::Clamp(Brake, 0.f, 1.f));
@@ -501,6 +505,11 @@ void AGTPVehicle::PossessedBy(AController* NewController)
 	State = EGTPVehicleState::Driven;
 	ClearDrivingInput();
 	LastLookInputTime = -1000.f;
+	// A car taken from an AI driver: brake held while stopped reverses again (SetAIDriveInput).
+	if (UChaosWheeledVehicleMovementComponent* Move = GetWheeledMovement())
+	{
+		Move->bReverseAsBrake = true;
+	}
 	if (const AGTPPlayerController* PC = Cast<AGTPPlayerController>(NewController))
 	{
 		SetInteriorView(PC->GetCameraMode() && PC->GetCameraMode()->IsFirstPerson());

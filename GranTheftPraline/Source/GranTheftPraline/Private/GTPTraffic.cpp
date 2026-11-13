@@ -588,7 +588,7 @@ void UGTPAIDriverComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 		if (BackOffTime > 0.f)
 		{
 			BackOffTime -= DeltaTime;
-			Vehicle->SetAIDriveInput(0.f, 1.f, -Command.Steering, false);
+			Vehicle->SetAIDriveInput(0.f, 1.f, -Command.Steering, false, true);
 		}
 		else
 		{
@@ -1495,7 +1495,8 @@ void AGTPTrafficNetwork::UpdateReactDemo()
 		}
 		++Candidates;
 		const bool bInView = FVector::DotProduct(To.GetSafeNormal(), Look) > 0.7f;
-		const bool bMoving = FMath::Abs(Car->GetSpeedKmh()) > 8.f;
+		// Driving forward: a car backing out is no car to film.
+		const bool bMoving = Car->GetSpeedKmh() > 8.f;
 		const bool bNear = Distance >= 1000.f && Distance <= 2500.f;
 		const float Score = Distance / 100.f + (bInView ? 0.f : 40.f) + (bMoving ? 0.f : 30.f) + (Distance < 1000.f ? 20.f : 0.f);
 		if (Score < BestScore)
