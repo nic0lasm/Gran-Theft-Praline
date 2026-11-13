@@ -263,7 +263,9 @@ void AGTPVehicle::BeginPlay()
 			RearGripNow = RearGripBase;
 		}
 	}
-	Assist.PlayerTorque = PlayerTorque;
+	// The arcade boost is relative to a 130 N.m city car: a 500 N.m saloon (City Sample) keeps
+	// its edge over a Clio in the player's hands.
+	Assist.PlayerTorque = PlayerTorque * FMath::Max(1.f, BaseTorque / 130.f);
 	Assist.DriftRearGrip = DriftRearGrip;
 	Assist.DriftYawAccel = DriftYawAccel;
 	Assist.StabilityDamping = StabilityDamping;

@@ -300,6 +300,26 @@ Pas de plugin Water ni de volume physique : de simples événements de chevauche
   `tools/vehicles/idm_test`.
 - **Tir depuis une voiture** : pas fait ; l'arme ne tire qu'à pied.
 
+### 8.6 Voitures City Sample d'Epic (13/11)
+
+Pas compilé. City Sample Vehicles (Fab, gratuit, hors Git) fournit 14 voitures Chaos sur le
+squelette SK_Vehicle, dont les os de roues sont les nôtres. `tools/vehicles/unreal/make_epic_vehicles.py`
+en reconstruit sept sur `AGTPVehicle` (vol, dégâts, réactions) avec les réglages Chaos d'Epic :
+les vehicle02, 03, 05, 07, 12 et la camionnette 01 rejoignent le trafic et les voitures garées
+(camions, bus et remorque sont trop gros pour la Presqu'île) ; la vehicle13, berline de
+1 850 kg avec rampe lumineuse, devient la voiture de police (`PoliceVehicleClass`). Les classes
+absentes sont ignorées : rien ne change tant que le script n'a pas tourné sur le PC. Le Vehicle
+Variety Pack est inutilisable tel quel : ses Blueprints dérivent du WheeledVehicle de PhysX,
+disparu en 5.8.
+
+Ce que les Clio, 208 et Kangoo reprennent de la citadine de City Sample (vehicle02, 1 200 kg) :
+ressorts souples sur forte précharge avec grand débattement (100 / 300, +10 / -17 cm au lieu de
+250 / 50, +8 / -10), pour que la caisse prenne du roulis et plonge au freinage ; braquage de
+45 degrés (38 avant), pour des demi-tours plus serrés ; frein à main de 3 500 N.m. On garde les
+nôtres pour les freins (plus forts), la boîte (première plus courte) et l'adhérence. Le couple
+arcade du joueur dépend maintenant de la voiture (240 N.m pour une Clio de 130 N.m, davantage
+pour une voiture plus puissante).
+
 ## 9. Préparer une voiture conduisible
 
 ### 9.1 Première voiture d'essai (sans Tripo)
