@@ -246,7 +246,15 @@ Lyra n'est repris : Lyra repose sur GAS et ShooterCore, que l'ADR-0011 écarte. 
   visée. Chaque clip joué en montage arrêtait la pose : le montage Fire de Lyra (même groupe de montages) à chaque
   tir, la recharge et le dégainage dans `DefaultSlot`, et rien ne la relançait. Fire joue maintenant sans arrêter
   les autres montages, et tant que la visée dure, la pose revient dès que son slot est libre (vérifié au plus
-  toutes les 0,3 s). Le journal du joueur écrit `weapon: aim pose … playing` au départ, puis toutes les 2 s en
-  visée `weapon: aim probe` : slot actif, poids du montage, et position de `hand_r` par rapport à la tête (hauteur,
-  avancée) sur le pion et sur le corps visible : une main levée bien devant la tête, c'est une visée ; une main
-  très basse et à l'aplomb du corps, non.
+  toutes les 0,3 s). Le journal du joueur écrit `weapon: aim pose … playing` au départ, puis toutes les 2 s arme
+  sortie `weapon: hand probe (aim|hip)` : slot actif, poids du montage, et position des mains par rapport à la tête
+  (`hand_r` : hauteur, avancée, côté ; `hand_l` : hauteur) sur le pion et sur le corps visible : une main levée bien
+  devant la tête, c'est une visée ; une main très basse et à l'aplomb du corps, non. Mesuré sur le candidat 28b : la
+  pose joue sur le pion (main 12 cm sous la tête, 43 cm devant) mais pas sur le corps MetaHuman (53 cm sous la tête,
+  3 cm en arrière) : le retarget à l'exécution ne la transmet pas, cause en cours de recherche.
+- **Qui est mis en joue (correctif de la nuit du 13/11)** : le joueur à pied signale la menace depuis ses yeux vers
+  ce que couvre le réticule (la ligne de la vue jusqu'au premier obstacle), comme il tire depuis la vue, et non plus
+  depuis la bouche du canon. Celle-ci est dans la main du corps visible : main basse à la hanche, un piéton à 2 m
+  sortait du cône de 12 degrés et personne ne réagissait (étape braquage de `-GTARun` en échec à 226 cm, réussie à
+  498 cm). Le tir en voiture garde la bouche du canon. L'étape braquage de `-GTARun` place la vue sur le point que
+  teste la peur du piéton, comme un joueur met le réticule sur quelqu'un.

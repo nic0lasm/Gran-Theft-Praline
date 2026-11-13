@@ -245,7 +245,6 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail)
 		Weapon->Reload();
 		GTP_TRACE(LogGTPGtaRun, TEXT("GTARun: player re-armed after the arrest (+%d rounds)"), Given);
 	}
-	const FVector Eye = Character->GetActorLocation() + FVector(0.f, 0.f, 60.f);
 	AActor* Victim = nullptr;
 	double Best = 4000.0;
 	for (TActorIterator<AGTPPedestrian> It(World); It; ++It)
@@ -270,13 +269,18 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail)
 	{
 		Character->AddMovementInput((Victim->GetActorLocation() - Character->GetActorLocation()).GetSafeNormal2D(), 1.f);
 	}
-	const FVector Head = Victim->GetActorLocation() + FVector(0.f, 0.f, 60.f);
-	const FVector Aim = (Head - Eye).GetSafeNormal();
-	// The view looks at the person, as a player aims: the weapon aims where the view looks (it turns the body
-	// and tells the threat system every frame), so turning only the body was undone at the next frame.
-	PC->SetControlRotation(Aim.Rotation());
+	// The reticle on the person, as a player aims: every frame the weapon reports the aim from the eyes to
+	// what the reticle covers, so the view (the camera over the shoulder) must look at the point the
+	// pedestrian's fear tests (80 cm above a pedestrian's root, at the feet). Recomputed each frame: the
+	// camera moves as the view turns.
+	const FVector Body = Victim->GetActorLocation() + FVector(0.f, 0.f, 80.f);
+	FVector View = Character->GetPawnViewLocation();
+	FRotator ViewRotation;
+	PC->GetPlayerViewPoint(View, ViewRotation);
+	PC->SetControlRotation((Body - View).Rotation());
+	const FVector Aim = (Body - Character->GetPawnViewLocation()).GetSafeNormal();
 	Character->SetActorRotation(FRotator(0.f, Aim.Rotation().Yaw, 0.f));
-	Threat->SetThreat(Character, true, Eye, Aim);
+	Threat->SetThreat(Character, true, Character->GetPawnViewLocation(), Aim);
 	int32 Hands = 0, Fleeing = 0, Alarmed = 0;
 	for (TActorIterator<AGTPPedestrian> It(World); It; ++It)
 	{

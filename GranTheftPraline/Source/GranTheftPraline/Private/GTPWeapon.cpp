@@ -501,6 +501,35 @@ void UGTPWeaponComponent::PlaceGun()
 	GunMesh->SetWorldTransform(World);
 }
 
+bool UGTPWeaponComponent::GetReticleAim(FVector& OutOrigin, FVector& OutDirection) const
+{
+	const APlayerController* PC = GetPlayerController();
+	const APawn* Pawn = Cast<APawn>(GetOwner());
+	UWorld* World = GetWorld();
+	if (!PC || !Pawn || !World)
+	{
+		return false;
+	}
+	// What the reticle covers: the view's line (the camera over the shoulder) up to the first obstacle.
+	constexpr double ReticleRangeCm = 3000.0;
+	FVector View;
+	FRotator ViewRotation;
+	PC->GetPlayerViewPoint(View, ViewRotation);
+	const FVector End = View + ViewRotation.Vector() * ReticleRangeCm;
+	FHitResult Hit;
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(GTPReticleAim), false, Pawn);
+	const FVector Target = World->LineTraceSingleByChannel(Hit, View, End, ECC_Visibility, Params) ? Hit.ImpactPoint : End;
+	const FVector Eyes = Pawn->GetPawnViewLocation();
+	const FVector Direction = (Target - Eyes).GetSafeNormal();
+	if (Direction.IsNearlyZero())
+	{
+		return false;
+	}
+	OutOrigin = Eyes;
+	OutDirection = Direction;
+	return true;
+}
+
 FVector UGTPWeaponComponent::GetMuzzle() const
 {
 	if (const FGTPWeaponLook* Look = GetLook())
@@ -692,6 +721,10 @@ void UGTPWeaponComponent::TickComponent(float DeltaTime, ELevelTick TickType, FA
 		TryFireFromView();
 	}
 
+	if (bPlayerControlled && bDrawn && !IsDriveBy())
+	{
+		ProbeHands(DeltaTime);
+	}
 	if (IsAiming() && Pawn)
 	{
 		KeepAimLoop(DeltaTime);
@@ -705,7 +738,15 @@ void UGTPWeaponComponent::TickComponent(float DeltaTime, ELevelTick TickType, FA
 		}
 		if (UGTPCombatSubsystem* Combat = UGTPCombatSubsystem::Get(this))
 		{
-			Combat->NotifyAim(GetShooter(), GetMuzzle(), Aim.Vector(), true);
+			// The player on foot aims with the reticle (he shoots from the view too): the threat goes from his
+			// eyes to what the reticle covers, whatever pose the visible body's hand is in.
+			FVector Origin = GetMuzzle();
+			FVector Direction = Aim.Vector();
+			if (!IsDriveBy())
+			{
+				GetReticleAim(Origin, Direction);
+			}
+			Combat->NotifyAim(GetShooter(), Origin, Direction, true);
 		}
 	}
 }
@@ -877,31 +918,46 @@ void UGTPWeaponComponent::KeepAimLoop(float DeltaTime)
 		AimRestartLeft = 0.3f;
 		SetAimLoop(true);
 	}
-	if (!bPlayerControlled)
-	{
-		return;
-	}
-	// Every 2 s: is the aim pose on the body? (hand height and reach from the head, pawn and visible body)
+}
+
+void UGTPWeaponComponent::ProbeHands(float DeltaTime)
+{
+	// Every 2 s with a gun out (player on foot): does the visible body hold the pose the pawn's mesh has?
+	// The right hand from the head (height, reach forward, side) on both, and the left hand's height.
 	AimProbeLeft -= DeltaTime;
 	if (AimProbeLeft > 0.f)
 	{
 		return;
 	}
 	AimProbeLeft = 2.f;
-	static const FName Hand(TEXT("hand_r"));
+	const ACharacter* Character = Cast<ACharacter>(GetOwner());
+	USkeletalMeshComponent* Own = Character ? Character->GetMesh() : nullptr;
+	const UAnimInstance* Anim = Own ? Own->GetAnimInstance() : nullptr;
+	if (!Anim)
+	{
+		return;
+	}
+	static const FName HandR(TEXT("hand_r"));
+	static const FName HandL(TEXT("hand_l"));
 	static const FName Head(TEXT("head"));
 	const FVector Forward = Character->GetActorForwardVector();
-	auto Describe = [&Forward](const USkeletalMeshComponent* Mesh) -> FString
+	const FVector Right = Character->GetActorRightVector();
+	auto Describe = [&Forward, &Right](const USkeletalMeshComponent* Mesh) -> FString
 	{
-		if (!Mesh || Mesh->GetBoneIndex(Hand) == INDEX_NONE || Mesh->GetBoneIndex(Head) == INDEX_NONE)
+		if (!Mesh || Mesh->GetBoneIndex(HandR) == INDEX_NONE || Mesh->GetBoneIndex(Head) == INDEX_NONE)
 		{
 			return TEXT("-");
 		}
-		const FVector Delta = Mesh->GetSocketLocation(Hand) - Mesh->GetSocketLocation(Head);
-		return FString::Printf(TEXT("hand_r %.0f cm from head height, %.0f cm ahead"), Delta.Z, FVector::DotProduct(Delta, Forward));
+		const FVector HeadAt = Mesh->GetSocketLocation(Head);
+		const FVector Delta = Mesh->GetSocketLocation(HandR) - HeadAt;
+		const double Left = Mesh->GetBoneIndex(HandL) != INDEX_NONE ? (Mesh->GetSocketLocation(HandL) - HeadAt).Z : 0.0;
+		return FString::Printf(TEXT("hand_r %.0f cm from head height, %.0f ahead, %.0f right; hand_l %.0f"),
+			Delta.Z, FVector::DotProduct(Delta, Forward), FVector::DotProduct(Delta, Right), Left);
 	};
-	GTP_TRACE(LogGTPCombat, TEXT("weapon: aim probe: slot %s active %d weight %.2f; pawn %s; body %s"), *AimLoopSlot.ToString(),
-		Anim->IsSlotActive(AimLoopSlot) ? 1 : 0, Anim->GetSlotMontageGlobalWeight(AimLoopSlot), *Describe(Own), *Describe(FindVisibleBody()));
+	const FName Slot = AimLoopSlot.IsNone() ? AnimSlot : AimLoopSlot;
+	GTP_TRACE(LogGTPCombat, TEXT("weapon: hand probe (%s): slot %s active %d weight %.2f; pawn %s; body %s"),
+		IsAiming() ? TEXT("aim") : TEXT("hip"), *Slot.ToString(), Anim->IsSlotActive(Slot) ? 1 : 0,
+		Anim->GetSlotMontageGlobalWeight(Slot), *Describe(Own), *Describe(FindVisibleBody()));
 }
 
 void UGTPWeaponComponent::SetAimLoop(bool bOn)
