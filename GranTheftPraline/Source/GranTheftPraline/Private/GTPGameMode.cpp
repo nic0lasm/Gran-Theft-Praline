@@ -211,6 +211,21 @@ void AGTPGameMode::ApplyPlayerVisual(APawn* Pawn)
 					// The body's "Retarget Pose From Mesh" node: point it at the UEFN-to-MetaHuman retargeter.
 					UAnimInstance* Anim = Body->GetAnimInstance();
 					UObject* Retargeter = Anim ? StaticLoadObject(UObject::StaticClass(), nullptr, *RetargeterPath) : nullptr;
+					if (Own && Retargeter)
+					{
+						UE_LOG(LogGTPGameMode, Log, TEXT("  pawn mesh asset %s, skeleton %s"),
+							Own->GetSkeletalMeshAsset() ? *Own->GetSkeletalMeshAsset()->GetPathName() : TEXT("none"),
+							Own->GetSkeletalMeshAsset() && Own->GetSkeletalMeshAsset()->GetSkeleton() ? *Own->GetSkeletalMeshAsset()->GetSkeleton()->GetPathName() : TEXT("none"));
+						for (TFieldIterator<FProperty> Pr(Retargeter->GetClass()); Pr; ++Pr)
+						{
+							if (Pr->GetName().Contains(TEXT("IKRig")) || Pr->GetName().Contains(TEXT("Source")) || Pr->GetName().Contains(TEXT("Target")))
+							{
+								FString RetText;
+								Pr->ExportText_InContainer(0, RetText, Retargeter, Retargeter, nullptr, PPF_None);
+								UE_LOG(LogGTPGameMode, Log, TEXT("  retargeter %s = %s"), *Pr->GetName(), *RetText.Left(160));
+							}
+						}
+					}
 					int32 Changed = 0;
 					if (Anim && Retargeter)
 					{
