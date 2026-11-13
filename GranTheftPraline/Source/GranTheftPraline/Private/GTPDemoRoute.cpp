@@ -475,7 +475,7 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 		float Cruise = CruiseKmh;
 		if (bChase)
 		{
-			Cruise = T >= 60.0 ? 85.f : 60.f;
+			Cruise = T >= 60.0 ? 70.f : 40.f;
 			UGTPWantedComponent* Wanted = PC->FindComponentByClass<UGTPWantedComponent>();
 			if (Wanted)
 			{
@@ -551,17 +551,33 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 		{
 			FGTPDriveCommand Command;
 			Follower.bIgnoreLaneLimit = bChase;
-			// Held up for more than 3 s by a car in a narrow street (a chase demo cannot wait): push through for 3 s.
+			// Held up for more than 2.5 s (a car in a narrow street, a corner cut too short): first push through for
+			// 3 s, then, if it happens again, back off for 2 s with the wheels turned and go on.
 			if (bChase && T > 4.0)
 			{
+				if (Now < UnstickUntil)
+				{
+					DriveInputs(Driven, 0.f, 0.6f, -UnstickSteer, false);
+					break;
+				}
 				if (FMath::Abs(Driven->GetSpeedKmh()) < 3.f)
 				{
 					SlowSince = SlowSince <= 0.0 ? Now : SlowSince;
-					if (Now - SlowSince > 3.0 && Now >= RamUntil)
+					if (Now - SlowSince > 2.5 && Now >= RamUntil)
 					{
-						RamUntil = Now + 3.0;
 						SlowSince = 0.0;
-						GTP_TRACE(LogGTPDemo, TEXT("Demo chase: held up, pushing through"));
+						if (++ChaseStuckCount % 2 == 1)
+						{
+							RamUntil = Now + 3.0;
+							GTP_TRACE(LogGTPDemo, TEXT("Demo chase: held up, pushing through"));
+						}
+						else
+						{
+							UnstickSteer = (ChaseStuckCount / 2) % 2 == 0 ? 1.f : -1.f;
+							UnstickUntil = Now + 2.0;
+							GTP_TRACE(LogGTPDemo, TEXT("Demo chase: held up, backing off"));
+							break;
+						}
 					}
 				}
 				else
