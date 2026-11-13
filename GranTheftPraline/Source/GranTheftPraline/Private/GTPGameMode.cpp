@@ -199,8 +199,30 @@ void AGTPGameMode::ApplyPlayerVisual(APawn* Pawn)
 					Body->SetRelativeLocationAndRotation(FVector::ZeroVector, FRotator::ZeroRotator);
 					UE_LOG(LogGTPGameMode, Log, TEXT("  body %s re-attached to the pawn's mesh %s"), *Body->GetName(), *Own->GetName());
 				}
+				// Clothes without a leader (the sample's construction script is bypassed): follow the body's pose.
+				if (USkeletalMeshComponent* Clothes = Cast<USkeletalMeshComponent>(Part))
+				{
+					USkeletalMeshComponent* BodyComp = nullptr;
+					for (UPrimitiveComponent* Other : Parts)
+					{
+						if (Other && Other->GetName() == BodyName)
+						{
+							BodyComp = Cast<USkeletalMeshComponent>(Other);
+						}
+					}
+					if (BodyComp && Clothes != BodyComp && Clothes->GetName() != TEXT("Face") && !Clothes->LeaderPoseComponent.IsValid())
+					{
+						Clothes->SetLeaderPoseComponent(BodyComp);
+						UE_LOG(LogGTPGameMode, Log, TEXT("  %s now follows %s's pose"), *Clothes->GetName(), *BodyComp->GetName());
+					}
+				}
 				if (Own && Body && Part->GetName() == BodyName)
 				{
+					// Test: the post-process of the body runs after the retarget and may overwrite it.
+					if (!FParse::Param(FCommandLine::Get(), TEXT("PlayerVisualKeepPostProcess")))
+					{
+						Body->SetDisablePostProcessBlueprint(true);
+					}
 					// The body must be evaluated every frame, after the pawn's own pose (no update-rate skipping, no render gate).
 					Body->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;
 					Body->bEnableUpdateRateOptimizations = false;
