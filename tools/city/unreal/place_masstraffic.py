@@ -5,11 +5,12 @@ Needs City Sample's plugins Traffic (module MassTraffic) and RuleProcessor copie
 already placed (place_zonegraph.py: lanes tagged Car, junctions tagged Car + Intersection).
 
 What it does, reporting everything in Saved/CityImport/masstraffic_report.json:
-1. Lists the MassTraffic settings properties that filter ZoneGraph lanes (names differ between
-   versions of the plugin, so they are read, not assumed) and points every traffic-lane filter at
-   our tag Car, every intersection filter at Intersection. The settings are saved to
-   Config/DefaultMassTraffic.ini by the editor (local file of the PC, not in Git while the plugin
-   is not).
+1. Points MassTraffic's ZoneGraph lane filters at our tags through
+   UGTPZoneGraphImport::ConfigureTrafficLaneFilters (C++, module GTPMass: neither
+   MassTrafficSettings nor ZoneGraphSettings is exposed to Python in 5.8). The filter properties
+   are read by reflection, not assumed: every traffic-lane filter gets our tag Car, every
+   intersection filter Intersection. The tags must have been saved by place_zonegraph.py. The
+   settings go to their default config file, named in the report.
 2. Places, after removing the previous ones, City Sample's own spawner Blueprints
    (/Game/AI/Traffic/Spawners: intersections, parked cars, driving cars, kept at their City Sample
    paths), tagged GTPMassTraffic and GTPMassTrafficOrder<n>, with no spawn on begin play: the game
@@ -51,46 +52,15 @@ def write(report, t0):
     log("report: " + json.dumps(report))
 
 
-def tag_filter(tag_name):
-    """A ZoneGraph tag filter that accepts any lane carrying tag_name, or None if the tag is unknown."""
-    settings = unreal.get_default_object(unreal.ZoneGraphSettings)
-    for index, info in enumerate(settings.get_editor_property("tags")):
-        if str(info.get_editor_property("name")) == tag_name:
-            mask = unreal.ZoneGraphTagMask()
-            try:
-                mask.set_editor_property("mask", 1 << index)
-            except Exception:
-                return None
-            flt = unreal.ZoneGraphTagFilter()
-            flt.set_editor_property("any_tags", mask)
-            return flt
-    return None
-
-
 def configure_settings(report):
-    cls = getattr(unreal, "MassTrafficSettings", None)
-    if cls is None:
-        report["errors"].append("MassTrafficSettings class not found")
+    importer = getattr(unreal, "GTPZoneGraphImport", None)
+    if importer is None or not hasattr(importer, "configure_traffic_lane_filters"):
+        report["errors"].append("GTPZoneGraphImport.configure_traffic_lane_filters missing: build the editor target")
         return
-    settings = unreal.get_default_object(cls)
-    car, junction = tag_filter("Car"), tag_filter("Intersection")
-    report["settings"] = {}
-    for prop in dir(settings):
-        if not prop.endswith("lane_filter"):
-            continue
-        wanted = junction if "intersection" in prop else car
-        if "crosswalk" in prop or "pedestrian" in prop or wanted is None:
-            report["settings"][prop] = "left as is"
-            continue
-        try:
-            settings.set_editor_property(prop, wanted)
-            report["settings"][prop] = "Intersection" if wanted is junction else "Car"
-        except Exception as error:  # read-only or another type in this version
-            report["settings"][prop] = "not set: %s" % error
-    try:
-        settings.save_config()
-    except Exception as error:
-        report["errors"].append("settings not saved: %s" % error)
+    result = json.loads(importer.configure_traffic_lane_filters("Car", "Intersection"))
+    report["settings"] = result.get("info", {})
+    report["settings_counts"] = result.get("counts", {})
+    report["errors"] += result.get("errors", [])
 
 
 # City Sample's own spawner Blueprints (AMassSpawner children with their entity configs and
@@ -171,7 +141,7 @@ def place_config_spawner(name, order, configs, count, report):
 def main():
     t0 = time.time()
     report = {"map": MAP, "errors": [], "spawners": []}
-    if getattr(unreal, "MassTrafficSettings", None) is None and not any("MassTraffic" in c for c in dir(unreal)):
+    if not any("MassTraffic" in c for c in dir(unreal)):
         report["errors"].append("MassTraffic not loaded (Plugins/Traffic and Plugins/RuleProcessor from City Sample): nothing done")
         return write(report, t0)
     level_sub.load_level(MAP)

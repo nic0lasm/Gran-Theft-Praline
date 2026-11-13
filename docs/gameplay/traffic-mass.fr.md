@@ -38,7 +38,12 @@ ADR-0015 (piétons et trafic sur Mass). Anglais : [traffic-mass.md](traffic-mass
 2. `Traffic.uplugin` n'est pas activé par défaut : le `.uproject` le liste avec `"Optional": true`,
    il se charge là où le plugin est copié et il est ignoré sans erreur ailleurs (Mac, CI).
    RuleProcessor est activé par défaut.
-3. Compiler la cible éditeur, lancer `place_zonegraph.py` puis `place_masstraffic.py`.
+3. Compiler la cible éditeur, lancer `place_zonegraph.py` puis `place_masstraffic.py`. Le premier
+   écrit nos tags ZoneGraph (Car, Intersection, Pedestrian, Crossing) dans le fichier de config par
+   défaut des réglages ZoneGraph ; le second pointe les filtres de voies de MassTraffic sur les
+   mêmes bits, en C++ (`UGTPZoneGraphImport::ConfigureTrafficLaneFilters` : aucune des deux classes
+   de réglages n'est exposée à Python en 5.8), et écrit le fichier de config par défaut de
+   MassTraffic. Les deux rapports nomment les fichiers écrits.
    Les configurations du trafic et les Blueprints de spawners de City Sample sont dans le Content
    du projet City Sample (/Game/AI/Traffic, /Game/AI/Traffic/Spawners, /Game/Vehicle/veh*) : ils
    sont copiés aux mêmes chemins /Game dans notre projet (hors Git) pour garder leurs références.

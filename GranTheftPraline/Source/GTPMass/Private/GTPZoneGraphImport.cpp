@@ -6,6 +6,7 @@
 #include "Misc/FileHelper.h"
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
+#include "UObject/UnrealType.h"
 #include "ZoneGraphSettings.h"
 #include "ZoneGraphTypes.h"
 #include "ZoneShapeActor.h"
@@ -20,6 +21,7 @@ const FName ActorTag(TEXT("GTPZoneGraph"));
 struct FReport
 {
 	TMap<FString, int32> Counts;
+	TMap<FString, FString> Info;
 	TArray<FString> Errors;
 
 	void Error(const FString& Text)
@@ -40,6 +42,12 @@ struct FReport
 			CountObject->SetNumberField(Pair.Key, Pair.Value);
 		}
 		Root->SetObjectField(TEXT("counts"), CountObject);
+		TSharedRef<FJsonObject> InfoObject = MakeShared<FJsonObject>();
+		for (const TPair<FString, FString>& Pair : Info)
+		{
+			InfoObject->SetStringField(Pair.Key, Pair.Value);
+		}
+		Root->SetObjectField(TEXT("info"), InfoObject);
 		TArray<TSharedPtr<FJsonValue>> ErrorValues;
 		for (const FString& Text : Errors)
 		{
@@ -89,6 +97,38 @@ bool FindOrAddTag(FName Name, FZoneGraphTag& OutTag, FReport& Report)
 	OutTag = Info->Tag;
 	Report.Counts.FindOrAdd(TEXT("tags_added"))++;
 	return true;
+}
+
+/** The tag called Name in the ZoneGraph settings, never added (the import adds them). */
+bool FindTag(FName Name, FZoneGraphTag& OutTag)
+{
+	UZoneGraphSettings* Settings = GetMutableDefault<UZoneGraphSettings>();
+	const FStructProperty* Property = CastField<FStructProperty>(UZoneGraphSettings::StaticClass()->FindPropertyByName(TEXT("Tags")));
+	if (!Settings || !Property || Property->Struct != FZoneGraphTagInfo::StaticStruct())
+	{
+		return false;
+	}
+	for (int32 Index = 1; Index < Property->ArrayDim; ++Index)
+	{
+		const FZoneGraphTagInfo* Info = Property->ContainerPtrToValuePtr<FZoneGraphTagInfo>(Settings, Index);
+		if (Info->Name == Name)
+		{
+			OutTag = Info->Tag;
+			return true;
+		}
+	}
+	return false;
+}
+
+/** Writes Settings to its default config file (editor only); the file name, or why not. */
+FString SaveDefaultConfig(UObject* Settings)
+{
+#if WITH_EDITOR
+	return Settings->TryUpdateDefaultConfigFile() ? Settings->GetDefaultConfigFilename() : FString(TEXT("not saved"));
+#else
+	(void)Settings;
+	return TEXT("not saved: editor only");
+#endif
 }
 
 FZoneGraphTagMask MaskOf(const TArray<TSharedPtr<FJsonValue>>& Names, FReport& Report)
@@ -289,6 +329,64 @@ FString UGTPZoneGraphImport::BuildFromFile(UObject* WorldContext, const FString&
 		Shape->UpdateShape();
 		Report.Counts.FindOrAdd(bPolygon ? TEXT("polygons") : (ProfileName == TEXT("Car") ? TEXT("car_splines") : TEXT("walk_splines")))++;
 	}
+	// The tags and lane profiles added above go to the settings' default config file: the next
+	// editor run (place_masstraffic.py) and the game find them at the same bits as the shapes.
+	Report.Info.Add(TEXT("zonegraph_settings_saved_to"), SaveDefaultConfig(GetMutableDefault<UZoneGraphSettings>()));
 	UE_LOG(LogGTPZoneGraph, Log, TEXT("zonegraph import: %s"), *Report.ToJson());
+	return Report.ToJson();
+}
+
+FString UGTPZoneGraphImport::ConfigureTrafficLaneFilters(FName LaneTag, FName IntersectionTag)
+{
+	using namespace GTPZoneGraphImportLocal;
+	FReport Report;
+	FZoneGraphTag Lane;
+	FZoneGraphTag Junction;
+	if (!FindTag(LaneTag, Lane) || !FindTag(IntersectionTag, Junction))
+	{
+		Report.Error(FString::Printf(TEXT("ZoneGraph tag %s or %s not in the settings: run place_zonegraph.py first"),
+			*LaneTag.ToString(), *IntersectionTag.ToString()));
+		return Report.ToJson();
+	}
+	// Found by name, not linked: MassTraffic is an optional plugin, copied out of Git.
+	UClass* Class = FindObject<UClass>(nullptr, TEXT("/Script/MassTraffic.MassTrafficSettings"));
+	UObject* Settings = Class ? Class->GetDefaultObject() : nullptr;
+	if (!Settings)
+	{
+		Report.Error(TEXT("MassTrafficSettings not found: plugin Traffic not loaded"));
+		return Report.ToJson();
+	}
+	for (TFieldIterator<FStructProperty> It(Class); It; ++It)
+	{
+		const FStructProperty* Property = *It;
+		const FString Name = Property->GetName();
+		if (Property->Struct != FZoneGraphTagFilter::StaticStruct())
+		{
+			if (Property->Struct->GetName().StartsWith(TEXT("ZoneGraphTag")))
+			{
+				Report.Info.Add(Name, TEXT("left as is: ") + Property->Struct->GetName());
+			}
+			continue;
+		}
+		if (Name.Contains(TEXT("Crosswalk")) || Name.Contains(TEXT("Pedestrian")))
+		{
+			Report.Info.Add(Name, TEXT("left as is"));
+			continue;
+		}
+		const bool bIntersection = Name.Contains(TEXT("Intersection"));
+		for (int32 Index = 0; Index < Property->ArrayDim; ++Index)
+		{
+			FZoneGraphTagFilter* Filter = Property->ContainerPtrToValuePtr<FZoneGraphTagFilter>(Settings, Index);
+			FZoneGraphTagMask Mask;
+			Mask.Add(bIntersection ? Junction : Lane);
+			Filter->AnyTags = Mask;
+			Filter->AllTags = FZoneGraphTagMask();
+			Filter->NotTags = FZoneGraphTagMask();
+		}
+		Report.Info.Add(Name, (bIntersection ? IntersectionTag : LaneTag).ToString());
+		Report.Counts.FindOrAdd(TEXT("filters_set"))++;
+	}
+	Report.Info.Add(TEXT("masstraffic_settings_saved_to"), SaveDefaultConfig(Settings));
+	UE_LOG(LogGTPZoneGraph, Log, TEXT("traffic lane filters: %s"), *Report.ToJson());
 	return Report.ToJson();
 }

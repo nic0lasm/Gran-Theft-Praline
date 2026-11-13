@@ -34,7 +34,11 @@ Status 13/11/2026: prepared, not compiled, waiting for City Sample on the PC. De
 2. `Traffic.uplugin` is not enabled by default: the `.uproject` lists it as `"Optional": true`, so
    it loads where the plugin is copied and is skipped without error elsewhere (Mac, CI).
    RuleProcessor is enabled by default.
-3. Build the editor target, run `place_zonegraph.py` then `place_masstraffic.py`.
+3. Build the editor target, run `place_zonegraph.py` then `place_masstraffic.py`. The first one
+   writes our ZoneGraph tags (Car, Intersection, Pedestrian, Crossing) to the ZoneGraph settings'
+   default config file; the second points MassTraffic's lane filters at the same tag bits, in C++
+   (`UGTPZoneGraphImport::ConfigureTrafficLaneFilters`: neither settings class is exposed to Python
+   in 5.8), and writes MassTraffic's default config file. Both reports name the files written.
    City Sample's traffic configs and spawner Blueprints live in the City Sample project's own
    content (/Game/AI/Traffic, /Game/AI/Traffic/Spawners, /Game/Vehicle/veh*): they are copied to
    the same /Game paths in our project (out of Git), so their references hold.
