@@ -498,7 +498,7 @@ def shop_interior_master():
     mel.connect_material_property(g.const(0.0), "", unreal.MaterialProperty.MP_METALLIC)
     mel.connect_material_property(g.const(1.0), "", unreal.MaterialProperty.MP_SPECULAR)
     mel.connect_material_property(emis, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
-    weather(mat, ("wet", "emissive"))
+    weather(mat, ("wet",))   # no night EmissiveScale (x20): lit_by_hour sets the night level on screen
     g.done()
     return mat
 
@@ -621,7 +621,7 @@ def window_interior_master():
     mel.connect_material_property(g.const(0.0), "", unreal.MaterialProperty.MP_METALLIC)
     mel.connect_material_property(g.const(1.0), "", unreal.MaterialProperty.MP_SPECULAR)
     mel.connect_material_property(emis, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
-    weather(mat, ("wet", "emissive"))
+    weather(mat, ("wet",))   # no night EmissiveScale (x20): lit_by_hour sets the night level on screen
     g.done()
     return mat
 
