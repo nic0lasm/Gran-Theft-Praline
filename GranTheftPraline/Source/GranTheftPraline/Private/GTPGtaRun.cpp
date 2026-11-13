@@ -153,6 +153,13 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckParked(FString& Detail)
 		ACharacter* Character = PC ? Cast<ACharacter>(PC->GetPawn()) : nullptr;
 		if (!Character)
 		{
+			// Still at the wheel after the chase: get out now rather than wait for the step to time out.
+			if (AGTPVehicle* Driven = PC ? Cast<AGTPVehicle>(PC->GetPawn()) : nullptr; Driven && !bParkedExitRequested)
+			{
+				bParkedExitRequested = true;
+				Driven->RequestExit();
+				GTP_TRACE(LogGTPGtaRun, TEXT("GTARun: getting out of %s for the parked-car theft"), *Driven->GetName());
+			}
 			Detail = TEXT("player still driving");
 			return EResult::Pending;
 		}

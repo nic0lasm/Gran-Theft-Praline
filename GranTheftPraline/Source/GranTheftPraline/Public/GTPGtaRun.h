@@ -63,6 +63,7 @@ private:
 	TWeakObjectPtr<class ACharacter> ParkedCharacter;
 	bool bParkedStarted = false;
 	bool bExitRequested = false;
+	bool bParkedExitRequested = false;
 	int32 ShotsFired = 0;
 	double NextShot = 0.0;
 	int32 ShotAttempts = 0;
