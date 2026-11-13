@@ -29,6 +29,9 @@ ADR-0015 (piétons et trafic sur Mass). Anglais : [traffic-mass.md](traffic-mass
    MassCrowd, MassGameplay et AnimToTexture, déjà activés.
    Appliquer les correctifs listés dans le README de github.com/Myxcil/MassTraffic-Test (on lit,
    on ne copie rien).
+   Puis `python tools/vehicles/patch_citysample_traffic.py <project>/GranTheftPraline` : il coupe le
+   faux C4723 de MSVC (« division par 0 ») dans MassTrafficSubsystem.cpp, qui sinon fait échouer le
+   package Development (idempotent, original gardé en .orig, rapport md5).
 2. `Traffic.uplugin` n'est pas activé par défaut : le `.uproject` le liste avec `"Optional": true`,
    il se charge là où le plugin est copié et il est ignoré sans erreur ailleurs (Mac, CI).
    RuleProcessor est activé par défaut.
