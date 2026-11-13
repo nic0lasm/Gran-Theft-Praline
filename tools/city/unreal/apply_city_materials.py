@@ -509,15 +509,20 @@ def shop_interior_master():
     for src, name in ((lp, "P"), (cv, "V"), (glow, "Glow"), (seed, "Seed")):
         g.link(src, "", custom, name)
     # grazing views read as glass: the room fades behind the reflection
+    # At night a lit shop outshines the dark street it reflects: the fade and the glass specular drop
+    # (PC V5 13/11: at an angle the windows read as the grey reflection of the street, not the room).
+    night = city_lights(g)
+    fade = g.const(0.8) if night is None else g.lerp(g.const(0.8), g.const(0.2), night)
     fres = g.node(unreal.MaterialExpressionFresnel)
-    room = g.mul(custom, g.sub(g.const(1.0), g.mul(fres, g.const(0.8))))
+    room = g.mul(custom, g.sub(g.const(1.0), g.mul(fres, fade)))
     emis = g.mul(room, g.node(unreal.MaterialExpressionScalarParameter, parameter_name="EmissiveScale",
                               default_value=1.0))
     emis = lit_by_hour(g, emis, SHOP_DAY_GLOW, SHOP_NIGHT_SCREEN)
+    spec = g.const(1.0) if night is None else g.lerp(g.const(1.0), g.const(SHOP_NIGHT_SPECULAR), night)
     mel.connect_material_property(g.const((0.02, 0.022, 0.025)), "", unreal.MaterialProperty.MP_BASE_COLOR)
     mel.connect_material_property(g.const(0.04), "", unreal.MaterialProperty.MP_ROUGHNESS)
     mel.connect_material_property(g.const(0.0), "", unreal.MaterialProperty.MP_METALLIC)
-    mel.connect_material_property(g.const(1.0), "", unreal.MaterialProperty.MP_SPECULAR)
+    mel.connect_material_property(spec, "", unreal.MaterialProperty.MP_SPECULAR)
     mel.connect_material_property(emis, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
     weather(mat, ("wet",))   # no night EmissiveScale (x20): lit_by_hour sets the night level on screen
     g.done()
@@ -536,7 +541,8 @@ SHOP_DAY_GLOW = float(os.environ.get("GTP_SHOP_DAY_GLOW", "1000"))   # darker ro
 # at dusk (V5, 17:38 in December, PC 13/11) and dim at midnight. EyeAdaptationInverse (no input:
 # 1 / exposure) times NightScreen gives the room's value on screen; 1.0 is about a white wall in
 # daylight. The day path is unchanged (DayGlow, exposure EV100 14).
-SHOP_NIGHT_SCREEN = float(os.environ.get("GTP_SHOP_NIGHT_SCREEN", "0.35"))   # 0.7: white aplats at night (PC V5 13/11)
+SHOP_NIGHT_SCREEN = float(os.environ.get("GTP_SHOP_NIGHT_SCREEN", "0.2"))   # 0.7 and 0.35: white aplats at night (PC V5 13/11)
+SHOP_NIGHT_SPECULAR = float(os.environ.get("GTP_SHOP_NIGHT_SPECULAR", "0.25"))
 WINDOW_NIGHT_SCREEN = float(os.environ.get("GTP_WINDOW_NIGHT_SCREEN", "0.6"))
 
 
@@ -640,7 +646,7 @@ def window_interior_master():
     mel.connect_material_property(g.const((0.015, 0.017, 0.02)), "", unreal.MaterialProperty.MP_BASE_COLOR)
     mel.connect_material_property(g.const(0.03), "", unreal.MaterialProperty.MP_ROUGHNESS)
     mel.connect_material_property(g.const(0.0), "", unreal.MaterialProperty.MP_METALLIC)
-    mel.connect_material_property(g.const(1.0), "", unreal.MaterialProperty.MP_SPECULAR)
+    mel.connect_material_property(spec, "", unreal.MaterialProperty.MP_SPECULAR)
     mel.connect_material_property(emis, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
     weather(mat, ("wet",))   # no night EmissiveScale (x20): lit_by_hour sets the night level on screen
     g.done()
