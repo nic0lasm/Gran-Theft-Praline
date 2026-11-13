@@ -1,6 +1,3 @@
-02:46 night59-20: no crash (exit 0) 02:36:25-02:46:27, end t=598, police=88 | night59-20: 23795 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.8 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.5 | gpu p50 13.53 p95 20.51 | gate PASS
-02:56 night59-21: no crash (exit 0) 02:46:47-02:56:49, end t=598, police=87 | night59-21: 23796 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 1 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 33.1 | gpu p50 14.05 p95 21.04 | gate PASS
-03:06 pushed etat
 03:07 night59-22: no crash (exit 0) 02:57:09-03:07:12, end t=598, police=81 | night59-22: 23793 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 2 | >50 1 | >100 0 | frame p50 25.00 p95 25.02 max 83.1 | gpu p50 13.78 p95 20.79 | gate PASS
 03:17 night59-23: no crash (exit 0) 03:07:32-03:17:34, end t=598, police=75 | night59-23: 23795 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.2 | gpu p50 13.95 p95 20.92 | gate PASS
 03:27 night59-24: no crash (exit 0) 03:17:54-03:27:56, end t=598, police=85 | night59-24: 23796 frames | 25.0+-1 ms 100.0 % (exactly 25.0 99.9 %) | >26 0 | >50 0 | >100 0 | frame p50 25.00 p95 25.02 max 25.4 | gpu p50 13.82 p95 20.86 | gate PASS
@@ -58,3 +55,6 @@
 16:14 next2c2 env restore: Weather 6 file(s), NightLights md5 70ff568fc6a2792a13d125c9ebb545c0
 16:14 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
 16:14 BLOCK FAIL: next2c2 build
+16:14 pushed etat
+16:14 pushed next2c2
+16:14 check head=d27b671 md5=1c92de0f813b89cb40aeb000cd92a1de dirty=0
