@@ -40,7 +40,7 @@ class APlayerController;
  * out) and drives on. Each step is logged.
  * -PoliceChaseDemo = -DemoCarjack plus a scripted chase (default 150 s of driving): the stolen
  * car runs at 40 km/h, the level is raised to 2 stars 8 s after the wheel is taken and to 3 after 30 s,
- * from 60 s on the player flees (arrest possible from 100 s) at 70 km/h (40 km/h before) and the level is left to fall by itself. Logged as
+ * from 12 s on the player flees at 75 km/h through the corners at 5 m/s2 (arrest possible from 100 s; 40 km/h before) and the level is left to fall by itself. Logged as
  * "DemoChase t=... stars=... phase=..." every 5 s.
  */
 UCLASS()

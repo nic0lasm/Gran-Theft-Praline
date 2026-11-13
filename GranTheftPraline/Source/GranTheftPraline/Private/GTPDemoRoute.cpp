@@ -501,7 +501,7 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 		float Cruise = CruiseKmh;
 		if (bChase)
 		{
-			Cruise = T >= 60.0 ? 70.f : 40.f;
+			Cruise = T >= 12.0 ? 75.f : 40.f;
 			// The way ahead is kept clear of the city's traffic (a demo cannot queue behind a taxi): traffic cars
 			// within 35 m in front of the player are taken off the road twice a second.
 			if (Now >= NextClear)
@@ -597,6 +597,10 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 		{
 			FGTPDriveCommand Command;
 			Follower.bIgnoreLaneLimit = bChase;
+			if (bChase)
+			{
+				Follower.SetHardDriving();
+			}
 			// Held up for more than 2.5 s (a car in a narrow street, a corner cut too short): first push through for
 			// 3 s, then, if it happens again, back off for 2 s with the wheels turned and go on.
 			if (bChase && T > 4.0)
