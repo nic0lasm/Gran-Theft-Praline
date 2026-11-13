@@ -26,8 +26,9 @@ DEFINE_LOG_CATEGORY_STATIC(LogGTPCrowd, Log, All);
 
 bool UGTPCrowdSubsystem::IsRequested()
 {
+	// The default: -Pedestrians=legacy or a number (legacy density) keeps the old pedestrian system.
 	FString Mode;
-	return FParse::Value(FCommandLine::Get(), TEXT("Pedestrians="), Mode) && Mode.Equals(TEXT("mass"), ESearchCase::IgnoreCase);
+	return !FParse::Value(FCommandLine::Get(), TEXT("Pedestrians="), Mode) || Mode.Equals(TEXT("mass"), ESearchCase::IgnoreCase);
 }
 
 bool UGTPCrowdSubsystem::ShouldCreateSubsystem(UObject* Outer) const

@@ -257,7 +257,10 @@ int32 UGTPPedestrianSubsystem::ChooseDensity() const
 {
 	// -Pedestrians=N sets the density, =mass leaves the people to the Mass crowd (GTPMass), =legacy keeps this system.
 	FString Mode;
-	if (FParse::Value(FCommandLine::Get(), TEXT("Pedestrians="), Mode))
+	if (!FParse::Value(FCommandLine::Get(), TEXT("Pedestrians="), Mode))
+	{
+		return 0; // the Mass crowd is the default (GTPMass); -Pedestrians=legacy brings this system back
+	}
 	{
 		if (Mode.Equals(TEXT("mass"), ESearchCase::IgnoreCase))
 		{
