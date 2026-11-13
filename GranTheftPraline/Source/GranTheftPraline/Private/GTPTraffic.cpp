@@ -409,7 +409,25 @@ void UGTPAIDriverComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 	else
 	{
 		const FGTPDriveCommand Command = GTPDrive::Decide(Path, X, Y, Yaw, Speed, LaneSpeed, Obstacle, Settings, Closest);
-		Vehicle->SetAIDriveInput(Command.Throttle, Command.Brake, Command.Steering, Command.Brake >= 1.f && Speed < 0.5f);
+		// Wedged against something the probe does not see (kerb, bollard, a car's
+		// corner): full throttle for 3 s without moving, then back off 1.5 s
+		// steering the other way, and try again.
+		if (BackOffTime > 0.f)
+		{
+			BackOffTime -= DeltaTime;
+			Vehicle->SetAIDriveInput(0.f, 1.f, -Command.Steering, false);
+		}
+		else
+		{
+			PushTime = Command.Throttle > 0.5f && FMath::Abs(Speed) < 0.3f ? PushTime + DeltaTime : 0.f;
+			if (PushTime > 3.f)
+			{
+				PushTime = 0.f;
+				BackOffTime = 1.5f;
+				GTP_TRACE(LogGTPTraffic, TEXT("%s: wedged, backing off"), *Vehicle->GetName());
+			}
+			Vehicle->SetAIDriveInput(Command.Throttle, Command.Brake, Command.Steering, Command.Brake >= 1.f && Speed < 0.5f);
+		}
 	}
 
 	if (Closest >= CurrentLaneLength && Route.Num() > 1)

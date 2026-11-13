@@ -178,6 +178,8 @@ private:
 	float GhostRideHeight = 40.f; // cm from the ground to the actor origin
 	float GhostGroundZ = 0.f;    // last ground height found (cm)
 	float GhostGroundAge = 1.f;  // seconds since that ground trace
+	float PushTime = 0.f;        // seconds pressing the throttle without moving (wedged on something)
+	float BackOffTime = 0.f;     // seconds left reversing out of it
 };
 
 /**
