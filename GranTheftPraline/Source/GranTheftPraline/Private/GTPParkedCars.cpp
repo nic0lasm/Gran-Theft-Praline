@@ -58,6 +58,7 @@ int32 AGTPParkedCars::Build(const FString& File)
 		Colours.Add(FLinearColor(0.8f, 0.8f, 0.8f));
 	}
 	int32 Placed = 0;
+	int32 Missed = 0;
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(GTPParkedGround), false, this);
 	const FCollisionObjectQueryParams Ground(ECC_WorldStatic);
 	for (int32 RowIndex = 1; RowIndex < Rows.Num(); ++RowIndex)
@@ -71,11 +72,18 @@ int32 AGTPParkedCars::Build(const FString& File)
 		const double SlotX = FCString::Atod(*Fields[0]);
 		const double SlotY = FCString::Atod(*Fields[1]);
 		const float SlotYaw = FCString::Atof(*Fields[2]);
-		// The street level is near Z = 0, like the lanes (same trace as AGTPTrafficNetwork::FindSpawnPoint).
+		// The street level is near Z = 0, like the lanes. Same trace as
+		// AGTPTrafficNetwork::FindSpawnPoint (visibility channel, which every street
+		// mesh blocks): the city v2 ground is not found as a WorldStatic object.
 		FHitResult Hit;
-		const FVector Top(SlotX, SlotY, 500.0);
-		if (!GetWorld()->LineTraceSingleByObjectType(Hit, Top, Top - FVector(0.0, 0.0, 2500.0), Ground, Params))
+		const FVector Top(SlotX, SlotY, 3000.0);
+		if (!GetWorld()->LineTraceSingleByChannel(Hit, Top, Top - FVector(0.0, 0.0, 6000.0), ECC_Visibility, Params)
+			&& !GetWorld()->LineTraceSingleByObjectType(Hit, Top, Top - FVector(0.0, 0.0, 6000.0), Ground, Params))
 		{
+			if (Missed++ == 0)
+			{
+				GTP_TRACE(LogGTPParkedCars, TEXT("parked cars: no ground under slot %.0f %.0f"), SlotX, SlotY);
+			}
 			continue;
 		}
 		// Same model and colour at every run: picked from the slot position.
@@ -92,6 +100,6 @@ int32 AGTPParkedCars::Build(const FString& File)
 	{
 		Model->MarkRenderStateDirty();
 	}
-	GTP_TRACE(LogGTPParkedCars, TEXT("parked cars: %d placed from %s (%d models)"), Placed, *File, Models.Num());
+	GTP_TRACE(LogGTPParkedCars, TEXT("parked cars: %d placed, %d without ground, from %s (%d models)"), Placed, Missed, *File, Models.Num());
 	return Placed;
 }
