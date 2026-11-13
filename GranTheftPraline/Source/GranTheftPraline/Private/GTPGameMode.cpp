@@ -137,15 +137,50 @@ void AGTPGameMode::ApplyPlayerVisual(APawn* Pawn)
 	Visual->SetActorRelativeRotation(FRotator(0.f, PlayerVisualYaw, 0.f));
 	Visual->SetActorEnableCollision(false);
 	Pawn->Tags.AddUnique(VisualTag);
-	if (const ACharacter* Character = Cast<ACharacter>(Pawn))
+	// Shown and hidden through flags that other code (camera mode, the sample's blueprints) does not toggle,
+	// enforced again 1.5 s later, with a trace of every component for the log.
+	TWeakObjectPtr<AActor> WeakVisual(Visual);
+	TWeakObjectPtr<APawn> WeakPawn(Pawn);
+	auto Enforce = [WeakVisual, WeakPawn](const TCHAR* When)
 	{
-		if (USkeletalMeshComponent* Own = Character->GetMesh())
+		AActor* V = WeakVisual.Get();
+		APawn* P = WeakPawn.Get();
+		if (!V || !P)
 		{
-			// Hidden but still posed: the visual copies or retargets this pose.
-			Own->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;
-			Own->SetVisibility(false, false);
-			Own->SetCastShadow(false);
+			return;
 		}
-	}
+		if (const ACharacter* Character = Cast<ACharacter>(P))
+		{
+			if (USkeletalMeshComponent* Own = Character->GetMesh())
+			{
+				// Hidden but still posed: the visual copies or retargets this pose.
+				Own->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;
+				Own->SetHiddenInGame(true, true);
+				Own->SetVisibility(false, true);
+				Own->SetCastShadow(false);
+			}
+		}
+		UE_LOG(LogGTPGameMode, Log, TEXT("Player visual (%s): actor at %s, hidden %d, scale %s, attached to %s"), When,
+			*V->GetActorLocation().ToCompactString(), V->IsHidden() ? 1 : 0, *V->GetActorScale3D().ToCompactString(),
+			V->GetAttachParentActor() ? *V->GetAttachParentActor()->GetName() : TEXT("nothing"));
+		TArray<UPrimitiveComponent*> Parts;
+		V->GetComponents<UPrimitiveComponent>(Parts);
+		for (UPrimitiveComponent* Part : Parts)
+		{
+			USkeletalMeshComponent* Skel = Cast<USkeletalMeshComponent>(Part);
+			if (Skel)
+			{
+				Skel->SetHiddenInGame(false, false);
+				Skel->SetVisibility(true, false);
+			}
+			UE_LOG(LogGTPGameMode, Log, TEXT("  part %s (%s) mesh %s visible %d hiddenInGame %d at %s bounds radius %.0f"),
+				*Part->GetName(), *Part->GetClass()->GetName(),
+				Skel && Skel->GetSkeletalMeshAsset() ? *Skel->GetSkeletalMeshAsset()->GetName() : TEXT("-"),
+				Part->IsVisible() ? 1 : 0, Part->bHiddenInGame ? 1 : 0, *Part->GetComponentLocation().ToCompactString(), Part->Bounds.SphereRadius);
+		}
+	};
+	Enforce(TEXT("spawn"));
+	FTimerHandle Later;
+	GetWorldTimerManager().SetTimer(Later, FTimerDelegate::CreateLambda([Enforce]() { Enforce(TEXT("after 1.5 s")); }), 1.5f, false);
 	UE_LOG(LogGTPGameMode, Log, TEXT("Player visual: %s attached to %s"), *Visual->GetName(), *Pawn->GetName());
 }
