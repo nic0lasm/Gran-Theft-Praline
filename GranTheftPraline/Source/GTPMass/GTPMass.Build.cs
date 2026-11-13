@@ -13,7 +13,11 @@ public class GTPMass : ModuleRules
 			"Core",
 			"CoreUObject",
 			"Engine",
-			"ZoneGraph"
+			"ZoneGraph",
+			"MassEntity",
+			"MassCommon",
+			"MassSimulation",
+			"GranTheftPraline"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[]
