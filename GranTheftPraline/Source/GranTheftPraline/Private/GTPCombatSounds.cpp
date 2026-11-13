@@ -74,7 +74,7 @@ void UGTPCombatSounds::BindPlayerWeapon()
 {
 	UGTPCombatSubsystem* Combat = CombatPtr.Get();
 	const APawn* Pawn = Combat ? Combat->GetPlayerPawn() : nullptr;
-	UGTPWeaponComponent* Weapon = Pawn ? Pawn->FindComponentByClass<UGTPWeaponComponent>() : nullptr;
+	UGTPWeaponComponent* Weapon = UGTPWeaponComponent::FindHeld(Pawn); // at the wheel too (drive-by)
 	if (Weapon == WeaponPtr.Get())
 	{
 		return;

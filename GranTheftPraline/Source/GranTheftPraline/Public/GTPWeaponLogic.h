@@ -12,6 +12,8 @@
 // - Aim assist (gamepad only): snap to the best target when the aim starts,
 //   and friction (slower turn) while the reticle crosses a target.
 // - Seeded random numbers so a replayed fight is identical (-DemoDeterministic).
+// - The arsenal (pistol, carbine), the loadout that switches between them, and the
+//   rules of shooting from a car window (GTPArsenal, GTPDriveBy).
 
 #include <algorithm>
 #include <cstddef>
@@ -49,6 +51,9 @@ struct FSpec
 	float RecoilPitchDeg = 1.4f;
 	float RecoilYawJitterDeg = 0.35f;
 	float RecoilRecoveryDegPerSec = 10.f;
+
+	/** Held in one hand: the only kind that can be fired from a car window. */
+	bool bOneHanded = true;
 
 	GTPDamage::FWeaponDamage Damage;
 };
@@ -291,3 +296,240 @@ inline float Friction(float AngleDeg, const FSettings& S = FSettings())
 	return S.FrictionScale + (1.f - S.FrictionScale) * T;
 }
 } // namespace GTPAimAssist
+
+namespace GTPArsenal
+{
+enum class EKind : int
+{
+	Pistol = 0,
+	/** The long weapon: a fictional automatic carbine. */
+	Carbine = 1,
+	Count = 2
+};
+
+/** The fictional 9 mm pistol: the FSpec defaults. */
+inline GTPWeapon::FSpec Pistol()
+{
+	return GTPWeapon::FSpec();
+}
+
+/**
+ * The fictional carbine: automatic, a lighter kick per shot but a climb that adds up,
+ * wider from the hip, longer reach, harder hits. Officer: 4 torso shots at 10 m.
+ */
+inline GTPWeapon::FSpec Carbine()
+{
+	GTPWeapon::FSpec S;
+	S.MagazineSize = 30;
+	S.MaxReserve = 180;
+	S.RoundsPerMinute = 600.f;
+	S.bAutomatic = true;
+	S.ReloadSeconds = 2.2f;
+	S.RangeM = 90.f;
+	S.HipSpreadDeg = 4.5f;
+	S.AimSpreadDeg = 0.6f;
+	S.BloomPerShotDeg = 0.35f;
+	S.MaxBloomDeg = 3.5f;
+	S.BloomRecoveryDegPerSec = 8.f;
+	S.MoveSpreadDeg = 3.f;
+	S.RecoilPitchDeg = 0.75f;
+	S.RecoilYawJitterDeg = 0.45f;
+	S.RecoilRecoveryDegPerSec = 4.f;
+	S.bOneHanded = false;
+	S.Damage.Base = 26.f;
+	S.Damage.FalloffStartM = 30.f;
+	S.Damage.FalloffEndM = 75.f;
+	S.Damage.HeadFactor = 2.f;
+	return S;
+}
+
+inline GTPWeapon::FSpec Make(EKind Kind)
+{
+	return Kind == EKind::Carbine ? Carbine() : Pistol();
+}
+
+/**
+ * The weapons a body carries, one in hand. Switching takes SwitchSeconds (nothing fires
+ * meanwhile), stops the reload of the weapon put away and keeps its magazine.
+ */
+struct FLoadout
+{
+	std::vector<GTPWeapon::FSpec> Specs;
+	std::vector<GTPWeapon::FState> States;
+	std::vector<bool> Owned;
+	int Current = 0;
+	float SwitchLeft = 0.f;
+
+	static FLoadout Make(const std::vector<EKind>& Kinds, const std::vector<int>& Reserves)
+	{
+		FLoadout L;
+		const int Count = static_cast<int>(EKind::Count);
+		for (int K = 0; K < Count; ++K)
+		{
+			L.Specs.push_back(GTPArsenal::Make(static_cast<EKind>(K)));
+			L.States.push_back(GTPWeapon::MakeState(L.Specs.back(), 0));
+			L.Owned.push_back(false);
+		}
+		bool bFirst = true;
+		for (size_t I = 0; I < Kinds.size(); ++I)
+		{
+			const size_t K = static_cast<size_t>(Kinds[I]);
+			if (K >= L.Specs.size())
+			{
+				continue;
+			}
+			L.Owned[K] = true;
+			const int Reserve = I < Reserves.size() ? Reserves[I] : L.Specs[K].MagazineSize * 2;
+			L.States[K] = GTPWeapon::MakeState(L.Specs[K], Reserve);
+			if (bFirst)
+			{
+				L.Current = static_cast<int>(K);
+				bFirst = false;
+			}
+		}
+		return L;
+	}
+
+	GTPWeapon::FSpec& Spec() { return Specs[static_cast<size_t>(Current)]; }
+	const GTPWeapon::FSpec& Spec() const { return Specs[static_cast<size_t>(Current)]; }
+	GTPWeapon::FState& State() { return States[static_cast<size_t>(Current)]; }
+	const GTPWeapon::FState& State() const { return States[static_cast<size_t>(Current)]; }
+	EKind CurrentKind() const { return static_cast<EKind>(Current); }
+	bool IsSwitching() const { return SwitchLeft > 0.f; }
+	bool Has(EKind Kind) const
+	{
+		const size_t K = static_cast<size_t>(Kind);
+		return K < Owned.size() && Owned[K];
+	}
+
+	/** Gives a weapon (a pickup, a mission); returns false when already carried. */
+	bool Give(EKind Kind, int Reserve)
+	{
+		const size_t K = static_cast<size_t>(Kind);
+		if (K >= Owned.size())
+		{
+			return false;
+		}
+		if (Owned[K])
+		{
+			GTPWeapon::AddAmmo(States[K], Specs[K], Reserve);
+			return false;
+		}
+		Owned[K] = true;
+		States[K] = GTPWeapon::MakeState(Specs[K], Reserve);
+		return true;
+	}
+
+	/** Takes Kind in hand. False when not carried or already in hand. */
+	bool Select(EKind Kind, float SwitchSeconds)
+	{
+		if (!Has(Kind) || Kind == CurrentKind())
+		{
+			return false;
+		}
+		GTPWeapon::CancelReload(State());
+		GTPWeapon::ReleaseTrigger(State());
+		const bool bRight = State().bRightShoulder;
+		Current = static_cast<int>(Kind);
+		State().bRightShoulder = bRight;
+		SwitchLeft = std::max(0.f, SwitchSeconds);
+		return true;
+	}
+
+	/** The next carried weapon after the one in hand (Step +1 or -1); the same one when alone. */
+	EKind Next(int Step = 1) const
+	{
+		const int Count = static_cast<int>(Owned.size());
+		for (int I = 1; I <= Count; ++I)
+		{
+			const int K = ((Current + Step * I) % Count + Count) % Count;
+			if (Owned[static_cast<size_t>(K)])
+			{
+				return static_cast<EKind>(K);
+			}
+		}
+		return CurrentKind();
+	}
+
+	/** First carried one-handed weapon (drive-by), Count when none. */
+	EKind FirstOneHanded() const
+	{
+		for (size_t K = 0; K < Owned.size(); ++K)
+		{
+			if (Owned[K] && Specs[K].bOneHanded)
+			{
+				return static_cast<EKind>(K);
+			}
+		}
+		return EKind::Count;
+	}
+
+	/** Advances the switch; returns true on the step it ends. */
+	bool TickSwitch(float Dt)
+	{
+		if (SwitchLeft <= 0.f || Dt <= 0.f)
+		{
+			return false;
+		}
+		SwitchLeft -= Dt;
+		if (SwitchLeft <= 0.f)
+		{
+			SwitchLeft = 0.f;
+			return true;
+		}
+		return false;
+	}
+};
+} // namespace GTPArsenal
+
+namespace GTPDriveBy
+{
+// Shooting from a car the player drives: one-handed weapons only, out of the side
+// windows and the windscreen, never straight back through the driver's own seat;
+// wider spread that grows with the car's speed.
+struct FSettings
+{
+	/** Largest angle between the car's nose and the aim, either side (degrees). */
+	float MaxYawDeg = 150.f;
+	/** Aim pitch allowed from a seat (degrees, up positive). */
+	float MinPitchDeg = -30.f;
+	float MaxPitchDeg = 35.f;
+	/** Spread multiplier while seated, and the extra cone at FullSpeedMS (degrees). */
+	float SpreadFactor = 1.6f;
+	float SpeedSpreadDeg = 2.5f;
+	float FullSpeedMS = 30.f;
+};
+
+/** YawDeg: aim relative to the car's nose (-180..180, right positive). */
+inline bool CanShoot(float YawDeg, float PitchDeg, const FSettings& S = FSettings())
+{
+	return std::fabs(YawDeg) <= S.MaxYawDeg && PitchDeg >= S.MinPitchDeg && PitchDeg <= S.MaxPitchDeg;
+}
+
+/** Extra cone (degrees) from the car's speed. */
+inline float SpeedSpreadDeg(float SpeedMS, const FSettings& S = FSettings())
+{
+	if (S.FullSpeedMS <= 0.f)
+	{
+		return 0.f;
+	}
+	return S.SpeedSpreadDeg * std::clamp(std::fabs(SpeedMS) / S.FullSpeedMS, 0.f, 1.f);
+}
+
+enum class EWindow : int
+{
+	Left = 0,
+	Windscreen = 1,
+	Right = 2
+};
+
+/** Which opening the shot leaves by (the arm and the glass that breaks). */
+inline EWindow WindowFor(float YawDeg)
+{
+	if (YawDeg < -30.f)
+	{
+		return EWindow::Left;
+	}
+	return YawDeg > 30.f ? EWindow::Right : EWindow::Windscreen;
+}
+} // namespace GTPDriveBy

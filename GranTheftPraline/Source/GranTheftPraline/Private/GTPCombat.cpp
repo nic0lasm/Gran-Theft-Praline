@@ -5,7 +5,10 @@
 #include "GTPHitReaction.h"
 #include "GTPLog.h"
 #include "GTPPedestrians.h"
+#include "GTPPoliceOfficer.h"
 #include "GTPSurfaceLogic.h"
+#include "GTPVehicle.h"
+#include "GTPWanted.h"
 #include "GTPThreat.h"
 #include "GTPWeapon.h"
 #include "Components/DecalComponent.h"
@@ -122,7 +125,107 @@ bool UGTPCombatSubsystem::IsPlayer(const AActor* Actor) const
 		return false;
 	}
 	const APawn* Pawn = Cast<APawn>(Actor);
-	return Pawn && Pawn->IsPlayerControlled();
+	if (Pawn && Pawn->IsPlayerControlled())
+	{
+		return true;
+	}
+	// The player's body seated in the car the player drives (drive-by).
+	const AGTPVehicle* Car = Cast<AGTPVehicle>(GetPlayerPawn());
+	return Car && Car->GetDriver() == Actor;
+}
+
+void UGTPCombatSubsystem::ReportPlayerCrime(EGTPCrimeKind Kind, const FVector& Location, bool bVictimInvolved)
+{
+	// The firefight bench must stay the same scene every run: no police called.
+	if (BenchTimer.IsValid())
+	{
+		return;
+	}
+	if (UGTPWantedComponent* Wanted = UGTPWantedComponent::Find(this))
+	{
+		Wanted->ReportCrime(Kind, Location, bVictimInvolved);
+	}
+}
+
+AActor* UGTPCombatSubsystem::FindAimTarget(const FVector& Origin, const FVector& Direction, float ConeDeg, float MaxDistanceM, const AActor* Ignore) const
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return nullptr;
+	}
+	GTPAimAssist::FSettings Settings;
+	Settings.SnapConeDeg = ConeDeg;
+	Settings.MaxDistanceM = MaxDistanceM;
+	const FVector Dir = Direction.GetSafeNormal();
+	const double MaxCm = static_cast<double>(MaxDistanceM) * 100.0;
+	std::vector<GTPAimAssist::FTarget> Targets;
+	TArray<AActor*> Actors;
+	auto Consider = [&](AActor* Body)
+	{
+		if (!Body || Body == Ignore || IsPlayer(Body) || Body->IsHidden())
+		{
+			return;
+		}
+		// Chest height: a body's location is its middle (character capsule or pedestrian root at the feet).
+		const FVector Chest = Body->GetActorLocation() + FVector(0.f, 0.f, Cast<ACharacter>(Body) ? 30.f : 130.f);
+		const FVector To = Chest - Origin;
+		const double Distance = To.Size();
+		if (Distance > MaxCm || Distance < 1.0)
+		{
+			return;
+		}
+		const float Angle = static_cast<float>(FMath::RadiansToDegrees(FMath::Acos(FMath::Clamp(FVector::DotProduct(To / Distance, Dir), -1.0, 1.0))));
+		if (Angle > ConeDeg)
+		{
+			return;
+		}
+		GTPAimAssist::FTarget Target;
+		Target.AngleDeg = Angle;
+		Target.DistanceM = static_cast<float>(Distance * 0.01);
+		const UGTPHealthComponent* Health = Body->FindComponentByClass<UGTPHealthComponent>();
+		Target.bExcluded = Health && Health->IsDead();
+		Target.bHostile = Cast<AGTPPoliceOfficer>(Body) != nullptr;
+		FHitResult Block;
+		FCollisionQueryParams Params(SCENE_QUERY_STAT(GTPAimTarget), false, Ignore);
+		Params.AddIgnoredActor(Body);
+		Params.AddIgnoredActor(GetPlayerPawn());
+		Target.bVisible = !World->LineTraceSingleByChannel(Block, Origin, Chest, ECC_Visibility, Params);
+		Targets.push_back(Target);
+		Actors.Add(Body);
+	};
+	for (TActorIterator<ACharacter> It(World); It; ++It)
+	{
+		Consider(*It);
+	}
+	for (TActorIterator<AGTPPedestrian> It(World); It; ++It)
+	{
+		Consider(*It);
+	}
+	const int Best = GTPAimAssist::PickSnapTarget(Targets, Settings);
+	return Best >= 0 ? Actors[Best] : nullptr;
+}
+
+void UGTPCombatSubsystem::SnapPlayerAim(UGTPWeaponComponent* Weapon)
+{
+	APlayerController* PC = GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr;
+	if (!PC || !Weapon || !bAimAssist)
+	{
+		return;
+	}
+	FVector Eye;
+	FRotator View;
+	PC->GetPlayerViewPoint(Eye, View);
+	AActor* Target = FindAimTarget(Eye, View.Vector(), AimSnapConeDeg, AimSnapDistanceM, Weapon->GetOwner());
+	if (!Target)
+	{
+		return;
+	}
+	const FVector Chest = Target->GetActorLocation() + FVector(0.f, 0.f, Cast<ACharacter>(Target) ? 30.f : 130.f);
+	FRotator Snap = (Chest - Eye).Rotation();
+	Snap.Roll = 0.f;
+	PC->SetControlRotation(Snap);
+	GTP_TRACE(LogGTPCombat, TEXT("combat: aim snapped to %s"), *Target->GetName());
 }
 
 void UGTPCombatSubsystem::RegisterHealth(UGTPHealthComponent* Health)
@@ -166,7 +269,19 @@ void UGTPCombatSubsystem::EquipPlayer()
 	Input->Bind(PC);
 
 	ACharacter* Character = Cast<ACharacter>(PC->GetPawn());
-	Input->UpdateContext(Character != nullptr && !DeadPawn.IsValid());
+	// At the wheel: the seated driver keeps the gun for drive-by (one-handed weapons only).
+	AGTPVehicle* Car = Cast<AGTPVehicle>(PC->GetPawn());
+	ACharacter* Driver = Car ? Car->GetDriver() : nullptr;
+	const bool bDriving = Driver != nullptr && Driver == EquippedPawn.Get();
+	Input->UpdateContext(DeadPawn.IsValid() ? UGTPCombatInput::EMode::None
+		: (Character ? UGTPCombatInput::EMode::OnFoot : (bDriving ? UGTPCombatInput::EMode::Driving : UGTPCombatInput::EMode::None)));
+	if (APawn* Equipped = EquippedPawn.Get())
+	{
+		if (UGTPWeaponComponent* Held = Equipped->FindComponentByClass<UGTPWeaponComponent>())
+		{
+			Held->SetDriveBy(bDriving ? Car : nullptr);
+		}
+	}
 	if (!Character || EquippedPawn.Get() == Character)
 	{
 		return;
@@ -264,6 +379,19 @@ FGTPDamageOutcome UGTPCombatSubsystem::ApplyHit(const FGTPCombatHit& Hit)
 		LastPlayerHitTime = GetWorld()->GetTimeSeconds();
 		bLastPlayerHitKilled = Outcome.bKilled;
 	}
+	if (bFromPlayer)
+	{
+		// The police thread's crime kinds (feat/wanted-api): witnesses decide whether it counts.
+		const bool bPolice = Cast<AGTPPoliceOfficer>(Victim) != nullptr;
+		if (Outcome.bKilled)
+		{
+			ReportPlayerCrime(bPolice ? EGTPCrimeKind::KillPolice : EGTPCrimeKind::Killing, Victim->GetActorLocation(), false);
+		}
+		else if (Hit.bMelee || bPolice)
+		{
+			ReportPlayerCrime(bPolice ? EGTPCrimeKind::HitPolice : EGTPCrimeKind::Assault, Victim->GetActorLocation(), true);
+		}
+	}
 	OnDamageDealt.Broadcast(Instigator, Victim, Outcome.HealthLost + Outcome.ArmorLost, Zone, Hit.bMelee, Outcome.HealthAfter);
 	if (Outcome.bKilled)
 	{
@@ -278,6 +406,10 @@ void UGTPCombatSubsystem::NotifyShot(AActor* Shooter, const FVector& Origin, con
 	if (UGTPThreatSubsystem* Threat = GetWorld() ? GetWorld()->GetSubsystem<UGTPThreatSubsystem>() : nullptr)
 	{
 		Threat->NotifyShot(Origin, bHit ? Hit.GetActor() : nullptr);
+	}
+	if (IsPlayer(Shooter))
+	{
+		ReportPlayerCrime(EGTPCrimeKind::ShotsFired, Origin, false);
 	}
 	OnShotFired.Broadcast(Shooter, Origin, Direction, Weapon, Hit, bHit);
 }
@@ -295,6 +427,11 @@ void UGTPCombatSubsystem::NotifyAim(AActor* Source, const FVector& Origin, const
 		{
 			bThreatActive = true;
 			OnArmedThreat.Broadcast(Source, Origin, Aim);
+			// Aiming at someone is a crime (GTA-like); aiming at an empty street is not.
+			if (IsPlayer(Source) && FindAimTarget(Origin, Aim, ThreatConeDeg, ThreatDistanceM, Source))
+			{
+				ReportPlayerCrime(EGTPCrimeKind::ArmedThreat, Origin, true);
+			}
 		}
 	}
 	else if (bThreatActive)
@@ -381,7 +518,7 @@ void UGTPCombatSubsystem::OnHealthDied(UGTPHealthComponent* Health, EGTPDamageCa
 	}
 	if (Input)
 	{
-		Input->UpdateContext(false);
+		Input->UpdateContext(UGTPCombatInput::EMode::None);
 	}
 	GTP_TRACE(LogGTPCombat, TEXT("combat: player died (cause %d)"), static_cast<int32>(Cause));
 	OnPlayerDied.Broadcast(DeathLocation);

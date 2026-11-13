@@ -150,6 +150,22 @@ protected:
 	UPROPERTY(Config, EditAnywhere, Category = "Follow camera|Field of view")
 	float SprintFullSpeed = 650.f;
 
+	/**
+	 * Over-the-shoulder aim (GTA-like): while the player aims a gun the camera comes in
+	 * over the shoulder the weapon names (UGTPWeaponComponent::IsRightShoulder), narrows
+	 * the view and stops drifting; the shoulder swap slides across.
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Follow camera|Aim")
+	float AimArmLength = 135.f;
+	/** Shoulder offset (Y) and height (Z) while aiming, cm; Y flips for the left shoulder. */
+	UPROPERTY(Config, EditAnywhere, Category = "Follow camera|Aim")
+	FVector2D AimShoulderOffset = FVector2D(58.f, 14.f);
+	UPROPERTY(Config, EditAnywhere, Category = "Follow camera|Aim")
+	float AimFOV = 62.f;
+	/** How fast the framing goes in and out of the aim, 1/s. */
+	UPROPERTY(Config, EditAnywhere, Category = "Follow camera|Aim")
+	float AimBlendSpeed = 12.f;
+
 	UPROPERTY(Config, EditAnywhere, Category = "Follow camera|Recenter")
 	bool bAutoRecenter = true;
 
@@ -202,6 +218,10 @@ private:
 	float CurrentDistance = 0.f;
 	float CollisionFraction = 1.f;
 	float CurrentFOV = 0.f;
+	/** 0 = free framing, 1 = aiming over the shoulder. */
+	float AimAlpha = 0.f;
+	/** +1 right shoulder, -1 left (smoothed through the swap). */
+	float ShoulderSide = 1.f;
 	double LastLookInputTime = -1000.0;
 
 	bool bManualRecenter = false;

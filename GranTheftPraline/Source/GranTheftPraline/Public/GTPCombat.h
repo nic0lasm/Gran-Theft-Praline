@@ -4,6 +4,7 @@
 #include "Engine/HitResult.h"
 #include "GTPDamageLogic.h"
 #include "GTPHealth.h"
+#include "GTPWantedLogic.h"
 #include "Subsystems/WorldSubsystem.h"
 #include "GTPCombat.generated.h"
 
@@ -81,8 +82,14 @@ public:
 	void RegisterHealth(UGTPHealthComponent* Health);
 	void UnregisterHealth(UGTPHealthComponent* Health);
 
-	/** The player's pawn (nullptr when none or in a car). */
+	/** The player's pawn (the car while driving). */
 	APawn* GetPlayerPawn() const;
+
+	/** Gamepad aim: turns the player's view onto the best body near the reticle (GTPAimAssist). */
+	void SnapPlayerAim(UGTPWeaponComponent* Weapon);
+
+	/** Best living body near the line Origin + Direction (cone in degrees), nullptr when none. */
+	AActor* FindAimTarget(const FVector& Origin, const FVector& Direction, float ConeDeg, float MaxDistanceM, const AActor* Ignore) const;
 
 	/** HUD hit marker: seconds since the player last hit someone, and whether that hit killed. */
 	float GetSecondsSincePlayerHit(bool& bKilled) const;
@@ -125,6 +132,20 @@ protected:
 	UPROPERTY(Config)
 	float BloodStainPerHit = 0.25f;
 
+	/** Gamepad aim snaps to a body this close to the reticle (degrees) and distance (m). */
+	UPROPERTY(Config)
+	bool bAimAssist = true;
+	UPROPERTY(Config)
+	float AimSnapConeDeg = 9.f;
+	UPROPERTY(Config)
+	float AimSnapDistanceM = 40.f;
+
+	/** Aiming counts as an armed threat (police, witnesses) when a body is this close to the aim. */
+	UPROPERTY(Config)
+	float ThreatConeDeg = 12.f;
+	UPROPERTY(Config)
+	float ThreatDistanceM = 25.f;
+
 	/** Grace without damage after a respawn (s). */
 	UPROPERTY(Config)
 	float RespawnGraceSeconds = 3.f;
@@ -139,6 +160,7 @@ private:
 	void SpawnBloodPool(AActor* Body);
 	void AddBloodStain(AActor* Body);
 	bool IsPlayer(const AActor* Actor) const;
+	void ReportPlayerCrime(EGTPCrimeKind Kind, const FVector& Location, bool bVictimInvolved);
 
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UGTPHealthComponent>> Bodies;

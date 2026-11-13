@@ -118,3 +118,41 @@ Agreed by the optimisation thread on 2026-11-11 with three amendments, now part 
 3. Fists, dodge, guard, takedown (`UGTPCombatMeleeComponent`).
 4. Cover (`UGTPCoverComponent`), blind fire.
 5. Police shooting at two stars (with the police thread), 2-minute fight video.
+
+## GTA-like shooting (batch of 13/11)
+
+What the batch adds on top of the above:
+
+- **Two weapons** (rules in `GTPWeaponLogic.h`, namespace `GTPArsenal`, tested outside Unreal):
+
+  | | 9 mm pistol (fictional) | Carbine (fictional) |
+  |---|---|---|
+  | Fire | semi-automatic, 330 rpm | automatic, 600 rpm (trigger held) |
+  | Magazine / starting reserve | 12 / 36 | 30 / 90 |
+  | Reload | 1.5 s | 2.2 s |
+  | Range | 60 m | 90 m |
+  | Spread hip / aimed | 3° / 0.5° | 4.5° / 0.6° |
+  | Recoil per shot | 1.4°, back at 10°/s | 0.75°, back at 4°/s (bursts climb) |
+  | Torso damage at 10 m | 20 (officer: 5 shots) | 26 (officer: 4 shots) |
+  | From a car | yes (one hand) | no (two hands) |
+
+  The player carries both; police and shop staff only the pistol. Switching takes 0.45 s.
+- **Over-the-shoulder aim**: while aiming, the on-foot camera (`UGTPFollowCameraComponent`) comes in to 135 cm
+  behind the shoulder, 58 cm to the side, 62° field of view, no auto-recenter. The shoulder swap slides across.
+  `Aim*` settings in `DefaultGame.ini`.
+- **Gamepad aim assist**: the left trigger snaps to the body nearest the reticle (9°, 40 m, police first, never
+  a dead body or someone behind a wall). The mouse is never assisted.
+- **Drive-by**: at the wheel, aiming (right mouse, or left bumper on the gamepad) takes the pistol out; left
+  mouse, or the right bumper while aiming (the handbrake comes back afterwards), fires out of the side windows or
+  the windscreen, never straight back (`GTPDriveBy`: 150° either side, -30° to +35°). Spread ×1.6, growing with
+  speed (+2.5° at 108 km/h). The player's car is never hit by its own driver's shots.
+- **Police and panic**: every player shot goes to the threat system (pedestrians flee, the Mass crowd too) and
+  becomes a crime for the police, GTA-like: shots fired, armed threat (only when someone is in the sights),
+  assault (punch), officer hit, killing, police killing. Witnesses decide whether it counts (`GTPWitnessLogic`).
+  The `-CombatBench=1` bench never calls the police, so the scene stays the same from one pass to the next.
+- **Lyra** (Epic content, out of Git, migrated on the PC with its original paths): muzzle flash
+  `NS_WeaponFire_MuzzleFlash_Rifle` (warmed up at load), impacts `NS_ImpactConcrete` and `NS_ImpactGlass`
+  (`ImpactSystems`). Weapon meshes and animations: paths to fill in `Looks` and `Clips` (`UGTPWeaponComponent`)
+  from the PC's report. Each missing asset is logged once; the game runs without it.
+
+Added controls: next weapon = mouse wheel down, 2, or left bumper on foot; previous weapon = wheel up.
