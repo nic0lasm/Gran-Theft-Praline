@@ -542,7 +542,7 @@ SHOP_DAY_GLOW = float(os.environ.get("GTP_SHOP_DAY_GLOW", "1000"))   # darker ro
 # 1 / exposure) times NightScreen gives the room's value on screen; 1.0 is about a white wall in
 # daylight. The day path is unchanged (DayGlow, exposure EV100 14).
 SHOP_NIGHT_SCREEN = float(os.environ.get("GTP_SHOP_NIGHT_SCREEN", "0.2"))   # 0.7 and 0.35: white aplats at night (PC V5 13/11)
-SHOP_NIGHT_SPECULAR = float(os.environ.get("GTP_SHOP_NIGHT_SPECULAR", "0.25"))
+SHOP_NIGHT_SPECULAR = float(os.environ.get("GTP_SHOP_NIGHT_SPECULAR", "0.0"))   # 0.25 still reflected: at grazing angles Fresnel tends to 1 whatever F0; 0 switches the specular off (PC V5 13/11)
 WINDOW_NIGHT_SCREEN = float(os.environ.get("GTP_WINDOW_NIGHT_SCREEN", "0.6"))
 
 
@@ -905,6 +905,8 @@ def main():
             report["riverside_meshes"] = assign(river_dir, shell, {"SM_River_Water": water_material()})
         assign_kit(kit_instances(kit_master(), report), report)
         report["shop_glass"] = SHOP_GLASS_MODE + (" -> opaque fallback" if "shop_glass_fallback" in report else "")
+        report["shop_night"] = {"screen": SHOP_NIGHT_SCREEN, "specular": SHOP_NIGHT_SPECULAR, "day_glow": SHOP_DAY_GLOW}
+        report["kit_roughness"] = {k: KIT_SLOTS[k][3] for k in ("MI_Ironwork_Painted", "MI_Persienne")}
         report["surfaces"] = surfaces().report()
         facade_check(report)
     except StopIteration:
