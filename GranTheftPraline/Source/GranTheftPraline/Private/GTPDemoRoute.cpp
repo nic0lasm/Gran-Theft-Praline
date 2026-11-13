@@ -633,6 +633,11 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 			if (Follower.Step(Driven->GetActorLocation(), static_cast<float>(Driven->GetActorRotation().Yaw), Driven->GetSpeedKmh(), Cruise,
 				Now < RamUntil ? 1000.f : (bChase ? UGTPAIDriverComponent::ProbeAhead(Driven, 2200.f, 70.f) : UGTPAIDriverComponent::ProbeAhead(Driven, 4000.f, 90.f)), Command))
 			{
+				if (bChase && Command.Brake < 0.05f && Driven->GetSpeedKmh() < Cruise - 4.f)
+				{
+					// The lane follower's throttle is soft (half of the time under 0.3 below the set speed): firmer for the chase.
+					Command.Throttle = FMath::Max(Command.Throttle, 0.7f);
+				}
 				DriveInputs(Driven, Command.Throttle, Command.Brake, Command.Steering, false);
 				if (bChase && Now >= NextDriveDiag)
 				{
@@ -651,6 +656,54 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 					SetPhase(EPhase::Stop);
 				}
 				break;
+			}
+			if (bChase && Now >= NextRelocate)
+			{
+				// The lanes of the quarter end here (a dead end of the map): the chase goes on from a lane
+				// 80 to 150 m away, the police told by radio where the player is.
+				NextRelocate = Now + 2.0;
+				TActorIterator<AGTPTrafficNetwork> Network(Driven->GetWorld());
+				if (Network)
+				{
+					const TArray<FGTPTrafficLane>& Lanes = Network->GetLanes();
+					FRandomStream Dice(static_cast<int32>(Now * 10.0));
+					for (int32 Try = 0; Try < 300 && Lanes.Num() > 0; ++Try)
+					{
+						const FGTPTrafficLane& Lane = Lanes[Dice.RandRange(0, Lanes.Num() - 1)];
+						if (Lane.Points.Num() < 10 || Lane.Next.Num() == 0)
+						{
+							continue;
+						}
+						const int32 Index = Lane.Points.Num() / 3;
+						const FVector Point = Lane.Points[Index];
+						const double Distance = FVector::Dist2D(Point, Driven->GetActorLocation());
+						if (Distance < 8000.0 || Distance > 15000.0)
+						{
+							continue;
+						}
+						FHitResult Ground;
+						FCollisionQueryParams Params(SCENE_QUERY_STAT(GTPChaseRelocate), false, Driven);
+						if (!Driven->GetWorld()->LineTraceSingleByChannel(Ground, Point + FVector(0.f, 0.f, 500.f), Point - FVector(0.f, 0.f, 2000.f), ECC_Visibility, Params))
+						{
+							continue;
+						}
+						const FVector Direction = (Lane.Points[Index + 1] - Point).GetSafeNormal2D();
+						Driven->SetActorLocationAndRotation(FVector(Point.X, Point.Y, Ground.ImpactPoint.Z + 60.f), Direction.Rotation(), false, nullptr, ETeleportType::ResetPhysics);
+						if (UPrimitiveComponent* Body = Cast<UPrimitiveComponent>(Driven->GetRootComponent()))
+						{
+							Body->SetPhysicsLinearVelocity(FVector::ZeroVector);
+							Body->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
+						}
+						Follower = FGTPLaneFollower();
+						Follower.StartNear(*Network, Driven->GetActorLocation(), static_cast<float>(Driven->GetActorRotation().Yaw), 900.f);
+						if (UGTPWantedComponent* Wanted = PC->FindComponentByClass<UGTPWantedComponent>())
+						{
+							Wanted->CallPolice();
+						}
+						GTP_TRACE(LogGTPDemo, TEXT("Demo chase: lanes ended, the car is put on another lane %.0f m away (police told)"), Distance / 100.0);
+						break;
+					}
+				}
 			}
 			GTP_TRACE(LogGTPDemo, TEXT("Demo route: end of the lanes, holding the heading"));
 			StreetYaw = static_cast<float>(Driven->GetActorRotation().Yaw);

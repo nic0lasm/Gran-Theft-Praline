@@ -123,6 +123,9 @@ public:
 	/** True for a while after the player fired, threatened or hit someone: two stars then shoot back. */
 	bool IsPlayerAggressive() const;
 
+	/** The police are told where the player is for DispatchSeconds (a scripted jump, a radio call). */
+	void CallPolice() { DispatchLeft = DispatchSeconds; }
+
 	/** Off: nobody can arrest the player (scripted demos that must show a chase first). */
 	void SetArrestEnabled(bool bEnabled) { bArrestEnabled = bEnabled; }
 
