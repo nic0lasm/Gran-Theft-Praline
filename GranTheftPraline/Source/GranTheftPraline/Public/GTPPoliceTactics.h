@@ -31,6 +31,43 @@ namespace GTPPoliceTactics
 		float ArriveRadius = 150.f;
 	};
 
+	/** What the police do at each level (1 to 5): the escalation the player feels. */
+	struct FProfile
+	{
+		int Cars = 0;
+		/** Top speed of a car in pursuit (km/h) and how hard it pushes through traffic. */
+		float ChaseKmh = 0.f;
+		bool bRam = false;
+		/** Some cars come from in front of the player, not only from behind. */
+		bool bFlank = false;
+		int RoadblockCars = 0;
+	};
+
+	inline FProfile Profile(int Stars, int MaxCars)
+	{
+		static const FProfile Table[6] = {
+			{0, 0.f, false, false, 0},
+			{1, 70.f, false, false, 0},
+			{2, 90.f, false, true, 0},
+			{3, 105.f, true, true, 2},
+			{4, 120.f, true, true, 2},
+			{4, 135.f, true, true, 2},
+		};
+		FProfile Out = Table[Stars < 0 ? 0 : (Stars > 5 ? 5 : Stars)];
+		Out.Cars = std::min(Out.Cars, MaxCars);
+		return Out;
+	}
+
+	/**
+	 * Is a point ahead of a moving player? Direction of travel (DirX, DirY) unit vector; the point at
+	 * (Dx, Dy) from the player (m). Used to place flanking cars and roadblocks.
+	 */
+	inline bool IsAhead(float Dx, float Dy, float DirX, float DirY, float MinCos)
+	{
+		const float Length = std::sqrt(Dx * Dx + Dy * Dy);
+		return Length > 1e-3f && (Dx * DirX + Dy * DirY) / Length >= MinCos;
+	}
+
 	/** Officers wanted outside their cars for a level (at most MaxOfficers). */
 	inline int OfficersForStars(int Stars, int MaxOfficers)
 	{

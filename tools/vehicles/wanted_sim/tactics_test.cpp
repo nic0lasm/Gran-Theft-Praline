@@ -76,6 +76,25 @@ int main()
 		CHECK(Px - X > 1000.f);
 	}
 
+	// Escalation: more cars, faster, rams and roadblocks as the level rises.
+	{
+		for (int Stars = 1; Stars < 5; ++Stars)
+		{
+			CHECK(Profile(Stars + 1, 9).ChaseKmh >= Profile(Stars, 9).ChaseKmh);
+			CHECK(Profile(Stars + 1, 9).Cars >= Profile(Stars, 9).Cars);
+		}
+		CHECK(Profile(0, 9).Cars == 0);
+		CHECK(!Profile(2, 9).bRam && Profile(3, 9).bRam);
+		CHECK(Profile(2, 9).RoadblockCars == 0 && Profile(3, 9).RoadblockCars == 2);
+		CHECK(!Profile(1, 9).bFlank && Profile(2, 9).bFlank);
+		CHECK(Profile(5, 2).Cars == 2);
+		CHECK(Profile(1, 9).ChaseKmh >= 70.f && Profile(5, 9).ChaseKmh >= 130.f);
+		// Ahead of the player: in front yes, behind and beside no.
+		CHECK(IsAhead(100.f, 5.f, 1.f, 0.f, 0.8f));
+		CHECK(!IsAhead(-100.f, 0.f, 1.f, 0.f, 0.8f));
+		CHECK(!IsAhead(0.f, 100.f, 1.f, 0.f, 0.8f));
+	}
+
 	if (Failures == 0)
 	{
 		std::printf("tactics_test: all checks passed\n");
