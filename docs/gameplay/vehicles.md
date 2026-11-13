@@ -288,6 +288,24 @@ Written in one batch, not compiled yet (`GTPIncidentLogic.h`, checked offline by
   `tools/vehicles/idm_test`.
 - **Shooting from a car**: not done; the weapon only fires on foot.
 
+### 8.6 Epic's City Sample cars (13/11)
+
+Not compiled. City Sample Vehicles (Fab, free, out of Git) gives 14 Chaos cars on the skeleton
+SK_Vehicle, whose wheel bones are ours. `tools/vehicles/unreal/make_epic_vehicles.py` rebuilds
+seven of them on `AGTPVehicle` (stealing, damage, reactions) with Epic's own Chaos tuning:
+vehicle02, 03, 05, 07, 12 and the van 01 join the traffic and the street parked cars (trucks,
+bus and trailer are too big for the Presqu'ile); vehicle13, a 1 850 kg saloon with a light bar,
+is the police car (`PoliceVehicleClass`). Missing classes are skipped, so nothing changes before
+the script has run on the PC. The Vehicle Variety Pack is not usable as is: its Blueprints derive
+from PhysX's WheeledVehicle, gone in 5.8.
+
+What the Clio, 208 and Kangoo take from City Sample's city car (vehicle02, 1 200 kg): soft
+springs on a high preload with long travel (100 / 300, +10 / -17 cm instead of 250 / 50,
++8 / -10) so the body rolls and dives, 45 degree steering (38 before) for tighter U-turns, and
+3 500 N.m handbrake. Kept ours: brakes (stronger), gearbox (shorter first gear), grip. The
+player's arcade torque is now relative to the car (240 N.m for a 130 N.m Clio, scaled up for a
+stronger car).
+
 ## 9. Making a drivable car
 
 ### 9.1 First test car (no Tripo)
