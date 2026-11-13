@@ -362,6 +362,16 @@ void AGTPGameMode::ApplyPlayerVisual(APawn* Pawn)
 				Skel->SetHiddenInGame(false, false);
 				Skel->SetVisibility(true, false);
 			}
+			if (const USkeletalMeshComponent* SkelPart = Cast<USkeletalMeshComponent>(Part))
+			{
+				UE_LOG(LogGTPGameMode, Log, TEXT("  skel part %s: anim mode %d, anim class %s, post-process %s, leader %s, anim tick %d, parent %s, ticking %d"),
+					*SkelPart->GetName(), static_cast<int32>(SkelPart->GetAnimationMode()),
+					SkelPart->GetAnimInstance() ? *SkelPart->GetAnimInstance()->GetClass()->GetName() : TEXT("none"),
+					SkelPart->GetPostProcessInstance() ? *SkelPart->GetPostProcessInstance()->GetClass()->GetName() : TEXT("none"),
+					SkelPart->LeaderPoseComponent.IsValid() ? *SkelPart->LeaderPoseComponent->GetName() : TEXT("none"),
+					static_cast<int32>(SkelPart->VisibilityBasedAnimTickOption),
+					SkelPart->GetAttachParent() ? *SkelPart->GetAttachParent()->GetName() : TEXT("none"), SkelPart->IsComponentTickEnabled() ? 1 : 0);
+			}
 			UE_LOG(LogGTPGameMode, Log, TEXT("  part %s (%s) mesh %s visible %d hiddenInGame %d at %s bounds radius %.0f"),
 				*Part->GetName(), *Part->GetClass()->GetName(),
 				Skel && Skel->GetSkeletalMeshAsset() ? *Skel->GetSkeletalMeshAsset()->GetName() : TEXT("-"),
