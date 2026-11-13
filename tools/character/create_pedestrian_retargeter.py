@@ -32,17 +32,38 @@ else:
 ctrl = unreal.IKRetargeterController.get_controller(asset)
 ctrl.set_ik_rig(unreal.RetargetSourceOrTarget.SOURCE, src)
 ctrl.set_ik_rig(unreal.RetargetSourceOrTarget.TARGET, tgt)
-ctrl.auto_map_chains(unreal.AutoMapChainType.FUZZY, True)
-try:
-    for chain in ctrl.get_all_chain_settings() if hasattr(ctrl, "get_all_chain_settings") else []:
-        unreal.log("RTG chain %s" % chain)
-except Exception as err:
-    unreal.log("RTG chain list unavailable: %s" % err)
-try:
-    names = [str(n) for n in ctrl.get_retarget_chain_names(unreal.RetargetSourceOrTarget.TARGET)] if hasattr(ctrl, "get_retarget_chain_names") else []
-    for n in names:
-        unreal.log("RTG target chain %s <- source %s" % (n, ctrl.get_source_chain(n) if hasattr(ctrl, "get_source_chain") else "?"))
-except Exception as err:
-    unreal.log("RTG mapping unavailable: %s" % err)
+for mode in ("EXACT", "FUZZY"):
+    try:
+        ctrl.auto_map_chains(getattr(unreal.AutoMapChainType, mode), True)
+        unreal.log("RTG auto_map_chains %s done" % mode)
+        break
+    except Exception as err:
+        unreal.log("RTG auto_map_chains %s failed: %s" % (mode, err))
+unreal.log("RTG controller methods: %s" % ", ".join(sorted(m for m in dir(ctrl) if not m.startswith("_") and ("chain" in m or "map" in m or "source" in m))))
+
+
+def chain_names(rig):
+    rc = unreal.IKRigController.get_controller(rig)
+    for fn in ("get_retarget_chains", "get_retarget_chain_names"):
+        if hasattr(rc, fn):
+            out = []
+            for c in getattr(rc, fn)():
+                out.append(str(c.chain_name) if hasattr(c, "chain_name") else str(c))
+            return out
+    unreal.log("RTG rig controller methods: %s" % ", ".join(sorted(m for m in dir(rc) if "chain" in m)))
+    return []
+
+
+for name in chain_names(tgt):
+    mapped = "?"
+    for fn in ("get_source_chain", "get_source_chain_for_target"):
+        if hasattr(ctrl, fn):
+            try:
+                mapped = str(getattr(ctrl, fn)(name))
+            except Exception as err:
+                mapped = "error %s" % err
+            break
+    unreal.log("RTG chain target %s <- source %s" % (name, mapped))
+unreal.log("RTG source chains: %s" % ", ".join(chain_names(src)))
 unreal.EditorAssetLibrary.save_asset(path)
 unreal.log("RTG saved %s" % path)
