@@ -109,6 +109,9 @@ private:
 	double NextDriveDiag = 0.0;
 	double NextRelocate = 0.0;
 	double NextClear = 0.0;
+	int32 HeldHere = 0;
+	FVector LastHeldPlace = FVector::ZeroVector;
+	bool RelocateChaseCar(class AGTPVehicle* Driven, class APlayerController* PC, double Now);
 	double NextChaseLog = 0.0;
 	double CarjackRetarget = 0.0;
 	/** Drives along the traffic lanes once the car is on one (else holds the street heading). */
