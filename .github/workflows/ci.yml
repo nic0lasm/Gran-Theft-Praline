@@ -79,6 +79,10 @@ jobs:
         run: |
           g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/wanted_sim/roadblock_test.cpp -o /tmp/roadblock_test
           /tmp/roadblock_test
+      - name: Bend speed of the drive logic
+        run: |
+          g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/wanted_sim/bend_test.cpp -o /tmp/bend_test
+          /tmp/bend_test
       - name: Police unit states
         run: |
           g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/wanted_sim/brain_test.cpp -o /tmp/brain_test

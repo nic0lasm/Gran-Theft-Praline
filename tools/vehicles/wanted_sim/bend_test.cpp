@@ -32,7 +32,9 @@ int main()
 	const float Far = GTPDrive::BendSpeed(Corner, 1, 40.f, S, 25.f);
 	const float Near = GTPDrive::BendSpeed(Corner, 40, 40.f, S, 25.f);
 	CHECK(Far > 24.9f);           // 59 m away: beyond the horizon
-	CHECK(Near < 15.f && Near > 3.f);
+	const float Closer = GTPDrive::BendSpeed(Corner, 52, 40.f, S, 25.f);
+	CHECK(Near < 17.f && Near > 3.f);
+	CHECK(Closer < Near);
 	std::printf(Failures ? "FAILED (%d)\n" : "OK\n", Failures);
 	return Failures ? 1 : 0;
 }

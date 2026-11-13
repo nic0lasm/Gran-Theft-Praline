@@ -130,6 +130,10 @@ namespace GTPDrive
 				FwdLen += std::hypot(Path[Fwd + 1].X - Path[Fwd].X, Path[Fwd + 1].Y - Path[Fwd].Y);
 				++Fwd;
 			}
+			if (BackLen < 0.6f * BendBaseline || FwdLen < 0.6f * BendBaseline)
+			{
+				continue; // too close to either end of the known path to tell a bend from noise
+			}
 			const float Ax = Path[I].X - Path[Back].X, Ay = Path[I].Y - Path[Back].Y;
 			const float Bx = Path[Fwd].X - Path[I].X, By = Path[Fwd].Y - Path[I].Y;
 			const float La = std::hypot(Ax, Ay), Lb = std::hypot(Bx, By);
