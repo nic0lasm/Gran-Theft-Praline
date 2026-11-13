@@ -1185,7 +1185,7 @@ bool AGTPTrafficNetwork::IsSeenByPlayer(const FVector& Location) const
 	return !GetWorld()->LineTraceSingleByChannel(Hit, Eye, Location + FVector(0.f, 0.f, 150.f), ECC_Visibility, Params);
 }
 
-AGTPVehicle* AGTPTrafficNetwork::SpawnParkedVehicle(FName Tag, const FVector& Near, float RadiusCm, TSubclassOf<AGTPVehicle> Class)
+AGTPVehicle* AGTPTrafficNetwork::SpawnParkedVehicle(FName Tag, const FVector& Near, float RadiusCm, TSubclassOf<AGTPVehicle> Class, bool bQuietMiss)
 {
 	if (!Class)
 	{
@@ -1264,7 +1264,10 @@ AGTPVehicle* AGTPTrafficNetwork::SpawnParkedVehicle(FName Tag, const FVector& Ne
 			return Car;
 		}
 	}
-	GTP_TRACE(LogGTPTraffic, TEXT("traffic: no free spot for a parked car (%s) within %.0f m of %s"), *Tag.ToString(), RadiusCm / 100.f, *Near.ToCompactString());
+	if (!bQuietMiss)
+	{
+		GTP_TRACE(LogGTPTraffic, TEXT("traffic: no free spot for a parked car (%s) within %.0f m of %s"), *Tag.ToString(), RadiusCm / 100.f, *Near.ToCompactString());
+	}
 	return nullptr;
 }
 
@@ -2135,14 +2138,34 @@ void AGTPTrafficNetwork::UpdateStreetParked(const APawn* Player)
 	{
 		return;
 	}
-	// One a second, out of sight, 50 to 110 m away in a random direction.
+	// One a second, out of sight, 50 to 110 m away: a point of a lane in that ring (a random
+	// direction mostly fell inside building blocks, with no lane within 15 m: 17 misses in a run).
 	NextStreetParkedTime = Now + 1.0;
-	const float Angle = Random.FRandRange(0.f, 6.2831853f);
-	const float Range = Random.FRandRange(6000.f, 9500.f);
-	const FVector Near = PlayerLocation + FVector(FMath::Cos(Angle), FMath::Sin(Angle), 0.f) * Range;
-	AGTPVehicle* Car = SpawnParkedVehicle(TEXT("GTPStreetParked"), Near, 1500.f);
+	LanesInRing(PlayerLocation, 6000.f, 9500.f, StreetParkedLanes);
+	if (StreetParkedLanes.Num() == 0)
+	{
+		return;
+	}
+	FVector Near = PlayerLocation;
+	for (int32 Try = 0; Try < 8; ++Try)
+	{
+		const TArray<FVector>& Points = Lanes[StreetParkedLanes[Random.RandRange(0, StreetParkedLanes.Num() - 1)]].Points;
+		const FVector& Point = Points[Random.RandRange(0, Points.Num() - 1)];
+		const double Distance = FVector::Dist2D(Point, PlayerLocation);
+		if (Distance >= 5000.0 && Distance <= 11000.0)
+		{
+			Near = Point;
+			break;
+		}
+	}
+	if (Near == PlayerLocation)
+	{
+		return;
+	}
+	AGTPVehicle* Car = SpawnParkedVehicle(TEXT("GTPStreetParked"), Near, 1500.f, nullptr, true);
 	if (!Car)
 	{
+		++StreetParkedMisses;
 		return;
 	}
 	if (FVector::Dist2D(Car->GetActorLocation(), PlayerLocation) < 4000.f || IsSeenByPlayer(Car->GetActorLocation()))
@@ -2155,8 +2178,8 @@ void AGTPTrafficNetwork::UpdateStreetParked(const APawn* Player)
 	Car->bAlarm = Car->bLocked && Random.FRand() < StreetParkedAlarmShare;
 	Car->SetParkedAsleep(true);
 	StreetParked.Add({Car, Now});
-	GTP_TRACE(LogGTPTraffic, TEXT("traffic: street parked %s%s%s (%d/%d)"), *Car->GetName(), Car->bLocked ? TEXT(" locked") : TEXT(""),
-		Car->bAlarm ? TEXT(" alarm") : TEXT(""), StreetParked.Num(), Wanted);
+	GTP_TRACE(LogGTPTraffic, TEXT("traffic: street parked %s%s%s (%d/%d, %d spots missed so far)"), *Car->GetName(), Car->bLocked ? TEXT(" locked") : TEXT(""),
+		Car->bAlarm ? TEXT(" alarm") : TEXT(""), StreetParked.Num(), Wanted, StreetParkedMisses);
 }
 
 // --- Crashes between traffic cars (GTPIncidentLogic.h) ----------------------------
@@ -2302,7 +2325,12 @@ bool AGTPTrafficNetwork::IsMassTrafficWanted()
 
 AGTPVehicle* AGTPTrafficNetwork::SpawnStreetParkedNear(const FVector& Near, float RadiusCm, bool bLocked, bool bAlarm)
 {
-	AGTPVehicle* Car = SpawnParkedVehicle(TEXT("GTPStreetParked"), Near, RadiusCm);
+	// Widens the search twice before giving up (a scripted run must not wait on one bad spot).
+	AGTPVehicle* Car = nullptr;
+	for (float Radius = RadiusCm; !Car && Radius <= RadiusCm * 4.f; Radius *= 2.f)
+	{
+		Car = SpawnParkedVehicle(TEXT("GTPStreetParked"), Near, Radius, nullptr, Radius < RadiusCm * 4.f);
+	}
 	if (!Car)
 	{
 		return nullptr;

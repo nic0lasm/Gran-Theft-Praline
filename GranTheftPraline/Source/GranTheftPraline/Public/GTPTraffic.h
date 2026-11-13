@@ -253,7 +253,7 @@ public:
 	 * random traffic car class. The car is not traffic: never recycled, no AI driver, so the
 	 * player can take it. nullptr when no spot was free. Costs nothing unless called (missions).
 	 */
-	AGTPVehicle* SpawnParkedVehicle(FName Tag, const FVector& Near, float RadiusCm, TSubclassOf<AGTPVehicle> Class = nullptr);
+	AGTPVehicle* SpawnParkedVehicle(FName Tag, const FVector& Near, float RadiusCm, TSubclassOf<AGTPVehicle> Class = nullptr, bool bQuietMiss = false);
 
 	/** Distance from the lane's centre line to the kerb spot of SpawnParkedVehicle (cm). */
 	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Missions")
@@ -569,6 +569,8 @@ private:
 	TArray<FStreetParked> StreetParked;
 	double NextStreetParkedTime = 0.0;
 	int32 StreetParkedWanted = -1;
+	int32 StreetParkedMisses = 0;
+	TArray<int32> StreetParkedLanes;
 	/** Cars left in the street by a crash: forgotten once driven again, removed far out of sight. */
 	TArray<TWeakObjectPtr<AGTPVehicle>> IncidentCars;
 	void UpdateIncidents(const APawn* Player);
