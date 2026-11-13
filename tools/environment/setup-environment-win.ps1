@@ -1,6 +1,7 @@
 <#
 .SYNOPSIS
-    Windows twin of setup-environment-mac.sh, step 2 only: creates the weather assets in the
+    Windows twin of setup-environment-mac.sh: (1) the night lights file from the city pipeline
+    outputs (build_night_lights.py), then (2) the weather assets in the
     editor (tools/environment/unreal/setup_environment.py), so that a Windows package has the
     rain layer, the cloud dome and the light function cloud shadow.
 
@@ -12,7 +13,10 @@
     Existing assets are not modified (GTP_ENV_WET stays off: street materials untouched), the map
     is not opened or saved. The volumetric clouds themselves are the map's VolumetricCloud actor
     with the engine material; this script does not touch them.
-    Not done here: the night lights file (build_night_lights.py needs the city pipeline outputs).
+    Step 1 writes GranTheftPraline/Content/Environment/Data/NightLights.csv (not in Git) from every
+    assets/geo/processed/<zone>/gen/<focus>/ that has a facade_modules.csv (GTP_CITY_FOCUS: one focus
+    only). Without it the street lamps and shop windows stay dark at night (V5, 13/11). It needs
+    only the Python standard library: PYTHON, else the engine's own Python.
 
     Run from the root of the clone, no Unreal running:
         powershell -ExecutionPolicy Bypass -File tools\environment\setup-environment-win.ps1
@@ -37,6 +41,23 @@ if (Get-Process -Name 'UnrealEditor*', 'GranTheftPraline*' -ErrorAction Silently
     throw 'an Unreal process is already running, wait for it to finish'
 }
 if (Test-Path $report) { Remove-Item $report }
+
+$zone = if ($env:GTP_CITY_ZONE) { $env:GTP_CITY_ZONE } else { 'presqu-ile' }
+$genRoot = Join-Path $repo "assets\geo\processed\$zone\gen"
+$python = if ($env:PYTHON) { $env:PYTHON } else { Join-Path $ueRoot 'Engine\Binaries\ThirdParty\Python3\Win64\python.exe' }
+$gens = @()
+if ($env:GTP_CITY_FOCUS) {
+    $gens += (Join-Path $genRoot $env:GTP_CITY_FOCUS)
+} elseif (Test-Path $genRoot) {
+    $gens += Get-ChildItem $genRoot -Directory | Where-Object { Test-Path (Join-Path $_.FullName 'facade_modules.csv') } |
+        ForEach-Object { $_.FullName }
+}
+if ($gens.Count -gt 0) {
+    & $python (Join-Path $repo 'tools\environment\build_night_lights.py') @gens
+    if ($LASTEXITCODE -ne 0) { throw "build_night_lights.py failed ($LASTEXITCODE)" }
+} else {
+    Write-Host "no city outputs under $genRoot: night lights file left as it is, weather assets only"
+}
 
 # The clone path has a space: gtp_run.py (Content/Python) runs the script named by GTP_PY_SCRIPT.
 $env:GTP_PY_SCRIPT = $script

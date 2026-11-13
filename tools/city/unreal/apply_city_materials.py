@@ -492,7 +492,7 @@ def shop_interior_master():
     room = g.mul(custom, g.sub(g.const(1.0), g.mul(fres, g.const(0.8))))
     emis = g.mul(room, g.node(unreal.MaterialExpressionScalarParameter, parameter_name="EmissiveScale",
                               default_value=1.0))
-    emis = g.mul(emis, day_boost(g))
+    emis = lit_by_hour(g, emis, SHOP_DAY_GLOW, SHOP_NIGHT_SCREEN)
     mel.connect_material_property(g.const((0.02, 0.022, 0.025)), "", unreal.MaterialProperty.MP_BASE_COLOR)
     mel.connect_material_property(g.const(0.04), "", unreal.MaterialProperty.MP_ROUGHNESS)
     mel.connect_material_property(g.const(0.0), "", unreal.MaterialProperty.MP_METALLIC)
@@ -510,18 +510,39 @@ def shop_interior_master():
 SHOP_DAY_GLOW = float(os.environ.get("GTP_SHOP_DAY_GLOW", "600"))   # 250 grey, 1200 washed out in full sun (PC f208523)
 
 
-def day_boost(g):
+# At night the rooms keep a fixed brightness on screen, whatever the exposure: the night exposure
+# runs from EV100 about 7.5 at dusk to 3.5 at midnight, and a fixed emissive (1.4 nits) read black
+# at dusk (V5, 17:38 in December, PC 13/11) and dim at midnight. EyeAdaptationInverse (no input:
+# 1 / exposure) times NightScreen gives the room's value on screen; 1.0 is about a white wall in
+# daylight. The day path is unchanged (DayGlow, exposure EV100 14).
+SHOP_NIGHT_SCREEN = float(os.environ.get("GTP_SHOP_NIGHT_SCREEN", "1.6"))
+WINDOW_NIGHT_SCREEN = float(os.environ.get("GTP_WINDOW_NIGHT_SCREEN", "1.2"))
+
+
+def city_lights(g):
     path = os.path.join(REPO, "tools", "environment", "unreal")
-    day = g.node(unreal.MaterialExpressionScalarParameter, parameter_name="DayGlow", default_value=SHOP_DAY_GLOW)
     if not os.path.exists(os.path.join(path, "gtp_weather.py")):
-        return g.const(1.0)
-    import sys
+        return None
     if path not in sys.path:
         sys.path.insert(0, path)
     import gtp_weather
-    night = g.node(unreal.MaterialExpressionCollectionParameter, collection=gtp_weather.collection(),
-                   parameter_name="CityLights")
-    return g.lerp(day, g.const(1.0), night)
+    return g.node(unreal.MaterialExpressionCollectionParameter, collection=gtp_weather.collection(),
+                  parameter_name="CityLights")
+
+
+def lit_by_hour(g, emis, day_glow, night_screen):
+    """Emissive of a lit room: emis x DayGlow by day, emis x NightScreen on screen at night."""
+    night = city_lights(g)
+    day = g.mul(emis, g.node(unreal.MaterialExpressionScalarParameter, parameter_name="DayGlow",
+                             default_value=day_glow))
+    if night is None:
+        return day
+    inv_cls = getattr(unreal, "MaterialExpressionEyeAdaptationInverse", None)
+    k = g.node(unreal.MaterialExpressionScalarParameter, parameter_name="NightScreen", default_value=night_screen)
+    at_night = g.mul(emis, k)
+    if inv_cls is not None:
+        at_night = g.mul(at_night, g.node(inv_cls))
+    return g.lerp(day, at_night, night)
 
 
 # Upper-floor windows (MI_Glass_Window): opaque glossy glass over a fake flat by interior mapping,
@@ -569,7 +590,7 @@ col = lerp(col, net, sheer);
 col = lerp(col, cloth, saturate(drape) * 0.95);
 float lit = step(0.66, frac(Seed * 3.17 + 0.29));
 float3 warm = float3(1.0, 0.82, 0.6) * lit * 1.2 + 0.015;
-return col * lerp(Day, 1.0, Night) * lerp(float3(1.0, 1.0, 1.0), warm, Night);
+return col * lerp(float3(1.0, 1.0, 1.0), warm, Night);
 """
 
 
@@ -586,22 +607,15 @@ def window_interior_master():
                 transform_type=unreal.MaterialVectorCoordTransform.TRANSFORM_LOCAL)
     g.link(g.node(unreal.MaterialExpressionCameraVectorWS), "", cv, "")
     seed = g.node(unreal.MaterialExpressionPerInstanceRandom)
-    day = g.node(unreal.MaterialExpressionScalarParameter, parameter_name="DayGlow", default_value=WINDOW_DAY_GLOW)
-    night = g.const(0.0)
-    path = os.path.join(REPO, "tools", "environment", "unreal")
-    if os.path.exists(os.path.join(path, "gtp_weather.py")):
-        if path not in sys.path:
-            sys.path.insert(0, path)
-        import gtp_weather
-        night = g.node(unreal.MaterialExpressionCollectionParameter, collection=gtp_weather.collection(),
-                       parameter_name="CityLights")
+    night = city_lights(g) or g.const(0.0)
     custom = g.node(unreal.MaterialExpressionCustom, code=WINDOW_HLSL,
                     output_type=unreal.CustomMaterialOutputType.CMOT_FLOAT3, description="WindowInterior",
-                    inputs=[custom_input(n) for n in ("P", "V", "Seed", "Day", "Night")])
-    for src, name in ((lp, "P"), (cv, "V"), (seed, "Seed"), (day, "Day"), (night, "Night")):
+                    inputs=[custom_input(n) for n in ("P", "V", "Seed", "Night")])
+    for src, name in ((lp, "P"), (cv, "V"), (seed, "Seed"), (night, "Night")):
         g.link(src, "", custom, name)
     fres = g.node(unreal.MaterialExpressionFresnel)
     emis = g.mul(custom, g.sub(g.const(1.0), g.mul(fres, g.const(0.85))))
+    emis = lit_by_hour(g, emis, WINDOW_DAY_GLOW, WINDOW_NIGHT_SCREEN)
     mel.connect_material_property(g.const((0.015, 0.017, 0.02)), "", unreal.MaterialProperty.MP_BASE_COLOR)
     mel.connect_material_property(g.const(0.03), "", unreal.MaterialProperty.MP_ROUGHNESS)
     mel.connect_material_property(g.const(0.0), "", unreal.MaterialProperty.MP_METALLIC)

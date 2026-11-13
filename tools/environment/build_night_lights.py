@@ -34,6 +34,7 @@ STREET_LAMP = dict(catalog="W1-04", head_cm=410.0, lumens=3500.0, kelvin=3000.0,
 # Shop front: light just outside the window, near its top, aimed down at the pavement.
 SHOP = dict(out_cm=60.0, height_cm=260.0, pitch=-25.0, width_share=0.8, panel_height_cm=150.0,
             lumens=1200.0, kelvin=4000.0, radius_cm=900.0)
+SHOP_KINDS = ("shop", "shopfront_closed", "gf_window")
 SCONCE = dict(catalog="W14-43", lumens=800.0, kelvin=2700.0, radius_cm=800.0, out_cm=25.0)
 
 
@@ -63,7 +64,9 @@ def lights_for(gen_dir):
             out.append(row("street", float(r["ue_x"]), float(r["ue_y"]), float(r["ue_z"]) + STREET_LAMP["head_cm"],
                            float(r["ue_yaw"]), 0, 0, 0, STREET_LAMP, 1, level))
     for r in read_csv(os.path.join(gen_dir, "facade_modules.csv")):
-        if r["kind"] != "shop" or r["side"] != "street":
+        # every lit shop window: named shops and the unnamed ground-floor shops, which the
+        # facade kit draws as open lit shopfronts too (kit_layout VARIANTS, 13/11)
+        if r["kind"] not in SHOP_KINDS or r["side"] != "street":
             continue
         yaw = float(r["ue_yaw"])
         a = math.radians(yaw)
