@@ -45,9 +45,7 @@ unreal.EditorAssetLibrary.make_directory(folder)
 batch = None
 attempts = (
     dict(assets_to_retarget=assets, source_mesh=source_mesh, target_mesh=target_mesh, ik_retarget_asset=rtg,
-         target_path=folder, search="", replace="", prefix="MH_", suffix="", remap_referenced_assets=False),
-    dict(assets_to_retarget=assets, source_mesh=source_mesh, target_mesh=target_mesh, ik_retarget_asset=rtg,
-         search="", replace="", prefix="MH_", suffix="", remap_referenced_assets=False),
+         target_path=folder, search="", replace="", prefix="MH_", suffix="", overwrite_existing_files=True),
     dict(assets_to_retarget=assets, source_mesh=source_mesh, target_mesh=target_mesh, ik_retarget_asset=rtg,
          target_path=folder, prefix="MH_"),
 )
@@ -74,4 +72,15 @@ for a in batch:
         unreal.EditorAssetLibrary.save_loaded_asset(a.get_asset() if hasattr(a, "get_asset") else a)
     except Exception as err:
         unreal.log("ANIMS save failed: %s" % err)
+# Animations made by an earlier run (same names or renamed copies): lock their root too.
+for d in registry.get_assets_by_path(folder, recursive=False):
+    existing = d.get_asset()
+    if isinstance(existing, unreal.AnimSequence) and str(d.asset_name).startswith("MH_"):
+        for prop, value in (("force_root_lock", True), ("enable_root_motion", False)):
+            try:
+                existing.set_editor_property(prop, value)
+            except Exception as err:
+                unreal.log("ANIMS %s could not set %s: %s" % (d.asset_name, prop, err))
+        unreal.EditorAssetLibrary.save_loaded_asset(existing)
+        unreal.log("ANIMS root locked %s" % d.asset_name)
 unreal.log("ANIMS done %d" % len(batch))
