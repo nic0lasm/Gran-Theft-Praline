@@ -232,3 +232,10 @@ is taken: Lyra stands on GAS and ShooterCore, which ADR-0011 leaves out. We take
 - **Test benches**: `-CombatBench=1` fires every 0.45 s standing, shoulder aim held (aim pose, aim camera);
   `-CombatBench=2` walks a slow circle (half speed, 15 degrees a second) and fires from the hip, so the wide camera
   shows the legs walking while the reload plays on the upper body.
+- **Aim pose held (fix of 13/11 night)**: the capture of candidate 27 showed no aim pose. Every clip played as a
+  montage ended the aim pose: Lyra's Fire montage (same montage group) at every shot, the reload and the draw in
+  `DefaultSlot`, and nothing started it again. Fire now plays without stopping the other montages, and while the
+  aim lasts the aim pose comes back as soon as its slot is free again (checked at most every 0.3 s). The player's
+  log says `weapon: aim pose … playing` when it starts, and every 2 s while aiming `weapon: aim probe`: slot
+  active, montage weight, and where `hand_r` is from the head (height, reach forward) on the pawn and on the
+  visible body: a raised hand well ahead of the head is an aim, a hand far below and level with the body is not.
