@@ -452,20 +452,31 @@ float ty = 1.0 / max(dn.y, 1e-5);
 float t = min(min(tx, tz), ty);
 float3 h = u + dn * t;
 float hash = frac(sin(dot(id, float2(12.9898, 78.233)) + Seed) * 43758.5453);
-float3 wallc = lerp(float3(0.85, 0.80, 0.72), float3(0.75, 0.80, 0.82), hash);
+float3 wallc = lerp(float3(0.62, 0.58, 0.52), float3(0.50, 0.55, 0.58), hash) * 0.8;
+// goods on shelves: coloured blocks in rows, a dark shelf board under each row
+float2 sq = t == ty ? h.xz : float2(h.y, h.z);   // back wall: across x; side walls: along the depth
+float row = frac(sq.y * 5.0);
+float shelfy = step(0.12, sq.y) * step(sq.y, 0.82);
+float goods = frac(sin(floor(sq.x * 16.0) * 7.13 + floor(sq.y * 5.0) * 3.7 + hash * 11.0) * 9137.0);
+float gap = step(0.12, frac(sq.x * 16.0)) * step(0.3, row) * step(row, 0.92);
+float3 item = lerp(float3(0.50, 0.16, 0.10), float3(0.12, 0.26, 0.48), goods);
+item = lerp(item, float3(0.75, 0.68, 0.45), step(0.7, goods)) * (0.45 + 0.4 * goods);
+float3 shelves = row < 0.3 ? float3(0.10, 0.08, 0.07) : lerp(float3(0.06, 0.05, 0.05), item, gap);
 float3 col;
-if (t == ty) {                                   // back wall: shelves of goods
-    float band = frac(h.z * 5.0);
-    float shelf = step(0.2, h.z) * step(h.z, 0.85) * step(0.08, h.x) * step(h.x, 0.92);
-    float goods = frac(sin(floor(h.x * 14.0) * 7.13 + floor(h.z * 5.0) * 3.7 + hash * 11.0) * 9137.0);
-    float3 item = lerp(float3(0.55, 0.18, 0.12), float3(0.15, 0.30, 0.55), goods) * (0.6 + 0.6 * goods);
-    col = lerp(wallc, band < 0.25 ? float3(0.25, 0.22, 0.2) : item, shelf);
+if (t == ty) {                                   // back wall: full shelving
+    col = lerp(wallc, shelves, shelfy * step(0.05, h.x) * step(h.x, 0.95));
 } else if (t == tz) {
-    col = dn.z < 0 ? float3(0.32, 0.30, 0.28) * (0.7 + 0.3 * h.y) : float3(1.0, 0.97, 0.9);   // floor, lit ceiling
-} else {
-    col = wallc * (0.75 + 0.25 * (1.0 - h.y));    // side walls, darker towards the back
+    if (dn.z < 0) {                              // floor: tiles, darker under the shelves
+        float2 tl = frac(h.xy * float2(6.0, 5.0));
+        col = float3(0.22, 0.20, 0.18) * (0.85 + 0.15 * step(0.05, min(tl.x, tl.y)));
+    } else {                                     // ceiling: grey with strip lights across the room
+        float strip = step(frac(h.y * 2.5 + 0.1), 0.12) * step(0.15, h.x) * step(h.x, 0.85);
+        col = lerp(float3(0.30, 0.29, 0.27), float3(1.6, 1.5, 1.3), strip);
+    }
+} else {                                         // side walls: shelving from 0.3 of the depth
+    col = lerp(wallc, shelves, shelfy * step(0.3, h.y));
 }
-col *= 0.55 + 0.45 * saturate(1.0 - h.y * 0.6);  // light falls off into the room
+col *= 0.6 + 0.4 * saturate(1.0 - h.y * 0.7);    // light falls off into the room
 return col * Glow;
 """
 
@@ -525,7 +536,7 @@ SHOP_DAY_GLOW = float(os.environ.get("GTP_SHOP_DAY_GLOW", "600"))   # 250 grey, 
 # at dusk (V5, 17:38 in December, PC 13/11) and dim at midnight. EyeAdaptationInverse (no input:
 # 1 / exposure) times NightScreen gives the room's value on screen; 1.0 is about a white wall in
 # daylight. The day path is unchanged (DayGlow, exposure EV100 14).
-SHOP_NIGHT_SCREEN = float(os.environ.get("GTP_SHOP_NIGHT_SCREEN", "0.7"))
+SHOP_NIGHT_SCREEN = float(os.environ.get("GTP_SHOP_NIGHT_SCREEN", "0.35"))   # 0.7: white aplats at night (PC V5 13/11)
 WINDOW_NIGHT_SCREEN = float(os.environ.get("GTP_WINDOW_NIGHT_SCREEN", "0.6"))
 
 
