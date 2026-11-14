@@ -50,7 +50,8 @@ namespace GTPFaceLineupPrivate
 
 bool UGTPFaceLineupSubsystem::ShouldCreateSubsystem(UObject* Outer) const
 {
-	if (!FParse::Param(FCommandLine::Get(), TEXT("NicolitoFaces")) || !Super::ShouldCreateSubsystem(Outer))
+	const bool bWanted = FParse::Param(FCommandLine::Get(), TEXT("NicolitoFaces")) || FParse::Param(FCommandLine::Get(), TEXT("NicolitoPortrait"));
+	if (!bWanted || !Super::ShouldCreateSubsystem(Outer))
 	{
 		return false;
 	}
@@ -62,6 +63,16 @@ void UGTPFaceLineupSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 {
 	Super::OnWorldBeginPlay(InWorld);
 	using namespace GTPFaceLineupPrivate;
+	if (FParse::Param(FCommandLine::Get(), TEXT("NicolitoPortrait")))
+	{
+		// The player as he is in the game: two shots, no crowd head.
+		bPlayerPortrait = true;
+		Labels = {TEXT("player_face"), TEXT("player_body")};
+		Heads = Labels;
+		UE_LOG(LogGTPFaceLineup, Log, TEXT("face lineup: player portrait (face, then full length)"));
+		InWorld.GetTimerManager().SetTimer(Timer, this, &UGTPFaceLineupSubsystem::ShowNext, 10.f, false);
+		return;
+	}
 	// Every normal-weight male head of the pack, whatever was copied (the migrated subset had 001 to 003).
 	const FString Male = CrowdCharacterRoot + TEXT("/Male");
 	IAssetRegistry& Registry = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry")).Get();
@@ -113,6 +124,17 @@ void UGTPFaceLineupSubsystem::ShowNext()
 			PC->SetViewTargetWithBlend(Pawn, 0.f);
 		}
 		UE_LOG(LogGTPFaceLineup, Log, TEXT("face lineup: done, %d head(s) shown%s"), FMath::Min(Current, Heads.Num()), Pawn ? TEXT("") : TEXT(" (no player pawn)"));
+		return;
+	}
+	if (bPlayerPortrait)
+	{
+		if (!FramePlayer(PC, Current == 0))
+		{
+			UE_LOG(LogGTPFaceLineup, Warning, TEXT("face lineup: %s skipped (no player visual with a head bone)"), *Labels[Current]);
+			World->GetTimerManager().SetTimer(Timer, this, &UGTPFaceLineupSubsystem::ShowNext, 0.1f, false);
+			return;
+		}
+		World->GetTimerManager().SetTimer(Timer, this, &UGTPFaceLineupSubsystem::Shoot, 4.f, false);
 		return;
 	}
 	const FString& Label = Labels[Current];
@@ -229,7 +251,62 @@ void UGTPFaceLineupSubsystem::Shoot()
 	World->GetTimerManager().SetTimer(Timer, this, &UGTPFaceLineupSubsystem::ShowNext, 1.f, false);
 }
 
-void UGTPFaceLineupSubsystem::HoldStage(APlayerController* PC, bool bHold)
+bool UGTPFaceLineupSubsystem::FramePlayer(APlayerController* PC, bool bFace)
+{
+	UWorld* World = GetWorld();
+	APawn* Pawn = PC ? PC->GetPawn() : nullptr;
+	if (!World || !Pawn)
+	{
+		return false;
+	}
+	// The visible mesh with a head bone: the player's visual attached to the pawn (its body), else the pawn's own.
+	TArray<AActor*> Actors;
+	Pawn->GetAttachedActors(Actors, true, true);
+	Actors.Add(Pawn);
+	USkeletalMeshComponent* Shown = nullptr;
+	for (AActor* Actor : Actors)
+	{
+		TArray<USkeletalMeshComponent*> Meshes;
+		Actor->GetComponents<USkeletalMeshComponent>(Meshes);
+		for (USkeletalMeshComponent* Mesh : Meshes)
+		{
+			if (!Shown && Mesh->IsVisible() && Mesh->GetSkeletalMeshAsset() && Mesh->GetBoneIndex(TEXT("head")) != INDEX_NONE)
+			{
+				Shown = Mesh;
+			}
+		}
+	}
+	if (!Shown)
+	{
+		return false;
+	}
+	if (!Camera)
+	{
+		FActorSpawnParameters Spawn;
+		Spawn.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		Camera = World->SpawnActor<ACameraActor>(ACameraActor::StaticClass(), FTransform::Identity, Spawn);
+	}
+	if (!Camera)
+	{
+		return false;
+	}
+	HoldStage(PC, true, false);
+	const FVector Head = Shown->GetSocketLocation(TEXT("head"));
+	const FVector Forward = Pawn->GetActorForwardVector().GetSafeNormal2D();
+	const FVector Feet = Pawn->GetActorLocation() - FVector(0.0, 0.0, Pawn->GetSimpleCollisionHalfHeight());
+	// Face: the eyes from CameraDistanceCm; full length: the middle of the body from PlayerBodyDistanceCm.
+	const FVector Look = bFace ? Head + FVector(0.0, 0.0, 8.0) : (Head + Feet) * 0.5;
+	const FVector Eye = Look + Forward * (bFace ? CameraDistanceCm : PlayerBodyDistanceCm);
+	Camera->SetActorLocationAndRotation(Eye, (Look - Eye).Rotation());
+	Camera->GetCameraComponent()->SetFieldOfView(bFace ? CameraFOV : PlayerBodyFOV);
+	Camera->GetCameraComponent()->SetConstraintAspectRatio(false);
+	PC->SetViewTargetWithBlend(Camera, 0.f);
+	UE_LOG(LogGTPFaceLineup, Log, TEXT("face lineup: %s, on %s of %s (mesh %s), head %.0f cm above the feet"), bFace ? TEXT("player face") : TEXT("player full length"),
+		*Shown->GetName(), *GetNameSafe(Shown->GetOwner()), *GetNameSafe(Shown->GetSkeletalMeshAsset()), (Head - Feet).Z);
+	return true;
+}
+
+void UGTPFaceLineupSubsystem::HoldStage(APlayerController* PC, bool bHold, bool bHidePlayer)
 {
 	if (bHold == bStageHeld || !PC)
 	{
@@ -241,7 +318,14 @@ void UGTPFaceLineupSubsystem::HoldStage(APlayerController* PC, bool bHold)
 		// The follow camera takes the view back every frame when it is not its own: paused while the portraits last.
 		TArray<UGTPFollowCameraComponent*> Follows;
 		PC->GetComponents<UGTPFollowCameraComponent>(Follows);
-		if (APawn* Pawn = PC->GetPawn())
+		APawn* Pawn = PC->GetPawn();
+		if (Pawn && !bHidePlayer)
+		{
+			TArray<UGTPFollowCameraComponent*> OnPawn;
+			Pawn->GetComponents<UGTPFollowCameraComponent>(OnPawn);
+			Follows.Append(OnPawn);
+		}
+		else if (Pawn)
 		{
 			TArray<UGTPFollowCameraComponent*> OnPawn;
 			Pawn->GetComponents<UGTPFollowCameraComponent>(OnPawn);
