@@ -64,6 +64,7 @@ void UGTPGtaRun::BeginStep(int32 Index)
 	NextShot = 0.0;
 	bAimExitRequested = false;
 	AimFirstReaction = -1.0;
+	LastAimMoveTime = -1.0;
 	GTP_TRACE(LogGTPGtaRun, TEXT("GTARun step %d: %s start (t=%.0f s)"), Step + 1, StepNames[Step], FPlatformTime::Seconds() - RunStart);
 }
 
@@ -305,6 +306,23 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail, bool bClose)
 	{
 		PC->SetControlRotation(ToVictim.Rotation());
 		Character->AddMovementInput(ToVictim, 1.f);
+		// A deterministic test cannot depend on the walk working: not moving for 4 s means something holds the
+		// player (a lock, a stuck pose), so he is put 3 m short of the person (logged, the cause is to be found).
+		const double Now2 = FPlatformTime::Seconds();
+		if (Character->GetVelocity().Size2D() > 20.0)
+		{
+			LastAimMoveTime = Now2;
+		}
+		else if (LastAimMoveTime > 0.0 && Now2 - LastAimMoveTime > 4.0)
+		{
+			GTP_TRACE(LogGTPGtaRun, TEXT("GTARun: the player does not walk (%.0f cm from %s), moved to the person"), Best, *Victim->GetName());
+			Character->TeleportTo(Victim->GetActorLocation() - ToVictim * (StopCm + 150.0) + FVector(0.f, 0.f, 20.f), Character->GetActorRotation());
+			LastAimMoveTime = Now2;
+		}
+		if (LastAimMoveTime <= 0.0)
+		{
+			LastAimMoveTime = Now2;
+		}
 	}
 	else if (Best < BackCm)
 	{
