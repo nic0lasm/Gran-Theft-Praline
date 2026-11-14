@@ -7,6 +7,17 @@ Inputs (not committed, see traffic.py and pedestrians.py):
   gen/<focus>/pedestrians/walkways.csv   undirected walkway edges, Unreal cm, kind
 Output (not committed): gen/<focus>/zonegraph/zonegraph.json
 
+Network, as Epic builds City Sample's for MassTraffic (roads from junction to junction, one
+polygon per crossing, room for a car after every junction):
+- lanes that only continue into one lane fed by nothing else (BD TOPO cuts a street into pieces at
+  every change of attribute) are chained into one lane (count lanes_chained): MassTraffic lets a
+  car into a junction only when the one lane after it has room for the car and its gap
+  (MIN_ROOM_M), and a short piece there stops every car at the line;
+- junctions a lane shorter than LINK_MIN_M joins become one (junctions_merged), while their nodes
+  span at most CLUSTER_MAX_M, and a short lane from a junction back into the same one is dropped
+  (junction_lanes_dropped): the polygon routes that turn. short_after_junction counts the lanes
+  that still leave a junction with less than MIN_ROOM_M.
+
 Shapes:
 - every driving lane is a spline with the one-way "Car" profile (tag Car); where it meets a
   junction (three roads or more, traffic.py) it is cut JUNCTION_TRIM_M short;
@@ -53,6 +64,11 @@ UTURN_SPEED_KMH = 15.0
 JOIN_EPS_CM = 1.0
 JOIN_MAX_M = 10.0          # a lane whose next lane (lanes.csv) starts this close is joined to it
 JOIN_SHIFT_M = 6.0         # over this last stretch of the lane
+# MassTraffic lets a car into a junction only when the lane after it has room for the car and its
+# gap (ShouldStopAtLaneExit: 2 x radius + up to 5 m, MinimumDistanceToNextVehicleRange).
+MIN_ROOM_M = 10.0
+LINK_MIN_M = 2.0 * JUNCTION_TRIM_M + MIN_ROOM_M  # a lane between two junctions keeps MIN_ROOM_M
+CLUSTER_MAX_M = 45.0       # nodes merged into one junction span at most this
 KIND_CROSSING = 2
 PROFILES = {
     # Lane profiles the editor script creates in the ZoneGraph settings.
@@ -124,10 +140,107 @@ def heading(a, b):
     return math.degrees(math.atan2(b[1] - a[1], b[0] - a[0]))
 
 
+def chain_plain_lanes(lanes):
+    """The lanes as roads run from junction to junction, as Epic's do: a lane that only continues
+    into one lane fed by nothing else (two BD TOPO pieces of one street, no junction between them)
+    becomes one lane with it. MassTraffic checks the room on the one lane after a junction, and a
+    short piece there stops every car at the line. Returns (lanes, pieces absorbed)."""
+    by_id = {lane["id"]: lane for lane in lanes}
+    feeders = {}
+    for lane in lanes:
+        for nid in lane["next"]:
+            feeders.setdefault(nid, []).append(lane["id"])
+
+    def follower(lane):
+        if lane["to_junction"] >= 0 or len(lane["next"]) != 1:
+            return None
+        nxt = by_id.get(lane["next"][0])
+        if nxt is None or nxt is lane or nxt["from_junction"] >= 0 or feeders.get(nxt["id"]) != [lane["id"]]:
+            return None
+        a, b = lane["points"][-1], nxt["points"][0]
+        return nxt if math.hypot(b[0] - a[0], b[1] - a[1]) <= JOIN_MAX_M * 100.0 else None
+
+    absorbed = {f["id"] for f in (follower(lane) for lane in lanes) if f is not None}
+    out, used = [], set()
+
+    def chain_from(head):
+        lane = dict(head)
+        pts = list(head["points"])
+        used.add(head["id"])
+        nxt = follower(head)
+        while nxt is not None and nxt["id"] not in used:
+            used.add(nxt["id"])
+            a, b = pts[-1], nxt["points"][0]
+            pts = pts[:-1] + [((a[0] + b[0]) / 2.0, (a[1] + b[1]) / 2.0)] + list(nxt["points"][1:])
+            lane["to_junction"], lane["next"] = nxt["to_junction"], list(nxt["next"])
+            lane["speed_kmh"] = min(lane["speed_kmh"], nxt["speed_kmh"])
+            nxt = follower(nxt)
+        lane["points"] = pts
+        out.append(lane)
+
+    for lane in lanes:
+        if lane["id"] not in absorbed:
+            chain_from(lane)
+    for lane in lanes:  # loops of plain lanes, no head
+        if lane["id"] not in used:
+            chain_from(lane)
+    return out, len(lanes) - len(out)
+
+
+def merge_close_junctions(lanes):
+    """One junction, as Epic draws one polygon per crossing, where a lane shorter than LINK_MIN_M
+    joins two junctions (MassTraffic would never find room on it after the first one), nearest first,
+    as long as the merged nodes span at most CLUSTER_MAX_M. A short lane from a junction back into
+    the same one (traffic.py merges nodes 18 m apart, and the lanes between them stay) is dropped:
+    the polygon routes that turn. Returns (lanes, junctions merged, lanes dropped)."""
+    ends = {}
+    for lane in lanes:
+        if lane["from_junction"] >= 0:
+            ends.setdefault(lane["from_junction"], []).append(lane["points"][0])
+        if lane["to_junction"] >= 0:
+            ends.setdefault(lane["to_junction"], []).append(lane["points"][-1])
+    parent = {j: j for j in ends}
+    members = {j: list(p) for j, p in ends.items()}
+
+    def find(j):
+        while parent[j] != j:
+            parent[j] = parent[parent[j]]
+            j = parent[j]
+        return j
+
+    def span(points):
+        return max((math.hypot(p[0] - q[0], p[1] - q[1]) for p in points for q in points), default=0.0) / 100.0
+
+    links = sorted((length(lane["points"]) / 100.0, lane["from_junction"], lane["to_junction"]) for lane in lanes
+                   if lane["from_junction"] >= 0 and lane["to_junction"] >= 0 and lane["from_junction"] != lane["to_junction"])
+    merged = 0
+    for metres, a, b in links:
+        if metres >= LINK_MIN_M:
+            break
+        ra, rb = find(a), find(b)
+        if ra == rb or span(members[ra] + members[rb]) > CLUSTER_MAX_M:
+            continue
+        parent[rb] = ra
+        members[ra] += members.pop(rb)
+        merged += 1
+    out, dropped = [], 0
+    for lane in lanes:
+        a = find(lane["from_junction"]) if lane["from_junction"] >= 0 else -1
+        b = find(lane["to_junction"]) if lane["to_junction"] >= 0 else -1
+        if a >= 0 and a == b and length(lane["points"]) / 100.0 < LINK_MIN_M:
+            dropped += 1
+            continue
+        out.append({**lane, "from_junction": a, "to_junction": b})
+    return out, merged, dropped
+
+
 def build(lanes, walkways):
     """Shapes (dicts) and counts, see the module docstring."""
+    lanes, chained = chain_plain_lanes(lanes)
+    lanes, merged, dropped = merge_close_junctions(lanes)
     shapes = []
     junctions = {}
+    after = []  # kept length of each lane leaving a junction
     for lane in lanes:
         pts = lane["points"]
         total = length(pts) / 100.0
@@ -146,6 +259,7 @@ def build(lanes, walkways):
             junctions.setdefault(lane["to_junction"], []).append(("in", pts[-1], heading(pts[-2], pts[-1]), lane["id"]))
         if trim_start:
             junctions.setdefault(lane["from_junction"], []).append(("out", pts[0], heading(pts[0], pts[1]), lane["id"]))
+            after.append(length(pts) / 100.0)
     polygons = 0
     emitted = set()
     for jid in sorted(junctions):
@@ -169,8 +283,9 @@ def build(lanes, walkways):
         shapes.append({"name": "Walk_%s" % e["id"], "type": "spline", "profile": "Crossing" if crossing else "Pedestrian",
                        "tags": ["Pedestrian", "Crossing"] if crossing else ["Pedestrian"],
                        "points": [[round(x, 1), round(y, 1)] for x, y in e["points"]], "width_cm": round(e["width_m"] * 100.0, 1)})
-    counts = {"car_lanes": len(lanes), "junctions": polygons, "walkways": len(walkways), "crossings": crossings,
-              **dead_counts, "shapes": len(shapes)}
+    counts = {"car_lanes": len(lanes), "lanes_chained": chained, "junctions": polygons, "junctions_merged": merged,
+              "junction_lanes_dropped": dropped, "short_after_junction": sum(1 for m in after if m < MIN_ROOM_M),
+              "walkways": len(walkways), "crossings": crossings, **dead_counts, "shapes": len(shapes)}
     return shapes, counts
 
 

@@ -263,6 +263,56 @@ jamais avoir la place : un mur. Changements :
   vide (une voiture dedans, comptée mais vide, réservée), attend son tour, pas vue prête ; et les
   voitures recyclées restées dans un carrefour.
 
+PC, 6fbd155 : 468 des 775 voies de voitures finissent dans des branches coupées (133 voies de
+carrefour vers une voie de moins de 10 m) : le réseau tombe à 40 %. À 300 s, 26 voitures sur 120
+roulent, aucune à moins de 50 m du joueur ; des 94 arrêtées, 78 sont derrière une voiture et 14 à
+une voie de carrefour fermée (10 avec une voie pleine après, 3 avec une voiture dans le carrefour,
+1 qui attend son tour). Trois correctifs de suite ont traité des symptômes.
+
+## Candidat 35 : des carrefours construits comme ceux d'Epic
+
+Comparé à ce qu'Epic a construit pour City Sample, lu à trois endroits : le
+`Config/DefaultPlugins.ini` de City Sample (réglages ZoneGraph et MassTraffic ; lu sur une copie
+publiée du projet, à vérifier sur la copie du PC), le routage des polygones de ZoneGraph
+(`ZoneShapeUtilities.cpp`, `TessellatePolygonShape`, `BuildLanesBetweenPoints`) et MassTraffic
+(`ShouldStopAtLaneExit`, `MassTrafficIntersectionSpawnDataGenerator.cpp`). Ce qui diffère ici :
+- **Routes.** Les routes de City Sample sont des splines à double sens de voies de 4 m
+  (« Vehicle ↓↑ 400 » et plus larges, tags Vehicle + Capillary Road) d'un carrefour au suivant ; un
+  polygone de carrefour a un point LaneProfile par route, avec tout le profil de cette route. Chez
+  nous : une spline par voie (3,2 m), coupée partout où la BD TOPO coupe une rue (à chaque
+  changement d'attribut), si bien qu'une voie après un carrefour peut être un bout de quelques
+  mètres ; un point de polygone par bout de voie. Dans la table du quartier (1 043 voies), 196 voies
+  font moins de 10 m, dont 122 des 604 voies qui sortent d'un carrefour.
+- **Carrefours.** traffic.py donne un seul numéro de carrefour aux nœuds à moins de 18 m, mais les
+  voies entre eux restent : 45 voies vont d'un carrefour au même carrefour, dans son polygone, et y
+  ajoutent des points ; 21 voies de 18 à 22 m relient deux carrefours et gardent 6 à 10 m une fois
+  coupées de 6 m à chaque bout. MassTraffic ne laisse entrer une voiture dans un carrefour que si la
+  seule voie d'après a la place pour la voiture et son écart (2 x rayon + jusqu'à 5 m) : une telle
+  voie est un mur.
+- **Tags et filtres.** City Sample : TrafficLaneFilter Vehicle (pas Pedestrian),
+  IntersectionLaneFilter Vehicle + Intersection + City (pas Pedestrian, Freeway, Trunk Road,
+  Crosswalk), TrunkLaneFilter « Trunk Road » (ses voies d'autoroute seulement),
+  LaneChangingLaneFilter Vehicle (pas Pedestrian, Intersection, Crosswalk). Chez nous, toute voie de
+  voiture était une voie « trunk » (chaque côté de carrefour compte alors comme venant de
+  l'autoroute) et les changements de voie étaient permis dans les carrefours.
+- **Comme chez Epic, gardé :** nos points de polygone sont par voie, mais ZoneGraph relie un point à
+  tous les autres dans LaneConnectionAngle (120 degrés par défaut, que nous gardons ; City Sample
+  met 180 avec un point par route) : avec des points par voie, 180 ajouterait des demi-tours, 120
+  les écarte.
+- **Pas fait ici :** les feux (Small City a des feux à 106 de ses 172 carrefours, d'après un export
+  publié de son réseau ; les nôtres sont tous des stops), les splines de route à double sens
+  (changements de voie), les tags de densité.
+Changements :
+- `tools/city/zonegraph.py` enchaîne une voie qui ne continue que dans une voie que rien d'autre
+  n'alimente (`lanes_chained`), fond en un seul les carrefours qu'une voie de moins de 22 m
+  (6 m + 10 m + 6 m) relie, tant que leurs nœuds tiennent dans 45 m (`junctions_merged`), et retire
+  une voie courte d'un carrefour vers le même (`junction_lanes_dropped`) ; `short_after_junction`
+  compte les voies qui sortent encore d'un carrefour avec moins de 10 m. Sur la table du quartier :
+  687 voies au lieu de 1 043 (38,3 km au lieu de 38,7), 173 polygones au lieu de 186, voies de moins
+  de 10 m à la sortie d'un carrefour 10 au lieu de 122 (les 10 au bord de la carte, sans voie après) ;
+- `ConfigureTrafficLaneFilters` : aucune voie « trunk » (GTPNoLane), pas de changement de voie dans
+  un carrefour.
+
 ## Points ouverts
 
 - Près du joueur, MassTraffic peut confier une voiture à son véhicule physique : nos copies

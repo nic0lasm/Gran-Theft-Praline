@@ -39,9 +39,11 @@ public:
 	static FString BuildZoneGraphData(UObject* WorldContext);
 
 	/**
-	 * Points MassTraffic's ZoneGraph lane filters at our tags: every FZoneGraphTagFilter of
-	 * MassTrafficSettings whose name says Intersection gets IntersectionTag, crosswalk and
-	 * pedestrian ones are left, every other one gets LaneTag (fixed tag slots, see above). In memory
+	 * Points MassTraffic's ZoneGraph lane filters at our tags, as City Sample's own settings do:
+	 * every FZoneGraphTagFilter of MassTrafficSettings whose name says Intersection gets
+	 * IntersectionTag, the crosswalk, pedestrian and trunk ones match no lane (GTPNoLane: no
+	 * MassCrowd lanes, no freeway), the lane changing one gets LaneTag but not IntersectionTag,
+	 * every other one gets LaneTag (fixed tag slots, see above). In memory
 	 * only: the GTPMass module calls it once the engine is up, in the game and in the editor, before
 	 * any map loads; place_masstraffic.py calls it again for its report. Returns a JSON report (each
 	 * property and what was done), also written to the log ("traffic lane filters").

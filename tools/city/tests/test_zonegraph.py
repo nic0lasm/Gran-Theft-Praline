@@ -39,13 +39,60 @@ class ZoneGraphTests(unittest.TestCase):
             self.assertAlmostEqual(math.hypot(x, y), 600.0, delta=30.0)
 
     def test_short_lane_between_junctions_keeps_its_middle(self):
-        shapes, _ = zonegraph.build([lane(0, [(0, 0), (800, 0)], fj=1, tj=2)], [])
-        pts = shapes[0]["points"]
+        # Junctions 1 and 2 (nodes merged by traffic.py) are too wide to be one: over 45 m together.
+        lanes = [lane(0, [(0, 0), (800, 0)], fj=1, tj=2), lane(1, [(-5000, 1000), (-2500, 1000)], tj=1),
+                 lane(2, [(3000, 0), (6000, 0)], fj=2)]
+        shapes, counts = zonegraph.build(lanes, [])
+        self.assertEqual(counts["junctions_merged"], 0)
+        pts = [s for s in shapes if s["name"] == "Car_0"][0]["points"]
         self.assertAlmostEqual(pts[-1][0] - pts[0][0], 200.0, delta=1.0)
+
+    def test_short_link_makes_one_junction(self):
+        # Two nodes 15 m apart: MassTraffic would find no room on the lane between them.
+        lanes = [lane(0, [(-5000, 0), (0, 0)], tj=1), lane(1, [(0, 0), (1500, 0)], fj=1, tj=2),
+                 lane(2, [(1500, 0), (6500, 0)], fj=2), lane(3, [(0, 5000), (0, 0)], tj=1),
+                 lane(4, [(1500, 0), (1500, 5000)], fj=2)]
+        shapes, counts = zonegraph.build(lanes, [])
+        self.assertEqual((counts["junctions"], counts["junctions_merged"], counts["junction_lanes_dropped"]), (1, 1, 1))
+        self.assertFalse(any(s["name"] == "Car_1" for s in shapes))
+        poly = [s for s in shapes if s["type"] == "polygon"][0]
+        self.assertEqual(sorted(poly["lanes"]), [0, 2, 3, 4])
+        self.assertEqual(counts["short_after_junction"], 0)
+
+    def test_short_lane_back_into_its_junction_goes_a_long_one_stays(self):
+        lanes = [lane(0, [(-5000, 0), (0, 0)], tj=1), lane(1, [(0, 0), (900, 0)], fj=1, tj=1),
+                 lane(2, [(0, 0), (0, 3000), (3000, 3000), (0, 0)], fj=1, tj=1), lane(3, [(0, 0), (0, -5000)], fj=1)]
+        shapes, counts = zonegraph.build(lanes, [])
+        names = {s["name"] for s in shapes}
+        self.assertNotIn("Car_1", names)
+        self.assertIn("Car_2", names)
+        self.assertEqual(counts["junction_lanes_dropped"], 1)
+
+    def test_plain_pieces_become_one_lane(self):
+        # Three BD TOPO pieces of one street, no junction between them: one lane, as a road of Epic's.
+        lanes = [lane(0, [(0, 0), (1000, 0)], nxt=[1], fj=4), lane(1, [(1000, 0), (1400, 0)], nxt=[2]),
+                 lane(2, [(1400, 0), (3000, 0)], nxt=[9], tj=5)]
+        lanes[1]["speed_kmh"] = 20.0
+        out, absorbed = zonegraph.chain_plain_lanes(lanes)
+        self.assertEqual((len(out), absorbed), (1, 2))
+        one = out[0]
+        self.assertEqual((one["id"], one["from_junction"], one["to_junction"], one["next"]), (0, 4, 5, [9]))
+        self.assertEqual(one["points"], [(0, 0), (1000.0, 0.0), (1400.0, 0.0), (3000, 0)])
+        self.assertEqual(one["speed_kmh"], 20.0)
+        self.assertEqual(len(lanes[0]["points"]), 2)  # the input is left as it was
+
+    def test_pieces_stay_apart_at_a_split_or_a_merge(self):
+        lanes = [lane(0, [(0, 0), (1000, 0)], nxt=[1, 2]), lane(1, [(1000, 0), (2000, 0)]),
+                 lane(2, [(1000, 0), (1000, 1000)]), lane(3, [(0, 500), (1000, 500)], nxt=[4]),
+                 lane(5, [(500, 900), (1000, 500)], nxt=[4]), lane(4, [(1000, 500), (2000, 500)])]
+        out, absorbed = zonegraph.chain_plain_lanes(lanes)
+        self.assertEqual((len(out), absorbed), (6, 0))
 
     def test_plain_continuation_is_not_cut(self):
         shapes, _ = zonegraph.build([lane(0, [(0, 0), (1000, 0)], nxt=[1]), lane(1, [(1000, 0), (2000, 0)])], [])
-        self.assertEqual(shapes[0]["points"][-1], shapes[1]["points"][0])
+        self.assertEqual(shapes[0]["name"], "Car_0")
+        self.assertEqual(shapes[0]["points"][0], [0.0, 0.0])
+        self.assertEqual(shapes[0]["points"][-1], [2000.0, 0.0])
 
     def test_walkways_two_way_and_crossings_tagged(self):
         walks = [{"id": "a", "kind": 0, "width_m": 3.0, "points": [(0, 0), (100, 0)]},
@@ -86,12 +133,21 @@ class ZoneGraphTests(unittest.TestCase):
         self.assertEqual(counts["junctions"], 1)
         self.assertEqual(counts["dead_ends_closed"] + counts["dead_ends_left"], 1)  # only lane 1's far end
 
-    def test_next_lane_off_a_junction_is_joined(self):
+    def test_next_lane_off_a_junction_is_chained(self):
         # Two roads meet off a junction and their lanes are offset differently: 1.5 m apart.
         lanes = [lane(0, [(0, 0), (5000, 0)], nxt=[1]), lane(1, [(5000, 150), (9000, 150)])]
         shapes, counts = zonegraph.build(lanes, [])
+        self.assertEqual((counts["lanes_chained"], counts["dead_ends_joined"]), (1, 0))
+        car0 = [s for s in shapes if s["name"] == "Car_0"][0]
+        self.assertEqual(car0["points"], [[0.0, 0.0], [5000.0, 75.0], [9000.0, 150.0]])
+
+    def test_next_lane_off_a_junction_is_joined(self):
+        # Lane 0 also leads elsewhere (lanes.csv), so it is not chained: its end is drawn onto lane 1.
+        lanes = [lane(0, [(0, 0), (5000, 0)], nxt=[1, 2]), lane(1, [(5000, 150), (9000, 150)]),
+                 lane(2, [(5000, -900), (5000, -5000)])]
+        shapes, counts = zonegraph.build(lanes, [])
         self.assertEqual(counts["dead_ends_joined"], 1)
-        self.assertEqual(counts["dead_ends_left"], 1)  # lane 1's far end
+        self.assertEqual(counts["dead_ends_left"], 2)  # the far ends of lanes 1 and 2
         car0 = [s for s in shapes if s["name"] == "Car_0"][0]
         self.assertEqual(car0["points"][-1], [5000.0, 150.0])  # ends on lane 1's start
         self.assertEqual(car0["points"][-2], [4400.0, 0.0])    # the shift starts 6 m before

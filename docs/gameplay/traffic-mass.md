@@ -236,6 +236,50 @@ line never chooses again; zonegraph.py trims every lane 6 m before and after a j
   period of its junction, junction clearing a lane of the period before (a car inside, counted but
   empty, reserved), waiting its turn, not seen ready; and the recycled cars left inside a junction.
 
+PC, 6fbd155: 468 of the 775 car lanes end up in cut branches (133 junction lanes into a lane under
+10 m): the network shrinks to 40 %. At 300 s 26 cars of 120 move, none within 50 m of the player; of
+the 94 stopped, 78 stand behind a car and 14 at a closed junction lane (10 with a full lane after
+it, 3 with a car inside the junction, 1 waiting its turn). Three fixes in a row treated symptoms.
+
+## Candidate 35: junctions built as Epic builds them
+
+Compared with what Epic built for City Sample, read in three places: City Sample's
+`Config/DefaultPlugins.ini` (ZoneGraph and MassTraffic settings; read from a published copy of the
+project, to check against the PC's copy), ZoneGraph's polygon routing
+(`ZoneShapeUtilities.cpp`, `TessellatePolygonShape`, `BuildLanesBetweenPoints`) and MassTraffic
+(`ShouldStopAtLaneExit`, `MassTrafficIntersectionSpawnDataGenerator.cpp`). What differs here:
+- **Roads.** City Sample's roads are two-way splines of 4 m lanes ("Vehicle ↓↑ 400" and wider,
+  tags Vehicle + Capillary Road) running from junction to junction; a junction polygon has one
+  LaneProfile point per road, with that road's whole profile. Ours: one spline per lane (3.2 m),
+  cut wherever BD TOPO cuts a street (every change of attribute), so a lane after a junction may be a
+  piece of a few metres; one polygon point per lane end. In the quarter's table (1,043 lanes),
+  196 lanes are under 10 m, 122 of the 604 lanes leaving a junction.
+- **Junctions.** traffic.py gives nodes 18 m apart one junction id, but the lanes between them stay:
+  45 lanes run from a junction back into the same one, inside its polygon, and add points inside it;
+  21 lanes of 18 to 22 m join two junctions and keep 6 to 10 m once trimmed 6 m at each end.
+  MassTraffic lets a car into a junction only when the one lane after it has room for the car and its
+  gap (2 x radius + up to 5 m): such a lane is a wall.
+- **Tags and filters.** City Sample: TrafficLaneFilter Vehicle (not Pedestrian), IntersectionLaneFilter
+  Vehicle + Intersection + City (not Pedestrian, Freeway, Trunk Road, Crosswalk), TrunkLaneFilter
+  "Trunk Road" (its freeway lanes only), LaneChangingLaneFilter Vehicle (not Pedestrian,
+  Intersection, Crosswalk). Ours had every car lane as a trunk lane (so every junction side counts as
+  coming from the freeway) and lane changes allowed inside junctions.
+- **Same as Epic's, kept:** our polygon points are per lane, but ZoneGraph connects a point to every
+  other point within LaneConnectionAngle (120 degrees by default, which we keep; City Sample sets 180
+  with one point per road): with points per lane, 180 would add U-turns, 120 leaves them out.
+- **Not done here:** traffic lights (Small City has lights at 106 of its 172 junctions, per a
+  published export of its network; ours are all stop signs), two-way road splines (lane changes),
+  density tags.
+Changes:
+- `tools/city/zonegraph.py` chains a lane that only continues into one lane fed by nothing else
+  (`lanes_chained`), joins junctions a lane under 22 m (6 m + 10 m + 6 m) links into one while their
+  nodes span at most 45 m (`junctions_merged`), and drops a short lane from a junction back into the
+  same one (`junction_lanes_dropped`); `short_after_junction` counts the lanes that still leave a
+  junction with less than 10 m. On the quarter's table: 687 lanes instead of 1,043 (38.3 km instead
+  of 38.7), 173 polygons instead of 186, lanes leaving a junction under 10 m 10 instead of 122 (all
+  10 at the edge of the map, with no lane after them);
+- `ConfigureTrafficLaneFilters`: no trunk lane (GTPNoLane), no lane change inside a junction.
+
 ## Open points
 
 - Near the player MassTraffic may hand a car over to its physics vehicle: our copies name our cars

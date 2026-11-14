@@ -567,7 +567,34 @@ FString UGTPZoneGraphImport::ConfigureTrafficLaneFilters(FName LaneTag, FName In
 			Report.Info.Add(Name, TEXT("no lane (GTPNoLane): no crosswalk check"));
 			continue;
 		}
+		if (Name.Contains(TEXT("Trunk")))
+		{
+			// City Sample's trunk lanes are its freeway lanes only (tag "Trunk Road", Config/DefaultPlugins.ini),
+			// the ones long vehicles may use; every side of a junction fed by one counts as coming from
+			// the freeway (FMassTrafficIntersectionSide::bHasInboundLanesFromFreeway: longer periods, no
+			// square periods). We have no freeway: no trunk lane, as there.
+			FZoneGraphTag NoLane;
+			if (!FindOrAddTag(TEXT("GTPNoLane"), NoLane, Report))
+			{
+				Report.Info.Add(Name, TEXT("left as is"));
+				continue;
+			}
+			for (int32 Index = 0; Index < Property->ArrayDim; ++Index)
+			{
+				FZoneGraphTagFilter* Filter = Property->ContainerPtrToValuePtr<FZoneGraphTagFilter>(Settings, Index);
+				FZoneGraphTagMask Mask;
+				Mask.Add(NoLane);
+				Filter->AnyTags = Mask;
+				Filter->AllTags = FZoneGraphTagMask();
+				Filter->NotTags = FZoneGraphTagMask();
+			}
+			Report.Info.Add(Name, TEXT("no lane (GTPNoLane): no freeway, as in City Sample's streets"));
+			Report.Counts.FindOrAdd(TEXT("filters_set"))++;
+			continue;
+		}
 		const bool bIntersection = Name.Contains(TEXT("Intersection"));
+		// City Sample changes lanes on road lanes only, never inside a junction (NotTags Intersection).
+		const bool bLaneChanging = Name.Contains(TEXT("LaneChanging"));
 		for (int32 Index = 0; Index < Property->ArrayDim; ++Index)
 		{
 			FZoneGraphTagFilter* Filter = Property->ContainerPtrToValuePtr<FZoneGraphTagFilter>(Settings, Index);
@@ -575,9 +602,14 @@ FString UGTPZoneGraphImport::ConfigureTrafficLaneFilters(FName LaneTag, FName In
 			Mask.Add(bIntersection ? Junction : Lane);
 			Filter->AnyTags = Mask;
 			Filter->AllTags = FZoneGraphTagMask();
-			Filter->NotTags = FZoneGraphTagMask();
+			FZoneGraphTagMask Not;
+			if (bLaneChanging)
+			{
+				Not.Add(Junction);
+			}
+			Filter->NotTags = Not;
 		}
-		Report.Info.Add(Name, (bIntersection ? IntersectionTag : LaneTag).ToString());
+		Report.Info.Add(Name, (bIntersection ? IntersectionTag : LaneTag).ToString() + (bLaneChanging ? TEXT(", not ") + IntersectionTag.ToString() : FString()));
 		Report.Counts.FindOrAdd(TEXT("filters_set"))++;
 	}
 	if (!Report.Counts.Contains(TEXT("filters_set")))
