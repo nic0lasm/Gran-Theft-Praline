@@ -48,4 +48,13 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "GTP|Mass")
 	static FString ConfigureTrafficLaneFilters(FName LaneTag, FName IntersectionTag);
+
+	/**
+	 * The same for one object (an asset, a Blueprint's class defaults or a subobject, such as
+	 * MassTraffic's spawn data generators, whose vehicle types carry their own lane filter): every
+	 * FZoneGraphTagFilter it holds, in nested structs and arrays too, now asks for our tags. Saved
+	 * with the object's package (marked dirty). Returns a JSON report (filters set, by path).
+	 */
+	UFUNCTION(BlueprintCallable, Category = "GTP|Mass")
+	static FString PointLaneFiltersAt(UObject* Object, FName LaneTag, FName IntersectionTag);
 };

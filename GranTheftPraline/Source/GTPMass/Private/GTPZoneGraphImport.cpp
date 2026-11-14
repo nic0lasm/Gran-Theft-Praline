@@ -228,6 +228,70 @@ void SetShapeTags(UZoneShapeComponent* Shape, const FZoneGraphTagMask& Mask, FRe
 	}
 	Report.Error(TEXT("ZoneShapeComponent has no Tags mask"));
 }
+
+/** Every FZoneGraphTagFilter in Data (a Struct), in nested structs and arrays of structs too. */
+void PointFilters(const UStruct* Struct, void* Data, const FZoneGraphTag Lane, const FZoneGraphTag Junction, const FString& Prefix, int32 Depth, FReport& Report)
+{
+	if (Depth > 6)
+	{
+		return;
+	}
+	auto Point = [&](FZoneGraphTagFilter& Filter, const FString& Name)
+	{
+		FZoneGraphTagMask Mask;
+		Mask.Add(Name.Contains(TEXT("Intersection")) ? Junction : Lane);
+		Filter.AnyTags = Mask;
+		Filter.AllTags = FZoneGraphTagMask();
+		Filter.NotTags = FZoneGraphTagMask();
+		Report.Info.Add(Name, Name.Contains(TEXT("Intersection")) ? TEXT("Intersection") : TEXT("Car"));
+		Report.Counts.FindOrAdd(TEXT("filters_set"))++;
+	};
+	for (TFieldIterator<FProperty> It(Struct); It; ++It)
+	{
+		FProperty* Property = *It;
+		const FString Name = Prefix + Property->GetName();
+		if (Name.Contains(TEXT("Crosswalk")) || Name.Contains(TEXT("Pedestrian")))
+		{
+			continue;
+		}
+		if (const FStructProperty* StructProperty = CastField<FStructProperty>(Property))
+		{
+			for (int32 Index = 0; Index < StructProperty->ArrayDim; ++Index)
+			{
+				void* Value = StructProperty->ContainerPtrToValuePtr<void>(Data, Index);
+				if (StructProperty->Struct == FZoneGraphTagFilter::StaticStruct())
+				{
+					Point(*static_cast<FZoneGraphTagFilter*>(Value), Name);
+				}
+				else
+				{
+					PointFilters(StructProperty->Struct, Value, Lane, Junction, Name + TEXT("."), Depth + 1, Report);
+				}
+			}
+		}
+		else if (const FArrayProperty* ArrayProperty = CastField<FArrayProperty>(Property))
+		{
+			const FStructProperty* Inner = CastField<FStructProperty>(ArrayProperty->Inner);
+			if (!Inner)
+			{
+				continue;
+			}
+			FScriptArrayHelper Helper(ArrayProperty, ArrayProperty->ContainerPtrToValuePtr<void>(Data));
+			for (int32 Index = 0; Index < Helper.Num(); ++Index)
+			{
+				const FString ItemName = FString::Printf(TEXT("%s[%d]"), *Name, Index);
+				if (Inner->Struct == FZoneGraphTagFilter::StaticStruct())
+				{
+					Point(*reinterpret_cast<FZoneGraphTagFilter*>(Helper.GetRawPtr(Index)), ItemName);
+				}
+				else
+				{
+					PointFilters(Inner->Struct, Helper.GetRawPtr(Index), Lane, Junction, ItemName + TEXT("."), Depth + 1, Report);
+				}
+			}
+		}
+	}
+}
 } // namespace GTPZoneGraphImportLocal
 
 FString UGTPZoneGraphImport::BuildFromFile(UObject* WorldContext, const FString& JsonPath)
@@ -415,6 +479,27 @@ FString UGTPZoneGraphImport::BuildZoneGraphData(UObject* WorldContext)
 	Report.Error(TEXT("ZoneGraph data is built in the editor only"));
 #endif
 	UE_LOG(LogGTPZoneGraph, Log, TEXT("zonegraph build: %s"), *Report.ToJson());
+	return Report.ToJson();
+}
+
+FString UGTPZoneGraphImport::PointLaneFiltersAt(UObject* Object, FName LaneTag, FName IntersectionTag)
+{
+	using namespace GTPZoneGraphImportLocal;
+	FReport Report;
+	FZoneGraphTag Lane;
+	FZoneGraphTag Junction;
+	if (!Object || !FindOrAddTag(LaneTag, Lane, Report) || !FindOrAddTag(IntersectionTag, Junction, Report))
+	{
+		return Report.ToJson();
+	}
+#if WITH_EDITOR
+	Object->Modify();
+#endif
+	PointFilters(Object->GetClass(), Object, Lane, Junction, FString(), 0, Report);
+	if (Report.Counts.Contains(TEXT("filters_set")))
+	{
+		Object->MarkPackageDirty();
+	}
 	return Report.ToJson();
 }
 
