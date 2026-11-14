@@ -1073,11 +1073,32 @@ void AGTPVehicle::AttachToSeat(ACharacter* Character)
 		Character->SetActorRelativeTransform(FTransform(FRotator::ZeroRotator, DriverSeatOffset));
 	}
 	Character->SetActorHiddenInGame(!bShowDriverInside);
+	// A driver hidden in the seat is never posed, not even once (no update, no evaluation): the sample's
+	// locomotion blueprint asserts on a NaN pelvis in its Foot Placement node when its graph is evaluated without
+	// an update since the last evaluation (speed = distance / a zero delta time). Woken again in ReleaseCharacter.
+	USkeletalMeshComponent* DriverMesh = Character->GetMesh();
+	if (!bShowDriverInside && DriverMesh && !Character->IsPlayerControlled() && !DriverMesh->bNoSkeletonUpdate)
+	{
+		DriverMesh->bNoSkeletonUpdate = true;
+		DriverMesh->ComponentTags.AddUnique(SeatDormantTag());
+	}
+}
+
+FName AGTPVehicle::SeatDormantTag()
+{
+	static const FName Tag(TEXT("GTPSeatDormant"));
+	return Tag;
 }
 
 void AGTPVehicle::ReleaseCharacter(ACharacter* Character, const FVector& Location, const FRotator& Rotation)
 {
 	SetDriverLite(Character, false);
+	USkeletalMeshComponent* DriverMesh = Character->GetMesh();
+	if (DriverMesh && DriverMesh->ComponentHasTag(SeatDormantTag()))
+	{
+		DriverMesh->ComponentTags.Remove(SeatDormantTag());
+		DriverMesh->bNoSkeletonUpdate = false;
+	}
 	Character->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
 	Character->SetActorLocationAndRotation(Location, Rotation, false, nullptr, ETeleportType::TeleportPhysics);
 	Character->SetActorHiddenInGame(false);
