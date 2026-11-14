@@ -250,6 +250,17 @@ Lyra n'est repris : Lyra repose sur GAS et ShooterCore, que l'ADR-0011 écarte. 
   liste chaque op de `RTG_GTP_UE5_to_UEFN` avec ses réglages. `lyra_weapons_setup.py` ne règle aucun mode de
   translation du bassin : il ajoute les ops par défaut et aligne les os automatiquement, donc les valeurs par défaut
   de l'op bassin de la 5.8 s'appliquent (valeurs pas encore lues : le rapport les donne).
+- **Mesuré sur le PC (candidat 32, 14/11)** : le calque est dans le blueprint (`ok …, status 3`, sauvegardes
+  faites), l'arme joue dans `UpperBody` (poids du slot 1,00, poids du nœud 1,00) et, en visée, le bassin du pion
+  reste à +3 cm (il était à -62), la tête à 61 cm, le pied gauche à 7 cm du sol ; capture du corps entier : debout,
+  droit, les deux mains devant le visage, l'arme vers l'avant. Le contrôle du bassin a trouvé la cause de la
+  chute : chaque clip `_UEFN` a son os root monté à 93,6 cm et son bassin replacé dessous (bassin juste dans
+  l'espace du composant, 97 à 98 % de la hauteur debout), alors que les sources Lyra ont leur root à 0. L'op Root
+  Motion du retargeteur avait `SourceRoot=pelvis` avec `RootHeightSource=CopyHeightFromSource` ; un montage qui
+  bloque le root fait tomber un tel corps d'environ 90 cm. `lyra_weapons_setup.py` règle maintenant le
+  `SourceRoot` de cette op sur l'os `root` de la source (retargeteur existant compris), retargete à nouveau tous
+  les clips par-dessus les anciens quand il a changé quelque chose (`GTP_RETARGET_AGAIN=1` le force), et donne
+  `root check …` pour les deux poses de visée (root attendu à 0).
 - **Clips** : actions Lyra en pose complète (`MM_*_Equip`, `_Reload`, `_DryFire`, `_Idle_ADS`) dans
   `DefaultSlot`. Le Fire de Lyra n'existe qu'en additif : il attend un slot additif dans le blueprint du joueur ;
   d'ici là, le recul de la caméra et la flamme portent le tir.
