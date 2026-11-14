@@ -383,6 +383,16 @@ baked textures missing, and every package they depend on that the project lacks,
 accepted, `--dry-run` first); run again until 0 missing. Only the chosen head's bindings are copied: `/Game/Crowd`
 is cooked whole.
 
+First pass on the PC (candidate 40, 2026-11-14): 51 files copied in three rounds (about 108 MB); four packages stayed
+missing (`MF_HairAnisotropic`, `MI_Crowd_Hair_Cards`, `M_Crowd_Hair_Helmet`, `TilingNoise05`), so the hair materials
+fell back to the default material. BuzzCut and PulledBack took their binding; SideSweptFringe and Messy did not (the
+groom component left `BindingAsset` empty: strands floating off the temples). The baked moustache of m_004's head
+material (`Mustache_S_ChinStrap_baked`, copied as a dependency) showed on all four. And the four variants shared
+one head instance, so each showed the baked hair of the last one made. The script now takes the groom the binding
+was made for, says when the component refuses the binding (and does not save), puts the head's baked moustache and
+beard back to the base material's default (`GTP_NICOLITO_FACIAL_HAIR`, default `none`), makes one head instance per
+variant and rebuilds a reused blueprint's instances from the crowd's own materials.
+
 **Nicolito by default (2026-11-14).** `PlayerVisualClass` is `BP_Nicolito_Full` (head m_004, light skin, baked
 eyebrows, crewneck, jeans, loafers, no groom: bald until the hair is chosen, then rebuilt under the same name with
 the chosen style). A copy of the project without it (the Mac) keeps the mannequin, with a warning, until it runs

@@ -27,6 +27,9 @@ Env:
   GTP_NICOLITO_HAIR  baked hair painted on the scalp the same way (HairAttributeMap): auto (default: the
                      hairstyle's own baked texture when the pack has one, painted on the scalp under the strands),
                      none, or a baked hair texture by style name.
+  GTP_NICOLITO_FACIAL_HAIR  none (default): the head's baked moustache and beard (MustacheAttributeMap,
+                     BeardAttributeMap...: m_004's head material in the pack paints Mustache_S_ChinStrap once copied)
+                     are put back to the base material's own default, nothing painted; keep: left as the head has them.
   GTP_NICOLITO_SUFFIX  appended to the blueprint's name (BP_Nicolito_Full_BuzzCut), to keep several variants side by
                      side for a choice. Default: none.
   GTP_NICOLITO_OUTFIT  full mode only: the crowd garments, e.g. Torso=crewneck,Legs=jeans,Feet=loafers (the default).
@@ -322,7 +325,25 @@ def crowd_hair(style, head):
     binding_path = "%s/GB_%s_nrw_FaceMesh_%s" % (GROOM_BINDINGS, head, groom_name)
     if not eal.does_asset_exist(binding_path):
         return None, None, "groom %s found, but no binding %s (copy City Sample's GroomBindings)" % (groom_path, binding_path)
-    return eal.load_asset(groom_path), eal.load_asset(binding_path), "groom %s, binding %s" % (groom_path.split(".")[0], binding_path)
+    groom, binding = eal.load_asset(groom_path), eal.load_asset(binding_path)
+    found = "groom %s, binding %s" % (groom_path.split(".")[0], binding_path)
+    # The groom component drops a binding made for another groom (BindingAsset left "none"): take the binding's own.
+    try:
+        own = binding.get_editor_property("groom")
+    except Exception as error:  # noqa: BLE001 (the one found by name is kept)
+        own = None
+        found += "; the binding's groom not read (%r)" % (error,)
+    if own is not None and own.get_path_name() != groom.get_path_name():
+        found += "; the binding is made for %s, not this one: that groom used" % own.get_path_name().split(".")[0]
+        groom = own
+    elif own is not None:
+        found += "; the binding is made for this groom"
+    try:
+        target = binding.get_editor_property("target_skeletal_mesh")
+        found += "; its face %s" % (target.get_path_name().split(".")[0] if target else "none")
+    except Exception:  # noqa: BLE001 (not reported)
+        pass
+    return groom, binding, found
 
 
 def skin_instance(source, tile, tag, textures):
@@ -339,6 +360,8 @@ def skin_instance(source, tile, tag, textures):
     if instance is None:
         return None, "not created", False
     mel = unreal.MaterialEditingLibrary
+    # A reused instance starts again from its parent: an older run's baked texture must not stay on it.
+    mel.clear_all_material_instance_parameters(instance)
     mel.set_material_instance_parent(instance, source)
     mel.set_material_instance_scalar_parameter_value(instance, SKIN_PARAMETER, float(tile))
     for parameter, texture in textures.items():
@@ -362,6 +385,36 @@ def component_template(bp, name):
     return None
 
 
+def facial_hair_cleared(material, component, slot):
+    """GTP_NICOLITO_FACIAL_HAIR=none: parameter -> the base material's own default, for each baked moustache or
+    beard texture this head material paints (the portraits the head was chosen from had none)."""
+    if os.environ.get("GTP_NICOLITO_FACIAL_HAIR", "none").strip().lower() != "none":
+        return {}
+    mel = unreal.MaterialEditingLibrary
+    cleared = {}
+    try:
+        names = [str(found) for found in mel.get_texture_parameter_names(material)]
+        base = material.get_base_material()
+    except Exception as error:  # noqa: BLE001 (reported, nothing cleared)
+        say("  %s slot %d: facial hair parameters not read (%r)" % (component, slot, error))
+        return {}
+    for name in names:
+        if not any(word in name for word in ("Mustache", "Beard")):
+            continue
+        held = texture_parameter(material, name)
+        try:
+            default = mel.get_material_default_texture_parameter_value(base, name)
+        except Exception as error:  # noqa: BLE001 (reported, left as it is)
+            say("  %s slot %d: %s default not read (%r), left %s" % (component, slot, name, error, held.get_name() if held else "none"))
+            continue
+        if default is not None and held != default:
+            cleared[name] = default
+            say("  %s slot %d: %s %s -> the base material's default %s" % (component, slot, name, held.get_name() if held else "none", default.get_name()))
+        elif held is not None and held == default:
+            say("  %s slot %d: %s is the base material's default %s already" % (component, slot, name, held.get_name()))
+    return cleared
+
+
 def set_skin(bp, component, fields, tile, tag, textures=None):
     """Every slot of `component` whose skin material reads another tile than `tile`, or other baked groom textures
     than `textures` (parameter -> texture, set only where the material has the parameter), gets an instance of its
@@ -372,9 +425,17 @@ def set_skin(bp, component, fields, tile, tag, textures=None):
         current = atlas_tile(material) if material else None
         if current is None:
             continue
-        painted = {}
+        # A blueprint made by an earlier run holds our instance: start again from the crowd's own material, so the
+        # instance is made anew with this run's settings only.
+        source = material
+        while isinstance(source, unreal.MaterialInstanceConstant) and source.get_name().startswith("MI_Nicolito_"):
+            source = source.get_editor_property("parent")
+        if source is None:
+            say("  %s slot %d %s: our instance %s has no parent, skin NOT changed" % (component, slot, slot_name, material.get_name()))
+            return False
+        painted = facial_hair_cleared(source, component, slot) if component == "Face" else {}
         for parameter, texture in (textures or {}).items():
-            default = texture_parameter(material, parameter)
+            default = texture_parameter(source, parameter)
             if default is None:
                 continue
             if is_virtual(default) != is_virtual(texture):
@@ -384,7 +445,7 @@ def set_skin(bp, component, fields, tile, tag, textures=None):
                 continue
             if default != texture:
                 painted[parameter] = texture
-        if current == tile and not painted:
+        if current == tile and not painted and source is material:
             say("  %s slot %d %s: %s already reads tile %d" % (component, slot, slot_name, material.get_name(), tile))
             continue
         if template is None:
@@ -392,7 +453,7 @@ def set_skin(bp, component, fields, tile, tag, textures=None):
             if template is None:
                 say("  %s: its template was not found (SubobjectDataSubsystem), skin NOT changed" % component)
                 return False
-        instance, made, saved = skin_instance(material, tile, tag, painted)
+        instance, made, saved = skin_instance(source, tile, tag, painted)
         if instance is None:
             say("  %s slot %d %s: instance of %s NOT created, skin NOT changed" % (component, slot, slot_name, material.get_name()))
             return False
@@ -405,8 +466,8 @@ def set_skin(bp, component, fields, tile, tag, textures=None):
         except Exception as error:  # noqa: BLE001 (the component's own call instead)
             say("  %s: override_materials not set as a property (%r), set_material instead" % (component, error))
             template.set_material(slot, instance)
-        say("  %s slot %d %s: %s read tile %d, now %s (%s, saved %s) reads tile %d%s" % (
-            component, slot, slot_name, material.get_name(), current, instance.get_name(), made, saved, tile,
+        say("  %s slot %d %s: %s read tile %d, now %s (%s from %s, saved %s) reads tile %d%s" % (
+            component, slot, slot_name, material.get_name(), current, instance.get_name(), made, source.get_name(), saved, tile,
             "".join(", %s %s" % (parameter, texture.get_name()) for parameter, texture in painted.items())))
     if template is not None:
         after = template.get_editor_property("override_materials")
@@ -611,7 +672,8 @@ def main():
             head, own_tile, " and body" if mode == "full" else "", tile, " (GTP_NICOLITO_SKIN)" if skin else " (the head's own)"))
         textures = baked_textures()
         say("  baked on the head: %s" % (", ".join("%s %s" % (parameter, texture.get_name()) for parameter, texture in textures.items()) or "nothing"))
-        ok &= set_skin(bp, "Face", current.get("Face", {}), tile, head, textures)
+        # One instance per variant (its own baked hair): the variants side by side must not share one.
+        ok &= set_skin(bp, "Face", current.get("Face", {}), tile, head + suffix, textures)
         if mode == "full":
             ok &= set_skin(bp, "Body", current.get("Body", {}), tile, "body")
         else:
@@ -664,6 +726,19 @@ def main():
             else:
                 ok &= set_asset(bp, "Hair", "GroomAsset", groom)
                 ok &= set_asset(bp, "Hair", "BindingAsset", binding)
+                template = component_template(bp, "Hair")
+                held = None
+                for prop in ("binding_asset", "BindingAsset"):
+                    try:
+                        held = template.get_editor_property(prop)
+                        break
+                    except Exception:  # noqa: BLE001 (the other spelling)
+                        continue
+                if template is not None and held is None:
+                    say("  BindingAsset REFUSED by the groom component (not made for this groom or this face): NOT saved")
+                    ok = False
+                elif template is not None:
+                    say("  binding held: %s" % held.get_name())
 
     unreal.BlueprintEditorLibrary.compile_blueprint(bp)
     say("== %s after the changes" % out)
