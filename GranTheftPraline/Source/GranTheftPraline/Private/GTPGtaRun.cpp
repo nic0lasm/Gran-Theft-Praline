@@ -316,11 +316,11 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail, bool bClose)
 		{
 			const UCharacterMovementComponent* Movement = Character->GetCharacterMovement();
 			Detail = FString::Printf(TEXT("the player does not walk for 4 s (%.0f cm from %s, ignore move input = %d, movement mode %d, max walk speed %.0f, "
-				"attached to %s, possessed by %s, movement disabled %d, collision %d)"), Best, *Victim->GetName(), PC->IsMoveInputIgnored() ? 1 : 0,
+				"attached to %s, possessed by %s, movement active %d, collision %d)"), Best, *Victim->GetName(), PC->IsMoveInputIgnored() ? 1 : 0,
 				Movement ? static_cast<int32>(Movement->MovementMode.GetValue()) : -1, Movement ? Movement->MaxWalkSpeed : -1.f,
 				Character->GetAttachParentActor() ? *Character->GetAttachParentActor()->GetName() : TEXT("nothing"),
 				Character->GetController() ? *Character->GetController()->GetName() : TEXT("nobody"),
-				Movement && Movement->IsMovementInProgress() ? 1 : 0, static_cast<int32>(Character->GetActorEnableCollision()));
+				Movement && Movement->IsActive() ? 1 : 0, static_cast<int32>(Character->GetActorEnableCollision()));
 			return EResult::Fail;
 		}
 	}
