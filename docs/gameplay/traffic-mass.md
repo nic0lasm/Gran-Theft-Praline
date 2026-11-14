@@ -339,6 +339,28 @@ one side at a time, so no two crossing flows are open together; no light is draw
 "MassTraffic junctions: N of M junction(s) built as stop signs given traffic-light turns".
 `-TrafficStopSigns` keeps the stop signs.
 
+PC result of 35add4d (two 330 s smokes, 0 fatal, 0 error, 0 ensure): 35 of 35 junctions given
+traffic-light turns (116 side periods); 44 of 577 car lanes lead nowhere, all 44 linked to the 29
+entries (249 m away on average). Cars moving at 30, 120 and 300 s: 95, 78, 59 with the guard, 79, 88,
+71 with `-NoLoopGuard`; 5 cars stopped before a closed junction lane at 300 s (7 with 1225555). The
+guard held no entry in either smoke ("0 at most"), so it changed nothing for the cars: the gap between
+the two smokes is the spread of one run, about 65 moving at 300 s on average. 314 loops in 5 min, none
+in sight.
+
+Two points left:
+- Mean speeds of 144 and 141 km/h at one time each. Near the player (MassTraffic's High/Medium LOD,
+  200 m by default in its code) MassTraffic drives a car with its simple physics (`FMassTrafficVehiclePhysicsFragment`)
+  and takes its speed from how far the body moved (`UpdateCoMVelocity`). A loop moves the car's lane
+  250 m in one frame: the body is pulled there and the car leaves at thousands of km/h. Since 36r,
+  `GuardLoops` also holds an entry closed while such a car is on one of its dead ends, and
+  `RecycleAtDeadEnds` hands a car stopped there out of sight to MassTraffic's recycling (the overseer
+  moves it, no physics runs on a recyclable car). "MassTraffic loops" counts the loops made under
+  physics (to stay 0) and the entries held for them; "MassTraffic cars" leaves the speeds over
+  200 km/h out of the mean and counts them.
+- No car within 50 m: the nearest road lane to the start is 50 m away, at every time. "MassTraffic
+  lanes near the player" now gives a tenth of a metre, the nearest junction lane and the player's
+  position, to see whether a street is missing near the start or the start is 50 m from any street.
+
 ## Open points
 
 - Near the player MassTraffic may hand a car over to its physics vehicle: our copies name our cars

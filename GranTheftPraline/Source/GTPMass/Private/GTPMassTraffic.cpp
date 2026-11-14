@@ -19,6 +19,7 @@
 #include "MassEntitySubsystem.h"
 #include "MassExecutionContext.h"
 #include "MassTrafficFragments.h"
+#include "MassTrafficPhysics.h"
 #include "MassTrafficSettings.h"
 #include "MassTrafficSubsystem.h"
 #include "MassZoneGraphNavigationFragments.h"
@@ -197,13 +198,14 @@ void UGTPMassTrafficSubsystem::LogCounts()
 	if (const UMassTrafficSettings* Settings = GetDefault<UMassTrafficSettings>(); Settings && Player)
 	{
 		double NearestLane = TNumericLimits<double>::Max();
+		double NearestJunctionLane = TNumericLimits<double>::Max();
 		int32 LanesWithin50 = 0;
 		for (TActorIterator<AZoneGraphData> It(World); It; ++It)
 		{
 			const FZoneGraphStorage& Storage = It->GetStorage();
 			for (const FZoneLaneData& Lane : Storage.Lanes)
 			{
-				if (!Settings->TrafficLaneFilter.Pass(Lane.Tags) || Settings->IntersectionLaneFilter.Pass(Lane.Tags))
+				if (!Settings->TrafficLaneFilter.Pass(Lane.Tags))
 				{
 					continue;
 				}
@@ -212,20 +214,26 @@ void UGTPMassTrafficSubsystem::LogCounts()
 				{
 					LaneDistance = FMath::Min(LaneDistance, FMath::PointDistToSegment(PlayerLocation, Storage.LanePoints[Point], Storage.LanePoints[Point + 1]));
 				}
+				if (Settings->IntersectionLaneFilter.Pass(Lane.Tags))
+				{
+					NearestJunctionLane = FMath::Min(NearestJunctionLane, LaneDistance);
+					continue;
+				}
 				NearestLane = FMath::Min(NearestLane, LaneDistance);
 				LanesWithin50 += LaneDistance <= 5000.0 ? 1 : 0;
 			}
 		}
 		if (NearestLane < TNumericLimits<double>::Max())
 		{
-			UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic lanes near the player: nearest road lane %.0f m, %d road lane(s) within 50 m"),
-				NearestLane / 100.0, LanesWithin50);
+			UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic lanes near the player: nearest road lane %.1f m, %d road lane(s) within 50 m, nearest junction lane %.1f m (player at %s)"),
+				NearestLane / 100.0, LanesWithin50, NearestJunctionLane < TNumericLimits<double>::Max() ? NearestJunctionLane / 100.0 : -1.0,
+				*PlayerLocation.ToCompactString());
 		}
 	}
 	if (!Loops.IsEmpty())
 	{
-		UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic loops: %d car(s) left the map and came back at an entry so far, %d of them in the player's sight; %d of %d entry lane(s) held closed now (in sight), %d at most"),
-			LoopJumps, LoopJumpsInSight, EntriesInSight.Num(), LoopEntries, MostEntriesHeld);
+		UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic loops: %d car(s) left the map and came back at an entry so far, %d of them in the player's sight, %d under MassTraffic's physics; %d of %d entry lane(s) held closed now (in sight), %d at most; %d held for a car under physics on its dead ends, %d at most"),
+			LoopJumps, LoopJumpsInSight, LoopJumpsInPhysics, EntriesInSight.Num(), LoopEntries, MostEntriesHeld, EntriesHeldForPhysics, MostHeldForPhysics);
 	}
 	LogSimulatedCars(*World, PlayerLocation);
 #endif
@@ -354,6 +362,7 @@ void UGTPMassTrafficSubsystem::LogSimulatedCars(UWorld& World, const FVector& Pl
 	int32 Within100 = 0;
 	int32 Within200 = 0;
 	double SpeedSum = 0.0;
+	int32 Implausible = 0;
 	double Nearest = TNumericLimits<double>::Max();
 	FMassExecutionContext Context(*Manager, 0.f);
 	Query.ForEachEntityChunk(Context, [&](FMassExecutionContext& Chunk)
@@ -373,7 +382,16 @@ void UGTPMassTrafficSubsystem::LogSimulatedCars(UWorld& World, const FVector& Pl
 			}
 			const FMassTrafficVehicleControlFragment& Control = Controls[Index];
 			const float Speed = Control.Speed; // cm/s along the lane
-			SpeedSum += Speed;
+			// Over 200 km/h: a car under MassTraffic's physics pulled across the map in one frame (see
+			// GuardLoops), counted apart and kept out of the mean.
+			if (Speed > 5555.f)
+			{
+				++Implausible;
+			}
+			else
+			{
+				SpeedSum += Speed;
+			}
 			Moving += Speed > 100.f ? 1 : 0;
 			const FMassZoneGraphLaneLocationFragment& Location = Locations[Index];
 			if (Speed <= 100.f && Location.LaneHandle.DataHandle == DataHandle && DeadEnds.Contains(Location.LaneHandle.Index))
@@ -470,8 +488,8 @@ void UGTPMassTrafficSubsystem::LogSimulatedCars(UWorld& World, const FVector& Pl
 		Network = FString::Printf(TEXT(" | car lanes=%d (%d dead ends), %.1f km, %.1f cars per km"), CarLanes, DeadEnds.Num(),
 			Length / 100000.0, Length > 0.0 ? Cars / (Length / 100000.0) : 0.0);
 	}
-	UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic cars: simulated=%d moving=%d (over 1 m/s) stopped on a dead-end lane=%d waiting for recycling=%d (without Epic's damage fragment=%d) recycled so far=%d mean speed=%.0f km/h | within 100 m=%d within 200 m=%d nearest=%s%s"),
-		Cars, Moving, AtDeadEnd, Recyclable, RecyclableWithoutDamage, Recycled, Cars > 0 ? SpeedSum / Cars * 0.036 : 0.0, Within100, Within200,
+	UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic cars: simulated=%d moving=%d (over 1 m/s) stopped on a dead-end lane=%d waiting for recycling=%d (without Epic's damage fragment=%d) recycled so far=%d mean speed=%.0f km/h (over 200 km/h, left out=%d) | within 100 m=%d within 200 m=%d nearest=%s%s"),
+		Cars, Moving, AtDeadEnd, Recyclable, RecyclableWithoutDamage, Recycled, Cars > Implausible ? SpeedSum / (Cars - Implausible) * 0.036 : 0.0, Implausible, Within100, Within200,
 		Cars > 0 ? *FString::Printf(TEXT("%.0f m"), Nearest / 100.0) : TEXT("none"), *Network);
 	if (Cars > Moving)
 	{
@@ -655,6 +673,7 @@ void UGTPMassTrafficSubsystem::LinkDeadEndsToEntries()
 	double JumpCm = 0.0;
 	double LongestJumpCm = 0.0;
 	Loops.Reset();
+	LoopExitLanes.Reset();
 	const TArrayView<FMassTrafficZoneGraphData*> AllData = Traffic->GetMutableTrafficZoneGraphData();
 	for (int32 Slot = 0; Slot < AllData.Num(); ++Slot)
 	{
@@ -749,6 +768,7 @@ void UGTPMassTrafficSubsystem::LinkDeadEndsToEntries()
 				continue;
 			}
 			Lane.NextLanes.Add(&All[EntryLanes[Best]]);
+			LoopExitLanes.Add(&Lane);
 			FLoop& Loop = Loops.AddDefaulted_GetRef();
 			Loop.Slot = Slot;
 			Loop.DataIndex = Data->DataHandle.Index;
@@ -915,31 +935,35 @@ void UGTPMassTrafficSubsystem::GuardLoops()
 	TMultiMap<int64, int32> SourcesOf;
 	for (const FLoop& Loop : Loops)
 	{
-		FMassTrafficZoneGraphData* Data = AllData.IsValidIndex(Loop.Slot) ? AllData[Loop.Slot] : nullptr;
-		if (Data && Data->TrafficLaneDataArray.IsValidIndex(Loop.To))
-		{
-			Data->TrafficLaneDataArray[Loop.To].bIsOpen = !InSightNow.Contains(Key(Loop.DataIndex, Loop.ToLane));
-		}
 		SourcesOf.Add(Key(Loop.DataIndex, Loop.ToLane), Loop.FromLane);
 	}
 	// The cars that looped since the last check: now on an entry, coming from one of its dead ends.
+	// And the lanes of the cars MassTraffic simulates with its simple physics (FMassTrafficVehiclePhysicsFragment,
+	// within its High/Medium LOD distance of the player, 200 m by default).
 	FMassEntityManager& Manager = Mass->GetMutableEntityManager();
 	FMassEntityQuery Query;
 	Query.Initialize(Manager.AsShared());
 	Query.AddTagRequirement<FMassTrafficVehicleTag>(EMassFragmentPresence::All);
 	Query.AddRequirement<FMassTrafficVehicleControlFragment>(EMassFragmentAccess::ReadOnly);
 	Query.AddRequirement<FMassZoneGraphLaneLocationFragment>(EMassFragmentAccess::ReadOnly);
+	Query.AddRequirement<FMassTrafficVehiclePhysicsFragment>(EMassFragmentAccess::ReadOnly, EMassFragmentPresence::Optional);
 	TMap<uint64, int32> LaneNow;
+	TSet<int64> PhysicsLanes;
 	FMassExecutionContext Context(Manager, 0.f);
 	Query.ForEachEntityChunk(Context, [&](FMassExecutionContext& Chunk)
 	{
 		const TConstArrayView<FMassTrafficVehicleControlFragment> Controls = Chunk.GetFragmentView<FMassTrafficVehicleControlFragment>();
 		const TConstArrayView<FMassZoneGraphLaneLocationFragment> Locations = Chunk.GetFragmentView<FMassZoneGraphLaneLocationFragment>();
+		const bool bPhysics = Chunk.GetFragmentView<FMassTrafficVehiclePhysicsFragment>().Num() > 0;
 		for (int32 Index = 0; Index < Chunk.GetNumEntities(); ++Index)
 		{
 			const uint64 Car = Chunk.GetEntity(Index).AsNumber();
 			const FZoneGraphLaneHandle& Lane = Locations[Index].LaneHandle;
 			LaneNow.Add(Car, Lane.Index);
+			if (bPhysics)
+			{
+				PhysicsLanes.Add(Key(Lane.DataHandle.Index, Lane.Index));
+			}
 			const int32* Before = LaneOfCar.Find(Car);
 			if (!Before || *Before == Lane.Index)
 			{
@@ -952,12 +976,36 @@ void UGTPMassTrafficSubsystem::GuardLoops()
 			{
 				++LoopJumps;
 				LoopJumpsInSight += (InSightNow.Contains(Entry) || EntriesInSight.Contains(Entry)) ? 1 : 0;
+				LoopJumpsInPhysics += bPhysics ? 1 : 0;
 			}
 		}
 	});
+	// A car under MassTraffic's physics must not jump: its body would be pulled onto the entry in one
+	// frame, and the speed taken from that move (UpdateCoMVelocity) sends it off at thousands of km/h.
+	// Its entry stays closed while such a car is on one of the dead ends; once stopped there out of
+	// sight, RecycleAtDeadEnds hands it to MassTraffic's recycling, which moves it without physics.
+	TSet<int64> HeldForPhysics;
+	for (const FLoop& Loop : Loops)
+	{
+		if (PhysicsLanes.Contains(Key(Loop.DataIndex, Loop.FromLane)))
+		{
+			HeldForPhysics.Add(Key(Loop.DataIndex, Loop.ToLane));
+		}
+	}
+	for (const FLoop& Loop : Loops)
+	{
+		FMassTrafficZoneGraphData* Data = AllData.IsValidIndex(Loop.Slot) ? AllData[Loop.Slot] : nullptr;
+		if (Data && Data->TrafficLaneDataArray.IsValidIndex(Loop.To))
+		{
+			const int64 Entry = Key(Loop.DataIndex, Loop.ToLane);
+			Data->TrafficLaneDataArray[Loop.To].bIsOpen = !InSightNow.Contains(Entry) && !HeldForPhysics.Contains(Entry);
+		}
+	}
 	LaneOfCar = MoveTemp(LaneNow);
 	EntriesInSight = MoveTemp(InSightNow);
 	MostEntriesHeld = FMath::Max(MostEntriesHeld, EntriesInSight.Num());
+	EntriesHeldForPhysics = HeldForPhysics.Num();
+	MostHeldForPhysics = FMath::Max(MostHeldForPhysics, EntriesHeldForPhysics);
 }
 
 void UGTPMassTrafficSubsystem::CutDeadEndBranches()
@@ -1130,7 +1178,12 @@ void UGTPMassTrafficSubsystem::RecycleAtDeadEnds()
 			}
 			const bool bStopped = Controls[Index].Speed <= 100.f;
 			const bool bInBranch = IsInDeadEndBranch(Location.LaneHandle.DataHandle.Index, Location.LaneHandle.Index);
-			const bool bAtDeadEnd = bStopped && Lane->NextLanes.IsEmpty()
+			// A dead end linked to an entry held closed for a car under physics (GuardLoops) counts as one
+			// with no lane after it; one held because the player may see it is left to wait.
+			const FZoneGraphTrafficLaneData* Held = LoopExitLanes.Contains(Lane) && Lane->NextLanes.Num() == 1 ? Lane->NextLanes[0] : nullptr;
+			const bool bHeldExit = Held && !Held->bIsOpen
+				&& !EntriesInSight.Contains((static_cast<int64>(Held->LaneHandle.DataHandle.Index) << 32) | static_cast<uint32>(Held->LaneHandle.Index));
+			const bool bAtDeadEnd = bStopped && (Lane->NextLanes.IsEmpty() || bHeldExit)
 				&& Location.DistanceAlongLane >= Location.LaneLength - Radii[Index].Radius - 300.f;
 			// A car driving through a junction is let out of it first: a recycled car stands still
 			// until MassTraffic moves it, and one standing in a junction blocks it.

@@ -379,6 +379,30 @@ que MassTraffic a construites, un côté à la fois, donc deux flux qui se crois
 ouverts ensemble ; aucun feu n'est dessiné. Journal « MassTraffic junctions: N of M junction(s) built
 as stop signs given traffic-light turns ». `-TrafficStopSigns` garde les stops.
 
+Relevé du PC pour 35add4d (deux fumées de 330 s, 0 fatale, 0 erreur, 0 ensure) : 35 carrefours sur
+35 reçoivent des tours à feux (116 périodes de côté) ; 44 voies sur 577 ne mènent nulle part, toutes
+les 44 reliées aux 29 entrées (à 249 m en moyenne). Voitures qui roulent à 30, 120 et 300 s : 95, 78,
+59 avec le garde, 79, 88, 71 avec `-NoLoopGuard` ; 5 voitures arrêtées devant une voie de carrefour
+fermée à 300 s (7 avec 1225555). Le garde n'a retenu aucune entrée dans aucune des deux fumées (« 0 at
+most ») : il n'a rien changé pour les voitures, et l'écart entre les deux fumées est la dispersion d'un
+essai, environ 65 voitures qui roulent à 300 s en moyenne. 314 rebouclages en 5 min, aucun en vue.
+
+Deux points restent :
+- Des vitesses moyennes de 144 et 141 km/h, à un temps chacune. Près du joueur (LOD High/Medium de
+  MassTraffic, 200 m par défaut dans son code), MassTraffic conduit une voiture avec sa physique simple
+  (`FMassTrafficVehiclePhysicsFragment`) et prend sa vitesse de la distance parcourue par la caisse
+  (`UpdateCoMVelocity`). Un rebouclage déplace la voie de la voiture de 250 m en une image : la caisse y
+  est tirée et la voiture repart à des milliers de km/h. Depuis le 36r, `GuardLoops` garde aussi une
+  entrée fermée tant qu'une telle voiture est sur l'une de ses impasses, et `RecycleAtDeadEnds` confie
+  une voiture arrêtée là hors de vue au recyclage de MassTraffic (le superviseur la déplace, aucune
+  physique ne tourne sur une voiture recyclable). « MassTraffic loops » compte les rebouclages faits
+  sous physique (qui doivent rester à 0) et les entrées retenues pour elles ; « MassTraffic cars »
+  sort de la moyenne les vitesses au-dessus de 200 km/h et les compte.
+- Aucune voiture à moins de 50 m : la voie de route la plus proche du départ est à 50 m, à tous les
+  temps. « MassTraffic lanes near the player » donne désormais le dixième de mètre, la voie de carrefour
+  la plus proche et la position du joueur, pour voir s'il manque une rue près du départ ou si le départ
+  est à 50 m de toute rue.
+
 ## Points ouverts
 
 - Près du joueur, MassTraffic peut confier une voiture à son véhicule physique : nos copies

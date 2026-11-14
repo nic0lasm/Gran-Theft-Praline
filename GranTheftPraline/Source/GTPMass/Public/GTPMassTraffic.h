@@ -5,6 +5,8 @@
 #include "Engine/TimerHandle.h"
 #include "GTPMassTraffic.generated.h"
 
+struct FZoneGraphTrafficLaneData;
+
 /**
  * Switch to the MassTraffic plugin of City Sample (ADR-0015, docs/gameplay/traffic-mass.md).
  *
@@ -73,8 +75,11 @@ private:
 	 * in the camera's field (plus 15 degrees) or within 30 m, and not hidden by a building (a
 	 * visibility line trace). MassTraffic stops a car before a closed lane (ShouldStopAtLaneExit), so
 	 * the cars wait at the dead end and go on once out of sight. Counts the cars that looped, and those
-	 * that did it in sight (a car that could no longer stop): "MassTraffic loops". -NoLoopGuard leaves
-	 * the entries open.
+	 * that did it in sight (a car that could no longer stop): "MassTraffic loops". An entry is also
+	 * held while a car MassTraffic simulates with its simple physics (its High/Medium LOD, 200 m by default) is
+	 * on one of its dead ends: such a car would be pulled onto the entry in one frame and take that
+	 * move as its speed. RecycleAtDeadEnds hands it to MassTraffic's recycling once stopped there out
+	 * of sight. -NoLoopGuard leaves the entries open.
 	 */
 	void GuardLoops();
 
@@ -98,7 +103,14 @@ private:
 	TMap<uint64, int32> LaneOfCar;
 	int32 LoopJumps = 0;
 	int32 LoopJumpsInSight = 0;
+	/** Loops made by a car under MassTraffic's simple physics (should stay 0, see GuardLoops). */
+	int32 LoopJumpsInPhysics = 0;
 	int32 MostEntriesHeld = 0;
+	/** Entries held closed because a car under MassTraffic's physics is on one of their dead ends. */
+	int32 EntriesHeldForPhysics = 0;
+	int32 MostHeldForPhysics = 0;
+	/** The dead ends LinkDeadEndsToEntries linked (lane data in MassTraffic's arrays, never resized). */
+	TSet<const FZoneGraphTrafficLaneData*> LoopExitLanes;
 	FTimerHandle LoopTimer;
 	/**
 	 * Every second until MassTraffic's junction entities are there: our junctions have no traffic
