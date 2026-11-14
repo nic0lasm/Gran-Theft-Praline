@@ -21,7 +21,7 @@ namespace
 	constexpr int32 StepCount = 5;
 	const TCHAR* StepNames[StepCount] = { TEXT("carjack"), TEXT("chase"), TEXT("parked"), TEXT("aim"), TEXT("shoot") };
 	// Time limits (s) per step, counted from the step's start.
-	const double StepLimits[StepCount] = { 90.0, 170.0, 200.0, 40.0, 30.0 };
+	const double StepLimits[StepCount] = { 90.0, 170.0, 200.0, 60.0, 30.0 };
 
 	APlayerController* FirstController(const UWorld* World)
 	{
@@ -246,29 +246,56 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail)
 		Weapon->Reload();
 		GTP_TRACE(LogGTPGtaRun, TEXT("GTARun: player re-armed after the arrest (+%d rounds)"), Given);
 	}
+	// The person to hold up: nearest one not already running or knocked down (the alarm of the theft sends everybody
+	// running; they calm down in a few seconds), with a clear line of fire from the eyes (a parked car hides people).
 	AActor* Victim = nullptr;
 	double Best = 4000.0;
+	int32 Running = 0, Hidden = 0;
+	const FVector EyeNow = Character->GetPawnViewLocation();
 	for (TActorIterator<AGTPPedestrian> It(World); It; ++It)
 	{
 		const FVector Where = It->GetActorLocation();
 		const double Distance = FVector::Dist(Where, Character->GetActorLocation());
-		if (Where.Z > -50000.0 && Distance < Best)
+		if (Where.Z <= -50000.0 || Distance >= Best)
 		{
-			Best = Distance;
-			Victim = *It;
+			continue;
 		}
+		if (const UGTPThreatResponseComponent* Fear = It->FindComponentByClass<UGTPThreatResponseComponent>())
+		{
+			const EGTPThreatState State = Fear->GetState();
+			if (State == EGTPThreatState::Fleeing || State == EGTPThreatState::Down || State == EGTPThreatState::Backing)
+			{
+				++Running;
+				continue;
+			}
+		}
+		FHitResult Hit;
+		FCollisionQueryParams Params(SCENE_QUERY_STAT(GTPGtaRunAim), false, Character);
+		if (World->LineTraceSingleByChannel(Hit, EyeNow, Where + FVector(0.f, 0.f, 80.f), ECC_Visibility, Params) && Hit.GetActor() != *It)
+		{
+			++Hidden;
+			continue;
+		}
+		Best = Distance;
+		Victim = *It;
 	}
 	if (!Victim)
 	{
-		Detail = TEXT("no pedestrian within 40 m");
+		Detail = FString::Printf(TEXT("waiting for a calm pedestrian in the clear (%d running, %d hidden)"), Running, Hidden);
 		return EResult::Pending;
 	}
 	Weapon->SetDrawn(true);
 	Weapon->SetAiming(true);
 	// Hold-up range is under 10 m: walk up to the person first (the aim cone and the fear both grow with closeness).
-	if (Best > 800.0)
+	// Stop at about 4 m (an aim from the shoulder camera misses somebody closer than 2 m), back off if too close.
+	const FVector ToVictim = (Victim->GetActorLocation() - Character->GetActorLocation()).GetSafeNormal2D();
+	if (Best > 450.0)
 	{
-		Character->AddMovementInput((Victim->GetActorLocation() - Character->GetActorLocation()).GetSafeNormal2D(), 1.f);
+		Character->AddMovementInput(ToVictim, 1.f);
+	}
+	else if (Best < 250.0)
+	{
+		Character->AddMovementInput(-ToVictim, 1.f);
 	}
 	// The reticle on the person, as a player aims: every frame the weapon reports the aim from the eyes to
 	// what the reticle covers, so the view (the camera over the shoulder) must look at the point the
