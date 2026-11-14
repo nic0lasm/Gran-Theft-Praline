@@ -12,6 +12,14 @@
 #include "TimerManager.h"
 #include "UObject/UObjectIterator.h"
 #include "ZoneGraphData.h"
+#if WITH_GTP_MASSTRAFFIC
+#include "MassCommonFragments.h"
+#include "MassEntityQuery.h"
+#include "MassEntitySubsystem.h"
+#include "MassExecutionContext.h"
+#include "MassTrafficFragments.h"
+#include "MassTrafficSettings.h"
+#endif
 
 DEFINE_LOG_CATEGORY_STATIC(LogGTPMassTraffic, Log, All);
 
@@ -158,6 +166,9 @@ void UGTPMassTrafficSubsystem::LogCounts()
 	UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic count t=%.0fs: zonegraph data=%d lanes=%d zones=%d | cars: instances=%d actors=%d nearest=%s"),
 		World->GetTimeSeconds(), GraphData, Lanes, Zones, Instances, Actors,
 		bAny ? *FString::Printf(TEXT("%.0f m at %s"), Nearest / 100.0, *NearestLocation.ToCompactString()) : TEXT("none"));
+#if WITH_GTP_MASSTRAFFIC
+	LogSimulatedCars(*World, PlayerLocation);
+#endif
 	if (Lanes == 0 && CountLogs == 1)
 	{
 		UE_LOG(LogGTPMassTraffic, Warning, TEXT("MassTraffic: the map has no built ZoneGraph lanes, no car can spawn (build the ZoneGraph and save the map)"));
@@ -177,3 +188,77 @@ void UGTPMassTrafficSubsystem::LogCounts()
 		UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic view: player put at %s, looking at the car at %s"), *Spot.ToCompactString(), *NearestLocation.ToCompactString());
 	}
 }
+
+#if WITH_GTP_MASSTRAFFIC
+void UGTPMassTrafficSubsystem::LogSimulatedCars(UWorld& World, const FVector& PlayerLocation)
+{
+	// The simulated cars themselves, drawn or not: how many there are, how many move and how fast,
+	// how many near the player. Tells sparse traffic (few cars for many lanes) from frozen traffic
+	// (cars waiting at intersections that never open).
+	UMassEntitySubsystem* Mass = World.GetSubsystem<UMassEntitySubsystem>();
+	if (!Mass)
+	{
+		UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic cars: no Mass entity subsystem"));
+		return;
+	}
+	const TSharedRef<FMassEntityManager> Manager = Mass->GetMutableEntityManager().AsShared();
+	FMassEntityQuery Query;
+	Query.Initialize(Manager);
+	Query.AddTagRequirement<FMassTrafficVehicleTag>(EMassFragmentPresence::All);
+	Query.AddRequirement<FTransformFragment>(EMassFragmentAccess::ReadOnly);
+	Query.AddRequirement<FMassTrafficVehicleControlFragment>(EMassFragmentAccess::ReadOnly);
+	int32 Cars = 0;
+	int32 Moving = 0;
+	int32 Within100 = 0;
+	int32 Within200 = 0;
+	double SpeedSum = 0.0;
+	double Nearest = TNumericLimits<double>::Max();
+	FMassExecutionContext Context(*Manager, 0.f);
+	Query.ForEachEntityChunk(Context, [&](FMassExecutionContext& Chunk)
+	{
+		const TConstArrayView<FTransformFragment> Transforms = Chunk.GetFragmentView<FTransformFragment>();
+		const TConstArrayView<FMassTrafficVehicleControlFragment> Controls = Chunk.GetFragmentView<FMassTrafficVehicleControlFragment>();
+		for (int32 Index = 0; Index < Chunk.GetNumEntities(); ++Index)
+		{
+			++Cars;
+			const float Speed = Controls[Index].Speed; // cm/s along the lane
+			SpeedSum += Speed;
+			Moving += Speed > 100.f ? 1 : 0;
+			const double Distance = FVector::Dist(Transforms[Index].GetTransform().GetLocation(), PlayerLocation);
+			Within100 += Distance < 10000.0 ? 1 : 0;
+			Within200 += Distance < 20000.0 ? 1 : 0;
+			Nearest = FMath::Min(Nearest, Distance);
+		}
+	});
+	FString LaneLength;
+	if (CountLogs == 1)
+	{
+		// Once: the length of the lanes the cars can drive on, for the density (cars per km).
+		const UMassTrafficSettings* Settings = GetDefault<UMassTrafficSettings>();
+		double Length = 0.0;
+		int32 CarLanes = 0;
+		for (TActorIterator<AZoneGraphData> It(&World); It; ++It)
+		{
+			const FZoneGraphStorage& Storage = It->GetStorage();
+			for (const FZoneLaneData& Lane : Storage.Lanes)
+			{
+				if (Settings && Settings->TrafficLaneFilter.Pass(Lane.Tags) && Lane.PointsEnd > Lane.PointsBegin
+					&& Storage.LanePointProgressions.IsValidIndex(Lane.PointsEnd - 1))
+				{
+					++CarLanes;
+					Length += Storage.LanePointProgressions[Lane.PointsEnd - 1];
+				}
+			}
+		}
+		LaneLength = FString::Printf(TEXT(" | car lanes=%d, %.1f km, %.2f cars per km"), CarLanes, Length / 100000.0,
+			Length > 0.0 ? Cars / (Length / 100000.0) : 0.0);
+	}
+	UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic cars: simulated=%d moving=%d (over 1 m/s) mean speed=%.0f km/h | within 100 m=%d within 200 m=%d nearest=%s%s"),
+		Cars, Moving, Cars > 0 ? SpeedSum / Cars * 0.036 : 0.0, Within100, Within200,
+		Cars > 0 ? *FString::Printf(TEXT("%.0f m"), Nearest / 100.0) : TEXT("none"), *LaneLength);
+}
+#else
+void UGTPMassTrafficSubsystem::LogSimulatedCars(UWorld& World, const FVector& PlayerLocation)
+{
+}
+#endif

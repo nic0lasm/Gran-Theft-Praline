@@ -326,7 +326,8 @@ def repoint(text, copied, risk_cache, record, hint="", unsafe=()):
         path = match.group("wpath") or match.group("bare")
         package = path.split(".")[0].split(":")[0]
         target = copied.get(package, package)
-        if target in unsafe:
+        # A copy's references to itself (its own class, its subobjects) stay.
+        if target in unsafe and not hint.startswith(target + "."):
             record("removed (our copy %s keeps cook risks)" % target, path, "None")
             return "None" if match.group("wrapped") else ""
         if package.startswith(OUR_CARS + "/") or package.startswith(OUT_DIR + "/"):
@@ -481,8 +482,21 @@ def copy_traffic(report):
     # A copy can keep cook risks of its own (City Sample's light types point at street lamp meshes
     # it does not have): references to it go too, in a second pass.
     targets = set(mapping.values())
-    unsafe = {t for t in targets if cook_risk([t], limit=2000, stop=targets - {t})}
+    unsafe_why, unchecked = {}, []
+    for t in sorted(targets):
+        why_t = {}
+        risks = cook_risk([t], limit=5000, stop=targets - {t}, why=why_t)
+        # A scan cut at its limit is no risk found: reported apart (unsafe_scan_cut), not removed.
+        if any(r.startswith("(scan stopped") for r in risks):
+            unchecked.append(t)
+        if any(not r.startswith("(scan stopped") for r in risks):
+            unsafe_why[t] = why_t
+    unsafe = set(unsafe_why)
     copy["unsafe_copies"] = sorted(unsafe)
+    copy["unsafe_scan_cut"] = unchecked
+    # What each unsafe copy keeps, with the chain that pulls it in: a placed spawner among them
+    # still goes into the map, so its own risks are those of the cook.
+    copy["unsafe_why"] = unsafe_why
     if unsafe:
         repoint_copies(unsafe)
     why = {}
@@ -497,6 +511,7 @@ def copy_traffic(report):
         "spawners": {name: mapping[path] for name, path in sources.items()},
         "vehicle_types": [(object_path(mapping[p]), w) for p, w in types if p in mapping and mapping[p] not in unsafe],
         "light_types": object_path(lights[0]) if lights else None,
+        "unsafe": sorted(unsafe),
     }
 
 
@@ -598,6 +613,9 @@ def main():
                                                    for name, order, count in GTP_SPAWNERS if name in ours])
         if not placed:
             report["errors"].append("none of our spawners placed (see gtp_copy)")
+        for name, path in sorted(ours.items()):
+            if name in placed and path in plan.get("unsafe", []):
+                report["errors"].append("placed spawner %s keeps cook risks of its own (gtp_copy.unsafe_why)" % path)
         setup_generators(placed, plan, report)
     elif not place_blueprint_spawners(report):
         configs = entity_configs(report)

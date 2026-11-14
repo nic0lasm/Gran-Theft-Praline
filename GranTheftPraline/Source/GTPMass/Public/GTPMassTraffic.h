@@ -36,6 +36,8 @@ public:
 
 private:
 	void LogCounts();
+	/** "MassTraffic cars": the simulated cars (Mass entities), moving or not, near the player or not. */
+	void LogSimulatedCars(UWorld& World, const FVector& PlayerLocation);
 
 	int32 StartedSpawners = 0;
 	int32 CountLogs = 0;

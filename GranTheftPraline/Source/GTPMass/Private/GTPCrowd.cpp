@@ -22,8 +22,19 @@
 #include "Misc/CommandLine.h"
 #include "Misc/Paths.h"
 #include "Misc/Parse.h"
+#if WITH_GTP_MASSTRAFFIC
+#include "GTPTraffic.h"
+#include "MassMovementFragments.h"
+#include "MassTrafficFragments.h"
+#endif
 
 DEFINE_LOG_CATEGORY_STATIC(LogGTPCrowd, Log, All);
+
+namespace GTPCrowdLocal
+{
+/** A person seen by the MassTraffic cars: Epic's "Traffic Obstacle" radius for a walker (cm). */
+constexpr float TrafficObstacleRadius = 40.f;
+}
 
 // ---------------------------------------------------------------- subsystem
 
@@ -166,8 +177,19 @@ void UGTPCrowdSubsystem::Spawn(UWorld& InWorld)
 	InstanceActor->SetRootComponent(Instances);
 	Instances->RegisterComponent();
 
-	Archetype = EntityManager.CreateArchetype(TArray<const UScriptStruct*>{
-		FGTPCrowdWalkerFragment::StaticStruct(), FGTPCrowdLookFragment::StaticStruct(), FGTPCrowdTag::StaticStruct()});
+	TArray<const UScriptStruct*> Composition{
+		FGTPCrowdWalkerFragment::StaticStruct(), FGTPCrowdLookFragment::StaticStruct(), FGTPCrowdTag::StaticStruct()};
+#if WITH_GTP_MASSTRAFFIC
+	// With MassTraffic cars in the map, a person also carries what Epic's "Traffic Obstacle" trait
+	// gives (UMassTrafficObstacleTrait: transform, velocity, radius), so that the cars can brake for
+	// them. The tag FMassTrafficObstacleTag itself is worn on a crossing only (UGTPCrowdMoveProcessor).
+	const bool bTrafficObstacles = AGTPTrafficNetwork::IsMassTrafficWanted(&InWorld);
+	if (bTrafficObstacles)
+	{
+		Composition.Append({FTransformFragment::StaticStruct(), FMassVelocityFragment::StaticStruct(), FAgentRadiusFragment::StaticStruct()});
+	}
+#endif
+	Archetype = EntityManager.CreateArchetype(Composition);
 	GTPWalk::FRng Rng(987654321u);
 	int32 Placed = 0;
 	for (int32 Index = 0; Index < CrowdCount; ++Index)
@@ -186,11 +208,20 @@ void UGTPCrowdSubsystem::Spawn(UWorld& InWorld)
 		}
 		Look.Scale = Rng.Range(1.f - HeightSpread, 1.f + HeightSpread);
 		Look.InstanceIndex = Instances->AddInstance(FTransform(FRotator::ZeroRotator, FVector(0.f, 0.f, -100000.f), BaseScale * Look.Scale), false);
+		if (FAgentRadiusFragment* Radius = EntityManager.GetFragmentDataPtr<FAgentRadiusFragment>(Entity))
+		{
+			Radius->Radius = GTPCrowdLocal::TrafficObstacleRadius;
+		}
 		Entities.Add(Entity);
 	}
 	SetupNearActors(InWorld);
 	bRunning = true;
 	UE_LOG(LogGTPCrowd, Log, TEXT("crowd: %d people (%d placed) on %d walkway edges"), CrowdCount, Placed, static_cast<int32>(Graph.Edges.size()));
+#if WITH_GTP_MASSTRAFFIC
+	UE_LOG(LogGTPCrowd, Log, TEXT("crowd: %s"), bTrafficObstacles
+		? TEXT("traffic obstacles on crossings (MassTraffic cars brake for people crossing)")
+		: TEXT("no traffic obstacles (no MassTraffic cars in this map)"));
+#endif
 }
 
 void UGTPCrowdSubsystem::Tick(float DeltaTime)
@@ -231,6 +262,10 @@ void UGTPCrowdMoveProcessor::ConfigureQueries(const TSharedRef<FMassEntityManage
 {
 	Query.AddRequirement<FGTPCrowdWalkerFragment>(EMassFragmentAccess::ReadWrite);
 	Query.AddTagRequirement<FGTPCrowdTag>(EMassFragmentPresence::All);
+#if WITH_GTP_MASSTRAFFIC
+	Query.AddRequirement<FTransformFragment>(EMassFragmentAccess::ReadWrite, EMassFragmentPresence::Optional);
+	Query.AddRequirement<FMassVelocityFragment>(EMassFragmentAccess::ReadWrite, EMassFragmentPresence::Optional);
+#endif
 	Query.RegisterWithProcessor(*this);
 }
 
@@ -249,6 +284,36 @@ void UGTPCrowdMoveProcessor::Execute(FMassEntityManager& EntityManager, FMassExe
 	{
 		const float Dt = Chunk.GetDeltaTimeSeconds();
 		const TArrayView<FGTPCrowdWalkerFragment> Walkers = Chunk.GetMutableFragmentView<FGTPCrowdWalkerFragment>();
+#if WITH_GTP_MASSTRAFFIC
+		// Epic's traffic obstacle: where the person is and how fast they go, for MassTraffic
+		// (UMassTrafficFindObstaclesProcessor binds an obstacle to the car behind it on the nearby
+		// lanes, UpdateDistanceToNearestObstacle brakes that car for it). The tag is worn on a
+		// crossing only: on the sidewalk a car passing 2 m away would brake for nothing, and every
+		// obstacle costs a lane search a frame. Adding or removing it moves the person to another
+		// chunk at the end of the phase, once per crossing.
+		const TArrayView<FTransformFragment> Transforms = Chunk.GetMutableFragmentView<FTransformFragment>();
+		const TArrayView<FMassVelocityFragment> Velocities = Chunk.GetMutableFragmentView<FMassVelocityFragment>();
+		const bool bObstacleChunk = Chunk.DoesArchetypeHaveTag<FMassTrafficObstacleTag>();
+		auto Publish = [&Chunk, &Graph, &Transforms, &Velocities, bObstacleChunk](int32 Index, const FGTPCrowdWalkerFragment& W, const FVector& Velocity)
+		{
+			if (Transforms.IsEmpty() || Velocities.IsEmpty())
+			{
+				return;
+			}
+			const bool bOnCrossing = W.Walker.Edge >= 0 && W.Walker.Edge < static_cast<int>(Graph.Edges.size())
+				&& Graph.Edges[W.Walker.Edge].Kind == GTPWalk::EKind::Crossing;
+			Transforms[Index].GetMutableTransform() = FTransform(FRotator(0.f, W.Yaw, 0.f), FVector(W.Location.X, W.Location.Y, W.GroundZ));
+			Velocities[Index].Value = Velocity;
+			if (bOnCrossing && !bObstacleChunk)
+			{
+				Chunk.Defer().AddTag<FMassTrafficObstacleTag>(Chunk.GetEntity(Index));
+			}
+			else if (!bOnCrossing && bObstacleChunk)
+			{
+				Chunk.Defer().RemoveTag<FMassTrafficObstacleTag>(Chunk.GetEntity(Index));
+			}
+		};
+#endif
 		for (int32 Index = 0; Index < Chunk.GetNumEntities(); ++Index)
 		{
 			FGTPCrowdWalkerFragment& W = Walkers[Index];
@@ -262,6 +327,9 @@ void UGTPCrowdMoveProcessor::Execute(FMassEntityManager& EntityManager, FMassExe
 					W.Location = FVector(P.X, P.Y, 0.f);
 					W.GroundZ = Crowd->GroundAt(W.Location);
 				}
+#if WITH_GTP_MASSTRAFFIC
+				Publish(Index, W, FVector::ZeroVector);
+#endif
 				continue;
 			}
 			const GTPWalk::FStepResult R = GTPWalk::Step(Graph, W.Walker, Dt, Rng, Settings, false);
@@ -286,6 +354,9 @@ void UGTPCrowdMoveProcessor::Execute(FMassEntityManager& EntityManager, FMassExe
 				// New ground height after a long step and, now and then, as the ground changes along the walk.
 				W.GroundZ = Crowd->GroundAt(W.Location);
 			}
+#if WITH_GTP_MASSTRAFFIC
+			Publish(Index, W, FVector(D.X, D.Y, 0.f).GetSafeNormal2D() * W.Speed);
+#endif
 		}
 	});
 }

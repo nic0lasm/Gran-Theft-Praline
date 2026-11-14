@@ -126,6 +126,49 @@ en éditeur, 6 min sans erreur fatale ni ensure. Ensuite :
   références vers elle. MassTraffic ne dessine de toute façon aucun feu (pas de
   TrafficLightInstanceData pour notre carte).
 
+## Candidat 33 sur le PC (14/11)
+
+Rapport de placement : plus aucun risque de cook dans les copies, la voiture physique posée dans
+les 7 configurations, aucune propriété impossible à écrire. 355 s en `-Traffic=mass` : aucune erreur
+fatale, erreur ni ensure, un seul warning MassTraffic (« No TrafficLightInstanceData asset
+specified »). Mais les 120 voitures ne sont jamais venues à moins de 50 m du joueur (53 à 56 m de
+t=10 s à 35 s) et aucune n'est devenue un acteur. Le générateur de voitures roulantes était parmi
+les copies « à risque », et c'est lui qui est posé dans la carte. Le candidat 34 dit pourquoi
+(ci-dessous).
+
+## Candidat 34 : piétons vus par les voitures, trafic clairsemé ou figé
+
+- La voie d'Epic pour que les voitures voient les gens est le trait « Traffic Obstacle »
+  (`UMassTrafficObstacleTrait` : tag `FMassTrafficObstacleTag`, transform, vitesse, rayon d'agent).
+  À chaque image, `UMassTrafficFindObstaclesProcessor` lie chaque obstacle à la voiture qui le suit
+  sur les voies de circulation à moins de `ObstacleSearchRadius`, et
+  `UMassTrafficUpdateDistanceToNearestObstacleProcessor` freine cette voiture d'après le temps de
+  collision (jusqu'à 0,8 à 3 m de l'obstacle). Notre foule Mass (`GTPCrowd`, qui marche sur son
+  propre graphe de trottoirs et non sur les voies de MassCrowd) porte maintenant transform, vitesse
+  et rayon (40 cm) quand la carte a des voitures MassTraffic, et ne porte le tag que sur un passage :
+  sur le trottoir une voiture qui passe à 2 m freinerait pour rien, chaque obstacle coûte une
+  recherche de voies par image, et le générateur de voitures laisse 50 m libres autour de chaque
+  obstacle (`ObstacleExclusionRadius` ; commentaire d'Epic : « This won't scale past very few
+  obstacles »). Les gens sont posés hors des passages, les voitures créées au début ne sont donc pas
+  écartées.
+- `ObstacleSearchRadius` passe des 100 m d'Epic à 15 m, posé en mémoire avec les filtres de voies
+  (`-TrafficObstacleRadius=<cm>`).
+- L'autre voie de MassTraffic, aux feux : un carrefour attend `NumEntitiesOnLane = 0` sur ses voies de
+  passage, d'après les données de suivi de MassCrowd (faites pour les voies qui portent le
+  `CrossingTag` de MassCrowd), et ouvre ou ferme ces voies (`SetLaneState`). Il ne compte que les
+  gens suivis par MassCrowd : pour notre foule, il faudrait appeler nous-mêmes l'API publique de
+  MassCrowd (`OnEntityLaneChanged`, `AcquireWaitingSlot`, `GetLaneState`). Pas fait : les filtres de
+  passages ne retiennent toujours aucune voie.
+- Nouvelle ligne à chaque comptage, « MassTraffic cars » : les voitures simulées (entités Mass),
+  combien roulent (plus de 1 m/s), leur vitesse moyenne, combien à moins de 100 et 200 m du joueur,
+  la plus proche ; et une fois la longueur des voies de voitures et les voitures par km. Elle
+  distingue un trafic clairsemé (120 voitures pour toute la carte) d'un trafic figé (voitures qui
+  attendent à des carrefours qui ne s'ouvrent jamais).
+- Placement : une copie n'est « à risque » que pour un risque trouvé. Un parcours coupé à sa limite
+  de paquets (qui comptait aussi comme risque avant) est listé dans `unsafe_scan_cut` ; les chaînes
+  de chaque copie à risque sont dans `unsafe_why` ; les références d'une copie à elle-même restent ;
+  un générateur posé qui garde des risques est une erreur.
+
 ## Points ouverts
 
 - Près du joueur, MassTraffic peut confier une voiture à son véhicule physique : nos copies
@@ -137,3 +180,5 @@ en éditeur, 6 min sans erreur fatale ni ensure. Ensuite :
   générateur est fini (README de Myxcil/MassTraffic-Test) : pas fait, on ne dépeuple pas encore.
 - Feux : MassTraffic cadence les siens mais n'en dessine aucun ; les nôtres (`GTPTrafficLights`) ne
   sont pas synchronisés avec eux.
+- Le joueur à pied n'est pas un obstacle de trafic (City Sample donne au joueur un agent Mass).
+- Passages aux feux (données de suivi de MassCrowd, voir le candidat 34) : pas fait.

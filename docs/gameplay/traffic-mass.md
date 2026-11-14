@@ -113,6 +113,43 @@ editor, 6 min without a fatal error or ensure. What followed:
   light types, whose meshes are missing) is dropped with every reference to it. MassTraffic draws no
   light anyway (no TrafficLightInstanceData for our map).
 
+## Candidate 33 on the PC (14/11)
+
+Placement report: no cook risk left in the copies, the physics car set in the 7 configs, no
+property that could not be set. 355 s with `-Traffic=mass`: no fatal error, error nor ensure, one
+MassTraffic warning left ("No TrafficLightInstanceData asset specified"). But the 120 cars never
+came within 50 m of the player (53 to 56 m from t=10 s to 35 s) and none became an actor. The
+driving-car spawner was among the "unsafe" copies, and is the one placed in the map. Candidate 34
+tells why (below).
+
+## Candidate 34: pedestrians seen by the cars, sparse or frozen traffic
+
+- Epic's way for the cars to see people is the "Traffic Obstacle" trait (`UMassTrafficObstacleTrait`:
+  tag `FMassTrafficObstacleTag`, transform, velocity, agent radius). Every frame
+  `UMassTrafficFindObstaclesProcessor` binds each obstacle to the car behind it on the traffic lanes
+  within `ObstacleSearchRadius`, and `UMassTrafficUpdateDistanceToNearestObstacleProcessor` brakes
+  that car from the time to collision (down to 0.8 to 3 m from the obstacle). Our Mass crowd
+  (`GTPCrowd`, which walks its own walkway graph, not MassCrowd's lanes) now carries the transform,
+  velocity and radius (40 cm) when MassTraffic cars are in the map, and wears the tag only on a
+  crossing: on the sidewalk a car passing 2 m away would brake for nothing, every obstacle costs a
+  lane search a frame, and the driving-car spawn generator leaves 50 m free around every obstacle
+  (`ObstacleExclusionRadius`; Epic's comment: "This won't scale past very few obstacles"). People are
+  placed off crossings, so the cars spawned at begin play are not held off.
+- `ObstacleSearchRadius` goes from Epic's 100 m to 15 m, set in memory with the lane filters
+  (`-TrafficObstacleRadius=<cm>`).
+- MassTraffic's other way, at traffic lights: an intersection waits for `NumEntitiesOnLane = 0` on its
+  crosswalk lanes, from MassCrowd's tracking data (built for lanes with MassCrowd's `CrossingTag`), and
+  opens or closes those lanes (`SetLaneState`). It counts only people that MassCrowd tracks: for our
+  crowd that means calling MassCrowd's public API ourselves (`OnEntityLaneChanged`,
+  `AcquireWaitingSlot`, `GetLaneState`). Not done: the crosswalk filters still match no lane.
+- New log line every count, "MassTraffic cars": the simulated cars (Mass entities), how many move
+  (over 1 m/s), their mean speed, how many within 100 and 200 m of the player, the nearest; and once
+  the length of the car lanes and the cars per km. It tells sparse traffic (120 cars for the whole
+  map) from frozen traffic (cars waiting at intersections that never open).
+- Placement: a copy is "unsafe" only for a risk found. A scan cut at its package limit (which also
+  counted as a risk before) is listed in `unsafe_scan_cut`; each unsafe copy's chains are in
+  `unsafe_why`; a copy's references to itself are kept; a placed spawner that keeps risks is an error.
+
 ## Open points
 
 - Near the player MassTraffic may hand a car over to its physics vehicle: our copies name our cars
@@ -123,3 +160,5 @@ editor, 6 min without a fatal error or ensure. What followed:
   finishes (README of Myxcil/MassTraffic-Test): not done, we never despawn yet.
 - Traffic lights: MassTraffic times its own but draws none; ours (`GTPTrafficLights`) are not in
   step with them.
+- The player on foot is not a traffic obstacle (City Sample gives the player a Mass agent).
+- Crosswalks at traffic lights (MassCrowd's tracking data, see candidate 34): not done.

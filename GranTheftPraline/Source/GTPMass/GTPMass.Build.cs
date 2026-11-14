@@ -38,7 +38,8 @@ public class GTPMass : ModuleRules
 			|| File.Exists(Path.Combine(PluginsDir, "MassTraffic", "MassTraffic.uplugin"));
 		if (bMassTraffic)
 		{
-			PrivateDependencyModuleNames.Add("MassTraffic");
+			// MassMovement: FMassVelocityFragment, which MassTraffic reads on its obstacles (GTPCrowd).
+			PrivateDependencyModuleNames.AddRange(new string[] { "MassTraffic", "MassMovement" });
 		}
 		PublicDefinitions.Add("WITH_GTP_MASSTRAFFIC=" + (bMassTraffic ? "1" : "0"));
 	}

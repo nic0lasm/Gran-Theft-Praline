@@ -584,6 +584,22 @@ FString UGTPZoneGraphImport::ConfigureTrafficLaneFilters(FName LaneTag, FName In
 	{
 		Report.Error(TEXT("no ZoneGraph lane filter found on MassTrafficSettings"));
 	}
+	// Traffic obstacles (people with FMassTrafficObstacleTag, Epic's "Traffic Obstacle" trait) are
+	// bound each frame to the car behind them on every traffic lane within ObstacleSearchRadius.
+	// Epic's 100 m, for some 300 people of our crowd in the dense lanes of the Presqu'île, would
+	// query thousands of lanes a frame; 15 m keeps the lanes a person stands on or next to.
+	// -TrafficObstacleRadius=<cm> sets another radius.
+	if (FFloatProperty* Radius = CastField<FFloatProperty>(Class->FindPropertyByName(TEXT("ObstacleSearchRadius"))))
+	{
+		float Value = 1500.f;
+		FParse::Value(FCommandLine::Get(), TEXT("TrafficObstacleRadius="), Value);
+		Radius->SetPropertyValue_InContainer(Settings, Value);
+		Report.Info.Add(TEXT("ObstacleSearchRadius"), FString::Printf(TEXT("%.0f cm"), Value));
+	}
+	else
+	{
+		Report.Info.Add(TEXT("ObstacleSearchRadius"), TEXT("not found: left as is"));
+	}
 	UE_LOG(LogGTPZoneGraph, Log, TEXT("traffic lane filters: %s"), *Report.ToJson());
 	return Report.ToJson();
 }
