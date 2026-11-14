@@ -293,3 +293,13 @@ is taken: Lyra stands on GAS and ShooterCore, which ADR-0011 leaves out. We take
   degree cone and nobody reacted (the hold-up step of `-GTARun` failed at 226 cm, passed at 498 cm). Drive-by keeps
   the muzzle. The hold-up step of `-GTARun` puts the view on the point the pedestrian's fear tests, as a player
   puts the reticle on someone.
+- **The reticle on a person (14/11)**: `-GTARun` on candidate 32 aimed at a pedestrian 126 cm away and every
+  pedestrian was 17.7 degrees or more off the aim. Pedestrians have no collision for traces, so the view's line went
+  through the person under the reticle and hit what stood behind; seen from the eyes, with the camera over the
+  shoulder 52 cm to the right, that point is beside the person (17 to 24 degrees at 1.3 m). The reticle now looks
+  for the person it covers (`FindReticleTarget`: the nearest living body whose axis, a character's capsule or a
+  pedestrian from the feet up `BodyHeightCm`, passes within `ReticleBodyRadiusCm` of the view's line, before the
+  first obstacle) and the aim goes from the eyes to the middle of that body. The log says `weapon: reticle on …`
+  when that person changes. `FindAimTarget` (armed threat for the police, aim assist) measures its cone to the
+  point of the body's axis nearest to the aim line instead of the chest: up close the chest is far in degrees from
+  a gun held on the person. The Pedestrians side widened its cone up close the same night; both hold together.

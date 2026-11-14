@@ -310,3 +310,14 @@ Lyra n'est repris : Lyra repose sur GAS et ShooterCore, que l'ADR-0011 écarte. 
   sortait du cône de 12 degrés et personne ne réagissait (étape braquage de `-GTARun` en échec à 226 cm, réussie à
   498 cm). Le tir en voiture garde la bouche du canon. L'étape braquage de `-GTARun` place la vue sur le point que
   teste la peur du piéton, comme un joueur met le réticule sur quelqu'un.
+- **Le réticule sur une personne (14/11)** : `-GTARun` sur le candidat 32 visait un piéton à 126 cm et tous les
+  piétons étaient à 17,7 degrés ou plus de la visée. Les piétons n'ont pas de collision pour les traces : la ligne de
+  la vue traversait la personne sous le réticule et touchait ce qui se trouvait derrière ; vu des yeux, avec la
+  caméra par-dessus l'épaule à 52 cm à droite, ce point est à côté de la personne (17 à 24 degrés à 1,3 m). Le
+  réticule cherche maintenant la personne qu'il couvre (`FindReticleTarget` : le corps vivant le plus proche dont
+  l'axe, la capsule d'un personnage ou un piéton des pieds jusqu'à `BodyHeightCm`, passe à moins de
+  `ReticleBodyRadiusCm` de la ligne de la vue, avant le premier obstacle) et la visée va des yeux au milieu de ce
+  corps. Le journal dit `weapon: reticle on …` quand cette personne change. `FindAimTarget` (menace armée pour la
+  police, aide à la visée) mesure son cône jusqu'au point de l'axe du corps le plus proche de la ligne de visée, et
+  non plus jusqu'à la poitrine : de près, la poitrine est loin en degrés d'une arme tenue sur la personne. Le côté
+  Piétons a élargi son cône de près la même nuit ; les deux tiennent ensemble.

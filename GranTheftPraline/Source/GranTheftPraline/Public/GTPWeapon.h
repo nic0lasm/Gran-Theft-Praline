@@ -265,7 +265,7 @@ private:
 	bool Fire(const FVector& ViewOrigin, const FVector& ViewDirection, float SpreadFactor);
 	bool TryFireFromView();
 	FVector GetMuzzle() const;
-	/** Player only: from the eyes to what the reticle covers (the view's line to the first obstacle). */
+	/** Player only: from the eyes to what the reticle covers (the person it is on, else the view's line to the first obstacle). */
 	bool GetReticleAim(FVector& OutOrigin, FVector& OutDirection) const;
 	float GetSpeedShare() const;
 	void PlayClip(const TCHAR* Suffix);
@@ -320,6 +320,8 @@ private:
 	FName AimLoopSlot;
 	/** Last slot reported for the full-pose clips (logged when it changes). */
 	FName LoggedClipSlot;
+	/** The person under the player's reticle last time it was looked at (logged when it changes). */
+	mutable TWeakObjectPtr<AActor> ReticlePerson;
 	float AimProbeLeft = 0.f;
 	float AimRestartLeft = 0.f;
 };

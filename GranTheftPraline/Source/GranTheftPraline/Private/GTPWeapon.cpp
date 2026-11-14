@@ -520,7 +520,24 @@ bool UGTPWeaponComponent::GetReticleAim(FVector& OutOrigin, FVector& OutDirectio
 	const FVector End = View + ViewRotation.Vector() * ReticleRangeCm;
 	FHitResult Hit;
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(GTPReticleAim), false, Pawn);
-	const FVector Target = World->LineTraceSingleByChannel(Hit, View, End, ECC_Visibility, Params) ? Hit.ImpactPoint : End;
+	const bool bWall = World->LineTraceSingleByChannel(Hit, View, End, ECC_Visibility, Params);
+	FVector Target = bWall ? Hit.ImpactPoint : End;
+	// People have no collision for this trace: the view's line went through the person under the reticle and hit
+	// what stands behind. Seen from the eyes, that point is beside the person (the camera is over the shoulder,
+	// 52 cm to the right: 17 to 24 degrees off at 1.3 m). The aim goes to the person the reticle covers instead.
+	AActor* Person = nullptr;
+	if (const UGTPCombatSubsystem* Combat = World->GetSubsystem<UGTPCombatSubsystem>())
+	{
+		FVector Middle;
+		Person = Combat->FindReticleTarget(View, ViewRotation.Vector(), bWall ? Hit.Distance : ReticleRangeCm, Pawn, Middle);
+		Target = Person ? Middle : Target;
+	}
+	if (Person != ReticlePerson.Get())
+	{
+		ReticlePerson = Person;
+		GTP_TRACE(LogGTPCombat, TEXT("weapon: reticle on %s%s"), Person ? *Person->GetName() : TEXT("nobody"),
+			Person ? *FString::Printf(TEXT(" at %.0f cm"), FVector::Dist(Pawn->GetActorLocation(), Person->GetActorLocation())) : TEXT(""));
+	}
 	const FVector Eyes = Pawn->GetPawnViewLocation();
 	const FVector Direction = (Target - Eyes).GetSafeNormal();
 	if (Direction.IsNearlyZero())
