@@ -165,6 +165,17 @@ protected:
 	/** How fast the framing goes in and out of the aim, 1/s. */
 	UPROPERTY(Config, EditAnywhere, Category = "Follow camera|Aim")
 	float AimBlendSpeed = 12.f;
+	/**
+	 * Aiming, the camera follows the head's height (the pawn mesh's head bone) instead of a fixed height on the
+	 * capsule: an aim pose that lowers the head (65 cm with the Lyra pistol pose) would otherwise leave the head
+	 * and the gun under the frame. Limited to AimHeadMaxDrop down and AimHeadMaxRise up, cm.
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Follow camera|Aim")
+	bool bAimFollowsHead = true;
+	UPROPERTY(Config, EditAnywhere, Category = "Follow camera|Aim")
+	float AimHeadMaxDrop = 90.f;
+	UPROPERTY(Config, EditAnywhere, Category = "Follow camera|Aim")
+	float AimHeadMaxRise = 30.f;
 
 	UPROPERTY(Config, EditAnywhere, Category = "Follow camera|Recenter")
 	bool bAutoRecenter = true;
@@ -220,6 +231,8 @@ private:
 	float CurrentFOV = 0.f;
 	/** 0 = free framing, 1 = aiming over the shoulder. */
 	float AimAlpha = 0.f;
+	/** Smoothed height the aim framing follows the head by, cm (negative: the head is lower than the pivot). */
+	float AimHeadOffset = 0.f;
 	/** +1 right shoulder, -1 left (smoothed through the swap). */
 	float ShoulderSide = 1.f;
 	double LastLookInputTime = -1000.0;

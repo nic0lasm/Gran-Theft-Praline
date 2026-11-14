@@ -11,6 +11,7 @@
 #include "Animation/Skeleton.h"
 #include "Camera/PlayerCameraManager.h"
 #include "CollisionQueryParams.h"
+#include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/SkeletalMesh.h"
 #include "Engine/World.h"
@@ -963,26 +964,34 @@ void UGTPWeaponComponent::ProbeHands(float DeltaTime)
 	// The framing: where the heads and the camera are from the capsule's centre (a head under the frame means a
 	// camera too high or pitched up, or a body sunk under the capsule).
 	const FVector Centre = Character->GetActorLocation();
-	// Head and pelvis heights, and how far the spine leans from upright (forward, to the right), in degrees:
-	// a head that drops with a level pelvis is a bent spine, with the pelvis too it is a crouch.
-	auto HeadHeight = [&Centre, &Forward, &Right](const USkeletalMeshComponent* Mesh) -> FString
+	// Head, pelvis and left foot heights, and how far the spine leans from upright (forward, to the right), in
+	// degrees, past 90 when bent over: a head that drops with a level pelvis is a bent spine; with the pelvis and
+	// the feet on the ground, a crouch; with the feet under the ground, a pose sunk into it.
+	const float HalfHeight = Character->GetCapsuleComponent() ? Character->GetCapsuleComponent()->GetScaledCapsuleHalfHeight() : 0.f;
+	auto HeadHeight = [&Centre, &Forward, &Right, HalfHeight](const USkeletalMeshComponent* Mesh) -> FString
 	{
 		static const FName Pelvis(TEXT("pelvis"));
+		static const FName Foot(TEXT("foot_l"));
 		if (!Mesh || Mesh->GetBoneIndex(Head) == INDEX_NONE)
 		{
 			return FString(TEXT("-"));
 		}
 		const FVector HeadAt = Mesh->GetSocketLocation(Head);
-		if (Mesh->GetBoneIndex(Pelvis) == INDEX_NONE)
+		FString Text = FString::Printf(TEXT("%.0f"), (HeadAt - Centre).Z);
+		if (Mesh->GetBoneIndex(Pelvis) != INDEX_NONE)
 		{
-			return FString::Printf(TEXT("%.0f"), (HeadAt - Centre).Z);
+			const FVector PelvisAt = Mesh->GetSocketLocation(Pelvis);
+			const FVector Spine = HeadAt - PelvisAt;
+			Text += FString::Printf(TEXT(" (pelvis %.0f, lean %.0f fwd %.0f right"), (PelvisAt - Centre).Z,
+				FMath::RadiansToDegrees(FMath::Atan2(FVector::DotProduct(Spine, Forward), Spine.Z)),
+				FMath::RadiansToDegrees(FMath::Atan2(FVector::DotProduct(Spine, Right), Spine.Z)));
+			if (Mesh->GetBoneIndex(Foot) != INDEX_NONE)
+			{
+				Text += FString::Printf(TEXT(", foot_l %.0f above the ground"), (Mesh->GetSocketLocation(Foot) - Centre).Z + HalfHeight);
+			}
+			Text += TEXT(")");
 		}
-		const FVector PelvisAt = Mesh->GetSocketLocation(Pelvis);
-		const FVector Spine = HeadAt - PelvisAt;
-		const double Up = FMath::Max(1.0, Spine.Z);
-		return FString::Printf(TEXT("%.0f (pelvis %.0f, lean %.0f fwd %.0f right)"), (HeadAt - Centre).Z, (PelvisAt - Centre).Z,
-			FMath::RadiansToDegrees(FMath::Atan2(FVector::DotProduct(Spine, Forward), Up)),
-			FMath::RadiansToDegrees(FMath::Atan2(FVector::DotProduct(Spine, Right), Up)));
+		return Text;
 	};
 	FString CameraText(TEXT("-"));
 	if (const APlayerController* PC = GetPlayerController())

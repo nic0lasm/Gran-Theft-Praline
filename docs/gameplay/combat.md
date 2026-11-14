@@ -217,8 +217,10 @@ is taken: Lyra stands on GAS and ShooterCore, which ADR-0011 leaves out. We take
   5.8 batch retarget with keywords (`target_path`).
 - **Upper body only**: the player's blueprint (`SandboxCharacter_CMC_ABP`) has only `DefaultSlot`. Clips played
   in a slot go through a blend profile made at load from the player's skeleton, in WeightFactor mode (`UpperBodyRoot`,
-  `spine_01` and its children weigh 1, every other bone 0; a BlendMask profile asserts in a montage slot in 5.8), so drawing, reloading and the aim pose leave the legs walking. No change to the
-  blueprint. Without the bone, or if the mask cannot be made, clips play on the full body as before (logged once).
+  `spine_01` and its children weigh 1, every other bone 0; a BlendMask profile asserts in a montage slot in 5.8). Measured on candidate 32: this
+  profile only shapes the blend in and out; at full weight the clip plays on the whole body (with `UpperBodyRoot`
+  set to `spine_03` instead of `spine_01` the pose is identical to the centimetre). A real upper-body layer needs a
+  layered blend in the player's animation blueprint. No change to the blueprint so far. Without the bone, or if the mask cannot be made, clips play on the full body as before (logged once).
 - **Clips**: full-pose Lyra actions (`MM_*_Equip`, `_Reload`, `_DryFire`, `_Idle_ADS`) in `DefaultSlot`. Lyra's
   Fire exists only as an additive: it waits for an additive slot in the player's blueprint, the camera kick and
   the flash carry the shot until then.
@@ -263,6 +265,11 @@ is taken: Lyra stands on GAS and ShooterCore, which ADR-0011 leaves out. We take
   so the aim camera, framed for a standing head, shows only the back of it at the bottom of the image while the
   two-handed pistol pose itself is right. `weapon: frame probe` now adds the pelvis height and the spine's lean
   (forward, right) to tell a bent spine from a crouch before the camera or the upper-body mask changes.
+  Candidate 32: the pawn's pelvis drops from 3 to -62 cm with the spine nearly upright (7 degrees): the Lyra pistol
+  aim pose, played on the whole body, lowers the hips by 65 cm. The aim camera now follows the head's height
+  (`bAimFollowsHead`, at most 90 cm down and 30 cm up), so the head and the gun stay in frame whatever the pose;
+  the frame probe adds the left foot's height above the ground, and `-NoAimFraming` keeps the wide framing while
+  aiming, to see the whole body and tell a crouch from a pose sunk into the ground.
 - **Who is aimed at (fix of 13/11 night)**: the player on foot reports the threat from the eyes to what the reticle
   covers (the view's line to the first obstacle), as he shoots from the view, no longer from the muzzle. The
   muzzle sits in the visible body's hand: with that hand down at the hip, a pedestrian 2 m away fell outside the 12

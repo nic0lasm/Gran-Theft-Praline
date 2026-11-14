@@ -9,6 +9,8 @@
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Parse.h"
 #include "GTPWeapon.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogGTPFollowCamera, Log, All);
@@ -232,7 +234,9 @@ void UGTPFollowCameraComponent::UpdateCamera(APlayerController* PC, const AChara
 
 	// Aiming a gun: in over the shoulder the weapon names (GTA-like).
 	const UGTPWeaponComponent* Weapon = Character->FindComponentByClass<UGTPWeaponComponent>();
-	const bool bAiming = Weapon && Weapon->IsAiming();
+	// -NoAimFraming keeps the free framing while aiming: the whole body in view, to judge the aim pose itself.
+	static const bool bNoAimFraming = FParse::Param(FCommandLine::Get(), TEXT("NoAimFraming"));
+	const bool bAiming = Weapon && Weapon->IsAiming() && !bNoAimFraming;
 	const float TargetSide = (Weapon && !Weapon->IsRightShoulder()) ? -1.f : 1.f;
 	const float AimRate = SmoothAlpha(AimBlendSpeed, DeltaTime);
 	AimAlpha = bInstant ? (bAiming ? 1.f : 0.f) : FMath::Lerp(AimAlpha, bAiming ? 1.f : 0.f, AimRate);
@@ -253,7 +257,21 @@ void UGTPFollowCameraComponent::UpdateCamera(APlayerController* PC, const AChara
 	CurrentArm = bInstant ? TargetArm : FMath::Lerp(CurrentArm, TargetArm, SmoothAlpha(FMath::Lerp(ArmSpeed, AimBlendSpeed, AimAlpha), DeltaTime));
 	const FVector2D Shoulder = FMath::Lerp(ShoulderOffset, AimShoulderOffset, AimAlpha);
 
-	const FVector Desired = SmoothedPivot + Rotation.RotateVector(FVector(-CurrentArm, Shoulder.X * ShoulderSide, Shoulder.Y));
+	// Aiming, the framing follows the head down (or up): the aim pose may lower it well under the pivot.
+	float TargetHeadOffset = 0.f;
+	if (bAimFollowsHead && AimAlpha > 0.01f)
+	{
+		static const FName HeadBone(TEXT("head"));
+		const USkeletalMeshComponent* Mesh = Character->GetMesh();
+		if (Mesh && Mesh->GetBoneIndex(HeadBone) != INDEX_NONE)
+		{
+			const float Offset = static_cast<float>(Mesh->GetSocketLocation(HeadBone).Z - RawPivot.Z);
+			TargetHeadOffset = FMath::Clamp(Offset, -AimHeadMaxDrop, AimHeadMaxRise) * AimAlpha;
+		}
+	}
+	AimHeadOffset = bInstant ? TargetHeadOffset : FMath::Lerp(AimHeadOffset, TargetHeadOffset, AimRate);
+	const FVector Desired = SmoothedPivot + FVector(0.f, 0.f, AimHeadOffset)
+		+ Rotation.RotateVector(FVector(-CurrentArm, Shoulder.X * ShoulderSide, Shoulder.Y));
 
 	// Collision: sweep from the unlagged pivot (inside the capsule, never in a wall).
 	float HitFraction = 1.f;
