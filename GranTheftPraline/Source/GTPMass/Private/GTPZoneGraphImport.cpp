@@ -7,7 +7,9 @@
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
 #include "UObject/UnrealType.h"
+#include "ZoneGraphData.h"
 #include "ZoneGraphSettings.h"
+#include "ZoneGraphSubsystem.h"
 #include "ZoneGraphTypes.h"
 #include "ZoneShapeActor.h"
 #include "ZoneShapeComponent.h"
@@ -336,6 +338,83 @@ FString UGTPZoneGraphImport::BuildFromFile(UObject* WorldContext, const FString&
 		Report.Counts.FindOrAdd(bPolygon ? TEXT("polygons") : (ProfileName == TEXT("Car") ? TEXT("car_splines") : TEXT("walk_splines")))++;
 	}
 	UE_LOG(LogGTPZoneGraph, Log, TEXT("zonegraph import: %s"), *Report.ToJson());
+	return Report.ToJson();
+}
+
+FString UGTPZoneGraphImport::BuildZoneGraphData(UObject* WorldContext)
+{
+	using namespace GTPZoneGraphImportLocal;
+	FReport Report;
+	UWorld* World = WorldContext ? WorldContext->GetWorld() : nullptr;
+	if (!World || !World->PersistentLevel)
+	{
+		Report.Error(TEXT("no world"));
+		return Report.ToJson();
+	}
+#if WITH_EDITOR
+	UZoneGraphSubsystem* ZoneGraph = UWorld::GetSubsystem<UZoneGraphSubsystem>(World);
+	if (!ZoneGraph)
+	{
+		Report.Error(TEXT("no ZoneGraph subsystem in this world"));
+		return Report.ToJson();
+	}
+	// The data actor the shapes of a level are built into. The engine spawns it itself only when
+	// "build while editing" is on (protected UZoneGraphSubsystem::SpawnMissingZoneGraphData), which
+	// it is not here: one is added to the persistent level, where our shapes are, if missing.
+	TArray<AZoneGraphData*> AllData;
+	for (TActorIterator<AZoneGraphData> It(World); It; ++It)
+	{
+		AllData.Add(*It);
+	}
+	const bool bHasOwn = AllData.ContainsByPredicate([World](const AZoneGraphData* Data) { return Data->GetLevel() == World->PersistentLevel; });
+	if (!bHasOwn)
+	{
+		FActorSpawnParameters Params;
+		Params.OverrideLevel = World->PersistentLevel;
+		AZoneGraphData* Data = World->SpawnActor<AZoneGraphData>(AZoneGraphData::StaticClass(), FTransform::Identity, Params);
+		if (!Data)
+		{
+			Report.Error(TEXT("cannot spawn a ZoneGraphData actor"));
+			return Report.ToJson();
+		}
+		Data->SetFolderPath(TEXT("City/ZoneGraph"));
+		AllData.Add(Data);
+		Report.Counts.Add(TEXT("data_spawned"), 1);
+	}
+	int32 Shapes = 0;
+	for (TActorIterator<AZoneShape> It(World); It; ++It)
+	{
+		Shapes += It->FindComponentByClass<UZoneShapeComponent>() ? 1 : 0;
+	}
+	FZoneGraphBuilder& Builder = ZoneGraph->GetBuilder();
+	Report.Counts.Add(TEXT("shapes_in_world"), Shapes);
+	Report.Counts.Add(TEXT("shapes_registered"), Builder.GetRegisteredZoneShapeComponents().Num());
+	if (Builder.GetRegisteredZoneShapeComponents().Num() < Shapes)
+	{
+		Report.Error(TEXT("fewer shapes registered with the ZoneGraph builder than in the world: those are left out"));
+	}
+	// The editor's own "Build ZoneGraph" path: shapes register with the builder when their
+	// component registers; BuildAll turns them into lanes and zones in each data actor.
+	Builder.BuildAll(AllData, /*bForceRebuild*/ true);
+	int32 Lanes = 0;
+	int32 Zones = 0;
+	for (AZoneGraphData* Data : AllData)
+	{
+		Lanes += Data->GetStorage().Lanes.Num();
+		Zones += Data->GetStorage().Zones.Num();
+		Data->MarkPackageDirty();
+	}
+	Report.Counts.Add(TEXT("data_actors"), AllData.Num());
+	Report.Counts.Add(TEXT("lanes"), Lanes);
+	Report.Counts.Add(TEXT("zones"), Zones);
+	if (Lanes == 0)
+	{
+		Report.Error(TEXT("ZoneGraph built with 0 lanes: no MassTraffic car can spawn"));
+	}
+#else
+	Report.Error(TEXT("ZoneGraph data is built in the editor only"));
+#endif
+	UE_LOG(LogGTPZoneGraph, Log, TEXT("zonegraph build: %s"), *Report.ToJson());
 	return Report.ToJson();
 }
 

@@ -5,8 +5,10 @@ Input: gen/<focus>/zonegraph/zonegraph.json (tools/city/zonegraph.py: driving la
 polygons, walkways, crossings). The C++ importer UGTPZoneGraphImport (module GTPMass) places one
 ZoneShape actor per shape in folder City/ZoneGraph, after removing the previous ones, and adds
 the missing ZoneGraph tags and lane profiles to the settings in memory: our tags keep fixed bits
-(Car 1, Intersection 2, Pedestrian 3, Crossing 4), the ones MassTraffic's lane filters use. The map is then saved: nobody edits
-the ZoneGraph by hand. Report: Saved/CityImport/zonegraph_report.json.
+(Car 1, Intersection 2, Pedestrian 3, Crossing 4), the ones MassTraffic's lane filters use. The
+lanes are then built from the shapes (UGTPZoneGraphImport::BuildZoneGraphData: a ZoneGraphData
+actor in the map, the engine's builder run) and the map is saved: nobody edits the ZoneGraph by
+hand. Report: Saved/CityImport/zonegraph_report.json ("build": shapes, lanes, zones).
 """
 
 import json
@@ -55,9 +57,11 @@ def main():
     report["counts"] = result.get("counts", {})
     report["info"] = result.get("info", {})
     report["errors"] += result.get("errors", [])
-    # ZoneGraph rebuilds its data when shapes change in the editor; the console command asks for it
-    # explicitly where the engine has it (unknown commands are ignored).
-    unreal.SystemLibrary.execute_console_command(world, "ZoneGraph.BuildData")
+    # The engine builds ZoneGraph data by itself only with "build while editing" on: the importer
+    # runs its builder, and the lanes are saved with the map (0 lanes: no MassTraffic car).
+    build = json.loads(importer.build_zone_graph_data(world))
+    report["build"] = build.get("counts", {})
+    report["errors"] += build.get("errors", [])
     level_sub.save_current_level()
     write(report, t0)
 

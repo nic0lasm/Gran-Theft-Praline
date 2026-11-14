@@ -41,6 +41,12 @@ Status 13/11/2026: prepared, not compiled, waiting for City Sample on the PC. De
    Python in 5.8), by the GTPMass module at every engine start, game and package included. No
    config file is written or needed. The log line "traffic lane filters" lists the filters set;
    `place_masstraffic.py` reports an error when none is.
+   The engine builds the ZoneGraph data (the lanes MassTraffic drives on) by itself only when
+   "build while editing" is on, which it is not: `place_zonegraph.py` then calls
+   `UGTPZoneGraphImport::BuildZoneGraphData`, which adds a ZoneGraphData actor to the map if it has
+   none and runs the engine's builder (`FZoneGraphBuilder::BuildAll`, forced; the subsystem's own
+   rebuild is protected). The lanes are saved with the map. Its report gives `build`: shapes,
+   lanes, zones; 0 lanes is an error.
    City Sample's traffic configs and spawner Blueprints live in the City Sample project's own
    content (/Game/AI/Traffic, /Game/AI/Traffic/Spawners, /Game/Vehicle/veh*): they are copied to
    the same /Game paths in our project (out of Git), so their references hold.
