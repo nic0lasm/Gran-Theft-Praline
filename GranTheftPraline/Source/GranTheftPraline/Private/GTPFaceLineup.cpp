@@ -11,6 +11,7 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/SkeletalMesh.h"
 #include "Engine/World.h"
+#include "GameFramework/Character.h"
 #include "GameFramework/HUD.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
@@ -45,6 +46,56 @@ namespace GTPFaceLineupPrivate
 			Index = Skeleton.GetParentIndex(Index);
 		}
 		return true;
+	}
+
+	/** Component-space reference pose of every bone (a reference skeleton lists parents before their children). */
+	TArray<FTransform> RefPoseAll(const USkeletalMesh* Mesh)
+	{
+		const FReferenceSkeleton& Skeleton = Mesh->GetRefSkeleton();
+		const TArray<FTransform>& Local = Skeleton.GetRefBonePose();
+		TArray<FTransform> Out;
+		Out.SetNum(Local.Num());
+		for (int32 Index = 0; Index < Local.Num(); ++Index)
+		{
+			const int32 Parent = Skeleton.GetParentIndex(Index);
+			Out[Index] = Parent == INDEX_NONE ? Local[Index] : Local[Index] * Out[Parent];
+		}
+		return Out;
+	}
+
+	/** Degrees between the left upper arm (shoulder to elbow) and straight down in the mesh's own pose, -1 without it. */
+	float ArmDownAngle(const USkeletalMeshComponent* Mesh)
+	{
+		if (!Mesh)
+		{
+			return -1.f;
+		}
+		const TArray<FTransform>& Space = Mesh->GetComponentSpaceTransforms();
+		const int32 Upper = Mesh->GetBoneIndex(TEXT("upperarm_l"));
+		const int32 Lower = Mesh->GetBoneIndex(TEXT("lowerarm_l"));
+		if (!Space.IsValidIndex(Upper) || !Space.IsValidIndex(Lower))
+		{
+			return -1.f;
+		}
+		const FVector Arm = (Space[Lower].GetLocation() - Space[Upper].GetLocation()).GetSafeNormal();
+		const double Cosine = FMath::Clamp(FVector::DotProduct(Arm, FVector(0.0, 0.0, -1.0)), -1.0, 1.0);
+		return static_cast<float>(FMath::RadiansToDegrees(FMath::Acos(Cosine)));
+	}
+
+	/** At most Max names, then how many more. */
+	FString SomeNames(const TArray<FString>& Names, int32 Max)
+	{
+		TArray<FString> Shown;
+		for (int32 Index = 0; Index < Names.Num() && Index < Max; ++Index)
+		{
+			Shown.Add(Names[Index]);
+		}
+		FString Text = FString::Join(Shown, TEXT(", "));
+		if (Names.Num() > Max)
+		{
+			Text += FString::Printf(TEXT(" and %d more"), Names.Num() - Max);
+		}
+		return Names.Num() > 0 ? Text : FString(TEXT("none"));
 	}
 }
 
@@ -243,6 +294,10 @@ void UGTPFaceLineupSubsystem::Shoot()
 	FScreenshotRequest::RequestScreenshot(File, false, false);
 	// The proof that the image is the portrait and not the game's view.
 	const APlayerController* PC = World->GetFirstPlayerController();
+	if (bPlayerPortrait)
+	{
+		LogRig(PC ? PC->GetPawn() : nullptr);
+	}
 	const AActor* Viewing = PC ? PC->GetViewTarget() : nullptr;
 	const FVector Eye = PC && PC->PlayerCameraManager ? PC->PlayerCameraManager->GetCameraLocation() : FVector::ZeroVector;
 	UE_LOG(LogGTPFaceLineup, Log, TEXT("face lineup: %s portrait requested: %s; view target %s (%s), view %.0f cm from the portrait camera, FOV %.0f"),
@@ -291,6 +346,7 @@ bool UGTPFaceLineupSubsystem::FramePlayer(APlayerController* PC, bool bFace)
 		return false;
 	}
 	HoldStage(PC, true, false);
+	PlayerBody = Shown;
 	const FVector Head = Shown->GetSocketLocation(TEXT("head"));
 	const FVector Forward = Pawn->GetActorForwardVector().GetSafeNormal2D();
 	const FVector Feet = Pawn->GetActorLocation() - FVector(0.0, 0.0, Pawn->GetSimpleCollisionHalfHeight());
@@ -307,6 +363,75 @@ bool UGTPFaceLineupSubsystem::FramePlayer(APlayerController* PC, bool bFace)
 	UE_LOG(LogGTPFaceLineup, Log, TEXT("face lineup: %s, on %s of %s (mesh %s), head %.0f cm above the feet"), bFace ? TEXT("player face") : TEXT("player full length"),
 		*Shown->GetName(), *GetNameSafe(Shown->GetOwner()), *GetNameSafe(Shown->GetSkeletalMeshAsset()), (Head - Feet).Z);
 	return true;
+}
+
+void UGTPFaceLineupSubsystem::LogRig(const APawn* Pawn) const
+{
+	using namespace GTPFaceLineupPrivate;
+	const USkeletalMeshComponent* Body = PlayerBody.Get();
+	const USkeletalMesh* BodyAsset = Body ? Body->GetSkeletalMeshAsset() : nullptr;
+	if (!BodyAsset)
+	{
+		UE_LOG(LogGTPFaceLineup, Log, TEXT("rig: no player body"));
+		return;
+	}
+	const ACharacter* Character = Cast<ACharacter>(Pawn);
+	const USkeletalMeshComponent* Own = Character ? Character->GetMesh() : nullptr;
+	const UAnimInstance* OwnAnim = Own ? Own->GetAnimInstance() : nullptr;
+	const UAnimInstance* BodyAnim = Body->GetAnimInstance();
+	UE_LOG(LogGTPFaceLineup, Log, TEXT("rig: left upper arm %.0f deg from straight down on the pawn's mesh %s (anim %s), %.0f deg on the body %s (anim %s); body LOD %d of %d, forced %d"),
+		ArmDownAngle(Own), *GetNameSafe(Own ? Own->GetSkeletalMeshAsset() : nullptr), OwnAnim ? *OwnAnim->GetClass()->GetName() : TEXT("none"),
+		ArmDownAngle(Body), *BodyAsset->GetName(), BodyAnim ? *BodyAnim->GetClass()->GetName() : TEXT("none"),
+		Body->GetPredictedLODLevel(), Body->GetNumLODs(), Body->GetForcedLOD());
+	// A bone at the component's origin while its reference place is not: the body's pose never wrote it.
+	const TArray<FTransform> Ref = RefPoseAll(BodyAsset);
+	const TArray<FTransform>& Space = Body->GetComponentSpaceTransforms();
+	const FReferenceSkeleton& Skeleton = BodyAsset->GetRefSkeleton();
+	TSet<int32> AtOrigin;
+	TArray<FString> AtOriginNames;
+	for (int32 Index = 0; Index < Space.Num() && Index < Ref.Num(); ++Index)
+	{
+		if (Space[Index].GetLocation().Size() < 1.0 && Ref[Index].GetLocation().Size() > 10.0)
+		{
+			AtOrigin.Add(Index);
+			AtOriginNames.Add(Skeleton.GetBoneName(Index).ToString());
+		}
+	}
+	UE_LOG(LogGTPFaceLineup, Log, TEXT("rig: body %s, %d bones, %d at the origin instead of their place: %s"),
+		*Body->GetName(), Space.Num(), AtOrigin.Num(), *SomeNames(AtOriginNames, 40));
+	AActor* Owner = Body->GetOwner();
+	TArray<USkeletalMeshComponent*> Meshes;
+	if (Owner)
+	{
+		Owner->GetComponents<USkeletalMeshComponent>(Meshes);
+	}
+	for (const USkeletalMeshComponent* Mesh : Meshes)
+	{
+		const USkeletalMesh* Asset = Mesh ? Mesh->GetSkeletalMeshAsset() : nullptr;
+		if (!Asset || Mesh == Body || Mesh->LeaderPoseComponent.Get() != Body)
+		{
+			continue;
+		}
+		const FReferenceSkeleton& Part = Asset->GetRefSkeleton();
+		TArray<FString> Lacking;
+		TArray<FString> OnOrigin;
+		for (int32 Index = 0; Index < Part.GetNum(); ++Index)
+		{
+			const FName Bone = Part.GetBoneName(Index);
+			const int32 InBody = Body->GetBoneIndex(Bone);
+			if (InBody == INDEX_NONE)
+			{
+				Lacking.Add(Bone.ToString());
+			}
+			else if (AtOrigin.Contains(InBody))
+			{
+				OnOrigin.Add(Bone.ToString());
+			}
+		}
+		UE_LOG(LogGTPFaceLineup, Log, TEXT("rig: %s (%s, LOD %d) follows the body: %d bones, %d not in the body (they keep their reference pose): %s; %d read at the origin: %s"),
+			*Mesh->GetName(), *Asset->GetName(), Mesh->GetPredictedLODLevel(), Part.GetNum(), Lacking.Num(), *SomeNames(Lacking, 30),
+			OnOrigin.Num(), *SomeNames(OnOrigin, 30));
+	}
 }
 
 void UGTPFaceLineupSubsystem::HoldStage(APlayerController* PC, bool bHold, bool bHidePlayer)

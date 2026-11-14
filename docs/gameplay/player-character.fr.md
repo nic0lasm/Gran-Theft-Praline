@@ -340,6 +340,17 @@ sur laquelle le groom a été fait) ou projetés directement, sous un nouveau no
 visages dans le rapport ; le diagnostic écrit d'abord les os et liste aussi les os qu'écrit le reciblage du joueur
 (`RTG_UEFNped_to_Metahuman`, racine et chaînes de son IK rig cible) qui manquent au corps de foule.
 
+Le même pan et la même pose A légère étaient sur les images du mode face (corps et tenue de Kellan, le pan sous son
+sweat, qui pend comme une chasuble) : ils ne viennent ni du corps de foule ni de ses vêtements, et Kellan, le visuel
+actuel du joueur, les a sans doute aussi en jeu (la caméra de suivi voit son dos). Le journal du jeu dit que le
+reciblage est posé (`RTG_UEFNped_to_Metahuman`, 5 réglages) et que le corps est animé à chaque image. Pour voir en
+chiffres ce que montrent les images, `-NicolitoPortrait` écrit maintenant à chaque prise (`rig: ...`) l'angle du
+bras gauche avec la verticale sur le maillage caché du pion et sur le corps (le même si le corps suit la pose du
+pion), le LOD du corps, les os du corps restés à l'origine du composant alors que leur place de référence ne l'est
+pas (jamais écrits par sa pose), et pour chaque maillage qui suit la pose du corps les os qui lui manquent et ceux
+qu'il lit à l'origine (un sommet pondéré sur un tel os est tiré vers les pieds : une pointe qui pend entre les
+jambes).
+
 **Grooms (14/11/2026).** Kellan a six composants groom (cheveux, sourcils, cils, duvet, moustache, barbe), qui
 tickent tous dans le package pour un budget de 13 ms. La simulation des brins est coupée
 (`r.HairStrands.Simulation=0`). Le mode de jeu cache aussi, sans tick, les grooms dont le nom contient un mot de

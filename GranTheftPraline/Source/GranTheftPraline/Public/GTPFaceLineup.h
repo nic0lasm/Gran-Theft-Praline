@@ -6,6 +6,8 @@
 
 class ACameraActor;
 class AGTPPedestrian;
+class APawn;
+class USkeletalMeshComponent;
 
 /**
  * -NicolitoFaces: portraits of the male heads of the City Sample crowd, for the choice of Nicolito's face
@@ -20,7 +22,8 @@ class AGTPPedestrian;
  *
  * -NicolitoPortrait: the same bench on the player himself, as he is in the game (his visual, PlayerVisualClass or
  * -PlayerVisual=): a face portrait (Nicolito_player_face.png) and a full-length one from the front
- * (Nicolito_player_body.png, PlayerBodyDistanceCm), 10 s after the start, the player left visible.
+ * (Nicolito_player_body.png, PlayerBodyDistanceCm), 10 s after the start, the player left visible. At each shot the
+ * log says "rig: ..." (see LogRig).
  */
 UCLASS(Config = Game)
 class GRANTHEFTPRALINE_API UGTPFaceLineupSubsystem : public UWorldSubsystem
@@ -54,6 +57,14 @@ private:
 	void HoldStage(APlayerController* PC, bool bHold, bool bHidePlayer = true);
 	/** -NicolitoPortrait: places the camera on the player's own head (face) or in front of him (body). */
 	bool FramePlayer(APlayerController* PC, bool bFace);
+	/**
+	 * -NicolitoPortrait: what the player's visual body reads, in numbers, for what the images show: the left upper
+	 * arm's angle from straight down on the pawn's (hidden) mesh and on the body (the same pose if the retarget
+	 * follows), the body's LOD, its bones at the component's origin while their reference place is not (never
+	 * written by its pose), and for each mesh following the body's pose the bones it lacks and those it reads at
+	 * the origin (a vertex weighted to them is pulled towards the feet).
+	 */
+	void LogRig(const APawn* Pawn) const;
 
 	/** Object path of each head's face mesh, and its short name (m_001). */
 	TArray<FString> Heads;
@@ -64,6 +75,8 @@ private:
 	TObjectPtr<AGTPPedestrian> Model;
 	UPROPERTY(Transient)
 	TObjectPtr<ACameraActor> Camera;
+	/** The player's visible body, found by FramePlayer. */
+	TWeakObjectPtr<USkeletalMeshComponent> PlayerBody;
 	/** What HoldStage changed, to put back as it was. */
 	TArray<TWeakObjectPtr<UActorComponent>> PausedCameras;
 	TArray<TWeakObjectPtr<AActor>> HiddenActors;

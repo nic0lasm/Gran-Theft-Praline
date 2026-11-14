@@ -319,6 +319,16 @@ source mesh of Kellan's binding (the head the groom was made on) or projected di
 faces' LOD 0 sections in the report; the diagnosis prints the bones first and also lists the bones the player's
 retarget writes (`RTG_UEFNped_to_Metahuman`, its target IK rig's root and chains) that the crowd body lacks.
 
+The same panel and the same slight A pose were on the face-mode images (Kellan's own body and outfit, the panel under
+his hoodie, which hangs like a chasuble): they come neither from the crowd body nor from its garments, and Kellan,
+the player's current visual, likely has them in the game too (the follow camera looks at his back). The game log
+says the retarget is set (`RTG_UEFNped_to_Metahuman`, 5 settings) and the body ticks every frame. To see in numbers
+what the images show, `-NicolitoPortrait` now logs at each shot (`rig: ...`): the left upper arm's angle from
+straight down on the pawn's hidden mesh and on the body (the same angle if the body follows the pawn's pose), the
+body's LOD, the body's bones left at the component's origin while their reference place is not (never written by
+its pose), and for each mesh following the body's pose the bones it lacks and those it reads at the origin (a
+vertex weighted to such a bone is pulled towards the feet: a point hanging between the legs).
+
 **Grooms (2026-11-14).** Kellan has six groom components (hair, eyebrows, eyelashes, peach fuzz, moustache, beard),
 each ticking in the package against a 13 ms budget. Strand simulation is off (`r.HairStrands.Simulation=0`). The
 game mode also hides, without tick, the grooms whose name contains a word of `PlayerGroomsHidden` (`Fuzz`,
