@@ -67,6 +67,7 @@ private:
 	bool bParkedExitRequested = false;
 	bool bAimExitRequested = false;
 	double AimFirstReaction = -1.0;
+	double LastAimMoveTime = -1.0;
 	TWeakObjectPtr<AActor> AimedBefore;
 	int32 ShotsFired = 0;
 	double NextShot = 0.0;

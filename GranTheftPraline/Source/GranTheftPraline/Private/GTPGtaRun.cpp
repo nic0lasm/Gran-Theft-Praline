@@ -64,6 +64,7 @@ void UGTPGtaRun::BeginStep(int32 Index)
 	NextShot = 0.0;
 	bAimExitRequested = false;
 	AimFirstReaction = -1.0;
+	LastAimMoveTime = -1.0;
 	GTP_TRACE(LogGTPGtaRun, TEXT("GTARun step %d: %s start (t=%.0f s)"), Step + 1, StepNames[Step], FPlatformTime::Seconds() - RunStart);
 }
 
@@ -297,7 +298,6 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail, bool bClose)
 	// Stop at about 4 m (an aim from the shoulder camera misses somebody closer than 2 m), back off if too close.
 	// The weapon stays lowered on the way: raised, the aim stance slows or pins the walk (measured: 15 m away after 60 s).
 	const FVector ToVictim = (Victim->GetActorLocation() - Character->GetActorLocation()).GetSafeNormal2D();
-	PC->ResetIgnoreMoveInput(); // the arrest of the chase may have left the walk locked
 	const double StopCm = bClose ? 120.0 : 450.0;
 	const double BackCm = bClose ? 70.0 : 250.0;
 	Weapon->SetAiming(Best <= StopCm + 400.0);
@@ -305,6 +305,18 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail, bool bClose)
 	{
 		PC->SetControlRotation(ToVictim.Rotation());
 		Character->AddMovementInput(ToVictim, 1.f);
+		// The test shows a player who cannot walk instead of hiding it (a walk lock left by an arrest was found so).
+		const double Now2 = FPlatformTime::Seconds();
+		if (LastAimMoveTime < 0.0 || Character->GetVelocity().Size2D() > 20.0)
+		{
+			LastAimMoveTime = Now2;
+		}
+		else if (Now2 - LastAimMoveTime > 4.0)
+		{
+			Detail = FString::Printf(TEXT("the player does not walk for 4 s (%.0f cm from %s, ignore move input = %d)"), Best, *Victim->GetName(),
+				PC->IsMoveInputIgnored() ? 1 : 0);
+			return EResult::Fail;
+		}
 	}
 	else if (Best < BackCm)
 	{
