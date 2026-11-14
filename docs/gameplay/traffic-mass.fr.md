@@ -38,13 +38,13 @@ ADR-0015 (piétons et trafic sur Mass). Anglais : [traffic-mass.md](traffic-mass
 2. `Traffic.uplugin` n'est pas activé par défaut : le `.uproject` le liste avec `"Optional": true`,
    il se charge là où le plugin est copié et il est ignoré sans erreur ailleurs (Mac, CI).
    RuleProcessor est activé par défaut.
-3. Compiler la cible éditeur, lancer `place_zonegraph.py` puis `place_masstraffic.py`. Le premier
-   écrit nos tags ZoneGraph (Car, Intersection, Pedestrian, Crossing) et nos profils de voies dans
-   `Config/DefaultPlugins.ini` ; le second pointe les filtres de voies de MassTraffic sur les mêmes
-   bits, en C++ (`UGTPZoneGraphImport::ConfigureTrafficLaneFilters` : aucune des deux classes de
-   réglages n'est exposée à Python en 5.8), et écrit ces filtres dans le même fichier. Seules ces
-   propriétés sont écrites, pas tous les réglages. Le fichier est dans Git : un package fait depuis
-   le dépôt a besoin des tags et des filtres.
+3. Compiler la cible éditeur, lancer `place_zonegraph.py` puis `place_masstraffic.py`. Nos tags
+   ZoneGraph gardent des bits fixes (Car 1, Intersection 2, Pedestrian 3, Crossing 4) à chaque
+   import, et les filtres de voies de MassTraffic sont pointés dessus en C++
+   (`UGTPZoneGraphImport::ConfigureTrafficLaneFilters` : aucune des deux classes de réglages n'est
+   exposée à Python en 5.8), par le module GTPMass à chaque démarrage du moteur, jeu et package
+   compris. Aucun fichier de config n'est écrit ni nécessaire. La ligne de journal « traffic lane
+   filters » liste les filtres posés ; `place_masstraffic.py` signale une erreur s'il n'y en a aucun.
    Les configurations du trafic et les Blueprints de spawners de City Sample sont dans le Content
    du projet City Sample (/Game/AI/Traffic, /Game/AI/Traffic/Spawners, /Game/Vehicle/veh*) : ils
    sont copiés aux mêmes chemins /Game dans notre projet (hors Git) pour garder leurs références.

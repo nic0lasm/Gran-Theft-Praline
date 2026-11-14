@@ -13,7 +13,9 @@
  * driving lanes (one-way "Car" lane profile, tag Car), junction polygons (tags Car and
  * Intersection, one lane-profile point per lane end), walkways (two-way "Pedestrian" profile,
  * tag Pedestrian) and crossings (tags Pedestrian and Crossing). Points are dropped onto the
- * ground by a trace. Missing ZoneGraph tags and lane profiles are added to the settings.
+ * ground by a trace. Missing ZoneGraph tags and lane profiles are added to the settings in memory
+ * (not saved): our tags keep fixed slots (Car 1, Intersection 2, Pedestrian 3, Crossing 4), so the
+ * shapes of every import and MassTraffic's lane filters agree without a config file.
  */
 UCLASS()
 class GTPMASS_API UGTPZoneGraphImport : public UBlueprintFunctionLibrary
@@ -26,12 +28,12 @@ public:
 	static FString BuildFromFile(UObject* WorldContext, const FString& JsonPath);
 
 	/**
-	 * Points MassTraffic's ZoneGraph lane filters at our tags (place_masstraffic.py): every
-	 * FZoneGraphTagFilter of MassTrafficSettings whose name says Intersection gets IntersectionTag,
-	 * crosswalk and pedestrian ones are left, every other one gets LaneTag. The tags must already
-	 * be in the ZoneGraph settings (saved by BuildFromFile). Only the filters set are written to the
-	 * settings' default config file (Config/DefaultPlugins.ini), not the whole object. Returns a
-	 * JSON report: each property and what was done.
+	 * Points MassTraffic's ZoneGraph lane filters at our tags: every FZoneGraphTagFilter of
+	 * MassTrafficSettings whose name says Intersection gets IntersectionTag, crosswalk and
+	 * pedestrian ones are left, every other one gets LaneTag (fixed tag slots, see above). In memory
+	 * only: the GTPMass module calls it once the engine is up, in the game and in the editor, before
+	 * any map loads; place_masstraffic.py calls it again for its report. Returns a JSON report (each
+	 * property and what was done), also written to the log ("traffic lane filters").
 	 */
 	UFUNCTION(BlueprintCallable, Category = "GTP|Mass")
 	static FString ConfigureTrafficLaneFilters(FName LaneTag, FName IntersectionTag);

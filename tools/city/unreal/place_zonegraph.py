@@ -4,9 +4,8 @@ Unreal Editor, the same way as place_props.py (no UI, run by run_city_import.sh)
 Input: gen/<focus>/zonegraph/zonegraph.json (tools/city/zonegraph.py: driving lanes, junction
 polygons, walkways, crossings). The C++ importer UGTPZoneGraphImport (module GTPMass) places one
 ZoneShape actor per shape in folder City/ZoneGraph, after removing the previous ones, and adds
-the missing ZoneGraph tags and lane profiles to the settings, and writes those two properties only
-to the settings' default config file (Config/DefaultPlugins.ini, in Git: MassTraffic's lane
-filters use the same tag bits). The map is then saved: nobody edits
+the missing ZoneGraph tags and lane profiles to the settings in memory: our tags keep fixed bits
+(Car 1, Intersection 2, Pedestrian 3, Crossing 4), the ones MassTraffic's lane filters use. The map is then saved: nobody edits
 the ZoneGraph by hand. Report: Saved/CityImport/zonegraph_report.json.
 """
 

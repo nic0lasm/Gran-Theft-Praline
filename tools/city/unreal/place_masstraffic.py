@@ -5,12 +5,12 @@ Needs City Sample's plugins Traffic (module MassTraffic) and RuleProcessor copie
 already placed (place_zonegraph.py: lanes tagged Car, junctions tagged Car + Intersection).
 
 What it does, reporting everything in Saved/CityImport/masstraffic_report.json:
-1. Points MassTraffic's ZoneGraph lane filters at our tags through
-   UGTPZoneGraphImport::ConfigureTrafficLaneFilters (C++, module GTPMass: neither
-   MassTrafficSettings nor ZoneGraphSettings is exposed to Python in 5.8). The filter properties
-   are read by reflection, not assumed: every traffic-lane filter gets our tag Car, every
-   intersection filter Intersection. The tags must have been saved by place_zonegraph.py. Only
-   the filters set are written to the default config file (Config/DefaultPlugins.ini, in Git).
+1. Checks MassTraffic's ZoneGraph lane filters through UGTPZoneGraphImport::ConfigureTrafficLaneFilters
+   (C++, module GTPMass: neither MassTrafficSettings nor ZoneGraphSettings is exposed to Python in
+   5.8). The filter properties are read by reflection, not assumed: every traffic-lane filter gets
+   our tag Car, every intersection filter Intersection, at their fixed bits. Nothing is saved: the
+   module sets the same filters at every engine start, game and package included. An error if no
+   filter is set.
 2. Places, after removing the previous ones, City Sample's own spawner Blueprints
    (/Game/AI/Traffic/Spawners: intersections, parked cars, driving cars, kept at their City Sample
    paths), tagged GTPMassTraffic and GTPMassTrafficOrder<n>, with no spawn on begin play: the game
@@ -61,6 +61,8 @@ def configure_settings(report):
     report["settings"] = result.get("info", {})
     report["settings_counts"] = result.get("counts", {})
     report["errors"] += result.get("errors", [])
+    if not report["settings_counts"].get("filters_set"):
+        report["errors"].append("no MassTraffic lane filter set: the traffic would find no lane")
 
 
 # City Sample's own spawner Blueprints (AMassSpawner children with their entity configs and
