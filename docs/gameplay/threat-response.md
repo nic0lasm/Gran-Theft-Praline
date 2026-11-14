@@ -26,7 +26,7 @@ Backing, Fleeing, Down (hit by a knockdown or killed, via `UGTPHitReactionCompon
 Fear grows while an **armed** person aims at him (cone 12 degrees, 20 m, line of sight): 0.9 per second at point
 blank, 0.2 per second at 20 m, but aiming alone never goes past 0.8. A shot at him adds 0.6, a shot within 18 m
 adds 0.35, a person within 12 m who is afraid adds up to 0.35 per second (contagion), a flinch adds 0.25.
-Fear decays 0.12 per second two seconds after the threat is gone. An unarmed hand frightens no one.
+Fear decays 0.2 per second two seconds after the threat is gone. An unarmed hand frightens no one.
 
 ## Contract
 

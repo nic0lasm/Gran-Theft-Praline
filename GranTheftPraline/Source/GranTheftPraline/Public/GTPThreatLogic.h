@@ -50,7 +50,7 @@ struct FSettings
 	float ContagionRate = 0.35f;
 	float ContagionRadiusCm = 1200.f;
 	/** Fear lost per second once the threat is gone for CalmDelaySeconds. */
-	float DecayRate = 0.12f;
+	float DecayRate = 0.2f;
 	float CalmDelaySeconds = 2.f;
 	/** Time hands up before he obeys (s). */
 	float ComplyDelay = 1.0f;

@@ -27,7 +27,7 @@ ouvre la caisse), Recule, Fuit, Au sol (renversé ou tué, via `UGTPHitReactionC
 La peur monte quand une personne **armée** le vise (cône de 12 degrés, 20 m, ligne de vue) : 0,9 par seconde à
 bout portant, 0,2 par seconde à 20 m, mais viser seul ne dépasse jamais 0,8. Un tir sur lui ajoute 0,6, un tir à
 moins de 18 m ajoute 0,35, une personne effrayée à moins de 12 m ajoute jusqu'à 0,35 par seconde (contagion), un
-tressaillement ajoute 0,25. La peur retombe de 0,12 par seconde deux secondes après la fin de la menace. Une main
+tressaillement ajoute 0,25. La peur retombe de 0,2 par seconde deux secondes après la fin de la menace. Une main
 vide n'effraie personne.
 
 ## Contrat
