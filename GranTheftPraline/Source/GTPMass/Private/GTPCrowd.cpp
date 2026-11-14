@@ -435,8 +435,11 @@ void UGTPCrowdSubsystem::SetupNearActors(UWorld& InWorld)
 {
 	// Assembled characters (City Sample Crowds) use the animations baked for the MetaHuman skeleton.
 	{
+		// Off by default until the City Sample crowd keeps the frame budget and cooks without material errors:
+		// -CrowdCitySample=1 turns it on (the mannequins of before stay otherwise).
 		USkeletalMesh* Probe = nullptr;
-		if (!CrowdCharacterRoot.IsEmpty())
+		int32 CitySampleOn = 0;
+		if (!CrowdCharacterRoot.IsEmpty() && (FParse::Param(FCommandLine::Get(), TEXT("CrowdCitySample")) || (FParse::Value(FCommandLine::Get(), TEXT("CrowdCitySample="), CitySampleOn) && CitySampleOn != 0)))
 		{
 			Probe = LoadObject<USkeletalMesh>(nullptr, *(CrowdCharacterRoot + TEXT("/Male/NormalWeight/Meshes/m_tal_nrw_body.m_tal_nrw_body")));
 		}
@@ -856,6 +859,10 @@ bool UGTPCrowdSubsystem::DressFromCitySample(AGTPPedestrian* Actor)
 	const FString FaceName = FString::Printf(TEXT("%s_%03d_nrw_FaceMesh"), *Prefix, FaceIndex);
 	USkeletalMesh* Face = LoadObject<USkeletalMesh>(nullptr, *FString::Printf(TEXT("%s/%s/%s_%03d/Face/%s.%s"),
 		*CrowdCharacterRoot, *Sex, *Prefix, FaceIndex, *FaceName, *FaceName));
+	if (FParse::Param(FCommandLine::Get(), TEXT("CrowdNoFace")))
+	{
+		Face = nullptr; // diagnostic: is the uncooked material in the face?
+	}
 	TSubclassOf<UAnimInstance> FaceAnim = FaceAnimClass.TryLoadClass<UAnimInstance>();
 	Actor->Dress(Body, Clothes, Face, FaceAnim);
 	// Once: which materials the assembled character really uses (a material missing from the cook shows as an

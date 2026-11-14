@@ -96,7 +96,7 @@ void AGTPPedestrian::Dress(USkeletalMesh* BodyMesh, const TArray<USkeletalMesh*>
 		}
 	}
 	Parts.Reset();
-	auto AddPart = [this](USkeletalMesh* Mesh, const TCHAR* Name) -> USkeletalMeshComponent*
+	auto AddPart = [this](USkeletalMesh* Mesh, const TCHAR* Name, bool bFollower) -> USkeletalMeshComponent*
 	{
 		if (!Mesh)
 		{
@@ -110,6 +110,11 @@ void AGTPPedestrian::Dress(USkeletalMesh* BodyMesh, const TArray<USkeletalMesh*>
 		Part->bCastContactShadow = false;
 		Part->bReceivesDecals = false;
 		Part->bUseAttachParentBound = true;
+		if (bFollower)
+		{
+			// Never registered for ticking at all: the body pose leader refreshes it (a disabled tick still counts).
+			Part->PrimaryComponentTick.bCanEverTick = false;
+		}
 		Part->AttachToComponent(Body, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
 		Part->RegisterComponent();
 		Parts.Add(Part);
@@ -118,15 +123,17 @@ void AGTPPedestrian::Dress(USkeletalMesh* BodyMesh, const TArray<USkeletalMesh*>
 	int32 Index = 0;
 	for (USkeletalMesh* Garment : Clothes)
 	{
-		if (USkeletalMeshComponent* Part = AddPart(Garment, *FString::Printf(TEXT("Garment%d"), Index++)))
+		if (USkeletalMeshComponent* Part = AddPart(Garment, *FString::Printf(TEXT("Garment%d"), Index++), true))
 		{
 			Part->SetLeaderPoseComponent(Body);
 			// A follower of the body pose costs nothing of its own: the leader refreshes it, no tick needed.
 			Part->SetComponentTickEnabled(false);
 		}
 	}
-	if (USkeletalMeshComponent* FacePart = AddPart(Face, TEXT("Face")))
+	if (USkeletalMeshComponent* FacePart = AddPart(Face, TEXT("Face"), !FaceAnim))
 	{
+		// The face has 15 material slots on its finest level: seen from 3 m or more, a coarse level is the same face.
+		FacePart->SetForcedLOD(4);
 		if (FaceAnim)
 		{
 			FacePart->SetAnimationMode(EAnimationMode::AnimationBlueprint);
