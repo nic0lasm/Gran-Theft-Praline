@@ -1,4 +1,6 @@
 #include "GTPCrowd.h"
+#include "Materials/MaterialInstance.h"
+#include "Components/SkeletalMeshComponent.h"
 
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
@@ -856,5 +858,25 @@ bool UGTPCrowdSubsystem::DressFromCitySample(AGTPPedestrian* Actor)
 		*CrowdCharacterRoot, *Sex, *Prefix, FaceIndex, *FaceName, *FaceName));
 	TSubclassOf<UAnimInstance> FaceAnim = FaceAnimClass.TryLoadClass<UAnimInstance>();
 	Actor->Dress(Body, Clothes, Face, FaceAnim);
+	// Once: which materials the assembled character really uses (a material missing from the cook shows as an
+	// uncooked shader map in the packaged build, and the log says no name).
+	static bool bMaterialsListed = false;
+	if (!bMaterialsListed)
+	{
+		bMaterialsListed = true;
+		TArray<USkeletalMeshComponent*> Comps;
+		Actor->GetComponents<USkeletalMeshComponent>(Comps);
+		for (const USkeletalMeshComponent* Comp : Comps)
+		{
+			for (int32 Slot = 0; Slot < Comp->GetNumMaterials(); ++Slot)
+			{
+				const UMaterialInterface* Material = Comp->GetMaterial(Slot);
+				const UMaterialInstance* Instance = Cast<UMaterialInstance>(Material);
+				UE_LOG(LogGTPCrowd, Log, TEXT("crowd material: %s slot %d = %s (parent %s)"), *Comp->GetName(), Slot,
+					Material ? *Material->GetPathName() : TEXT("none"),
+					Instance && Instance->Parent ? *Instance->Parent->GetPathName() : TEXT("-"));
+			}
+		}
+	}
 	return true;
 }

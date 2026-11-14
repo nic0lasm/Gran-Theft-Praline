@@ -109,6 +109,7 @@ void AGTPPedestrian::Dress(USkeletalMesh* BodyMesh, const TArray<USkeletalMesh*>
 		Part->SetCanEverAffectNavigation(false);
 		Part->bCastContactShadow = false;
 		Part->bReceivesDecals = false;
+		Part->bUseAttachParentBound = true;
 		Part->AttachToComponent(Body, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
 		Part->RegisterComponent();
 		Parts.Add(Part);
@@ -120,6 +121,8 @@ void AGTPPedestrian::Dress(USkeletalMesh* BodyMesh, const TArray<USkeletalMesh*>
 		if (USkeletalMeshComponent* Part = AddPart(Garment, *FString::Printf(TEXT("Garment%d"), Index++)))
 		{
 			Part->SetLeaderPoseComponent(Body);
+			// A follower of the body pose costs nothing of its own: the leader refreshes it, no tick needed.
+			Part->SetComponentTickEnabled(false);
 		}
 	}
 	if (USkeletalMeshComponent* FacePart = AddPart(Face, TEXT("Face")))
@@ -134,6 +137,7 @@ void AGTPPedestrian::Dress(USkeletalMesh* BodyMesh, const TArray<USkeletalMesh*>
 			// No face animation blueprint (it needs City Sample's C++): follow the body by bone name, or the head
 			// stays alone in its reference pose where the actor started (a floating head).
 			FacePart->SetLeaderPoseComponent(Body);
+			FacePart->SetComponentTickEnabled(false);
 		}
 	}
 }

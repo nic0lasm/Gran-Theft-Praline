@@ -242,7 +242,9 @@ inline float SpreadFear(const FBrain& B)
 	if (B.State == EState::Calm || B.State == EState::Down) return 0.f;
 	// A runner passes the panic on while he starts running, not for ever: otherwise a crowd of runners keeps
 	// every fear above the contagion floor and nobody calms down (measured: 24 people still running after 100 s).
-	if (B.State == EState::Fleeing && B.StateTime > 3.f) return 0.f;
+	// Same for every state: a group of alarmed people would keep each other afraid for ever (simulated: 24 people
+	// never calm down), so a state spreads its fear during its first 3 seconds only.
+	if (B.StateTime > 3.f) return 0.f;
 	return B.Fear;
 }
 
