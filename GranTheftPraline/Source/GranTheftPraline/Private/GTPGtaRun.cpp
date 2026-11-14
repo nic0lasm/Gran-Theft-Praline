@@ -44,12 +44,29 @@ void UGTPGtaRun::Initialize(FSubsystemCollectionBase& Collection)
 		return;
 	}
 	TickHandle = FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateUObject(this, &UGTPGtaRun::Tick), 0.5f);
+	// The steps think twice a second, but a walk needs its input every frame: one frame of input per half second
+	// is a player who stands still (measured: 0 cm/s for 4 s in every aim step).
+	WalkHandle = FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([this](float)
+	{
+		if (!WalkDirection.IsNearlyZero())
+		{
+			if (APlayerController* PC = FirstController(GetWorld()))
+			{
+				if (APawn* Pawn = PC->GetPawn())
+				{
+					Pawn->AddMovementInput(WalkDirection, 1.f);
+				}
+			}
+		}
+		return true;
+	}), 0.f);
 	GTP_TRACE(LogGTPGtaRun, TEXT("GTARun: on (%d steps)"), StepCount);
 }
 
 void UGTPGtaRun::Deinitialize()
 {
 	FTSTicker::GetCoreTicker().RemoveTicker(TickHandle);
+	FTSTicker::GetCoreTicker().RemoveTicker(WalkHandle);
 	Super::Deinitialize();
 }
 
@@ -67,6 +84,7 @@ void UGTPGtaRun::BeginStep(int32 Index)
 	bAimExitRequested = false;
 	AimFirstReaction = -1.0;
 	LastAimMoveTime = -1.0;
+	WalkDirection = FVector::ZeroVector;
 	GTP_TRACE(LogGTPGtaRun, TEXT("GTARun step %d: %s start (t=%.0f s)"), Step + 1, StepNames[Step], FPlatformTime::Seconds() - RunStart);
 }
 
@@ -217,6 +235,7 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckParked(FString& Detail)
 
 UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail, bool bClose)
 {
+	WalkDirection = FVector::ZeroVector; // set again below while walking up to somebody
 	// Hold-up: draw the weapon and aim at the nearest pedestrian; somebody must raise his hands or run.
 	UWorld* World = GetWorld();
 	APlayerController* PC = FirstController(World);
@@ -306,7 +325,7 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail, bool bClose)
 	if (Best > StopCm)
 	{
 		PC->SetControlRotation(ToVictim.Rotation());
-		Character->AddMovementInput(ToVictim, 1.f);
+		WalkDirection = ToVictim;
 		// The test shows a player who cannot walk instead of hiding it (a walk lock left by an arrest was found so).
 		const double Now2 = FPlatformTime::Seconds();
 		if (LastAimMoveTime < 0.0 || Character->GetVelocity().Size2D() > 20.0)
@@ -337,7 +356,7 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail, bool bClose)
 	}
 	else if (Best < BackCm)
 	{
-		Character->AddMovementInput(-ToVictim, 1.f);
+		WalkDirection = -ToVictim;
 	}
 	// The reticle on the person, as a player aims: every frame the weapon reports the aim from the eyes to
 	// what the reticle covers, so the view (the camera over the shoulder) must look at the point the
