@@ -244,13 +244,20 @@ head, body, outfit and hair assembled into Nicolito's blueprint in our project.
 normal-weight male head of the pack found under `/Game/Crowd/Character/Male` (asset registry, `*_nrw_FaceMesh`, at
 most `MaxHeads`): 10 s after the start, each head in turn on the crowd's normal-weight male body (crewneck, jeans,
 loafers), 4 m in front of the player and turned towards him, face at its finest level, framed head and shoulders
-by a camera of its own (`CameraDistanceCm` 120, `CameraFOV` 30), then saved as `Nicolito_<head>.png` in the
+by a camera of its own (`CameraDistanceCm` 100, `CameraFOV` 30), then saved as `Nicolito_<head>.png` in the
 screenshot folder (`Saved/Screenshots/...`); the player's view comes back at the end. Which way the face looks is
 measured in the body's reference pose (from the left clavicle to the right one), not assumed, and logged. These
 are the bare heads of the pack, without hair (the crowd assembly has none) and in the reference pose; the hair
 comes with the blueprint, once the face is chosen. Run in the editor in game mode, the pack's assets being
 uncooked: `UnrealEditor GranTheftPraline.uproject -game -NicolitoFaces -SkipTitle -DayNight=0 -Pedestrians=0
 -Police=0`; the log says `face lineup: ...` for each head and each image.
+
+First run on the PC (2026-11-14, 6 heads, m_001 to m_006: City Sample has no m_007 to m_012): no error, but the
+images were the game's view, Kellan from behind and the head a few pixels wide 5 m away. The game's follow camera
+takes the view back every frame when it is not its own (`UGTPFollowCameraComponent`). The bench now pauses it,
+hides the player (pawn and the visual attached to it) and the HUD while the portraits last, puts everything back
+at the end, and logs for each image the view target at the shot (`ours` or `NOT OURS`) with the camera distance
+and FOV. Measured on that run: the pack's normal-weight male body faces +Y in its mesh, like the mannequin.
 
 **Grooms (2026-11-14).** Kellan has six groom components (hair, eyebrows, eyelashes, peach fuzz, moustache, beard),
 each ticking in the package against a 13 ms budget. Strand simulation is off (`r.HairStrands.Simulation=0`). The

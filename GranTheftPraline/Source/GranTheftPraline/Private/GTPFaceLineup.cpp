@@ -1,14 +1,17 @@
 #include "GTPFaceLineup.h"
 
+#include "GTPFollowCameraComponent.h"
 #include "GTPPedestrians.h"
 #include "Animation/AnimInstance.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "AssetRegistry/IAssetRegistry.h"
 #include "Camera/CameraActor.h"
 #include "Camera/CameraComponent.h"
+#include "Camera/PlayerCameraManager.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/SkeletalMesh.h"
 #include "Engine/World.h"
+#include "GameFramework/HUD.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
 #include "Misc/CommandLine.h"
@@ -95,14 +98,19 @@ void UGTPFaceLineupSubsystem::ShowNext()
 	++Current;
 	if (!World || !Pawn || !Heads.IsValidIndex(Current))
 	{
-		if (Pawn)
-		{
-			PC->SetViewTargetWithBlend(Pawn, 0.f);
-		}
 		if (Camera)
 		{
 			Camera->Destroy();
 			Camera = nullptr;
+		}
+		if (PC)
+		{
+			HoldStage(PC, false);
+		}
+		if (Pawn && PC->GetViewTarget() != Pawn)
+		{
+			// The follow camera, ticking again, takes the view back from the pawn by itself.
+			PC->SetViewTargetWithBlend(Pawn, 0.f);
 		}
 		UE_LOG(LogGTPFaceLineup, Log, TEXT("face lineup: done, %d head(s) shown%s"), FMath::Min(Current, Heads.Num()), Pawn ? TEXT("") : TEXT(" (no player pawn)"));
 		return;
@@ -185,8 +193,9 @@ void UGTPFaceLineupSubsystem::ShowNext()
 	}
 	if (Camera)
 	{
+		HoldStage(PC, true);
 		// The head bone sits at the base of the skull: aim a little higher, at the eyes.
-		const FVector Look = HeadAt + FVector(0.0, 0.0, 6.0);
+		const FVector Look = HeadAt + FVector(0.0, 0.0, 8.0);
 		const FVector Eye = Look + Facing * CameraDistanceCm;
 		Camera->SetActorLocationAndRotation(Eye, (Look - Eye).Rotation());
 		Camera->GetCameraComponent()->SetFieldOfView(CameraFOV);
@@ -210,6 +219,83 @@ void UGTPFaceLineupSubsystem::Shoot()
 	}
 	const FString File = FPaths::ConvertRelativePathToFull(FPaths::Combine(FPaths::ScreenShotDir(), FString::Printf(TEXT("Nicolito_%s.png"), *Labels[Current])));
 	FScreenshotRequest::RequestScreenshot(File, false, false);
-	UE_LOG(LogGTPFaceLineup, Log, TEXT("face lineup: %s portrait requested: %s"), *Labels[Current], *File);
+	// The proof that the image is the portrait and not the game's view.
+	const APlayerController* PC = World->GetFirstPlayerController();
+	const AActor* Viewing = PC ? PC->GetViewTarget() : nullptr;
+	const FVector Eye = PC && PC->PlayerCameraManager ? PC->PlayerCameraManager->GetCameraLocation() : FVector::ZeroVector;
+	UE_LOG(LogGTPFaceLineup, Log, TEXT("face lineup: %s portrait requested: %s; view target %s (%s), view %.0f cm from the portrait camera, FOV %.0f"),
+		*Labels[Current], *File, *GetNameSafe(Viewing), Viewing && Viewing == Camera ? TEXT("ours") : TEXT("NOT OURS"),
+		Camera ? FVector::Dist(Eye, Camera->GetActorLocation()) : -1.0, PC && PC->PlayerCameraManager ? PC->PlayerCameraManager->GetFOVAngle() : -1.f);
 	World->GetTimerManager().SetTimer(Timer, this, &UGTPFaceLineupSubsystem::ShowNext, 1.f, false);
+}
+
+void UGTPFaceLineupSubsystem::HoldStage(APlayerController* PC, bool bHold)
+{
+	if (bHold == bStageHeld || !PC)
+	{
+		return;
+	}
+	bStageHeld = bHold;
+	if (bHold)
+	{
+		// The follow camera takes the view back every frame when it is not its own: paused while the portraits last.
+		TArray<UGTPFollowCameraComponent*> Follows;
+		PC->GetComponents<UGTPFollowCameraComponent>(Follows);
+		if (APawn* Pawn = PC->GetPawn())
+		{
+			TArray<UGTPFollowCameraComponent*> OnPawn;
+			Pawn->GetComponents<UGTPFollowCameraComponent>(OnPawn);
+			Follows.Append(OnPawn);
+			// The pawn and what rides on it (the player's visual is an actor attached to the pawn).
+			TArray<AActor*> Riders;
+			Pawn->GetAttachedActors(Riders, true, true);
+			Riders.Add(Pawn);
+			for (AActor* Rider : Riders)
+			{
+				if (Rider && !Rider->IsHidden())
+				{
+					Rider->SetActorHiddenInGame(true);
+					HiddenActors.Add(Rider);
+				}
+			}
+		}
+		for (UGTPFollowCameraComponent* Follow : Follows)
+		{
+			if (Follow->IsComponentTickEnabled())
+			{
+				Follow->SetComponentTickEnabled(false);
+				PausedCameras.Add(Follow);
+			}
+		}
+		AHUD* Hud = PC->GetHUD();
+		bHudWasShown = Hud && Hud->bShowHUD;
+		if (Hud)
+		{
+			Hud->bShowHUD = false;
+		}
+		UE_LOG(LogGTPFaceLineup, Log, TEXT("face lineup: stage held, %d follow camera(s) paused, %d player actor(s) hidden, HUD %s"), PausedCameras.Num(),
+			HiddenActors.Num(), Hud ? TEXT("hidden") : TEXT("none"));
+		return;
+	}
+	for (const TWeakObjectPtr<UActorComponent>& Paused : PausedCameras)
+	{
+		if (UActorComponent* Follow = Paused.Get())
+		{
+			Follow->SetComponentTickEnabled(true);
+		}
+	}
+	PausedCameras.Reset();
+	for (const TWeakObjectPtr<AActor>& Hidden : HiddenActors)
+	{
+		if (AActor* Rider = Hidden.Get())
+		{
+			Rider->SetActorHiddenInGame(false);
+		}
+	}
+	HiddenActors.Reset();
+	if (AHUD* Hud = PC->GetHUD())
+	{
+		Hud->bShowHUD = bHudWasShown;
+	}
+	UE_LOG(LogGTPFaceLineup, Log, TEXT("face lineup: stage given back"));
 }

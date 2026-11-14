@@ -258,7 +258,7 @@ Nicolito, dans notre projet.
 tête d'homme de corpulence normale du pack trouvée sous `/Game/Crowd/Character/Male` (registre d'assets,
 `*_nrw_FaceMesh`, au plus `MaxHeads`) : 10 s après le départ, chaque tête tour à tour sur le corps d'homme de
 corpulence normale de la foule (pull ras du cou, jean, mocassins), à 4 m devant le joueur et tournée vers lui,
-visage à son niveau de détail le plus fin, cadrée tête et épaules par une caméra à elle (`CameraDistanceCm` 120,
+visage à son niveau de détail le plus fin, cadrée tête et épaules par une caméra à elle (`CameraDistanceCm` 100,
 `CameraFOV` 30), puis enregistrée en `Nicolito_<tête>.png` dans le dossier des captures (`Saved/Screenshots/...`) ;
 la vue du joueur revient à la fin. Le sens du regard est mesuré dans la pose de référence du corps (de la clavicule
 gauche à la droite), pas supposé, et écrit au journal. Ce sont les têtes nues du pack, sans coiffure (l'assemblage
@@ -266,6 +266,14 @@ de la foule n'en a pas) et en pose de référence ; la coiffure vient avec le bl
 Lancement dans l'éditeur en mode jeu, les assets du pack n'étant pas cuits : `UnrealEditor GranTheftPraline.uproject
 -game -NicolitoFaces -SkipTitle -DayNight=0 -Pedestrians=0 -Police=0` ; le journal dit `face lineup: ...` pour
 chaque tête et chaque image.
+
+Premier passage sur le PC (14/11/2026, 6 têtes, m_001 à m_006 : City Sample n'a pas m_007 à m_012) : aucune
+erreur, mais les images étaient la vue du jeu, Kellan de dos et la tête large de quelques pixels à 5 m. La caméra
+de suivi du jeu reprend la vue à chaque image quand ce n'est pas la sienne (`UGTPFollowCameraComponent`). Le banc
+la met maintenant en pause, cache le joueur (le pion et le visuel qui lui est attaché) et le HUD le temps des
+portraits, remet tout à la fin, et écrit pour chaque image la cible de vue au moment de la prise (`ours` ou
+`NOT OURS`) avec la distance et le FOV de la caméra. Mesuré lors de ce passage : le corps d'homme de corpulence
+normale du pack regarde vers +Y dans son maillage, comme le mannequin.
 
 **Grooms (14/11/2026).** Kellan a six composants groom (cheveux, sourcils, cils, duvet, moustache, barbe), qui
 tickent tous dans le package pour un budget de 13 ms. La simulation des brins est coupée
