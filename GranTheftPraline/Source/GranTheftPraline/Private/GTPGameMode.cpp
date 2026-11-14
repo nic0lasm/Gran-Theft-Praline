@@ -562,6 +562,14 @@ void AGTPGameMode::ApplyPlayerVisual(APawn* Pawn)
 						Clothes->SetLeaderPoseComponent(BodyComp);
 						UE_LOG(LogGTPGameMode, Log, TEXT("  %s now follows %s's pose"), *Clothes->GetName(), *BodyComp->GetName());
 					}
+					// A face without its own animation (a crowd head whose skeleton the MetaHuman face blueprint does
+					// not take, Nicolito): it follows the body by bone name (head, neck), or it stays in its
+					// reference pose while the body moves.
+					if (BodyComp && Clothes->GetName() == TEXT("Face") && !Clothes->GetAnimInstance() && !Clothes->LeaderPoseComponent.IsValid())
+					{
+						Clothes->SetLeaderPoseComponent(BodyComp);
+						UE_LOG(LogGTPGameMode, Log, TEXT("  Face has no animation of its own: it now follows %s's pose"), *BodyComp->GetName());
+					}
 				}
 				if (Own && Body && Part->GetName() == BodyName)
 				{

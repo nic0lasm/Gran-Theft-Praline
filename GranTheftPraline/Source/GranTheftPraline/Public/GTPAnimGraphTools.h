@@ -5,6 +5,7 @@
 #include "GTPAnimGraphTools.generated.h"
 
 class UAnimBlueprint;
+class UBlueprint;
 
 /**
  * Editor tools on animation blueprints, called from Python (tools/combat/unreal/player_upper_body_layer.py).
@@ -35,4 +36,22 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "GTP|Editor")
 	static FString SetRetargetSourceRoot(UObject* Retargeter, FName Bone);
+
+	/**
+	 * One line per component of the blueprint's construction script, as space-separated key=value pairs (values
+	 * without spaces, "-" when empty): name, class, mesh, its skeleton, anim class, the anim class's target
+	 * skeleton, groom asset, binding asset, material overrides count and the mesh's own materials
+	 * (slot:material;...). For Nicolito's visual (tools/character/create_nicolito_visual.py).
+	 */
+	UFUNCTION(BlueprintCallable, Category = "GTP|Editor")
+	static FString DescribeBlueprintComponents(UBlueprint* Blueprint);
+
+	/**
+	 * Sets an object property (SkeletalMeshAsset, GroomAsset, BindingAsset, AnimClass...) of the component template
+	 * named Component in the blueprint's construction script, as the details panel does; a null Asset clears it.
+	 * Property "OverrideMaterials" with a null Asset empties the material overrides. Returns "ok: ..." with the
+	 * value before, "kept: ..." or "error: ...". The caller compiles and saves the blueprint.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "GTP|Editor")
+	static FString SetBlueprintComponentAsset(UBlueprint* Blueprint, FName Component, FName Property, UObject* Asset);
 };

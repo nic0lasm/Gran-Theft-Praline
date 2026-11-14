@@ -275,6 +275,20 @@ portraits, remet tout à la fin, et écrit pour chaque image la cible de vue au 
 `NOT OURS`) avec la distance et le FOV de la caméra. Mesuré lors de ce passage : le corps d'homme de corpulence
 normale du pack regarde vers +Y dans son maillage, comme le mannequin.
 
+**Assemblage (prêt, attend le choix).** `tools/character/create_nicolito_visual.py` (éditeur, module de jeu compilé ;
+`GTP_NICOLITO_HEAD=m_00N`) copie BP_Kellan, jamais modifié, en `/Game/MetaHumans/GTP/Nicolito/BP_Nicolito` et pose
+la tête choisie sur son composant `Face`, sans les surcharges de matériaux de Kellan ; le corps, la tenue, le
+retarget et la gestion des grooms de Kellan restent, ses grooms sont vidés (liés à son visage ; le mode de jeu cache
+un groom sans asset). `GTP_NICOLITO_MODE=full` pose aussi le corps d'homme de corpulence normale et la tenue de la
+foule (`BP_Nicolito_Full`), enregistré seulement si ce corps a le squelette du blueprint de retarget du corps. Le
+visage garde l'animation faciale de Kellan seulement si la nouvelle tête a le squelette pour lequel elle a été faite ;
+sinon le mode de jeu fait suivre au visage la tête et le cou du corps (journal : `Face has no animation of its own`).
+Côté C++ : `UGTPAnimGraphTools::DescribeBlueprintComponents` et `SetBlueprintComponentAsset` (gabarits du script de
+construction, modifiés comme le fait le panneau de détails). Rapport dans `Saved/GTPCombat/nicolito-visual.txt` ;
+essai avec `-PlayerVisual=/Game/MetaHumans/GTP/Nicolito/BP_Nicolito.BP_Nicolito_C`, puis `PlayerVisualClass` une fois
+qu'une capture le montre juste. Nicolito est chauve jusqu'au choix de sa coiffure, et le cou dira si la peau du corps
+de Kellan va avec le nouveau visage (sinon `full`).
+
 **Grooms (14/11/2026).** Kellan a six composants groom (cheveux, sourcils, cils, duvet, moustache, barbe), qui
 tickent tous dans le package pour un budget de 13 ms. La simulation des brins est coupée
 (`r.HairStrands.Simulation=0`). Le mode de jeu cache aussi, sans tick, les grooms dont le nom contient un mot de
