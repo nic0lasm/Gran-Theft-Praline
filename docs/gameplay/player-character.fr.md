@@ -254,6 +254,19 @@ exigent les classes C++ propres au sample ; puis trois visages d'hommes en captu
 du projet choisit ; puis la tête, le corps, la tenue et la coiffure retenus assemblés dans le blueprint de
 Nicolito, dans notre projet.
 
+**Portraits (14/11/2026).** `-NicolitoFaces` (`UGTPFaceLineupSubsystem`, rien sans l'interrupteur) filme chaque
+tête d'homme de corpulence normale du pack trouvée sous `/Game/Crowd/Character/Male` (registre d'assets,
+`*_nrw_FaceMesh`, au plus `MaxHeads`) : 10 s après le départ, chaque tête tour à tour sur le corps d'homme de
+corpulence normale de la foule (pull ras du cou, jean, mocassins), à 4 m devant le joueur et tournée vers lui,
+visage à son niveau de détail le plus fin, cadrée tête et épaules par une caméra à elle (`CameraDistanceCm` 120,
+`CameraFOV` 30), puis enregistrée en `Nicolito_<tête>.png` dans le dossier des captures (`Saved/Screenshots/...`) ;
+la vue du joueur revient à la fin. Le sens du regard est mesuré dans la pose de référence du corps (de la clavicule
+gauche à la droite), pas supposé, et écrit au journal. Ce sont les têtes nues du pack, sans coiffure (l'assemblage
+de la foule n'en a pas) et en pose de référence ; la coiffure vient avec le blueprint, une fois le visage choisi.
+Lancement dans l'éditeur en mode jeu, les assets du pack n'étant pas cuits : `UnrealEditor GranTheftPraline.uproject
+-game -NicolitoFaces -SkipTitle -DayNight=0 -Pedestrians=0 -Police=0` ; le journal dit `face lineup: ...` pour
+chaque tête et chaque image.
+
 **Grooms (14/11/2026).** Kellan a six composants groom (cheveux, sourcils, cils, duvet, moustache, barbe), qui
 tickent tous dans le package pour un budget de 13 ms. La simulation des brins est coupée
 (`r.HairStrands.Simulation=0`). Le mode de jeu cache aussi, sans tick, les grooms dont le nom contient un mot de
