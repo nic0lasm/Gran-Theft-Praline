@@ -6,6 +6,7 @@
 #include "GTPWeaponLogic.h"
 #include "GTPWeapon.generated.h"
 
+class UAnimInstance;
 class UAnimMontage;
 class UAnimSequenceBase;
 class UBlendProfile;
@@ -229,6 +230,15 @@ protected:
 	UPROPERTY(Config)
 	FName UpperBodyRoot = TEXT("spine_01");
 
+	/**
+	 * Slot of the upper-body layer added to the player's animation blueprint
+	 * (tools/combat/unreal/player_upper_body_layer.py: Layered blend per bone from spine_01). When the
+	 * blueprint runs that slot, the clips set for AnimSlot play in it instead: the legs and the pelvis keep
+	 * the locomotion, whatever the clip does with them. Without it, AnimSlot and the blend mask as before.
+	 */
+	UPROPERTY(Config)
+	FName UpperBodySlot = TEXT("UpperBody");
+
 	/** Ammunition the player starts with in reserve: pistol, carbine (0 = not carried). */
 	UPROPERTY(Config)
 	int32 PlayerPistolReserve = 36;
@@ -264,7 +274,9 @@ private:
 	void KeepAimLoop(float DeltaTime);
 	/** Player with a gun out, every 2 s: where the hands are on the pawn's mesh and on the visible body. */
 	void ProbeHands(float DeltaTime);
-	/** Plays Sequence in Slot through the upper-body mask (when there is one). */
+	/** The slot a clip set for Wanted plays in: UpperBodySlot for AnimSlot when the blueprint has that layer. */
+	FName ClipSlot(const UAnimInstance* Anim, FName Wanted);
+	/** Plays Sequence in Slot through the upper-body mask (when there is one and Slot is not the layer's). */
 	UAnimMontage* PlayInSlot(UAnimSequenceBase* Sequence, FName Slot, float BlendIn, float BlendOut, int32 LoopCount);
 	UBlendProfile* GetUpperBodyMask();
 	const FGTPWeaponClip* FindClip(const TCHAR* Suffix) const;
@@ -306,6 +318,8 @@ private:
 	bool bLooksLoaded = false;
 	/** Slot the aim loop plays in while it plays (NAME_None = not playing). */
 	FName AimLoopSlot;
+	/** Last slot reported for the full-pose clips (logged when it changes). */
+	FName LoggedClipSlot;
 	float AimProbeLeft = 0.f;
 	float AimRestartLeft = 0.f;
 };

@@ -33,5 +33,19 @@ public class GranTheftPraline : ModuleRules
 			"AssetRegistry",
 			"AudioMixer"
 		});
+
+		// Editor-only tools called from the editor's Python (GTPAnimGraphTools: the player's upper-body layer).
+		// Their code is under WITH_EDITOR, so the packaged game does not link these modules.
+		if (Target.bBuildEditor)
+		{
+			PrivateDependencyModuleNames.AddRange(new string[]
+			{
+				"UnrealEd",
+				"AnimGraph",
+				"AnimGraphRuntime",
+				"BlueprintGraph",
+				"KismetCompiler"
+			});
+		}
 	}
 }
