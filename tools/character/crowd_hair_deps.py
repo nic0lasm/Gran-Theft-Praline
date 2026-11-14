@@ -13,6 +13,9 @@ the full City Sample keeps it. Run, copy the list, run again until it says 0 mis
         --list <project>/GranTheftPraline/Saved/CitySampleCopy/missing.txt --dry-run   (then without --dry-run, editor closed)
 
 Env: GTP_HAIR_STYLES (default BuzzCut,SideSweptFringe,Messy,PulledBack), GTP_NICOLITO_HEAD (default m_004).
+GTP_DEPS_OF=/Game/MetaHumans/GTP/Nicolito/BP_Nicolito_Full (comma-separated packages) lists instead everything those
+need under /Game (Saved/CitySampleCopy/closure.txt, size by top folder): what another copy of the project, such as
+the Mac's, must receive at the same paths for the player's visual.
 Report: Saved/GTPCombat/crowd-hair-deps.txt (lines also in the log, prefixed "HAIRDEPS"); the list:
 Saved/CitySampleCopy/missing.txt.
 """
@@ -67,8 +70,9 @@ def dependencies(package):
     return [str(name) for name in (registry.get_dependencies(package, options) or [])]
 
 
-def follow(seeds, missing):
-    """Every /Game package the present seeds depend on, followed down; the missing ones added to `missing`."""
+def follow(seeds, missing, closure=None):
+    """Every /Game package the present seeds depend on, followed down; the missing ones added to `missing`, the
+    present ones (seeds included) to `closure` when given."""
     seen = set()
     todo = [seed for seed in seeds if exists(seed)]
     while todo:
@@ -83,7 +87,39 @@ def follow(seeds, missing):
                 todo.append(dep)
             elif dep not in missing:
                 missing[dep] = package
+    if closure is not None:
+        closure.update(seen)
     return len(seen)
+
+
+def package_bytes(package):
+    """Size on disk of the package's files (.uasset or .umap, .uexp, .ubulk, .uptnl)."""
+    base = os.path.join(unreal.Paths.project_content_dir(), *package[len("/Game/"):].split("/"))
+    return sum(os.path.getsize(base + ext) for ext in (".uasset", ".umap", ".uexp", ".ubulk", ".uptnl") if os.path.exists(base + ext))
+
+
+def closure_of(roots):
+    """GTP_DEPS_OF: everything those packages need under /Game, to bring them to another copy of the project (the
+    Mac), as patterns relative to Content, with the size by top folder. Missing ones are reported, not listed."""
+    missing, closure = {}, set()
+    for root in roots:
+        say("%s: %s" % (root, "present" if exists(root) else "MISSING"))
+    follow(roots, missing, closure)
+    sizes = {}
+    for package in closure:
+        top = "/".join(package.split("/")[2:4])
+        sizes[top] = sizes.get(top, 0) + package_bytes(package)
+    say("closure: %d packages, %.2f GB" % (len(closure), sum(sizes.values()) / 1e9))
+    for top, size in sorted(sizes.items(), key=lambda item: -item[1]):
+        say("  %s: %.3f GB" % (top, size / 1e9))
+    for package, needed_by in sorted(missing.items()):
+        say("  missing here too %s (for %s)" % (package, needed_by))
+    path = os.path.join(unreal.Paths.project_saved_dir(), "CitySampleCopy", "closure.txt")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as handle:
+        handle.write("# written by tools/character/crowd_hair_deps.py (GTP_DEPS_OF): packages to bring (relative to Content)\n")
+        handle.write("".join(pattern(package) + "\n" for package in sorted(closure)))
+    say("closure list written to Saved/CitySampleCopy/closure.txt")
 
 
 def main():
@@ -130,21 +166,26 @@ def main():
 
 
 def run():
-    missing = []
+    roots = [r.strip().split(".")[0] for r in os.environ.get("GTP_DEPS_OF", "").split(",") if r.strip()]
+    missing = None
     try:
-        missing = main()
+        if roots:
+            closure_of(roots)
+        else:
+            missing = main()
     except Exception as error:  # noqa: BLE001 (reported, the report is still written)
         say("BLOCKED: %r" % (error,))
-    copy_dir = os.path.join(unreal.Paths.project_saved_dir(), "CitySampleCopy")
-    os.makedirs(copy_dir, exist_ok=True)
-    with open(os.path.join(copy_dir, "missing.txt"), "w", encoding="utf-8") as handle:
-        handle.write("# written by tools/character/crowd_hair_deps.py: City Sample paths to copy (relative to Content)\n")
-        handle.write("".join(pattern(package) + "\n" for package in missing))
+    if not roots:
+        copy_dir = os.path.join(unreal.Paths.project_saved_dir(), "CitySampleCopy")
+        os.makedirs(copy_dir, exist_ok=True)
+        with open(os.path.join(copy_dir, "missing.txt"), "w", encoding="utf-8") as handle:
+            handle.write("# written by tools/character/crowd_hair_deps.py: City Sample paths to copy (relative to Content)\n")
+            handle.write("".join(pattern(package) + "\n" for package in (missing or [])))
     folder = os.path.join(unreal.Paths.project_saved_dir(), "GTPCombat")
     os.makedirs(folder, exist_ok=True)
     with open(os.path.join(folder, "crowd-hair-deps.txt"), "w", encoding="utf-8") as handle:
         handle.write("\n".join(lines) + "\n")
-    say("report written to Saved/GTPCombat/crowd-hair-deps.txt, list to Saved/CitySampleCopy/missing.txt")
+    say("report written to Saved/GTPCombat/crowd-hair-deps.txt")
 
 
 run()
