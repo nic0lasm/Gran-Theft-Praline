@@ -361,6 +361,17 @@ Two points left:
   lanes near the player" now gives a tenth of a metre, the nearest junction lane and the player's
   position, to see whether a street is missing near the start or the start is 50 m from any street.
 
+PC result of c492790 (349 s, 0 fatal): 100, 73 and 65 cars moving at 30, 120 and 300 s; no speed
+over 200 km/h and no odd mean (22, 14, 9 km/h). 368 loops, none in sight, 3 made under physics; an
+entry held for a car under physics, 2 at most; 4 cars recycled. The nearest road lane is 50.1 m from
+the start, the nearest junction lane 52.4 m (player at X 9535, Y 49530 cm): the start is in the
+pedestrian rue de la République, and no car can pass within 50 m of it. Since then a car under
+physics also holds the entry while it heads into a dead end (its next lane chosen), as the check
+every 0.25 s could miss one crossing a short dead end. One new error, "LogMassRepresentation: Template
+actor type -1 is not referring to a valid type": the display Blueprints of City Sample's cars are left
+out of our copies (they break the cook), so a car close enough for MassTraffic's high-resolution
+actor has none (to confirm by the time and the lines before it).
+
 ## Open points
 
 - Near the player MassTraffic may hand a car over to its physics vehicle: our copies name our cars

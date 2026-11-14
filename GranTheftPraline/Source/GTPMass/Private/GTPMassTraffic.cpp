@@ -963,6 +963,13 @@ void UGTPMassTrafficSubsystem::GuardLoops()
 			if (bPhysics)
 			{
 				PhysicsLanes.Add(Key(Lane.DataHandle.Index, Lane.Index));
+				// Coming up to a dead end (its next lane chosen): held before it gets there, as a check
+				// every 0.25 s can miss a car that crosses a short dead end in between.
+				const FZoneGraphTrafficLaneData* Next = Controls[Index].NextLane;
+				if (Next && LoopExitLanes.Contains(Next))
+				{
+					PhysicsLanes.Add(Key(Next->LaneHandle.DataHandle.Index, Next->LaneHandle.Index));
+				}
 			}
 			const int32* Before = LaneOfCar.Find(Car);
 			if (!Before || *Before == Lane.Index)
@@ -982,8 +989,9 @@ void UGTPMassTrafficSubsystem::GuardLoops()
 	});
 	// A car under MassTraffic's physics must not jump: its body would be pulled onto the entry in one
 	// frame, and the speed taken from that move (UpdateCoMVelocity) sends it off at thousands of km/h.
-	// Its entry stays closed while such a car is on one of the dead ends; once stopped there out of
-	// sight, RecycleAtDeadEnds hands it to MassTraffic's recycling, which moves it without physics.
+	// Its entry stays closed while such a car is on one of the dead ends or heading into one; once
+	// stopped there out of sight, RecycleAtDeadEnds hands it to MassTraffic's recycling, which moves
+	// it without physics.
 	TSet<int64> HeldForPhysics;
 	for (const FLoop& Loop : Loops)
 	{

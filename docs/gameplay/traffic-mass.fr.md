@@ -403,6 +403,19 @@ Deux points restent :
   la plus proche et la position du joueur, pour voir s'il manque une rue près du départ ou si le départ
   est à 50 m de toute rue.
 
+Relevé du PC pour c492790 (349 s, 0 fatale) : 100, 73 et 65 voitures roulent à 30, 120 et 300 s ;
+aucune vitesse au-dessus de 200 km/h et plus de moyenne aberrante (22, 14, 9 km/h). 368 rebouclages,
+aucun en vue, 3 faits sous physique ; une entrée retenue pour une voiture sous physique, 2 au plus ;
+4 voitures recyclées. La voie de route la plus proche du départ est à 50,1 m, la voie de carrefour la
+plus proche à 52,4 m (joueur à X 9535, Y 49530 cm) : le départ est dans la rue de la République
+piétonne, et aucune voiture ne peut passer à moins de 50 m. Depuis, une voiture sous physique retient
+aussi l'entrée quand elle se dirige vers une impasse (sa voie suivante choisie), car le contrôle
+toutes les 0,25 s pouvait en manquer une qui traverse une impasse courte entre deux. Une erreur
+nouvelle, « LogMassRepresentation: Template actor type -1 is not referring to a valid type » : les
+Blueprints d'affichage des voitures de City Sample sont retirés de nos copies (ils cassent le cook),
+donc une voiture assez proche pour l'acteur haute résolution de MassTraffic n'en a pas (à confirmer
+par l'heure et les lignes qui la précèdent).
+
 ## Points ouverts
 
 - Près du joueur, MassTraffic peut confier une voiture à son véhicule physique : nos copies
