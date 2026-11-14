@@ -340,6 +340,16 @@ directly landed across the upper lip: no groom is bound by default any more. `to
 (read only) gives the retarget's settings (the retargeter and both IK rigs: retarget root, chains, ops, each exported
 as text) and lists the eyebrow, groom, binding and crowd hair assets, for the fix and for the hair choice.
 
+Probe results (2026-11-14): both IK rigs have the pelvis as retarget root (the target has a `root` chain more, and
+`LeftToe`/`RightToe` for the source's `LeftFoot`/`RightFoot`); the ops cannot be listed from Python on 5.8 (their
+settings are in the retargeter's text export). The project has only Kellan's four grooms, but City Sample's crowd
+ships baked eyebrow textures (`Eyebrows_M_Full`, `Natural`, `Thick`, `SlightArch`, `Messy`, `Scraggly`, under
+`/Game/Crowd/Character/Shared/Textures/Hair`) and two baked short hair ones (`Hair_S_AfroFade`, `Hair_S_Coil`), which
+its head material paints on the face (`EyebrowsAttributeMap`, `HairAttributeMap`, `ShowBakedGroomTextures` on).
+`create_nicolito_visual.py` now sets them on Nicolito's head instances, the same ones that set the skin tile:
+`GTP_NICOLITO_BROWS` (default `Natural`) and `GTP_NICOLITO_HAIR` (default none, bald), only where the parameter's
+default is of the same kind (virtual texture or not: the other would not compile). No groom, no binding.
+
 **Grooms (2026-11-14).** Kellan has six groom components (hair, eyebrows, eyelashes, peach fuzz, moustache, beard),
 each ticking in the package against a 13 ms budget. Strand simulation is off (`r.HairStrands.Simulation=0`). The
 game mode also hides, without tick, the grooms whose name contains a word of `PlayerGroomsHidden` (`Fuzz`,

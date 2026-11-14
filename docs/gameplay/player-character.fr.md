@@ -364,6 +364,17 @@ les réglages du reciblage (le retargeter et les deux IK rigs : racine, chaînes
 et liste les assets de sourcils, de grooms, de liaisons et de cheveux de foule, pour la correction et pour le choix
 des cheveux.
 
+Résultats de la sonde (14/11/2026) : les deux IK rigs ont le pelvis pour racine de reciblage (la cible a une chaîne
+`root` de plus, et `LeftToe`/`RightToe` pour les `LeftFoot`/`RightFoot` de la source) ; les opérations ne se
+listent pas depuis Python en 5.8 (leurs réglages sont dans l'export texte du retargeter). Le projet n'a que les quatre
+grooms de Kellan, mais la foule de City Sample fournit des textures de sourcils précalculées (`Eyebrows_M_Full`,
+`Natural`, `Thick`, `SlightArch`, `Messy`, `Scraggly`, sous `/Game/Crowd/Character/Shared/Textures/Hair`) et deux de
+cheveux courts (`Hair_S_AfroFade`, `Hair_S_Coil`), que son matériau de tête peint sur le visage
+(`EyebrowsAttributeMap`, `HairAttributeMap`, `ShowBakedGroomTextures` activé). `create_nicolito_visual.py` les pose
+maintenant sur les instances de la tête de Nicolito, celles qui posent déjà la tuile de peau : `GTP_NICOLITO_BROWS`
+(par défaut `Natural`) et `GTP_NICOLITO_HAIR` (par défaut aucun, crâne rasé), seulement là où la valeur par défaut du
+paramètre est du même genre (texture virtuelle ou non : l'autre ne compilerait pas). Ni groom ni liaison.
+
 **Grooms (14/11/2026).** Kellan a six composants groom (cheveux, sourcils, cils, duvet, moustache, barbe), qui
 tickent tous dans le package pour un budget de 13 ms. La simulation des brins est coupée
 (`r.HairStrands.Simulation=0`). Le mode de jeu cache aussi, sans tick, les grooms dont le nom contient un mot de
