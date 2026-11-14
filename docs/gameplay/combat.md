@@ -247,6 +247,15 @@ is taken: Lyra stands on GAS and ShooterCore, which ADR-0011 leaves out. We take
   it, under investigation: `tools/combat/unreal/player_visual_retarget.py` dumps the retargeters in use (ops, chain
   mapping, arm settings, the MetaHuman rig's IK goals) without changing them, and builds our own
   `RTG_GTP_UEFN_to_MetaHuman` to try with `-PlayerVisualRetargeter=`.
+- **The MetaHuman body stays in its reference pose (candidate 30, 14/11)**: both of its hands sit 53 cm under the
+  head, the right one 55 cm to the side, walking or aiming: the MetaHuman's A pose. With our single-stack
+  retargeter the numbers are the same to the centimetre as with the pedestrians' one (whose ops are stacked three
+  times by repeated runs of its script), so the retargeter is not what the body evaluates. The game mode now
+  re-initialises the body's blueprint once and then points its retarget nodes, the variables bound to their pins
+  and any retargeter variable of the visual's actor at the pawn's mesh and the retargeter, with no re-initialisation
+  after (the blueprint's own initialisation could put the sample's values back). Its log says how many settings the
+  initialisation undid, and every 2 s `body retarget probe` prints what the blueprint holds and sets again anything
+  its graph put back.
 - **Who is aimed at (fix of 13/11 night)**: the player on foot reports the threat from the eyes to what the reticle
   covers (the view's line to the first obstacle), as he shoots from the view, no longer from the muzzle. The
   muzzle sits in the visible body's hand: with that hand down at the hip, a pedestrian 2 m away fell outside the 12
