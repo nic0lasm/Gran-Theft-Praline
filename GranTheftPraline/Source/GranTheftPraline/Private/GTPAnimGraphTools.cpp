@@ -8,8 +8,15 @@
 #include "AnimGraphNode_SaveCachedPose.h"
 #include "AnimGraphNode_Slot.h"
 #include "AnimGraphNode_UseCachedPose.h"
+#include "Animation/AnimBlueprintGeneratedClass.h"
 #include "Animation/AnimNodeBase.h"
 #include "Animation/Skeleton.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Engine/Blueprint.h"
+#include "Engine/SCS_Node.h"
+#include "Engine/SimpleConstructionScript.h"
+#include "Engine/SkeletalMesh.h"
+#include "Materials/MaterialInterface.h"
 #include "EdGraph/EdGraph.h"
 #include "EdGraph/EdGraphPin.h"
 #include "EdGraph/EdGraphSchema.h"
@@ -324,6 +331,128 @@ FString UGTPAnimGraphTools::SetRetargetSourceRoot(UObject* Retargeter, FName Bon
 	Retargeter->MarkPackageDirty();
 	return FString::Printf(TEXT("ok: SourceRoot set to %s in %d op(s) of %s (before: %s)"), *Bone.ToString(), Changed,
 		*Retargeter->GetName(), *FString::Join(Before, TEXT(", ")));
+#else
+	return TEXT("error: editor only");
+#endif
+}
+
+FString UGTPAnimGraphTools::DescribeBlueprintComponents(UBlueprint* Blueprint)
+{
+#if WITH_EDITOR
+	if (!Blueprint || !Blueprint->SimpleConstructionScript)
+	{
+		return TEXT("error: no blueprint or no construction script");
+	}
+	auto PathOf = [](const UObject* Object) { return Object ? Object->GetPathName() : FString(TEXT("-")); };
+	TArray<FString> Lines;
+	for (const USCS_Node* Node : Blueprint->SimpleConstructionScript->GetAllNodes())
+	{
+		const UActorComponent* Template = Node ? Node->ComponentTemplate.Get() : nullptr;
+		if (!Template)
+		{
+			continue;
+		}
+		FString Line = FString::Printf(TEXT("name=%s class=%s"), *Node->GetVariableName().ToString(), *Template->GetClass()->GetName());
+		if (const USkeletalMeshComponent* Skel = Cast<USkeletalMeshComponent>(Template))
+		{
+			const USkeletalMesh* Mesh = Skel->GetSkeletalMeshAsset();
+			const UAnimBlueprintGeneratedClass* Anim = Cast<UAnimBlueprintGeneratedClass>(Skel->AnimClass.Get());
+			TArray<FString> Materials;
+			if (Mesh)
+			{
+				for (const FSkeletalMaterial& Slot : Mesh->GetMaterials())
+				{
+					Materials.Add(FString::Printf(TEXT("%s:%s"), *Slot.MaterialSlotName.ToString(), *PathOf(Slot.MaterialInterface)));
+				}
+			}
+			Line += FString::Printf(TEXT(" mesh=%s skeleton=%s anim=%s animSkeleton=%s mode=%d overrides=%d mats=%s"), *PathOf(Mesh),
+				*PathOf(Mesh ? Mesh->GetSkeleton() : nullptr), *PathOf(Skel->AnimClass.Get()), *PathOf(Anim ? Anim->TargetSkeleton.Get() : nullptr),
+				static_cast<int32>(Skel->GetAnimationMode()), Skel->OverrideMaterials.Num(),
+				Materials.Num() ? *FString::Join(Materials, TEXT(";")).Replace(TEXT(" "), TEXT("_")) : TEXT("-"));
+		}
+		for (const TCHAR* Name : {TEXT("GroomAsset"), TEXT("BindingAsset")})
+		{
+			if (const FObjectPropertyBase* Prop = FindFProperty<FObjectPropertyBase>(Template->GetClass(), Name))
+			{
+				Line += FString::Printf(TEXT(" %s=%s"), Name, *PathOf(Prop->GetObjectPropertyValue_InContainer(Template)));
+			}
+		}
+		Lines.Add(Line);
+	}
+	return FString::Join(Lines, TEXT("\n"));
+#else
+	return TEXT("error: editor only");
+#endif
+}
+
+FString UGTPAnimGraphTools::SetBlueprintComponentAsset(UBlueprint* Blueprint, FName Component, FName Property, UObject* Asset)
+{
+#if WITH_EDITOR
+	if (!Blueprint || !Blueprint->SimpleConstructionScript)
+	{
+		return TEXT("error: no blueprint or no construction script");
+	}
+	USCS_Node* Node = Blueprint->SimpleConstructionScript->FindSCSNode(Component);
+	UActorComponent* Template = Node ? Node->ComponentTemplate.Get() : nullptr;
+	if (!Template)
+	{
+		return FString::Printf(TEXT("error: no component %s in %s"), *Component.ToString(), *Blueprint->GetName());
+	}
+	auto PathOf = [](const UObject* Object) { return Object ? Object->GetPathName() : FString(TEXT("none")); };
+	if (Property == FName(TEXT("OverrideMaterials")))
+	{
+		UMeshComponent* MeshComp = Cast<UMeshComponent>(Template);
+		if (!MeshComp || Asset)
+		{
+			return FString::Printf(TEXT("error: %s.OverrideMaterials can only be emptied"), *Component.ToString());
+		}
+		const int32 Count = MeshComp->OverrideMaterials.Num();
+		if (Count == 0)
+		{
+			return FString::Printf(TEXT("kept: %s has no material override"), *Component.ToString());
+		}
+		Template->Modify();
+		MeshComp->OverrideMaterials.Empty();
+		FPropertyChangedEvent Event(FindFProperty<FProperty>(UMeshComponent::StaticClass(), TEXT("OverrideMaterials")));
+		Template->PostEditChangeProperty(Event);
+		FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
+		return FString::Printf(TEXT("ok: %s.OverrideMaterials emptied (%d before)"), *Component.ToString(), Count);
+	}
+	FObjectPropertyBase* Prop = FindFProperty<FObjectPropertyBase>(Template->GetClass(), Property);
+	if (!Prop)
+	{
+		return FString::Printf(TEXT("error: %s (%s) has no object property %s"), *Component.ToString(), *Template->GetClass()->GetName(), *Property.ToString());
+	}
+	if (Asset)
+	{
+		const FClassProperty* ClassProp = CastField<FClassProperty>(Prop);
+		const UClass* AsClass = Cast<UClass>(Asset);
+		const bool bFits = ClassProp ? (AsClass && AsClass->IsChildOf(ClassProp->MetaClass)) : Asset->IsA(Prop->PropertyClass);
+		if (!bFits)
+		{
+			return FString::Printf(TEXT("error: %s does not fit %s.%s"), *PathOf(Asset), *Component.ToString(), *Property.ToString());
+		}
+	}
+	UObject* Before = Prop->GetObjectPropertyValue_InContainer(Template);
+	if (Before == Asset)
+	{
+		return FString::Printf(TEXT("kept: %s.%s already %s"), *Component.ToString(), *Property.ToString(), *PathOf(Asset));
+	}
+	Template->Modify();
+	USkeletalMeshComponent* Skel = Cast<USkeletalMeshComponent>(Template);
+	if (Skel && Property == FName(TEXT("SkeletalMeshAsset")))
+	{
+		Skel->SetSkeletalMeshAsset(Cast<USkeletalMesh>(Asset));
+	}
+	else
+	{
+		Prop->SetObjectPropertyValue_InContainer(Template, Asset);
+	}
+	FPropertyChangedEvent Event(Prop);
+	Template->PostEditChangeProperty(Event);
+	FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
+	return FString::Printf(TEXT("ok: %s.%s %s -> %s"), *Component.ToString(), *Property.ToString(), *PathOf(Before),
+		*PathOf(Prop->GetObjectPropertyValue_InContainer(Template)));
 #else
 	return TEXT("error: editor only");
 #endif
