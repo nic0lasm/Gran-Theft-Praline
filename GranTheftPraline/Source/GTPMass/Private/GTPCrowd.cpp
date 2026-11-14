@@ -438,11 +438,14 @@ void UGTPCrowdSubsystem::SetupNearActors(UWorld& InWorld)
 	{
 		// Off by default until the City Sample crowd keeps the frame budget and cooks without material errors:
 		// -CrowdCitySample=1 turns it on (the mannequins of before stay otherwise).
-		USkeletalMesh* Probe = nullptr;
+		bool Probe = false;
 		int32 CitySampleOn = 0;
 		if (!CrowdCharacterRoot.IsEmpty() && (FParse::Param(FCommandLine::Get(), TEXT("CrowdCitySample")) || (FParse::Value(FCommandLine::Get(), TEXT("CrowdCitySample="), CitySampleOn) && CitySampleOn != 0)))
 		{
-			Probe = LoadObject<USkeletalMesh>(nullptr, *(CrowdCharacterRoot + TEXT("/Male/NormalWeight/Meshes/m_tal_nrw_body.m_tal_nrw_body")));
+			// Asked of the registry, not loaded: loading the male body here pulled its materials in before anything was
+			// dressed (suspected of the two packaged "uncooked shader map" errors that come right at this line).
+			const FString BodyPath = CrowdCharacterRoot + TEXT("/Male/NormalWeight/Meshes/m_tal_nrw_body.m_tal_nrw_body");
+			Probe = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry")).Get().GetAssetByObjectPath(FSoftObjectPath(BodyPath)).IsValid();
 		}
 		const UAnimSequenceBase* BakedWalk = Probe ? Cast<UAnimSequenceBase>(CrowdWalkAnimation.TryLoad()) : nullptr;
 		bAssembled = Probe && BakedWalk;
@@ -812,7 +815,11 @@ void UGTPCrowdSubsystem::SpreadPanic()
 bool UGTPCrowdSubsystem::DressFromCitySample(AGTPPedestrian* Actor)
 {
 	// Path pattern of the pack: <Root>/<Female|Male>/<NormalWeight|OverWeight|UnderWeight>/Meshes/<f|m>_tal_<nrw|ovw|unw>_<part>.
-	const bool bFemale = ReactionRng.Next() < 0.5f;
+	// -CrowdSex=f|m forces one sex (diagnostic of the packaged material errors).
+	FString ForcedSex;
+	FParse::Value(FCommandLine::Get(), TEXT("CrowdSex="), ForcedSex);
+	const bool bFemaleRoll = ReactionRng.Next() < 0.5f;
+	const bool bFemale = ForcedSex.StartsWith(TEXT("f")) ? true : (ForcedSex.StartsWith(TEXT("m")) ? false : bFemaleRoll);
 	// Only the normal-weight body is in the migrated subset (the clothes of the other weights do not fit it anyway).
 	const TCHAR* WeightDir = TEXT("NormalWeight");
 	const TCHAR* WeightTag = TEXT("nrw");
