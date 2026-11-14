@@ -1,6 +1,7 @@
 #include "GTPGtaRun.h"
 
 #include "Engine/World.h"
+#include "GameFramework/WorldSettings.h"
 #include "EngineUtils.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -321,6 +322,16 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail, bool bClose)
 				Character->GetAttachParentActor() ? *Character->GetAttachParentActor()->GetName() : TEXT("nothing"),
 				Character->GetController() ? *Character->GetController()->GetName() : TEXT("nobody"),
 				Movement && Movement->IsActive() ? 1 : 0, static_cast<int32>(Character->GetActorEnableCollision()));
+			if (Movement)
+			{
+				const FVector Where = Character->GetActorLocation();
+				Detail += FString::Printf(TEXT(" [at %.0f %.0f %.0f, velocity %.0f, acceleration %.0f of max %.0f, braking %.0f, on ground %d, walkable floor %d, tick %d, "
+					"time dilation %.2f, input ignored by pawn %d, to victim %.0f %.0f]"), Where.X, Where.Y, Where.Z, Movement->Velocity.Size(),
+					Movement->GetCurrentAcceleration().Size(), Movement->MaxAcceleration, Movement->BrakingDecelerationWalking,
+					Movement->IsMovingOnGround() ? 1 : 0, Movement->CurrentFloor.IsWalkableFloor() ? 1 : 0, Movement->IsComponentTickEnabled() ? 1 : 0,
+					Character->CustomTimeDilation * World->GetWorldSettings()->GetEffectiveTimeDilation(), Character->IsMoveInputIgnored() ? 1 : 0,
+					ToVictim.X, ToVictim.Y);
+			}
 			return EResult::Fail;
 		}
 	}
