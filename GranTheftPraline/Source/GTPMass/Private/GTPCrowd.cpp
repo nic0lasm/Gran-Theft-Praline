@@ -879,7 +879,14 @@ bool UGTPCrowdSubsystem::DressFromCitySample(AGTPPedestrian* Actor)
 	{
 		Clothes.Reset();
 	}
-	TSubclassOf<UAnimInstance> FaceAnim = FaceAnimClass.TryLoadClass<UAnimInstance>();
+	// The face animation blueprint (City Sample's rig) is not loaded unless -CrowdFaceAnim=1: loading it pulls its whole
+	// dependency chain, the suspect of the two packaged "uncooked shader map" errors that come right before the first
+	// character is dressed; without it the face follows the body by bone name.
+	TSubclassOf<UAnimInstance> FaceAnim;
+	if (Face && FParse::Param(FCommandLine::Get(), TEXT("CrowdFaceAnim")))
+	{
+		FaceAnim = FaceAnimClass.TryLoadClass<UAnimInstance>();
+	}
 	Actor->Dress(Body, Clothes, Face, FaceAnim);
 	int32 DefaultMaterials = 0;
 	if (FParse::Value(FCommandLine::Get(), TEXT("CrowdDefaultMaterials="), DefaultMaterials) && DefaultMaterials != 0)
