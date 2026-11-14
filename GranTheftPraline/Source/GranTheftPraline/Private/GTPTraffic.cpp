@@ -46,10 +46,10 @@ namespace
 	constexpr float RouteAheadM = 50.f;
 
 	/**
-	 * Height of a parked car's pivot above the ground at spawn: 40 cm (our cars, pivot at the
-	 * ground), or more when the mesh reaches lower than 35 cm under its pivot (City Sample's cars,
-	 * whose pivot may sit higher), so the body never starts inside the road. Read from the
-	 * skeletal mesh's bounds on the class defaults.
+	 * Height of a parked car's pivot above the ground at spawn, so that the lowest point of its mesh
+	 * starts 40 cm above the road for every car (as our cars, pivot at the ground, always did):
+	 * City Sample's meshes put that point anywhere from 0 to 42 cm above their pivot.
+	 * Read from the skeletal mesh's bounds on the class defaults.
 	 */
 	float ParkedClearance(TSubclassOf<AGTPVehicle> Class)
 	{
@@ -62,7 +62,7 @@ namespace
 		}
 		const FBoxSphereBounds Bounds = Mesh->GetBounds();
 		const float Bottom = static_cast<float>(Bounds.Origin.Z - Bounds.BoxExtent.Z) + static_cast<float>(Body->GetRelativeLocation().Z);
-		return FMath::Max(40.f, 5.f - Bottom);
+		return FMath::Clamp(40.f - Bottom, -100.f, 200.f);
 	}
 }
 

@@ -28,6 +28,17 @@ public:
 	static FString BuildFromFile(UObject* WorldContext, const FString& JsonPath);
 
 	/**
+	 * Builds the ZoneGraph data of the world of WorldContext from its shapes, in the editor (the
+	 * engine does it by itself only with "build while editing" on, which is off): adds a
+	 * ZoneGraphData actor to the persistent level if it has none, then runs the engine's builder
+	 * (FZoneGraphBuilder::BuildAll, forced). The built lanes are saved with the map; without them
+	 * MassTraffic has no lane and spawns no car. Returns a JSON report: shapes, lanes, zones, errors
+	 * (0 lanes is an error). Editor only: in a game build it only reports an error.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "GTP|Mass", meta = (WorldContext = "WorldContext"))
+	static FString BuildZoneGraphData(UObject* WorldContext);
+
+	/**
 	 * Points MassTraffic's ZoneGraph lane filters at our tags: every FZoneGraphTagFilter of
 	 * MassTrafficSettings whose name says Intersection gets IntersectionTag, crosswalk and
 	 * pedestrian ones are left, every other one gets LaneTag (fixed tag slots, see above). In memory

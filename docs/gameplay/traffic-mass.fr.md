@@ -45,6 +45,12 @@ ADR-0015 (piétons et trafic sur Mass). Anglais : [traffic-mass.md](traffic-mass
    exposée à Python en 5.8), par le module GTPMass à chaque démarrage du moteur, jeu et package
    compris. Aucun fichier de config n'est écrit ni nécessaire. La ligne de journal « traffic lane
    filters » liste les filtres posés ; `place_masstraffic.py` signale une erreur s'il n'y en a aucun.
+   Le moteur ne construit les données ZoneGraph (les voies où roule MassTraffic) de lui-même que si
+   « construire pendant l'édition » est activé, ce qui n'est pas le cas : `place_zonegraph.py`
+   appelle donc `UGTPZoneGraphImport::BuildZoneGraphData`, qui ajoute un acteur ZoneGraphData à la
+   carte s'il n'y en a pas et lance le constructeur du moteur (`FZoneGraphBuilder::BuildAll`, forcé ;
+   la reconstruction du sous-système est protégée). Les voies sont sauvegardées avec la carte. Son
+   rapport donne `build` : formes, voies, zones ; 0 voie est une erreur.
    Les configurations du trafic et les Blueprints de spawners de City Sample sont dans le Content
    du projet City Sample (/Game/AI/Traffic, /Game/AI/Traffic/Spawners, /Game/Vehicle/veh*) : ils
    sont copiés aux mêmes chemins /Game dans notre projet (hors Git) pour garder leurs références.
