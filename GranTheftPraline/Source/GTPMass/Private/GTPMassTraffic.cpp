@@ -19,6 +19,7 @@
 #include "MassExecutionContext.h"
 #include "MassTrafficFragments.h"
 #include "MassTrafficSettings.h"
+#include "MassTrafficSubsystem.h"
 #include "MassZoneGraphNavigationFragments.h"
 #endif
 
@@ -76,6 +77,10 @@ void UGTPMassTrafficSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 	}
 	LogCounts();
 	InWorld.GetTimerManager().SetTimer(CountTimer, FTimerDelegate::CreateUObject(this, &UGTPMassTrafficSubsystem::LogCounts), 5.f, true);
+	if (StartedSpawners > 0 && !FParse::Param(FCommandLine::Get(), TEXT("NoDeadEndRecycle")))
+	{
+		InWorld.GetTimerManager().SetTimer(RecycleTimer, FTimerDelegate::CreateUObject(this, &UGTPMassTrafficSubsystem::RecycleAtDeadEnds), 1.f, true);
+	}
 #else
 	UE_LOG(LogGTPMassTraffic, Warning, TEXT("MassTraffic: -Traffic=mass but the plugin is not installed (Plugins/Traffic and Plugins/RuleProcessor from City Sample), legacy traffic kept"));
 #endif
@@ -275,6 +280,19 @@ void UGTPMassTrafficSubsystem::LogSimulatedCars(UWorld& World, const FVector& Pl
 			Nearest = FMath::Min(Nearest, Distance);
 		}
 	});
+	// Cars handed to MassTraffic's recycling (RecycleAtDeadEnds) and not moved yet.
+	int32 Recyclable = 0;
+	{
+		FMassEntityQuery RecyclableQuery;
+		RecyclableQuery.Initialize(Manager);
+		RecyclableQuery.AddTagRequirement<FMassTrafficRecyclableVehicleTag>(EMassFragmentPresence::All);
+		RecyclableQuery.AddRequirement<FTransformFragment>(EMassFragmentAccess::ReadOnly);
+		FMassExecutionContext RecyclableContext(*Manager, 0.f);
+		RecyclableQuery.ForEachEntityChunk(RecyclableContext, [&Recyclable](FMassExecutionContext& Chunk)
+		{
+			Recyclable += Chunk.GetNumEntities();
+		});
+	}
 	FString Network;
 	if (!bNetworkLogged && Cars > 0)
 	{
@@ -283,12 +301,76 @@ void UGTPMassTrafficSubsystem::LogSimulatedCars(UWorld& World, const FVector& Pl
 		Network = FString::Printf(TEXT(" | car lanes=%d (%d dead ends), %.1f km, %.1f cars per km"), CarLanes, DeadEnds.Num(),
 			Length / 100000.0, Length > 0.0 ? Cars / (Length / 100000.0) : 0.0);
 	}
-	UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic cars: simulated=%d moving=%d (over 1 m/s) stopped on a dead-end lane=%d mean speed=%.0f km/h | within 100 m=%d within 200 m=%d nearest=%s%s"),
-		Cars, Moving, AtDeadEnd, Cars > 0 ? SpeedSum / Cars * 0.036 : 0.0, Within100, Within200,
+	UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic cars: simulated=%d moving=%d (over 1 m/s) stopped on a dead-end lane=%d waiting for recycling=%d recycled so far=%d mean speed=%.0f km/h | within 100 m=%d within 200 m=%d nearest=%s%s"),
+		Cars, Moving, AtDeadEnd, Recyclable, Recycled, Cars > 0 ? SpeedSum / Cars * 0.036 : 0.0, Within100, Within200,
 		Cars > 0 ? *FString::Printf(TEXT("%.0f m"), Nearest / 100.0) : TEXT("none"), *Network);
+}
+
+void UGTPMassTrafficSubsystem::RecycleAtDeadEnds()
+{
+	UWorld* World = GetWorld();
+	UMassEntitySubsystem* Mass = World ? World->GetSubsystem<UMassEntitySubsystem>() : nullptr;
+	const UMassTrafficSubsystem* Traffic = World ? World->GetSubsystem<UMassTrafficSubsystem>() : nullptr;
+	if (!Mass || !Traffic)
+	{
+		return;
+	}
+	const APawn* Player = UGameplayStatics::GetPlayerPawn(World, 0);
+	const FVector PlayerLocation = Player ? Player->GetActorLocation() : FVector::ZeroVector;
+	// Not under the player's eyes: a car vanishing 80 m away is less seen than one that never moves.
+	static const double KeepNearCm = []
+	{
+		float Metres = 80.f;
+		FParse::Value(FCommandLine::Get(), TEXT("DeadEndKeepNear="), Metres);
+		return Metres * 100.0;
+	}();
+	FMassEntityManager& Manager = Mass->GetMutableEntityManager();
+	FMassEntityQuery Query;
+	Query.Initialize(Manager.AsShared());
+	Query.AddTagRequirement<FMassTrafficVehicleTag>(EMassFragmentPresence::All);
+	Query.AddRequirement<FTransformFragment>(EMassFragmentAccess::ReadOnly);
+	Query.AddRequirement<FAgentRadiusFragment>(EMassFragmentAccess::ReadOnly);
+	Query.AddRequirement<FMassTrafficVehicleControlFragment>(EMassFragmentAccess::ReadOnly);
+	Query.AddRequirement<FMassZoneGraphLaneLocationFragment>(EMassFragmentAccess::ReadOnly);
+	TArray<FMassEntityHandle> ToRecycle;
+	FMassExecutionContext Context(Manager, 0.f);
+	Query.ForEachEntityChunk(Context, [&](FMassExecutionContext& Chunk)
+	{
+		const TConstArrayView<FTransformFragment> Transforms = Chunk.GetFragmentView<FTransformFragment>();
+		const TConstArrayView<FAgentRadiusFragment> Radii = Chunk.GetFragmentView<FAgentRadiusFragment>();
+		const TConstArrayView<FMassTrafficVehicleControlFragment> Controls = Chunk.GetFragmentView<FMassTrafficVehicleControlFragment>();
+		const TConstArrayView<FMassZoneGraphLaneLocationFragment> Locations = Chunk.GetFragmentView<FMassZoneGraphLaneLocationFragment>();
+		for (int32 Index = 0; Index < Chunk.GetNumEntities(); ++Index)
+		{
+			const FMassZoneGraphLaneLocationFragment& Location = Locations[Index];
+			if (Controls[Index].Speed > 100.f || Location.DistanceAlongLane < Location.LaneLength - Radii[Index].Radius - 300.f
+				|| FVector::Dist(Transforms[Index].GetTransform().GetLocation(), PlayerLocation) < KeepNearCm)
+			{
+				continue;
+			}
+			const FZoneGraphTrafficLaneData* Lane = Traffic->GetTrafficLaneData(Location.LaneHandle);
+			if (Lane && Lane->NextLanes.IsEmpty())
+			{
+				ToRecycle.Add(Chunk.GetEntity(Index));
+			}
+		}
+	});
+	for (const FMassEntityHandle& Entity : ToRecycle)
+	{
+		Manager.Defer().SwapTags<FMassTrafficVehicleTag, FMassTrafficRecyclableVehicleTag>(Entity);
+	}
+	Recycled += ToRecycle.Num();
+	if (ToRecycle.Num() > 0 && (Recycled <= 20 || Recycled % 50 < ToRecycle.Num()))
+	{
+		UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic dead ends: %d car(s) handed to MassTraffic's recycling (%d in all)"), ToRecycle.Num(), Recycled);
+	}
 }
 #else
 void UGTPMassTrafficSubsystem::LogSimulatedCars(UWorld& World, const FVector& PlayerLocation)
+{
+}
+
+void UGTPMassTrafficSubsystem::RecycleAtDeadEnds()
 {
 }
 #endif

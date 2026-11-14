@@ -192,6 +192,22 @@ historique et pas MassTraffic). Le réseau de City Sample est fermé. Deux chang
 - la ligne « MassTraffic cars » compte les voitures arrêtées sur une voie en impasse, et une fois
   les voies en impasse du réseau.
 
+PC, deuxième passage : les copies n'ont plus aucun risque de cook (registre relu après les
+sauvegardes). Mais zonegraph.py n'a fermé que 6 impasses sur 89, et 50 des 120 voitures ont fini
+arrêtées sur les 83 restantes (775 voies de voitures dans la ZoneGraph). Ensuite :
+- zonegraph.py relie d'abord une impasse à sa voie suivante de lanes.csv quand celle-ci part à
+  moins de 10 m et que rien ne l'alimente (deux rues qui se rejoignent hors carrefour, voies décalées
+  différemment) : les 6 derniers mètres de la voie sont redessinés pour finir dessus. Comptes
+  `dead_ends_joined` et `dead_ends_left_with_next` ;
+- les impasses qui restent (rues à sens unique qui sortent de la carte) sont confiées à MassTraffic
+  lui-même : chaque seconde, une voiture arrêtée au bout de l'une d'elles, à 80 m ou plus du joueur,
+  reçoit `FMassTrafficRecyclableVehicleTag`, le tag que MassTraffic donne à une épave réparée, et son
+  superviseur (`UMassTrafficOverseerProcessor`) la pose dans une place libre d'une des voies les moins
+  chargées loin du joueur. Ses distances (`BusiestLaneDistanceToPlayerRange`,
+  `LeastBusiestLaneDistanceToPlayerRange`) passent de 500 m, à peu près toute notre zone, à 150 m
+  (`-TrafficTransferDistance=<m>`, `-DeadEndKeepNear=<m>`, `-NoDeadEndRecycle`). Journal : « waiting
+  for recycling » et « recycled so far ».
+
 ## Points ouverts
 
 - Près du joueur, MassTraffic peut confier une voiture à son véhicule physique : nos copies

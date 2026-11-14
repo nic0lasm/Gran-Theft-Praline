@@ -86,6 +86,16 @@ class ZoneGraphTests(unittest.TestCase):
         self.assertEqual(counts["junctions"], 1)
         self.assertEqual(counts["dead_ends_closed"] + counts["dead_ends_left"], 1)  # only lane 1's far end
 
+    def test_next_lane_off_a_junction_is_joined(self):
+        # Two roads meet off a junction and their lanes are offset differently: 1.5 m apart.
+        lanes = [lane(0, [(0, 0), (5000, 0)], nxt=[1]), lane(1, [(5000, 150), (9000, 150)])]
+        shapes, counts = zonegraph.build(lanes, [])
+        self.assertEqual(counts["dead_ends_joined"], 1)
+        self.assertEqual(counts["dead_ends_left"], 1)  # lane 1's far end
+        car0 = [s for s in shapes if s["name"] == "Car_0"][0]
+        self.assertEqual(car0["points"][-1], [5000.0, 150.0])  # ends on lane 1's start
+        self.assertEqual(car0["points"][-2], [4400.0, 0.0])    # the shift starts 6 m before
+
     def test_points_parse_like_traffic_csv(self):
         self.assertEqual(zonegraph.parse_points("100 -200;300 -400"), [(100.0, -200.0), (300.0, -400.0)])
 

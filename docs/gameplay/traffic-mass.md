@@ -172,6 +172,22 @@ closed. Two changes:
 - the "MassTraffic cars" line counts the cars stopped on a dead-end lane, and once the dead-end
   lanes of the network.
 
+PC, second run: the copies have no cook risk any more (registry read again after the saves). But
+zonegraph.py closed only 6 dead ends out of 89, and 50 of the 120 cars ended up stopped on the 83
+left (775 car lanes in the ZoneGraph). Next:
+- zonegraph.py first joins a dead end to its next lane of lanes.csv when that one starts within
+  10 m and is fed by nothing (two roads meeting off a junction, their lanes offset differently): the
+  lane's last 6 m are redrawn to end on it. Counts `dead_ends_joined` and
+  `dead_ends_left_with_next`;
+- the dead ends that remain (one-way streets leaving the map) are MassTraffic's own business: every
+  second a car standing at the end of one, 80 m or more from the player, gets
+  `FMassTrafficRecyclableVehicleTag`, the tag MassTraffic gives a repaired wreck, and its overseer
+  (`UMassTrafficOverseerProcessor`) moves it to a free space on one of the least busy lanes away
+  from the player. Its distances (`BusiestLaneDistanceToPlayerRange`,
+  `LeastBusiestLaneDistanceToPlayerRange`) go from 500 m, about our whole focus area, to 150 m
+  (`-TrafficTransferDistance=<m>`, `-DeadEndKeepNear=<m>`, `-NoDeadEndRecycle`). Logged: "waiting for
+  recycling" and "recycled so far".
+
 ## Open points
 
 - Near the player MassTraffic may hand a car over to its physics vehicle: our copies name our cars

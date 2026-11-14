@@ -38,10 +38,19 @@ private:
 	void LogCounts();
 	/** "MassTraffic cars": the simulated cars (Mass entities), moving or not, near the player or not. */
 	void LogSimulatedCars(UWorld& World, const FVector& PlayerLocation);
+	/**
+	 * Every second: a car standing at the end of a dead-end lane, away from the player, is handed to
+	 * MassTraffic's own recycling (FMassTrafficRecyclableVehicleTag, the tag a repaired wreck gets),
+	 * which moves it to a free space on one of the least busy lanes away from the player
+	 * (UMassTrafficOverseerProcessor). MassTraffic itself never takes a car off a dead end.
+	 */
+	void RecycleAtDeadEnds();
 
 	int32 StartedSpawners = 0;
 	int32 CountLogs = 0;
 	bool bViewPlaced = false;
 	bool bNetworkLogged = false;
+	int32 Recycled = 0;
+	FTimerHandle RecycleTimer;
 	FTimerHandle CountTimer;
 };

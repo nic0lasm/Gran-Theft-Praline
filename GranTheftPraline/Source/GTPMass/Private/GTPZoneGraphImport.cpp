@@ -600,6 +600,25 @@ FString UGTPZoneGraphImport::ConfigureTrafficLaneFilters(FName LaneTag, FName In
 	{
 		Report.Info.Add(TEXT("ObstacleSearchRadius"), TEXT("not found: left as is"));
 	}
+	// MassTraffic's density management (UMassTrafficOverseerProcessor) moves cars from the busiest
+	// lanes, and the cars handed to its recycling (GTPMassTraffic: those stuck at a dead end), onto
+	// the least busy lanes, only beyond these distances from the player: Epic's 500 m is about the
+	// whole of our focus area, so no lane would qualify. 150 m, or -TrafficTransferDistance=<m>.
+	float TransferMetres = 150.f;
+	FParse::Value(FCommandLine::Get(), TEXT("TrafficTransferDistance="), TransferMetres);
+	for (const TCHAR* RangeName : {TEXT("BusiestLaneDistanceToPlayerRange"), TEXT("LeastBusiestLaneDistanceToPlayerRange")})
+	{
+		const FStructProperty* Range = CastField<FStructProperty>(Class->FindPropertyByName(RangeName));
+		if (Range && Range->Struct && Range->Struct->GetFName() == TEXT("FloatRange"))
+		{
+			*Range->ContainerPtrToValuePtr<FFloatRange>(Settings) = FFloatRange::GreaterThan(TransferMetres * 100.f);
+			Report.Info.Add(RangeName, FString::Printf(TEXT("beyond %.0f m"), TransferMetres));
+		}
+		else
+		{
+			Report.Info.Add(RangeName, TEXT("not found: left as is"));
+		}
+	}
 	UE_LOG(LogGTPZoneGraph, Log, TEXT("traffic lane filters: %s"), *Report.ToJson());
 	return Report.ToJson();
 }

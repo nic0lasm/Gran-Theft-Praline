@@ -18,7 +18,10 @@ Shapes:
   where MassTraffic's cars stop for good (it expects none: "Should never happen" in its lane
   choice). Where a lane fed by nothing starts within UTURN_MAX_M the other way (the other side of
   a two-way road), a turnaround spline (tag Car) joins the dead end to it: the cars turn back at
-  the edge of the map. Counts: dead_ends_closed, dead_ends_left;
+  the edge of the map. Before that, a dead end whose lane has a next lane in lanes.csv whose start
+  does not touch it (lanes of two roads meeting off a junction, offset differently) is joined to it:
+  its last JOIN_SHIFT_M are redrawn to end on that start. Counts: dead_ends_joined, dead_ends_closed, dead_ends_left, and of those left
+  dead_ends_left_with_next (lanes.csv says where they go, too far to join);
 - every walkway edge is a spline with the two-way "Pedestrian" profile (tag Pedestrian),
   crossings add the tag Crossing.
 
@@ -48,6 +51,8 @@ UTURN_OVERSHOOT_M = 3.0    # the turnaround runs on this far past the dead end
 UTURN_MIN_RADIUS_M = 2.5
 UTURN_SPEED_KMH = 15.0
 JOIN_EPS_CM = 1.0
+JOIN_MAX_M = 10.0          # a lane whose next lane (lanes.csv) starts this close is joined to it
+JOIN_SHIFT_M = 6.0         # over this last stretch of the lane
 KIND_CROSSING = 2
 PROFILES = {
     # Lane profiles the editor script creates in the ZoneGraph settings.
@@ -156,7 +161,7 @@ def build(lanes, walkways):
                        "roles": [p[0] for p in ends], "yaw_deg": [round(p[2], 1) for p in ends],
                        "lanes": [p[3] for p in ends], "centre": [round(cx, 1), round(cy, 1)]})
         polygons += 1
-    closed, left = close_dead_ends(lanes, shapes, emitted)
+    dead_counts = close_dead_ends(lanes, shapes, emitted)
     crossings = 0
     for e in walkways:
         crossing = e["kind"] == KIND_CROSSING
@@ -165,13 +170,15 @@ def build(lanes, walkways):
                        "tags": ["Pedestrian", "Crossing"] if crossing else ["Pedestrian"],
                        "points": [[round(x, 1), round(y, 1)] for x, y in e["points"]], "width_cm": round(e["width_m"] * 100.0, 1)})
     counts = {"car_lanes": len(lanes), "junctions": polygons, "walkways": len(walkways), "crossings": crossings,
-              "dead_ends_closed": closed, "dead_ends_left": left, "shapes": len(shapes)}
+              **dead_counts, "shapes": len(shapes)}
     return shapes, counts
 
 
 def close_dead_ends(lanes, shapes, emitted):
-    """Adds a turnaround spline from each dead-end lane to a lane fed by nothing that starts within
-    UTURN_MAX_M the other way (nearest first, each start used once). Returns (closed, left)."""
+    """Joins each dead-end lane to its next lane of lanes.csv when that one starts within JOIN_MAX_M
+    and is fed by nothing (a short spline), else adds a turnaround spline to a lane fed by nothing
+    that starts within UTURN_MAX_M the other way (nearest first, each start used once). Returns the
+    counts dead_ends_joined, dead_ends_closed, dead_ends_left, dead_ends_left_with_next."""
     cars = {s["name"]: s for s in shapes if s["type"] == "spline" and s["profile"] == "Car"}
     by_lane = [(lane, cars["Car_%d" % lane["id"]]) for lane in lanes if "Car_%d" % lane["id"] in cars]
     starts = [tuple(c["points"][0]) for _, c in by_lane]
@@ -186,8 +193,29 @@ def close_dead_ends(lanes, shapes, emitted):
             dead.append(i)
         if not (lane["from_junction"] in emitted or any(near(starts[i], e) for j, e in enumerate(ends) if j != i)):
             entries.append(i)
+    index_of = {lane["id"]: i for i, (lane, _) in enumerate(by_lane)}
+    used_dead, used_entry = set(), set()
+    joined = 0
+    for i in dead:
+        lane_i, car_i = by_lane[i]
+        options = []
+        for nid in lane_i["next"]:
+            j = index_of.get(nid)
+            if j is None or j == i or j not in entries or j in used_entry:
+                continue
+            gap = math.hypot(starts[j][0] - ends[i][0], starts[j][1] - ends[i][1])
+            if gap <= JOIN_MAX_M * 100.0:
+                options.append((gap, j))
+        if options:
+            _, j = min(options)
+            used_dead.add(i)
+            used_entry.add(j)
+            car_i["points"] = joined_points(car_i["points"], by_lane[j][1]["points"][0])
+            joined += 1
     pairs = []
     for i in dead:
+        if i in used_dead:
+            continue
         pi = by_lane[i][1]["points"]
         h_in = heading(pi[-2], pi[-1])
         for j in entries:
@@ -198,14 +226,26 @@ def close_dead_ends(lanes, shapes, emitted):
             turn = abs((heading(pj[0], pj[1]) - h_in + 180.0) % 360.0 - 180.0)
             if gap <= UTURN_MAX_M * 100.0 and turn >= UTURN_MIN_TURN_DEG:
                 pairs.append((gap, i, j))
-    used_dead, used_entry = set(), set()
+    closed = 0
     for gap, i, j in sorted(pairs):
         if i in used_dead or j in used_entry:
             continue
         used_dead.add(i)
         used_entry.add(j)
         shapes.append(turnaround(by_lane[i][0]["id"], by_lane[i][1]["points"], by_lane[j][1]["points"]))
-    return len(used_dead), len(dead) - len(used_dead)
+        closed += 1
+    left = [i for i in dead if i not in used_dead]
+    return {"dead_ends_joined": joined, "dead_ends_closed": closed, "dead_ends_left": len(left),
+            "dead_ends_left_with_next": sum(1 for i in left if by_lane[i][0]["next"])}
+
+
+def joined_points(pts, target):
+    """The lane's points ending on target (the start of its next lane): its last JOIN_SHIFT_M cut and
+    the end drawn straight to target, a gentle sideways shift (ZoneGraph links ends that touch)."""
+    pts = [tuple(p) for p in pts]
+    cut = min(JOIN_SHIFT_M * 100.0, length(pts) / 2.0)
+    out = cut_end(pts, cut) if cut > 0 else pts[:-1]
+    return [[round(x, 1), round(y, 1)] for x, y in out + [tuple(target)]]
 
 
 def turnaround(lane_id, into, out_of):
