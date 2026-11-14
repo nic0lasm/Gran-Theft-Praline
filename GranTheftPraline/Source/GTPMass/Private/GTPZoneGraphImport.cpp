@@ -3,7 +3,9 @@
 #include "Dom/JsonObject.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
+#include "Misc/CommandLine.h"
 #include "Misc/FileHelper.h"
+#include "Misc/Parse.h"
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
 #include "UObject/UnrealType.h"
@@ -535,7 +537,34 @@ FString UGTPZoneGraphImport::ConfigureTrafficLaneFilters(FName LaneTag, FName In
 		}
 		if (Name.Contains(TEXT("Crosswalk")) || Name.Contains(TEXT("Pedestrian")))
 		{
-			Report.Info.Add(Name, TEXT("left as is"));
+			// MassTraffic's intersections wait for MassCrowd's people on their crosswalk lanes and
+			// need MassCrowd's tracking data for those lanes. Without it (our pedestrians are not on
+			// MassCrowd's lanes yet) it logged "ArePedestriansClearOfIntersection - Null crowd
+			// tracking data" 7 million times in 6 min on candidate 32. The filter now matches no lane,
+			// so the intersections have no crosswalk to wait for; -TrafficCrosswalks=1 keeps
+			// City Sample's filter.
+			static const bool bKeepCrosswalks = []
+			{
+				int32 Switch = 0;
+				FParse::Value(FCommandLine::Get(), TEXT("TrafficCrosswalks="), Switch);
+				return Switch != 0;
+			}();
+			FZoneGraphTag NoLane;
+			if (bKeepCrosswalks || !FindOrAddTag(TEXT("GTPNoLane"), NoLane, Report))
+			{
+				Report.Info.Add(Name, TEXT("left as is"));
+				continue;
+			}
+			for (int32 Index = 0; Index < Property->ArrayDim; ++Index)
+			{
+				FZoneGraphTagFilter* Filter = Property->ContainerPtrToValuePtr<FZoneGraphTagFilter>(Settings, Index);
+				FZoneGraphTagMask Mask;
+				Mask.Add(NoLane);
+				Filter->AnyTags = Mask;
+				Filter->AllTags = FZoneGraphTagMask();
+				Filter->NotTags = FZoneGraphTagMask();
+			}
+			Report.Info.Add(Name, TEXT("no lane (GTPNoLane): no crosswalk check"));
 			continue;
 		}
 		const bool bIntersection = Name.Contains(TEXT("Intersection"));
