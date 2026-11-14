@@ -69,6 +69,12 @@ AGTPPedestrian::AGTPPedestrian()
 void AGTPPedestrian::ApplyLook(float HeightScale, const FLinearColor& Clothes, const TArray<FName>& TintParameters, float WidthScale)
 {
 	SetActorScale3D(FVector(HeightScale * WidthScale, HeightScale * WidthScale, HeightScale));
+	// An assembled character (City Sample Crowds) keeps its own cooked materials: a tint parameter it does not have
+	// would only make dynamic instances (suspected of the packaged "uncooked shader map" errors) and cost memory.
+	if (Parts.Num() > 0)
+	{
+		return;
+	}
 	for (int32 Slot = 0; Slot < Body->GetNumMaterials(); ++Slot)
 	{
 		if (UMaterialInstanceDynamic* Material = Body->CreateAndSetMaterialInstanceDynamic(Slot))
