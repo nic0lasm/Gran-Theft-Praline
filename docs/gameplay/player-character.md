@@ -329,6 +329,17 @@ body's LOD, the body's bones left at the component's origin while their referenc
 its pose), and for each mesh following the body's pose the bones it lacks and those it reads at the origin (a
 vertex weighted to such a bone is pulled towards the feet: a point hanging between the legs).
 
+Third `full` run (2026-11-14, tile 1, `-DayNight=0`): face and hands light and the same tone. The `rig:` lines: the
+left upper arm is 17 to 18 degrees from straight down on the pawn's mesh and on the body alike, so the body follows
+the pawn's pose (the "A pose" is the sample's idle); one bone of the body, the pelvis, sits at the component's origin
+while its reference place is not, and every part following the body reads it there. The pelvis is the retarget's
+root: the other bones are placed by the retarget's chains, the pelvis by its pelvis and root ops. Every vertex
+weighted to the pelvis is pulled towards the feet: the shirt or hoodie hem hanging like a tunic or a cape, the point
+between the legs, baggy trousers; Kellan, the player's current visual, has it in the game too. The eyebrows bound
+directly landed across the upper lip: no groom is bound by default any more. `tools/character/nicolito_rig_probe.py`
+(read only) gives the retarget's settings (the retargeter and both IK rigs: retarget root, chains, ops, each exported
+as text) and lists the eyebrow, groom, binding and crowd hair assets, for the fix and for the hair choice.
+
 **Grooms (2026-11-14).** Kellan has six groom components (hair, eyebrows, eyelashes, peach fuzz, moustache, beard),
 each ticking in the package against a 13 ms budget. Strand simulation is off (`r.HairStrands.Simulation=0`). The
 game mode also hides, without tick, the grooms whose name contains a word of `PlayerGroomsHidden` (`Fuzz`,

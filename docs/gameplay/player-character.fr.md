@@ -351,6 +351,19 @@ pas (jamais écrits par sa pose), et pour chaque maillage qui suit la pose du co
 qu'il lit à l'origine (un sommet pondéré sur un tel os est tiré vers les pieds : une pointe qui pend entre les
 jambes).
 
+Troisième passage `full` (14/11/2026, tuile 1, `-DayNight=0`) : visage et mains clairs et de la même teinte. Les
+lignes `rig:` : le bras gauche est à 17-18 degrés de la verticale sur le maillage du pion comme sur le corps, donc le
+corps suit la pose du pion (la « pose A » est l'attente du sample) ; un seul os du corps, le pelvis, est à l'origine
+du composant alors que sa place de référence ne l'est pas, et chaque pièce qui suit le corps l'y lit. Le pelvis est
+la racine du reciblage : les autres os sont placés par les chaînes du reciblage, le pelvis par ses opérations de
+bassin et de racine. Tout sommet pondéré sur le pelvis est tiré vers les pieds : l'ourlet du haut ou du sweat qui
+pend comme une tunique ou une cape, la pointe entre les jambes, le pantalon qui paraît large ; Kellan, le visuel
+actuel du joueur, l'a aussi en jeu. Les sourcils reliés directement se sont posés en travers de la lèvre
+supérieure : plus aucun groom n'est relié par défaut. `tools/character/nicolito_rig_probe.py` (lecture seule) donne
+les réglages du reciblage (le retargeter et les deux IK rigs : racine, chaînes, opérations, chacun exporté en texte)
+et liste les assets de sourcils, de grooms, de liaisons et de cheveux de foule, pour la correction et pour le choix
+des cheveux.
+
 **Grooms (14/11/2026).** Kellan a six composants groom (cheveux, sourcils, cils, duvet, moustache, barbe), qui
 tickent tous dans le package pour un budget de 13 ms. La simulation des brins est coupée
 (`r.HairStrands.Simulation=0`). Le mode de jeu cache aussi, sans tick, les grooms dont le nom contient un mot de
