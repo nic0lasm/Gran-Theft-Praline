@@ -25,6 +25,7 @@
 #include "Components/LightComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Engine/SkeletalMesh.h"
 #include "Engine/StaticMesh.h"
 #include "Materials/MaterialInterface.h"
 #include "Engine/World.h"
@@ -43,6 +44,26 @@ namespace
 	constexpr float CmToM = 0.01f;
 	/** Metres of lanes chosen ahead of the current one (see tools/vehicles/traffic_sim). */
 	constexpr float RouteAheadM = 50.f;
+
+	/**
+	 * Height of a parked car's pivot above the ground at spawn: 40 cm (our cars, pivot at the
+	 * ground), or more when the mesh reaches lower than 35 cm under its pivot (City Sample's cars,
+	 * whose pivot may sit higher), so the body never starts inside the road. Read from the
+	 * skeletal mesh's bounds on the class defaults.
+	 */
+	float ParkedClearance(TSubclassOf<AGTPVehicle> Class)
+	{
+		const AGTPVehicle* Defaults = Class ? Class->GetDefaultObject<AGTPVehicle>() : nullptr;
+		const USkeletalMeshComponent* Body = Defaults ? Defaults->GetMesh() : nullptr;
+		const USkeletalMesh* Mesh = Body ? Body->GetSkeletalMeshAsset() : nullptr;
+		if (!Mesh)
+		{
+			return 40.f;
+		}
+		const FBoxSphereBounds Bounds = Mesh->GetBounds();
+		const float Bottom = static_cast<float>(Bounds.Origin.Z - Bounds.BoxExtent.Z) + static_cast<float>(Body->GetRelativeLocation().Z);
+		return FMath::Max(40.f, 5.f - Bottom);
+	}
 }
 
 float FGTPTrafficLane::LengthCm() const
@@ -1272,7 +1293,8 @@ AGTPVehicle* AGTPTrafficNetwork::SpawnParkedVehicle(FName Tag, const FVector& Ne
 			{
 				continue;
 			}
-			Location.Z = Ground.ImpactPoint.Z + 40.f;
+			const float Clearance = ParkedClearance(Class);
+			Location.Z = Ground.ImpactPoint.Z + Clearance;
 			FActorSpawnParameters SpawnParams;
 			SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::DontSpawnIfColliding;
 			AGTPVehicle* Car = GetWorld()->SpawnActor<AGTPVehicle>(Class, FTransform(FRotator(0.f, Spot.YawDegrees, 0.f), Location), SpawnParams);
@@ -1284,8 +1306,8 @@ AGTPVehicle* AGTPTrafficNetwork::SpawnParkedVehicle(FName Tag, const FVector& Ne
 			{
 				Car->Tags.AddUnique(Tag);
 			}
-			GTP_TRACE(LogGTPTraffic, TEXT("traffic: parked %s (%s) on lane %d at %s, %.0f m from the request"), *Car->GetName(),
-				*Tag.ToString(), Ref.Lane, *Location.ToCompactString(), Ref.Distance / 100.f);
+			GTP_TRACE(LogGTPTraffic, TEXT("traffic: parked %s (%s) on lane %d at %s, %.0f m from the request, %.0f cm above the ground"), *Car->GetName(),
+				*Tag.ToString(), Ref.Lane, *Location.ToCompactString(), Ref.Distance / 100.f, Clearance);
 			return Car;
 		}
 	}
@@ -2151,7 +2173,22 @@ void AGTPTrafficNetwork::UpdateStreetParked(const APawn* Player)
 			continue;
 		}
 		const float Distance = static_cast<float>(FVector::Dist2D(Car->GetActorLocation(), PlayerLocation));
-		Car->SetParkedAsleep(Distance > StreetParkedWakeDistance);
+		bool bAsleep = Distance > StreetParkedWakeDistance;
+		if (!bAsleep && Car->IsParkedAsleep())
+		{
+			// Waking inside another car (traffic brushing a kinematic parked car) makes Chaos push
+			// the two apart at hundreds of km/h: stays asleep until the other one has gone.
+			if (const AActor* Inside = FindCarAt(Car, Car->GetActorTransform()))
+			{
+				bAsleep = true;
+				if (!StreetParked[Index].bWakeBlocked)
+				{
+					GTP_TRACE(LogGTPTraffic, TEXT("traffic: %s stays asleep, %s stands in it"), *Car->GetName(), *Inside->GetName());
+				}
+			}
+			StreetParked[Index].bWakeBlocked = bAsleep;
+		}
+		Car->SetParkedAsleep(bAsleep);
 		if (Distance > StreetParkedRemoveDistance && !IsSeenByPlayer(Car->GetActorLocation()))
 		{
 			Car->Destroy();

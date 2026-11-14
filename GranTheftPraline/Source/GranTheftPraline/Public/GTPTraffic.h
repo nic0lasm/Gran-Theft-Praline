@@ -575,6 +575,8 @@ private:
 	{
 		TWeakObjectPtr<AGTPVehicle> Car;
 		double Born = 0.0;
+		/** Kept asleep because another car stands in it (logged once). */
+		bool bWakeBlocked = false;
 	};
 	TArray<FStreetParked> StreetParked;
 	double NextStreetParkedTime = 0.0;

@@ -1156,6 +1156,12 @@ void AGTPVehicle::SetParkedAsleep(bool bAsleep)
 	if (Body)
 	{
 		Body->SetSimulatePhysics(!bAsleep);
+		if (!bAsleep)
+		{
+			// From rest: no speed carried over from the kinematic sleep.
+			Body->SetPhysicsLinearVelocity(FVector::ZeroVector);
+			Body->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
+		}
 	}
 	if (!bAsleep)
 	{

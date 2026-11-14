@@ -219,6 +219,21 @@ def our_mesh(mesh, name, entry):
         entry["mesh_copy_error"] = "cannot copy to " + target
         return mesh
     entry["mesh_source"] = mesh.get_path_name()
+    # A Chaos car wants one rigid body: a physics asset of many bodies held by constraints (City
+    # Sample's deformable cars) can be pushed apart violently when the car wakes.
+    try:
+        physics = copy.get_editor_property("physics_asset")
+        entry["physics_asset"] = physics.get_path_name() if physics else None
+        if physics:
+            entry["physics_bodies"] = len(physics.get_editor_property("skeletal_body_setups"))
+            entry["physics_constraints"] = len(physics.get_editor_property("constraint_setup"))
+    except Exception as error:
+        entry["physics_error"] = str(error)
+    try:
+        bounds = copy.get_bounds()
+        entry["mesh_bottom_cm"] = round(bounds.origin.z - bounds.box_extent.z, 1)
+    except Exception as error:
+        entry["mesh_bottom_error"] = str(error)
     try:
         post = copy.get_editor_property("post_process_anim_blueprint")
         if post is not None:
