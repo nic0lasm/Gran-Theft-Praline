@@ -87,6 +87,8 @@ struct FBrain
 	/** Seconds since he last was aimed at by an armed threat (large when never). */
 	float SinceAimed = 1e9f;
 	float SinceThreat = 1e9f;
+	/** After a run he is deaf to the panic of others for this long (s): without it a crowd re-infects itself for ever. */
+	float Immune = 0.f;
 	/** Persists until the dead flag: a dead body does nothing. */
 	bool bDead = false;
 };
@@ -121,6 +123,10 @@ inline void Enter(FBrain& B, EState S)
 {
 	if (B.State != S)
 	{
+		if (B.State == EState::Fleeing)
+		{
+			B.Immune = 30.f;
+		}
 		B.State = S;
 		B.StateTime = 0.f;
 	}
@@ -156,6 +162,7 @@ inline EState Step(FBrain& B, const FPerception& P, float Dt, const FSettings& S
 		return B.State;
 	}
 	B.StateTime += Dt;
+	B.Immune = std::max(0.f, B.Immune - Dt);
 	const bool bAimedArmed = P.bAimedAt && P.bThreatArmed;
 	B.SinceAimed = bAimedArmed ? 0.f : B.SinceAimed + Dt;
 	const bool bThreat = bAimedArmed || P.bShotAtMe || P.bShotNearby;
@@ -173,8 +180,9 @@ inline EState Step(FBrain& B, const FPerception& P, float Dt, const FSettings& S
 	}
 	if (P.bShotAtMe) Delta += S.ShotAtFear * Gain;
 	else if (P.bShotNearby) Delta += S.ShotNearFear * Gain;
-	if (P.NearbyFear > 0.3f) Delta += S.ContagionRate * P.NearbyFear * Gain * Dt;
-	if (B.SinceThreat > S.CalmDelaySeconds && P.NearbyFear < 0.3f) Delta -= S.DecayRate * Dt;
+	const bool bCatches = P.NearbyFear > 0.3f && B.Immune <= 0.f;
+	if (bCatches) Delta += S.ContagionRate * P.NearbyFear * Gain * Dt;
+	if (B.SinceThreat > S.CalmDelaySeconds && !bCatches) Delta -= S.DecayRate * Dt;
 	B.Fear = Clamp01(B.Fear + Delta);
 
 	const float Flee = FleeFear(B.Temperament);
