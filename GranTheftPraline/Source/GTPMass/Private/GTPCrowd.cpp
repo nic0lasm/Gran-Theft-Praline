@@ -834,8 +834,10 @@ bool UGTPCrowdSubsystem::DressFromCitySample(AGTPPedestrian* Actor)
 		const FString Name = FString::Printf(TEXT("%s_tal_%s_%s"), *Prefix, WeightTag, *Part);
 		return LoadObject<USkeletalMesh>(nullptr, *FString::Printf(TEXT("%s/%s/%s/Meshes/%s.%s"), *CrowdCharacterRoot, *Sex, WeightDir, *Name, *Name));
 	};
-	USkeletalMesh* Body = Load(TEXT("body"));
-	if (!Body)
+	// -CrowdBodyFromPlayer=1 (diagnostic): keep the body mesh the actor already has (the player's) instead of loading the
+	// pack's body, to tell whether the packaged material errors come from the pack's M_BodySynthesized chain.
+	USkeletalMesh* Body = FParse::Param(FCommandLine::Get(), TEXT("CrowdBodyFromPlayer")) ? nullptr : Load(TEXT("body"));
+	if (!Body && !FParse::Param(FCommandLine::Get(), TEXT("CrowdBodyFromPlayer")))
 	{
 		return false;
 	}
