@@ -454,6 +454,20 @@ enregistrement, pour que `DoSpawning` les reconstruise. Les voitures ont le mêm
 « MassTraffic visuals: N of M visualization trait(s) asked for a display actor they do not have ».
 `-TrafficActorLODs` les laisse telles quelles.
 
+Porte du candidat 39 (83fbc86) : moyenne des voitures qui roulent de 120 à 300 s 95,7, aucun « Template
+actor type -1 ». Nouveau : 2 à 3 voitures attendent le recyclage à la fin (simulated 120, puis 118,
+puis 117 ; 6 recyclées), 0 aux portes précédentes. L'overseer (`UMassTrafficOverseerProcessor`) ne
+prend une voiture que si elle a tous les fragments de sa requête, et seulement vers une voie ouverte,
+hors carrefour, sans fusion ni séparation, sans changement de voie, remplie au plus à
+`LeastBusiestLaneMaxDensity`, au-delà de `LeastBusiestLaneDistanceToPlayerRange` de la vue du joueur et à
+`MinTransferDistance` de la voiture ; une voiture limitée aux voies principales seulement dans sa phase
+« trunk » (nous n'avons aucune voie principale). Quand des voitures attendent, une ligne « MassTraffic
+recycling: N car(s) waiting, longest X s ... » donne l'attente la plus longue, les voitures au-delà de
+20 s, celles à qui il manque un fragment, celles limitées aux voies principales, celles dans un
+carrefour, et les voies que l'overseer peut prendre maintenant (et celles assez loin de la voiture qui
+attend depuis le plus longtemps). Son test des voitures qui sortent d'un carrefour est laissé de côté.
+Rien n'est changé dans le trafic.
+
 ## Points ouverts
 
 - Près du joueur, MassTraffic peut confier une voiture à son véhicule physique : nos copies

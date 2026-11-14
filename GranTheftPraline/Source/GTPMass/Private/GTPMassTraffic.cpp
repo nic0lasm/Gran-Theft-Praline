@@ -496,6 +496,13 @@ void UGTPMassTrafficSubsystem::LogSimulatedCars(UWorld& World, const FVector& Pl
 	int32 Recyclable = 0;
 	int32 RecyclableWithoutDamage = 0;
 	int32 RecyclableInJunction = 0;
+	int32 RecyclableIncomplete = 0;
+	int32 RecyclableTrunkOnly = 0;
+	int32 RecyclableOver20 = 0;
+	double LongestWait = -1.0;
+	FVector LongestWaitLocation = FVector::ZeroVector;
+	const double Now = World.GetTimeSeconds();
+	TMap<uint64, double> StillWaiting;
 	{
 		FMassEntityQuery RecyclableQuery;
 		RecyclableQuery.Initialize(Manager);
@@ -507,14 +514,84 @@ void UGTPMassTrafficSubsystem::LogSimulatedCars(UWorld& World, const FVector& Pl
 		{
 			Recyclable += Chunk.GetNumEntities();
 			const TConstArrayView<FMassZoneGraphLaneLocationFragment> Locations = Chunk.GetFragmentView<FMassZoneGraphLaneLocationFragment>();
+			const TConstArrayView<FTransformFragment> RecyclableTransforms = Chunk.GetFragmentView<FTransformFragment>();
 			for (int32 Index = 0; Index < Chunk.GetNumEntities(); ++Index)
 			{
-				RecyclableWithoutDamage += Manager->GetFragmentDataPtr<FMassTrafficVehicleDamageFragment>(Chunk.GetEntity(Index)) ? 0 : 1;
+				const FMassEntityHandle Entity = Chunk.GetEntity(Index);
+				RecyclableWithoutDamage += Manager->GetFragmentDataPtr<FMassTrafficVehicleDamageFragment>(Entity) ? 0 : 1;
 				const FZoneGraphTrafficLaneData* Lane = Traffic ? Traffic->GetTrafficLaneData(Locations[Index].LaneHandle) : nullptr;
 				LanesWithCars.Add(Lane);
 				RecyclableInJunction += Lane && Lane->ConstData.bIsIntersectionLane ? 1 : 0;
+				// Why the overseer would not take it: a fragment its query needs is missing, the car may
+				// only go onto trunk lanes (we have none), or it has just been handed over.
+				const bool bComplete = Manager->GetFragmentDataPtr<FAgentRadiusFragment>(Entity)
+					&& Manager->GetFragmentDataPtr<FMassTrafficRandomFractionFragment>(Entity)
+					&& Manager->GetFragmentDataPtr<FMassTrafficNextVehicleFragment>(Entity)
+					&& Manager->GetFragmentDataPtr<FMassTrafficVehicleLaneChangeFragment>(Entity)
+					&& Manager->GetFragmentDataPtr<FMassTrafficVehicleLightsFragment>(Entity)
+					&& Manager->GetFragmentDataPtr<FMassTrafficInterpolationFragment>(Entity)
+					&& Manager->GetFragmentDataPtr<FMassTrafficObstacleAvoidanceFragment>(Entity)
+					&& Manager->GetFragmentDataPtr<FMassTrafficLaneOffsetFragment>(Entity)
+					&& Manager->GetFragmentDataPtr<FMassRepresentationFragment>(Entity);
+				RecyclableIncomplete += bComplete ? 0 : 1;
+				const FMassTrafficVehicleControlFragment* Control = Manager->GetFragmentDataPtr<FMassTrafficVehicleControlFragment>(Entity);
+				RecyclableTrunkOnly += !Control ? 1 : (Control->bRestrictedToTrunkLanesOnly ? 1 : 0);
+				const double* HandedAt = RecycleHandedAt.Find(Entity.AsNumber());
+				const double Wait = HandedAt ? Now - *HandedAt : -1.0;
+				StillWaiting.Add(Entity.AsNumber(), HandedAt ? *HandedAt : Now);
+				RecyclableOver20 += Wait > 20.0 ? 1 : 0;
+				if (Wait > LongestWait)
+				{
+					LongestWait = Wait;
+					LongestWaitLocation = RecyclableTransforms[Index].GetTransform().GetLocation();
+				}
 			}
 		});
+	}
+	RecycleHandedAt = MoveTemp(StillWaiting);
+	if (Recyclable > 0 && Settings)
+	{
+		// The lanes the overseer may put a car onto now, by its own tests (UMassTrafficOverseerProcessor:
+		// open, not in a junction, not merging nor splitting, no lane change on or off, its density at
+		// most LeastBusiestLaneMaxDensity, beyond LeastBusiestLaneDistanceToPlayerRange from the player's
+		// view; its test of cars coming from a junction is left out), and of those the ones at least
+		// MinTransferDistance from the car that has waited longest.
+		FVector ViewLocation = PlayerLocation;
+		FRotator ViewRotation = FRotator::ZeroRotator;
+		if (APlayerController* Controller = World.GetFirstPlayerController())
+		{
+			Controller->GetPlayerViewPoint(ViewLocation, ViewRotation);
+		}
+		int32 Targets = 0;
+		int32 TargetsFarFromCar = 0;
+		int32 LanesSeen = 0;
+		if (UMassTrafficSubsystem* MutableTraffic = World.GetSubsystem<UMassTrafficSubsystem>())
+		{
+			for (const FMassTrafficZoneGraphData* Data : MutableTraffic->GetMutableTrafficZoneGraphData())
+			{
+				if (!Data)
+				{
+					continue;
+				}
+				for (const FZoneGraphTrafficLaneData& Lane : Data->TrafficLaneDataArray)
+				{
+					++LanesSeen;
+					const float ToPlayer = FMath::Max(static_cast<float>(FVector::Distance(Lane.CenterLocation, ViewLocation)) - static_cast<float>(Lane.Radius), 0.f);
+					if (!Lane.bIsOpen || Lane.ConstData.bIsIntersectionLane || !Lane.MergingLanes.IsEmpty() || !Lane.SplittingLanes.IsEmpty()
+						|| Lane.NumVehiclesLaneChangingOffOfLane != 0 || Lane.NumVehiclesLaneChangingOntoLane != 0
+						|| Lane.FunctionalDensity() > Settings->LeastBusiestLaneMaxDensity
+						|| !Settings->LeastBusiestLaneDistanceToPlayerRange.Contains(ToPlayer))
+					{
+						continue;
+					}
+					++Targets;
+					TargetsFarFromCar += LongestWait >= 0.0 && FVector::Distance(Lane.CenterLocation, LongestWaitLocation) >= Settings->MinTransferDistance ? 1 : 0;
+				}
+			}
+		}
+		UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic recycling: %d car(s) waiting, longest %.0f s (%.0f m from the player), %d over 20 s | missing a fragment the overseer needs=%d trunk lanes only=%d inside a junction=%d | lanes the overseer may take now=%d of %d, %d of them %.0f m or more from the longest waiting car"),
+			Recyclable, LongestWait, LongestWait >= 0.0 ? FVector::Distance(LongestWaitLocation, ViewLocation) / 100.0 : -1.0, RecyclableOver20,
+			RecyclableIncomplete, RecyclableTrunkOnly, RecyclableInJunction, Targets, LanesSeen, TargetsFarFromCar, Settings->MinTransferDistance / 100.0);
 	}
 	FString Network;
 	if (!bNetworkLogged && Cars > 0)
@@ -1358,6 +1435,7 @@ void UGTPMassTrafficSubsystem::RecycleAtDeadEnds()
 			++DamageAdded;
 		}
 		Manager.Defer().SwapTags<FMassTrafficVehicleTag, FMassTrafficRecyclableVehicleTag>(Entity);
+		RecycleHandedAt.Add(Entity.AsNumber(), World->GetTimeSeconds());
 	}
 	Recycled += ToRecycle.Num();
 	if (ToRecycle.Num() > 0 && (Recycled <= 20 || Recycled % 50 < ToRecycle.Num()))

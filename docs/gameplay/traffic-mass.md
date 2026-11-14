@@ -406,6 +406,18 @@ registered, so `DoSpawning` builds them again. The cars look the same. Logged "M
 of M visualization trait(s) asked for a display actor they do not have". `-TrafficActorLODs` leaves
 them as they are.
 
+Gate of candidate 39 (83fbc86): mean moving from 120 to 300 s 95.7, no "Template actor type -1".
+New: 2 to 3 cars wait for recycling at the end (simulated 120, then 118, then 117; 6 recycled), 0 at
+the earlier gates. The overseer (`UMassTrafficOverseerProcessor`) takes a car only if it has every
+fragment of its query, only onto a lane that is open, not in a junction, not merging nor splitting,
+with no lane change, at most `LeastBusiestLaneMaxDensity` full, beyond
+`LeastBusiestLaneDistanceToPlayerRange` from the player's view and `MinTransferDistance` from the car;
+a car limited to trunk lanes only in its trunk phase (we have no trunk lane). When cars wait, a line
+"MassTraffic recycling: N car(s) waiting, longest X s ..." gives the longest wait, the cars over 20 s,
+those missing a fragment, those limited to trunk lanes, those inside a junction, and the lanes the
+overseer may take now (and those far enough from the longest waiting car). Its test of cars coming
+from a junction is left out. Nothing is changed in the traffic.
+
 ## Open points
 
 - Near the player MassTraffic may hand a car over to its physics vehicle: our copies name our cars

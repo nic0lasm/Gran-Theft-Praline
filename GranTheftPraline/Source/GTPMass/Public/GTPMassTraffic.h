@@ -158,6 +158,8 @@ private:
 	int32 Recycled = 0;
 	/** Recycled cars to which Epic's damage fragment had to be added (its recycling needs one). */
 	int32 DamageAdded = 0;
+	/** World time at which each car still waiting for recycling was handed over (entity as number). */
+	TMap<uint64, double> RecycleHandedAt;
 	/** ZoneGraph lanes (indices in the data of index DeadEndBranchData) of the cut branches. */
 	TSet<int32> DeadEndBranch;
 	int32 DeadEndBranchData = INDEX_NONE;
