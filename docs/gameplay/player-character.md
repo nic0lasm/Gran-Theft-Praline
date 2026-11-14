@@ -274,3 +274,20 @@ game-thread cost being the ticks. The blueprint sets the visible flag of the two
 gives the real state (visible flag, hidden in game, tick) and a groom without an asset (likely Kellan's beard, whose asset LODs did not show) is hidden
 without tick too. Once per groom the log gives the asset's LOD count and its first cards LOD (the export leaves the
 default, strands, out: Hair's LOD 1 is decimated strands, not cards).
+
+## 11. Foot Placement assertion (2026-11-14)
+
+Candidate 35, `-GTARun` in the editor: 6/6, then 20 s later, the player aiming at a standstill with three officers
+2 m away, `Assertion failed: !PelvisTransformCS.ContainsNaN()` in `AnimNode_FootPlacement.cpp` (Animation Warping
+plugin), in the Game Animation Sample's `SandboxCharacter_CMC_ABP` on an `SKM_UEFN_Mannequin` mesh. The crash context
+does not name the actor: the player and every traffic and police driver (`DriverClass` empty, so the player's class)
+share that mesh and blueprint. Read in the engine's source (5.8): the node divides a foot's movement by the delta
+time accumulated since its last evaluation, without a guard (line 1545); an evaluation with no update since the
+previous one gives a NaN. Two windows where that can happen are closed, the cause itself not being proven:
+
+- the player's hidden mannequin, posed every frame for the visual, runs without update rate optimisations (they
+  can evaluate a hidden mesh on a frame without an update); the log says whether they were on;
+- a driver hidden in his seat is not posed at all (`bNoSkeletonUpdate`, tag `GTPSeatDormant`) until
+  `AGTPVehicle::ReleaseCharacter`, instead of being left with its montages ticking.
+
+The proof is the gate: the editor `-GTARun` and the packaged one running past `GTARun done` without the assertion.

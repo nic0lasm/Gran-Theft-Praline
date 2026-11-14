@@ -292,3 +292,23 @@ le journal donne maintenant l'état réel (indicateur visible, caché en jeu, ti
 de Kellan) est lui aussi caché sans tick. Une fois par groom, le journal donne le nombre de LOD de l'asset et son
 premier LOD en cartes (l'export omet la valeur par défaut, les brins : le LOD 1 de Hair est en brins allégés, pas en
 cartes).
+
+## 11. Assertion du Foot Placement (14/11/2026)
+
+Candidat 35, `-GTARun` dans l'éditeur : 6/6, puis 20 s plus tard, le joueur en visée à l'arrêt avec trois policiers
+à 2 m, `Assertion failed: !PelvisTransformCS.ContainsNaN()` dans `AnimNode_FootPlacement.cpp` (plugin Animation
+Warping), dans le `SandboxCharacter_CMC_ABP` du Game Animation Sample sur un maillage `SKM_UEFN_Mannequin`. Le
+contexte du plantage ne nomme pas l'acteur : le joueur et tous les conducteurs du trafic et de la police
+(`DriverClass` vide, donc la classe du joueur) partagent ce maillage et ce blueprint. Lu dans la source du moteur
+(5.8) : le nœud divise le déplacement d'un pied par le temps cumulé depuis sa dernière évaluation, sans garde
+(ligne 1545) ; une évaluation sans mise à jour depuis la précédente donne un NaN. Deux fenêtres où cela peut arriver
+sont fermées, la cause elle-même n'étant pas prouvée :
+
+- le mannequin caché du joueur, posé à chaque image pour le visuel, tourne sans optimisations de fréquence de mise à
+  jour (elles peuvent évaluer un maillage caché sur une image sans mise à jour) ; le journal dit si elles étaient
+  actives ;
+- un conducteur caché sur son siège n'est plus posé du tout (`bNoSkeletonUpdate`, étiquette `GTPSeatDormant`)
+  jusqu'à `AGTPVehicle::ReleaseCharacter`, au lieu de garder ses montages en tick.
+
+La preuve est la porte : le `-GTARun` en éditeur et celui du package qui tournent au-delà de `GTARun done` sans
+l'assertion.

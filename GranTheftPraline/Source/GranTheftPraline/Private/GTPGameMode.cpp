@@ -517,14 +517,20 @@ void AGTPGameMode::ApplyPlayerVisual(APawn* Pawn)
 			{
 				// Hidden but still posed: the visual copies or retargets this pose.
 				Own->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;
+				// Updated and evaluated on the same frames, every frame: with update rate optimisations a hidden
+				// mesh can be evaluated on a frame without an update, and the locomotion blueprint's Foot Placement
+				// then divides by a zero delta time (NaN pelvis assertion). The visual copies this pose every frame.
+				const bool bHadRateOptimisations = Own->bEnableUpdateRateOptimizations;
+				Own->bEnableUpdateRateOptimizations = false;
 				// Not HiddenInGame (it can stop the pose evaluation the visual copies): drawn nowhere instead.
 				Own->SetVisibility(false, false);
 				Own->SetRenderInMainPass(false);
 				Own->SetRenderInDepthPass(false);
 				Own->SetCastShadow(false);
 				Own->bNoSkeletonUpdate = false;
-				UE_LOG(LogGTPGameMode, Log, TEXT("  pawn mesh: anim tick option %d, noSkeletonUpdate %d, visible %d, hiddenInGame %d"),
-					static_cast<int32>(Own->VisibilityBasedAnimTickOption), Own->bNoSkeletonUpdate ? 1 : 0, Own->IsVisible() ? 1 : 0, Own->bHiddenInGame ? 1 : 0);
+				UE_LOG(LogGTPGameMode, Log, TEXT("  pawn mesh: anim tick option %d, noSkeletonUpdate %d, visible %d, hiddenInGame %d, update rate optimisations off (were %s)"),
+					static_cast<int32>(Own->VisibilityBasedAnimTickOption), Own->bNoSkeletonUpdate ? 1 : 0, Own->IsVisible() ? 1 : 0, Own->bHiddenInGame ? 1 : 0,
+					bHadRateOptimisations ? TEXT("on") : TEXT("off"));
 			}
 		}
 		UE_LOG(LogGTPGameMode, Log, TEXT("Player visual (%s): actor at %s, hidden %d, scale %s, attached to %s"), When,
