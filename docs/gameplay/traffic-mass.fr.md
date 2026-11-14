@@ -23,7 +23,13 @@ ADR-0015 (piétons et trafic sur Mass). Anglais : [traffic-mass.md](traffic-mass
   copie, vers notre voiture `BP_GTP_<Nom>` pour le véhicule physique que MassTraffic fait apparaître
   près du joueur (`PhysicsVehicleTemplateActor`, d'après le numéro de la voiture de City Sample), ou
   vers rien pour ce qui casserait le cook (Blueprints d'affichage des voitures de City Sample,
-  conducteurs). Les filtres de voies propres aux types de véhicules sont pointés sur nos tags. Il
+  conducteurs). Les configurations d'entités de véhicules du générateur de voitures roulantes de
+  City Sample sont copiées aussi, pour nos seules voitures (bus, camions et le reste écartés,
+  proportions de City Sample gardées). Les Blueprints de générateurs de City Sample n'ont aucun
+  générateur de données d'apparition (les leurs étaient sur les générateurs de la carte de City
+  Sample, d'où aucune voiture Mass au candidat 32 malgré 5 635 voies dans la ZoneGraph) : chaque
+  générateur posé reçoit celui de MassTraffic par `UGTPMassSpawnerSetup`, et les filtres de voies
+  propres aux types de véhicules sont pointés sur nos tags. Il
   les pose (120 voitures roulantes par défaut, pas de lancement au démarrage) et écrit
   `Saved/CityImport/masstraffic_report.json` (`gtp_copy` : chaque changement, les risques de cook des
   copies et les chaînes qui les tirent). Le générateur de voitures garées de City Sample n'est pas
@@ -45,6 +51,10 @@ ADR-0015 (piétons et trafic sur Mass). Anglais : [traffic-mass.md](traffic-mass
    Puis `python tools/vehicles/copy_citysample_vehicle_base.py --src <CitySample> --project
    <project>/GranTheftPraline` : les Blueprints de voitures de City Sample ont besoin de la classe
    ci-dessous.
+   Le dossier `Content` du plugin vient avec : les matériaux des véhicules utilisent sa fonction
+   `MF_UnpackTrafficVehicleInstanceCustomData` (signalée absente au candidat 32 : vérifier que
+   `Plugins/Traffic/Content/MaterialFunctions` est là et que `Traffic.uplugin` porte
+   `"CanContainContent": true`).
 2. `Traffic.uplugin` n'est pas activé par défaut : le `.uproject` le liste avec `"Optional": true`,
    il se charge là où le plugin est copié et il est ignoré sans erreur ailleurs (Mac, CI).
    RuleProcessor est activé par défaut.

@@ -18,8 +18,15 @@ What it does, reporting everything in Saved/CityImport/masstraffic_report.json:
    for City Sample's traffic content; to our car BP_GTP_<Name> for the physics vehicle MassTraffic
    spawns near the player (PhysicsVehicleTemplateActor, by City Sample's car number); to nothing for
    anything that would break the cook (cook_risk below: the display Blueprints of City Sample's
-   cars, the drivers). The vehicle types' own lane filters are pointed at our tags. Report
-   "gtp_copy": each change, what was removed, and the copies' own cook_risk with its chains.
+   cars, the drivers). The vehicle entity configs of City Sample's driving-car spawner (13, kept
+   wherever City Sample has them) are copied to /Game/AI/GTPTraffic/Configs for the cars we have
+   (BP_GTP_<Name>, by City Sample's number, with City Sample's proportions); buses, trucks and the
+   cars we do not have are left out. City Sample's spawner Blueprints come without spawn data
+   generators (theirs were set on the spawners of City Sample's own map): each placed spawner gets
+   MassTraffic's own (UGTPMassSpawnerSetup, C++), the driving cars one spacing of 6 m for all our
+   configs, the intersections their entity config and light types, and their lane filters point
+   at our tags. Report "gtp_copy": each change, what was removed, and the copies' own cook_risk with
+   its chains; "generators": what each spawner got.
    City Sample's parked-car spawner is not used: its parking spaces belong to City Sample's city;
    our street parked cars stay AGTPTrafficNetwork's.
    GTP_MASSTRAFFIC_SOURCE=citysample places City Sample's own spawners instead (not cookable on
@@ -134,7 +141,7 @@ def place_blueprint_spawners(report, spawners=None):
     """spawners: (name, Blueprint path, count, start order); City Sample's own by default."""
     if spawners is None:
         spawners = [(n, p, c, o) for o, (n, p, c) in enumerate(SPAWNERS)]
-    placed = 0
+    placed = {}
     for name, path, count, order in spawners:
         cls = unreal.EditorAssetLibrary.load_blueprint_class(path) if unreal.EditorAssetLibrary.does_asset_exist(path) else None
         if cls is None:
@@ -143,7 +150,7 @@ def place_blueprint_spawners(report, spawners=None):
         spawner = actor_sub.spawn_actor_from_class(cls, unreal.Vector(0, 0, 0))
         tag_spawner(spawner, name, order, count, report)
         report["spawners"].append({"name": name, "blueprint": path, "count": count, "order": order})
-        placed += 1
+        placed[name] = spawner
     return placed
 
 
@@ -241,7 +248,8 @@ GTP_SPAWNERS = (("Intersection", 0, None), ("Vehicle", 2, CARS))
 REF = re.compile(r"""(?P<wrapped>/Script/[A-Za-z0-9_.]+'(?P<q>\\?"?)(?P<wpath>/Game/[^'"\\\s]+)(?P=q)')"""
                  r"""|(?P<bare>/Game/[A-Za-z0-9_\-/]+(?:\.[A-Za-z0-9_\-]+)?(?::[A-Za-z0-9_\-.]+)?)""")
 PHYSICS = re.compile(r"""PhysicsVehicleTemplateActor=(?P<v>"(?:[^"\\]|\\.)*"|[^,)]+)""")
-CAR_NUMBER = re.compile(r"veh(?:icle)?_?(\d\d)", re.IGNORECASE)
+# City Sample's car number in a name: vehCar_vehicle02, vehCar02, vehVan01, vehTruck04...
+CAR_NUMBER = re.compile(r"veh(?:icle|Car|Van|Truck|Bus)?_?(\d\d)", re.IGNORECASE)
 
 
 def reflection():
@@ -313,7 +321,7 @@ def repoint(text, copied, risk_cache, record):
         if package.startswith(OUR_CARS + "/") or package.startswith(OUT_DIR + "/"):
             return match.group(0)
         if package in copied:
-            new_path = OUT_DIR + path[len(SRC_DIR):]
+            new_path = copied[package] + path[len(package):]
             record("copy", path, new_path)
             return match.group(0).replace(path, new_path)
         if package not in risk_cache:
@@ -329,9 +337,55 @@ def repoint(text, copied, risk_cache, record):
     return REF.sub(one, text)
 
 
+ENTITY_TYPE = re.compile(r"""EntityConfig="?(?P<path>/Game/[^"),]+)"?,Proportion=(?P<weight>[0-9.]+)""")
+VEHICLE_GENERATOR = "/Script/MassTraffic.MassTrafficVehicleSpawnDataGenerator"
+INTERSECTION_GENERATOR = "/Script/MassTraffic.MassTrafficIntersectionSpawnDataGenerator"
+CAR_SPACE_CM = 600
+
+
+def is_entity_config(package):
+    registry = unreal.AssetRegistryHelpers.get_asset_registry()
+    return any(str(d.asset_class_path.asset_name) == "MassEntityConfigAsset"
+               for d in registry.get_assets_by_package_name(package))
+
+
+def vehicle_types(spawner_package, copy):
+    """City Sample's vehicle entity configs on its driving-car spawner, with their proportions,
+    kept for the cars we have (BP_GTP_<Name> by City Sample's number): [(package, weight)]."""
+    dump = describe(spawner_package, depth=0)
+    text = dump.get("properties", {}).get("EntityTypes", "") if isinstance(dump, dict) else ""
+    kept = []
+    for match in ENTITY_TYPE.finditer(text):
+        package = match.group("path").split(".")[0]
+        number = CAR_NUMBER.search(package)
+        name = CAR_NUMBERS.get(number.group(1)) if number else None
+        if name and unreal.EditorAssetLibrary.does_asset_exist("%s/BP_GTP_%s" % (OUR_CARS, name)):
+            kept.append((package, float(match.group("weight"))))
+        else:
+            copy["vehicle_types_left_out"].append(package)
+    return kept
+
+
+def config_closure(packages):
+    """packages and the Mass entity configs they reach (parent configs), wherever they are."""
+    registry = unreal.AssetRegistryHelpers.get_asset_registry()
+    found, todo = set(), list(packages)
+    while todo:
+        package = todo.pop()
+        if package in found:
+            continue
+        found.add(package)
+        for hard in (True, False):
+            for dep in _dependencies(registry, package, hard):
+                if dep.startswith("/Game/") and dep not in found and is_entity_config(dep):
+                    todo.append(dep)
+    return sorted(found)
+
+
 def copy_traffic(report):
-    """Makes /Game/AI/GTPTraffic (see above) and returns our spawner Blueprints, by name. Copies
-    already there are kept and only re-pointed again (idempotent; nothing is deleted)."""
+    """Makes /Game/AI/GTPTraffic (see above). Returns our spawner Blueprints by name and the plan
+    for their generators. Copies already there are kept and only re-pointed again (idempotent;
+    nothing is deleted)."""
     tool = reflection()
     importer = getattr(unreal, "GTPZoneGraphImport", None)
     if tool is None or importer is None or not hasattr(importer, "point_lane_filters_at"):
@@ -344,23 +398,27 @@ def copy_traffic(report):
     if missing:
         report["errors"].append("City Sample spawners missing: " + ", ".join(missing))
         return {}
-    packages = traffic_closure(list(sources.values()))
-    copy = {"packages": len(packages), "copied": [], "kept": [], "changes": [], "set_errors": [],
-            "too_long": [], "lane_filters": {}}
+    copy = {"copied": [], "kept": [], "changes": [], "set_errors": [], "too_long": [], "lane_filters": {},
+            "vehicle_types_left_out": []}
     report["gtp_copy"] = copy
-    for package in packages:
-        target = OUT_DIR + package[len(SRC_DIR):]
+    # What to copy: /Game/AI/Traffic's packages the spawners reach (same place under OUT_DIR), and
+    # the vehicle entity configs of the driving-car spawner, wherever City Sample keeps them, with
+    # their parent configs (under OUT_DIR/Configs).
+    mapping = {p: OUT_DIR + p[len(SRC_DIR):] for p in traffic_closure(list(sources.values()))}
+    types = vehicle_types(sources["Vehicle"], copy)
+    for package in config_closure([p for p, _ in types]):
+        mapping.setdefault(package, OUT_DIR + "/Configs/" + package.rsplit("/", 1)[1])
+    copy["packages"] = len(mapping)
+    for package, target in sorted(mapping.items()):
         if eal.does_asset_exist(target):
             copy["kept"].append(target)
         elif eal.duplicate_asset(package, target) is None:
             report["errors"].append("cannot copy %s to %s" % (package, target))
         else:
             copy["copied"].append(target)
-    copied = set(packages)
     risk_cache = {}
     removed = 0
-    for package in packages:
-        target = OUT_DIR + package[len(SRC_DIR):]
+    for package, target in sorted(mapping.items()):
         if not eal.does_asset_exist(target):
             continue
         dump = describe(target)
@@ -378,7 +436,7 @@ def copy_traffic(report):
                     copy["too_long"].append("%s.%s" % (item["path"], name))
                     continue
                 changes = []
-                new = repoint(text, copied, risk_cache, lambda kind, a, b: changes.append((kind, a, b)))
+                new = repoint(text, mapping, risk_cache, lambda kind, a, b: changes.append((kind, a, b)))
                 if new == text:
                     continue
                 error = tool.set_property_text(item["path"], name, new)
@@ -388,19 +446,74 @@ def copy_traffic(report):
                     removed += after == "None"
                     if len(copy["changes"]) < 400:
                         copy["changes"].append({"object": item["path"], "property": name, "kind": kind, "from": before, "to": after})
-            # The vehicle types of the spawn data generators carry their own lane filter.
-            obj = unreal.load_object(None, item["path"])
-            if obj is not None:
-                result = json.loads(importer.point_lane_filters_at(obj, "Car", "Intersection"))
-                if result.get("counts", {}).get("filters_set"):
-                    copy["lane_filters"][item["path"]] = result.get("info", {})
-                report["errors"] += result.get("errors", [])
         eal.save_asset(target, only_if_is_dirty=False)
     copy["removed"] = removed
     why = {}
-    copy["cook_risk"] = cook_risk([OUT_DIR + p[len(SRC_DIR):] for p in packages], why=why)
+    copy["cook_risk"] = cook_risk(sorted(mapping.values()), why=why)
     copy["cook_risk_why"] = why
-    return {name: OUT_DIR + path[len(SRC_DIR):] for name, path in sources.items()}
+
+    def object_path(package):
+        return "%s.%s" % (package, package.rsplit("/", 1)[1])
+
+    lights = [t for t in mapping.values() if "TrafficLightTypes" in t]
+    return {
+        "spawners": {name: mapping[path] for name, path in sources.items()},
+        "vehicle_types": [(object_path(mapping[p]), w) for p, w in types if p in mapping],
+        "light_types": object_path(lights[0]) if lights else None,
+    }
+
+
+def setup_generators(placed, plan, report):
+    """City Sample's spawner Blueprints come without spawn data generators (theirs were set on the
+    spawners of City Sample's own map): each placed spawner of ours gets MassTraffic's own, through
+    UGTPMassSpawnerSetup (C++), and its settings through the reflection tool."""
+    tool = reflection()
+    setup = getattr(unreal, "GTPMassSpawnerSetup", None)
+    importer = getattr(unreal, "GTPZoneGraphImport", None)
+    if setup is None or tool is None:
+        report["errors"].append("GTPMassSpawnerSetup missing: build the editor target")
+        return
+    result = report.setdefault("generators", {})
+
+    def settle(name, path, prop, text):
+        error = tool.set_property_text(path, prop, text)
+        result[name].setdefault("set", {})[prop] = error or "ok"
+        if error:
+            report["errors"].append("%s.%s: %s" % (name, prop, error))
+
+    for name, spawner in placed.items():
+        generator = INTERSECTION_GENERATOR if name == "Intersection" else VEHICLE_GENERATOR
+        path = setup.set_spawn_data_generator(spawner, generator)
+        result[name] = {"generator": path}
+        if path.startswith("error"):
+            report["errors"].append("%s: %s" % (name, path))
+            continue
+        if name == "Vehicle":
+            types = plan.get("vehicle_types", [])
+            if not types:
+                report["errors"].append("Vehicle: no vehicle entity config of ours: no car can spawn")
+                continue
+            settle(name, spawner.get_path_name(), "EntityTypes",
+                   "(%s)" % ",".join('(EntityConfig="%s",Proportion=%f)' % (c, w) for c, w in types))
+            settle(name, path, "VehicleTypeSpacings",
+                   '((Name="Cars",Space=%f,EntityTypes=(%s)))' % (CAR_SPACE_CM, ",".join('"%s"' % c for c, _ in types)))
+        else:
+            settle(name, path, "IntersectionEntityConfigIndex", "0")
+            if plan.get("light_types"):
+                settle(name, path, "TrafficLightTypesData", plan["light_types"])
+        generator_object = unreal.load_object(None, path)
+        if importer is not None and generator_object is not None:
+            filters = json.loads(importer.point_lane_filters_at(generator_object, "Car", "Intersection"))
+            result[name]["lane_filters"] = filters.get("info", {})
+        dump = tool.describe_object(spawner, 1)
+        try:
+            dump = json.loads(dump)
+            result[name]["spawner"] = {k: v for k, v in dump.get("properties", {}).items()
+                                       if k in ("EntityTypes", "SpawnDataGenerators", "Count")}
+            result[name]["generator_properties"] = next((o.get("properties") for o in dump.get("subobjects", [])
+                                                         if o.get("path") == path), None)
+        except Exception as error:
+            result[name]["describe_error"] = str(error)
 
 
 def place_config_spawner(name, order, configs, count, report):
@@ -442,11 +555,14 @@ def main():
     source = os.environ.get("GTP_MASSTRAFFIC_SOURCE", "gtp")
     report["source"] = source
     if source == "gtp":
-        ours = copy_traffic(report)
-        if place_blueprint_spawners(report, [(name, ours[name], count, order)
-                                             for name, order, count in GTP_SPAWNERS if name in ours]) == 0:
+        plan = copy_traffic(report)
+        ours = plan.get("spawners", {})
+        placed = place_blueprint_spawners(report, [(name, ours[name], count, order)
+                                                   for name, order, count in GTP_SPAWNERS if name in ours])
+        if not placed:
             report["errors"].append("none of our spawners placed (see gtp_copy)")
-    elif place_blueprint_spawners(report) == 0:
+        setup_generators(placed, plan, report)
+    elif not place_blueprint_spawners(report):
         configs = entity_configs(report)
         parked = [c for c in configs if "Parked" in c]
         driving = [c for c in configs if "Parked" not in c]

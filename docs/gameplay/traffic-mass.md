@@ -20,7 +20,12 @@ Status 13/11/2026: prepared, not compiled, waiting for City Sample on the PC. De
   copies by reflection (`UGTPAssetReflection`): to our copy, to our car `BP_GTP_<Name>` for the
   physics vehicle MassTraffic spawns near the player (`PhysicsVehicleTemplateActor`, by City
   Sample's car number), or to nothing for what would break the cook (City Sample's car display
-  Blueprints, the drivers). The vehicle types' own lane filters are pointed at our tags. It places
+  Blueprints, the drivers). The vehicle entity configs of City Sample's driving-car spawner are
+  copied too, for the cars we have only (buses, trucks and the rest left out, City Sample's
+  proportions kept). City Sample's spawner Blueprints carry no spawn data generator (theirs were on
+  the spawners of City Sample's map, which is why no Mass car appeared on candidate 32 although the
+  ZoneGraph had 5 635 lanes): each placed spawner gets MassTraffic's own through
+  `UGTPMassSpawnerSetup`, and the vehicle types' own lane filters are pointed at our tags. It places
   them (120 driving cars by default, no spawn on begin play) and writes
   `Saved/CityImport/masstraffic_report.json` (`gtp_copy`: each change, the copies' cook risks and
   the chains that pull them in). City Sample's parked-car spawner is not used: its parking spaces
@@ -39,6 +44,10 @@ Status 13/11/2026: prepared, not compiled, waiting for City Sample on the PC. De
    Development package (idempotent, original kept as .orig, md5 report).
    Then `python tools/vehicles/copy_citysample_vehicle_base.py --src <CitySample> --project
    <project>/GranTheftPraline`: City Sample's car Blueprints need the class below.
+   The plugin's `Content` folder comes with it: the vehicle materials use its material function
+   `MF_UnpackTrafficVehicleInstanceCustomData` (reported missing on candidate 32: check that
+   `Plugins/Traffic/Content/MaterialFunctions` is there and that `Traffic.uplugin` says
+   `"CanContainContent": true`).
 2. `Traffic.uplugin` is not enabled by default: the `.uproject` lists it as `"Optional": true`, so
    it loads where the plugin is copied and is skipped without error elsewhere (Mac, CI).
    RuleProcessor is enabled by default.
