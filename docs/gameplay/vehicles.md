@@ -324,7 +324,12 @@ begin play and every second after (`-CarAllBodies` keeps them). The log says it 
 ("vehicle physics: ... keeps its chassis body", with the count: no line means one body, and the
 cause is elsewhere). Impacts the car ignores are logged once every 2 s
 at most, with their count, and two bodies of one car touching are no impact. The chase camera's
-spring arm only ticks on the player's car.
+spring arm only ticks on the player's car. Candidate 31b measured it (PC, 14/11): the City Sample
+cars carry 29 to 32 bodies and 37 to 40 constraints each (PA_Collision_vehCar_vehicle*); with the
+chassis alone, 91 ignored impacts in 2 min instead of 551 116, game p50 12.9 ms and p95 21.9 ms
+instead of 22 and 416. Then, for margin: a car's skeletal mesh only evaluates its pose when
+rendered, with Unreal's update rate optimisations, and an engine sound the voice budget silenced
+stops ticking.
 
 What the Clio, 208 and Kangoo take from City Sample's city car (vehicle02, 1 200 kg): soft
 springs on a high preload with long travel (100 / 300, +10 / -17 cm instead of 250 / 50,

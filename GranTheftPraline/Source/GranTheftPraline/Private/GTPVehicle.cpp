@@ -249,6 +249,13 @@ void AGTPVehicle::BeginPlay()
 		Body->OnComponentHit.AddDynamic(this, &AGTPVehicle::OnBodyHit);
 	}
 	KeepChassisBodyOnly();
+	if (USkeletalMeshComponent* Body = GetMesh())
+	{
+		// Only the wheels are animated, and Chaos does not read them back: no pose off screen,
+		// fewer updates when small on screen (89 skeletal mesh ticks a frame on candidate 31).
+		Body->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::OnlyTickPoseWhenRendered;
+		Body->bEnableUpdateRateOptimizations = true;
+	}
 	// The chase camera's arm only works for the player's car (PossessedBy turns it on).
 	ChaseArm->SetComponentTickEnabled(Cast<APlayerController>(GetController()) != nullptr);
 
