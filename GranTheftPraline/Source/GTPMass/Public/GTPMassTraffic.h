@@ -39,17 +39,33 @@ private:
 	/** "MassTraffic cars": the simulated cars (Mass entities), moving or not, near the player or not. */
 	void LogSimulatedCars(UWorld& World, const FVector& PlayerLocation);
 	/**
-	 * Once, before the spawners: the car lanes from which every way ends at a dead end (the edge of
-	 * the focus area) are taken out of the cars' choice. MassTraffic's lane choice does not look
+	 * With -TrafficDeadEnds=cut, once before the spawners: the car lanes from which every way ends at
+	 * a dead end (the edge of the focus area) are taken out of the cars' choice. MassTraffic's lane choice does not look
 	 * ahead: a car takes a lane that leads to a dead end, then stops for good before its last lane
 	 * (ShouldStopAtLaneExit, "NONEXT"), inside the junction when that last lane leaves one, and the
 	 * junction never opens again for anyone. The links to those lanes are removed from MassTraffic's
 	 * own lane data (FZoneGraphTrafficLaneData::NextLanes): every other lane keeps a way on. A junction
 	 * lane into a lane too short for a car and its gap counts as a dead end too: MassTraffic never lets
 	 * a car into it (no room after the junction) and the car waits at the line for good. Cars spawned
-	 * inside such a branch are recycled (RecycleAtDeadEnds). -NoDeadEndCut keeps the links.
+	 * inside such a branch are recycled (RecycleAtDeadEnds). On the PC (f8fc873) this took 307 of 577
+	 * car lanes out of the traffic, most of the map away from the player.
 	 */
 	void CutDeadEndBranches();
+	/**
+	 * Once, before the spawners (default, -TrafficDeadEnds=link): the network is closed instead of
+	 * cut, as a GTA city has no end. Each lane with no lane after it (a road leaving the map) leads
+	 * on, in MassTraffic's own lane data (FZoneGraphTrafficLaneData::NextLanes), to an entry: a lane
+	 * no lane leads into (a road coming into the map), the least used then the nearest. MassTraffic
+	 * moves a car onto its next lane by lane and distance only (MoveVehicleToNextLane): the car leaves
+	 * the map at one end and comes back at another, and no car stops for good before a dead end
+	 * (ShouldStopAtLaneExit, "NONEXT"). A junction lane into a lane too short for a car and its gap
+	 * (MassTraffic never lets a car into it) is taken out of the cars' choice first. Every lane keeps
+	 * its traffic: nothing is closed. -TrafficDeadEnds=cut cuts the branches as before
+	 * (CutDeadEndBranches), -TrafficDeadEnds=none (or -NoDeadEndCut) leaves the lanes as built.
+	 */
+	void LinkDeadEndsToEntries();
+	/** The dead-end handling of -TrafficDeadEnds (link, cut or none), once the lane data is there. */
+	void HandleDeadEnds();
 	/**
 	 * Every second: a car in a branch that only leads to dead ends, or standing at the end of a lane
 	 * with no lane after it, out of the player's sight, is handed to MassTraffic's own recycling
@@ -65,7 +81,8 @@ private:
 	int32 CountLogs = 0;
 	bool bViewPlaced = false;
 	bool bNetworkLogged = false;
-	bool bDeadEndsCut = false;
+	/** HandleDeadEnds found the lane data and did its work (or none was asked). */
+	bool bDeadEndsHandled = false;
 	int32 Recycled = 0;
 	/** Recycled cars to which Epic's damage fragment had to be added (its recycling needs one). */
 	int32 DamageAdded = 0;

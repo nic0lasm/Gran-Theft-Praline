@@ -313,6 +313,40 @@ Changements :
 - `ConfigureTrafficLaneFilters` : aucune voie « trunk » (GTPNoLane), pas de changement de voie dans
   un carrefour.
 
+PC, f8fc873 : zonegraph.py a enchaîné 55 voies, fondu 2 carrefours, retiré 14 voies ; 5 voies sortent
+encore d'un carrefour avec moins de 10 m (166 voies de voitures, 35 carrefours, 40 impasses
+restantes) ; 5 443 voies ZoneGraph. Le `DefaultPlugins.ini` de City Sample sur le PC (md5 0b1a975c,
+une autre version) a les mêmes filtres, densités et réglages de construction que la copie lue.
+349 s : à 300 s, 32 voitures sur 120 roulent, la plus proche à 128 m du joueur ; 307 des 577 voies de
+voitures sont encore coupées comme branches sans issue (dont 208 dans des carrefours). La coupure
+laisse plus de la moitié de la carte, surtout autour du joueur, sans trafic, et serre les 120
+voitures sur le reste : des 88 arrêtées, 69 sont derrière une voiture ; des 18 à une voie de
+carrefour fermée, 15 ont une voie pleine après. Les deux autres écarts avec les réglages de City
+Sample restent : son PID de vitesse ne conduit que les véhicules physiques près du joueur
+(`PIDVehicleControlFragment` de MassTraffic, inutilisé tant qu'`AGTPVehicle` n'a pas
+`IMassTrafficVehicleControlInterface`), et son `LaneConnectionAngle` de 180 va avec un point de
+polygone par route (voir plus haut).
+
+## Candidat 35 : un réseau fermé, comme une ville de GTA
+
+Une ville de GTA n'a pas d'impasse : une voiture quitte les rues que voit le joueur et une autre
+arrive. MassTraffic attend la même chose (le réseau de City Sample est fermé) et fait passer une
+voiture sur sa voie suivante par voie et distance seulement (`MoveVehicleToNextLane`) : une voie
+suivante n'a pas à toucher celle d'avant. `UGTPMassTrafficSubsystem::LinkDeadEndsToEntries`, une fois
+avant les spawners (par défaut, `-TrafficDeadEnds=link`) :
+- les voies de carrefour vers une voie de moins de 10 m, ou avec autre chose qu'une voie après elles,
+  sortent du choix des voies d'avant (MassTraffic n'y laisse jamais entrer une voiture) ;
+- chaque voie de route sans voie après elle (une route qui sort de la carte) continue vers une
+  entrée, une voie de route où ne mène aucune voie (une route qui entre dans la carte), la moins
+  utilisée puis la plus proche : la voiture quitte la carte à un bout et revient à l'autre, et plus
+  aucune voiture ne s'arrête pour de bon devant une impasse ;
+- aucune voie n'est fermée : toute la carte garde son trafic. Journal « MassTraffic dead ends: N of M
+  car lane(s) lead nowhere, K linked to E entry lane(s) ..., X m away on average ».
+`-TrafficDeadEnds=cut` garde la coupure des branches de 6fbd155, `-TrafficDeadEnds=none` (ou
+`-NoDeadEndCut`) laisse les voies telles que construites. Une nouvelle ligne « MassTraffic lanes near
+the player » donne la voie de route la plus proche et les voies de route à moins de 50 m : aucune
+voiture ne peut venir plus près que la voie la plus proche.
+
 ## Points ouverts
 
 - Près du joueur, MassTraffic peut confier une voiture à son véhicule physique : nos copies

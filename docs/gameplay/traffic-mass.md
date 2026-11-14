@@ -280,6 +280,36 @@ Changes:
   10 at the edge of the map, with no lane after them);
 - `ConfigureTrafficLaneFilters`: no trunk lane (GTPNoLane), no lane change inside a junction.
 
+PC, f8fc873: zonegraph.py chained 55 lanes, merged 2 junctions, dropped 14 lanes, 5 lanes still leave
+a junction with less than 10 m (166 car lanes, 35 junctions, 40 dead ends left); 5,443 ZoneGraph lanes.
+City Sample's `DefaultPlugins.ini` on the PC (md5 0b1a975c, another version) has the same filters,
+densities and build settings as the copy read. 349 s: at 300 s 32 cars of 120 move, the nearest 128 m
+from the player; 307 of the 577 car lanes are still cut as dead-end branches (208 of them in
+junctions). The cut keeps more than half the map, most of it around the player, without traffic, and
+crowds the 120 cars onto the rest: of 88 stopped, 69 stand behind a car; of 18 at a closed junction
+lane, 15 have a full lane after it. The other two differences with City Sample's settings are left:
+its speed PID drives the physics vehicles near the player only (MassTraffic's `PIDVehicleControlFragment`,
+not used while `AGTPVehicle` has no `IMassTrafficVehicleControlInterface`), and its
+`LaneConnectionAngle` of 180 goes with one polygon point per road (see above).
+
+## Candidate 35: a closed network, as a GTA city
+
+A GTA city has no dead end: a car leaves the streets the player sees and another comes in.
+MassTraffic expects the same (City Sample's network is closed), and moves a car onto its next lane by
+lane and distance only (`MoveVehicleToNextLane`): a next lane need not touch the lane before it.
+`UGTPMassTrafficSubsystem::LinkDeadEndsToEntries`, once before the spawners (default,
+`-TrafficDeadEnds=link`):
+- the junction lanes into a lane under 10 m, or with other than one lane after them, are taken out of
+  the choice of the lanes before them (MassTraffic never lets a car into them);
+- each road lane with no lane after it (a road leaving the map) leads on to an entry, a road lane no
+  lane leads into (a road coming into the map), the least used one then the nearest: the car leaves
+  the map at one end and comes back at the other, and no car stops for good before a dead end;
+- no lane is closed: the whole map keeps its traffic. Logged "MassTraffic dead ends: N of M car
+  lane(s) lead nowhere, K linked to E entry lane(s) ..., X m away on average".
+`-TrafficDeadEnds=cut` keeps the branch cut of 6fbd155, `-TrafficDeadEnds=none` (or `-NoDeadEndCut`)
+leaves the lanes as built. A new line "MassTraffic lanes near the player" gives the nearest road lane
+and the road lanes within 50 m: no car can come nearer than the nearest lane.
+
 ## Open points
 
 - Near the player MassTraffic may hand a car over to its physics vehicle: our copies name our cars

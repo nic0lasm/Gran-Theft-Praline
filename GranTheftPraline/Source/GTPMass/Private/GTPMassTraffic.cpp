@@ -22,6 +22,7 @@
 #include "MassTrafficSettings.h"
 #include "MassTrafficSubsystem.h"
 #include "MassZoneGraphNavigationFragments.h"
+#include "ZoneGraphSubsystem.h"
 #endif
 
 DEFINE_LOG_CATEGORY_STATIC(LogGTPMassTraffic, Log, All);
@@ -64,10 +65,10 @@ void UGTPMassTrafficSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 		Spawners.Emplace(Order, *It);
 	}
 	Spawners.StableSort([](const TPair<int32, AMassSpawner*>& A, const TPair<int32, AMassSpawner*>& B) { return A.Key < B.Key; });
-	if (!Spawners.IsEmpty() && !FParse::Param(FCommandLine::Get(), TEXT("NoDeadEndCut")))
+	if (!Spawners.IsEmpty())
 	{
 		// Before any car chooses a lane.
-		CutDeadEndBranches();
+		HandleDeadEnds();
 	}
 	for (const TPair<int32, AMassSpawner*>& Entry : Spawners)
 	{
@@ -179,6 +180,35 @@ void UGTPMassTrafficSubsystem::LogCounts()
 		World->GetTimeSeconds(), GraphData, Lanes, Zones, Instances, Actors,
 		bAny ? *FString::Printf(TEXT("%.0f m at %s"), Nearest / 100.0, *NearestLocation.ToCompactString()) : TEXT("none"));
 #if WITH_GTP_MASSTRAFFIC
+	// How close the network itself comes: a car cannot be nearer than the nearest road lane.
+	if (const UMassTrafficSettings* Settings = GetDefault<UMassTrafficSettings>(); Settings && Player)
+	{
+		double NearestLane = TNumericLimits<double>::Max();
+		int32 LanesWithin50 = 0;
+		for (TActorIterator<AZoneGraphData> It(World); It; ++It)
+		{
+			const FZoneGraphStorage& Storage = It->GetStorage();
+			for (const FZoneLaneData& Lane : Storage.Lanes)
+			{
+				if (!Settings->TrafficLaneFilter.Pass(Lane.Tags) || Settings->IntersectionLaneFilter.Pass(Lane.Tags))
+				{
+					continue;
+				}
+				double LaneDistance = TNumericLimits<double>::Max();
+				for (int32 Point = Lane.PointsBegin; Point + 1 < Lane.PointsEnd; ++Point)
+				{
+					LaneDistance = FMath::Min(LaneDistance, FMath::PointDistToSegment(PlayerLocation, Storage.LanePoints[Point], Storage.LanePoints[Point + 1]));
+				}
+				NearestLane = FMath::Min(NearestLane, LaneDistance);
+				LanesWithin50 += LaneDistance <= 5000.0 ? 1 : 0;
+			}
+		}
+		if (NearestLane < TNumericLimits<double>::Max())
+		{
+			UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic lanes near the player: nearest road lane %.0f m, %d road lane(s) within 50 m"),
+				NearestLane / 100.0, LanesWithin50);
+		}
+	}
 	LogSimulatedCars(*World, PlayerLocation);
 #endif
 	if (Lanes == 0 && CountLogs == 1)
@@ -514,8 +544,201 @@ void UGTPMassTrafficSubsystem::LogSimulatedCars(UWorld& World, const FVector& Pl
 	}
 }
 
+namespace GTPMassTrafficLocal
+{
+/**
+ * MassTraffic's ShouldStopAtLaneExit lets a car into a junction only when the lane after it has room
+ * for the car and its gap to the next one (2 x radius + MinimumDistanceToNextVehicleRange): a lane
+ * after a junction shorter than that never has, and the car stopped before it never chooses again (no
+ * new choice that close to the line). 10 m with Epic's 5 m upper gap and a 5 m car, or
+ * -TrafficMinRoomAfterJunction=<m>.
+ */
+float WallCm()
+{
+	static const float Value = []
+	{
+		const UMassTrafficSettings* Settings = GetDefault<UMassTrafficSettings>();
+		float Metres = 5.f + (Settings ? static_cast<float>(Settings->MinimumDistanceToNextVehicleRange.Y) : 500.f) / 100.f;
+		FParse::Value(FCommandLine::Get(), TEXT("TrafficMinRoomAfterJunction="), Metres);
+		return Metres * 100.f;
+	}();
+	return Value;
+}
+
+/** A junction lane no car can drive through: MassTraffic skips one with more than one lane after it. */
+bool IsWall(const FZoneGraphTrafficLaneData& Lane)
+{
+	return Lane.ConstData.bIsIntersectionLane
+		&& (Lane.NextLanes.Num() != 1 || !Lane.NextLanes[0] || Lane.NextLanes[0]->Length < WallCm());
+}
+}
+
+void UGTPMassTrafficSubsystem::HandleDeadEnds()
+{
+	UWorld* World = GetWorld();
+	UMassTrafficSubsystem* Traffic = World ? World->GetSubsystem<UMassTrafficSubsystem>() : nullptr;
+	if (!Traffic || bDeadEndsHandled)
+	{
+		return;
+	}
+	bool bAnyLane = false;
+	for (const FMassTrafficZoneGraphData* Data : Traffic->GetMutableTrafficZoneGraphData())
+	{
+		bAnyLane |= Data && !Data->TrafficLaneDataArray.IsEmpty();
+	}
+	if (!bAnyLane)
+	{
+		UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic dead ends: no traffic lane data yet, tried again later"));
+		return;
+	}
+	bDeadEndsHandled = true;
+	FString Mode = TEXT("link");
+	FParse::Value(FCommandLine::Get(), TEXT("TrafficDeadEnds="), Mode);
+	if (FParse::Param(FCommandLine::Get(), TEXT("NoDeadEndCut")))
+	{
+		Mode = TEXT("none");
+	}
+	if (Mode == TEXT("cut"))
+	{
+		CutDeadEndBranches();
+	}
+	else if (Mode == TEXT("none"))
+	{
+		UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic dead ends: left as built (-TrafficDeadEnds=none)"));
+	}
+	else
+	{
+		LinkDeadEndsToEntries();
+	}
+}
+
+void UGTPMassTrafficSubsystem::LinkDeadEndsToEntries()
+{
+	using namespace GTPMassTrafficLocal;
+	UWorld* World = GetWorld();
+	UMassTrafficSubsystem* Traffic = World ? World->GetSubsystem<UMassTrafficSubsystem>() : nullptr;
+	UZoneGraphSubsystem* Graph = World ? World->GetSubsystem<UZoneGraphSubsystem>() : nullptr;
+	if (!Traffic || !Graph)
+	{
+		return;
+	}
+	int32 Lanes = 0;
+	int32 Walls = 0;
+	int32 WallLinks = 0;
+	int32 DeadEnds = 0;
+	int32 Linked = 0;
+	int32 Entries = 0;
+	int32 EntriesUsed = 0;
+	double JumpCm = 0.0;
+	double LongestJumpCm = 0.0;
+	for (FMassTrafficZoneGraphData* Data : Traffic->GetMutableTrafficZoneGraphData())
+	{
+		const FZoneGraphStorage* Storage = Data ? Graph->GetZoneGraphStorage(Data->DataHandle) : nullptr;
+		if (!Storage || Data->TrafficLaneDataArray.IsEmpty())
+		{
+			continue;
+		}
+		TArray<FZoneGraphTrafficLaneData>& All = Data->TrafficLaneDataArray;
+		const int32 Num = All.Num();
+		const FZoneGraphTrafficLaneData* const First = All.GetData();
+		auto IndexOf = [First, Num](const FZoneGraphTrafficLaneData* Lane)
+		{
+			const int32 Index = Lane ? static_cast<int32>(Lane - First) : INDEX_NONE;
+			return Index >= 0 && Index < Num ? Index : INDEX_NONE;
+		};
+		auto EndPoint = [Storage](const FZoneGraphTrafficLaneData& Lane, bool bStart)
+		{
+			const FZoneLaneData& ZoneLane = Storage->Lanes[Lane.LaneHandle.Index];
+			return Storage->LanePoints[bStart ? ZoneLane.PointsBegin : ZoneLane.PointsEnd - 1];
+		};
+		// Walls first: out of the choice of the lanes before them.
+		TSet<const FZoneGraphTrafficLaneData*> WallLanes;
+		for (const FZoneGraphTrafficLaneData& Lane : All)
+		{
+			if (IsWall(Lane))
+			{
+				WallLanes.Add(&Lane);
+			}
+		}
+		Walls += WallLanes.Num();
+		if (!WallLanes.IsEmpty())
+		{
+			for (FZoneGraphTrafficLaneData& Lane : All)
+			{
+				WallLinks += Lane.NextLanes.RemoveAll([&WallLanes](const FZoneGraphTrafficLaneData* Next) { return WallLanes.Contains(Next); });
+			}
+		}
+		// Entries: road lanes no lane leads into, with a way on.
+		TArray<int32> Feeders;
+		Feeders.SetNumZeroed(Num);
+		for (const FZoneGraphTrafficLaneData& Lane : All)
+		{
+			for (const FZoneGraphTrafficLaneData* Next : Lane.NextLanes)
+			{
+				const int32 NextIndex = IndexOf(Next);
+				if (NextIndex != INDEX_NONE)
+				{
+					++Feeders[NextIndex];
+				}
+			}
+		}
+		TArray<int32> EntryLanes;
+		for (int32 Index = 0; Index < Num; ++Index)
+		{
+			if (!All[Index].ConstData.bIsIntersectionLane && Feeders[Index] == 0 && !All[Index].NextLanes.IsEmpty())
+			{
+				EntryLanes.Add(Index);
+			}
+		}
+		Entries += EntryLanes.Num();
+		TArray<int32> Uses;
+		Uses.SetNumZeroed(EntryLanes.Num());
+		// Each dead end (a road lane with no lane after it) leads on to the least used entry, then the nearest.
+		for (int32 Index = 0; Index < Num; ++Index)
+		{
+			FZoneGraphTrafficLaneData& Lane = All[Index];
+			if (Lane.ConstData.bIsIntersectionLane || !Lane.NextLanes.IsEmpty())
+			{
+				continue;
+			}
+			++DeadEnds;
+			const FVector End = EndPoint(Lane, false);
+			int32 Best = INDEX_NONE;
+			double BestCm = 0.0;
+			for (int32 Entry = 0; Entry < EntryLanes.Num(); ++Entry)
+			{
+				if (EntryLanes[Entry] == Index)
+				{
+					continue;
+				}
+				const double Cm = FVector::Dist(End, EndPoint(All[EntryLanes[Entry]], true));
+				if (Best == INDEX_NONE || Uses[Entry] < Uses[Best] || (Uses[Entry] == Uses[Best] && Cm < BestCm))
+				{
+					Best = Entry;
+					BestCm = Cm;
+				}
+			}
+			if (Best == INDEX_NONE)
+			{
+				continue;
+			}
+			Lane.NextLanes.Add(&All[EntryLanes[Best]]);
+			EntriesUsed += Uses[Best] == 0 ? 1 : 0;
+			++Uses[Best];
+			++Linked;
+			JumpCm += BestCm;
+			LongestJumpCm = FMath::Max(LongestJumpCm, BestCm);
+		}
+		Lanes += Num;
+	}
+	UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic dead ends: %d of %d car lane(s) lead nowhere, %d linked to %d of %d entry lane(s) (a lane no lane leads into; the car leaves the map there and comes back at the entry, %.0f m away on average, %.0f m at most), %d left; %d junction lane(s) into a lane under %.0f m taken out of the choice (%d link(s)); no lane closed"),
+		DeadEnds, Lanes, Linked, EntriesUsed, Entries, Linked > 0 ? JumpCm / Linked / 100.0 : 0.0, LongestJumpCm / 100.0,
+		DeadEnds - Linked, Walls, WallCm() / 100.f, WallLinks);
+}
+
 void UGTPMassTrafficSubsystem::CutDeadEndBranches()
 {
+	using namespace GTPMassTrafficLocal;
 	UWorld* World = GetWorld();
 	UMassTrafficSubsystem* Traffic = World ? World->GetSubsystem<UMassTrafficSubsystem>() : nullptr;
 	if (!Traffic)
@@ -527,18 +750,7 @@ void UGTPMassTrafficSubsystem::CutDeadEndBranches()
 	int32 BranchJunction = 0;
 	int32 LinksCut = 0;
 	int32 Walls = 0;
-	// MassTraffic's ShouldStopAtLaneExit lets a car into a junction only when the lane after it has
-	// room for the car and its gap to the next one (2 x radius + MinimumDistanceToNextVehicleRange):
-	// a lane after a junction shorter than that never has, and the car stopped before it never chooses
-	// again (no new choice that close to the line). Such junction lanes count as dead ends. 10 m with
-	// Epic's 5 m upper gap and a 5 m car, or -TrafficMinRoomAfterJunction=<m>.
-	const UMassTrafficSettings* Settings = GetDefault<UMassTrafficSettings>();
-	static const float WallCm = [Settings]
-	{
-		float Metres = 5.f + (Settings ? static_cast<float>(Settings->MinimumDistanceToNextVehicleRange.Y) : 500.f) / 100.f;
-		FParse::Value(FCommandLine::Get(), TEXT("TrafficMinRoomAfterJunction="), Metres);
-		return Metres * 100.f;
-	}();
+	// Junction lanes into a lane too short for a car and its gap count as dead ends (WallCm).
 	for (FMassTrafficZoneGraphData* Data : Traffic->GetMutableTrafficZoneGraphData())
 	{
 		if (!Data || Data->TrafficLaneDataArray.IsEmpty())
@@ -562,8 +774,7 @@ void UGTPMassTrafficSubsystem::CutDeadEndBranches()
 		for (int32 Index = 0; Index < Num; ++Index)
 		{
 			const FZoneGraphTrafficLaneData& Lane = All[Index];
-			if (Lane.ConstData.bIsIntersectionLane && !Lane.NextLanes.IsEmpty()
-				&& (Lane.NextLanes.Num() != 1 || !Lane.NextLanes[0] || Lane.NextLanes[0]->Length < WallCm))
+			if (!Lane.NextLanes.IsEmpty() && IsWall(Lane))
 			{
 				// No way on through this junction lane (MassTraffic also skips a junction lane with
 				// more than one lane after it).
@@ -630,14 +841,8 @@ void UGTPMassTrafficSubsystem::CutDeadEndBranches()
 		}
 		Lanes += Num;
 	}
-	if (Lanes == 0)
-	{
-		UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic dead ends: no traffic lane data yet, cut tried again later"));
-		return;
-	}
-	bDeadEndsCut = true;
 	UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic dead ends: %d car lane(s) of %d only lead to dead ends (%d of them in junctions, the others closed to the overseer; %d junction lane(s) into a lane under %.0f m counted as dead ends), %d link(s) to them removed from the cars' choice; every other lane keeps a way on"),
-		Branch, Lanes, BranchJunction, Walls, WallCm / 100.f, LinksCut);
+		Branch, Lanes, BranchJunction, Walls, WallCm() / 100.f, LinksCut);
 }
 
 void UGTPMassTrafficSubsystem::RecycleAtDeadEnds()
@@ -649,10 +854,10 @@ void UGTPMassTrafficSubsystem::RecycleAtDeadEnds()
 	{
 		return;
 	}
-	if (!bDeadEndsCut && !FParse::Param(FCommandLine::Get(), TEXT("NoDeadEndCut")))
+	if (!bDeadEndsHandled)
 	{
 		// The lane data was not there before the spawners.
-		CutDeadEndBranches();
+		HandleDeadEnds();
 	}
 	// Out of the player's sight: behind the camera from 40 m, in front of it from 120 m
 	// (-DeadEndKeepNear=<m>), the distance at which GTA lets a car go.
@@ -742,6 +947,14 @@ void UGTPMassTrafficSubsystem::LogSimulatedCars(UWorld& World, const FVector& Pl
 }
 
 void UGTPMassTrafficSubsystem::CutDeadEndBranches()
+{
+}
+
+void UGTPMassTrafficSubsystem::LinkDeadEndsToEntries()
+{
+}
+
+void UGTPMassTrafficSubsystem::HandleDeadEnds()
 {
 }
 
