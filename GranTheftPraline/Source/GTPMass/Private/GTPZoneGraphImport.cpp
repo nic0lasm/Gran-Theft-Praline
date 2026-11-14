@@ -619,6 +619,21 @@ FString UGTPZoneGraphImport::ConfigureTrafficLaneFilters(FName LaneTag, FName In
 			Report.Info.Add(RangeName, TEXT("not found: left as is"));
 		}
 	}
+	// The overseer also moves a car only onto a lane at least MinTransferDistance away from it (so
+	// that no car behind keeps following it): Epic's 500 m leaves no lane for a car in the middle of
+	// our focus area, and the cars handed to its recycling were never moved (candidate 34). 200 m,
+	// or -TrafficMinTransfer=<m>.
+	if (FFloatProperty* MinTransfer = CastField<FFloatProperty>(Class->FindPropertyByName(TEXT("MinTransferDistance"))))
+	{
+		float Metres = 200.f;
+		FParse::Value(FCommandLine::Get(), TEXT("TrafficMinTransfer="), Metres);
+		MinTransfer->SetPropertyValue_InContainer(Settings, Metres * 100.f);
+		Report.Info.Add(TEXT("MinTransferDistance"), FString::Printf(TEXT("%.0f m"), Metres));
+	}
+	else
+	{
+		Report.Info.Add(TEXT("MinTransferDistance"), TEXT("not found: left as is"));
+	}
 	UE_LOG(LogGTPZoneGraph, Log, TEXT("traffic lane filters: %s"), *Report.ToJson());
 	return Report.ToJson();
 }

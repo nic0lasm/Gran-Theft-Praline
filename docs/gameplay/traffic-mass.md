@@ -188,6 +188,34 @@ left (775 car lanes in the ZoneGraph). Next:
   (`-TrafficTransferDistance=<m>`, `-DeadEndKeepNear=<m>`, `-NoDeadEndRecycle`). Logged: "waiting for
   recycling" and "recycled so far".
 
+PC, third run (1b1f38f): 43 dead ends joined, 6 closed, 40 left; only 8 cars stopped on a
+dead-end lane. But the whole traffic freezes within two minutes (110 cars, 1 moving at 120 s), and
+the 10 cars handed to the recycling were never moved. Read in MassTraffic's source:
+- its lane choice does not look ahead, and `ShouldStopAtLaneExit` stops a car for good before a
+  next lane that has no lane after it ("NONEXT"): the cars do not stop on the dead-end lanes but on
+  the lane before them, and inside the junction when the dead end leaves one. A stop-sign junction
+  (`UMassTrafficUpdateIntersectionsProcessor`, none of ours has lights) changes period only once its
+  closing lanes are empty: one car stopped inside it and the junction never opens again, for
+  anyone; the queues then reach the next junctions;
+- the overseer moves a car only onto a lane at least `MinTransferDistance` (500 m) away from it:
+  for a car in the middle of our focus area there is none.
+Changes (C++ only, the map stays as it is):
+- `UGTPMassTrafficSubsystem::CutDeadEndBranches`, once before the spawners: the car lanes from which
+  every way ends at a dead end (dead ends, then backwards every lane whose next lanes are all such)
+  are removed from MassTraffic's own lane data (`FZoneGraphTrafficLaneData::NextLanes`) for the
+  cars' choice; every other lane keeps a way on. Inside a branch the plain next lanes stay and the
+  junction lanes go, so that a car spawned there stops outside any junction; the plain lanes of a
+  branch are closed (`bIsOpen`), so that the overseer never puts a car back into one. Logged "MassTraffic
+  dead ends: N car lane(s) of M only lead to dead ends"; `-NoDeadEndCut` keeps the links;
+- the recycling takes every car in such a branch (a moving one in a junction once it is out), and
+  the cars stopped at a lane with nothing after it, out of the player's sight (behind the camera
+  from 40 m, in front from 120 m, `-DeadEndKeepNear=<m>`); a car without Epic's damage fragment (the
+  overseer's query needs it) gets one;
+- `MinTransferDistance`: 200 m (`-TrafficMinTransfer=<m>`);
+- a "MassTraffic stops" line says where the stopped cars stand: in a dead-end branch, inside a
+  junction, for a pedestrian or the player, behind a car, at the lane end (no next lane, junction
+  closed, junction open with no room after it, plain lane), other.
+
 ## Open points
 
 - Near the player MassTraffic may hand a car over to its physics vehicle: our copies name our cars

@@ -7,6 +7,7 @@
 #include "Engine/World.h"
 #include "GameFramework/Controller.h"
 #include "GameFramework/Pawn.h"
+#include "GameFramework/PlayerController.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/CommandLine.h"
 #include "TimerManager.h"
@@ -63,6 +64,11 @@ void UGTPMassTrafficSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 		Spawners.Emplace(Order, *It);
 	}
 	Spawners.StableSort([](const TPair<int32, AMassSpawner*>& A, const TPair<int32, AMassSpawner*>& B) { return A.Key < B.Key; });
+	if (!Spawners.IsEmpty() && !FParse::Param(FCommandLine::Get(), TEXT("NoDeadEndCut")))
+	{
+		// Before any car chooses a lane.
+		CutDeadEndBranches();
+	}
 	for (const TPair<int32, AMassSpawner*>& Entry : Spawners)
 	{
 		Entry.Value->DoSpawning();
@@ -250,9 +256,23 @@ void UGTPMassTrafficSubsystem::LogSimulatedCars(UWorld& World, const FVector& Pl
 	Query.AddRequirement<FTransformFragment>(EMassFragmentAccess::ReadOnly);
 	Query.AddRequirement<FMassTrafficVehicleControlFragment>(EMassFragmentAccess::ReadOnly);
 	Query.AddRequirement<FMassZoneGraphLaneLocationFragment>(EMassFragmentAccess::ReadOnly);
+	Query.AddRequirement<FAgentRadiusFragment>(EMassFragmentAccess::ReadOnly);
+	Query.AddRequirement<FMassTrafficObstacleAvoidanceFragment>(EMassFragmentAccess::ReadOnly);
+	const UMassTrafficSubsystem* Traffic = World.GetSubsystem<UMassTrafficSubsystem>();
 	int32 Cars = 0;
 	int32 Moving = 0;
 	int32 AtDeadEnd = 0;
+	// Where the stopped cars stand, first match wins (MassTraffic's own reasons to stop, see
+	// ShouldStopAtLaneExit and the obstacle avoidance processors).
+	int32 StopInBranch = 0;      // in a branch that only leads to dead ends (cut, recycled)
+	int32 StopInJunction = 0;    // on an intersection lane: the junction cannot change period
+	int32 StopForObstacle = 0;   // a pedestrian on a crossing or the player within 20 m ahead
+	int32 StopBehindCar = 0;     // the car ahead within 10 m
+	int32 StopNoNextLane = 0;    // at the lane end, no next lane chosen or none left
+	int32 StopJunctionClosed = 0; // at the lane end, the junction lane it chose is closed
+	int32 StopJunctionOpen = 0;  // at the lane end, the junction lane is open: no room after it
+	int32 StopLaneEnd = 0;       // at the end of a lane into another plain lane
+	int32 StopOther = 0;
 	int32 Within100 = 0;
 	int32 Within200 = 0;
 	double SpeedSum = 0.0;
@@ -263,10 +283,13 @@ void UGTPMassTrafficSubsystem::LogSimulatedCars(UWorld& World, const FVector& Pl
 		const TConstArrayView<FTransformFragment> Transforms = Chunk.GetFragmentView<FTransformFragment>();
 		const TConstArrayView<FMassTrafficVehicleControlFragment> Controls = Chunk.GetFragmentView<FMassTrafficVehicleControlFragment>();
 		const TConstArrayView<FMassZoneGraphLaneLocationFragment> Locations = Chunk.GetFragmentView<FMassZoneGraphLaneLocationFragment>();
+		const TConstArrayView<FAgentRadiusFragment> Radii = Chunk.GetFragmentView<FAgentRadiusFragment>();
+		const TConstArrayView<FMassTrafficObstacleAvoidanceFragment> Avoidances = Chunk.GetFragmentView<FMassTrafficObstacleAvoidanceFragment>();
 		for (int32 Index = 0; Index < Chunk.GetNumEntities(); ++Index)
 		{
 			++Cars;
-			const float Speed = Controls[Index].Speed; // cm/s along the lane
+			const FMassTrafficVehicleControlFragment& Control = Controls[Index];
+			const float Speed = Control.Speed; // cm/s along the lane
 			SpeedSum += Speed;
 			Moving += Speed > 100.f ? 1 : 0;
 			const FMassZoneGraphLaneLocationFragment& Location = Locations[Index];
@@ -274,23 +297,67 @@ void UGTPMassTrafficSubsystem::LogSimulatedCars(UWorld& World, const FVector& Pl
 			{
 				++AtDeadEnd;
 			}
+			if (Speed <= 100.f)
+			{
+				const FZoneGraphTrafficLaneData* Lane = Traffic ? Traffic->GetTrafficLaneData(Location.LaneHandle) : nullptr;
+				const FMassTrafficObstacleAvoidanceFragment& Avoidance = Avoidances[Index];
+				const bool bAtLaneEnd = Location.DistanceAlongLane >= Location.LaneLength - Radii[Index].Radius - 500.f;
+				if (IsInDeadEndBranch(Location.LaneHandle.DataHandle.Index, Location.LaneHandle.Index))
+				{
+					++StopInBranch;
+				}
+				else if (Lane && Lane->ConstData.bIsIntersectionLane)
+				{
+					++StopInJunction;
+				}
+				else if (Avoidance.DistanceToCollidingObstacle < 2000.f)
+				{
+					++StopForObstacle;
+				}
+				else if (Avoidance.DistanceToNext < 1000.f)
+				{
+					++StopBehindCar;
+				}
+				else if (bAtLaneEnd && (!Control.NextLane || (Lane && Lane->NextLanes.IsEmpty())))
+				{
+					++StopNoNextLane;
+				}
+				else if (bAtLaneEnd && Control.NextLane->ConstData.bIsIntersectionLane)
+				{
+					++(Control.NextLane->bIsOpen ? StopJunctionOpen : StopJunctionClosed);
+				}
+				else if (bAtLaneEnd)
+				{
+					++StopLaneEnd;
+				}
+				else
+				{
+					++StopOther;
+				}
+			}
 			const double Distance = FVector::Dist(Transforms[Index].GetTransform().GetLocation(), PlayerLocation);
 			Within100 += Distance < 10000.0 ? 1 : 0;
 			Within200 += Distance < 20000.0 ? 1 : 0;
 			Nearest = FMath::Min(Nearest, Distance);
 		}
 	});
-	// Cars handed to MassTraffic's recycling (RecycleAtDeadEnds) and not moved yet.
+	// Cars handed to MassTraffic's recycling (RecycleAtDeadEnds) and not moved yet, and of those the
+	// ones its overseer cannot take (its query needs Epic's damage fragment, among others).
 	int32 Recyclable = 0;
+	int32 RecyclableWithoutDamage = 0;
 	{
 		FMassEntityQuery RecyclableQuery;
 		RecyclableQuery.Initialize(Manager);
 		RecyclableQuery.AddTagRequirement<FMassTrafficRecyclableVehicleTag>(EMassFragmentPresence::All);
 		RecyclableQuery.AddRequirement<FTransformFragment>(EMassFragmentAccess::ReadOnly);
 		FMassExecutionContext RecyclableContext(*Manager, 0.f);
-		RecyclableQuery.ForEachEntityChunk(RecyclableContext, [&Recyclable](FMassExecutionContext& Chunk)
+		RecyclableQuery.ForEachEntityChunk(RecyclableContext, [&](FMassExecutionContext& Chunk)
 		{
 			Recyclable += Chunk.GetNumEntities();
+			for (int32 Index = 0; Index < Chunk.GetNumEntities(); ++Index)
+			{
+				RecyclableWithoutDamage += Manager->GetFragmentDataPtr<FMassTrafficVehicleDamageFragment>(Chunk.GetEntity(Index)) ? 0 : 1;
+			}
 		});
 	}
 	FString Network;
@@ -301,9 +368,119 @@ void UGTPMassTrafficSubsystem::LogSimulatedCars(UWorld& World, const FVector& Pl
 		Network = FString::Printf(TEXT(" | car lanes=%d (%d dead ends), %.1f km, %.1f cars per km"), CarLanes, DeadEnds.Num(),
 			Length / 100000.0, Length > 0.0 ? Cars / (Length / 100000.0) : 0.0);
 	}
-	UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic cars: simulated=%d moving=%d (over 1 m/s) stopped on a dead-end lane=%d waiting for recycling=%d recycled so far=%d mean speed=%.0f km/h | within 100 m=%d within 200 m=%d nearest=%s%s"),
-		Cars, Moving, AtDeadEnd, Recyclable, Recycled, Cars > 0 ? SpeedSum / Cars * 0.036 : 0.0, Within100, Within200,
+	UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic cars: simulated=%d moving=%d (over 1 m/s) stopped on a dead-end lane=%d waiting for recycling=%d (without Epic's damage fragment=%d) recycled so far=%d mean speed=%.0f km/h | within 100 m=%d within 200 m=%d nearest=%s%s"),
+		Cars, Moving, AtDeadEnd, Recyclable, RecyclableWithoutDamage, Recycled, Cars > 0 ? SpeedSum / Cars * 0.036 : 0.0, Within100, Within200,
 		Cars > 0 ? *FString::Printf(TEXT("%.0f m"), Nearest / 100.0) : TEXT("none"), *Network);
+	if (Cars > Moving)
+	{
+		UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic stops: %d stopped | in a dead-end branch=%d inside a junction=%d for a pedestrian or the player=%d behind a car=%d | at the lane end: no next lane=%d junction closed=%d junction open (no room after it)=%d plain lane=%d | other=%d"),
+			Cars - Moving, StopInBranch, StopInJunction, StopForObstacle, StopBehindCar, StopNoNextLane, StopJunctionClosed, StopJunctionOpen,
+			StopLaneEnd, StopOther);
+	}
+}
+
+void UGTPMassTrafficSubsystem::CutDeadEndBranches()
+{
+	UWorld* World = GetWorld();
+	UMassTrafficSubsystem* Traffic = World ? World->GetSubsystem<UMassTrafficSubsystem>() : nullptr;
+	if (!Traffic)
+	{
+		return;
+	}
+	int32 Lanes = 0;
+	int32 Branch = 0;
+	int32 BranchJunction = 0;
+	int32 LinksCut = 0;
+	for (FMassTrafficZoneGraphData* Data : Traffic->GetMutableTrafficZoneGraphData())
+	{
+		if (!Data || Data->TrafficLaneDataArray.IsEmpty())
+		{
+			continue;
+		}
+		TArray<FZoneGraphTrafficLaneData>& All = Data->TrafficLaneDataArray;
+		const int32 Num = All.Num();
+		const FZoneGraphTrafficLaneData* const First = All.GetData();
+		auto IndexOf = [First, Num](const FZoneGraphTrafficLaneData* Lane)
+		{
+			const int32 Index = Lane ? static_cast<int32>(Lane - First) : INDEX_NONE;
+			return Index >= 0 && Index < Num ? Index : INDEX_NONE;
+		};
+		// A lane is in a dead-end branch when none of its next lanes leads anywhere but to dead ends:
+		// dead ends first, then, backwards, every lane whose next lanes are all in such branches.
+		TArray<int32> WaysOn;
+		WaysOn.SetNumZeroed(Num);
+		TArray<TArray<int32>> Before;
+		Before.SetNum(Num);
+		for (int32 Index = 0; Index < Num; ++Index)
+		{
+			for (const FZoneGraphTrafficLaneData* Next : All[Index].NextLanes)
+			{
+				const int32 NextIndex = IndexOf(Next);
+				if (NextIndex != INDEX_NONE)
+				{
+					++WaysOn[Index];
+					Before[NextIndex].Add(Index);
+				}
+			}
+		}
+		TArray<bool> InBranch;
+		InBranch.Init(false, Num);
+		TArray<int32> Queue;
+		for (int32 Index = 0; Index < Num; ++Index)
+		{
+			if (WaysOn[Index] == 0)
+			{
+				InBranch[Index] = true;
+				Queue.Add(Index);
+			}
+		}
+		for (int32 Head = 0; Head < Queue.Num(); ++Head)
+		{
+			for (const int32 Previous : Before[Queue[Head]])
+			{
+				if (!InBranch[Previous] && --WaysOn[Previous] == 0)
+				{
+					InBranch[Previous] = true;
+					Queue.Add(Previous);
+				}
+			}
+		}
+		// Lanes with a way on forget the branches; lanes inside a branch keep their plain next lanes
+		// (a car spawned there drives on to a stop outside any junction) but forget the junction lanes
+		// of the branch, so that no car ever stops inside a junction for want of a lane after it.
+		for (int32 Index = 0; Index < Num; ++Index)
+		{
+			FZoneGraphTrafficLaneData& Lane = All[Index];
+			const bool bLaneInBranch = InBranch[Index];
+			LinksCut += Lane.NextLanes.RemoveAll([&](const FZoneGraphTrafficLaneData* Next)
+			{
+				const int32 NextIndex = IndexOf(Next);
+				return NextIndex != INDEX_NONE && InBranch[NextIndex] && (!bLaneInBranch || Next->ConstData.bIsIntersectionLane);
+			});
+			if (bLaneInBranch)
+			{
+				++Branch;
+				BranchJunction += Lane.ConstData.bIsIntersectionLane ? 1 : 0;
+				if (!Lane.ConstData.bIsIntersectionLane)
+				{
+					// The overseer only puts the cars it moves (density, recycling) on open lanes: not
+					// back into a branch. Only the junctions open and close their own lanes.
+					Lane.bIsOpen = false;
+				}
+				DeadEndBranch.Add(Lane.LaneHandle.Index);
+				DeadEndBranchData = Lane.LaneHandle.DataHandle.Index;
+			}
+		}
+		Lanes += Num;
+	}
+	if (Lanes == 0)
+	{
+		UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic dead ends: no traffic lane data yet, cut tried again later"));
+		return;
+	}
+	bDeadEndsCut = true;
+	UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic dead ends: %d car lane(s) of %d only lead to dead ends (%d of them in junctions, the others closed to the overseer), %d link(s) to them removed from the cars' choice; every other lane keeps a way on"),
+		Branch, Lanes, BranchJunction, LinksCut);
 }
 
 void UGTPMassTrafficSubsystem::RecycleAtDeadEnds()
@@ -315,15 +492,32 @@ void UGTPMassTrafficSubsystem::RecycleAtDeadEnds()
 	{
 		return;
 	}
-	const APawn* Player = UGameplayStatics::GetPlayerPawn(World, 0);
-	const FVector PlayerLocation = Player ? Player->GetActorLocation() : FVector::ZeroVector;
-	// Not under the player's eyes: a car vanishing 80 m away is less seen than one that never moves.
-	static const double KeepNearCm = []
+	if (!bDeadEndsCut && !FParse::Param(FCommandLine::Get(), TEXT("NoDeadEndCut")))
 	{
-		float Metres = 80.f;
+		// The lane data was not there before the spawners.
+		CutDeadEndBranches();
+	}
+	// Out of the player's sight: behind the camera from 40 m, in front of it from 120 m
+	// (-DeadEndKeepNear=<m>), the distance at which GTA lets a car go.
+	FVector ViewLocation = FVector::ZeroVector;
+	FRotator ViewRotation = FRotator::ZeroRotator;
+	if (APlayerController* Controller = World->GetFirstPlayerController())
+	{
+		Controller->GetPlayerViewPoint(ViewLocation, ViewRotation);
+	}
+	else if (const APawn* Player = UGameplayStatics::GetPlayerPawn(World, 0))
+	{
+		ViewLocation = Player->GetActorLocation();
+		ViewRotation = Player->GetActorRotation();
+	}
+	const FVector ViewDirection = ViewRotation.Vector();
+	static const double InSightCm = []
+	{
+		float Metres = 120.f;
 		FParse::Value(FCommandLine::Get(), TEXT("DeadEndKeepNear="), Metres);
 		return Metres * 100.0;
 	}();
+	constexpr double OutOfSightCm = 4000.0;
 	FMassEntityManager& Manager = Mass->GetMutableEntityManager();
 	FMassEntityQuery Query;
 	Query.Initialize(Manager.AsShared());
@@ -343,30 +537,54 @@ void UGTPMassTrafficSubsystem::RecycleAtDeadEnds()
 		for (int32 Index = 0; Index < Chunk.GetNumEntities(); ++Index)
 		{
 			const FMassZoneGraphLaneLocationFragment& Location = Locations[Index];
-			if (Controls[Index].Speed > 100.f || Location.DistanceAlongLane < Location.LaneLength - Radii[Index].Radius - 300.f
-				|| FVector::Dist(Transforms[Index].GetTransform().GetLocation(), PlayerLocation) < KeepNearCm)
+			const FZoneGraphTrafficLaneData* Lane = Traffic->GetTrafficLaneData(Location.LaneHandle);
+			if (!Lane)
 			{
 				continue;
 			}
-			const FZoneGraphTrafficLaneData* Lane = Traffic->GetTrafficLaneData(Location.LaneHandle);
-			if (Lane && Lane->NextLanes.IsEmpty())
+			const bool bStopped = Controls[Index].Speed <= 100.f;
+			const bool bInBranch = IsInDeadEndBranch(Location.LaneHandle.DataHandle.Index, Location.LaneHandle.Index);
+			const bool bAtDeadEnd = bStopped && Lane->NextLanes.IsEmpty()
+				&& Location.DistanceAlongLane >= Location.LaneLength - Radii[Index].Radius - 300.f;
+			// A car driving through a junction is let out of it first: a recycled car stands still
+			// until MassTraffic moves it, and one standing in a junction blocks it.
+			if ((!bInBranch && !bAtDeadEnd) || (Lane->ConstData.bIsIntersectionLane && !bStopped))
 			{
-				ToRecycle.Add(Chunk.GetEntity(Index));
+				continue;
 			}
+			const FVector ToCar = Transforms[Index].GetTransform().GetLocation() - ViewLocation;
+			const double Distance = ToCar.Size();
+			const bool bInSight = Distance > 1.0 && FVector::DotProduct(ToCar / Distance, ViewDirection) > 0.5;
+			if (Distance < (bInSight ? InSightCm : OutOfSightCm))
+			{
+				continue;
+			}
+			ToRecycle.Add(Chunk.GetEntity(Index));
 		}
 	});
 	for (const FMassEntityHandle& Entity : ToRecycle)
 	{
+		// MassTraffic's overseer only takes recyclable cars that carry its damage fragment.
+		if (!Manager.GetFragmentDataPtr<FMassTrafficVehicleDamageFragment>(Entity))
+		{
+			Manager.Defer().AddFragment<FMassTrafficVehicleDamageFragment>(Entity);
+			++DamageAdded;
+		}
 		Manager.Defer().SwapTags<FMassTrafficVehicleTag, FMassTrafficRecyclableVehicleTag>(Entity);
 	}
 	Recycled += ToRecycle.Num();
 	if (ToRecycle.Num() > 0 && (Recycled <= 20 || Recycled % 50 < ToRecycle.Num()))
 	{
-		UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic dead ends: %d car(s) handed to MassTraffic's recycling (%d in all)"), ToRecycle.Num(), Recycled);
+		UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic dead ends: %d car(s) handed to MassTraffic's recycling (%d in all, %d given Epic's damage fragment)"),
+			ToRecycle.Num(), Recycled, DamageAdded);
 	}
 }
 #else
 void UGTPMassTrafficSubsystem::LogSimulatedCars(UWorld& World, const FVector& PlayerLocation)
+{
+}
+
+void UGTPMassTrafficSubsystem::CutDeadEndBranches()
 {
 }
 

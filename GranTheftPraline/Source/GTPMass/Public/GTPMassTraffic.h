@@ -39,18 +39,37 @@ private:
 	/** "MassTraffic cars": the simulated cars (Mass entities), moving or not, near the player or not. */
 	void LogSimulatedCars(UWorld& World, const FVector& PlayerLocation);
 	/**
-	 * Every second: a car standing at the end of a dead-end lane, away from the player, is handed to
-	 * MassTraffic's own recycling (FMassTrafficRecyclableVehicleTag, the tag a repaired wreck gets),
-	 * which moves it to a free space on one of the least busy lanes away from the player
-	 * (UMassTrafficOverseerProcessor). MassTraffic itself never takes a car off a dead end.
+	 * Once, before the spawners: the car lanes from which every way ends at a dead end (the edge of
+	 * the focus area) are taken out of the cars' choice. MassTraffic's lane choice does not look
+	 * ahead: a car takes a lane that leads to a dead end, then stops for good before its last lane
+	 * (ShouldStopAtLaneExit, "NONEXT"), inside the junction when that last lane leaves one, and the
+	 * junction never opens again for anyone. The links to those lanes are removed from MassTraffic's
+	 * own lane data (FZoneGraphTrafficLaneData::NextLanes): every other lane keeps a way on. Cars
+	 * spawned inside such a branch are recycled (RecycleAtDeadEnds). -NoDeadEndCut keeps the links.
+	 */
+	void CutDeadEndBranches();
+	/**
+	 * Every second: a car in a branch that only leads to dead ends, or standing at the end of a lane
+	 * with no lane after it, out of the player's sight, is handed to MassTraffic's own recycling
+	 * (FMassTrafficRecyclableVehicleTag, the tag a repaired wreck gets), which moves it to a free
+	 * space on one of the least busy lanes away from the player (UMassTrafficOverseerProcessor).
+	 * MassTraffic itself never takes a car off a dead end.
 	 */
 	void RecycleAtDeadEnds();
+	/** True for a ZoneGraph lane of a branch cut off by CutDeadEndBranches. */
+	bool IsInDeadEndBranch(int32 DataIndex, int32 LaneIndex) const { return DataIndex == DeadEndBranchData && DeadEndBranch.Contains(LaneIndex); }
 
 	int32 StartedSpawners = 0;
 	int32 CountLogs = 0;
 	bool bViewPlaced = false;
 	bool bNetworkLogged = false;
+	bool bDeadEndsCut = false;
 	int32 Recycled = 0;
+	/** Recycled cars to which Epic's damage fragment had to be added (its recycling needs one). */
+	int32 DamageAdded = 0;
+	/** ZoneGraph lanes (indices in the data of index DeadEndBranchData) of the cut branches. */
+	TSet<int32> DeadEndBranch;
+	int32 DeadEndBranchData = INDEX_NONE;
 	FTimerHandle RecycleTimer;
 	FTimerHandle CountTimer;
 };

@@ -208,6 +208,38 @@ arrêtées sur les 83 restantes (775 voies de voitures dans la ZoneGraph). Ensui
   (`-TrafficTransferDistance=<m>`, `-DeadEndKeepNear=<m>`, `-NoDeadEndRecycle`). Journal : « waiting
   for recycling » et « recycled so far ».
 
+PC, troisième passage (1b1f38f) : 43 impasses reliées, 6 fermées, 40 restantes ; 8 voitures
+seulement arrêtées sur une voie en impasse. Mais tout le trafic se fige en deux minutes (110
+voitures, 1 qui roule à 120 s), et les 10 voitures confiées au recyclage n'ont jamais été déplacées.
+Lu dans les sources de MassTraffic :
+- son choix de voie ne regarde pas plus loin, et `ShouldStopAtLaneExit` arrête une voiture pour de
+  bon avant une voie suivante qui n'a pas de voie après elle (« NONEXT ») : les voitures ne
+  s'arrêtent pas sur les voies en impasse mais sur la voie d'avant, et au milieu du carrefour quand
+  l'impasse en part. Un carrefour sans feux (`UMassTrafficUpdateIntersectionsProcessor`, aucun des
+  nôtres n'en a) ne change de phase qu'une fois ses voies qui se ferment vides : une voiture arrêtée
+  dedans et le carrefour ne s'ouvre plus jamais, pour personne ; les files gagnent ensuite les
+  carrefours suivants ;
+- le superviseur ne pose une voiture que sur une voie à au moins `MinTransferDistance` (500 m)
+  d'elle : pour une voiture au milieu de notre zone, il n'y en a aucune.
+Changements (C++ seulement, la carte reste telle quelle) :
+- `UGTPMassTrafficSubsystem::CutDeadEndBranches`, une fois avant les générateurs : les voies de
+  voitures dont tous les chemins finissent dans une impasse (les impasses, puis en remontant chaque
+  voie dont toutes les suivantes sont de ce genre) sont retirées du choix des voitures dans les
+  données de voies de MassTraffic lui-même (`FZoneGraphTrafficLaneData::NextLanes`) ; toutes les
+  autres voies gardent un chemin. Dans une branche, les voies simples suivantes restent et les voies
+  de carrefour partent, pour qu'une voiture née là s'arrête hors de tout carrefour ; les voies
+  simples d'une branche sont fermées (`bIsOpen`), pour que le superviseur n'y remette jamais de voiture. Journal
+  « MassTraffic dead ends: N car lane(s) of M only lead to dead ends » ; `-NoDeadEndCut` garde les
+  liens ;
+- le recyclage prend toute voiture d'une telle branche (celle qui roule dans un carrefour une fois
+  sortie), et les voitures arrêtées au bout d'une voie sans suite, hors de la vue du joueur (dans le
+  dos de la caméra dès 40 m, devant dès 120 m, `-DeadEndKeepNear=<m>`) ; une voiture sans le fragment
+  de dégâts d'Epic (la requête du superviseur l'exige) en reçoit un ;
+- `MinTransferDistance` : 200 m (`-TrafficMinTransfer=<m>`) ;
+- une ligne « MassTraffic stops » dit où sont les voitures arrêtées : dans une branche sans issue,
+  dans un carrefour, pour un piéton ou le joueur, derrière une voiture, au bout de la voie (pas de
+  voie suivante, carrefour fermé, carrefour ouvert sans place après lui, voie simple), autre.
+
 ## Points ouverts
 
 - Près du joueur, MassTraffic peut confier une voiture à son véhicule physique : nos copies
