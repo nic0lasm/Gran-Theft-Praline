@@ -19,7 +19,10 @@
  *   2 chase     stars and police units build up, roadblock cars included          ok: 3 stars and 3 units or more
  *   3 parked    the player, back on foot, breaks into a car with an alarm (the traffic thread's
  *               UGTPTheftDemoLibrary: window, wiring, alarm)                          ok: the player is at the wheel
- *   4 shoot     the player gets out and fires at the nearest person                 ok: a shot left the gun
+ *   4 walkarmed the player walks 4 s with the gun out, then 4 s aiming        ok: 3 m or more each (else: what holds him)
+ *   5 aim       holds up a calm person from 4.5 m                                ok: a compliant person has his hands up
+ *   6 aimclose  the same from 1.2 m, another person
+ *   7 shoot     the player gets out and fires at the nearest person                 ok: a shot left the gun
  *
  * The order differs from the first request (parked car first) because the demo route's carjack and chase
  * are one script that starts the run. Every step has a time limit: a step that fails or times out is
@@ -47,6 +50,7 @@ private:
 	EResult CheckCarjack(FString& Detail);
 	EResult CheckChase(FString& Detail);
 	EResult CheckParked(FString& Detail);
+	EResult CheckWalkArmed(FString& Detail);
 	EResult CheckAim(FString& Detail, bool bClose);
 	EResult CheckShoot(FString& Detail);
 
@@ -54,6 +58,11 @@ private:
 	FTSTicker::FDelegateHandle WalkHandle;
 	FVector WalkDirection = FVector::ZeroVector;
 	int32 WalkInputs = 0;
+	int32 WalkArmedPhase = 0;
+	double WalkArmedPhaseStart = -1.0;
+	bool bWalkArmedExit = false;
+	FVector WalkArmedFrom = FVector::ZeroVector;
+	double WalkArmedYaw = 0.0;
 	int32 Step = -1;
 	double StepStart = 0.0;
 	double RunStart = -1.0;
