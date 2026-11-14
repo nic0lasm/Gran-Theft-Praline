@@ -322,8 +322,8 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckWalkArmed(FString& Detail)
 			WalkArmedPhaseStart = -1.0;
 			return EResult::Pending;
 		}
+		// The gun stays drawn: holstering plays a clip, and the next step must not start inside it.
 		Weapon->SetAiming(false);
-		Weapon->SetDrawn(false);
 		WalkDirection = FVector::ZeroVector;
 		Detail = FString::Printf(TEXT("walked with the gun out and aiming, 3 m or more in 4 s each"));
 		return EResult::Ok;
@@ -445,6 +445,8 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail, bool bClose)
 				Character->GetAttachParentActor() ? *Character->GetAttachParentActor()->GetName() : TEXT("nothing"),
 				Character->GetController() ? *Character->GetController()->GetName() : TEXT("nobody"),
 				Movement && Movement->IsActive() ? 1 : 0, static_cast<int32>(Character->GetActorEnableCollision()));
+			Detail += FString::Printf(TEXT(" [weapon drawn %d, aiming %d, root motion %d, anim montage playing %d]"), Weapon->IsDrawn() ? 1 : 0, Weapon->IsAiming() ? 1 : 0,
+				Character->HasAnyRootMotion() ? 1 : 0, Character->GetMesh() && Character->GetMesh()->GetAnimInstance() && Character->GetMesh()->GetAnimInstance()->IsAnyMontagePlaying() ? 1 : 0);
 			if (Movement)
 			{
 				const FVector Where = Character->GetActorLocation();
