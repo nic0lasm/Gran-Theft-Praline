@@ -66,6 +66,7 @@ private:
 	bool bExitRequested = false;
 	bool bParkedExitRequested = false;
 	bool bAimExitRequested = false;
+	double AimFirstReaction = -1.0;
 	int32 ShotsFired = 0;
 	double NextShot = 0.0;
 	int32 ShotAttempts = 0;
