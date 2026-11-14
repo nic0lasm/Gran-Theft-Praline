@@ -410,6 +410,17 @@ textures précalculées absents, et chaque package dont ils dépendent et que le
 désormais, `--dry-run` d'abord) ; relancer jusqu'à 0 manquant. On ne copie que les bindings de la tête choisie :
 `/Game/Crowd` est cuit en entier.
 
+Premier passage sur le PC (candidat 40, 14/11/2026) : 51 fichiers copiés en trois tours (108 Mo environ) ; quatre
+packages sont restés manquants (`MF_HairAnisotropic`, `MI_Crowd_Hair_Cards`, `M_Crowd_Hair_Helmet`,
+`TilingNoise05`), si bien que les matériaux des cheveux sont passés au matériau par défaut. BuzzCut et PulledBack ont
+pris leur binding ; SideSweptFringe et Messy non (le composant groom a laissé `BindingAsset` vide : mèches qui
+flottent à côté des tempes). La moustache précalculée du matériau de tête de m_004 (`Mustache_S_ChinStrap_baked`,
+copiée comme dépendance) est apparue sur les quatre. Et les quatre variantes partageaient une seule instance de
+tête : chacune montrait les cheveux précalculés de la dernière faite. Le script prend maintenant le groom pour lequel
+le binding a été fait, dit quand le composant refuse le binding (et ne sauvegarde pas), remet la moustache et la barbe
+précalculées de la tête au défaut du matériau de base (`GTP_NICOLITO_FACIAL_HAIR`, par défaut `none`), fait une
+instance de tête par variante et refait les instances d'un blueprint réutilisé à partir des matériaux de la foule.
+
 **Grooms (14/11/2026).** Kellan a six composants groom (cheveux, sourcils, cils, duvet, moustache, barbe), qui
 tickent tous dans le package pour un budget de 13 ms. La simulation des brins est coupée
 (`r.HairStrands.Simulation=0`). Le mode de jeu cache aussi, sans tick, les grooms dont le nom contient un mot de
