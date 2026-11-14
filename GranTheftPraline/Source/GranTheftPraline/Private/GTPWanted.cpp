@@ -594,7 +594,9 @@ void UGTPWantedComponent::EndBusted()
 				}
 			}
 		}
-		PC->SetIgnoreMoveInput(false);
+		// Reset, not SetIgnoreMoveInput(false): the lock is a counter, and a second arrest before the end of the first
+		// (or a vehicle exit) would leave it above zero and the player unable to walk for the rest of the game.
+		PC->ResetIgnoreMoveInput();
 	}
 }
 
