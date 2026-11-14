@@ -369,6 +369,20 @@ waist, jeans, loafers). The baked eyebrows show on the brow, thin and light brow
 too, and the body is retargeted once per frame instead of three times); a copy of the project without the fixed asset
 runs `fix_player_retargeter.py` once.
 
+**Hair (2026-11-14).** The project has none of the crowd's hair grooms, but the full City Sample has them, each
+with a binding already made for every crowd face: `Crowd/Character/Male/GroomBindings/GB_<head>_nrw_FaceMesh_<groom>`
+(78 for the six male faces and 13 grooms). m_004's own in City Sample is `Hair_S_BuzzCut` (strands); the others
+nearest a young man's: `Hair_M_SideSweptFringe` (m_003), `Hair_S_Messy` (m_002), `Hair_S_PulledBack` (m_004,
+cards). `GTP_NICOLITO_HAIRSTYLE=<style>` sets the groom and its binding for the chosen head on the blueprint's
+`Hair` component (Kellan's, emptied), and by default its baked texture under the strands when the pack has one
+(`GTP_NICOLITO_HAIR=auto`); `GTP_NICOLITO_SUFFIX` keeps variants side by side for a choice
+(`BP_Nicolito_Full_BuzzCut`). A groom or binding missing stops the save. What to copy, with the editor closed,
+at the same `/Game` paths (references kept): `tools/character/crowd_hair_deps.py` writes the grooms, bindings and
+baked textures missing, and every package they depend on that the project lacks, to
+`Saved/CitySampleCopy/missing.txt`; `tools/vehicles/copy_citysample_content.py --list` copies it (patterns now
+accepted, `--dry-run` first); run again until 0 missing. Only the chosen head's bindings are copied: `/Game/Crowd`
+is cooked whole.
+
 **Grooms (2026-11-14).** Kellan has six groom components (hair, eyebrows, eyelashes, peach fuzz, moustache, beard),
 each ticking in the package against a 13 ms budget. Strand simulation is off (`r.HairStrands.Simulation=0`). The
 game mode also hides, without tick, the grooms whose name contains a word of `PlayerGroomsHidden` (`Fuzz`,

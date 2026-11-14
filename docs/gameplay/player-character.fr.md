@@ -395,6 +395,21 @@ peints, lisibles de face. `PlayerVisualRetargeter` dans `DefaultGame.ini` est ma
 le visuel actuel du joueur, est corrigé aussi, et le corps est reciblé une fois par image au lieu de trois) ; une
 copie du projet sans l'asset corrigé lance une fois `fix_player_retargeter.py`.
 
+**Cheveux (14/11/2026).** Le projet n'a aucun groom de cheveux de la foule, mais le City Sample complet les a,
+chacun avec un binding déjà fait pour chaque visage de la foule :
+`Crowd/Character/Male/GroomBindings/GB_<tête>_nrw_FaceMesh_<groom>` (78 pour les six visages d'homme et 13 grooms).
+Celui de m_004 dans City Sample est `Hair_S_BuzzCut` (brins) ; les plus proches d'un jeune homme ensuite :
+`Hair_M_SideSweptFringe` (m_003), `Hair_S_Messy` (m_002), `Hair_S_PulledBack` (m_004, en cartes).
+`GTP_NICOLITO_HAIRSTYLE=<coiffure>` met le groom et son binding pour la tête choisie sur le composant `Hair` du
+blueprint (celui de Kellan, vidé), et par défaut sa texture précalculée sous les brins quand le pack en a une
+(`GTP_NICOLITO_HAIR=auto`) ; `GTP_NICOLITO_SUFFIX` garde des variantes côte à côte pour un choix
+(`BP_Nicolito_Full_BuzzCut`). Un groom ou un binding absent empêche la sauvegarde. Quoi copier, éditeur fermé, aux
+mêmes chemins `/Game` (références gardées) : `tools/character/crowd_hair_deps.py` écrit les grooms, bindings et
+textures précalculées absents, et chaque package dont ils dépendent et que le projet n'a pas, dans
+`Saved/CitySampleCopy/missing.txt` ; `tools/vehicles/copy_citysample_content.py --list` le copie (motifs acceptés
+désormais, `--dry-run` d'abord) ; relancer jusqu'à 0 manquant. On ne copie que les bindings de la tête choisie :
+`/Game/Crowd` est cuit en entier.
+
 **Grooms (14/11/2026).** Kellan a six composants groom (cheveux, sourcils, cils, duvet, moustache, barbe), qui
 tickent tous dans le package pour un budget de 13 ms. La simulation des brins est coupée
 (`r.HairStrands.Simulation=0`). Le mode de jeu cache aussi, sans tick, les grooms dont le nom contient un mot de

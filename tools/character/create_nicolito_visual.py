@@ -20,8 +20,15 @@ Env:
                      tile (m_004 reads 3), the skin seen on the portraits.
   GTP_NICOLITO_BROWS  the crowd's baked eyebrows painted on the head (City Sample's own, the head material's
                      EyebrowsAttributeMap): Natural (default), Full, Thick, SlightArch, Messy, Scraggly, or none.
-  GTP_NICOLITO_HAIR  baked hair painted on the scalp the same way (HairAttributeMap): none (default, bald), or one
-                     of the crowd's baked hair textures by style name (the pack has AfroFade and Coil).
+  GTP_NICOLITO_HAIRSTYLE  the crowd's hair groom, by City Sample's style name (BuzzCut, m_004's own in City Sample;
+                     SideSweptFringe, Messy, PulledBack, CurlyFade, AfroFade, HairLoss), with City Sample's binding
+                     made for this face (GroomBindings/GB_<head>_nrw_FaceMesh_<groom>). Default: none (bald). The
+                     grooms and bindings come from the full City Sample: tools/character/crowd_hair_deps.py lists what to copy.
+  GTP_NICOLITO_HAIR  baked hair painted on the scalp the same way (HairAttributeMap): auto (default: the
+                     hairstyle's own baked texture when the pack has one, painted on the scalp under the strands),
+                     none, or a baked hair texture by style name.
+  GTP_NICOLITO_SUFFIX  appended to the blueprint's name (BP_Nicolito_Full_BuzzCut), to keep several variants side by
+                     side for a choice. Default: none.
   GTP_NICOLITO_OUTFIT  full mode only: the crowd garments, e.g. Torso=crewneck,Legs=jeans,Feet=loafers (the default).
 Eyebrows and short hair: City Sample paints them on the head from baked groom textures (the head material's
 EyebrowsAttributeMap, HairAttributeMap), set on the same instances (GTP_NICOLITO_BROWS, GTP_NICOLITO_HAIR).
@@ -61,7 +68,8 @@ SKIN_TILES = 12
 # The crowd's baked groom textures (City Sample paints eyebrows and short hair on the head at a distance).
 BAKED_DIR = "/Game/Crowd/Character/Shared/Textures/Hair"
 BAKED = {"EyebrowsAttributeMap": ("GTP_NICOLITO_BROWS", "Natural", "Eyebrows_M_%s_baked"),
-         "HairAttributeMap": ("GTP_NICOLITO_HAIR", "none", "Hair_S_%s_baked")}
+         "HairAttributeMap": ("GTP_NICOLITO_HAIR", "auto", "Hair_S_%s_baked")}
+GROOM_BINDINGS = CROWD_MALE + "/GroomBindings"
 # PlayerVisualRetargeter in DefaultGame.ini: the body's runtime retarget from the pawn's mannequin.
 RETARGETER = "/Game/MetaHumans/GTP/RTG_UEFNped_to_Metahuman_Fixed"
 
@@ -284,6 +292,11 @@ def baked_textures():
             names[path.rsplit(".", 1)[-1]] = path
     for parameter, (variable, default, pattern) in BAKED.items():
         style = os.environ.get(variable, default).strip()
+        if style.lower() == "auto":
+            # The hairstyle's own baked texture, when there is one (otherwise nothing painted, without a word).
+            style = os.environ.get("GTP_NICOLITO_HAIRSTYLE", "").strip()
+            if not style or (pattern % style) not in names:
+                continue
         if style.lower() in ("", "none"):
             continue
         name = pattern % style
@@ -293,6 +306,23 @@ def baked_textures():
             continue
         wanted[parameter] = eal.load_asset(names[name])
     return wanted
+
+
+def crowd_hair(style, head):
+    """City Sample's hair groom of that style and its binding made for this head's face, or why not."""
+    groom_path = None
+    for path in eal.list_assets(CROWD_MALE, recursive=True, include_folder=False):
+        name = path.rsplit(".", 1)[-1]
+        if re.fullmatch(r"Hair_[SML]_%s" % re.escape(style), name) and "/GroomBindings/" not in path:
+            groom_path = path
+            break
+    if groom_path is None:
+        return None, None, "no groom Hair_?_%s under %s (copy City Sample's hair first)" % (style, CROWD_MALE)
+    groom_name = groom_path.rsplit(".", 1)[-1]
+    binding_path = "%s/GB_%s_nrw_FaceMesh_%s" % (GROOM_BINDINGS, head, groom_name)
+    if not eal.does_asset_exist(binding_path):
+        return None, None, "groom %s found, but no binding %s (copy City Sample's GroomBindings)" % (groom_path, binding_path)
+    return eal.load_asset(groom_path), eal.load_asset(binding_path), "groom %s, binding %s" % (groom_path.split(".")[0], binding_path)
 
 
 def skin_instance(source, tile, tag, textures):
@@ -484,6 +514,11 @@ def main():
     if skin and (not skin.isdigit() or int(skin) >= SKIN_TILES):
         say("BLOCKED: GTP_NICOLITO_SKIN must be an atlas tile from 0 to %d (got '%s')" % (SKIN_TILES - 1, skin))
         return
+    hairstyle = os.environ.get("GTP_NICOLITO_HAIRSTYLE", "").strip()
+    suffix = os.environ.get("GTP_NICOLITO_SUFFIX", "").strip()
+    if (hairstyle and not re.fullmatch(r"[A-Za-z]+", hairstyle)) or not re.fullmatch(r"[A-Za-z0-9_]*", suffix):
+        say("BLOCKED: GTP_NICOLITO_HAIRSTYLE is a style name like BuzzCut (got '%s'), GTP_NICOLITO_SUFFIX letters, digits and _ (got '%s')" % (hairstyle, suffix))
+        return
     outfit = dict(OUTFIT)
     for item in os.environ.get("GTP_NICOLITO_OUTFIT", "").split(","):
         if item.strip():
@@ -506,7 +541,7 @@ def main():
     for fields in source.values():
         say("  " + " ".join("%s=%s" % item for item in fields.items()))
 
-    name = "BP_Nicolito" if mode == "face" else "BP_Nicolito_Full"
+    name = ("BP_Nicolito" if mode == "face" else "BP_Nicolito_Full") + suffix
     out = "%s/%s" % (OUT_DIR, name)
     if eal.does_asset_exist(out):
         say("== reusing %s (the same changes are applied again)" % out)
@@ -616,6 +651,19 @@ def main():
     say("== Kellan's grooms bound again, to the new face: %s" % (", ".join(kept) or "none"))
     for component in kept:
         rebind(bp, component, source.get(component, {}), face, head, source.get("Face", {}).get("mesh", "-"))
+    say("== hair: %s" % (hairstyle or "none (bald)"))
+    if hairstyle:
+        if "Hair" not in source:
+            say("  BP_Kellan has no Hair component: hair NOT set")
+            ok = False
+        else:
+            groom, binding, found = crowd_hair(hairstyle, head)
+            say("  " + found)
+            if groom is None:
+                ok = False
+            else:
+                ok &= set_asset(bp, "Hair", "GroomAsset", groom)
+                ok &= set_asset(bp, "Hair", "BindingAsset", binding)
 
     unreal.BlueprintEditorLibrary.compile_blueprint(bp)
     say("== %s after the changes" % out)

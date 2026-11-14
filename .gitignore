@@ -53,6 +53,10 @@ GranTheftPraline/Plugins/Traffic/
 GranTheftPraline/Plugins/RuleProcessor/
 # City Sample's vehicle base class, copied by tools/vehicles/copy_citysample_vehicle_base.py
 GranTheftPraline/Plugins/CitySampleVehicleBase/
+# City Sample's crowd (copied by tools/vehicles/copy_citysample_content.py, hair included) and the MetaHumans
+# (Kellan, and Nicolito's visual and retargeter made from them by tools/character/*.py): Epic content
+/GranTheftPraline/Content/Crowd/
+/GranTheftPraline/Content/MetaHumans/
 # City Sample's traffic content, kept at its City Sample /Game paths (Epic content)
 /GranTheftPraline/Content/AI/Traffic/
 /GranTheftPraline/Content/AI/ZoneGraphBuilder/
