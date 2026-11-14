@@ -486,6 +486,9 @@ def finish(number, name, bp, cdo, path, entry, source_path):
     unreal.BlueprintEditorLibrary.compile_blueprint(bp)
     eal.save_asset(path, only_if_is_dirty=False)
     entry["cook_risk"] = cook_risk(path)
+    # What the game loads from Config/DefaultGame.ini: a class that loads and is an AGTPVehicle.
+    cls = load_class(path)
+    entry["valid_subclass"] = bool(cls is not None and isinstance(unreal.get_default_object(cls), unreal.GTPVehicle))
     move = cdo.get_editor_property("vehicle_movement_component")
     entry["class"] = "%s.BP_GTP_%s_C" % (path, name)
     entry["mass"] = move.get_editor_property("mass")
@@ -511,6 +514,7 @@ def main():
             report["cars"].setdefault(name, {})["error"] = traceback.format_exc()
             log("%s failed: %s" % (name, traceback.format_exc()))
     report["cook_risk"] = sorted({r for car in report["cars"].values() for r in car.get("cook_risk", [])})
+    report["invalid_classes"] = sorted(n for n, car in report["cars"].items() if not car.get("valid_subclass"))
     report["seconds"] = round(time.time() - t0, 1)
     out = os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_saved_dir()), "VehicleImport")
     os.makedirs(out, exist_ok=True)
