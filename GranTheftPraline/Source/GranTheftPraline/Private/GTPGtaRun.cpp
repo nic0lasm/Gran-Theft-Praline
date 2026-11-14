@@ -21,7 +21,7 @@ namespace
 	constexpr int32 StepCount = 6;
 	const TCHAR* StepNames[StepCount] = { TEXT("carjack"), TEXT("chase"), TEXT("parked"), TEXT("aim"), TEXT("aimclose"), TEXT("shoot") };
 	// Time limits (s) per step, counted from the step's start.
-	const double StepLimits[StepCount] = { 90.0, 170.0, 200.0, 60.0, 40.0, 30.0 };
+	const double StepLimits[StepCount] = { 90.0, 170.0, 200.0, 70.0, 70.0, 30.0 };
 
 	APlayerController* FirstController(const UWorld* World)
 	{
@@ -252,6 +252,7 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail, bool bClose)
 	AActor* Victim = nullptr;
 	double Best = 4000.0;
 	int32 Running = 0, Hidden = 0;
+	float RunningFear = 0.f;
 	const FVector EyeNow = Character->GetPawnViewLocation();
 	for (TActorIterator<AGTPPedestrian> It(World); It; ++It)
 	{
@@ -267,6 +268,7 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail, bool bClose)
 			if (State == EGTPThreatState::Fleeing || State == EGTPThreatState::Down || State == EGTPThreatState::Backing)
 			{
 				++Running;
+				RunningFear += Fear->GetFear();
 				continue;
 			}
 		}
@@ -282,7 +284,12 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail, bool bClose)
 	}
 	if (!Victim)
 	{
-		Detail = FString::Printf(TEXT("waiting for a calm pedestrian in the clear (%d running, %d hidden)"), Running, Hidden);
+		// Nobody to hold up yet: lower the weapon and drop the threat so the crowd can calm down (the aim of the
+		// previous step kept every person in the cone afraid, and re-frightened the runners by contagion).
+		Weapon->SetAiming(false);
+		Threat->ClearThreat();
+		Detail = FString::Printf(TEXT("waiting for a calm pedestrian in the clear (%d running at fear %.2f, %d hidden)"), Running,
+			Running > 0 ? RunningFear / Running : 0.f, Hidden);
 		return EResult::Pending;
 	}
 	Weapon->SetDrawn(true);
