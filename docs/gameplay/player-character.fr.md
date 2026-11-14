@@ -287,7 +287,11 @@ Côté C++ : `UGTPAnimGraphTools::DescribeBlueprintComponents` et `SetBlueprintC
 construction, modifiés comme le fait le panneau de détails). Rapport dans `Saved/GTPCombat/nicolito-visual.txt` ;
 essai avec `-PlayerVisual=/Game/MetaHumans/GTP/Nicolito/BP_Nicolito.BP_Nicolito_C`, puis `PlayerVisualClass` une fois
 qu'une capture le montre juste. Nicolito est chauve jusqu'au choix de sa coiffure, et le cou dira si la peau du corps
-de Kellan va avec le nouveau visage (sinon `full`).
+de Kellan va avec le nouveau visage (sinon `full`). La capture se fait avec `-NicolitoPortrait` (même banc, sur le
+joueur tel qu'il est en jeu, laissé visible) : `Nicolito_player_face.png` (les yeux, 100 cm, FOV 30) et
+`Nicolito_player_body.png` (en pied, de face, `PlayerBodyDistanceCm` 380, `PlayerBodyFOV` 40).
+
+Le responsable du projet a choisi la tête **m_004** (14/11/2026, sur les six portraits).
 
 **Grooms (14/11/2026).** Kellan a six composants groom (cheveux, sourcils, cils, duvet, moustache, barbe), qui
 tickent tous dans le package pour un budget de 13 ms. La simulation des brins est coupée

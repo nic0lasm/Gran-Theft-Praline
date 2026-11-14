@@ -17,6 +17,10 @@ class AGTPPedestrian;
  * frame, is paused meanwhile, and the player and the HUD are hidden. Which way the face looks is taken from the body's
  * reference pose (clavicles), not assumed. The log says "face lineup: ..." for each head and where each image
  * went. Nothing changes without the switch.
+ *
+ * -NicolitoPortrait: the same bench on the player himself, as he is in the game (his visual, PlayerVisualClass or
+ * -PlayerVisual=): a face portrait (Nicolito_player_face.png) and a full-length one from the front
+ * (Nicolito_player_body.png, PlayerBodyDistanceCm), 10 s after the start, the player left visible.
  */
 UCLASS(Config = Game)
 class GRANTHEFTPRALINE_API UGTPFaceLineupSubsystem : public UWorldSubsystem
@@ -38,12 +42,18 @@ public:
 	float CameraDistanceCm = 100.f;
 	UPROPERTY(Config)
 	float CameraFOV = 30.f;
+	UPROPERTY(Config)
+	float PlayerBodyDistanceCm = 380.f;
+	UPROPERTY(Config)
+	float PlayerBodyFOV = 40.f;
 
 private:
 	void ShowNext();
 	void Shoot();
 	/** Holds the stage for the portraits (game camera paused, player and HUD hidden), or gives it back. */
-	void HoldStage(APlayerController* PC, bool bHold);
+	void HoldStage(APlayerController* PC, bool bHold, bool bHidePlayer = true);
+	/** -NicolitoPortrait: places the camera on the player's own head (face) or in front of him (body). */
+	bool FramePlayer(APlayerController* PC, bool bFace);
 
 	/** Object path of each head's face mesh, and its short name (m_001). */
 	TArray<FString> Heads;
@@ -58,5 +68,6 @@ private:
 	TArray<TWeakObjectPtr<UActorComponent>> PausedCameras;
 	TArray<TWeakObjectPtr<AActor>> HiddenActors;
 	bool bStageHeld = false;
+	bool bPlayerPortrait = false;
 	bool bHudWasShown = false;
 };
