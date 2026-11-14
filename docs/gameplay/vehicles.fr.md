@@ -340,7 +340,12 @@ garde). Le journal le dit une fois par classe (« vehicle physics: ... keeps its
 et la cause est ailleurs). Les
 chocs ignorés par une voiture sont journalisés au plus une fois toutes les 2 s, avec leur nombre,
 et deux corps d'une même voiture qui se touchent ne comptent plus comme un choc. Le bras de caméra
-de poursuite ne tourne que sur la voiture du joueur.
+de poursuite ne tourne que sur la voiture du joueur. Mesuré au candidat 31b (PC, 14/11) : les
+voitures City Sample portent 29 à 32 corps et 37 à 40 contraintes chacune
+(PA_Collision_vehCar_vehicle*) ; avec le seul châssis, 91 chocs ignorés en 2 min au lieu de 551 116,
+image de jeu p50 12,9 ms et p95 21,9 ms au lieu de 22 et 416. Ensuite, pour la marge : le maillage
+squelettique d'une voiture n'évalue sa pose que s'il est rendu, avec les optimisations de fréquence
+d'Unreal, et un son de moteur coupé par le budget de voix ne tick plus.
 
 Ce que les Clio, 208 et Kangoo reprennent de la citadine de City Sample (vehicle02, 1 200 kg) :
 ressorts souples sur forte précharge avec grand débattement (100 / 300, +10 / -17 cm au lieu de

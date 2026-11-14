@@ -135,6 +135,9 @@ void UGTPEngineSoundComponent::SetAudible(bool bInAudible)
 		bEngineOn = false;
 		FadeOut(0.3f, 0.f);
 	}
+	// An engine the voice budget silenced has nothing to update: no tick until it is audible again
+	// (44 engine ticks a frame in traffic on candidate 31).
+	SetComponentTickEnabled(bAudible && Synth.IsValid());
 }
 
 void UGTPEngineSoundComponent::StopEngine()
