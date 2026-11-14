@@ -74,6 +74,43 @@ def set_asset(bp, component, prop, asset):
     return not report.startswith("error")
 
 
+def dump_material(label, path):
+    """The skin's parameters (names and values), to match the body's skin to the face's."""
+    if path in ("-", ""):
+        return
+    material = unreal.load_asset(path)
+    if material is None:
+        say("  %s: %s not loaded" % (label, path))
+        return
+    mel = unreal.MaterialEditingLibrary
+    instance = isinstance(material, unreal.MaterialInstance)
+    parent = material.get_editor_property("parent") if instance else None
+    say("  %s: %s (%s, parent %s)" % (label, path, material.get_class().get_name(), parent.get_path_name() if parent else "-"))
+    for kind, names, read in (
+            ("scalar", mel.get_scalar_parameter_names, "scalar"),
+            ("vector", mel.get_vector_parameter_names, "vector"),
+            ("texture", mel.get_texture_parameter_names, "texture")):
+        try:
+            found = names(material)
+        except Exception as error:  # noqa: BLE001 (reported)
+            say("    %s parameters not read (%r)" % (kind, error))
+            continue
+        values = []
+        for name in found:
+            value = "?"
+            try:
+                if instance:
+                    value = getattr(mel, "get_material_instance_%s_parameter_value" % read)(material, name)
+                else:
+                    value = getattr(mel, "get_material_default_%s_parameter_value" % read)(material, name)
+            except Exception:  # noqa: BLE001 (value not readable this way)
+                pass
+            if hasattr(value, "get_path_name"):
+                value = value.get_path_name()
+            values.append("%s=%s" % (name, value))
+        say("    %s: %s" % (kind, "; ".join(values) or "-"))
+
+
 def rebind(bp, component, fields, face, head, kellan_face_path):
     """Puts Kellan's groom of that component back with a binding to the new face (MetaHuman faces share one
     topology: the binding transfers the groom from the face it was made on). A failure leaves it empty."""
@@ -178,9 +215,11 @@ def main():
         ok &= set_asset(bp, "Body", "OverrideMaterials", None)
         body_skeleton = components(bp).get("Body", {}).get("skeleton", "-")
         body_anim_skeleton = source.get("Body", {}).get("animSkeleton", "-")
-        same = body_skeleton != "-" and body_skeleton == body_anim_skeleton
+        # "-": a template blueprint (ABP_GenericRetarget, the sample's), made for no skeleton, runs on any.
+        same = body_skeleton != "-" and body_anim_skeleton in (body_skeleton, "-")
         say("  body skeleton %s, the body's retarget blueprint made for %s: %s" % (
-            body_skeleton, body_anim_skeleton, "same" if same else "DIFFERENT, the body would stay in its reference pose"))
+            body_skeleton, "any skeleton (template)" if body_anim_skeleton == "-" else body_anim_skeleton,
+            "fits" if same else "DIFFERENT, the body would stay in its reference pose"))
         ok &= same
         for component, garment in OUTFIT.items():
             if component not in source:
@@ -207,8 +246,17 @@ def main():
 
     unreal.BlueprintEditorLibrary.compile_blueprint(bp)
     say("== %s after the changes" % out)
-    for fields in components(bp).values():
+    after = components(bp)
+    for fields in after.values():
         say("  " + " ".join("%s=%s" % item for item in fields.items()))
+    say("== skin: the face's and the body's first materials (to match the hands and neck to the face)")
+    for component in ("Face", "Body"):
+        mats = after.get(component, {}).get("mats", "-")
+        first = mats.split(";")[0].split(":", 1)[-1] if mats != "-" else "-"
+        dump_material(component, first)
+    kellan_body = source.get("Body", {}).get("mats", "-")
+    if mode == "full" and kellan_body != "-":
+        dump_material("Kellan's body", kellan_body.split(";")[0].split(":", 1)[-1])
     if not ok:
         say("NOT SAVED: a step failed or a skeleton differs (above); close the editor without saving")
         return

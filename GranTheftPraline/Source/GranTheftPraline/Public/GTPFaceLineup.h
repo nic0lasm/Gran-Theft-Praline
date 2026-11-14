@@ -39,13 +39,13 @@ public:
 	UPROPERTY(Config)
 	int32 MaxHeads = 24;
 	UPROPERTY(Config)
-	float CameraDistanceCm = 100.f;
+	float CameraDistanceCm = 120.f;
 	UPROPERTY(Config)
 	float CameraFOV = 30.f;
 	UPROPERTY(Config)
 	float PlayerBodyDistanceCm = 380.f;
 	UPROPERTY(Config)
-	float PlayerBodyFOV = 40.f;
+	float PlayerBodyFOV = 50.f;
 
 private:
 	void ShowNext();

@@ -290,15 +290,20 @@ construction, modifiés comme le fait le panneau de détails). Rapport dans `Sav
 essai avec `-PlayerVisual=/Game/MetaHumans/GTP/Nicolito/BP_Nicolito.BP_Nicolito_C`, puis `PlayerVisualClass` une fois
 qu'une capture le montre juste. Nicolito est chauve jusqu'au choix de sa coiffure, et le cou dira si la peau du corps
 de Kellan va avec le nouveau visage (sinon `full`). La capture se fait avec `-NicolitoPortrait` (même banc, sur le
-joueur tel qu'il est en jeu, laissé visible) : `Nicolito_player_face.png` (les yeux, 100 cm, FOV 30) et
-`Nicolito_player_body.png` (en pied, de face, `PlayerBodyDistanceCm` 380, `PlayerBodyFOV` 40).
+joueur tel qu'il est en jeu, laissé visible) : `Nicolito_player_face.png` (du menton au crâne, 120 cm, FOV 30) et
+`Nicolito_player_body.png` (des pieds au crâne, de face, `PlayerBodyDistanceCm` 380, `PlayerBodyFOV` 50).
 
 Le responsable du projet a choisi la tête **m_004** (14/11/2026, sur les six portraits).
 
 Premier passage du script sur le PC (14/11/2026, m_004) : enregistré. La tête de la foule a son propre
 `Face_Archetype_Skeleton` (`/Game/Crowd/Character/Shared/Rig`), un autre asset que celui des MetaHumans : le visage
 suit donc le corps, sans animation faciale. Tous les grooms ont été vidés, sourcils compris, d'où leur remise par
-`GTP_NICOLITO_GROOMS`.
+`GTP_NICOLITO_GROOMS`. Sa capture a montré : des mains bien plus foncées que le visage (la peau du corps de Kellan sous
+la tête m_004), le devant du sweat de Kellan qui pend jusqu'aux genoux comme une cape, le menton coupé sur le plan
+du visage et la tête coupée sur le plan en pied (cadrage corrigé plus haut). Passage suivant en mode `full` : le
+corps et la tenue de la foule, faits pour ces têtes ; le blueprint de retarget du corps (`ABP_GenericRetarget`) est
+un gabarit fait pour aucun squelette, ce que la vérification accepte maintenant. Le rapport liste les paramètres
+des matériaux de peau du visage et du corps, pour les accorder si les teintes diffèrent encore.
 
 **Grooms (14/11/2026).** Kellan a six composants groom (cheveux, sourcils, cils, duvet, moustache, barbe), qui
 tickent tous dans le package pour un budget de 13 ms. La simulation des brins est coupée

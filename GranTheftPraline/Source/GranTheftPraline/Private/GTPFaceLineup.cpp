@@ -294,8 +294,11 @@ bool UGTPFaceLineupSubsystem::FramePlayer(APlayerController* PC, bool bFace)
 	const FVector Head = Shown->GetSocketLocation(TEXT("head"));
 	const FVector Forward = Pawn->GetActorForwardVector().GetSafeNormal2D();
 	const FVector Feet = Pawn->GetActorLocation() - FVector(0.0, 0.0, Pawn->GetSimpleCollisionHalfHeight());
-	// Face: the eyes from CameraDistanceCm; full length: the middle of the body from PlayerBodyDistanceCm.
-	const FVector Look = bFace ? Head + FVector(0.0, 0.0, 8.0) : (Head + Feet) * 0.5;
+	// Face: from the chin to the top of the skull (the head bone is at the base of the skull, the top about 22 cm
+	// above it) from CameraDistanceCm; full length: from the feet to the top of the skull, from PlayerBodyDistanceCm.
+	// First capture (14/11): aimed at the eyes the chin was cut, aimed at the middle of feet and head bone the head was.
+	const FVector Top = Head + FVector(0.0, 0.0, 22.0);
+	const FVector Look = bFace ? Head + FVector(0.0, 0.0, 4.0) : FVector(Head.X, Head.Y, (Feet.Z + Top.Z) * 0.5);
 	const FVector Eye = Look + Forward * (bFace ? CameraDistanceCm : PlayerBodyDistanceCm);
 	Camera->SetActorLocationAndRotation(Eye, (Look - Eye).Rotation());
 	Camera->GetCameraComponent()->SetFieldOfView(bFace ? CameraFOV : PlayerBodyFOV);

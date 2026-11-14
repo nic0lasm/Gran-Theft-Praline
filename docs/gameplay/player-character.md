@@ -274,14 +274,19 @@ new head has the skeleton it was made for; otherwise the game mode makes the fac
 `Saved/GTPCombat/nicolito-visual.txt`; trial with `-PlayerVisual=/Game/MetaHumans/GTP/Nicolito/BP_Nicolito.BP_Nicolito_C`,
 then `PlayerVisualClass` once a capture shows it right. Nicolito is bald until his hair is chosen, and the neck
 shows whether Kellan's body skin matches the new face (otherwise `full`). The capture is `-NicolitoPortrait` (same
-bench, on the player as he is in the game, left visible): `Nicolito_player_face.png` (eyes, 100 cm, FOV 30) and
-`Nicolito_player_body.png` (full length from the front, `PlayerBodyDistanceCm` 380, `PlayerBodyFOV` 40).
+bench, on the player as he is in the game, left visible): `Nicolito_player_face.png` (chin to skull, 120 cm, FOV 30)
+and `Nicolito_player_body.png` (feet to skull from the front, `PlayerBodyDistanceCm` 380, `PlayerBodyFOV` 50).
 
 The project lead chose the head **m_004** (2026-11-14, on the six portraits).
 
 First run of the script on the PC (2026-11-14, m_004): saved. The crowd head has its own `Face_Archetype_Skeleton`
 (`/Game/Crowd/Character/Shared/Rig`), another asset than the MetaHumans' one: the face follows the body, without
 facial animation. Every groom was emptied, eyebrows included, hence putting them back with `GTP_NICOLITO_GROOMS`.
+Its capture showed: hands much darker than the face (Kellan's body skin under m_004's head), the front of Kellan's
+hoodie hanging to the knees like a cape, the chin cut on the face shot and the head cut on the full-length one
+(framing corrected above). Next run in `full` mode: the crowd's body and outfit made for these heads; the body's
+retarget blueprint (`ABP_GenericRetarget`) is a template made for no skeleton, which the check now accepts. The report
+lists the face's and the body's skin material parameters, to match them if the tones still differ.
 
 **Grooms (2026-11-14).** Kellan has six groom components (hair, eyebrows, eyelashes, peach fuzz, moustache, beard),
 each ticking in the package against a 13 ms budget. Strand simulation is off (`r.HairStrands.Simulation=0`). The
