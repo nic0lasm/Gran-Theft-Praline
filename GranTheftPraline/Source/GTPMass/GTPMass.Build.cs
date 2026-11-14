@@ -45,8 +45,9 @@ public class GTPMass : ModuleRules
 		if (bMassTraffic)
 		{
 			// MassMovement: FMassVelocityFragment, which MassTraffic reads on its obstacles (GTPCrowd);
-			// MassZoneGraphNavigation: the lane a car is on (GTPMassTraffic's log).
-			PrivateDependencyModuleNames.AddRange(new string[] { "MassTraffic", "MassMovement", "MassZoneGraphNavigation" });
+			// MassZoneGraphNavigation: the lane a car is on (GTPMassTraffic's log);
+			// MassRepresentation and MassLOD: the cars' visualization trait (ShowNearCarsAsInstances).
+			PrivateDependencyModuleNames.AddRange(new string[] { "MassTraffic", "MassMovement", "MassZoneGraphNavigation", "MassRepresentation", "MassLOD" });
 		}
 		PublicDefinitions.Add("WITH_GTP_MASSTRAFFIC=" + (bMassTraffic ? "1" : "0"));
 	}

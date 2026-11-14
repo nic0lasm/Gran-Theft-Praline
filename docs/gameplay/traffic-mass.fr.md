@@ -441,6 +441,19 @@ avec. À partir du candidat 37, la porte juge le trafic sur la moyenne des voitu
 à 300 s, au moins celle du candidat 35 moins 10 % (75,6) ; le relevé à 120 s reste noté pour
 information.
 
+Porte du candidat 37 (b3c2dba) : moyenne des voitures qui roulent de 120 à 300 s 98,3 (seuil 75,6),
+le point de mesure a eu une voiture à moins de 50 m dans 12 relevés sur 19. Avec le garde, le package a
+encore écrit 410 erreurs « Template actor type -1 » à partir d'environ 289 s. MassRepresentation l'écrit
+quand une voiture assez proche du joueur pour la représentation haute résolution de MassTraffic
+(`HighResSpawnedActor`) n'a pas de classe d'acteur : nos copies des configs de voitures de City Sample
+laissent de côté ses Blueprints de voitures (ils cassent le cook). Il se rabat alors sur l'instance et
+réessaie à la mise à jour suivante, tant que la voiture reste aussi près.
+`UGTPMassTrafficSubsystem::ShowNearCarsAsInstances`, avant les spawners, donne directement l'instance à
+ces LOD (`StaticMeshInstance`) et abandonne les modèles d'entité que les spawners ont construits à leur
+enregistrement, pour que `DoSpawning` les reconstruise. Les voitures ont le même aspect. Journal
+« MassTraffic visuals: N of M visualization trait(s) asked for a display actor they do not have ».
+`-TrafficActorLODs` les laisse telles quelles.
+
 ## Points ouverts
 
 - Près du joueur, MassTraffic peut confier une voiture à son véhicule physique : nos copies

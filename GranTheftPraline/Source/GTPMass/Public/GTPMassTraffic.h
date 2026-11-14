@@ -6,6 +6,7 @@
 #include "GTPMassTraffic.generated.h"
 
 struct FZoneGraphTrafficLaneData;
+class AMassSpawner;
 
 /**
  * Switch to the MassTraffic plugin of City Sample (ADR-0015, docs/gameplay/traffic-mass.md).
@@ -122,6 +123,15 @@ private:
 	 * are those MassTraffic built, one per side. -TrafficStopSigns keeps the stop signs.
 	 */
 	void LightJunctions();
+	/**
+	 * Before the spawners: our copies of City Sample's car configs have no display actor (its car
+	 * Blueprints break the cook), yet their visualization trait asks for one up close
+	 * (HighResSpawnedActor). MassRepresentation then logs "Template actor type -1 is not referring to
+	 * a valid type" on every update of such a car and falls back to its instance. Those LODs are
+	 * given the instance straight away (StaticMeshInstance), and the entity templates already built
+	 * by the spawners are rebuilt at their spawning. Looks the same, without the error.
+	 */
+	void ShowNearCarsAsInstances(const TArray<AMassSpawner*>& InSpawners);
 	bool bJunctionsLit = false;
 	int32 LightTries = 0;
 	FTimerHandle LightTimer;

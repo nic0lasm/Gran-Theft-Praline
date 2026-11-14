@@ -12,6 +12,7 @@
 #include "Misc/CommandLine.h"
 #include "TimerManager.h"
 #include "UObject/UObjectIterator.h"
+#include "UObject/UnrealType.h"
 #include "ZoneGraphData.h"
 #if WITH_GTP_MASSTRAFFIC
 #include "MassCommonFragments.h"
@@ -20,6 +21,11 @@
 #include "MassExecutionContext.h"
 #include "MassTrafficFragments.h"
 #include "MassTrafficPhysics.h"
+#include "MassEntityConfigAsset.h"
+#include "MassLODTypes.h"
+#include "MassRepresentationFragments.h"
+#include "MassSpawnerTypes.h"
+#include "MassVisualizationTrait.h"
 #include "MassTrafficSettings.h"
 #include "MassTrafficSubsystem.h"
 #include "MassZoneGraphNavigationFragments.h"
@@ -73,6 +79,12 @@ void UGTPMassTrafficSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 	{
 		// Before any car chooses a lane.
 		HandleDeadEnds();
+		TArray<AMassSpawner*> Ordered;
+		for (const TPair<int32, AMassSpawner*>& Entry : Spawners)
+		{
+			Ordered.Add(Entry.Value);
+		}
+		ShowNearCarsAsInstances(Ordered);
 	}
 	for (const TPair<int32, AMassSpawner*>& Entry : Spawners)
 	{
@@ -823,6 +835,103 @@ void UGTPMassTrafficSubsystem::LinkDeadEndsToEntries()
 	LoopEntries = EntriesUsed;
 }
 
+void UGTPMassTrafficSubsystem::ShowNearCarsAsInstances(const TArray<AMassSpawner*>& InSpawners)
+{
+	UWorld* World = GetWorld();
+	if (!World || FParse::Param(FCommandLine::Get(), TEXT("TrafficActorLODs")))
+	{
+		return;
+	}
+	// Protected on AMassSpawner: reached through reflection (as in UGTPMassSpawnerSetup).
+	const FArrayProperty* Property = CastField<FArrayProperty>(AMassSpawner::StaticClass()->FindPropertyByName(TEXT("EntityTypes")));
+	const FStructProperty* Inner = Property ? CastField<FStructProperty>(Property->Inner) : nullptr;
+	if (!Inner || Inner->Struct != FMassSpawnedEntityType::StaticStruct())
+	{
+		UE_LOG(LogGTPMassTraffic, Warning, TEXT("MassTraffic visuals: AMassSpawner has no EntityTypes array of FMassSpawnedEntityType, left as they are"));
+		return;
+	}
+	int32 Traits = 0;
+	int32 Changed = 0;
+	int32 LODsChanged = 0;
+	int32 WithoutMeshes = 0;
+	TSet<const UMassEntityConfigAsset*> Visited;
+	TSet<const UMassEntityConfigAsset*> ChangedConfigs;
+	TArray<const UMassEntityConfigAsset*> Leaves;
+	for (AMassSpawner* Spawner : InSpawners)
+	{
+		if (!Spawner)
+		{
+			continue;
+		}
+		FScriptArrayHelper Helper(Property, Property->ContainerPtrToValuePtr<void>(Spawner));
+		for (int32 Index = 0; Index < Helper.Num(); ++Index)
+		{
+			FMassSpawnedEntityType* Type = reinterpret_cast<FMassSpawnedEntityType*>(Helper.GetRawPtr(Index));
+			const UMassEntityConfigAsset* Leaf = Type ? Type->GetEntityConfig() : nullptr;
+			if (Leaf)
+			{
+				Leaves.AddUnique(Leaf);
+			}
+			// The config and its parents: a trait may come from a parent config. A config already seen
+			// had its parents seen with it.
+			for (const UMassEntityConfigAsset* Config = Leaf; Config; Config = Config->GetConfig().GetParent())
+			{
+				if (Visited.Contains(Config))
+				{
+					break;
+				}
+				Visited.Add(Config);
+				for (UMassEntityTraitBase* Trait : Config->GetConfig().GetTraits())
+				{
+					UMassVisualizationTrait* Visual = Cast<UMassVisualizationTrait>(Trait);
+					if (!Visual)
+					{
+						continue;
+					}
+					++Traits;
+					WithoutMeshes += Visual->StaticMeshInstanceDesc.Meshes.IsEmpty() ? 1 : 0;
+					int32 Here = 0;
+					for (int32 LOD = 0; LOD < EMassLOD::Max; ++LOD)
+					{
+						EMassRepresentationType& Wanted = Visual->Params.LODRepresentation[LOD];
+						if ((Wanted == EMassRepresentationType::HighResSpawnedActor && !Visual->HighResTemplateActor)
+							|| (Wanted == EMassRepresentationType::LowResSpawnedActor && !Visual->LowResTemplateActor))
+						{
+							Wanted = EMassRepresentationType::StaticMeshInstance;
+							++Here;
+						}
+					}
+					LODsChanged += Here;
+					Changed += Here > 0 ? 1 : 0;
+					if (Here > 0)
+					{
+						ChangedConfigs.Add(Config);
+					}
+				}
+			}
+		}
+	}
+	// The spawners built their templates when registered (AMassSpawner::RegisterEntityTemplates):
+	// those whose config or a parent of it changed are dropped, DoSpawning builds them again.
+	int32 Rebuilt = 0;
+	for (const UMassEntityConfigAsset* Leaf : Leaves)
+	{
+		bool bChanged = false;
+		int32 Depth = 0;
+		for (const UMassEntityConfigAsset* Config = Leaf; Config && !bChanged && Depth < 16; Config = Config->GetConfig().GetParent(), ++Depth)
+		{
+			bChanged = ChangedConfigs.Contains(Config);
+		}
+		if (bChanged)
+		{
+			Leaf->GetConfig().DestroyEntityTemplate(*World);
+			++Rebuilt;
+		}
+	}
+	UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic visuals: %d of %d visualization trait(s) asked for a display actor they do not have, %d LOD(s) shown as instances instead (%d trait(s) without instance meshes), %d entity template(s) rebuilt at spawning; -TrafficActorLODs leaves them"),
+		Changed, Traits, LODsChanged, WithoutMeshes, Rebuilt);
+}
+
 void UGTPMassTrafficSubsystem::LightJunctions()
 {
 	UWorld* World = GetWorld();
@@ -1279,6 +1388,10 @@ void UGTPMassTrafficSubsystem::GuardLoops()
 }
 
 void UGTPMassTrafficSubsystem::LightJunctions()
+{
+}
+
+void UGTPMassTrafficSubsystem::ShowNearCarsAsInstances(const TArray<AMassSpawner*>& InSpawners)
 {
 }
 

@@ -394,6 +394,18 @@ without it the package logs 9060 "Template actor type -1" errors (cars under phy
 none with it. From candidate 37 the gate judges the traffic on the mean moving from 120 to 300 s,
 at least that of candidate 35 less 10 % (75.6); the 120 s count is kept for information.
 
+Gate of candidate 37 (b3c2dba): mean moving from 120 to 300 s 98.3 (threshold 75.6), the watch point
+had a car within 50 m in 12 of 19 counts. With the guard the package still logged 410 "Template actor
+type -1" errors from about 289 s on. MassRepresentation logs it when a car close enough to the player
+for MassTraffic's high-resolution representation (`HighResSpawnedActor`) has no actor class: our
+copies of City Sample's car configs leave out its car Blueprints (they break the cook). It then falls
+back to the instance and tries again at the next update, as long as the car stays that close.
+`UGTPMassTrafficSubsystem::ShowNearCarsAsInstances`, before the spawners, gives those LODs the
+instance straight away (`StaticMeshInstance`) and drops the entity templates the spawners built when
+registered, so `DoSpawning` builds them again. The cars look the same. Logged "MassTraffic visuals: N
+of M visualization trait(s) asked for a display actor they do not have". `-TrafficActorLODs` leaves
+them as they are.
+
 ## Open points
 
 - Near the player MassTraffic may hand a car over to its physics vehicle: our copies name our cars
