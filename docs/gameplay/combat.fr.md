@@ -274,8 +274,10 @@ Lyra n'est repris : Lyra repose sur GAS et ShooterCore, que l'ADR-0011 écarte. 
   du corps) ; sinon sur le `weapon_r` du pion. Avec `-PlayerVisualBaked`, dégainer remet le corps en retarget à
   l'exécution (il suit le pion, clips d'arme compris) et ranger le ramène aux clips cuits. Le visuel par
   défaut est un MetaHuman (`PlayerVisualClass` dans `DefaultGame.ini`, retarget à l'exécution avec
-  `RTG_UEFNped_to_Metahuman_Fixed`, fait par `tools/character/fix_player_retargeter.py` ; Kellan, du Game Animation Sample, tient le rôle jusqu'à ce que le MetaHuman de
-  Nicolito existe, simple changement de config ;
+  `RTG_UEFNped_to_Metahuman_Fixed`, fait par `tools/character/fix_player_retargeter.py` ; Nicolito depuis le
+  14/11/2026, `BP_Nicolito_Full` fait par `tools/character/create_nicolito_visual.py` avec la foule de City Sample,
+  tête m_004, peau claire, vêtements de la foule ; `-PlayerVisual=/Game/MetaHumans/Kellan/BP_Kellan.BP_Kellan_C`
+  remet Kellan, du Game Animation Sample, qui tenait le rôle jusque-là ;
   `bPlayerVisualBaked=True` au même endroit ou `-PlayerVisualBaked` passe aux clips cuits) ; `-PlayerVisual=`
   (vide) montre le mannequin pour les tests d'armes.
 - **Bancs de test** : `-CombatBench=1` tire toutes les 0,45 s debout, visée à l'épaule tenue (pose et caméra de

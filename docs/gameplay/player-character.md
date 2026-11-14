@@ -383,6 +383,16 @@ baked textures missing, and every package they depend on that the project lacks,
 accepted, `--dry-run` first); run again until 0 missing. Only the chosen head's bindings are copied: `/Game/Crowd`
 is cooked whole.
 
+**Nicolito by default (2026-11-14).** `PlayerVisualClass` is `BP_Nicolito_Full` (head m_004, light skin, baked
+eyebrows, crewneck, jeans, loafers, no groom: bald until the hair is chosen, then rebuilt under the same name with
+the chosen style). A copy of the project without it (the Mac) keeps the mannequin, with a warning, until it runs
+`create_nicolito_visual.py` (`GTP_NICOLITO_HEAD=m_004 GTP_NICOLITO_MODE=full GTP_NICOLITO_SKIN=1`). Kellan stays
+cooked and comes back with `-PlayerVisual=/Game/MetaHumans/Kellan/BP_Kellan.BP_Kellan_C`. At start, a blueprint
+writes the Game Animation Sample's retargeter into the body's anim blueprint once (candidate 39, "1 setting(s) put
+back"), set again by the game mode a quarter of a second later; `tools/character/retarget_reset_probe.py` (read
+only) finds which: the packages that refer to `RTG_UEFN_to_Metahuman_nrw` and, in their text export, the graph
+and node that hold it.
+
 **Grooms (2026-11-14).** Kellan has six groom components (hair, eyebrows, eyelashes, peach fuzz, moustache, beard),
 each ticking in the package against a 13 ms budget. Strand simulation is off (`r.HairStrands.Simulation=0`). The
 game mode also hides, without tick, the grooms whose name contains a word of `PlayerGroomsHidden` (`Fuzz`,

@@ -260,7 +260,9 @@ is taken: Lyra stands on GAS and ShooterCore, which ADR-0011 leaves out. We take
   otherwise on the pawn's `weapon_r`. With `-PlayerVisualBaked`, drawing a weapon puts the body back on the runtime
   retarget (it follows the pawn, weapon clips included) and holstering returns it to the baked clips. The default
   visual is a MetaHuman (`PlayerVisualClass` in `DefaultGame.ini`, runtime retarget with `RTG_UEFNped_to_Metahuman_Fixed`, made by `tools/character/fix_player_retargeter.py`;
-  the Game Animation Sample's Kellan stands in until Nicolito's own MetaHuman exists, a config change only;
+  Nicolito since 2026-11-14, `BP_Nicolito_Full` made by `tools/character/create_nicolito_visual.py` from City
+  Sample's crowd, head m_004, light skin, crowd garments; `-PlayerVisual=/Game/MetaHumans/Kellan/BP_Kellan.BP_Kellan_C`
+  brings back the Game Animation Sample's Kellan, who stood in until then;
   `bPlayerVisualBaked=True` there or `-PlayerVisualBaked` switches to the baked clips); `-PlayerVisual=` (empty)
   shows the mannequin for weapon tests.
 - **Test benches**: `-CombatBench=1` fires every 0.45 s standing, shoulder aim held (aim pose, aim camera);

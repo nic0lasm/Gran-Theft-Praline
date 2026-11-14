@@ -410,6 +410,17 @@ textures précalculées absents, et chaque package dont ils dépendent et que le
 désormais, `--dry-run` d'abord) ; relancer jusqu'à 0 manquant. On ne copie que les bindings de la tête choisie :
 `/Game/Crowd` est cuit en entier.
 
+**Nicolito par défaut (14/11/2026).** `PlayerVisualClass` est `BP_Nicolito_Full` (tête m_004, peau claire, sourcils
+précalculés, pull col rond, jean, mocassins, aucun groom : chauve jusqu'au choix des cheveux, puis refait sous le
+même nom avec la coiffure choisie). Une copie du projet qui ne l'a pas (le Mac) garde le mannequin, avec un
+avertissement, jusqu'à ce qu'elle lance `create_nicolito_visual.py` (`GTP_NICOLITO_HEAD=m_004
+GTP_NICOLITO_MODE=full GTP_NICOLITO_SKIN=1`). Kellan reste cuit et revient avec
+`-PlayerVisual=/Game/MetaHumans/Kellan/BP_Kellan.BP_Kellan_C`. Au démarrage, un blueprint écrit une fois le
+reciblage du Game Animation Sample dans l'anim blueprint du corps (candidat 39, « 1 setting(s) put back »), que le
+mode de jeu remet un quart de seconde plus tard ; `tools/character/retarget_reset_probe.py` (lecture seule) trouve
+lequel : les packages qui citent `RTG_UEFN_to_Metahuman_nrw` et, dans leur export texte, le graphe et le nœud qui
+le portent.
+
 **Grooms (14/11/2026).** Kellan a six composants groom (cheveux, sourcils, cils, duvet, moustache, barbe), qui
 tickent tous dans le package pour un budget de 13 ms. La simulation des brins est coupée
 (`r.HairStrands.Simulation=0`). Le mode de jeu cache aussi, sans tick, les grooms dont le nom contient un mot de
