@@ -132,9 +132,10 @@ COOK_RISK = re.compile(r"BP_VehicleBase_Deformable|ABP_Proxy_Post|/ABP_(?!GTP_)"
 
 
 def cook_risk(packages, limit=5000):
-    """Hard /Game dependencies of packages, recursively, that are missing or match COOK_RISK."""
+    """Dependencies of packages, recursively, hard and soft (the cook follows both), that are
+    missing or match COOK_RISK. Engine and script packages are left out."""
     registry = unreal.AssetRegistryHelpers.get_asset_registry()
-    options = unreal.AssetRegistryDependencyOptions(include_soft_package_references=False, include_hard_package_references=True)
+    options = unreal.AssetRegistryDependencyOptions(include_soft_package_references=True, include_hard_package_references=True)
     seen, todo, risks = set(), list(packages), set()
     while todo and len(seen) < limit:
         current = todo.pop()
@@ -143,7 +144,7 @@ def cook_risk(packages, limit=5000):
         seen.add(current)
         for dep in registry.get_dependencies(current, options) or []:
             dep = str(dep)
-            if not dep.startswith("/Game/") or dep in seen:
+            if dep.startswith(("/Script/", "/Engine/", "/Temp/")) or dep in seen:
                 continue
             if not unreal.EditorAssetLibrary.does_asset_exist(dep):
                 risks.add(dep + " (missing)")
@@ -152,6 +153,8 @@ def cook_risk(packages, limit=5000):
             if COOK_RISK.search(dep):
                 risks.add(dep)
             todo.append(dep)
+    if todo:
+        risks = list(risks) + ["(scan stopped at %d packages: not all checked)" % limit]
     return sorted(risks)
 
 
