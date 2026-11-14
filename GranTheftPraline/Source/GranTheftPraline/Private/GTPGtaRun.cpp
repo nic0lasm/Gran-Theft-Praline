@@ -22,10 +22,10 @@ DEFINE_LOG_CATEGORY_STATIC(LogGTPGtaRun, Log, All);
 
 namespace
 {
-	constexpr int32 StepCount = 6;
-	const TCHAR* StepNames[StepCount] = { TEXT("carjack"), TEXT("chase"), TEXT("parked"), TEXT("aim"), TEXT("aimclose"), TEXT("shoot") };
+	constexpr int32 StepCount = 7;
+	const TCHAR* StepNames[StepCount] = { TEXT("carjack"), TEXT("chase"), TEXT("parked"), TEXT("walkarmed"), TEXT("aim"), TEXT("aimclose"), TEXT("shoot") };
 	// Time limits (s) per step, counted from the step's start.
-	const double StepLimits[StepCount] = { 90.0, 170.0, 200.0, 90.0, 90.0, 30.0 };
+	const double StepLimits[StepCount] = { 90.0, 170.0, 200.0, 40.0, 90.0, 90.0, 30.0 };
 
 	APlayerController* FirstController(const UWorld* World)
 	{
@@ -109,6 +109,9 @@ void UGTPGtaRun::BeginStep(int32 Index)
 	AimFirstReaction = -1.0;
 	LastAimMoveTime = -1.0;
 	WalkDirection = FVector::ZeroVector;
+	WalkArmedPhase = 0;
+	WalkArmedPhaseStart = -1.0;
+	bWalkArmedExit = false;
 	GTP_TRACE(LogGTPGtaRun, TEXT("GTARun step %d: %s start (t=%.0f s)"), Step + 1, StepNames[Step], FPlatformTime::Seconds() - RunStart);
 }
 
@@ -152,8 +155,9 @@ bool UGTPGtaRun::Tick(float /*DeltaTime*/)
 	case 0: Result = CheckCarjack(Detail); break;
 	case 1: Result = CheckChase(Detail); break;
 	case 2: Result = CheckParked(Detail); break;
-	case 3: Result = CheckAim(Detail, false); break;
-	case 4: Result = CheckAim(Detail, true); break;
+	case 3: Result = CheckWalkArmed(Detail); break;
+	case 4: Result = CheckAim(Detail, false); break;
+	case 5: Result = CheckAim(Detail, true); break;
 	default: Result = CheckShoot(Detail); break;
 	}
 	if (Result == EResult::Pending && FPlatformTime::Seconds() - StepStart > StepLimits[Step])
@@ -254,6 +258,77 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckParked(FString& Detail)
 		return EResult::Ok;
 	}
 	Detail = TEXT("entering");
+	return EResult::Pending;
+}
+
+UGTPGtaRun::EResult UGTPGtaRun::CheckWalkArmed(FString& Detail)
+{
+	// A player walks with the gun out, and walks while aiming (in a GTA one does both): 4 s each, at least 3 m.
+	// The failure says what holds the player; nothing here works around it.
+	WalkDirection = FVector::ZeroVector;
+	UWorld* World = GetWorld();
+	APlayerController* PC = FirstController(World);
+	if (!PC || !PC->GetPawn())
+	{
+		return EResult::Pending;
+	}
+	if (AGTPVehicle* Car = Cast<AGTPVehicle>(PC->GetPawn()))
+	{
+		if (!bWalkArmedExit)
+		{
+			bWalkArmedExit = true;
+			Car->RequestExit();
+		}
+		Detail = TEXT("getting out");
+		return EResult::Pending;
+	}
+	ACharacter* Character = Cast<ACharacter>(PC->GetPawn());
+	UGTPWeaponComponent* Weapon = Character ? Character->FindComponentByClass<UGTPWeaponComponent>() : nullptr;
+	if (!Weapon)
+	{
+		Detail = TEXT("the player has no weapon component");
+		return EResult::Fail;
+	}
+	if (Weapon->GetMagazine() + Weapon->GetReserve() <= 0)
+	{
+		Weapon->AddAmmo(36);
+	}
+	const double Now = FPlatformTime::Seconds();
+	if (WalkArmedPhaseStart < 0.0)
+	{
+		WalkArmedPhaseStart = Now;
+		WalkArmedFrom = Character->GetActorLocation();
+		WalkArmedYaw = PC->GetControlRotation().Yaw;
+		Weapon->SetDrawn(true);
+		Weapon->SetAiming(WalkArmedPhase == 1);
+	}
+	WalkDirection = FRotator(0.f, WalkArmedYaw, 0.f).Vector();
+	const double Moved = FVector::Dist2D(Character->GetActorLocation(), WalkArmedFrom);
+	const TCHAR* Phase = WalkArmedPhase == 0 ? TEXT("gun drawn") : TEXT("aiming");
+	if (Now - WalkArmedPhaseStart >= 4.0)
+	{
+		if (Moved < 300.0)
+		{
+			const UCharacterMovementComponent* Movement = Character->GetCharacterMovement();
+			Detail = FString::Printf(TEXT("the player does not walk with the weapon (%s): %.0f cm in 4 s, drawn %d, aiming %d, velocity %.0f, acceleration %.0f, movement mode %d, ignore move input = %d"),
+				Phase, Moved, Weapon->IsDrawn() ? 1 : 0, Weapon->IsAiming() ? 1 : 0, Movement ? Movement->Velocity.Size() : -1.f,
+				Movement ? Movement->GetCurrentAcceleration().Size() : -1.f, Movement ? static_cast<int32>(Movement->MovementMode.GetValue()) : -1, PC->IsMoveInputIgnored() ? 1 : 0);
+			return EResult::Fail;
+		}
+		GTP_TRACE(LogGTPGtaRun, TEXT("GTARun: walked %.0f cm in 4 s (%s)"), Moved, Phase);
+		if (WalkArmedPhase == 0)
+		{
+			WalkArmedPhase = 1;
+			WalkArmedPhaseStart = -1.0;
+			return EResult::Pending;
+		}
+		Weapon->SetAiming(false);
+		Weapon->SetDrawn(false);
+		WalkDirection = FVector::ZeroVector;
+		Detail = FString::Printf(TEXT("walked with the gun out and aiming, 3 m or more in 4 s each"));
+		return EResult::Ok;
+	}
+	Detail = FString::Printf(TEXT("%s: %.0f cm so far"), Phase, Moved);
 	return EResult::Pending;
 }
 
