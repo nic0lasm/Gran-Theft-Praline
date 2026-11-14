@@ -3,6 +3,7 @@
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "GameFramework/Character.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "GTPLog.h"
 #include "GTPPedestrians.h"
@@ -313,8 +314,13 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail, bool bClose)
 		}
 		else if (Now2 - LastAimMoveTime > 4.0)
 		{
-			Detail = FString::Printf(TEXT("the player does not walk for 4 s (%.0f cm from %s, ignore move input = %d)"), Best, *Victim->GetName(),
-				PC->IsMoveInputIgnored() ? 1 : 0);
+			const UCharacterMovementComponent* Movement = Character->GetCharacterMovement();
+			Detail = FString::Printf(TEXT("the player does not walk for 4 s (%.0f cm from %s, ignore move input = %d, movement mode %d, max walk speed %.0f, "
+				"attached to %s, possessed by %s, movement disabled %d, collision %d)"), Best, *Victim->GetName(), PC->IsMoveInputIgnored() ? 1 : 0,
+				Movement ? static_cast<int32>(Movement->MovementMode.GetValue()) : -1, Movement ? Movement->MaxWalkSpeed : -1.f,
+				Character->GetAttachParentActor() ? *Character->GetAttachParentActor()->GetName() : TEXT("nothing"),
+				Character->GetController() ? *Character->GetController()->GetName() : TEXT("nobody"),
+				Movement && Movement->IsMovementInProgress() ? 1 : 0, static_cast<int32>(Character->GetActorEnableCollision()));
 			return EResult::Fail;
 		}
 	}
