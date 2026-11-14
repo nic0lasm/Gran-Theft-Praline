@@ -94,14 +94,30 @@ Ruled out: copying the whole City Sample game module (game mode, player, HUD and
 class); declaring our own cars as MassTraffic vehicle types (Epic's configs and spawners all point
 at `BP_vehicle`; their entity configs would have to be rebuilt by hand in the editor).
 
+## Candidate 32 on the PC (14/11)
+
+The ZoneGraph is built (5 635 lanes, 2 705 zones) and MassTraffic drives 120 cars on it, in the
+editor, 6 min without a fatal error or ensure. What followed:
+- the intersections looked for MassCrowd's tracking data on their crosswalk lanes and logged
+  "ArePedestriansClearOfIntersection - Null crowd tracking data" 7 million times: MassTraffic's
+  crosswalk and pedestrian lane filters now match no lane (tag `GTPNoLane`), so the intersections
+  have no crosswalk to wait for (`-TrafficCrosswalks=1` keeps City Sample's filters). Cars waiting
+  for our pedestrians at crossings needs MassCrowd's lane tracking: later, with the pedestrians;
+- City Sample's vehicle configs leave `PhysicsVehicleTemplateActor` empty ("Vehicles will be forced
+  to low simulation LOD"): our copies name our car of the same number;
+- no car was drawn within 50 m of the player (no display actor any more): the copies' visualization
+  now draws near cars as instances too;
+- the light types pointed at 5 missing street lamp meshes (cook risk): references to missing
+  packages are now removed like the other risks. MassTraffic draws no light anyway (no
+  TrafficLightInstanceData for our map).
+
 ## Open points
 
-- Near the player MassTraffic swaps its entities for physics actors: our copies name our cars
+- Near the player MassTraffic may hand a car over to its physics vehicle: our copies name our cars
   (`BP_GTP_*`, stealable), but MassTraffic drives such an actor through its interface
   `IMassTrafficVehicleControlInterface` (`SetVehicleInputs`), which `AGTPVehicle` does not
   implement yet. To check on the PC, then to add (a subclass in GTPMass, which may link MassTraffic).
-- With City Sample's car display Blueprints removed from our copies, cars near the player are drawn
-  as Mass instances (or not at all): to check on the PC.
 - `MassTrafficSubsystem::ClearAllTrafficLanes()` must be called when a spawner's despawning
   finishes (README of Myxcil/MassTraffic-Test): not done, we never despawn yet.
-- Traffic lights: MassTraffic has its own; ours (`GTPTrafficLights`) stay for the legacy traffic.
+- Traffic lights: MassTraffic times its own but draws none; ours (`GTPTrafficLights`) are not in
+  step with them.

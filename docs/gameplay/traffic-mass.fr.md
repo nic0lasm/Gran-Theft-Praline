@@ -104,15 +104,33 @@ classe) ; déclarer nos voitures comme types de véhicules MassTraffic (les conf
 spawners d'Epic pointent tous sur `BP_vehicle` ; il faudrait refaire leurs configurations
 d'entités à la main dans l'éditeur).
 
+## Candidat 32 sur le PC (14/11)
+
+La ZoneGraph est construite (5 635 voies, 2 705 zones) et MassTraffic y fait rouler 120 voitures,
+en éditeur, 6 min sans erreur fatale ni ensure. Ensuite :
+- les carrefours cherchaient les données de suivi de MassCrowd sur leurs voies de passage piéton
+  et ont écrit « ArePedestriansClearOfIntersection - Null crowd tracking data » 7 millions de fois :
+  les filtres de voies piétonnes et de passages de MassTraffic ne retiennent plus aucune voie (tag
+  `GTPNoLane`), les carrefours n'ont donc plus de passage à surveiller (`-TrafficCrosswalks=1` garde
+  ceux de City Sample). Que les voitures attendent nos piétons aux passages demandera le suivi de
+  voies de MassCrowd : plus tard, avec les piétons ;
+- les configurations de véhicules de City Sample laissent `PhysicsVehicleTemplateActor` vide
+  (« Vehicles will be forced to low simulation LOD ») : nos copies nomment notre voiture du même
+  numéro ;
+- aucune voiture n'était dessinée à moins de 50 m du joueur (plus d'acteur d'affichage) : la
+  visualisation des copies dessine aussi les voitures proches en instances ;
+- les types de feux pointaient vers 5 maillages de lampadaires absents (risque de cook) : les
+  références vers des paquets absents sont désormais retirées comme les autres risques. MassTraffic
+  ne dessine de toute façon aucun feu (pas de TrafficLightInstanceData pour notre carte).
+
 ## Points ouverts
 
-- Près du joueur, MassTraffic remplace ses entités par des acteurs physiques : nos copies désignent
-  nos voitures (`BP_GTP_*`, volables), mais MassTraffic conduit un tel acteur par son interface
-  `IMassTrafficVehicleControlInterface` (`SetVehicleInputs`), qu'`AGTPVehicle` n'implémente pas
-  encore. À vérifier sur le PC, puis à ajouter (une sous-classe dans GTPMass, qui peut lier
-  MassTraffic).
-- Les Blueprints d'affichage des voitures de City Sample étant retirés de nos copies, les voitures
-  proches du joueur sont dessinées en instances Mass (ou pas du tout) : à vérifier sur le PC.
+- Près du joueur, MassTraffic peut confier une voiture à son véhicule physique : nos copies
+  désignent nos voitures (`BP_GTP_*`, volables), mais MassTraffic conduit un tel acteur par son
+  interface `IMassTrafficVehicleControlInterface` (`SetVehicleInputs`), qu'`AGTPVehicle`
+  n'implémente pas encore. À vérifier sur le PC, puis à ajouter (une sous-classe dans GTPMass, qui
+  peut lier MassTraffic).
 - `MassTrafficSubsystem::ClearAllTrafficLanes()` doit être appelée quand le dépeuplement d'un
   générateur est fini (README de Myxcil/MassTraffic-Test) : pas fait, on ne dépeuple pas encore.
-- Feux : MassTraffic a les siens ; les nôtres (`GTPTrafficLights`) restent pour le trafic historique.
+- Feux : MassTraffic cadence les siens mais n'en dessine aucun ; les nôtres (`GTPTrafficLights`) ne
+  sont pas synchronisés avec eux.

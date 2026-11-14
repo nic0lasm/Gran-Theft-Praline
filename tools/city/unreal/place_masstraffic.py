@@ -301,19 +301,26 @@ def our_car_class(text):
     return "/Script/Engine.BlueprintGeneratedClass'%s.BP_GTP_%s_C'" % (path, name)
 
 
-def repoint(text, copied, risk_cache, record):
-    """text with every /Game reference re-pointed (see above). record(kind, before, after)."""
+def repoint(text, copied, risk_cache, record, hint=""):
+    """text with every /Game reference re-pointed (see above). record(kind, before, after). hint:
+    the path of the object the text belongs to (its car number names our car when the text has
+    none)."""
     def physics(match):
         value = match.group("v")
-        ours = our_car_class(value)
-        if ours is None:
-            ours = our_car_class("vehicle02")  # a car of ours for the vans and trucks we do not have
-        if ours is None or value.strip('"') == "None":
+        # City Sample's configs leave it empty (MassTraffic then keeps the cars at its lowest
+        # simulation LOD): our car by the config's own number.
+        ours = our_car_class(value) or our_car_class(hint) or our_car_class("vehicle02")
+        if ours is None or ours in value:
             return match.group(0)
         record("physics car", value, ours)
         return 'PhysicsVehicleTemplateActor="%s"' % ours
 
     text = PHYSICS.sub(physics, text)
+    # No display actor of City Sample's (they break the cook): the cars near the player are drawn
+    # as instances, like the far ones, instead of not at all.
+    if "LODRepresentation" in text and ("HighResSpawnedActor" in text or "LowResSpawnedActor" in text):
+        record("near cars drawn as instances", "HighResSpawnedActor, LowResSpawnedActor", "StaticMeshInstance")
+        text = text.replace("HighResSpawnedActor", "StaticMeshInstance").replace("LowResSpawnedActor", "StaticMeshInstance")
 
     def one(match):
         path = match.group("wpath") or match.group("bare")
@@ -325,7 +332,8 @@ def repoint(text, copied, risk_cache, record):
             record("copy", path, new_path)
             return match.group(0).replace(path, new_path)
         if package not in risk_cache:
-            risk_cache[package] = cook_risk([package], limit=2000)
+            exists = unreal.EditorAssetLibrary.does_asset_exist(package)
+            risk_cache[package] = cook_risk([package], limit=2000) if exists else [package + " (missing)"]
         risks = risk_cache[package]
         if all(r.startswith("/Traffic/") and r.endswith("(missing)") for r in risks):
             if risks:
@@ -430,13 +438,13 @@ def copy_traffic(report):
             item = todo.pop()
             todo += item.get("subobjects", [])
             for name, text in item.get("properties", {}).items():
-                if "/Game/" not in text:
+                if "/Game/" not in text and "PhysicsVehicleTemplateActor" not in text and "LODRepresentation" not in text:
                     continue
                 if text.endswith("..."):
                     copy["too_long"].append("%s.%s" % (item["path"], name))
                     continue
                 changes = []
-                new = repoint(text, mapping, risk_cache, lambda kind, a, b: changes.append((kind, a, b)))
+                new = repoint(text, mapping, risk_cache, lambda kind, a, b: changes.append((kind, a, b)), hint=item["path"])
                 if new == text:
                     continue
                 error = tool.set_property_text(item["path"], name, new)
