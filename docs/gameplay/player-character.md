@@ -239,3 +239,12 @@ Steps, each through the PC's queue: `tools/character/citysample_crowd_survey.py`
 the crowd folders and their weight, the heads, bodies, outfits and hair by name, and the packages that need the
 sample's own C++ classes; then three male faces in captures for the project lead to choose from; then the chosen
 head, body, outfit and hair assembled into Nicolito's blueprint in our project.
+
+**Grooms (2026-11-14).** Kellan has six groom components (hair, eyebrows, eyelashes, peach fuzz, moustache, beard),
+each ticking in the package against a 13 ms budget. Strand simulation is off (`r.HairStrands.Simulation=0`). The
+game mode also hides, without tick, the grooms whose name contains a word of `PlayerGroomsHidden` (`Fuzz`,
+`Eyelashes`: not visible from the third-person camera) and holds the others at `PlayerGroomForcedLOD` (1) through
+their `SetForcedLOD`, called by reflection (the HairStrands plugin is not a dependency). The log gives each
+groom's forced LOD before and after, and once its asset's LODs (strands, cards or meshes), so that a LOD sync of the
+blueprint that would set it back shows. `-PlayerGrooms=full` keeps them as the blueprint made them. The same
+applies to Nicolito's visual if it has grooms.

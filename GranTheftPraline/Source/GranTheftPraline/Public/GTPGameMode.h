@@ -73,6 +73,17 @@ protected:
 	UPROPERTY(Config, EditDefaultsOnly, Category = "Classes")
 	bool bPlayerVisualBaked = false;
 
+	/**
+	 * The player visual's grooms (MetaHuman hair strands, 6 on Kellan, each ticking): a groom whose component name
+	 * contains one of these words is hidden and stops ticking (peach fuzz and lashes do not show from a third-person
+	 * camera); the others are held at PlayerGroomForcedLOD through their SetForcedLOD (-1 = left to the engine).
+	 * -PlayerGrooms=full keeps them all as the blueprint made them. The words come from DefaultGame.ini (Fuzz, Eyelashes).
+	 */
+	UPROPERTY(Config, EditDefaultsOnly, Category = "Classes")
+	TArray<FString> PlayerGroomsHidden;
+	UPROPERTY(Config, EditDefaultsOnly, Category = "Classes")
+	int32 PlayerGroomForcedLOD = 1;
+
 	/** Car parked in front of the player by -TestVehicle (a Blueprint child of AGTPVehicle). */
 	UPROPERTY(Config, EditDefaultsOnly, Category = "Classes", meta = (MetaClass = "/Script/GranTheftPraline.GTPVehicle"))
 	FSoftClassPath TestVehicleClass;

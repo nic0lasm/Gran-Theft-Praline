@@ -253,3 +253,13 @@ liste les dossiers de la foule et leur poids, les têtes, corps, tenues et coiff
 exigent les classes C++ propres au sample ; puis trois visages d'hommes en capture, parmi lesquels le responsable
 du projet choisit ; puis la tête, le corps, la tenue et la coiffure retenus assemblés dans le blueprint de
 Nicolito, dans notre projet.
+
+**Grooms (14/11/2026).** Kellan a six composants groom (cheveux, sourcils, cils, duvet, moustache, barbe), qui
+tickent tous dans le package pour un budget de 13 ms. La simulation des brins est coupée
+(`r.HairStrands.Simulation=0`). Le mode de jeu cache aussi, sans tick, les grooms dont le nom contient un mot de
+`PlayerGroomsHidden` (`Fuzz`, `Eyelashes` : invisibles depuis la caméra à la troisième personne) et tient les
+autres au LOD `PlayerGroomForcedLOD` (1) par leur `SetForcedLOD`, appelé par réflexion (le plugin HairStrands n'est
+pas une dépendance). Le journal donne le LOD forcé de chaque groom avant et après, et une fois les LOD de son asset
+(brins, cartes ou maillages), pour qu'une synchronisation de LOD du blueprint qui le remettrait se voie.
+`-PlayerGrooms=full` les garde tels que le blueprint les a faits. Il en va de même pour le visuel de Nicolito s'il
+a des grooms.

@@ -223,6 +223,96 @@ static int32 PointBodyRetarget(UAnimInstance* Anim, USkeletalMeshComponent* Own,
  * UEFN-to-MetaHuman retargeter, in memory. Run at spawn, and again whenever the body goes back to its
  * animation blueprint (the baked mode returns to it while a weapon is drawn).
  */
+// A UFUNCTION with one int32 parameter (Set) or one int32 result (Get), called by reflection: the grooms' class
+// (HairStrands plugin) is not a dependency of this module.
+static bool GTPCallIntSetter(UObject* Object, const TCHAR* Name, int32 Value)
+{
+	UFunction* Fn = Object ? Object->FindFunction(FName(Name)) : nullptr;
+	const FIntProperty* Arg = Fn ? CastField<FIntProperty>(Fn->PropertyLink) : nullptr;
+	if (!Fn || !Arg || Fn->NumParms != 1 || Fn->GetReturnProperty())
+	{
+		return false;
+	}
+	TArray<uint8> Buffer;
+	Buffer.SetNumZeroed(Fn->ParmsSize);
+	Arg->SetPropertyValue_InContainer(Buffer.GetData(), Value);
+	Object->ProcessEvent(Fn, Buffer.GetData());
+	return true;
+}
+
+static FString GTPReadGroomLOD(UObject* Groom)
+{
+	UFunction* Fn = Groom ? Groom->FindFunction(FName(TEXT("GetForcedLOD"))) : nullptr;
+	const FIntProperty* Result = Fn ? CastField<FIntProperty>(Fn->GetReturnProperty()) : nullptr;
+	if (Fn && Result && Fn->NumParms == 1)
+	{
+		TArray<uint8> Buffer;
+		Buffer.SetNumZeroed(Fn->ParmsSize);
+		Groom->ProcessEvent(Fn, Buffer.GetData());
+		return FString::FromInt(Result->GetPropertyValue_InContainer(Buffer.GetData()));
+	}
+	for (const TCHAR* Name : {TEXT("LODForcedIndex"), TEXT("ForcedLOD")})
+	{
+		if (const FIntProperty* Prop = Groom ? FindFProperty<FIntProperty>(Groom->GetClass(), Name) : nullptr)
+		{
+			return FString::FromInt(Prop->GetPropertyValue_InContainer(Groom));
+		}
+	}
+	return TEXT("?");
+}
+
+/**
+ * The player visual's grooms: hidden without tick when their name has one of HiddenWords, else held at ForcedLOD.
+ * The forced LOD is read before it is set again (a LOD sync component of the blueprint could change it in between).
+ */
+static void GTPThinPlayerGrooms(AActor* Visual, const TArray<FString>& HiddenWords, int32 ForcedLOD, bool bDescribe)
+{
+	TArray<UPrimitiveComponent*> Parts;
+	if (Visual)
+	{
+		Visual->GetComponents<UPrimitiveComponent>(Parts);
+	}
+	for (UPrimitiveComponent* Part : Parts)
+	{
+		if (!Part || !Part->GetClass()->GetName().Contains(TEXT("GroomComponent")))
+		{
+			continue;
+		}
+		const FString PartName = Part->GetName();
+		if (HiddenWords.ContainsByPredicate([&PartName](const FString& Word) { return !Word.IsEmpty() && PartName.Contains(Word); }))
+		{
+			const bool bWasShown = Part->IsVisible() || Part->IsComponentTickEnabled();
+			Part->SetVisibility(false, false);
+			Part->SetHiddenInGame(true, false);
+			Part->SetComponentTickEnabled(false);
+			if (bDescribe || bWasShown)
+			{
+				UE_LOG(LogGTPGameMode, Log, TEXT("  groom %s: hidden, no tick%s"), *PartName, bWasShown && !bDescribe ? TEXT(" (shown again by the blueprint)") : TEXT(""));
+			}
+			continue;
+		}
+		const FString Was = GTPReadGroomLOD(Part);
+		const bool bSet = ForcedLOD >= 0 && GTPCallIntSetter(Part, TEXT("SetForcedLOD"), ForcedLOD);
+		FString Lods(TEXT("-"));
+		if (bDescribe)
+		{
+			// The LODs of the groom asset (strands, cards or meshes for each), to know what the forced LOD shows.
+			const FObjectPropertyBase* AssetProp = FindFProperty<FObjectPropertyBase>(Part->GetClass(), TEXT("GroomAsset"));
+			UObject* Asset = AssetProp ? AssetProp->GetObjectPropertyValue_InContainer(Part) : nullptr;
+			const FProperty* LodProp = Asset ? FindFProperty<FProperty>(Asset->GetClass(), TEXT("HairGroupsLOD")) : nullptr;
+			if (LodProp)
+			{
+				Lods.Reset();
+				LodProp->ExportTextItem_Direct(Lods, LodProp->ContainerPtrToValuePtr<void>(Asset), nullptr, Asset, PPF_None);
+				Lods.LeftInline(500);
+			}
+		}
+		UE_LOG(LogGTPGameMode, Log, TEXT("  groom %s: forced LOD was %s, %s, reads %s, ticking %d%s%s"), *PartName, *Was,
+			bSet ? *FString::Printf(TEXT("set to %d"), ForcedLOD) : TEXT("not set (no SetForcedLOD or LOD -1)"), *GTPReadGroomLOD(Part),
+			Part->IsComponentTickEnabled() ? 1 : 0, bDescribe ? TEXT("; asset LODs ") : TEXT(""), bDescribe ? *Lods : TEXT(""));
+	}
+}
+
 static void ConfigureBodyRetarget(USkeletalMeshComponent* Body, USkeletalMeshComponent* Own, const FString& RetargeterPath)
 {
 	if (!Body || RetargeterPath.IsEmpty())
@@ -362,7 +452,11 @@ void AGTPGameMode::ApplyPlayerVisual(APawn* Pawn)
 	TWeakObjectPtr<APawn> WeakPawn(Pawn);
 	const FString BodyName = PlayerVisualBodyName;
 	const FString RetargeterPath = PlayerVisualRetargeter;
-	auto Enforce = [WeakVisual, WeakPawn, BodyName, RetargeterPath](const TCHAR* When)
+	FString GroomMode;
+	const bool bGroomsFull = FParse::Value(FCommandLine::Get(), TEXT("PlayerGrooms="), GroomMode) && GroomMode == TEXT("full");
+	const TArray<FString> HiddenGrooms = PlayerGroomsHidden;
+	const int32 GroomLOD = PlayerGroomForcedLOD;
+	auto Enforce = [WeakVisual, WeakPawn, BodyName, RetargeterPath, bGroomsFull, HiddenGrooms, GroomLOD](const TCHAR* When)
 	{
 		AActor* V = WeakVisual.Get();
 		APawn* P = WeakPawn.Get();
@@ -464,6 +558,10 @@ void AGTPGameMode::ApplyPlayerVisual(APawn* Pawn)
 				*Part->GetName(), *Part->GetClass()->GetName(),
 				Skel && Skel->GetSkeletalMeshAsset() ? *Skel->GetSkeletalMeshAsset()->GetName() : TEXT("-"),
 				Part->IsVisible() ? 1 : 0, Part->bHiddenInGame ? 1 : 0, *Part->GetComponentLocation().ToCompactString(), Part->Bounds.SphereRadius);
+		}
+		if (!bGroomsFull)
+		{
+			GTPThinPlayerGrooms(V, HiddenGrooms, GroomLOD, FCString::Strcmp(When, TEXT("spawn")) == 0);
 		}
 	};
 	Enforce(TEXT("spawn"));
