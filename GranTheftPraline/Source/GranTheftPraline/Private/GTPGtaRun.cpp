@@ -297,6 +297,7 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail, bool bClose)
 	// Stop at about 4 m (an aim from the shoulder camera misses somebody closer than 2 m), back off if too close.
 	// The weapon stays lowered on the way: raised, the aim stance slows or pins the walk (measured: 15 m away after 60 s).
 	const FVector ToVictim = (Victim->GetActorLocation() - Character->GetActorLocation()).GetSafeNormal2D();
+	PC->ResetIgnoreMoveInput(); // the arrest of the chase may have left the walk locked
 	const double StopCm = bClose ? 120.0 : 450.0;
 	const double BackCm = bClose ? 70.0 : 250.0;
 	Weapon->SetAiming(Best <= StopCm + 400.0);
