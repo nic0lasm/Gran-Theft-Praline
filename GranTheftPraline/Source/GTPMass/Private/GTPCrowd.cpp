@@ -1,5 +1,6 @@
 #include "GTPCrowd.h"
 #include "Materials/MaterialInstance.h"
+#include "Materials/Material.h"
 #include "Components/SkeletalMeshComponent.h"
 
 #include "Components/InstancedStaticMeshComponent.h"
@@ -859,12 +860,33 @@ bool UGTPCrowdSubsystem::DressFromCitySample(AGTPPedestrian* Actor)
 	const FString FaceName = FString::Printf(TEXT("%s_%03d_nrw_FaceMesh"), *Prefix, FaceIndex);
 	USkeletalMesh* Face = LoadObject<USkeletalMesh>(nullptr, *FString::Printf(TEXT("%s/%s/%s_%03d/Face/%s.%s"),
 		*CrowdCharacterRoot, *Sex, *Prefix, FaceIndex, *FaceName, *FaceName));
-	if (FParse::Param(FCommandLine::Get(), TEXT("CrowdNoFace")))
+	// Diagnostics for the packaged "uncooked shader map" errors: -CrowdParts=<mask> (1 body, 2 garments, 4 face; 7 = all)
+	// and -CrowdDefaultMaterials=1 (every slot gets the engine default material).
+	int32 PartsMask = 7;
+	FParse::Value(FCommandLine::Get(), TEXT("CrowdParts="), PartsMask);
+	if (FParse::Param(FCommandLine::Get(), TEXT("CrowdNoFace")) || !(PartsMask & 4))
 	{
-		Face = nullptr; // diagnostic: is the uncooked material in the face?
+		Face = nullptr;
+	}
+	if (!(PartsMask & 2))
+	{
+		Clothes.Reset();
 	}
 	TSubclassOf<UAnimInstance> FaceAnim = FaceAnimClass.TryLoadClass<UAnimInstance>();
 	Actor->Dress(Body, Clothes, Face, FaceAnim);
+	int32 DefaultMaterials = 0;
+	if (FParse::Value(FCommandLine::Get(), TEXT("CrowdDefaultMaterials="), DefaultMaterials) && DefaultMaterials != 0)
+	{
+		TArray<USkeletalMeshComponent*> All;
+		Actor->GetComponents<USkeletalMeshComponent>(All);
+		for (USkeletalMeshComponent* Comp : All)
+		{
+			for (int32 Slot = 0; Slot < Comp->GetNumMaterials(); ++Slot)
+			{
+				Comp->SetMaterial(Slot, UMaterial::GetDefaultMaterial(MD_Surface));
+			}
+		}
+	}
 	// Once: which materials the assembled character really uses (a material missing from the cook shows as an
 	// uncooked shader map in the packaged build, and the log says no name).
 	static bool bMaterialsListed = false;
