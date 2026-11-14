@@ -170,6 +170,7 @@ protected:
 	float FleeArrivalCm = 120.f;
 
 private:
+	double LastAimLogTime = -10.0;
 	void Think(float Dt);
 	void OnStateChanged(GTPThreat::EState Old, GTPThreat::EState New);
 	void OnHitReaction(EGTPHitReaction Reaction, const FGTPHitInfo& Hit, AActor* Body);
