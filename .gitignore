@@ -56,6 +56,8 @@ GranTheftPraline/Plugins/CitySampleVehicleBase/
 # City Sample's traffic content, kept at its City Sample /Game paths (Epic content)
 /GranTheftPraline/Content/AI/Traffic/
 /GranTheftPraline/Content/AI/ZoneGraphBuilder/
+# Our copies of it, re-pointed by tools/city/unreal/place_masstraffic.py (still Epic content)
+/GranTheftPraline/Content/AI/GTPTraffic/
 /GranTheftPraline/Content/Vehicle/
 # Epic vehicles migrated from City Sample Vehicles and the Vehicle Variety Pack
 /GranTheftPraline/Content/Vehicles/Epic/

@@ -16,10 +16,20 @@ ADR-0015 (piétons et trafic sur Mass). Anglais : [traffic-mass.md](traffic-mass
   voiture ; le sous-système `UGTPMassTrafficSubsystem` lance les générateurs Mass marqués
   `GTPMassTraffic`. Si le plugin n'est pas chargé, `-Traffic=mass` garde le trafic historique et
   l'écrit dans le journal.
-- **Générateurs** : `tools/city/unreal/place_masstraffic.py` lit les réglages du plugin (les
-  filtres de voies sont pointés sur nos tags), trouve ses configurations d'entités, pose un
-  générateur de voitures roulantes et un de voitures garées (120 et 200 par défaut, pas de
-  lancement au démarrage) et écrit `Saved/CityImport/masstraffic_report.json`.
+- **Générateurs** : `tools/city/unreal/place_masstraffic.py` copie les générateurs de carrefours
+  et de voitures roulantes de City Sample, avec chaque configuration d'entité et donnée de
+  `/Game/AI/Traffic` qu'ils atteignent, dans `/Game/AI/GTPTraffic` (hors Git, cela reste du contenu
+  Epic), puis repointe chaque référence des copies par réflexion (`UGTPAssetReflection`) : vers notre
+  copie, vers notre voiture `BP_GTP_<Nom>` pour le véhicule physique que MassTraffic fait apparaître
+  près du joueur (`PhysicsVehicleTemplateActor`, d'après le numéro de la voiture de City Sample), ou
+  vers rien pour ce qui casserait le cook (Blueprints d'affichage des voitures de City Sample,
+  conducteurs). Les filtres de voies propres aux types de véhicules sont pointés sur nos tags. Il
+  les pose (120 voitures roulantes par défaut, pas de lancement au démarrage) et écrit
+  `Saved/CityImport/masstraffic_report.json` (`gtp_copy` : chaque changement, les risques de cook des
+  copies et les chaînes qui les tirent). Le générateur de voitures garées de City Sample n'est pas
+  repris : ses places appartiennent à sa propre ville ; nos voitures garées restent.
+  `GTP_MASSTRAFFIC_SURVEY=1` ne change rien et décrit les générateurs et configurations de City
+  Sample (propriétés, dépendances, risques de cook).
 
 ## Installation (PC)
 
@@ -86,8 +96,13 @@ d'entités à la main dans l'éditeur).
 
 ## Points ouverts
 
-- Près du joueur, MassTraffic remplace ses entités par des acteurs physiques issus de ses propres
-  Blueprints. Pour le vol, les accidents et la police, ces acteurs doivent être nos classes
-  `AGTPVehicle` (véhicules Epic reparentés) : à régler dans la configuration de représentation une
-  fois le plugin installé.
+- Près du joueur, MassTraffic remplace ses entités par des acteurs physiques : nos copies désignent
+  nos voitures (`BP_GTP_*`, volables), mais MassTraffic conduit un tel acteur par son interface
+  `IMassTrafficVehicleControlInterface` (`SetVehicleInputs`), qu'`AGTPVehicle` n'implémente pas
+  encore. À vérifier sur le PC, puis à ajouter (une sous-classe dans GTPMass, qui peut lier
+  MassTraffic).
+- Les Blueprints d'affichage des voitures de City Sample étant retirés de nos copies, les voitures
+  proches du joueur sont dessinées en instances Mass (ou pas du tout) : à vérifier sur le PC.
+- `MassTrafficSubsystem::ClearAllTrafficLanes()` doit être appelée quand le dépeuplement d'un
+  générateur est fini (README de Myxcil/MassTraffic-Test) : pas fait, on ne dépeuple pas encore.
 - Feux : MassTraffic a les siens ; les nôtres (`GTPTrafficLights`) restent pour le trafic historique.

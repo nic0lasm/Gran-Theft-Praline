@@ -14,10 +14,18 @@ Status 13/11/2026: prepared, not compiled, waiting for City Sample on the PC. De
   street parked cars to steal, the incidents and the police, but drives no car of its own; the
   subsystem `UGTPMassTrafficSubsystem` starts the Mass spawners tagged `GTPMassTraffic`. If the
   plugin is not loaded, `-Traffic=mass` keeps the legacy traffic and says so in the log.
-- **Spawners**: `tools/city/unreal/place_masstraffic.py` reads the plugin's settings (the lane
-  filters are pointed at our tags), finds its entity configs, places a driving and a parked
-  spawner (120 and 200 by default, no spawn on begin play) and writes
-  `Saved/CityImport/masstraffic_report.json`.
+- **Spawners**: `tools/city/unreal/place_masstraffic.py` copies City Sample's intersection and
+  driving-car spawners, with every entity config and data of `/Game/AI/Traffic` they reach, to
+  `/Game/AI/GTPTraffic` (out of Git, still Epic content), then re-points each reference in the
+  copies by reflection (`UGTPAssetReflection`): to our copy, to our car `BP_GTP_<Name>` for the
+  physics vehicle MassTraffic spawns near the player (`PhysicsVehicleTemplateActor`, by City
+  Sample's car number), or to nothing for what would break the cook (City Sample's car display
+  Blueprints, the drivers). The vehicle types' own lane filters are pointed at our tags. It places
+  them (120 driving cars by default, no spawn on begin play) and writes
+  `Saved/CityImport/masstraffic_report.json` (`gtp_copy`: each change, the copies' cook risks and
+  the chains that pull them in). City Sample's parked-car spawner is not used: its parking spaces
+  belong to its own city; our street parked cars stay. `GTP_MASSTRAFFIC_SURVEY=1` changes nothing
+  and dumps City Sample's spawners and configs (properties, dependencies, cook risks).
 
 ## Installing (PC)
 
@@ -79,7 +87,12 @@ at `BP_vehicle`; their entity configs would have to be rebuilt by hand in the ed
 
 ## Open points
 
-- Near the player MassTraffic swaps its entities for physics actors from its own Blueprints. For
-  stealing, crashes and police, those actors must be our `AGTPVehicle` classes (the Epic vehicles
-  reparented): to set in the representation config once the plugin is in.
+- Near the player MassTraffic swaps its entities for physics actors: our copies name our cars
+  (`BP_GTP_*`, stealable), but MassTraffic drives such an actor through its interface
+  `IMassTrafficVehicleControlInterface` (`SetVehicleInputs`), which `AGTPVehicle` does not
+  implement yet. To check on the PC, then to add (a subclass in GTPMass, which may link MassTraffic).
+- With City Sample's car display Blueprints removed from our copies, cars near the player are drawn
+  as Mass instances (or not at all): to check on the PC.
+- `MassTrafficSubsystem::ClearAllTrafficLanes()` must be called when a spawner's despawning
+  finishes (README of Myxcil/MassTraffic-Test): not done, we never despawn yet.
 - Traffic lights: MassTraffic has its own; ours (`GTPTrafficLights`) stay for the legacy traffic.
