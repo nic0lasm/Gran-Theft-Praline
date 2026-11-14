@@ -22,6 +22,15 @@ template's, as import_vehicle.py does), wheel Blueprints of our own (children of
 UGTPWheelRear) and the Chaos figures read from City Sample's cars on 13/11 (TUNING below: mass,
 torque, gears, wheels, suspension, brakes).
 
+Cook-safe. City Sample's vehicle AnimBlueprints cast to BP_VehicleBase_Deformable, which needs City
+Sample gameplay packages we do not have, and its skeletal meshes carry post-process AnimBlueprints
+(ABP_Proxy_Post_*) that do not load cleanly: pulled into the cook by our cars, they failed the cook of
+candidate 30. So each car gets a copy of Epic's skeletal mesh in our folder
+(/Game/Vehicles/Epic/GTP/Mesh/SKM_GTP_<Name>) without its post-process AnimBlueprint, and the wheel
+AnimBlueprint copied from the Vehicle template (ABP_GTP_<skeleton>); GTP_EPIC_ANIM=1 tries Epic's
+again. The report lists, for each car, the packages it would pull into the cook that are missing
+or known to break it ("cook_risk"): it must be empty before a package.
+
 The Vehicle Variety Pack is not used: its Blueprints derive from PhysX's WheeledVehicle, gone in
 5.8 (only its skeletal meshes could be rigged again, later).
 
@@ -74,6 +83,10 @@ TUNING = {
     "13": dict(_SALOON, torque=700),
 }
 SKIP_MESH = re.compile(r"wheel|door|glass|broken|damage|interior|driver|lod|hood|trunk|bumper|light|plate|siren|proxy", re.IGNORECASE)
+
+EPIC_ANIM = os.environ.get("GTP_EPIC_ANIM") == "1"
+# Packages that must not reach the cook through our cars (cook of candidate 30).
+COOK_RISK = re.compile(r"BP_VehicleBase_Deformable|ABP_Proxy_Post|/ABP_(?!GTP_)", re.IGNORECASE)
 
 MOVEMENT_PROPS = (
     "mass", "drag_coefficient", "chassis_width", "chassis_height", "enable_center_of_mass_override",
@@ -168,6 +181,53 @@ def missing_dependencies(package, limit=400):
             else:
                 todo.append(dep)
     return sorted(set(missing))
+
+
+def cook_risk(package, limit=2000):
+    """Hard /Game dependencies of package, recursively, that are missing or match COOK_RISK."""
+    registry = unreal.AssetRegistryHelpers.get_asset_registry()
+    options = unreal.AssetRegistryDependencyOptions(include_soft_package_references=False, include_hard_package_references=True)
+    seen, todo, risks = set(), [package], []
+    while todo and len(seen) < limit:
+        current = todo.pop()
+        if current in seen:
+            continue
+        seen.add(current)
+        for dep in registry.get_dependencies(current, options) or []:
+            dep = str(dep)
+            if not dep.startswith("/Game/") or dep in seen:
+                continue
+            if not eal.does_asset_exist(dep):
+                risks.append(dep + " (missing)")
+                seen.add(dep)
+                continue
+            if COOK_RISK.search(dep):
+                risks.append(dep)
+            todo.append(dep)
+    return sorted(set(risks))
+
+
+def our_mesh(mesh, name, entry):
+    """A copy of Epic's skeletal mesh in our folder, without its post-process AnimBlueprint."""
+    target = "%s/Mesh/SKM_GTP_%s" % (OUT, name)
+    if not eal.does_asset_exist(target):
+        if not eal.does_directory_exist(OUT + "/Mesh"):
+            eal.make_directory(OUT + "/Mesh")
+        eal.duplicate_asset(mesh.get_path_name().split(".")[0], target)
+    copy = unreal.load_asset(target)
+    if copy is None:
+        entry["mesh_copy_error"] = "cannot copy to " + target
+        return mesh
+    entry["mesh_source"] = mesh.get_path_name()
+    try:
+        post = copy.get_editor_property("post_process_anim_blueprint")
+        if post is not None:
+            entry["post_process_cleared"] = post.get_path_name()
+            copy.set_editor_property("post_process_anim_blueprint", None)
+    except Exception as error:
+        entry["post_process_error"] = str(error)
+    eal.save_loaded_asset(copy)
+    return copy
 
 
 def copy_movement(source, target, report_entry):
@@ -275,17 +335,18 @@ def find_mesh(number, blueprint_path, entry, from_blueprint=None):
 
 
 def wheel_anim_class(mesh, blueprint_path, entry, from_blueprint=None):
-    """A Chaos wheel AnimBlueprint: the Epic Blueprint's, else one next to it, else a copy of the
-    Vehicle template's. MassTraffic's display actors may animate their wheels another way: such an
-    AnimBlueprint is skipped (listed in the report)."""
-    if is_vehicle_anim(from_blueprint):
-        entry["anim"] = from_blueprint.get_path_name()
-        return from_blueprint
-    if from_blueprint is not None:
-        entry.setdefault("anim_skipped", []).append(from_blueprint.get_path_name())
+    """A Chaos wheel AnimBlueprint: a copy of the Vehicle template's. With GTP_EPIC_ANIM=1, the Epic
+    Blueprint's or one next to it first (only a Chaos one: the others are listed as skipped)."""
     registry = unreal.AssetRegistryHelpers.get_asset_registry()
     folder = blueprint_path.rsplit("/", 1)[0]
-    for data in registry.get_assets_by_path(folder, recursive=True):
+    if not EPIC_ANIM:
+        entry["anim_epic"] = "not used (GTP_EPIC_ANIM=1 tries it): it casts to BP_VehicleBase_Deformable, which the cook cannot take"
+    elif is_vehicle_anim(from_blueprint):
+        entry["anim"] = from_blueprint.get_path_name()
+        return from_blueprint
+    elif from_blueprint is not None:
+        entry.setdefault("anim_skipped", []).append(from_blueprint.get_path_name())
+    for data in (registry.get_assets_by_path(folder, recursive=True) if EPIC_ANIM else []):
         if str(data.asset_class_path.asset_name) == "AnimBlueprint":
             abp = unreal.load_asset(str(data.package_name))
             if abp is None or abp.generated_class() is None:
@@ -337,6 +398,7 @@ def build_from_parts(number, name, blueprint_path, entry, source_cls=None):
     if tuning is None or mesh is None:
         entry["error"] = "mesh mode: " + ("no tuning" if tuning is None else "no skeletal mesh found")
         return None
+    mesh = our_mesh(mesh, name, entry)
     radius, friction, spring, preload, rise, drop, brake, handbrake, steer = tuning["wheel"]
     wheel_classes = {}
     for axle, parent in (("Front", unreal.GTPWheelFront), ("Rear", unreal.GTPWheelRear)):
@@ -403,9 +465,12 @@ def make_one(number, name, source_path, report):
 
     src_body = source.get_editor_property("mesh")
     body = cdo.get_editor_property("mesh")
-    body.set_editor_property("skeletal_mesh_asset", src_body.get_editor_property("skeletal_mesh_asset"))
-    body.set_editor_property("animation_mode", src_body.get_editor_property("animation_mode"))
-    body.set_editor_property("anim_class", src_body.get_editor_property("anim_class"))
+    mesh = our_mesh(src_body.get_editor_property("skeletal_mesh_asset"), name, entry)
+    body.set_editor_property("skeletal_mesh_asset", mesh)
+    anim = wheel_anim_class(mesh, source_path, entry, src_body.get_editor_property("anim_class"))
+    if anim is not None:
+        body.set_editor_property("animation_mode", unreal.AnimationMode.ANIMATION_BLUEPRINT)
+        body.set_editor_property("anim_class", anim)
     # City Sample Blueprints may draw parts (lights, light bar) as extra components: not copied,
     # the light bar of the police car is added by AGTPPoliceDirector in code.
 
@@ -416,10 +481,11 @@ def make_one(number, name, source_path, report):
 
 
 def finish(number, name, bp, cdo, path, entry, source_path):
-    if number == "13":
+    if number == "13" and unreal.Name("GTPEpicPolice") not in list(cdo.tags):
         cdo.tags = list(cdo.tags) + [unreal.Name("GTPEpicPolice")]
     unreal.BlueprintEditorLibrary.compile_blueprint(bp)
     eal.save_asset(path, only_if_is_dirty=False)
+    entry["cook_risk"] = cook_risk(path)
     move = cdo.get_editor_property("vehicle_movement_component")
     entry["class"] = "%s.BP_GTP_%s_C" % (path, name)
     entry["mass"] = move.get_editor_property("mass")
@@ -444,6 +510,7 @@ def main():
         except Exception:  # one car's failure does not stop the others, and the report is written
             report["cars"].setdefault(name, {})["error"] = traceback.format_exc()
             log("%s failed: %s" % (name, traceback.format_exc()))
+    report["cook_risk"] = sorted({r for car in report["cars"].values() for r in car.get("cook_risk", [])})
     report["seconds"] = round(time.time() - t0, 1)
     out = os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_saved_dir()), "VehicleImport")
     os.makedirs(out, exist_ok=True)

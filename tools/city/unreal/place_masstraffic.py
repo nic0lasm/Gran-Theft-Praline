@@ -19,10 +19,15 @@ What it does, reporting everything in Saved/CityImport/masstraffic_report.json:
    /Game/AI/Traffic (or GTP_MASSTRAFFIC_CONFIGS, comma separated asset paths), no generator set. Counts: GTP_MASSTRAFFIC_CARS (default 120),
    GTP_MASSTRAFFIC_PARKED (default 200).
 The map is saved. Nothing is changed when the plugin is absent.
+4. Lists what the spawners would pull into the cook that is missing or known to break it
+   ("cook_risk": City Sample's BP_VehicleBase_Deformable, vehicle AnimBlueprints, post-process
+   AnimBlueprints; the cook of candidate 30 failed on them through our cars). It must be empty
+   before a package.
 """
 
 import json
 import os
+import re
 import time
 
 import unreal
@@ -122,6 +127,33 @@ def place_blueprint_spawners(report):
     return placed
 
 
+COOK_RISK = re.compile(r"BP_VehicleBase_Deformable|ABP_Proxy_Post|/ABP_(?!GTP_)", re.IGNORECASE)
+
+
+def cook_risk(packages, limit=5000):
+    """Hard /Game dependencies of packages, recursively, that are missing or match COOK_RISK."""
+    registry = unreal.AssetRegistryHelpers.get_asset_registry()
+    options = unreal.AssetRegistryDependencyOptions(include_soft_package_references=False, include_hard_package_references=True)
+    seen, todo, risks = set(), list(packages), set()
+    while todo and len(seen) < limit:
+        current = todo.pop()
+        if current in seen:
+            continue
+        seen.add(current)
+        for dep in registry.get_dependencies(current, options) or []:
+            dep = str(dep)
+            if not dep.startswith("/Game/") or dep in seen:
+                continue
+            if not unreal.EditorAssetLibrary.does_asset_exist(dep):
+                risks.add(dep + " (missing)")
+                seen.add(dep)
+                continue
+            if COOK_RISK.search(dep):
+                risks.add(dep)
+            todo.append(dep)
+    return sorted(risks)
+
+
 def place_config_spawner(name, order, configs, count, report):
     spawner = actor_sub.spawn_actor_from_class(unreal.MassSpawner, unreal.Vector(0, 0, 0))
     tag_spawner(spawner, name, order, count, report)
@@ -162,6 +194,8 @@ def main():
         if not parked and not driving:
             report["errors"].append("no spawner Blueprint nor Mass entity config for traffic: set GTP_MASSTRAFFIC_CONFIGS")
     report["generator_classes"] = sorted(c for c in dir(unreal) if "MassTraffic" in c and "Generator" in c)
+    report["cook_risk"] = cook_risk([s["blueprint"] for s in report["spawners"] if s.get("blueprint")]
+                                    + [c.split(".")[0] for s in report["spawners"] for c in s.get("configs", [])])
     level_sub.save_current_level()
     write(report, t0)
 

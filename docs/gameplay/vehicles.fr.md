@@ -322,6 +322,15 @@ réglages Chaos relevés dans le pack (AnimBlueprint de roues Chaos seulement : 
 d'affichage est écarté). L'échec d'une voiture n'arrête plus les autres, et le rapport est
 toujours écrit.
 
+Sans risque pour le cook (cook du candidat 30) : les AnimBlueprints de véhicules de City Sample
+font un cast vers `BP_VehicleBase_Deformable`, qui demande des paquets de gameplay City Sample que
+nous n'avons pas, et ses maillages squelettiques portent des AnimBlueprints de post-traitement qui
+ne se chargent pas proprement. Chaque voiture reçoit une copie du maillage d'Epic dans
+`/Game/Vehicles/Epic/GTP/Mesh`, sans cet AnimBlueprint de post-traitement, et l'AnimBlueprint de
+roues copié du template Vehicle. Le rapport liste, par voiture, ce qu'elle tirerait dans le cook
+et qui manque ou le casse (`cook_risk`) : la liste doit être vide avant un package ;
+`place_masstraffic.py` fait de même pour les spawners du trafic.
+
 Ce que les Clio, 208 et Kangoo reprennent de la citadine de City Sample (vehicle02, 1 200 kg) :
 ressorts souples sur forte précharge avec grand débattement (100 / 300, +10 / -17 cm au lieu de
 250 / 50, +8 / -10), pour que la caisse prenne du roulis et plonge au freinage ; braquage de

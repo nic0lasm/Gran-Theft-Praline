@@ -307,6 +307,14 @@ mesh from the Blueprint's components and puts the Chaos figures read from the pa
 (Chaos wheel AnimBlueprint only: a display actor's is skipped). One failed car no longer stops the
 others, and the report is always written.
 
+Cook-safe (cook of candidate 30): City Sample's vehicle AnimBlueprints cast to
+`BP_VehicleBase_Deformable`, which needs City Sample gameplay packages we do not have, and its
+skeletal meshes carry post-process AnimBlueprints that do not load cleanly. Each of our cars gets a
+copy of Epic's skeletal mesh in `/Game/Vehicles/Epic/GTP/Mesh` without that post-process
+AnimBlueprint, and the wheel AnimBlueprint copied from the Vehicle template. The report lists, per
+car, what it would pull into the cook that is missing or known to break it (`cook_risk`), which
+must be empty before a package; `place_masstraffic.py` does the same for the traffic spawners.
+
 What the Clio, 208 and Kangoo take from City Sample's city car (vehicle02, 1 200 kg): soft
 springs on a high preload with long travel (100 / 300, +10 / -17 cm instead of 250 / 50,
 +8 / -10) so the body rolls and dives, 45 degree steering (38 before) for tighter U-turns, and
