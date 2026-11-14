@@ -364,6 +364,27 @@ void UGTPMassTrafficSubsystem::LogSimulatedCars(UWorld& World, const FVector& Pl
 	double SpeedSum = 0.0;
 	int32 Implausible = 0;
 	double Nearest = TNumericLimits<double>::Max();
+	// Where the player first meets a carriageway: the traffic must be seen there, 50 m around.
+	static const FVector2D Watch = []
+	{
+		// L_City_RueDeLaRepublique: on rue de la Republique, 5 m short of rue Childebert (a one-way
+		// street the pedestrian rue de la Republique crosses 205 m up from the start), the first car
+		// street the player meets on the way north. The start itself is 50.1 m from any road lane.
+		FVector2D Point(16100.0, 30820.0);
+		FString Text;
+		if (FParse::Value(FCommandLine::Get(), TEXT("TrafficWatchPoint="), Text))
+		{
+			FString X;
+			FString Y;
+			if (Text.Split(TEXT(","), &X, &Y))
+			{
+				Point = FVector2D(FCString::Atod(*X), FCString::Atod(*Y));
+			}
+		}
+		return Point;
+	}();
+	double WatchNearest = TNumericLimits<double>::Max();
+	int32 WatchWithin50 = 0;
 	FMassExecutionContext Context(*Manager, 0.f);
 	Query.ForEachEntityChunk(Context, [&](FMassExecutionContext& Chunk)
 	{
@@ -453,6 +474,9 @@ void UGTPMassTrafficSubsystem::LogSimulatedCars(UWorld& World, const FVector& Pl
 			Within100 += Distance < 10000.0 ? 1 : 0;
 			Within200 += Distance < 20000.0 ? 1 : 0;
 			Nearest = FMath::Min(Nearest, Distance);
+			const double WatchDistance = FVector2D::Distance(FVector2D(Transforms[Index].GetTransform().GetLocation()), Watch);
+			WatchNearest = FMath::Min(WatchNearest, WatchDistance);
+			WatchWithin50 += WatchDistance < 5000.0 ? 1 : 0;
 		}
 	});
 	// Cars handed to MassTraffic's recycling (RecycleAtDeadEnds) and not moved yet, and of those the
@@ -491,6 +515,13 @@ void UGTPMassTrafficSubsystem::LogSimulatedCars(UWorld& World, const FVector& Pl
 	UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic cars: simulated=%d moving=%d (over 1 m/s) stopped on a dead-end lane=%d waiting for recycling=%d (without Epic's damage fragment=%d) recycled so far=%d mean speed=%.0f km/h (over 200 km/h, left out=%d) | within 100 m=%d within 200 m=%d nearest=%s%s"),
 		Cars, Moving, AtDeadEnd, Recyclable, RecyclableWithoutDamage, Recycled, Cars > Implausible ? SpeedSum / (Cars - Implausible) * 0.036 : 0.0, Implausible, Within100, Within200,
 		Cars > 0 ? *FString::Printf(TEXT("%.0f m"), Nearest / 100.0) : TEXT("none"), *Network);
+	if (Cars > 0)
+	{
+		++WatchCounts;
+		WatchCountsWithCar += WatchWithin50 > 0 ? 1 : 0;
+		UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic watch point X=%.0f Y=%.0f (rue Childebert at rue de la Republique, -TrafficWatchPoint=X,Y): %d car(s) within 50 m now, nearest %.1f m; a car within 50 m in %d of %d count(s) so far"),
+			Watch.X, Watch.Y, WatchWithin50, WatchNearest / 100.0, WatchCountsWithCar, WatchCounts);
+	}
 	if (Cars > Moving)
 	{
 		UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic stops: %d stopped | in a dead-end branch=%d inside a junction=%d for a pedestrian or the player=%d behind a car=%d | at the lane end: no next lane=%d junction closed=%d junction open (no room after it)=%d plain lane=%d held at the map's edge (in sight)=%d | other=%d"),

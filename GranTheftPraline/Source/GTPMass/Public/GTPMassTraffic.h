@@ -138,6 +138,9 @@ private:
 
 	int32 StartedSpawners = 0;
 	int32 CountLogs = 0;
+	/** Counts (every 5 s) with a car within 50 m of the watch point (-TrafficWatchPoint, LogSimulatedCars). */
+	int32 WatchCounts = 0;
+	int32 WatchCountsWithCar = 0;
 	bool bViewPlaced = false;
 	bool bNetworkLogged = false;
 	/** HandleDeadEnds found the lane data and did its work (or none was asked). */

@@ -416,6 +416,17 @@ Blueprints d'affichage des voitures de City Sample sont retirés de nos copies (
 donc une voiture assez proche pour l'acteur haute résolution de MassTraffic n'en a pas (à confirmer
 par l'heure et les lignes qui la précèdent).
 
+Le critère « une voiture à moins de 50 m » doit prouver que le joueur voit du trafic là où il
+rencontre une chaussée. Il est donc mesuré à la première rue circulée que le joueur rencontre en
+montant vers le nord : la rue Childebert, une rue à sens unique que la rue de la République piétonne
+croise à 205 m du départ. Le point de mesure est sur la rue de la République, 5 m avant la voie de la
+rue Childebert (X 16100, Y 30820 cm, d'après la BD TOPO et nos voies ; `-TrafficWatchPoint=X,Y` le
+déplace). « MassTraffic watch point » donne, toutes les 5 s, les voitures à moins de 50 m de ce point
+(distance horizontale), la plus proche, et combien de relevés jusque-là en avaient au moins une.
+L'erreur « Template actor type -1 » est venue une fois, à 27 s, pendant que l'éditeur construisait
+encore les static meshes des voitures de City Sample (vehCar_vehicle03 et 07) ; le PC y voit un effet
+de l'éditeur à cache froid, à vérifier en package.
+
 ## Points ouverts
 
 - Près du joueur, MassTraffic peut confier une voiture à son véhicule physique : nos copies

@@ -372,6 +372,16 @@ actor type -1 is not referring to a valid type": the display Blueprints of City 
 out of our copies (they break the cook), so a car close enough for MassTraffic's high-resolution
 actor has none (to confirm by the time and the lines before it).
 
+The criterion "a car within 50 m" is meant to prove that the player sees traffic where they meet a
+carriageway, so it is measured at the first car street the player meets on the way north: rue
+Childebert, a one-way street that the pedestrian rue de la République crosses 205 m up from the
+start. The watch point is on rue de la République, 5 m short of rue Childebert's lane (X 16100,
+Y 30820 cm, from BD TOPO and our lanes; `-TrafficWatchPoint=X,Y` moves it). "MassTraffic watch
+point" gives, every 5 s, the cars within 50 m of it (horizontal distance), the nearest, and how many
+counts so far had at least one. The error "Template actor type -1" came once, 27 s in, while the
+editor was still building the static meshes of City Sample's cars (vehCar_vehicle03 and 07); the PC
+reads it as a cold-cache editor effect, to be checked in the package.
+
 ## Open points
 
 - Near the player MassTraffic may hand a car over to its physics vehicle: our copies name our cars
