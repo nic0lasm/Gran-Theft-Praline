@@ -47,7 +47,7 @@ private:
 	EResult CheckCarjack(FString& Detail);
 	EResult CheckChase(FString& Detail);
 	EResult CheckParked(FString& Detail);
-	EResult CheckAim(FString& Detail);
+	EResult CheckAim(FString& Detail, bool bClose);
 	EResult CheckShoot(FString& Detail);
 
 	FTSTicker::FDelegateHandle TickHandle;
@@ -67,6 +67,7 @@ private:
 	bool bParkedExitRequested = false;
 	bool bAimExitRequested = false;
 	double AimFirstReaction = -1.0;
+	TWeakObjectPtr<AActor> AimedBefore;
 	int32 ShotsFired = 0;
 	double NextShot = 0.0;
 	int32 ShotAttempts = 0;
