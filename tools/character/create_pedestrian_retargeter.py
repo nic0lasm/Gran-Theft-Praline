@@ -8,7 +8,8 @@ reference pose. This one is saved under /Game/MetaHumans/GTP (not versioned), so
 used by the pedestrians, target = the MetaHuman retarget rig, chains auto-mapped by name (fuzzy).
 Lines "RTG ...": the chain mapping, to check the arms and legs are mapped. Use it with
 -PlayerVisualRetargeter=/Game/MetaHumans/GTP/RTG_UEFNped_to_Metahuman.RTG_UEFNped_to_Metahuman
-Everything stays under /Game.
+Everything stays under /Game. An existing retargeter is not given its default ops again; the fix of the one made
+before that (three stacks, root motion on the pelvis) is tools/character/fix_player_retargeter.py.
 """
 import os
 
@@ -34,14 +35,26 @@ else:
 ctrl = unreal.IKRetargeterController.get_controller(asset)
 ctrl.set_ik_rig(unreal.RetargetSourceOrTarget.SOURCE, src)
 ctrl.set_ik_rig(unreal.RetargetSourceOrTarget.TARGET, tgt)
-# Since UE 5.6 the chain mapping lives in the ops: make sure the default ops exist first.
-for fn in ("add_default_ops", "add_default_op", "reset_ops_to_default", "add_default_retarget_ops"):
-    if hasattr(ctrl, fn):
-        try:
-            getattr(ctrl, fn)()
-            unreal.log("RTG %s done" % fn)
-        except Exception as err:
-            unreal.log("RTG %s failed: %s" % (fn, err))
+# Since UE 5.6 the chain mapping lives in the ops: the default ops, once. Added at each run, the stack ended up
+# there three times (2026-11-14: the body retargeted three times per frame).
+existing = ctrl.get_num_retarget_ops() if hasattr(ctrl, "get_num_retarget_ops") else 0
+if existing:
+    unreal.log("RTG %d ops already there, none added" % existing)
+else:
+    for fn in ("add_default_ops", "add_default_op", "reset_ops_to_default", "add_default_retarget_ops"):
+        if hasattr(ctrl, fn):
+            try:
+                getattr(ctrl, fn)()
+                unreal.log("RTG %s done" % fn)
+            except Exception as err:
+                unreal.log("RTG %s failed: %s" % (fn, err))
+# The default Root Motion op targets the pelvis (TargetRoot = pelvis): it put the body's pelvis on the ground. The
+# visual hangs from the pawn's mesh, moved by the movement component: no root motion of its own.
+if hasattr(ctrl, "get_op_name"):
+    for index in range(ctrl.get_num_retarget_ops()):
+        if str(ctrl.get_op_name(index)).startswith("Root Motion") and ctrl.get_retarget_op_enabled(index):
+            ctrl.set_retarget_op_enabled(index, False)
+            unreal.log("RTG op %d %s disabled" % (index, ctrl.get_op_name(index)))
 unreal.log("RTG controller op methods: %s" % ", ".join(sorted(m for m in dir(ctrl) if not m.startswith("_") and "op" in m)))
 for mode in ("EXACT", "FUZZY"):
     try:

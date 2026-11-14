@@ -375,6 +375,18 @@ maintenant sur les instances de la tête de Nicolito, celles qui posent déjà l
 (par défaut `Natural`) et `GTP_NICOLITO_HAIR` (par défaut aucun, crâne rasé), seulement là où la valeur par défaut du
 paramètre est du même genre (texture virtuelle ou non : l'autre ne compilerait pas). Ni groom ni liaison.
 
+Le pelvis, trouvé (14/11/2026, export texte du retargeter) : dans `RTG_UEFNped_to_Metahuman`, l'opération Root
+Motion a `TargetRoot = pelvis` (avec `SourceRoot = root`, `CopyFromSourceRoot`) : elle met le pelvis de la cible là
+où est la racine de la source, au sol. Et la pile d'opérations y est trois fois (Pelvis Motion, FK Chains, Run IK
+Rig, Root Motion, puis les mêmes suffixées `_0` et `_1`) : `create_pedestrian_retargeter.py` ajoutait les opérations
+par défaut à chaque passage, si bien que le corps était reciblé trois fois par image.
+`tools/character/fix_player_retargeter.py` corrige une copie, `RTG_UEFNped_to_Metahuman_Fixed` (le retargeter du jeu
+n'est pas touché avant la preuve) : les copies d'opérations sont retirées et Root Motion est désactivée (le visuel
+pend au maillage du pion, que le composant de mouvement déplace : le corps n'a pas besoin de mouvement de racine à
+lui). Essai avec `-PlayerVisualRetargeter=`, puis `PlayerVisualRetargeter` dans `DefaultGame.ini`.
+`create_pedestrian_retargeter.py` n'ajoute plus les opérations par défaut à un retargeter qui en a déjà, et désactive
+Root Motion.
+
 **Grooms (14/11/2026).** Kellan a six composants groom (cheveux, sourcils, cils, duvet, moustache, barbe), qui
 tickent tous dans le package pour un budget de 13 ms. La simulation des brins est coupée
 (`r.HairStrands.Simulation=0`). Le mode de jeu cache aussi, sans tick, les grooms dont le nom contient un mot de
