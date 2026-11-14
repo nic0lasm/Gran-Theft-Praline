@@ -357,6 +357,28 @@ fois hors de vue. « MassTraffic loops » compte les voitures qui ont rebouclé 
 à la vue du joueur (une voiture déjà passée la ligne quand l'entrée a fermé) ; « MassTraffic stops »
 compte les voitures « held at the map's edge ». `-NoLoopGuard` laisse les entrées ouvertes.
 
+## Candidat 36r : des carrefours qui laissent passer une file
+
+Relevé du PC pour 1225555 (fumée de 364 s, ZoneGraph de f8fc873) : 0 fatale, 0 erreur, 0
+`IntersectionDetail::Build` (51 avant). Voitures qui roulent : 85 à 30 s, 58 à 120 s, 45 à 300 s (32
+avec f8fc873, 26 avec 6fbd155) ; la plus proche à 50 m à 300 s. Sur les 75 voitures arrêtées, 64 sont
+derrière une autre voiture, 7 devant une voie de carrefour fermée, 4 au bout d'une voie simple : les
+files grossissent derrière les carrefours.
+
+Nos carrefours n'ont pas de feux, donc MassTraffic les gère comme des stops
+(`UMassTrafficUpdateIntersectionsProcessor`) : une période par côté, de 5 s
+(`StandardMinimumTrafficGoSeconds`), la voie se ferme dès que la première voiture y entre
+(`CloseLaneAndAllItsSplitLanes`), et la période suivante attend que le carrefour soit vide. Une voiture
+par côté et par tour, dans des carrefours qui font jusqu'à 45 m. À un carrefour à feux, la période
+reste ouverte tant que des voitures arrivent et finit plus tôt une fois le carrefour vide sans voiture
+en attente ; Small City a des feux à 106 de ses 172 carrefours.
+`UGTPMassTrafficSubsystem::LightJunctions`, une fois les entités de carrefour présentes (vérifié chaque
+seconde), donne ce comportement (`bHasTrafficLights`) à chaque carrefour construit comme un stop et
+fait durer ses périodes de côté 10 s (`-TrafficJunctionGoSeconds=<s>`). Les périodes restent celles
+que MassTraffic a construites, un côté à la fois, donc deux flux qui se croisent ne sont jamais
+ouverts ensemble ; aucun feu n'est dessiné. Journal « MassTraffic junctions: N of M junction(s) built
+as stop signs given traffic-light turns ». `-TrafficStopSigns` garde les stops.
+
 ## Points ouverts
 
 - Près du joueur, MassTraffic peut confier une voiture à son véhicule physique : nos copies
@@ -366,7 +388,7 @@ compte les voitures « held at the map's edge ». `-NoLoopGuard` laisse les entr
   peut lier MassTraffic).
 - `MassTrafficSubsystem::ClearAllTrafficLanes()` doit être appelée quand le dépeuplement d'un
   générateur est fini (README de Myxcil/MassTraffic-Test) : pas fait, on ne dépeuple pas encore.
-- Feux : MassTraffic cadence les siens mais n'en dessine aucun ; les nôtres (`GTPTrafficLights`) ne
-  sont pas synchronisés avec eux.
+- Feux : MassTraffic cadence les siens (tous les carrefours depuis le 36r) mais n'en dessine aucun ;
+  les nôtres (`GTPTrafficLights`) ne sont pas synchronisés avec eux.
 - Le joueur à pied n'est pas un obstacle de trafic (City Sample donne au joueur un agent Mass).
 - Passages aux feux (données de suivi de MassCrowd, voir le candidat 34) : pas fait.

@@ -101,6 +101,19 @@ private:
 	int32 MostEntriesHeld = 0;
 	FTimerHandle LoopTimer;
 	/**
+	 * Every second until MassTraffic's junction entities are there: our junctions have no traffic
+	 * lights, so MassTraffic runs them as stop signs, one car per side per turn (the lane closes as the
+	 * first car enters it) and each turn waits for the junction to be clear. They are given Epic's
+	 * traffic-light behaviour instead (bHasTrafficLights, as at 106 of Small City's 172 junctions):
+	 * a side stays open for 10 s (-TrafficJunctionGoSeconds=<s>) and lets every car through, and the
+	 * turn ends early once the junction is clear with no car waiting. No light is drawn: the periods
+	 * are those MassTraffic built, one per side. -TrafficStopSigns keeps the stop signs.
+	 */
+	void LightJunctions();
+	bool bJunctionsLit = false;
+	int32 LightTries = 0;
+	FTimerHandle LightTimer;
+	/**
 	 * Every second: a car in a branch that only leads to dead ends, or standing at the end of a lane
 	 * with no lane after it, out of the player's sight, is handed to MassTraffic's own recycling
 	 * (FMassTrafficRecyclableVehicleTag, the tag a repaired wreck gets), which moves it to a free

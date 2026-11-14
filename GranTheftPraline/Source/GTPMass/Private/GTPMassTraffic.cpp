@@ -96,6 +96,11 @@ void UGTPMassTrafficSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 		// Does nothing until LinkDeadEndsToEntries has linked a dead end.
 		InWorld.GetTimerManager().SetTimer(LoopTimer, FTimerDelegate::CreateUObject(this, &UGTPMassTrafficSubsystem::GuardLoops), 0.25f, true);
 	}
+	if (StartedSpawners > 0)
+	{
+		// The junction entities come with the first spawner's Mass commands: looked for every second.
+		InWorld.GetTimerManager().SetTimer(LightTimer, FTimerDelegate::CreateUObject(this, &UGTPMassTrafficSubsystem::LightJunctions), 1.f, true);
+	}
 #else
 	UE_LOG(LogGTPMassTraffic, Warning, TEXT("MassTraffic: -Traffic=mass but the plugin is not installed (Plugins/Traffic and Plugins/RuleProcessor from City Sample), legacy traffic kept"));
 #endif
@@ -767,6 +772,74 @@ void UGTPMassTrafficSubsystem::LinkDeadEndsToEntries()
 	LoopEntries = EntriesUsed;
 }
 
+void UGTPMassTrafficSubsystem::LightJunctions()
+{
+	UWorld* World = GetWorld();
+	UMassEntitySubsystem* Mass = World ? World->GetSubsystem<UMassEntitySubsystem>() : nullptr;
+	if (!World || !Mass || bJunctionsLit)
+	{
+		return;
+	}
+	if (FParse::Param(FCommandLine::Get(), TEXT("TrafficStopSigns")))
+	{
+		bJunctionsLit = true;
+		World->GetTimerManager().ClearTimer(LightTimer);
+		UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic junctions: left as stop signs (-TrafficStopSigns)"));
+		return;
+	}
+	float GoSeconds = 10.f;
+	FParse::Value(FCommandLine::Get(), TEXT("TrafficJunctionGoSeconds="), GoSeconds);
+	GoSeconds = FMath::Clamp(GoSeconds, 3.f, 60.f);
+	int32 Junctions = 0;
+	int32 AlreadyLit = 0;
+	int32 Lit = 0;
+	int32 SidePeriods = 0;
+	FMassEntityManager& Manager = Mass->GetMutableEntityManager();
+	FMassEntityQuery Query;
+	Query.Initialize(Manager.AsShared());
+	Query.AddRequirement<FMassTrafficIntersectionFragment>(EMassFragmentAccess::ReadWrite);
+	FMassExecutionContext Context(Manager, 0.f);
+	Query.ForEachEntityChunk(Context, [&](FMassExecutionContext& Chunk)
+	{
+		const TArrayView<FMassTrafficIntersectionFragment> Fragments = Chunk.GetMutableFragmentView<FMassTrafficIntersectionFragment>();
+		for (FMassTrafficIntersectionFragment& Junction : Fragments)
+		{
+			++Junctions;
+			if (Junction.bHasTrafficLights)
+			{
+				++AlreadyLit;
+				continue;
+			}
+			if (Junction.Periods.IsEmpty())
+			{
+				continue;
+			}
+			// Built as a stop sign: one period per side (Epic's StandardMinimumTrafficGoSeconds, 5 s),
+			// then one for the crossings. A side's period now lasts GoSeconds; MassTraffic's own
+			// traffic-light rule ends it sooner once the junction is clear and no car waits.
+			Junction.bHasTrafficLights = true;
+			++Lit;
+			for (FMassTrafficPeriod& Period : Junction.Periods)
+			{
+				if (!Period.VehicleLanes.IsEmpty() && static_cast<float>(Period.Duration) < GoSeconds)
+				{
+					Period.Duration = GoSeconds;
+					++SidePeriods;
+				}
+			}
+		}
+	});
+	++LightTries;
+	if (Junctions == 0 && LightTries < 30)
+	{
+		return;
+	}
+	bJunctionsLit = true;
+	World->GetTimerManager().ClearTimer(LightTimer);
+	UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic junctions: %d of %d junction(s) built as stop signs given traffic-light turns (%d side period(s) of %.0f s, ended early once the junction is clear with no car waiting; no light drawn), %d already lit; -TrafficStopSigns keeps the stop signs"),
+		Lit, Junctions, SidePeriods, GoSeconds, AlreadyLit);
+}
+
 void UGTPMassTrafficSubsystem::GuardLoops()
 {
 	UWorld* World = GetWorld();
@@ -1110,6 +1183,10 @@ void UGTPMassTrafficSubsystem::HandleDeadEnds()
 }
 
 void UGTPMassTrafficSubsystem::GuardLoops()
+{
+}
+
+void UGTPMassTrafficSubsystem::LightJunctions()
 {
 }
 

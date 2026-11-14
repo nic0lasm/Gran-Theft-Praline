@@ -319,6 +319,26 @@ out of sight. "MassTraffic loops" counts the cars that looped and those that did
 already past the line when the entry closed); "MassTraffic stops" counts the cars "held at the map's
 edge". `-NoLoopGuard` leaves the entries open.
 
+## Candidate 36r: junctions that let a queue through
+
+PC result of 1225555 (364 s smoke, ZoneGraph of f8fc873): 0 fatal, 0 error, 0 `IntersectionDetail::Build`
+(51 before). Cars moving: 85 at 30 s, 58 at 120 s, 45 at 300 s (32 with f8fc873, 26 with 6fbd155);
+nearest car 50 m at 300 s. Of the 75 stopped cars, 64 stand behind another car, 7 before a closed
+junction lane, 4 at a plain lane end: the queues grow behind the junctions.
+
+Our junctions have no traffic lights, so MassTraffic runs them as stop signs
+(`UMassTrafficUpdateIntersectionsProcessor`): one period per side, 5 s (`StandardMinimumTrafficGoSeconds`),
+the lane closes as the first car enters it (`CloseLaneAndAllItsSplitLanes`), and the next period
+waits for the junction to be clear. One car per side per turn, through junctions up to 45 m wide.
+At a junction with lights the period stays open while cars come and ends early once the junction
+is clear with no car waiting; Small City has lights at 106 of its 172 junctions.
+`UGTPMassTrafficSubsystem::LightJunctions`, once the junction entities are there (checked every
+second), gives every junction built as a stop sign that behaviour (`bHasTrafficLights`) and makes its
+side periods last 10 s (`-TrafficJunctionGoSeconds=<s>`). The periods stay those MassTraffic built,
+one side at a time, so no two crossing flows are open together; no light is drawn. Logged
+"MassTraffic junctions: N of M junction(s) built as stop signs given traffic-light turns".
+`-TrafficStopSigns` keeps the stop signs.
+
 ## Open points
 
 - Near the player MassTraffic may hand a car over to its physics vehicle: our copies name our cars
@@ -327,7 +347,7 @@ edge". `-NoLoopGuard` leaves the entries open.
   implement yet. To check on the PC, then to add (a subclass in GTPMass, which may link MassTraffic).
 - `MassTrafficSubsystem::ClearAllTrafficLanes()` must be called when a spawner's despawning
   finishes (README of Myxcil/MassTraffic-Test): not done, we never despawn yet.
-- Traffic lights: MassTraffic times its own but draws none; ours (`GTPTrafficLights`) are not in
-  step with them.
+- Traffic lights: MassTraffic times its own (every junction since 36r) but draws none; ours
+  (`GTPTrafficLights`) are not in step with them.
 - The player on foot is not a traffic obstacle (City Sample gives the player a Mass agent).
 - Crosswalks at traffic lights (MassCrowd's tracking data, see candidate 34): not done.
