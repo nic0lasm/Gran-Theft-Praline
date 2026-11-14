@@ -190,7 +190,8 @@ void UGTPThreatResponseComponent::Think(float Dt)
 		P.bThreatArmed = Subsystem->IsArmed();
 		P.DistanceToThreatCm = static_cast<float>(FVector::Dist(From, Head));
 		FString BlockedBy;
-		bool bAimed = GTPThreat::InAimCone(From.X, From.Y, From.Z, Aim.X, Aim.Y, Aim.Z, Head.X, Head.Y, Head.Z, AimRangeCm, AimHalfAngleDeg);
+		bool bAimed = GTPThreat::InAimCone(From.X, From.Y, From.Z, Aim.X, Aim.Y, Aim.Z, Head.X, Head.Y, Head.Z, AimRangeCm,
+			GTPThreat::AimHalfAngleAt(P.DistanceToThreatCm, AimHalfAngleDeg));
 		if (bAimed)
 		{
 			// Something solid in between: he is not in the line of fire.
@@ -209,7 +210,7 @@ void UGTPThreatResponseComponent::Think(float Dt)
 			LastAimLogTime = World->GetTimeSeconds();
 			const FVector ToMe = (Head - From).GetSafeNormal();
 			GTP_TRACE(LogGTPThreat, TEXT("threat: %s at %.0f cm not aimed: angle %.1f deg (cone %.0f), %s"), *Owner->GetName(), P.DistanceToThreatCm,
-				FMath::RadiansToDegrees(FMath::Acos(FMath::Clamp(static_cast<float>(FVector::DotProduct(ToMe, Aim.GetSafeNormal())), -1.f, 1.f))), AimHalfAngleDeg,
+				FMath::RadiansToDegrees(FMath::Acos(FMath::Clamp(static_cast<float>(FVector::DotProduct(ToMe, Aim.GetSafeNormal())), -1.f, 1.f))), GTPThreat::AimHalfAngleAt(P.DistanceToThreatCm, AimHalfAngleDeg),
 				BlockedBy.IsEmpty() ? TEXT("line of fire clear") : *FString::Printf(TEXT("blocked by %s"), *BlockedBy));
 		}
 	}

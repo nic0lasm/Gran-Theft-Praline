@@ -18,10 +18,10 @@ DEFINE_LOG_CATEGORY_STATIC(LogGTPGtaRun, Log, All);
 
 namespace
 {
-	constexpr int32 StepCount = 5;
-	const TCHAR* StepNames[StepCount] = { TEXT("carjack"), TEXT("chase"), TEXT("parked"), TEXT("aim"), TEXT("shoot") };
+	constexpr int32 StepCount = 6;
+	const TCHAR* StepNames[StepCount] = { TEXT("carjack"), TEXT("chase"), TEXT("parked"), TEXT("aim"), TEXT("aimclose"), TEXT("shoot") };
 	// Time limits (s) per step, counted from the step's start.
-	const double StepLimits[StepCount] = { 90.0, 170.0, 200.0, 60.0, 30.0 };
+	const double StepLimits[StepCount] = { 90.0, 170.0, 200.0, 60.0, 40.0, 30.0 };
 
 	APlayerController* FirstController(const UWorld* World)
 	{
@@ -107,7 +107,8 @@ bool UGTPGtaRun::Tick(float /*DeltaTime*/)
 	case 0: Result = CheckCarjack(Detail); break;
 	case 1: Result = CheckChase(Detail); break;
 	case 2: Result = CheckParked(Detail); break;
-	case 3: Result = CheckAim(Detail); break;
+	case 3: Result = CheckAim(Detail, false); break;
+	case 4: Result = CheckAim(Detail, true); break;
 	default: Result = CheckShoot(Detail); break;
 	}
 	if (Result == EResult::Pending && FPlatformTime::Seconds() - StepStart > StepLimits[Step])
@@ -211,7 +212,7 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckParked(FString& Detail)
 	return EResult::Pending;
 }
 
-UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail)
+UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail, bool bClose)
 {
 	// Hold-up: draw the weapon and aim at the nearest pedestrian; somebody must raise his hands or run.
 	UWorld* World = GetWorld();
@@ -256,7 +257,7 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail)
 	{
 		const FVector Where = It->GetActorLocation();
 		const double Distance = FVector::Dist(Where, Character->GetActorLocation());
-		if (Where.Z <= -50000.0 || Distance >= Best)
+		if (Where.Z <= -50000.0 || Distance >= Best || (bClose && *It == AimedBefore.Get()))
 		{
 			continue;
 		}
@@ -289,11 +290,13 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail)
 	// Hold-up range is under 10 m: walk up to the person first (the aim cone and the fear both grow with closeness).
 	// Stop at about 4 m (an aim from the shoulder camera misses somebody closer than 2 m), back off if too close.
 	const FVector ToVictim = (Victim->GetActorLocation() - Character->GetActorLocation()).GetSafeNormal2D();
-	if (Best > 450.0)
+	const double StopCm = bClose ? 120.0 : 450.0;
+	const double BackCm = bClose ? 70.0 : 250.0;
+	if (Best > StopCm)
 	{
 		Character->AddMovementInput(ToVictim, 1.f);
 	}
-	else if (Best < 250.0)
+	else if (Best < BackCm)
 	{
 		Character->AddMovementInput(-ToVictim, 1.f);
 	}
@@ -334,11 +337,15 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail)
 		AimFirstReaction = Now;
 	}
 	const bool bSettled = AimFirstReaction >= 0.0 && Now - AimFirstReaction >= 3.0;
-	Detail = FString::Printf(TEXT("aiming at %s (%.0f cm): %d hands up (%d compliant or frozen), %d fleeing, %d alarmed%s"),
-		*Victim->GetName(), Best, Hands, Obedient, Fleeing, Alarmed, bSettled ? TEXT(", settled") : TEXT(""));
+	Detail = FString::Printf(TEXT("%saiming at %s (%.0f cm): %d hands up (%d compliant or frozen), %d fleeing, %d alarmed%s"),
+		bClose ? TEXT("close, ") : TEXT(""), *Victim->GetName(), Best, Hands, Obedient, Fleeing, Alarmed, bSettled ? TEXT(", settled") : TEXT(""));
 	if (bSettled && Obedient > 0)
 	{
 		Threat->ClearThreat();
+		if (!bClose)
+		{
+			AimedBefore = Victim;
+		}
 		return EResult::Ok;
 	}
 	return EResult::Pending;

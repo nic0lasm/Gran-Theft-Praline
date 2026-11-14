@@ -242,6 +242,19 @@ inline float SpreadFear(const FBrain& B)
 	return (B.State == EState::Calm || B.State == EState::Down) ? 0.f : B.Fear;
 }
 
+/**
+ * Half angle of the aim cone by distance: a gun held on somebody close is aimed at him even when the camera
+ * looks a little beside (over the shoulder, the eyes are not the barrel). BaseDeg beyond FarCm, CloseDeg
+ * within NearCm, linear between.
+ */
+inline float AimHalfAngleAt(float DistanceCm, float BaseDeg, float CloseDeg = 35.f, float NearCm = 100.f, float FarCm = 300.f)
+{
+	if (DistanceCm >= FarCm) return BaseDeg;
+	if (DistanceCm <= NearCm) return std::max(BaseDeg, CloseDeg);
+	const float T = (DistanceCm - NearCm) / (FarCm - NearCm);
+	return std::max(BaseDeg, CloseDeg + (BaseDeg - CloseDeg) * T);
+}
+
 /** Aim cone test: is the point inside the cone around Aim (unit, 2D+z free) from Origin. */
 inline bool InAimCone(float OriginX, float OriginY, float OriginZ, float AimX, float AimY, float AimZ,
 	float PX, float PY, float PZ, float RangeCm, float HalfAngleDeg)
