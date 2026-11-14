@@ -26,4 +26,13 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "GTP|Editor")
 	static FString AddUpperBodyLayer(UAnimBlueprint* AnimBlueprint, FName SlotName, FName RootBone);
+
+	/**
+	 * Sets the bone of every "SourceRoot" in the retarget ops of an IK retargeter (the Root Motion op) to Bone, in
+	 * the asset itself through reflection, as the details panel does: on 5.8 the op controller's set_settings does
+	 * not keep a changed bone. Takes the retargeter as a plain object (no IK Rig module needed). Returns a one-line
+	 * report ("ok", "kept" or "error", with the bones before). The caller saves the retargeter.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "GTP|Editor")
+	static FString SetRetargetSourceRoot(UObject* Retargeter, FName Bone);
 };
