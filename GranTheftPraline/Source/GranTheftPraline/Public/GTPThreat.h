@@ -124,6 +124,11 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Threat")
 	EGTPThreatState GetState() const { return static_cast<EGTPThreatState>(static_cast<int32>(Brain.State)); }
 
+	/** Diagnostics: seconds in the current state, seconds since any threat, fear of the people around. */
+	float GetStateTime() const { return Brain.StateTime; }
+	float GetSinceThreat() const { return Brain.SinceThreat; }
+	float GetLastNearbyFear() const { return LastNearbyFear; }
+
 	/** Fear, 0..1. */
 	UFUNCTION(BlueprintPure, Category = "Threat")
 	float GetFear() const { return Brain.Fear; }
@@ -171,6 +176,7 @@ protected:
 
 private:
 	double LastAimLogTime = -10.0;
+	float LastNearbyFear = 0.f;
 	void Think(float Dt);
 	void OnStateChanged(GTPThreat::EState Old, GTPThreat::EState New);
 	void OnHitReaction(EGTPHitReaction Reaction, const FGTPHitInfo& Hit, AActor* Body);

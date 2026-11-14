@@ -221,6 +221,7 @@ void UGTPThreatResponseComponent::Think(float Dt)
 		P.bShotNearby = !P.bShotAtMe && FVector::Dist(Subsystem->GetLastShotFrom(), Me) <= Settings.ShotRadiusCm;
 	}
 	P.NearbyFear = Subsystem->NearbyFear(this, Me, Settings.ContagionRadiusCm);
+	LastNearbyFear = P.NearbyFear;
 
 	const GTPThreat::EState Old = Brain.State;
 	GTPThreat::Step(Brain, P, Dt, Settings);

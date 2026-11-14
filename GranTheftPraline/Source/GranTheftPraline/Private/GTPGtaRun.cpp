@@ -348,6 +348,23 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail, bool bClose)
 		AimFirstReaction = Now;
 	}
 	const bool bSettled = AimFirstReaction >= 0.0 && Now - AimFirstReaction >= 3.0;
+	// Every 5 s: why the runners still run (state time, fear, time since any threat, fear around them).
+	static double LastFearLog = -10.0;
+	if (Now - LastFearLog > 5.0)
+	{
+		LastFearLog = Now;
+		int32 Logged = 0;
+		for (TActorIterator<AGTPPedestrian> It(World); It && Logged < 4; ++It)
+		{
+			const UGTPThreatResponseComponent* Fear = It->FindComponentByClass<UGTPThreatResponseComponent>();
+			if (Fear && Fear->GetState() == EGTPThreatState::Fleeing && It->GetActorLocation().Z > -50000.0)
+			{
+				++Logged;
+				GTP_TRACE(LogGTPGtaRun, TEXT("GTARun fear: %s fleeing %.1f s, fear %.2f, no threat for %.1f s, fear around %.2f, temperament %d"),
+					*It->GetName(), Fear->GetStateTime(), Fear->GetFear(), Fear->GetSinceThreat(), Fear->GetLastNearbyFear(), static_cast<int32>(Fear->GetTemperament()));
+			}
+		}
+	}
 	Detail = FString::Printf(TEXT("%saiming at %s (%.0f cm): %d hands up (%d compliant or frozen), %d fleeing, %d alarmed%s"),
 		bClose ? TEXT("close, ") : TEXT(""), *Victim->GetName(), Best, Hands, Obedient, Fleeing, Alarmed, bSettled ? TEXT(", settled") : TEXT(""));
 	if (bInRange && bSettled && Obedient > 0)
