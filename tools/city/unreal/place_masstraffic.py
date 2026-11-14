@@ -163,7 +163,7 @@ def _dependencies(registry, package, hard):
     return [str(d) for d in registry.get_dependencies(package, options) or []]
 
 
-def cook_risk(packages, limit=5000, why=None):
+def cook_risk(packages, limit=5000, why=None, stop=()):
     """Dependencies of packages, recursively, hard and soft (the cook follows both), that are
     missing or match COOK_RISK. Engine and script packages are left out. With a dict why, each risk
     also gets the chain that pulls it in, root first ("a > b > c", "~>" for a soft link): the
@@ -178,7 +178,7 @@ def cook_risk(packages, limit=5000, why=None):
         seen.add(current)
         for hard in (True, False):
             for dep in _dependencies(registry, current, hard):
-                if dep.startswith(("/Script/", "/Engine/", "/Temp/")) or dep in seen or dep in parent:
+                if dep.startswith(("/Script/", "/Engine/", "/Temp/")) or dep in seen or dep in parent or dep in stop:
                     continue
                 parent[dep] = (current, hard)
                 if not unreal.EditorAssetLibrary.does_asset_exist(dep):
@@ -301,10 +301,10 @@ def our_car_class(text):
     return "/Script/Engine.BlueprintGeneratedClass'%s.BP_GTP_%s_C'" % (path, name)
 
 
-def repoint(text, copied, risk_cache, record, hint=""):
+def repoint(text, copied, risk_cache, record, hint="", unsafe=()):
     """text with every /Game reference re-pointed (see above). record(kind, before, after). hint:
     the path of the object the text belongs to (its car number names our car when the text has
-    none)."""
+    none). unsafe: copies of ours that still have cook risks of their own (references to them go)."""
     def physics(match):
         value = match.group("v")
         # City Sample's configs leave it empty (MassTraffic then keeps the cars at its lowest
@@ -325,10 +325,14 @@ def repoint(text, copied, risk_cache, record, hint=""):
     def one(match):
         path = match.group("wpath") or match.group("bare")
         package = path.split(".")[0].split(":")[0]
+        target = copied.get(package, package)
+        if target in unsafe:
+            record("removed (our copy %s keeps cook risks)" % target, path, "None")
+            return "None" if match.group("wrapped") else ""
         if package.startswith(OUR_CARS + "/") or package.startswith(OUT_DIR + "/"):
             return match.group(0)
         if package in copied:
-            new_path = copied[package] + path[len(package):]
+            new_path = target + path[len(package):]
             record("copy", path, new_path)
             return match.group(0).replace(path, new_path)
         if package not in risk_cache:
@@ -425,48 +429,73 @@ def copy_traffic(report):
         else:
             copy["copied"].append(target)
     risk_cache = {}
-    removed = 0
-    for package, target in sorted(mapping.items()):
-        if not eal.does_asset_exist(target):
-            continue
-        dump = describe(target)
-        if not isinstance(dump, dict):
-            report["errors"].append("%s: %s" % (target, dump))
-            continue
-        todo = [dump]
-        while todo:
-            item = todo.pop()
-            todo += item.get("subobjects", [])
-            for name, text in item.get("properties", {}).items():
-                if "/Game/" not in text and "PhysicsVehicleTemplateActor" not in text and "LODRepresentation" not in text:
-                    continue
-                if text.endswith("..."):
-                    copy["too_long"].append("%s.%s" % (item["path"], name))
-                    continue
-                changes = []
-                new = repoint(text, mapping, risk_cache, lambda kind, a, b: changes.append((kind, a, b)), hint=item["path"])
-                if new == text:
-                    continue
-                error = tool.set_property_text(item["path"], name, new)
-                if error:
-                    copy["set_errors"].append("%s.%s: %s" % (item["path"], name, error))
-                for kind, before, after in changes:
-                    removed += after == "None"
-                    if len(copy["changes"]) < 400:
-                        copy["changes"].append({"object": item["path"], "property": name, "kind": kind, "from": before, "to": after})
-        eal.save_asset(target, only_if_is_dirty=False)
-    copy["removed"] = removed
+    copy["removed"] = 0
+
+    def note(item, name, changes):
+        for kind, before, after in changes:
+            copy["removed"] += after == "None"
+            if len(copy["changes"]) < 400:
+                copy["changes"].append({"object": item["path"], "property": name, "kind": kind, "from": before, "to": after})
+
+    def repoint_copies(unsafe):
+        for target in sorted(mapping.values()):
+            if not eal.does_asset_exist(target):
+                continue
+            dump = describe(target)
+            if not isinstance(dump, dict):
+                report["errors"].append("%s: %s" % (target, dump))
+                continue
+            todo = [dump]
+            while todo:
+                item = todo.pop()
+                todo += item.get("subobjects", [])
+                properties = item.get("properties", {})
+                for name, text in properties.items():
+                    if "/Game/" not in text and "LODRepresentation" not in text:
+                        continue
+                    if text.endswith("..."):
+                        copy["too_long"].append("%s.%s" % (item["path"], name))
+                        continue
+                    changes = []
+                    new = repoint(text, mapping, risk_cache, lambda kind, a, b: changes.append((kind, a, b)),
+                                  hint=item["path"], unsafe=unsafe)
+                    if new == text:
+                        continue
+                    error = tool.set_property_text(item["path"], name, new)
+                    if error:
+                        copy["set_errors"].append("%s.%s: %s" % (item["path"], name, error))
+                    note(item, name, changes)
+                # The physics vehicle: City Sample leaves it empty, and an empty member is not even
+                # in the exported text, so it is set by name. Our car of the config's number.
+                if item.get("class", "").endswith(".MassTrafficVehicleSimulationTrait") and OUR_CARS not in properties.get("Params", ""):
+                    ours = our_car_class(item["path"]) or our_car_class("vehicle02")
+                    if ours:
+                        error = tool.set_property_text(item["path"], "Params.PhysicsVehicleTemplateActor", ours)
+                        if error:
+                            copy["set_errors"].append("%s.Params.PhysicsVehicleTemplateActor: %s" % (item["path"], error))
+                        else:
+                            note(item, "Params.PhysicsVehicleTemplateActor", [("physics car", "None", ours)])
+            eal.save_asset(target, only_if_is_dirty=False)
+
+    repoint_copies(set())
+    # A copy can keep cook risks of its own (City Sample's light types point at street lamp meshes
+    # it does not have): references to it go too, in a second pass.
+    targets = set(mapping.values())
+    unsafe = {t for t in targets if cook_risk([t], limit=2000, stop=targets - {t})}
+    copy["unsafe_copies"] = sorted(unsafe)
+    if unsafe:
+        repoint_copies(unsafe)
     why = {}
-    copy["cook_risk"] = cook_risk(sorted(mapping.values()), why=why)
+    copy["cook_risk"] = cook_risk(sorted(targets - unsafe), why=why)
     copy["cook_risk_why"] = why
 
     def object_path(package):
         return "%s.%s" % (package, package.rsplit("/", 1)[1])
 
-    lights = [t for t in mapping.values() if "TrafficLightTypes" in t]
+    lights = [t for t in mapping.values() if "TrafficLightTypes" in t and t not in unsafe]
     return {
         "spawners": {name: mapping[path] for name, path in sources.items()},
-        "vehicle_types": [(object_path(mapping[p]), w) for p, w in types if p in mapping],
+        "vehicle_types": [(object_path(mapping[p]), w) for p, w in types if p in mapping and mapping[p] not in unsafe],
         "light_types": object_path(lights[0]) if lights else None,
     }
 
