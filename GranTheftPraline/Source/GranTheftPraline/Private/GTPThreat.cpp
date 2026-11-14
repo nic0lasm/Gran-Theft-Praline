@@ -189,6 +189,7 @@ void UGTPThreatResponseComponent::Think(float Dt)
 		const FVector Aim = Subsystem->GetAim();
 		P.bThreatArmed = Subsystem->IsArmed();
 		P.DistanceToThreatCm = static_cast<float>(FVector::Dist(From, Head));
+		FString BlockedBy;
 		bool bAimed = GTPThreat::InAimCone(From.X, From.Y, From.Z, Aim.X, Aim.Y, Aim.Z, Head.X, Head.Y, Head.Z, AimRangeCm, AimHalfAngleDeg);
 		if (bAimed)
 		{
@@ -198,9 +199,19 @@ void UGTPThreatResponseComponent::Think(float Dt)
 			if (World->LineTraceSingleByChannel(Hit, From, Head, ECC_Visibility, Params) && Hit.GetActor() != Owner)
 			{
 				bAimed = false;
+				BlockedBy = Hit.GetActor() ? Hit.GetActor()->GetName() : FString(TEXT("(no actor)"));
 			}
 		}
 		P.bAimedAt = bAimed;
+		// Diagnostic for hold-up tests: why a close person is not counted as aimed at (once per 2 s per person).
+		if (!bAimed && P.bThreatArmed && P.DistanceToThreatCm < 800.f && World->GetTimeSeconds() - LastAimLogTime > 2.0)
+		{
+			LastAimLogTime = World->GetTimeSeconds();
+			const FVector ToMe = (Head - From).GetSafeNormal();
+			GTP_TRACE(LogGTPThreat, TEXT("threat: %s at %.0f cm not aimed: angle %.1f deg (cone %.0f), %s"), *Owner->GetName(), P.DistanceToThreatCm,
+				FMath::RadiansToDegrees(FMath::Acos(FMath::Clamp(static_cast<float>(FVector::DotProduct(ToMe, Aim.GetSafeNormal())), -1.f, 1.f))), AimHalfAngleDeg,
+				BlockedBy.IsEmpty() ? TEXT("line of fire clear") : *FString::Printf(TEXT("blocked by %s"), *BlockedBy));
+		}
 	}
 	if (Subsystem->GetShotSerial() != SeenShotSerial)
 	{
