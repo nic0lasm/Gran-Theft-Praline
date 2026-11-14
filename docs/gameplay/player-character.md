@@ -259,6 +259,19 @@ hides the player (pawn and the visual attached to it) and the HUD while the port
 at the end, and logs for each image the view target at the shot (`ours` or `NOT OURS`) with the camera distance
 and FOV. Measured on that run: the pack's normal-weight male body faces +Y in its mesh, like the mannequin.
 
+**Assembly (ready, waits for the choice).** `tools/character/create_nicolito_visual.py` (editor, game module built;
+`GTP_NICOLITO_HEAD=m_00N`) copies BP_Kellan, never touched, to `/Game/MetaHumans/GTP/Nicolito/BP_Nicolito` and puts
+the chosen head on its `Face` component, without Kellan's material overrides; Kellan's body, outfit, retarget and
+grooms handling stay, his grooms are emptied (bound to his face; the game mode hides a groom without an asset).
+`GTP_NICOLITO_MODE=full` also puts the crowd's normal-weight male body and outfit (`BP_Nicolito_Full`), saved only
+if that body has the skeleton of the body's retarget blueprint. The face keeps Kellan's face animation only if the
+new head has the skeleton it was made for; otherwise the game mode makes the face follow the body's head and neck
+(log: `Face has no animation of its own`). The C++ side is `UGTPAnimGraphTools::DescribeBlueprintComponents` and
+`SetBlueprintComponentAsset` (construction script templates, set as the details panel does). Report in
+`Saved/GTPCombat/nicolito-visual.txt`; trial with `-PlayerVisual=/Game/MetaHumans/GTP/Nicolito/BP_Nicolito.BP_Nicolito_C`,
+then `PlayerVisualClass` once a capture shows it right. Nicolito is bald until his hair is chosen, and the neck
+shows whether Kellan's body skin matches the new face (otherwise `full`).
+
 **Grooms (2026-11-14).** Kellan has six groom components (hair, eyebrows, eyelashes, peach fuzz, moustache, beard),
 each ticking in the package against a 13 ms budget. Strand simulation is off (`r.HairStrands.Simulation=0`). The
 game mode also hides, without tick, the grooms whose name contains a word of `PlayerGroomsHidden` (`Fuzz`,
