@@ -51,6 +51,8 @@ GROOM_DIR = OUT_DIR + "/Grooms"
 MATERIAL_DIR = OUT_DIR + "/Materials"
 SKIN_PARAMETER = "AtlasSelector"
 SKIN_TILES = 12
+# PlayerVisualRetargeter in DefaultGame.ini: the body's runtime retarget from the pawn's mannequin.
+RETARGETER = "/Game/MetaHumans/GTP/RTG_UEFNped_to_Metahuman"
 
 eal = unreal.EditorAssetLibrary
 lines = []
@@ -132,9 +134,28 @@ def dump_material(label, path):
         say("    %s: %s" % (kind, "; ".join(values) or "-"))
 
 
+def mesh_sections(mesh):
+    """LOD 0 sections of a skeletal mesh as 'index:material slot', '?' when not readable."""
+    try:
+        subsystem = unreal.get_editor_subsystem(unreal.SkeletalMeshEditorSubsystem)
+        count = subsystem.get_num_sections(mesh, 0)
+        names = [str(slot.get_editor_property("material_slot_name")) for slot in mesh.get_editor_property("materials")]
+        found = []
+        for section in range(count):
+            slot = subsystem.get_lod_material_slot(mesh, 0, section)
+            found.append("%d:%s" % (section, names[slot] if 0 <= slot < len(names) else slot))
+        return ", ".join(found)
+    except Exception as error:  # noqa: BLE001 (a diagnosis only)
+        return "? (%r)" % (error,)
+
+
 def rebind(bp, component, fields, face, head, kellan_face_path):
-    """Puts Kellan's groom of that component back with a binding to the new face (MetaHuman faces share one
-    topology: the binding transfers the groom from the face it was made on). A failure leaves it empty."""
+    """Puts Kellan's groom of that component back with a binding to the new face. MetaHuman grooms are made on the
+    archetype head; a MetaHuman's binding transfers them from it (its source mesh) to that MetaHuman's face (its
+    target). Transferring from Kellan's face (the old target) left the eyebrows invisible (maybe because the matching
+    section 0 of his simplified face is not the head: the report lists both faces' sections). So: from the old
+    binding's source when it has one, else no transfer (the roots are projected onto the new face as they are),
+    under a new name. A failure leaves the groom empty."""
     groom_path = fields.get("GroomAsset", "-")
     if groom_path == "-":
         say("  %s: no groom in BP_Kellan" % component)
@@ -151,31 +172,40 @@ def rebind(bp, component, fields, face, head, kellan_face_path):
         return
     groom = unreal.load_asset(groom_path)
     old_binding = unreal.load_asset(fields["BindingAsset"]) if fields.get("BindingAsset", "-") != "-" else None
-    source_mesh = None
-    for prop in ("target_skeletal_mesh", "source_skeletal_mesh"):
-        if source_mesh is None and old_binding is not None:
-            try:
-                source_mesh = old_binding.get_editor_property(prop)
-            except Exception:  # noqa: BLE001 (not exposed on this engine)
-                source_mesh = None
-    if source_mesh is None and kellan_face_path != "-":
-        source_mesh = unreal.load_asset(kellan_face_path)
-    package = "%s/%s_%s_Binding" % (GROOM_DIR, groom.get_name(), head)
+    old = {}
+    for prop in ("source_skeletal_mesh", "target_skeletal_mesh", "num_interpolation_points", "matching_section"):
+        try:
+            old[prop] = old_binding.get_editor_property(prop) if old_binding is not None else None
+        except Exception:  # noqa: BLE001 (not exposed on this engine)
+            old[prop] = "?"
+    for prop in ("source_skeletal_mesh", "target_skeletal_mesh"):
+        mesh = old[prop]
+        if hasattr(mesh, "get_name"):
+            say("  %s: Kellan's binding %s %s, LOD 0 sections %s" % (component, prop, mesh.get_path_name(), mesh_sections(mesh)))
+        else:
+            say("  %s: Kellan's binding %s %s" % (component, prop, mesh))
+    say("  %s: Kellan's binding interpolation points %s, matching section %s; new face LOD 0 sections %s" % (
+        component, old["num_interpolation_points"], old["matching_section"], mesh_sections(face)))
+    source_mesh = old["source_skeletal_mesh"] if hasattr(old["source_skeletal_mesh"], "get_name") else None
+    points = old["num_interpolation_points"] if isinstance(old["num_interpolation_points"], int) else 100
+    section = old["matching_section"] if isinstance(old["matching_section"], int) else 0
+    package = "%s/%s_%s_%s_Binding" % (GROOM_DIR, groom.get_name(), head,
+                                       "from_" + source_mesh.get_name() if source_mesh else "direct")
     if eal.does_asset_exist(package):
         binding = eal.load_asset(package)
         say("  %s: binding %s reused" % (component, package))
     else:
         try:
-            binding = create(package, groom, face, 100, source_mesh, 0)
+            binding = create(package, groom, face, points, source_mesh, section)
         except Exception as error:  # noqa: BLE001 (reported, the groom stays empty)
             say("  %s NOT BOUND: binding not created (%r), left empty" % (component, error))
             return
         if binding is None:
             say("  %s NOT BOUND: no binding returned, left empty" % component)
             return
-        say("  %s: binding %s created (groom %s, on %s, transferred from %s), saved %s" % (
-            component, package, groom.get_name(), face.get_name(), source_mesh.get_name() if source_mesh else "nothing",
-            eal.save_loaded_asset(binding, False)))
+        say("  %s: binding %s created (groom %s, on %s, transferred from %s, %d points, section %d), saved %s" % (
+            component, package, groom.get_name(), face.get_name(), source_mesh.get_name() if source_mesh else "nothing (direct)",
+            points, section, eal.save_loaded_asset(binding, False)))
     set_asset(bp, component, "GroomAsset", groom)
     set_asset(bp, component, "BindingAsset", binding)
 
@@ -305,21 +335,76 @@ def describe_rig(label, mesh, against, against_label):
     skeleton = mesh_skeleton(mesh)
     own = bone_names(skeleton) if skeleton else set()
     missing = sorted(own - against) if own and against else []
+    say("  %s %s: skeleton %s, %d bones, %d not in %s%s" % (
+        label, mesh.get_name(), skeleton.get_name() if skeleton else "none", len(own), len(missing), against_label,
+        (": " + ", ".join(missing[:80]) + (" ..." if len(missing) > 80 else "")) if missing else ""))
     details = []
     for prop in ("mesh_clothing_assets", "post_process_anim_blueprint"):
         try:
             value = mesh.get_editor_property(prop)
-        except Exception:  # noqa: BLE001 (not exposed on this engine)
-            value = "?"
-        if prop == "mesh_clothing_assets" and value != "?":
-            value = "%d (%s)" % (len(value), ", ".join(item.get_name() for item in value if item) or "-")
-        elif hasattr(value, "get_name"):
-            value = value.get_name()
+            if prop == "mesh_clothing_assets":
+                names = [item.get_name() for item in list(value) if item]
+                value = "%d (%s)" % (len(names), ", ".join(names) or "-")
+            elif hasattr(value, "get_name"):
+                value = value.get_name()
+        except Exception as error:  # noqa: BLE001 (not exposed on this engine)
+            value = "? (%s)" % type(error).__name__
         details.append("%s=%s" % (prop, value or "-"))
-    say("  %s %s: skeleton %s, %d bones, %d not in %s%s; %s" % (
-        label, mesh.get_name(), skeleton.get_name() if skeleton else "none", len(own), len(missing), against_label,
-        (": " + ", ".join(missing[:60]) + (" ..." if len(missing) > 60 else "")) if missing else "",
-        "; ".join(details)))
+    say("    %s" % "; ".join(details))
+
+
+def bone_of(value):
+    """A bone name from a BoneReference, a Name or a string."""
+    for read in (lambda: value.get_editor_property("bone_name"), lambda: value):
+        try:
+            return str(read())
+        except Exception:  # noqa: BLE001 (the other way)
+            pass
+    return "?"
+
+
+def describe_retarget(body_bones):
+    """The bones the player's retarget writes on the body (its target IK rig's root and chains), and those the crowd
+    body's skeleton lacks: a target missing them is not retargeted and stays in its reference pose."""
+    retargeter = unreal.load_asset(RETARGETER) if eal.does_asset_exist(RETARGETER) else None
+    if retargeter is None:
+        say("  retargeter %s not found" % RETARGETER)
+        return
+    rig = None
+    try:
+        rig = unreal.IKRetargeterController.get_controller(retargeter).get_ik_rig(unreal.RetargetSourceOrTarget.TARGET)
+    except Exception:  # noqa: BLE001 (the property instead)
+        pass
+    if rig is None:
+        try:
+            rig = retargeter.get_editor_property("target_ik_rig_asset")
+        except Exception as error:  # noqa: BLE001 (reported)
+            say("  retargeter %s: target IK rig not read (%r)" % (retargeter.get_name(), error))
+            return
+    if rig is None:
+        say("  retargeter %s has no target IK rig" % retargeter.get_name())
+        return
+    controller = unreal.IKRigController.get_controller(rig)
+    used = []
+    try:
+        used.append(("root", str(controller.get_retarget_root())))
+    except Exception:  # noqa: BLE001 (not exposed)
+        pass
+    try:
+        for chain in controller.get_retarget_chains():
+            name = bone_of(chain.get_editor_property("chain_name"))
+            used.append((name + " start", bone_of(chain.get_editor_property("start_bone"))))
+            used.append((name + " end", bone_of(chain.get_editor_property("end_bone"))))
+    except Exception as error:  # noqa: BLE001 (reported)
+        say("  IK rig %s: chains not read (%r)" % (rig.get_name(), error))
+    try:
+        mesh = controller.get_skeletal_mesh()
+    except Exception:  # noqa: BLE001 (not exposed)
+        mesh = None
+    lacking = ["%s=%s" % (label, bone) for label, bone in used if bone not in ("?", "None", "") and bone not in body_bones]
+    say("  retargeter %s, target IK rig %s (made on %s): %d bones used, %d not in the crowd body's skeleton%s" % (
+        retargeter.get_name(), rig.get_name(), mesh.get_name() if mesh else "?", len(used), len(lacking),
+        (": " + ", ".join(lacking)) if lacking else ""))
 
 
 def main():
@@ -435,6 +520,10 @@ def main():
             body_skeleton = mesh_skeleton(body_mesh) if body_mesh else None
             body_bones = bone_names(body_skeleton) if body_skeleton else set()
             say("  crowd body skeleton %s: %d bones" % (body_skeleton.get_name() if body_skeleton else "not read", len(body_bones)))
+            try:
+                describe_retarget(body_bones)
+            except Exception as error:  # noqa: BLE001 (the garments are still described)
+                say("  retarget not described (%r)" % (error,))
             kellan_body = load_mesh(source.get("Body", {}).get("mesh", "-"))
             if kellan_body:
                 # The retarget was set up on Kellan's body: bones of his skeleton the crowd body lacks can stop it.

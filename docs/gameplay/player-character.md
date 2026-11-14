@@ -311,6 +311,14 @@ post-process blueprint, and the crowd garments that fit this body (`GTP_NICOLITO
 The tile order in the atlas (row by row from the top left, or otherwise) is not proven: the first run keeps the
 head's own tile, the tone of the portraits the project lead chose from.
 
+Second `full` run (2026-11-14, fixed light with `-DayNight=0`): face and hands now the same tone, but tile 3 is a
+medium tanned brown, not the white man asked for; the eyebrows' binding was created (transferred from Kellan's face)
+yet they do not show; the panel and the A pose remain; the diagnosis stopped on the cloth list. Next run: light skin
+(`GTP_NICOLITO_SKIN=1`, which also tells the tile order: light if row by row), the eyebrows transferred from the
+source mesh of Kellan's binding (the head the groom was made on) or projected directly, under a new name, with both
+faces' LOD 0 sections in the report; the diagnosis prints the bones first and also lists the bones the player's
+retarget writes (`RTG_UEFNped_to_Metahuman`, its target IK rig's root and chains) that the crowd body lacks.
+
 **Grooms (2026-11-14).** Kellan has six groom components (hair, eyebrows, eyelashes, peach fuzz, moustache, beard),
 each ticking in the package against a 13 ms budget. Strand simulation is off (`r.HairStrands.Simulation=0`). The
 game mode also hides, without tick, the grooms whose name contains a word of `PlayerGroomsHidden` (`Fuzz`,

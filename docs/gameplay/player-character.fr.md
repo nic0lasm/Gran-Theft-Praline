@@ -331,6 +331,15 @@ post-traitement, et les vêtements de foule qui vont à ce corps (`GTP_NICOLITO_
 L'ordre des tuiles dans l'atlas (rangée par rangée depuis le coin haut gauche, ou autre) n'est pas prouvé : le
 premier passage garde la tuile propre de la tête, la teinte des portraits sur lesquels Nico a choisi.
 
+Second passage `full` (14/11/2026, lumière fixe avec `-DayNight=0`) : visage et mains ont maintenant la même
+teinte, mais la tuile 3 est un brun moyen hâlé, pas l'homme blanc demandé ; la liaison des sourcils a été créée
+(transférée depuis le visage de Kellan) mais ils ne se voient pas ; le pan et la pose A restent ; le diagnostic
+s'est arrêté sur la liste des tissus. Passage suivant : peau claire (`GTP_NICOLITO_SKIN=1`, qui dit aussi l'ordre des
+tuiles : clair si rangée par rangée), sourcils transférés depuis le maillage source de la liaison de Kellan (la tête
+sur laquelle le groom a été fait) ou projetés directement, sous un nouveau nom, avec les sections du LOD 0 des deux
+visages dans le rapport ; le diagnostic écrit d'abord les os et liste aussi les os qu'écrit le reciblage du joueur
+(`RTG_UEFNped_to_Metahuman`, racine et chaînes de son IK rig cible) qui manquent au corps de foule.
+
 **Grooms (14/11/2026).** Kellan a six composants groom (cheveux, sourcils, cils, duvet, moustache, barbe), qui
 tickent tous dans le package pour un budget de 13 ms. La simulation des brins est coupée
 (`r.HairStrands.Simulation=0`). Le mode de jeu cache aussi, sans tick, les grooms dont le nom contient un mot de
