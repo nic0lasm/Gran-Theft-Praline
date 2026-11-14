@@ -18,7 +18,13 @@ Env:
                      eyebrows did not show, bound directly they landed on the upper lip). The others stay empty.
   GTP_NICOLITO_SKIN  the crowd skin atlas tile (0 to 11) of the face and the body. Default: the chosen head's own
                      tile (m_004 reads 3), the skin seen on the portraits.
+  GTP_NICOLITO_BROWS  the crowd's baked eyebrows painted on the head (City Sample's own, the head material's
+                     EyebrowsAttributeMap): Natural (default), Full, Thick, SlightArch, Messy, Scraggly, or none.
+  GTP_NICOLITO_HAIR  baked hair painted on the scalp the same way (HairAttributeMap): none (default, bald), or one
+                     of the crowd's baked hair textures by style name (the pack has AfroFade and Coil).
   GTP_NICOLITO_OUTFIT  full mode only: the crowd garments, e.g. Torso=crewneck,Legs=jeans,Feet=loafers (the default).
+Eyebrows and short hair: City Sample paints them on the head from baked groom textures (the head material's
+EyebrowsAttributeMap, HairAttributeMap), set on the same instances (GTP_NICOLITO_BROWS, GTP_NICOLITO_HAIR).
 The crowd's synthesized skin takes its colour from one tile of an atlas (FaceColorAtlas, BodyColorAtlas, 4x4 tiles,
 12 used) chosen by the material parameter AtlasSelector; City Sample gives the head and the body the same tile
 (CrowdBlueprintLibrary, SkinTextureDefinition.TextureAtlasIndex). Each head's own material reads its own tile, the
@@ -52,6 +58,10 @@ GROOM_DIR = OUT_DIR + "/Grooms"
 MATERIAL_DIR = OUT_DIR + "/Materials"
 SKIN_PARAMETER = "AtlasSelector"
 SKIN_TILES = 12
+# The crowd's baked groom textures (City Sample paints eyebrows and short hair on the head at a distance).
+BAKED_DIR = "/Game/Crowd/Character/Shared/Textures/Hair"
+BAKED = {"EyebrowsAttributeMap": ("GTP_NICOLITO_BROWS", "Natural", "Eyebrows_M_%s_baked"),
+         "HairAttributeMap": ("GTP_NICOLITO_HAIR", "none", "Hair_S_%s_baked")}
 # PlayerVisualRetargeter in DefaultGame.ini: the body's runtime retarget from the pawn's mannequin.
 RETARGETER = "/Game/MetaHumans/GTP/RTG_UEFNped_to_Metahuman"
 
@@ -247,9 +257,48 @@ def head_tile(fields):
     return sorted(tiles)[0][1] if tiles else None
 
 
-def skin_instance(source, tile, tag):
-    """A material instance of `source` (a crowd skin instance) that only changes the atlas tile it reads."""
-    name = "MI_Nicolito_%s_%s_Atlas%d" % (tag, source.get_name(), tile)
+def texture_parameter(material, name):
+    """The texture a material instance gives parameter `name`, None when it has no such parameter."""
+    mel = unreal.MaterialEditingLibrary
+    try:
+        if name not in [str(found) for found in mel.get_texture_parameter_names(material)]:
+            return None
+        return mel.get_material_instance_texture_parameter_value(material, name)
+    except Exception:  # noqa: BLE001 (not readable: treated as absent)
+        return None
+
+
+def is_virtual(texture):
+    try:
+        return bool(texture.get_editor_property("virtual_texture_streaming"))
+    except Exception:  # noqa: BLE001 (not a 2D texture)
+        return False
+
+
+def baked_textures():
+    """Parameter -> texture of the baked eyebrows and hair asked for (GTP_NICOLITO_BROWS, GTP_NICOLITO_HAIR)."""
+    wanted = {}
+    names = {}
+    if eal.does_directory_exist(BAKED_DIR):
+        for path in eal.list_assets(BAKED_DIR, recursive=True, include_folder=False):
+            names[path.rsplit(".", 1)[-1]] = path
+    for parameter, (variable, default, pattern) in BAKED.items():
+        style = os.environ.get(variable, default).strip()
+        if style.lower() in ("", "none"):
+            continue
+        name = pattern % style
+        if name not in names:
+            say("  %s=%s: no %s under %s (there: %s), not painted" % (variable, style, name, BAKED_DIR,
+                ", ".join(sorted(found for found in names if found.startswith(pattern.split("%")[0]))) or "none"))
+            continue
+        wanted[parameter] = eal.load_asset(names[name])
+    return wanted
+
+
+def skin_instance(source, tile, tag, textures):
+    """A material instance of `source` (a crowd skin instance) that changes only the atlas tile it reads and the
+    baked groom textures given, the rest inherited."""
+    name = "MI_Nicolito_%s_%s" % (tag, source.get_name())
     package = "%s/%s" % (MATERIAL_DIR, name)
     if eal.does_asset_exist(package):
         instance, made = eal.load_asset(package), "reused"
@@ -262,6 +311,8 @@ def skin_instance(source, tile, tag):
     mel = unreal.MaterialEditingLibrary
     mel.set_material_instance_parent(instance, source)
     mel.set_material_instance_scalar_parameter_value(instance, SKIN_PARAMETER, float(tile))
+    for parameter, texture in textures.items():
+        mel.set_material_instance_texture_parameter_value(instance, parameter, texture)
     mel.update_material_instance(instance)
     return instance, made, eal.save_loaded_asset(instance, False)
 
@@ -281,15 +332,29 @@ def component_template(bp, name):
     return None
 
 
-def set_skin(bp, component, fields, tile, tag):
-    """Every slot of `component` whose skin material reads another tile than `tile` gets an instance reading it."""
+def set_skin(bp, component, fields, tile, tag, textures=None):
+    """Every slot of `component` whose skin material reads another tile than `tile`, or other baked groom textures
+    than `textures` (parameter -> texture, set only where the material has the parameter), gets an instance of its
+    material with them."""
     template = None
     for slot, slot_name, path in slots(fields):
         material = unreal.load_asset(path) if path not in ("-", "") else None
         current = atlas_tile(material) if material else None
         if current is None:
             continue
-        if current == tile:
+        painted = {}
+        for parameter, texture in (textures or {}).items():
+            default = texture_parameter(material, parameter)
+            if default is None:
+                continue
+            if is_virtual(default) != is_virtual(texture):
+                # A virtual texture sampler takes only a virtual texture (and the reverse): the material would not compile.
+                say("  %s slot %d: %s NOT painted with %s (virtual texture %s, the parameter's default %s)" % (
+                    component, slot, parameter, texture.get_name(), is_virtual(texture), is_virtual(default)))
+                continue
+            if default != texture:
+                painted[parameter] = texture
+        if current == tile and not painted:
             say("  %s slot %d %s: %s already reads tile %d" % (component, slot, slot_name, material.get_name(), tile))
             continue
         if template is None:
@@ -297,7 +362,7 @@ def set_skin(bp, component, fields, tile, tag):
             if template is None:
                 say("  %s: its template was not found (SubobjectDataSubsystem), skin NOT changed" % component)
                 return False
-        instance, made, saved = skin_instance(material, tile, tag)
+        instance, made, saved = skin_instance(material, tile, tag, painted)
         if instance is None:
             say("  %s slot %d %s: instance of %s NOT created, skin NOT changed" % (component, slot, slot_name, material.get_name()))
             return False
@@ -310,8 +375,9 @@ def set_skin(bp, component, fields, tile, tag):
         except Exception as error:  # noqa: BLE001 (the component's own call instead)
             say("  %s: override_materials not set as a property (%r), set_material instead" % (component, error))
             template.set_material(slot, instance)
-        say("  %s slot %d %s: %s read tile %d, now %s (%s, saved %s) reads tile %d" % (
-            component, slot, slot_name, material.get_name(), current, instance.get_name(), made, saved, tile))
+        say("  %s slot %d %s: %s read tile %d, now %s (%s, saved %s) reads tile %d%s" % (
+            component, slot, slot_name, material.get_name(), current, instance.get_name(), made, saved, tile,
+            "".join(", %s %s" % (parameter, texture.get_name()) for parameter, texture in painted.items())))
     if template is not None:
         after = template.get_editor_property("override_materials")
         say("  %s overrides now: %s" % (component, "; ".join(
@@ -508,7 +574,9 @@ def main():
         tile = int(skin) if skin else own_tile
         say("  %s's own material reads tile %d; face%s set to tile %d%s" % (
             head, own_tile, " and body" if mode == "full" else "", tile, " (GTP_NICOLITO_SKIN)" if skin else " (the head's own)"))
-        ok &= set_skin(bp, "Face", current.get("Face", {}), tile, head)
+        textures = baked_textures()
+        say("  baked on the head: %s" % (", ".join("%s %s" % (parameter, texture.get_name()) for parameter, texture in textures.items()) or "nothing"))
+        ok &= set_skin(bp, "Face", current.get("Face", {}), tile, head, textures)
         if mode == "full":
             ok &= set_skin(bp, "Body", current.get("Body", {}), tile, "body")
         else:
