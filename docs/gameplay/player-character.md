@@ -240,6 +240,18 @@ the crowd folders and their weight, the heads, bodies, outfits and hair by name,
 sample's own C++ classes; then three male faces in captures for the project lead to choose from; then the chosen
 head, body, outfit and hair assembled into Nicolito's blueprint in our project.
 
+**Portraits (2026-11-14).** `-NicolitoFaces` (`UGTPFaceLineupSubsystem`, nothing without the switch) films every
+normal-weight male head of the pack found under `/Game/Crowd/Character/Male` (asset registry, `*_nrw_FaceMesh`, at
+most `MaxHeads`): 10 s after the start, each head in turn on the crowd's normal-weight male body (crewneck, jeans,
+loafers), 4 m in front of the player and turned towards him, face at its finest level, framed head and shoulders
+by a camera of its own (`CameraDistanceCm` 120, `CameraFOV` 30), then saved as `Nicolito_<head>.png` in the
+screenshot folder (`Saved/Screenshots/...`); the player's view comes back at the end. Which way the face looks is
+measured in the body's reference pose (from the left clavicle to the right one), not assumed, and logged. These
+are the bare heads of the pack, without hair (the crowd assembly has none) and in the reference pose; the hair
+comes with the blueprint, once the face is chosen. Run in the editor in game mode, the pack's assets being
+uncooked: `UnrealEditor GranTheftPraline.uproject -game -NicolitoFaces -SkipTitle -DayNight=0 -Pedestrians=0
+-Police=0`; the log says `face lineup: ...` for each head and each image.
+
 **Grooms (2026-11-14).** Kellan has six groom components (hair, eyebrows, eyelashes, peach fuzz, moustache, beard),
 each ticking in the package against a 13 ms budget. Strand simulation is off (`r.HairStrands.Simulation=0`). The
 game mode also hides, without tick, the grooms whose name contains a word of `PlayerGroomsHidden` (`Fuzz`,
