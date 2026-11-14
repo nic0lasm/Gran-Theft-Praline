@@ -78,7 +78,9 @@ void UGTPGtaRun::Initialize(FSubsystemCollectionBase& Collection)
 					}
 					else
 					{
+						WalkPendingBefore += Pawn->GetPendingMovementInputVector().Size() > 0.01f ? 1 : 0; // not consumed since the last add
 						Pawn->AddMovementInput(WalkDirection, 1.f);
+						WalkRejected += Pawn->GetPendingMovementInputVector().Size() > 0.01f ? 0 : 1; // refused by the pawn
 					}
 					++WalkInputs;
 				}
@@ -447,8 +449,10 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail, bool bClose)
 				Character->GetAttachParentActor() ? *Character->GetAttachParentActor()->GetName() : TEXT("nothing"),
 				Character->GetController() ? *Character->GetController()->GetName() : TEXT("nobody"),
 				Movement && Movement->IsActive() ? 1 : 0, static_cast<int32>(Character->GetActorEnableCollision()));
-			Detail += FString::Printf(TEXT(" [weapon drawn %d, aiming %d, root motion %d, anim montage playing %d]"), Weapon->IsDrawn() ? 1 : 0, Weapon->IsAiming() ? 1 : 0,
-				Character->HasAnyRootMotion() ? 1 : 0, Character->GetMesh() && Character->GetMesh()->GetAnimInstance() && Character->GetMesh()->GetAnimInstance()->IsAnyMontagePlaying() ? 1 : 0);
+			Detail += FString::Printf(TEXT(" [weapon drawn %d, aiming %d, root motion %d, anim montage playing %d, inputs left unconsumed %d, inputs refused %d, yaw actor %.0f control %.0f, use controller yaw %d, orient to movement %d, desired rotation %d]"), Weapon->IsDrawn() ? 1 : 0, Weapon->IsAiming() ? 1 : 0,
+				Character->HasAnyRootMotion() ? 1 : 0, Character->GetMesh() && Character->GetMesh()->GetAnimInstance() && Character->GetMesh()->GetAnimInstance()->IsAnyMontagePlaying() ? 1 : 0, WalkPendingBefore, WalkRejected, Character->GetActorRotation().Yaw,
+				PC->GetControlRotation().Yaw, Character->bUseControllerRotationYaw ? 1 : 0, Movement && Movement->bOrientRotationToMovement ? 1 : 0,
+				Movement && Movement->bUseControllerDesiredRotation ? 1 : 0);
 			if (Movement)
 			{
 				const FVector Where = Character->GetActorLocation();

@@ -58,6 +58,8 @@ private:
 	FTSTicker::FDelegateHandle WalkHandle;
 	FVector WalkDirection = FVector::ZeroVector;
 	int32 WalkInputs = 0;
+	int32 WalkPendingBefore = 0;
+	int32 WalkRejected = 0;
 	int32 WalkArmedPhase = 0;
 	double WalkArmedPhaseStart = -1.0;
 	bool bWalkArmedExit = false;
