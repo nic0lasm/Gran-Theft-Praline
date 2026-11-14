@@ -270,7 +270,11 @@ new head has the skeleton it was made for; otherwise the game mode makes the fac
 `SetBlueprintComponentAsset` (construction script templates, set as the details panel does). Report in
 `Saved/GTPCombat/nicolito-visual.txt`; trial with `-PlayerVisual=/Game/MetaHumans/GTP/Nicolito/BP_Nicolito.BP_Nicolito_C`,
 then `PlayerVisualClass` once a capture shows it right. Nicolito is bald until his hair is chosen, and the neck
-shows whether Kellan's body skin matches the new face (otherwise `full`).
+shows whether Kellan's body skin matches the new face (otherwise `full`). The capture is `-NicolitoPortrait` (same
+bench, on the player as he is in the game, left visible): `Nicolito_player_face.png` (eyes, 100 cm, FOV 30) and
+`Nicolito_player_body.png` (full length from the front, `PlayerBodyDistanceCm` 380, `PlayerBodyFOV` 40).
+
+The project lead chose the head **m_004** (2026-11-14, on the six portraits).
 
 **Grooms (2026-11-14).** Kellan has six groom components (hair, eyebrows, eyelashes, peach fuzz, moustache, beard),
 each ticking in the package against a 13 ms budget. Strand simulation is off (`r.HairStrands.Simulation=0`). The
