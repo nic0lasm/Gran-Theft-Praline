@@ -3,7 +3,7 @@
   UnrealEditor-Cmd GameAnimationSample.uproject -run=pythonscript \
     -script="<repo>/tools/pedestrians/survey_crowd_content.py" -unattended -nosplash -nullrhi
 
-Lines "CROWD ...": per class the number of assets under /Game/CitySampleCrowd and /Game/MCO_Mocap_Basics, the skeletons
+Lines "CROWD ...": per class the number of assets under /Game/Crowd and /Game/MCO_Mocap_Basics, the skeletons
 and skeletal meshes (with triangle counts at LOD0 when readable), the Mass entity configs, the animation sequences and the
 Blueprints. Output also to Saved/crowd_survey.json (GTP_CROWD_OUT).
 """
@@ -15,7 +15,7 @@ import unreal
 registry = unreal.AssetRegistryHelpers.get_asset_registry()
 registry.wait_for_completion()
 out = {}
-for root in ("/Game/CitySampleCrowd", "/Game/MCO_Mocap_Basics"):
+for root in ("/Game/Crowd", "/Game/MCO_Mocap_Basics"):
     by_class = {}
     for d in registry.get_assets_by_path(root, recursive=True):
         by_class.setdefault(str(d.asset_class_path.asset_name), []).append(str(d.package_name))

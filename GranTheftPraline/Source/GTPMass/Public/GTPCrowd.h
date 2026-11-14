@@ -171,11 +171,11 @@ protected:
 	 * body, garments and face assembled per person. Empty root = the mannequin of the player.
 	 */
 	UPROPERTY(Config)
-	FString CrowdCharacterRoot = TEXT("/Game/CitySampleCrowd/Character");
+	FString CrowdCharacterRoot = TEXT("/Game/Crowd/Character");
 
 	/** Face animation of the assembled characters. */
 	UPROPERTY(Config)
-	FSoftClassPath FaceAnimClass = FSoftClassPath(TEXT("/Game/CitySampleCrowd/Character/Shared/Rig/ABP_CrowdCharacter_Head.ABP_CrowdCharacter_Head_C"));
+	FSoftClassPath FaceAnimClass = FSoftClassPath(TEXT("/Game/Crowd/Character/Shared/Rig/ABP_CrowdCharacter_Head.ABP_CrowdCharacter_Head_C"));
 
 	/** Walk, idle and run baked for the MetaHuman skeleton (tools/character/retarget_player_animations.py). */
 	UPROPERTY(Config)
