@@ -332,14 +332,16 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail, bool bClose)
 	// Strict: a balance 3 s after the first reaction, and at least one compliant or frozen person with his hands up
 	// (the fleeing temperament runs by design and proves nothing about the hold-up).
 	const double Now = FPlatformTime::Seconds();
-	if (AimFirstReaction < 0.0 && Hands + Fleeing > 0)
+	// Only a hold-up at the intended range counts: reactions caught while still walking up (contagion, the alarm) prove nothing.
+	const bool bInRange = Best <= StopCm + 60.0;
+	if (bInRange && AimFirstReaction < 0.0 && Hands + Fleeing > 0)
 	{
 		AimFirstReaction = Now;
 	}
 	const bool bSettled = AimFirstReaction >= 0.0 && Now - AimFirstReaction >= 3.0;
 	Detail = FString::Printf(TEXT("%saiming at %s (%.0f cm): %d hands up (%d compliant or frozen), %d fleeing, %d alarmed%s"),
 		bClose ? TEXT("close, ") : TEXT(""), *Victim->GetName(), Best, Hands, Obedient, Fleeing, Alarmed, bSettled ? TEXT(", settled") : TEXT(""));
-	if (bSettled && Obedient > 0)
+	if (bInRange && bSettled && Obedient > 0)
 	{
 		Threat->ClearThreat();
 		if (!bClose)
