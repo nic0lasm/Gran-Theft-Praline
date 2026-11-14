@@ -1,0 +1,29 @@
+#pragma once
+
+#include "CoreMinimal.h"
+#include "Kismet/BlueprintFunctionLibrary.h"
+#include "GTPAnimGraphTools.generated.h"
+
+class UAnimBlueprint;
+
+/**
+ * Editor tools on animation blueprints, called from Python (tools/combat/unreal/player_upper_body_layer.py).
+ * They change local copies of Epic's sample content, never anything in Git; in a game build they do nothing.
+ */
+UCLASS()
+class GRANTHEFTPRALINE_API UGTPAnimGraphTools : public UBlueprintFunctionLibrary
+{
+	GENERATED_BODY()
+
+public:
+	/**
+	 * Adds an upper-body layer at the end of the blueprint's AnimGraph: the final pose is cached, then a
+	 * "Layered blend per bone" (mesh-space rotation blend, from RootBone down) takes the base from the cache and
+	 * the upper body from a Slot named SlotName fed by the same cache, and goes to the output. Montages played in
+	 * SlotName then move the upper body only, the legs keep walking. The slot name is registered on the skeleton.
+	 * Does nothing if the layer is already there. Returns a one-line report (starts with "ok", "kept" or "error").
+	 * The caller saves the blueprint and the skeleton.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "GTP|Editor")
+	static FString AddUpperBodyLayer(UAnimBlueprint* AnimBlueprint, FName SlotName, FName RootBone);
+};
