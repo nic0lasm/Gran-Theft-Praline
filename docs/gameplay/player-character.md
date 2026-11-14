@@ -288,6 +288,14 @@ hoodie hanging to the knees like a cape, the chin cut on the face shot and the h
 retarget blueprint (`ABP_GenericRetarget`) is a template made for no skeleton, which the check now accepts. The report
 lists the face's and the body's skin material parameters, to match them if the tones still differ.
 
+`full` run (2026-11-14): saved, framing right on both shots, no seam at the neck, hands and face the same tone, but
+that tone is dark brown, a dark panel hangs from the waist between the legs, and the eyebrows were not bound
+(`GroomBlueprintLibrary.create_new_groom_binding_asset_with_path` is not exposed to Python). The crowd's synthesized
+skin takes its colour from atlases (`FaceColorAtlas`, `BodyColorAtlas`) at `SourceU`/`SourceV` with an
+`AtlasSelector`, left at the instances' defaults in our copy (City Sample sets them per character at run time).
+`tools/character/nicolito_skin_probe.py` (read only) lists those parameters for the six heads and the body, exports
+both atlases as PNG and lists the groom calls the editor's Python has.
+
 **Grooms (2026-11-14).** Kellan has six groom components (hair, eyebrows, eyelashes, peach fuzz, moustache, beard),
 each ticking in the package against a 13 ms budget. Strand simulation is off (`r.HairStrands.Simulation=0`). The
 game mode also hides, without tick, the grooms whose name contains a word of `PlayerGroomsHidden` (`Fuzz`,

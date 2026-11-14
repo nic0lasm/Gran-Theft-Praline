@@ -305,6 +305,15 @@ corps et la tenue de la foule, faits pour ces têtes ; le blueprint de retarget 
 un gabarit fait pour aucun squelette, ce que la vérification accepte maintenant. Le rapport liste les paramètres
 des matériaux de peau du visage et du corps, pour les accorder si les teintes diffèrent encore.
 
+Passage `full` (14/11/2026) : enregistré, cadrage juste sur les deux plans, pas de couture au cou, mains et visage de
+la même teinte, mais cette teinte est brun foncé, un pan sombre pend de la taille entre les jambes, et les sourcils
+n'ont pas été reliés (`GroomBlueprintLibrary.create_new_groom_binding_asset_with_path` n'est pas exposé à Python). La
+peau synthétisée de la foule prend sa couleur dans des atlas (`FaceColorAtlas`, `BodyColorAtlas`) en
+`SourceU`/`SourceV` avec un `AtlasSelector`, laissés aux valeurs par défaut des instances dans notre copie (City
+Sample les pose par personnage à l'exécution). `tools/character/nicolito_skin_probe.py` (lecture seule) liste ces
+paramètres pour les six têtes et le corps, exporte les deux atlas en PNG et liste les appels de groom dont dispose le
+Python de l'éditeur.
+
 **Grooms (14/11/2026).** Kellan a six composants groom (cheveux, sourcils, cils, duvet, moustache, barbe), qui
 tickent tous dans le package pour un budget de 13 ms. La simulation des brins est coupée
 (`r.HairStrands.Simulation=0`). Le mode de jeu cache aussi, sans tick, les grooms dont le nom contient un mot de
