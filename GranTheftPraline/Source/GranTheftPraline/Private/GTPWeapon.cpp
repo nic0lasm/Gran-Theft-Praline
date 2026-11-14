@@ -963,10 +963,26 @@ void UGTPWeaponComponent::ProbeHands(float DeltaTime)
 	// The framing: where the heads and the camera are from the capsule's centre (a head under the frame means a
 	// camera too high or pitched up, or a body sunk under the capsule).
 	const FVector Centre = Character->GetActorLocation();
-	auto HeadHeight = [&Centre](const USkeletalMeshComponent* Mesh) -> FString
+	// Head and pelvis heights, and how far the spine leans from upright (forward, to the right), in degrees:
+	// a head that drops with a level pelvis is a bent spine, with the pelvis too it is a crouch.
+	auto HeadHeight = [&Centre, &Forward, &Right](const USkeletalMeshComponent* Mesh) -> FString
 	{
-		return Mesh && Mesh->GetBoneIndex(Head) != INDEX_NONE
-			? FString::Printf(TEXT("%.0f"), (Mesh->GetSocketLocation(Head) - Centre).Z) : FString(TEXT("-"));
+		static const FName Pelvis(TEXT("pelvis"));
+		if (!Mesh || Mesh->GetBoneIndex(Head) == INDEX_NONE)
+		{
+			return FString(TEXT("-"));
+		}
+		const FVector HeadAt = Mesh->GetSocketLocation(Head);
+		if (Mesh->GetBoneIndex(Pelvis) == INDEX_NONE)
+		{
+			return FString::Printf(TEXT("%.0f"), (HeadAt - Centre).Z);
+		}
+		const FVector PelvisAt = Mesh->GetSocketLocation(Pelvis);
+		const FVector Spine = HeadAt - PelvisAt;
+		const double Up = FMath::Max(1.0, Spine.Z);
+		return FString::Printf(TEXT("%.0f (pelvis %.0f, lean %.0f fwd %.0f right)"), (HeadAt - Centre).Z, (PelvisAt - Centre).Z,
+			FMath::RadiansToDegrees(FMath::Atan2(FVector::DotProduct(Spine, Forward), Up)),
+			FMath::RadiansToDegrees(FMath::Atan2(FVector::DotProduct(Spine, Right), Up)));
 	};
 	FString CameraText(TEXT("-"));
 	if (const APlayerController* PC = GetPlayerController())

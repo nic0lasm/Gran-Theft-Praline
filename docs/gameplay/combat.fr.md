@@ -267,7 +267,16 @@ Lyra n'est repris : Lyra repose sur GAS et ShooterCore, que l'ADR-0011 écarte. 
   retarget, les variables liées à leurs broches et toute variable retargeter de l'acteur du visuel sur le mesh du
   pion et le retargeter, sans réinitialisation ensuite (l'initialisation propre du blueprint pouvait remettre les
   valeurs du sample). Son journal dit combien de réglages l'initialisation a défaits, et toutes les 2 s
-  `body retarget probe` écrit ce que tient le blueprint et remet ce que son graphe aurait changé.
+  `body retarget probe` écrit ce que tient le blueprint et remet ce que son graphe aurait changé. Résultat sur le
+  candidat 31 : le corps suit enfin (en visée, sa main droite est 12 cm sous la tête et 43 cm devant, comme sur le
+  pion), sans avertissement de rig IK. Le blueprint a quand même remis deux fois en 349 s le
+  `RTG_UEFN_to_Metahuman_nrw` d'Epic (sans rig source) : le retarget est maintenant vérifié quatre fois par seconde,
+  sans rien écrire sauf s'il avait changé (`body retarget: N setting(s) put back`).
+- **La visée baisse la tête (candidat 31)** : la tête passe de 62 cm au-dessus du centre de la capsule à -4 en
+  visée ; la caméra de visée, cadrée pour une tête debout, n'en montre que l'arrière en bas de l'image, alors que la
+  pose du pistolet à deux mains est juste. `weapon: frame probe` donne maintenant la hauteur du bassin et
+  l'inclinaison du dos (avant, droite), pour distinguer un dos penché d'un accroupi avant de toucher à la caméra ou
+  au masque du haut du corps.
 - **Qui est mis en joue (correctif de la nuit du 13/11)** : le joueur à pied signale la menace depuis ses yeux vers
   ce que couvre le réticule (la ligne de la vue jusqu'au premier obstacle), comme il tire depuis la vue, et non plus
   depuis la bouche du canon. Celle-ci est dans la main du corps visible : main basse à la hanche, un piéton à 2 m
