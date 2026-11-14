@@ -315,6 +315,17 @@ AnimBlueprint, and the wheel AnimBlueprint copied from the Vehicle template. The
 car, what it would pull into the cook that is missing or known to break it (`cook_risk`), which
 must be empty before a package; `place_masstraffic.py` does the same for the traffic spawners.
 
+One physics body (candidate 31): in traffic, City Sample's cars were in contact on every frame
+(551 000 ignored impact lines in 2 min, Chaos solver at 32 ms, frame p95 416 ms). Suspected, not
+yet proven: their physics assets bring bodies of their own besides the chassis (the report's body
+count came back empty). `AGTPVehicle` now keeps only the
+chassis body, the one Chaos drives, and switches the other bodies and every constraint off, at
+begin play and every second after (`-CarAllBodies` keeps them). The log says it once per class
+("vehicle physics: ... keeps its chassis body", with the count: no line means one body, and the
+cause is elsewhere). Impacts the car ignores are logged once every 2 s
+at most, with their count, and two bodies of one car touching are no impact. The chase camera's
+spring arm only ticks on the player's car.
+
 What the Clio, 208 and Kangoo take from City Sample's city car (vehicle02, 1 200 kg): soft
 springs on a high preload with long travel (100 / 300, +10 / -17 cm instead of 250 / 50,
 +8 / -10) so the body rolls and dives, 45 degree steering (38 before) for tighter U-turns, and

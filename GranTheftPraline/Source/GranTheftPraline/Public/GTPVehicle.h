@@ -531,6 +531,19 @@ private:
 	// Damage
 	UFUNCTION()
 	void OnBodyHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
+
+	/** One log line every 2 s at most for the impacts the car ignores (they came every frame). */
+	void NoteIgnoredImpact(const AActor* OtherActor, float DeltaV, const TCHAR* Why);
+
+	/**
+	 * Keeps only the chassis body of the physics asset (the body Chaos drives): the other bodies
+	 * and every constraint are switched off. On candidate 31 City Sample's cars were in contact on
+	 * every frame (551 000 impact lines in 2 min, Chaos solver at 32 ms); extra bodies in their
+	 * physics assets are the suspect. Logged once per class, with the count.
+	 * -CarAllBodies keeps them all. Checked again every second (a recreated physics state brings
+	 * them back).
+	 */
+	void KeepChassisBodyOnly();
 	EGTPDamageZone ZoneFromWorldLocation(const FVector& WorldLocation) const;
 	void BreakGlass(EGTPDamageZone Zone);
 	void SetWrecked(EGTPVehicleLoss Reason = EGTPVehicleLoss::Wrecked);
@@ -572,6 +585,10 @@ private:
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UStaticMeshComponent>> GlassComponents;
 	float LastImpactTime = -1000.f;
+	float IgnoredLogTime = -1000.f;
+	int32 IgnoredSinceLog = 0;
+	float IgnoredMaxDeltaV = 0.f;
+	float NextBodyCheckTime = 0.f;
 	float LastPlacedTime = -1000.f;
 	const TCHAR* LastPlacedHow = TEXT("none");
 	bool bHitByPlayer = false;

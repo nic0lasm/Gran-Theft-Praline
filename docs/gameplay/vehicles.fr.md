@@ -331,6 +331,17 @@ roues copié du template Vehicle. Le rapport liste, par voiture, ce qu'elle tire
 et qui manque ou le casse (`cook_risk`) : la liste doit être vide avant un package ;
 `place_masstraffic.py` fait de même pour les spawners du trafic.
 
+Un seul corps physique (candidat 31) : dans le trafic, les voitures de City Sample étaient en
+contact à chaque image (551 000 lignes de chocs ignorés en 2 min, solveur Chaos à 32 ms, image p95
+à 416 ms). Soupçonné, pas encore prouvé : leurs physics assets apportent leurs propres corps en plus
+du châssis (le nombre de corps du rapport est revenu vide). `AGTPVehicle` ne garde plus que le corps du châssis, celui que Chaos conduit, et coupe les
+autres corps et toutes les contraintes, au démarrage puis chaque seconde (`-CarAllBodies` les
+garde). Le journal le dit une fois par classe (« vehicle physics: ... keeps its chassis body », avec le nombre : sans cette ligne, un seul corps,
+et la cause est ailleurs). Les
+chocs ignorés par une voiture sont journalisés au plus une fois toutes les 2 s, avec leur nombre,
+et deux corps d'une même voiture qui se touchent ne comptent plus comme un choc. Le bras de caméra
+de poursuite ne tourne que sur la voiture du joueur.
+
 Ce que les Clio, 208 et Kangoo reprennent de la citadine de City Sample (vehicle02, 1 200 kg) :
 ressorts souples sur forte précharge avec grand débattement (100 / 300, +10 / -17 cm au lieu de
 250 / 50, +8 / -10), pour que la caisse prenne du roulis et plonge au freinage ; braquage de
