@@ -22,6 +22,9 @@
 #include "ChaosVehicleWheel.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "PhysicsEngine/BodySetup.h"
+#include "PhysicsEngine/ConstraintInstance.h"
+#include "PhysicsEngine/PhysicsAsset.h"
 #include "Engine/DamageEvents.h"
 #include "Engine/World.h"
 #include "EnhancedInputComponent.h"
@@ -245,6 +248,9 @@ void AGTPVehicle::BeginPlay()
 		Body->SetNotifyRigidBodyCollision(true);
 		Body->OnComponentHit.AddDynamic(this, &AGTPVehicle::OnBodyHit);
 	}
+	KeepChassisBodyOnly();
+	// The chase camera's arm only works for the player's car (PossessedBy turns it on).
+	ChaseArm->SetComponentTickEnabled(Cast<APlayerController>(GetController()) != nullptr);
 
 	// Parked cars do not roll away.
 	if (UChaosWheeledVehicleMovementComponent* Move = GetWheeledMovement())
@@ -605,12 +611,14 @@ void AGTPVehicle::PossessedBy(AController* NewController)
 	// The player's car gets the arcade torque (GTA pick-up); AI cars keep the real one.
 	bPlayerAssist = Cast<APlayerController>(NewController) != nullptr;
 	AppliedPower = -1.f;
+	ChaseArm->SetComponentTickEnabled(bPlayerAssist);
 }
 
 void AGTPVehicle::UnPossessed()
 {
 	Super::UnPossessed();
 	ClearDrivingInput();
+	ChaseArm->SetComponentTickEnabled(false);
 	if (bPlayerAssist)
 	{
 		bPlayerAssist = false;
@@ -639,6 +647,11 @@ void AGTPVehicle::SetInteriorView(bool bEnable)
 void AGTPVehicle::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+	if (const UWorld* World = GetWorld(); World && World->GetTimeSeconds() >= NextBodyCheckTime)
+	{
+		NextBodyCheckTime = World->GetTimeSeconds() + 1.f;
+		KeepChassisBodyOnly();
+	}
 	if (State == EGTPVehicleState::Driven && IsLocallyControlled())
 	{
 		if (bPlayerAssist)
@@ -1352,8 +1365,78 @@ void AGTPVehicle::DoExit(bool bBailOut)
 
 // --- Damage ----------------------------------------------------------------
 
+void AGTPVehicle::KeepChassisBodyOnly()
+{
+	USkeletalMeshComponent* Body = GetMesh();
+	if (!Body || Body->Bodies.Num() <= 1)
+	{
+		return;
+	}
+	static const bool bAllBodies = FParse::Param(FCommandLine::Get(), TEXT("CarAllBodies"));
+	if (bAllBodies)
+	{
+		return;
+	}
+	// The body Chaos drives: the component's root body.
+	const FBodyInstance* Chassis = Body->GetBodyInstance();
+	int32 BodiesOff = 0;
+	int32 ConstraintsOff = 0;
+	for (FConstraintInstance* Constraint : Body->Constraints)
+	{
+		if (Constraint && Constraint->IsValidConstraintInstance())
+		{
+			Constraint->TermConstraint();
+			++ConstraintsOff;
+		}
+	}
+	for (FBodyInstance* Part : Body->Bodies)
+	{
+		if (Part && Part != Chassis && Part->IsValidBodyInstance())
+		{
+			Part->TermBody();
+			++BodiesOff;
+		}
+	}
+	if (BodiesOff == 0 && ConstraintsOff == 0)
+	{
+		return;
+	}
+	static TSet<FName> Logged;
+	if (!Logged.Contains(GetClass()->GetFName()))
+	{
+		Logged.Add(GetClass()->GetFName());
+		const FBox Local = Body->CalcBounds(FTransform::Identity).GetBox();
+		GTP_TRACE(LogGTPVehicle, TEXT("vehicle physics: %s keeps its chassis body (%s, bone %s) only: %d other bodies and %d constraints of %s switched off; collision %s, chassis box %.0f x %.0f x %.0f cm, bottom %.0f cm"),
+			*GetClass()->GetName(), Chassis && Chassis->BodySetup.IsValid() ? TEXT("found") : TEXT("none"),
+			Chassis && Chassis->BodySetup.IsValid() ? *Chassis->BodySetup->BoneName.ToString() : TEXT("-"), BodiesOff, ConstraintsOff,
+			Body->GetPhysicsAsset() ? *Body->GetPhysicsAsset()->GetName() : TEXT("no physics asset"), *Body->GetCollisionProfileName().ToString(),
+			Local.GetSize().X, Local.GetSize().Y, Local.GetSize().Z, Local.Min.Z);
+	}
+}
+
+void AGTPVehicle::NoteIgnoredImpact(const AActor* OtherActor, float DeltaV, const TCHAR* Why)
+{
+	++IgnoredSinceLog;
+	IgnoredMaxDeltaV = FMath::Max(IgnoredMaxDeltaV, DeltaV);
+	const float Now = GetWorld()->GetTimeSeconds();
+	if (Now - IgnoredLogTime < 2.f)
+	{
+		return;
+	}
+	GTP_TRACE(LogGTPVehicle, TEXT("%s: %d impacts ignored since the last line (%s; last from %s, up to %.0f cm/s)"), *GetName(), IgnoredSinceLog, Why,
+		*GetNameSafe(OtherActor), IgnoredMaxDeltaV);
+	IgnoredLogTime = Now;
+	IgnoredSinceLog = 0;
+	IgnoredMaxDeltaV = 0.f;
+}
+
 void AGTPVehicle::OnBodyHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
+	// Two bodies of the same car touching each other is no impact.
+	if (OtherActor == this)
+	{
+		return;
+	}
 	// Crimes by the player at the wheel: running into people, cars and police.
 	if (OtherActor && State == EGTPVehicleState::Driven && Cast<APlayerController>(GetController()) && FMath::Abs(GetSpeedKmh()) > 12.f)
 	{
@@ -1418,14 +1501,13 @@ void AGTPVehicle::OnBodyHit(UPrimitiveComponent* HitComponent, AActor* OtherActo
 	}
 	if (!bTrafficCrashDamage && !bPlayerInvolved && (OtherCar || bKinematicOther))
 	{
-		GTP_TRACE(LogGTPVehicle, TEXT("%s: AI impact from %s ignored (%.0f cm/s)"), *GetName(), *GetNameSafe(OtherActor), DeltaV);
+		NoteIgnoredImpact(OtherActor, DeltaV, TEXT("between AI cars"));
 		return;
 	}
 	const float SincePlaced = Now - LastPlacedTime;
 	if (!bTrafficCrashDamage && !bPlayerInvolved && SincePlaced < 1.5f)
 	{
-		GTP_TRACE(LogGTPVehicle, TEXT("%s: impact from %s ignored %.2f s after %s (%.0f cm/s)"), *GetName(), *GetNameSafe(OtherActor),
-			SincePlaced, LastPlacedHow, DeltaV);
+		NoteIgnoredImpact(OtherActor, DeltaV, LastPlacedHow);
 		return;
 	}
 	LastImpactTime = Now;
