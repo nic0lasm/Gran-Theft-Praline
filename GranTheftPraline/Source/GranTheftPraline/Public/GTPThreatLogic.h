@@ -239,7 +239,11 @@ inline bool ObeysOrders(const FBrain& B) { return B.State == EState::Complying; 
 /** Does his fear spread to others (Alarmed and worse)? */
 inline float SpreadFear(const FBrain& B)
 {
-	return (B.State == EState::Calm || B.State == EState::Down) ? 0.f : B.Fear;
+	if (B.State == EState::Calm || B.State == EState::Down) return 0.f;
+	// A runner passes the panic on while he starts running, not for ever: otherwise a crowd of runners keeps
+	// every fear above the contagion floor and nobody calms down (measured: 24 people still running after 100 s).
+	if (B.State == EState::Fleeing && B.StateTime > 3.f) return 0.f;
+	return B.Fear;
 }
 
 /**
