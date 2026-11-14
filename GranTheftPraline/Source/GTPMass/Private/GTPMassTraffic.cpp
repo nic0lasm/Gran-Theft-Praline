@@ -258,7 +258,36 @@ void UGTPMassTrafficSubsystem::LogSimulatedCars(UWorld& World, const FVector& Pl
 	Query.AddRequirement<FMassZoneGraphLaneLocationFragment>(EMassFragmentAccess::ReadOnly);
 	Query.AddRequirement<FAgentRadiusFragment>(EMassFragmentAccess::ReadOnly);
 	Query.AddRequirement<FMassTrafficObstacleAvoidanceFragment>(EMassFragmentAccess::ReadOnly);
+	Query.AddRequirement<FMassTrafficRandomFractionFragment>(EMassFragmentAccess::ReadOnly);
 	const UMassTrafficSubsystem* Traffic = World.GetSubsystem<UMassTrafficSubsystem>();
+	// Junction lanes -> their junction (MassTraffic's intersection entities and their periods), to say
+	// why a car waits at a closed one.
+	TMap<const FZoneGraphTrafficLaneData*, const FMassTrafficIntersectionFragment*> LaneJunction;
+	{
+		FMassEntityQuery JunctionQuery;
+		JunctionQuery.Initialize(Manager);
+		JunctionQuery.AddRequirement<FMassTrafficIntersectionFragment>(EMassFragmentAccess::ReadOnly);
+		FMassExecutionContext JunctionContext(*Manager, 0.f);
+		JunctionQuery.ForEachEntityChunk(JunctionContext, [&LaneJunction](FMassExecutionContext& Chunk)
+		{
+			const TConstArrayView<FMassTrafficIntersectionFragment> Junctions = Chunk.GetFragmentView<FMassTrafficIntersectionFragment>();
+			for (const FMassTrafficIntersectionFragment& Junction : Junctions)
+			{
+				for (const FMassTrafficPeriod& Period : Junction.Periods)
+				{
+					for (const FZoneGraphTrafficLaneData* PeriodLane : Period.VehicleLanes)
+					{
+						LaneJunction.Add(PeriodLane, &Junction);
+					}
+				}
+			}
+		});
+	}
+	// Lanes with a car on them (driving or waiting for recycling), and the cars waiting at a closed
+	// junction lane: that lane and the room the car needs after it (Epic's GetSpaceTakenByVehicleOnLane).
+	TSet<const FZoneGraphTrafficLaneData*> LanesWithCars;
+	TArray<TPair<const FZoneGraphTrafficLaneData*, float>> ClosedWaits;
+	const FVector2D GapRange = Settings ? Settings->MinimumDistanceToNextVehicleRange : FVector2D(80.0, 500.0);
 	int32 Cars = 0;
 	int32 Moving = 0;
 	int32 AtDeadEnd = 0;
@@ -285,9 +314,14 @@ void UGTPMassTrafficSubsystem::LogSimulatedCars(UWorld& World, const FVector& Pl
 		const TConstArrayView<FMassZoneGraphLaneLocationFragment> Locations = Chunk.GetFragmentView<FMassZoneGraphLaneLocationFragment>();
 		const TConstArrayView<FAgentRadiusFragment> Radii = Chunk.GetFragmentView<FAgentRadiusFragment>();
 		const TConstArrayView<FMassTrafficObstacleAvoidanceFragment> Avoidances = Chunk.GetFragmentView<FMassTrafficObstacleAvoidanceFragment>();
+		const TConstArrayView<FMassTrafficRandomFractionFragment> Fractions = Chunk.GetFragmentView<FMassTrafficRandomFractionFragment>();
 		for (int32 Index = 0; Index < Chunk.GetNumEntities(); ++Index)
 		{
 			++Cars;
+			if (Traffic)
+			{
+				LanesWithCars.Add(Traffic->GetTrafficLaneData(Locations[Index].LaneHandle));
+			}
 			const FMassTrafficVehicleControlFragment& Control = Controls[Index];
 			const float Speed = Control.Speed; // cm/s along the lane
 			SpeedSum += Speed;
@@ -324,7 +358,16 @@ void UGTPMassTrafficSubsystem::LogSimulatedCars(UWorld& World, const FVector& Pl
 				}
 				else if (bAtLaneEnd && Control.NextLane->ConstData.bIsIntersectionLane)
 				{
-					++(Control.NextLane->bIsOpen ? StopJunctionOpen : StopJunctionClosed);
+					if (Control.NextLane->bIsOpen)
+					{
+						++StopJunctionOpen;
+					}
+					else
+					{
+						++StopJunctionClosed;
+						const float Fraction = static_cast<float>(Fractions[Index].RandomFraction);
+						ClosedWaits.Emplace(Control.NextLane, 2.f * Radii[Index].Radius + FMath::Lerp(static_cast<float>(GapRange.X), static_cast<float>(GapRange.Y), Fraction));
+					}
 				}
 				else if (bAtLaneEnd)
 				{
@@ -345,18 +388,24 @@ void UGTPMassTrafficSubsystem::LogSimulatedCars(UWorld& World, const FVector& Pl
 	// ones its overseer cannot take (its query needs Epic's damage fragment, among others).
 	int32 Recyclable = 0;
 	int32 RecyclableWithoutDamage = 0;
+	int32 RecyclableInJunction = 0;
 	{
 		FMassEntityQuery RecyclableQuery;
 		RecyclableQuery.Initialize(Manager);
 		RecyclableQuery.AddTagRequirement<FMassTrafficRecyclableVehicleTag>(EMassFragmentPresence::All);
 		RecyclableQuery.AddRequirement<FTransformFragment>(EMassFragmentAccess::ReadOnly);
+		RecyclableQuery.AddRequirement<FMassZoneGraphLaneLocationFragment>(EMassFragmentAccess::ReadOnly);
 		FMassExecutionContext RecyclableContext(*Manager, 0.f);
 		RecyclableQuery.ForEachEntityChunk(RecyclableContext, [&](FMassExecutionContext& Chunk)
 		{
 			Recyclable += Chunk.GetNumEntities();
+			const TConstArrayView<FMassZoneGraphLaneLocationFragment> Locations = Chunk.GetFragmentView<FMassZoneGraphLaneLocationFragment>();
 			for (int32 Index = 0; Index < Chunk.GetNumEntities(); ++Index)
 			{
 				RecyclableWithoutDamage += Manager->GetFragmentDataPtr<FMassTrafficVehicleDamageFragment>(Chunk.GetEntity(Index)) ? 0 : 1;
+				const FZoneGraphTrafficLaneData* Lane = Traffic ? Traffic->GetTrafficLaneData(Locations[Index].LaneHandle) : nullptr;
+				LanesWithCars.Add(Lane);
+				RecyclableInJunction += Lane && Lane->ConstData.bIsIntersectionLane ? 1 : 0;
 			}
 		});
 	}
@@ -377,6 +426,92 @@ void UGTPMassTrafficSubsystem::LogSimulatedCars(UWorld& World, const FVector& Pl
 			Cars - Moving, StopInBranch, StopInJunction, StopForObstacle, StopBehindCar, StopNoNextLane, StopJunctionClosed, StopJunctionOpen,
 			StopLaneEnd, StopOther);
 	}
+	if (!ClosedWaits.IsEmpty())
+	{
+		// Why the junction lane stays closed, in the order MassTraffic checks it: ShouldStopAtLaneExit
+		// (room after the junction), then UMassTrafficUpdateIntersectionsProcessor (a stop-sign junction
+		// opens a side whose car is ready, once the lanes of the period before are clear).
+		int32 NoLaneAfter = 0;
+		int32 AfterTooShort = 0;
+		int32 AfterFull = 0;
+		int32 InNoPeriod = 0;
+		int32 ClearingCar = 0;
+		int32 ClearingEmpty = 0;
+		int32 ClearingReserved = 0;
+		int32 Turn = 0;
+		int32 NotReady = 0;
+		for (const TPair<const FZoneGraphTrafficLaneData*, float>& Wait : ClosedWaits)
+		{
+			const FZoneGraphTrafficLaneData& Next = *Wait.Key;
+			const float Needed = Wait.Value;
+			const FZoneGraphTrafficLaneData* After = Next.NextLanes.Num() == 1 ? Next.NextLanes[0] : nullptr;
+			const FMassTrafficIntersectionFragment* const* Junction = LaneJunction.Find(&Next);
+			if (!After)
+			{
+				++NoLaneAfter;
+				continue;
+			}
+			if (After->Length < Needed)
+			{
+				++AfterTooShort;
+				continue;
+			}
+			if (After->SpaceAvailableFromStartOfLaneForVehicle(*Manager, true, false) - FMath::Max(Next.Length - Next.SpaceAvailable, 0.f) < Needed)
+			{
+				++AfterFull;
+				continue;
+			}
+			if (!Junction)
+			{
+				++InNoPeriod;
+				continue;
+			}
+			const FMassTrafficIntersectionFragment& Fragment = **Junction;
+			bool bCar = false;
+			bool bEmpty = false;
+			bool bReserved = false;
+			if (Fragment.Periods.IsValidIndex(Fragment.CurrentPeriodIndex) && static_cast<float>(Fragment.PeriodTimeRemaining) <= 0.f)
+			{
+				const FMassTrafficPeriod& Period = Fragment.Periods[Fragment.CurrentPeriodIndex];
+				for (int32 Index = 0; Index < Period.NumVehicleLanes(EMassTrafficIntersectionVehicleLaneType::VehicleLane_ClosedInNextPeriod); ++Index)
+				{
+					const FZoneGraphTrafficLaneData* Closing = Period.GetVehicleLane(Index, EMassTrafficIntersectionVehicleLaneType::VehicleLane_ClosedInNextPeriod);
+					if (!Closing)
+					{
+						continue;
+					}
+					if (Closing->NumVehiclesOnLane > 0)
+					{
+						(LanesWithCars.Contains(Closing) ? bCar : bEmpty) = true;
+					}
+					bReserved |= Closing->NumReservedVehiclesOnLane > 0;
+				}
+			}
+			if (bEmpty)
+			{
+				++ClearingEmpty;
+			}
+			else if (bCar)
+			{
+				++ClearingCar;
+			}
+			else if (bReserved)
+			{
+				++ClearingReserved;
+			}
+			else if (Next.bIsVehicleReadyToUseLane)
+			{
+				++Turn;
+			}
+			else
+			{
+				++NotReady;
+			}
+		}
+		UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic junction waits: %d car(s) at a closed junction lane | lane after it: none=%d shorter than the car=%d full=%d | lane in no period=%d | junction clearing a lane: car inside=%d counted but empty=%d reserved=%d | waiting its turn=%d not seen ready=%d | waiting for recycling inside a junction=%d"),
+			ClosedWaits.Num(), NoLaneAfter, AfterTooShort, AfterFull, InNoPeriod, ClearingCar, ClearingEmpty, ClearingReserved, Turn, NotReady,
+			RecyclableInJunction);
+	}
 }
 
 void UGTPMassTrafficSubsystem::CutDeadEndBranches()
@@ -391,6 +526,19 @@ void UGTPMassTrafficSubsystem::CutDeadEndBranches()
 	int32 Branch = 0;
 	int32 BranchJunction = 0;
 	int32 LinksCut = 0;
+	int32 Walls = 0;
+	// MassTraffic's ShouldStopAtLaneExit lets a car into a junction only when the lane after it has
+	// room for the car and its gap to the next one (2 x radius + MinimumDistanceToNextVehicleRange):
+	// a lane after a junction shorter than that never has, and the car stopped before it never chooses
+	// again (no new choice that close to the line). Such junction lanes count as dead ends. 10 m with
+	// Epic's 5 m upper gap and a 5 m car, or -TrafficMinRoomAfterJunction=<m>.
+	const UMassTrafficSettings* Settings = GetDefault<UMassTrafficSettings>();
+	static const float WallCm = [Settings]
+	{
+		float Metres = 5.f + (Settings ? static_cast<float>(Settings->MinimumDistanceToNextVehicleRange.Y) : 500.f) / 100.f;
+		FParse::Value(FCommandLine::Get(), TEXT("TrafficMinRoomAfterJunction="), Metres);
+		return Metres * 100.f;
+	}();
 	for (FMassTrafficZoneGraphData* Data : Traffic->GetMutableTrafficZoneGraphData())
 	{
 		if (!Data || Data->TrafficLaneDataArray.IsEmpty())
@@ -413,7 +561,16 @@ void UGTPMassTrafficSubsystem::CutDeadEndBranches()
 		Before.SetNum(Num);
 		for (int32 Index = 0; Index < Num; ++Index)
 		{
-			for (const FZoneGraphTrafficLaneData* Next : All[Index].NextLanes)
+			const FZoneGraphTrafficLaneData& Lane = All[Index];
+			if (Lane.ConstData.bIsIntersectionLane && !Lane.NextLanes.IsEmpty()
+				&& (Lane.NextLanes.Num() != 1 || !Lane.NextLanes[0] || Lane.NextLanes[0]->Length < WallCm))
+			{
+				// No way on through this junction lane (MassTraffic also skips a junction lane with
+				// more than one lane after it).
+				++Walls;
+				continue;
+			}
+			for (const FZoneGraphTrafficLaneData* Next : Lane.NextLanes)
 			{
 				const int32 NextIndex = IndexOf(Next);
 				if (NextIndex != INDEX_NONE)
@@ -479,8 +636,8 @@ void UGTPMassTrafficSubsystem::CutDeadEndBranches()
 		return;
 	}
 	bDeadEndsCut = true;
-	UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic dead ends: %d car lane(s) of %d only lead to dead ends (%d of them in junctions, the others closed to the overseer), %d link(s) to them removed from the cars' choice; every other lane keeps a way on"),
-		Branch, Lanes, BranchJunction, LinksCut);
+	UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic dead ends: %d car lane(s) of %d only lead to dead ends (%d of them in junctions, the others closed to the overseer; %d junction lane(s) into a lane under %.0f m counted as dead ends), %d link(s) to them removed from the cars' choice; every other lane keeps a way on"),
+		Branch, Lanes, BranchJunction, Walls, WallCm / 100.f, LinksCut);
 }
 
 void UGTPMassTrafficSubsystem::RecycleAtDeadEnds()

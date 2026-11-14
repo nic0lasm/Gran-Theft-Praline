@@ -44,8 +44,10 @@ private:
 	 * ahead: a car takes a lane that leads to a dead end, then stops for good before its last lane
 	 * (ShouldStopAtLaneExit, "NONEXT"), inside the junction when that last lane leaves one, and the
 	 * junction never opens again for anyone. The links to those lanes are removed from MassTraffic's
-	 * own lane data (FZoneGraphTrafficLaneData::NextLanes): every other lane keeps a way on. Cars
-	 * spawned inside such a branch are recycled (RecycleAtDeadEnds). -NoDeadEndCut keeps the links.
+	 * own lane data (FZoneGraphTrafficLaneData::NextLanes): every other lane keeps a way on. A junction
+	 * lane into a lane too short for a car and its gap counts as a dead end too: MassTraffic never lets
+	 * a car into it (no room after the junction) and the car waits at the line for good. Cars spawned
+	 * inside such a branch are recycled (RecycleAtDeadEnds). -NoDeadEndCut keeps the links.
 	 */
 	void CutDeadEndBranches();
 	/**

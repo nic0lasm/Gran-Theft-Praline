@@ -240,6 +240,29 @@ Changements (C++ seulement, la carte reste telle quelle) :
   dans un carrefour, pour un piéton ou le joueur, derrière une voiture, au bout de la voie (pas de
   voie suivante, carrefour fermé, carrefour ouvert sans place après lui, voie simple), autre.
 
+PC, candidat 35 (22eb010) : 307 des 775 voies de voitures ne mènent qu'à des impasses (182 dans
+des carrefours), 182 liens retirés, 54 voitures confiées au recyclage, dont 51 sans fragment de
+dégâts, qui en ont reçu un (la requête du superviseur l'exige ; s'il les a ensuite déplacées, le
+journal ne le dit pas encore). Plus aucune voiture arrêtée en impasse ni dans un carrefour,
+mais à 300 s 11 voitures sur 120 roulent : sur les 109 arrêtées, 34 attendent devant une voie de
+carrefour fermée et 72 derrière elles. 38 erreurs « Intersection N has side with no left most
+intersection lane » : MassTraffic construit les côtés de ses carrefours à partir des voies suivantes
+des voitures, donc une arrivée dont toutes les voies de carrefour ont été coupées devient un côté
+vide (seule la recherche de feu le saute ; sa phase est vide et passe aussitôt). Lu dans
+MassTraffic : `ShouldStopAtLaneExit` ne laisse une voiture entrer dans un carrefour que si la voie
+d'après a la place pour elle et son écart (2 x rayon + jusqu'à 5 m, `MinimumDistanceToNextVehicleRange`),
+et une voiture arrêtée à la ligne ne choisit plus jamais ; zonegraph.py coupe chaque voie 6 m avant
+et après un carrefour et garde 2 m d'une voie courte, donc une voie après un carrefour peut ne
+jamais avoir la place : un mur. Changements :
+- une voie de carrefour vers une voie de moins de 10 m (voiture de 5 m, écart maximal d'Epic de 5 m,
+  `-TrafficMinRoomAfterJunction=<m>`) compte comme une impasse dans `CutDeadEndBranches` ; le compte
+  est dans la ligne « MassTraffic dead ends » ;
+- une ligne « MassTraffic junction waits » dit pourquoi chaque voie de carrefour fermée le reste,
+  dans l'ordre de MassTraffic : pas de voie après, voie d'après plus courte que la voiture ou pleine,
+  voie dans aucune phase de son carrefour, carrefour qui attend qu'une voie de la phase d'avant se
+  vide (une voiture dedans, comptée mais vide, réservée), attend son tour, pas vue prête ; et les
+  voitures recyclées restées dans un carrefour.
+
 ## Points ouverts
 
 - Près du joueur, MassTraffic peut confier une voiture à son véhicule physique : nos copies

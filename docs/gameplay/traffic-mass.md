@@ -216,6 +216,26 @@ Changes (C++ only, the map stays as it is):
   junction, for a pedestrian or the player, behind a car, at the lane end (no next lane, junction
   closed, junction open with no room after it, plain lane), other.
 
+PC, candidate 35 (22eb010): 307 of the 775 car lanes only lead to dead ends (182 in junctions),
+182 links removed, 54 cars handed to the recycling, 51 of which had no damage fragment and got
+one (the overseer's query needs it; whether it then moved them, the log does not say yet). No
+car is stopped in a dead end or inside a junction any more, but at 300 s 11 cars of 120 move: of the
+109 stopped, 34 wait at a closed junction lane and 72 behind them. 38 errors "Intersection N has
+side with no left most intersection lane": MassTraffic builds the sides of its junctions from the
+cars' next lanes, so an approach whose every junction lane was cut becomes an empty side (only the
+traffic light lookup skips it; its period is empty and passes at once). Read in MassTraffic:
+`ShouldStopAtLaneExit` lets a car into a junction only when the lane after it has room for the car
+and its gap (2 x radius + up to 5 m, `MinimumDistanceToNextVehicleRange`), and a car stopped at the
+line never chooses again; zonegraph.py trims every lane 6 m before and after a junction and keeps
+2 m of a short one, so a lane after a junction may never have room: a wall. Changes:
+- a junction lane into a lane shorter than 10 m (5 m car, Epic's 5 m upper gap,
+  `-TrafficMinRoomAfterJunction=<m>`) counts as a dead end in `CutDeadEndBranches`; the count is
+  in the "MassTraffic dead ends" line;
+- a "MassTraffic junction waits" line says why each closed junction lane stays closed, in
+  MassTraffic's order: no lane after it, lane after it shorter than the car or full, lane in no
+  period of its junction, junction clearing a lane of the period before (a car inside, counted but
+  empty, reserved), waiting its turn, not seen ready; and the recycled cars left inside a junction.
+
 ## Open points
 
 - Near the player MassTraffic may hand a car over to its physics vehicle: our copies name our cars
