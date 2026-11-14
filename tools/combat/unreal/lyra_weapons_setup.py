@@ -24,9 +24,10 @@ Run it again after any change: retargeted assets that exist are kept, except aft
 Root fix (14/11): on 5.8 the default ops of our retargeter took the source's pelvis as the Root Motion op's source
 root, so with RootHeightSource=CopyHeightFromSource every retargeted clip had its root bone raised to the pelvis
 (93.6 cm) and the pelvis put back under it; a montage that locks the root then drops the body by about 90 cm. The
-script sets that op's SourceRoot to the source skeleton's root bone (on an existing retargeter too), retargets the
-clips again when it changed something, and reports the root and pelvis heights of the aim poses at frame 0
-("root check"). GTP_RETARGET_AGAIN=1 forces the second retarget.
+script sets that op's SourceRoot to the source skeleton's root bone (on an existing retargeter too) through
+UGTPAnimGraphTools::SetRetargetSourceRoot (the op controller's set_settings does not keep a changed bone on 5.8),
+retargets the clips again when it changed something, and reports the root and pelvis heights of the aim poses at
+frame 0 ("root check"). GTP_RETARGET_AGAIN=1 forces the second retarget.
 """
 import os
 import re
@@ -149,55 +150,57 @@ def root_source_bone(text):
     return match.group(1) if match else None
 
 
-def fix_root_motion_op(rtg):
-    """Root Motion op: SourceRoot on the source skeleton's root bone, not its pelvis. True when it changed."""
-    controller = unreal.IKRetargeterController.get_controller(rtg)
+def root_op_bones(controller):
+    """(index, name, SourceRoot bone) of every Root Motion op, read through the op controllers."""
+    found = []
     count = controller.get_num_retarget_ops() if hasattr(controller, "get_num_retarget_ops") else 0
-    changed = False
     for index in range(count):
         name = op_name(controller, index)
         if "root" not in name.lower():
             continue
-        op = None
+        bone = None
         if hasattr(controller, "get_op_controller"):
             try:
-                op = controller.get_op_controller(index)
+                bone = root_source_bone(controller.get_op_controller(index).get_settings().export_text())
             except Exception as error:
-                say("root op %d %s: no op controller (%s)" % (index, name, error))
-        if op is None or not hasattr(op, "get_settings") or not hasattr(op, "set_settings"):
-            say("BLOCKED: root op %d %s: settings not reachable from Python, set SourceRoot=%s by hand" % (index, name, SOURCE_ROOT_BONE))
-            continue
-        settings = op.get_settings()
-        before = root_source_bone(settings.export_text())
-        if before == SOURCE_ROOT_BONE:
-            say("root op %d %s: SourceRoot already %s" % (index, name, before))
-            continue
-        # The bone reference through its properties, else the struct's text with the bone name replaced.
-        done = False
-        try:
-            bone = settings.get_editor_property("source_root")
-            bone.set_editor_property("bone_name", SOURCE_ROOT_BONE)
-            settings.set_editor_property("source_root", bone)
-            done = root_source_bone(settings.export_text()) == SOURCE_ROOT_BONE
-        except Exception as error:
-            say("root op %d %s: source_root not set by property (%s)" % (index, name, error))
-        if not done and hasattr(settings, "import_text"):
-            try:
-                text = re.sub(r'SourceRoot=\(BoneName="?[^",)]*"?', 'SourceRoot=(BoneName="%s"' % SOURCE_ROOT_BONE, settings.export_text(), count=1)
-                settings.import_text(text)
-                done = root_source_bone(settings.export_text()) == SOURCE_ROOT_BONE
-            except Exception as error:
-                say("root op %d %s: source_root not set by text (%s)" % (index, name, error))
-        if not done:
-            say("BLOCKED: root op %d %s: SourceRoot stays %s" % (index, name, before))
-            continue
-        op.set_settings(settings)
-        after = root_source_bone(op.get_settings().export_text())
-        say("root op %d %s: SourceRoot %s -> %s" % (index, name, before, after))
-        changed = changed or after == SOURCE_ROOT_BONE
-    if changed:
-        eal.save_loaded_asset(rtg, False)
-    return changed
+                say("root op %d %s: settings not read (%s)" % (index, name, error))
+        found.append((index, name, bone))
+    return found
+
+
+def fix_root_motion_op(rtg):
+    """Root Motion op: SourceRoot on the source skeleton's root bone, not its pelvis. True when it changed.
+
+    On 5.8 the op controller's set_settings does not keep a changed bone (measured: "pelvis -> pelvis"): the bone is
+    set in the asset by UGTPAnimGraphTools::SetRetargetSourceRoot (game module, editor build), then read again.
+    """
+    controller = unreal.IKRetargeterController.get_controller(rtg)
+    ops = root_op_bones(controller)
+    if not ops:
+        say("BLOCKED: no Root Motion op read on %s" % rtg.get_path_name())
+        return False
+    if all(bone == SOURCE_ROOT_BONE for _index, _name, bone in ops):
+        for index, name, bone in ops:
+            say("root op %d %s: SourceRoot already %s" % (index, name, bone))
+        return False
+    tools = getattr(unreal, "GTPAnimGraphTools", None)
+    if not tools or not hasattr(tools, "set_retarget_source_root"):
+        say("BLOCKED: unreal.GTPAnimGraphTools.set_retarget_source_root missing (build the game module first)")
+        return False
+    report = tools.set_retarget_source_root(rtg, SOURCE_ROOT_BONE)
+    say("set_retarget_source_root: %s" % report)
+    after = {index: bone for index, _name, bone in root_op_bones(controller)}
+    changed = False
+    for index, name, bone in ops:
+        now = after.get(index)
+        if now == SOURCE_ROOT_BONE and bone != SOURCE_ROOT_BONE:
+            say("root op %d %s: SourceRoot %s -> %s" % (index, name, bone, now))
+            changed = True
+        elif now != SOURCE_ROOT_BONE:
+            say("BLOCKED: root op %d %s: SourceRoot %s -> %s, not changed" % (index, name, bone, now))
+    if changed and report.startswith("ok"):
+        say("retargeter saved: %s" % eal.save_loaded_asset(rtg, False))
+    return changed and report.startswith("ok")
 
 
 def make_retargeter():

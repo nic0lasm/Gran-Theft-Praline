@@ -260,7 +260,11 @@ Lyra n'est repris : Lyra repose sur GAS et ShooterCore, que l'ADR-0011 écarte. 
   bloque le root fait tomber un tel corps d'environ 90 cm. `lyra_weapons_setup.py` règle maintenant le
   `SourceRoot` de cette op sur l'os `root` de la source (retargeteur existant compris), retargete à nouveau tous
   les clips par-dessus les anciens quand il a changé quelque chose (`GTP_RETARGET_AGAIN=1` le force), et donne
-  `root check …` pour les deux poses de visée (root attendu à 0).
+  `root check …` pour les deux poses de visée (root attendu à 0). Premier essai sur le PC : le `set_settings` du
+  contrôleur d'op n'a pas gardé l'os (`pelvis -> pelvis`, clips inchangés). L'os est maintenant réglé dans l'asset
+  lui-même par `UGTPAnimGraphTools::SetRetargetSourceRoot` (C++ éditeur seulement, réflexion sur les ops du
+  retargeteur, comme le fait le panneau de détails), relu par le contrôleur d'op, et un os inchangé est signalé
+  `BLOCKED`.
 - **Clips** : actions Lyra en pose complète (`MM_*_Equip`, `_Reload`, `_DryFire`, `_Idle_ADS`) dans
   `DefaultSlot`. Le Fire de Lyra n'existe qu'en additif : il attend un slot additif dans le blueprint du joueur ;
   d'ici là, le recul de la caméra et la flamme portent le tir.

@@ -15,6 +15,8 @@
 #include "EdGraph/EdGraphSchema.h"
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "Kismet2/KismetEditorUtilities.h"
+#include "StructUtils/InstancedStruct.h"
+#include "Templates/Function.h"
 #include "UObject/UnrealType.h"
 
 // Named, not anonymous: unity builds merge the anonymous namespaces of several files.
@@ -102,6 +104,23 @@ namespace GTPAnimGraphToolsPrivate
 		Node->NodePosY = Y;
 		Graph.AddNode(Node, false, false);
 		return Node;
+	}
+
+	/** Calls Visit on every struct property named Name in that memory, looking Depth levels into nested structs. */
+	void ForEachNamedStruct(const UStruct* Type, void* Memory, FName Name, int32 Depth, TFunctionRef<void(const FStructProperty*, void*)> Visit)
+	{
+		for (TFieldIterator<FStructProperty> It(Type); It; ++It)
+		{
+			void* Value = It->ContainerPtrToValuePtr<void>(Memory);
+			if (It->GetFName() == Name)
+			{
+				Visit(*It, Value);
+			}
+			else if (Depth > 0)
+			{
+				ForEachNamedStruct(It->Struct.Get(), Value, Name, Depth - 1, Visit);
+			}
+		}
 	}
 
 	/** What the editor does once a node is placed: its id, its own setup, its pins (from the properties set). */
@@ -238,6 +257,73 @@ FString UGTPAnimGraphTools::AddUpperBodyLayer(UAnimBlueprint* AnimBlueprint, FNa
 	AnimBlueprint->MarkPackageDirty();
 	return FString::Printf(TEXT("ok: %s has an upper-body layer (slot %s from %s, mesh-space rotation, status %d)"),
 		*AnimBlueprint->GetName(), *SlotName.ToString(), *RootBone.ToString(), static_cast<int32>(AnimBlueprint->Status.GetValue()));
+#else
+	return TEXT("error: editor only");
+#endif
+}
+
+FString UGTPAnimGraphTools::SetRetargetSourceRoot(UObject* Retargeter, FName Bone)
+{
+#if WITH_EDITOR
+	using namespace GTPAnimGraphToolsPrivate;
+	if (!Retargeter || Bone.IsNone())
+	{
+		return TEXT("error: no retargeter or bone");
+	}
+	// The ops live in an array of instanced structs on the retargeter; each op holds its settings, where the Root
+	// Motion op keeps SourceRoot (a bone reference: BoneName). Found by name, whatever the op's own types are.
+	TArray<FString> Before;
+	int32 Changed = 0;
+	for (TFieldIterator<FArrayProperty> It(Retargeter->GetClass()); It; ++It)
+	{
+		const FStructProperty* Inner = CastField<FStructProperty>(It->Inner);
+		if (!Inner || Inner->Struct != FInstancedStruct::StaticStruct())
+		{
+			continue;
+		}
+		FScriptArrayHelper Ops(*It, It->ContainerPtrToValuePtr<void>(Retargeter));
+		for (int32 Index = 0; Index < Ops.Num(); ++Index)
+		{
+			FInstancedStruct& Op = *reinterpret_cast<FInstancedStruct*>(Ops.GetRawPtr(Index));
+			const UScriptStruct* Type = Op.GetScriptStruct();
+			uint8* Memory = Op.GetMutableMemory();
+			if (!Type || !Memory)
+			{
+				continue;
+			}
+			ForEachNamedStruct(Type, Memory, FName(TEXT("SourceRoot")), 3, [&](const FStructProperty* Root, void* Value)
+			{
+				const FNameProperty* NameProp = CastField<FNameProperty>(Root->Struct->FindPropertyByName(FName(TEXT("BoneName"))));
+				if (!NameProp)
+				{
+					return;
+				}
+				FName* Name = NameProp->GetPropertyValuePtr(NameProp->ContainerPtrToValuePtr<void>(Value));
+				Before.Add(FString::Printf(TEXT("%s %s"), *Type->GetName(), *Name->ToString()));
+				if (*Name != Bone)
+				{
+					if (Changed == 0)
+					{
+						Retargeter->Modify();
+					}
+					*Name = Bone;
+					++Changed;
+				}
+			});
+		}
+	}
+	if (Before.Num() == 0)
+	{
+		return FString::Printf(TEXT("error: no SourceRoot in the ops of %s"), *Retargeter->GetName());
+	}
+	if (Changed == 0)
+	{
+		return FString::Printf(TEXT("kept: SourceRoot already %s (%s)"), *Bone.ToString(), *FString::Join(Before, TEXT(", ")));
+	}
+	Retargeter->PostEditChange();
+	Retargeter->MarkPackageDirty();
+	return FString::Printf(TEXT("ok: SourceRoot set to %s in %d op(s) of %s (before: %s)"), *Bone.ToString(), Changed,
+		*Retargeter->GetName(), *FString::Join(Before, TEXT(", ")));
 #else
 	return TEXT("error: editor only");
 #endif

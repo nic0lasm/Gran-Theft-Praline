@@ -247,7 +247,10 @@ is taken: Lyra stands on GAS and ShooterCore, which ADR-0011 leaves out. We take
   with `RootHeightSource=CopyHeightFromSource`; a montage that locks the root drops such a body by about 90 cm.
   `lyra_weapons_setup.py` now sets that op's `SourceRoot` to the source's `root` bone (existing retargeter too),
   retargets every clip again over the old ones when it changed something (`GTP_RETARGET_AGAIN=1` forces it), and
-  reports `root check …` for both aim poses (root expected at 0).
+  reports `root check …` for both aim poses (root expected at 0). First try on the PC: the op controller's
+  `set_settings` did not keep the bone (`pelvis -> pelvis`, clips unchanged). The bone is now set in the asset
+  itself by `UGTPAnimGraphTools::SetRetargetSourceRoot` (editor-only C++, reflection on the retargeter's ops, as the
+  details panel does), read again through the op controller, and an unchanged bone is reported `BLOCKED`.
 - **Clips**: full-pose Lyra actions (`MM_*_Equip`, `_Reload`, `_DryFire`, `_Idle_ADS`) in `DefaultSlot`. Lyra's
   Fire exists only as an additive: it waits for an additive slot in the player's blueprint, the camera kick and
   the flash carry the shot until then.
