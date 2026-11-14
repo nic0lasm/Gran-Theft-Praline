@@ -640,7 +640,7 @@ void AGTPPoliceDirector::BeginPlay()
 		Queries->Init();
 	}
 	NextSpawnTime = GetWorld()->GetTimeSeconds() + 3.f;
-	GTP_TRACE(LogGTPWanted, TEXT("police: on, up to %d units, class %s"), MaxUnits, LoadedPoliceClass ? *LoadedPoliceClass->GetName() : TEXT("traffic cars"));
+	GTP_TRACE(LogGTPWanted, TEXT("police: on, up to %d units, class %s"), MaxUnits, LoadedPoliceClass.Get() ? *GetNameSafe(LoadedPoliceClass.Get()) : TEXT("traffic cars"));
 }
 
 void AGTPPoliceDirector::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -717,6 +717,12 @@ bool AGTPPoliceDirector::FindSpawnPoint(const FVector& PlayerLocation, int32& Ou
 bool AGTPPoliceDirector::SpawnUnit(const FVector& PlayerLocation, const FTransform* Placement, bool bBlock)
 {
 	TSubclassOf<AGTPVehicle> Class = LoadedPoliceClass;
+	if (Class.Get() != nullptr && !IsValid(Class.Get()))
+	{
+		// A class that died or is being replaced: forget it, the traffic cars stand in.
+		LoadedPoliceClass = nullptr;
+		Class = nullptr;
+	}
 	if (!Class && Network->LoadedVehicleClasses.Num() > 0)
 	{
 		Class = Network->LoadedVehicleClasses[Random.RandRange(0, Network->LoadedVehicleClasses.Num() - 1)];

@@ -449,7 +449,10 @@ private:
 	float NextDeployTime = 0.f;
 	float NextUnitTraceTime = 0.f;
 	float NoStarsSeconds = 0.f;
+	/** UPROPERTY so the garbage collector keeps the loaded Blueprint classes: a bare TSubclassOf member left them to be freed, and the next spawn read a dead class. */
+	UPROPERTY(Transient)
 	TSubclassOf<AGTPVehicle> LoadedPoliceClass;
+	UPROPERTY(Transient)
 	TSubclassOf<ACharacter> LoadedDriverClass;
 	float NextSpawnTime = 0.f;
 	FRandomStream Random;
