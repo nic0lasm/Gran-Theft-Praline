@@ -262,7 +262,10 @@ and FOV. Measured on that run: the pack's normal-weight male body faces +Y in it
 **Assembly (ready, waits for the choice).** `tools/character/create_nicolito_visual.py` (editor, game module built;
 `GTP_NICOLITO_HEAD=m_00N`) copies BP_Kellan, never touched, to `/Game/MetaHumans/GTP/Nicolito/BP_Nicolito` and puts
 the chosen head on its `Face` component, without Kellan's material overrides; Kellan's body, outfit, retarget and
-grooms handling stay, his grooms are emptied (bound to his face; the game mode hides a groom without an asset).
+grooms handling stay, his grooms are emptied (bound to his face; the game mode hides a groom without an asset),
+then those named in `GTP_NICOLITO_GROOMS` (default `Eyebrows`) are put back with a new binding to the chosen face
+(`/Game/MetaHumans/GTP/Nicolito/Grooms`, HairStrands `GroomBlueprintLibrary`, transferred from the face the groom was
+made on: MetaHuman faces share one topology).
 `GTP_NICOLITO_MODE=full` also puts the crowd's normal-weight male body and outfit (`BP_Nicolito_Full`), saved only
 if that body has the skeleton of the body's retarget blueprint. The face keeps Kellan's face animation only if the
 new head has the skeleton it was made for; otherwise the game mode makes the face follow the body's head and neck
@@ -275,6 +278,10 @@ bench, on the player as he is in the game, left visible): `Nicolito_player_face.
 `Nicolito_player_body.png` (full length from the front, `PlayerBodyDistanceCm` 380, `PlayerBodyFOV` 40).
 
 The project lead chose the head **m_004** (2026-11-14, on the six portraits).
+
+First run of the script on the PC (2026-11-14, m_004): saved. The crowd head has its own `Face_Archetype_Skeleton`
+(`/Game/Crowd/Character/Shared/Rig`), another asset than the MetaHumans' one: the face follows the body, without
+facial animation. Every groom was emptied, eyebrows included, hence putting them back with `GTP_NICOLITO_GROOMS`.
 
 **Grooms (2026-11-14).** Kellan has six groom components (hair, eyebrows, eyelashes, peach fuzz, moustache, beard),
 each ticking in the package against a 13 ms budget. Strand simulation is off (`r.HairStrands.Simulation=0`). The

@@ -279,7 +279,9 @@ normale du pack regarde vers +Y dans son maillage, comme le mannequin.
 `GTP_NICOLITO_HEAD=m_00N`) copie BP_Kellan, jamais modifié, en `/Game/MetaHumans/GTP/Nicolito/BP_Nicolito` et pose
 la tête choisie sur son composant `Face`, sans les surcharges de matériaux de Kellan ; le corps, la tenue, le
 retarget et la gestion des grooms de Kellan restent, ses grooms sont vidés (liés à son visage ; le mode de jeu cache
-un groom sans asset). `GTP_NICOLITO_MODE=full` pose aussi le corps d'homme de corpulence normale et la tenue de la
+un groom sans asset), puis ceux nommés dans `GTP_NICOLITO_GROOMS` (par défaut `Eyebrows`) sont remis avec une nouvelle
+liaison au visage choisi (`/Game/MetaHumans/GTP/Nicolito/Grooms`, `GroomBlueprintLibrary` de HairStrands, transférée
+depuis le visage pour lequel le groom a été fait : les visages MetaHuman ont tous la même topologie). `GTP_NICOLITO_MODE=full` pose aussi le corps d'homme de corpulence normale et la tenue de la
 foule (`BP_Nicolito_Full`), enregistré seulement si ce corps a le squelette du blueprint de retarget du corps. Le
 visage garde l'animation faciale de Kellan seulement si la nouvelle tête a le squelette pour lequel elle a été faite ;
 sinon le mode de jeu fait suivre au visage la tête et le cou du corps (journal : `Face has no animation of its own`).
@@ -292,6 +294,11 @@ joueur tel qu'il est en jeu, laissé visible) : `Nicolito_player_face.png` (les 
 `Nicolito_player_body.png` (en pied, de face, `PlayerBodyDistanceCm` 380, `PlayerBodyFOV` 40).
 
 Le responsable du projet a choisi la tête **m_004** (14/11/2026, sur les six portraits).
+
+Premier passage du script sur le PC (14/11/2026, m_004) : enregistré. La tête de la foule a son propre
+`Face_Archetype_Skeleton` (`/Game/Crowd/Character/Shared/Rig`), un autre asset que celui des MetaHumans : le visage
+suit donc le corps, sans animation faciale. Tous les grooms ont été vidés, sourcils compris, d'où leur remise par
+`GTP_NICOLITO_GROOMS`.
 
 **Grooms (14/11/2026).** Kellan a six composants groom (cheveux, sourcils, cils, duvet, moustache, barbe), qui
 tickent tous dans le package pour un budget de 13 ms. La simulation des brins est coupée

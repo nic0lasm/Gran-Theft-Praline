@@ -13,8 +13,13 @@ Env:
   GTP_NICOLITO_MODE  face (default): the head changes, Kellan's body and outfit stay -> BP_Nicolito.
                      full: also the crowd's normal-weight male body and outfit (crewneck, jeans, loafers)
                      -> BP_Nicolito_Full.
+  GTP_NICOLITO_GROOMS  Kellan's grooms put back with a new binding to the chosen face, comma-separated component
+                     names (default: Eyebrows; e.g. Eyebrows,Hair,Mustache). The others stay empty.
 Both are under /Game/MetaHumans/GTP/Nicolito (a cooked folder). Kellan's grooms are bound to his own face: they are
-emptied (the game mode hides a groom without an asset, without tick), so Nicolito is bald until his hair is chosen.
+emptied (the game mode hides a groom without an asset, without tick), then those of GTP_NICOLITO_GROOMS get a binding
+to the new face (/Game/MetaHumans/GTP/Nicolito/Grooms, through the HairStrands GroomBlueprintLibrary, transferred
+from the face the groom was made on: MetaHuman faces share one topology). Without his hair Nicolito is bald until
+his hair is chosen.
 The face keeps Kellan's face animation only when the new head has the skeleton it was made for; otherwise the face
 follows the body's head and neck (the game mode does it), without facial animation.
 
@@ -33,6 +38,7 @@ KELLAN = "/Game/MetaHumans/Kellan/BP_Kellan"
 OUT_DIR = "/Game/MetaHumans/GTP/Nicolito"
 CROWD_MALE = "/Game/Crowd/Character/Male"
 OUTFIT = {"Torso": "crewneck", "Legs": "jeans", "Feet": "loafers"}
+GROOM_DIR = OUT_DIR + "/Grooms"
 
 eal = unreal.EditorAssetLibrary
 lines = []
@@ -66,6 +72,49 @@ def set_asset(bp, component, prop, asset):
     report = unreal.GTPAnimGraphTools.set_blueprint_component_asset(bp, component, prop, asset)
     say("  " + report)
     return not report.startswith("error")
+
+
+def rebind(bp, component, fields, face, head, kellan_face_path):
+    """Puts Kellan's groom of that component back with a binding to the new face (MetaHuman faces share one
+    topology: the binding transfers the groom from the face it was made on). A failure leaves it empty."""
+    groom_path = fields.get("GroomAsset", "-")
+    if groom_path == "-":
+        say("  %s: no groom in BP_Kellan" % component)
+        return
+    library = getattr(unreal, "GroomBlueprintLibrary", None)
+    create = getattr(library, "create_new_groom_binding_asset_with_path", None) if library else None
+    if create is None:
+        say("  %s NOT BOUND: unreal.GroomBlueprintLibrary.create_new_groom_binding_asset_with_path missing, left empty" % component)
+        return
+    groom = unreal.load_asset(groom_path)
+    old_binding = unreal.load_asset(fields["BindingAsset"]) if fields.get("BindingAsset", "-") != "-" else None
+    source_mesh = None
+    for prop in ("target_skeletal_mesh", "source_skeletal_mesh"):
+        if source_mesh is None and old_binding is not None:
+            try:
+                source_mesh = old_binding.get_editor_property(prop)
+            except Exception:  # noqa: BLE001 (not exposed on this engine)
+                source_mesh = None
+    if source_mesh is None and kellan_face_path != "-":
+        source_mesh = unreal.load_asset(kellan_face_path)
+    package = "%s/%s_%s_Binding" % (GROOM_DIR, groom.get_name(), head)
+    if eal.does_asset_exist(package):
+        binding = eal.load_asset(package)
+        say("  %s: binding %s reused" % (component, package))
+    else:
+        try:
+            binding = create(package, groom, face, 100, source_mesh, 0)
+        except Exception as error:  # noqa: BLE001 (reported, the groom stays empty)
+            say("  %s NOT BOUND: binding not created (%r), left empty" % (component, error))
+            return
+        if binding is None:
+            say("  %s NOT BOUND: no binding returned, left empty" % component)
+            return
+        say("  %s: binding %s created (groom %s, on %s, transferred from %s), saved %s" % (
+            component, package, groom.get_name(), face.get_name(), source_mesh.get_name() if source_mesh else "nothing",
+            eal.save_loaded_asset(binding, False)))
+    set_asset(bp, component, "GroomAsset", groom)
+    set_asset(bp, component, "BindingAsset", binding)
 
 
 def main():
@@ -151,6 +200,10 @@ def main():
             ok &= set_asset(bp, component, "GroomAsset", None)
             if "BindingAsset" in fields:
                 ok &= set_asset(bp, component, "BindingAsset", None)
+    kept = [name.strip() for name in os.environ.get("GTP_NICOLITO_GROOMS", "Eyebrows").split(",") if name.strip()]
+    say("== Kellan's grooms bound again, to the new face: %s" % (", ".join(kept) or "none"))
+    for component in kept:
+        rebind(bp, component, source.get(component, {}), face, head, source.get("Face", {}).get("mesh", "-"))
 
     unreal.BlueprintEditorLibrary.compile_blueprint(bp)
     say("== %s after the changes" % out)
