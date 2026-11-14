@@ -225,8 +225,10 @@ Lyra n'est repris : Lyra repose sur GAS et ShooterCore, que l'ADR-0011 écarte. 
 - **Haut du corps seulement** : le blueprint du joueur (`SandboxCharacter_CMC_ABP`) n'a que `DefaultSlot`. Les
   clips joués dans un slot passent par un profil de mélange créé au chargement à partir du squelette du joueur, en
   mode WeightFactor (`UpperBodyRoot`, `spine_01` et ses enfants pèsent 1, tous les autres os 0 ; un profil BlendMask
-  déclenche une assertion dans un slot de montage en 5.8) : dégainer, recharger et la pose de visée
-  laissent les jambes marcher. Aucune modification du blueprint. Sans l'os, ou si le masque ne peut pas être
+  déclenche une assertion dans un slot de montage en 5.8). Mesuré sur le candidat 32 : ce profil ne règle que
+  l'entrée et la sortie du mélange ; à plein poids, le clip joue sur tout le corps (avec `UpperBodyRoot` à
+  `spine_03` au lieu de `spine_01`, la pose est identique au centimètre près). Un vrai calque du haut du corps exige
+  un mélange par couches dans le blueprint d'animation du joueur. Aucune modification du blueprint pour l'instant. Sans l'os, ou si le masque ne peut pas être
   créé, les clips jouent sur tout le corps comme avant (signalé une fois dans le journal).
 - **Clips** : actions Lyra en pose complète (`MM_*_Equip`, `_Reload`, `_DryFire`, `_Idle_ADS`) dans
   `DefaultSlot`. Le Fire de Lyra n'existe qu'en additif : il attend un slot additif dans le blueprint du joueur ;
@@ -276,7 +278,12 @@ Lyra n'est repris : Lyra repose sur GAS et ShooterCore, que l'ADR-0011 écarte. 
   visée ; la caméra de visée, cadrée pour une tête debout, n'en montre que l'arrière en bas de l'image, alors que la
   pose du pistolet à deux mains est juste. `weapon: frame probe` donne maintenant la hauteur du bassin et
   l'inclinaison du dos (avant, droite), pour distinguer un dos penché d'un accroupi avant de toucher à la caméra ou
-  au masque du haut du corps.
+  au masque du haut du corps. Candidat 32 : le bassin du pion passe de 3 à -62 cm, le dos presque droit (7 degrés) :
+  la pose de visée au pistolet de Lyra, jouée sur tout le corps, abaisse les hanches de 65 cm. La caméra de visée
+  suit maintenant la hauteur de la tête (`bAimFollowsHead`, au plus 90 cm vers le bas et 30 cm vers le haut) : la
+  tête et l'arme restent dans l'image quelle que soit la pose ; la sonde de cadrage ajoute la hauteur du pied gauche
+  au-dessus du sol, et `-NoAimFraming` garde le cadrage large en visée, pour voir tout le corps et distinguer un
+  accroupi d'une pose enfoncée dans le sol.
 - **Qui est mis en joue (correctif de la nuit du 13/11)** : le joueur à pied signale la menace depuis ses yeux vers
   ce que couvre le réticule (la ligne de la vue jusqu'au premier obstacle), comme il tire depuis la vue, et non plus
   depuis la bouche du canon. Celle-ci est dans la main du corps visible : main basse à la hanche, un piéton à 2 m
