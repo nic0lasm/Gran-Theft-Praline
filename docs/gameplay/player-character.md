@@ -350,6 +350,17 @@ its head material paints on the face (`EyebrowsAttributeMap`, `HairAttributeMap`
 `GTP_NICOLITO_BROWS` (default `Natural`) and `GTP_NICOLITO_HAIR` (default none, bald), only where the parameter's
 default is of the same kind (virtual texture or not: the other would not compile). No groom, no binding.
 
+The pelvis, found (2026-11-14, the retargeter's text export): in `RTG_UEFNped_to_Metahuman` the Root Motion op has
+`TargetRoot = pelvis` (with `SourceRoot = root`, `CopyFromSourceRoot`): it puts the target's pelvis where the source's
+root is, on the ground. And the op stack is there three times (Pelvis Motion, FK Chains, Run IK Rig, Root Motion, then
+the same suffixed `_0` and `_1`): `create_pedestrian_retargeter.py` added the default ops at each run, so the body
+was retargeted three times per frame. `tools/character/fix_player_retargeter.py` fixes a copy,
+`RTG_UEFNped_to_Metahuman_Fixed` (the game's retargeter is untouched until proven): the copies of the ops are
+removed and Root Motion is disabled (the visual hangs from the pawn's mesh, which the movement component moves: the
+body needs no root motion of its own). Tried with `-PlayerVisualRetargeter=`, then `PlayerVisualRetargeter` in
+`DefaultGame.ini`. `create_pedestrian_retargeter.py` no longer adds the default ops to a retargeter that has some,
+and disables Root Motion.
+
 **Grooms (2026-11-14).** Kellan has six groom components (hair, eyebrows, eyelashes, peach fuzz, moustache, beard),
 each ticking in the package against a 13 ms budget. Strand simulation is off (`r.HairStrands.Simulation=0`). The
 game mode also hides, without tick, the grooms whose name contains a word of `PlayerGroomsHidden` (`Fuzz`,
