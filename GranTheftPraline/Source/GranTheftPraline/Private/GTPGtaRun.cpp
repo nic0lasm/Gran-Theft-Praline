@@ -4,6 +4,8 @@
 #include "GameFramework/WorldSettings.h"
 #include "EngineUtils.h"
 #include "GameFramework/Character.h"
+#include "Animation/AnimInstance.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "GTPLog.h"
