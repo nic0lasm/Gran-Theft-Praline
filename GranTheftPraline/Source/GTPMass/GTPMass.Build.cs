@@ -25,7 +25,8 @@ public class GTPMass : ModuleRules
 
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
-			"Json"
+			"Json",
+			"AssetRegistry"
 		});
 		if (Target.bBuildEditor)
 		{

@@ -45,4 +45,19 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "GTP|Editor")
 	static FString ReplacePackageReferences(const FString& PackagePath, const TMap<FString, FString>& FromTo);
+
+	/**
+	 * Which objects of the loaded package PackagePath still reference an object of one of the
+	 * Watched packages, hard or soft, as the package's objects serialize them. JSON: a list of
+	 * "object -> referenced" lines. Tells where a reference the replacement missed lives.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "GTP|Editor")
+	static FString ListReferencesTo(const FString& PackagePath, const TArray<FString>& Watched);
+
+	/**
+	 * Has the asset registry read these packages again from disk (after a save in the same editor
+	 * session its dependencies can still be the old ones). Returns the number of files scanned.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "GTP|Editor")
+	static int32 RescanPackages(const TArray<FString>& PackagePaths);
 };

@@ -499,9 +499,19 @@ def copy_traffic(report):
             eal.save_asset(target, only_if_is_dirty=False)
 
     repoint_copies(set())
+    targets = set(mapping.values())
+
+    def rescan():
+        # After a save in this editor session the asset registry can keep a copy's old
+        # dependencies: it reads the saved files again before any cook risk is computed.
+        if hasattr(tool, "rescan_packages"):
+            copy["rescanned"] = tool.rescan_packages(sorted(t for t in targets if eal.does_asset_exist(t)))
+        else:
+            copy["rescanned"] = "rescan_packages missing: build the editor target"
+
+    rescan()
     # A copy can keep cook risks of its own (City Sample's light types point at street lamp meshes
     # it does not have): references to it go too, in a second pass.
-    targets = set(mapping.values())
     unsafe_why, unchecked = {}, []
     for t in sorted(targets):
         why_t = {}
@@ -517,8 +527,18 @@ def copy_traffic(report):
     # What each unsafe copy keeps, with the chain that pulls it in: a placed spawner among them
     # still goes into the map, so its own risks are those of the cook.
     copy["unsafe_why"] = unsafe_why
+    # Where an unsafe copy still points at City Sample's packages it was copied from: which of its
+    # objects, hard (->) or soft (~>), as they serialize.
+    copy["unsafe_refs_left"] = {}
+    if hasattr(tool, "list_references_to"):
+        for t in sorted(unsafe):
+            try:
+                copy["unsafe_refs_left"][t] = json.loads(tool.list_references_to(t, sorted(mapping)))[:40]
+            except Exception as error:
+                copy["unsafe_refs_left"][t] = ["list failed: %s" % error]
     if unsafe:
         repoint_copies(unsafe)
+        rescan()
     why = {}
     copy["cook_risk"] = cook_risk(sorted(targets - unsafe), why=why)
     copy["cook_risk_why"] = why

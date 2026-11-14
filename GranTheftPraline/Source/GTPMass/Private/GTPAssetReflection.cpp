@@ -4,7 +4,13 @@
 #include "Misc/OutputDeviceNull.h"
 #include "Serialization/JsonSerializer.h"
 #include "Serialization/JsonWriter.h"
+#include "AssetRegistry/AssetRegistryModule.h"
+#include "AssetRegistry/IAssetRegistry.h"
+#include "Misc/PackageName.h"
+#include "Misc/Paths.h"
+#include "Modules/ModuleManager.h"
 #include "Serialization/ArchiveReplaceObjectRef.h"
+#include "UObject/SoftObjectPath.h"
 #include "UObject/Package.h"
 #include "UObject/UObjectHash.h"
 #include "UObject/UnrealType.h"
@@ -15,6 +21,48 @@
 
 namespace GTPAssetReflectionLocal
 {
+/** Lists the references of one object (as it serializes them) into the watched packages. */
+class FReferenceLister : public FArchiveUObject
+{
+public:
+	FReferenceLister(UObject* InRoot, const TSet<FName>& InWatched, TArray<FString>& InOut)
+		: Root(InRoot), Watched(InWatched), Out(InOut)
+	{
+		ArIsObjectReferenceCollector = true;
+		ArIgnoreOuterRef = true;
+		Root->Serialize(*this);
+	}
+
+	virtual FArchive& operator<<(UObject*& Object) override
+	{
+		if (Object && Object != Root && Watched.Contains(Object->GetPackage()->GetFName()))
+		{
+			Out.AddUnique(Root->GetPathName() + TEXT(" -> ") + Object->GetPathName());
+		}
+		return *this;
+	}
+
+	virtual FArchive& operator<<(FSoftObjectPath& Value) override
+	{
+		if (Watched.Contains(Value.GetLongPackageFName()))
+		{
+			Out.AddUnique(Root->GetPathName() + TEXT(" ~> ") + Value.ToString());
+		}
+		return *this;
+	}
+
+	virtual FArchive& operator<<(FSoftObjectPtr& Value) override
+	{
+		FSoftObjectPath Path = Value.ToSoftObjectPath();
+		return *this << Path;
+	}
+
+private:
+	UObject* Root;
+	const TSet<FName>& Watched;
+	TArray<FString>& Out;
+};
+
 TSharedRef<FJsonObject> Describe(UObject* Object, int32 Depth)
 {
 	TSharedRef<FJsonObject> Out = MakeShared<FJsonObject>();
@@ -212,4 +260,56 @@ FString UGTPAssetReflection::ReplacePackageReferences(const FString& PackagePath
 	const TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&Text);
 	FJsonSerializer::Serialize(Out, Writer);
 	return Text;
+}
+
+FString UGTPAssetReflection::ListReferencesTo(const FString& PackagePath, const TArray<FString>& Watched)
+{
+	TArray<FString> Lines;
+	UPackage* Package = LoadPackage(nullptr, *PackagePath, LOAD_None);
+	if (!Package)
+	{
+		Lines.Add(TEXT("cannot load ") + PackagePath);
+	}
+	else
+	{
+		TSet<FName> WatchedNames;
+		for (const FString& Name : Watched)
+		{
+			WatchedNames.Add(FName(*Name));
+		}
+		TArray<UObject*> Objects;
+		GetObjectsWithPackage(Package, Objects, /*bIncludeNestedObjects*/ true);
+		for (UObject* Object : Objects)
+		{
+			GTPAssetReflectionLocal::FReferenceLister Lister(Object, WatchedNames, Lines);
+		}
+	}
+	TArray<TSharedPtr<FJsonValue>> Values;
+	for (const FString& Line : Lines)
+	{
+		Values.Add(MakeShared<FJsonValueString>(Line));
+	}
+	FString Text;
+	const TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&Text);
+	FJsonSerializer::Serialize(Values, Writer);
+	return Text;
+}
+
+int32 UGTPAssetReflection::RescanPackages(const TArray<FString>& PackagePaths)
+{
+	TArray<FString> Files;
+	for (const FString& Path : PackagePaths)
+	{
+		FString File;
+		if (FPackageName::TryConvertLongPackageNameToFilename(Path, File, FPackageName::GetAssetPackageExtension()))
+		{
+			Files.Add(FPaths::ConvertRelativePathToFull(File));
+		}
+	}
+	if (Files.Num() > 0)
+	{
+		IAssetRegistry& Registry = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry")).Get();
+		Registry.ScanFilesSynchronous(Files, /*bForceRescan*/ true);
+	}
+	return Files.Num();
 }
