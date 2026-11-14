@@ -427,6 +427,20 @@ L'erreur « Template actor type -1 » est venue une fois, à 27 s, pendant que l
 encore les static meshes des voitures de City Sample (vehCar_vehicle03 et 07) ; le PC y voit un effet
 de l'éditeur à cache froid, à vérifier en package.
 
+## Porte du candidat 36 (package, 14/11)
+
+Package de cbd9207, `-Traffic=mass`, 300 s avec le garde : 110 voitures roulent à 7 s, un creux à
+75-86 de 20 s à 2 min (des voitures qui attendent leur tour au feu rouge, parce qu'elles arrivent
+toutes en même temps aux carrefours, et celles derrière elles ; jamais plus de 3 devant une voie
+pleine), puis 101 à 112 à partir de 147 s ; la plus proche à 46 m à 297 s. Moyenne des voitures qui
+roulent de 120 à 300 s : 103,9, contre 84,0 pour le package du candidat 35 (stops, le même creux,
+puis 79 à 92). Le point de mesure de la rue Childebert a eu une voiture à moins de 50 m dans 11
+relevés sur 19. Le garde ne coûte rien (game p50 8,18 ms avec, 8,24 ms sans) ; sans lui, le package
+écrit 9060 erreurs « Template actor type -1 » (des voitures sous physique qui rebouclent), aucune
+avec. À partir du candidat 37, la porte juge le trafic sur la moyenne des voitures qui roulent de 120
+à 300 s, au moins celle du candidat 35 moins 10 % (75,6) ; le relevé à 120 s reste noté pour
+information.
+
 ## Points ouverts
 
 - Près du joueur, MassTraffic peut confier une voiture à son véhicule physique : nos copies

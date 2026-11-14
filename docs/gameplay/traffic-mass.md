@@ -382,6 +382,18 @@ counts so far had at least one. The error "Template actor type -1" came once, 27
 editor was still building the static meshes of City Sample's cars (vehCar_vehicle03 and 07); the PC
 reads it as a cold-cache editor effect, to be checked in the package.
 
+## Gate of candidate 36 (package, 14/11)
+
+Package of cbd9207, `-Traffic=mass`, 300 s with the guard: 110 cars moving at 7 s, a dip to 75-86
+from 20 s to 2 min (cars waiting their turn at red lights as they all reach the junctions at once,
+with the cars behind them; never more than 3 before a full lane), then 101 to 112 from 147 s on;
+nearest car 46 m at 297 s. Mean moving from 120 to 300 s: 103.9, against 84.0 for candidate 35's
+package (stop signs, the same dip, then 79 to 92). The watch point on rue Childebert had a car
+within 50 m in 11 of 19 counts. The guard costs nothing (game p50 8.18 ms with it, 8.24 ms without);
+without it the package logs 9060 "Template actor type -1" errors (cars under physics that loop),
+none with it. From candidate 37 the gate judges the traffic on the mean moving from 120 to 300 s,
+at least that of candidate 35 less 10 % (75.6); the 120 s count is kept for information.
+
 ## Open points
 
 - Near the player MassTraffic may hand a car over to its physics vehicle: our copies name our cars
