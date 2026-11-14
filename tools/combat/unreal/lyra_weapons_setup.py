@@ -18,9 +18,18 @@ What it does, and reports in Saved/GTPCombat/lyra-weapons-setup.txt:
 4. Prints the DefaultGame.ini lines (Looks, Clips) matching what exists.
 5. Prints the full paths of the Lyra weapon sounds (shots, dry fire), for the audio
    settings (UGTPAudioSettings::WeaponVoices).
-Run it again after any change: retargeted assets that exist are kept.
+Run it again after any change: retargeted assets that exist are kept, except after a fix of the retargeter
+(below), when they are all retargeted again over the old ones.
+
+Root fix (14/11): on 5.8 the default ops of our retargeter took the source's pelvis as the Root Motion op's source
+root, so with RootHeightSource=CopyHeightFromSource every retargeted clip had its root bone raised to the pelvis
+(93.6 cm) and the pelvis put back under it; a montage that locks the root then drops the body by about 90 cm. The
+script sets that op's SourceRoot to the source skeleton's root bone (on an existing retargeter too), retargets the
+clips again when it changed something, and reports the root and pelvis heights of the aim poses at frame 0
+("root check"). GTP_RETARGET_AGAIN=1 forces the second retarget.
 """
 import os
+import re
 
 import unreal
 
@@ -54,6 +63,8 @@ TARGET_RIGS = [
     "/Game/Characters/Pedestrians/Retargeted/IK_SKM_UEFN_Mannequin",
 ]
 MADE_RTG = "/Game/Combat/Weapons/RTG_GTP_UE5_to_UEFN"
+# The source skeleton's root bone (UE5 Mannequin): the Root Motion op's source root (see fix_root_motion_op).
+SOURCE_ROOT_BONE = "root"
 # Lyra's mannequin, the source mesh of the weapon animations.
 SOURCE_MESHES = ["/Game/Characters/Heroes/Mannequin/Meshes/SKM_Manny", "/Game/Characters/Heroes/Mannequin/Meshes/SKM_Quinn"]
 # Full-pose actions: the player's animation blueprint has no additive slot, so these play instead of
@@ -121,6 +132,72 @@ def chain_names(rig):
         if hasattr(controller, fn):
             return [str(c.chain_name) if hasattr(c, "chain_name") else str(c) for c in getattr(controller, fn)()]
     return []
+
+
+def op_name(controller, index):
+    for fn in ("get_op_name", "get_retarget_op_name"):
+        if hasattr(controller, fn):
+            try:
+                return str(getattr(controller, fn)(index))
+            except Exception:
+                pass
+    return "?"
+
+
+def root_source_bone(text):
+    match = re.search(r'SourceRoot=\(BoneName="?([^",)]*)', text or "")
+    return match.group(1) if match else None
+
+
+def fix_root_motion_op(rtg):
+    """Root Motion op: SourceRoot on the source skeleton's root bone, not its pelvis. True when it changed."""
+    controller = unreal.IKRetargeterController.get_controller(rtg)
+    count = controller.get_num_retarget_ops() if hasattr(controller, "get_num_retarget_ops") else 0
+    changed = False
+    for index in range(count):
+        name = op_name(controller, index)
+        if "root" not in name.lower():
+            continue
+        op = None
+        if hasattr(controller, "get_op_controller"):
+            try:
+                op = controller.get_op_controller(index)
+            except Exception as error:
+                say("root op %d %s: no op controller (%s)" % (index, name, error))
+        if op is None or not hasattr(op, "get_settings") or not hasattr(op, "set_settings"):
+            say("BLOCKED: root op %d %s: settings not reachable from Python, set SourceRoot=%s by hand" % (index, name, SOURCE_ROOT_BONE))
+            continue
+        settings = op.get_settings()
+        before = root_source_bone(settings.export_text())
+        if before == SOURCE_ROOT_BONE:
+            say("root op %d %s: SourceRoot already %s" % (index, name, before))
+            continue
+        # The bone reference through its properties, else the struct's text with the bone name replaced.
+        done = False
+        try:
+            bone = settings.get_editor_property("source_root")
+            bone.set_editor_property("bone_name", SOURCE_ROOT_BONE)
+            settings.set_editor_property("source_root", bone)
+            done = root_source_bone(settings.export_text()) == SOURCE_ROOT_BONE
+        except Exception as error:
+            say("root op %d %s: source_root not set by property (%s)" % (index, name, error))
+        if not done and hasattr(settings, "import_text"):
+            try:
+                text = re.sub(r'SourceRoot=\(BoneName="?[^",)]*"?', 'SourceRoot=(BoneName="%s"' % SOURCE_ROOT_BONE, settings.export_text(), count=1)
+                settings.import_text(text)
+                done = root_source_bone(settings.export_text()) == SOURCE_ROOT_BONE
+            except Exception as error:
+                say("root op %d %s: source_root not set by text (%s)" % (index, name, error))
+        if not done:
+            say("BLOCKED: root op %d %s: SourceRoot stays %s" % (index, name, before))
+            continue
+        op.set_settings(settings)
+        after = root_source_bone(op.get_settings().export_text())
+        say("root op %d %s: SourceRoot %s -> %s" % (index, name, before, after))
+        changed = changed or after == SOURCE_ROOT_BONE
+    if changed:
+        eal.save_loaded_asset(rtg, False)
+    return changed
 
 
 def make_retargeter():
@@ -210,13 +287,14 @@ def find_mesh(word, skeleton=None):
     return None
 
 
-def retarget(sources, source_mesh, target_mesh, rtg):
+def retarget(sources, source_mesh, target_mesh, rtg, again=False):
+    """Retargets the sources into OUT_DIR; existing results are kept, or replaced in place when again is True."""
     if not eal.does_directory_exist(OUT_DIR):
         eal.make_directory(OUT_DIR)
     todo = []
     for src in sources:
         name = os.path.basename(src.get_path_name()).split(".")[0]
-        if eal.does_asset_exist(OUT_DIR + "/" + name + SUFFIX):
+        if not again and eal.does_asset_exist(OUT_DIR + "/" + name + SUFFIX):
             say("kept %s/%s%s" % (OUT_DIR, name, SUFFIX))
             continue
         todo.append(eal.find_asset_data(src.get_path_name()))
@@ -224,12 +302,16 @@ def retarget(sources, source_mesh, target_mesh, rtg):
         return
     op = unreal.IKRetargetBatchOperation
     made = None
-    attempts = (
+    attempts = [
         dict(assets_to_retarget=todo, source_mesh=source_mesh, target_mesh=target_mesh, ik_retarget_asset=rtg,
-             target_path=OUT_DIR, search="", replace="", prefix="", suffix=SUFFIX, overwrite_existing_files=False),
-        dict(assets_to_retarget=todo, source_mesh=source_mesh, target_mesh=target_mesh, ik_retarget_asset=rtg,
-             search="", replace="", prefix="", suffix=SUFFIX),
-    )
+             target_path=OUT_DIR, search="", replace="", prefix="", suffix=SUFFIX, overwrite_existing_files=again),
+    ]
+    if not again:
+        # Without target_path the results land next to the sources and are moved (an older call); it cannot
+        # replace existing results, so a second retarget never takes this way.
+        attempts.append(dict(assets_to_retarget=todo, source_mesh=source_mesh, target_mesh=target_mesh,
+                             ik_retarget_asset=rtg, search="", replace="", prefix="", suffix=SUFFIX))
+    say("retarget %d assets%s" % (len(todo), " again, over the old results" if again else ""))
     for kwargs in attempts:
         try:
             made = op.duplicate_and_retarget(**kwargs)
@@ -262,6 +344,32 @@ def retarget(sources, source_mesh, target_mesh, rtg):
         else:
             say("NOT SAVED %s" % path)
     say("saved %d assets in %s" % (saved, OUT_DIR))
+
+
+def root_check():
+    """Root and pelvis heights (component space) of the retargeted aim poses at frame 0: the root belongs at 0."""
+    options = unreal.AnimPoseEvaluationOptions()
+    for name, value in (("extract_root_motion", False), ("evaluation_type", unreal.AnimDataEvalType.RAW)):
+        try:
+            options.set_editor_property(name, value)
+        except Exception:
+            pass
+    for kind in ("pistol", "carbine"):
+        path = "%s/%s%s" % (OUT_DIR, os.path.basename(AIM_POSES[kind]), SUFFIX)
+        anim = load(path)
+        if not anim:
+            say("root check %s: missing" % path)
+            continue
+        try:
+            pose = unreal.AnimPoseExtensions.get_anim_pose_at_time(anim, 0.0, options)
+            pose = pose[0] if isinstance(pose, tuple) else pose
+            heights = []
+            for bone in ("root", "pelvis"):
+                where = unreal.AnimPoseExtensions.get_bone_pose(pose, bone, unreal.AnimPoseSpaces.WORLD)
+                heights.append("%s %.1f" % (bone, where.translation.z))
+            say("root check %s: %s cm" % (anim.get_name(), ", ".join(heights)))
+        except Exception as error:
+            say("root check %s: not read (%s)" % (anim.get_name(), error))
 
 
 def scan_slots(target_skeleton):
@@ -323,7 +431,10 @@ def main():
         source_mesh.get_path_name() if source_mesh else "NONE", target_mesh.get_path_name() if target_mesh else "NONE",
         rtg.get_path_name() if rtg else "NONE"))
     if sources and source_mesh and target_mesh and rtg:
-        retarget(sources, source_mesh, target_mesh, rtg)
+        fixed = fix_root_motion_op(rtg)
+        again = fixed or os.environ.get("GTP_RETARGET_AGAIN") == "1"
+        retarget(sources, source_mesh, target_mesh, rtg, again)
+        root_check()
     else:
         say("BLOCKED: retarget skipped (missing source animations, source mesh, player mesh or UE5->UEFN retargeter)")
     if target_mesh:

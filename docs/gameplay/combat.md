@@ -238,6 +238,16 @@ is taken: Lyra stands on GAS and ShooterCore, which ADR-0011 leaves out. We take
   frame 0 and mid-clip with each skeleton's reference pose, and dumps every op of `RTG_GTP_UE5_to_UEFN` with its
   settings. `lyra_weapons_setup.py` sets no pelvis translation mode: it adds the default ops and auto-aligns the
   bones, so the 5.8 defaults of its pelvis op apply (values not read yet: the report gives them).
+- **Measured on the PC (candidate 32, 14/11)**: the layer is in the blueprint (`ok …, status 3`, backups made), the
+  weapon plays in `UpperBody` (slot weight 1.00, node weight 1.00), and while aiming the pawn's pelvis stays at
+  +3 cm (it was -62), the head at 61 cm, the left foot 7 cm above the ground; whole-body capture: standing upright,
+  both hands in front of the face, gun forward. The pelvis check found the cause of the drop: every `_UEFN` clip has
+  its root bone raised to 93.6 cm and its pelvis put back under it (component-space pelvis right, 97 to 98 % of
+  standing), while the Lyra sources have their root at 0. The retargeter's Root Motion op had `SourceRoot=pelvis`
+  with `RootHeightSource=CopyHeightFromSource`; a montage that locks the root drops such a body by about 90 cm.
+  `lyra_weapons_setup.py` now sets that op's `SourceRoot` to the source's `root` bone (existing retargeter too),
+  retargets every clip again over the old ones when it changed something (`GTP_RETARGET_AGAIN=1` forces it), and
+  reports `root check …` for both aim poses (root expected at 0).
 - **Clips**: full-pose Lyra actions (`MM_*_Equip`, `_Reload`, `_DryFire`, `_Idle_ADS`) in `DefaultSlot`. Lyra's
   Fire exists only as an additive: it waits for an additive slot in the player's blueprint, the camera kick and
   the flash carry the shot until then.
