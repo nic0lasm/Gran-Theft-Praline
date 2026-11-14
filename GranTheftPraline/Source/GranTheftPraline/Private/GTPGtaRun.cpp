@@ -63,6 +63,7 @@ void UGTPGtaRun::BeginStep(int32 Index)
 	ShotAttempts = 0;
 	NextShot = 0.0;
 	bAimExitRequested = false;
+	AimFirstReaction = -1.0;
 	GTP_TRACE(LogGTPGtaRun, TEXT("GTARun step %d: %s start (t=%.0f s)"), Step + 1, StepNames[Step], FPlatformTime::Seconds() - RunStart);
 }
 
@@ -281,22 +282,34 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail)
 	const FVector Aim = (Body - Character->GetPawnViewLocation()).GetSafeNormal();
 	Character->SetActorRotation(FRotator(0.f, Aim.Rotation().Yaw, 0.f));
 	Threat->SetThreat(Character, true, Character->GetPawnViewLocation(), Aim);
-	int32 Hands = 0, Fleeing = 0, Alarmed = 0;
+	int32 Hands = 0, Fleeing = 0, Alarmed = 0, Obedient = 0;
 	for (TActorIterator<AGTPPedestrian> It(World); It; ++It)
 	{
 		if (const UGTPThreatResponseComponent* Fear = It->FindComponentByClass<UGTPThreatResponseComponent>())
 		{
 			switch (Fear->GetState())
 			{
-			case EGTPThreatState::HandsUp: case EGTPThreatState::Complying: ++Hands; break;
+			case EGTPThreatState::HandsUp: case EGTPThreatState::Complying:
+				++Hands;
+				Obedient += Fear->GetTemperament() == EGTPTemperament::Compliant || Fear->GetTemperament() == EGTPTemperament::Frozen ? 1 : 0;
+				break;
 			case EGTPThreatState::Fleeing: case EGTPThreatState::Backing: ++Fleeing; break;
 			case EGTPThreatState::Alarmed: ++Alarmed; break;
 			default: break;
 			}
 		}
 	}
-	Detail = FString::Printf(TEXT("aiming at %s (%.0f cm): %d hands up, %d fleeing, %d alarmed"), *Victim->GetName(), Best, Hands, Fleeing, Alarmed);
-	if (Hands + Fleeing > 0)
+	// Strict: a balance 3 s after the first reaction, and at least one compliant or frozen person with his hands up
+	// (the fleeing temperament runs by design and proves nothing about the hold-up).
+	const double Now = FPlatformTime::Seconds();
+	if (AimFirstReaction < 0.0 && Hands + Fleeing > 0)
+	{
+		AimFirstReaction = Now;
+	}
+	const bool bSettled = AimFirstReaction >= 0.0 && Now - AimFirstReaction >= 3.0;
+	Detail = FString::Printf(TEXT("aiming at %s (%.0f cm): %d hands up (%d compliant or frozen), %d fleeing, %d alarmed%s"),
+		*Victim->GetName(), Best, Hands, Obedient, Fleeing, Alarmed, bSettled ? TEXT(", settled") : TEXT(""));
+	if (bSettled && Obedient > 0)
 	{
 		Threat->ClearThreat();
 		return EResult::Ok;

@@ -119,6 +119,9 @@ public:
 	void SetFleeTarget(FVector Location) { FleeTarget = Location; bHasFleeTarget = true; }
 
 	UFUNCTION(BlueprintPure, Category = "Threat")
+	EGTPTemperament GetTemperament() const { return static_cast<EGTPTemperament>(static_cast<int32>(Brain.Temperament)); }
+
+	UFUNCTION(BlueprintPure, Category = "Threat")
 	EGTPThreatState GetState() const { return static_cast<EGTPThreatState>(static_cast<int32>(Brain.State)); }
 
 	/** Fear, 0..1. */
