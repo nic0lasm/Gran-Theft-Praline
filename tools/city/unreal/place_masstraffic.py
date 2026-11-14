@@ -22,7 +22,8 @@ The map is saved. Nothing is changed when the plugin is absent.
 4. Lists what the spawners would pull into the cook that is missing or known to break it
    ("cook_risk": City Sample's BP_VehicleBase_Deformable, vehicle AnimBlueprints, post-process
    AnimBlueprints; the cook of candidate 30 failed on them through our cars). It must be empty
-   before a package.
+   before a package. GTP_MASSTRAFFIC_REMOVE=1 only removes the spawners and saves the map (for a
+   package while the list is not empty).
 """
 
 import json
@@ -182,6 +183,10 @@ def main():
     for actor in actor_sub.get_all_level_actors():
         if actor.actor_has_tag(TAG):
             actor_sub.destroy_actor(actor)
+            report["removed"] = report.get("removed", 0) + 1
+    if os.environ.get("GTP_MASSTRAFFIC_REMOVE") == "1":
+        level_sub.save_current_level()
+        return write(report, t0)
     configure_settings(report)
     if place_blueprint_spawners(report) == 0:
         configs = entity_configs(report)
