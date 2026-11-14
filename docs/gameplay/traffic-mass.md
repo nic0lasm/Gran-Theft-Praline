@@ -46,7 +46,11 @@ Status 13/11/2026: prepared, not compiled, waiting for City Sample on the PC. De
    the same /Game paths in our project (out of Git), so their references hold.
 4. Read the report: lane filters set and City Sample's spawners placed (intersections, parked
    cars, driving cars, started in that order).
-5. Package, launch with `-Traffic=mass`.
+5. Package, launch with `-Traffic=mass`. The log proves what runs: a line "MassTraffic count"
+   every 5 s for the first minute, then every 30 s, gives the ZoneGraph data of the map (lanes,
+   zones: 0 lanes means the ZoneGraph was not built, so no car can spawn), the cars Mass draws as
+   instances and as actors, and the nearest one. `-MassTrafficView` puts the player 12 m from the
+   first Mass car seen, for a capture.
 
 ## City Sample's car Blueprints
 

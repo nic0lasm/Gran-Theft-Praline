@@ -1,9 +1,17 @@
 #include "GTPMassTraffic.h"
 
 #include "GTPTraffic.h"
+#include "Components/InstancedStaticMeshComponent.h"
 #include "EngineUtils.h"
 #include "MassSpawner.h"
 #include "Engine/World.h"
+#include "GameFramework/Controller.h"
+#include "GameFramework/Pawn.h"
+#include "Kismet/GameplayStatics.h"
+#include "Misc/CommandLine.h"
+#include "TimerManager.h"
+#include "UObject/UObjectIterator.h"
+#include "ZoneGraphData.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogGTPMassTraffic, Log, All);
 
@@ -57,7 +65,115 @@ void UGTPMassTrafficSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 		UE_LOG(LogGTPMassTraffic, Warning, TEXT("MassTraffic: no spawner tagged %s in the map, run tools/city/unreal/place_masstraffic.py"),
 			*SpawnerTag.ToString());
 	}
+	LogCounts();
+	InWorld.GetTimerManager().SetTimer(CountTimer, FTimerDelegate::CreateUObject(this, &UGTPMassTrafficSubsystem::LogCounts), 5.f, true);
 #else
 	UE_LOG(LogGTPMassTraffic, Warning, TEXT("MassTraffic: -Traffic=mass but the plugin is not installed (Plugins/Traffic and Plugins/RuleProcessor from City Sample), legacy traffic kept"));
 #endif
+}
+
+namespace GTPMassTrafficLocal
+{
+/** True for an actor of City Sample's car class (MassTraffic's display actors), found by name. */
+bool IsMassCarActor(const AActor* Actor)
+{
+	for (const UClass* Class = Actor->GetClass(); Class; Class = Class->GetSuperClass())
+	{
+		if (Class->GetFName() == TEXT("CitySampleMassVehicleBase"))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+}
+
+void UGTPMassTrafficSubsystem::LogCounts()
+{
+	using namespace GTPMassTrafficLocal;
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+	++CountLogs;
+	// Every 5 s for the first minute, then every 30 s.
+	if (CountLogs > 12 && CountLogs % 6 != 0)
+	{
+		return;
+	}
+	int32 GraphData = 0;
+	int32 Lanes = 0;
+	int32 Zones = 0;
+	for (TActorIterator<AZoneGraphData> It(World); It; ++It)
+	{
+		++GraphData;
+		Lanes += It->GetStorage().Lanes.Num();
+		Zones += It->GetStorage().Zones.Num();
+	}
+	APawn* Player = UGameplayStatics::GetPlayerPawn(World, 0);
+	const FVector PlayerLocation = Player ? Player->GetActorLocation() : FVector::ZeroVector;
+	double Nearest = TNumericLimits<double>::Max();
+	FVector NearestLocation = FVector::ZeroVector;
+	auto Consider = [&](const FVector& Location)
+	{
+		const double Distance = FVector::Dist(Location, PlayerLocation);
+		if (Distance < Nearest)
+		{
+			Nearest = Distance;
+			NearestLocation = Location;
+		}
+	};
+	// Far cars: instances drawn by Mass's visualizer actor.
+	int32 Instances = 0;
+	for (TObjectIterator<UInstancedStaticMeshComponent> It; It; ++It)
+	{
+		const AActor* Owner = It->GetOwner();
+		if (It->GetWorld() != World || !Owner || !Owner->GetClass()->GetName().Contains(TEXT("MassVisualizer")))
+		{
+			continue;
+		}
+		const int32 Count = It->GetInstanceCount();
+		Instances += Count;
+		FTransform Transform;
+		for (int32 Index = 0; Index < FMath::Min(Count, 200); ++Index)
+		{
+			if (It->GetInstanceTransform(Index, Transform, true))
+			{
+				Consider(Transform.GetLocation());
+			}
+		}
+	}
+	// Near cars: City Sample's car actors put in by Mass.
+	int32 Actors = 0;
+	for (TActorIterator<AActor> It(World); It; ++It)
+	{
+		if (IsMassCarActor(*It))
+		{
+			++Actors;
+			Consider(It->GetActorLocation());
+		}
+	}
+	const bool bAny = Nearest < TNumericLimits<double>::Max();
+	UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic count t=%.0fs: zonegraph data=%d lanes=%d zones=%d | cars: instances=%d actors=%d nearest=%s"),
+		World->GetTimeSeconds(), GraphData, Lanes, Zones, Instances, Actors,
+		bAny ? *FString::Printf(TEXT("%.0f m at %s"), Nearest / 100.0, *NearestLocation.ToCompactString()) : TEXT("none"));
+	if (Lanes == 0 && CountLogs == 1)
+	{
+		UE_LOG(LogGTPMassTraffic, Warning, TEXT("MassTraffic: the map has no built ZoneGraph lanes, no car can spawn (build the ZoneGraph and save the map)"));
+	}
+	if (!bViewPlaced && bAny && Player && FParse::Param(FCommandLine::Get(), TEXT("MassTrafficView")))
+	{
+		// 12 m from the car, a little above, facing it.
+		const FVector Away = (PlayerLocation - NearestLocation).GetSafeNormal2D().IsNearlyZero() ? FVector(1.0, 0.0, 0.0)
+			: (PlayerLocation - NearestLocation).GetSafeNormal2D();
+		const FVector Spot = NearestLocation + Away * 1200.0 + FVector(0.0, 0.0, 200.0);
+		Player->TeleportTo(Spot, (NearestLocation - Spot).Rotation().GetNormalized(), false, true);
+		if (AController* Controller = Player->GetController())
+		{
+			Controller->SetControlRotation((NearestLocation - Spot).Rotation());
+		}
+		bViewPlaced = true;
+		UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic view: player put at %s, looking at the car at %s"), *Spot.ToCompactString(), *NearestLocation.ToCompactString());
+	}
 }

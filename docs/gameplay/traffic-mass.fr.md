@@ -50,7 +50,12 @@ ADR-0015 (piétons et trafic sur Mass). Anglais : [traffic-mass.md](traffic-mass
    sont copiés aux mêmes chemins /Game dans notre projet (hors Git) pour garder leurs références.
 4. Lire le rapport : filtres de voies posés et spawners de City Sample placés (carrefours,
    voitures garées, voitures roulantes, lancés dans cet ordre).
-5. Packager, lancer avec `-Traffic=mass`.
+5. Packager, lancer avec `-Traffic=mass`. Le journal prouve ce qui tourne : une ligne
+   « MassTraffic count » toutes les 5 s pendant la première minute, puis toutes les 30 s, donne les
+   données ZoneGraph de la carte (voies, zones : 0 voie veut dire ZoneGraph jamais construite, donc
+   aucune voiture possible), les voitures que Mass dessine en instances et en acteurs, et la plus
+   proche. `-MassTrafficView` pose le joueur à 12 m de la première voiture Mass vue, pour une
+   capture.
 
 ## Blueprints de voitures de City Sample
 
