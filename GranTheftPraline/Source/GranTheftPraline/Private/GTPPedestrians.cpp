@@ -129,6 +129,12 @@ void AGTPPedestrian::Dress(USkeletalMesh* BodyMesh, const TArray<USkeletalMesh*>
 			FacePart->SetAnimationMode(EAnimationMode::AnimationBlueprint);
 			FacePart->SetAnimInstanceClass(FaceAnim);
 		}
+		else
+		{
+			// No face animation blueprint (it needs City Sample's C++): follow the body by bone name, or the head
+			// stays alone in its reference pose where the actor started (a floating head).
+			FacePart->SetLeaderPoseComponent(Body);
+		}
 	}
 }
 

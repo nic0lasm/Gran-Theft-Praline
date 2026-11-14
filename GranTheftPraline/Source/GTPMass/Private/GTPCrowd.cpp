@@ -807,9 +807,9 @@ bool UGTPCrowdSubsystem::DressFromCitySample(AGTPPedestrian* Actor)
 {
 	// Path pattern of the pack: <Root>/<Female|Male>/<NormalWeight|OverWeight|UnderWeight>/Meshes/<f|m>_tal_<nrw|ovw|unw>_<part>.
 	const bool bFemale = ReactionRng.Next() < 0.5f;
-	const float WeightPick = ReactionRng.Next();
-	const TCHAR* WeightDir = WeightPick < 0.6f ? TEXT("NormalWeight") : (WeightPick < 0.8f ? TEXT("OverWeight") : TEXT("UnderWeight"));
-	const TCHAR* WeightTag = WeightPick < 0.6f ? TEXT("nrw") : (WeightPick < 0.8f ? TEXT("ovw") : TEXT("unw"));
+	// Only the normal-weight body is in the migrated subset (the clothes of the other weights do not fit it anyway).
+	const TCHAR* WeightDir = TEXT("NormalWeight");
+	const TCHAR* WeightTag = TEXT("nrw");
 	const FString Sex = bFemale ? TEXT("Female") : TEXT("Male");
 	const FString Prefix = bFemale ? TEXT("f") : TEXT("m");
 	auto Pick = [this](const TArray<FString>& Options) -> FString
@@ -826,17 +826,31 @@ bool UGTPCrowdSubsystem::DressFromCitySample(AGTPPedestrian* Actor)
 	{
 		return false;
 	}
+	// A garment that is not in the subset falls back to the next one of its list, so nobody walks out half dressed.
+	auto LoadAny = [&](TArray<FString> Options) -> USkeletalMesh*
+	{
+		const int32 Start = FMath::Min(Options.Num() - 1, static_cast<int32>(ReactionRng.Next() * Options.Num()));
+		for (int32 I = 0; I < Options.Num(); ++I)
+		{
+			if (USkeletalMesh* Found = Load(Options[(Start + I) % Options.Num()]))
+			{
+				return Found;
+			}
+		}
+		return nullptr;
+	};
 	TArray<USkeletalMesh*> Clothes;
-	Clothes.Add(Load(Pick(bFemale
+	Clothes.Add(LoadAny((bFemale
 		? TArray<FString>{TEXT("buttonDown"), TEXT("buttonOpen"), TEXT("scoopneck"), TEXT("turtleneck"), TEXT("buttonDown_blazer"), TEXT("scoopneck_croppedJacket")}
 		: TArray<FString>{TEXT("buttonDown"), TEXT("buttonOpen"), TEXT("crewneck"), TEXT("turtleneck"), TEXT("buttonDown_tie"), TEXT("crewneck_blazer")})));
-	Clothes.Add(Load(Pick(bFemale
+	Clothes.Add(LoadAny((bFemale
 		? TArray<FString>{TEXT("jeans"), TEXT("slacks"), TEXT("skirt"), TEXT("jeans_belt")}
 		: TArray<FString>{TEXT("jeans"), TEXT("jeansLong"), TEXT("slacks"), TEXT("slacks_belt")})));
-	Clothes.Add(Load(Pick(bFemale
+	Clothes.Add(LoadAny((bFemale
 		? TArray<FString>{TEXT("loafers"), TEXT("oxfords"), TEXT("dressFlats")}
 		: TArray<FString>{TEXT("loafers"), TEXT("oxfords")})));
-	const int32 FaceIndex = 1 + FMath::Min(5, static_cast<int32>(ReactionRng.Next() * 6));
+	// Heads 001 to 003 of each sex are in the migrated subset.
+	const int32 FaceIndex = 1 + FMath::Min(2, static_cast<int32>(ReactionRng.Next() * 3));
 	const FString FaceName = FString::Printf(TEXT("%s_%03d_nrw_FaceMesh"), *Prefix, FaceIndex);
 	USkeletalMesh* Face = LoadObject<USkeletalMesh>(nullptr, *FString::Printf(TEXT("%s/%s/%s_%03d/Face/%s.%s"),
 		*CrowdCharacterRoot, *Sex, *Prefix, FaceIndex, *FaceName, *FaceName));
