@@ -11,6 +11,7 @@
 #include "GTPThreat.h"
 #include "GTPWeapon.h"
 #include "GTPWeaponPickup.h"
+#include "Components/CapsuleComponent.h"
 #include "Components/DecalComponent.h"
 #include "Components/PrimitiveComponent.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -163,7 +164,15 @@ AActor* UGTPCombatSubsystem::FindAimTarget(const FVector& Origin, const FVector&
 		}
 		// Chest height: a body's location is its middle (character capsule or pedestrian root at the feet).
 		const FVector Chest = Body->GetActorLocation() + FVector(0.f, 0.f, Cast<ACharacter>(Body) ? 30.f : 130.f);
-		const FVector To = Chest - Origin;
+		// The angle to the point of the body's axis nearest to the aim line, not to the chest: up close a gun on
+		// the legs is far from the chest in degrees (40 cm at 1.3 m is 17 degrees) and still on the person.
+		FVector Bottom;
+		FVector Top;
+		GetBodyAxis(Body, Bottom, Top);
+		FVector OnLine;
+		FVector OnBody;
+		FMath::SegmentDistToSegmentSafe(Origin, Origin + Dir * MaxCm, Bottom, Top, OnLine, OnBody);
+		const FVector To = OnBody - Origin;
 		const double Distance = To.Size();
 		if (Distance > MaxCm || Distance < 1.0)
 		{
@@ -198,6 +207,68 @@ AActor* UGTPCombatSubsystem::FindAimTarget(const FVector& Origin, const FVector&
 	}
 	const int Best = GTPAimAssist::PickSnapTarget(Targets, Settings);
 	return Best >= 0 ? Actors[Best] : nullptr;
+}
+
+AActor* UGTPCombatSubsystem::FindReticleTarget(const FVector& View, const FVector& Direction, double MaxCm, const AActor* Ignore, FVector& OutMiddle) const
+{
+	UWorld* World = GetWorld();
+	const FVector Dir = Direction.GetSafeNormal();
+	if (!World || Dir.IsNearlyZero() || MaxCm < 1.0)
+	{
+		return nullptr;
+	}
+	const FVector End = View + Dir * MaxCm;
+	AActor* Best = nullptr;
+	double BestAlong = MaxCm;
+	auto Consider = [&](AActor* Body)
+	{
+		if (!Body || Body == Ignore || IsPlayer(Body) || Body->IsHidden())
+		{
+			return;
+		}
+		const UGTPHealthComponent* Health = Body->FindComponentByClass<UGTPHealthComponent>();
+		if (Health && Health->IsDead())
+		{
+			return;
+		}
+		FVector Bottom;
+		FVector Top;
+		GetBodyAxis(Body, Bottom, Top);
+		FVector OnLine;
+		FVector OnBody;
+		FMath::SegmentDistToSegmentSafe(View, End, Bottom, Top, OnLine, OnBody);
+		const double Along = FVector::DotProduct(OnLine - View, Dir);
+		if (Along > 1.0 && Along < BestAlong && FVector::Dist(OnLine, OnBody) <= ReticleBodyRadiusCm)
+		{
+			BestAlong = Along;
+			Best = Body;
+			OutMiddle = (Bottom + Top) * 0.5;
+		}
+	};
+	for (TActorIterator<ACharacter> It(World); It; ++It)
+	{
+		Consider(*It);
+	}
+	for (TActorIterator<AGTPPedestrian> It(World); It; ++It)
+	{
+		Consider(*It);
+	}
+	return Best;
+}
+
+void UGTPCombatSubsystem::GetBodyAxis(const AActor* Body, FVector& OutBottom, FVector& OutTop) const
+{
+	const FVector At = Body ? Body->GetActorLocation() : FVector::ZeroVector;
+	const ACharacter* Character = Cast<ACharacter>(Body);
+	if (Character && Character->GetCapsuleComponent())
+	{
+		const FVector Half(0.f, 0.f, Character->GetCapsuleComponent()->GetScaledCapsuleHalfHeight());
+		OutBottom = At - Half;
+		OutTop = At + Half;
+		return;
+	}
+	OutBottom = At;
+	OutTop = At + FVector(0.f, 0.f, BodyHeightCm);
 }
 
 void UGTPCombatSubsystem::SnapPlayerAim(UGTPWeaponComponent* Weapon)

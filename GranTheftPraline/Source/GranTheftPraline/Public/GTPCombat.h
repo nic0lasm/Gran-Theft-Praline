@@ -90,8 +90,22 @@ public:
 	/** Gamepad aim: turns the player's view onto the best body near the reticle (GTPAimAssist). */
 	void SnapPlayerAim(UGTPWeaponComponent* Weapon);
 
-	/** Best living body near the line Origin + Direction (cone in degrees), nullptr when none. */
+	/**
+	 * Best living body near the line Origin + Direction, nullptr when none. A body counts when the point of its
+	 * axis (GetBodyAxis) nearest to that line is within ConeDeg of it: at arm's length a gun on the chest or on the
+	 * legs is aimed at that person, as far away.
+	 */
 	AActor* FindAimTarget(const FVector& Origin, const FVector& Direction, float ConeDeg, float MaxDistanceM, const AActor* Ignore) const;
+
+	/**
+	 * The person the reticle covers: the nearest living body whose axis passes within ReticleBodyRadiusCm of the
+	 * view's line, closer than MaxCm along it (people have no collision for traces, the view's line goes through
+	 * them). OutMiddle is the middle of that body's axis. nullptr when none.
+	 */
+	AActor* FindReticleTarget(const FVector& View, const FVector& Direction, double MaxCm, const AActor* Ignore, FVector& OutMiddle) const;
+
+	/** A body's vertical axis: a character's capsule, else from the root (a pedestrian's feet) up BodyHeightCm. */
+	void GetBodyAxis(const AActor* Body, FVector& OutBottom, FVector& OutTop) const;
 
 	/** The -CombatBench firefight runs: listeners that call the police skip it (same scene every pass). */
 	bool IsBenchRunning() const { return BenchTimer.IsValid(); }
@@ -175,6 +189,13 @@ protected:
 	float ThreatConeDeg = 12.f;
 	UPROPERTY(Config)
 	float ThreatDistanceM = 25.f;
+
+	/** The reticle covers a person when the view's line passes this close to the axis of the body (cm). */
+	UPROPERTY(Config)
+	float ReticleBodyRadiusCm = 35.f;
+	/** Height of a body whose root is at the feet (the pedestrians), for its axis (cm). */
+	UPROPERTY(Config)
+	float BodyHeightCm = 175.f;
 
 	/** Grace without damage after a respawn (s). */
 	UPROPERTY(Config)
