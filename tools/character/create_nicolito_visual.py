@@ -14,7 +14,8 @@ Env:
                      full: also the crowd's normal-weight male body and outfit (crewneck, jeans, loafers)
                      -> BP_Nicolito_Full.
   GTP_NICOLITO_GROOMS  Kellan's grooms put back with a new binding to the chosen face, comma-separated component
-                     names (default: Eyebrows; e.g. Eyebrows,Hair,Mustache). The others stay empty.
+                     names (e.g. Eyebrows,Hair,Mustache). Default: none (bound by transfer from Kellan's face the
+                     eyebrows did not show, bound directly they landed on the upper lip). The others stay empty.
   GTP_NICOLITO_SKIN  the crowd skin atlas tile (0 to 11) of the face and the body. Default: the chosen head's own
                      tile (m_004 reads 3), the skin seen on the portraits.
   GTP_NICOLITO_OUTFIT  full mode only: the crowd garments, e.g. Torso=crewneck,Legs=jeans,Feet=loafers (the default).
@@ -543,7 +544,7 @@ def main():
             ok &= set_asset(bp, component, "GroomAsset", None)
             if "BindingAsset" in fields:
                 ok &= set_asset(bp, component, "BindingAsset", None)
-    kept = [name.strip() for name in os.environ.get("GTP_NICOLITO_GROOMS", "Eyebrows").split(",") if name.strip()]
+    kept = [name.strip() for name in os.environ.get("GTP_NICOLITO_GROOMS", "").split(",") if name.strip()]
     say("== Kellan's grooms bound again, to the new face: %s" % (", ".join(kept) or "none"))
     for component in kept:
         rebind(bp, component, source.get(component, {}), face, head, source.get("Face", {}).get("mesh", "-"))
