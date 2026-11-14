@@ -263,3 +263,11 @@ pas une dépendance). Le journal donne le LOD forcé de chaque groom avant et ap
 (brins, cartes ou maillages), pour qu'une synchronisation de LOD du blueprint qui le remettrait se voie.
 `-PlayerGrooms=full` les garde tels que le blueprint les a faits. Il en va de même pour le visuel de Nicolito s'il
 a des grooms.
+
+Mesuré sur le PC (package de développement) : les ticks de grooms passent de 6 à 4. `SetForcedLOD` n'est pas
+atteignable par réflexion (pas une UFUNCTION en 5.8), le LOD forcé n'est donc pas appliqué ; il ne réduirait que le
+coût GPU, le coût du thread de jeu étant les ticks. Le blueprint remet l'indicateur visible des deux grooms cachés ;
+le journal donne maintenant l'état réel (indicateur visible, caché en jeu, tick) et un groom sans asset (sans doute la barbe
+de Kellan) est lui aussi caché sans tick. Une fois par groom, le journal donne le nombre de LOD de l'asset et son
+premier LOD en cartes (l'export omet la valeur par défaut, les brins : le LOD 1 de Hair est en brins allégés, pas en
+cartes).

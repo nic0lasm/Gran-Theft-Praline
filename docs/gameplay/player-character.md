@@ -248,3 +248,10 @@ their `SetForcedLOD`, called by reflection (the HairStrands plugin is not a depe
 groom's forced LOD before and after, and once its asset's LODs (strands, cards or meshes), so that a LOD sync of the
 blueprint that would set it back shows. `-PlayerGrooms=full` keeps them as the blueprint made them. The same
 applies to Nicolito's visual if it has grooms.
+
+Measured on the PC (development package): groom ticks went from 6 to 4. `SetForcedLOD` cannot be reached by
+reflection (not a UFUNCTION on 5.8), so the forced LOD is not applied; it would lower the GPU cost only, the
+game-thread cost being the ticks. The blueprint sets the visible flag of the two hidden grooms back; the log now
+gives the real state (visible flag, hidden in game, tick) and a groom without an asset (likely Kellan's beard, whose asset LODs did not show) is hidden
+without tick too. Once per groom the log gives the asset's LOD count and its first cards LOD (the export leaves the
+default, strands, out: Hair's LOD 1 is decimated strands, not cards).

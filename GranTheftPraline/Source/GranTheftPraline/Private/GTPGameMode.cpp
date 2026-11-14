@@ -261,9 +261,51 @@ static FString GTPReadGroomLOD(UObject* Groom)
 	return TEXT("?");
 }
 
+/** Index of the first LOD of the first hair group whose geometry is cards, from the exported HairGroupsLOD text. */
+static int32 GTPFirstCardsLOD(const FString& Text, int32& OutCount)
+{
+	OutCount = 0;
+	const int32 Start = Text.Find(TEXT("Lods=("));
+	if (Start == INDEX_NONE)
+	{
+		return INDEX_NONE;
+	}
+	int32 Depth = 0;
+	int32 Index = 0;
+	int32 EntryStart = Start + 6;
+	int32 Found = INDEX_NONE;
+	for (int32 At = EntryStart; At < Text.Len(); ++At)
+	{
+		const TCHAR C = Text[At];
+		if (C == TEXT('('))
+		{
+			++Depth;
+		}
+		else if (C == TEXT(')'))
+		{
+			if (Depth == 0)
+			{
+				OutCount = Index + 1;
+				break;
+			}
+			if (--Depth == 0 && Found == INDEX_NONE && Text.Mid(EntryStart, At - EntryStart + 1).Contains(TEXT("GeometryType=Cards")))
+			{
+				Found = Index;
+			}
+		}
+		else if (C == TEXT(',') && Depth == 0)
+		{
+			++Index;
+			EntryStart = At + 1;
+		}
+	}
+	return Found;
+}
+
 /**
- * The player visual's grooms: hidden without tick when their name has one of HiddenWords, else held at ForcedLOD.
- * The forced LOD is read before it is set again (a LOD sync component of the blueprint could change it in between).
+ * The player visual's grooms. A groom without an asset, or whose name has one of HiddenWords, is hidden in game and
+ * stops ticking (its tick is the game-thread cost); the others are asked for ForcedLOD (GPU cost only). Logged with
+ * the real state (visible flag, hidden in game, tick), so a blueprint that changes one of them shows.
  */
 static void GTPThinPlayerGrooms(AActor* Visual, const TArray<FString>& HiddenWords, int32 ForcedLOD, bool bDescribe)
 {
@@ -279,37 +321,42 @@ static void GTPThinPlayerGrooms(AActor* Visual, const TArray<FString>& HiddenWor
 			continue;
 		}
 		const FString PartName = Part->GetName();
-		if (HiddenWords.ContainsByPredicate([&PartName](const FString& Word) { return !Word.IsEmpty() && PartName.Contains(Word); }))
+		const FObjectPropertyBase* AssetProp = FindFProperty<FObjectPropertyBase>(Part->GetClass(), TEXT("GroomAsset"));
+		UObject* Asset = AssetProp ? AssetProp->GetObjectPropertyValue_InContainer(Part) : nullptr;
+		const bool bNamed = HiddenWords.ContainsByPredicate([&PartName](const FString& Word) { return !Word.IsEmpty() && PartName.Contains(Word); });
+		if (!Asset || bNamed)
 		{
-			const bool bWasShown = Part->IsVisible() || Part->IsComponentTickEnabled();
+			const bool bChanged = !Part->bHiddenInGame || Part->IsComponentTickEnabled();
 			Part->SetVisibility(false, false);
 			Part->SetHiddenInGame(true, false);
 			Part->SetComponentTickEnabled(false);
-			if (bDescribe || bWasShown)
+			if (bDescribe || bChanged)
 			{
-				UE_LOG(LogGTPGameMode, Log, TEXT("  groom %s: hidden, no tick%s"), *PartName, bWasShown && !bDescribe ? TEXT(" (shown again by the blueprint)") : TEXT(""));
+				UE_LOG(LogGTPGameMode, Log, TEXT("  groom %s (%s): hidden in game, no tick%s"), *PartName,
+					Asset ? TEXT("not seen from the camera") : TEXT("no groom asset"),
+					bChanged && !bDescribe ? TEXT(" (put back by the blueprint, set again)") : TEXT(""));
 			}
 			continue;
 		}
 		const FString Was = GTPReadGroomLOD(Part);
 		const bool bSet = ForcedLOD >= 0 && GTPCallIntSetter(Part, TEXT("SetForcedLOD"), ForcedLOD);
-		FString Lods(TEXT("-"));
+		FString LodText;
 		if (bDescribe)
 		{
-			// The LODs of the groom asset (strands, cards or meshes for each), to know what the forced LOD shows.
-			const FObjectPropertyBase* AssetProp = FindFProperty<FObjectPropertyBase>(Part->GetClass(), TEXT("GroomAsset"));
-			UObject* Asset = AssetProp ? AssetProp->GetObjectPropertyValue_InContainer(Part) : nullptr;
-			const FProperty* LodProp = Asset ? FindFProperty<FProperty>(Asset->GetClass(), TEXT("HairGroupsLOD")) : nullptr;
-			if (LodProp)
+			// Which LODs of the asset are strands, cards or meshes: the export leaves defaults out (strands).
+			if (const FProperty* LodProp = FindFProperty<FProperty>(Asset->GetClass(), TEXT("HairGroupsLOD")))
 			{
-				Lods.Reset();
+				FString Lods;
 				LodProp->ExportTextItem_Direct(Lods, LodProp->ContainerPtrToValuePtr<void>(Asset), nullptr, Asset, PPF_None);
-				Lods.LeftInline(500);
+				int32 Count = 0;
+				const int32 Cards = GTPFirstCardsLOD(Lods, Count);
+				LodText = FString::Printf(TEXT("; asset %s: %d LODs, first cards LOD %d"), *Asset->GetName(), Count, Cards);
 			}
 		}
-		UE_LOG(LogGTPGameMode, Log, TEXT("  groom %s: forced LOD was %s, %s, reads %s, ticking %d%s%s"), *PartName, *Was,
-			bSet ? *FString::Printf(TEXT("set to %d"), ForcedLOD) : TEXT("not set (no SetForcedLOD or LOD -1)"), *GTPReadGroomLOD(Part),
-			Part->IsComponentTickEnabled() ? 1 : 0, bDescribe ? TEXT("; asset LODs ") : TEXT(""), bDescribe ? *Lods : TEXT(""));
+		UE_LOG(LogGTPGameMode, Log, TEXT("  groom %s: visible %d, hidden in game %d, ticking %d; forced LOD was %s, %s, reads %s%s"), *PartName,
+			Part->IsVisible() ? 1 : 0, Part->bHiddenInGame ? 1 : 0, Part->IsComponentTickEnabled() ? 1 : 0, *Was,
+			bSet ? *FString::Printf(TEXT("set to %d"), ForcedLOD) : TEXT("not set (SetForcedLOD not reachable by reflection)"),
+			*GTPReadGroomLOD(Part), *LodText);
 	}
 }
 
