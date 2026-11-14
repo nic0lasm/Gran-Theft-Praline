@@ -393,6 +393,18 @@ was made for, says when the component refuses the binding (and does not save), p
 beard back to the base material's default (`GTP_NICOLITO_FACIAL_HAIR`, default `none`), makes one head instance per
 variant and rebuilds a reused blueprint's instances from the crowd's own materials.
 
+**Nicolito by default (2026-11-16).** `PlayerVisualClass` is `BP_Nicolito_Full`: head m_004, light skin, `Full` baked
+eyebrows, no baked moustache, crewneck, jeans, loafers, and the hair the project lead chose (`Hair_S_PulledBack`,
+2026-11-15) with City Sample's binding for that face. It was made with `GTP_NICOLITO_HEAD=m_004 GTP_NICOLITO_MODE=full
+GTP_NICOLITO_SKIN=1 GTP_NICOLITO_BROWS=Full GTP_NICOLITO_HAIRSTYLE=PulledBack`. On candidate 40 the crowd head material
+(`M_Crowd_Head_v2`) cooked without shaders for SM6 (65 SRVs for 64, Nanite vertex factory permutation), so the
+head would have used the default material; `r.Nanite.AllowSkinnedMeshes=0`, as City Sample sets it for that very
+material, fixed it in candidate 41 (60 s pass with Nicolito: 0 LogMaterial, game p50 10.70 ms). A copy of the
+project without the visual (the Mac) keeps the mannequin, with a warning, until it runs the script. Kellan stays
+cooked and comes back with `-PlayerVisual=/Game/MetaHumans/Kellan/BP_Kellan.BP_Kellan_C`. At start, the Game
+Animation Sample's `ABP_GenericRetarget` (not our blueprints: `tools/character/retarget_reset_probe.py`) writes its
+own retargeter into the body's anim instance once; the game mode sets ours again a quarter of a second later.
+
 **Grooms (2026-11-14).** Kellan has six groom components (hair, eyebrows, eyelashes, peach fuzz, moustache, beard),
 each ticking in the package against a 13 ms budget. Strand simulation is off (`r.HairStrands.Simulation=0`). The
 game mode also hides, without tick, the grooms whose name contains a word of `PlayerGroomsHidden` (`Fuzz`,

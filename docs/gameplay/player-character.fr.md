@@ -421,6 +421,19 @@ le binding a été fait, dit quand le composant refuse le binding (et ne sauvega
 précalculées de la tête au défaut du matériau de base (`GTP_NICOLITO_FACIAL_HAIR`, par défaut `none`), fait une
 instance de tête par variante et refait les instances d'un blueprint réutilisé à partir des matériaux de la foule.
 
+**Nicolito par défaut (16/11/2026).** `PlayerVisualClass` est `BP_Nicolito_Full` : tête m_004, peau claire, sourcils
+précalculés `Full`, pas de moustache précalculée, pull col rond, jean, mocassins, et la coiffure choisie par le
+responsable du projet (`Hair_S_PulledBack`, 15/11/2026) avec le binding de City Sample pour ce visage. Il est fait avec
+`GTP_NICOLITO_HEAD=m_004 GTP_NICOLITO_MODE=full GTP_NICOLITO_SKIN=1 GTP_NICOLITO_BROWS=Full
+GTP_NICOLITO_HAIRSTYLE=PulledBack`. Sur le candidat 40, le matériau de tête de la foule (`M_Crowd_Head_v2`) cuisait sans
+shaders en SM6 (65 SRV pour 64, permutation de la vertex factory Nanite) : la tête aurait pris le matériau par défaut ;
+`r.Nanite.AllowSkinnedMeshes=0`, que City Sample met justement pour ce matériau, l'a réglé dans le candidat 41 (passe
+de 60 s avec Nicolito : 0 LogMaterial, game p50 10,70 ms). Une copie du projet sans le visuel (le Mac) garde le
+mannequin, avec un avertissement, jusqu'à ce qu'elle lance le script. Kellan reste cuit et revient avec
+`-PlayerVisual=/Game/MetaHumans/Kellan/BP_Kellan.BP_Kellan_C`. Au démarrage, l'`ABP_GenericRetarget` du Game
+Animation Sample (pas nos blueprints : `tools/character/retarget_reset_probe.py`) écrit une fois son propre reciblage
+dans l'instance d'animation du corps ; le mode de jeu remet le nôtre un quart de seconde plus tard.
+
 **Grooms (14/11/2026).** Kellan a six composants groom (cheveux, sourcils, cils, duvet, moustache, barbe), qui
 tickent tous dans le package pour un budget de 13 ms. La simulation des brins est coupée
 (`r.HairStrands.Simulation=0`). Le mode de jeu cache aussi, sans tick, les grooms dont le nom contient un mot de
