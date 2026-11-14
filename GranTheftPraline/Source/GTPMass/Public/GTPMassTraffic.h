@@ -67,6 +67,40 @@ private:
 	/** The dead-end handling of -TrafficDeadEnds (link, cut or none), once the lane data is there. */
 	void HandleDeadEnds();
 	/**
+	 * Every 0.25 s while dead ends are linked: no car leaves or comes into the map in the player's
+	 * sight, as in GTA. An entry lane is closed (bIsOpen) while the player may see one of its two ends
+	 * (the dead end a car leaves from, the entry's own start): within 300 m (-TrafficLoopSight=<m>),
+	 * in the camera's field (plus 15 degrees) or within 30 m, and not hidden by a building (a
+	 * visibility line trace). MassTraffic stops a car before a closed lane (ShouldStopAtLaneExit), so
+	 * the cars wait at the dead end and go on once out of sight. Counts the cars that looped, and those
+	 * that did it in sight (a car that could no longer stop): "MassTraffic loops". -NoLoopGuard leaves
+	 * the entries open.
+	 */
+	void GuardLoops();
+
+	/** A dead end linked to an entry: indices in GetMutableTrafficZoneGraphData() and its lane array. */
+	struct FLoop
+	{
+		int32 Slot = INDEX_NONE;
+		int32 DataIndex = INDEX_NONE;
+		int32 From = INDEX_NONE;
+		int32 To = INDEX_NONE;
+		int32 FromLane = INDEX_NONE;
+		int32 ToLane = INDEX_NONE;
+		FVector Exit = FVector::ZeroVector;
+		FVector Entry = FVector::ZeroVector;
+	};
+	TArray<FLoop> Loops;
+	int32 LoopEntries = 0;
+	/** Entries held closed at the last check (ZoneGraph data index << 32 | lane index). */
+	TSet<int64> EntriesInSight;
+	/** ZoneGraph lane of each car at the last check, to see it loop. */
+	TMap<uint64, int32> LaneOfCar;
+	int32 LoopJumps = 0;
+	int32 LoopJumpsInSight = 0;
+	int32 MostEntriesHeld = 0;
+	FTimerHandle LoopTimer;
+	/**
 	 * Every second: a car in a branch that only leads to dead ends, or standing at the end of a lane
 	 * with no lane after it, out of the player's sight, is handed to MassTraffic's own recycling
 	 * (FMassTrafficRecyclableVehicleTag, the tag a repaired wreck gets), which moves it to a free

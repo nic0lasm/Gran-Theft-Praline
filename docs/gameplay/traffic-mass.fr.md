@@ -347,6 +347,16 @@ avant les spawners (par défaut, `-TrafficDeadEnds=link`) :
 the player » donne la voie de route la plus proche et les voies de route à moins de 50 m : aucune
 voiture ne peut venir plus près que la voie la plus proche.
 
+Aucune voiture ne sort ni n'entre dans la carte sous les yeux du joueur (`GuardLoops`, toutes les
+0,25 s) : une voie d'entrée est fermée (`bIsOpen`) tant que le joueur peut voir l'un de ses deux bouts,
+l'impasse d'où part la voiture ou le début de l'entrée elle-même (à moins de 300 m,
+`-TrafficLoopSight=<m>`, dans le champ de la caméra plus 15 degrés ou à moins de 30 m, et pas caché par
+un bâtiment : un lancer de rayon de visibilité). MassTraffic arrête une voiture devant une voie fermée
+(`ShouldStopAtLaneExit`) : les voitures attendent à l'impasse, comme à un feu rouge, et repartent une
+fois hors de vue. « MassTraffic loops » compte les voitures qui ont rebouclé et celles qui l'ont fait
+à la vue du joueur (une voiture déjà passée la ligne quand l'entrée a fermé) ; « MassTraffic stops »
+compte les voitures « held at the map's edge ». `-NoLoopGuard` laisse les entrées ouvertes.
+
 ## Points ouverts
 
 - Près du joueur, MassTraffic peut confier une voiture à son véhicule physique : nos copies

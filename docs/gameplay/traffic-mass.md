@@ -310,6 +310,15 @@ lane and distance only (`MoveVehicleToNextLane`): a next lane need not touch the
 leaves the lanes as built. A new line "MassTraffic lanes near the player" gives the nearest road lane
 and the road lanes within 50 m: no car can come nearer than the nearest lane.
 
+No car leaves or comes into the map in the player's sight (`GuardLoops`, every 0.25 s): an entry lane
+is closed (`bIsOpen`) while the player may see one of its two ends, the dead end a car leaves from or
+the entry's own start (within 300 m, `-TrafficLoopSight=<m>`, in the camera's field plus 15 degrees or
+within 30 m, and not hidden by a building: a visibility line trace). MassTraffic stops a car before a
+closed lane (`ShouldStopAtLaneExit`): the cars wait at the dead end, as at a red light, and go on once
+out of sight. "MassTraffic loops" counts the cars that looped and those that did it in sight (a car
+already past the line when the entry closed); "MassTraffic stops" counts the cars "held at the map's
+edge". `-NoLoopGuard` leaves the entries open.
+
 ## Open points
 
 - Near the player MassTraffic may hand a car over to its physics vehicle: our copies name our cars
