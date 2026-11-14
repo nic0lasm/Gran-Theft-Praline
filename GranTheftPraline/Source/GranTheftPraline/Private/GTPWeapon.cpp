@@ -799,12 +799,22 @@ void UGTPWeaponComponent::PlayClip(const TCHAR* Suffix)
 	UAnimMontage* Montage = Cast<UAnimMontage>(Clip);
 	if (Montage && Entry->Slot.IsNone())
 	{
+		// An additive montage in a full-pose slot the blueprint has (UpperBody, once the layer is there) would
+		// twist the body: such a montage is not played.
+		for (const FSlotAnimationTrack& Track : Montage->SlotAnimTracks)
+		{
+			const UAnimSequenceBase* First = Track.AnimTrack.AnimSegments.Num() > 0 ? Track.AnimTrack.AnimSegments[0].GetAnimReference().Get() : nullptr;
+			if (First && First->IsValidAdditive() && !Track.SlotName.ToString().Contains(TEXT("Additive")))
+			{
+				return;
+			}
+		}
 		// In its own slot, without stopping the others: Lyra's Fire montage would otherwise end the aim pose
 		// at every shot (same montage group) while its additive slot is missing from the player's blueprint.
 		Anim->Montage_Play(Montage, 1.f, EMontagePlayReturnType::MontageLength, 0.f, false);
 		return;
 	}
-	const FName Slot = Entry->Slot.IsNone() ? AnimSlot : Entry->Slot;
+	const FName Slot = ClipSlot(Anim, Entry->Slot.IsNone() ? AnimSlot : Entry->Slot);
 	UAnimSequenceBase* Sequence = WeaponClipSequence(Clip);
 	if (!Sequence || (Sequence->IsValidAdditive() && !Slot.ToString().Contains(TEXT("Additive"))))
 	{
@@ -881,6 +891,27 @@ UBlendProfile* UGTPWeaponComponent::GetUpperBodyMask()
 	return Mask;
 }
 
+FName UGTPWeaponComponent::ClipSlot(const UAnimInstance* Anim, FName Wanted)
+{
+	if (!Anim || Wanted != AnimSlot || UpperBodySlot.IsNone())
+	{
+		return Wanted;
+	}
+	// The slot node reports its weight in the graph once the blueprint runs it (registered at initialisation):
+	// 0 means the blueprint has no such slot, or does not run it, and the clip stays in AnimSlot.
+	const float LayerWeight = Anim->GetSlotNodeGlobalWeight(UpperBodySlot);
+	const FName Slot = LayerWeight > 0.f ? UpperBodySlot : Wanted;
+	if (bPlayerControlled && Slot != LoggedClipSlot)
+	{
+		LoggedClipSlot = Slot;
+		GTP_TRACE(LogGTPCombat, TEXT("weapon: full-pose clips play in slot %s (%s, slot %s weight %.2f)"), *Slot.ToString(),
+			Slot == UpperBodySlot ? TEXT("upper-body layer of the player's blueprint, legs and pelvis from the locomotion")
+				: TEXT("no upper-body layer in the player's blueprint: full body, blend mask only"),
+			*UpperBodySlot.ToString(), LayerWeight);
+	}
+	return Slot;
+}
+
 UAnimMontage* UGTPWeaponComponent::PlayInSlot(UAnimSequenceBase* Sequence, FName Slot, float BlendIn, float BlendOut, int32 LoopCount)
 {
 	const ACharacter* Character = Cast<ACharacter>(GetOwner());
@@ -889,7 +920,8 @@ UAnimMontage* UGTPWeaponComponent::PlayInSlot(UAnimSequenceBase* Sequence, FName
 	{
 		return nullptr;
 	}
-	UBlendProfile* Mask = GetUpperBodyMask();
+	// The layer masks the upper body itself: the blend profile would only shape its blend in and out.
+	UBlendProfile* Mask = Slot == UpperBodySlot ? nullptr : GetUpperBodyMask();
 	if (!Mask)
 	{
 		return Anim->PlaySlotAnimationAsDynamicMontage(Sequence, Slot, BlendIn, BlendOut, 1.f, LoopCount);
@@ -957,9 +989,10 @@ void UGTPWeaponComponent::ProbeHands(float DeltaTime)
 			Delta.Z, FVector::DotProduct(Delta, Forward), FVector::DotProduct(Delta, Right), Left);
 	};
 	const FName Slot = AimLoopSlot.IsNone() ? AnimSlot : AimLoopSlot;
-	GTP_TRACE(LogGTPCombat, TEXT("weapon: hand probe (%s): slot %s active %d weight %.2f; pawn %s; body %s"),
+	GTP_TRACE(LogGTPCombat, TEXT("weapon: hand probe (%s): slot %s active %d weight %.2f (layer %s node weight %.2f); pawn %s; body %s"),
 		IsAiming() ? TEXT("aim") : TEXT("hip"), *Slot.ToString(), Anim->IsSlotActive(Slot) ? 1 : 0,
-		Anim->GetSlotMontageGlobalWeight(Slot), *Describe(Own), *Describe(FindVisibleBody()));
+		Anim->GetSlotMontageGlobalWeight(Slot), *UpperBodySlot.ToString(), Anim->GetSlotNodeGlobalWeight(UpperBodySlot),
+		*Describe(Own), *Describe(FindVisibleBody()));
 
 	// The framing: where the heads and the camera are from the capsule's centre (a head under the frame means a
 	// camera too high or pitched up, or a body sunk under the capsule).
@@ -1028,7 +1061,7 @@ void UGTPWeaponComponent::SetAimLoop(bool bOn)
 	const FGTPWeaponClip* Entry = FindClip(TEXT("_AimLoop"));
 	const TObjectPtr<UAnimSequenceBase>* Found = Entry ? LoadedClips.Find(Entry->Name) : nullptr;
 	UAnimSequenceBase* Sequence = Found ? WeaponClipSequence(Found->Get()) : nullptr;
-	const FName Slot = Entry && !Entry->Slot.IsNone() ? Entry->Slot : AnimSlot;
+	const FName Slot = ClipSlot(Anim, Entry && !Entry->Slot.IsNone() ? Entry->Slot : AnimSlot);
 	if (!Sequence || IsDriveBy() || (Sequence->IsValidAdditive() && !Slot.ToString().Contains(TEXT("Additive"))))
 	{
 		return;

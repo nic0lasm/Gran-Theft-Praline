@@ -220,7 +220,24 @@ is taken: Lyra stands on GAS and ShooterCore, which ADR-0011 leaves out. We take
   `spine_01` and its children weigh 1, every other bone 0; a BlendMask profile asserts in a montage slot in 5.8). Measured on candidate 32: this
   profile only shapes the blend in and out; at full weight the clip plays on the whole body (with `UpperBodyRoot`
   set to `spine_03` instead of `spine_01` the pose is identical to the centimetre). A real upper-body layer needs a
-  layered blend in the player's animation blueprint. No change to the blueprint so far. Without the bone, or if the mask cannot be made, clips play on the full body as before (logged once).
+  layered blend in the player's animation blueprint. Without the bone, or if the mask cannot be made, clips play on the full body as before (logged once).
+- **Upper-body layer in the player's blueprint (14/11, to run on the PC)**: `tools/combat/unreal/player_upper_body_layer.py`
+  (editor, Python) calls `UGTPAnimGraphTools::AddUpperBodyLayer` (editor-only C++ of the game module) on the anim
+  blueprint of `PlayerPawnClass`'s mesh: at the end of its AnimGraph the final pose is cached, then a Layered blend
+  per bone from `spine_01` (rotations blended in mesh space) takes the base from the cache and the upper body from a
+  new `UpperBody` slot fed by the same cache. With no montage in that slot the pose is unchanged. The slot name is
+  registered on the skeleton; the script first copies both `.uasset` files to `Saved/GTPCombat/backup/` (the
+  first copy is kept: it is the original), saves only if the blueprint compiles, and does nothing the second time.
+  These are Epic's sample assets, out of Git: each machine's copy of the project needs the run. The weapon then
+  plays the clips set for `DefaultSlot` in `UpperBody` (`UpperBodySlot`) as soon as the blueprint runs that slot
+  (its node weight is above 0), without the blend profile: the legs and the pelvis keep the locomotion. The log
+  says once `weapon: full-pose clips play in slot …` and the hand probe adds the layer's node weight. A montage
+  that is additive in a non-additive slot is never played (Lyra's Fire stays in `FullBodyAdditivePreAim`).
+- **Is the retargeted clip itself low?** `tools/combat/unreal/check_weapon_clip_pelvis.py` (editor, read only)
+  compares, for every `_UEFN` sequence and its Lyra source, the root, pelvis and head heights in component space at
+  frame 0 and mid-clip with each skeleton's reference pose, and dumps every op of `RTG_GTP_UE5_to_UEFN` with its
+  settings. `lyra_weapons_setup.py` sets no pelvis translation mode: it adds the default ops and auto-aligns the
+  bones, so the 5.8 defaults of its pelvis op apply (values not read yet: the report gives them).
 - **Clips**: full-pose Lyra actions (`MM_*_Equip`, `_Reload`, `_DryFire`, `_Idle_ADS`) in `DefaultSlot`. Lyra's
   Fire exists only as an additive: it waits for an additive slot in the player's blueprint, the camera kick and
   the flash carry the shot until then.

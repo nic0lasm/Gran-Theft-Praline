@@ -228,8 +228,28 @@ Lyra n'est repris : Lyra repose sur GAS et ShooterCore, que l'ADR-0011 écarte. 
   déclenche une assertion dans un slot de montage en 5.8). Mesuré sur le candidat 32 : ce profil ne règle que
   l'entrée et la sortie du mélange ; à plein poids, le clip joue sur tout le corps (avec `UpperBodyRoot` à
   `spine_03` au lieu de `spine_01`, la pose est identique au centimètre près). Un vrai calque du haut du corps exige
-  un mélange par couches dans le blueprint d'animation du joueur. Aucune modification du blueprint pour l'instant. Sans l'os, ou si le masque ne peut pas être
+  un mélange par couches dans le blueprint d'animation du joueur. Sans l'os, ou si le masque ne peut pas être
   créé, les clips jouent sur tout le corps comme avant (signalé une fois dans le journal).
+- **Calque du haut du corps dans le blueprint du joueur (14/11, à lancer sur le PC)** :
+  `tools/combat/unreal/player_upper_body_layer.py` (éditeur, Python) appelle `UGTPAnimGraphTools::AddUpperBodyLayer`
+  (C++ du module de jeu, éditeur seulement) sur le blueprint d'animation du mesh de `PlayerPawnClass` : à la fin de
+  son AnimGraph, la pose finale est mise en cache, puis un Layered blend per bone depuis `spine_01` (rotations
+  mélangées dans l'espace du mesh) prend la base dans le cache et le haut du corps dans un nouveau slot `UpperBody`
+  alimenté par le même cache. Sans montage dans ce slot, la pose ne change pas. Le nom du slot est enregistré sur le
+  squelette ; le script copie d'abord les deux `.uasset` dans `Saved/GTPCombat/backup/` (la première copie est
+  gardée : c'est l'original), n'enregistre que si le blueprint compile, et ne fait rien la deuxième fois. Ce sont des
+  assets du sample d'Epic, hors Git : la copie du projet de chaque machine doit passer le script. L'arme joue alors
+  les clips prévus pour `DefaultSlot` dans `UpperBody` (`UpperBodySlot`) dès que le blueprint fait tourner ce slot
+  (poids de son nœud au-dessus de 0), sans le profil de mélange : les jambes et le bassin gardent la locomotion. Le
+  journal dit une fois `weapon: full-pose clips play in slot …` et la sonde des mains ajoute le poids du nœud du
+  calque. Un montage additif dans un slot non additif n'est jamais joué (le Fire de Lyra reste dans
+  `FullBodyAdditivePreAim`).
+- **Le clip retargeté est-il bas lui-même ?** `tools/combat/unreal/check_weapon_clip_pelvis.py` (éditeur, lecture
+  seule) compare, pour chaque séquence `_UEFN` et sa source Lyra, la hauteur de la racine, du bassin et de la tête
+  dans l'espace du composant à l'image 0 et au milieu du clip avec la pose de référence de chaque squelette, et
+  liste chaque op de `RTG_GTP_UE5_to_UEFN` avec ses réglages. `lyra_weapons_setup.py` ne règle aucun mode de
+  translation du bassin : il ajoute les ops par défaut et aligne les os automatiquement, donc les valeurs par défaut
+  de l'op bassin de la 5.8 s'appliquent (valeurs pas encore lues : le rapport les donne).
 - **Clips** : actions Lyra en pose complète (`MM_*_Equip`, `_Reload`, `_DryFire`, `_Idle_ADS`) dans
   `DefaultSlot`. Le Fire de Lyra n'existe qu'en additif : il attend un slot additif dans le blueprint du joueur ;
   d'ici là, le recul de la caméra et la flamme portent le tir.
