@@ -44,8 +44,9 @@ public class GTPMass : ModuleRules
 			|| File.Exists(Path.Combine(PluginsDir, "MassTraffic", "MassTraffic.uplugin"));
 		if (bMassTraffic)
 		{
-			// MassMovement: FMassVelocityFragment, which MassTraffic reads on its obstacles (GTPCrowd).
-			PrivateDependencyModuleNames.AddRange(new string[] { "MassTraffic", "MassMovement" });
+			// MassMovement: FMassVelocityFragment, which MassTraffic reads on its obstacles (GTPCrowd);
+			// MassZoneGraphNavigation: the lane a car is on (GTPMassTraffic's log).
+			PrivateDependencyModuleNames.AddRange(new string[] { "MassTraffic", "MassMovement", "MassZoneGraphNavigation" });
 		}
 		PublicDefinitions.Add("WITH_GTP_MASSTRAFFIC=" + (bMassTraffic ? "1" : "0"));
 	}

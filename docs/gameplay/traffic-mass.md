@@ -156,6 +156,22 @@ tells why (below).
   `FArchiveReplaceObjectRef` as "Replace References" does, then the Blueprint is compiled): each
   reference to a copied package goes to our copy. Report: `engine_replaced`, `engine_replace_errors`.
 
+## Candidate 34 on the PC: traffic that freezes
+
+352 s on the PC: no error, 769 car lanes (14.9 km), 120 cars. At first 99 of them move (19 km/h);
+two minutes later 12 do (3 km/h). Most likely cause, read in MassTraffic's source: a lane with no
+lane after it is a case MassTraffic does not handle (`UMassTrafficChooseNextLaneProcessor`: "Should
+never happen"), its car stops there for good, and our focus area has such dead ends wherever a road
+leaves the map (traffic.py: "a lane with no other way on is a dead end, where the game takes the
+car away", which the legacy traffic does and MassTraffic does not). City Sample's network is
+closed. Two changes:
+- `tools/city/zonegraph.py` closes the dead ends it can: where a lane fed by nothing starts within
+  12 m the other way (the other side of a two-way road), a turnaround spline (tag Car, 15 km/h)
+  joins them, 3 m past the end of the road. Counts `dead_ends_closed` and `dead_ends_left` (one-way
+  streets leaving the map stay dead ends);
+- the "MassTraffic cars" line counts the cars stopped on a dead-end lane, and once the dead-end
+  lanes of the network.
+
 ## Open points
 
 - Near the player MassTraffic may hand a car over to its physics vehicle: our copies name our cars

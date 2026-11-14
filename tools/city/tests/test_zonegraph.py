@@ -58,6 +58,34 @@ class ZoneGraphTests(unittest.TestCase):
         directions = [lane_["direction"] for lane_ in zonegraph.PROFILES["Pedestrian"]["lanes"]]
         self.assertEqual(sorted(directions), ["backward", "forward"])
 
+    def test_two_way_dead_end_turns_back(self):
+        # A two-way road leaving the map: lane 0 runs out east, lane 1 comes back west, 3.2 m apart.
+        lanes = [lane(0, [(0, 0), (5000, 0)]), lane(1, [(5000, 320), (0, 320)])]
+        shapes, counts = zonegraph.build(lanes, [])
+        # Both ends of the road turn back: east onto lane 1, west onto lane 0.
+        self.assertEqual(counts["dead_ends_closed"], 2)
+        self.assertEqual(counts["dead_ends_left"], 0)
+        uturn = [s for s in shapes if s["name"] == "UTurn_0"]
+        self.assertEqual(len(uturn), 1)
+        pts = uturn[0]["points"]
+        self.assertEqual(uturn[0]["tags"], ["Car"])
+        self.assertEqual(pts[0], [5000.0, 0.0])    # starts where lane 0 ends
+        self.assertEqual(pts[-1], [5000.0, 320.0])  # ends where lane 1 starts
+        self.assertGreater(max(x for x, _ in pts), 5000.0 + 300.0)  # runs on past the end
+
+    def test_no_turnaround_onto_a_fed_lane_or_the_same_way(self):
+        # Lane 2 starts near lane 0's end but is fed by lane 3, and lane 4 starts there the same way.
+        lanes = [lane(0, [(0, 0), (5000, 0)]), lane(3, [(9000, 320), (5000, 320)], nxt=[2]),
+                 lane(2, [(5000, 320), (0, 320)]), lane(4, [(5100, -320), (9000, -320)])]
+        shapes, counts = zonegraph.build(lanes, [])
+        self.assertFalse(any(s["name"] == "UTurn_0" for s in shapes))
+
+    def test_lane_into_a_junction_is_not_a_dead_end(self):
+        lanes = [lane(0, [(-5000, 0), (0, 0)], tj=1), lane(1, [(0, 0), (0, 5000)], fj=1)]
+        _, counts = zonegraph.build(lanes, [])
+        self.assertEqual(counts["junctions"], 1)
+        self.assertEqual(counts["dead_ends_closed"] + counts["dead_ends_left"], 1)  # only lane 1's far end
+
     def test_points_parse_like_traffic_csv(self):
         self.assertEqual(zonegraph.parse_points("100 -200;300 -400"), [(100.0, -200.0), (300.0, -400.0)])
 

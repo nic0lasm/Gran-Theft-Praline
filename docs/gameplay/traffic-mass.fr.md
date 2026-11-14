@@ -176,6 +176,22 @@ les copies « à risque », et c'est lui qui est posé dans la carte. Le candida
   References », puis le Blueprint est recompilé) : toute référence à un paquet copié va vers notre
   copie. Rapport : `engine_replaced`, `engine_replace_errors`.
 
+## Candidat 34 sur le PC : un trafic qui se fige
+
+352 s sur le PC : aucune erreur, 769 voies de voitures (14,9 km), 120 voitures. Au début 99 roulent
+(19 km/h) ; deux minutes plus tard, 12 (3 km/h). Cause la plus probable, lue dans les sources de
+MassTraffic : une voie sans voie après elle est un cas que MassTraffic ne traite pas
+(`UMassTrafficChooseNextLaneProcessor` : « Should never happen »), sa voiture s'y arrête pour de
+bon, et notre zone a de telles impasses partout où une rue sort de la carte (traffic.py : « a lane
+with no other way on is a dead end, where the game takes the car away », ce que fait le trafic
+historique et pas MassTraffic). Le réseau de City Sample est fermé. Deux changements :
+- `tools/city/zonegraph.py` ferme les impasses qu'il peut : là où une voie que rien n'alimente
+  part à moins de 12 m dans l'autre sens (l'autre côté d'une rue à double sens), une spline de
+  demi-tour (tag Car, 15 km/h) les relie, 3 m après le bout de la rue. Comptes `dead_ends_closed` et
+  `dead_ends_left` (les rues à sens unique qui sortent de la carte restent des impasses) ;
+- la ligne « MassTraffic cars » compte les voitures arrêtées sur une voie en impasse, et une fois
+  les voies en impasse du réseau.
+
 ## Points ouverts
 
 - Près du joueur, MassTraffic peut confier une voiture à son véhicule physique : nos copies

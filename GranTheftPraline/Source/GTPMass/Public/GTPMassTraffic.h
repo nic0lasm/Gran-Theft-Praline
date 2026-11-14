@@ -42,5 +42,6 @@ private:
 	int32 StartedSpawners = 0;
 	int32 CountLogs = 0;
 	bool bViewPlaced = false;
+	bool bNetworkLogged = false;
 	FTimerHandle CountTimer;
 };
