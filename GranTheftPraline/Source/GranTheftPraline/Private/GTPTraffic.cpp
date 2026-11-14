@@ -1306,8 +1306,8 @@ AGTPVehicle* AGTPTrafficNetwork::SpawnParkedVehicle(FName Tag, const FVector& Ne
 			{
 				Car->Tags.AddUnique(Tag);
 			}
-			GTP_TRACE(LogGTPTraffic, TEXT("traffic: parked %s (%s) on lane %d at %s, %.0f m from the request, %.0f cm above the ground"), *Car->GetName(),
-				*Tag.ToString(), Ref.Lane, *Location.ToCompactString(), Ref.Distance / 100.f, Clearance);
+			GTP_TRACE(LogGTPTraffic, TEXT("traffic: parked %s (%s) on lane %d at %s, %.0f m from the request, pivot %.0f cm above the ground (the mesh's lowest point at 40 cm)"),
+				*Car->GetName(), *Tag.ToString(), Ref.Lane, *Location.ToCompactString(), Ref.Distance / 100.f, Clearance);
 			return Car;
 		}
 	}
