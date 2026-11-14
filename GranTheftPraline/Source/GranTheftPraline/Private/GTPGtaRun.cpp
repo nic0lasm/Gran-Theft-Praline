@@ -7,6 +7,8 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "GTPLog.h"
+#include "InputCoreTypes.h"
+#include "GameFramework/PlayerController.h"
 #include "GTPPedestrians.h"
 #include "GTPThreat.h"
 #include "GTPTheftDemo.h"
@@ -54,7 +56,28 @@ void UGTPGtaRun::Initialize(FSubsystemCollectionBase& Collection)
 			{
 				if (APawn* Pawn = PC->GetPawn())
 				{
-					Pawn->AddMovementInput(WalkDirection, 1.f);
+					// -GTARunWalk=input (default: AddMovementInput), key (the W key through the controller, as a player
+					// does), velocity (the walk speed written straight into the movement): to tell where a lost input goes.
+					FString Strategy;
+					FParse::Value(FCommandLine::Get(), TEXT("GTARunWalk="), Strategy);
+					if (Strategy.Equals(TEXT("key"), ESearchCase::IgnoreCase))
+					{
+						PC->InputKey(FInputKeyParams(EKeys::W, WalkInputs == 0 ? EInputEvent::IE_Pressed : EInputEvent::IE_Repeat, 1.0, false));
+					}
+					else if (Strategy.Equals(TEXT("velocity"), ESearchCase::IgnoreCase))
+					{
+						if (ACharacter* Walker = Cast<ACharacter>(Pawn))
+						{
+							if (UCharacterMovementComponent* Move = Walker->GetCharacterMovement())
+							{
+								Move->Velocity = FVector(WalkDirection.X, WalkDirection.Y, 0.f).GetSafeNormal() * 400.f;
+							}
+						}
+					}
+					else
+					{
+						Pawn->AddMovementInput(WalkDirection, 1.f);
+					}
 					++WalkInputs;
 				}
 			}
