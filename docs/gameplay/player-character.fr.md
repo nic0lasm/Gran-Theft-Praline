@@ -314,6 +314,23 @@ Sample les pose par personnage à l'exécution). `tools/character/nicolito_skin_
 paramètres pour les six têtes et le corps, exporte les deux atlas en PNG et liste les appels de groom dont dispose le
 Python de l'éditeur.
 
+Résultats de la sonde (14/11/2026) : chaque atlas fait 8192 px, une grille 4x4 de tuiles de 2048 px, 12 occupées,
+aux mêmes teintes tuile pour tuile dans l'atlas du visage et dans celui du corps ; `SourceU`/`SourceV` restent à 0,5
+(le milieu de la tuile). Le matériau propre de chaque tête d'homme lit sa propre tuile (`AtlasSelector` m_001 = 0 à
+m_006 = 5, m_004 = 3) ; le matériau partagé du corps lit la tuile 0. City Sample donne la même tuile à la tête et au
+corps (`CrowdBlueprintLibrary.cpp` : `AtlasSelector` = `SkinTextureDefinition.TextureAtlasIndex` sur les deux). Le
+passage `full` a donc mis un visage de la tuile 3 sur un corps de la tuile 0. L'appel de liaison existe sous son nom
+de script, `unreal.GroomLibrary`.
+`create_nicolito_visual.py` donne maintenant à chaque emplacement du visage et du corps qui lit une autre tuile une
+instance de son propre matériau qui lit la tuile de la tête (ou `GTP_NICOLITO_SKIN`), sous
+`/Game/MetaHumans/GTP/Nicolito/Materials`, sans toucher aux matériaux de la foule ; il relie les sourcils par
+`GroomLibrary` ; en mode `full`, il liste, pour le corps de Kellan et pour chaque vêtement, les os qui manquent au
+squelette du corps de foule (un vêtement suit le corps par nom d'os ; un corps sans les os sur lesquels son
+reciblage a été réglé reste dans sa pose de référence, la pose A vue), leur tissu et leur blueprint de
+post-traitement, et les vêtements de foule qui vont à ce corps (`GTP_NICOLITO_OUTFIT` en change un).
+L'ordre des tuiles dans l'atlas (rangée par rangée depuis le coin haut gauche, ou autre) n'est pas prouvé : le
+premier passage garde la tuile propre de la tête, la teinte des portraits sur lesquels Nico a choisi.
+
 **Grooms (14/11/2026).** Kellan a six composants groom (cheveux, sourcils, cils, duvet, moustache, barbe), qui
 tickent tous dans le package pour un budget de 13 ms. La simulation des brins est coupée
 (`r.HairStrands.Simulation=0`). Le mode de jeu cache aussi, sans tick, les grooms dont le nom contient un mot de

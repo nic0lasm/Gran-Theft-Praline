@@ -296,6 +296,21 @@ skin takes its colour from atlases (`FaceColorAtlas`, `BodyColorAtlas`) at `Sour
 `tools/character/nicolito_skin_probe.py` (read only) lists those parameters for the six heads and the body, exports
 both atlases as PNG and lists the groom calls the editor's Python has.
 
+Probe results (2026-11-14): each atlas is 8192 px, a 4x4 grid of 2048 px tiles, 12 used, the same tones tile for tile
+in the face and body atlases; `SourceU`/`SourceV` stay at 0.5 (the middle of the tile). Each male head's own material
+reads its own tile (`AtlasSelector` m_001 = 0 to m_006 = 5, m_004 = 3); the body's shared material reads tile 0.
+City Sample gives the head and the body the same tile (`CrowdBlueprintLibrary.cpp`: `AtlasSelector` =
+`SkinTextureDefinition.TextureAtlasIndex` on both). So the full run put a tile-3 face on a tile-0 body. The binding
+call exists under its script name, `unreal.GroomLibrary`.
+`create_nicolito_visual.py` now gives every face and body slot that reads another tile a material instance of its own
+material reading the head's tile (or `GTP_NICOLITO_SKIN`), under `/Game/MetaHumans/GTP/Nicolito/Materials`, without
+touching the crowd's materials; it binds the eyebrows through `GroomLibrary`; in `full` mode it lists, for Kellan's
+body and each garment, the bones the crowd body's skeleton lacks (a garment follows the body by bone name; a body
+without the bones its retarget was set up on stays in its reference pose, the A pose seen), their cloth and
+post-process blueprint, and the crowd garments that fit this body (`GTP_NICOLITO_OUTFIT` swaps one).
+The tile order in the atlas (row by row from the top left, or otherwise) is not proven: the first run keeps the
+head's own tile, the tone of the portraits the project lead chose from.
+
 **Grooms (2026-11-14).** Kellan has six groom components (hair, eyebrows, eyelashes, peach fuzz, moustache, beard),
 each ticking in the package against a 13 ms budget. Strand simulation is off (`r.HairStrands.Simulation=0`). The
 game mode also hides, without tick, the grooms whose name contains a word of `PlayerGroomsHidden` (`Fuzz`,
