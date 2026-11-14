@@ -338,7 +338,12 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail, bool bClose)
 			Running > 0 ? RunningFear / Running : 0.f, Hidden);
 		return EResult::Pending;
 	}
-	Weapon->SetDrawn(true);
+	// The gun comes out only near the person: the draw and the aim poses take the walk over (velocity written straight
+	// into the movement is discarded too), so a player walking up with it drawn does not walk.
+	if (Best <= (bClose ? 120.0 : 450.0) + 400.0)
+	{
+		Weapon->SetDrawn(true);
+	}
 	// Hold-up range is under 10 m: walk up to the person first (the aim cone and the fear both grow with closeness).
 	// Stop at about 4 m (an aim from the shoulder camera misses somebody closer than 2 m), back off if too close.
 	// The weapon stays lowered on the way: raised, the aim stance slows or pins the walk (measured: 15 m away after 60 s).
