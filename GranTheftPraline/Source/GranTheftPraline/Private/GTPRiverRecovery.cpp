@@ -33,6 +33,7 @@ void UGTPRiverRecovery::OnWorldBeginPlay(UWorld& InWorld)
 		if (It->ActorHasTag(RecoveryTag))
 		{
 			It->OnActorBeginOverlap.AddDynamic(this, &UGTPRiverRecovery::OnEnterWater);
+			WaterBoxes.Add(*It);
 			++Boxes;
 		}
 		else if (It->ActorHasTag(ExitTag))
@@ -44,6 +45,24 @@ void UGTPRiverRecovery::OnWorldBeginPlay(UWorld& InWorld)
 	{
 		GTP_TRACE(LogGTPRiver, TEXT("river: %d water boxes, %d exit points"), Boxes, Exits.Num());
 	}
+}
+
+bool UGTPRiverRecovery::IsInWater(const FVector& Location, float MarginCm) const
+{
+	for (const TWeakObjectPtr<AActor>& Box : WaterBoxes)
+	{
+		if (const AActor* Actor = Box.Get())
+		{
+			FVector Origin, Extent;
+			Actor->GetActorBounds(false, Origin, Extent);
+			Extent += FVector(MarginCm, MarginCm, MarginCm);
+			if (FMath::Abs(Location.X - Origin.X) <= Extent.X && FMath::Abs(Location.Y - Origin.Y) <= Extent.Y && FMath::Abs(Location.Z - Origin.Z) <= Extent.Z)
+			{
+				return true;
+			}
+		}
+	}
+	return false;
 }
 
 bool UGTPRiverRecovery::FindExit(const FVector& Location, FTransform& OutExit) const

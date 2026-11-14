@@ -10,6 +10,7 @@
 #include "GTPDeterminism.h"
 #include "GTPLog.h"
 #include "GTPPlayerController.h"
+#include "GTPRiverRecovery.h"
 #include "GTPVehicle.h"
 #include "GTPVehicleInteractionComponent.h"
 #include "GTPWanted.h"
@@ -745,6 +746,12 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 						FHitResult Ground;
 						FCollisionQueryParams Params(SCENE_QUERY_STAT(GTPChaseRelocate), false, Driven);
 						if (!Driven->GetWorld()->LineTraceSingleByChannel(Ground, Point + FVector(0.f, 0.f, 500.f), Point - FVector(0.f, 0.f, 2000.f), ECC_Visibility, Params))
+						{
+							continue;
+						}
+						// Never drop the car in or next to the river (the recovery rule would take the player out).
+						const UGTPRiverRecovery* River = Driven->GetWorld()->GetSubsystem<UGTPRiverRecovery>();
+						if (River && (River->IsInWater(FVector(Point.X, Point.Y, Ground.ImpactPoint.Z), 3000.f) || River->IsInWater(Ground.ImpactPoint, 3000.f)))
 						{
 							continue;
 						}

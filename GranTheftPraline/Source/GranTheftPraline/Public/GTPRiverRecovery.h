@@ -34,6 +34,9 @@ public:
 	/** Nearest exit point to Location; false when the map has none. */
 	bool FindExit(const FVector& Location, FTransform& OutExit) const;
 
+	/** True when Location (grown by MarginCm) lies inside a water box. */
+	bool IsInWater(const FVector& Location, float MarginCm = 0.f) const;
+
 protected:
 	UPROPERTY(Config)
 	float SwimSeconds = 4.f;
@@ -56,6 +59,7 @@ private:
 	void RemoveCar(TWeakObjectPtr<AGTPVehicle> Car);
 
 	TArray<FTransform> Exits;
+	TArray<TWeakObjectPtr<AActor>> WaterBoxes;
 	/** Actors already handled, so overlaps of several boxes count once. */
 	TSet<TWeakObjectPtr<AActor>> InWater;
 };
