@@ -53,6 +53,7 @@ private:
 	FTSTicker::FDelegateHandle TickHandle;
 	FTSTicker::FDelegateHandle WalkHandle;
 	FVector WalkDirection = FVector::ZeroVector;
+	int32 WalkInputs = 0;
 	int32 Step = -1;
 	double StepStart = 0.0;
 	double RunStart = -1.0;

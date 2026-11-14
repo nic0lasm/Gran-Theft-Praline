@@ -55,6 +55,7 @@ void UGTPGtaRun::Initialize(FSubsystemCollectionBase& Collection)
 				if (APawn* Pawn = PC->GetPawn())
 				{
 					Pawn->AddMovementInput(WalkDirection, 1.f);
+					++WalkInputs;
 				}
 			}
 		}
@@ -345,11 +346,12 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail, bool bClose)
 			{
 				const FVector Where = Character->GetActorLocation();
 				Detail += FString::Printf(TEXT(" [at %.0f %.0f %.0f, velocity %.0f, acceleration %.0f of max %.0f, braking %.0f, on ground %d, walkable floor %d, tick %d, "
-					"time dilation %.2f, input ignored by pawn %d, to victim %.0f %.0f]"), Where.X, Where.Y, Where.Z, Movement->Velocity.Size(),
+					"time dilation %.2f, input ignored by pawn %d, to victim %.0f %.0f, walk inputs sent %d, pending input %.2f, last input %.2f, walk direction %.2f %.2f]"), Where.X, Where.Y, Where.Z, Movement->Velocity.Size(),
 					Movement->GetCurrentAcceleration().Size(), Movement->MaxAcceleration, Movement->BrakingDecelerationWalking,
 					Movement->IsMovingOnGround() ? 1 : 0, Movement->CurrentFloor.IsWalkableFloor() ? 1 : 0, Movement->IsComponentTickEnabled() ? 1 : 0,
 					Character->CustomTimeDilation * World->GetWorldSettings()->GetEffectiveTimeDilation(), Character->IsMoveInputIgnored() ? 1 : 0,
-					ToVictim.X, ToVictim.Y);
+					ToVictim.X, ToVictim.Y, WalkInputs, Character->GetPendingMovementInputVector().Size(), Character->GetLastMovementInputVector().Size(),
+					WalkDirection.X, WalkDirection.Y);
 			}
 			return EResult::Fail;
 		}
