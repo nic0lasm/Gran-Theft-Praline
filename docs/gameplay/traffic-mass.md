@@ -104,12 +104,14 @@ editor, 6 min without a fatal error or ensure. What followed:
   have no crosswalk to wait for (`-TrafficCrosswalks=1` keeps City Sample's filters). Cars waiting
   for our pedestrians at crossings needs MassCrowd's lane tracking: later, with the pedestrians;
 - City Sample's vehicle configs leave `PhysicsVehicleTemplateActor` empty ("Vehicles will be forced
-  to low simulation LOD"): our copies name our car of the same number;
+  to low simulation LOD"): our copies name our car of the same number, set by name (an empty
+  member is not even in the exported text, so the first try left it empty);
 - no car was drawn within 50 m of the player (no display actor any more): the copies' visualization
   now draws near cars as instances too;
 - the light types pointed at 5 missing street lamp meshes (cook risk): references to missing
-  packages are now removed like the other risks. MassTraffic draws no light anyway (no
-  TrafficLightInstanceData for our map).
+  packages are removed like the other risks, and a copy that keeps cook risks of its own (the
+  light types, whose meshes are missing) is dropped with every reference to it. MassTraffic draws no
+  light anyway (no TrafficLightInstanceData for our map).
 
 ## Open points
 

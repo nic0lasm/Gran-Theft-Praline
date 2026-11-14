@@ -116,12 +116,15 @@ en éditeur, 6 min sans erreur fatale ni ensure. Ensuite :
   voies de MassCrowd : plus tard, avec les piétons ;
 - les configurations de véhicules de City Sample laissent `PhysicsVehicleTemplateActor` vide
   (« Vehicles will be forced to low simulation LOD ») : nos copies nomment notre voiture du même
-  numéro ;
+  numéro, posée par son nom (un membre vide n'apparaît même pas dans le texte exporté, et le
+  premier essai l'avait laissé vide) ;
 - aucune voiture n'était dessinée à moins de 50 m du joueur (plus d'acteur d'affichage) : la
   visualisation des copies dessine aussi les voitures proches en instances ;
 - les types de feux pointaient vers 5 maillages de lampadaires absents (risque de cook) : les
-  références vers des paquets absents sont désormais retirées comme les autres risques. MassTraffic
-  ne dessine de toute façon aucun feu (pas de TrafficLightInstanceData pour notre carte).
+  références vers des paquets absents sont retirées comme les autres risques, et une copie qui garde
+  ses propres risques (les types de feux, dont les maillages manquent) est écartée avec toutes les
+  références vers elle. MassTraffic ne dessine de toute façon aucun feu (pas de
+  TrafficLightInstanceData pour notre carte).
 
 ## Points ouverts
 
