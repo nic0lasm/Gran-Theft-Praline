@@ -550,6 +550,33 @@ void AGTPGameMode::ApplyPlayerVisual(APawn* Pawn)
 			}), 0.15f, true, 2.f);
 		}
 	}
+	// Four times a second: the body's blueprint (or the visual's) puts the sample's retargeter back now and then
+	// (twice in 349 s on candidate 31: RTG_UEFN_to_Metahuman_nrw, which has no source rig, so the body falls
+	// back to its A pose); point it at ours again at once. Silent unless something had changed.
+	GetWorldTimerManager().SetTimer(PlayerBodyKeepTimer, FTimerDelegate::CreateLambda([WeakPawn, RetargeterPath]()
+	{
+		const ACharacter* C = Cast<ACharacter>(WeakPawn.Get());
+		USkeletalMeshComponent* M = C ? C->GetMesh() : nullptr;
+		if (!M || RetargeterPath.IsEmpty())
+		{
+			return;
+		}
+		UObject* Retargeter = nullptr;
+		for (USceneComponent* Child : M->GetAttachChildren())
+		{
+			USkeletalMeshComponent* B = Cast<USkeletalMeshComponent>(Child);
+			if (!B || B->GetAnimationMode() != EAnimationMode::AnimationBlueprint || !B->GetAnimInstance())
+			{
+				continue;
+			}
+			Retargeter = Retargeter ? Retargeter : StaticLoadObject(UObject::StaticClass(), nullptr, *RetargeterPath);
+			FString Seen;
+			if (const int32 Drift = PointBodyRetarget(B->GetAnimInstance(), M, Retargeter, &Seen))
+			{
+				UE_LOG(LogGTPGameMode, Log, TEXT("body retarget: %d setting(s) put back by a blueprint (%s), set again"), Drift, *Seen);
+			}
+		}
+	}), 0.25f, true, 0.25f);
 	// Every 2 s: does the pawn's own pose move while the pawn moves? (class of its anim, speed, a foot bone)
 	FTimerHandle Probe;
 	GetWorldTimerManager().SetTimer(Probe, FTimerDelegate::CreateLambda([WeakPawn, RetargeterPath]()

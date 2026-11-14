@@ -255,7 +255,14 @@ is taken: Lyra stands on GAS and ShooterCore, which ADR-0011 leaves out. We take
   and any retargeter variable of the visual's actor at the pawn's mesh and the retargeter, with no re-initialisation
   after (the blueprint's own initialisation could put the sample's values back). Its log says how many settings the
   initialisation undid, and every 2 s `body retarget probe` prints what the blueprint holds and sets again anything
-  its graph put back.
+  its graph put back. Result on candidate 31: the body follows at last (aiming, its right hand is 12 cm under the
+  head and 43 cm ahead, as on the pawn), with no IK rig warning. The blueprint still put Epic's
+  `RTG_UEFN_to_Metahuman_nrw` (no source rig) back twice in 349 s: the retarget is now checked four times a
+  second, silently unless something had changed (`body retarget: N setting(s) put back`).
+- **Aiming lowers the head (candidate 31)**: the head goes from 62 cm above the capsule centre to -4 when aiming,
+  so the aim camera, framed for a standing head, shows only the back of it at the bottom of the image while the
+  two-handed pistol pose itself is right. `weapon: frame probe` now adds the pelvis height and the spine's lean
+  (forward, right) to tell a bent spine from a crouch before the camera or the upper-body mask changes.
 - **Who is aimed at (fix of 13/11 night)**: the player on foot reports the threat from the eyes to what the reticle
   covers (the view's line to the first obstacle), as he shoots from the view, no longer from the muzzle. The
   muzzle sits in the visible body's hand: with that hand down at the hip, a pedestrian 2 m away fell outside the 12

@@ -85,4 +85,6 @@ private:
 	void ApplyPlayerVisual(APawn* Pawn);
 
 	bool bTestVehicleSpawned = false;
+	/** Keeps the player body's retarget pointed at ours (one timer, replaced at each spawn of the player). */
+	FTimerHandle PlayerBodyKeepTimer;
 };
