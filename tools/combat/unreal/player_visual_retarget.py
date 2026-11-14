@@ -66,7 +66,7 @@ def ini_retargeter():
                     return line.split("=", 1)[1].strip().split(".")[0]
     except OSError as error:
         say("DefaultGame.ini not read: %s" % error)
-    return "/Game/MetaHumans/GTP/RTG_UEFNped_to_Metahuman"
+    return "/Game/MetaHumans/GTP/RTG_UEFNped_to_Metahuman_Fixed"
 
 
 def find_by_name(names):

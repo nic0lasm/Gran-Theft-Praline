@@ -63,7 +63,7 @@ BAKED_DIR = "/Game/Crowd/Character/Shared/Textures/Hair"
 BAKED = {"EyebrowsAttributeMap": ("GTP_NICOLITO_BROWS", "Natural", "Eyebrows_M_%s_baked"),
          "HairAttributeMap": ("GTP_NICOLITO_HAIR", "none", "Hair_S_%s_baked")}
 # PlayerVisualRetargeter in DefaultGame.ini: the body's runtime retarget from the pawn's mannequin.
-RETARGETER = "/Game/MetaHumans/GTP/RTG_UEFNped_to_Metahuman"
+RETARGETER = "/Game/MetaHumans/GTP/RTG_UEFNped_to_Metahuman_Fixed"
 
 eal = unreal.EditorAssetLibrary
 lines = []

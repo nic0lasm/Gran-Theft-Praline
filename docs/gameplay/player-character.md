@@ -361,6 +361,14 @@ body needs no root motion of its own). Tried with `-PlayerVisualRetargeter=`, th
 `DefaultGame.ini`. `create_pedestrian_retargeter.py` no longer adds the default ops to a retargeter that has some,
 and disables Root Motion.
 
+Proven on the PC (2026-11-14, portrait with `-PlayerVisualRetargeter=` the fixed copy): the script removed ops 5 to
+12 (all copies) and disabled Root Motion; the `rig:` lines give "0 at the origin" for the body at LOD 0 and 1, no
+part reads the pelvis at the origin any more, and the panel between the legs is gone (crewneck stopping at the
+waist, jeans, loafers). The baked eyebrows show on the brow, thin and light brown, painted, readable from the front.
+`PlayerVisualRetargeter` in `DefaultGame.ini` is now the fixed copy (Kellan, the player's current visual, is fixed
+too, and the body is retargeted once per frame instead of three times); a copy of the project without the fixed asset
+runs `fix_player_retargeter.py` once.
+
 **Grooms (2026-11-14).** Kellan has six groom components (hair, eyebrows, eyelashes, peach fuzz, moustache, beard),
 each ticking in the package against a 13 ms budget. Strand simulation is off (`r.HairStrands.Simulation=0`). The
 game mode also hides, without tick, the grooms whose name contains a word of `PlayerGroomsHidden` (`Fuzz`,

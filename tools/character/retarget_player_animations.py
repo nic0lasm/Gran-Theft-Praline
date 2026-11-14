@@ -3,7 +3,8 @@
   UnrealEditor-Cmd GranTheftPraline.uproject -run=pythonscript \
     -script="<repo>/tools/character/retarget_player_animations.py" -unattended -nosplash -nullrhi
 
-Uses the retargeter made by create_pedestrian_retargeter.py (run it first). The duplicated animations land
+Uses the retargeter made by create_pedestrian_retargeter.py and fixed by fix_player_retargeter.py (run them
+first; clips baked with the unfixed one have the body's pelvis on the ground). The duplicated animations land
 in /Game/MetaHumans/GTP/Anims with the prefix "MH_" (the game finds them by that name). Everything stays under /Game (not versioned).
 Env: GTP_RTG_ANIMS = comma separated list of source animation paths (default: the pedestrians' walk/idle/run).
 """
@@ -11,7 +12,7 @@ import os
 
 import unreal
 
-RTG = "/Game/MetaHumans/GTP/RTG_UEFNped_to_Metahuman"
+RTG = "/Game/MetaHumans/GTP/RTG_UEFNped_to_Metahuman_Fixed"
 DEFAULTS = [
     "/Game/Characters/UEFN_Mannequin/Animations/Walk/M_Neutral_Walk_Loop_F_L_20",
     "/Game/Characters/UEFN_Mannequin/Animations/Idle/M_Relaxed_Stand_Idle_Loop",

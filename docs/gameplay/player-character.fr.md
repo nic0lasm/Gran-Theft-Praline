@@ -387,6 +387,14 @@ lui). Essai avec `-PlayerVisualRetargeter=`, puis `PlayerVisualRetargeter` dans 
 `create_pedestrian_retargeter.py` n'ajoute plus les opérations par défaut à un retargeter qui en a déjà, et désactive
 Root Motion.
 
+Prouvé sur le PC (14/11/2026, portrait avec `-PlayerVisualRetargeter=` la copie corrigée) : le script a retiré les
+opérations 5 à 12 (toutes des copies) et désactivé Root Motion ; les lignes `rig:` donnent « 0 at the origin » pour
+le corps aux LOD 0 et 1, plus aucune pièce ne lit le pelvis à l'origine, et le pan entre les jambes a disparu (pull
+qui s'arrête à la taille, jean, mocassins). Les sourcils précalculés se voient sur l'arcade, fins et brun clair,
+peints, lisibles de face. `PlayerVisualRetargeter` dans `DefaultGame.ini` est maintenant la copie corrigée (Kellan,
+le visuel actuel du joueur, est corrigé aussi, et le corps est reciblé une fois par image au lieu de trois) ; une
+copie du projet sans l'asset corrigé lance une fois `fix_player_retargeter.py`.
+
 **Grooms (14/11/2026).** Kellan a six composants groom (cheveux, sourcils, cils, duvet, moustache, barbe), qui
 tickent tous dans le package pour un budget de 13 ms. La simulation des brins est coupée
 (`r.HairStrands.Simulation=0`). Le mode de jeu cache aussi, sans tick, les grooms dont le nom contient un mot de

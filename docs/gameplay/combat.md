@@ -259,7 +259,7 @@ is taken: Lyra stands on GAS and ShooterCore, which ADR-0011 leaves out. We take
   pawn's `weapon_r` moved by the gap between the two hands (right orientation whatever the body's bone axes);
   otherwise on the pawn's `weapon_r`. With `-PlayerVisualBaked`, drawing a weapon puts the body back on the runtime
   retarget (it follows the pawn, weapon clips included) and holstering returns it to the baked clips. The default
-  visual is a MetaHuman (`PlayerVisualClass` in `DefaultGame.ini`, runtime retarget with `RTG_UEFNped_to_Metahuman`;
+  visual is a MetaHuman (`PlayerVisualClass` in `DefaultGame.ini`, runtime retarget with `RTG_UEFNped_to_Metahuman_Fixed`, made by `tools/character/fix_player_retargeter.py`;
   the Game Animation Sample's Kellan stands in until Nicolito's own MetaHuman exists, a config change only;
   `bPlayerVisualBaked=True` there or `-PlayerVisualBaked` switches to the baked clips); `-PlayerVisual=` (empty)
   shows the mannequin for weapon tests.
