@@ -149,6 +149,12 @@ tells why (below).
 - Placement: a copy is "unsafe" only for a risk found. A scan cut at its package limit (which also
   counted as a risk before) is listed in `unsafe_scan_cut`; each unsafe copy's chains are in
   `unsafe_why`; a copy's references to itself are kept; a placed spawner that keeps risks is an error.
+- On the PC the cause showed: our driving-car spawner still pointed, hard, at City Sample's own
+  intersection spawner (and through it at the 5 missing street lamps), a reference the re-pointing
+  of the exported text did not reach (most likely its Blueprint graph or compiled code). Every copy now goes through
+  the engine's reference replacement first (`UGTPAssetReflection::ReplacePackageReferences`,
+  `FArchiveReplaceObjectRef` as "Replace References" does, then the Blueprint is compiled): each
+  reference to a copied package goes to our copy. Report: `engine_replaced`, `engine_replace_errors`.
 
 ## Open points
 

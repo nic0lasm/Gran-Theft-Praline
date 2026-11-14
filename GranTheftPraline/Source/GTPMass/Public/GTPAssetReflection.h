@@ -33,4 +33,16 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "GTP|Editor")
 	static FString SetPropertyText(const FString& ObjectPath, const FString& PropertyPath, const FString& Text);
+
+	/**
+	 * In the package PackagePath (one of our copies), every reference to an object of a package
+	 * named by a key of FromTo becomes a reference to the object of the same name in the package of
+	 * its value (our copy of that package): properties, Blueprint graph pins and compiled code alike,
+	 * through the engine's reference replacement (FArchiveReplaceObjectRef, as "Replace References"
+	 * does), which reaches what the exported text of the properties does not show. A Blueprint is
+	 * compiled again. Nothing is deleted; saving is the caller's. Editor only. JSON: replaced (count),
+	 * mapped (objects matched per package), compiled (the Blueprint's status), errors.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "GTP|Editor")
+	static FString ReplacePackageReferences(const FString& PackagePath, const TMap<FString, FString>& FromTo);
 };

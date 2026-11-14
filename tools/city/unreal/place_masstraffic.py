@@ -429,6 +429,26 @@ def copy_traffic(report):
             report["errors"].append("cannot copy %s to %s" % (package, target))
         else:
             copy["copied"].append(target)
+    # References the exported text of the properties does not show (a Blueprint graph's pins, its
+    # compiled code: on the 34 our driving-car spawner still pointed at City Sample's intersection
+    # spawner, and through it at the missing street lamps) go to our copies too, through the
+    # engine's reference replacement (UGTPAssetReflection.replace_package_references).
+    copy["engine_replaced"], copy["engine_replace_errors"] = {}, []
+    if hasattr(tool, "replace_package_references"):
+        for target in sorted(set(mapping.values())):
+            if not eal.does_asset_exist(target):
+                continue
+            try:
+                result = json.loads(tool.replace_package_references(target, mapping))
+            except Exception as error:
+                copy["engine_replace_errors"].append("%s: %s" % (target, error))
+                continue
+            copy["engine_replace_errors"] += result.get("errors", [])
+            if result.get("replaced"):
+                copy["engine_replaced"][target] = {"replaced": result["replaced"], "compiled": result.get("compiled")}
+                eal.save_asset(target, only_if_is_dirty=False)
+    else:
+        copy["engine_replace_errors"].append("replace_package_references missing: build the editor target")
     risk_cache = {}
     copy["removed"] = 0
 

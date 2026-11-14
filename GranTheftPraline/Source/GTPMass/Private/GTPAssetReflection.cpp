@@ -4,8 +4,14 @@
 #include "Misc/OutputDeviceNull.h"
 #include "Serialization/JsonSerializer.h"
 #include "Serialization/JsonWriter.h"
+#include "Serialization/ArchiveReplaceObjectRef.h"
+#include "UObject/Package.h"
 #include "UObject/UObjectHash.h"
 #include "UObject/UnrealType.h"
+#if WITH_EDITOR
+#include "Engine/Blueprint.h"
+#include "Kismet2/KismetEditorUtilities.h"
+#endif
 
 namespace GTPAssetReflectionLocal
 {
@@ -117,4 +123,93 @@ FString UGTPAssetReflection::SetPropertyText(const FString& ObjectPath, const FS
 	}
 	Object->MarkPackageDirty();
 	return FString();
+}
+
+FString UGTPAssetReflection::ReplacePackageReferences(const FString& PackagePath, const TMap<FString, FString>& FromTo)
+{
+	TSharedRef<FJsonObject> Out = MakeShared<FJsonObject>();
+	TArray<TSharedPtr<FJsonValue>> Errors;
+	int32 Replaced = 0;
+#if WITH_EDITOR
+	UPackage* Package = LoadPackage(nullptr, *PackagePath, LOAD_None);
+	if (!Package)
+	{
+		Errors.Add(MakeShared<FJsonValueString>(TEXT("cannot load ") + PackagePath));
+	}
+	else
+	{
+		// Each object of a source package, matched by its path inside the package with the object
+		// of our copy (a duplicate: same names, the Blueprint's class and default object included).
+		TMap<UObject*, UObject*> Replacements;
+		TSharedRef<FJsonObject> Mapped = MakeShared<FJsonObject>();
+		for (const TPair<FString, FString>& Pair : FromTo)
+		{
+			// Our copy's own source is mapped too: a reference left to it goes to the copy itself.
+			if (Pair.Key == PackagePath)
+			{
+				continue;
+			}
+			UPackage* From = LoadPackage(nullptr, *Pair.Key, LOAD_None);
+			UPackage* To = LoadPackage(nullptr, *Pair.Value, LOAD_None);
+			if (!From || !To)
+			{
+				Errors.Add(MakeShared<FJsonValueString>(FString::Printf(TEXT("cannot load %s or %s"), *Pair.Key, *Pair.Value)));
+				continue;
+			}
+			TArray<UObject*> FromObjects;
+			GetObjectsWithPackage(From, FromObjects, /*bIncludeNestedObjects*/ true);
+			int32 Count = 0;
+			for (UObject* Object : FromObjects)
+			{
+				const FString Inside = Object->GetPathName(From);
+				if (UObject* Match = StaticFindObject(UObject::StaticClass(), nullptr, *(To->GetPathName() + TEXT(".") + Inside)))
+				{
+					Replacements.Add(Object, Match);
+					++Count;
+				}
+			}
+			Mapped->SetNumberField(Pair.Key, Count);
+		}
+		Out->SetObjectField(TEXT("mapped"), Mapped);
+		TArray<UObject*> Objects;
+		GetObjectsWithPackage(Package, Objects, /*bIncludeNestedObjects*/ true);
+		UBlueprint* Blueprint = nullptr;
+		for (UObject* Object : Objects)
+		{
+			if (!Blueprint && Object->GetOuter() == Package)
+			{
+				Blueprint = Cast<UBlueprint>(Object);
+			}
+			if (Replacements.Num() > 0)
+			{
+				FArchiveReplaceObjectRef<UObject> Archive(Object, Replacements,
+					EArchiveReplaceObjectFlags::IgnoreOuterRef | EArchiveReplaceObjectFlags::IgnoreArchetypeRef);
+				Replaced += static_cast<int32>(Archive.GetCount());
+			}
+		}
+		if (Replaced > 0)
+		{
+			Package->MarkPackageDirty();
+			if (Blueprint)
+			{
+				FKismetEditorUtilities::CompileBlueprint(Blueprint);
+				Out->SetStringField(TEXT("compiled"), Blueprint->Status == BS_UpToDate ? TEXT("up to date")
+					: Blueprint->Status == BS_UpToDateWithWarnings ? TEXT("up to date with warnings")
+					: Blueprint->Status == BS_Error ? TEXT("error") : TEXT("not compiled"));
+				if (Blueprint->Status == BS_Error)
+				{
+					Errors.Add(MakeShared<FJsonValueString>(PackagePath + TEXT(": the Blueprint does not compile after the replacement")));
+				}
+			}
+		}
+	}
+#else
+	Errors.Add(MakeShared<FJsonValueString>(TEXT("editor only")));
+#endif
+	Out->SetNumberField(TEXT("replaced"), Replaced);
+	Out->SetArrayField(TEXT("errors"), Errors);
+	FString Text;
+	const TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&Text);
+	FJsonSerializer::Serialize(Out, Writer);
+	return Text;
 }

@@ -168,6 +168,13 @@ les copies « à risque », et c'est lui qui est posé dans la carte. Le candida
   de paquets (qui comptait aussi comme risque avant) est listé dans `unsafe_scan_cut` ; les chaînes
   de chaque copie à risque sont dans `unsafe_why` ; les références d'une copie à elle-même restent ;
   un générateur posé qui garde des risques est une erreur.
+- Sur le PC la cause est apparue : notre générateur de voitures roulantes pointait encore, en dur,
+  vers le générateur de carrefours de City Sample lui-même (et par lui vers les 5 lampadaires
+  absents), une référence que le repointage du texte exporté n'a pas atteinte (sans doute le
+  graphe du Blueprint ou son code compilé). Chaque copie passe d'abord par le remplacement de références du moteur
+  (`UGTPAssetReflection::ReplacePackageReferences`, `FArchiveReplaceObjectRef` comme « Replace
+  References », puis le Blueprint est recompilé) : toute référence à un paquet copié va vers notre
+  copie. Rapport : `engine_replaced`, `engine_replace_errors`.
 
 ## Points ouverts
 

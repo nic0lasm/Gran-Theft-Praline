@@ -27,6 +27,11 @@ public class GTPMass : ModuleRules
 		{
 			"Json"
 		});
+		if (Target.bBuildEditor)
+		{
+			// UGTPAssetReflection::ReplacePackageReferences compiles the Blueprints it changes.
+			PrivateDependencyModuleNames.Add("UnrealEd");
+		}
 
 		// MassTraffic is Epic code: City Sample's plugin "Traffic" (module MassTraffic) and the
 		// RuleProcessor plugin it needs, copied from City Sample into Plugins/Traffic and
