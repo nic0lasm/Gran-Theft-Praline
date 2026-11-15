@@ -834,10 +834,25 @@ bool UGTPCrowdSubsystem::DressFromCitySample(AGTPPedestrian* Actor)
 		const FString Name = FString::Printf(TEXT("%s_tal_%s_%s"), *Prefix, WeightTag, *Part);
 		return LoadObject<USkeletalMesh>(nullptr, *FString::Printf(TEXT("%s/%s/%s/Meshes/%s.%s"), *CrowdCharacterRoot, *Sex, WeightDir, *Name, *Name));
 	};
+	// A diagnostic switch is on as "-Name" or "-Name=1" (FParse::Param alone does not see the second form: the gate
+	// of candidate 40 ran "-CrowdBodyFromPlayer=1" and the flag stayed off).
+	auto Flag = [](const TCHAR* Name) -> bool
+	{
+		int32 Value = 0;
+		return FParse::Param(FCommandLine::Get(), Name) || (FParse::Value(FCommandLine::Get(), *(FString(Name) + TEXT("=")), Value) && Value != 0);
+	};
+	// Diagnostics for the packaged "uncooked shader map" errors: -CrowdParts=<mask> (1 body, 2 garments, 4 face; 7 = all),
+	// -CrowdNoFace. A part left out is NOT LOADED: the errors come when a mesh's materials load, not when it is shown
+	// (the first version of these flags loaded everything and only hid the part, so it told nothing).
+	int32 PartsMask = 7;
+	FParse::Value(FCommandLine::Get(), TEXT("CrowdParts="), PartsMask);
+	const bool bWantClothes = (PartsMask & 2) != 0;
+	const bool bWantFace = (PartsMask & 4) != 0 && !Flag(TEXT("CrowdNoFace"));
 	// -CrowdBodyFromPlayer=1 (diagnostic): keep the body mesh the actor already has (the player's) instead of loading the
 	// pack's body, to tell whether the packaged material errors come from the pack's M_BodySynthesized chain.
-	USkeletalMesh* Body = FParse::Param(FCommandLine::Get(), TEXT("CrowdBodyFromPlayer")) ? nullptr : Load(TEXT("body"));
-	if (!Body && !FParse::Param(FCommandLine::Get(), TEXT("CrowdBodyFromPlayer")))
+	const bool bBodyFromPlayer = Flag(TEXT("CrowdBodyFromPlayer"));
+	USkeletalMesh* Body = bBodyFromPlayer ? nullptr : Load(TEXT("body"));
+	if (!Body && !bBodyFromPlayer)
 	{
 		return false;
 	}
@@ -855,37 +870,35 @@ bool UGTPCrowdSubsystem::DressFromCitySample(AGTPPedestrian* Actor)
 		return nullptr;
 	};
 	TArray<USkeletalMesh*> Clothes;
-	Clothes.Add(LoadAny((bFemale
-		? TArray<FString>{TEXT("buttonDown"), TEXT("buttonOpen"), TEXT("scoopneck"), TEXT("turtleneck"), TEXT("buttonDown_blazer"), TEXT("scoopneck_croppedJacket")}
-		: TArray<FString>{TEXT("buttonDown"), TEXT("buttonOpen"), TEXT("crewneck"), TEXT("turtleneck"), TEXT("buttonDown_tie"), TEXT("crewneck_blazer")})));
-	Clothes.Add(LoadAny((bFemale
-		? TArray<FString>{TEXT("jeans"), TEXT("slacks"), TEXT("skirt"), TEXT("jeans_belt")}
-		: TArray<FString>{TEXT("jeans"), TEXT("jeansLong"), TEXT("slacks"), TEXT("slacks_belt")})));
-	Clothes.Add(LoadAny((bFemale
-		? TArray<FString>{TEXT("loafers"), TEXT("oxfords"), TEXT("dressFlats")}
-		: TArray<FString>{TEXT("loafers"), TEXT("oxfords")})));
+	if (bWantClothes)
+	{
+		Clothes.Add(LoadAny((bFemale
+			? TArray<FString>{TEXT("buttonDown"), TEXT("buttonOpen"), TEXT("scoopneck"), TEXT("turtleneck"), TEXT("buttonDown_blazer"), TEXT("scoopneck_croppedJacket")}
+			: TArray<FString>{TEXT("buttonDown"), TEXT("buttonOpen"), TEXT("crewneck"), TEXT("turtleneck"), TEXT("buttonDown_tie"), TEXT("crewneck_blazer")})));
+		Clothes.Add(LoadAny((bFemale
+			? TArray<FString>{TEXT("jeans"), TEXT("slacks"), TEXT("skirt"), TEXT("jeans_belt")}
+			: TArray<FString>{TEXT("jeans"), TEXT("jeansLong"), TEXT("slacks"), TEXT("slacks_belt")})));
+		Clothes.Add(LoadAny((bFemale
+			? TArray<FString>{TEXT("loafers"), TEXT("oxfords"), TEXT("dressFlats")}
+			: TArray<FString>{TEXT("loafers"), TEXT("oxfords")})));
+	}
 	// Heads 001 to 003 of each sex are in the migrated subset.
 	const int32 FaceIndex = 1 + FMath::Min(2, static_cast<int32>(ReactionRng.Next() * 3));
 	const FString FaceName = FString::Printf(TEXT("%s_%03d_nrw_FaceMesh"), *Prefix, FaceIndex);
-	USkeletalMesh* Face = LoadObject<USkeletalMesh>(nullptr, *FString::Printf(TEXT("%s/%s/%s_%03d/Face/%s.%s"),
-		*CrowdCharacterRoot, *Sex, *Prefix, FaceIndex, *FaceName, *FaceName));
-	// Diagnostics for the packaged "uncooked shader map" errors: -CrowdParts=<mask> (1 body, 2 garments, 4 face; 7 = all)
-	// and -CrowdDefaultMaterials=1 (every slot gets the engine default material).
-	int32 PartsMask = 7;
-	FParse::Value(FCommandLine::Get(), TEXT("CrowdParts="), PartsMask);
-	if (FParse::Param(FCommandLine::Get(), TEXT("CrowdNoFace")) || !(PartsMask & 4))
+	USkeletalMesh* Face = bWantFace ? LoadObject<USkeletalMesh>(nullptr, *FString::Printf(TEXT("%s/%s/%s_%03d/Face/%s.%s"),
+		*CrowdCharacterRoot, *Sex, *Prefix, FaceIndex, *FaceName, *FaceName)) : nullptr;
+	static bool bPartsSaid = false;
+	if (!bPartsSaid)
 	{
-		Face = nullptr;
-	}
-	if (!(PartsMask & 2))
-	{
-		Clothes.Reset();
+		bPartsSaid = true;
+		UE_LOG(LogGTPCrowd, Log, TEXT("crowd: parts loaded: body %s, garments %s, face %s"), bBodyFromPlayer ? TEXT("the actor's own") : TEXT("pack"),
+			bWantClothes ? TEXT("yes") : TEXT("no"), bWantFace ? TEXT("yes") : TEXT("no"));
 	}
 	// The face animation blueprint (City Sample's rig) is not loaded unless -CrowdFaceAnim=1: loading it pulls its whole
 	// dependency chain, the suspect of the two packaged "uncooked shader map" errors that come right before the first
 	// character is dressed; without it the face follows the body by bone name.
 	TSubclassOf<UAnimInstance> FaceAnim;
-	if (Face && FParse::Param(FCommandLine::Get(), TEXT("CrowdFaceAnim")))
+	if (Face && Flag(TEXT("CrowdFaceAnim")))
 	{
 		FaceAnim = FaceAnimClass.TryLoadClass<UAnimInstance>();
 	}
