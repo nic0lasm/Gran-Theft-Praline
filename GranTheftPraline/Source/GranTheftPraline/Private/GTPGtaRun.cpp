@@ -339,6 +339,12 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckWalkArmed(FString& Detail)
 UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail, bool bClose)
 {
 	WalkDirection = FVector::ZeroVector; // set again below while walking up to somebody
+	// The "does not walk" clock runs only while this step asks for a walk, tick after tick. It used to keep its value
+	// through the waits (nobody calm in sight, or standing in range): the first walking tick after a wait of 4 s failed
+	// at once, with a player who had been asked nothing (gate of candidate 40: pending and last input both 0, which a
+	// walk asked every frame cannot give).
+	const double WalkAskedSince = LastAimMoveTime;
+	LastAimMoveTime = -1.0;
 	// Hold-up: draw the weapon and aim at the nearest pedestrian; somebody must raise his hands or run.
 	UWorld* World = GetWorld();
 	APlayerController* PC = FirstController(World);
@@ -436,11 +442,15 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail, bool bClose)
 		WalkDirection = ToVictim;
 		// The test shows a player who cannot walk instead of hiding it (a walk lock left by an arrest was found so).
 		const double Now2 = FPlatformTime::Seconds();
-		if (LastAimMoveTime < 0.0 || Character->GetVelocity().Size2D() > 20.0)
+		if (WalkAskedSince < 0.0)
 		{
-			LastAimMoveTime = Now2;
+			// First tick of this walk: the counters of the failure line start here, so they describe this walk alone.
+			WalkInputs = 0;
+			WalkPendingBefore = 0;
+			WalkRejected = 0;
 		}
-		else if (Now2 - LastAimMoveTime > 4.0)
+		LastAimMoveTime = (WalkAskedSince < 0.0 || Character->GetVelocity().Size2D() > 20.0) ? Now2 : WalkAskedSince;
+		if (Now2 - LastAimMoveTime > 4.0)
 		{
 			const UCharacterMovementComponent* Movement = Character->GetCharacterMovement();
 			Detail = FString::Printf(TEXT("the player does not walk for 4 s (%.0f cm from %s, ignore move input = %d, movement mode %d, max walk speed %.0f, "
