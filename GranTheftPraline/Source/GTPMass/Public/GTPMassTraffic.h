@@ -160,6 +160,10 @@ private:
 	int32 DamageAdded = 0;
 	/** World time at which each car still waiting for recycling was handed over (entity as number). */
 	TMap<uint64, double> RecycleHandedAt;
+	/** Cars waiting for recycling given back to the traffic: committed to their next lane (bCantStopAtLaneExit). */
+	int32 GivenBack = 0;
+	/** Cars at a dead end not handed over because committed to their next lane (entity as number). */
+	TSet<uint64> CommittedLeft;
 	/** ZoneGraph lanes (indices in the data of index DeadEndBranchData) of the cut branches. */
 	TSet<int32> DeadEndBranch;
 	int32 DeadEndBranchData = INDEX_NONE;

@@ -498,6 +498,7 @@ void UGTPMassTrafficSubsystem::LogSimulatedCars(UWorld& World, const FVector& Pl
 	int32 RecyclableInJunction = 0;
 	int32 RecyclableIncomplete = 0;
 	int32 RecyclableTrunkOnly = 0;
+	int32 RecyclableCommitted = 0;
 	int32 RecyclableOver20 = 0;
 	double LongestWait = -1.0;
 	FVector LongestWaitLocation = FVector::ZeroVector;
@@ -536,9 +537,14 @@ void UGTPMassTrafficSubsystem::LogSimulatedCars(UWorld& World, const FVector& Pl
 				RecyclableIncomplete += bComplete ? 0 : 1;
 				const FMassTrafficVehicleControlFragment* Control = Manager->GetFragmentDataPtr<FMassTrafficVehicleControlFragment>(Entity);
 				RecyclableTrunkOnly += !Control ? 1 : (Control->bRestrictedToTrunkLanesOnly ? 1 : 0);
+				RecyclableCommitted += Control && Control->bCantStopAtLaneExit ? 1 : 0;
 				const double* HandedAt = RecycleHandedAt.Find(Entity.AsNumber());
 				const double Wait = HandedAt ? Now - *HandedAt : -1.0;
-				StillWaiting.Add(Entity.AsNumber(), HandedAt ? *HandedAt : Now);
+				if (HandedAt)
+				{
+					// Only the cars RecycleAtDeadEnds handed over (not MassTraffic's own wrecks).
+					StillWaiting.Add(Entity.AsNumber(), *HandedAt);
+				}
 				RecyclableOver20 += Wait > 20.0 ? 1 : 0;
 				if (Wait > LongestWait)
 				{
@@ -589,9 +595,9 @@ void UGTPMassTrafficSubsystem::LogSimulatedCars(UWorld& World, const FVector& Pl
 				}
 			}
 		}
-		UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic recycling: %d car(s) waiting, longest %.0f s (%.0f m from the player), %d over 20 s | missing a fragment the overseer needs=%d trunk lanes only=%d inside a junction=%d | lanes the overseer may take now=%d of %d, %d of them %.0f m or more from the longest waiting car"),
+		UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic recycling: %d car(s) waiting, longest %.0f s (%.0f m from the player), %d over 20 s | missing a fragment the overseer needs=%d trunk lanes only=%d committed to their next lane=%d inside a junction=%d | given back to the traffic so far=%d | lanes the overseer may take now=%d of %d, %d of them %.0f m or more from the longest waiting car"),
 			Recyclable, LongestWait, LongestWait >= 0.0 ? FVector::Distance(LongestWaitLocation, ViewLocation) / 100.0 : -1.0, RecyclableOver20,
-			RecyclableIncomplete, RecyclableTrunkOnly, RecyclableInJunction, Targets, LanesSeen, TargetsFarFromCar, Settings->MinTransferDistance / 100.0);
+			RecyclableIncomplete, RecyclableTrunkOnly, RecyclableCommitted, RecyclableInJunction, GivenBack, Targets, LanesSeen, TargetsFarFromCar, Settings->MinTransferDistance / 100.0);
 	}
 	FString Network;
 	if (!bNetworkLogged && Cars > 0)
@@ -1378,6 +1384,39 @@ void UGTPMassTrafficSubsystem::RecycleAtDeadEnds()
 	}();
 	constexpr double OutOfSightCm = 4000.0;
 	FMassEntityManager& Manager = Mass->GetMutableEntityManager();
+	{
+		// A car handed over here that turns out to be committed to its next lane (bCantStopAtLaneExit,
+		// set by MassTraffic between this check and the tag change) is never moved by the overseer: it
+		// goes back to the traffic, where MassTraffic takes it on or releases it.
+		TArray<FMassEntityHandle> ToGiveBack;
+		FMassEntityQuery WaitingQuery;
+		WaitingQuery.Initialize(Manager.AsShared());
+		WaitingQuery.AddTagRequirement<FMassTrafficRecyclableVehicleTag>(EMassFragmentPresence::All);
+		WaitingQuery.AddRequirement<FMassTrafficVehicleControlFragment>(EMassFragmentAccess::ReadOnly);
+		FMassExecutionContext WaitingContext(Manager, 0.f);
+		WaitingQuery.ForEachEntityChunk(WaitingContext, [&](FMassExecutionContext& Chunk)
+		{
+			const TConstArrayView<FMassTrafficVehicleControlFragment> Controls = Chunk.GetFragmentView<FMassTrafficVehicleControlFragment>();
+			for (int32 Index = 0; Index < Chunk.GetNumEntities(); ++Index)
+			{
+				if (Controls[Index].bCantStopAtLaneExit && RecycleHandedAt.Contains(Chunk.GetEntity(Index).AsNumber()))
+				{
+					ToGiveBack.Add(Chunk.GetEntity(Index));
+				}
+			}
+		});
+		for (const FMassEntityHandle& Entity : ToGiveBack)
+		{
+			Manager.Defer().SwapTags<FMassTrafficRecyclableVehicleTag, FMassTrafficVehicleTag>(Entity);
+			RecycleHandedAt.Remove(Entity.AsNumber());
+		}
+		GivenBack += ToGiveBack.Num();
+		if (!ToGiveBack.IsEmpty())
+		{
+			UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic dead ends: %d car(s) given back to the traffic, committed to their next lane (MassTraffic's teleport refuses them; %d in all)"),
+				ToGiveBack.Num(), GivenBack);
+		}
+	}
 	FMassEntityQuery Query;
 	Query.Initialize(Manager.AsShared());
 	Query.AddTagRequirement<FMassTrafficVehicleTag>(EMassFragmentPresence::All);
@@ -1423,6 +1462,15 @@ void UGTPMassTrafficSubsystem::RecycleAtDeadEnds()
 			{
 				continue;
 			}
+			// A car committed to its next lane (it could not stop before the lane exit, and reserved a
+			// place on that lane) is never moved by MassTraffic's teleport
+			// (TeleportVehicleToAnotherLane returns at once): handed over, it would wait for good. It is
+			// left to MassTraffic, which takes it on or releases it once it stands still.
+			if (Controls[Index].bCantStopAtLaneExit)
+			{
+				CommittedLeft.Add(Chunk.GetEntity(Index).AsNumber());
+				continue;
+			}
 			ToRecycle.Add(Chunk.GetEntity(Index));
 		}
 	});
@@ -1440,8 +1488,8 @@ void UGTPMassTrafficSubsystem::RecycleAtDeadEnds()
 	Recycled += ToRecycle.Num();
 	if (ToRecycle.Num() > 0 && (Recycled <= 20 || Recycled % 50 < ToRecycle.Num()))
 	{
-		UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic dead ends: %d car(s) handed to MassTraffic's recycling (%d in all, %d given Epic's damage fragment)"),
-			ToRecycle.Num(), Recycled, DamageAdded);
+		UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic dead ends: %d car(s) handed to MassTraffic's recycling (%d in all, %d given Epic's damage fragment; %d committed to their next lane left to the traffic so far)"),
+			ToRecycle.Num(), Recycled, DamageAdded, CommittedLeft.Num());
 	}
 }
 #else

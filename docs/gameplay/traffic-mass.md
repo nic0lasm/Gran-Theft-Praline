@@ -418,6 +418,17 @@ those missing a fragment, those limited to trunk lanes, those inside a junction,
 overseer may take now (and those far enough from the longest waiting car). Its test of cars coming
 from a junction is left out. Nothing is changed in the traffic.
 
+Gate of candidate 40 (826a7cd): mean 98.3. One car waited 42 s or more for recycling, 108 m from the
+player, with no fragment missing, not limited to trunk lanes, not in a junction, while 139 of the 577
+lanes passed the overseer's tests, all 200 m or more from it. The one test left that says nothing in
+the log: `TeleportVehicleToAnotherLane` returns at once for a car committed to its next lane
+(`bCantStopAtLaneExit`: it could not stop before the lane exit and reserved a place on that lane).
+MassTraffic releases such a car only once it stands still (`Speed < 0.1`) with its front still on its
+lane; ours were handed over from 1 m/s, so one could be frozen with the flag set and wait for good.
+`RecycleAtDeadEnds` now leaves a committed car to the traffic, and gives back to the traffic a car it
+handed over that turns out to be committed. The recycling line counts "committed to their next lane"
+and "given back to the traffic so far". Cause read in the code, not yet seen on the PC.
+
 ## Open points
 
 - Near the player MassTraffic may hand a car over to its physics vehicle: our copies name our cars

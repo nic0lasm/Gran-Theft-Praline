@@ -468,6 +468,18 @@ carrefour, et les voies que l'overseer peut prendre maintenant (et celles assez 
 attend depuis le plus longtemps). Son test des voitures qui sortent d'un carrefour est laissé de côté.
 Rien n'est changé dans le trafic.
 
+Porte du candidat 40 (826a7cd) : moyenne 98,3. Une voiture a attendu le recyclage 42 s ou plus, à 108 m
+du joueur, sans fragment manquant, sans limite aux voies principales, hors carrefour, alors que 139 des
+577 voies passaient les tests de l'overseer, toutes à 200 m ou plus d'elle. Le seul test restant qui
+n'écrit rien dans le journal : `TeleportVehicleToAnotherLane` s'arrête tout de suite pour une voiture
+engagée sur sa voie suivante (`bCantStopAtLaneExit` : elle ne pouvait plus s'arrêter avant la sortie de
+voie et a réservé sa place sur cette voie). MassTraffic ne libère une telle voiture qu'une fois arrêtée
+(`Speed < 0.1`) avec l'avant encore sur sa voie ; les nôtres étaient remises dès 1 m/s, donc une voiture
+pouvait être figée avec le drapeau levé et attendre pour toujours. `RecycleAtDeadEnds` laisse désormais
+une voiture engagée au trafic, et rend au trafic une voiture remise qui se révèle engagée. La ligne du
+recyclage compte « committed to their next lane » et « given back to the traffic so far ». Cause lue
+dans le code, pas encore vue sur le PC.
+
 ## Points ouverts
 
 - Près du joueur, MassTraffic peut confier une voiture à son véhicule physique : nos copies
