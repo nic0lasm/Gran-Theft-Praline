@@ -598,14 +598,14 @@ void AGTPVehicle::ProbeDrive()
 	static const TCHAR* Names[] = {TEXT("FL"), TEXT("FR"), TEXT("BL"), TEXT("BR")};
 	for (int32 Index = 0; Index < Move->GetNumWheels() && Index < Move->Wheels.Num(); ++Index)
 	{
-		const FWheelStatus& State = Move->GetWheelState(Index);
+		const FWheelStatus& WheelState = Move->GetWheelState(Index);
 		const UChaosVehicleWheel* Wheel = Move->Wheels[Index];
-		Springs += State.bInContact ? State.SpringForce : 0.f;
+		Springs += WheelState.bInContact ? WheelState.SpringForce : 0.f;
 		const float WheelKmh = Wheel ? FMath::Abs(FMath::DegreesToRadians(Wheel->GetRotationAngularVelocity()) * Wheel->GetWheelRadius()) * 0.036f : 0.f;
-		const UPhysicalMaterial* Ground = State.PhysMaterial.Get();
+		const UPhysicalMaterial* Ground = WheelState.PhysMaterial.Get();
 		Wheels += FString::Printf(TEXT(" | %s contact=%d spring=%.0f%% susp=%.2f drive=%.0f N.m wheel=%.0f km/h slip=%.0f %s %.2f"),
-			Index < 4 ? Names[Index] : TEXT("W"), State.bInContact ? 1 : 0, Weight > 0.f ? 100.f * State.SpringForce / Weight : 0.f,
-			State.NormalizedSuspensionLength, State.DriveTorque, WheelKmh, State.SlipMagnitude,
+			Index < 4 ? Names[Index] : TEXT("W"), WheelState.bInContact ? 1 : 0, Weight > 0.f ? 100.f * WheelState.SpringForce / Weight : 0.f,
+			WheelState.NormalizedSuspensionLength, WheelState.DriveTorque, WheelKmh, WheelState.SlipMagnitude,
 			Ground ? *Ground->GetName() : TEXT("no material"), Ground ? Ground->Friction : -1.f);
 	}
 	GTP_TRACE(LogGTPVehicle, TEXT("drive probe: %s%s t=%.1f kmh=%.1f top=%.0f gear=%d rpm=%.0f throttle=%.2f brake=%.2f handbrake=%d torque=%.0f N.m | springs carry %.0f%% of the weight | chassis touched the ground %d time(s) since the last line, box %.0f cm above the ground%s"),
