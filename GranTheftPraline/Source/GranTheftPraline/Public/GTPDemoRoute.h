@@ -109,9 +109,14 @@ private:
 	double RamUntil = 0.0;
 	double SlowSince = 0.0;
 	int32 ChaseStuckCount = 0;
-	/** Where the chase car was last held up, and how many times in a row within 15 m of there. */
+	/** Where the chase car was last held up, and how many times in a row within 15 m of there (twice: put on another lane). */
 	FVector HeldUpAt = FVector::ZeroVector;
 	int32 HeldUpHere = 0;
+	/** RelocateChase: where the car was put; held there with the physics off until RelocateHoldUntil. */
+	FTransform RelocatedTo = FTransform::Identity;
+	bool bRelocateHeld = false;
+	TWeakObjectPtr<AGTPVehicle> RelocatedCar;
+	double RelocateHoldUntil = 0.0;
 	double NextDriveDiag = 0.0;
 	/** Highest speed of the driven car in the chase (km/h), logged with DemoChase. */
 	float PeakKmh = 0.f;

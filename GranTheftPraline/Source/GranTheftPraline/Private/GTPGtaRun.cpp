@@ -27,7 +27,9 @@ namespace
 	constexpr int32 StepCount = 7;
 	const TCHAR* StepNames[StepCount] = { TEXT("carjack"), TEXT("chase"), TEXT("parked"), TEXT("walkarmed"), TEXT("aim"), TEXT("aimclose"), TEXT("shoot") };
 	// Time limits (s) per step, counted from the step's start.
-	const double StepLimits[StepCount] = { 90.0, 170.0, 200.0, 40.0, 90.0, 90.0, 30.0 };
+	// Chase: 3 stars come at 30 s and a car that flees has its 150 m by then; a chase that fails must leave the
+	// other steps their time (170 s of it ate the bench's 330 s on 16/11).
+	const double StepLimits[StepCount] = { 90.0, 90.0, 200.0, 40.0, 90.0, 90.0, 30.0 };
 
 	APlayerController* FirstController(const UWorld* World)
 	{

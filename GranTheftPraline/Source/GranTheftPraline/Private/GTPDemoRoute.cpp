@@ -254,12 +254,25 @@ bool UGTPDemoRoute::RelocateChase(AGTPVehicle* Driven, APlayerController* PC, co
 			}
 			const FVector From = Driven->GetActorLocation();
 			const FVector Direction = (Lane.Points[Index + 1] - Point).GetSafeNormal2D();
-			Driven->SetActorLocationAndRotation(FVector(Point.X, Point.Y, Ground.ImpactPoint.Z + 60.f), Direction.Rotation(), false, nullptr, ETeleportType::ResetPhysics);
+			RelocatedTo = FTransform(Direction.Rotation(), FVector(Point.X, Point.Y, Ground.ImpactPoint.Z + 60.f));
+			// Never into another car (traffic, police, parked): the solver does not survive a deep overlap.
+			if (Network->bPoolSpawnCheck && Network->FindCarAt(Driven, RelocatedTo))
+			{
+				continue;
+			}
+			// Physics off while the car is moved, and for half a second after: the solver undoes the teleport of a
+			// simulated car (seen in GTPTestDrive on the M1, and here on 16/11: put 119 m away, the car was back
+			// where it stood 2 s later, seven times in a row). RunStep turns the physics back on.
 			if (UPrimitiveComponent* Body = Cast<UPrimitiveComponent>(Driven->GetRootComponent()))
 			{
 				Body->SetPhysicsLinearVelocity(FVector::ZeroVector);
 				Body->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
+				Body->SetSimulatePhysics(false);
 			}
+			Driven->SetActorLocationAndRotation(RelocatedTo.GetLocation(), RelocatedTo.GetRotation(), false, nullptr, ETeleportType::TeleportPhysics);
+			bRelocateHeld = true;
+			RelocatedCar = Driven;
+			RelocateHoldUntil = Clock() + 0.5;
 			Follower = FGTPLaneFollower();
 			Follower.bPreferStraight = true;
 			Follower.AheadMeters = 160.f;
@@ -592,7 +605,34 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 		AGTPVehicle* Driven = Cast<AGTPVehicle>(Pawn);
 		if (!Driven)
 		{
+			if (UPrimitiveComponent* Body = bRelocateHeld && RelocatedCar.IsValid() ? Cast<UPrimitiveComponent>(RelocatedCar->GetRootComponent()) : nullptr)
+			{
+				// The player left the car in the half second it was held on its new lane: the car gets its physics back.
+				Body->SetSimulatePhysics(true);
+			}
+			bRelocateHeld = false;
 			SetPhase(EPhase::Done);
+			break;
+		}
+		if (bRelocateHeld)
+		{
+			// Just put on another lane (RelocateChase): held there with the physics off, then given back to the solver.
+			Driven->SetActorLocationAndRotation(RelocatedTo.GetLocation(), RelocatedTo.GetRotation(), false, nullptr, ETeleportType::TeleportPhysics);
+			if (Now < RelocateHoldUntil)
+			{
+				break;
+			}
+			bRelocateHeld = false;
+			if (UPrimitiveComponent* Body = Cast<UPrimitiveComponent>(Driven->GetRootComponent()))
+			{
+				Body->SetSimulatePhysics(true);
+				Body->SetPhysicsLinearVelocity(FVector::ZeroVector);
+				Body->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
+				Body->WakeAllRigidBodies();
+			}
+			Driven->NotePlaced(TEXT("chase relocation"));
+			SlowSince = 0.0;
+			GTP_TRACE(LogGTPDemo, TEXT("Demo chase: the car is on its new lane at %s, physics back on"), *Driven->GetActorLocation().ToCompactString());
 			break;
 		}
 		float Cruise = CruiseKmh;
@@ -752,12 +792,12 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 								GTP_TRACE(LogGTPDemo, TEXT("Demo chase: %d traffic car(s) taken off the road around the player"), Cleared);
 							}
 						}
-						// Held up a third time within 15 m (pushed, backed off, still there): beached or boxed in. The chase
-						// goes on from another lane, as at the end of the lanes.
+						// Held up a second time within 15 m (pushed for 3 s, still there): beached, boxed in or against
+						// something that does not move. The chase goes on from another lane, as at the end of the lanes.
 						const FVector HeldAt = Driven->GetActorLocation();
 						HeldUpHere = FVector::Dist2D(HeldAt, HeldUpAt) < 1500.0 ? HeldUpHere + 1 : 1;
 						HeldUpAt = HeldAt;
-						if (HeldUpHere >= 3 && RelocateChase(Driven, PC, TEXT("held up three times in the same place")))
+						if (HeldUpHere >= 2 && RelocateChase(Driven, PC, TEXT("held up twice in the same place")))
 						{
 							HeldUpHere = 0;
 							ChaseStuckCount = 0;
