@@ -415,6 +415,16 @@ géométrie statique seulement (le tracé de visibilité pouvait s'arrêter sur 
 3 s puis roule tout droit pied au plancher pendant 25 s : 0-50, 0-100, vitesse de pointe et distance
 (« drive launch test »).
 
+Candidat 45 (adaf9c1, PC, 16/11) : chaque voiture a ses roues et le différentiel de City Sample
+(Car03, 05, 12 et Police13 en propulsion), `-GTARun` 7/7 avec une poursuite de 154 m. Car05 pied au
+plancher : 0-50 km/h en 4,4 s, rapports 1 à 4, 70 km/h au bout de 10,4 s (prise arrêtée à 11,4 s). Reste :
+en roulant les ressorts portent 1 à 21 % du poids, la boîte de la caisse est 2 à 7 cm sous la chaussée
+et la roue avant gauche perd le contact par instants : la caisse repose encore sur la chaussée. Pour
+savoir quel corps le fait, `KeepChassisBodyOnly` écrit une fois par classe chaque corps du physics
+asset (« vehicle collision » : os, formes, de quelle hauteur à quelle hauteur au-dessus du plan de
+contact des roues, face à la remontée de la suspension), et « drive config » donne la hauteur de la
+collision de la caisse au-dessus de ce plan.
+
 ## 9. Préparer une voiture conduisible
 
 ### 9.1 Première voiture d'essai (sans Tripo)
