@@ -292,7 +292,7 @@ Written in one batch, not compiled yet (`GTPIncidentLogic.h`, checked offline by
 ### 8.6 Epic's City Sample cars (13/11)
 
 Not compiled. City Sample Vehicles (Fab, free, out of Git) gives 14 Chaos cars on the skeleton
-SK_Vehicle, whose wheel bones are ours. `tools/vehicles/unreal/make_epic_vehicles.py` rebuilds
+SK_Vehicle (their wheel bones are not named like ours: see 8.7). `tools/vehicles/unreal/make_epic_vehicles.py` rebuilds
 seven of them on `AGTPVehicle` (stealing, damage, reactions) with Epic's own Chaos tuning:
 vehicle02, 03, 05, 07, 12 and the van 01 join the traffic and the street parked cars (trucks,
 bus and trailer are too big for the Presqu'ile); vehicle13, a 1 850 kg saloon with a light bar,
@@ -398,6 +398,18 @@ front left wheel loses contact at times, so the chassis still rests on the road.
 does it, `KeepChassisBodyOnly` logs once per class every body of the physics asset ("vehicle
 collision": bone, shapes, from how high to how high above the wheels' contact plane, against the
 suspension's raise), and "drive config" gives the chassis collision's height above that plane.
+
+Candidate 46 (acc4a66, PC, 16/11): no collision body reaches below the wheels' contact plane (the
+lowest, the chassis, sits 22 to 36 cm above it), but "drive config" puts all four wheels at X 0 Z 0,
+wheelbase 0 cm. City Sample's car meshes have no `Phys_Wheel_*` bones: Chaos places a wheel at its
+bone's reference pose position (`LocateBoneOffset`), and a bone the mesh lacks reads as the origin, so
+the four springs of every City Sample car sat at one point under it since 13/11. Car05 at full
+throttle: 0-50 km/h in 4.4 s, 71 km/h at most, 143 m before an obstacle, seconds with no wheel down.
+Fix, not yet measured: `AGTPVehicle::FindWheelBones`, in a game world before the components register,
+takes the four wheel bones from the mesh when a wheel setup's bone is missing: bones named like a
+wheel (wheel, whl, tire, tyre; not steer or spare) at the four corners of their reference pose, a
+"phys" bone first, then the deepest one; once per class, a "vehicle wheels" line names them, or lists
+the mesh's bones when none fit.
 
 ## 9. Making a drivable car
 

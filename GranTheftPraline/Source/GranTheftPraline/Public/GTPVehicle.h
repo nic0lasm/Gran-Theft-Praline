@@ -82,7 +82,8 @@ enum class EGTPDamageZone : uint8
  * controller), the glass components and, if needed, its own tuning.
  *
  * Mesh conventions (docs/gameplay/vehicles.md, section 9):
- * - wheel bones Phys_Wheel_FL, Phys_Wheel_FR, Phys_Wheel_BL, Phys_Wheel_BR;
+ * - wheel bones Phys_Wheel_FL, Phys_Wheel_FR, Phys_Wheel_BL, Phys_Wheel_BR (else found by
+ *   name and position, see FindWheelBones);
  * - socket seat_driver (falls back to DriverSeatOffset);
  * - morph targets Dent_Front, Dent_Rear, Dent_Left, Dent_Right;
  * - glass as separate components tagged "Glass" plus one zone tag
@@ -278,6 +279,7 @@ public:
 	bool bLocked = false;
 
 protected:
+	virtual void PreRegisterAllComponents() override;
 	virtual void OnConstruction(const FTransform& Transform) override;
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaSeconds) override;
@@ -546,6 +548,13 @@ private:
 	 * them back).
 	 */
 	void KeepChassisBodyOnly();
+	/**
+	 * In a game world, before the components register (Chaos places each wheel at its bone's
+	 * reference pose position when it creates the vehicle): when the mesh lacks a wheel setup's bone
+	 * (City Sample's car meshes do not name theirs Phys_Wheel_*), the four wheel bones are taken from
+	 * the mesh by name and position, once per class, and logged ("vehicle wheels").
+	 */
+	void FindWheelBones();
 	EGTPDamageZone ZoneFromWorldLocation(const FVector& WorldLocation) const;
 	void BreakGlass(EGTPDamageZone Zone);
 	void SetWrecked(EGTPVehicleLoss Reason = EGTPVehicleLoss::Wrecked);

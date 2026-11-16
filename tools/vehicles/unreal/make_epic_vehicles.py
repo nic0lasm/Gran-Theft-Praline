@@ -3,7 +3,8 @@
 City Sample's cars (Fab, free, out of Git) are taken from the full City Sample project, copied at
 their own path /Game/Vehicle/ by tools/vehicles/copy_citysample_content.py (or from the City Sample
 Vehicles pack, /Game/CitySampleVehicles/ or /Game/Vehicles/Epic/). They are Chaos WheeledVehiclePawns on the skeleton SK_Vehicle, whose wheel
-bones (Phys_Wheel_FL/FR/BL/BR) are the ones AGTPVehicle expects. For each car listed in CARS this
+bones are not named Phys_Wheel_FL/FR/BL/BR as AGTPVehicle expects: AGTPVehicle::FindWheelBones finds
+them in the mesh when the game starts (16/11). For each car listed in CARS this
 script creates /Game/Vehicles/Epic/GTP/BP_GTP_<Name>, a child of AGTPVehicle (stealing, damage,
 traffic, police), and copies onto it from Epic's Blueprint:
   - the skeletal mesh (its physics asset comes with it) and the wheel AnimBlueprint;

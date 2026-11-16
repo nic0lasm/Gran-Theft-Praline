@@ -22,6 +22,8 @@
 #include "ChaosVehicleWheel.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Engine/SkinnedAsset.h"
+#include "ReferenceSkeleton.h"
 #include "PhysicsEngine/BodySetup.h"
 #include "PhysicsEngine/ConstraintInstance.h"
 #include "PhysicsEngine/PhysicsAsset.h"
@@ -199,6 +201,151 @@ void AGTPVehicle::ApplyCityCarTuning()
 		Steering->AddKey(30.f, 0.75f);
 		Steering->AddKey(80.f, 0.3f);
 		Steering->AddKey(120.f, 0.22f);
+	}
+}
+
+namespace GTPWheelBones
+{
+	struct FCandidate
+	{
+		FName Name;
+		FVector Position;
+		int32 Depth = 0;
+	};
+
+	/**
+	 * The four wheel bones of a car mesh, in the order of AGTPVehicle's wheel setups (front left,
+	 * front right, rear left, rear right), from the bones named like a wheel (wheel, whl, tire, tyre;
+	 * not steer or spare) at the four corners of their reference pose (+X forward, +Y right). In a
+	 * corner: a "phys" bone first, then the deepest in the hierarchy (the one that spins), then the
+	 * shortest name. Empty when a corner has none; OutReport says what was seen.
+	 */
+	TArray<FName> Pick(USkinnedAsset& Mesh, FString& OutReport)
+	{
+		const FReferenceSkeleton& Skeleton = Mesh.GetRefSkeleton();
+		TArray<FCandidate> Candidates;
+		FBox Extent(ForceInit);
+		for (int32 BoneIndex = 0; BoneIndex < Skeleton.GetNum(); ++BoneIndex)
+		{
+			const FName BoneName = Skeleton.GetBoneName(BoneIndex);
+			const FString Lower = BoneName.ToString().ToLower();
+			const bool bWheelName = Lower.Contains(TEXT("wheel")) || Lower.Contains(TEXT("whl")) || Lower.Contains(TEXT("tire")) || Lower.Contains(TEXT("tyre"));
+			if (!bWheelName || Lower.Contains(TEXT("steer")) || Lower.Contains(TEXT("spare")))
+			{
+				continue;
+			}
+			FCandidate Candidate;
+			Candidate.Name = BoneName;
+			Candidate.Position = Mesh.GetComposedRefPoseMatrix(BoneName).GetOrigin();
+			for (int32 Parent = Skeleton.GetParentIndex(BoneIndex); Parent != INDEX_NONE; Parent = Skeleton.GetParentIndex(Parent))
+			{
+				++Candidate.Depth;
+			}
+			Candidates.Add(Candidate);
+			Extent += Candidate.Position;
+			OutReport += FString::Printf(TEXT(" %s (%.0f %.0f %.0f)"), *BoneName.ToString(), Candidate.Position.X, Candidate.Position.Y, Candidate.Position.Z);
+		}
+		TArray<FName> Picked;
+		if (Candidates.Num() < 4)
+		{
+			OutReport = FString::Printf(TEXT("%d bone(s) named like a wheel:%s; the mesh's first bones:"), Candidates.Num(), *OutReport);
+			for (int32 BoneIndex = 0; BoneIndex < Skeleton.GetNum() && BoneIndex < 80; ++BoneIndex)
+			{
+				OutReport += TEXT(" ") + Skeleton.GetBoneName(BoneIndex).ToString();
+			}
+			return Picked;
+		}
+		const FVector Centre = Extent.GetCenter();
+		for (int32 Corner = 0; Corner < 4; ++Corner)
+		{
+			const bool bFront = Corner < 2;
+			const bool bLeft = Corner % 2 == 0;
+			const FCandidate* Best = nullptr;
+			for (const FCandidate& Candidate : Candidates)
+			{
+				const FVector Offset = Candidate.Position - Centre;
+				if ((Offset.X > 0.0) != bFront || (Offset.Y < 0.0) != bLeft || FMath::Abs(Offset.X) < 50.0 || FMath::Abs(Offset.Y) < 30.0)
+				{
+					continue;
+				}
+				auto IsBetter = [](const FCandidate& A, const FCandidate& B)
+				{
+					const bool bPhysA = A.Name.ToString().ToLower().Contains(TEXT("phys"));
+					const bool bPhysB = B.Name.ToString().ToLower().Contains(TEXT("phys"));
+					if (bPhysA != bPhysB)
+					{
+						return bPhysA;
+					}
+					if (A.Depth != B.Depth)
+					{
+						return A.Depth > B.Depth;
+					}
+					return A.Name.ToString().Len() < B.Name.ToString().Len();
+				};
+				if (!Best || IsBetter(Candidate, *Best))
+				{
+					Best = &Candidate;
+				}
+			}
+			if (!Best)
+			{
+				OutReport = FString::Printf(TEXT("no bone at corner %d among:%s"), Corner, *OutReport);
+				Picked.Reset();
+				return Picked;
+			}
+			Picked.Add(Best->Name);
+		}
+		OutReport = FString::Printf(TEXT("FL %s, FR %s, BL %s, BR %s (bones named like a wheel:%s)"), *Picked[0].ToString(), *Picked[1].ToString(),
+			*Picked[2].ToString(), *Picked[3].ToString(), *OutReport);
+		return Picked;
+	}
+}
+
+void AGTPVehicle::PreRegisterAllComponents()
+{
+	Super::PreRegisterAllComponents();
+	FindWheelBones();
+}
+
+void AGTPVehicle::FindWheelBones()
+{
+	// Chaos puts a wheel at its bone's reference pose position (LocateBoneOffset); a bone the mesh
+	// does not have reads as the origin, so all four springs sat at one point under the City Sample
+	// cars (probe of candidate 46: wheelbase 0 cm, springs at 0-14 % of the weight, no wheel down).
+	const UWorld* World = GetWorld();
+	UChaosWheeledVehicleMovementComponent* Move = GetWheeledMovement();
+	USkeletalMeshComponent* Body = GetMesh();
+	USkinnedAsset* Asset = Body ? Body->GetSkinnedAsset() : nullptr;
+	if (!World || !World->IsGameWorld() || !Move || !Asset || Move->WheelSetups.Num() != 4)
+	{
+		return;
+	}
+	bool bMissing = false;
+	for (const FChaosWheelSetup& WheelSetup : Move->WheelSetups)
+	{
+		bMissing |= Asset->GetRefSkeleton().FindBoneIndex(WheelSetup.BoneName) == INDEX_NONE;
+	}
+	if (!bMissing)
+	{
+		return;
+	}
+	static TMap<FName, TArray<FName>> ByClass;
+	const FName ClassKey = GetClass()->GetFName();
+	if (!ByClass.Contains(ClassKey))
+	{
+		FString Report;
+		ByClass.Add(ClassKey, GTPWheelBones::Pick(*Asset, Report));
+		GTP_TRACE(LogGTPVehicle, TEXT("vehicle wheels: %s (mesh %s) has no bone %s: %s%s"), *GetClass()->GetName(), *Asset->GetName(),
+			*Move->WheelSetups[0].BoneName.ToString(), ByClass[ClassKey].Num() == 4 ? TEXT("wheel bones found by name and position, ") : TEXT("NO WHEEL BONES, the wheels stay at the origin; "),
+			*Report);
+	}
+	const TArray<FName>& Picked = ByClass[ClassKey];
+	if (Picked.Num() == 4)
+	{
+		for (int32 Index = 0; Index < 4; ++Index)
+		{
+			Move->WheelSetups[Index].BoneName = Picked[Index];
+		}
 	}
 }
 
