@@ -93,6 +93,17 @@ bool FGTPLaneFollower::StartNear(AGTPTrafficNetwork* InNetwork, const FVector& L
 	return true;
 }
 
+float FGTPLaneFollower::OpenRoadMetres(const TArray<FGTPTrafficLane>& Lanes, int32 Lane)
+{
+	if (!Lanes.IsValidIndex(Lane))
+	{
+		return 0.f;
+	}
+	return GTPDrive::OpenRoad(Lane, 6, OpenRoadWanted,
+		[&Lanes](int Index) -> const TArray<int32>& { return Lanes[Index].Next; },
+		[&Lanes](int Index) { return Lanes[Index].LengthCm() * CmToM; });
+}
+
 void FGTPLaneFollower::Plan()
 {
 	AGTPTrafficNetwork* Net = Network.Get();
@@ -115,16 +126,23 @@ void FGTPLaneFollower::Plan()
 			// The exit whose first segment keeps the heading of the end of this lane the best.
 			const TArray<FVector>& From = Lanes[Route.Last()].Points;
 			const FVector Heading = From.Num() >= 2 ? (From.Last() - From[From.Num() - 2]).GetSafeNormal2D() : FVector::ZeroVector;
-			float BestDot = -2.f;
+			// Open road first (a dead end stops the flight), then the straightest: 10 points a metre of open road
+			// against 1 for a full change of heading.
+			float BestScore = -1.e9f;
 			for (const int32 Candidate : Lanes[Route.Last()].Next)
 			{
+				if (!Lanes.IsValidIndex(Candidate))
+				{
+					continue;
+				}
 				const TArray<FVector>& To = Lanes[Candidate].Points;
 				if (To.Num() >= 2)
 				{
 					const float Dot = static_cast<float>(FVector::DotProduct(Heading, (To[1] - To[0]).GetSafeNormal2D()));
-					if (Dot > BestDot)
+					const float Score = OpenRoadMetres(Lanes, Candidate) * 10.f + Dot;
+					if (Score > BestScore)
 					{
-						BestDot = Dot;
+						BestScore = Score;
 						Next = Candidate;
 					}
 				}
@@ -157,6 +175,17 @@ bool FGTPLaneFollower::Step(const FVector& Location, float YawDegrees, float Spe
 	}
 	const float Speed = SpeedKmh / 3.6f;
 	const float LaneSpeed = (bIgnoreLaneLimit ? MaxSpeedKmh : FMath::Min(Net->GetLanes()[Route[0]].SpeedKmh, MaxSpeedKmh)) / 3.6f;
+	if (bIgnoreLaneLimit)
+	{
+		// A chase: enough lanes known ahead to brake from the speed asked, or the end of the known path
+		// caps the speed (50 m and the calm braking: 67 km/h for a police car asked 105).
+		const float Needed = GTPDrive::PathNeeded(LaneSpeed, Settings);
+		if (Needed > FMath::Max(RouteAheadM, AheadMeters))
+		{
+			AheadMeters = Needed;
+			Plan();
+		}
+	}
 	Out = GTPDrive::Decide(Path, static_cast<float>(Location.X) * CmToM, static_cast<float>(Location.Y) * CmToM,
 		FMath::DegreesToRadians(YawDegrees), Speed, LaneSpeed, ObstacleMetres, Settings, Closest);
 	if (Closest >= CurrentLaneLength && Route.Num() > 1)

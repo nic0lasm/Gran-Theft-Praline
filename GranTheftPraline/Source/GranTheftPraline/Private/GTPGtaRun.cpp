@@ -199,8 +199,27 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckChase(FString& Detail)
 	}
 	MaxStars = FMath::Max(MaxStars, Wanted->GetStars());
 	MaxUnits = FMath::Max(MaxUnits, Wanted->GetPolice().Num());
-	Detail = FString::Printf(TEXT("best stars=%d units=%d"), MaxStars, MaxUnits);
-	return (MaxStars >= 3 && MaxUnits >= 3) ? EResult::Ok : EResult::Pending;
+	// A chase is a flight: the metres the player's car really drove (a jump of more than 20 m between two
+	// frames is the demo putting the car on another lane, not driving) and its best speed. At door 41 the
+	// step passed on stars and units with the car standing still in a dead end from its 8th second.
+	const APlayerController* PC = FirstController(GetWorld());
+	if (const AGTPVehicle* Car = PC ? Cast<AGTPVehicle>(PC->GetPawn()) : nullptr)
+	{
+		const FVector At = Car->GetActorLocation();
+		if (ChaseCar.Get() == Car)
+		{
+			const double Moved = FVector::Dist2D(At, ChaseLastAt);
+			if (Moved < 2000.0)
+			{
+				ChaseDrivenCm += Moved;
+			}
+		}
+		ChaseCar = Car;
+		ChaseLastAt = At;
+		ChasePeakKmh = FMath::Max(ChasePeakKmh, FMath::Abs(Car->GetSpeedKmh()));
+	}
+	Detail = FString::Printf(TEXT("best stars=%d units=%d driven=%.0f m peak=%.0f km/h"), MaxStars, MaxUnits, ChaseDrivenCm / 100.0, ChasePeakKmh);
+	return (MaxStars >= 3 && MaxUnits >= 3 && ChaseDrivenCm >= ChaseDrivenWantedCm) ? EResult::Ok : EResult::Pending;
 }
 
 UGTPGtaRun::EResult UGTPGtaRun::CheckParked(FString& Detail)

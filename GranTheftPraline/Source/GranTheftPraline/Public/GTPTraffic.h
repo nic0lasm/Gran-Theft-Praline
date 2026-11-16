@@ -56,10 +56,16 @@ struct GRANTHEFTPRALINE_API FGTPLaneFollower
 	/** Chases and demos: the speed given to Step is the limit, not the lane's posted speed. */
 	bool bIgnoreLaneLimit = false;
 
-	/** Chases and demos: at a junction take the exit that turns the least (a flight keeps to the main axes). */
+	/** Chases and demos: at a junction take the exit that turns the least (a flight keeps to the main axes),
+	 *  among the exits with open road behind them (OpenRoadMetres): never into a dead end when another way exists. */
 	bool bPreferStraight = false;
 
-	/** Metres of lane planned ahead (0 = the default 50). A flight at 90 km/h needs more, or the end of the path brakes it. */
+	/** Metres of road open after entering Lane (GTPDrive::OpenRoad over the network's lanes, 6 junctions deep, capped at OpenRoadWanted). */
+	static float OpenRoadMetres(const TArray<FGTPTrafficLane>& Lanes, int32 Lane);
+	static constexpr float OpenRoadWanted = 250.f;
+
+	/** Metres of lane planned ahead (0 = the default 50). A flight at 90 km/h needs more, or the end of the path brakes it:
+	 *  with bIgnoreLaneLimit, Step() raises it to the braking distance of the speed asked (GTPDrive::PathNeeded). */
 	float AheadMeters = 0.f;
 
 	/** Chases and demos: corners taken at 5 m/s2 instead of the calm 2.2, braking harder, firmer throttle (a flight, not a drive). */
@@ -69,6 +75,9 @@ struct GRANTHEFTPRALINE_API FGTPLaneFollower
 		Settings.ComfortDecel = 6.f;
 		Settings.ThrottleGain = 0.8f;
 	}
+
+	/** Chases: the caller's own driving settings (the police director tunes its units). */
+	void SetSettings(const FGTPDriveSettings& InSettings) { Settings = InSettings; }
 
 	bool IsActive() const { return Network.IsValid() && Route.Num() > 0; }
 
