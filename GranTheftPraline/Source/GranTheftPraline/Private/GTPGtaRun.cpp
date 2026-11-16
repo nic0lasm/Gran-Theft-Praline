@@ -6,6 +6,10 @@
 #include "GameFramework/Character.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Animation/AnimInstance.h"
+#include "Animation/AnimSingleNodeInstance.h"
+#include "Animation/AnimationAsset.h"
+#include "Engine/SkeletalMesh.h"
+#include "Camera/PlayerCameraManager.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "GTPLog.h"
@@ -340,6 +344,21 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckWalkArmed(FString& Detail)
 			Detail = FString::Printf(TEXT("the player does not walk with the weapon (%s): %.0f cm in 4 s, drawn %d, aiming %d, velocity %.0f, acceleration %.0f, movement mode %d, ignore move input = %d"),
 				Phase, Moved, Weapon->IsDrawn() ? 1 : 0, Weapon->IsAiming() ? 1 : 0, Movement ? Movement->Velocity.Size() : -1.f,
 				Movement ? Movement->GetCurrentAcceleration().Size() : -1.f, Movement ? static_cast<int32>(Movement->MovementMode.GetValue()) : -1, PC->IsMoveInputIgnored() ? 1 : 0);
+			// What he stands on (falling with the input taken: he lost his floor, the question is to what).
+			if (Movement)
+			{
+				const FHitResult& Floor = Movement->CurrentFloor.HitResult;
+				const UPrimitiveComponent* Base = Character->GetMovementBase();
+				FHitResult Below;
+				FCollisionQueryParams BelowParams(SCENE_QUERY_STAT(GTPGtaRunFloor), false, Character);
+				const FVector Feet = Character->GetActorLocation() - FVector(0.f, 0.f, Character->GetSimpleCollisionHalfHeight());
+				const bool bBelow = GetWorld()->LineTraceSingleByChannel(Below, Feet + FVector(0.f, 0.f, 10.f), Feet - FVector(0.f, 0.f, 300.f), ECC_Visibility, BelowParams);
+				Detail += FString::Printf(TEXT(" [floor %s (walkable %d, %.0f cm), movement base %s, under the feet %s at %.0f cm, at %.0f %.0f %.0f]"),
+					Floor.GetActor() ? *Floor.GetActor()->GetName() : TEXT("none"), Movement->CurrentFloor.IsWalkableFloor() ? 1 : 0, Movement->CurrentFloor.FloorDist,
+					Base && Base->GetOwner() ? *Base->GetOwner()->GetName() : TEXT("none"),
+					bBelow && Below.GetActor() ? *Below.GetActor()->GetName() : TEXT("nothing within 3 m"), bBelow ? Below.Distance - 10.f : -1.f,
+					Feet.X, Feet.Y, Feet.Z);
+			}
 			return EResult::Fail;
 		}
 		GTP_TRACE(LogGTPGtaRun, TEXT("GTARun: walked %.0f cm in 4 s (%s)"), Moved, Phase);
@@ -569,6 +588,59 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail, bool bClose)
 		const FString Shot = FPaths::ConvertRelativePathToFull(FPaths::Combine(FPaths::ScreenShotDir(), bClose ? TEXT("gtarun-aimclose.png") : TEXT("gtarun-aim.png")));
 		FScreenshotRequest::RequestScreenshot(Shot, false, false);
 		GTP_TRACE(LogGTPGtaRun, TEXT("GTARun: picture of the hold-up asked: %s"), *Shot);
+		// The picture at night is not readable: the same in numbers. Heights in cm above the player's feet and above
+		// each body's own root; "hands over the head" is what a hold-up looks like.
+		const float Feet = Character->GetActorLocation().Z - Character->GetSimpleCollisionHalfHeight();
+		auto Pose = [](const USkeletalMeshComponent* Mesh) -> FString
+		{
+			if (!Mesh || Mesh->GetBoneIndex(TEXT("head")) == INDEX_NONE)
+			{
+				return TEXT("no head bone");
+			}
+			const float Root = Mesh->GetComponentLocation().Z;
+			const float Head = Mesh->GetSocketLocation(TEXT("head")).Z;
+			const float Left = Mesh->GetBoneIndex(TEXT("hand_l")) != INDEX_NONE ? Mesh->GetSocketLocation(TEXT("hand_l")).Z : -1e4f;
+			const float Right = Mesh->GetBoneIndex(TEXT("hand_r")) != INDEX_NONE ? Mesh->GetSocketLocation(TEXT("hand_r")).Z : -1e4f;
+			const UAnimSingleNodeInstance* Single = Mesh->GetSingleNodeInstance();
+			const UAnimationAsset* Played = Single ? Single->GetAnimationAsset() : nullptr;
+			const UAnimInstance* Anim = Mesh->GetAnimInstance();
+			return FString::Printf(TEXT("head %.0f above its root, hands %.0f %.0f from the head (%s), plays %s, mesh %s"), Head - Root, Left - Head, Right - Head,
+				Left > Head && Right > Head ? TEXT("hands over the head") : TEXT("hands NOT over the head"),
+				Played ? *Played->GetName() : (Anim ? *Anim->GetClass()->GetName() : TEXT("nothing")),
+				Mesh->GetSkeletalMeshAsset() ? *Mesh->GetSkeletalMeshAsset()->GetName() : TEXT("none"));
+		};
+		int32 Probed = 0;
+		for (TActorIterator<AGTPPedestrian> It(World); It && Probed < 4; ++It)
+		{
+			const UGTPThreatResponseComponent* Fear = It->FindComponentByClass<UGTPThreatResponseComponent>();
+			const EGTPThreatState State = Fear ? Fear->GetState() : EGTPThreatState::Calm;
+			if ((State != EGTPThreatState::HandsUp && State != EGTPThreatState::Complying) || FVector::Dist(It->GetActorLocation(), Character->GetActorLocation()) > 1500.0)
+			{
+				continue;
+			}
+			++Probed;
+			const FVector To = Character->GetActorLocation() - It->GetActorLocation();
+			GTP_TRACE(LogGTPGtaRun, TEXT("GTARun hold-up probe: %s%s at %.0f cm, root %.0f cm above the player's feet, yaw %.0f (the player is at yaw %.0f from him): %s"),
+				*It->GetName(), *It == Victim ? TEXT(" (the one aimed at)") : TEXT(""), To.Size2D(), It->GetBody()->GetComponentLocation().Z - Feet,
+				It->GetActorRotation().Yaw, To.Rotation().Yaw, *Pose(It->GetBody()));
+		}
+		TArray<AActor*> Attached;
+		Character->GetAttachedActors(Attached);
+		for (const AActor* Visual : Attached)
+		{
+			TArray<USkeletalMeshComponent*> Meshes;
+			Visual->GetComponents<USkeletalMeshComponent>(Meshes);
+			for (const USkeletalMeshComponent* Mesh : Meshes)
+			{
+				if (Mesh->GetBoneIndex(TEXT("head")) != INDEX_NONE && Mesh->IsVisible())
+				{
+					GTP_TRACE(LogGTPGtaRun, TEXT("GTARun hold-up probe: the player (%s.%s): %s"), *Visual->GetName(), *Mesh->GetName(), *Pose(Mesh));
+					break;
+				}
+			}
+		}
+		GTP_TRACE(LogGTPGtaRun, TEXT("GTARun hold-up probe: the player's own mesh: %s; camera pitch %.0f roll %.0f"), *Pose(Character->GetMesh()),
+			PC->PlayerCameraManager ? PC->PlayerCameraManager->GetCameraRotation().Pitch : 0.f, PC->PlayerCameraManager ? PC->PlayerCameraManager->GetCameraRotation().Roll : 0.f);
 		Threat->ClearThreat();
 		if (!bClose)
 		{

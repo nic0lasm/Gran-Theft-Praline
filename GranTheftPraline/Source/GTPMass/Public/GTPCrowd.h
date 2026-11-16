@@ -217,6 +217,7 @@ private:
 	void SpreadPanic();
 	void OnLoud(const FVector& Where, float Radius, AActor* Cause);
 	void OnActorThreat(AActor* Body, int32 NewState);
+	void SayWhatIsPlayed(const AGTPPedestrian* Actor, const UAnimSequenceBase* Asked, const TCHAR* What);
 	void HitByPlayerVehicle(int32 Slot);
 	FGTPCrowdWalkerFragment* WalkerOf(int32 EntityIndex);
 	FGTPCrowdLookFragment* LookOf(int32 EntityIndex);
@@ -258,6 +259,7 @@ private:
 
 	GTPWalk::FRng ReactionRng{777u};
 	bool bAssembled = false;
+	TSet<FString> SaidPlayed;
 	TArray<uint8> PanicSpread;
 	float NextPanicSpread = 0.f;
 	FDelegateHandle LoudHandle;

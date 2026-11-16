@@ -13,6 +13,8 @@
 #include "GameFramework/Character.h"
 #include "Animation/AnimInstance.h"
 #include "Animation/AnimSequence.h"
+#include "Animation/AnimSingleNodeInstance.h"
+#include "Animation/AnimationAsset.h"
 #include "Animation/Skeleton.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "GTPAudioWorld.h"
@@ -582,10 +584,30 @@ void UGTPCrowdSubsystem::SetupNearActors(UWorld& InWorld)
 	const USkeleton* BodySkeleton = NearActors.Num() > 0 && NearActors[0]->GetBody() && NearActors[0]->GetBody()->GetSkeletalMeshAsset()
 		? NearActors[0]->GetBody()->GetSkeletalMeshAsset()->GetSkeleton() : nullptr;
 	const USkeleton* HandsSkeleton = HandsUp ? HandsUp->GetSkeleton() : nullptr;
-	UE_LOG(LogGTPCrowd, Log, TEXT("crowd: %d near characters, hands-up animation %s (skeleton %s, body skeleton %s: %s)"), NearActors.Num(),
-		HandsUp ? *HandsUp->GetName() : TEXT("missing"), HandsSkeleton ? *HandsSkeleton->GetName() : TEXT("none"),
-		BodySkeleton ? *BodySkeleton->GetName() : TEXT("none"),
-		!HandsUp ? TEXT("no hands shown") : (HandsSkeleton == BodySkeleton ? TEXT("same") : TEXT("ANOTHER SKELETON, bake it with retarget_player_animations.py")));
+	const USkeleton* WalkSkeleton = Walk ? Walk->GetSkeleton() : nullptr;
+	// Full paths: two skeletons of the same name live in the project (/Game/MetaHumans and the City Sample pack).
+	UE_LOG(LogGTPCrowd, Log, TEXT("crowd: %d near characters, hands-up animation %s (skeleton %s, body skeleton %s: %s); walk %s (skeleton %s: %s)"), NearActors.Num(),
+		HandsUp ? *HandsUp->GetName() : TEXT("missing"), HandsSkeleton ? *HandsSkeleton->GetPathName() : TEXT("none"),
+		BodySkeleton ? *BodySkeleton->GetPathName() : TEXT("none"),
+		!HandsUp ? TEXT("no hands shown") : (HandsSkeleton == BodySkeleton ? TEXT("same") : TEXT("ANOTHER SKELETON")),
+		Walk ? *Walk->GetName() : TEXT("missing"), WalkSkeleton ? *WalkSkeleton->GetPathName() : TEXT("none"),
+		WalkSkeleton == BodySkeleton ? TEXT("same") : TEXT("ANOTHER SKELETON"));
+}
+
+void UGTPCrowdSubsystem::SayWhatIsPlayed(const AGTPPedestrian* Actor, const UAnimSequenceBase* Asked, const TCHAR* What)
+{
+	// Once per kind: the animation the body really plays after the ask. An animation of another skeleton may be
+	// refused by the engine, and then the body keeps the previous one (or none): the readback tells.
+	if (!Actor || !Asked || SaidPlayed.Contains(FString(What)))
+	{
+		return;
+	}
+	SaidPlayed.Add(FString(What));
+	const USkeletalMeshComponent* Body = Actor->GetBody();
+	const UAnimSingleNodeInstance* Single = Body ? Body->GetSingleNodeInstance() : nullptr;
+	const UAnimationAsset* Played = Single ? Single->GetAnimationAsset() : nullptr;
+	UE_LOG(LogGTPCrowd, Log, TEXT("crowd: %s asked %s, the body plays %s (%s)"), What, *Asked->GetName(), Played ? *Played->GetName() : TEXT("nothing"),
+		Played == Asked ? TEXT("taken") : TEXT("REFUSED"));
 }
 
 void UGTPCrowdSubsystem::OnLoud(const FVector& Where, float Radius, AActor* Cause)
@@ -813,7 +835,9 @@ void UGTPCrowdSubsystem::UpdateNear(float DeltaTime)
 		{
 			const bool bHandsUp = W->Walker.PauseKind == GTPWalk::EPause::HandsUp && HandsUp;
 			const bool bGawk = W->Walker.PauseKind == GTPWalk::EPause::Gawk && Cower;
-			Actor->PlayLoop(bHandsUp ? HandsUp.Get() : (bGawk ? Cower.Get() : Idle.Get()), 1.f);
+			UAnimSequenceBase* Still = bHandsUp ? HandsUp.Get() : (bGawk ? Cower.Get() : Idle.Get());
+			Actor->PlayLoop(Still, 1.f);
+			SayWhatIsPlayed(Actor, Still, bHandsUp ? TEXT("hands up") : (bGawk ? TEXT("cower") : TEXT("idle")));
 		}
 		else if (W->Walker.FleeTimeLeft > 0.f && Run)
 		{
@@ -822,6 +846,7 @@ void UGTPCrowdSubsystem::UpdateNear(float DeltaTime)
 		else
 		{
 			Actor->PlayLoop(Walk, W->Speed / WalkAnimationSpeed);
+			SayWhatIsPlayed(Actor, Walk, TEXT("walk"));
 		}
 	}
 }
