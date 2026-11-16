@@ -842,6 +842,27 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 							LimitSeconds[2], LimitSeconds[3], LimitSeconds[4]);
 					}
 				}
+				if (bChase && T > 4.0)
+				{
+					// Off the road: more than 6 m from its lane for 1.5 s (down the bank of the quay on 16/11: 7 m east of
+					// the lane and 2 m below the street, then against the ground), or at the edge of the river, where the
+					// recovery rule takes the player out of the car and ends the chase. The flight goes on from another lane.
+					const FVector CarAt = Driven->GetActorLocation();
+					const float OffLane = Follower.OffPathMetres(CarAt);
+					OffLaneSince = OffLane > 6.f ? (OffLaneSince <= 0.0 ? Now : OffLaneSince) : 0.0;
+					const UGTPRiverRecovery* River = Driven->GetWorld()->GetSubsystem<UGTPRiverRecovery>();
+					const bool bAtWater = River && River->IsInWater(CarAt, 300.f);
+					if ((bAtWater || (OffLaneSince > 0.0 && Now - OffLaneSince > 1.5)) && Now >= NextRelocate)
+					{
+						NextRelocate = Now + 2.0;
+						OffLaneSince = 0.0;
+						GTP_TRACE(LogGTPDemo, TEXT("Demo chase: off the road at %s (%.0f m from lane %d, water=%d)"), *CarAt.ToCompactString(), OffLane, Follower.GetLane(), bAtWater ? 1 : 0);
+						if (RelocateChase(Driven, PC, bAtWater ? TEXT("at the edge of the river") : TEXT("off its lane")))
+						{
+							break;
+						}
+					}
+				}
 				if (bChase && Command.Throttle > 0.f && Command.Brake < 0.05f && Driven->GetSpeedKmh() < Cruise - 4.f)
 				{
 					// The lane follower's throttle is soft (half of the time under 0.3 below the set speed): firmer for the chase.

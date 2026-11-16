@@ -93,6 +93,26 @@ bool FGTPLaneFollower::StartNear(AGTPTrafficNetwork* InNetwork, const FVector& L
 	return true;
 }
 
+float FGTPLaneFollower::OffPathMetres(const FVector& Location) const
+{
+	const int N = static_cast<int>(Path.size());
+	if (N < 2 || Route.Num() == 0)
+	{
+		return 0.f;
+	}
+	const int I = FMath::Clamp(Closest, 0, N - 2);
+	const FVector2D P(static_cast<float>(Location.X) * CmToM, static_cast<float>(Location.Y) * CmToM);
+	// The closest of the segments before and after the closest point.
+	float Best = TNumericLimits<float>::Max();
+	for (int S = FMath::Max(0, I - 1); S <= I; ++S)
+	{
+		const FVector2D A(Path[S].X, Path[S].Y);
+		const FVector2D B(Path[S + 1].X, Path[S + 1].Y);
+		Best = FMath::Min(Best, static_cast<float>(FVector2D::Distance(P, FMath::ClosestPointOnSegment2D(P, A, B))));
+	}
+	return Best;
+}
+
 float FGTPLaneFollower::OpenRoadMetres(const TArray<FGTPTrafficLane>& Lanes, int32 Lane)
 {
 	if (!Lanes.IsValidIndex(Lane))

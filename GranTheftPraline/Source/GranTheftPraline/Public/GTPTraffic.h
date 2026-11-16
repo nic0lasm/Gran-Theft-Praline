@@ -76,6 +76,9 @@ struct GRANTHEFTPRALINE_API FGTPLaneFollower
 		Settings.ThrottleGain = 0.8f;
 	}
 
+	/** Metres between Location and the path being followed (the segment after the closest point); 0 when idle. */
+	float OffPathMetres(const FVector& Location) const;
+
 	/** Chases: the caller's own driving settings (the police director tunes its units). */
 	void SetSettings(const FGTPDriveSettings& InSettings) { Settings = InSettings; }
 
