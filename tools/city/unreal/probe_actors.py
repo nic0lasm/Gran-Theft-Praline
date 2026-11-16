@@ -72,21 +72,24 @@ def main():
     pts = path_points()
     hits, instances = [], []
     for a in actor_sub.get_all_level_actors():
-        origin, ext = a.get_actor_bounds(False)
-        if ext.x <= 0 and ext.y <= 0:
-            continue
-        if origin.z + ext.z < Z0 or origin.z - ext.z > Z1:
-            continue
-        on_path = [p for p in pts if abs(p[0] - origin.x) <= ext.x and abs(p[1] - origin.y) <= ext.y]
+        # Instances first, from their own transforms: without a renderer (-nullrhi) an instanced
+        # actor can report empty bounds, and the bounds tests below would hide all its instances.
         comps = a.get_components_by_class(unreal.PrimitiveComponent)
         isms = [c for c in comps if isinstance(c, unreal.InstancedStaticMeshComponent)]
         for c in isms:
             for i in range(c.get_instance_count()):
                 t = c.get_instance_transform(i, True)
                 if dist_to_path(t.translation.x, t.translation.y) <= NEAR_CM and Z0 - 500 <= t.translation.z <= Z1:
-                    instances.append({"actor": a.get_actor_label(), "mesh": mesh_of(c), "index": i,
+                    instances.append({"actor": a.get_actor_label(), "name": a.get_name(),
+                                      "folder": str(a.get_folder_path()), "mesh": mesh_of(c), "index": i,
                                       "xyz": [round(t.translation.x), round(t.translation.y), round(t.translation.z)],
                                       "yaw": round(t.rotation.rotator().yaw, 1), "collision": collision_of(c)})
+        origin, ext = a.get_actor_bounds(False)
+        if ext.x <= 0 and ext.y <= 0:
+            continue
+        if origin.z + ext.z < Z0 or origin.z - ext.z > Z1:
+            continue
+        on_path = [p for p in pts if abs(p[0] - origin.x) <= ext.x and abs(p[1] - origin.y) <= ext.y]
         if not on_path or (isms and len(isms) == len(comps)):
             continue
         big = ext.x > 20000 or ext.y > 20000
@@ -107,7 +110,8 @@ def main():
             "; ".join("%s %s %s" % (c["mesh"].split("/")[-1], c["collision"], "" if c["visible"] else "hidden")
                       for c in h["components"])))
     for i in instances[:60]:
-        log("instance %s #%d %s at %s yaw %s %s" % (i["actor"], i["index"], i["mesh"].split("/")[-1], i["xyz"], i["yaw"], i["collision"]))
+        log("instance %s (%s, %s) #%d %s at %s yaw %s %s" % (i["actor"], i["name"], i["folder"], i["index"],
+                                                         i["mesh"].split("/")[-1], i["xyz"], i["yaw"], i["collision"]))
     out = os.path.join(unreal.Paths.project_saved_dir(), "CityImport", "probe_actors.json")
     os.makedirs(os.path.dirname(out), exist_ok=True)
     with open(out, "w", encoding="utf-8") as f:
