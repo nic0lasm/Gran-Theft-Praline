@@ -115,6 +115,8 @@ private:
 	/** RelocateChase: where the car was put; held there with the physics off until RelocateHoldUntil. */
 	FTransform RelocatedTo = FTransform::Identity;
 	bool bRelocateHeld = false;
+	/** Since when the chase car has been more than 6 m off its lane (0 = on it). */
+	double OffLaneSince = 0.0;
 	TWeakObjectPtr<AGTPVehicle> RelocatedCar;
 	double RelocateHoldUntil = 0.0;
 	double NextDriveDiag = 0.0;
