@@ -315,7 +315,9 @@ accrochés à quelque chose de réel :
   vitrine ouverte de la rue (rien à voir derrière la vitre sinon).
 * **Angles** : plaques de rue sur chaque immeuble d'angle, côté de l'angle.
 * **OpenStreetMap** : potelets (sauf ceux posés sur une chaussée : une borne d'accès au milieu d'une
-  rue où roulent les voitures du jeu est écartée, et listée dans `details_report.json`), feux piétons des deux côtés des traversées à feux (largeur réelle de
+  rue où roulent les voitures du jeu est écartée, et listée dans `details_report.json` ;
+  `tools/city/drop_carriageway_bollards.py` les retire d'une table existante sur une machine sans les
+  données géographiques brutes), feux piétons des deux côtés des traversées à feux (largeur réelle de
   la chaussée BD TOPO), feux de circulation sur la bordure de droite, panneaux par code français
   (B1 sens interdit, AB3a cédez le passage, B54 zone piétonne...) ramenés sur la bordure Grand Lyon,
   armoires techniques, colonnes d'affichage.

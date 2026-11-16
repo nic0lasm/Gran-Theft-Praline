@@ -302,7 +302,9 @@ anchored on something real:
   of every open shop window of the street (nothing to see behind the glass otherwise).
 * **Corners**: street-name plates on every corner building, on the corner side.
 * **OpenStreetMap**: bollards (not those standing on a carriageway: an access bollard in the middle
-  of a street the game's cars drive is left out, and listed in `details_report.json`), pedestrian lights on both kerbs of signalled crossings (real BD TOPO
+  of a street the game's cars drive is left out, and listed in `details_report.json`;
+  `tools/city/drop_carriageway_bollards.py` takes them out of an existing table on a machine without
+  the raw geo data), pedestrian lights on both kerbs of signalled crossings (real BD TOPO
   carriageway width), vehicle lights on the right-hand kerb, signs by French code (B1 no entry, AB3a
   give way, B54 pedestrian zone...) moved onto the Grand Lyon kerb line, street cabinets,
   advertising columns.
