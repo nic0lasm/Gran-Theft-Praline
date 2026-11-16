@@ -760,6 +760,18 @@ void UGTPCrowdSubsystem::UpdateNear(float DeltaTime)
 			}
 		}
 		Actor->SetActorLocationAndRotation(FVector(W->Location.X, W->Location.Y, W->GroundZ), FRotator(0.f, W->Yaw, 0.f), false, nullptr, ETeleportType::None);
+		// The economy of the legacy pedestrians and of the AI cars, which the near characters of the crowd never had:
+		// beyond NearDetailDistance no shadow and a coarser level, and a pose refreshed less often with distance (the
+		// garments and the face follow the body's pose, so they are refreshed at the body's rate).
+		const float PlayerDistance = FVector::Dist2D(W->Location, PlayerLocation);
+		const bool bDetail = NearDetailDistance <= 0.f || PlayerDistance <= NearDetailDistance;
+		const USkeletalMesh* BodyMesh = Actor->GetBody() ? Actor->GetBody()->GetSkeletalMeshAsset() : nullptr;
+		const int32 FarLevel = FMath::Clamp(NearFarLOD, 0, FMath::Max(0, (BodyMesh ? BodyMesh->GetLODNum() : 1) - 1));
+		Actor->SetDetail(true, bDetail, bDetail ? -1 : FarLevel);
+		if (bNearReduceAnimRate)
+		{
+			Actor->SetAnimInterval(PlayerDistance < 1500.f ? 0.f : (PlayerDistance < 2500.f ? 0.05f : 0.083f));
+		}
 		const bool bMoving = W->Speed > 1.f;
 		if (!bMoving)
 		{

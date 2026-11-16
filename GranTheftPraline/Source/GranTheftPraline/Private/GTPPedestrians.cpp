@@ -134,6 +134,9 @@ void AGTPPedestrian::Dress(USkeletalMesh* BodyMesh, const TArray<USkeletalMesh*>
 			Part->SetLeaderPoseComponent(Body);
 			// A follower of the body pose costs nothing of its own: the leader refreshes it, no tick needed.
 			Part->SetComponentTickEnabled(false);
+			// A garment is drawn at the body's level of detail (the engine's own rule for attached parts), so the
+			// coarser level asked of the body far from the player holds for the clothes too.
+			Part->bSyncAttachParentLOD = true;
 		}
 	}
 	if (USkeletalMeshComponent* FacePart = AddPart(Face, TEXT("Face"), !FaceAnim))
@@ -239,6 +242,8 @@ bool AGTPPedestrian::StartRagdoll(const FVector& Impulse)
 		return false;
 	}
 	bRagdoll = true;
+	// A falling body is refreshed every frame, however far (the reduced pose rate of distant people would make it jerk).
+	SetAnimInterval(0.f);
 	Body->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 	Body->SetCollisionProfileName(TEXT("Ragdoll"));
 	Body->SetSimulatePhysics(true);
