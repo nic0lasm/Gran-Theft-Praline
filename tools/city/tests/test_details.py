@@ -37,6 +37,15 @@ class DetailsTests(unittest.TestCase):
         self.assertFalse(details.on_carriageway(50.0, 6.5, ways, STRtree(ways)))   # on the pavement
         self.assertFalse(details.on_carriageway(50.0, 3.0, []))
 
+    def test_only_osm_bollards_leave_an_existing_table(self):
+        import drop_carriageway_bollards as dcb
+        rows = [{"source": "osm:bollard", "ref": "node/6367225474"}, {"source": "osm:bollard", "ref": "node/1"},
+                {"source": "facade:shop", "ref": "node/6367225474"}]
+        kept, removed = dcb.split(rows, lambda r: r["ref"] in dcb.KNOWN_REFS)
+        self.assertEqual([r["ref"] for r in removed], ["node/6367225474"])
+        self.assertEqual(kept, [rows[1], rows[2]])
+        self.assertEqual(len(dcb.KNOWN_REFS), 13)
+
     def test_group_switches(self):
         rows = [{"catalog_id": "W14-42" if i % 2 else "W14-03", "family": "Wall", "x_m": str(i), "y_m": "0",
                  "z_m": "0", "cull_m": "40"} for i in range(400)]
