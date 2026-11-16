@@ -19,6 +19,8 @@
 #include "GTPWeapon.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
+#include "Misc/Paths.h"
+#include "UnrealClient.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogGTPGtaRun, Log, All);
 
@@ -562,6 +564,11 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail, bool bClose)
 		bClose ? TEXT("close, ") : TEXT(""), *Victim->GetName(), Best, Character->GetVelocity().Size2D(), Weapon->IsAiming() ? 1 : 0, Hands, Obedient, Fleeing, Alarmed, bSettled ? TEXT(", settled") : TEXT(""));
 	if (bInRange && bSettled && Obedient > 0)
 	{
+		// What the player sees at that moment, for the eye: the states counted above say nothing of the pose shown
+		// (an animation of the wrong skeleton raises no hands). Written at the end of the frame, hands still up.
+		const FString Shot = FPaths::ConvertRelativePathToFull(FPaths::Combine(FPaths::ScreenShotDir(), bClose ? TEXT("gtarun-aimclose.png") : TEXT("gtarun-aim.png")));
+		FScreenshotRequest::RequestScreenshot(Shot, false, false);
+		GTP_TRACE(LogGTPGtaRun, TEXT("GTARun: picture of the hold-up asked: %s"), *Shot);
 		Threat->ClearThreat();
 		if (!bClose)
 		{

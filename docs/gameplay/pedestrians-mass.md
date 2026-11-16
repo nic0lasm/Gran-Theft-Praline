@@ -43,3 +43,11 @@ Each near character follows the economy of the legacy pedestrians and of the AI 
 no shadow and the body's level of detail `NearFarLOD` (2), the garments at the body's level (`bSyncAttachParentLOD`);
 the pose is refreshed 20 times a second beyond 15 m and 12 times beyond 25 m (`bNearReduceAnimRate`), every frame for
 a body that falls. Settings in `[/Script/GTPMass.GTPCrowdSubsystem]`.
+
+### Animations of the assembled characters
+
+The City Sample bodies have the MetaHuman skeleton, not the mannequin's: walk, idle, run and the hands-up loop are baked
+for it under `/Game/MetaHumans/GTP/Anims` (`tools/character/retarget_player_animations.py`, prefix `MH_`). The hands-up
+loop is `MH_A_HandsUp` (`CrowdHandsUpAnimation`); while it is not baked the mannequin's own is played and the log says
+"ANOTHER SKELETON". `-GTARun` saves what the player sees when the hold-up succeeds
+(`Saved/Screenshots/gtarun-aim.png`, `gtarun-aimclose.png`): the states it counts say nothing of the pose shown.

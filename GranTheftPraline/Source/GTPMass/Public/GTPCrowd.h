@@ -199,6 +199,10 @@ protected:
 	UPROPERTY(Config)
 	FSoftObjectPath CrowdRunAnimation = FSoftObjectPath(TEXT("/Game/MetaHumans/GTP/Anims/MH_M_Neutral_Run_Loop_F_R_20.MH_M_Neutral_Run_Loop_F_R_20"));
 
+	/** Hands up baked for the MetaHuman skeleton: retarget_player_animations.py with GTP_RTG_ANIMS=/Game/Characters/Pedestrians/Anims/A_HandsUp. */
+	UPROPERTY(Config)
+	FSoftObjectPath CrowdHandsUpAnimation = FSoftObjectPath(TEXT("/Game/MetaHumans/GTP/Anims/MH_A_HandsUp.MH_A_HandsUp"));
+
 	UPROPERTY(Config)
 	float WalkAnimationSpeed = 140.f;
 

@@ -13,6 +13,7 @@
 #include "GameFramework/Character.h"
 #include "Animation/AnimInstance.h"
 #include "Animation/AnimSequence.h"
+#include "Animation/Skeleton.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "GTPAudioWorld.h"
 #include "GTPPedestrians.h"
@@ -456,6 +457,12 @@ void UGTPCrowdSubsystem::SetupNearActors(UWorld& InWorld)
 			WalkAnimation = CrowdWalkAnimation;
 			IdleAnimation = CrowdIdleAnimation;
 			RunAnimation = CrowdRunAnimation;
+			// The hands-up loop too, when it has been baked for this skeleton (the mannequin's own stays otherwise,
+			// and the line at the end of this function says the skeletons differ).
+			if (FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry")).Get().GetAssetByObjectPath(CrowdHandsUpAnimation).IsValid())
+			{
+				HandsUpAnimation = CrowdHandsUpAnimation;
+			}
 		}
 		UE_LOG(LogGTPCrowd, Log, TEXT("crowd: assembled City Sample characters %s (body %s, baked walk %s)"),
 			bAssembled ? TEXT("on") : TEXT("off, mannequins"), Probe ? TEXT("found") : TEXT("missing"), BakedWalk ? TEXT("found") : TEXT("missing"));
@@ -565,7 +572,14 @@ void UGTPCrowdSubsystem::SetupNearActors(UWorld& InWorld)
 		NearActors.Add(Actor);
 		NearEntity.Add(INDEX_NONE);
 	}
-	UE_LOG(LogGTPCrowd, Log, TEXT("crowd: %d near characters, hands-up animation %s"), NearActors.Num(), HandsUp ? TEXT("found") : TEXT("missing"));
+	// An animation plays right only on its own skeleton: the mannequin's hands-up on a City Sample body is the case to see.
+	const USkeleton* BodySkeleton = NearActors.Num() > 0 && NearActors[0]->GetBody() && NearActors[0]->GetBody()->GetSkeletalMeshAsset()
+		? NearActors[0]->GetBody()->GetSkeletalMeshAsset()->GetSkeleton() : nullptr;
+	const USkeleton* HandsSkeleton = HandsUp ? HandsUp->GetSkeleton() : nullptr;
+	UE_LOG(LogGTPCrowd, Log, TEXT("crowd: %d near characters, hands-up animation %s (skeleton %s, body skeleton %s: %s)"), NearActors.Num(),
+		HandsUp ? *HandsUp->GetName() : TEXT("missing"), HandsSkeleton ? *HandsSkeleton->GetName() : TEXT("none"),
+		BodySkeleton ? *BodySkeleton->GetName() : TEXT("none"),
+		!HandsUp ? TEXT("no hands shown") : (HandsSkeleton == BodySkeleton ? TEXT("same") : TEXT("ANOTHER SKELETON, bake it with retarget_player_animations.py")));
 }
 
 void UGTPCrowdSubsystem::OnLoud(const FVector& Where, float Radius, AActor* Cause)
