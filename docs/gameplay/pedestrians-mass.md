@@ -28,9 +28,15 @@ permutation leaves the whole hierarchy without a shader map, and the packaged ga
 None with an invalid ShaderMap" and "Tried to access an uncooked shader map ID" as soon as a head loads (the crowd's and
 Nicolito's, which use the same hierarchy). The editor never asks for that permutation, so it shows nothing.
 
-Our heads are drawn as plain skinned meshes, so our copy of the material does not need the Nanite permutation.
-`tools/pedestrians/fix_crowd_head_material.py` reports the usage flags, the textures sampled, the instances and the
-skeletal meshes of the hierarchy and their Nanite setting; with `GTP_APPLY=1` it clears "Used with Nanite" and
-"Automatically set usage in editor" on our copy, recompiles and saves it. Only in this project, never in the City Sample
-folder; to run again on any fresh copy of the pack. Check: the cook no longer prints "Failed to compile Material" for
-the head, and the packaged log has no `LogMaterial: Error`.
+City Sample meets the same failure and answers it in its own `DefaultEngine.ini`: `r.Nanite.AllowSkinnedMeshes=0`, with a
+comment that names `M_Crowd_Head_v2` and its more than 64 SRVs. Our `[SystemSettings]` has the same line since
+candidate 41: the Nanite permutation of skinned meshes is no longer compiled, Epic's material stays untouched, and the
+packaged game has no `LogMaterial: Error` with the crowd or with Nicolito (gate of candidate 41). It also means no
+skeletal mesh of the game can be drawn through Nanite.
+
+### Cost of the near characters
+
+Each near character follows the economy of the legacy pedestrians and of the AI cars: beyond `NearDetailDistance` (20 m)
+no shadow and the body's level of detail `NearFarLOD` (2), the garments at the body's level (`bSyncAttachParentLOD`);
+the pose is refreshed 20 times a second beyond 15 m and 12 times beyond 25 m (`bNearReduceAnimRate`), every frame for
+a body that falls. Settings in `[/Script/GTPMass.GTPCrowdSubsystem]`.
