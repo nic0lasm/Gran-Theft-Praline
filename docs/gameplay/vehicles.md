@@ -338,6 +338,39 @@ springs on a high preload with long travel (100 / 300, +10 / -17 cm instead of 2
 player's arcade torque is now relative to the car (240 N.m for a 130 N.m Clio, scaled up for a
 stronger car).
 
+### 8.7 Grip of the City Sample cars (16/11)
+
+Police's smoke of candidate 43: the stolen Car05 does 3 to 8 km/h for 4 s in first gear at 4 300 to
+4 850 rpm, and 49 km/h after 15 s in fourth at 3 568 rpm, which is 68 km/h at the driven wheels; the
+police car averages 2.1 km/h. The driven wheels turn much faster than the car moves.
+
+Read in Epic's Chaos code (`FSimpleWheelSim::Simulate`, `UChaosWheeledVehicleSimulation`): a wheel
+pushes with at most its load times the ground's friction (its physical material) times its
+`FrictionForceMultiplier`; the load is half the spring's force plus half the static share of the
+car's weight (`WheelLoadRatio` 0.5), and that static share comes from the springs' positions around
+the component's origin, not around the centre of mass (`ComputeSprungMasses`). The driven wheels are
+set by the differential (`DifferentialSetup`), whatever `bAffectedByEngine` says, for a wheel with
+an axle. Our City Sample cars are built from their parts (`make_epic_vehicles.py`, City Sample's car
+Blueprints need its game module): front wheel drive from `AGTPVehicle`, Epic's figures for mass,
+torque, gears and wheels, nothing for the differential, the centre of mass or the torque curve. The
+player gets 240 N.m times the car's torque over 130: 785 N.m for Car05 (425), 1 292 for Police13.
+
+Candidates, none proven: torque beyond the grip; little load on the front wheels (origin or centre of
+mass far back, weight going to the rear when pulling away); a low friction on our road surface; the
+chassis body resting on or scraping the ground. The drive probe tells them apart in one run
+(`AGTPVehicle::ProbeDrive`, on unless `-NoDriveProbe`):
+- "drive config" once per class: mass, differential and powered wheels, wheel figures, where the
+  origin and the centre of mass sit between the axles, the chassis box's height above the ground;
+- "drive probe" every second for the player's car (every 3 s, 40 lines, for a police car): pedals,
+  gear, rpm, torque, the share of the weight the springs carry, the chassis' ground contacts, and
+  per wheel its contact, spring force, drive torque, own speed, slip, and the ground's material and
+  friction;
+- "0-50 km/h in", "0-100 km/h in" from a standstill with the throttle held, and the top speed.
+
+`tools/vehicles/unreal/dump_vehicle_chaos.py` (read only) dumps the Chaos tuning of our cars and of
+City Sample's car and wheel Blueprints copied in the project, with their parent class when they do
+not load.
+
 ## 9. Making a drivable car
 
 ### 9.1 First test car (no Tripo)

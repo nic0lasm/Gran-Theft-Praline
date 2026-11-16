@@ -355,6 +355,43 @@ nôtres pour les freins (plus forts), la boîte (première plus courte) et l'adh
 arcade du joueur dépend maintenant de la voiture (240 N.m pour une Clio de 130 N.m, davantage
 pour une voiture plus puissante).
 
+### 8.7 Adhérence des voitures City Sample (16/11)
+
+Fumée de Police sur le candidat 43 : la Car05 volée roule à 3-8 km/h pendant 4 s en 1re entre 4 300 et
+4 850 tr/min, et à 49 km/h au bout de 15 s en 4e à 3 568 tr/min, ce qui fait 68 km/h aux roues
+motrices ; la voiture de police fait 2,1 km/h de moyenne. Les roues motrices tournent bien plus vite
+que la voiture n'avance.
+
+Lu dans le code Chaos d'Epic (`FSimpleWheelSim::Simulate`, `UChaosWheeledVehicleSimulation`) : une
+roue pousse au plus de sa charge multipliée par le frottement du sol (son matériau physique) et par
+son `FrictionForceMultiplier` ; la charge vaut la moitié de la force du ressort plus la moitié de la
+part statique du poids (`WheelLoadRatio` 0,5), et cette part statique vient de la position des
+ressorts autour de l'origine du composant, pas autour du centre de gravité (`ComputeSprungMasses`).
+Les roues motrices sont fixées par le différentiel (`DifferentialSetup`), quoi que dise
+`bAffectedByEngine`, pour une roue qui a un essieu. Nos voitures City Sample sont construites à
+partir de leurs pièces (`make_epic_vehicles.py`, les Blueprints de voitures de City Sample demandent
+son module de jeu) : traction avant d'`AGTPVehicle`, chiffres d'Epic pour la masse, le couple, les
+rapports et les roues, rien pour le différentiel, le centre de gravité ni la courbe de couple. Le
+joueur reçoit 240 N·m multipliés par le couple de la voiture sur 130 : 785 N·m pour la Car05 (425),
+1 292 pour la Police13.
+
+Pistes, aucune prouvée : couple au-delà de l'adhérence ; peu de charge sur les roues avant (origine
+ou centre de gravité loin en arrière, poids qui part vers l'arrière au démarrage) ; frottement faible
+de notre revêtement ; caisse posée sur le sol ou qui frotte. La sonde de conduite les départage en un
+passage (`AGTPVehicle::ProbeDrive`, active sauf `-NoDriveProbe`) :
+- « drive config » une fois par classe : masse, différentiel et roues motrices, chiffres des roues,
+  position de l'origine et du centre de gravité entre les essieux, hauteur de la caisse au-dessus du
+  sol ;
+- « drive probe » chaque seconde pour la voiture du joueur (toutes les 3 s, 40 lignes, pour une
+  voiture de police) : pédales, rapport, régime, couple, part du poids portée par les ressorts,
+  contacts de la caisse avec le sol, et par roue son contact, la force du ressort, le couple moteur,
+  sa vitesse propre, le glissement, le matériau et le frottement du sol ;
+- « 0-50 km/h in », « 0-100 km/h in » à l'arrêt pied au plancher, et la vitesse de pointe.
+
+`tools/vehicles/unreal/dump_vehicle_chaos.py` (lecture seule) relève les réglages Chaos de nos
+voitures et des Blueprints de voitures et de roues de City Sample copiés dans le projet, avec leur
+classe parente quand ils ne se chargent pas.
+
 ## 9. Préparer une voiture conduisible
 
 ### 9.1 Première voiture d'essai (sans Tripo)
