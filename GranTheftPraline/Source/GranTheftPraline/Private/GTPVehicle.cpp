@@ -25,6 +25,8 @@
 #include "PhysicsEngine/BodySetup.h"
 #include "PhysicsEngine/ConstraintInstance.h"
 #include "PhysicsEngine/PhysicsAsset.h"
+#include "PhysicalMaterials/PhysicalMaterial.h"
+#include "CollisionQueryParams.h"
 #include "Engine/DamageEvents.h"
 #include "Engine/World.h"
 #include "EnhancedInputComponent.h"
@@ -437,6 +439,182 @@ void AGTPVehicle::TraceDriveDiag(float Brake, bool bHandbrake)
 		Move && Move->IsComponentTickEnabled() ? 1 : 0);
 }
 
+float AGTPVehicle::ChassisClearanceCm(USkeletalMeshComponent& Body) const
+{
+	const FBodyInstance* Chassis = Body.GetBodyInstance();
+	UWorld* World = GetWorld();
+	if (!Chassis || !Chassis->IsValidBodyInstance() || !World)
+	{
+		return -9999.f;
+	}
+	const FBox Box = Chassis->GetBodyBounds();
+	FCollisionQueryParams Params(TEXT("GTPDriveProbe"), false, this);
+	FHitResult Ground;
+	const FVector Center = Box.GetCenter();
+	if (!World->LineTraceSingleByChannel(Ground, Center, Center - FVector(0.f, 0.f, 500.f), ECC_Visibility, Params))
+	{
+		return -9999.f;
+	}
+	return static_cast<float>(Box.Min.Z - Ground.ImpactPoint.Z);
+}
+
+void AGTPVehicle::LogDriveConfig(UChaosWheeledVehicleMovementComponent& Move, USkeletalMeshComponent& Body) const
+{
+	// Which wheels the engine drives: Chaos decides it from the differential for a wheel with an axle
+	// (UChaosWheeledVehicleSimulation::SetupVehicle), from bAffectedByEngine otherwise.
+	const EVehicleDifferential Differential = Move.DifferentialSetup.DifferentialType;
+	const TCHAR* DifferentialName = Differential == EVehicleDifferential::AllWheelDrive ? TEXT("all wheel drive")
+		: Differential == EVehicleDifferential::FrontWheelDrive ? TEXT("front wheel drive")
+		: Differential == EVehicleDifferential::RearWheelDrive ? TEXT("rear wheel drive") : TEXT("undefined");
+	FString Wheels;
+	double FrontX = 0.0;
+	double RearX = 0.0;
+	int32 Fronts = 0;
+	int32 Rears = 0;
+	for (int32 Index = 0; Index < Move.Wheels.Num() && Index < Move.WheelSetups.Num(); ++Index)
+	{
+		const UChaosVehicleWheel* Wheel = Move.Wheels[Index];
+		if (!Wheel)
+		{
+			continue;
+		}
+		const bool bFront = Wheel->AxleType == EAxleType::Front;
+		const bool bRear = Wheel->AxleType == EAxleType::Rear;
+		const bool bPowered = bFront ? (Differential == EVehicleDifferential::AllWheelDrive || Differential == EVehicleDifferential::FrontWheelDrive)
+			: bRear ? (Differential == EVehicleDifferential::AllWheelDrive || Differential == EVehicleDifferential::RearWheelDrive)
+			: Wheel->bAffectedByEngine;
+		const FVector Local = Body.GetBoneLocation(Move.WheelSetups[Index].BoneName, EBoneSpaces::ComponentSpace);
+		if (bFront)
+		{
+			FrontX += Local.X;
+			++Fronts;
+		}
+		else if (bRear)
+		{
+			RearX += Local.X;
+			++Rears;
+		}
+		Wheels += FString::Printf(TEXT(" | %s %s%s radius %.1f friction %.2f cornering %.0f spring %.0f preload %.0f raise %.0f drop %.0f load ratio %.2f traction control %d at X %.0f Z %.0f"),
+			*Move.WheelSetups[Index].BoneName.ToString(), bFront ? TEXT("front") : bRear ? TEXT("rear") : TEXT("no axle"), bPowered ? TEXT(" powered") : TEXT(""),
+			Wheel->WheelRadius, Wheel->FrictionForceMultiplier, Wheel->CorneringStiffness, Wheel->SpringRate, Wheel->SpringPreload,
+			Wheel->SuspensionMaxRaise, Wheel->SuspensionMaxDrop, Wheel->WheelLoadRatio, Wheel->bTractionControlEnabled ? 1 : 0, Local.X, Local.Z);
+	}
+	FrontX = Fronts > 0 ? FrontX / Fronts : 0.0;
+	RearX = Rears > 0 ? RearX / Rears : 0.0;
+	const double Wheelbase = FrontX - RearX;
+	const FBodyInstance* Chassis = Body.GetBodyInstance();
+	const FVector Com = Chassis && Chassis->IsValidBodyInstance()
+		? Body.GetComponentTransform().InverseTransformPosition(Chassis->GetCOMPosition()) : FVector::ZeroVector;
+	// Chaos shares the car's weight between the springs from their positions around the component's
+	// origin (FSuspensionUtility::ComputeSprungMasses), not around the centre of mass.
+	GTP_TRACE(LogGTPVehicle, TEXT("drive config: %s mass %.0f kg (body %.0f kg), %s (front share %.2f), torque %.0f N.m (player %.0f), max %.0f rpm, final ratio %.2f, %d forward gears, first %.2f; origin at %.2f and centre of mass at %.2f of the way from the rear axle to the front one (wheelbase %.0f cm), centre of mass %.0f cm above the origin, chassis box %.0f cm above the ground%s"),
+		*GetClass()->GetName(), Move.Mass, Body.GetMass(), DifferentialName, Move.DifferentialSetup.FrontRearSplit, BaseTorque, Assist.PlayerTorque,
+		Move.EngineSetup.MaxRPM, Move.TransmissionSetup.FinalRatio, Move.TransmissionSetup.ForwardGearRatios.Num(),
+		Move.TransmissionSetup.ForwardGearRatios.Num() > 0 ? Move.TransmissionSetup.ForwardGearRatios[0] : 0.f,
+		Wheelbase != 0.0 ? -RearX / Wheelbase : -1.0, Wheelbase != 0.0 ? (Com.X - RearX) / Wheelbase : -1.0, Wheelbase, Com.Z,
+		ChassisClearanceCm(Body), *Wheels);
+}
+
+void AGTPVehicle::ProbeDrive()
+{
+	static const bool bOff = FParse::Param(FCommandLine::Get(), TEXT("NoDriveProbe"));
+	if (bOff || (State != EGTPVehicleState::Driven && !HasAIDriver()))
+	{
+		return;
+	}
+	UWorld* World = GetWorld();
+	UChaosWheeledVehicleMovementComponent* Move = GetWheeledMovement();
+	USkeletalMeshComponent* Body = GetMesh();
+	if (bOff || !World || !Move || !Body || bWrecked || !Body->IsSimulatingPhysics() || !Move->PhysicsVehicleOutput().IsValid())
+	{
+		return;
+	}
+	const bool bPlayer = Cast<APlayerController>(GetController()) != nullptr;
+	const bool bPolice = !bPlayer && HasAIDriver() && ActorHasTag(GTPPolice::PoliceTag);
+	if (!bPlayer && !bPolice)
+	{
+		return;
+	}
+	const float Now = World->GetTimeSeconds();
+	const float Speed = GetSpeedKmh();
+	const float Throttle = Move->GetThrottleInput();
+	if (bPlayer)
+	{
+		// 0-50 and 0-100 km/h from a standstill with the throttle held down.
+		TopSpeedKmh = FMath::Max(TopSpeedKmh, FMath::Abs(Speed));
+		if (FMath::Abs(Speed) < 2.f)
+		{
+			if (Throttle < 0.9f)
+			{
+				LaunchTime = -1.f;
+			}
+			else if (LaunchTime < 0.f)
+			{
+				LaunchTime = Now;
+				bLaunch50Logged = false;
+			}
+		}
+		if (LaunchTime >= 0.f)
+		{
+			if (Throttle < 0.5f)
+			{
+				LaunchTime = -1.f;
+			}
+			else if (Speed >= 50.f && !bLaunch50Logged)
+			{
+				bLaunch50Logged = true;
+				GTP_TRACE(LogGTPVehicle, TEXT("drive probe: %s 0-50 km/h in %.1f s"), *GetClass()->GetName(), Now - LaunchTime);
+			}
+			else if (Speed >= 100.f)
+			{
+				GTP_TRACE(LogGTPVehicle, TEXT("drive probe: %s 0-100 km/h in %.1f s"), *GetClass()->GetName(), Now - LaunchTime);
+				LaunchTime = -1.f;
+			}
+			else if (Now - LaunchTime > 40.f)
+			{
+				GTP_TRACE(LogGTPVehicle, TEXT("drive probe: %s 0-100 km/h not reached in 40 s (%s 50 km/h, top %.0f km/h)"), *GetClass()->GetName(),
+					bLaunch50Logged ? TEXT("past") : TEXT("below"), TopSpeedKmh);
+				LaunchTime = -1.f;
+			}
+		}
+	}
+	if (Now < NextDriveProbeTime || (bPlayer && FMath::Abs(Speed) < 1.f && Throttle < 0.1f) || (bPolice && PoliceProbeLines >= 40))
+	{
+		return;
+	}
+	NextDriveProbeTime = Now + (bPlayer ? 1.f : 3.f);
+	PoliceProbeLines += bPolice ? 1 : 0;
+	static TSet<FName> ConfigLogged;
+	if (!ConfigLogged.Contains(GetClass()->GetFName()))
+	{
+		ConfigLogged.Add(GetClass()->GetFName());
+		LogDriveConfig(*Move, *Body);
+	}
+	// The weight the springs carry: about 1 when the car stands on its wheels, well below when the
+	// chassis rests on something (Chaos works in cm: the spring forces are in kg.cm/s2, as M * g).
+	const float Weight = Move->Mass * FMath::Abs(World->GetGravityZ());
+	float Springs = 0.f;
+	FString Wheels;
+	static const TCHAR* Names[] = {TEXT("FL"), TEXT("FR"), TEXT("BL"), TEXT("BR")};
+	for (int32 Index = 0; Index < Move->GetNumWheels() && Index < Move->Wheels.Num(); ++Index)
+	{
+		const FWheelStatus& State = Move->GetWheelState(Index);
+		const UChaosVehicleWheel* Wheel = Move->Wheels[Index];
+		Springs += State.bInContact ? State.SpringForce : 0.f;
+		const float WheelKmh = Wheel ? FMath::Abs(FMath::DegreesToRadians(Wheel->GetRotationAngularVelocity()) * Wheel->GetWheelRadius()) * 0.036f : 0.f;
+		const UPhysicalMaterial* Ground = State.PhysMaterial.Get();
+		Wheels += FString::Printf(TEXT(" | %s contact=%d spring=%.0f%% susp=%.2f drive=%.0f N.m wheel=%.0f km/h slip=%.0f %s %.2f"),
+			Index < 4 ? Names[Index] : TEXT("W"), State.bInContact ? 1 : 0, Weight > 0.f ? 100.f * State.SpringForce / Weight : 0.f,
+			State.NormalizedSuspensionLength, State.DriveTorque, WheelKmh, State.SlipMagnitude,
+			Ground ? *Ground->GetName() : TEXT("no material"), Ground ? Ground->Friction : -1.f);
+	}
+	GTP_TRACE(LogGTPVehicle, TEXT("drive probe: %s%s t=%.1f kmh=%.1f top=%.0f gear=%d rpm=%.0f throttle=%.2f brake=%.2f handbrake=%d torque=%.0f N.m | springs carry %.0f%% of the weight | chassis touched the ground %d time(s) since the last line, box %.0f cm above the ground%s"),
+		*GetName(), bPolice ? TEXT(" (police)") : TEXT(""), Now, Speed, TopSpeedKmh, Move->GetCurrentGear(), Move->GetEngineRotationSpeed(), Throttle,
+		Move->GetBrakeInput(), Move->GetHandbrakeInput() ? 1 : 0, bPlayerAssist ? Assist.PlayerTorque * FMath::Max(AppliedPower, 0.f) : BaseTorque,
+		Weight > 0.f ? 100.f * Springs / Weight : 0.f, GroundHitsSinceProbe, ChassisClearanceCm(*Body), *Wheels);
+	GroundHitsSinceProbe = 0;
+}
+
 void AGTPVehicle::SetScriptedDriveInput(float Throttle, float Brake, float Steering, bool bHandbrake)
 {
 	UChaosWheeledVehicleMovementComponent* Move = GetWheeledMovement();
@@ -659,6 +837,7 @@ void AGTPVehicle::Tick(float DeltaSeconds)
 		NextBodyCheckTime = World->GetTimeSeconds() + 1.f;
 		KeepChassisBodyOnly();
 	}
+	ProbeDrive();
 	if (State == EGTPVehicleState::Driven && IsLocallyControlled())
 	{
 		if (bPlayerAssist)
@@ -1464,6 +1643,11 @@ void AGTPVehicle::OnBodyHit(UPrimitiveComponent* HitComponent, AActor* OtherActo
 	if (OtherActor == this)
 	{
 		return;
+	}
+	// The chassis resting on or scraping the ground under the car (drive probe).
+	if (Hit.ImpactNormal.Z > 0.7f && !Cast<AGTPVehicle>(OtherActor) && !Cast<ACharacter>(OtherActor))
+	{
+		++GroundHitsSinceProbe;
 	}
 	// Crimes by the player at the wheel: running into people, cars and police.
 	if (OtherActor && State == EGTPVehicleState::Driven && Cast<APlayerController>(GetController()) && FMath::Abs(GetSpeedKmh()) > 12.f)

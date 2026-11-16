@@ -569,6 +569,27 @@ private:
 
 	float ThrottleAmount = 0.f;
 
+	/**
+	 * Drive probe (docs/gameplay/vehicles.md 8.7), on unless -NoDriveProbe: for the player's car every
+	 * second while it moves or the throttle is down, and for a police car every 3 s (40 lines at most),
+	 * a "drive probe" line with the pedals, gear, rpm, the weight the springs carry, and for each wheel
+	 * its contact, spring force, drive torque, its own speed against the car's, and the ground's
+	 * physical material and friction; how often the chassis touched the ground; the chassis box's
+	 * height above the ground under the car. Once per class, a "drive config" line (mass, differential,
+	 * powered wheels, wheel figures, centre of mass and origin between the axles). For the player's car,
+	 * 0-50 and 0-100 km/h from a standstill with the throttle held, and the top speed.
+	 */
+	void ProbeDrive();
+	void LogDriveConfig(UChaosWheeledVehicleMovementComponent& Move, USkeletalMeshComponent& Body) const;
+	/** Height of the chassis body's box above the ground under the car (cm), or -9999 without ground. */
+	float ChassisClearanceCm(USkeletalMeshComponent& Body) const;
+	float NextDriveProbeTime = 0.f;
+	int32 PoliceProbeLines = 0;
+	int32 GroundHitsSinceProbe = 0;
+	float LaunchTime = -1.f;
+	bool bLaunch50Logged = false;
+	float TopSpeedKmh = 0.f;
+
 	/** -DriveDiag=1 trace, see TraceDriveDiag. */
 	static bool IsDriveDiagWanted();
 	void TraceDriveDiag(float Brake, bool bHandbrake);
