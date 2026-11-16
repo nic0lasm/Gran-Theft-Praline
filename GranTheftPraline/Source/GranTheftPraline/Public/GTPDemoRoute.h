@@ -117,6 +117,8 @@ private:
 	bool bRelocateHeld = false;
 	/** Since when the chase car has been more than 6 m off its lane (0 = on it). */
 	double OffLaneSince = 0.0;
+	/** The chase car has been within 3 m of its lane since the lanes were last joined (the off-lane rule waits for it). */
+	bool bOnLaneOnce = false;
 	TWeakObjectPtr<AGTPVehicle> RelocatedCar;
 	double RelocateHoldUntil = 0.0;
 	double NextDriveDiag = 0.0;

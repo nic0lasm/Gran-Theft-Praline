@@ -276,6 +276,7 @@ bool UGTPDemoRoute::RelocateChase(AGTPVehicle* Driven, APlayerController* PC, co
 			Follower = FGTPLaneFollower();
 			Follower.bPreferStraight = true;
 			Follower.AheadMeters = 160.f;
+			bOnLaneOnce = false;
 			Follower.StartNear(*Network, Driven->GetActorLocation(), static_cast<float>(Driven->GetActorRotation().Yaw), 900.f);
 			if (UGTPWantedComponent* Wanted = PC ? PC->FindComponentByClass<UGTPWantedComponent>() : nullptr)
 			{
@@ -689,6 +690,7 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 				// the first 50 m were drawn at random (door 41: into a lane whose way ends on the quay).
 				Follower.bPreferStraight = true;
 				Follower.AheadMeters = 160.f;
+				bOnLaneOnce = false;
 			}
 			if (Network && Follower.StartNear(*Network, Driven->GetActorLocation(), static_cast<float>(Driven->GetActorRotation().Yaw), 900.f))
 			{
@@ -849,7 +851,10 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 					// recovery rule takes the player out of the car and ends the chase. The flight goes on from another lane.
 					const FVector CarAt = Driven->GetActorLocation();
 					const float OffLane = Follower.OffPathMetres(CarAt);
-					OffLaneSince = OffLane > 6.f ? (OffLaneSince <= 0.0 ? Now : OffLaneSince) : 0.0;
+					// Only a car that has been on its lane since the lanes were last joined: the stolen car starts from the kerb,
+					// up to 8 m from the lane it joins (door 45: put elsewhere 5 s after the theft, before it had driven at all).
+					bOnLaneOnce = bOnLaneOnce || OffLane < 3.f;
+					OffLaneSince = (bOnLaneOnce && OffLane > 6.f) ? (OffLaneSince <= 0.0 ? Now : OffLaneSince) : 0.0;
 					const UGTPRiverRecovery* River = Driven->GetWorld()->GetSubsystem<UGTPRiverRecovery>();
 					const bool bAtWater = River && River->IsInWater(CarAt, 300.f);
 					if ((bAtWater || (OffLaneSince > 0.0 && Now - OffLaneSince > 1.5)) && Now >= NextRelocate)
