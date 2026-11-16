@@ -154,6 +154,18 @@ protected:
 	UPROPERTY(Config)
 	float NearRadius = 4000.f;
 
+	/** Beyond this distance (cm) a near character casts no shadow and is drawn from NearFarLOD (0 = never). Same values as the legacy pedestrians and the AI cars. */
+	UPROPERTY(Config)
+	float NearDetailDistance = 2000.f;
+
+	/** Level of detail beyond NearDetailDistance (0-based, clamped to what the body has). */
+	UPROPERTY(Config)
+	int32 NearFarLOD = 2;
+
+	/** The pose of a near character is refreshed 20 times a second beyond 15 m and 12 times beyond 25 m. */
+	UPROPERTY(Config)
+	bool bNearReduceAnimRate = true;
+
 	UPROPERTY(Config)
 	FSoftObjectPath WalkAnimation = FSoftObjectPath(TEXT("/Game/Characters/UEFN_Mannequin/Animations/Walk/M_Neutral_Walk_Loop_F_L_20.M_Neutral_Walk_Loop_F_L_20"));
 
