@@ -14,11 +14,14 @@ or `-Pedestrians=N` brings the legacy system back. The Mass crowd does what the 
 an accident, flight from a shot, hands up under a threat and ragdoll under the player's vehicle; its density is 300 people with 24 full
 characters near the player (`CrowdCount`, `NearCount` in `[/Script/GTPMass.GTPCrowdSubsystem]`).
 
-## City Sample characters (`-CrowdCitySample=1`, off by default)
+## City Sample characters (default; `-CrowdCitySample=0` for the mannequins)
 
-The 24 near characters can be assembled from the City Sample Crowds subset under `/Game/Crowd` (outside Git): body, three
-garments and a face that follow the body by leader pose. The switch stays off until the crowd holds the game budget and
-cooks without a material error.
+The 24 near characters are assembled from the City Sample Crowds subset under `/Game/Crowd` (outside Git): body, three
+garments and a face that follow the body by leader pose. On by default since candidate 43: at the gate of candidate 42
+the packaged game held a game p50 of 11.49 ms with them (budget 13) and logged no material error.
+`-CrowdCitySample=0` brings back the mannequins of before (the player's own body mesh); a project without the pack
+falls back to them by itself and says so ("crowd: assembled City Sample characters off, mannequins"). With the
+mannequins the log names their body and materials ("crowd: mannequin material slot …").
 
 ### Head material
 

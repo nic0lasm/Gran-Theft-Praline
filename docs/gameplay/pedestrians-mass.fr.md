@@ -13,11 +13,14 @@ ou `-Pedestrians=N` ramène l'ancien système. La foule Mass fait ce que fait l'
 un accident, fuite au coup de feu, mains en l'air sous la menace et ragdoll sous le véhicule du joueur ; sa densité est de 300 personnes
 dont 24 personnages complets près du joueur (`CrowdCount`, `NearCount` dans `[/Script/GTPMass.GTPCrowdSubsystem]`).
 
-## Personnages City Sample (`-CrowdCitySample=1`, éteint par défaut)
+## Personnages City Sample (par défaut ; `-CrowdCitySample=0` pour les mannequins)
 
-Les 24 personnages proches peuvent être assemblés à partir du sous-ensemble City Sample Crowds sous `/Game/Crowd` (hors Git) :
-un corps, trois vêtements et un visage qui suivent le corps par pose maîtresse. L'interrupteur reste éteint tant que la foule
-ne tient pas le budget du jeu et ne cuit pas sans erreur de matériau.
+Les 24 personnages proches sont assemblés à partir du sous-ensemble City Sample Crowds sous `/Game/Crowd` (hors Git) :
+un corps, trois vêtements et un visage qui suivent le corps par pose maîtresse. Allumé par défaut depuis le candidat 43 :
+à la porte du candidat 42, le jeu packagé tenait un game p50 de 11,49 ms avec eux (budget 13) sans erreur de matériau.
+`-CrowdCitySample=0` ramène les mannequins d'avant (le maillage du corps du joueur) ; un projet sans le pack y revient de
+lui-même et le dit (« crowd: assembled City Sample characters off, mannequins »). Avec les mannequins, le journal nomme
+leur corps et leurs matériaux (« crowd: mannequin material slot … »).
 
 ### Matériau de tête
 

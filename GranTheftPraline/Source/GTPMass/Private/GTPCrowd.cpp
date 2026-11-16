@@ -25,6 +25,7 @@
 #include "Misc/CommandLine.h"
 #include "Misc/Paths.h"
 #include "Misc/Parse.h"
+#include "PhysicsEngine/PhysicsAsset.h"
 #if WITH_GTP_MASSTRAFFIC
 #include "GTPTraffic.h"
 #include "MassMovementFragments.h"
@@ -436,11 +437,12 @@ void UGTPCrowdSubsystem::SetupNearActors(UWorld& InWorld)
 {
 	// Assembled characters (City Sample Crowds) use the animations baked for the MetaHuman skeleton.
 	{
-		// Off by default until the City Sample crowd keeps the frame budget and cooks without material errors:
-		// -CrowdCitySample=1 turns it on (the mannequins of before stay otherwise).
+		// On by default since candidate 43 (gate of candidate 42: game p50 11.49 ms with it, no material error);
+		// -CrowdCitySample=0 brings the mannequins of before back, and so does a project without the pack.
 		bool Probe = false;
-		int32 CitySampleOn = 0;
-		if (!CrowdCharacterRoot.IsEmpty() && (FParse::Param(FCommandLine::Get(), TEXT("CrowdCitySample")) || (FParse::Value(FCommandLine::Get(), TEXT("CrowdCitySample="), CitySampleOn) && CitySampleOn != 0)))
+		int32 CitySampleOn = 1;
+		FParse::Value(FCommandLine::Get(), TEXT("CrowdCitySample="), CitySampleOn);
+		if (!CrowdCharacterRoot.IsEmpty() && CitySampleOn != 0)
 		{
 			// Asked of the registry, not loaded: loading the male body here pulled its materials in before anything was
 			// dressed (suspected of the two packaged "uncooked shader map" errors that come right at this line).
@@ -514,6 +516,20 @@ void UGTPCrowdSubsystem::SetupNearActors(UWorld& InWorld)
 	if (!Idle)
 	{
 		Idle = Walk;
+	}
+	if (!bAssembled)
+	{
+		// The mannequins (-CrowdCitySample=0, or no pack): which body and which materials they really are, so a
+		// material the cook failed can be told from one they do not use.
+		UE_LOG(LogGTPCrowd, Log, TEXT("crowd: mannequin body %s"), *Mesh->GetPathName());
+		const TArray<FSkeletalMaterial>& Slots = Mesh->GetMaterials();
+		for (int32 Slot = 0; Slot < Slots.Num(); ++Slot)
+		{
+			const UMaterialInterface* Material = Slots[Slot].MaterialInterface;
+			const UMaterialInstance* Instance = Cast<UMaterialInstance>(Material);
+			UE_LOG(LogGTPCrowd, Log, TEXT("crowd: mannequin material slot %d = %s (parent %s)"), Slot, Material ? *Material->GetPathName() : TEXT("none"),
+				Instance && Instance->Parent ? *Instance->Parent->GetPathName() : TEXT("-"));
+		}
 	}
 	FActorSpawnParameters Params;
 	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
@@ -903,8 +919,10 @@ bool UGTPCrowdSubsystem::DressFromCitySample(AGTPPedestrian* Actor)
 	if (!bPartsSaid)
 	{
 		bPartsSaid = true;
-		UE_LOG(LogGTPCrowd, Log, TEXT("crowd: parts loaded: body %s, garments %s, face %s"), bBodyFromPlayer ? TEXT("the actor's own") : TEXT("pack"),
-			bWantClothes ? TEXT("yes") : TEXT("no"), bWantFace ? TEXT("yes") : TEXT("no"));
+		// The physics asset is what lets a person fall when run over or shot (AGTPPedestrian::StartRagdoll refuses without).
+		UE_LOG(LogGTPCrowd, Log, TEXT("crowd: parts loaded: body %s, garments %s, face %s; body physics asset %s"), bBodyFromPlayer ? TEXT("the actor's own") : TEXT("pack"),
+			bWantClothes ? TEXT("yes") : TEXT("no"), bWantFace ? TEXT("yes") : TEXT("no"),
+			Body ? (Body->GetPhysicsAsset() ? *Body->GetPhysicsAsset()->GetName() : TEXT("NONE: no ragdoll")) : TEXT("the actor's own"));
 	}
 	// The face animation blueprint (City Sample's rig) is not loaded unless -CrowdFaceAnim=1: loading it pulls its whole
 	// dependency chain, the suspect of the two packaged "uncooked shader map" errors that come right before the first
