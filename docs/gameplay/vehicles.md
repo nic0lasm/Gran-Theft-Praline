@@ -390,6 +390,15 @@ on static geometry only (the visibility trace could stop on the seated driver). 
 with the game started in the car (`-PlayerPawn=<car class>`), waits 3 s then drives straight at full
 throttle for 25 s: 0-50, 0-100, top speed and distance ("drive launch test").
 
+Candidate 45 (adaf9c1, PC, 16/11): every car has its own wheels and City Sample's differential
+(Car03, 05, 12 and Police13 rear wheel drive), `-GTARun` 7/7 with a 154 m chase. Car05 at full
+throttle: 0-50 km/h in 4.4 s, gears 1 to 4, 70 km/h after 10.4 s (the run stopped at 11.4 s). Left: once
+moving the springs carry 1 to 21 % of the weight, the chassis box is 2 to 7 cm under the road and the
+front left wheel loses contact at times, so the chassis still rests on the road. To find which body
+does it, `KeepChassisBodyOnly` logs once per class every body of the physics asset ("vehicle
+collision": bone, shapes, from how high to how high above the wheels' contact plane, against the
+suspension's raise), and "drive config" gives the chassis collision's height above that plane.
+
 ## 9. Making a drivable car
 
 ### 9.1 First test car (no Tripo)

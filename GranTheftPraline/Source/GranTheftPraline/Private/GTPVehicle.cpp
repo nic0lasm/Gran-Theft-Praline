@@ -464,6 +464,61 @@ float AGTPVehicle::ChassisClearanceCm(USkeletalMeshComponent& Body) const
 	return static_cast<float>(Box.Min.Z - Ground.ImpactPoint.Z);
 }
 
+FBox AGTPVehicle::CollisionBoxInComponent(USkeletalMeshComponent& Body, const FBodyInstance& Part) const
+{
+	const UBodySetup* Setup = Part.BodySetup.Get();
+	if (!Setup)
+	{
+		return FBox(ForceInit);
+	}
+	const int32 BoneIndex = Body.GetBoneIndex(Setup->BoneName);
+	const FTransform BoneInComponent = BoneIndex != INDEX_NONE ? Body.GetBoneTransform(BoneIndex, FTransform::Identity) : FTransform::Identity;
+	return Setup->AggGeom.CalcAABB(BoneInComponent);
+}
+
+float AGTPVehicle::WheelContactZ(const UChaosWheeledVehicleMovementComponent& Move, USkeletalMeshComponent& Body, float& OutMaxRaise) const
+{
+	OutMaxRaise = 0.f;
+	float Lowest = TNumericLimits<float>::Max();
+	for (const FChaosWheelSetup& WheelSetup : Move.WheelSetups)
+	{
+		const UChaosVehicleWheel* Wheel = WheelSetup.WheelClass ? WheelSetup.WheelClass->GetDefaultObject<UChaosVehicleWheel>() : nullptr;
+		const int32 BoneIndex = Body.GetBoneIndex(WheelSetup.BoneName);
+		if (!Wheel || BoneIndex == INDEX_NONE)
+		{
+			continue;
+		}
+		const float CentreZ = static_cast<float>(Body.GetBoneTransform(BoneIndex, FTransform::Identity).GetLocation().Z + WheelSetup.AdditionalOffset.Z);
+		Lowest = FMath::Min(Lowest, CentreZ - Wheel->WheelRadius);
+		OutMaxRaise = FMath::Max(OutMaxRaise, Wheel->SuspensionMaxRaise);
+	}
+	return Lowest == TNumericLimits<float>::Max() ? 0.f : Lowest;
+}
+
+void AGTPVehicle::LogCollisionBodies(USkeletalMeshComponent& Body) const
+{
+	// A body that reaches below the wheels' contact plane plus the suspension's raise rests on the
+	// road as soon as the springs compress (probe of candidate 45: chassis box under the ground).
+	const UChaosWheeledVehicleMovementComponent* Move = GetWheeledMovement();
+	float MaxRaise = 0.f;
+	const float ContactZ = Move ? WheelContactZ(*Move, Body, MaxRaise) : 0.f;
+	const FBodyInstance* Chassis = Body.GetBodyInstance();
+	for (int32 Index = 0; Index < Body.Bodies.Num(); ++Index)
+	{
+		const FBodyInstance* Part = Body.Bodies[Index];
+		const UBodySetup* Setup = Part ? Part->BodySetup.Get() : nullptr;
+		if (!Setup)
+		{
+			continue;
+		}
+		const FBox Box = CollisionBoxInComponent(Body, *Part);
+		GTP_TRACE(LogGTPVehicle, TEXT("vehicle collision: %s body %d/%d bone %s%s: %d box, %d sphere, %d capsule, %d convex, from %.0f to %.0f cm above the wheels' contact plane (Z %.0f, max raise %.0f cm), %.0f x %.0f cm"),
+			*GetClass()->GetName(), Index + 1, Body.Bodies.Num(), *Setup->BoneName.ToString(), Part == Chassis ? TEXT(" (chassis)") : TEXT(""),
+			Setup->AggGeom.BoxElems.Num(), Setup->AggGeom.SphereElems.Num(), Setup->AggGeom.SphylElems.Num(), Setup->AggGeom.ConvexElems.Num(),
+			Box.IsValid ? Box.Min.Z - ContactZ : 0.0, Box.IsValid ? Box.Max.Z - ContactZ : 0.0, ContactZ, MaxRaise, Box.GetSize().X, Box.GetSize().Y);
+	}
+}
+
 void AGTPVehicle::LogDriveConfig(UChaosWheeledVehicleMovementComponent& Move, USkeletalMeshComponent& Body) const
 {
 	// Which wheels the engine drives: Chaos decides it from the differential for a wheel with an axle
@@ -512,14 +567,17 @@ void AGTPVehicle::LogDriveConfig(UChaosWheeledVehicleMovementComponent& Move, US
 	const FBodyInstance* Chassis = Body.GetBodyInstance();
 	const FVector Com = Chassis && Chassis->IsValidBodyInstance()
 		? Body.GetComponentTransform().InverseTransformPosition(Chassis->GetCOMPosition()) : FVector::ZeroVector;
+	float MaxRaise = 0.f;
+	const float ContactZ = WheelContactZ(Move, Body, MaxRaise);
+	const FBox ChassisBox = Chassis ? CollisionBoxInComponent(Body, *Chassis) : FBox(ForceInit);
 	// Chaos shares the car's weight between the springs from their positions around the component's
 	// origin (FSuspensionUtility::ComputeSprungMasses), not around the centre of mass.
-	GTP_TRACE(LogGTPVehicle, TEXT("drive config: %s mass %.0f kg (body %.0f kg), %s (front share %.2f), torque %.0f N.m (player %.0f), max %.0f rpm, final ratio %.2f, %d forward gears, first %.2f; origin at %.2f and centre of mass at %.2f of the way from the rear axle to the front one (wheelbase %.0f cm), centre of mass %.0f cm above the origin, chassis box %.0f cm above the ground%s"),
+	GTP_TRACE(LogGTPVehicle, TEXT("drive config: %s mass %.0f kg (body %.0f kg), %s (front share %.2f), torque %.0f N.m (player %.0f), max %.0f rpm, final ratio %.2f, %d forward gears, first %.2f; origin at %.2f and centre of mass at %.2f of the way from the rear axle to the front one (wheelbase %.0f cm), centre of mass %.0f cm above the origin, chassis box %.0f cm above the ground, chassis collision %.0f cm above the wheels' contact plane (max raise %.0f cm)%s"),
 		*GetClass()->GetName(), Move.Mass, Body.GetMass(), DifferentialName, Move.DifferentialSetup.FrontRearSplit, BaseTorque, Assist.PlayerTorque,
 		Move.EngineSetup.MaxRPM, Move.TransmissionSetup.FinalRatio, Move.TransmissionSetup.ForwardGearRatios.Num(),
 		Move.TransmissionSetup.ForwardGearRatios.Num() > 0 ? Move.TransmissionSetup.ForwardGearRatios[0] : 0.f,
 		Wheelbase != 0.0 ? -RearX / Wheelbase : -1.0, Wheelbase != 0.0 ? (Com.X - RearX) / Wheelbase : -1.0, Wheelbase, Com.Z,
-		ChassisClearanceCm(Body), *Wheels);
+		ChassisClearanceCm(Body), ChassisBox.IsValid ? ChassisBox.Min.Z - ContactZ : -9999.0, MaxRaise, *Wheels);
 }
 
 void AGTPVehicle::ProbeDrive()
@@ -1643,6 +1701,12 @@ void AGTPVehicle::KeepChassisBodyOnly()
 	if (bAllBodies)
 	{
 		return;
+	}
+	static TSet<FName> BodiesLogged;
+	if (!BodiesLogged.Contains(GetClass()->GetFName()))
+	{
+		BodiesLogged.Add(GetClass()->GetFName());
+		LogCollisionBodies(*Body);
 	}
 	// The body Chaos drives: the component's root body.
 	const FBodyInstance* Chassis = Body->GetBodyInstance();

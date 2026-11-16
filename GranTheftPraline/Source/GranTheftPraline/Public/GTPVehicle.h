@@ -583,6 +583,12 @@ private:
 	void LogDriveConfig(UChaosWheeledVehicleMovementComponent& Move, USkeletalMeshComponent& Body) const;
 	/** Height of the chassis body's box above the ground under the car (cm), or -9999 without ground. */
 	float ChassisClearanceCm(USkeletalMeshComponent& Body) const;
+	/** A body's collision shapes as a box in the car's component space (cm). */
+	FBox CollisionBoxInComponent(USkeletalMeshComponent& Body, const FBodyInstance& Part) const;
+	/** Height, in the car's component space, where the wheels touch flat ground with the suspension at rest; OutMaxRaise: the largest suspension raise. */
+	float WheelContactZ(const UChaosWheeledVehicleMovementComponent& Move, USkeletalMeshComponent& Body, float& OutMaxRaise) const;
+	/** Once per class, before the other bodies go: each body of the physics asset, its shapes and how high it sits above the wheels' contact plane. */
+	void LogCollisionBodies(USkeletalMeshComponent& Body) const;
 	float NextDriveProbeTime = 0.f;
 	int32 PoliceProbeLines = 0;
 	int32 GroundHitsSinceProbe = 0;
