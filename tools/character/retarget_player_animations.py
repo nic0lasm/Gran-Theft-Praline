@@ -6,7 +6,8 @@
 Uses the retargeter made by create_pedestrian_retargeter.py and fixed by fix_player_retargeter.py (run them
 first; clips baked with the unfixed one have the body's pelvis on the ground). The duplicated animations land
 in /Game/MetaHumans/GTP/Anims with the prefix "MH_" (the game finds them by that name). Everything stays under /Game (not versioned).
-Env: GTP_RTG_ANIMS = comma separated list of source animation paths (default: the pedestrians' walk/idle/run).
+Env: GTP_RTG_ANIMS = comma separated list of source animation paths (default: the pedestrians' walk/idle/run and
+their hands-up loop; GTP_RTG_ANIMS=/Game/Characters/Pedestrians/Anims/A_HandsUp bakes that one alone, as MH_A_HandsUp).
 """
 import os
 
@@ -17,6 +18,8 @@ DEFAULTS = [
     "/Game/Characters/UEFN_Mannequin/Animations/Walk/M_Neutral_Walk_Loop_F_L_20",
     "/Game/Characters/UEFN_Mannequin/Animations/Idle/M_Relaxed_Stand_Idle_Loop",
     "/Game/Characters/UEFN_Mannequin/Animations/Run/M_Neutral_Run_Loop_F_R_20",
+    # The pedestrians' hands-up loop (tools/pedestrians/make_handsup_animation.py makes it); skipped when absent.
+    "/Game/Characters/Pedestrians/Anims/A_HandsUp",
 ]
 paths = [p for p in os.environ.get("GTP_RTG_ANIMS", "").split(",") if p] or DEFAULTS
 

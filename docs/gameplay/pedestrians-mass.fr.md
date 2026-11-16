@@ -42,3 +42,11 @@ Chaque personnage proche suit l'économie des anciens piétons et des voitures d
 pas d'ombre et le niveau de détail `NearFarLOD` (2) pour le corps, les vêtements au niveau du corps (`bSyncAttachParentLOD`) ;
 la pose est rafraîchie 20 fois par seconde au-delà de 15 m et 12 fois au-delà de 25 m (`bNearReduceAnimRate`), à chaque image
 pour un corps qui tombe. Réglages dans `[/Script/GTPMass.GTPCrowdSubsystem]`.
+
+### Animations des personnages assemblés
+
+Les corps de City Sample ont le squelette MetaHuman, pas celui du mannequin : la marche, l'attente, la course et la boucle
+mains en l'air sont cuites pour lui sous `/Game/MetaHumans/GTP/Anims` (`tools/character/retarget_player_animations.py`,
+préfixe `MH_`). La boucle mains en l'air est `MH_A_HandsUp` (`CrowdHandsUpAnimation`) ; tant qu'elle n'est pas cuite, celle
+du mannequin est jouée et le journal dit « ANOTHER SKELETON ». `-GTARun` enregistre ce que voit le joueur quand le braquage
+réussit (`Saved/Screenshots/gtarun-aim.png`, `gtarun-aimclose.png`) : les états qu'il compte ne disent rien de la pose affichée.
