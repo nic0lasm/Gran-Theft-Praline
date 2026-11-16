@@ -76,8 +76,11 @@ private:
 	void SetPhase(EPhase NewPhase);
 	AGTPVehicle* FindCar() const;
 	AGTPVehicle* FindTrafficCar() const;
-	void DriveInputs(AGTPVehicle* Car, float Throttle, float Brake, float Steering, bool bHandbrake) const;
+	/** bReverse: the brake pedal backs the car (chase script backing off); otherwise it only brakes. */
+	void DriveInputs(AGTPVehicle* Car, float Throttle, float Brake, float Steering, bool bHandbrake, bool bReverse = false) const;
 	APlayerController* GetController() const;
+	/** Chase demo: the car goes on from a lane 80 to 150 m away (end of the lanes, or held up for good); false when none fits. */
+	bool RelocateChase(AGTPVehicle* Driven, APlayerController* PC, const TCHAR* Why);
 
 	FTSTicker::FDelegateHandle TickHandle;
 	EPhase Phase = EPhase::WaitForPawn;
@@ -106,7 +109,12 @@ private:
 	double RamUntil = 0.0;
 	double SlowSince = 0.0;
 	int32 ChaseStuckCount = 0;
+	/** Where the chase car was last held up, and how many times in a row within 15 m of there. */
+	FVector HeldUpAt = FVector::ZeroVector;
+	int32 HeldUpHere = 0;
 	double NextDriveDiag = 0.0;
+	/** Highest speed of the driven car in the chase (km/h), logged with DemoChase. */
+	float PeakKmh = 0.f;
 	double NextRelocate = 0.0;
 	double NextClear = 0.0;
 	double NextChaseLog = 0.0;

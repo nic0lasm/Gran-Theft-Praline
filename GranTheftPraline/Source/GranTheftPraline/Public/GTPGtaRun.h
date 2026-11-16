@@ -16,7 +16,7 @@
  * command line (module startup), and UGTPDemoRoute steals a car from its driver and runs the chase.
  *
  *   1 carjack   the demo route takes a car in traffic (the driver gets out)       ok: the player is in a car
- *   2 chase     stars and police units build up, roadblock cars included          ok: 3 stars and 3 units or more
+ *   2 chase     stars and police units build up, roadblock cars included          ok: 3 stars, 3 units or more, and 150 m driven
  *   3 parked    the player, back on foot, breaks into a car with an alarm (the traffic thread's
  *               UGTPTheftDemoLibrary: window, wiring, alarm)                          ok: the player is at the wheel
  *   4 walkarmed the player walks 4 s with the gun out, then 4 s aiming        ok: 3 m or more each (else: what holds him)
@@ -74,6 +74,12 @@ private:
 	// Step data.
 	int32 MaxUnits = 0;
 	int32 MaxStars = 0;
+	/** Chase step: what the player's car really drove, and its best speed. */
+	TWeakObjectPtr<const class AGTPVehicle> ChaseCar;
+	FVector ChaseLastAt = FVector::ZeroVector;
+	double ChaseDrivenCm = 0.0;
+	float ChasePeakKmh = 0.f;
+	static constexpr double ChaseDrivenWantedCm = 15000.0;
 	TWeakObjectPtr<class AGTPVehicle> ParkedTarget;
 	TWeakObjectPtr<class ACharacter> ParkedCharacter;
 	bool bParkedStarted = false;

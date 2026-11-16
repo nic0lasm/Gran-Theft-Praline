@@ -160,6 +160,59 @@ namespace GTPDrive
 	}
 
 	/**
+	 * Metres of path a driver must know ahead to hold SpeedLimit (m/s): Decide() brakes for the end of the
+	 * known path (v^2 = 2 a d), so a path shorter than the braking distance caps the speed. With the calm
+	 * settings and the lane follower's 50 m, that cap is 67 km/h whatever the speed asked (police chases).
+	 */
+	inline float PathNeeded(float SpeedLimit, const FGTPDriveSettings& S)
+	{
+		const float Decel = S.ComfortDecel > 0.1f ? S.ComfortDecel : 0.1f;
+		return SpeedLimit * SpeedLimit / (2.f * Decel) + 20.f;
+	}
+
+	/**
+	 * Metres of road open after entering Lane before every way ends, searched Depth junctions deep and no further
+	 * than Budget (a lane that still leads somewhere at that depth counts as open: Budget). A flight picks its exits
+	 * with it: the chase demo of the packaged game stood still from its 8th second in a lane whose way ends on the
+	 * quay (door 41). NextOf(Lane): the lanes it leads to; LengthOf(Lane): metres.
+	 */
+	template <typename FNextOf, typename FLengthOf>
+	float OpenRoad(int Lane, int Depth, float Budget, const FNextOf& NextOf, const FLengthOf& LengthOf)
+	{
+		const float Own = LengthOf(Lane);
+		if (Own >= Budget)
+		{
+			return Budget;
+		}
+		float Best = 0.f;
+		for (const int Next : NextOf(Lane))
+		{
+			if (Depth <= 0)
+			{
+				return Budget;
+			}
+			const float Open = OpenRoad(Next, Depth - 1, Budget - Own, NextOf, LengthOf);
+			if (Open > Best)
+			{
+				Best = Open;
+			}
+			if (Own + Best >= Budget)
+			{
+				return Budget;
+			}
+		}
+		return Own + Best;
+	}
+
+	/** Metres of path watched for bends at Speed (m/s): the braking distance, never under the 40 m of city speeds. */
+	inline float BendHorizon(float Speed, const FGTPDriveSettings& S)
+	{
+		const float Decel = S.ComfortDecel > 0.1f ? S.ComfortDecel : 0.1f;
+		const float Braking = Speed > 0.f ? Speed * Speed / (2.f * Decel) + 10.f : 0.f;
+		return Braking > 40.f ? Braking : 40.f;
+	}
+
+	/**
 	 * One decision. Path: points of the current lane followed by the next one(s).
 	 * Yaw: heading of the car. Speed: forward speed (m/s). ObstacleDistance:
 	 * free distance ahead along the path (negative = nothing seen).
@@ -202,7 +255,7 @@ namespace GTPDrive
 		// Target behind (a hairpin): pure pursuit fades out there, so turn at full lock towards it.
 		Out.Steering = std::fabs(Alpha) > 1.5708f ? (Alpha > 0.f ? 1.f : -1.f) : Clamp(Steer / S.MaxSteerAngle, -1.f, 1.f);
 
-		float Want = BendSpeed(Path, InOutClosest, 40.f, S, LaneSpeed);
+		float Want = BendSpeed(Path, InOutClosest, BendHorizon(Speed, S), S, LaneSpeed);
 		Out.Limit = Want < LaneSpeed - 0.3f ? LimitBend : LimitLane;
 		if (ObstacleDistance >= 0.f && LeaderSpeed > 0.5f && ObstacleDistance > S.SafeGap * 0.5f)
 		{

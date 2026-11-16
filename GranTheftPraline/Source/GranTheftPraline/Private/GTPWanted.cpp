@@ -1168,6 +1168,9 @@ void AGTPPoliceDirector::DriveOnLanes(FUnit& Unit, const FVector& Goal, bool bHa
 			return;
 		}
 		Unit.Follower.bIgnoreLaneLimit = true;
+		// The unit's chase settings on the lanes too: the follower's own are the calm city ones
+		// (bends at 2.2 m/s2, soft throttle), which held a chase at 105 km/h near 70.
+		Unit.Follower.SetSettings(Unit.Settings);
 		Unit.bOnLanes = true;
 	}
 	if (bHasGoal)
@@ -1178,7 +1181,9 @@ void AGTPPoliceDirector::DriveOnLanes(FUnit& Unit, const FVector& Goal, bool bHa
 	{
 		Unit.Follower.ClearGoal();
 	}
-	const float Obstacle = (Profile.bRam || GetWorld()->GetTimeSeconds() < Unit.RamUntil) ? -1.f : UGTPAIDriverComponent::ProbeAhead(Car, 4000.f, 90.f);
+	// Watched as far as the car needs to stop from its speed (40 m is the braking distance of 85 km/h).
+	const float ProbeCm = FMath::Max(4000.f, GTPDrive::PathNeeded(FMath::Abs(Car->GetSpeedKmh()) / 3.6f, Unit.Settings) * 100.f);
+	const float Obstacle = (Profile.bRam || GetWorld()->GetTimeSeconds() < Unit.RamUntil) ? -1.f : UGTPAIDriverComponent::ProbeAhead(Car, ProbeCm, 90.f);
 	Unit.LastObstacle = Obstacle;
 	FGTPDriveCommand Command;
 	if (!Unit.Follower.Step(Location, Yaw, Car->GetSpeedKmh(), MaxSpeedKmh, Obstacle, Command))

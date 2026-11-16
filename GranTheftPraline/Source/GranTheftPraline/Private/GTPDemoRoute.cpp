@@ -176,15 +176,105 @@ AGTPVehicle* UGTPDemoRoute::FindTrafficCar() const
 	return Best;
 }
 
-void UGTPDemoRoute::DriveInputs(AGTPVehicle* InCar, float Throttle, float Brake, float Steering, bool bHandbrake) const
+void UGTPDemoRoute::DriveInputs(AGTPVehicle* InCar, float Throttle, float Brake, float Steering, bool bHandbrake, bool bReverse) const
 {
 	if (UChaosVehicleMovementComponent* Move = InCar ? InCar->GetVehicleMovementComponent() : nullptr)
 	{
+		if (bChase)
+		{
+			// The chase script's pedals are a driver's: the brake brakes, by the amount asked. The player's car has
+			// Chaos's reverse-as-brake on (AGTPVehicle::PossessedBy), made for a key held down: a dab of the brake at
+			// speed then goes through the reverse gear and back to first. Same rule as AGTPVehicle::SetAIDriveInput:
+			// reverse only when the script asks for it (backing off), and out of reverse as soon as it does not.
+			Move->bReverseAsBrake = bReverse;
+			if (!bReverse && Move->GetCurrentGear() < 0)
+			{
+				Move->SetTargetGear(Throttle > 0.05f ? 1 : 0, true);
+			}
+			else if (!bReverse && Throttle > 0.05f && Brake < 0.05f && Move->GetCurrentGear() == 0 && FMath::Abs(InCar->GetSpeedKmh()) < 1.f)
+			{
+				// Pulling away from a stop in neutral (never at speed: the gearbox passes through neutral at each shift).
+				Move->SetTargetGear(1, true);
+			}
+		}
 		Move->SetThrottleInput(Throttle);
 		Move->SetBrakeInput(Brake);
 		Move->SetSteeringInput(Steering);
 		Move->SetHandbrakeInput(bHandbrake);
 	}
+}
+
+bool UGTPDemoRoute::RelocateChase(AGTPVehicle* Driven, APlayerController* PC, const TCHAR* Why)
+{
+	UWorld* World = Driven ? Driven->GetWorld() : nullptr;
+	if (!World)
+	{
+		return false;
+	}
+	TActorIterator<AGTPTrafficNetwork> Network(World);
+	if (!Network)
+	{
+		return false;
+	}
+	const TArray<FGTPTrafficLane>& Lanes = Network->GetLanes();
+	const UGTPRiverRecovery* River = World->GetSubsystem<UGTPRiverRecovery>();
+	FRandomStream Dice(static_cast<int32>(Clock() * 10.0));
+	// Two passes: a lane with open road behind it first (FGTPLaneFollower::OpenRoadMetres), any lane that goes on otherwise.
+	for (int32 Pass = 0; Pass < 2; ++Pass)
+	{
+		for (int32 Try = 0; Try < 300 && Lanes.Num() > 0; ++Try)
+		{
+			const int32 LaneIndex = Dice.RandRange(0, Lanes.Num() - 1);
+			const FGTPTrafficLane& Lane = Lanes[LaneIndex];
+			if (Lane.Points.Num() < 10 || Lane.Next.Num() == 0)
+			{
+				continue;
+			}
+			const int32 Index = Lane.Points.Num() / 3;
+			const FVector Point = Lane.Points[Index];
+			const double Distance = FVector::Dist2D(Point, Driven->GetActorLocation());
+			if (Distance < 8000.0 || Distance > 15000.0)
+			{
+				continue;
+			}
+			if (Pass == 0 && FGTPLaneFollower::OpenRoadMetres(Lanes, LaneIndex) < FGTPLaneFollower::OpenRoadWanted)
+			{
+				continue;
+			}
+			FHitResult Ground;
+			FCollisionQueryParams Params(SCENE_QUERY_STAT(GTPChaseRelocate), false, Driven);
+			if (!World->LineTraceSingleByChannel(Ground, Point + FVector(0.f, 0.f, 500.f), Point - FVector(0.f, 0.f, 2000.f), ECC_Visibility, Params))
+			{
+				continue;
+			}
+			// Never drop the car in or next to the river (the recovery rule would take the player out).
+			if (River && (River->IsInWater(FVector(Point.X, Point.Y, Ground.ImpactPoint.Z), 3000.f) || River->IsInWater(Ground.ImpactPoint, 3000.f)))
+			{
+				continue;
+			}
+			const FVector From = Driven->GetActorLocation();
+			const FVector Direction = (Lane.Points[Index + 1] - Point).GetSafeNormal2D();
+			Driven->SetActorLocationAndRotation(FVector(Point.X, Point.Y, Ground.ImpactPoint.Z + 60.f), Direction.Rotation(), false, nullptr, ETeleportType::ResetPhysics);
+			if (UPrimitiveComponent* Body = Cast<UPrimitiveComponent>(Driven->GetRootComponent()))
+			{
+				Body->SetPhysicsLinearVelocity(FVector::ZeroVector);
+				Body->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
+			}
+			Follower = FGTPLaneFollower();
+			Follower.bPreferStraight = true;
+			Follower.AheadMeters = 160.f;
+			Follower.StartNear(*Network, Driven->GetActorLocation(), static_cast<float>(Driven->GetActorRotation().Yaw), 900.f);
+			if (UGTPWantedComponent* Wanted = PC ? PC->FindComponentByClass<UGTPWantedComponent>() : nullptr)
+			{
+				Wanted->CallPolice();
+			}
+			GTP_TRACE(LogGTPDemo, TEXT("Demo chase: %s at %s, the car is put on lane %d %.0f m away at %s (open road %.0f m, police told)"), Why, *From.ToCompactString(),
+				LaneIndex, Distance / 100.0, *Driven->GetActorLocation().ToCompactString(), FGTPLaneFollower::OpenRoadMetres(Lanes, LaneIndex));
+			return true;
+		}
+	}
+	GTP_TRACE(LogGTPDemo, TEXT("Demo chase: %s, no lane 80 to 150 m away to put the car on"), Why);
+	return false;
 }
 
 bool UGTPDemoRoute::Tick(float DeltaTime)
@@ -541,8 +631,8 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 				if (Now >= NextChaseLog)
 				{
 					NextChaseLog = Now + 5.0;
-					GTP_TRACE(LogGTPDemo, TEXT("DemoChase t=%.0f stars=%d phase=%d seen=%d kmh=%.0f"), static_cast<float>(T), Wanted->GetStars(),
-						Wanted->GetPhaseIndex(), Wanted->IsSeenNow() ? 1 : 0, Driven->GetSpeedKmh());
+					GTP_TRACE(LogGTPDemo, TEXT("DemoChase t=%.0f stars=%d phase=%d seen=%d kmh=%.0f peak=%.0f"), static_cast<float>(T), Wanted->GetStars(),
+						Wanted->GetPhaseIndex(), Wanted->IsSeenNow() ? 1 : 0, Driven->GetSpeedKmh(), PeakKmh);
 				}
 			}
 		}
@@ -553,6 +643,13 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 		{
 			NextLaneSearch = Now + 1.0;
 			TActorIterator<AGTPTrafficNetwork> Network(Driven->GetWorld());
+			if (bChase)
+			{
+				// Before the first plan: the exits are chosen when the lanes are planned, and StartNear plans. Set afterwards,
+				// the first 50 m were drawn at random (door 41: into a lane whose way ends on the quay).
+				Follower.bPreferStraight = true;
+				Follower.AheadMeters = 160.f;
+			}
 			if (Network && Follower.StartNear(*Network, Driven->GetActorLocation(), static_cast<float>(Driven->GetActorRotation().Yaw), 900.f))
 			{
 				GTP_TRACE(LogGTPDemo, TEXT("Demo route: following the traffic lanes"));
@@ -616,7 +713,7 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 			{
 				if (Now < UnstickUntil)
 				{
-					DriveInputs(Driven, 0.f, 1.f, -UnstickSteer, false);
+					DriveInputs(Driven, 0.f, 1.f, -UnstickSteer, false, true);
 					break;
 				}
 				if (FMath::Abs(Driven->GetSpeedKmh()) < 3.f)
@@ -654,6 +751,17 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 							{
 								GTP_TRACE(LogGTPDemo, TEXT("Demo chase: %d traffic car(s) taken off the road around the player"), Cleared);
 							}
+						}
+						// Held up a third time within 15 m (pushed, backed off, still there): beached or boxed in. The chase
+						// goes on from another lane, as at the end of the lanes.
+						const FVector HeldAt = Driven->GetActorLocation();
+						HeldUpHere = FVector::Dist2D(HeldAt, HeldUpAt) < 1500.0 ? HeldUpHere + 1 : 1;
+						HeldUpAt = HeldAt;
+						if (HeldUpHere >= 3 && RelocateChase(Driven, PC, TEXT("held up three times in the same place")))
+						{
+							HeldUpHere = 0;
+							ChaseStuckCount = 0;
+							break;
 						}
 						if (++ChaseStuckCount % 2 == 1)
 						{
@@ -694,17 +802,20 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 							LimitSeconds[2], LimitSeconds[3], LimitSeconds[4]);
 					}
 				}
-				if (bChase && Command.Brake < 0.05f && Driven->GetSpeedKmh() < Cruise - 4.f)
+				if (bChase && Command.Throttle > 0.f && Command.Brake < 0.05f && Driven->GetSpeedKmh() < Cruise - 4.f)
 				{
 					// The lane follower's throttle is soft (half of the time under 0.3 below the set speed): firmer for the chase.
+					// Only when it asks for throttle at all: under a bend's speed it asks for none, and 0.7 there pushed the
+					// car past the speed wanted and onto the brake, again and again.
 					Command.Throttle = FMath::Max(Command.Throttle, 0.7f);
 				}
 				DriveInputs(Driven, Command.Throttle, Command.Brake, Command.Steering, false);
+				PeakKmh = FMath::Max(PeakKmh, Driven->GetSpeedKmh());
 				if (bChase && Now >= NextDriveDiag)
 				{
 					NextDriveDiag = Now + 1.0;
-					GTP_TRACE(LogGTPDemo, TEXT("DemoDrive t=%.0f kmh=%.0f lane=%d throttle=%.2f brake=%.2f steer=%.2f cruise=%.0f want=%.0f limit=%s obstacle=%.0f m"), static_cast<float>(T),
-						Driven->GetSpeedKmh(), Follower.GetLane(), Command.Throttle, Command.Brake, Command.Steering, Cruise, Command.TargetSpeed * 3.6f,
+					GTP_TRACE(LogGTPDemo, TEXT("DemoDrive t=%.0f kmh=%.0f gear=%d rpm=%.0f lane=%d throttle=%.2f brake=%.2f steer=%.2f cruise=%.0f want=%.0f limit=%s obstacle=%.0f m"), static_cast<float>(T),
+						Driven->GetSpeedKmh(), Driven->GetGear(), Driven->GetEngineRpm(), Follower.GetLane(), Command.Throttle, Command.Brake, Command.Steering, Cruise, Command.TargetSpeed * 3.6f,
 						LimitName(Command.Limit), ObstacleM);
 				}
 				if (bDeterministic && Follower.GetLane() != LastLoggedLane)
@@ -724,53 +835,9 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 				// The lanes of the quarter end here (a dead end of the map): the chase goes on from a lane
 				// 80 to 150 m away, the police told by radio where the player is.
 				NextRelocate = Now + 2.0;
-				TActorIterator<AGTPTrafficNetwork> Network(Driven->GetWorld());
-				if (Network)
+				if (RelocateChase(Driven, PC, TEXT("lanes ended")))
 				{
-					const TArray<FGTPTrafficLane>& Lanes = Network->GetLanes();
-					FRandomStream Dice(static_cast<int32>(Now * 10.0));
-					for (int32 Try = 0; Try < 300 && Lanes.Num() > 0; ++Try)
-					{
-						const FGTPTrafficLane& Lane = Lanes[Dice.RandRange(0, Lanes.Num() - 1)];
-						if (Lane.Points.Num() < 10 || Lane.Next.Num() == 0)
-						{
-							continue;
-						}
-						const int32 Index = Lane.Points.Num() / 3;
-						const FVector Point = Lane.Points[Index];
-						const double Distance = FVector::Dist2D(Point, Driven->GetActorLocation());
-						if (Distance < 8000.0 || Distance > 15000.0)
-						{
-							continue;
-						}
-						FHitResult Ground;
-						FCollisionQueryParams Params(SCENE_QUERY_STAT(GTPChaseRelocate), false, Driven);
-						if (!Driven->GetWorld()->LineTraceSingleByChannel(Ground, Point + FVector(0.f, 0.f, 500.f), Point - FVector(0.f, 0.f, 2000.f), ECC_Visibility, Params))
-						{
-							continue;
-						}
-						// Never drop the car in or next to the river (the recovery rule would take the player out).
-						const UGTPRiverRecovery* River = Driven->GetWorld()->GetSubsystem<UGTPRiverRecovery>();
-						if (River && (River->IsInWater(FVector(Point.X, Point.Y, Ground.ImpactPoint.Z), 3000.f) || River->IsInWater(Ground.ImpactPoint, 3000.f)))
-						{
-							continue;
-						}
-						const FVector Direction = (Lane.Points[Index + 1] - Point).GetSafeNormal2D();
-						Driven->SetActorLocationAndRotation(FVector(Point.X, Point.Y, Ground.ImpactPoint.Z + 60.f), Direction.Rotation(), false, nullptr, ETeleportType::ResetPhysics);
-						if (UPrimitiveComponent* Body = Cast<UPrimitiveComponent>(Driven->GetRootComponent()))
-						{
-							Body->SetPhysicsLinearVelocity(FVector::ZeroVector);
-							Body->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
-						}
-						Follower = FGTPLaneFollower();
-						Follower.StartNear(*Network, Driven->GetActorLocation(), static_cast<float>(Driven->GetActorRotation().Yaw), 900.f);
-						if (UGTPWantedComponent* Wanted = PC->FindComponentByClass<UGTPWantedComponent>())
-						{
-							Wanted->CallPolice();
-						}
-						GTP_TRACE(LogGTPDemo, TEXT("Demo chase: lanes ended, the car is put on another lane %.0f m away (police told)"), Distance / 100.0);
-						break;
-					}
+					break;
 				}
 			}
 			GTP_TRACE(LogGTPDemo, TEXT("Demo route: end of the lanes, holding the heading"));
@@ -786,7 +853,7 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 		// the wheels turned the other way, then carry on.
 		if (Now < UnstickUntil)
 		{
-			DriveInputs(Driven, 0.f, 0.6f, -UnstickSteer, false);
+			DriveInputs(Driven, 0.f, 0.6f, -UnstickSteer, false, true);
 			break;
 		}
 		if (T > 4.0 && FMath::Abs(Speed) < 3.f)
@@ -829,6 +896,11 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 		if (FMath::Abs(Driven->GetSpeedKmh()) < 2.f || T >= StopMaxTime)
 		{
 			DriveInputs(Driven, 0.f, 0.f, 0.f, true);
+			if (UChaosVehicleMovementComponent* Move = Driven->GetVehicleMovementComponent())
+			{
+				// The pedals go back to the player as AGTPVehicle::PossessedBy set them.
+				Move->bReverseAsBrake = true;
+			}
 			const AGTPPlayerController* GTPController = Cast<AGTPPlayerController>(PC);
 			if (UGTPVehicleInteractionComponent* Interaction = GTPController ? GTPController->GetVehicleInteraction() : nullptr)
 			{
