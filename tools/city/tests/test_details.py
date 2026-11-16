@@ -28,6 +28,15 @@ class DetailsTests(unittest.TestCase):
         for cid in list(details.PRIORITY) + list(details.SIGNS.values()):
             self.assertIn(cid, items, cid)
 
+    def test_bollard_on_a_carriageway_is_left_out(self):
+        from shapely.geometry import box
+        from shapely.strtree import STRtree
+        ways = [box(0, 0, 100, 6), box(200, 0, 300, 6)]
+        self.assertTrue(details.on_carriageway(50.0, 3.0, ways))
+        self.assertTrue(details.on_carriageway(250.0, 0.4, ways, STRtree(ways)))
+        self.assertFalse(details.on_carriageway(50.0, 6.5, ways, STRtree(ways)))   # on the pavement
+        self.assertFalse(details.on_carriageway(50.0, 3.0, []))
+
     def test_group_switches(self):
         rows = [{"catalog_id": "W14-42" if i % 2 else "W14-03", "family": "Wall", "x_m": str(i), "y_m": "0",
                  "z_m": "0", "cull_m": "40"} for i in range(400)]
