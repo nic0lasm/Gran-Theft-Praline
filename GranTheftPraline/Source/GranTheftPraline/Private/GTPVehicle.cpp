@@ -466,7 +466,7 @@ float AGTPVehicle::ChassisClearanceCm(USkeletalMeshComponent& Body) const
 
 FBox AGTPVehicle::CollisionBoxInComponent(USkeletalMeshComponent& Body, const FBodyInstance& Part) const
 {
-	const UBodySetup* Setup = Part.BodySetup.Get();
+	const UBodySetup* Setup = Part.GetBodySetup();
 	if (!Setup)
 	{
 		return FBox(ForceInit);
@@ -506,7 +506,7 @@ void AGTPVehicle::LogCollisionBodies(USkeletalMeshComponent& Body) const
 	for (int32 Index = 0; Index < Body.Bodies.Num(); ++Index)
 	{
 		const FBodyInstance* Part = Body.Bodies[Index];
-		const UBodySetup* Setup = Part ? Part->BodySetup.Get() : nullptr;
+		const UBodySetup* Setup = Part ? Part->GetBodySetup() : nullptr;
 		if (!Setup)
 		{
 			continue;
