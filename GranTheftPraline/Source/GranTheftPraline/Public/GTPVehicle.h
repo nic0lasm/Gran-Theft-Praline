@@ -589,6 +589,16 @@ private:
 	float LaunchTime = -1.f;
 	bool bLaunch50Logged = false;
 	float TopSpeedKmh = 0.f;
+	/**
+	 * -DriveLaunchTest: the player's car (the game starts in it with -PlayerPawn=<car class>) waits
+	 * 3 s, then drives straight ahead at full throttle for 25 s, so the probe above times its 0-50 and
+	 * 0-100 km/h; one "drive launch test" line gives the top speed and the distance at the end, or
+	 * where an obstacle stopped it.
+	 */
+	void RunLaunchTest();
+	float LaunchTestStart = -1.f;
+	bool bLaunchTestDone = false;
+	FVector LaunchTestFrom = FVector::ZeroVector;
 
 	/** -DriveDiag=1 trace, see TraceDriveDiag. */
 	static bool IsDriveDiagWanted();

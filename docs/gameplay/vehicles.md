@@ -371,6 +371,25 @@ chassis body resting on or scraping the ground. The drive probe tells them apart
 City Sample's car and wheel Blueprints copied in the project, with their parent class when they do
 not load.
 
+Probe of candidate 44 (bac7e06, PC, 16/11): the springs carry 0 to 50 % of the weight (Police13 mostly
+under 10 %), the driven front wheels slip all the time (slip 280 to 1 160 for a threshold of 20), and
+Chaos does not shift up while a wheel slips, so the police cars stay in first gear, 72.7 km/h at most.
+The dump shows that the figures are not City Sample's: all seven cars run on `UGTPWheelFront` /
+`UGTPWheelRear`, the city car's wheel (31 cm, spring 100, +10 / -17 cm, friction 3.0), not on the
+wheel Blueprints `make_epic_vehicles.py` wrote for each car (35.3 cm and spring 260 for Car05): the
+wheel classes set on the wheel setups as they were read did not reach the saved Blueprints. And all
+seven are front wheel drive, where City Sample's vehicle03, 05, 12 and 13 keep Chaos' rear wheel
+drive (only vehicle02, 07 and the van01 set front wheel drive).
+
+Fix, not yet measured: `make_epic_vehicles.py` gives each car's wheel Blueprints every figure of City
+Sample's own wheel Blueprints for that car (`WHEEL_COPY`; those load, unlike its cars), writes each
+wheel setup back into the array, sets City Sample's differential, and its report says where each
+wheel came from and which wheel classes and differential the saved Blueprint holds. The cars must be
+built again on the PC. The "drive config" line names each wheel's class; the chassis height is read
+on static geometry only (the visibility trace could stop on the seated driver). `-DriveLaunchTest`,
+with the game started in the car (`-PlayerPawn=<car class>`), waits 3 s then drives straight at full
+throttle for 25 s: 0-50, 0-100, top speed and distance ("drive launch test").
+
 ## 9. Making a drivable car
 
 ### 9.1 First test car (no Tripo)

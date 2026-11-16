@@ -448,10 +448,16 @@ float AGTPVehicle::ChassisClearanceCm(USkeletalMeshComponent& Body) const
 		return -9999.f;
 	}
 	const FBox Box = Chassis->GetBodyBounds();
+	// Static geometry only, without the car's seated driver: a trace on the visibility channel from
+	// the box's centre can stop on the driver and read the box below the ground (smoke of bac7e06).
 	FCollisionQueryParams Params(TEXT("GTPDriveProbe"), false, this);
+	if (Driver)
+	{
+		Params.AddIgnoredActor(Driver.Get());
+	}
 	FHitResult Ground;
 	const FVector Center = Box.GetCenter();
-	if (!World->LineTraceSingleByChannel(Ground, Center, Center - FVector(0.f, 0.f, 500.f), ECC_Visibility, Params))
+	if (!World->LineTraceSingleByObjectType(Ground, Center, Center - FVector(0.f, 0.f, 500.f), FCollisionObjectQueryParams(ECC_WorldStatic), Params))
 	{
 		return -9999.f;
 	}
@@ -494,8 +500,9 @@ void AGTPVehicle::LogDriveConfig(UChaosWheeledVehicleMovementComponent& Move, US
 			RearX += Local.X;
 			++Rears;
 		}
-		Wheels += FString::Printf(TEXT(" | %s %s%s radius %.1f friction %.2f cornering %.0f spring %.0f preload %.0f raise %.0f drop %.0f load ratio %.2f traction control %d at X %.0f Z %.0f"),
+		Wheels += FString::Printf(TEXT(" | %s %s%s %s radius %.1f friction %.2f cornering %.0f spring %.0f preload %.0f raise %.0f drop %.0f load ratio %.2f traction control %d at X %.0f Z %.0f"),
 			*Move.WheelSetups[Index].BoneName.ToString(), bFront ? TEXT("front") : bRear ? TEXT("rear") : TEXT("no axle"), bPowered ? TEXT(" powered") : TEXT(""),
+			*Wheel->GetClass()->GetName(),
 			Wheel->WheelRadius, Wheel->FrictionForceMultiplier, Wheel->CorneringStiffness, Wheel->SpringRate, Wheel->SpringPreload,
 			Wheel->SuspensionMaxRaise, Wheel->SuspensionMaxDrop, Wheel->WheelLoadRatio, Wheel->bTractionControlEnabled ? 1 : 0, Local.X, Local.Z);
 	}
@@ -613,6 +620,58 @@ void AGTPVehicle::ProbeDrive()
 		Move->GetBrakeInput(), Move->GetHandbrakeInput() ? 1 : 0, bPlayerAssist ? Assist.PlayerTorque * FMath::Max(AppliedPower, 0.f) : BaseTorque,
 		Weight > 0.f ? 100.f * Springs / Weight : 0.f, GroundHitsSinceProbe, ChassisClearanceCm(*Body), *Wheels);
 	GroundHitsSinceProbe = 0;
+}
+
+void AGTPVehicle::RunLaunchTest()
+{
+	static const bool bOn = FParse::Param(FCommandLine::Get(), TEXT("DriveLaunchTest"));
+	if (!bOn || bLaunchTestDone || !bPlayerAssist || State != EGTPVehicleState::Driven || bWrecked)
+	{
+		return;
+	}
+	UWorld* World = GetWorld();
+	UChaosWheeledVehicleMovementComponent* Move = GetWheeledMovement();
+	if (!World || !Move)
+	{
+		return;
+	}
+	const float Now = World->GetTimeSeconds();
+	if (LaunchTestStart < 0.f)
+	{
+		LaunchTestStart = Now + 3.f;
+		return;
+	}
+	if (Now < LaunchTestStart)
+	{
+		return;
+	}
+	if (LaunchTestFrom.IsZero())
+	{
+		LaunchTestFrom = GetActorLocation();
+		TopSpeedKmh = 0.f;
+	}
+	const float Speed = GetSpeedKmh();
+	const float Metres = static_cast<float>(FVector::Dist2D(LaunchTestFrom, GetActorLocation()) / 100.0);
+	const bool bBlocked = TopSpeedKmh > 30.f && Speed < TopSpeedKmh - 30.f;
+	if (bBlocked || Now - LaunchTestStart > 25.f)
+	{
+		bLaunchTestDone = true;
+		ThrottleAmount = 0.f;
+		Move->SetThrottleInput(0.f);
+		Move->SetBrakeInput(1.f);
+		GTP_TRACE(LogGTPVehicle, TEXT("drive launch test: %s top %.0f km/h, %.0f m in %.1f s%s"), *GetClass()->GetName(), TopSpeedKmh, Metres,
+			Now - LaunchTestStart, bBlocked ? TEXT(", stopped by an obstacle") : TEXT(""));
+		return;
+	}
+	if (Move->GetCurrentGear() == 0)
+	{
+		Move->SetTargetGear(1, true);
+	}
+	ThrottleAmount = 1.f;
+	Move->SetHandbrakeInput(false);
+	Move->SetBrakeInput(0.f);
+	Move->SetSteeringInput(0.f);
+	Move->SetThrottleInput(1.f);
 }
 
 void AGTPVehicle::SetScriptedDriveInput(float Throttle, float Brake, float Steering, bool bHandbrake)
@@ -837,6 +896,7 @@ void AGTPVehicle::Tick(float DeltaSeconds)
 		NextBodyCheckTime = World->GetTimeSeconds() + 1.f;
 		KeepChassisBodyOnly();
 	}
+	RunLaunchTest();
 	ProbeDrive();
 	if (State == EGTPVehicleState::Driven && IsLocallyControlled())
 	{

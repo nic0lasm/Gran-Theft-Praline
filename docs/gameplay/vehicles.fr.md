@@ -392,6 +392,29 @@ passage (`AGTPVehicle::ProbeDrive`, active sauf `-NoDriveProbe`) :
 voitures et des Blueprints de voitures et de roues de City Sample copiés dans le projet, avec leur
 classe parente quand ils ne se chargent pas.
 
+Sonde du candidat 44 (bac7e06, PC, 16/11) : les ressorts portent 0 à 50 % du poids (la Police13 le
+plus souvent moins de 10 %), les roues avant motrices patinent en permanence (glissement de 280 à
+1 160 pour un seuil de 20), et Chaos ne monte pas de rapport tant qu'une roue patine : les voitures de
+police restent en 1re, 72,7 km/h au plus. Le relevé montre que les chiffres ne sont pas ceux de City
+Sample : les sept voitures roulent sur `UGTPWheelFront` / `UGTPWheelRear`, la roue de la citadine
+(31 cm, ressort 100, +10 / -17 cm, frottement 3,0), et non sur les Blueprints de roues que
+`make_epic_vehicles.py` a écrits pour chaque voiture (35,3 cm et ressort 260 pour la Car05) : les
+classes de roues posées sur les réglages de roues tels qu'ils avaient été lus n'ont pas atteint les
+Blueprints enregistrés. Et les sept sont en traction avant, alors que les vehicle03, 05, 12 et 13 de
+City Sample gardent la propulsion par défaut de Chaos (seuls les vehicle02, 07 et le van01 imposent la
+traction avant).
+
+Correctif, pas encore mesuré : `make_epic_vehicles.py` donne aux Blueprints de roues de chaque voiture
+tous les chiffres des Blueprints de roues de City Sample pour cette voiture (`WHEEL_COPY` ; eux se
+chargent, contrairement à ses voitures), réécrit chaque réglage de roue dans le tableau, pose le
+différentiel de City Sample, et son rapport dit d'où vient chaque roue et quelles classes de roues et
+quel différentiel le Blueprint enregistré contient. Les voitures sont à reconstruire sur le PC. La
+ligne « drive config » nomme la classe de chaque roue ; la hauteur de la caisse se lit sur la
+géométrie statique seulement (le tracé de visibilité pouvait s'arrêter sur le conducteur assis).
+`-DriveLaunchTest`, avec le jeu lancé dans la voiture (`-PlayerPawn=<classe de la voiture>`), attend
+3 s puis roule tout droit pied au plancher pendant 25 s : 0-50, 0-100, vitesse de pointe et distance
+(« drive launch test »).
+
 ## 9. Préparer une voiture conduisible
 
 ### 9.1 Première voiture d'essai (sans Tripo)
