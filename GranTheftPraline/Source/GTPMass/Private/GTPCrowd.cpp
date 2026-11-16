@@ -25,6 +25,7 @@
 #include "MassExecutionContext.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Paths.h"
+#include "Misc/PackageName.h"
 #include "Misc/Parse.h"
 #include "PhysicsEngine/PhysicsAsset.h"
 #if WITH_GTP_MASSTRAFFIC
@@ -459,10 +460,15 @@ void UGTPCrowdSubsystem::SetupNearActors(UWorld& InWorld)
 			RunAnimation = CrowdRunAnimation;
 			// The hands-up loop too, when it has been baked for this skeleton (the mannequin's own stays otherwise,
 			// and the line at the end of this function says the skeletons differ).
-			if (FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry")).Get().GetAssetByObjectPath(CrowdHandsUpAnimation).IsValid())
+			// Asked of the files, not of the asset registry: the registry of an editor run did not know the loop baked
+			// a few minutes before (candidate 46: "ANOTHER SKELETON" with MH_A_HandsUp on the disk).
+			const bool bBakedHandsUp = FPackageName::DoesPackageExist(CrowdHandsUpAnimation.GetLongPackageName());
+			if (bBakedHandsUp)
 			{
 				HandsUpAnimation = CrowdHandsUpAnimation;
 			}
+			UE_LOG(LogGTPCrowd, Log, TEXT("crowd: hands-up loop baked for the City Sample skeleton (%s): %s"), *CrowdHandsUpAnimation.GetLongPackageName(),
+				bBakedHandsUp ? TEXT("found") : TEXT("no such package, the mannequin's is used"));
 		}
 		UE_LOG(LogGTPCrowd, Log, TEXT("crowd: assembled City Sample characters %s (body %s, baked walk %s)"),
 			bAssembled ? TEXT("on") : TEXT("off, mannequins"), Probe ? TEXT("found") : TEXT("missing"), BakedWalk ? TEXT("found") : TEXT("missing"));
