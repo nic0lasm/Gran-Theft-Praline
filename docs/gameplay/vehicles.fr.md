@@ -305,7 +305,7 @@ Pas de plugin Water ni de volume physique : de simples événements de chevauche
 ### 8.6 Voitures City Sample d'Epic (13/11)
 
 Pas compilé. City Sample Vehicles (Fab, gratuit, hors Git) fournit 14 voitures Chaos sur le
-squelette SK_Vehicle, dont les os de roues sont les nôtres. `tools/vehicles/unreal/make_epic_vehicles.py`
+squelette SK_Vehicle (leurs os de roues ne portent pas nos noms : voir 8.7). `tools/vehicles/unreal/make_epic_vehicles.py`
 en reconstruit sept sur `AGTPVehicle` (vol, dégâts, réactions) avec les réglages Chaos d'Epic :
 les vehicle02, 03, 05, 07, 12 et la camionnette 01 rejoignent le trafic et les voitures garées
 (camions, bus et remorque sont trop gros pour la Presqu'île) ; la vehicle13, berline de
@@ -424,6 +424,19 @@ savoir quel corps le fait, `KeepChassisBodyOnly` écrit une fois par classe chaq
 asset (« vehicle collision » : os, formes, de quelle hauteur à quelle hauteur au-dessus du plan de
 contact des roues, face à la remontée de la suspension), et « drive config » donne la hauteur de la
 collision de la caisse au-dessus de ce plan.
+
+Candidat 46 (acc4a66, PC, 16/11) : aucun corps de collision ne descend sous le plan de contact des
+roues (le plus bas, le châssis, est 22 à 36 cm au-dessus), mais « drive config » place les quatre roues
+en X 0 Z 0, empattement 0 cm. Les meshes de voitures de City Sample n'ont pas d'os `Phys_Wheel_*` :
+Chaos place une roue à la position de son os dans la pose de référence (`LocateBoneOffset`), et un os
+absent du mesh se lit comme l'origine ; les quatre ressorts de chaque voiture City Sample étaient donc
+en un seul point sous elle depuis le 13/11. Car05 pied au plancher : 0-50 km/h en 4,4 s, 71 km/h au
+plus, 143 m avant un obstacle, des secondes sans aucune roue au sol. Correctif, pas encore mesuré :
+`AGTPVehicle::FindWheelBones`, dans un monde de jeu avant l'enregistrement des composants, prend les
+quatre os de roues dans le mesh quand l'os d'un réglage de roue manque : os nommés comme une roue
+(wheel, whl, tire, tyre ; ni steer ni spare) aux quatre coins de leur pose de référence, un os
+« phys » d'abord, puis le plus profond ; une fois par classe, une ligne « vehicle wheels » les nomme, ou
+liste les os du mesh quand aucun ne convient.
 
 ## 9. Préparer une voiture conduisible
 
