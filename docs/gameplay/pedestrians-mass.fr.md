@@ -27,9 +27,15 @@ pass Nanite (`TBasePassCSFNoLightMapPolicy`, `FNaniteVertexFactory`) demande 65 
 ShaderMap » et « Tried to access an uncooked shader map ID » dès qu'une tête se charge (celles de la foule et celle de
 Nicolito, qui utilisent la même hiérarchie). L'éditeur ne demande jamais cette permutation, il ne montre donc rien.
 
-Nos têtes sont dessinées comme des maillages à squelette ordinaires, notre copie du matériau n'a donc pas besoin de la
-permutation Nanite. `tools/pedestrians/fix_crowd_head_material.py` liste les usages, les textures lues, les instances et les
-maillages à squelette de la hiérarchie avec leur réglage Nanite ; avec `GTP_APPLY=1`, il retire « Used with Nanite » et
-« Automatically set usage in editor » sur notre copie, la recompile et l'enregistre. Seulement dans ce projet, jamais dans le
-dossier de City Sample ; à relancer sur toute nouvelle copie du pack. Contrôle : la cuisson n'écrit plus « Failed to compile
-Material » pour la tête, et le journal du jeu packagé n'a plus de `LogMaterial: Error`.
+City Sample rencontre le même échec et y répond dans son propre `DefaultEngine.ini` : `r.Nanite.AllowSkinnedMeshes=0`, avec
+un commentaire qui nomme `M_Crowd_Head_v2` et ses plus de 64 SRV. Notre `[SystemSettings]` a la même ligne depuis le
+candidat 41 : la permutation Nanite des maillages à squelette n'est plus compilée, le matériau d'Epic reste intact, et le
+jeu packagé n'a plus de `LogMaterial: Error`, ni avec la foule ni avec Nicolito (porte du candidat 41). Conséquence : aucun
+maillage à squelette du jeu ne peut être dessiné par Nanite.
+
+### Coût des personnages proches
+
+Chaque personnage proche suit l'économie des anciens piétons et des voitures de l'IA : au-delà de `NearDetailDistance` (20 m),
+pas d'ombre et le niveau de détail `NearFarLOD` (2) pour le corps, les vêtements au niveau du corps (`bSyncAttachParentLOD`) ;
+la pose est rafraîchie 20 fois par seconde au-delà de 15 m et 12 fois au-delà de 25 m (`bNearReduceAnimRate`), à chaque image
+pour un corps qui tombe. Réglages dans `[/Script/GTPMass.GTPCrowdSubsystem]`.
