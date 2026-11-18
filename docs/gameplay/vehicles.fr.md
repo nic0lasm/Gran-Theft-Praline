@@ -352,8 +352,9 @@ ressorts souples sur forte précharge avec grand débattement (100 / 300, +10 / 
 250 / 50, +8 / -10), pour que la caisse prenne du roulis et plonge au freinage ; braquage de
 45 degrés (38 avant), pour des demi-tours plus serrés ; frein à main de 3 500 N.m. On garde les
 nôtres pour les freins (plus forts), la boîte (première plus courte) et l'adhérence. Le couple
-arcade du joueur dépend maintenant de la voiture (240 N.m pour une Clio de 130 N.m, davantage
-pour une voiture plus puissante).
+arcade du joueur dépend maintenant de la voiture : 240 N.m pour la Clio de 1 150 kg, autant par
+kilo pour une voiture plus lourde, son propre couple pour une voiture plus forte que cela (selon la
+masse depuis le 16/11, voir 8.7).
 
 ### 8.7 Adhérence des voitures City Sample (16/11)
 
@@ -437,6 +438,20 @@ quatre os de roues dans le mesh quand l'os d'un réglage de roue manque : os nom
 (wheel, whl, tire, tyre ; ni steer ni spare) aux quatre coins de leur pose de référence, un os
 « phys » d'abord, puis le plus profond ; une fois par classe, une ligne « vehicle wheels » les nomme, ou
 liste les os du mesh quand aucun ne convient.
+
+Candidat 47 (82c56ff, PC, 16/11) : les sept classes trouvent leurs os (`wheel_front_l`,
+`wheel_front_r`, `wheel_rear_no_spin_l`, `wheel_rear_no_spin_r`), empattement 281 cm pour la Car05,
+297 pour la Police13. Car05 pied au plancher : 0-50 km/h en 1,4 s, 0-100 en 4,8 s, 111 km/h avant un
+obstacle au bout de 112 m ; la poursuite roule 320 m, 83 km/h au plus. Restent deux défauts. La
+Police13 lève le nez : son centre de gravité est à 0,29 de l'empattement depuis l'essieu arrière et une
+roue avant décolle dans 147 relevés sur 160 (4,6 km/h de moyenne). Et la voiture du joueur va plus
+vite que n'importe quelle berline réelle. Correctifs, pas encore mesurés : le centre de gravité d'une
+voiture City Sample passe au-dessus de l'origine du corps du châssis, là où Chaos répartit le poids
+entre les ressorts (`ComputeSprungMasses`), à sa propre hauteur (`CentreMassOverOrigin`, ligne
+« vehicle balance ») ; le couple arcade du joueur est celui de la Clio par kilo (240 N.m pour
+1 150 kg), ou le couple propre de la voiture s'il est plus fort : 480 N.m pour la Car05 au lieu de 785,
+700 pour la Police13 au lieu de 1 292, 500 pour les Car03 et Car12 ; notre Clio garde 240, la 208 et
+le Kangoo passent aussi à 240 (258 et 369 avant : leur masse Chaos est les 1 150 kg de la classe).
 
 ## 9. Préparer une voiture conduisible
 

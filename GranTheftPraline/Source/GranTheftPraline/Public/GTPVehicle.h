@@ -555,6 +555,16 @@ private:
 	 * the mesh by name and position, once per class, and logged ("vehicle wheels").
 	 */
 	void FindWheelBones();
+	/** Wheel bones taken from the mesh by FindWheelBones: a City Sample car. */
+	bool bWheelBonesFromMesh = false;
+	/**
+	 * City Sample cars only: Chaos shares the weight between the springs as if the centre of mass sat
+	 * over the chassis body's origin (ComputeSprungMasses), but City Sample's chassis body alone puts
+	 * it far back (Police13: 0.29 of the wheelbase from the rear axle) and the nose lifts under power.
+	 * The centre of mass goes over the origin, at its own height (CenterOfMassOverride), once the
+	 * physics body exists; logged once per class ("vehicle balance").
+	 */
+	void CentreMassOverOrigin();
 	EGTPDamageZone ZoneFromWorldLocation(const FVector& WorldLocation) const;
 	void BreakGlass(EGTPDamageZone Zone);
 	void SetWrecked(EGTPVehicleLoss Reason = EGTPVehicleLoss::Wrecked);
