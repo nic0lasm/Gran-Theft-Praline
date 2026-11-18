@@ -346,6 +346,32 @@ void AGTPVehicle::FindWheelBones()
 		{
 			Move->WheelSetups[Index].BoneName = Picked[Index];
 		}
+		bWheelBonesFromMesh = true;
+	}
+}
+
+void AGTPVehicle::CentreMassOverOrigin()
+{
+	UChaosWheeledVehicleMovementComponent* Move = GetWheeledMovement();
+	USkeletalMeshComponent* Body = GetMesh();
+	FBodyInstance* Chassis = Body ? Body->GetBodyInstance() : nullptr;
+	if (!bWheelBonesFromMesh || !Move || Move->bEnableCenterOfMassOverride || !Chassis || !Chassis->IsValidBodyInstance())
+	{
+		return;
+	}
+	// The body's own centre of mass, in its local space, without the physics asset's nudge (Chaos adds
+	// COMNudge to the override, UChaosVehicleMovementComponent::UpdateMassProperties).
+	const FVector Own = Chassis->GetMassSpaceLocal().GetTranslation() - Chassis->COMNudge;
+	Move->bEnableCenterOfMassOverride = true;
+	Move->CenterOfMassOverride = FVector(0.f, 0.f, Own.Z);
+	// Recalculated mass properties call Chaos back, which applies the override.
+	Chassis->UpdateMassProperties();
+	static TSet<FName> Logged;
+	if (!Logged.Contains(GetClass()->GetFName()))
+	{
+		Logged.Add(GetClass()->GetFName());
+		GTP_TRACE(LogGTPVehicle, TEXT("vehicle balance: %s centre of mass moved from X %.0f Y %.0f to over the origin, where Chaos shares the weight between the springs; height %.0f cm"),
+			*GetClass()->GetName(), Own.X, Own.Y, Own.Z);
 	}
 }
 
@@ -425,9 +451,13 @@ void AGTPVehicle::BeginPlay()
 			RearGripNow = RearGripBase;
 		}
 	}
-	// The arcade boost is relative to a 130 N.m city car: a 500 N.m saloon (City Sample) keeps
-	// its edge over a Clio in the player's hands.
-	Assist.PlayerTorque = PlayerTorque * FMath::Max(1.f, BaseTorque / 130.f);
+	// The arcade boost is the city car's (PlayerTorque for 1 150 kg, the class default mass) per
+	// kilogram: a heavier car gets as much per kilogram, a car stronger than that keeps its own torque.
+	// Scaled by torque instead (until 16/11), Car05 got 785 N.m once its wheels held the road:
+	// 0-50 km/h in 1.4 s, 0-100 in 4.8 s (candidate 47).
+	const UChaosWheeledVehicleMovementComponent* Movement = GetWheeledMovement();
+	const float MassKg = Movement && Movement->Mass > 0.f ? Movement->Mass : 1150.f;
+	Assist.PlayerTorque = FMath::Max(BaseTorque, PlayerTorque * FMath::Max(1.f, MassKg / 1150.f));
 	Assist.DriftRearGrip = DriftRearGrip;
 	Assist.DriftYawAccel = DriftYawAccel;
 	Assist.StabilityDamping = StabilityDamping;
@@ -1100,6 +1130,7 @@ void AGTPVehicle::Tick(float DeltaSeconds)
 	{
 		NextBodyCheckTime = World->GetTimeSeconds() + 1.f;
 		KeepChassisBodyOnly();
+		CentreMassOverOrigin();
 	}
 	RunLaunchTest();
 	ProbeDrive();

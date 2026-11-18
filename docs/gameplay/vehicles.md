@@ -335,8 +335,8 @@ What the Clio, 208 and Kangoo take from City Sample's city car (vehicle02, 1 200
 springs on a high preload with long travel (100 / 300, +10 / -17 cm instead of 250 / 50,
 +8 / -10) so the body rolls and dives, 45 degree steering (38 before) for tighter U-turns, and
 3 500 N.m handbrake. Kept ours: brakes (stronger), gearbox (shorter first gear), grip. The
-player's arcade torque is now relative to the car (240 N.m for a 130 N.m Clio, scaled up for a
-stronger car).
+player's arcade torque is now relative to the car: 240 N.m for the 1 150 kg Clio, as much per
+kilogram for a heavier car, its own torque for a car stronger than that (by mass since 16/11, see 8.7).
 
 ### 8.7 Grip of the City Sample cars (16/11)
 
@@ -410,6 +410,19 @@ takes the four wheel bones from the mesh when a wheel setup's bone is missing: b
 wheel (wheel, whl, tire, tyre; not steer or spare) at the four corners of their reference pose, a
 "phys" bone first, then the deepest one; once per class, a "vehicle wheels" line names them, or lists
 the mesh's bones when none fit.
+
+Candidate 47 (82c56ff, PC, 16/11): the seven classes find their bones (`wheel_front_l`, `wheel_front_r`,
+`wheel_rear_no_spin_l`, `wheel_rear_no_spin_r`), wheelbase 281 cm for Car05, 297 for Police13. Car05
+at full throttle: 0-50 km/h in 1.4 s, 0-100 in 4.8 s, 111 km/h before an obstacle after 112 m; the
+chase drives 320 m, 83 km/h at most. Two faults left. Police13 lifts its nose: its centre of mass sits
+at 0.29 of the wheelbase from the rear axle and a front wheel is off the ground in 147 probes out of
+160 (4.6 km/h on average). And the player's car is faster than any real saloon. Fixes, not yet
+measured: the centre of mass of a City Sample car goes over the chassis body's origin, where Chaos
+shares the weight between the springs (`ComputeSprungMasses`), at its own height
+(`CentreMassOverOrigin`, "vehicle balance" line); the player's arcade torque is the Clio's per
+kilogram (240 N.m for 1 150 kg), or the car's own torque when that is higher: 480 N.m for Car05
+instead of 785, 700 for Police13 instead of 1 292, 500 for Car03 and Car12; our Clio keeps 240, the 208 and the Kangoo get 240 too (258 and 369 before:
+their Chaos mass is the class's 1 150 kg).
 
 ## 9. Making a drivable car
 
