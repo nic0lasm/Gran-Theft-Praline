@@ -329,7 +329,42 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckWalkArmed(FString& Detail)
 	{
 		WalkArmedPhaseStart = Now;
 		WalkArmedFrom = Character->GetActorLocation();
-		WalkArmedYaw = PC->GetControlRotation().Yaw;
+		if (WalkArmedPhase == 0)
+		{
+			// Where a tester would walk: the direction with the longest clear way, of eight (the step used to walk
+			// where the camera happened to look, 4 s then 4 s more the same way: 40 m in a street ends in a wall or
+			// on a car, and the failure blamed the weapon).
+			double BestClear = -1.0;
+			for (int32 Dir = 0; Dir < 8; ++Dir)
+			{
+				const double Yaw = PC->GetControlRotation().Yaw + Dir * 45.0;
+				const FVector Way = FRotator(0.0, Yaw, 0.0).Vector();
+				double Clear = 2500.0;
+				for (const double Height : {-40.0, 40.0})
+				{
+					FHitResult Hit;
+					FCollisionQueryParams WayParams(SCENE_QUERY_STAT(GTPGtaRunWay), false, Character);
+					const FVector From = WalkArmedFrom + FVector(0.0, 0.0, Height);
+					if (World->LineTraceSingleByChannel(Hit, From, From + Way * 2500.0, ECC_Visibility, WayParams))
+					{
+						Clear = FMath::Min(Clear, static_cast<double>(Hit.Distance));
+					}
+				}
+				if (Clear > BestClear)
+				{
+					BestClear = Clear;
+					WalkArmedYaw = Yaw;
+				}
+			}
+			GTP_TRACE(LogGTPGtaRun, TEXT("GTARun: walking with the gun towards yaw %.0f, clear for %.0f cm"), WalkArmedYaw, BestClear);
+		}
+		else
+		{
+			// Aiming: back the way he came, which he has just walked.
+			WalkArmedYaw += 180.0;
+		}
+		// The tester turns the camera to where he walks, once.
+		PC->SetControlRotation(FRotator(0.0, WalkArmedYaw, 0.0));
 		Weapon->SetDrawn(true);
 		Weapon->SetAiming(WalkArmedPhase == 1);
 	}
@@ -347,6 +382,11 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckWalkArmed(FString& Detail)
 			// What he stands on (falling with the input taken: he lost his floor, the question is to what).
 			if (Movement)
 			{
+				FHitResult Ahead;
+				FCollisionQueryParams AheadParams(SCENE_QUERY_STAT(GTPGtaRunAhead), false, Character);
+				const bool bAhead = GetWorld()->SweepSingleByChannel(Ahead, Character->GetActorLocation(), Character->GetActorLocation() + WalkDirection.GetSafeNormal() * 200.0,
+					FQuat::Identity, ECC_Pawn, FCollisionShape::MakeSphere(30.f), AheadParams);
+				Detail += FString::Printf(TEXT(" [ahead within 2 m: %s]"), bAhead && Ahead.GetActor() ? *FString::Printf(TEXT("%s at %.0f cm"), *Ahead.GetActor()->GetName(), Ahead.Distance) : TEXT("clear"));
 				const FHitResult& Floor = Movement->CurrentFloor.HitResult;
 				const UPrimitiveComponent* Base = Character->GetMovementBase();
 				FHitResult Below;
