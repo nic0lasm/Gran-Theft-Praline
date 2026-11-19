@@ -471,6 +471,17 @@ again, and "MassTraffic physics template" / "MassTraffic physics car" lines (GTP
 count) give what was mined and how the 6 nearest cars drive: speed, inputs, gear, wheels on the road,
 height and place against the lane.
 
+Those lines, read in the candidate 49 mass pass (PC, 19/11), show that the stopgap's 97 cars
+"moving" hide a broken medium distance traffic: the template left as at candidate 46 gives
+MassTraffic's simple physics its four wheels at one point, the origin, under a centre of mass 63 to
+93 cm higher. The car stands on one spring like a pencil on its tip and falls over: 5 of the 6 cars
+probed 51 to 67 m from the player lay on their side (roll 102 to 174 deg), no wheel on the road, full
+throttle and full lock, still over 1 m/s and so counted as moving; 44 of the 69 cars under that
+physics had a wheel off the road at 295 s. The "physics cars" line now also counts the cars lying
+over (roof more than 45 deg from the vertical). The real wheels with City Sample's centre of mass
+(`-MassTemplateWheels`) are measured in a 300 s mass pass at the candidate 51 gate; the stopgap
+should give way to them as soon as they keep the traffic moving.
+
 Police cars turned over in the candidate 48 chase stayed on their side: the "put back on its wheels"
 rule ran for the player's car only. It now runs for the cars driven by the AI too (`PutBackOnWheels`,
 line "put back on its wheels at ... (AI driver)"). The centre of mass of City Sample's cars is set in

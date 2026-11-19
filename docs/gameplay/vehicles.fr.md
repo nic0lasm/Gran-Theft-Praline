@@ -504,6 +504,18 @@ modèle les vraies roues, et les lignes « MassTraffic physics template » / « 
 (GTPMassTraffic, à chaque comptage) donnent ce qui a été extrait et comment roulent les 6 voitures les
 plus proches : vitesse, commandes, rapport, roues sur la route, hauteur et place par rapport à la voie.
 
+Ces lignes, lues dans la passe mass du candidat 49 (PC, 19/11), montrent que les 97 voitures « en
+mouvement » du pis-aller cachent un trafic à moyenne distance cassé : le modèle laissé comme au
+candidat 46 donne à la physique simple de MassTraffic ses quatre roues en un seul point, l'origine,
+sous un centre de gravité 63 à 93 cm plus haut. La voiture tient sur un seul ressort comme un crayon
+sur sa pointe et tombe : 5 des 6 voitures sondées entre 51 et 67 m du joueur étaient couchées (roulis
+de 102 à 174°), aucune roue sur la route, pleins gaz et braquage à fond, encore au-dessus de 1 m/s et
+donc comptées en mouvement ; à 295 s, 44 des 69 voitures sous cette physique avaient une roue hors de
+la route. La ligne « physics cars » compte maintenant aussi les voitures couchées (toit à plus de 45°
+de la verticale). Les vraies roues avec le centre de gravité de City Sample (`-MassTemplateWheels`)
+sont mesurées dans une passe mass de 300 s à la porte du candidat 51 ; le pis-aller doit leur laisser
+la place dès qu'elles tiennent le trafic en mouvement.
+
 Les voitures de police couchées pendant la poursuite du candidat 48 y restaient : la règle « put back
 on its wheels » ne valait que pour la voiture du joueur. Elle vaut maintenant aussi pour les voitures
 conduites par l'IA (`PutBackOnWheels`, ligne « put back on its wheels at ... (AI driver) »). Le centre
