@@ -631,7 +631,7 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 			{
 				if (UGTPWantedComponent* Wanted = PC->FindComponentByClass<UGTPWantedComponent>())
 				{
-					Wanted->ReportCrime(EGTPCrimeKind::CarTheft, Pawn->GetActorLocation());
+					Wanted->ReportCrime(EGTPCrimeKind::CarTheft, Pawn->GetActorLocation(), false, Pawn);
 				}
 			}
 			SetPhase(EPhase::Drive);

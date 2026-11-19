@@ -98,7 +98,7 @@ float UGTPWantedComponent::GetSecondsSinceSeen() const
 	return GetWorld() ? static_cast<float>(GetWorld()->GetTimeSeconds()) - LastSeenTime : 1000.f;
 }
 
-void UGTPWantedComponent::ReportCrime(EGTPCrimeKind Kind, const FVector& Location, bool bVictimInvolved)
+void UGTPWantedComponent::ReportCrime(EGTPCrimeKind Kind, const FVector& Location, bool bVictimInvolved, const AActor* Scene)
 {
 	if (BustedBannerLeft > 0.f || !GetWorld() || !IsComponentTickEnabled())
 	{
@@ -130,6 +130,9 @@ void UGTPWantedComponent::ReportCrime(EGTPCrimeKind Kind, const FVector& Locatio
 	// The nearest person whose line to the crime was cut, and by what (logged when nobody phones).
 	double BlockedCm = -1.0;
 	FString BlockedBy;
+	// What a witness looks at never hides the crime: the car being stolen, and the player (the car he drives).
+	const APlayerController* Criminal = Cast<APlayerController>(GetOwner());
+	const APawn* CriminalPawn = Criminal ? Criminal->GetPawn() : nullptr;
 	auto AddWitness = [&](const AActor* Who, bool bPolice)
 	{
 		if (!IsValid(Who))
@@ -138,6 +141,14 @@ void UGTPWantedComponent::ReportCrime(EGTPCrimeKind Kind, const FVector& Locatio
 		}
 		const FVector Where = Who->GetActorLocation();
 		FCollisionQueryParams WitnessParams(SCENE_QUERY_STAT(GTPWitnessSight), false, Who);
+		if (Scene)
+		{
+			WitnessParams.AddIgnoredActor(Scene);
+		}
+		if (CriminalPawn)
+		{
+			WitnessParams.AddIgnoredActor(CriminalPawn);
+		}
 		FHitResult Hit;
 		const double AwayCm = FVector::Dist(Where, Location);
 		const bool bCut = AwayCm < 8000.0
