@@ -761,7 +761,6 @@ void UGTPMassTrafficSubsystem::LogPhysicsCars(UWorld& World, const FVector& Play
 	TArray<FCar> Cars;
 	int32 Total = 0;
 	int32 Stopped = 0;
-	int32 Sleeping = 0;
 	int32 WheelsUp = 0;
 	FMassEntityManager& Manager = Mass->GetMutableEntityManager();
 	FMassEntityQuery Query;
@@ -793,10 +792,10 @@ void UGTPMassTrafficSubsystem::LogPhysicsCars(UWorld& World, const FVector& Play
 				FString Wheels;
 				for (int32 Wheel = 0; Wheel < NumWheels; ++Wheel)
 				{
-					const Chaos::FSimpleSuspensionSim& Suspension = Sim.SuspensionSims[Wheel];
-					Wheels += FString::Printf(TEXT(" | wheel %d at %s radius %.1f driven=%d rest force %.0f spring %.0f raise %.0f drop %.0f"), Wheel,
-						*Suspension.GetLocalRestingPosition().ToCompactString(), Sim.WheelSims[Wheel].Setup().WheelRadius, Sim.WheelSims[Wheel].EngineEnabled ? 1 : 0,
-						Suspension.Setup().RestingForce, Suspension.Setup().SpringRate, Suspension.Setup().SuspensionMaxRaise, Suspension.Setup().SuspensionMaxDrop);
+					// Only what the sims expose: TVehicleSystem<Chaos::FSimpleWheelConfig / FSimpleSuspensionConfig>::Setup()
+					// is not exported by Chaos Vehicles in 5.8 (LNK2019 on the PC), so radius and springs are not read here.
+					Wheels += FString::Printf(TEXT(" | wheel %d at %s driven=%d"), Wheel,
+						*Sim.SuspensionSims[Wheel].GetLocalRestingPosition().ToCompactString(), Sim.WheelSims[Wheel].EngineEnabled ? 1 : 0);
 				}
 				UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic physics template: mass %.0f kg (peripheral %.0f), centre of mass %s, body to actor %s, inverse inertia %s, %d driven wheel(s), %d wheel(s)%s"),
 					Config.Mass, Config.PeripheralMass, *Config.CenterOfMass.ToCompactString(), *Config.BodyToActor.GetTranslation().ToCompactString(),
@@ -805,7 +804,6 @@ void UGTPMassTrafficSubsystem::LogPhysicsCars(UWorld& World, const FVector& Play
 			++Total;
 			const float Kmh = Controls[Index].Speed * 0.036f;
 			Stopped += Kmh < 3.6f ? 1 : 0;
-			Sleeping += Sim.IsSleeping() ? 1 : 0;
 			int32 InContact = 0;
 			for (int32 Wheel = 0; Wheel < NumWheels; ++Wheel)
 			{
@@ -841,9 +839,9 @@ void UGTPMassTrafficSubsystem::LogPhysicsCars(UWorld& World, const FVector& Play
 			const FMassTrafficPIDVehicleControlFragment& Input = Inputs[Index];
 			FCar Car;
 			Car.Distance = Distance;
-			Car.Line = FString::Printf(TEXT("%.0f m from the player: %.0f km/h, throttle %.2f brake %.2f steer %.2f handbrake %d, gear %d %.0f rpm, sleeping %d, pitch %.1f roll %.1f, %s, next car %.0f m, obstacle %.0f m%s"),
+			Car.Line = FString::Printf(TEXT("%.0f m from the player: %.0f km/h, throttle %.2f brake %.2f steer %.2f handbrake %d, gear %d %.0f rpm, pitch %.1f roll %.1f, %s, next car %.0f m, obstacle %.0f m%s"),
 				Distance / 100.0, Kmh, Input.Throttle, Input.Brake, Input.Steering, Input.bHandbrake ? 1 : 0, Sim.TransmissionSim.GetCurrentGear(),
-				Sim.EngineSim.GetEngineRPM(), Sim.IsSleeping() ? 1 : 0, Rotation.Pitch, Rotation.Roll, *OnLane,
+				Sim.EngineSim.GetEngineRPM(), Rotation.Pitch, Rotation.Roll, *OnLane,
 				Avoidances[Index].DistanceToNext / 100.f, Avoidances[Index].DistanceToCollidingObstacle / 100.f, *Wheels);
 			Cars.Add(MoveTemp(Car));
 			Cars.Sort([](const FCar& A, const FCar& B) { return A.Distance < B.Distance; });
@@ -853,8 +851,8 @@ void UGTPMassTrafficSubsystem::LogPhysicsCars(UWorld& World, const FVector& Play
 			}
 		}
 	});
-	UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic physics cars t=%.0fs: %d under MassTraffic's physics, %d stopped, %d asleep, %d with a wheel off the road"),
-		World.GetTimeSeconds(), Total, Stopped, Sleeping, WheelsUp);
+	UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic physics cars t=%.0fs: %d under MassTraffic's physics, %d stopped, %d with a wheel off the road"),
+		World.GetTimeSeconds(), Total, Stopped, WheelsUp);
 	for (const FCar& Car : Cars)
 	{
 		UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic physics car: %s"), *Car.Line);
