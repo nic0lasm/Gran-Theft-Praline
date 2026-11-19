@@ -312,6 +312,16 @@ anchored on something real:
   season), litter and newspapers by some bins, pigeons near benches.
 * **Roofs**: chimney stacks on party walls, at ridge height.
 
+**Driving lanes kept clear** (`tools/city/clear_lanes.py`). On the streets closed to cars in real
+life, the surveyed benches, bike racks, parked scooters and signs stand in the middle of the street,
+where the game's traffic lanes run. `props.py` and `details.py` leave out every object a car can hit
+(collision on) within 1.5 m of a lane centre line or of the link from a lane to the next one, and
+count them in `left_out_on_lanes` of their report (rue de la République: 17 props and 24 details).
+An object in the way is taken out, not moved. On a machine without the raw geo data,
+`python3 tools/city/clear_lanes.py --name presqu-ile --focus rue-de-la-republique [--lanes <the
+map's lanes.csv>] [--dry-run]` filters the existing tables (it keeps `<table>.before-lanes.csv` and
+prints one line, `decor off the lanes: {...}`); `place_props.py` then puts each set back.
+
 Which bay gets a detail is a stable hash of building and bay: every run gives the same street. The
 table has the columns of `props_placement.csv` plus `snap` (`keep` keeps the height of wall and
 roof items), `scale_x/y/z` and `collision` (none on small items). It is capped at 3,000 instances

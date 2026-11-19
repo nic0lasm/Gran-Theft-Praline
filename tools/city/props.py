@@ -16,7 +16,7 @@ tools/assets/unreal/import_props.py creates (assets/manifests/wave-01.json). Lat
 waves are found in the editor by their CatalogId tag once imported.
 
 Rules: a prop inside a building footprint or within 0.6 m of an earlier prop is
-dropped; the yaw turns the prop's front (+X, import convention) away from the
+dropped, and so is a prop standing on a driving lane (clear_lanes.py); the yaw turns the prop's front (+X, import convention) away from the
 nearest facade, i.e. towards the street; z is the LiDAR ground (0.5 m DTM),
 refined by a downward trace in the editor.
 
@@ -42,6 +42,7 @@ REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
 sys.path.insert(0, HERE)
 import terrain  # noqa: E402
 import citylib as cl  # noqa: E402
+import clear_lanes  # noqa: E402
 import generate  # noqa: E402
 import grandlyon  # noqa: E402
 import raster  # noqa: E402
@@ -260,6 +261,8 @@ def main():  # noqa: C901, PLR0915
                 yaw + 90.0, "terrace", m["shop_osm_id"])
         terraces += 1
 
+    # Nothing a car can hit stays on a driving lane (clear_lanes.py).
+    rows, off_lanes = clear_lanes.split(rows, clear_lanes.lanes_of_focus(proc, gen))
     fields = ["catalog_id", "asset", "family", "asset_path", "x_m", "y_m", "z_m", "ue_x", "ue_y", "ue_z", "ue_yaw",
               "source", "ref"]
     with open(os.path.join(gen, "props_placement.csv"), "w", newline="", encoding="utf-8") as f:
@@ -270,6 +273,7 @@ def main():  # noqa: C901, PLR0915
     for r in rows:
         by[r["catalog_id"] + " " + r["asset"]] = by.get(r["catalog_id"] + " " + r["asset"], 0) + 1
     report = {"props": len(rows), "terraces": terraces, "by_asset": dict(sorted(by.items())),
+              "left_out_on_lanes": clear_lanes.summary(off_lanes),
               "seconds": round(time.time() - t0, 1)}
     with open(os.path.join(gen, "props_report.json"), "w", encoding="utf-8") as f:
         json.dump(report, f, indent=1)

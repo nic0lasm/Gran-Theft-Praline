@@ -57,6 +57,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
 sys.path.insert(0, HERE)
 import citylib as cl  # noqa: E402
+import clear_lanes  # noqa: E402
 import generate  # noqa: E402
 import grandlyon  # noqa: E402
 import raster  # noqa: E402
@@ -531,10 +532,12 @@ def main():  # noqa: C901, PLR0912, PLR0915
 
     # --- per-group switches (perf passes), then cap by priority, write -----------------------
     rows, switches = apply_switches(rows, os.environ)
+    # Nothing a car can hit stays on a driving lane (clear_lanes.py).
+    rows, off_lanes = clear_lanes.split(rows, clear_lanes.lanes_of_focus(proc, gen))
     total = len(rows)
     rows.sort(key=lambda r: PRIORITY.get(r["catalog_id"], 5))
     rows = rows[:args.max]
-    write_tables(gen, rows, total, args, switches, t0, bollards_on_way)
+    write_tables(gen, rows, total, args, switches, t0, bollards_on_way, off_lanes)
 
 
 def load_carriageways(proc, zone=None):
@@ -556,7 +559,7 @@ def on_carriageway(x, y, polys, tree=None):
     return any(polys[i].contains(p) for i in idx)
 
 
-def write_tables(gen, rows, total, args, switches, t0, bollards_on_way=()):
+def write_tables(gen, rows, total, args, switches, t0, bollards_on_way=(), off_lanes=()):
     fields = ["catalog_id", "asset", "family", "asset_path", "x_m", "y_m", "z_m", "ue_x", "ue_y", "ue_z", "ue_yaw",
               "source", "ref", "snap", "scale_x", "scale_y", "scale_z", "collision", "shadow", "cull_m"]
     with open(os.path.join(gen, "details_placement.csv"), "w", newline="", encoding="utf-8") as f:
@@ -569,6 +572,7 @@ def write_tables(gen, rows, total, args, switches, t0, bollards_on_way=()):
         by[k] = by.get(k, 0) + 1
     report = {"details": len(rows), "before_cap": total, "cap": args.max, "asset_types": len(by),
               "switches": switches, "bollards_left_out_on_carriageway": sorted(bollards_on_way),
+              "left_out_on_lanes": clear_lanes.summary(off_lanes),
               "by_asset": dict(sorted(by.items())), "seconds": round(time.time() - t0, 1)}
     with open(os.path.join(gen, "details_report.json"), "w", encoding="utf-8") as f:
         json.dump(report, f, indent=1)
