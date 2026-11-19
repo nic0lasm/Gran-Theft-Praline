@@ -138,6 +138,27 @@ public:
 		Brain.StateTime = 0.f;
 	}
 
+	/**
+	 * The owner of a pooled body sent its person running for a reason of its own (a crash, a shot heard, the panic of
+	 * the street): the body's state says so too, so that one fear is told everywhere. Tells nobody; not the dead, the
+	 * fallen, nor somebody held at gunpoint.
+	 */
+	void Panic()
+	{
+		if (Brain.bDead || Brain.State == GTPThreat::EState::Down || Brain.State == GTPThreat::EState::HandsUp || Brain.State == GTPThreat::EState::Complying)
+		{
+			return;
+		}
+		Brain.Fear = FMath::Max(Brain.Fear, 0.6f);
+		GTPThreat::Enter(Brain, GTPThreat::EState::Fleeing);
+	}
+
+	/**
+	 * The point of a body a gun is aimed at, and the one its fear tests: the chest. A character stands on the middle
+	 * of his capsule, a pooled pedestrian on his feet.
+	 */
+	static FVector AimPointOf(const AActor* Body);
+
 	/** Where this person runs when he flees (the shop's back door); unset = away from the threat. */
 	UFUNCTION(BlueprintCallable, Category = "Threat")
 	void SetFleeTarget(FVector Location) { FleeTarget = Location; bHasFleeTarget = true; }

@@ -81,3 +81,28 @@ The 10 s line of the crowd ends with "fallen N, lying without physics N": the se
 `-CrowdOwnLoops=0` keeps the `MH_` loops instead of the `CS_` ones.
 Only a car knocks people of the crowd down: the player on foot runs at 500 cm/s, right on the speed threshold, and used to
 knock down like a car the people he came within 1.7 m of.
+
+## The rule of a hold-up, as a player meets it
+
+- **Aim a weapon at somebody closer than 8 m: he stops and puts his hands up**, and keeps them up for as long as the gun
+  stays on him (up to 10 m once his hands are up, so a step back does not free him). Everybody does, whatever his
+  character; only the brave (shop staff can be) backs away first.
+- **Look away**: the fearful bolt after one second, the others lower their hands after four and walk on.
+- **Aim from further than 8 m**: he has room to run, and runs after a second or two. A few freeze on the spot with their
+  hands up instead (15 % of the crowd).
+- **Fire**: the person held may bolt, everybody around runs. **Who runs already does not stop for a gun.** To hold somebody
+  up, walk up with the weapon lowered and raise it close.
+
+The range is `SurrenderRangeCm` (`GTPThreatLogic.h`, checked offline by `tools/ragdoll/check_impact_logic.py`: every
+temperament surrenders at 4 m and stays held 30 s, 7.9 m holds and 8.1 m runs, the fearful bolts 1 s after the gun looks
+away). Neither Lyra (no civilians) nor City Sample (no weapons) has such a rule to take; City Sample's crowd plays its
+reactions as Mass montages (`FMassMontageFragment`), which our pooled bodies do not use.
+
+The point of a body a gun is aimed at, and the one its fear tests, is the chest (`UGTPThreatResponseComponent::AimPointOf`).
+It was 80 cm above the actor for everybody, the belly of a pedestrian of the crowd: a gun held level on him from 1.2 m was
+not "on him", and `-GTARun`, which aimed there, dived on him with the camera (the pictures of the close hold-up at gates 46
+to 49: the player seen from above, the person out of the frame).
+
+One fear told everywhere: when the street sends a person running for its own reasons (a crash, a shot heard, panic passed
+on), the body's state says "fleeing" too. `-GTARun` raises the gun only inside the range, on a person who is not running,
+and pictures the two hold-up steps by day with the motion blur off (it says so in the log).

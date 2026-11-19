@@ -143,6 +143,8 @@ private:
 	bool bExitRequested = false;
 	bool bParkedExitRequested = false;
 	bool bAimExitRequested = false;
+	/** The hold-up steps are pictured by day, motion blur off (set once). */
+	bool bHoldUpLit = false;
 	double AimFirstReaction = -1.0;
 	double LastAimMoveTime = -1.0;
 	TWeakObjectPtr<AActor> AimedBefore;

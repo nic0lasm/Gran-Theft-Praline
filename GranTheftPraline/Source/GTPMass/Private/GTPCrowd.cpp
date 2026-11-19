@@ -658,6 +658,13 @@ void UGTPCrowdSubsystem::OnLoud(const FVector& Where, float Radius, AActor* Caus
 		{
 			GTPWalk::Flee(Graph, W->Walker, Point, Settings);
 			++Fled;
+			// One fear told everywhere: the body of somebody who runs from a noise says "fleeing" too (it said "calm",
+			// and the hold-up test chased for 90 s a calm person who ran at 16 m; gate of candidate 49).
+			const int32 Slot = NearEntity.IndexOfByKey(Index);
+			if (UGTPThreatResponseComponent* Fear = NearActors.IsValidIndex(Slot) && NearActors[Slot] ? NearActors[Slot]->FindComponentByClass<UGTPThreatResponseComponent>() : nullptr)
+			{
+				Fear->Panic();
+			}
 		}
 	}
 	if (Now - LastLoudLog > 2.0)
@@ -932,8 +939,9 @@ void UGTPCrowdSubsystem::UpdateNear(float DeltaTime)
 			const EGTPThreatState State = Fear->GetState();
 			const bool bHeld = State == EGTPThreatState::HandsUp || State == EGTPThreatState::Complying;
 			const bool bStands = W->Walker.PauseKind == GTPWalk::EPause::HandsUp && W->Walker.Pause > 0.f && W->Walker.FleeTimeLeft <= 0.f;
+			// Away from the gun when there is one; from what he already ran from otherwise (a noise).
 			const FVector Origin = HoldUp->GetOrigin();
-			const GTPWalk::FPoint From{float(Origin.X), float(Origin.Y)};
+			const GTPWalk::FPoint From = HoldUp->HasThreat() ? GTPWalk::FPoint{float(Origin.X), float(Origin.Y)} : W->Walker.Threat;
 			if (bHeld && !bStands)
 			{
 				GTPWalk::Freeze(W->Walker, From, 60.f, GTPWalk::EPause::HandsUp);
@@ -1017,7 +1025,14 @@ void UGTPCrowdSubsystem::SpreadPanic()
 			if (O && O->Walker.Edge >= 0 && FVector::Dist2D(O->Location, W->Location) <= Settings.PanicRadius
 				&& !(O->Walker.PauseKind == GTPWalk::EPause::HandsUp && O->Walker.Pause > 0.f))
 			{
-				GTPWalk::CatchPanic(Graph, O->Walker, W->Walker.Generation, Source, Settings, ReactionRng);
+				if (GTPWalk::CatchPanic(Graph, O->Walker, W->Walker.Generation, Source, Settings, ReactionRng))
+				{
+					const int32 Slot = NearEntity.IndexOfByKey(Other);
+					if (UGTPThreatResponseComponent* Fear = NearActors.IsValidIndex(Slot) && NearActors[Slot] ? NearActors[Slot]->FindComponentByClass<UGTPThreatResponseComponent>() : nullptr)
+					{
+						Fear->Panic();
+					}
+				}
 			}
 		}
 	}

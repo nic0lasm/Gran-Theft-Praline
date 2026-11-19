@@ -86,3 +86,31 @@ les personnes à qui il était donné ensuite. La ligne de foule des 10 s finit 
 second nombre doit valoir 0. `-CrowdOwnLoops=0` garde les boucles `MH_` au lieu des `CS_`.
 Seule une voiture renverse les personnes de la foule : le joueur à pied court à 500 cm/s, juste au seuil de vitesse, et
 renversait comme une voiture les personnes dont il s'approchait à moins de 1,7 m.
+
+## La règle du braquage, telle que le joueur la rencontre
+
+- **Braquer quelqu'un à moins de 8 m : il s'arrête et lève les mains**, et les garde levées tant que l'arme reste sur lui
+  (jusqu'à 10 m une fois les mains levées, pour qu'un pas en arrière ne le libère pas). Tout le monde le fait, quel que soit
+  son caractère ; seul le courageux (le personnel d'une boutique peut l'être) recule d'abord.
+- **Détourner l'arme** : les peureux détalent au bout d'une seconde, les autres baissent les mains au bout de quatre et
+  repartent.
+- **Viser de plus de 8 m** : il a la place de fuir, et fuit après une ou deux secondes. Quelques-uns se figent sur place
+  les mains en l'air (15 % de la foule).
+- **Tirer** : la personne tenue en joue peut détaler, tout le monde autour s'enfuit. **Qui court déjà ne s'arrête pas pour
+  une arme.** Pour braquer quelqu'un, s'approcher l'arme baissée et la lever de près.
+
+La portée est `SurrenderRangeCm` (`GTPThreatLogic.h`, vérifiée hors moteur par `tools/ragdoll/check_impact_logic.py` :
+chaque tempérament se rend à 4 m et reste tenu 30 s, 7,9 m tient et 8,1 m fuit, le peureux détale 1 s après que l'arme s'est
+détournée). Ni Lyra (pas de civils) ni City Sample (pas d'armes) n'ont une telle règle à reprendre ; la foule de City Sample
+joue ses réactions en montages Mass (`FMassMontageFragment`), que nos corps mis en commun n'utilisent pas.
+
+Le point d'un corps qu'une arme vise, et celui que sa peur teste, est la poitrine
+(`UGTPThreatResponseComponent::AimPointOf`). C'était 80 cm au-dessus de l'acteur pour tout le monde, donc le ventre d'un
+piéton de la foule : une arme tenue à l'horizontale sur lui à 1,2 m n'était pas « sur lui », et `-GTARun`, qui visait là,
+plongeait sur lui avec la caméra (les images du braquage de près aux portes 46 à 49 : le joueur vu de dessus, la personne
+hors du cadre).
+
+Une seule peur dite partout : quand la rue fait courir une personne pour ses propres raisons (un accident, un tir entendu,
+la panique transmise), l'état du corps dit « en fuite » lui aussi. `-GTARun` ne lève l'arme qu'à l'intérieur de la portée,
+sur une personne qui ne court pas, et photographie les deux étapes de braquage de jour, flou de mouvement coupé (il le dit
+dans le journal).

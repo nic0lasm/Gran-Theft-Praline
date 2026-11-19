@@ -171,6 +171,15 @@ void UGTPThreatResponseComponent::TickComponent(float DeltaTime, ELevelTick Tick
 	}
 }
 
+FVector UGTPThreatResponseComponent::AimPointOf(const AActor* Body)
+{
+	if (!Body)
+	{
+		return FVector::ZeroVector;
+	}
+	return Body->GetActorLocation() + FVector(0.f, 0.f, Body->IsA<ACharacter>() ? 45.f : 130.f);
+}
+
 void UGTPThreatResponseComponent::Think(float Dt)
 {
 	UWorld* World = GetWorld();
@@ -184,7 +193,9 @@ void UGTPThreatResponseComponent::Think(float Dt)
 	GTPThreat::FPerception P;
 	if (Subsystem->HasThreat() && Subsystem->GetSource() != Owner)
 	{
-		const FVector Head = Me + FVector(0.f, 0.f, 80.f);
+		// The chest. It was 80 cm above the actor for everybody: the head of a character, the belly of a pooled pedestrian,
+		// so a gun held level on such a pedestrian from 1.2 m was not on him, and the test that aimed there dived on him.
+		const FVector Head = AimPointOf(Owner);
 		const FVector From = Subsystem->GetOrigin();
 		const FVector Aim = Subsystem->GetAim();
 		P.bThreatArmed = Subsystem->IsArmed();

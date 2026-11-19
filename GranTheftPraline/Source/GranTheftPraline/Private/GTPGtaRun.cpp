@@ -15,6 +15,8 @@
 #include "GameFramework/PlayerController.h"
 #include "GTPCombat.h"
 #include "GTPDemoRoute.h"
+#include "GTPEnvironmentSubsystem.h"
+#include "Engine/Engine.h"
 #include "GTPHealth.h"
 #include "GTPLog.h"
 #include "InputCoreTypes.h"
@@ -889,6 +891,24 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail, bool bClose)
 		Detail = TEXT("no weapon or no threat subsystem (-ThreatResponse=0?)");
 		return EResult::Fail;
 	}
+	if (!bHoldUpLit)
+	{
+		// The pictures of the hold-up are for the eye: by day, motion blur off. At night with the blur of a turning
+		// camera the person aimed at could not be read on any of them (gates 46 to 49). Said in the log, not hidden.
+		bHoldUpLit = true;
+		UGTPEnvironmentSubsystem* Environment = World->GetSubsystem<UGTPEnvironmentSubsystem>();
+		const double Before = Environment ? Environment->GetTimeOfDay() : -1.0;
+		if (Environment)
+		{
+			Environment->SetTimeScale(0.f);
+			Environment->SetTimeOfDay(14.0);
+		}
+		if (GEngine)
+		{
+			GEngine->Exec(World, TEXT("r.MotionBlurQuality 0"));
+		}
+		GTP_TRACE(LogGTPGtaRun, TEXT("GTARun: hold-up pictured by day: time of day %.1f h -> 14.0 h and stopped, motion blur off"), Before);
+	}
 	// Busted in the chase: the police took the ammunition. Aiming needs a loaded gun, so it comes back here, not at the shot.
 	if (Weapon->GetMagazine() + Weapon->GetReserve() <= 0)
 	{
@@ -954,7 +974,11 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail, bool bClose)
 	const FVector ToVictim = (Victim->GetActorLocation() - Character->GetActorLocation()).GetSafeNormal2D();
 	const double StopCm = bClose ? 120.0 : 450.0;
 	const double BackCm = bClose ? 70.0 : 250.0;
-	Weapon->SetAiming(Best <= StopCm + 400.0);
+	// The gun is raised only inside the hold-up range (GTPThreatLogic.h: from closer a person surrenders, from further
+	// away he runs). The test used to threaten from any distance: people ran at 16 m and it chased them for 90 s.
+	const double AimFromCm = FMath::Min(StopCm + 400.0, static_cast<double>(GTPThreat::FSettings().SurrenderRangeCm) - 100.0);
+	const bool bAimNow = Best <= AimFromCm;
+	Weapon->SetAiming(bAimNow);
 	if (Best > StopCm)
 	{
 		PC->SetControlRotation(ToVictim.Rotation());
@@ -1002,16 +1026,22 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail, bool bClose)
 	}
 	// The reticle on the person, as a player aims: every frame the weapon reports the aim from the eyes to
 	// what the reticle covers, so the view (the camera over the shoulder) must look at the point the
-	// pedestrian's fear tests (80 cm above a pedestrian's root, at the feet). Recomputed each frame: the
-	// camera moves as the view turns.
-	const FVector Body = Victim->GetActorLocation() + FVector(0.f, 0.f, 80.f);
+	// pedestrian's fear tests (his chest). Recomputed each frame: the camera moves as the view turns.
+	const FVector Body = UGTPThreatResponseComponent::AimPointOf(Victim);
 	FVector View = Character->GetPawnViewLocation();
 	FRotator ViewRotation;
 	PC->GetPlayerViewPoint(View, ViewRotation);
 	PC->SetControlRotation((Body - View).Rotation());
 	const FVector Aim = (Body - Character->GetPawnViewLocation()).GetSafeNormal();
 	Character->SetActorRotation(FRotator(0.f, Aim.Rotation().Yaw, 0.f));
-	Threat->SetThreat(Character, true, Character->GetPawnViewLocation(), Aim);
+	if (bAimNow)
+	{
+		Threat->SetThreat(Character, true, Character->GetPawnViewLocation(), Aim);
+	}
+	else if (Threat->GetSource() == Character)
+	{
+		Threat->ClearThreat();
+	}
 	int32 Hands = 0, Fleeing = 0, Alarmed = 0, Obedient = 0;
 	for (TActorIterator<AGTPPedestrian> It(World); It; ++It)
 	{
