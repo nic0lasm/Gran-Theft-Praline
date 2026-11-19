@@ -643,6 +643,9 @@ private:
 	FVector2D LaunchLineDir = FVector2D::ZeroVector;
 	float LaunchLineCm = 0.f;
 	int32 LaunchPlaceTries = 0;
+	/** Physics off and the car held where PlaceForLaunchTest put it until then (game time), -1 when not held. */
+	float LaunchHoldUntil = -1.f;
+	FTransform LaunchHoldAt;
 	TArray<float> LaunchTestMarks;
 	float LaunchTest130 = -1.f;
 

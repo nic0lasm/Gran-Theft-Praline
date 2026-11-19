@@ -425,7 +425,14 @@ véhicules. La première prise du PC (candidat 49, Car05) a trouvé 181 m dégag
 de voies de la carte, et s'est arrêtée aussitôt à 0 km/h : la voiture n'était plus sur cette ligne
 droite au départ, et freiner jusqu'à l'arrêt avant sa fin en laissait trop peu pour 100 km/h.
 L'endroit où est la voiture est maintenant écrit au départ (« drive launch test: car at ..., last
-placed by ... ») ; une voiture sortie de la ligne droite y est reposée, deux fois au plus.
+placed by ... ») ; une voiture sortie de la ligne droite y est reposée, deux fois au plus. La prise
+packagée de la porte du 49 l'a retrouvée au point de départ du joueur trois fois sur trois : le
+solveur annule la téléportation d'une voiture simulée, comme l'avait vu le déplacement de la poursuite
+de GTPDemoRoute le 16/11. La voiture est maintenant déplacée physique coupée et tenue là une
+demi-seconde avant que la physique revienne (ligne « drive launch test: physics back on at ... »),
+comme le fait ce déplacement. Pour le 0-130 km/h, la Car05 à 480 N.m demande environ 400 m
+(estimation tirée des 94 km/h après 112 m de cette prise, pas une mesure) ; la plus longue ligne de
+voies à moins de 1,5 m d'une droite fait 181 m sur la carte.
 
 Candidat 45 (adaf9c1, PC, 16/11) : chaque voiture a ses roues et le différentiel de City Sample
 (Car03, 05, 12 et Police13 en propulsion), `-GTARun` 7/7 avec une poursuite de 154 m. Car05 pied au

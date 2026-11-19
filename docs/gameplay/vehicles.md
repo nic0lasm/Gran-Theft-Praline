@@ -399,6 +399,12 @@ found 181 m clear, the longest lane line of the map, and ended at once at 0 km/h
 longer on that straight when the launch started, and braking to a stop before its end left too
 little of it for 100 km/h. Where the car stands is now logged as the launch starts ("drive launch
 test: car at ..., last placed by ..."); a car off the straight is put on it again, twice at most.
+The packaged run of the candidate 49 gate found it back at the player start three times out of
+three: the solver undoes the teleport of a simulated car, as GTPDemoRoute's chase relocation found on
+16/11. The car is now moved with its physics off and held there half a second before the physics is
+turned back on (line "drive launch test: physics back on at ..."), as that relocation does. For
+0-130 km/h, Car05 at 480 N.m needs about 400 m (estimate from the 94 km/h after 112 m of that run, not
+measured); the map's longest lane line within 1.5 m of a straight line is 181 m.
 
 Candidate 45 (adaf9c1, PC, 16/11): every car has its own wheels and City Sample's differential
 (Car03, 05, 12 and Police13 rear wheel drive), `-GTARun` 7/7 with a 154 m chase. Car05 at full

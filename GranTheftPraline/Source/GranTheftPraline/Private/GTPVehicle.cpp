@@ -1273,9 +1273,16 @@ void AGTPVehicle::PlaceForLaunchTest()
 	LaunchLineCm = ChosenCm;
 	const FVector2D Spot = LaunchLineStart + LaunchLineDir * Setback;
 	const float Yaw = FMath::RadiansToDegrees(static_cast<float>(FMath::Atan2(LaunchLineDir.Y, LaunchLineDir.X)));
-	SetActorLocationAndRotation(FVector(Spot.X, Spot.Y, ChosenZ + 30.0), FRotator(0.f, Yaw, 0.f), false, nullptr, ETeleportType::ResetPhysics);
+	// Physics off while the car is moved and for half a second after (RunLaunchTest holds it there,
+	// then gives it back to the solver): the solver undoes the teleport of a simulated car. Seen by
+	// GTPDemoRoute's chase relocation on 16/11, and here at candidate 49: put 441 m away, the car was
+	// back at the player start when the launch began, three times out of three.
 	Body->SetPhysicsLinearVelocity(FVector::ZeroVector);
 	Body->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
+	Body->SetSimulatePhysics(false);
+	LaunchHoldAt = FTransform(FRotator(0.f, Yaw, 0.f), FVector(Spot.X, Spot.Y, ChosenZ + 30.0));
+	LaunchHoldUntil = static_cast<float>(World->GetTimeSeconds()) + 0.5f;
+	SetActorLocationAndRotation(LaunchHoldAt.GetLocation(), LaunchHoldAt.GetRotation(), false, nullptr, ETeleportType::TeleportPhysics);
 	NotePlaced(TEXT("launch test"));
 	GTP_TRACE(LogGTPVehicle, TEXT("drive launch test: straight of %.0f m clear (line of %.0f m on lanes %d to %d, %d line(s), %d road(s) tested; ends: %s), car put at %s heading %.0f"),
 		ChosenCm / 100.f, Chosen.LengthCm / 100.f, Chosen.FirstLane, Chosen.LastLane, Candidates.Num(), Tested.Num(), *ChosenEnd,
@@ -1302,6 +1309,24 @@ void AGTPVehicle::RunLaunchTest()
 		PlaceForLaunchTest();
 		LaunchTestStart = Now + 3.f;
 		return;
+	}
+	if (LaunchHoldUntil >= 0.f)
+	{
+		// Just put on the straight: held there with the physics off, then given back to the solver.
+		SetActorLocationAndRotation(LaunchHoldAt.GetLocation(), LaunchHoldAt.GetRotation(), false, nullptr, ETeleportType::TeleportPhysics);
+		if (Now < LaunchHoldUntil)
+		{
+			return;
+		}
+		LaunchHoldUntil = -1.f;
+		if (USkeletalMeshComponent* Held = GetMesh())
+		{
+			Held->SetSimulatePhysics(true);
+			Held->SetPhysicsLinearVelocity(FVector::ZeroVector);
+			Held->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
+			Held->WakeAllRigidBodies();
+		}
+		GTP_TRACE(LogGTPVehicle, TEXT("drive launch test: physics back on at %s"), *GetActorLocation().ToCompactString());
 	}
 	if (Now < LaunchTestStart)
 	{
