@@ -1,6 +1,7 @@
 #include "GTPTraffic.h"
 
 #include "GTPDeterminism.h"
+#include "GTPLaneRoute.h"
 #include "GTPLog.h"
 #include "GTPVehicle.h"
 #include "GTPTrafficGhost.h"
@@ -44,6 +45,22 @@ namespace
 	constexpr float CmToM = 0.01f;
 	/** Metres of lanes chosen ahead of the current one (see tools/vehicles/traffic_sim). */
 	constexpr float RouteAheadM = 50.f;
+	/** A lane follower with a goal looks for its way again this often (the goal is a car that flees). */
+	constexpr double FollowerReplanSeconds = 2.0;
+
+	/** Centimetres between Location and the lane's line from its point First on (huge when nothing is left of it). */
+	float FollowerDistanceToLane(const TArray<FVector>& Points, const FVector& Location, int32 First)
+	{
+		const FVector2D P(Location.X, Location.Y);
+		float Best = TNumericLimits<float>::Max();
+		for (int32 Index = FMath::Max(First, 0); Index + 1 < Points.Num(); ++Index)
+		{
+			const FVector2D A(Points[Index].X, Points[Index].Y);
+			const FVector2D B(Points[Index + 1].X, Points[Index + 1].Y);
+			Best = FMath::Min(Best, static_cast<float>(FVector2D::Distance(P, FMath::ClosestPointOnSegment2D(P, A, B))));
+		}
+		return Best;
+	}
 
 	/**
 	 * Height of a parked car's pivot above the ground at spawn, so that the lowest point of its mesh
@@ -124,6 +141,54 @@ float FGTPLaneFollower::OpenRoadMetres(const TArray<FGTPTrafficLane>& Lanes, int
 		[&Lanes](int Index) { return Lanes[Index].LengthCm() * CmToM; });
 }
 
+TArray<int32> FGTPLaneFollower::WayToGoal(const TArray<FGTPTrafficLane>& Lanes) const
+{
+	TArray<int32> Way;
+	if (Route.Num() == 0 || !Lanes.IsValidIndex(Route.Last()))
+	{
+		return Way;
+	}
+	const int32 Start = Route.Last();
+	const int32 Avoid = AvoidLane;
+	const FVector Target = Goal;
+	const auto GoalMetres = [&Lanes, &Target, Avoid](int Lane) -> float
+	{
+		return Lane == Avoid ? 1.e9f : FollowerDistanceToLane(Lanes[Lane].Points, Target, 0) * CmToM;
+	};
+	// On the car's own lane only what is still ahead of it counts: a goal behind it there is reached round the block.
+	const float StartGoal = Route.Num() == 1
+		? FollowerDistanceToLane(Lanes[Start].Points, Target, FMath::Clamp(Closest - 1, 0, FMath::Max(Lanes[Start].Points.Num() - 2, 0))) * CmToM
+		: GoalMetres(Start);
+	const std::vector<int> Found = GTPLaneRoute::Toward(Start, Lanes.Num(), StartGoal,
+		[&Lanes](int Lane) -> const TArray<int32>& { return Lanes[Lane].Next; },
+		[&Lanes](int Lane) -> float { return Lanes[Lane].LengthCm() * CmToM; }, GoalMetres);
+	for (const int Lane : Found)
+	{
+		Way.Add(Lane);
+	}
+	return Way;
+}
+
+int32 FGTPLaneFollower::PickOpenToward(const TArray<FGTPTrafficLane>& Lanes, int32 Lane) const
+{
+	int32 Best = INDEX_NONE;
+	double BestDistance = TNumericLimits<double>::Max();
+	for (const int32 Candidate : Lanes[Lane].Next)
+	{
+		if (!Lanes.IsValidIndex(Candidate) || Lanes[Candidate].Points.Num() == 0 || Candidate == AvoidLane || OpenRoadMetres(Lanes, Candidate) < 80.f)
+		{
+			continue;
+		}
+		const double Distance = FVector::DistSquared2D(Lanes[Candidate].Points.Last(), Goal);
+		if (Distance < BestDistance)
+		{
+			BestDistance = Distance;
+			Best = Candidate;
+		}
+	}
+	return Best;
+}
+
 void FGTPLaneFollower::Plan()
 {
 	AGTPTrafficNetwork* Net = Network.Get();
@@ -138,9 +203,25 @@ void FGTPLaneFollower::Plan()
 		AheadM += Lanes[Route[Index]].LengthCm() * CmToM;
 	}
 	const float WantedAheadM = FMath::Max(RouteAheadM, AheadMeters);
+	// A chase: the shortest way to the goal first, then, past its end, exits with open road behind them.
+	const bool bWay = bHasGoal && bRouteToGoal;
+	const TArray<int32> Way = bWay && AheadM < WantedAheadM ? WayToGoal(Lanes) : TArray<int32>();
+	int32 WayIndex = 0;
 	while (AheadM < WantedAheadM)
 	{
-		int32 Next = bHasGoal ? Net->PickNextToward(Route.Last(), Goal) : Net->PickNext(Route.Last(), GTPDeterminism::IsOn() ? &OwnRandom : nullptr);
+		int32 Next = INDEX_NONE;
+		if (WayIndex < Way.Num())
+		{
+			Next = Way[WayIndex++];
+		}
+		else if (bWay)
+		{
+			Next = PickOpenToward(Lanes, Route.Last());
+		}
+		if (Next == INDEX_NONE)
+		{
+			Next = bHasGoal ? Net->PickNextToward(Route.Last(), Goal) : Net->PickNext(Route.Last(), GTPDeterminism::IsOn() ? &OwnRandom : nullptr);
+		}
 		if (Next != INDEX_NONE && bPreferStraight && !bHasGoal)
 		{
 			// The exit whose first segment keeps the heading of the end of this lane the best.
@@ -204,6 +285,36 @@ bool FGTPLaneFollower::Step(const FVector& Location, float YawDegrees, float Spe
 		{
 			AheadMeters = Needed;
 			Plan();
+		}
+	}
+	if (bRouteToGoal && bHasGoal && Route.Num() > 1)
+	{
+		const UWorld* World = Net->GetWorld();
+		const double Now = World ? World->GetTimeSeconds() : 0.0;
+		if (Now >= NextReplanTime)
+		{
+			// The goal has moved: the way is looked for again. The lanes the car can no longer avoid (its braking
+			// distance and 20 m) are kept, so a bend it is braking for does not move under it.
+			NextReplanTime = Now + FollowerReplanSeconds;
+			const TArray<FGTPTrafficLane>& Lanes = Net->GetLanes();
+			const float Keep = Speed * Speed / (2.f * FMath::Max(Settings.ComfortDecel, 0.1f)) + 20.f;
+			float Ahead = 0.f;
+			const int32 LastOfLane = FMath::Min(CurrentLaneLength, static_cast<int32>(Path.size())) - 1;
+			for (int32 Index = FMath::Max(Closest, 0); Index < LastOfLane; ++Index)
+			{
+				Ahead += std::hypot(Path[Index + 1].X - Path[Index].X, Path[Index + 1].Y - Path[Index].Y);
+			}
+			int32 KeepLanes = 1;
+			while (KeepLanes < Route.Num() && Ahead < Keep)
+			{
+				Ahead += Lanes[Route[KeepLanes]].LengthCm() * CmToM;
+				++KeepLanes;
+			}
+			if (KeepLanes < Route.Num())
+			{
+				Route.SetNum(KeepLanes);
+				Plan();
+			}
 		}
 	}
 	Out = GTPDrive::Decide(Path, static_cast<float>(Location.X) * CmToM, static_cast<float>(Location.Y) * CmToM,

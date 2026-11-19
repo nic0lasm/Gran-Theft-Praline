@@ -53,15 +53,39 @@ int main()
 		CHECK(GTPChase::Judge(T, S) == GTPChase::EVerdict::TooFar);
 	}
 	{
-		// A player stuck in a jam at 10 km/h: units at 8 km/h around the car are following (the floor drops with the player).
+		// A player stuck in a jam at 10 km/h: units at 8 km/h, 12 m from the car, are on him. The speed wanted
+		// does not drop with the player (25 km/h, fixed floor); what passes is that they stay within 30 m.
 		FGTPChaseTally T;
 		for (int Frame = 0; Frame < 30 * 20; ++Frame)
 		{
 			T.AddUnit(8.f, 12.f, S);
 			T.EndFrame(Dt, 10.f, S);
 		}
-		CHECK(Near(GTPChase::WantedMeanKmh(T, S), 6.f));
+		CHECK(Near(GTPChase::WantedMeanKmh(T, S), 25.f));
 		CHECK(GTPChase::Judge(T, S) == GTPChase::EVerdict::Follows);
+	}
+	{
+		// Gate of candidate 49: units at 22 km/h, the nearest 75 m away on average, behind a player at 33.
+		// 0.6 x 33 = 20 let it pass; under the floor of 25 it does not.
+		FGTPChaseTally T;
+		for (int Frame = 0; Frame < 30 * 66; ++Frame)
+		{
+			T.AddUnit(22.f, 75.f, S);
+			T.EndFrame(Dt, 33.f, S);
+		}
+		CHECK(Near(GTPChase::WantedMeanKmh(T, S), 25.f));
+		CHECK(GTPChase::Judge(T, S) == GTPChase::EVerdict::TooSlow);
+	}
+	{
+		// A fast flight asks for more than the floor: a player at 70 km/h wants units at 42.
+		FGTPChaseTally T;
+		for (int Frame = 0; Frame < 30 * 30; ++Frame)
+		{
+			T.AddUnit(35.f, 60.f, S);
+			T.EndFrame(Dt, 70.f, S);
+		}
+		CHECK(Near(GTPChase::WantedMeanKmh(T, S), 42.f));
+		CHECK(GTPChase::Judge(T, S) == GTPChase::EVerdict::TooSlow);
 	}
 	{
 		// A unit that arrives late weighs only the time it was there; frames without a unit count for nothing.
@@ -82,10 +106,18 @@ int main()
 		}
 		// 12 s at 40 and 6 s at 80: (480 + 480) / 18.
 		CHECK(Near(T.MeanKmh(), 960.f / 18.f, 0.05f) && T.PeakUnits == 2 && Near(static_cast<float>(T.Seconds), 12.f, 0.05f));
-		T.NoteMoved();
-		CHECK(T.Moves == 1);
+		// The cars sent: two for the level, then one to replace a car lost, made 190 m away, and one made 90 m away.
+		T.NoteSent(60.f, false);
+		T.NoteSent(110.f, false);
+		CHECK(T.Sent == 2 && T.Replacements == 0 && T.ReplacementNearest < 0.f && GTPChase::Unaided(T, S));
+		T.NoteSent(190.f, true);
+		CHECK(T.Sent == 3 && T.Replacements == 1 && Near(T.ReplacementNearest, 190.f) && GTPChase::Unaided(T, S));
+		// A replacement made close to the player did not drive to him: the pursuit was helped.
+		T.NoteSent(90.f, true);
+		T.NoteSent(240.f, true);
+		CHECK(T.Replacements == 3 && Near(T.ReplacementNearest, 90.f) && !GTPChase::Unaided(T, S));
 		T.Reset();
-		CHECK(T.Moves == 0);
+		CHECK(T.Sent == 0 && T.Replacements == 0 && T.ReplacementNearest < 0.f);
 		CHECK(T.Seconds == 0.0 && T.NearestMin < 0.f && T.MeanNearest() < 0.f);
 	}
 	std::printf(Failures ? "FAILED (%d)\n" : "OK\n", Failures);

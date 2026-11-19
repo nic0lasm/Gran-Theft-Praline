@@ -712,17 +712,16 @@ bool AGTPPoliceDirector::FindSpawnPoint(const FVector& PlayerLocation, int32& Ou
 		const int32 Point = Dice.RandRange(1, Points.Num() - 3);
 		FVector Location = Points[Point];
 		const double Distance = FVector::Dist2D(Location, PlayerLocation);
-		if (bAheadSpawn)
+		// A replacement is made far (it has to drive to the player), the first cars of a level in the spawn ring.
+		const double Nearest = bFarSpawn ? ReplacementMinDistance : (bAheadSpawn ? MinSpawnDistance * 1.6 : MinSpawnDistance);
+		const double Farthest = bFarSpawn ? FMath::Max(ReplacementMinDistance * 1.2, LeashDistance * 0.85) : (bAheadSpawn ? MaxSpawnDistance * 1.4 : MaxSpawnDistance);
+		if (Distance < Nearest || Distance > Farthest)
 		{
-			// Coming from in front: farther out, within about 35 degrees of the player's direction of travel.
-			if (Distance < MinSpawnDistance * 1.6 || Distance > MaxSpawnDistance * 1.4
-				|| !GTPPoliceTactics::IsAhead(static_cast<float>(Location.X - PlayerLocation.X), static_cast<float>(Location.Y - PlayerLocation.Y),
-					static_cast<float>(AheadDirection.X), static_cast<float>(AheadDirection.Y), 0.8f))
-			{
-				continue;
-			}
+			continue;
 		}
-		else if (Distance < MinSpawnDistance || Distance > MaxSpawnDistance)
+		// Coming from in front: within about 35 degrees of the player's direction of travel.
+		if (bAheadSpawn && !GTPPoliceTactics::IsAhead(static_cast<float>(Location.X - PlayerLocation.X), static_cast<float>(Location.Y - PlayerLocation.Y),
+			static_cast<float>(AheadDirection.X), static_cast<float>(AheadDirection.Y), 0.8f))
 		{
 			continue;
 		}
@@ -794,12 +793,10 @@ bool AGTPPoliceDirector::SpawnUnit(const FVector& PlayerLocation, const FTransfo
 
 	FUnit& Unit = Units.AddDefaulted_GetRef();
 	Unit.Car = Car;
-	// Chase tuning: harder bends and braking than the calm city driving.
 	Unit.bBlock = bBlock;
-	Unit.Settings.MaxLateralAccel = 6.f;
-	Unit.Settings.ComfortDecel = 7.f;
+	// Chase tuning: harder bends than the calm city driving, and a brake that holds the car to the corner ahead.
+	GTPDrive::SetChaseDriving(Unit.Settings);
 	Unit.Settings.SafeGap = 3.f;
-	Unit.Settings.ThrottleGain = 0.8f;
 	// The driver is seated in the frame the car is made, like the traffic's cars (a car that got its driver a
 	// frame later stayed in neutral on the PC); the light bar and the registration come on the next frames.
 	if (!SeatDriver(Unit))
@@ -809,7 +806,15 @@ bool AGTPPoliceDirector::SpawnUnit(const FVector& PlayerLocation, const FTransfo
 		return false;
 	}
 	Unit.Stage = 2;
-	GTP_TRACE(LogGTPWanted, TEXT("police: %s on lane %d at %s"), *Car->GetName(), Lane, *Transform.GetLocation().ToCompactString());
+	const float FromPlayer = static_cast<float>(FVector::Dist2D(Transform.GetLocation(), PlayerLocation)) * WantedCmToM;
+	if (!bBlock)
+	{
+		// Counted for the pursuit: how many cars were sent, and how near the player a replacement was made.
+		ChaseTally.NoteSent(FromPlayer, bFarSpawn);
+		++ResponseSent;
+	}
+	GTP_TRACE(LogGTPWanted, TEXT("police: %s on lane %d at %s, %.0f m from the player%s"), *Car->GetName(), Lane, *Transform.GetLocation().ToCompactString(),
+		FromPlayer, bBlock ? TEXT(" (roadblock)") : (bFarSpawn ? TEXT(" (replacement)") : TEXT("")));
 	return true;
 }
 
@@ -1033,38 +1038,6 @@ bool AGTPPoliceDirector::SeatDriver(FUnit& Unit)
 	return true;
 }
 
-void AGTPPoliceDirector::RepositionUnit(FUnit& Unit, const FVector& PlayerLocation)
-{
-	AGTPVehicle* Car = Unit.Car.Get();
-	int32 Lane = 0, Point = 0;
-	FTransform Transform;
-	if (!Car || !FindSpawnPoint(PlayerLocation, Lane, Point, Transform))
-	{
-		return;
-	}
-	// Never teleported into another car (traffic, puppet, parked): the solver does not survive a deep overlap.
-	if (const AActor* Blocker = Network->bPoolSpawnCheck ? Network->FindCarAt(Car, Transform) : nullptr)
-	{
-		GTP_TRACE(LogGTPWanted, TEXT("police: %s move blocked by %s"), *Car->GetName(), *Blocker->GetName());
-		return;
-	}
-	// A move instead of a new car and driver: no spawn hitch.
-	Car->SetActorLocationAndRotation(Transform.GetLocation(), Transform.GetRotation(), false, nullptr, ETeleportType::TeleportPhysics);
-	Car->NotePlaced(TEXT("police move"));
-	if (USkeletalMeshComponent* Body = Car->GetMesh())
-	{
-		Body->SetPhysicsLinearVelocity(FVector::ZeroVector);
-		Body->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
-	}
-	Unit.Follower = FGTPLaneFollower();
-	Unit.bOnLanes = false;
-	Unit.StoppedTime = 0.f;
-	Unit.Recovery = FGTPUnitRecovery();
-	Unit.MovedTo = Transform.GetLocation();
-	Unit.MoveCheckTime = static_cast<float>(GetWorld()->GetTimeSeconds()) + 0.5f;
-	GTP_TRACE(LogGTPWanted, TEXT("police: %s moved to lane %d"), *Car->GetName(), Lane);
-}
-
 void AGTPPoliceDirector::UpdateUnitDetail(AGTPVehicle* Car, float DistanceToView) const
 {
 	// Same levers as the traffic cars (shadow, forced LOD, draw distance) with the tighter police distances.
@@ -1235,9 +1208,11 @@ void AGTPPoliceDirector::TraceUnitTrouble(const FUnit& Unit, const TCHAR* What) 
 	{
 		OnLane = FString::Printf(TEXT("%.0f m from lane %d"), FVector::Dist2D(Location, Network->GetLanes()[Lane].Points[Point]) * WantedCmToM, Lane);
 	}
-	GTP_TRACE(LogGTPWanted, TEXT("police unit: %s %s at %s yaw=%.0f up=%.2f, %d wheel(s) on the ground, %.0f km/h, %s, lanes=%d, back-offs %d (%d here), %.0f m from the player; ahead: %s"),
+	// On its lanes: how far the car is from the line it follows (0 = the thing ahead stands on the lane itself).
+	const float OffPath = Unit.bOnLanes && Unit.Follower.IsActive() ? Unit.Follower.OffPathMetres(Location) : -1.f;
+	GTP_TRACE(LogGTPWanted, TEXT("police unit: %s %s at %s yaw=%.0f up=%.2f, %d wheel(s) on the ground, %.0f km/h, %s, lanes=%d (lane %d, %.1f m off its path), back-offs %d (%d here), %.0f m from the player; ahead: %s"),
 		*Car->GetName(), What, *Location.ToCompactString(), Yaw, Car->GetActorUpVector().Z, PoliceWheelsOnGround(*Car), Car->GetSpeedKmh(), *OnLane,
-		Unit.bOnLanes ? 1 : 0, Unit.Recovery.BackOffs, Unit.Recovery.BackOffsHere,
+		Unit.bOnLanes ? 1 : 0, Unit.Follower.GetLane(), OffPath, Unit.Recovery.BackOffs, Unit.Recovery.BackOffsHere,
 		Player ? FVector::Dist2D(Location, Player->GetActorLocation()) * WantedCmToM : -1.0, *Ahead);
 }
 
@@ -1246,10 +1221,30 @@ void AGTPPoliceDirector::DriveOnLanes(FUnit& Unit, const FVector& Goal, bool bHa
 	AGTPVehicle* Car = Unit.Car.Get();
 	const FVector Location = Car->GetActorLocation();
 	const float Yaw = static_cast<float>(Car->GetActorRotation().Yaw);
+	const float NowSeconds = static_cast<float>(GetWorld()->GetTimeSeconds());
+	// After the end of a dead end the lane to take is the one back the other way, until the car heads that way
+	// (the driving turns it at full lock; held against a kerb it backs off, wheels the other way: a three-point turn),
+	// and no longer than the half minute the dead end is kept out of its way.
+	if (Unit.bTurnAround && (FMath::Abs(FRotator::NormalizeAxis(Yaw - Unit.TurnYaw)) < 60.f || NowSeconds >= Unit.AvoidUntil))
+	{
+		Unit.bTurnAround = false;
+	}
 	if (!Unit.bOnLanes || !Unit.Follower.IsActive())
 	{
+		const float LaneYaw = Unit.bTurnAround ? Unit.TurnYaw : Yaw;
+		// The follower knows its goal and its settings before it plans: its first lanes are already the way to the goal.
 		Unit.Follower = FGTPLaneFollower();
-		if (!Unit.Follower.StartNear(Network, Location, Yaw, 1500.f) && !Unit.Follower.StartNear(Network, Location, Yaw, 8000.f))
+		Unit.Follower.bIgnoreLaneLimit = true;
+		Unit.Follower.bRouteToGoal = true;
+		Unit.Follower.AvoidLane = NowSeconds < Unit.AvoidUntil ? Unit.AvoidLane : INDEX_NONE;
+		// The unit's chase settings on the lanes too: the follower's own are the calm city ones
+		// (bends at 2.2 m/s2, soft throttle), which held a chase at 105 km/h near 70.
+		Unit.Follower.SetSettings(Unit.Settings);
+		if (bHasGoal)
+		{
+			Unit.Follower.SetGoal(Goal);
+		}
+		if (!Unit.Follower.StartNear(Network, Location, LaneYaw, 1500.f) && !Unit.Follower.StartNear(Network, Location, LaneYaw, 8000.f))
 		{
 			// Off the lanes (after a straight chase): head for the goal in a straight line, slowly, until a lane is near.
 			Unit.Follower = FGTPLaneFollower();
@@ -1263,10 +1258,6 @@ void AGTPPoliceDirector::DriveOnLanes(FUnit& Unit, const FVector& Goal, bool bHa
 			}
 			return;
 		}
-		Unit.Follower.bIgnoreLaneLimit = true;
-		// The unit's chase settings on the lanes too: the follower's own are the calm city ones
-		// (bends at 2.2 m/s2, soft throttle), which held a chase at 105 km/h near 70.
-		Unit.Follower.SetSettings(Unit.Settings);
 		Unit.bOnLanes = true;
 	}
 	if (bHasGoal)
@@ -1282,8 +1273,18 @@ void AGTPPoliceDirector::DriveOnLanes(FUnit& Unit, const FVector& Goal, bool bHa
 	const float Obstacle = (Profile.bRam || GetWorld()->GetTimeSeconds() < Unit.RamUntil) ? -1.f : UGTPAIDriverComponent::ProbeAhead(Car, ProbeCm, 90.f);
 	Unit.LastObstacle = Obstacle;
 	FGTPDriveCommand Command;
+	const int32 LaneBefore = Unit.Follower.GetLane();
 	if (!Unit.Follower.Step(Location, Yaw, Car->GetSpeedKmh(), MaxSpeedKmh, Obstacle, Command))
 	{
+		// Stopped at the end of a dead end. Started again from here with its own heading, the follower found the same
+		// lane and stopped again, for good (gate of candidate 49: a unit stood 9 s at the end of one). It turns round,
+		// and that lane is kept out of its way for half a minute.
+		Unit.bTurnAround = true;
+		Unit.TurnYaw = FRotator::NormalizeAxis(Yaw + 180.f);
+		Unit.AvoidLane = LaneBefore;
+		Unit.AvoidUntil = NowSeconds + 30.f;
+		GTP_TRACE(LogGTPWanted, TEXT("police unit: %s at the end of lane %d, a dead end, at %s: turning round"), *Car->GetName(), LaneBefore,
+			*Location.ToCompactString());
 		Unit.bOnLanes = false;
 		Unit.LastThrottle = 0.f;
 		Unit.LastBrake = 1.f;
@@ -1656,27 +1657,8 @@ void AGTPPoliceDirector::Tick(float DeltaSeconds)
 			continue;
 		}
 		Unit.IdleTime = Stars > 0 ? 0.f : Unit.IdleTime + DeltaSeconds;
-		// A unit left far from a new chase is moved near the player (out of sight) instead of creating another.
-		if (!Unit.bBlock && !Unit.Recovery.IsGivenUp() && Stars > 0 && Index < Desired && Now >= Unit.NextRepositionTime
-			&& FVector::Dist2D(Car->GetActorLocation(), Player->GetActorLocation()) > MaxSpawnDistance * 1.5f
-			&& !Network->IsSeenByPlayer(Car->GetActorLocation()))
-		{
-			Unit.NextRepositionTime = Now + 3.f;
-			RepositionUnit(Unit, Player->GetActorLocation());
-			ChaseTally.NoteMoved();
-		}
-		if (Unit.MoveCheckTime > 0.f && Now >= Unit.MoveCheckTime)
-		{
-			// The chase demo's car, moved the same way while simulated, was taken back by the solver (smoke of 16/11):
-			// half a second later a unit cannot be more than a few metres from where it was put.
-			Unit.MoveCheckTime = 0.f;
-			const float Off = static_cast<float>(FVector::Dist2D(Car->GetActorLocation(), Unit.MovedTo)) * 0.01f;
-			if (Off > 30.f)
-			{
-				ChaseTally.NoteMoveLost();
-				GTP_TRACE(LogGTPWanted, TEXT("police: %s is %.0f m from where it was moved half a second ago: the move did not hold"), *Car->GetName(), Off);
-			}
-		}
+		// No unit is ever moved by hand: one left behind drives back, or is taken away beyond the leash and replaced
+		// by a car made far from the player (ReplacementMinDistance).
 		DriveUnit(Unit, *Wanted, *Player, DeltaSeconds);
 		if (Stars > 0 && !Unit.bBlock && !Unit.Recovery.IsGivenUp())
 		{
@@ -1730,10 +1712,10 @@ void AGTPPoliceDirector::Tick(float DeltaSeconds)
 	{
 		// What the player sees of the pursuit, every 10 s (the per-unit lines above say why a car does not move).
 		NextTallyTraceTime = Now + 10.f;
-		GTP_TRACE(LogGTPWanted, TEXT("police chase: units mean=%.0f km/h peak=%.0f moving=%.0f %% nearest mean=%.0f m min=%.0f m within %.0f m %.0f %% of %.0f s, player mean=%.0f km/h, up to %d units, %d put back near the player (%d moves not held), %d back-off(s), %d unit(s) given up"),
+		GTP_TRACE(LogGTPWanted, TEXT("police chase: units mean=%.0f km/h peak=%.0f moving=%.0f %% nearest mean=%.0f m min=%.0f m within %.0f m %.0f %% of %.0f s, player mean=%.0f km/h, up to %d units, %d sent, %d of them replacements (nearest made %.0f m from the player), %d back-off(s), %d unit(s) given up"),
 			ChaseTally.MeanKmh(), ChaseTally.UnitPeakKmh, ChaseTally.MovingShare() * 100.f, ChaseTally.MeanNearest(), ChaseTally.NearestMin, ChaseTallySettings.NearMetres,
-			ChaseTally.NearShare() * 100.f, static_cast<float>(ChaseTally.Seconds), ChaseTally.PlayerMeanKmh(), ChaseTally.PeakUnits, ChaseTally.Moves, ChaseTally.MovesLost,
-			ChaseTally.BackOffs, ChaseTally.GivenUp);
+			ChaseTally.NearShare() * 100.f, static_cast<float>(ChaseTally.Seconds), ChaseTally.PlayerMeanKmh(), ChaseTally.PeakUnits, ChaseTally.Sent, ChaseTally.Replacements,
+			ChaseTally.ReplacementNearest, ChaseTally.BackOffs, ChaseTally.GivenUp);
 	}
 
 	int32 Chasing = 0;
@@ -1743,13 +1725,23 @@ void AGTPPoliceDirector::Tick(float DeltaSeconds)
 	{
 		(Unit.bBlock ? Blocks : (Unit.Recovery.IsGivenUp() ? Wrecks : Chasing)) += 1;
 	}
+	// The level rose from nothing: the cars it asks for come from the spawn ring (those still around count among them).
+	if (Stars > 0 && LastStars == 0)
+	{
+		ResponseSent = Chasing;
+	}
+	LastStars = Stars;
 	// A given-up car does not hold a chasing car's place: left in the player's sight it would keep the next
 	// one from coming. No more than two of them on the map at a time.
 	if (Chasing < Desired && Wrecks <= 2 && Now >= NextSpawnTime)
 	{
-		// From the second car on, every other one comes from in front of a moving player.
 		const FVector Velocity = Player->GetVelocity();
-		bAheadSpawn = Profile.bFlank && (Chasing % 2 == 1) && Velocity.Size2D() > 500.f;
+		const bool bMoving = Velocity.Size2D() > 500.f;
+		// Past the cars the level asks for, a car sent replaces one that was lost: it is made far from the player
+		// and has to drive to him, from in front when he moves and a place is found there (it meets him instead of
+		// running after him). Among the first cars, from the second on, every other one comes from in front.
+		bFarSpawn = ResponseSent >= Desired;
+		bAheadSpawn = bMoving && (bFarSpawn || (Profile.bFlank && (Chasing % 2 == 1)));
 		AheadDirection = FVector2D(Velocity.X, Velocity.Y).GetSafeNormal();
 		if (!SpawnUnit(Player->GetActorLocation()) && bAheadSpawn)
 		{
@@ -1757,6 +1749,7 @@ void AGTPPoliceDirector::Tick(float DeltaSeconds)
 			SpawnUnit(Player->GetActorLocation());
 		}
 		bAheadSpawn = false;
+		bFarSpawn = false;
 		NextSpawnTime = Now + SpawnInterval;
 	}
 	// Roadblocks at three stars and more: two cars across the road ahead of a player driving fast.

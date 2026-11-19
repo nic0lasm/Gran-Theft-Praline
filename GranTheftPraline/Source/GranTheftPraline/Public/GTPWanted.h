@@ -322,8 +322,7 @@ protected:
 
 	/**
 	 * Units are kept this long (s) after the level is lost, driving the lanes with lights off, and
-	 * reused (moved out of sight) when a new level comes: creating a car and its driver costs a
-	 * visible hitch. 0 takes them away at once.
+	 * reused when a new level comes (they drive to it: no unit is ever moved by hand). 0 takes them away at once.
 	 */
 	UPROPERTY(Config, EditAnywhere, Category = "Police")
 	float IdleLifetime = 150.f;
@@ -335,9 +334,18 @@ protected:
 	UPROPERTY(Config, EditAnywhere, Category = "Police")
 	float MaxSpawnDistance = 12000.f;
 
-	/** Beyond this a car is moved to a new spawn point when out of sight (cm). */
+	/** Beyond this a car is taken away when out of sight (cm), and another one is sent. */
 	UPROPERTY(Config, EditAnywhere, Category = "Police")
 	float LeashDistance = 30000.f;
+
+	/**
+	 * A car sent to replace one that was lost (left behind, given up, wrecked) is never made nearer than this (cm):
+	 * the first cars of a level arrive from the spawn ring, the next ones have to drive to the player, or the
+	 * distance to the nearest unit says nothing of how the police drive (4 units were put back at 50 to 120 m
+	 * from the player in the pursuit of candidate 49).
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Police")
+	float ReplacementMinDistance = 15000.f;
 
 	/** Seconds between two spawns. */
 	UPROPERTY(Config, EditAnywhere, Category = "Police")
@@ -393,7 +401,6 @@ private:
 		int8 Stage = 0;
 		/** Seconds without a wanted level (an idle unit is kept for IdleLifetime, then taken away). */
 		float IdleTime = 0.f;
-		float NextRepositionTime = 0.f;
 		/** Siren mode last set (EGTPSirenMode as int, -1 = never). */
 		int8 SirenState = -1;
 		/** Obstacle probe ignored until then (s): a unit stopped behind traffic pushes through (ramming). */
@@ -411,9 +418,12 @@ private:
 		float LastSteer = 0.f;
 		/** Held against something: backs off. Off its wheels or held for good: given up (GTPUnitRecovery.h). */
 		FGTPUnitRecovery Recovery;
-		/** Where the unit was last put (RepositionUnit) and when to check that it is still around there (0 = nothing to check). */
-		FVector MovedTo = FVector::ZeroVector;
-		float MoveCheckTime = 0.f;
+		/** Stopped at the end of a dead end: the unit takes the lane back the other way, until it heads along TurnYaw (degrees). */
+		bool bTurnAround = false;
+		float TurnYaw = 0.f;
+		/** The dead end it turned round in, kept out of its way until AvoidUntil (s). */
+		int32 AvoidLane = INDEX_NONE;
+		float AvoidUntil = 0.f;
 	};
 
 	/** Siren follows the lights: off without stars, yelp in pursuit, two-tone otherwise. */
@@ -466,7 +476,6 @@ private:
 	void AddLightBar(FUnit& Unit);
 	void UpdateUnitDetail(AGTPVehicle* Car, float DistanceToView) const;
 	bool SeatDriver(FUnit& Unit);
-	void RepositionUnit(FUnit& Unit, const FVector& PlayerLocation);
 	void BlinkLights(FUnit& Unit, bool bOn, bool bPhase);
 	bool HasLineOfSight(const AGTPVehicle* Car, const AActor& Player, const FVector& Target) const;
 	void RemoveUnit(int32 Index);
@@ -486,6 +495,11 @@ private:
 	/** Spawn bias: when set, FindSpawnPoint picks a point ahead of the player's travel direction, farther away. */
 	bool bAheadSpawn = false;
 	FVector2D AheadDirection = FVector2D::ZeroVector;
+	/** Spawn bias: when set, FindSpawnPoint picks a point between ReplacementMinDistance and the leash (a replacement). */
+	bool bFarSpawn = false;
+	/** Chasing cars sent since the level rose from nothing: past the number the level asks for, a car sent is a replacement. */
+	int32 ResponseSent = 0;
+	int32 LastStars = 0;
 	float NextBlockTime = 0.f;
 	UPROPERTY(Transient)
 	TObjectPtr<UGTPPoliceSenses> Senses;

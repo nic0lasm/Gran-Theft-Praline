@@ -85,6 +85,10 @@ jobs:
         run: |
           g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/wanted_sim/bend_test.cpp -o /tmp/bend_test
           /tmp/bend_test
+      - name: A car driven round a right angle with the chase settings
+        run: |
+          g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/wanted_sim/corner_drive_test.cpp -o /tmp/corner_drive_test
+          /tmp/corner_drive_test
       - name: Chase speed of the drive logic (known path and bend horizon)
         run: |
           g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/wanted_sim/chase_speed_test.cpp -o /tmp/chase_speed_test
@@ -98,6 +102,12 @@ jobs:
           g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/wanted_sim/unit_recovery_test.cpp -o /tmp/unit_recovery_test
           /tmp/unit_recovery_test
           printf '#include "GTPUnitRecovery.h"\nint main() { return 0; }\n' > /tmp/hdr.cpp
+          clang++ -std=c++17 -fsyntax-only -Wall -Wextra -Werror -Wconversion -Wsign-conversion -Wshadow -Wdouble-promotion -I GranTheftPraline/Source/GranTheftPraline/Public /tmp/hdr.cpp
+      - name: The way a chasing car takes on the lanes
+        run: |
+          g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/wanted_sim/lane_route_test.cpp -o /tmp/lane_route_test
+          /tmp/lane_route_test
+          printf '#include "GTPLaneRoute.h"\nint main() { return 0; }\n' > /tmp/hdr.cpp
           clang++ -std=c++17 -fsyntax-only -Wall -Wextra -Werror -Wconversion -Wsign-conversion -Wshadow -Wdouble-promotion -I GranTheftPraline/Source/GranTheftPraline/Public /tmp/hdr.cpp
       - name: Witnesses of a crime
         run: |

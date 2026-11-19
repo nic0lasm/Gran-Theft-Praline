@@ -18,11 +18,20 @@ struct FGTPChaseTallySettings
 	float NearMetres = 80.f;
 	/** The verdict needs at least this long with a unit on the road. */
 	float MinSeconds = 10.f;
-	/** Units must average this, or MinPlayerShare of the player's own average when the player is slower. */
-	float MinMeanKmh = 30.f;
+	/**
+	 * Units must average MinPlayerShare of the player's own average, and never less than FloorKmh.
+	 * The floor is fixed: the streets of the quarter are posted at 20 to 30 km/h, and a police car that averages
+	 * less than the ordinary traffic there is not pursuing anybody, however slow the car it follows. Without it a
+	 * slower player made the step easier (gate of candidate 49: 22 km/h passed against 20 wanted, for a player at 33).
+	 */
+	float FloorKmh = 25.f;
 	float MinPlayerShare = 0.6f;
+	/** Units that stay this close on average are on the player whatever their speed (a player crawling in a jam, boxed in). */
+	float CloseMetres = 30.f;
 	/** Share of the time with a unit within NearMetres. */
 	float MinNearShare = 0.25f;
+	/** A replacement made nearer the player than this did not drive to him: the pursuit was helped. */
+	float ReplacementMinMetres = 150.f;
 };
 
 struct FGTPChaseTally
@@ -38,13 +47,17 @@ struct FGTPChaseTally
 	float NearestMin = -1.f;
 	float UnitPeakKmh = 0.f;
 	int PeakUnits = 0;
-	/** Times a unit left behind was put back near the player, out of sight (the distance then says less). */
-	int Moves = 0;
-	int MovesLost = 0;
 	/** Times a unit held against something backed off, and units given up (off their wheels, or held in the
 	 *  same place after backing off): a given-up car is a wreck, no longer counted among the chasing cars. */
 	int BackOffs = 0;
 	int GivenUp = 0;
+	/** Chasing cars sent (made on a lane out of the player's sight), and those of them sent to replace a car that was
+	 *  lost (left behind, given up, wrecked) once the level had its cars. ReplacementNearest: how near the player the
+	 *  nearest of those was made (metres, -1 = none): a replacement made close hands the player a pursuer that has
+	 *  not driven to him, and the distance to the nearest unit then says nothing of how the police drive. */
+	int Sent = 0;
+	int Replacements = 0;
+	float ReplacementNearest = -1.f;
 
 	// The frame being filled.
 	int FrameUnits = 0;
@@ -53,11 +66,17 @@ struct FGTPChaseTally
 	float FrameNearest = -1.f;
 
 	void Reset() { *this = FGTPChaseTally(); }
-	void NoteMoved() { ++Moves; }
-	/** A move that the car did not keep (found far from where it was put half a second later). */
-	void NoteMoveLost() { ++MovesLost; }
 	void NoteBackedOff() { ++BackOffs; }
 	void NoteGivenUp() { ++GivenUp; }
+	void NoteSent(float MetresFromPlayer, bool bReplacement)
+	{
+		++Sent;
+		if (bReplacement)
+		{
+			++Replacements;
+			ReplacementNearest = ReplacementNearest < 0.f ? MetresFromPlayer : std::min(ReplacementNearest, MetresFromPlayer);
+		}
+	}
 
 	void AddUnit(float SpeedKmh, float DistanceMetres, const FGTPChaseTallySettings& S)
 	{
@@ -114,10 +133,10 @@ namespace GTPChase
 		TooFar
 	};
 
-	/** The speed the units have to average: the floor, or less when the player himself is slow (a chase through a jam). */
+	/** The speed the units have to average: a share of the player's own, and never under the fixed floor. */
 	inline float WantedMeanKmh(const FGTPChaseTally& T, const FGTPChaseTallySettings& S)
 	{
-		return std::min(S.MinMeanKmh, S.MinPlayerShare * T.PlayerMeanKmh());
+		return std::max(S.FloorKmh, S.MinPlayerShare * T.PlayerMeanKmh());
 	}
 
 	inline EVerdict Judge(const FGTPChaseTally& T, const FGTPChaseTallySettings& S)
@@ -126,7 +145,7 @@ namespace GTPChase
 		{
 			return EVerdict::TooShort;
 		}
-		if (T.MeanKmh() < WantedMeanKmh(T, S))
+		if (T.MeanKmh() < WantedMeanKmh(T, S) && T.MeanNearest() > S.CloseMetres)
 		{
 			return EVerdict::TooSlow;
 		}
@@ -135,6 +154,12 @@ namespace GTPChase
 			return EVerdict::TooFar;
 		}
 		return EVerdict::Follows;
+	}
+
+	/** True when no car was handed to the player: every replacement was made at least ReplacementMinMetres from him. */
+	inline bool Unaided(const FGTPChaseTally& T, const FGTPChaseTallySettings& S)
+	{
+		return T.ReplacementNearest < 0.f || T.ReplacementNearest >= S.ReplacementMinMetres;
 	}
 
 	inline const char* VerdictName(EVerdict V)

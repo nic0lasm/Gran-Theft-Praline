@@ -72,6 +72,15 @@ private:
 	void TrackFlight();
 	/** Binds the arrest, death and respawn events once, and notes when the level is lost by itself. */
 	void TrackWanted();
+	/**
+	 * The picture at the end of the chase step (Saved/Screenshots/.../gtarun-chase.png): the player's car and the police
+	 * behind it, seen from in front of the car, by day, motion blur off. The player's own camera looks ahead and never
+	 * shows the cars that follow. One tick with the view on a camera that rides with the car, the picture, the view back.
+	 */
+	void StartChasePicture();
+	void TickChasePicture();
+	int32 ChasePicturePhase = 0;
+	TWeakObjectPtr<class ACameraActor> ChasePictureCamera;
 	EResult CheckParked(FString& Detail);
 	EResult CheckWalkArmed(FString& Detail);
 	EResult CheckAim(FString& Detail, bool bClose);
