@@ -762,6 +762,7 @@ void UGTPMassTrafficSubsystem::LogPhysicsCars(UWorld& World, const FVector& Play
 	int32 Total = 0;
 	int32 Stopped = 0;
 	int32 WheelsUp = 0;
+	int32 LyingOver = 0;
 	FMassEntityManager& Manager = Mass->GetMutableEntityManager();
 	FMassEntityQuery Query;
 	Query.Initialize(Manager.AsShared());
@@ -811,6 +812,9 @@ void UGTPMassTrafficSubsystem::LogPhysicsCars(UWorld& World, const FVector& Play
 			}
 			WheelsUp += InContact < NumWheels ? 1 : 0;
 			const FTransform& Transform = Transforms[Index].GetTransform();
+			// What the player sees: a car whose roof leans more than 45 degrees from the vertical. The gate of
+			// candidate 49 counted 97 cars moving while 5 of the 6 nearest of these lay on their side.
+			LyingOver += Transform.GetRotation().GetUpVector().Z < 0.7071 ? 1 : 0;
 			const double Distance = FVector::Dist(Transform.GetLocation(), PlayerLocation);
 			if (Cars.Num() >= 6 && Distance >= Cars.Last().Distance)
 			{
@@ -839,10 +843,11 @@ void UGTPMassTrafficSubsystem::LogPhysicsCars(UWorld& World, const FVector& Play
 			const FMassTrafficPIDVehicleControlFragment& Input = Inputs[Index];
 			FCar Car;
 			Car.Distance = Distance;
-			Car.Line = FString::Printf(TEXT("%.0f m from the player: %.0f km/h, throttle %.2f brake %.2f steer %.2f handbrake %d, gear %d %.0f rpm, pitch %.1f roll %.1f, %s, next car %.0f m, obstacle %.0f m%s"),
+			auto MetresOrNone = [](float Cm) { return Cm < 1.e7f ? FString::Printf(TEXT("%.0f m"), Cm / 100.f) : FString(TEXT("none")); };
+			Car.Line = FString::Printf(TEXT("%.0f m from the player: %.0f km/h, throttle %.2f brake %.2f steer %.2f handbrake %d, gear %d %.0f rpm, pitch %.1f roll %.1f, %s, next car %s, obstacle %s%s"),
 				Distance / 100.0, Kmh, Input.Throttle, Input.Brake, Input.Steering, Input.bHandbrake ? 1 : 0, Sim.TransmissionSim.GetCurrentGear(),
 				Sim.EngineSim.GetEngineRPM(), Rotation.Pitch, Rotation.Roll, *OnLane,
-				Avoidances[Index].DistanceToNext / 100.f, Avoidances[Index].DistanceToCollidingObstacle / 100.f, *Wheels);
+				*MetresOrNone(Avoidances[Index].DistanceToNext), *MetresOrNone(Avoidances[Index].DistanceToCollidingObstacle), *Wheels);
 			Cars.Add(MoveTemp(Car));
 			Cars.Sort([](const FCar& A, const FCar& B) { return A.Distance < B.Distance; });
 			if (Cars.Num() > 6)
@@ -851,8 +856,8 @@ void UGTPMassTrafficSubsystem::LogPhysicsCars(UWorld& World, const FVector& Play
 			}
 		}
 	});
-	UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic physics cars t=%.0fs: %d under MassTraffic's physics, %d stopped, %d with a wheel off the road"),
-		World.GetTimeSeconds(), Total, Stopped, WheelsUp);
+	UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic physics cars t=%.0fs: %d under MassTraffic's physics, %d stopped, %d with a wheel off the road, %d lying over (roof over 45 deg from the vertical)"),
+		World.GetTimeSeconds(), Total, Stopped, WheelsUp, LyingOver);
 	for (const FCar& Car : Cars)
 	{
 		UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic physics car: %s"), *Car.Line);
