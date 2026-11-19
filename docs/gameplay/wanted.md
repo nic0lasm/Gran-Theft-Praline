@@ -4,7 +4,7 @@ Code: `GTPWantedLogic.h` (rules, tested in CI), `GTPWanted.*` (component and dir
 
 ## What earns stars
 
-Each crime adds heat; stars are a step of the heat (1 at 20, 2 at 60, 3 at 120, 4 at 220, 5 at 360). A crime counts only if a witness could see or hear it (`GTPWitnessLogic.h`); `-Witnesses=0` makes every crime count.
+Each crime adds heat; stars are a step of the heat (1 at 20, 2 at 60, 3 at 120, 4 at 220, 5 at 360). A crime counts only if a witness could see or hear it (`GTPWitnessLogic.h`); `-Witnesses=0` makes every crime count. A witness's line of sight ends 150 cm above the place of the crime; the thing the crime is done to (the stolen car, the car that hit somebody) and the player never cut it. When nobody saw it, the log line `crime N not witnessed` says how many people were near and what cut the nearest person's view.
 
 | What the player does | Crime | Heat | Stars alone | Reported by |
 |---|---|---|---|---|
