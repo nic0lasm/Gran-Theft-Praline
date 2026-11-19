@@ -480,7 +480,10 @@ throttle and full lock, still over 1 m/s and so counted as moving; 44 of the 69 
 physics had a wheel off the road at 295 s. The "physics cars" line now also counts the cars lying
 over (roof more than 45 deg from the vertical). The real wheels with City Sample's centre of mass
 (`-MassTemplateWheels`) are measured in a 300 s mass pass at the candidate 51 gate; the stopgap
-should give way to them as soon as they keep the traffic moving.
+should give way to them as soon as they keep the traffic moving. Branch `fix/vehicle-template-real`
+does it, for the candidate after that pass if it holds: the template gets the real wheels and City
+Sample's centre of mass by default (line "vehicle physics template: ... given the real wheels and
+City Sample's centre of mass"), `-MassTemplate46` gives back the stopgap.
 
 Police cars turned over in the candidate 48 chase stayed on their side: the "put back on its wheels"
 rule ran for the player's car only. It now runs for the cars driven by the AI too (`PutBackOnWheels`,
