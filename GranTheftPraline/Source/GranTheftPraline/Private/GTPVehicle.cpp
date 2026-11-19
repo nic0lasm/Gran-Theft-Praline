@@ -428,20 +428,20 @@ void AGTPVehicle::FindWheelBones()
 	{
 		return;
 	}
-	// -MassTemplateWheels: the template gets the real wheels as the cars do (candidates 47 and 48), to
-	// see in one run how MassTraffic's simple physics drives with them ("MassTraffic physics car").
-	static const bool bTemplateWheels = FParse::Param(FCommandLine::Get(), TEXT("MassTemplateWheels"));
-	if (bTemplateWheels && IsPhysicsTemplateSpawn())
+	// MassTraffic's simple physics for the cars near the player is mined from this car. Left as at
+	// candidate 46 (candidates 48 to 51), its four wheels sat at one point under a high centre of mass
+	// and those cars fell over (5 of the 6 probed at the candidate 49 gate lay on their side, still
+	// counted as moving). It now gets the real wheels and City Sample's centre of mass, as the cars do;
+	// -MassTemplate46 gives back the stopgap.
+	static const bool bTemplate46 = FParse::Param(FCommandLine::Get(), TEXT("MassTemplate46"));
+	if (!bTemplate46 && IsPhysicsTemplateSpawn())
 	{
-		GTP_TRACE(LogGTPVehicle, TEXT("vehicle physics template: %s (%s) taken for MassTraffic's physics template, given the real wheels (-MassTemplateWheels)"),
+		GTP_TRACE(LogGTPVehicle, TEXT("vehicle physics template: %s (%s) taken for MassTraffic's physics template, given the real wheels and City Sample's centre of mass"),
 			*GetName(), *GetClass()->GetName());
 	}
 	else if (IsPhysicsTemplateSpawn())
 	{
-		// MassTraffic's simple physics for the cars near the player is mined from this car. With the
-		// real wheels and the centre of mass moved (candidates 47 and 48) the traffic moving fell from
-		// 102 to 48-53 cars; until that is understood, the template stays exactly as at candidate 46.
-		GTP_TRACE(LogGTPVehicle, TEXT("vehicle physics template: %s (%s) spawned at %s with no owner and no instigator, taken for MassTraffic's physics template (PhysicsVehicleTemplateActor); left as at candidate 46: wheel bones %s %s %s %s kept (missing from mesh %s), centre of mass override %s"),
+		GTP_TRACE(LogGTPVehicle, TEXT("vehicle physics template: %s (%s) spawned at %s with no owner and no instigator, taken for MassTraffic's physics template (PhysicsVehicleTemplateActor); left as at candidate 46 (-MassTemplate46): wheel bones %s %s %s %s kept (missing from mesh %s), centre of mass override %s"),
 			*GetName(), *GetClass()->GetName(), *GetRootComponent()->GetRelativeLocation().ToCompactString(),
 			*Move->WheelSetups[0].BoneName.ToString(), *Move->WheelSetups[1].BoneName.ToString(),
 			*Move->WheelSetups[2].BoneName.ToString(), *Move->WheelSetups[3].BoneName.ToString(),
