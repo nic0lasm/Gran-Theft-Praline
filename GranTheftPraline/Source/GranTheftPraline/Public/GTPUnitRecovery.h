@@ -11,7 +11,7 @@
 //    ground: the driving asked for full lock with the throttle held down, on tyres that grip harder
 //    (friction 0.7 x 3) than the car needs to roll over (centre of mass 83 cm up).
 // So: the pedals follow the steering (Tame), a car held against something backs off (Step), and a car
-// that is off its wheels or cannot get away is given up, counted and replaced, never put back on the road.
+// that stays off its wheels or cannot get away is given up, counted and replaced, never moved back onto a lane.
 
 #include <algorithm>
 #include <cmath>
@@ -30,8 +30,11 @@ struct FGTPUnitRecoverySettings
 	/** Backed off this many times within SamePlaceMetres without getting away: the car is given up. */
 	int MaxBackOffs = 3;
 	float SamePlaceMetres = 12.f;
-	/** No wheel on the ground, or lying on its side, and slower than OffWheelsKmh for this long: given up. */
-	float OffWheelsSeconds = 3.f;
+	/** No wheel on the ground, or lying on its side, and slower than OffWheelsKmh for this long: given up.
+	 *  Longer than the vehicle's own rule, which puts a car lying on its side or roof back on its wheels after
+	 *  2.5 s and lets it fall 1.2 m (AGTPVehicle, AI-driven cars too): a car that rule has righted drives on,
+	 *  only a car it could not help (four wheels in the air but not lying, or lying again at once) is given up. */
+	float OffWheelsSeconds = 5.f;
 	float OffWheelsKmh = 5.f;
 	/** Up vector Z under this: on its side or roof (60 degrees and more). */
 	float OnSideUp = 0.5f;
