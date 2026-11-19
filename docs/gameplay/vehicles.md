@@ -434,6 +434,16 @@ weighted centre of the chassis body's shapes, "vehicle balance ... set before th
 so that MassTraffic's template gets it too; set from the first tick (candidate 48), it reached only
 the actors.
 
+Candidate 48 (19/11): 53.3 cars moving, 75 stopped (50 behind another car); without parked cars
+(`-StreetParked=0`, candidate 47) 44.3: neither the centre of mass nor the parked cars explain the
+drop. Stopgap: the car MassTraffic spawns to mine its physics from
+(`UMassTrafficSubsystem::GetOrExtractVehiclePhysicsTemplate`: default spawn parameters, so at the
+origin, with no owner and no instigator, which none of our spawns uses) is recognised
+(`IsPhysicsTemplateSpawn`) and left exactly as at candidate 46: no wheel bones found, no centre of
+mass moved, one line per class "vehicle physics template: ... left as at candidate 46". The cars
+driven by the player and the police keep their real wheels. Still to explain after the gate: how
+the real wheels make MassTraffic's simple physics stop its cars.
+
 ## 9. Making a drivable car
 
 ### 9.1 First test car (no Tripo)

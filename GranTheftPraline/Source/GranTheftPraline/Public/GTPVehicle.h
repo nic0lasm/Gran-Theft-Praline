@@ -552,9 +552,16 @@ private:
 	 * In a game world, before the components register (Chaos places each wheel at its bone's
 	 * reference pose position when it creates the vehicle): when the mesh lacks a wheel setup's bone
 	 * (City Sample's car meshes do not name theirs Phys_Wheel_*), the four wheel bones are taken from
-	 * the mesh by name and position, once per class, and logged ("vehicle wheels").
+	 * the mesh by name and position, once per class, and logged ("vehicle wheels"). Not for the car
+	 * MassTraffic spawns to mine its simple physics from (IsPhysicsTemplateSpawn), left as at
+	 * candidate 46 and logged ("vehicle physics template").
 	 */
 	void FindWheelBones();
+	/**
+	 * Spawned as MassTraffic's physics template: at the class's default root location, with no owner,
+	 * no instigator and no attach parent (default spawn parameters), which none of our spawns uses.
+	 */
+	bool IsPhysicsTemplateSpawn() const;
 	/** Wheel bones taken from the mesh by FindWheelBones: a City Sample car. */
 	bool bWheelBonesFromMesh = false;
 	/**

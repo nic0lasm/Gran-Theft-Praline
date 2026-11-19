@@ -464,6 +464,17 @@ châssis pondéré par leur volume, « vehicle balance ... set before the vehicl
 le modèle de MassTraffic l'ait aussi ; posé au premier tick (candidat 48), il n'atteignait que les
 acteurs.
 
+Candidat 48 (19/11) : 53,3 voitures en mouvement, 75 arrêtées (50 derrière une autre voiture) ; sans
+voitures garées (`-StreetParked=0`, candidat 47) 44,3 : ni le centre de gravité ni les voitures garées
+n'expliquent la chute. Pis-aller : la voiture que MassTraffic crée pour en extraire sa physique
+(`UMassTrafficSubsystem::GetOrExtractVehiclePhysicsTemplate` : paramètres de création par défaut, donc
+à l'origine, sans propriétaire ni instigateur, ce qu'aucune de nos créations ne fait) est reconnue
+(`IsPhysicsTemplateSpawn`) et laissée exactement comme au candidat 46 : pas d'os de roue cherchés, pas
+de centre de gravité déplacé, une ligne par classe « vehicle physics template: ... left as at
+candidate 46 ». Les voitures conduites par le joueur et la police gardent leurs vraies roues. Reste à
+expliquer après la porte : comment les vraies roues font s'arrêter les voitures de la physique simple
+de MassTraffic.
+
 ## 9. Préparer une voiture conduisible
 
 ### 9.1 Première voiture d'essai (sans Tripo)

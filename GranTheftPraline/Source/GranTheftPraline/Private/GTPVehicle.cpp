@@ -397,6 +397,18 @@ void AGTPVehicle::FindWheelBones()
 	{
 		return;
 	}
+	if (IsPhysicsTemplateSpawn())
+	{
+		// MassTraffic's simple physics for the cars near the player is mined from this car. With the
+		// real wheels and the centre of mass moved (candidates 47 and 48) the traffic moving fell from
+		// 102 to 48-53 cars; until that is understood, the template stays exactly as at candidate 46.
+		GTP_TRACE(LogGTPVehicle, TEXT("vehicle physics template: %s (%s) spawned at %s with no owner and no instigator, taken for MassTraffic's physics template (PhysicsVehicleTemplateActor); left as at candidate 46: wheel bones %s %s %s %s kept (missing from mesh %s), centre of mass override %s"),
+			*GetName(), *GetClass()->GetName(), *GetRootComponent()->GetRelativeLocation().ToCompactString(),
+			*Move->WheelSetups[0].BoneName.ToString(), *Move->WheelSetups[1].BoneName.ToString(),
+			*Move->WheelSetups[2].BoneName.ToString(), *Move->WheelSetups[3].BoneName.ToString(),
+			*Asset->GetName(), Move->bEnableCenterOfMassOverride ? TEXT("ON (set in the Blueprint)") : TEXT("off"));
+		return;
+	}
 	static TMap<FName, TArray<FName>> ByClass;
 	const FName ClassKey = GetClass()->GetFName();
 	if (!ByClass.Contains(ClassKey))
@@ -433,6 +445,23 @@ void AGTPVehicle::FindWheelBones()
 			}
 		}
 	}
+}
+
+bool AGTPVehicle::IsPhysicsTemplateSpawn() const
+{
+	// UMassTrafficSubsystem::GetOrExtractVehiclePhysicsTemplate spawns the PhysicsVehicleTemplateActor
+	// class with default spawn parameters (identity transform, no owner, no instigator), reads its
+	// vehicle and destroys it. Our own spawns (player test car, police, parked cars, legacy traffic)
+	// are all placed in the street.
+	const USceneComponent* Root = GetRootComponent();
+	if (!Root || Root->GetAttachParent() || GetOwner() || GetInstigator())
+	{
+		return false;
+	}
+	const AActor* Default = GetClass()->GetDefaultObject<AActor>();
+	const USceneComponent* DefaultRoot = Default ? Default->GetRootComponent() : nullptr;
+	const FVector Expected = DefaultRoot ? DefaultRoot->GetRelativeLocation() : FVector::ZeroVector;
+	return Root->GetRelativeLocation().Equals(Expected, 1.0);
 }
 
 void AGTPVehicle::CentreMassOverOrigin()
