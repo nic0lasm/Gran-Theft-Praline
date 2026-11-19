@@ -203,6 +203,10 @@ protected:
 	UPROPERTY(Config)
 	FSoftObjectPath CrowdHandsUpAnimation = FSoftObjectPath(TEXT("/Game/MetaHumans/GTP/Anims/MH_A_HandsUp.MH_A_HandsUp"));
 
+	/** Folder of the same loops baked on the pack's own skeleton, named CS_<loop> (taken when they exist; empty = never). */
+	UPROPERTY(Config)
+	FString CrowdSkeletonAnimationFolder = TEXT("/Game/MetaHumans/GTP/AnimsCrowd");
+
 	UPROPERTY(Config)
 	float WalkAnimationSpeed = 140.f;
 
@@ -266,6 +270,15 @@ private:
 	int32 FearReset = 0;
 	int32 DeadReset = 0;
 	double LastReleaseLog = 0.0;
+	/** People whose body's fear said "held up" while their walker did not stand: put back standing (logged with the above). */
+	int32 HeldPutBack = 0;
+	struct FPoseToSay
+	{
+		TWeakObjectPtr<const AGTPPedestrian> Actor;
+		FString What;
+		double When = 0.0;
+	};
+	TArray<FPoseToSay> PoseToSay;
 	TArray<uint8> PanicSpread;
 	float NextPanicSpread = 0.f;
 	FDelegateHandle LoudHandle;

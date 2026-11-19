@@ -118,8 +118,11 @@ public:
 	 * A pooled body given to another person: the fear, the state and the death of the one before are not his.
 	 * Keeps the temperament; tells nobody (the owner of the pool moves the person itself).
 	 */
+<<<<<<< HEAD
 	bool IsDead() const { return Brain.bDead; }
 
+=======
+>>>>>>> bf52c276 (Crowd: a body given to another person forgets the fear of the one before, and the person left lowers his hands)
 	void Forget()
 	{
 		const GTPThreat::ETemperament Kept = Brain.Temperament;

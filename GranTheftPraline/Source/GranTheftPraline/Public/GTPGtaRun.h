@@ -139,6 +139,9 @@ private:
 	double AimFirstReaction = -1.0;
 	double LastAimMoveTime = -1.0;
 	TWeakObjectPtr<AActor> AimedBefore;
+	/** The person held up at the intended range, and since when (the hold-up steps want his body to show it). */
+	TWeakObjectPtr<AActor> AimedHeld;
+	double AimedHeldSince = 0.0;
 	int32 ShotsFired = 0;
 	double NextShot = 0.0;
 	int32 ShotAttempts = 0;

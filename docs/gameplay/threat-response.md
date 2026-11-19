@@ -46,3 +46,16 @@ person, the person's hands-up pause ends (nobody is left to lower his hands: he 
 waited for him), and the body forgets the fear, the state and the death of that person
 (`UGTPThreatResponseComponent::Forget`), so the next one starts calm. While the player holds somebody up on a crossing
 the cars do wait: that is the hold-up.
+
+### What a hold-up must show
+
+`-GTARun` passes its two hold-up steps only when the person aimed at stands upright with both hands higher than his head,
+read on the bones of his body 1 s after his state says "held up"; a state that says so for 5 s on a body that does not
+show it fails at once with the pose ("hands up in his state, not on his body"). The gate of candidate 48 passed both
+steps on the count of states while the person aimed at ran and another walked into the player.
+
+For a person who has one of the 24 bodies, the body's fear is the only authority: every frame the walker is put in line
+with it (held up = standing, fleeing = running), and a loud sound or the panic of the walkers leaves a person held at
+gunpoint alone. The loops (walk, idle, run, hands up) baked on the pack's own skeleton are taken when they exist
+(`/Game/MetaHumans/GTP/AnimsCrowd/CS_*`, `retarget_player_animations.py` with `GTP_RTG_TARGET_MESH`, `GTP_RTG_PREFIX=CS_`,
+`GTP_RTG_FOLDER`). The log says the pose of a body 2 s after each kind of animation begins ("crowd: pose of …").

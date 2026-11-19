@@ -8,6 +8,10 @@ first; clips baked with the unfixed one have the body's pelvis on the ground). T
 in /Game/MetaHumans/GTP/Anims with the prefix "MH_" (the game finds them by that name). Everything stays under /Game (not versioned).
 Env: GTP_RTG_ANIMS = comma separated list of source animation paths (default: the pedestrians' walk/idle/run and
 their hands-up loop; GTP_RTG_ANIMS=/Game/Characters/Pedestrians/Anims/A_HandsUp bakes that one alone, as MH_A_HandsUp).
+For the crowd: the bodies of the City Sample pack have their own skeleton asset (same name as the MetaHuman one, another
+asset). GTP_RTG_TARGET_MESH=/Game/Crowd/Character/Male/NormalWeight/Meshes/m_tal_nrw_body with GTP_RTG_PREFIX=CS_ and
+GTP_RTG_FOLDER=/Game/MetaHumans/GTP/AnimsCrowd bakes the same loops on that skeleton; the crowd takes CS_<loop> when it
+is there (CrowdSkeletonAnimationFolder). The MH_ clips are left alone by such a run.
 """
 import os
 
@@ -32,7 +36,11 @@ for d in registry.get_assets_by_path("/Game/MetaHumans", recursive=True):
     if str(d.asset_class_path.asset_name) == "SkeletalMesh" and str(d.asset_name).lower().endswith("_body") or str(d.asset_name).lower() == "m_med_nrw_body":
         target_mesh = target_mesh or d.get_asset()
 source_mesh = unreal.load_asset("/Game/Characters/UEFN_Mannequin/Meshes/SKM_UEFN_Mannequin")
-unreal.log("ANIMS rtg %s source mesh %s target mesh %s" % (rtg, source_mesh, target_mesh))
+if os.environ.get("GTP_RTG_TARGET_MESH"):
+    target_mesh = unreal.load_asset(os.environ["GTP_RTG_TARGET_MESH"])
+PREFIX = os.environ.get("GTP_RTG_PREFIX", "MH_")
+unreal.log("ANIMS rtg %s source mesh %s target mesh %s (skeleton %s) prefix %s" % (
+    rtg, source_mesh, target_mesh, target_mesh.get_editor_property("skeleton").get_path_name() if target_mesh else None, PREFIX))
 if not (rtg and source_mesh and target_mesh):
     raise SystemExit("ANIMS missing inputs")
 
@@ -44,14 +52,14 @@ for p in paths:
         assets.append(unreal.EditorAssetLibrary.find_asset_data(p))
 op = unreal.IKRetargetBatchOperation
 unreal.log("ANIMS signature: %s" % op.duplicate_and_retarget.__doc__)
-folder = "/Game/MetaHumans/GTP/Anims"
+folder = os.environ.get("GTP_RTG_FOLDER", "/Game/MetaHumans/GTP/Anims")
 unreal.EditorAssetLibrary.make_directory(folder)
 batch = None
 attempts = (
     dict(assets_to_retarget=assets, source_mesh=source_mesh, target_mesh=target_mesh, ik_retarget_asset=rtg,
-         target_path=folder, search="", replace="", prefix="MH_", suffix="", overwrite_existing_files=True),
+         target_path=folder, search="", replace="", prefix=PREFIX, suffix="", overwrite_existing_files=True),
     dict(assets_to_retarget=assets, source_mesh=source_mesh, target_mesh=target_mesh, ik_retarget_asset=rtg,
-         target_path=folder, prefix="MH_"),
+         target_path=folder, prefix=PREFIX),
 )
 for kwargs in attempts:
     try:
@@ -100,7 +108,7 @@ def pin_pelvis(asset, bone="pelvis"):
 # Animations made by an earlier run (same names or renamed copies): lock their root too.
 for d in registry.get_assets_by_path(folder, recursive=False):
     existing = d.get_asset()
-    if isinstance(existing, unreal.AnimSequence) and str(d.asset_name).startswith("MH_"):
+    if isinstance(existing, unreal.AnimSequence) and str(d.asset_name).startswith(PREFIX):
         for prop, value in (("force_root_lock", True), ("enable_root_motion", False)):
             try:
                 existing.set_editor_property(prop, value)

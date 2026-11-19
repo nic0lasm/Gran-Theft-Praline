@@ -475,6 +475,25 @@ void UGTPCrowdSubsystem::SetupNearActors(UWorld& InWorld)
 		UE_LOG(LogGTPCrowd, Log, TEXT("crowd: assembled City Sample characters %s (body %s, baked walk %s)"),
 			bAssembled ? TEXT("on") : TEXT("off, mannequins"), Probe ? TEXT("found") : TEXT("missing"), BakedWalk ? TEXT("found") : TEXT("missing"));
 	}
+	if (bAssembled && !CrowdSkeletonAnimationFolder.IsEmpty())
+	{
+		// The loops above are baked on the skeleton of /Game/MetaHumans, the bodies of the pack have their own (same
+		// name, another asset). The same loops baked on the pack's skeleton (retarget_player_animations.py with
+		// GTP_RTG_TARGET_MESH, prefix CS_) are taken when they are there: an animation on its own skeleton.
+		int32 Taken = 0;
+		for (FSoftObjectPath* Loop : {&WalkAnimation, &IdleAnimation, &RunAnimation, &HandsUpAnimation})
+		{
+			const FString Name = Loop->GetAssetName();
+			const FString Own = TEXT("CS_") + (Name.StartsWith(TEXT("MH_")) ? Name.RightChop(3) : Name);
+			const FString Package = CrowdSkeletonAnimationFolder / Own;
+			if (FPackageName::DoesPackageExist(Package))
+			{
+				*Loop = FSoftObjectPath(Package + TEXT(".") + Own);
+				++Taken;
+			}
+		}
+		UE_LOG(LogGTPCrowd, Log, TEXT("crowd: loops baked on the pack's own skeleton (%s/CS_*): %d of 4 taken"), *CrowdSkeletonAnimationFolder, Taken);
+	}
 	Walk = Cast<UAnimSequenceBase>(WalkAnimation.TryLoad());
 	Idle = Cast<UAnimSequenceBase>(IdleAnimation.TryLoad());
 	Run = Cast<UAnimSequenceBase>(RunAnimation.TryLoad());
@@ -608,6 +627,8 @@ void UGTPCrowdSubsystem::SayWhatIsPlayed(const AGTPPedestrian* Actor, const UAni
 	const UAnimationAsset* Played = Single ? Single->GetAnimationAsset() : nullptr;
 	UE_LOG(LogGTPCrowd, Log, TEXT("crowd: %s asked %s, the body plays %s (%s)"), What, *Asked->GetName(), Played ? *Played->GetName() : TEXT("nothing"),
 		Played == Asked ? TEXT("taken") : TEXT("REFUSED"));
+	// The pose itself is read 2 s later (PoseToSay): the animation needs a few frames on screen before its bones say anything.
+	PoseToSay.Add({Actor, FString(What), GetWorld() ? GetWorld()->GetTimeSeconds() + 2.0 : 0.0});
 }
 
 void UGTPCrowdSubsystem::OnLoud(const FVector& Where, float Radius, AActor* Cause)
@@ -627,7 +648,10 @@ void UGTPCrowdSubsystem::OnLoud(const FVector& Where, float Radius, AActor* Caus
 	for (int32 Index = 0; Index < Entities.Num(); ++Index)
 	{
 		FGTPCrowdWalkerFragment* W = WalkerOf(Index);
-		if (W && W->Walker.Edge >= 0 && FVector::Dist2D(W->Location, Where) <= Radius)
+		// Not the one held at gunpoint: his fear is his body's to decide (it runs when it is afraid enough); a siren
+		// passing sent him running with his state still "hands up" (gate of candidate 48).
+		if (W && W->Walker.Edge >= 0 && FVector::Dist2D(W->Location, Where) <= Radius
+			&& !(W->Walker.PauseKind == GTPWalk::EPause::HandsUp && W->Walker.Pause > 0.f))
 		{
 			GTPWalk::Flee(Graph, W->Walker, Point, Settings);
 			++Fled;
@@ -773,20 +797,29 @@ void UGTPCrowdSubsystem::UpdateNear(float DeltaTime)
 			// The person goes on without a body that feels fear: nothing would ever lower his hands (measured in the
 			// code: 60 s standing, on a crossing the cars wait all that time). And the body's fear, state and death
 			// stay with nobody: the next person it is given to starts calm.
+<<<<<<< HEAD
 			++BodiesReleased;
+=======
+>>>>>>> bf52c276 (Crowd: a body given to another person forgets the fear of the one before, and the person left lowers his hands)
 			if (FGTPCrowdWalkerFragment* Gone = WalkerOf(NearEntity[Slot]))
 			{
 				if (Gone->Walker.PauseKind == GTPWalk::EPause::HandsUp)
 				{
 					Gone->Walker.Pause = 0.f;
 					Gone->Walker.PauseKind = GTPWalk::EPause::None;
+<<<<<<< HEAD
 					++HandsUpReset;
+=======
+>>>>>>> bf52c276 (Crowd: a body given to another person forgets the fear of the one before, and the person left lowers his hands)
 				}
 			}
 			if (UGTPThreatResponseComponent* Fear = NearActors[Slot]->FindComponentByClass<UGTPThreatResponseComponent>())
 			{
+<<<<<<< HEAD
 				FearReset += Fear->GetState() != EGTPThreatState::Calm || Fear->GetFear() > 0.f ? 1 : 0;
 				DeadReset += Fear->IsDead() ? 1 : 0;
+=======
+>>>>>>> bf52c276 (Crowd: a body given to another person forgets the fear of the one before, and the person left lowers his hands)
 				Fear->Forget();
 			}
 			NearActors[Slot]->ResetBody();
@@ -813,6 +846,28 @@ void UGTPCrowdSubsystem::UpdateNear(float DeltaTime)
 		}
 		NearActors[Free]->SetDetail(true, true, -1);
 	}
+	// The bones of a body 2 s after it began a kind of animation: standing or not, where the head and the hands are.
+	for (int32 Index = PoseToSay.Num() - 1; Index >= 0; --Index)
+	{
+		const FPoseToSay Ask = PoseToSay[Index];
+		if (GetWorld() && GetWorld()->GetTimeSeconds() >= Ask.When)
+		{
+			PoseToSay.RemoveAtSwap(Index);
+			const AGTPPedestrian* Actor = Ask.Actor.Get();
+			const USkeletalMeshComponent* Body = Actor ? Actor->GetBody() : nullptr;
+			if (Body && Body->GetBoneIndex(TEXT("head")) != INDEX_NONE)
+			{
+				const FVector Root = Body->GetComponentLocation();
+				const FVector Head = Body->GetSocketLocation(TEXT("head"));
+				const UAnimSingleNodeInstance* Single = Body->GetSingleNodeInstance();
+				const UAnimationAsset* Played = Single ? Single->GetAnimationAsset() : nullptr;
+				UE_LOG(LogGTPCrowd, Log, TEXT("crowd: pose of %s 2 s after \"%s\": head %.0f above its root and %.0f beside it (%s), pelvis %.0f, hands %.0f %.0f from the head, now plays %s, rendered %.1f s ago, %.0f cm from the player"),
+					*Actor->GetName(), *Ask.What, Head.Z - Root.Z, FVector::Dist2D(Head, Root), Head.Z - Root.Z > 100.f ? TEXT("upright") : TEXT("NOT UPRIGHT"),
+					Body->GetSocketLocation(TEXT("pelvis")).Z - Root.Z, Body->GetSocketLocation(TEXT("hand_l")).Z - Head.Z, Body->GetSocketLocation(TEXT("hand_r")).Z - Head.Z,
+					Played ? *Played->GetName() : TEXT("nothing"), GetWorld()->GetTimeSeconds() - Body->GetLastRenderTime(), FVector::Dist(Root, PlayerLocation));
+			}
+		}
+	}
 	// Every 10 s, the proof of the above: nobody stands with his hands up, without a body, more than 30 m from the player.
 	if (const UWorld* World = GetWorld())
 	{
@@ -827,10 +882,11 @@ void UGTPCrowdSubsystem::UpdateNear(float DeltaTime)
 				FrozenFar += Person && Person->Walker.Edge >= 0 && Person->Walker.PauseKind == GTPWalk::EPause::HandsUp && Person->Walker.Pause > 0.f
 					&& !NearEntity.Contains(Index) && FVector::Dist2D(Person->Location, PlayerLocation) > 3000.f ? 1 : 0;
 			}
-			UE_LOG(LogGTPCrowd, Log, TEXT("crowd: bodies released %d (hands up reset %d, fear reset %d, dead reset %d), frozen far from the player %d"),
-				BodiesReleased, HandsUpReset, FearReset, DeadReset, FrozenFar);
+			UE_LOG(LogGTPCrowd, Log, TEXT("crowd: bodies released %d (hands up reset %d, fear reset %d, dead reset %d), frozen far from the player %d, held up put back standing %d"),
+				BodiesReleased, HandsUpReset, FearReset, DeadReset, FrozenFar, HeldPutBack);
 		}
 	}
+	const UGTPThreatSubsystem* HoldUp = UGTPThreatSubsystem::IsEnabled() && GetWorld() ? GetWorld()->GetSubsystem<UGTPThreatSubsystem>() : nullptr;
 	// Follow the entities: position, and the animation that matches what the person does.
 	for (int32 Slot = 0; Slot < NearActors.Num(); ++Slot)
 	{
@@ -852,6 +908,36 @@ void UGTPCrowdSubsystem::UpdateNear(float DeltaTime)
 			{
 				HitByPlayerVehicle(Slot);
 				continue;
+			}
+		}
+		// One authority for a person who has a body: the body's fear. The walker is put in line with it every frame,
+		// whatever happened in between (an event missed while the body was changing hands, a panic that overrode
+		// the pause): held up = standing with the hands up, fleeing = running, neither = no hands-up pause left.
+		if (const UGTPThreatResponseComponent* Fear = HoldUp ? Actor->FindComponentByClass<UGTPThreatResponseComponent>() : nullptr)
+		{
+			const EGTPThreatState State = Fear->GetState();
+			const bool bHeld = State == EGTPThreatState::HandsUp || State == EGTPThreatState::Complying;
+			const bool bStands = W->Walker.PauseKind == GTPWalk::EPause::HandsUp && W->Walker.Pause > 0.f && W->Walker.FleeTimeLeft <= 0.f;
+			const FVector Origin = HoldUp->GetOrigin();
+			const GTPWalk::FPoint From{float(Origin.X), float(Origin.Y)};
+			if (bHeld && !bStands)
+			{
+				GTPWalk::Freeze(W->Walker, From, 60.f, GTPWalk::EPause::HandsUp);
+				++HeldPutBack;
+			}
+			else if (!bHeld && W->Walker.PauseKind == GTPWalk::EPause::HandsUp)
+			{
+				W->Walker.Pause = 0.f;
+				W->Walker.PauseKind = GTPWalk::EPause::None;
+			}
+			else if ((State == EGTPThreatState::Fleeing || State == EGTPThreatState::Backing) && W->Walker.FleeTimeLeft <= 0.f)
+			{
+				GTPWalk::Flee(Graph, W->Walker, From, Settings);
+			}
+			if (bHeld)
+			{
+				// Standing since this very frame: the pose must not wait for the walker's next step.
+				W->Speed = 0.f;
 			}
 		}
 		Actor->SetActorLocationAndRotation(FVector(W->Location.X, W->Location.Y, W->GroundZ), FRotator(0.f, W->Yaw, 0.f), false, nullptr, ETeleportType::None);
@@ -914,7 +1000,8 @@ void UGTPCrowdSubsystem::SpreadPanic()
 		for (int32 Other = 0; Other < Entities.Num(); ++Other)
 		{
 			FGTPCrowdWalkerFragment* O = Other != Index ? WalkerOf(Other) : nullptr;
-			if (O && O->Walker.Edge >= 0 && FVector::Dist2D(O->Location, W->Location) <= Settings.PanicRadius)
+			if (O && O->Walker.Edge >= 0 && FVector::Dist2D(O->Location, W->Location) <= Settings.PanicRadius
+				&& !(O->Walker.PauseKind == GTPWalk::EPause::HandsUp && O->Walker.Pause > 0.f))
 			{
 				GTPWalk::CatchPanic(Graph, O->Walker, W->Walker.Generation, Source, Settings, ReactionRng);
 			}

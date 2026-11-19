@@ -166,6 +166,8 @@ void UGTPGtaRun::BeginStep(int32 Index)
 	NextShot = 0.0;
 	bAimExitRequested = false;
 	AimFirstReaction = -1.0;
+	AimedHeld = nullptr;
+	AimedHeldSince = 0.0;
 	LastAimMoveTime = -1.0;
 	WalkDirection = FVector::ZeroVector;
 	WalkArmedPhase = 0;
@@ -1023,34 +1025,66 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail, bool bClose)
 	}
 	Detail = FString::Printf(TEXT("%saiming at %s (%.0f cm, walking at %.0f cm/s, aiming %d): %d hands up (%d compliant or frozen), %d fleeing, %d alarmed%s"),
 		bClose ? TEXT("close, ") : TEXT(""), *Victim->GetName(), Best, Character->GetVelocity().Size2D(), Weapon->IsAiming() ? 1 : 0, Hands, Obedient, Fleeing, Alarmed, bSettled ? TEXT(", settled") : TEXT(""));
-	if (bInRange && bSettled && Obedient > 0)
+	// What a hold-up looks like, read on the body itself: the states counted above say nothing of the pose shown
+	// (gate of candidate 48: "1 hands up" counted while the person aimed at ran, and another walked into the player).
+	// A person shows his hands up when he stands upright with both hands higher than his head.
+	auto Pose = [](const USkeletalMeshComponent* Mesh, bool* bHandsShown) -> FString
 	{
-		// What the player sees at that moment, for the eye: the states counted above say nothing of the pose shown
-		// (an animation of the wrong skeleton raises no hands). Written at the end of the frame, hands still up.
+		if (bHandsShown)
+		{
+			*bHandsShown = false;
+		}
+		if (!Mesh || Mesh->GetBoneIndex(TEXT("head")) == INDEX_NONE)
+		{
+			return TEXT("no head bone");
+		}
+		const FVector Root = Mesh->GetComponentLocation();
+		const FVector Head = Mesh->GetSocketLocation(TEXT("head"));
+		const float Left = Mesh->GetBoneIndex(TEXT("hand_l")) != INDEX_NONE ? Mesh->GetSocketLocation(TEXT("hand_l")).Z : -1e4f;
+		const float Right = Mesh->GetBoneIndex(TEXT("hand_r")) != INDEX_NONE ? Mesh->GetSocketLocation(TEXT("hand_r")).Z : -1e4f;
+		const float Pelvis = Mesh->GetBoneIndex(TEXT("pelvis")) != INDEX_NONE ? Mesh->GetSocketLocation(TEXT("pelvis")).Z : -1e4f;
+		const float Foot = Mesh->GetBoneIndex(TEXT("foot_l")) != INDEX_NONE ? Mesh->GetSocketLocation(TEXT("foot_l")).Z : -1e4f;
+		const bool bUpright = Head.Z - Root.Z > 100.f;
+		const bool bOver = Left > Head.Z && Right > Head.Z;
+		if (bHandsShown)
+		{
+			*bHandsShown = bUpright && bOver;
+		}
+		const UAnimSingleNodeInstance* Single = Mesh->GetSingleNodeInstance();
+		const UAnimationAsset* Played = Single ? Single->GetAnimationAsset() : nullptr;
+		const UAnimInstance* Anim = Mesh->GetAnimInstance();
+		const FRotator Turn = Mesh->GetComponentRotation();
+		return FString::Printf(TEXT("head %.0f above its root and %.0f beside it, pelvis %.0f, foot %.0f (%s), hands %.0f %.0f from the head (%s), body pitch %.0f roll %.0f scale %.2f, rendered %.1f s ago, plays %s, mesh %s"),
+			Head.Z - Root.Z, FVector::Dist2D(Head, Root), Pelvis - Root.Z, Foot - Root.Z, bUpright ? TEXT("upright") : TEXT("NOT UPRIGHT"), Left - Head.Z, Right - Head.Z,
+			bOver ? TEXT("hands over the head") : TEXT("hands NOT over the head"), Turn.Pitch, Turn.Roll, Mesh->GetComponentScale().Z,
+			Mesh->GetWorld() ? Mesh->GetWorld()->GetTimeSeconds() - Mesh->GetLastRenderTime() : -1.f,
+			Played ? *Played->GetName() : (Anim ? *Anim->GetClass()->GetName() : TEXT("nothing")),
+			Mesh->GetSkeletalMeshAsset() ? *Mesh->GetSkeletalMeshAsset()->GetName() : TEXT("none"));
+	};
+	const AGTPPedestrian* Aimed = Cast<AGTPPedestrian>(Victim);
+	const UGTPThreatResponseComponent* AimedFear = Victim->FindComponentByClass<UGTPThreatResponseComponent>();
+	const bool bAimedHeld = AimedFear && (AimedFear->GetState() == EGTPThreatState::HandsUp || AimedFear->GetState() == EGTPThreatState::Complying);
+	bool bShown = false;
+	const FString AimedPose = Aimed ? Pose(Aimed->GetBody(), &bShown) : FString(TEXT("not a pedestrian"));
+	// Since when this same person is held up at the intended range.
+	if (!bInRange || !bAimedHeld || AimedHeld.Get() != Victim)
+	{
+		AimedHeld = bInRange && bAimedHeld ? Victim : nullptr;
+		AimedHeldSince = Now;
+	}
+	Detail += FString::Printf(TEXT("; the one aimed at: state %d for %.1f s, %s"), AimedFear ? static_cast<int32>(AimedFear->GetState()) : -1, Now - AimedHeldSince, *AimedPose);
+	const bool bProved = bInRange && bAimedHeld && bShown && Now - AimedHeldSince >= 1.0;
+	// His state says hands up for 5 s and his body does not show it: that is the defect, said at once.
+	const bool bStateOnly = bInRange && bAimedHeld && !bShown && Now - AimedHeldSince >= 5.0;
+	if (bProved || bStateOnly)
+	{
+		// What the player sees at that moment, for the eye. Written at the end of the frame, hands still up.
 		const FString Shot = FPaths::ConvertRelativePathToFull(FPaths::Combine(FPaths::ScreenShotDir(), bClose ? TEXT("gtarun-aimclose.png") : TEXT("gtarun-aim.png")));
 		FScreenshotRequest::RequestScreenshot(Shot, false, false);
 		GTP_TRACE(LogGTPGtaRun, TEXT("GTARun: picture of the hold-up asked: %s"), *Shot);
 		// The picture at night is not readable: the same in numbers. Heights in cm above the player's feet and above
-		// each body's own root; "hands over the head" is what a hold-up looks like.
+		// each body's own root.
 		const float Feet = Character->GetActorLocation().Z - Character->GetSimpleCollisionHalfHeight();
-		auto Pose = [](const USkeletalMeshComponent* Mesh) -> FString
-		{
-			if (!Mesh || Mesh->GetBoneIndex(TEXT("head")) == INDEX_NONE)
-			{
-				return TEXT("no head bone");
-			}
-			const float Root = Mesh->GetComponentLocation().Z;
-			const float Head = Mesh->GetSocketLocation(TEXT("head")).Z;
-			const float Left = Mesh->GetBoneIndex(TEXT("hand_l")) != INDEX_NONE ? Mesh->GetSocketLocation(TEXT("hand_l")).Z : -1e4f;
-			const float Right = Mesh->GetBoneIndex(TEXT("hand_r")) != INDEX_NONE ? Mesh->GetSocketLocation(TEXT("hand_r")).Z : -1e4f;
-			const UAnimSingleNodeInstance* Single = Mesh->GetSingleNodeInstance();
-			const UAnimationAsset* Played = Single ? Single->GetAnimationAsset() : nullptr;
-			const UAnimInstance* Anim = Mesh->GetAnimInstance();
-			return FString::Printf(TEXT("head %.0f above its root, hands %.0f %.0f from the head (%s), plays %s, mesh %s"), Head - Root, Left - Head, Right - Head,
-				Left > Head && Right > Head ? TEXT("hands over the head") : TEXT("hands NOT over the head"),
-				Played ? *Played->GetName() : (Anim ? *Anim->GetClass()->GetName() : TEXT("nothing")),
-				Mesh->GetSkeletalMeshAsset() ? *Mesh->GetSkeletalMeshAsset()->GetName() : TEXT("none"));
-		};
 		int32 Probed = 0;
 		for (TActorIterator<AGTPPedestrian> It(World); It && Probed < 4; ++It)
 		{
@@ -1064,7 +1098,7 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail, bool bClose)
 			const FVector To = Character->GetActorLocation() - It->GetActorLocation();
 			GTP_TRACE(LogGTPGtaRun, TEXT("GTARun hold-up probe: %s%s at %.0f cm, root %.0f cm above the player's feet, yaw %.0f (the player is at yaw %.0f from him): %s"),
 				*It->GetName(), *It == Victim ? TEXT(" (the one aimed at)") : TEXT(""), To.Size2D(), It->GetBody()->GetComponentLocation().Z - Feet,
-				It->GetActorRotation().Yaw, To.Rotation().Yaw, *Pose(It->GetBody()));
+				It->GetActorRotation().Yaw, To.Rotation().Yaw, *Pose(It->GetBody(), nullptr));
 		}
 		TArray<AActor*> Attached;
 		Character->GetAttachedActors(Attached);
@@ -1076,18 +1110,24 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail, bool bClose)
 			{
 				if (Mesh->GetBoneIndex(TEXT("head")) != INDEX_NONE && Mesh->IsVisible())
 				{
-					GTP_TRACE(LogGTPGtaRun, TEXT("GTARun hold-up probe: the player (%s.%s): %s"), *Visual->GetName(), *Mesh->GetName(), *Pose(Mesh));
+					GTP_TRACE(LogGTPGtaRun, TEXT("GTARun hold-up probe: the player (%s.%s): %s"), *Visual->GetName(), *Mesh->GetName(), *Pose(Mesh, nullptr));
 					break;
 				}
 			}
 		}
-		GTP_TRACE(LogGTPGtaRun, TEXT("GTARun hold-up probe: the player's own mesh: %s; camera pitch %.0f roll %.0f"), *Pose(Character->GetMesh()),
+		GTP_TRACE(LogGTPGtaRun, TEXT("GTARun hold-up probe: the player's own mesh: %s; camera pitch %.0f roll %.0f"), *Pose(Character->GetMesh(), nullptr),
 			PC->PlayerCameraManager ? PC->PlayerCameraManager->GetCameraRotation().Pitch : 0.f, PC->PlayerCameraManager ? PC->PlayerCameraManager->GetCameraRotation().Roll : 0.f);
 		Threat->ClearThreat();
 		if (!bClose)
 		{
 			AimedBefore = Victim;
 		}
+		if (bStateOnly)
+		{
+			Detail = FString::Printf(TEXT("%s has his hands up in his state for %.0f s, not on his body (%.0f cm away): %s"), *Victim->GetName(), Now - AimedHeldSince, Best, *AimedPose);
+			return EResult::Fail;
+		}
+		Detail = FString::Printf(TEXT("%s at %.0f cm stands with his hands over his head: %s"), *Victim->GetName(), Best, *AimedPose);
 		return EResult::Ok;
 	}
 	return EResult::Pending;

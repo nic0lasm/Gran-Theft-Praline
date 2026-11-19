@@ -48,3 +48,17 @@ un corps quitte une personne, sa pause mains en l'air s'arrête (plus personne n
 60 s, et sur un passage les voitures l'attendaient), et le corps oublie la peur, l'état et la mort de cette personne
 (`UGTPThreatResponseComponent::Forget`) : la suivante commence calme. Tant que le joueur braque quelqu'un sur un passage, les
 voitures attendent : c'est le braquage.
+
+### Ce qu'un braquage doit montrer
+
+`-GTARun` ne réussit ses deux étapes de braquage que si la personne visée se tient debout, les deux mains plus haut que la
+tête, lu sur les os de son corps 1 s après que son état dit « braquée » ; un état qui le dit pendant 5 s sur un corps qui ne
+le montre pas échoue aussitôt avec la pose (« hands up in his state, not on his body »). La porte du candidat 48 a passé les
+deux étapes sur le compte des états alors que la personne visée courait et qu'une autre marchait dans le joueur.
+
+Pour une personne qui a l'un des 24 corps, la peur du corps est la seule autorité : à chaque image le marcheur est remis en
+accord avec elle (braquée = debout immobile, en fuite = en course), et un bruit fort ou la panique des marcheurs laissent
+tranquille une personne tenue en joue. Les boucles (marche, attente, course, mains en l'air) cuites sur le squelette propre
+du pack sont prises quand elles existent (`/Game/MetaHumans/GTP/AnimsCrowd/CS_*`, `retarget_player_animations.py` avec
+`GTP_RTG_TARGET_MESH`, `GTP_RTG_PREFIX=CS_`, `GTP_RTG_FOLDER`). Le journal dit la pose d'un corps 2 s après le début de
+chaque type d'animation (« crowd: pose of … »).
