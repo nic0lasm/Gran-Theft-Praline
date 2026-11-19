@@ -388,7 +388,12 @@ wheel came from and which wheel classes and differential the saved Blueprint hol
 built again on the PC. The "drive config" line names each wheel's class; the chassis height is read
 on static geometry only (the visibility trace could stop on the seated driver). `-DriveLaunchTest`,
 with the game started in the car (`-PlayerPawn=<car class>`), waits 3 s then drives straight at full
-throttle for 25 s: 0-50, 0-100, top speed and distance ("drive launch test").
+throttle for 25 s: 0-50, 0-100, top speed and distance ("drive launch test"). Since candidate 49 the
+car is first put on the longest clear straight of the map (`PlaceForLaunchTest`: lanes within 1.5 m
+of a line, on through the next lane that keeps the heading; a car-wide box swept 0.45 to 1.55 m
+above the road finds what stands on it), held on the line, and lets off where it must brake before
+the end; the line adds 0-130, the speed every 100 m and the torque, mass and centre of mass. Run it
+with `-Pedestrians=0 -Police=0 -StreetParked=0`: the box does not see pawns nor vehicles.
 
 Candidate 45 (adaf9c1, PC, 16/11): every car has its own wheels and City Sample's differential
 (Car03, 05, 12 and Police13 rear wheel drive), `-GTARun` 7/7 with a 154 m chase. Car05 at full
@@ -443,6 +448,17 @@ origin, with no owner and no instigator, which none of our spawns uses) is recog
 mass moved, one line per class "vehicle physics template: ... left as at candidate 46". The cars
 driven by the player and the police keep their real wheels. Still to explain after the gate: how
 the real wheels make MassTraffic's simple physics stop its cars.
+
+Candidate 48 gate (2ff03c2, packaged): Car05 0-50 km/h in 2.4 s, top 91 km/h, stopped by an obstacle
+after 112 m, no 0-100 (47 in the editor: 1.4 s, 4.8 s, 111 km/h). The 47 figure was taken with the
+785 N.m arcade torque, the 48 one with 480 N.m (torque by mass): 1.4 s x 785 / 480 = 2.3 s, the gap
+is the torque, not the packaged game (not measured apart). MassTraffic's simple physics
+(`UMassTrafficVehiclePhysicsProcessor`) traces its suspensions against the plane of the car's lane,
+applies tyre and suspension forces at the wheel positions mined from the template and holds the car
+near its lane (`ClampLateralDeviation`); `-MassTemplateWheels` gives the template the real wheels
+again, and "MassTraffic physics template" / "MassTraffic physics car" lines (GTPMassTraffic, with each
+count) give what was mined and how the 6 nearest cars drive: speed, inputs, gear, wheels on the road,
+height and place against the lane.
 
 ## 9. Making a drivable car
 

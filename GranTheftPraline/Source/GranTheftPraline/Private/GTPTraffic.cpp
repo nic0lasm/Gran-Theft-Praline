@@ -762,12 +762,33 @@ FString AGTPTrafficNetwork::LanesFileFor(const FString& MapName)
 
 int32 AGTPTrafficNetwork::LoadLanesFromCsv(const FString& Path)
 {
-	TArray<FString> Rows;
-	if (!FFileHelper::LoadFileToStringArray(Rows, *Path) || Rows.Num() < 2)
+	TArray<FGTPTrafficLane> Read;
+	if (!ReadLanesCsv(Path, Read))
 	{
 		return 0;
 	}
-	Lanes.Reset();
+	Lanes = MoveTemp(Read);
+	LaneBounds.Reset(Lanes.Num());
+	for (const FGTPTrafficLane& Lane : Lanes)
+	{
+		FBox2D Bounds(ForceInit);
+		for (const FVector& Point : Lane.Points)
+		{
+			Bounds += FVector2D(Point.X, Point.Y);
+		}
+		LaneBounds.Add(Bounds);
+	}
+	return Lanes.Num();
+}
+
+bool AGTPTrafficNetwork::ReadLanesCsv(const FString& Path, TArray<FGTPTrafficLane>& OutLanes)
+{
+	TArray<FString> Rows;
+	if (!FFileHelper::LoadFileToStringArray(Rows, *Path) || Rows.Num() < 2)
+	{
+		return false;
+	}
+	OutLanes.Reset();
 	for (int32 RowIndex = 1; RowIndex < Rows.Num(); ++RowIndex)
 	{
 		// lane_id,road_id,"name",speed_kmh,width_m,points_ue_cm,next : the name may hold commas.
@@ -817,24 +838,14 @@ int32 AGTPTrafficNetwork::LoadLanesFromCsv(const FString& Path)
 		{
 			Lane.ToJunction = FCString::Atoi(*Fields[8].TrimEnd());
 		}
-		Lanes.Add(MoveTemp(Lane));
+		OutLanes.Add(MoveTemp(Lane));
 	}
 	// Drop links to lanes that are not there (a hand-edited file).
-	for (FGTPTrafficLane& Lane : Lanes)
+	for (FGTPTrafficLane& Lane : OutLanes)
 	{
-		Lane.Next.RemoveAll([this](int32 Id) { return !Lanes.IsValidIndex(Id); });
+		Lane.Next.RemoveAll([&OutLanes](int32 Id) { return !OutLanes.IsValidIndex(Id); });
 	}
-	LaneBounds.Reset(Lanes.Num());
-	for (const FGTPTrafficLane& Lane : Lanes)
-	{
-		FBox2D Bounds(ForceInit);
-		for (const FVector& Point : Lane.Points)
-		{
-			Bounds += FVector2D(Point.X, Point.Y);
-		}
-		LaneBounds.Add(Bounds);
-	}
-	return Lanes.Num();
+	return OutLanes.Num() > 0;
 }
 
 void AGTPTrafficNetwork::LanesInRing(const FVector& Center, float MinCm, float MaxCm, TArray<int32>& Out) const

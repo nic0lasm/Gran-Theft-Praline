@@ -248,6 +248,7 @@ void UGTPMassTrafficSubsystem::LogCounts()
 			LoopJumps, LoopJumpsInSight, LoopJumpsInPhysics, EntriesInSight.Num(), LoopEntries, MostEntriesHeld, EntriesHeldForPhysics, MostHeldForPhysics);
 	}
 	LogSimulatedCars(*World, PlayerLocation);
+	LogPhysicsCars(*World, PlayerLocation);
 #endif
 	if (Lanes == 0 && CountLogs == 1)
 	{
@@ -738,6 +739,126 @@ bool IsWall(const FZoneGraphTrafficLaneData& Lane)
 	return Lane.ConstData.bIsIntersectionLane
 		&& (Lane.NextLanes.Num() != 1 || !Lane.NextLanes[0] || Lane.NextLanes[0]->Length < WallCm());
 }
+}
+
+void UGTPMassTrafficSubsystem::LogPhysicsCars(UWorld& World, const FVector& PlayerLocation)
+{
+	// The cars MassTraffic drives with its simple physics (FMassTrafficVehiclePhysicsFragment, near the
+	// player). With the real wheels on its template (candidates 47 and 48) the traffic moving fell from
+	// 102 to 48-53 cars: what each extracted template holds (once each), and how the nearest of these
+	// cars drive now. -MassTemplateWheels gives the template the real wheels again for that comparison.
+	UMassEntitySubsystem* Mass = World.GetSubsystem<UMassEntitySubsystem>();
+	UZoneGraphSubsystem* Graph = World.GetSubsystem<UZoneGraphSubsystem>();
+	if (!Mass)
+	{
+		return;
+	}
+	struct FCar
+	{
+		double Distance = 0.0;
+		FString Line;
+	};
+	TArray<FCar> Cars;
+	int32 Total = 0;
+	int32 Stopped = 0;
+	int32 Sleeping = 0;
+	int32 WheelsUp = 0;
+	FMassEntityManager& Manager = Mass->GetMutableEntityManager();
+	FMassEntityQuery Query;
+	Query.Initialize(Manager.AsShared());
+	Query.AddTagRequirement<FMassTrafficVehicleTag>(EMassFragmentPresence::All);
+	Query.AddRequirement<FTransformFragment>(EMassFragmentAccess::ReadOnly);
+	Query.AddRequirement<FMassTrafficVehicleControlFragment>(EMassFragmentAccess::ReadOnly);
+	Query.AddRequirement<FMassTrafficPIDVehicleControlFragment>(EMassFragmentAccess::ReadOnly);
+	Query.AddRequirement<FMassTrafficVehiclePhysicsFragment>(EMassFragmentAccess::ReadOnly);
+	Query.AddRequirement<FMassZoneGraphLaneLocationFragment>(EMassFragmentAccess::ReadOnly);
+	Query.AddRequirement<FMassTrafficObstacleAvoidanceFragment>(EMassFragmentAccess::ReadOnly);
+	FMassExecutionContext Context(Manager, 0.f);
+	Query.ForEachEntityChunk(Context, [&](FMassExecutionContext& Chunk)
+	{
+		const TConstArrayView<FTransformFragment> Transforms = Chunk.GetFragmentView<FTransformFragment>();
+		const TConstArrayView<FMassTrafficVehicleControlFragment> Controls = Chunk.GetFragmentView<FMassTrafficVehicleControlFragment>();
+		const TConstArrayView<FMassTrafficPIDVehicleControlFragment> Inputs = Chunk.GetFragmentView<FMassTrafficPIDVehicleControlFragment>();
+		const TConstArrayView<FMassTrafficVehiclePhysicsFragment> Physics = Chunk.GetFragmentView<FMassTrafficVehiclePhysicsFragment>();
+		const TConstArrayView<FMassZoneGraphLaneLocationFragment> Locations = Chunk.GetFragmentView<FMassZoneGraphLaneLocationFragment>();
+		const TConstArrayView<FMassTrafficObstacleAvoidanceFragment> Avoidances = Chunk.GetFragmentView<FMassTrafficObstacleAvoidanceFragment>();
+		for (int32 Index = 0; Index < Chunk.GetNumEntities(); ++Index)
+		{
+			const FMassTrafficSimpleVehiclePhysicsSim& Sim = Physics[Index].VehicleSim;
+			const FMassTrafficSimpleVehiclePhysicsConfig& Config = Sim.Setup();
+			const int32 NumWheels = FMath::Min(Sim.WheelSims.Num(), Sim.SuspensionSims.Num());
+			if (!LoggedTemplates.Contains(&Config))
+			{
+				LoggedTemplates.Add(&Config);
+				FString Wheels;
+				for (int32 Wheel = 0; Wheel < NumWheels; ++Wheel)
+				{
+					const Chaos::FSimpleSuspensionSim& Suspension = Sim.SuspensionSims[Wheel];
+					Wheels += FString::Printf(TEXT(" | wheel %d at %s radius %.1f driven=%d rest force %.0f spring %.0f raise %.0f drop %.0f"), Wheel,
+						*Suspension.GetLocalRestingPosition().ToCompactString(), Sim.WheelSims[Wheel].Setup().WheelRadius, Sim.WheelSims[Wheel].EngineEnabled ? 1 : 0,
+						Suspension.Setup().RestingForce, Suspension.Setup().SpringRate, Suspension.Setup().SuspensionMaxRaise, Suspension.Setup().SuspensionMaxDrop);
+				}
+				UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic physics template: mass %.0f kg (peripheral %.0f), centre of mass %s, body to actor %s, inverse inertia %s, %d driven wheel(s), %d wheel(s)%s"),
+					Config.Mass, Config.PeripheralMass, *Config.CenterOfMass.ToCompactString(), *Config.BodyToActor.GetTranslation().ToCompactString(),
+					*Config.InverseMomentOfInertia.ToCompactString(), Config.NumDrivenWheels, NumWheels, *Wheels);
+			}
+			++Total;
+			const float Kmh = Controls[Index].Speed * 0.036f;
+			Stopped += Kmh < 3.6f ? 1 : 0;
+			Sleeping += Sim.IsSleeping() ? 1 : 0;
+			int32 InContact = 0;
+			for (int32 Wheel = 0; Wheel < NumWheels; ++Wheel)
+			{
+				InContact += Sim.WheelSims[Wheel].InContact() ? 1 : 0;
+			}
+			WheelsUp += InContact < NumWheels ? 1 : 0;
+			const FTransform& Transform = Transforms[Index].GetTransform();
+			const double Distance = FVector::Dist(Transform.GetLocation(), PlayerLocation);
+			if (Cars.Num() >= 6 && Distance >= Cars.Last().Distance)
+			{
+				continue;
+			}
+			// Where it stands against its lane: height above it and distance beside it.
+			FString OnLane = TEXT("lane not found");
+			FZoneGraphLaneLocation LanePoint;
+			if (Graph && Graph->CalculateLocationAlongLane(Locations[Index].LaneHandle, Locations[Index].DistanceAlongLane, LanePoint))
+			{
+				const FVector Offset = Transform.GetLocation() - LanePoint.Position;
+				const double Above = FVector::DotProduct(Offset, LanePoint.Up);
+				const FVector Flat = Offset - LanePoint.Up * Above;
+				const double Beside = (Flat - LanePoint.Direction * FVector::DotProduct(Flat, LanePoint.Direction)).Size();
+				OnLane = FString::Printf(TEXT("%.0f cm above its lane, %.0f cm beside it, yaw off %.0f deg"), Above, Beside,
+					FMath::RadiansToDegrees(FMath::Acos(FMath::Clamp(FVector::DotProduct(Transform.GetRotation().GetForwardVector().GetSafeNormal2D(), LanePoint.Direction.GetSafeNormal2D()), -1.0, 1.0))));
+			}
+			FString Wheels;
+			for (int32 Wheel = 0; Wheel < NumWheels; ++Wheel)
+			{
+				const Chaos::FSimpleWheelSim& WheelSim = Sim.WheelSims[Wheel];
+				Wheels += FString::Printf(TEXT(" | w%d contact=%d load %.0f slip %.0f drive %.0f at %s"), Wheel, WheelSim.InContact() ? 1 : 0, WheelSim.GetWheelLoadForce(),
+					WheelSim.GetSlipMagnitude(), WheelSim.GetDriveTorque(), Sim.WheelLocalLocations.IsValidIndex(Wheel) ? *Sim.WheelLocalLocations[Wheel].ToCompactString() : TEXT("?"));
+			}
+			const FRotator Rotation = Transform.Rotator();
+			const FMassTrafficPIDVehicleControlFragment& Input = Inputs[Index];
+			FCar Car;
+			Car.Distance = Distance;
+			Car.Line = FString::Printf(TEXT("%.0f m from the player: %.0f km/h, throttle %.2f brake %.2f steer %.2f handbrake %d, gear %d %.0f rpm, sleeping %d, pitch %.1f roll %.1f, %s, next car %.0f m, obstacle %.0f m%s"),
+				Distance / 100.0, Kmh, Input.Throttle, Input.Brake, Input.Steering, Input.bHandbrake ? 1 : 0, Sim.TransmissionSim.GetCurrentGear(),
+				Sim.EngineSim.GetEngineRPM(), Sim.IsSleeping() ? 1 : 0, Rotation.Pitch, Rotation.Roll, *OnLane,
+				Avoidances[Index].DistanceToNext / 100.f, Avoidances[Index].DistanceToCollidingObstacle / 100.f, *Wheels);
+			Cars.Add(MoveTemp(Car));
+			Cars.Sort([](const FCar& A, const FCar& B) { return A.Distance < B.Distance; });
+			if (Cars.Num() > 6)
+			{
+				Cars.Pop();
+			}
+		}
+	});
+	UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic physics cars t=%.0fs: %d under MassTraffic's physics, %d stopped, %d asleep, %d with a wheel off the road"),
+		World.GetTimeSeconds(), Total, Stopped, Sleeping, WheelsUp);
+	for (const FCar& Car : Cars)
+	{
+		UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic physics car: %s"), *Car.Line);
+	}
 }
 
 void UGTPMassTrafficSubsystem::HandleDeadEnds()

@@ -32,6 +32,7 @@
 #include "CollisionQueryParams.h"
 #include "Engine/DamageEvents.h"
 #include "Engine/World.h"
+#include "EngineUtils.h"
 #include "EnhancedInputComponent.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -397,7 +398,15 @@ void AGTPVehicle::FindWheelBones()
 	{
 		return;
 	}
-	if (IsPhysicsTemplateSpawn())
+	// -MassTemplateWheels: the template gets the real wheels as the cars do (candidates 47 and 48), to
+	// see in one run how MassTraffic's simple physics drives with them ("MassTraffic physics car").
+	static const bool bTemplateWheels = FParse::Param(FCommandLine::Get(), TEXT("MassTemplateWheels"));
+	if (bTemplateWheels && IsPhysicsTemplateSpawn())
+	{
+		GTP_TRACE(LogGTPVehicle, TEXT("vehicle physics template: %s (%s) taken for MassTraffic's physics template, given the real wheels (-MassTemplateWheels)"),
+			*GetName(), *GetClass()->GetName());
+	}
+	else if (IsPhysicsTemplateSpawn())
 	{
 		// MassTraffic's simple physics for the cars near the player is mined from this car. With the
 		// real wheels and the centre of mass moved (candidates 47 and 48) the traffic moving fell from
@@ -971,6 +980,263 @@ void AGTPVehicle::ProbeDrive()
 	GroundHitsSinceProbe = 0;
 }
 
+namespace GTPLaunchStraight
+{
+	// A road line for the launch test: from Start along Dir, LengthCm of lanes that keep within
+	// SideCm of the line and keep going forward (lane points are 2D, Z = 0).
+	struct FLine
+	{
+		FVector2D Start = FVector2D::ZeroVector;
+		FVector2D Dir = FVector2D::ZeroVector;
+		float LengthCm = 0.f;
+		int32 FirstLane = INDEX_NONE;
+		int32 LastLane = INDEX_NONE;
+	};
+	constexpr float SideCm = 150.f;
+	constexpr float MaxCm = 150000.f;
+
+	FLine Walk(const TArray<FGTPTrafficLane>& Lanes, int32 Lane, int32 Point)
+	{
+		FLine Line;
+		const TArray<FVector>& First = Lanes[Lane].Points;
+		const FVector2D Start(First[Point].X, First[Point].Y);
+		const FVector2D Dir = (FVector2D(First[Point + 1].X, First[Point + 1].Y) - Start).GetSafeNormal();
+		if (Dir.IsNearlyZero())
+		{
+			return Line;
+		}
+		Line.Start = Start;
+		Line.Dir = Dir;
+		Line.FirstLane = Lane;
+		Line.LastLane = Lane;
+		int32 Current = Lane;
+		int32 Index = Point + 1;
+		double Along = 0.0;
+		for (int32 Step = 0; Step < 4000 && Along < MaxCm; ++Step)
+		{
+			const TArray<FVector>& Points = Lanes[Current].Points;
+			if (Index >= Points.Num())
+			{
+				// On to the next lane whose chord keeps the heading best (within about 8 degrees).
+				int32 Best = INDEX_NONE;
+				double BestDot = 0.99;
+				for (const int32 Next : Lanes[Current].Next)
+				{
+					const TArray<FVector>& NextPoints = Lanes[Next].Points;
+					if (NextPoints.Num() < 2)
+					{
+						continue;
+					}
+					const FVector2D Chord = (FVector2D(NextPoints.Last().X, NextPoints.Last().Y) - FVector2D(NextPoints[0].X, NextPoints[0].Y)).GetSafeNormal();
+					const double Dot = FVector2D::DotProduct(Chord, Dir);
+					if (Dot > BestDot)
+					{
+						BestDot = Dot;
+						Best = Next;
+					}
+				}
+				if (Best == INDEX_NONE)
+				{
+					break;
+				}
+				Current = Best;
+				Index = 0;
+				continue;
+			}
+			const FVector2D Rel = FVector2D(Points[Index].X, Points[Index].Y) - Start;
+			const double Forward = FVector2D::DotProduct(Rel, Dir);
+			if (FMath::Abs(FVector2D::CrossProduct(Dir, Rel)) > SideCm || Forward < Along - 1.0)
+			{
+				break;
+			}
+			Along = FMath::Max(Along, Forward);
+			Line.LastLane = Current;
+			++Index;
+		}
+		Line.LengthCm = static_cast<float>(Along);
+		return Line;
+	}
+
+	// The road under At, searched from 3 m above RefZ (under the trees and lamps over the road) to 20 m below.
+	bool GroundZ(const UWorld& World, const FVector2D& At, double RefZ, const FCollisionQueryParams& Params, double& OutZ)
+	{
+		FHitResult Hit;
+		if (!World.LineTraceSingleByObjectType(Hit, FVector(At.X, At.Y, RefZ + 300.0), FVector(At.X, At.Y, RefZ - 2000.0),
+			FCollisionObjectQueryParams(ECC_WorldStatic), Params))
+		{
+			return false;
+		}
+		OutZ = Hit.ImpactPoint.Z;
+		return true;
+	}
+
+	// The longest stretch of Line a car-wide box, 0.45 to 1.55 m above the road, crosses without
+	// meeting the world (bollards, poles, shelters, walls, props; not pawns nor vehicles), in 25 m
+	// sweeps that follow the road; OutFromCm is where it starts on the line, OutEnd what ends it.
+	float ClearCm(const UWorld& World, const FLine& Line, double RefZ, const FCollisionQueryParams& Params, float& OutFromCm, double& OutFromZ, FString& OutEnd)
+	{
+		const FQuat Facing(FVector::UpVector, FMath::Atan2(Line.Dir.Y, Line.Dir.X));
+		const FCollisionShape Box = FCollisionShape::MakeBox(FVector(50.f, 100.f, 55.f));
+		// Street furniture: static, movable (props, details) and loose physics bodies (breakables).
+		FCollisionObjectQueryParams Static(ECC_WorldStatic);
+		Static.AddObjectTypesToQuery(ECC_WorldDynamic);
+		Static.AddObjectTypesToQuery(ECC_PhysicsBody);
+		constexpr float StepCm = 2500.f;
+		constexpr float PastObstacleCm = 500.f;
+		float BestCm = 0.f;
+		double Z = 0.0;
+		if (!GroundZ(World, Line.Start, RefZ, Params, Z))
+		{
+			OutEnd = TEXT("no road under the start");
+			return 0.f;
+		}
+		float GapFrom = 0.f;
+		double GapZ = Z;
+		float Done = 0.f;
+		auto CloseGap = [&](float At, const FString& Why)
+		{
+			if (At - GapFrom > BestCm)
+			{
+				BestCm = At - GapFrom;
+				OutFromCm = GapFrom;
+				OutFromZ = GapZ;
+				OutEnd = Why;
+			}
+		};
+		for (int32 Guard = 0; Done < Line.LengthCm && Guard < 1000; ++Guard)
+		{
+			const float Next = FMath::Min(Done + StepCm, Line.LengthCm);
+			const FVector2D A = Line.Start + Line.Dir * Done;
+			const FVector2D B = Line.Start + Line.Dir * Next;
+			double NextZ = Z;
+			if (!GroundZ(World, B, Z, Params, NextZ))
+			{
+				CloseGap(Done, TEXT("no road found under the line"));
+				return BestCm;
+			}
+			FHitResult Hit;
+			if (!World.SweepSingleByObjectType(Hit, FVector(A.X, A.Y, Z + 100.0), FVector(B.X, B.Y, NextZ + 100.0), Facing, Static, Box, Params))
+			{
+				Done = Next;
+				Z = NextZ;
+				continue;
+			}
+			const float HitAt = Done + (Hit.bStartPenetrating ? 0.f : static_cast<float>(Hit.Distance));
+			const AActor* Blocker = Hit.GetActor();
+			CloseGap(HitAt, FString::Printf(TEXT("%s at %.0f m"), Blocker ? *Blocker->GetName() : TEXT("static geometry"), HitAt / 100.f));
+			// Past the obstacle: a new stretch may start there.
+			Done = HitAt + PastObstacleCm;
+			GapFrom = Done;
+			const FVector2D After = Line.Start + Line.Dir * Done;
+			if (Done >= Line.LengthCm || !GroundZ(World, After, Z, Params, Z))
+			{
+				return BestCm;
+			}
+			GapZ = Z;
+		}
+		CloseGap(FMath::Min(Done, Line.LengthCm), TEXT("the road turns"));
+		return BestCm;
+	}
+}
+
+void AGTPVehicle::PlaceForLaunchTest()
+{
+	UWorld* World = GetWorld();
+	USkeletalMeshComponent* Body = GetMesh();
+	if (!World || !Body)
+	{
+		return;
+	}
+	// The lanes: the traffic network's, else the map's lanes file (-Traffic=0 spawns no network).
+	TArray<FGTPTrafficLane> FileLanes;
+	const TArray<FGTPTrafficLane>* Lanes = nullptr;
+	TActorIterator<AGTPTrafficNetwork> Network(World);
+	if (Network)
+	{
+		Lanes = &Network->GetLanes();
+	}
+	else if (AGTPTrafficNetwork::ReadLanesCsv(AGTPTrafficNetwork::LanesFileFor(UGameplayStatics::GetCurrentLevelName(this, true)), FileLanes))
+	{
+		Lanes = &FileLanes;
+	}
+	if (!Lanes || Lanes->Num() == 0)
+	{
+		GTP_TRACE(LogGTPVehicle, TEXT("drive launch test: no lanes, launched where the car stands"));
+		return;
+	}
+	using namespace GTPLaunchStraight;
+	TArray<FLine> Candidates;
+	for (int32 Lane = 0; Lane < Lanes->Num(); ++Lane)
+	{
+		for (int32 Point = 0; Point + 1 < (*Lanes)[Lane].Points.Num(); ++Point)
+		{
+			const FLine Line = Walk(*Lanes, Lane, Point);
+			if (Line.LengthCm > 15000.f)
+			{
+				Candidates.Add(Line);
+			}
+		}
+	}
+	Candidates.Sort([](const FLine& A, const FLine& B) { return A.LengthCm > B.LengthCm; });
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(GTPLaunchStraight), false, this);
+	Params.AddIgnoredActor(Driver);
+	TArray<FLine> Tested;
+	FLine Chosen;
+	float ChosenCm = 0.f;
+	float ChosenFrom = 0.f;
+	double ChosenZ = GetActorLocation().Z;
+	FString ChosenEnd;
+	for (const FLine& Line : Candidates)
+	{
+		if (Line.LengthCm <= ChosenCm || Tested.Num() >= 24)
+		{
+			break;
+		}
+		// One test per road and direction: a start on a line already tested is the same straight.
+		const bool bSeen = Tested.ContainsByPredicate([&Line](const FLine& Other)
+		{
+			return FVector2D::DotProduct(Other.Dir, Line.Dir) > 0.99 && FMath::Abs(FVector2D::CrossProduct(Other.Dir, Line.Start - Other.Start)) < 400.0;
+		});
+		if (bSeen)
+		{
+			continue;
+		}
+		Tested.Add(Line);
+		float From = 0.f;
+		double FromZ = 0.0;
+		FString End;
+		const float Clear = ClearCm(*World, Line, GetActorLocation().Z, Params, From, FromZ, End);
+		if (Clear > ChosenCm)
+		{
+			Chosen = Line;
+			ChosenCm = Clear;
+			ChosenFrom = From;
+			ChosenZ = FromZ;
+			ChosenEnd = End;
+		}
+	}
+	if (ChosenCm < 10000.f)
+	{
+		GTP_TRACE(LogGTPVehicle, TEXT("drive launch test: no clear straight over 100 m among %d line(s) (%d tested), launched where the car stands"),
+			Candidates.Num(), Tested.Num());
+		return;
+	}
+	// The car 3 m into the stretch, along the line, its wheels just above the road.
+	constexpr float Setback = 300.f;
+	LaunchLineDir = Chosen.Dir;
+	LaunchLineStart = Chosen.Start + Chosen.Dir * ChosenFrom;
+	LaunchLineCm = ChosenCm;
+	const FVector2D Spot = LaunchLineStart + LaunchLineDir * Setback;
+	const float Yaw = FMath::RadiansToDegrees(static_cast<float>(FMath::Atan2(LaunchLineDir.Y, LaunchLineDir.X)));
+	SetActorLocationAndRotation(FVector(Spot.X, Spot.Y, ChosenZ + 30.0), FRotator(0.f, Yaw, 0.f), false, nullptr, ETeleportType::ResetPhysics);
+	Body->SetPhysicsLinearVelocity(FVector::ZeroVector);
+	Body->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
+	NotePlaced(TEXT("launch test"));
+	GTP_TRACE(LogGTPVehicle, TEXT("drive launch test: straight of %.0f m clear (line of %.0f m on lanes %d to %d, %d line(s), %d road(s) tested; ends: %s), car put at %s heading %.0f"),
+		ChosenCm / 100.f, Chosen.LengthCm / 100.f, Chosen.FirstLane, Chosen.LastLane, Candidates.Num(), Tested.Num(), *ChosenEnd,
+		*FVector(Spot.X, Spot.Y, ChosenZ).ToCompactString(), Yaw);
+}
+
 void AGTPVehicle::RunLaunchTest()
 {
 	static const bool bOn = FParse::Param(FCommandLine::Get(), TEXT("DriveLaunchTest"));
@@ -987,6 +1253,8 @@ void AGTPVehicle::RunLaunchTest()
 	const float Now = World->GetTimeSeconds();
 	if (LaunchTestStart < 0.f)
 	{
+		// Put on the longest clear straight of the map first, then 3 s to settle.
+		PlaceForLaunchTest();
 		LaunchTestStart = Now + 3.f;
 		return;
 	}
@@ -998,28 +1266,65 @@ void AGTPVehicle::RunLaunchTest()
 	{
 		LaunchTestFrom = GetActorLocation();
 		TopSpeedKmh = 0.f;
+		LaunchTestMarks.Reset();
+		LaunchTest130 = -1.f;
 	}
 	const float Speed = GetSpeedKmh();
 	const float Metres = static_cast<float>(FVector::Dist2D(LaunchTestFrom, GetActorLocation()) / 100.0);
+	if (LaunchTest130 < 0.f && Speed >= 130.f)
+	{
+		LaunchTest130 = Now - LaunchTestStart;
+	}
+	// The speed every 100 m.
+	while (Metres >= 100.f * (LaunchTestMarks.Num() + 1) && LaunchTestMarks.Num() < 20)
+	{
+		LaunchTestMarks.Add(Speed);
+	}
 	const bool bBlocked = TopSpeedKmh > 30.f && Speed < TopSpeedKmh - 30.f;
-	if (bBlocked || Now - LaunchTestStart > 25.f)
+	// On a straight: off the throttle while there is still room to brake (6 m/s2) and 15 m to spare.
+	const FVector2D Rel = FVector2D(GetActorLocation().X, GetActorLocation().Y) - LaunchLineStart;
+	const float Along = LaunchLineCm > 0.f ? static_cast<float>(FVector2D::DotProduct(Rel, LaunchLineDir)) : 0.f;
+	const float SpeedMs = FMath::Max(Speed, 0.f) / 3.6f;
+	const bool bStraightEnds = LaunchLineCm > 0.f && (LaunchLineCm - Along) / 100.f < SpeedMs * SpeedMs / 12.f + 15.f;
+	if (bBlocked || bStraightEnds || Now - LaunchTestStart > 40.f)
 	{
 		bLaunchTestDone = true;
 		ThrottleAmount = 0.f;
 		Move->SetThrottleInput(0.f);
 		Move->SetBrakeInput(1.f);
-		GTP_TRACE(LogGTPVehicle, TEXT("drive launch test: %s top %.0f km/h, %.0f m in %.1f s%s"), *GetClass()->GetName(), TopSpeedKmh, Metres,
-			Now - LaunchTestStart, bBlocked ? TEXT(", stopped by an obstacle") : TEXT(""));
+		FString Marks;
+		for (int32 Index = 0; Index < LaunchTestMarks.Num(); ++Index)
+		{
+			Marks += FString::Printf(TEXT("%s%d m %.0f"), Index ? TEXT(", ") : TEXT(""), 100 * (Index + 1), LaunchTestMarks[Index]);
+		}
+		const FBodyInstance* Chassis = GetMesh() ? GetMesh()->GetBodyInstance() : nullptr;
+		const FVector CentreOfMass = Chassis && Chassis->IsValidBodyInstance() ? Chassis->GetMassSpaceLocal().GetTranslation() : FVector::ZeroVector;
+		GTP_TRACE(LogGTPVehicle, TEXT("drive launch test: %s top %.0f km/h, %.0f m in %.1f s, %s; 0-130 km/h %s; km/h every 100 m: %s | torque %.0f N.m (player), mass %.0f kg, centre of mass X %.0f Z %.0f, %d gears, max %.0f rpm"),
+			*GetClass()->GetName(), TopSpeedKmh, Metres, Now - LaunchTestStart,
+			bBlocked ? TEXT("stopped by an obstacle") : bStraightEnds ? TEXT("braking before the end of the straight") : TEXT("40 s at full throttle"),
+			LaunchTest130 >= 0.f ? *FString::Printf(TEXT("in %.1f s"), LaunchTest130) : TEXT("not reached"), Marks.IsEmpty() ? TEXT("none") : *Marks,
+			Assist.PlayerTorque * FMath::Max(AppliedPower, 0.f), Move->Mass, CentreOfMass.X, CentreOfMass.Z,
+			Move->TransmissionSetup.ForwardGearRatios.Num(), Move->EngineSetup.MaxRPM);
 		return;
 	}
 	if (Move->GetCurrentGear() == 0)
 	{
 		Move->SetTargetGear(1, true);
 	}
+	// Held on the line: back towards it when off by a few metres or turned from it.
+	float Steer = 0.f;
+	if (LaunchLineCm > 0.f)
+	{
+		const float Side = static_cast<float>(FVector2D::CrossProduct(LaunchLineDir, Rel));
+		const float LineYaw = FMath::RadiansToDegrees(static_cast<float>(FMath::Atan2(LaunchLineDir.Y, LaunchLineDir.X)));
+		const float YawError = static_cast<float>(FRotator::NormalizeAxis(GetActorRotation().Yaw - LineYaw));
+		const float Limit = Speed > 60.f ? 0.15f : 0.3f;
+		Steer = FMath::Clamp(-YawError / 8.f - Side / 400.f, -Limit, Limit);
+	}
 	ThrottleAmount = 1.f;
 	Move->SetHandbrakeInput(false);
 	Move->SetBrakeInput(0.f);
-	Move->SetSteeringInput(0.f);
+	Move->SetSteeringInput(Steer);
 	Move->SetThrottleInput(1.f);
 }
 

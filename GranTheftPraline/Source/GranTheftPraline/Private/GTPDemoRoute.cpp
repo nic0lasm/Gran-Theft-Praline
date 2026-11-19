@@ -860,7 +860,10 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 				}
 			}
 			// The first seconds at the wheel ignore what stands ahead: the taken car starts from a kerb, among the others.
-			const float ObstacleM = (Now < RamUntil || (bChase && T < 6.0)) ? 1000.f : (bChase ? UGTPAIDriverComponent::ProbeAhead(Driven, 900.f, 60.f) : UGTPAIDriverComponent::ProbeAhead(Driven, 4000.f, 90.f));
+			// What the probe met (pawns, vehicles, physics bodies), named in the DemoDrive line.
+			AActor* ObstacleActor = nullptr;
+			const float ObstacleM = (Now < RamUntil || (bChase && T < 6.0)) ? 1000.f
+				: (bChase ? UGTPAIDriverComponent::ProbeAhead(Driven, 900.f, 60.f, &ObstacleActor) : UGTPAIDriverComponent::ProbeAhead(Driven, 4000.f, 90.f, &ObstacleActor));
 			if (Follower.Step(Driven->GetActorLocation(), static_cast<float>(Driven->GetActorRotation().Yaw), Driven->GetSpeedKmh(), Cruise, ObstacleM, Command))
 			{
 				if (bChase)
@@ -915,9 +918,10 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 				if (bChase && Now >= NextDriveDiag)
 				{
 					NextDriveDiag = Now + 1.0;
-					GTP_TRACE(LogGTPDemo, TEXT("DemoDrive t=%.0f kmh=%.0f gear=%d rpm=%.0f lane=%d throttle=%.2f brake=%.2f steer=%.2f cruise=%.0f want=%.0f limit=%s obstacle=%.0f m"), static_cast<float>(T),
+					GTP_TRACE(LogGTPDemo, TEXT("DemoDrive t=%.0f kmh=%.0f gear=%d rpm=%.0f lane=%d throttle=%.2f brake=%.2f steer=%.2f cruise=%.0f want=%.0f limit=%s obstacle=%.0f m%s"), static_cast<float>(T),
 						Driven->GetSpeedKmh(), Driven->GetGear(), Driven->GetEngineRpm(), Follower.GetLane(), Command.Throttle, Command.Brake, Command.Steering, Cruise, Command.TargetSpeed * 3.6f,
-						LimitName(Command.Limit), ObstacleM);
+						LimitName(Command.Limit), ObstacleM,
+						ObstacleActor ? *FString::Printf(TEXT(" (%s at %s)"), *ObstacleActor->GetName(), *ObstacleActor->GetActorLocation().ToCompactString()) : TEXT(""));
 				}
 				if (bDeterministic && Follower.GetLane() != LastLoggedLane)
 				{

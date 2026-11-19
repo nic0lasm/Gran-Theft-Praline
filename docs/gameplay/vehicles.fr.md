@@ -414,7 +414,13 @@ ligne « drive config » nomme la classe de chaque roue ; la hauteur de la caiss
 géométrie statique seulement (le tracé de visibilité pouvait s'arrêter sur le conducteur assis).
 `-DriveLaunchTest`, avec le jeu lancé dans la voiture (`-PlayerPawn=<classe de la voiture>`), attend
 3 s puis roule tout droit pied au plancher pendant 25 s : 0-50, 0-100, vitesse de pointe et distance
-(« drive launch test »).
+(« drive launch test »). Depuis le candidat 49, la voiture est d'abord posée sur la plus longue ligne
+droite dégagée de la carte (`PlaceForLaunchTest` : voies à moins de 1,5 m d'une droite, prolongées par
+la voie suivante qui garde le cap ; une boîte de la largeur d'une voiture balayée de 0,45 à 1,55 m
+au-dessus de la chaussée trouve ce qui s'y dresse), tenue sur la ligne, et lâche l'accélérateur là où
+elle doit freiner avant la fin ; la ligne ajoute le 0-130, la vitesse tous les 100 m, le couple, la
+masse et le centre de gravité. À lancer avec `-Pedestrians=0 -Police=0 -StreetParked=0` : la boîte ne
+voit ni les pions ni les véhicules.
 
 Candidat 45 (adaf9c1, PC, 16/11) : chaque voiture a ses roues et le différentiel de City Sample
 (Car03, 05, 12 et Police13 en propulsion), `-GTARun` 7/7 avec une poursuite de 154 m. Car05 pied au
@@ -474,6 +480,17 @@ de centre de gravité déplacé, une ligne par classe « vehicle physics templat
 candidate 46 ». Les voitures conduites par le joueur et la police gardent leurs vraies roues. Reste à
 expliquer après la porte : comment les vraies roues font s'arrêter les voitures de la physique simple
 de MassTraffic.
+
+Porte du candidat 48 (2ff03c2, packagé) : Car05 0-50 km/h en 2,4 s, pointe 91 km/h, arrêtée par un
+obstacle après 112 m, pas de 0-100 (47 en éditeur : 1,4 s, 4,8 s, 111 km/h). Le chiffre du 47 a été pris
+avec le couple d'arcade de 785 N.m, celui du 48 avec 480 N.m (couple selon la masse) : 1,4 s x 785 / 480
+= 2,3 s, l'écart vient du couple, pas du jeu packagé (non mesuré à part). La physique simple de
+MassTraffic (`UMassTrafficVehiclePhysicsProcessor`) trace ses suspensions contre le plan de la voie de
+la voiture, applique les forces des pneus et des suspensions aux positions de roues extraites du modèle
+et retient la voiture près de sa voie (`ClampLateralDeviation`) ; `-MassTemplateWheels` redonne au
+modèle les vraies roues, et les lignes « MassTraffic physics template » / « MassTraffic physics car »
+(GTPMassTraffic, à chaque comptage) donnent ce qui a été extrait et comment roulent les 6 voitures les
+plus proches : vitesse, commandes, rapport, roues sur la route, hauteur et place par rapport à la voie.
 
 ## 9. Préparer une voiture conduisible
 

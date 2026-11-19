@@ -42,6 +42,13 @@ private:
 	/** "MassTraffic cars": the simulated cars (Mass entities), moving or not, near the player or not. */
 	void LogSimulatedCars(UWorld& World, const FVector& PlayerLocation);
 	/**
+	 * "MassTraffic physics template" (once per extracted template: mass, centre of mass, wheels) and
+	 * "MassTraffic physics car" (the 6 cars under MassTraffic's simple physics nearest the player:
+	 * speed, inputs, gear, wheels on the road, place against the lane), with each count log.
+	 */
+	void LogPhysicsCars(UWorld& World, const FVector& PlayerLocation);
+	TSet<const void*> LoggedTemplates;
+	/**
 	 * With -TrafficDeadEnds=cut, once before the spawners: the car lanes from which every way ends at
 	 * a dead end (the edge of the focus area) are taken out of the cars' choice. MassTraffic's lane choice does not look
 	 * ahead: a car takes a lane that leads to a dead end, then stops for good before its last lane

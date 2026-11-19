@@ -623,15 +623,27 @@ private:
 	bool bLaunch50Logged = false;
 	float TopSpeedKmh = 0.f;
 	/**
-	 * -DriveLaunchTest: the player's car (the game starts in it with -PlayerPawn=<car class>) waits
-	 * 3 s, then drives straight ahead at full throttle for 25 s, so the probe above times its 0-50 and
-	 * 0-100 km/h; one "drive launch test" line gives the top speed and the distance at the end, or
-	 * where an obstacle stopped it.
+	 * -DriveLaunchTest: the player's car (the game starts in it with -PlayerPawn=<car class>) is put
+	 * on the longest clear straight of the map (PlaceForLaunchTest), waits 3 s, then drives along it
+	 * at full throttle, held on the line, until it must brake before the end of the straight (or 40 s),
+	 * so the probe above times its 0-50 and 0-100 km/h; one "drive launch test" line gives the top
+	 * speed, 0-130, the speed every 100 m, what ended the run and the torque, mass and centre of mass.
 	 */
 	void RunLaunchTest();
+	/**
+	 * Longest straight of the traffic lanes (lanes within 1.5 m of a line, on through the next lane
+	 * that keeps the heading) whose road a car-wide box crosses without meeting the static world;
+	 * the car is put 3 m into it. Logged ("drive launch test: straight of ...").
+	 */
+	void PlaceForLaunchTest();
 	float LaunchTestStart = -1.f;
 	bool bLaunchTestDone = false;
 	FVector LaunchTestFrom = FVector::ZeroVector;
+	FVector2D LaunchLineStart = FVector2D::ZeroVector;
+	FVector2D LaunchLineDir = FVector2D::ZeroVector;
+	float LaunchLineCm = 0.f;
+	TArray<float> LaunchTestMarks;
+	float LaunchTest130 = -1.f;
 
 	/** -DriveDiag=1 trace, see TraceDriveDiag. */
 	static bool IsDriveDiagWanted();

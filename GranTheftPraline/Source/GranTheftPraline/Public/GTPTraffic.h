@@ -381,6 +381,9 @@ public:
 	/** Reads a lanes CSV (traffic.py format); returns the number of lanes. */
 	int32 LoadLanesFromCsv(const FString& Path);
 
+	/** Reads a lanes CSV (traffic.py format) without a network (the launch test with -Traffic=0); false when none. */
+	static bool ReadLanesCsv(const FString& Path, TArray<FGTPTrafficLane>& OutLanes);
+
 	/** Path of the lanes file for a map name, under the project content folder. */
 	static FString LanesFileFor(const FString& MapName);
 
