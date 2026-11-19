@@ -322,6 +322,16 @@ An object in the way is taken out, not moved. On a machine without the raw geo d
 map's lanes.csv>] [--dry-run]` filters the existing tables (it keeps `<table>.before-lanes.csv` and
 prints one line, `decor off the lanes: {...}`); `place_props.py` then puts each set back.
 
+Buildings follow the same rule in `generate.py`: a generated footprint closer than 1.5 m to a lane
+centre line is cut back along the lane, and a building that would lose more than 40 % of its area
+(or keep under 25 m²) stands on the road and is left out; `backdrop.py` does not bring it back.
+`report.json` lists both under `off_lanes`. Rue de la République: three footprints cut back (rue
+Claudia, a real 2 m passage widened to 3 m, 8.1 and 1.5 m²; a corner of rue Thomassin, 0.9 m²) and
+one 53 m² BD TOPO building left out, rue Champier, which the 2018 model places 1.2 m further east.
+Its neighbour's wall on that side becomes a street front; every other building comes out identical. `GTP_CITY_CLEAR_LANES=0` keeps the surveyed footprints.
+`regen_city.sh` now runs `carriageway.py` before the generation, since the lanes follow the
+measured carriageways.
+
 Which bay gets a detail is a stable hash of building and bay: every run gives the same street. The
 table has the columns of `props_placement.csv` plus `snap` (`keep` keeps the height of wall and
 roof items), `scale_x/y/z` and `collision` (none on small items). It is capped at 3,000 instances

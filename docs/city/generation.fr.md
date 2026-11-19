@@ -337,6 +337,16 @@ lanes.csv de la carte>] [--dry-run]` filtre les tables existantes (il garde
 `<table>.before-lanes.csv` et écrit une ligne, `decor off the lanes: {...}`) ; `place_props.py`
 repose ensuite chaque jeu.
 
+Les immeubles suivent la même règle dans `generate.py` : une emprise générée à moins de 1,5 m de
+l'axe d'une voie est reculée le long de la voie, et un immeuble qui y perdrait plus de 40 % de sa
+surface (ou garderait moins de 25 m²) est sur la chaussée et n'est pas généré ; `backdrop.py` ne le
+remet pas. `report.json` liste les deux cas sous `off_lanes`. Rue de la République : trois emprises
+reculées (rue Claudia, un vrai passage de 2 m porté à 3 m, 8,1 et 1,5 m² ; un angle de la rue
+Thomassin, 0,9 m²) et un immeuble BD TOPO de 53 m² écarté, rue Champier, que la maquette 2018 place
+1,2 m plus à l'est. Le mur de son voisin de ce côté devient une façade sur rue ; tous les autres immeubles sortent à l'identique. `GTP_CITY_CLEAR_LANES=0` garde
+les emprises relevées. `regen_city.sh` lance maintenant `carriageway.py` avant la génération,
+puisque les voies suivent les chaussées mesurées.
+
 Le choix d'une travée est un hachage stable de l'immeuble et de la travée : chaque passage donne la
 même rue. Le tableau a les colonnes de `props_placement.csv` plus `snap` (`keep` garde la hauteur des
 objets muraux et de toit), `scale_x/y/z` et `collision` (aucune sur les petits objets). Plafond de

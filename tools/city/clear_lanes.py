@@ -15,7 +15,12 @@ nor of the straight link from the end of a lane to the start of the next one.
   another object, and a moved object would no longer be a surveyed one.
 
 props.py and details.py apply the rule when they write their table (lanes computed from the
-same roads as traffic.py). This file is also the filter for tables that already exist, for a
+same roads as traffic.py).
+
+Buildings follow the same rule in generate.py (trim_footprints): a generated footprint loses what
+stands within CLEAR_M of a lane centre line, the facade is set back along the lane. A building
+that would lose more than DROP_SHARE of its area, or keep less than MIN_BUILDING_M2, is on the
+road rather than beside it (a misplaced BD TOPO footprint, rue Champier) and is left out. This file is also the filter for tables that already exist, for a
 machine without the raw data:
 
     python3 tools/city/clear_lanes.py --name presqu-ile --focus rue-de-la-republique \
@@ -37,6 +42,7 @@ import shutil
 import sys
 
 from shapely.geometry import LineString, Point, Polygon
+from shapely.ops import unary_union
 from shapely.strtree import STRtree
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -50,6 +56,9 @@ RADIUS_M = {"W1-12": 0.4, "W1-13": 0.65, "W1-14": 0.9, "W1-31": 0.85, "W1-54": 0
 # Catalogue id -> (depth along the object's front axis, length across it), metres.
 RECT_M = {"W1-01": (0.7, 1.8), "W1-21": (1.7, 4.2)}
 TABLES = ("props_placement.csv", "details_placement.csv")
+DROP_SHARE = 0.4           # a footprint that loses more than this to the lanes is left out
+MIN_BUILDING_M2 = 25.0     # and so is one with less than this left
+MIN_CUT_M2 = 0.05          # a footprint that only grazes the corridor is left as it is
 
 
 def lanes_from_csv(path):
@@ -82,6 +91,19 @@ def lanes_of_focus(proc, gen):
     return traffic.build_lanes(features, traffic.focus_area_m(gen), carriageways)
 
 
+def lanes_of_zone(proc):
+    """Lanes of every car road of the zone (no id: the game numbers the lanes of a focus). For
+    generate.py, which runs before the buildings that bound a focus exist."""
+    import traffic
+    roads = os.path.join(proc, "roads.geojson")
+    if not os.path.exists(roads):
+        return []
+    with open(roads, encoding="utf-8") as f:
+        features = json.load(f)["features"]
+    carriageways = traffic.load_carriageways(os.path.join(proc, "carriageway.geojson"))
+    return [dict(lane, anonymous=True) for lane in traffic.build_lanes(features, None, carriageways)]
+
+
 class Lanes:
     """Centre lines and lane-to-lane links, ready for distance queries."""
 
@@ -111,6 +133,46 @@ class Lanes:
             if d < CLEAR_M and (best is None or d < best[1]):
                 best = (self.labels[i], d)
         return best
+
+
+    def corridor(self, shape):
+        """(union of the corridors of the lanes within CLEAR_M of the shape, their labels), or
+        (None, []). Square ends and mitred bends: the cut through a wall stays a straight line."""
+        if self.tree is None:
+            return None, []
+        near = [i for i in self.tree.query(shape.buffer(CLEAR_M)) if self.lines[i].distance(shape) < CLEAR_M]
+        if not near:
+            return None, []
+        return (unary_union([self.lines[i].buffer(CLEAR_M, cap_style=3, join_style=2) for i in near]),
+                sorted({self.labels[i] for i in near}))
+
+
+def trim_footprints(buildings, lanes):
+    """Building footprints kept clear of the lanes. buildings: dicts with "id" and "poly" (as
+    generate.load_buildings); the "poly" of a trimmed building is replaced. Returns (buildings
+    kept, report): report lists what was trimmed and what was left out."""
+    index = lanes if isinstance(lanes, Lanes) else Lanes(lanes)
+    kept, trimmed, left_out = [], [], []
+    for b in buildings:
+        poly = b["poly"]
+        corridor, labels = index.corridor(poly)
+        rest = poly.difference(corridor) if corridor is not None else poly
+        cut = poly.area - rest.area
+        if cut < MIN_CUT_M2:
+            kept.append(b)
+            continue
+        if rest.geom_type == "MultiPolygon":       # the lane cuts it in two: the larger side stays
+            rest = max(rest.geoms, key=lambda g: g.area)
+        rest = rest.simplify(0.02) if not rest.is_empty else rest
+        entry = {"id": b["id"], "area_m2": round(poly.area, 1), "cut_m2": round(poly.area - rest.area, 1), "lanes": labels}
+        if rest.is_empty or rest.geom_type != "Polygon" or not rest.is_valid \
+                or rest.area < MIN_BUILDING_M2 or poly.area - rest.area > DROP_SHARE * poly.area:
+            left_out.append(entry)
+            continue
+        b["poly"] = rest
+        trimmed.append(entry)
+        kept.append(b)
+    return kept, {"trimmed": trimmed, "left_out": left_out}
 
 
 def footprint(row):

@@ -66,6 +66,26 @@ class ClearLanesTests(unittest.TestCase):
             lanes = clear_lanes.lanes_from_csv(path)
         self.assertEqual(lanes, [{"id": 3, "name": "R C", "points": [(0.0, 0.0), (50.0, 1.0)], "next": [4, 5]}])
 
+    def test_a_footprint_beside_a_lane_is_cut_back(self):
+        from shapely.geometry import LineString, box
+        wall = {"id": "B1", "poly": box(10.0, 0.9, 30.0, 12.0)}        # 0.9 m from the centre line
+        far = {"id": "B2", "poly": box(10.0, -12.0, 30.0, -2.0)}       # 2 m away: untouched
+        before = far["poly"]
+        kept, report = clear_lanes.trim_footprints([wall, far], LANES)
+        self.assertEqual([b["id"] for b in kept], ["B1", "B2"])
+        self.assertIs(far["poly"], before)
+        self.assertAlmostEqual(wall["poly"].bounds[1], clear_lanes.CLEAR_M, places=2)
+        self.assertGreaterEqual(LineString(LANES[0]["points"]).distance(wall["poly"]), clear_lanes.CLEAR_M - 0.01)
+        self.assertEqual([(e["id"], e["cut_m2"], e["lanes"]) for e in report["trimmed"]], [("B1", 12.0, ["7 R A"])])
+        self.assertEqual(report["left_out"], [])
+
+    def test_a_building_on_the_road_is_left_out(self):
+        from shapely.geometry import box
+        on_road = {"id": "B3", "poly": box(20.0, -4.0, 28.0, 4.0)}     # the lane runs through it
+        kept, report = clear_lanes.trim_footprints([on_road], LANES)
+        self.assertEqual(kept, [])
+        self.assertEqual([e["id"] for e in report["left_out"]], ["B3"])
+
     def test_no_lanes_keeps_everything(self):
         rows = [row("W1-09", 20.0, 0.0)]
         self.assertEqual(clear_lanes.split(rows, []), (rows, []))

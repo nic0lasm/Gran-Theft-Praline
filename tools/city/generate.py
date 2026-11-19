@@ -36,6 +36,7 @@ from shapely.ops import unary_union
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import citylib as cl  # noqa: E402
+import clear_lanes  # noqa: E402
 import grandlyon  # noqa: E402
 import meshkit  # noqa: E402
 import procgen  # noqa: E402
@@ -282,6 +283,15 @@ def main():
             gz = mnt.sample(np.array([p.x + origin[0]]), np.array([p.y + origin[1]]))[0] - origin_alt
             focus_axis.append(list(cl.to_unreal(p.x, p.y, 0.0 if np.isnan(gz) else float(gz))))
     print(f"{len(selected)} buildings selected ({args.focus}), {len(ridge_lines)} ridge lines")
+    # Nothing is built on a driving lane (clear_lanes.py): a footprint closer than a car's half width
+    # to a lane centre line is cut back, and a building standing on the road is left out.
+    # GTP_CITY_CLEAR_LANES=0 keeps the footprints as surveyed.
+    off_lanes = {"trimmed": [], "left_out": []}
+    if os.environ.get("GTP_CITY_CLEAR_LANES", "1") != "0":
+        selected, off_lanes = clear_lanes.trim_footprints(selected, clear_lanes.lanes_of_zone(proc))
+        gone = {e["id"] for e in off_lanes["left_out"]}
+        buildings = [b for b in buildings if b["id"] not in gone]
+        print(f"lanes: {len(off_lanes['trimmed'])} footprints cut back, {len(gone)} buildings left out")
 
     mod_rows, bld_rows, glb_items, shell_items = [], [], [], []
     roof_err, roof_kinds, typologies, tri_total = [], {}, {}, 0
@@ -393,6 +403,7 @@ def main():
         "clip": args.clip,
         "bdtopo_buildings": len(selected),
         "left_to_landmarks": sorted(replaced),
+        "off_lanes": off_lanes,
         "skipped_lidar_ground": len(skipped), "building_parts": len(bld_rows),
         "open_courtyards_m2": round(courtyard_m2), "covered_courtyards_m2": round(podium_m2),
         "typologies": typologies, "roof_kinds": roof_kinds, "modules": len(mod_rows), "module_kinds": kinds,

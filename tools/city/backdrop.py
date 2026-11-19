@@ -56,9 +56,13 @@ def main():
     out = os.path.join(proc, "gen", a.out or a.focus)
     os.makedirs(out, exist_ok=True)
     with open(os.path.join(gen, "report.json"), encoding="utf-8") as f:
-        axis = LineString(focus_axis_local(json.load(f)))
+        gen_report = json.load(f)
+    axis = LineString(focus_axis_local(gen_report))
     with open(os.path.join(gen, "buildings_gen.csv"), encoding="utf-8") as f:
         have = {r["bdtopo_id"] for r in csv.DictReader(f)}
+    # A building generate.py left out because it stands on a driving lane must not come back as a
+    # grey volume across the road.
+    have |= {e["id"] for e in gen_report.get("off_lanes", {}).get("left_out", [])}
     lm_path = os.path.join(proc, "landmarks.json")
     if os.path.exists(lm_path):
         with open(lm_path, encoding="utf-8") as f:

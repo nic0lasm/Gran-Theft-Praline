@@ -46,6 +46,8 @@ if test "${GTP_CITY_LANDMARKS:-1}" != "0"; then
 else
   rm -f "$repo/assets/geo/processed/$zone/landmarks.json" "$repo/assets/geo/processed/$zone/gen/$focus/landmarks."*
 fi
+step "carriageways fitted to the kerbs (before the generation: the buildings keep clear of the lanes)"
+"$py" "$repo/tools/city/carriageway.py" --name "$zone"
 step "generation (focus street + $extra)"
 set -- --name "$zone" --focus "$focus_name" --extra-bbox "$extra"
 rest="$also_street"
@@ -59,9 +61,8 @@ step "backdrop (low-definition volumes within 600 m, tools/city/backdrop.py)"
 "$py" "$repo/tools/city/backdrop.py" --name "$zone" --focus "$focus" > /dev/null
 test "${GTP_CITY_LANDMARKS:-1}" = "0" || "$py" "$repo/tools/city/landmarks.py" --name "$zone" --focus "$focus" > /dev/null
 test -f "$repo/assets/geo/processed/$zone/terrain/terrain.glb" || "$py" "$repo/tools/city/terrain.py" --name "$zone" > /dev/null
-step "signs, carriageways fitted to the kerbs, street furniture"
+step "signs, street furniture"
 "$py" "$repo/tools/city/signs.py" --name "$zone" --focus "$focus" > /dev/null
-"$py" "$repo/tools/city/carriageway.py" --name "$zone"
 "$py" "$repo/tools/city/props.py" --name "$zone" > /dev/null
 
 step "Unreal: import, facades, props, details, materials (run_city_import.sh)"
