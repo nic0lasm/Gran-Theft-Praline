@@ -159,7 +159,28 @@ void UGTPWantedComponent::ReportCrime(EGTPCrimeKind Kind, const FVector& Locatio
 	if (!Result.bReported)
 	{
 		++CrimeReports.Unwitnessed;
-		GTP_TRACE(LogGTPWanted, TEXT("wanted: crime %d not witnessed"), static_cast<int32>(Kind));
+		// Who was there, so that a crime nobody phoned in reads by itself: at the gate of candidate 50 the theft of the
+		// run's car went unwitnessed, where 12 to 14 passers-by had seen it at candidate 48, and the line did not say
+		// whether the street was empty, the people too far, or their view blocked.
+		const float Range = bLoud ? WitnessSettings.LoudPedestrianRange : WitnessSettings.PedestrianRange;
+		int32 People = 0, PeopleNear = 0, PeopleSeeing = 0, PoliceCars = 0;
+		float NearestPerson = -1.f;
+		for (const FGTPWitness& Witness : Witnesses)
+		{
+			if (Witness.bPolice)
+			{
+				++PoliceCars;
+				continue;
+			}
+			const float Metres = static_cast<float>(FVector2D::Distance(FVector2D(Witness.X, Witness.Y),
+				FVector2D(static_cast<float>(Location.X) * WantedCmToM, static_cast<float>(Location.Y) * WantedCmToM)));
+			++People;
+			PeopleNear += Metres <= Range ? 1 : 0;
+			PeopleSeeing += Metres <= Range && Witness.bCanSee ? 1 : 0;
+			NearestPerson = NearestPerson < 0.f ? Metres : FMath::Min(NearestPerson, Metres);
+		}
+		GTP_TRACE(LogGTPWanted, TEXT("wanted: crime %d not witnessed at %s: %d people on the map, %d within %.0f m, %d of those with a clear line, the nearest %.0f m away (-1 = nobody); %d police car(s) on the road; victim %d"),
+			static_cast<int32>(Kind), *Location.ToCompactString(), People, PeopleNear, Range, PeopleSeeing, NearestPerson, PoliceCars, bVictimInvolved ? 1 : 0);
 		return;
 	}
 	if (Result.Delay <= 0.f)
@@ -175,8 +196,8 @@ void UGTPWantedComponent::ReportCrime(EGTPCrimeKind Kind, const FVector& Locatio
 	Pending.Kind = Kind;
 	Pending.Location = Location;
 	Pending.DueTime = static_cast<float>(GetWorld()->GetTimeSeconds()) + Result.Delay;
-	GTP_TRACE(LogGTPWanted, TEXT("wanted: crime %d seen, the police are called (%.0f s) by %d passer(s)-by%s"), static_cast<int32>(Kind), Result.Delay,
-		Result.Persons, Result.bVictim ? TEXT(" and the victim") : TEXT(""));
+	GTP_TRACE(LogGTPWanted, TEXT("wanted: crime %d seen at %s, the police are called (%.0f s) by %d passer(s)-by%s"), static_cast<int32>(Kind),
+		*Location.ToCompactString(), Result.Delay, Result.Persons, Result.bVictim ? TEXT(" and the victim") : TEXT(""));
 }
 
 bool UGTPWantedComponent::AreWitnessesRequired() const
