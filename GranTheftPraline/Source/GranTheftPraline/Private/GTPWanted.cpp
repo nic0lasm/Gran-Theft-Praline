@@ -1309,7 +1309,7 @@ void AGTPPoliceDirector::DriveUnit(FUnit& Unit, UGTPWantedComponent& Wanted, con
 
 	// Held against something with the throttle down: back off, wheels turned the other way, then drive on.
 	// Off its wheels, or held in the same place after three tries: the car is given up where it is (its
-	// officers get out when the player is near, another car is sent), never put back on the road.
+	// officers get out when the player is near, another car is sent), never moved back onto a lane.
 	// Against the wanted player's own car a stopped unit is where it should be (it boxes him in, the arrest counts from there).
 	const bool bAtPlayer = Stars > 0 && FVector::Dist2D(Location, Player.GetActorLocation()) < 1200.f;
 	const FGTPUnitRecovery::EState Before = Unit.Recovery.State;

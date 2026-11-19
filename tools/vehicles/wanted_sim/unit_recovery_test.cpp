@@ -95,7 +95,7 @@ int main()
 		CHECK(R.State == EState::Driving && R.BackOffs == 0);
 	}
 	{
-		// Gate 48, unit 989: no wheel on the ground, 0 km/h, wheels spinning for 20 s. Given up after 3 s.
+		// Gate 48, unit 989: no wheel on the ground, 0 km/h, wheels spinning for 20 s. Given up after 5 s.
 		FGTPUnitRecovery R;
 		float T = 0.f;
 		while (!R.IsGivenUp() && T < 30.f)
@@ -108,11 +108,29 @@ int main()
 	{
 		// On its side with two wheels still touching: given up too.
 		FGTPUnitRecovery R;
-		for (int Frame = 0; Frame < 30 * 4; ++Frame)
+		for (int Frame = 0; Frame < 30 * 6; ++Frame)
 		{
 			R.Step(Dt, 1.f, 0.f, 0.f, 2, 0.1f, 0.f, 0.f, S);
 		}
 		CHECK(R.IsGivenUp() && R.Why == EWhy::OffWheels);
+	}
+	{
+		// On its roof for 2.5 s, then the vehicle's own rule rights it: 0.5 s falling with no wheel on the
+		// ground, then on its four wheels. Not given up: it drives on.
+		FGTPUnitRecovery R;
+		for (int Frame = 0; Frame < 75; ++Frame)
+		{
+			R.Step(Dt, 0.f, 0.f, 0.f, 0, -0.9f, 0.f, 0.f, S);
+		}
+		for (int Frame = 0; Frame < 15; ++Frame)
+		{
+			R.Step(Dt, 0.f, 0.f, 0.f, 0, 1.f, 0.f, 0.f, S);
+		}
+		for (int Frame = 0; Frame < 30 * 4; ++Frame)
+		{
+			R.Step(Dt, 20.f, 0.6f, 0.f, 4, 1.f, 0.f, 0.f, S);
+		}
+		CHECK(R.State == EState::Driving && Near(R.OffWheelsTime, 0.f));
 	}
 	{
 		// A car that has just been made falls 45 cm with no wheel on the ground for half a second,
