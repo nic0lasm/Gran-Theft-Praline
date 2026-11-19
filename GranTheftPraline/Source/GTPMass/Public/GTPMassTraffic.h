@@ -49,6 +49,25 @@ private:
 	void LogPhysicsCars(UWorld& World, const FVector& PlayerLocation);
 	TSet<const void*> LoggedTemplates;
 	/**
+	 * -MassTrafficPicture[=150,290]: every 0.25 s; at each time (s), a camera at 50 to 70 m from a
+	 * traffic car 50 to 70 m from the player (the one lying over the most, else the one nearest 60 m),
+	 * where the player stands if it sees the car, else 60 m behind or ahead of it on its heading; half a
+	 * second later the picture (Saved/Screenshots/<platform>/mass-traffic-<n>.png) and a line
+	 * "MassTraffic picture" with the car, its distances, roll and pitch; then the view goes back.
+	 */
+	void TickTrafficPicture();
+	FTimerHandle PictureTimer;
+	TArray<float> PictureTimes;
+	int32 PicturesTaken = 0;
+	int32 PictureRetries = 0;
+	int32 PicturePhase = 0;
+	double PictureAskedAt = 0.0;
+	TWeakObjectPtr<AActor> PictureCamera;
+	int32 PictureEntityIndex = INDEX_NONE;
+	int32 PictureEntitySerial = 0;
+	FString PictureEye;
+	FString PictureBlocked;
+	/**
 	 * With -TrafficDeadEnds=cut, once before the spawners: the car lanes from which every way ends at
 	 * a dead end (the edge of the focus area) are taken out of the cars' choice. MassTraffic's lane choice does not look
 	 * ahead: a car takes a lane that leads to a dead end, then stops for good before its last lane

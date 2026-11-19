@@ -482,6 +482,14 @@ over (roof more than 45 deg from the vertical). The real wheels with City Sample
 (`-MassTemplateWheels`) are measured in a 300 s mass pass at the candidate 51 gate; the stopgap
 should give way to them as soon as they keep the traffic moving.
 
+Since candidate 52 the "MassTraffic cars" line counts as `moving=` only the upright cars (roof within
+45 deg of the vertical) and gives the old count beside it (`moving_with_lying=`, `lying_over=`); a line
+"MassTraffic lying over" gives the cars lying over within 100 m of the player, in number and share.
+`-MassTrafficPicture[=150,290]` takes, at those times, a picture of a traffic car 50 to 70 m from the
+player (the one lying over the most, else the one nearest 60 m), seen from where the player stands or
+else 60 m behind or ahead of it (`Saved/Screenshots/<platform>/mass-traffic-<n>.png`), and logs the
+car, its distances, roll and pitch ("MassTraffic picture").
+
 Police cars turned over in the candidate 48 chase stayed on their side: the "put back on its wheels"
 rule ran for the player's car only. It now runs for the cars driven by the AI too (`PutBackOnWheels`,
 line "put back on its wheels at ... (AI driver)"). The centre of mass of City Sample's cars is set in

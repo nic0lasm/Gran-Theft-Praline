@@ -31,6 +31,10 @@
 #include "MassZoneGraphNavigationFragments.h"
 #include "ZoneGraphSubsystem.h"
 #include "Camera/PlayerCameraManager.h"
+#include "Camera/CameraActor.h"
+#include "Camera/CameraComponent.h"
+#include "Misc/Paths.h"
+#include "UnrealClient.h"
 #include "CollisionQueryParams.h"
 #include "Engine/HitResult.h"
 #endif
@@ -108,6 +112,24 @@ void UGTPMassTrafficSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 	{
 		// Does nothing until LinkDeadEndsToEntries has linked a dead end.
 		InWorld.GetTimerManager().SetTimer(LoopTimer, FTimerDelegate::CreateUObject(this, &UGTPMassTrafficSubsystem::GuardLoops), 0.25f, true);
+	}
+	// -MassTrafficPicture[=150,290]: a picture of a traffic car 50 to 70 m from the player at those
+	// times (s), with its distance and roll in the log (the stopgap of candidates 48 to 51 laid the
+	// cars there on their side while the count said they moved).
+	FString PictureAt;
+	if (FParse::Value(FCommandLine::Get(), TEXT("MassTrafficPicture="), PictureAt) || FParse::Param(FCommandLine::Get(), TEXT("MassTrafficPicture")))
+	{
+		TArray<FString> Times;
+		PictureAt.ParseIntoArray(Times, TEXT(","));
+		for (const FString& Time : Times)
+		{
+			PictureTimes.Add(FCString::Atof(*Time));
+		}
+		if (PictureTimes.IsEmpty())
+		{
+			PictureTimes = {150.f, 290.f};
+		}
+		InWorld.GetTimerManager().SetTimer(PictureTimer, FTimerDelegate::CreateUObject(this, &UGTPMassTrafficSubsystem::TickTrafficPicture), 0.25f, true);
 	}
 	if (StartedSpawners > 0)
 	{
@@ -374,6 +396,9 @@ void UGTPMassTrafficSubsystem::LogSimulatedCars(UWorld& World, const FVector& Pl
 	int32 StopOther = 0;
 	int32 Within100 = 0;
 	int32 Within200 = 0;
+	int32 MovingUpright = 0;
+	int32 LyingOver = 0;
+	int32 LyingWithin100 = 0;
 	double SpeedSum = 0.0;
 	int32 Implausible = 0;
 	double Nearest = TNumericLimits<double>::Max();
@@ -416,6 +441,11 @@ void UGTPMassTrafficSubsystem::LogSimulatedCars(UWorld& World, const FVector& Pl
 			}
 			const FMassTrafficVehicleControlFragment& Control = Controls[Index];
 			const float Speed = Control.Speed; // cm/s along the lane
+			// Upright: the roof within 45 degrees of the vertical. A car lying on its side still slides
+			// along its lane over 1 m/s (candidate 49) and is not traffic the player can believe in.
+			const bool bUpright = Transforms[Index].GetTransform().GetRotation().GetUpVector().Z >= 0.7071;
+			LyingOver += bUpright ? 0 : 1;
+			MovingUpright += Speed > 100.f && bUpright ? 1 : 0;
 			// Over 200 km/h: a car under MassTraffic's physics pulled across the map in one frame (see
 			// GuardLoops), counted apart and kept out of the mean.
 			if (Speed > 5555.f)
@@ -485,6 +515,7 @@ void UGTPMassTrafficSubsystem::LogSimulatedCars(UWorld& World, const FVector& Pl
 			}
 			const double Distance = FVector::Dist(Transforms[Index].GetTransform().GetLocation(), PlayerLocation);
 			Within100 += Distance < 10000.0 ? 1 : 0;
+			LyingWithin100 += Distance < 10000.0 && !bUpright ? 1 : 0;
 			Within200 += Distance < 20000.0 ? 1 : 0;
 			Nearest = FMath::Min(Nearest, Distance);
 			const double WatchDistance = FVector2D::Distance(FVector2D(Transforms[Index].GetTransform().GetLocation()), Watch);
@@ -608,9 +639,16 @@ void UGTPMassTrafficSubsystem::LogSimulatedCars(UWorld& World, const FVector& Pl
 		Network = FString::Printf(TEXT(" | car lanes=%d (%d dead ends), %.1f km, %.1f cars per km"), CarLanes, DeadEnds.Num(),
 			Length / 100000.0, Length > 0.0 ? Cars / (Length / 100000.0) : 0.0);
 	}
-	UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic cars: simulated=%d moving=%d (over 1 m/s) stopped on a dead-end lane=%d waiting for recycling=%d (without Epic's damage fragment=%d) recycled so far=%d mean speed=%.0f km/h (over 200 km/h, left out=%d) | within 100 m=%d within 200 m=%d nearest=%s%s"),
-		Cars, Moving, AtDeadEnd, Recyclable, RecyclableWithoutDamage, Recycled, Cars > Implausible ? SpeedSum / (Cars - Implausible) * 0.036 : 0.0, Implausible, Within100, Within200,
+	// moving= counts the upright cars only since candidate 52; moving_with_lying= is the count of
+	// candidates 48 to 51, the cars lying over included.
+	UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic cars: simulated=%d moving=%d (over 1 m/s, upright) moving_with_lying=%d lying_over=%d stopped on a dead-end lane=%d waiting for recycling=%d (without Epic's damage fragment=%d) recycled so far=%d mean speed=%.0f km/h (over 200 km/h, left out=%d) | within 100 m=%d within 200 m=%d nearest=%s%s"),
+		Cars, MovingUpright, Moving, LyingOver, AtDeadEnd, Recyclable, RecyclableWithoutDamage, Recycled, Cars > Implausible ? SpeedSum / (Cars - Implausible) * 0.036 : 0.0, Implausible, Within100, Within200,
 		Cars > 0 ? *FString::Printf(TEXT("%.0f m"), Nearest / 100.0) : TEXT("none"), *Network);
+	if (Cars > 0)
+	{
+		UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic lying over t=%.0fs: %d of %d car(s) within 100 m of the player (%.0f %%), %d of %d in all (roof over 45 deg from the vertical)"),
+			World.GetTimeSeconds(), LyingWithin100, Within100, Within100 > 0 ? 100.0 * LyingWithin100 / Within100 : 0.0, LyingOver, Cars);
+	}
 	if (Cars > 0)
 	{
 		++WatchCounts;
@@ -739,6 +777,188 @@ bool IsWall(const FZoneGraphTrafficLaneData& Lane)
 	return Lane.ConstData.bIsIntersectionLane
 		&& (Lane.NextLanes.Num() != 1 || !Lane.NextLanes[0] || Lane.NextLanes[0]->Length < WallCm());
 }
+}
+
+void UGTPMassTrafficSubsystem::TickTrafficPicture()
+{
+	UWorld* World = GetWorld();
+	APlayerController* Controller = World ? World->GetFirstPlayerController() : nullptr;
+	APawn* Player = Controller ? Controller->GetPawn() : nullptr;
+	UMassEntitySubsystem* Mass = World ? World->GetSubsystem<UMassEntitySubsystem>() : nullptr;
+	if (!Player || !Mass)
+	{
+		return;
+	}
+	const double Now = World->GetTimeSeconds();
+	AActor* Camera = PictureCamera.Get();
+	if (PicturePhase == 2)
+	{
+		// The tick after the picture: the view goes back to the player.
+		if (Camera && Controller->GetViewTarget() == Camera)
+		{
+			Controller->SetViewTarget(Player);
+		}
+		if (Camera)
+		{
+			Camera->Destroy();
+		}
+		PictureCamera = nullptr;
+		PicturePhase = 0;
+		++PicturesTaken;
+		return;
+	}
+	if (PicturePhase == 0 && (!PictureTimes.IsValidIndex(PicturesTaken) || Now < PictureTimes[PicturesTaken]))
+	{
+		return;
+	}
+	// The traffic cars: where they are and how they stand.
+	struct FSeen
+	{
+		int32 Index = 0;
+		int32 Serial = 0;
+		FTransform Transform;
+		bool bPhysics = false;
+	};
+	TArray<FSeen> Seen;
+	FMassEntityManager& Manager = Mass->GetMutableEntityManager();
+	FMassEntityQuery Query;
+	Query.Initialize(Manager.AsShared());
+	Query.AddTagRequirement<FMassTrafficVehicleTag>(EMassFragmentPresence::All);
+	Query.AddRequirement<FTransformFragment>(EMassFragmentAccess::ReadOnly);
+	FMassExecutionContext Context(Manager, 0.f);
+	Query.ForEachEntityChunk(Context, [&](FMassExecutionContext& Chunk)
+	{
+		const TConstArrayView<FTransformFragment> Transforms = Chunk.GetFragmentView<FTransformFragment>();
+		for (int32 Index = 0; Index < Chunk.GetNumEntities(); ++Index)
+		{
+			const FMassEntityHandle Entity = Chunk.GetEntity(Index);
+			FSeen Car;
+			Car.Index = Entity.Index;
+			Car.Serial = Entity.SerialNumber;
+			Car.Transform = Transforms[Index].GetTransform();
+			Car.bPhysics = Manager.GetFragmentDataPtr<FMassTrafficVehiclePhysicsFragment>(Entity) != nullptr;
+			Seen.Add(MoveTemp(Car));
+		}
+	});
+	const FVector PlayerAt = Player->GetActorLocation();
+	int32 Within100 = 0;
+	int32 LyingWithin100 = 0;
+	for (const FSeen& Car : Seen)
+	{
+		if (FVector::Dist2D(Car.Transform.GetLocation(), PlayerAt) < 10000.0)
+		{
+			++Within100;
+			LyingWithin100 += Car.Transform.GetRotation().GetUpVector().Z < 0.7071 ? 1 : 0;
+		}
+	}
+	if (PicturePhase == 0)
+	{
+		// The car: 50 to 70 m from the player, the one lying over the most, else the one nearest 60 m.
+		int32 Best = INDEX_NONE;
+		double BestScore = TNumericLimits<double>::Max();
+		for (int32 Index = 0; Index < Seen.Num(); ++Index)
+		{
+			const double Distance = FVector::Dist2D(Seen[Index].Transform.GetLocation(), PlayerAt);
+			if (Distance < 5000.0 || Distance > 7000.0)
+			{
+				continue;
+			}
+			const double Up = Seen[Index].Transform.GetRotation().GetUpVector().Z;
+			const double Score = Up < 0.7071 ? Up - 10.0 : FMath::Abs(Distance - 6000.0) / 1000.0;
+			if (Score < BestScore)
+			{
+				BestScore = Score;
+				Best = Index;
+			}
+		}
+		if (Best == INDEX_NONE)
+		{
+			// Tried again every 5 s, for a minute at most.
+			const bool bGiveUp = ++PictureRetries > 12;
+			UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic picture %d: no traffic car 50 to 70 m from the player at t=%.0fs (%d car(s) within 100 m), %s"),
+				PicturesTaken + 1, Now, Within100, bGiveUp ? TEXT("no picture") : TEXT("tried again in 5 s"));
+			if (bGiveUp)
+			{
+				PictureRetries = 0;
+				++PicturesTaken;
+				return;
+			}
+			PictureTimes[PicturesTaken] = static_cast<float>(Now) + 5.f;
+			return;
+		}
+		PictureRetries = 0;
+		// The eye: where the player stands, else 60 m behind or ahead of the car on its heading; the
+		// first one that sees the car.
+		const FSeen& Car = Seen[Best];
+		const FVector Target = Car.Transform.GetLocation() + FVector(0.0, 0.0, 80.0);
+		const FVector Forward = Car.Transform.GetRotation().GetForwardVector().GetSafeNormal2D();
+		const FVector Eyes[] = {PlayerAt + FVector(0.0, 0.0, 90.0), Car.Transform.GetLocation() - Forward * 6000.0 + FVector(0.0, 0.0, 170.0),
+			Car.Transform.GetLocation() + Forward * 6000.0 + FVector(0.0, 0.0, 170.0)};
+		static const TCHAR* EyeNames[] = {TEXT("where the player stands"), TEXT("60 m behind the car"), TEXT("60 m ahead of the car")};
+		int32 Eye = 0;
+		FString Blocked;
+		for (int32 Try = 0; Try < 3; ++Try)
+		{
+			FHitResult Hit;
+			FCollisionQueryParams Params(SCENE_QUERY_STAT(GTPMassTrafficPicture), false, Player);
+			if (!World->LineTraceSingleByChannel(Hit, Eyes[Try], Target, ECC_Visibility, Params) || FVector::Dist(Hit.ImpactPoint, Target) < 400.0)
+			{
+				Eye = Try;
+				break;
+			}
+			Blocked += FString::Printf(TEXT("%s%s by %s"), Blocked.IsEmpty() ? TEXT("") : TEXT(", "), EyeNames[Try], *GetNameSafe(Hit.GetActor()));
+			Eye = 0;
+		}
+		FActorSpawnParameters Spawn;
+		Spawn.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		ACameraActor* Lens = World->SpawnActor<ACameraActor>(ACameraActor::StaticClass(), FTransform((Target - Eyes[Eye]).Rotation(), Eyes[Eye]), Spawn);
+		if (!Lens)
+		{
+			UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic picture %d: no camera"), PicturesTaken + 1);
+			++PicturesTaken;
+			return;
+		}
+		if (UCameraComponent* Component = Lens->GetCameraComponent())
+		{
+			Component->SetFieldOfView(70.f);
+			Component->SetConstraintAspectRatio(false);
+			Component->PostProcessBlendWeight = 1.f;
+			Component->PostProcessSettings.bOverride_MotionBlurAmount = true;
+			Component->PostProcessSettings.MotionBlurAmount = 0.f;
+		}
+		Controller->SetViewTarget(Lens);
+		PictureCamera = Lens;
+		PictureEntityIndex = Car.Index;
+		PictureEntitySerial = Car.Serial;
+		PictureEye = EyeNames[Eye];
+		PictureBlocked = Blocked;
+		PictureAskedAt = Now;
+		PicturePhase = 1;
+		return;
+	}
+	// Half a second on: the camera turned to the car where it is now, the picture, the car in numbers.
+	if (Now < PictureAskedAt + 0.5)
+	{
+		return;
+	}
+	const FSeen* Car = Seen.FindByPredicate([this](const FSeen& Each) { return Each.Index == PictureEntityIndex && Each.Serial == PictureEntitySerial; });
+	if (!Car || !Camera)
+	{
+		UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic picture %d: the car is gone (recycled or out of the traffic), no picture"), PicturesTaken + 1);
+		PicturePhase = 2;
+		return;
+	}
+	const FVector Target = Car->Transform.GetLocation() + FVector(0.0, 0.0, 80.0);
+	Camera->SetActorRotation((Target - Camera->GetActorLocation()).Rotation());
+	const FString Shot = FPaths::ConvertRelativePathToFull(FPaths::Combine(FPaths::ScreenShotDir(), FString::Printf(TEXT("mass-traffic-%d.png"), PicturesTaken + 1)));
+	FScreenshotRequest::RequestScreenshot(Shot, false, false);
+	const FRotator Rotation = Car->Transform.Rotator();
+	UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic picture: %s at t=%.0fs, car entity %d (%s) at %s, %.0f m from the player and %.0f m from the camera (%s%s), roll %.0f pitch %.0f, %s; within 100 m of the player %d car(s) lying over of %d"),
+		*Shot, Now, PictureEntityIndex, Car->bPhysics ? TEXT("under MassTraffic's simple physics") : TEXT("not under MassTraffic's physics"),
+		*Car->Transform.GetLocation().ToCompactString(), FVector::Dist2D(Car->Transform.GetLocation(), PlayerAt) / 100.0,
+		FVector::Dist(Target, Camera->GetActorLocation()) / 100.0, *PictureEye, PictureBlocked.IsEmpty() ? TEXT("") : *FString::Printf(TEXT("; view blocked: %s"), *PictureBlocked),
+		Rotation.Roll, Rotation.Pitch, Car->Transform.GetRotation().GetUpVector().Z < 0.7071 ? TEXT("LYING OVER") : TEXT("upright"), LyingWithin100, Within100);
+	PicturePhase = 2;
 }
 
 void UGTPMassTrafficSubsystem::LogPhysicsCars(UWorld& World, const FVector& PlayerLocation)

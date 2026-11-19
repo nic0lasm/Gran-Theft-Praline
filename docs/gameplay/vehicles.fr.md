@@ -516,6 +516,14 @@ de la verticale). Les vraies roues avec le centre de gravité de City Sample (`-
 sont mesurées dans une passe mass de 300 s à la porte du candidat 51 ; le pis-aller doit leur laisser
 la place dès qu'elles tiennent le trafic en mouvement.
 
+Depuis le candidat 52, la ligne « MassTraffic cars » ne compte en `moving=` que les voitures debout
+(toit à moins de 45° de la verticale) et donne l'ancien compte à côté (`moving_with_lying=`,
+`lying_over=`) ; une ligne « MassTraffic lying over » donne les voitures couchées à moins de 100 m du
+joueur, en nombre et en part. `-MassTrafficPicture[=150,290]` prend, à ces instants, une image d'une
+voiture du trafic à 50-70 m du joueur (la plus couchée, sinon la plus proche de 60 m), vue de là où se
+tient le joueur, sinon de 60 m derrière ou devant elle (`Saved/Screenshots/<plateforme>/mass-traffic-<n>.png`),
+et écrit la voiture, ses distances, son roulis et son tangage (« MassTraffic picture »).
+
 Les voitures de police couchées pendant la poursuite du candidat 48 y restaient : la règle « put back
 on its wheels » ne valait que pour la voiture du joueur. Elle vaut maintenant aussi pour les voitures
 conduites par l'IA (`PutBackOnWheels`, ligne « put back on its wheels at ... (AI driver) »). Le centre
