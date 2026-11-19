@@ -38,3 +38,11 @@ Fear decays 0.2 per second two seconds after the threat is gone. An unarmed hand
 - Characters (shop staff) back away and run by themselves; pooled pedestrians are moved by the pedestrian system,
   which reads `OnThreatState` (`Fleeing` replaces its own scare).
 - Clips (assign by name in `Clips`): `AM_HandsUp_Enter`, `AM_HandsUp_Idle` (tools/animation/car_poses.json).
+
+### Bodies of the crowd change hands
+
+The 24 near bodies of the Mass crowd are pooled: each is given to the nearest people in turn. When a body leaves a
+person, the person's hands-up pause ends (nobody is left to lower his hands: he stood 60 s, and on a crossing the cars
+waited for him), and the body forgets the fear, the state and the death of that person
+(`UGTPThreatResponseComponent::Forget`), so the next one starts calm. While the player holds somebody up on a crossing
+the cars do wait: that is the hold-up.
