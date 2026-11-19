@@ -127,6 +127,9 @@ void UGTPWantedComponent::ReportCrime(EGTPCrimeKind Kind, const FVector& Locatio
 	// Who saw or heard it: police cars and people close enough, with a clear line to the crime.
 	std::vector<FGTPWitness> Witnesses;
 	const FVector Eye = Location + FVector(0.f, 0.f, 150.f);
+	// The nearest person whose line to the crime was cut, and by what (logged when nobody phones).
+	double BlockedCm = -1.0;
+	FString BlockedBy;
 	auto AddWitness = [&](const AActor* Who, bool bPolice)
 	{
 		if (!IsValid(Who))
@@ -136,8 +139,16 @@ void UGTPWantedComponent::ReportCrime(EGTPCrimeKind Kind, const FVector& Locatio
 		const FVector Where = Who->GetActorLocation();
 		FCollisionQueryParams WitnessParams(SCENE_QUERY_STAT(GTPWitnessSight), false, Who);
 		FHitResult Hit;
-		const bool bSees = FVector::Dist(Where, Location) < 8000.f
-			&& !GetWorld()->LineTraceSingleByChannel(Hit, Where + FVector(0.f, 0.f, 150.f), Eye, ECC_Visibility, WitnessParams);
+		const double AwayCm = FVector::Dist(Where, Location);
+		const bool bCut = AwayCm < 8000.0
+			&& GetWorld()->LineTraceSingleByChannel(Hit, Where + FVector(0.f, 0.f, 150.f), Eye, ECC_Visibility, WitnessParams);
+		const bool bSees = AwayCm < 8000.0 && !bCut;
+		if (bCut && !bPolice && (BlockedCm < 0.0 || AwayCm < BlockedCm))
+		{
+			BlockedCm = AwayCm;
+			BlockedBy = FString::Printf(TEXT("%s (%s), %.0f cm from the point of the crime"), *GetNameSafe(Hit.GetActor()), *GetNameSafe(Hit.GetComponent()),
+				FVector::Dist(Hit.ImpactPoint, Eye));
+		}
 		FGTPWitness Witness;
 		Witness.X = static_cast<float>(Where.X) * WantedCmToM;
 		Witness.Y = static_cast<float>(Where.Y) * WantedCmToM;
@@ -179,8 +190,9 @@ void UGTPWantedComponent::ReportCrime(EGTPCrimeKind Kind, const FVector& Locatio
 			PeopleSeeing += Metres <= Range && Witness.bCanSee ? 1 : 0;
 			NearestPerson = NearestPerson < 0.f ? Metres : FMath::Min(NearestPerson, Metres);
 		}
-		GTP_TRACE(LogGTPWanted, TEXT("wanted: crime %d not witnessed at %s: %d people on the map, %d within %.0f m, %d of those with a clear line, the nearest %.0f m away (-1 = nobody); %d police car(s) on the road; victim %d"),
-			static_cast<int32>(Kind), *Location.ToCompactString(), People, PeopleNear, Range, PeopleSeeing, NearestPerson, PoliceCars, bVictimInvolved ? 1 : 0);
+		GTP_TRACE(LogGTPWanted, TEXT("wanted: crime %d not witnessed at %s: %d people on the map, %d within %.0f m, %d of those with a clear line, the nearest %.0f m away (-1 = nobody); %d police car(s) on the road; victim %d; the nearest person whose view was cut is %.0f m away (-1 = none), cut by %s"),
+			static_cast<int32>(Kind), *Location.ToCompactString(), People, PeopleNear, Range, PeopleSeeing, NearestPerson, PoliceCars, bVictimInvolved ? 1 : 0,
+			BlockedCm < 0.0 ? -1.0 : BlockedCm * WantedCmToM, BlockedBy.IsEmpty() ? TEXT("nothing") : *BlockedBy);
 		return;
 	}
 	if (Result.Delay <= 0.f)
