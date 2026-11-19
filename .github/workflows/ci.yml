@@ -19,6 +19,8 @@ jobs:
           lfs: false
       - name: Check commit identities and tracked files
         run: tools/ci/provenance-check.sh
+      - name: No merge conflict markers left in the tree
+        run: "! git grep -nE '^(<<<<<<< |>>>>>>> |=======$)' -- GranTheftPraline tools docs .github ':!*.md'"
 
   city-tools:
     name: City tools tests
