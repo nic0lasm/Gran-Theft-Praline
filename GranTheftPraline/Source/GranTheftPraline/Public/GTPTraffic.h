@@ -64,17 +64,21 @@ struct GRANTHEFTPRALINE_API FGTPLaneFollower
 	static float OpenRoadMetres(const TArray<FGTPTrafficLane>& Lanes, int32 Lane);
 	static constexpr float OpenRoadWanted = 250.f;
 
+	/** Chases: with a goal, the way taken is the shortest one on the lanes (GTPLaneRoute.h) and not, junction after junction,
+	 *  the exit that points at the goal (that one can be a dead end, or the wrong way round a one-way block). The goal
+	 *  moves: the way is looked for again every 2 s, keeping the lanes the car can no longer avoid at its speed. */
+	bool bRouteToGoal = false;
+
+	/** A lane the way must not end on (the dead end its driver has just turned round in); INDEX_NONE for none. */
+	int32 AvoidLane = INDEX_NONE;
+
 	/** Metres of lane planned ahead (0 = the default 50). A flight at 90 km/h needs more, or the end of the path brakes it:
 	 *  with bIgnoreLaneLimit, Step() raises it to the braking distance of the speed asked (GTPDrive::PathNeeded). */
 	float AheadMeters = 0.f;
 
-	/** Chases and demos: corners taken at 5 m/s2 instead of the calm 2.2, braking harder, firmer throttle (a flight, not a drive). */
-	void SetHardDriving()
-	{
-		Settings.MaxLateralAccel = 7.f;
-		Settings.ComfortDecel = 6.f;
-		Settings.ThrottleGain = 0.8f;
-	}
+	/** Chases and demos: corners taken at 6 m/s2 instead of the calm 2.2, a firmer throttle, a brake that holds the car
+	 *  to the speed of the corner ahead (GTPDrive::SetChaseDriving: a flight, not a drive). */
+	void SetHardDriving() { GTPDrive::SetChaseDriving(Settings); }
 
 	/** Metres between Location and the path being followed (the segment after the closest point); 0 when idle. */
 	float OffPathMetres(const FVector& Location) const;
@@ -93,6 +97,11 @@ struct GRANTHEFTPRALINE_API FGTPLaneFollower
 
 private:
 	void Plan();
+	/** The lanes to take after the last one of the route to reach the goal (bRouteToGoal). */
+	TArray<int32> WayToGoal(const TArray<FGTPTrafficLane>& Lanes) const;
+	/** Past the end of that way: the exit that ends nearest the goal among those with open road behind them. */
+	int32 PickOpenToward(const TArray<FGTPTrafficLane>& Lanes, int32 Lane) const;
+	double NextReplanTime = 0.0;
 
 	FVector Goal = FVector::ZeroVector;
 	bool bHasGoal = false;

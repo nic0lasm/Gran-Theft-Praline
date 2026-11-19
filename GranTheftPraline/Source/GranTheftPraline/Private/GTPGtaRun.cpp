@@ -10,6 +10,8 @@
 #include "Animation/AnimSingleNodeInstance.h"
 #include "Animation/AnimationAsset.h"
 #include "Engine/SkeletalMesh.h"
+#include "Camera/CameraActor.h"
+#include "Camera/CameraComponent.h"
 #include "Camera/PlayerCameraManager.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
@@ -201,6 +203,10 @@ void UGTPGtaRun::EndStep(EResult Result, const FString& Detail)
 	(StepIsPolice[Step] ? PoliceOkCount : OkCount) += bOk ? 1 : 0;
 	GTP_TRACE(LogGTPGtaRun, TEXT("GTARun step %d: %s %s %s (%.0f s)"), Step + 1, StepNames[Step], bOk ? TEXT("ok") : TEXT("fail"), *Detail,
 		FPlatformTime::Seconds() - StepStart);
+	if (Step == EStep::Chase)
+	{
+		StartChasePicture();
+	}
 	UGTPWantedComponent* Wanted = UGTPWantedComponent::Find(this);
 	if (Step == EStep::Outcome && Wanted)
 	{
@@ -303,6 +309,7 @@ bool UGTPGtaRun::Tick(float /*DeltaTime*/)
 		return true;
 	}
 	TrackWanted();
+	TickChasePicture();
 	if (Step < 0)
 	{
 		RunStart = FPlatformTime::Seconds();
@@ -335,6 +342,155 @@ bool UGTPGtaRun::Tick(float /*DeltaTime*/)
 		EndStep(Result, Detail);
 	}
 	return true;
+}
+
+void UGTPGtaRun::StartChasePicture()
+{
+	UWorld* World = GetWorld();
+	APlayerController* PC = FirstController(World);
+	APawn* Pawn = PC ? PC->GetPawn() : nullptr;
+	if (!Pawn || ChasePicturePhase != 0)
+	{
+		return;
+	}
+	// By day: the clock runs 30 times faster than the run, and a picture taken at dusk shows headlights and little else.
+	if (UGTPEnvironmentSubsystem* Environment = World->GetSubsystem<UGTPEnvironmentSubsystem>())
+	{
+		const double Hours = Environment->GetTimeOfDay();
+		if (Hours < 9.0 || Hours > 16.0)
+		{
+			Environment->SetTimeOfDay(14.0);
+			GTP_TRACE(LogGTPGtaRun, TEXT("GTARun: the clock was at %.1f h, set to 14 h for the picture of the chase"), Hours);
+		}
+	}
+	// The nearest police car: the camera stands on the far side of the player's car from it and looks back at both.
+	const FVector Car = Pawn->GetActorLocation();
+	FVector NearestAt = FVector::ZeroVector;
+	double NearestCm = -1.0;
+	if (const UGTPWantedComponent* Wanted = UGTPWantedComponent::Find(this))
+	{
+		for (const TWeakObjectPtr<AGTPVehicle>& Unit : Wanted->GetPolice())
+		{
+			if (Unit.IsValid())
+			{
+				const double Cm = FVector::Dist2D(Unit->GetActorLocation(), Car);
+				if (NearestCm < 0.0 || Cm < NearestCm)
+				{
+					NearestCm = Cm;
+					NearestAt = Unit->GetActorLocation();
+				}
+			}
+		}
+	}
+	FVector Away = NearestCm > 100.0 ? (Car - NearestAt).GetSafeNormal2D() : Pawn->GetActorForwardVector().GetSafeNormal2D();
+	if (Away.IsNearlyZero())
+	{
+		Away = FVector::ForwardVector;
+	}
+	const FVector Side = FVector::CrossProduct(FVector::UpVector, Away);
+	const FVector From = Car + FVector(0.f, 0.f, 150.f);
+	FVector Eye = Car + Away * 900.f + Side * 250.f + FVector(0.f, 0.f, 320.f);
+	// Not behind a wall: brought back to this side of whatever stands between the car and the camera.
+	FHitResult Wall;
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(GTPGtaRunPicture), false, Pawn);
+	if (World->LineTraceSingleByChannel(Wall, From, Eye, ECC_Visibility, Params))
+	{
+		Eye = Wall.ImpactPoint - (Eye - From).GetSafeNormal() * 60.f;
+	}
+	// It looks at the car, and a third of the way towards the nearest unit when that one is within 120 m.
+	const FVector Look = (NearestCm > 0.0 && NearestCm < 12000.0 ? Car + (NearestAt - Car) * 0.35 : Car) + FVector(0.f, 0.f, 80.f);
+	FActorSpawnParameters Spawn;
+	Spawn.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	ACameraActor* Camera = World->SpawnActor<ACameraActor>(ACameraActor::StaticClass(), FTransform((Look - Eye).Rotation(), Eye), Spawn);
+	if (!Camera)
+	{
+		GTP_TRACE(LogGTPGtaRun, TEXT("GTARun: no camera for the picture of the chase"));
+		return;
+	}
+	if (UCameraComponent* Lens = Camera->GetCameraComponent())
+	{
+		Lens->SetFieldOfView(70.f);
+		Lens->SetConstraintAspectRatio(false);
+		Lens->PostProcessBlendWeight = 1.f;
+		Lens->PostProcessSettings.bOverride_MotionBlurAmount = true;
+		Lens->PostProcessSettings.MotionBlurAmount = 0.f;
+	}
+	// It rides with the car: the picture is taken on the next tick of the run, half a second from now.
+	Camera->AttachToActor(Pawn, FAttachmentTransformRules::KeepWorldTransform);
+	PC->SetViewTarget(Camera);
+	ChasePictureCamera = Camera;
+	ChasePicturePhase = 1;
+}
+
+void UGTPGtaRun::TickChasePicture()
+{
+	if (ChasePicturePhase == 0)
+	{
+		return;
+	}
+	UWorld* World = GetWorld();
+	APlayerController* PC = FirstController(World);
+	APawn* Pawn = PC ? PC->GetPawn() : nullptr;
+	ACameraActor* Camera = ChasePictureCamera.Get();
+	if (ChasePicturePhase == 1 && Pawn && Camera)
+	{
+		// What the picture shows, in numbers (nobody on the PC looks at it before it is copied): which cars are inside
+		// the frame with nothing between them and the camera.
+		const FVector Eye = Camera->GetActorLocation();
+		int32 Width = 0, Height = 0;
+		PC->GetViewportSize(Width, Height);
+		const auto InFrame = [PC, World, Pawn, Eye, Width, Height](const AActor& Seen)
+		{
+			const FVector At = Seen.GetActorLocation() + FVector(0.f, 0.f, 80.f);
+			FVector2D Screen;
+			if (!PC->ProjectWorldLocationToScreen(At, Screen) || Screen.X < 0.0 || Screen.Y < 0.0 || Screen.X > Width || Screen.Y > Height)
+			{
+				return false;
+			}
+			FHitResult Between;
+			FCollisionQueryParams Sight(SCENE_QUERY_STAT(GTPGtaRunPictureSight), false, Pawn);
+			Sight.AddIgnoredActor(&Seen);
+			return !World->LineTraceSingleByChannel(Between, Eye, At, ECC_Visibility, Sight);
+		};
+		int32 Units = 0, UnitsShown = 0;
+		double NearestShownCm = -1.0;
+		if (const UGTPWantedComponent* Wanted = UGTPWantedComponent::Find(this))
+		{
+			for (const TWeakObjectPtr<AGTPVehicle>& Unit : Wanted->GetPolice())
+			{
+				if (!Unit.IsValid())
+				{
+					continue;
+				}
+				++Units;
+				if (InFrame(*Unit))
+				{
+					++UnitsShown;
+					const double Cm = FVector::Dist2D(Unit->GetActorLocation(), Pawn->GetActorLocation());
+					NearestShownCm = NearestShownCm < 0.0 ? Cm : FMath::Min(NearestShownCm, Cm);
+				}
+			}
+		}
+		const UGTPEnvironmentSubsystem* Environment = World->GetSubsystem<UGTPEnvironmentSubsystem>();
+		const FString Shot = FPaths::ConvertRelativePathToFull(FPaths::Combine(FPaths::ScreenShotDir(), TEXT("gtarun-chase.png")));
+		FScreenshotRequest::RequestScreenshot(Shot, false, false);
+		GTP_TRACE(LogGTPGtaRun, TEXT("GTARun: picture of the chase asked: %s; the player's car %s the frame, %.0f m from the camera; %d police car(s) on the road, %d of them in the frame with nothing in front, the nearest of those %.0f m from the player's car (-1 = none); clock %.1f h (-1 = no day and night), motion blur off"),
+			*Shot, InFrame(*Pawn) ? TEXT("in") : TEXT("NOT in"), FVector::Dist(Eye, Pawn->GetActorLocation()) / 100.0, Units, UnitsShown,
+			NearestShownCm < 0.0 ? -1.0 : NearestShownCm / 100.0, Environment ? Environment->GetTimeOfDay() : -1.0);
+		ChasePicturePhase = 2;
+		return;
+	}
+	// The tick after the picture (or nothing to take it with): the view goes back to the player.
+	if (PC && Pawn && (!Camera || PC->GetViewTarget() == Camera))
+	{
+		PC->SetViewTarget(Pawn);
+	}
+	if (Camera)
+	{
+		Camera->Destroy();
+	}
+	ChasePictureCamera = nullptr;
+	ChasePicturePhase = 0;
 }
 
 UGTPGtaRun::EResult UGTPGtaRun::CheckCarjack(FString& Detail)
@@ -441,17 +597,24 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckPursuit(FString& Detail)
 	const FGTPChaseTallySettings& Settings = Director->GetChaseTallySettings();
 	const UGTPDemoRoute* Demo = GetGameInstance() ? GetGameInstance()->GetSubsystem<UGTPDemoRoute>() : nullptr;
 	const GTPChase::EVerdict Verdict = GTPChase::Judge(Tally, Settings);
-	Detail = FString::Printf(TEXT("%s: units mean=%.0f km/h (wanted %.0f, player %.0f) peak=%.0f, moving %.0f %% of their time, nearest mean=%.0f m min=%.0f m, "
-		"within %.0f m %.0f %% of %.0f s (wanted %.0f %%), up to %d units, %d put back near the player (%d moves not held), %d back-off(s), %d unit(s) given up, the player's car put back on a lane %d time(s), stars=%d"),
-		ANSI_TO_TCHAR(GTPChase::VerdictName(Verdict)), Tally.MeanKmh(), GTPChase::WantedMeanKmh(Tally, Settings), Tally.PlayerMeanKmh(), Tally.UnitPeakKmh,
-		Tally.MovingShare() * 100.f, Tally.MeanNearest(), Tally.NearestMin, Settings.NearMetres, Tally.NearShare() * 100.f, static_cast<float>(Tally.Seconds),
-		Settings.MinNearShare * 100.f, Tally.PeakUnits, Tally.Moves, Tally.MovesLost, Tally.BackOffs, Tally.GivenUp, Demo ? Demo->GetChaseRelocations() : 0, Wanted->GetStars());
+	// A pursuit the test helped proves nothing: a police car made close to the player has not driven to him, and a
+	// player's car put back on a lane by the script has not been followed there. Either one fails the step, whatever
+	// the numbers (candidate 49 passed with 4 units put back at 50 to 120 m and the player's car moved 4 times).
+	const int32 Relocations = Demo ? Demo->GetChaseRelocations() : 0;
+	const bool bUnaided = GTPChase::Unaided(Tally, Settings) && Relocations == 0;
+	Detail = FString::Printf(TEXT("%s%s: units mean=%.0f km/h (wanted %.0f, player %.0f) peak=%.0f, moving %.0f %% of their time, nearest mean=%.0f m min=%.0f m, "
+		"within %.0f m %.0f %% of %.0f s (wanted %.0f %%), up to %d units, %d sent, %d of them replacements (nearest made %.0f m from the player, wanted %.0f at least, -1 = none), "
+		"%d back-off(s), %d unit(s) given up, the player's car put back on a lane %d time(s) (wanted 0), stars=%d"),
+		ANSI_TO_TCHAR(GTPChase::VerdictName(Verdict)), bUnaided ? TEXT("") : TEXT(", but the test helped"), Tally.MeanKmh(), GTPChase::WantedMeanKmh(Tally, Settings),
+		Tally.PlayerMeanKmh(), Tally.UnitPeakKmh, Tally.MovingShare() * 100.f, Tally.MeanNearest(), Tally.NearestMin, Settings.NearMetres, Tally.NearShare() * 100.f,
+		static_cast<float>(Tally.Seconds), Settings.MinNearShare * 100.f, Tally.PeakUnits, Tally.Sent, Tally.Replacements, Tally.ReplacementNearest,
+		Settings.ReplacementMinMetres, Tally.BackOffs, Tally.GivenUp, Relocations, Wanted->GetStars());
 	// Over when the window is, or when nobody is wanted any more (lost, arrested, dead: the outcome step says which).
 	if (FPlatformTime::Seconds() - StepStart < PursuitSeconds && Wanted->GetStars() > 0)
 	{
 		return EResult::Pending;
 	}
-	return Verdict == GTPChase::EVerdict::Follows ? EResult::Ok : EResult::Fail;
+	return Verdict == GTPChase::EVerdict::Follows && bUnaided ? EResult::Ok : EResult::Fail;
 }
 
 UGTPGtaRun::EResult UGTPGtaRun::CheckOutcome(FString& Detail)
