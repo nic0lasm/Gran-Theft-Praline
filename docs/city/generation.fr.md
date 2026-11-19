@@ -325,6 +325,18 @@ accrochés à quelque chose de réel :
   saison de la bible), déchets et journaux près de certaines corbeilles, pigeons près des bancs.
 * **Toits** : souches de cheminée sur les murs mitoyens, à la hauteur du faîtage.
 
+**Voies de circulation dégagées** (`tools/city/clear_lanes.py`). Dans les rues fermées aux voitures
+dans la réalité, les bancs, arceaux à vélos, scooters garés et panneaux relevés sont au milieu de la
+rue, là où passent les voies de circulation du jeu. `props.py` et `details.py` écartent tout objet
+qu'une voiture peut heurter (collision active) à moins de 1,5 m de l'axe d'une voie ou du lien entre
+une voie et la suivante, et les comptent dans `left_out_on_lanes` de leur rapport (rue de la
+République : 17 objets de mobilier et 24 détails). Un objet gênant est retiré, pas déplacé. Sur une
+machine sans les données géographiques brutes,
+`python3 tools/city/clear_lanes.py --name presqu-ile --focus rue-de-la-republique [--lanes <le
+lanes.csv de la carte>] [--dry-run]` filtre les tables existantes (il garde
+`<table>.before-lanes.csv` et écrit une ligne, `decor off the lanes: {...}`) ; `place_props.py`
+repose ensuite chaque jeu.
+
 Le choix d'une travée est un hachage stable de l'immeuble et de la travée : chaque passage donne la
 même rue. Le tableau a les colonnes de `props_placement.csv` plus `snap` (`keep` garde la hauteur des
 objets muraux et de toit), `scale_x/y/z` et `collision` (aucune sur les petits objets). Plafond de
