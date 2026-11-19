@@ -282,6 +282,7 @@ bool UGTPDemoRoute::RelocateChase(AGTPVehicle* Driven, APlayerController* PC, co
 			{
 				Wanted->CallPolice();
 			}
+			++ChaseRelocations;
 			GTP_TRACE(LogGTPDemo, TEXT("Demo chase: %s at %s, the car is put on lane %d %.0f m away at %s (open road %.0f m, police told)"), Why, *From.ToCompactString(),
 				LaneIndex, Distance / 100.0, *Driven->GetActorLocation().ToCompactString(), FGTPLaneFollower::OpenRoadMetres(Lanes, LaneIndex));
 			return true;
@@ -289,6 +290,25 @@ bool UGTPDemoRoute::RelocateChase(AGTPVehicle* Driven, APlayerController* PC, co
 	}
 	GTP_TRACE(LogGTPDemo, TEXT("Demo chase: %s, no lane 80 to 150 m away to put the car on"), Why);
 	return false;
+}
+
+void UGTPDemoRoute::FreeChaseLevel()
+{
+	if (bChase && !bLevelFree)
+	{
+		bLevelFree = true;
+		GTP_TRACE(LogGTPDemo, TEXT("Demo chase: the level is no longer scripted (no forced stars, arrest possible)"));
+	}
+}
+
+void UGTPDemoRoute::GiveUpChase()
+{
+	if (bChase && !bGaveUp)
+	{
+		bGaveUp = true;
+		bLevelFree = true;
+		GTP_TRACE(LogGTPDemo, TEXT("Demo chase: the player gives up, the car stops and waits for the police"));
+	}
 }
 
 bool UGTPDemoRoute::Tick(float DeltaTime)
@@ -636,6 +656,14 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 			GTP_TRACE(LogGTPDemo, TEXT("Demo chase: the car is on its new lane at %s, physics back on"), *Driven->GetActorLocation().ToCompactString());
 			break;
 		}
+		if (bChase && bGaveUp)
+		{
+			// The player gives up (-GTARun, outcome of the chase): brake to a stop, then the handbrake, still at the
+			// wheel. Nothing else of the script runs: no lane, no relocation, no end of the drive time.
+			// The arrest is left as the run set it.
+			DriveInputs(Driven, 0.f, 1.f, 0.f, FMath::Abs(Driven->GetSpeedKmh()) < 2.f);
+			break;
+		}
 		float Cruise = CruiseKmh;
 		if (bChase)
 		{
@@ -664,16 +692,23 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 			if (Wanted)
 			{
 				// Nobody can arrest the player before the flight starts: the chase must show first.
-				Wanted->SetArrestEnabled(T >= 100.0);
-				if (T >= 8.0 && T < 60.0)
+				Wanted->SetArrestEnabled(bLevelFree || T >= 100.0);
+				if (!bLevelFree && T >= 8.0 && T < 60.0)
 				{
 					Wanted->EnsureMinStars(T >= 30.0 ? 3 : 2);
 				}
 				if (Now >= NextChaseLog)
 				{
 					NextChaseLog = Now + 5.0;
-					GTP_TRACE(LogGTPDemo, TEXT("DemoChase t=%.0f stars=%d phase=%d seen=%d kmh=%.0f peak=%.0f"), static_cast<float>(T), Wanted->GetStars(),
-						Wanted->GetPhaseIndex(), Wanted->IsSeenNow() ? 1 : 0, Driven->GetSpeedKmh(), PeakKmh);
+					// The police as the player sees them (GTPChaseTally.h, summed since the level rose): -1 = no unit on the road yet.
+					float PoliceKmh = -1.f, PoliceNearest = -1.f;
+					if (TActorIterator<AGTPPoliceDirector> Director(Driven->GetWorld()); Director && Director->GetChaseTally().Seconds > 0.0)
+					{
+						PoliceKmh = Director->GetChaseTally().MeanKmh();
+						PoliceNearest = Director->GetChaseTally().MeanNearest();
+					}
+					GTP_TRACE(LogGTPDemo, TEXT("DemoChase t=%.0f stars=%d phase=%d seen=%d kmh=%.0f peak=%.0f police mean=%.0f km/h nearest mean=%.0f m relocations=%d"), static_cast<float>(T), Wanted->GetStars(),
+						Wanted->GetPhaseIndex(), Wanted->IsSeenNow() ? 1 : 0, Driven->GetSpeedKmh(), PeakKmh, PoliceKmh, PoliceNearest, ChaseRelocations);
 				}
 			}
 		}

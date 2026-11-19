@@ -39,6 +39,21 @@ Une unité à moins de 7 m d'un joueur à pied ou sous 12 km/h, trois secondes d
 
 À la mort du joueur (`OnPlayerDied`), les signalements en attente sont abandonnés ; à la réapparition à l'hôpital, les étoiles sont effacées.
 
+## Preuve dans le jeu packagé (`-GTARun`, 19/11/2026)
+
+Quatre étapes du parcours automatique couvrent la recherche, comptées sur leur propre ligne (`GTARun police: N/4 ok`) ; les sept autres gardent la leur (`GTARun done: N/7 ok`).
+
+| Étape | Ce qui se passe | Réussie quand |
+| ---- | ---- | ---- |
+| `witness` (2) | Juste après le vol de la voiture | Un délit signalé par téléphone (la victime, un passant) est arrivé à la police et a donné une étoile. Une étoile forcée par le script de poursuite ne compte pas. Échoue avec `-Witnesses=0`. |
+| `pursuit` (4) | La fuite continue 40 s, le niveau livré à lui-même (plus d'étoiles forcées, arrestation possible) | La police suit : sur le temps où une voiture de poursuite était sur la route, les voitures font 30 km/h de moyenne (ou 60 % de la moyenne du joueur s'il est plus lent), et une voiture est à moins de 80 m un quart du temps. Les voitures de barrage ne comptent pas. |
+| `outcome` (5) | Le joueur renonce : la voiture s'arrête et attend | Arrêté puis relâché à pied, capable de marcher, sans étoile ; ou tué puis revenu ; ou semée. Tout ce qui a mis fin à la poursuite depuis son début compte. Échoue si le joueur est encore recherché 60 s après l'arrêt. |
+| `wasted` (11) | Le joueur reçoit un coup mortel par le composant de santé | Mort, de nouveau debout (point hôpital, sinon point de départ) avec toute sa santé, capable de marcher, sans étoile. |
+
+Les chiffres de la poursuite viennent du directeur de la police (`FGTPChaseTally`, `GTPChaseTally.h`, testé dans `tools/vehicles/wanted_sim/chase_tally_test.cpp`) : à chaque image tant que le joueur est recherché, la vitesse de chaque voiture de poursuite et la distance de la plus proche. Il les écrit toutes les 10 s (`police chase: units mean=... km/h ... nearest mean=... m`), et la démo de poursuite ajoute `police mean=` et `nearest mean=` à sa ligne `DemoChase`. Une unité laissée à plus de 180 m est replacée près du joueur, hors de vue : ces déplacements sont comptés (`put back near the player`), et un déplacement que la voiture n'a pas gardé une demi-seconde plus tard est écrit (`the move did not hold`).
+
+Ce que ces étapes ne prouvent pas : qu'un joueur peut semer la police en conduisant (la voiture du test est conduite par un script, et renonce), ni qui peut tuer le joueur (le coup mortel est celui du test). Après l'issue, le parcours efface ce qui reste du niveau et coupe l'arrestation jusqu'à sa fin, pour que les étapes à pied testent le vol et le braquage, pas la police.
+
 ## Interrupteurs
 
 `-PolicePerception=0|1|2` (coupée, perception seule, les deux = défaut), `-PoliceEqs=0` (les policiers balaient de nouveau un cercle fixe), `-Police=0`, `-WantedStars=N`, `-WantedHold`, `-Witnesses=0`.

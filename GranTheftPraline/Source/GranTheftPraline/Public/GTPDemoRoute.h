@@ -52,6 +52,20 @@ public:
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
 	virtual void Deinitialize() override;
 
+	/** True while the chase script drives the stolen car. */
+	bool IsChaseDriving() const { return bChase && Phase == EPhase::Drive; }
+	/**
+	 * Chase script, for -GTARun: from now the flight goes on with nothing scripted about the level: no more forced
+	 * stars, and the police may arrest the player (the script alone forces 3 stars until 60 s and allows the
+	 * arrest from 100 s).
+	 */
+	void FreeChaseLevel();
+	/** Chase script, for -GTARun: the player gives up: the car brakes to a stop and stays there, the player at the wheel. */
+	void GiveUpChase();
+	bool HasGivenUp() const { return bGaveUp; }
+	/** Times the chase script put its car back on a lane (held up for good, off the road, end of the lanes). */
+	int32 GetChaseRelocations() const { return ChaseRelocations; }
+
 private:
 	enum class EPhase : uint8
 	{
@@ -106,6 +120,9 @@ private:
 	double DriveTime = 45.0;
 	bool bCarjack = false;
 	bool bChase = false;
+	bool bLevelFree = false;
+	bool bGaveUp = false;
+	int32 ChaseRelocations = 0;
 	double RamUntil = 0.0;
 	double SlowSince = 0.0;
 	int32 ChaseStuckCount = 0;

@@ -38,6 +38,12 @@ struct FGTPWitnessResult
 	bool bReported = false;
 	/** Seconds before the police learn of it (0 = at once). */
 	float Delay = 0.f;
+	/** A police unit saw or heard it: no call needed. */
+	bool bByPolice = false;
+	/** The person it was done to tells the police. */
+	bool bVictim = false;
+	/** People (not police) who saw or heard it. */
+	int Persons = 0;
 };
 
 namespace GTPWitness
@@ -46,33 +52,22 @@ namespace GTPWitness
 		const std::vector<FGTPWitness>& Witnesses, const FGTPWitnessSettings& S)
 	{
 		FGTPWitnessResult Out;
-		if (bVictimInvolved)
-		{
-			Out.bReported = true;
-			Out.Delay = S.CallDelay;
-		}
+		Out.bVictim = bVictimInvolved;
 		for (const FGTPWitness& W : Witnesses)
 		{
 			const float D = std::hypot(W.X - CrimeX, W.Y - CrimeY);
 			if (W.bPolice)
 			{
-				if ((W.bCanSee && D <= S.PoliceRange) || (bLoud && D <= S.LoudPoliceRange))
-				{
-					// Police on the spot: no call needed.
-					Out.bReported = true;
-					Out.Delay = 0.f;
-					return Out;
-				}
+				Out.bByPolice = Out.bByPolice || (W.bCanSee && D <= S.PoliceRange) || (bLoud && D <= S.LoudPoliceRange);
 			}
 			else if ((W.bCanSee && D <= S.PedestrianRange) || (bLoud && D <= S.LoudPedestrianRange))
 			{
-				if (!Out.bReported || S.CallDelay < Out.Delay)
-				{
-					Out.Delay = S.CallDelay;
-				}
-				Out.bReported = true;
+				++Out.Persons;
 			}
 		}
+		Out.bReported = Out.bByPolice || Out.bVictim || Out.Persons > 0;
+		// Police on the spot: no call needed. Otherwise somebody has to phone.
+		Out.Delay = (Out.bReported && !Out.bByPolice) ? S.CallDelay : 0.f;
 		return Out;
 	}
 }

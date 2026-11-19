@@ -39,6 +39,21 @@ A unit within 7 m of a player on foot or under 12 km/h, three seconds in a row. 
 
 When the player dies (`OnPlayerDied`), pending reports are dropped; at the respawn at the hospital the stars are cleared.
 
+## Proof in the packaged game (`-GTARun`, 2026-11-19)
+
+Four steps of the automatic run cover the wanted level, counted on their own line (`GTARun police: N/4 ok`); the seven others keep their line (`GTARun done: N/7 ok`).
+
+| Step | What happens | Passes when |
+| ---- | ---- | ---- |
+| `witness` (2) | Right after the carjack | A crime phoned in by a person (the victim, a passer-by) reached the police and gave a star. A star forced by the chase script does not count. Fails with `-Witnesses=0`. |
+| `pursuit` (4) | The flight goes on for 40 s with the level left to itself (no forced stars, arrest possible) | The police follow: over the time a chasing car was on the road, the cars average 30 km/h (or 60 % of the player's own average when he is slower), and a car is within 80 m for a quarter of the time. Roadblock cars are left out. |
+| `outcome` (5) | The player gives up: the car stops and waits | Arrested then released on foot, able to walk, no star left; or killed and back; or the level was lost. Whatever ended the chase since it began counts. Fails when the player is still wanted 60 s after stopping. |
+| `wasted` (11) | The player takes a lethal hit through the health component | Dead, back on his feet (hospital point, else the player start) with full health, able to walk, no star left. |
+
+The numbers of the pursuit come from the police director (`FGTPChaseTally`, `GTPChaseTally.h`, tested in `tools/vehicles/wanted_sim/chase_tally_test.cpp`): every frame while the player is wanted, the speed of each chasing car and the distance of the nearest. It logs them every 10 s (`police chase: units mean=... km/h ... nearest mean=... m`), and the chase demo adds `police mean=` and `nearest mean=` to its `DemoChase` line. A unit left more than 180 m behind is put back near the player out of sight: these moves are counted (`put back near the player`), and a move the car did not keep half a second later is logged (`the move did not hold`).
+
+What these steps do not prove: that a player can outrun the police by driving (the test car is driven by a script, and gives up), and who can kill the player (the lethal hit is the test's). After the outcome the run clears what is left of the level and turns the arrest off until its end, so that the steps on foot test the theft and the hold-up, not the police.
+
 ## Switches
 
 `-PolicePerception=0|1|2` (off, perception only, both = default), `-PoliceEqs=0` (officers sweep a fixed circle again), `-Police=0`, `-WantedStars=N`, `-WantedHold`, `-Witnesses=0`.

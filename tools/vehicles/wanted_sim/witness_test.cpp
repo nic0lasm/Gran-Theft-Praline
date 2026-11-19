@@ -40,6 +40,15 @@ int main()
 		const auto R = GTPWitness::Evaluate(0.f, 0.f, false, true, {}, S);
 		CHECK(R.bReported && R.Delay == S.CallDelay);
 	}
+	{
+		// Who told the police: the run of the packaged game reads it (a star after a theft must come from a call).
+		const auto Call = GTPWitness::Evaluate(0.f, 0.f, false, true, {{10.f, 0.f, false, true}, {12.f, 0.f, false, true}, {40.f, 0.f, false, true}}, S);
+		CHECK(Call.bVictim && Call.Persons == 2 && !Call.bByPolice && Call.Delay == S.CallDelay);
+		const auto Seen = GTPWitness::Evaluate(0.f, 0.f, false, false, {{10.f, 0.f, false, true}, {50.f, 0.f, true, true}}, S);
+		CHECK(Seen.bByPolice && Seen.Persons == 1 && !Seen.bVictim && Seen.Delay == 0.f);
+		const auto Nobody = GTPWitness::Evaluate(0.f, 0.f, false, false, {{40.f, 0.f, false, true}}, S);
+		CHECK(!Nobody.bReported && Nobody.Persons == 0 && Nobody.Delay == 0.f);
+	}
 	std::printf(Failures ? "FAILED (%d)\n" : "OK\n", Failures);
 	return Failures ? 1 : 0;
 }

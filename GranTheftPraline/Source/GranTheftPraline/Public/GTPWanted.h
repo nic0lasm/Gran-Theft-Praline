@@ -6,6 +6,7 @@
 #include "Components/ActorComponent.h"
 #include "GameFramework/Actor.h"
 #include "UObject/SoftObjectPath.h"
+#include "GTPChaseTally.h"
 #include "GTPDriveLogic.h"
 #include "GTPTraffic.h"
 #include "GTPWantedLogic.h"
@@ -150,6 +151,31 @@ public:
 
 	/** Off: nobody can arrest the player (scripted demos that must show a chase first). */
 	void SetArrestEnabled(bool bEnabled) { bArrestEnabled = bEnabled; }
+	bool IsArrestEnabled() const { return bArrestEnabled; }
+
+	/** How the police learned of the player's crimes since the start (the run of the packaged game reads it). */
+	struct FCrimeReports
+	{
+		/** Nobody saw or heard: no effect. */
+		int32 Unwitnessed = 0;
+		/** A police unit saw or heard it: counted at once. */
+		int32 ByPolice = 0;
+		/** Somebody phoned (a passer-by, the victim): counted after the call. */
+		int32 Called = 0;
+		/** Calls that reached the police and raised the heat. */
+		int32 CalledApplied = 0;
+		/** The last call: people who saw or heard it, and whether the victim was one of the callers. */
+		int32 LastCallPersons = 0;
+		bool bLastCallVictim = false;
+		/** The first call that counted: game time (s), stars just after, police units alive then. -1 = none yet. */
+		float FirstCallTime = -1.f;
+		int32 FirstCallStars = 0;
+		int32 FirstCallUnits = 0;
+	};
+	const FCrimeReports& GetCrimeReports() const { return CrimeReports; }
+
+	/** True when witnesses decide whether a crime counts (false with -Witnesses=0 or bRequireWitnesses off). */
+	bool AreWitnessesRequired() const;
 
 	/** Distance from which police see the player when nothing is in the way (cm). */
 	UPROPERTY(EditAnywhere, Category = "Wanted")
@@ -190,7 +216,7 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category = "Wanted")
 	bool bArrestTakesWeapon = true;
 
-	/** Where the player is taken after an arrest (world cm); ignored while ArrestReturnEnabled is false (the player stays where they stand). */
+	/** Where the player is taken after an arrest (world cm); ignored while ArrestReturnEnabled is false (then: the player start). */
 	UPROPERTY(Config, EditAnywhere, Category = "Wanted")
 	bool ArrestReturnEnabled = false;
 
@@ -203,7 +229,8 @@ public:
 
 private:
 	bool CanSeePlayer(const AActor* Watcher, const FVector& PlayerLocation) const;
-	void ApplyCrime(EGTPCrimeKind Kind, const FVector& Location);
+	/** True when the crime raised the heat (false: arrest banner up, or the same crime just counted). */
+	bool ApplyCrime(EGTPCrimeKind Kind, const FVector& Location);
 	void TickPendingReports(float Now);
 	void OnBusted();
 	void OnPlayerKilled();
@@ -230,6 +257,7 @@ private:
 	};
 	TArray<FPendingReport> PendingReports;
 	FGTPWitnessSettings WitnessSettings;
+	FCrimeReports CrimeReports;
 	int32 ScriptedStars = 0;
 	float ScriptedTime = -1.f;
 	bool bHoldLevel = false;
@@ -379,6 +407,9 @@ private:
 		float LastObstacle = -1.f;
 		float LastThrottle = 0.f;
 		float LastBrake = 0.f;
+		/** Where the unit was last put (RepositionUnit) and when to check that it is still around there (0 = nothing to check). */
+		FVector MovedTo = FVector::ZeroVector;
+		float MoveCheckTime = 0.f;
 	};
 
 	/** Siren follows the lights: off without stars, yelp in pursuit, two-tone otherwise. */
@@ -397,6 +428,16 @@ private:
 	bool PlaceRoadblockCar(const APawn& Player, int32 CarIndex, const FVector& Point, const FVector& Along, double Distance);
 
 public:
+	/**
+	 * The pursuit in numbers since the last reset (GTPChaseTally.h): speed of the chasing cars, distance to the
+	 * player. Filled every frame while the player is wanted; roadblock cars are left out.
+	 */
+	const FGTPChaseTally& GetChaseTally() const { return ChaseTally; }
+	const FGTPChaseTallySettings& GetChaseTallySettings() const { return ChaseTallySettings; }
+	void ResetChaseTally() { ChaseTally.Reset(); }
+	/** Cars chasing now (roadblock cars apart), and officers on foot. */
+	void CountUnits(int32& OutChasing, int32& OutBlocks, int32& OutOfficers) const;
+
 	/**
 	 * Lane places where a roadblock across the player's road would work: 140 to 240 m ahead of a player driving
 	 * fast, on a road parallel to their travel. Geometry only; called by the EQS generator (UGTPPoliceQueries).
@@ -426,6 +467,9 @@ private:
 	TObjectPtr<AGTPTrafficNetwork> Network;
 
 	TArray<FUnit> Units;
+	FGTPChaseTally ChaseTally;
+	FGTPChaseTallySettings ChaseTallySettings;
+	float NextTallyTraceTime = 0.f;
 	/** Level-dependent behaviour of the current frame (GTPPoliceTactics::Profile). */
 	GTPPoliceTactics::FProfile Profile;
 	/** Spawn bias: when set, FindSpawnPoint picks a point ahead of the player's travel direction, farther away. */
