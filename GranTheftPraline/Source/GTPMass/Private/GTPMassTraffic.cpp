@@ -966,7 +966,8 @@ void UGTPMassTrafficSubsystem::LogPhysicsCars(UWorld& World, const FVector& Play
 	// The cars MassTraffic drives with its simple physics (FMassTrafficVehiclePhysicsFragment, near the
 	// player). With the real wheels on its template (candidates 47 and 48) the traffic moving fell from
 	// 102 to 48-53 cars: what each extracted template holds (once each), and how the nearest of these
-	// cars drive now. -MassTemplateWheels gives the template the real wheels again for that comparison.
+	// cars drive now. The template has the real wheels and City Sample's centre of mass since candidate
+	// 52; -MassTemplate46 gives back the stopgap of candidates 48 to 51 for a comparison.
 	UMassEntitySubsystem* Mass = World.GetSubsystem<UMassEntitySubsystem>();
 	UZoneGraphSubsystem* Graph = World.GetSubsystem<UZoneGraphSubsystem>();
 	if (!Mass)

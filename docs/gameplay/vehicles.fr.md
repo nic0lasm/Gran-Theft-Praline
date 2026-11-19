@@ -514,7 +514,10 @@ donc comptées en mouvement ; à 295 s, 44 des 69 voitures sous cette physique a
 la route. La ligne « physics cars » compte maintenant aussi les voitures couchées (toit à plus de 45°
 de la verticale). Les vraies roues avec le centre de gravité de City Sample (`-MassTemplateWheels`)
 sont mesurées dans une passe mass de 300 s à la porte du candidat 51 ; le pis-aller doit leur laisser
-la place dès qu'elles tiennent le trafic en mouvement.
+la place dès qu'elles tiennent le trafic en mouvement. La branche `fix/vehicle-template-real` le
+fait, pour le candidat qui suit cette passe si elle tient : le modèle prend par défaut les vraies
+roues et le centre de gravité de City Sample (ligne « vehicle physics template: ... given the real
+wheels and City Sample's centre of mass »), `-MassTemplate46` redonne le pis-aller.
 
 Depuis le candidat 52, la ligne « MassTraffic cars » ne compte en `moving=` que les voitures debout
 (toit à moins de 45° de la verticale) et donne l'ancien compte à côté (`moving_with_lying=`,
