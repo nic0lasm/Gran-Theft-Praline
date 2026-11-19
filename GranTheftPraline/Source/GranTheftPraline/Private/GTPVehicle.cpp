@@ -51,7 +51,7 @@ namespace
 	{
 		if (UGTPWantedComponent* Wanted = UGTPWantedComponent::Find(Vehicle))
 		{
-			Wanted->ReportCrime(Kind, Vehicle->GetActorLocation(), bVictimInvolved);
+			Wanted->ReportCrime(Kind, Vehicle->GetActorLocation(), bVictimInvolved, Vehicle);
 		}
 	}
 }

@@ -72,8 +72,13 @@ public:
 	/** The wanted component of the first local player, null if there is none. */
 	static UGTPWantedComponent* Find(const UObject* WorldContext);
 
-	/** Reports a crime at Location. The police learn of it only if a witness could see: always true for now (every crime counts). */
-	void ReportCrime(EGTPCrimeKind Kind, const FVector& Location, bool bVictimInvolved = false);
+	/**
+	 * Reports a crime at Location. The police learn of it only if a witness saw or heard it.
+	 * Scene: the thing the crime is done to or in (the stolen car, the car that hit somebody). A witness's line of
+	 * sight ends 150 cm above Location: inside the body of a tall car, which then hid its own theft from everybody
+	 * (gate of candidate 50). The scene and the player's own pawn never cut that line.
+	 */
+	void ReportCrime(EGTPCrimeKind Kind, const FVector& Location, bool bVictimInvolved = false, const AActor* Scene = nullptr);
 
 	/**
 	 * Crimes count only when somebody saw or heard them (GTPWitnessLogic.h): police in sight
