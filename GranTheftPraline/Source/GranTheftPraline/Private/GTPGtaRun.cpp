@@ -440,10 +440,10 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckPursuit(FString& Detail)
 	const UGTPDemoRoute* Demo = GetGameInstance() ? GetGameInstance()->GetSubsystem<UGTPDemoRoute>() : nullptr;
 	const GTPChase::EVerdict Verdict = GTPChase::Judge(Tally, Settings);
 	Detail = FString::Printf(TEXT("%s: units mean=%.0f km/h (wanted %.0f, player %.0f) peak=%.0f, moving %.0f %% of their time, nearest mean=%.0f m min=%.0f m, "
-		"within %.0f m %.0f %% of %.0f s (wanted %.0f %%), up to %d units, %d put back near the player (%d moves not held), the player's car put back on a lane %d time(s), stars=%d"),
+		"within %.0f m %.0f %% of %.0f s (wanted %.0f %%), up to %d units, %d put back near the player (%d moves not held), %d back-off(s), %d unit(s) given up, the player's car put back on a lane %d time(s), stars=%d"),
 		ANSI_TO_TCHAR(GTPChase::VerdictName(Verdict)), Tally.MeanKmh(), GTPChase::WantedMeanKmh(Tally, Settings), Tally.PlayerMeanKmh(), Tally.UnitPeakKmh,
 		Tally.MovingShare() * 100.f, Tally.MeanNearest(), Tally.NearestMin, Settings.NearMetres, Tally.NearShare() * 100.f, static_cast<float>(Tally.Seconds),
-		Settings.MinNearShare * 100.f, Tally.PeakUnits, Tally.Moves, Tally.MovesLost, Demo ? Demo->GetChaseRelocations() : 0, Wanted->GetStars());
+		Settings.MinNearShare * 100.f, Tally.PeakUnits, Tally.Moves, Tally.MovesLost, Tally.BackOffs, Tally.GivenUp, Demo ? Demo->GetChaseRelocations() : 0, Wanted->GetStars());
 	// Over when the window is, or when nobody is wanted any more (lost, arrested, dead: the outcome step says which).
 	if (FPlatformTime::Seconds() - StepStart < PursuitSeconds && Wanted->GetStars() > 0)
 	{

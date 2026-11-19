@@ -91,6 +91,12 @@ jobs:
         run: |
           g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/wanted_sim/chase_tally_test.cpp -o /tmp/chase_tally_test
           /tmp/chase_tally_test
+      - name: Police car held, off its wheels, steering and pedals
+        run: |
+          g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/wanted_sim/unit_recovery_test.cpp -o /tmp/unit_recovery_test
+          /tmp/unit_recovery_test
+          printf '#include "GTPUnitRecovery.h"\nint main() { return 0; }\n' > /tmp/hdr.cpp
+          clang++ -std=c++17 -fsyntax-only -Wall -Wextra -Werror -Wconversion -Wsign-conversion -Wshadow -Wdouble-promotion -I GranTheftPraline/Source/GranTheftPraline/Public /tmp/hdr.cpp
       - name: Witnesses of a crime
         run: |
           g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/wanted_sim/witness_test.cpp -o /tmp/witness_test
