@@ -242,6 +242,7 @@ bool AGTPPedestrian::StartRagdoll(const FVector& Impulse)
 		return false;
 	}
 	bRagdoll = true;
+	BodyRelative = Body->GetRelativeTransform();
 	// A falling body is refreshed every frame, however far (the reduced pose rate of distant people would make it jerk).
 	SetAnimInterval(0.f);
 	Body->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
@@ -261,8 +262,13 @@ void AGTPPedestrian::ResetBody()
 		}
 		Body->SetSimulatePhysics(false);
 		Body->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-		Body->AttachToComponent(Root, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
-		Body->SetRelativeLocation(FVector::ZeroVector);
+		// A skeletal mesh that simulates stays attached and takes the turn of its pelvis: attaching it again "snapping to
+		// the target" does nothing (already attached), and placing it back at the origin left it lying, with no physics,
+		// for every person the body was given to afterwards (candidate 49 in the editor: 22 lines of 36 showed people
+		// aimed at lying with a roll of 66 to 169 degrees; gate 48: "head -1 above its root", a dark mass on the ground).
+		// Same way back as the player's ragdoll: attached, then its own place and turn under the actor.
+		Body->AttachToComponent(Root, FAttachmentTransformRules::KeepWorldTransform);
+		Body->SetRelativeTransform(BodyRelative, false, nullptr, ETeleportType::TeleportPhysics);
 		bRagdoll = false;
 		CurrentAnimation = nullptr;
 		Body->SetAnimationMode(EAnimationMode::AnimationSingleNode);

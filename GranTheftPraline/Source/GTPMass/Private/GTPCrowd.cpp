@@ -475,7 +475,10 @@ void UGTPCrowdSubsystem::SetupNearActors(UWorld& InWorld)
 		UE_LOG(LogGTPCrowd, Log, TEXT("crowd: assembled City Sample characters %s (body %s, baked walk %s)"),
 			bAssembled ? TEXT("on") : TEXT("off, mannequins"), Probe ? TEXT("found") : TEXT("missing"), BakedWalk ? TEXT("found") : TEXT("missing"));
 	}
-	if (bAssembled && !CrowdSkeletonAnimationFolder.IsEmpty())
+	// -CrowdOwnLoops=0 keeps the loops baked on the MetaHuman skeleton (to tell one from the other in a test).
+	int32 OwnLoops = 1;
+	FParse::Value(FCommandLine::Get(), TEXT("CrowdOwnLoops="), OwnLoops);
+	if (bAssembled && OwnLoops != 0 && !CrowdSkeletonAnimationFolder.IsEmpty())
 	{
 		// The loops above are baked on the skeleton of /Game/MetaHumans, the bodies of the pack have their own (same
 		// name, another asset). The same loops baked on the pack's skeleton (retarget_player_animations.py with
@@ -873,8 +876,18 @@ void UGTPCrowdSubsystem::UpdateNear(float DeltaTime)
 				FrozenFar += Person && Person->Walker.Edge >= 0 && Person->Walker.PauseKind == GTPWalk::EPause::HandsUp && Person->Walker.Pause > 0.f
 					&& !NearEntity.Contains(Index) && FVector::Dist2D(Person->Location, PlayerLocation) > 3000.f ? 1 : 0;
 			}
-			UE_LOG(LogGTPCrowd, Log, TEXT("crowd: bodies released %d (hands up reset %d, fear reset %d, dead reset %d), frozen far from the player %d, held up put back standing %d"),
-				BodiesReleased, HandsUpReset, FearReset, DeadReset, FrozenFar, HeldPutBack);
+			// And of the body put back upright: a body that lies without physics is one that fell for somebody before.
+			int32 Fallen = 0, LyingStill = 0;
+			for (const AGTPPedestrian* Near : NearActors)
+			{
+				if (Near && Near->GetBody() && Near->GetActorLocation().Z > -50000.0)
+				{
+					Fallen += Near->IsRagdoll() ? 1 : 0;
+					LyingStill += !Near->IsRagdoll() && Near->GetBody()->GetUpVector().Z < 0.7 ? 1 : 0;
+				}
+			}
+			UE_LOG(LogGTPCrowd, Log, TEXT("crowd: bodies released %d (hands up reset %d, fear reset %d, dead reset %d), frozen far from the player %d, held up put back standing %d, fallen %d, lying without physics %d"),
+				BodiesReleased, HandsUpReset, FearReset, DeadReset, FrozenFar, HeldPutBack, Fallen, LyingStill);
 		}
 	}
 	const UGTPThreatSubsystem* HoldUp = UGTPThreatSubsystem::IsEnabled() && GetWorld() ? GetWorld()->GetSubsystem<UGTPThreatSubsystem>() : nullptr;

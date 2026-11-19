@@ -78,3 +78,9 @@ la tête sur les corps de la foule, ce que le test strict du candidat 49 a montr
 Une personne renversée par la voiture du joueur reste à terre là où son corps est tombé jusqu'à ce que ce corps soit
 donné à quelqu'un d'autre : elle repartait sans corps visible au bout de 10 s, et son état pouvait passer à « mains en
 l'air » sous une arme alors que le corps était couché sur la route.
+
+Un corps de la foule qui est tombé (ragdoll) revient debout quand il est donné à la personne suivante : un maillage
+squelettique simulé reste attaché et prend l'orientation de son bassin, donc sa place et son orientation sous l'acteur sont
+gardées à la chute et remises (`AGTPPedestrian::ResetBody`). Avant, le corps restait couché, sans physique, pour toutes
+les personnes à qui il était donné ensuite. La ligne de foule des 10 s finit par « fallen N, lying without physics N » : le
+second nombre doit valoir 0. `-CrowdOwnLoops=0` garde les boucles `MH_` au lieu des `CS_`.

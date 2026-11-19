@@ -73,3 +73,9 @@ stopped 10 to 19 cm under the head on the crowd's bodies, which the strict test 
 
 A person run over by the player's car stays down where his body lies until the body is given to somebody else: he used
 to walk on unseen after 10 s, and his state could go "hands up" under a gun while the body lay on the road.
+
+A body of the crowd that fell (ragdoll) comes back upright when it is given to the next person: a simulating skeletal mesh
+stays attached and takes the turn of its pelvis, so its place and turn under the actor are kept when it falls and put back
+(`AGTPPedestrian::ResetBody`). Before, the body stayed lying, without physics, for everybody it was given to afterwards.
+The 10 s line of the crowd ends with "fallen N, lying without physics N": the second number must be 0.
+`-CrowdOwnLoops=0` keeps the `MH_` loops instead of the `CS_` ones.

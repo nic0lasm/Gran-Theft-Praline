@@ -73,6 +73,8 @@ private:
 	TArray<TObjectPtr<USkeletalMeshComponent>> Parts;
 
 	bool bRagdoll = false;
+	/** Where the body sits under the actor, kept when it falls: it comes back there, upright, when it is given again. */
+	FTransform BodyRelative = FTransform::Identity;
 	float AnimInterval = 0.f;
 	bool bShadow = true;
 	bool bShown = true;
