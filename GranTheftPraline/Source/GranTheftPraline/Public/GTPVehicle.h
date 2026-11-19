@@ -681,6 +681,8 @@ private:
 	float RearGripNow = 1.f;
 	float AppliedPower = 1.f;
 	float UpsideDownTime = 0.f;
+	/** On its roof or side and stopped for 2.5 s: lifted and set on its wheels (the player's car and AI-driven cars). */
+	void PutBackOnWheels(float DeltaSeconds);
 	float ImpactShake = 0.f;
 	double AIStopUntil = -1.0;
 	double EngineStartUntil = -1.0;

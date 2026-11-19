@@ -1553,6 +1553,10 @@ void AGTPVehicle::Tick(float DeltaSeconds)
 	}
 	RunLaunchTest();
 	ProbeDrive();
+	if ((State == EGTPVehicleState::Driven && IsLocallyControlled() && bPlayerAssist) || HasAIDriver())
+	{
+		PutBackOnWheels(DeltaSeconds);
+	}
 	if (State == EGTPVehicleState::Driven && IsLocallyControlled())
 	{
 		if (bPlayerAssist)
@@ -1621,20 +1625,35 @@ void AGTPVehicle::UpdateDriveAssist(float DeltaSeconds)
 	{
 		Move->SetSteeringInput(FMath::Clamp(SteerInput + Pull * FMath::Clamp(FMath::Abs(Speed) / 30.f, 0.f, 1.f), -1.f, 1.f));
 	}
+}
 
-	// On its roof or side and stopped: put back on its wheels after a moment, as in GTA.
-	if (GetActorUpVector().Z < 0.25f && FMath::Abs(Speed) < 5.f)
+void AGTPVehicle::PutBackOnWheels(float DeltaSeconds)
+{
+	// On its roof or side and stopped: put back on its wheels after a moment, as in GTA. The player's
+	// car and, since candidate 49, the cars driven by the AI (police cars turned over in a chase
+	// stayed there: their body asleep, the vehicle's output frozen).
+	USkeletalMeshComponent* Body = GetMesh();
+	if (!Body || bWrecked || !Body->IsSimulatingPhysics())
+	{
+		UpsideDownTime = 0.f;
+		return;
+	}
+	if (GetActorUpVector().Z < 0.25f && FMath::Abs(GetSpeedKmh()) < 5.f)
 	{
 		UpsideDownTime += DeltaSeconds;
 		if (UpsideDownTime > 2.5f)
 		{
 			UpsideDownTime = 0.f;
-			SetActorLocationAndRotation(GetActorLocation() + FVector(0.f, 0.f, 120.f), FRotator(0.f, GetActorRotation().Yaw, 0.f), false, nullptr,
+			const FVector Was = GetActorLocation();
+			const float WasUp = static_cast<float>(GetActorUpVector().Z);
+			SetActorLocationAndRotation(Was + FVector(0.f, 0.f, 120.f), FRotator(0.f, GetActorRotation().Yaw, 0.f), false, nullptr,
 				ETeleportType::TeleportPhysics);
 			Body->SetPhysicsLinearVelocity(FVector::ZeroVector);
 			Body->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
+			Body->WakeAllRigidBodies();
 			NotePlaced(TEXT("flipped back"));
-			GTP_TRACE(LogGTPVehicle, TEXT("%s: put back on its wheels"), *GetName());
+			GTP_TRACE(LogGTPVehicle, TEXT("%s%s: put back on its wheels at %s (up.Z %.2f)"), *GetName(), HasAIDriver() ? TEXT(" (AI driver)") : TEXT(""),
+				*Was.ToCompactString(), WasUp);
 		}
 	}
 	else
