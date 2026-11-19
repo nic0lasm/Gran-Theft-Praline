@@ -773,16 +773,20 @@ void UGTPCrowdSubsystem::UpdateNear(float DeltaTime)
 			// The person goes on without a body that feels fear: nothing would ever lower his hands (measured in the
 			// code: 60 s standing, on a crossing the cars wait all that time). And the body's fear, state and death
 			// stay with nobody: the next person it is given to starts calm.
+			++BodiesReleased;
 			if (FGTPCrowdWalkerFragment* Gone = WalkerOf(NearEntity[Slot]))
 			{
 				if (Gone->Walker.PauseKind == GTPWalk::EPause::HandsUp)
 				{
 					Gone->Walker.Pause = 0.f;
 					Gone->Walker.PauseKind = GTPWalk::EPause::None;
+					++HandsUpReset;
 				}
 			}
 			if (UGTPThreatResponseComponent* Fear = NearActors[Slot]->FindComponentByClass<UGTPThreatResponseComponent>())
 			{
+				FearReset += Fear->GetState() != EGTPThreatState::Calm || Fear->GetFear() > 0.f ? 1 : 0;
+				DeadReset += Fear->IsDead() ? 1 : 0;
 				Fear->Forget();
 			}
 			NearActors[Slot]->ResetBody();
@@ -808,6 +812,24 @@ void UGTPCrowdSubsystem::UpdateNear(float DeltaTime)
 			Look->bNear = true;
 		}
 		NearActors[Free]->SetDetail(true, true, -1);
+	}
+	// Every 10 s, the proof of the above: nobody stands with his hands up, without a body, more than 30 m from the player.
+	if (const UWorld* World = GetWorld())
+	{
+		const double Now = World->GetTimeSeconds();
+		if (Now - LastReleaseLog >= 10.0)
+		{
+			LastReleaseLog = Now;
+			int32 FrozenFar = 0;
+			for (int32 Index = 0; Index < Entities.Num(); ++Index)
+			{
+				const FGTPCrowdWalkerFragment* Person = WalkerOf(Index);
+				FrozenFar += Person && Person->Walker.Edge >= 0 && Person->Walker.PauseKind == GTPWalk::EPause::HandsUp && Person->Walker.Pause > 0.f
+					&& !NearEntity.Contains(Index) && FVector::Dist2D(Person->Location, PlayerLocation) > 3000.f ? 1 : 0;
+			}
+			UE_LOG(LogGTPCrowd, Log, TEXT("crowd: bodies released %d (hands up reset %d, fear reset %d, dead reset %d), frozen far from the player %d"),
+				BodiesReleased, HandsUpReset, FearReset, DeadReset, FrozenFar);
+		}
 	}
 	// Follow the entities: position, and the animation that matches what the person does.
 	for (int32 Slot = 0; Slot < NearActors.Num(); ++Slot)

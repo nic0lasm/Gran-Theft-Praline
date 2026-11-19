@@ -260,6 +260,12 @@ private:
 	GTPWalk::FRng ReactionRng{777u};
 	bool bAssembled = false;
 	TSet<FString> SaidPlayed;
+	/** Bodies taken back from a person since the start, and what was reset with them (logged every 10 s). */
+	int32 BodiesReleased = 0;
+	int32 HandsUpReset = 0;
+	int32 FearReset = 0;
+	int32 DeadReset = 0;
+	double LastReleaseLog = 0.0;
 	TArray<uint8> PanicSpread;
 	float NextPanicSpread = 0.f;
 	FDelegateHandle LoudHandle;
