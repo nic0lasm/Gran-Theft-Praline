@@ -4,6 +4,13 @@
 // away, fleeing, falling when hit. No Unreal types, checked offline by
 // tools/ragdoll/impact_sim. One fear for the whole game (the shop hold-up script and the
 // pedestrians read this one). Units: centimetres and seconds; fear is 0..1.
+//
+// The rule a player can count on:
+//  - Aim a weapon at somebody within the hold-up range (8 m): he stops and puts his hands up, and keeps them up
+//    for as long as he is held at gunpoint. Whoever he is, except the brave, who backs away first.
+//  - Look away: the fearful bolt after a second, the others lower their hands after a few seconds.
+//  - Aim from further away: he has room to run and runs (some freeze on the spot instead).
+//  - Fire: the one held at gunpoint may bolt, everybody around runs; who runs already does not stop for a gun.
 
 #include <algorithm>
 #include <cmath>
@@ -40,6 +47,12 @@ struct FSettings
 	float AimedRateNear = 0.9f;
 	float AimedRateFar = 0.2f;
 	float AimRangeCm = 2000.f;
+	/** Hold-up range: aimed at from closer than this, a person surrenders; from further away he runs. */
+	float SurrenderRangeCm = 800.f;
+	/** A person held at gunpoint stays so until the gun is this much further than the hold-up range. */
+	float SurrenderKeepScale = 1.25f;
+	/** A fearful person bolts when the gun has been off him this long (s). */
+	float BoltSeconds = 1.f;
 	/** Being aimed at alone never frightens beyond this: only shots, blows and panic around push past it. */
 	float AimedFearCap = 0.8f;
 	/** Instant fear from a shot fired at him or near him (within ShotRadiusCm). */
@@ -87,6 +100,8 @@ struct FBrain
 	/** Seconds since he last was aimed at by an armed threat (large when never). */
 	float SinceAimed = 1e9f;
 	float SinceThreat = 1e9f;
+	/** Seconds since he last was held at gunpoint: aimed at by an armed threat within the hold-up range. */
+	float SinceHeld = 1e9f;
 	/** After a run he is deaf to the panic of others for this long (s): without it a crowd re-infects itself for ever. */
 	float Immune = 0.f;
 	/** Persists until the dead flag: a dead body does nothing. */
@@ -187,6 +202,17 @@ inline EState Step(FBrain& B, const FPerception& P, float Dt, const FSettings& S
 
 	const float Flee = FleeFear(B.Temperament);
 	const bool bShots = P.bShotAtMe || P.bShotNearby;
+	// Held at gunpoint: aimed at from within the hold-up range (a little further once his hands are up, so that a
+	// step back of the gunman does not free him).
+	const bool bHandsAreUp = B.State == EState::HandsUp || B.State == EState::Complying;
+	const bool bHeld = bAimedArmed && P.DistanceToThreatCm <= S.SurrenderRangeCm * (bHandsAreUp ? S.SurrenderKeepScale : 1.f);
+	B.SinceHeld = bHeld ? 0.f : B.SinceHeld + Dt;
+	// Everybody surrenders to a gun that close, whatever his fear so far; the brave backs away first.
+	const bool bSurrenders = bHeld && B.Temperament != ETemperament::Brave;
+	if (bSurrenders)
+	{
+		B.Fear = std::max(B.Fear, HandsUpFear(B.Temperament));
+	}
 	switch (B.State)
 	{
 	case EState::Down:
@@ -197,10 +223,17 @@ inline EState Step(FBrain& B, const FPerception& P, float Dt, const FSettings& S
 		}
 		break;
 	case EState::Calm:
-		if (B.Fear >= 0.15f) Enter(B, EState::Alarmed);
+		if (bSurrenders) Enter(B, EState::HandsUp);
+		else if (B.Fear >= 0.15f) Enter(B, EState::Alarmed);
 		break;
 	case EState::Alarmed:
-		if (B.Fear >= Flee || (B.Temperament == ETemperament::Fleeing && B.Fear >= HandsUpFear(B.Temperament)))
+		if (bSurrenders)
+		{
+			Enter(B, EState::HandsUp);
+		}
+		else if (B.Fear >= Flee || (B.Temperament == ETemperament::Fleeing && B.Fear >= HandsUpFear(B.Temperament))
+			// Aimed at from beyond the hold-up range: he has room to run, and runs.
+			|| (B.Temperament == ETemperament::Compliant && bAimedArmed && B.Fear >= HandsUpFear(B.Temperament)))
 		{
 			Enter(B, EState::Fleeing);
 		}
@@ -223,7 +256,8 @@ inline EState Step(FBrain& B, const FPerception& P, float Dt, const FSettings& S
 		else if (!bAimedArmed && B.StateTime > 1.5f) Enter(B, EState::Alarmed);
 		break;
 	case EState::HandsUp:
-		if (B.Fear >= Flee) Enter(B, EState::Fleeing);
+		// Nobody runs from under a gun held on him: he bolts on a shot, or once the gun has been off him for a moment.
+		if (B.Fear >= Flee && (bShots || B.SinceHeld > S.BoltSeconds)) Enter(B, EState::Fleeing);
 		else if (bAimedArmed && B.StateTime >= (B.Temperament == ETemperament::Frozen ? S.FrozenComplyDelay : S.ComplyDelay))
 		{
 			Enter(B, EState::Complying);
@@ -231,7 +265,7 @@ inline EState Step(FBrain& B, const FPerception& P, float Dt, const FSettings& S
 		else if (B.SinceAimed > S.ThreatGoneSeconds && B.Fear < 0.5f) Enter(B, EState::Alarmed);
 		break;
 	case EState::Complying:
-		if (B.Fear >= Flee) Enter(B, EState::Fleeing);
+		if (B.Fear >= Flee && (bShots || B.SinceHeld > S.BoltSeconds)) Enter(B, EState::Fleeing);
 		else if (B.SinceAimed > S.ThreatGoneSeconds) Enter(B, EState::HandsUp);
 		break;
 	case EState::Fleeing:

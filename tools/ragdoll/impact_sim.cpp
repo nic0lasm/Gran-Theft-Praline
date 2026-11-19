@@ -291,7 +291,7 @@ int main()
 			T::EState Target = T::EState::Complying;
 			const float Time = Run(B, Aimed, 10.f, &Target);
 			CHECK(B.State == T::EState::Complying, "a compliant person ends up complying (state %d)", static_cast<int>(B.State));
-			CHECK(Time > 1.0f && Time < 5.0f, "complying after %.1f s", Time);
+			CHECK(Time > 0.9f && Time < 5.0f, "complying after %.1f s", Time);
 			CHECK(T::ObeysOrders(B), "obeys orders");
 			CHECK(B.SinceAimed < 0.2f, "aimed counter");
 			// The threat leaves: hands up, then alarmed, then calm; the fear decays.
@@ -309,13 +309,86 @@ int main()
 			Run(B, Hand, 20.f);
 			CHECK(B.State == T::EState::Calm && B.Fear == 0.f, "an empty hand frightens no one");
 		}
-		// Fleeing temperament runs; frozen never does, even under fire.
+		// The hold-up rule. Within the hold-up range everybody but the brave surrenders at once and stays so while held.
+		for (const T::ETemperament Who : {T::ETemperament::Compliant, T::ETemperament::Frozen, T::ETemperament::Fleeing})
+		{
+			T::FBrain B;
+			B.Temperament = Who;
+			T::Step(B, Aimed, 0.1f);
+			CHECK(B.State == T::EState::HandsUp, "temperament %d surrenders at once at 4 m (state %d)", static_cast<int>(Who), static_cast<int>(B.State));
+			Run(B, Aimed, 30.f);
+			CHECK(B.State == T::EState::Complying, "temperament %d stays held for 30 s (state %d)", static_cast<int>(Who), static_cast<int>(B.State));
+			// The gunman steps back to 9.5 m, still aiming: still held (inside the keep range).
+			T::FPerception Back = Aimed;
+			Back.DistanceToThreatCm = 950.f;
+			Run(B, Back, 10.f);
+			CHECK(B.State == T::EState::Complying, "temperament %d still held from 9.5 m (state %d)", static_cast<int>(Who), static_cast<int>(B.State));
+		}
+		// Beyond the hold-up range: the compliant and the fearful run, the frozen freezes with his hands up.
+		{
+			T::FPerception Far = Aimed;
+			Far.DistanceToThreatCm = 1500.f;
+			for (const T::ETemperament Who : {T::ETemperament::Compliant, T::ETemperament::Fleeing})
+			{
+				T::FBrain B;
+				B.Temperament = Who;
+				T::EState Target = T::EState::Fleeing;
+				const float Time = Run(B, Far, 10.f, &Target);
+				CHECK(B.State == T::EState::Fleeing, "temperament %d aimed at from 15 m runs (state %d)", static_cast<int>(Who), static_cast<int>(B.State));
+				CHECK(Time < 4.f, "and soon: %.1f s", Time);
+				// Who runs does not stop for a gun, even a close one.
+				Run(B, Aimed, 3.f);
+				CHECK(B.State == T::EState::Fleeing, "temperament %d keeps running under a close gun (state %d)", static_cast<int>(Who), static_cast<int>(B.State));
+			}
+			T::FBrain F;
+			F.Temperament = T::ETemperament::Frozen;
+			Run(F, Far, 10.f);
+			CHECK(F.State == T::EState::HandsUp || F.State == T::EState::Complying, "a frozen person aimed at from 15 m freezes (state %d)", static_cast<int>(F.State));
+		}
+		// Just inside and just outside the range.
+		{
+			T::FPerception In = Aimed, Out = Aimed;
+			In.DistanceToThreatCm = 790.f;
+			Out.DistanceToThreatCm = 810.f;
+			T::FBrain A, B;
+			Run(A, In, 5.f);
+			Run(B, Out, 5.f);
+			CHECK(A.State == T::EState::Complying, "7.9 m: held (state %d)", static_cast<int>(A.State));
+			CHECK(B.State == T::EState::Fleeing, "8.1 m: runs (state %d)", static_cast<int>(B.State));
+		}
+		// The gun looks away: the fearful bolts after a second, the compliant lowers his hands after a few and does not run.
+		{
+			T::FPerception None;
+			T::FBrain B;
+			B.Temperament = T::ETemperament::Fleeing;
+			Run(B, Aimed, 5.f);
+			CHECK(B.State == T::EState::Complying, "fearful held (state %d)", static_cast<int>(B.State));
+			Run(B, None, 0.8f);
+			CHECK(B.State != T::EState::Fleeing, "not before a second (state %d)", static_cast<int>(B.State));
+			Run(B, None, 0.6f);
+			CHECK(B.State == T::EState::Fleeing, "the fearful bolts when the gun looks away (state %d)", static_cast<int>(B.State));
+			T::FBrain C;
+			Run(C, Aimed, 5.f);
+			bool bRan = false;
+			for (float Time = 0.f; Time < 30.f; Time += 0.1f)
+			{
+				T::Step(C, None, 0.1f);
+				bRan |= C.State == T::EState::Fleeing;
+			}
+			CHECK(!bRan && C.State == T::EState::Calm, "the compliant lowers his hands and calms down (state %d)", static_cast<int>(C.State));
+		}
+		// A shot while held: the fearful bolts at once, the frozen never.
 		{
 			T::FBrain B;
 			B.Temperament = T::ETemperament::Fleeing;
-			T::EState Target = T::EState::Fleeing;
-			Run(B, Aimed, 10.f, &Target);
-			CHECK(B.State == T::EState::Fleeing, "a fleeing temperament runs");
+			Run(B, Aimed, 3.f);
+			T::FPerception Fire = Aimed;
+			Fire.bShotNearby = true;
+			T::Step(B, Fire, 0.1f);
+			CHECK(B.State == T::EState::Fleeing, "a shot frees the fearful (state %d)", static_cast<int>(B.State));
+		}
+		// Frozen never runs, even under fire.
+		{
 			T::FBrain F;
 			F.Temperament = T::ETemperament::Frozen;
 			T::FPerception Fire = Aimed;
