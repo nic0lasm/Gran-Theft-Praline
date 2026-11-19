@@ -65,6 +65,10 @@ public:
 	bool HasGivenUp() const { return bGaveUp; }
 	/** Times the chase script put its car back on a lane (held up for good, off the road, end of the lanes). */
 	int32 GetChaseRelocations() const { return ChaseRelocations; }
+	/** Seconds (real time) since the chase script last put its car on another lane; a large number when it never did. */
+	double GetSecondsSinceRelocation() const;
+	/** After a relocation nobody can arrest the player for this long (s): the script put the car there, not the player. */
+	static constexpr double RelocationGraceSeconds = 8.0;
 
 private:
 	enum class EPhase : uint8
@@ -123,6 +127,8 @@ private:
 	bool bLevelFree = false;
 	bool bGaveUp = false;
 	int32 ChaseRelocations = 0;
+	/** FPlatformTime second of the last relocation (-1 = never). */
+	double LastRelocationAt = -1.0;
 	double RamUntil = 0.0;
 	double SlowSince = 0.0;
 	int32 ChaseStuckCount = 0;

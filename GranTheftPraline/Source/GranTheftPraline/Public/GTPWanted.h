@@ -437,6 +437,8 @@ public:
 	void ResetChaseTally() { ChaseTally.Reset(); }
 	/** Cars chasing now (roadblock cars apart), and officers on foot. */
 	void CountUnits(int32& OutChasing, int32& OutBlocks, int32& OutOfficers) const;
+	/** Distance (m) from Where to the nearest chasing car, roadblock car and officer on foot; -1 for a kind with nobody. */
+	void NearestUnits(const FVector& Where, float& OutChasing, float& OutBlock, float& OutOfficer) const;
 
 	/**
 	 * Lane places where a roadblock across the player's road would work: 140 to 240 m ahead of a player driving

@@ -103,6 +103,13 @@ private:
 	double RespawnedAt = -1.0;
 	double LostAt = -1.0;
 	FVector ArrestedWhere = FVector::ZeroVector;
+	/** At the arrest: the nearest chasing car, roadblock car and officer (m, -1 = none), the player's speed, and how long
+	 * before the chase script had last moved the player's car (s). */
+	float ArrestChasing = -1.f;
+	float ArrestBlock = -1.f;
+	float ArrestOfficer = -1.f;
+	float ArrestKmh = 0.f;
+	double ArrestSinceRelocation = 1.0e9;
 	FVector DiedWhere = FVector::ZeroVector;
 	FName RespawnHospital;
 	int32 LastStars = 0;
