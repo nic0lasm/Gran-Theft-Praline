@@ -79,3 +79,5 @@ stays attached and takes the turn of its pelvis, so its place and turn under the
 (`AGTPPedestrian::ResetBody`). Before, the body stayed lying, without physics, for everybody it was given to afterwards.
 The 10 s line of the crowd ends with "fallen N, lying without physics N": the second number must be 0.
 `-CrowdOwnLoops=0` keeps the `MH_` loops instead of the `CS_` ones.
+Only a car knocks people of the crowd down: the player on foot runs at 500 cm/s, right on the speed threshold, and used to
+knock down like a car the people he came within 1.7 m of.

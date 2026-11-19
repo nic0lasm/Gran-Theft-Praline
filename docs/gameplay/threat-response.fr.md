@@ -84,3 +84,5 @@ squelettique simulé reste attaché et prend l'orientation de son bassin, donc s
 gardées à la chute et remises (`AGTPPedestrian::ResetBody`). Avant, le corps restait couché, sans physique, pour toutes
 les personnes à qui il était donné ensuite. La ligne de foule des 10 s finit par « fallen N, lying without physics N » : le
 second nombre doit valoir 0. `-CrowdOwnLoops=0` garde les boucles `MH_` au lieu des `CS_`.
+Seule une voiture renverse les personnes de la foule : le joueur à pied court à 500 cm/s, juste au seuil de vitesse, et
+renversait comme une voiture les personnes dont il s'approchait à moins de 1,7 m.

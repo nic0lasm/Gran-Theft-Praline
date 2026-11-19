@@ -916,7 +916,9 @@ void UGTPCrowdSubsystem::UpdateNear(float DeltaTime)
 		if (FVector::Dist2D(W->Location, PlayerLocation) < 170.f && GetWorld())
 		{
 			const APawn* Pawn = UGameplayStatics::GetPlayerPawn(GetWorld(), 0);
-			if (Pawn && Pawn->GetVelocity().Size2D() > 500.f)
+			// A car, not the player on foot: he runs at 500 cm/s, right on this threshold, and knocked down like a car the
+			// people he walked up to (candidate 49 in the editor: "walking at 500 cm/s", people upright then lying).
+			if (Pawn && !Pawn->IsA<ACharacter>() && Pawn->GetVelocity().Size2D() > 500.f)
 			{
 				HitByPlayerVehicle(Slot);
 				continue;
