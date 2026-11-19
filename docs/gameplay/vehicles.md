@@ -391,9 +391,14 @@ with the game started in the car (`-PlayerPawn=<car class>`), waits 3 s then dri
 throttle for 25 s: 0-50, 0-100, top speed and distance ("drive launch test"). Since candidate 49 the
 car is first put on the longest clear straight of the map (`PlaceForLaunchTest`: lanes within 1.5 m
 of a line, on through the next lane that keeps the heading; a car-wide box swept 0.45 to 1.55 m
-above the road finds what stands on it), held on the line, and lets off where it must brake before
-the end; the line adds 0-130, the speed every 100 m and the torque, mass and centre of mass. Run it
-with `-Pedestrians=0 -Police=0 -StreetParked=0`: the box does not see pawns nor vehicles.
+above the road finds what stands on it), held on the line, and measured up to half a second and
+15 m before its end, then brakes; the line adds 0-130, the speed every 100 m, where the run ended on
+the straight and the torque, mass and centre of mass. Run it with `-Pedestrians=0 -Police=0
+-StreetParked=0`: the box does not see pawns nor vehicles. The PC's first run (candidate 49, Car05)
+found 181 m clear, the longest lane line of the map, and ended at once at 0 km/h: the car was no
+longer on that straight when the launch started, and braking to a stop before its end left too
+little of it for 100 km/h. Where the car stands is now logged as the launch starts ("drive launch
+test: car at ..., last placed by ..."); a car off the straight is put on it again, twice at most.
 
 Candidate 45 (adaf9c1, PC, 16/11): every car has its own wheels and City Sample's differential
 (Car03, 05, 12 and Police13 rear wheel drive), `-GTARun` 7/7 with a 154 m chase. Car05 at full

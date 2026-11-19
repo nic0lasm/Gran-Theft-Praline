@@ -1309,6 +1309,32 @@ void AGTPVehicle::RunLaunchTest()
 	}
 	if (LaunchTestFrom.IsZero())
 	{
+		// The PC's first run (candidate 49) ended at once, "braking before the end of the straight" at
+		// 0 km/h: the car was no longer where it was put. Checked here, put back at most twice, else the
+		// straight is dropped and the car launched where it stands.
+		if (LaunchLineCm > 0.f)
+		{
+			const FVector2D At = FVector2D(GetActorLocation().X, GetActorLocation().Y) - LaunchLineStart;
+			const float AlongCm = static_cast<float>(FVector2D::DotProduct(At, LaunchLineDir));
+			const float OffCm = static_cast<float>(FVector2D::CrossProduct(LaunchLineDir, At));
+			const USkeletalMeshComponent* Body = GetMesh();
+			GTP_TRACE(LogGTPVehicle, TEXT("drive launch test: car at %s, %.0f m along the straight of %.0f m, %.1f m beside it, %.0f km/h, %s, last placed by %s %.1f s ago"),
+				*GetActorLocation().ToCompactString(), AlongCm / 100.f, LaunchLineCm / 100.f, OffCm / 100.f, GetSpeedKmh(),
+				Body && Body->IsSimulatingPhysics() ? TEXT("simulated") : TEXT("kinematic"), LastPlacedHow, Now - LastPlacedTime);
+			if (AlongCm < 0.f || AlongCm > LaunchLineCm - 5000.f || FMath::Abs(OffCm) > 500.f)
+			{
+				if (LaunchPlaceTries < 2)
+				{
+					++LaunchPlaceTries;
+					GTP_TRACE(LogGTPVehicle, TEXT("drive launch test: the car left the straight it was put on, put on it again (%d of 2)"), LaunchPlaceTries);
+					PlaceForLaunchTest();
+					LaunchTestStart = Now + 3.f;
+					return;
+				}
+				GTP_TRACE(LogGTPVehicle, TEXT("drive launch test: the car left the straight twice, straight dropped, launched where it stands"));
+				LaunchLineCm = 0.f;
+			}
+		}
 		LaunchTestFrom = GetActorLocation();
 		TopSpeedKmh = 0.f;
 		LaunchTestMarks.Reset();
@@ -1326,11 +1352,13 @@ void AGTPVehicle::RunLaunchTest()
 		LaunchTestMarks.Add(Speed);
 	}
 	const bool bBlocked = TopSpeedKmh > 30.f && Speed < TopSpeedKmh - 30.f;
-	// On a straight: off the throttle while there is still room to brake (6 m/s2) and 15 m to spare.
+	// On a straight: the run is measured up to half a second and 15 m before its end, then the car
+	// brakes. The longest clear straight of the map is 181 m (PC, candidate 49): braking to a stop
+	// before its end (6 m/s2) left too little of it to reach 100 km/h; what follows is not measured.
 	const FVector2D Rel = FVector2D(GetActorLocation().X, GetActorLocation().Y) - LaunchLineStart;
 	const float Along = LaunchLineCm > 0.f ? static_cast<float>(FVector2D::DotProduct(Rel, LaunchLineDir)) : 0.f;
 	const float SpeedMs = FMath::Max(Speed, 0.f) / 3.6f;
-	const bool bStraightEnds = LaunchLineCm > 0.f && (LaunchLineCm - Along) / 100.f < SpeedMs * SpeedMs / 12.f + 15.f;
+	const bool bStraightEnds = LaunchLineCm > 0.f && (LaunchLineCm - Along) / 100.f < SpeedMs * 0.5f + 15.f;
 	if (bBlocked || bStraightEnds || Now - LaunchTestStart > 40.f)
 	{
 		bLaunchTestDone = true;
@@ -1344,10 +1372,10 @@ void AGTPVehicle::RunLaunchTest()
 		}
 		const FBodyInstance* Chassis = GetMesh() ? GetMesh()->GetBodyInstance() : nullptr;
 		const FVector CentreOfMass = Chassis && Chassis->IsValidBodyInstance() ? Chassis->GetMassSpaceLocal().GetTranslation() : FVector::ZeroVector;
-		GTP_TRACE(LogGTPVehicle, TEXT("drive launch test: %s top %.0f km/h, %.0f m in %.1f s, %s; 0-130 km/h %s; km/h every 100 m: %s | torque %.0f N.m (player), mass %.0f kg, centre of mass X %.0f Z %.0f, %d gears, max %.0f rpm"),
+		GTP_TRACE(LogGTPVehicle, TEXT("drive launch test: %s top %.0f km/h, %.0f m in %.1f s, %s at %.0f m along the straight of %.0f m; 0-130 km/h %s; km/h every 100 m: %s | torque %.0f N.m (player), mass %.0f kg, centre of mass X %.0f Z %.0f, %d gears, max %.0f rpm"),
 			*GetClass()->GetName(), TopSpeedKmh, Metres, Now - LaunchTestStart,
-			bBlocked ? TEXT("stopped by an obstacle") : bStraightEnds ? TEXT("braking before the end of the straight") : TEXT("40 s at full throttle"),
-			LaunchTest130 >= 0.f ? *FString::Printf(TEXT("in %.1f s"), LaunchTest130) : TEXT("not reached"), Marks.IsEmpty() ? TEXT("none") : *Marks,
+			bBlocked ? TEXT("stopped by an obstacle") : bStraightEnds ? TEXT("15 m before the end of the straight") : TEXT("40 s at full throttle"),
+			Along / 100.f, LaunchLineCm / 100.f, LaunchTest130 >= 0.f ? *FString::Printf(TEXT("in %.1f s"), LaunchTest130) : TEXT("not reached"), Marks.IsEmpty() ? TEXT("none") : *Marks,
 			Assist.PlayerTorque * FMath::Max(AppliedPower, 0.f), Move->Mass, CentreOfMass.X, CentreOfMass.Z,
 			Move->TransmissionSetup.ForwardGearRatios.Num(), Move->EngineSetup.MaxRPM);
 		return;

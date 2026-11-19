@@ -417,10 +417,15 @@ géométrie statique seulement (le tracé de visibilité pouvait s'arrêter sur 
 (« drive launch test »). Depuis le candidat 49, la voiture est d'abord posée sur la plus longue ligne
 droite dégagée de la carte (`PlaceForLaunchTest` : voies à moins de 1,5 m d'une droite, prolongées par
 la voie suivante qui garde le cap ; une boîte de la largeur d'une voiture balayée de 0,45 à 1,55 m
-au-dessus de la chaussée trouve ce qui s'y dresse), tenue sur la ligne, et lâche l'accélérateur là où
-elle doit freiner avant la fin ; la ligne ajoute le 0-130, la vitesse tous les 100 m, le couple, la
-masse et le centre de gravité. À lancer avec `-Pedestrians=0 -Police=0 -StreetParked=0` : la boîte ne
-voit ni les pions ni les véhicules.
+au-dessus de la chaussée trouve ce qui s'y dresse), tenue sur la ligne, et mesurée jusqu'à une
+demi-seconde et 15 m avant sa fin, puis freine ; la ligne ajoute le 0-130, la vitesse tous les 100 m,
+l'endroit de la ligne droite où l'essai s'est arrêté, le couple, la masse et le centre de gravité. À
+lancer avec `-Pedestrians=0 -Police=0 -StreetParked=0` : la boîte ne voit ni les pions ni les
+véhicules. La première prise du PC (candidat 49, Car05) a trouvé 181 m dégagés, la plus longue ligne
+de voies de la carte, et s'est arrêtée aussitôt à 0 km/h : la voiture n'était plus sur cette ligne
+droite au départ, et freiner jusqu'à l'arrêt avant sa fin en laissait trop peu pour 100 km/h.
+L'endroit où est la voiture est maintenant écrit au départ (« drive launch test: car at ..., last
+placed by ... ») ; une voiture sortie de la ligne droite y est reposée, deux fois au plus.
 
 Candidat 45 (adaf9c1, PC, 16/11) : chaque voiture a ses roues et le différentiel de City Sample
 (Car03, 05, 12 et Police13 en propulsion), `-GTARun` 7/7 avec une poursuite de 154 m. Car05 pied au

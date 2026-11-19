@@ -642,6 +642,7 @@ private:
 	FVector2D LaunchLineStart = FVector2D::ZeroVector;
 	FVector2D LaunchLineDir = FVector2D::ZeroVector;
 	float LaunchLineCm = 0.f;
+	int32 LaunchPlaceTries = 0;
 	TArray<float> LaunchTestMarks;
 	float LaunchTest130 = -1.f;
 
