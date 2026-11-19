@@ -87,6 +87,14 @@ jobs:
         run: |
           g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/wanted_sim/chase_speed_test.cpp -o /tmp/chase_speed_test
           /tmp/chase_speed_test
+      - name: Pursuit as the player sees it (police speed and distance)
+        run: |
+          g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/wanted_sim/chase_tally_test.cpp -o /tmp/chase_tally_test
+          /tmp/chase_tally_test
+      - name: Witnesses of a crime
+        run: |
+          g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/wanted_sim/witness_test.cpp -o /tmp/witness_test
+          /tmp/witness_test
       - name: Police unit states
         run: |
           g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/wanted_sim/brain_test.cpp -o /tmp/brain_test

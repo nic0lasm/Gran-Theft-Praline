@@ -100,7 +100,7 @@ void UGTPWantedComponent::ReportCrime(EGTPCrimeKind Kind, const FVector& Locatio
 		const APlayerController* Owner = Cast<APlayerController>(GetOwner());
 		UGTPPoliceSenses::ReportNoise(this, Location, Owner ? Owner->GetPawn() : nullptr, 1.f);
 	}
-	if (!bRequireWitnesses || WitnessesDisabledByCommandLine())
+	if (!AreWitnessesRequired())
 	{
 		ApplyCrime(Kind, Location);
 		return;
@@ -140,19 +140,30 @@ void UGTPWantedComponent::ReportCrime(EGTPCrimeKind Kind, const FVector& Locatio
 		bLoud, bVictimInvolved, Witnesses, WitnessSettings);
 	if (!Result.bReported)
 	{
+		++CrimeReports.Unwitnessed;
 		GTP_TRACE(LogGTPWanted, TEXT("wanted: crime %d not witnessed"), static_cast<int32>(Kind));
 		return;
 	}
 	if (Result.Delay <= 0.f)
 	{
+		++CrimeReports.ByPolice;
 		ApplyCrime(Kind, Location);
 		return;
 	}
+	++CrimeReports.Called;
+	CrimeReports.LastCallPersons = Result.Persons;
+	CrimeReports.bLastCallVictim = Result.bVictim;
 	FPendingReport& Pending = PendingReports.AddDefaulted_GetRef();
 	Pending.Kind = Kind;
 	Pending.Location = Location;
 	Pending.DueTime = static_cast<float>(GetWorld()->GetTimeSeconds()) + Result.Delay;
-	GTP_TRACE(LogGTPWanted, TEXT("wanted: crime %d seen, the police are called (%.0f s)"), static_cast<int32>(Kind), Result.Delay);
+	GTP_TRACE(LogGTPWanted, TEXT("wanted: crime %d seen, the police are called (%.0f s) by %d passer(s)-by%s"), static_cast<int32>(Kind), Result.Delay,
+		Result.Persons, Result.bVictim ? TEXT(" and the victim") : TEXT(""));
+}
+
+bool UGTPWantedComponent::AreWitnessesRequired() const
+{
+	return bRequireWitnesses && !WitnessesDisabledByCommandLine();
 }
 
 void UGTPWantedComponent::TickPendingReports(float Now)
@@ -163,16 +174,25 @@ void UGTPWantedComponent::TickPendingReports(float Now)
 		{
 			const FPendingReport Report = PendingReports[Index];
 			PendingReports.RemoveAtSwap(Index);
-			ApplyCrime(Report.Kind, Report.Location);
+			if (ApplyCrime(Report.Kind, Report.Location))
+			{
+				++CrimeReports.CalledApplied;
+				if (CrimeReports.FirstCallTime < 0.f)
+				{
+					CrimeReports.FirstCallTime = Now;
+					CrimeReports.FirstCallStars = State.GetStars();
+					CrimeReports.FirstCallUnits = Police.Num();
+				}
+			}
 		}
 	}
 }
 
-void UGTPWantedComponent::ApplyCrime(EGTPCrimeKind Kind, const FVector& Location)
+bool UGTPWantedComponent::ApplyCrime(EGTPCrimeKind Kind, const FVector& Location)
 {
 	if (BustedBannerLeft > 0.f || !GetWorld() || !IsComponentTickEnabled())
 	{
-		return;
+		return false;
 	}
 	if (Kind == EGTPCrimeKind::ShotsFired || Kind == EGTPCrimeKind::ArmedThreat || Kind == EGTPCrimeKind::Assault
 		|| Kind == EGTPCrimeKind::Killing || Kind == EGTPCrimeKind::KillPolice || Kind == EGTPCrimeKind::HitPolice)
@@ -182,7 +202,7 @@ void UGTPWantedComponent::ApplyCrime(EGTPCrimeKind Kind, const FVector& Location
 	const int32 Before = State.GetStars();
 	if (!State.AddCrime(Kind, static_cast<float>(GetWorld()->GetTimeSeconds())))
 	{
-		return;
+		return false;
 	}
 	if (Before == 0)
 	{
@@ -191,6 +211,7 @@ void UGTPWantedComponent::ApplyCrime(EGTPCrimeKind Kind, const FVector& Location
 	DispatchLeft = DispatchSeconds;
 	NotifyIfChanged();
 	GTP_TRACE(LogGTPWanted, TEXT("wanted: crime %d, heat %.0f, %d stars"), static_cast<int32>(Kind), State.GetHeat(), State.GetStars());
+	return true;
 }
 
 void UGTPWantedComponent::ForceStars(int32 Stars)
@@ -1020,6 +1041,8 @@ void AGTPPoliceDirector::RepositionUnit(FUnit& Unit, const FVector& PlayerLocati
 	Unit.Follower = FGTPLaneFollower();
 	Unit.bOnLanes = false;
 	Unit.StoppedTime = 0.f;
+	Unit.MovedTo = Transform.GetLocation();
+	Unit.MoveCheckTime = static_cast<float>(GetWorld()->GetTimeSeconds()) + 0.5f;
 	GTP_TRACE(LogGTPWanted, TEXT("police: %s moved to lane %d"), *Car->GetName(), Lane);
 }
 
@@ -1284,6 +1307,17 @@ void AGTPPoliceDirector::DriveUnit(FUnit& Unit, UGTPWantedComponent& Wanted, con
 	}
 }
 
+void AGTPPoliceDirector::CountUnits(int32& OutChasing, int32& OutBlocks, int32& OutOfficers) const
+{
+	OutChasing = 0;
+	OutBlocks = 0;
+	for (const FUnit& Unit : Units)
+	{
+		(Unit.bBlock ? OutBlocks : OutChasing) += Unit.Car.IsValid() ? 1 : 0;
+	}
+	OutOfficers = Officers.Num();
+}
+
 void AGTPPoliceDirector::RemoveUnit(int32 Index)
 {
 	FUnit& Unit = Units[Index];
@@ -1496,8 +1530,25 @@ void AGTPPoliceDirector::Tick(float DeltaSeconds)
 		{
 			Unit.NextRepositionTime = Now + 3.f;
 			RepositionUnit(Unit, Player->GetActorLocation());
+			ChaseTally.NoteMoved();
+		}
+		if (Unit.MoveCheckTime > 0.f && Now >= Unit.MoveCheckTime)
+		{
+			// The chase demo's car, moved the same way while simulated, was taken back by the solver (smoke of 16/11):
+			// half a second later a unit cannot be more than a few metres from where it was put.
+			Unit.MoveCheckTime = 0.f;
+			const float Off = static_cast<float>(FVector::Dist2D(Car->GetActorLocation(), Unit.MovedTo)) * 0.01f;
+			if (Off > 30.f)
+			{
+				ChaseTally.NoteMoveLost();
+				GTP_TRACE(LogGTPWanted, TEXT("police: %s is %.0f m from where it was moved half a second ago: the move did not hold"), *Car->GetName(), Off);
+			}
 		}
 		DriveUnit(Unit, *Wanted, *Player, DeltaSeconds);
+		if (Stars > 0 && !Unit.bBlock)
+		{
+			ChaseTally.AddUnit(Car->GetSpeedKmh(), static_cast<float>(FVector::Dist2D(Car->GetActorLocation(), Player->GetActorLocation())) * 0.01f, ChaseTallySettings);
+		}
 		// With -VehicleLod=1 the light bar is dark beyond LightBarDistance: two lights nobody can tell apart from far away.
 		const float LightLimit = bPoliceLite ? LiteLightDistance : LightBarDistance;
 		const bool bLightsNear = !(Network->bVehicleLod || bPoliceLite)
@@ -1538,6 +1589,16 @@ void AGTPPoliceDirector::Tick(float DeltaSeconds)
 		{
 			RemoveUnit(Index);
 		}
+	}
+
+	ChaseTally.EndFrame(DeltaSeconds, static_cast<float>(Player->GetVelocity().Size()) * 0.036f, ChaseTallySettings);
+	if (Stars > 0 && Now >= NextTallyTraceTime && ChaseTally.Seconds > 0.0)
+	{
+		// What the player sees of the pursuit, every 10 s (the per-unit lines above say why a car does not move).
+		NextTallyTraceTime = Now + 10.f;
+		GTP_TRACE(LogGTPWanted, TEXT("police chase: units mean=%.0f km/h peak=%.0f moving=%.0f %% nearest mean=%.0f m min=%.0f m within %.0f m %.0f %% of %.0f s, player mean=%.0f km/h, up to %d units, %d put back near the player (%d moves not held)"),
+			ChaseTally.MeanKmh(), ChaseTally.UnitPeakKmh, ChaseTally.MovingShare() * 100.f, ChaseTally.MeanNearest(), ChaseTally.NearestMin, ChaseTallySettings.NearMetres,
+			ChaseTally.NearShare() * 100.f, static_cast<float>(ChaseTally.Seconds), ChaseTally.PlayerMeanKmh(), ChaseTally.PeakUnits, ChaseTally.Moves, ChaseTally.MovesLost);
 	}
 
 	int32 Chasing = 0;

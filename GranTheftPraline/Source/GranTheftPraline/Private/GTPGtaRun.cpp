@@ -1,5 +1,6 @@
 #include "GTPGtaRun.h"
 
+#include "Engine/GameInstance.h"
 #include "Engine/World.h"
 #include "GameFramework/WorldSettings.h"
 #include "EngineUtils.h"
@@ -12,6 +13,9 @@
 #include "Camera/PlayerCameraManager.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
+#include "GTPCombat.h"
+#include "GTPDemoRoute.h"
+#include "GTPHealth.h"
 #include "GTPLog.h"
 #include "InputCoreTypes.h"
 #include "GameFramework/PlayerController.h"
@@ -30,12 +34,46 @@ DEFINE_LOG_CATEGORY_STATIC(LogGTPGtaRun, Log, All);
 
 namespace
 {
-	constexpr int32 StepCount = 7;
-	const TCHAR* StepNames[StepCount] = { TEXT("carjack"), TEXT("chase"), TEXT("parked"), TEXT("walkarmed"), TEXT("aim"), TEXT("aimclose"), TEXT("shoot") };
+	// In a namespace of their own: the step functions have locals called Aim or Car.
+	namespace EStep
+	{
+		enum Type : int32 { Carjack, Witness, Chase, Pursuit, Outcome, Parked, WalkArmed, Aim, AimClose, Shoot, Wasted, Count };
+	}
+	constexpr int32 StepCount = EStep::Count;
+	const TCHAR* StepNames[StepCount] = { TEXT("carjack"), TEXT("witness"), TEXT("chase"), TEXT("pursuit"), TEXT("outcome"), TEXT("parked"),
+		TEXT("walkarmed"), TEXT("aim"), TEXT("aimclose"), TEXT("shoot"), TEXT("wasted") };
+	// The steps of the wanted level, counted on their own line: the gate's rule on the seven others reads as before.
+	const bool StepIsPolice[StepCount] = { false, true, false, true, true, false, false, false, false, false, true };
+	constexpr int32 PoliceStepCount = 4;
 	// Time limits (s) per step, counted from the step's start.
-	// Chase: 3 stars come at 30 s and a car that flees has its 150 m by then; a chase that fails must leave the
-	// other steps their time (170 s of it ate the bench's 330 s on 16/11).
-	const double StepLimits[StepCount] = { 90.0, 90.0, 200.0, 40.0, 90.0, 90.0, 30.0 };
+	// Witness: the call takes 4 s (GTPWitnessLogic.h). Chase: 3 stars come at 30 s and a car that flees has its
+	// 150 m by then; a chase that fails must leave the other steps their time (170 s of it ate the bench's 330 s
+	// on 16/11). Pursuit: its 40 s window. Outcome: a stopped player is arrested in 3 s once a unit is within 7 m;
+	// the units have 60 s to come. Wasted: 6 s dead, then the respawn.
+	const double StepLimits[StepCount] = { 90.0, 12.0, 90.0, 50.0, 60.0, 200.0, 40.0, 90.0, 90.0, 30.0, 30.0 };
+	// The flight measured by the pursuit step after the chase step (s).
+	constexpr double PursuitSeconds = 40.0;
+
+	AGTPPoliceDirector* FindDirector(const UWorld* World)
+	{
+		TActorIterator<AGTPPoliceDirector> It(World);
+		return It ? *It : nullptr;
+	}
+
+	/** Distance (m) from the player to the nearest police car, -1 when there is none. */
+	float NearestPoliceCar(const UGTPWantedComponent& Wanted, const FVector& Player)
+	{
+		float Nearest = -1.f;
+		for (const TWeakObjectPtr<AGTPVehicle>& Car : Wanted.GetPolice())
+		{
+			if (Car.IsValid())
+			{
+				const float Metres = static_cast<float>(FVector::Dist(Car->GetActorLocation(), Player)) * 0.01f;
+				Nearest = Nearest < 0.f ? Metres : FMath::Min(Nearest, Metres);
+			}
+		}
+		return Nearest;
+	}
 
 	APlayerController* FirstController(const UWorld* World)
 	{
@@ -101,6 +139,15 @@ void UGTPGtaRun::Initialize(FSubsystemCollectionBase& Collection)
 
 void UGTPGtaRun::Deinitialize()
 {
+	if (UGTPWantedComponent* Wanted = BoundWanted.Get())
+	{
+		Wanted->OnArrested.RemoveAll(this);
+	}
+	if (UGTPCombatSubsystem* Combat = BoundCombat.Get())
+	{
+		Combat->OnPlayerDied.RemoveAll(this);
+		Combat->OnPlayerRespawned.RemoveAll(this);
+	}
 	FTSTicker::GetCoreTicker().RemoveTicker(TickHandle);
 	FTSTicker::GetCoreTicker().RemoveTicker(WalkHandle);
 	Super::Deinitialize();
@@ -124,22 +171,105 @@ void UGTPGtaRun::BeginStep(int32 Index)
 	WalkArmedPhase = 0;
 	WalkArmedPhaseStart = -1.0;
 	bWalkArmedExit = false;
+	OutcomePhase = 0;
+	bWastedExit = false;
+	WastedPhase = 0;
+	WastedTries = 0;
+	if (Step == EStep::Chase)
+	{
+		ChaseBegan = StepStart;
+	}
+	else if (Step == EStep::Pursuit)
+	{
+		// The chase is proven or not; from here the level lives by itself: a pursuit that only lasts because the
+		// script keeps forcing 3 stars proves nothing about the police.
+		if (UGTPDemoRoute* Demo = GetGameInstance() ? GetGameInstance()->GetSubsystem<UGTPDemoRoute>() : nullptr)
+		{
+			Demo->FreeChaseLevel();
+		}
+	}
 	GTP_TRACE(LogGTPGtaRun, TEXT("GTARun step %d: %s start (t=%.0f s)"), Step + 1, StepNames[Step], FPlatformTime::Seconds() - RunStart);
 }
 
 void UGTPGtaRun::EndStep(EResult Result, const FString& Detail)
 {
 	const bool bOk = Result == EResult::Ok;
-	OkCount += bOk ? 1 : 0;
+	(StepIsPolice[Step] ? PoliceOkCount : OkCount) += bOk ? 1 : 0;
 	GTP_TRACE(LogGTPGtaRun, TEXT("GTARun step %d: %s %s %s (%.0f s)"), Step + 1, StepNames[Step], bOk ? TEXT("ok") : TEXT("fail"), *Detail,
 		FPlatformTime::Seconds() - StepStart);
+	UGTPWantedComponent* Wanted = UGTPWantedComponent::Find(this);
+	if (Step == EStep::Outcome && Wanted)
+	{
+		// The steps on foot test the theft, the walk and the hold-up, not the police: what is left of the level goes, and
+		// nobody arrests the player in the middle of a hold-up (every run so far had the arrest off from here: the chase
+		// script allowed it from its 100th second and the run left the car before).
+		const int32 Left = Wanted->GetStars();
+		if (Left > 0)
+		{
+			bRunCleared = true;
+			Wanted->ClearWanted();
+		}
+		Wanted->SetArrestEnabled(false);
+		GTP_TRACE(LogGTPGtaRun, TEXT("GTARun: for the steps on foot the level is cleared by the run (%d star(s) were left) and the arrest is off until the end"), Left);
+	}
 	if (Step + 1 < StepCount)
 	{
 		BeginStep(Step + 1);
 		return;
 	}
 	bDone = true;
-	GTP_TRACE(LogGTPGtaRun, TEXT("GTARun done: %d/%d ok (%.0f s)"), OkCount, StepCount, FPlatformTime::Seconds() - RunStart);
+	if (Wanted)
+	{
+		Wanted->SetArrestEnabled(true);
+	}
+	GTP_TRACE(LogGTPGtaRun, TEXT("GTARun police: %d/%d ok (witness, pursuit, outcome, wasted)"), PoliceOkCount, PoliceStepCount);
+	GTP_TRACE(LogGTPGtaRun, TEXT("GTARun done: %d/%d ok (%.0f s)"), OkCount, StepCount - PoliceStepCount, FPlatformTime::Seconds() - RunStart);
+}
+
+void UGTPGtaRun::TrackWanted()
+{
+	const double Now = FPlatformTime::Seconds();
+	UGTPWantedComponent* Wanted = UGTPWantedComponent::Find(this);
+	if (Wanted && BoundWanted.Get() != Wanted)
+	{
+		BoundWanted = Wanted;
+		Wanted->OnArrested.AddWeakLambda(this, [this]()
+		{
+			ArrestedAt = FPlatformTime::Seconds();
+			const APlayerController* PC = FirstController(GetWorld());
+			ArrestedWhere = PC && PC->GetPawn() ? PC->GetPawn()->GetActorLocation() : FVector::ZeroVector;
+		});
+	}
+	UGTPCombatSubsystem* Combat = UGTPCombatSubsystem::Get(this);
+	if (Combat && BoundCombat.Get() != Combat)
+	{
+		BoundCombat = Combat;
+		Combat->OnPlayerDied.AddWeakLambda(this, [this](const FVector& Where)
+		{
+			DiedAt = FPlatformTime::Seconds();
+			DiedWhere = Where;
+		});
+		Combat->OnPlayerRespawned.AddWeakLambda(this, [this](const FVector&, FName Hospital)
+		{
+			RespawnedAt = FPlatformTime::Seconds();
+			RespawnHospital = Hospital;
+		});
+	}
+	// The level gone with no arrest, no respawn and no clearing by the run since the last look: the police lost the player.
+	const int32 Stars = Wanted ? Wanted->GetStars() : 0;
+	if (LastStars > 0 && Stars == 0)
+	{
+		const bool bArrest = ArrestedAt >= LastTrackTime;
+		const bool bRespawn = RespawnedAt >= LastTrackTime;
+		if (!bArrest && !bRespawn && !bRunCleared)
+		{
+			LostAt = Now;
+			GTP_TRACE(LogGTPGtaRun, TEXT("GTARun: the level is lost (t=%.0f s)"), Now - RunStart);
+		}
+		bRunCleared = false;
+	}
+	LastStars = Stars;
+	LastTrackTime = Now;
 }
 
 bool UGTPGtaRun::Tick(float /*DeltaTime*/)
@@ -154,6 +284,7 @@ bool UGTPGtaRun::Tick(float /*DeltaTime*/)
 	{
 		return true;
 	}
+	TrackWanted();
 	if (Step < 0)
 	{
 		RunStart = FPlatformTime::Seconds();
@@ -164,13 +295,17 @@ bool UGTPGtaRun::Tick(float /*DeltaTime*/)
 	EResult Result = EResult::Pending;
 	switch (Step)
 	{
-	case 0: Result = CheckCarjack(Detail); break;
-	case 1: Result = CheckChase(Detail); break;
-	case 2: Result = CheckParked(Detail); break;
-	case 3: Result = CheckWalkArmed(Detail); break;
-	case 4: Result = CheckAim(Detail, false); break;
-	case 5: Result = CheckAim(Detail, true); break;
-	default: Result = CheckShoot(Detail); break;
+	case EStep::Carjack: Result = CheckCarjack(Detail); break;
+	case EStep::Witness: Result = CheckWitness(Detail); break;
+	case EStep::Chase: Result = CheckChase(Detail); break;
+	case EStep::Pursuit: Result = CheckPursuit(Detail); break;
+	case EStep::Outcome: Result = CheckOutcome(Detail); break;
+	case EStep::Parked: Result = CheckParked(Detail); break;
+	case EStep::WalkArmed: Result = CheckWalkArmed(Detail); break;
+	case EStep::Aim: Result = CheckAim(Detail, false); break;
+	case EStep::AimClose: Result = CheckAim(Detail, true); break;
+	case EStep::Shoot: Result = CheckShoot(Detail); break;
+	default: Result = CheckWasted(Detail); break;
 	}
 	if (Result == EResult::Pending && FPlatformTime::Seconds() - StepStart > StepLimits[Step])
 	{
@@ -197,19 +332,12 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckCarjack(FString& Detail)
 	return EResult::Pending;
 }
 
-UGTPGtaRun::EResult UGTPGtaRun::CheckChase(FString& Detail)
+void UGTPGtaRun::TrackFlight()
 {
-	const UGTPWantedComponent* Wanted = UGTPWantedComponent::Find(this);
-	if (!Wanted)
-	{
-		Detail = TEXT("no wanted component");
-		return EResult::Fail;
-	}
-	MaxStars = FMath::Max(MaxStars, Wanted->GetStars());
-	MaxUnits = FMath::Max(MaxUnits, Wanted->GetPolice().Num());
 	// A chase is a flight: the metres the player's car really drove (a jump of more than 20 m between two
 	// frames is the demo putting the car on another lane, not driving) and its best speed. At door 41 the
 	// step passed on stars and units with the car standing still in a dead end from its 8th second.
+	// Counted from the wheel being taken, as before the witness step came in between.
 	const APlayerController* PC = FirstController(GetWorld());
 	if (const AGTPVehicle* Car = PC ? Cast<AGTPVehicle>(PC->GetPawn()) : nullptr)
 	{
@@ -226,8 +354,275 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckChase(FString& Detail)
 		ChaseLastAt = At;
 		ChasePeakKmh = FMath::Max(ChasePeakKmh, FMath::Abs(Car->GetSpeedKmh()));
 	}
+}
+
+UGTPGtaRun::EResult UGTPGtaRun::CheckChase(FString& Detail)
+{
+	const UGTPWantedComponent* Wanted = UGTPWantedComponent::Find(this);
+	if (!Wanted)
+	{
+		Detail = TEXT("no wanted component");
+		return EResult::Fail;
+	}
+	MaxStars = FMath::Max(MaxStars, Wanted->GetStars());
+	MaxUnits = FMath::Max(MaxUnits, Wanted->GetPolice().Num());
+	TrackFlight();
 	Detail = FString::Printf(TEXT("best stars=%d units=%d driven=%.0f m peak=%.0f km/h"), MaxStars, MaxUnits, ChaseDrivenCm / 100.0, ChasePeakKmh);
+	if (const AGTPPoliceDirector* Director = FindDirector(GetWorld()); Director && Director->GetChaseTally().Seconds > 0.0)
+	{
+		// Read only here: the pursuit step judges them after 40 more seconds of flight.
+		Detail += FString::Printf(TEXT(", police so far mean=%.0f km/h nearest mean=%.0f m"), Director->GetChaseTally().MeanKmh(), Director->GetChaseTally().MeanNearest());
+	}
 	return (MaxStars >= 3 && MaxUnits >= 3 && ChaseDrivenCm >= ChaseDrivenWantedCm) ? EResult::Ok : EResult::Pending;
+}
+
+UGTPGtaRun::EResult UGTPGtaRun::CheckWitness(FString& Detail)
+{
+	// Stealing a car in front of people gives a star because somebody phones: the driver pulled out, or a passer-by
+	// who saw it. The component says how each crime reached the police; a star forced by the chase script (2 stars,
+	// 8 s after the wheel is taken) is not a call and does not count here.
+	TrackFlight();
+	const UGTPWantedComponent* Wanted = UGTPWantedComponent::Find(this);
+	if (!Wanted)
+	{
+		Detail = TEXT("no wanted component");
+		return EResult::Fail;
+	}
+	if (!Wanted->AreWitnessesRequired())
+	{
+		Detail = TEXT("witnesses are off (-Witnesses=0 or bRequireWitnesses): every crime counts at once, nothing to prove");
+		return EResult::Fail;
+	}
+	const UGTPWantedComponent::FCrimeReports& Reports = Wanted->GetCrimeReports();
+	Detail = FString::Printf(TEXT("calls=%d (last by %d passer(s)-by%s), calls counted=%d, seen by police=%d, not witnessed=%d, stars=%d"), Reports.Called,
+		Reports.LastCallPersons, Reports.bLastCallVictim ? TEXT(" and the victim") : TEXT(""), Reports.CalledApplied, Reports.ByPolice, Reports.Unwitnessed,
+		Wanted->GetStars());
+	if (Reports.CalledApplied > 0 && Reports.FirstCallStars >= 1)
+	{
+		Detail = FString::Printf(TEXT("a call reached the police: %d star(s) then, with %d police car(s) on the road; "), Reports.FirstCallStars, Reports.FirstCallUnits) + Detail;
+		return EResult::Ok;
+	}
+	return EResult::Pending;
+}
+
+UGTPGtaRun::EResult UGTPGtaRun::CheckPursuit(FString& Detail)
+{
+	// Do the police follow? The director counts, every frame since the level rose, the speed of each chasing car
+	// and how far the nearest one is (roadblock cars apart). The flight goes on for 40 s here with the level left
+	// to itself, then the numbers are judged (GTPChase::Judge): at candidate 43 the units averaged 1 km/h and the
+	// chase step, which looks at the player's car and counts units, passed.
+	const UWorld* World = GetWorld();
+	const AGTPPoliceDirector* Director = FindDirector(World);
+	const UGTPWantedComponent* Wanted = UGTPWantedComponent::Find(this);
+	if (!Director || !Wanted)
+	{
+		Detail = TEXT("no police director (-Police=0?)");
+		return EResult::Fail;
+	}
+	const FGTPChaseTally& Tally = Director->GetChaseTally();
+	const FGTPChaseTallySettings& Settings = Director->GetChaseTallySettings();
+	const UGTPDemoRoute* Demo = GetGameInstance() ? GetGameInstance()->GetSubsystem<UGTPDemoRoute>() : nullptr;
+	const GTPChase::EVerdict Verdict = GTPChase::Judge(Tally, Settings);
+	Detail = FString::Printf(TEXT("%s: units mean=%.0f km/h (wanted %.0f, player %.0f) peak=%.0f, moving %.0f %% of their time, nearest mean=%.0f m min=%.0f m, "
+		"within %.0f m %.0f %% of %.0f s (wanted %.0f %%), up to %d units, %d put back near the player (%d moves not held), the player's car put back on a lane %d time(s), stars=%d"),
+		ANSI_TO_TCHAR(GTPChase::VerdictName(Verdict)), Tally.MeanKmh(), GTPChase::WantedMeanKmh(Tally, Settings), Tally.PlayerMeanKmh(), Tally.UnitPeakKmh,
+		Tally.MovingShare() * 100.f, Tally.MeanNearest(), Tally.NearestMin, Settings.NearMetres, Tally.NearShare() * 100.f, static_cast<float>(Tally.Seconds),
+		Settings.MinNearShare * 100.f, Tally.PeakUnits, Tally.Moves, Tally.MovesLost, Demo ? Demo->GetChaseRelocations() : 0, Wanted->GetStars());
+	// Over when the window is, or when nobody is wanted any more (lost, arrested, dead: the outcome step says which).
+	if (FPlatformTime::Seconds() - StepStart < PursuitSeconds && Wanted->GetStars() > 0)
+	{
+		return EResult::Pending;
+	}
+	return Verdict == GTPChase::EVerdict::Follows ? EResult::Ok : EResult::Fail;
+}
+
+UGTPGtaRun::EResult UGTPGtaRun::CheckOutcome(FString& Detail)
+{
+	// How does it end? A chase ends three ways for the player: arrested, killed, or the police lose him. Whatever
+	// happened since the chase began counts (a car held up in the pursuit can be arrested there). If he is still
+	// wanted, the player gives up: the car stops, and the police have to come to it and end it.
+	UWorld* World = GetWorld();
+	APlayerController* PC = FirstController(World);
+	UGTPWantedComponent* Wanted = UGTPWantedComponent::Find(this);
+	if (!PC || !PC->GetPawn() || !Wanted)
+	{
+		Detail = TEXT("no wanted component");
+		return Wanted ? EResult::Pending : EResult::Fail;
+	}
+	const double Now = FPlatformTime::Seconds();
+	AGTPPoliceDirector* Director = FindDirector(World);
+	if (OutcomePhase == 0)
+	{
+		OutcomePhase = 1;
+		OutcomeStars = Wanted->GetStars();
+		GaveUpAt = Now;
+		GaveUpNearest = NearestPoliceCar(*Wanted, PC->GetPawn()->GetActorLocation());
+		if (OutcomeStars > 0)
+		{
+			if (Director)
+			{
+				// From here the numbers are those of the police coming to a stopped player.
+				Director->ResetChaseTally();
+			}
+			Wanted->SetArrestEnabled(true);
+			UGTPDemoRoute* Demo = GetGameInstance() ? GetGameInstance()->GetSubsystem<UGTPDemoRoute>() : nullptr;
+			const bool bDriven = Demo && Demo->IsChaseDriving();
+			if (bDriven)
+			{
+				Demo->GiveUpChase();
+			}
+			GTP_TRACE(LogGTPGtaRun, TEXT("GTARun: the player gives up at %d star(s), %s, nearest police car %.0f m"), OutcomeStars,
+				bDriven ? TEXT("the car stops") : (Cast<AGTPVehicle>(PC->GetPawn()) ? TEXT("in a car the script does not drive") : TEXT("on foot")), GaveUpNearest);
+		}
+	}
+	int32 Cars = 0, Blocks = 0, Officers = 0;
+	if (Director)
+	{
+		Director->CountUnits(Cars, Blocks, Officers);
+	}
+	// The director's numbers: since the player gave up, or since the level rose when the chase had ended before.
+	const FString Police = Director ? FString::Printf(TEXT("police cars mean=%.0f km/h, nearest min=%.0f m, %d car(s) %d roadblock car(s) %d officer(s) on foot"),
+		Director->GetChaseTally().MeanKmh(), Director->GetChaseTally().NearestMin, Cars, Blocks, Officers) : FString(TEXT("no police director"));
+	if (ArrestedAt >= ChaseBegan && ChaseBegan >= 0.0)
+	{
+		// Arrested. What the player sees next: out of the car, held for the banner, then free on foot (at the station
+		// when the map has one), the level gone, the ammunition taken.
+		const double Since = Now - ArrestedAt;
+		if (Since < Wanted->BustedSeconds + 1.5)
+		{
+			Detail = TEXT("arrested, waiting for the release");
+			return EResult::Pending;
+		}
+		const ACharacter* Character = Cast<ACharacter>(PC->GetPawn());
+		if (!Character && Since < Wanted->BustedSeconds + 6.0)
+		{
+			Detail = TEXT("arrested, still at the wheel");
+			return EResult::Pending;
+		}
+		const UGTPWeaponComponent* Weapon = Character ? Character->FindComponentByClass<UGTPWeaponComponent>() : nullptr;
+		const bool bCanWalk = !PC->IsMoveInputIgnored();
+		Detail = FString::Printf(TEXT("arrested %.0f s %s (nearest police car %.0f m when the step began), released %s %.0f m from the arrest, can walk=%d, stars=%d, rounds left=%d; %s"),
+			FMath::Abs(ArrestedAt - GaveUpAt), ArrestedAt >= GaveUpAt ? TEXT("after giving up") : TEXT("before the step, during the flight"), GaveUpNearest,
+			Character ? TEXT("on foot") : TEXT("STILL AT THE WHEEL"), FVector::Dist2D(PC->GetPawn()->GetActorLocation(), ArrestedWhere) / 100.0, bCanWalk ? 1 : 0,
+			Wanted->GetStars(), Weapon ? Weapon->GetMagazine() + Weapon->GetReserve() : -1, *Police);
+		return (Character && bCanWalk && Wanted->GetStars() == 0) ? EResult::Ok : EResult::Fail;
+	}
+	if (DiedAt >= ChaseBegan && ChaseBegan >= 0.0)
+	{
+		// Killed (the police shoot from three stars). Then the respawn has to bring the player back.
+		if (RespawnedAt < DiedAt)
+		{
+			Detail = FString::Printf(TEXT("killed %.0f s ago, waiting for the respawn"), Now - DiedAt);
+			return Now - DiedAt > 20.0 ? EResult::Fail : EResult::Pending;
+		}
+		if (Now - RespawnedAt < 1.0)
+		{
+			return EResult::Pending;
+		}
+		ACharacter* Character = Cast<ACharacter>(PC->GetPawn());
+		const UGTPHealthComponent* Health = Character ? UGTPHealthComponent::Find(Character) : nullptr;
+		const bool bAlive = Health && !Health->IsDead();
+		Detail = FString::Printf(TEXT("killed %.0f s %s, back %.0f s later at %s, alive=%d, stars=%d; %s"), FMath::Abs(DiedAt - GaveUpAt),
+			DiedAt >= GaveUpAt ? TEXT("after giving up") : TEXT("before the step, during the flight"), RespawnedAt - DiedAt,
+			RespawnHospital.IsNone() ? TEXT("the player start (no hospital point on the map)") : *RespawnHospital.ToString(), bAlive ? 1 : 0, Wanted->GetStars(), *Police);
+		return (bAlive && Wanted->GetStars() == 0) ? EResult::Ok : EResult::Fail;
+	}
+	if (Wanted->GetStars() == 0)
+	{
+		if (LostAt >= ChaseBegan && ChaseBegan >= 0.0)
+		{
+			Detail = FString::Printf(TEXT("the police lost the player %.0f s %s; %s"), FMath::Abs(LostAt - GaveUpAt), LostAt >= GaveUpAt ? TEXT("after he stopped") : TEXT("before the step, during the flight"), *Police);
+			return EResult::Ok;
+		}
+		Detail = TEXT("no star left and nothing ended the chase (the player was never wanted, or the level was cleared by something else)");
+		return EResult::Fail;
+	}
+	const AGTPVehicle* Car = Cast<AGTPVehicle>(PC->GetPawn());
+	Detail = FString::Printf(TEXT("still wanted %.0f s after giving up: stars=%d phase=%d seen=%d arrest=%.0f %%, player %s at %.0f km/h, nearest police car %.0f m; %s"), Now - GaveUpAt,
+		Wanted->GetStars(), Wanted->GetPhaseIndex(), Wanted->IsSeenNow() ? 1 : 0, Wanted->GetArrestProgress() * 100.f, Car ? TEXT("in the car") : TEXT("on foot"),
+		Car ? FMath::Abs(Car->GetSpeedKmh()) : 0.f, NearestPoliceCar(*Wanted, PC->GetPawn()->GetActorLocation()), *Police);
+	return EResult::Pending;
+}
+
+UGTPGtaRun::EResult UGTPGtaRun::CheckWasted(FString& Detail)
+{
+	// Death and respawn: the player takes a lethal hit through the health component (the path of a fall or of a car),
+	// dies, and must be back on his feet at the hospital with the level gone. Who can kill him in the game is another
+	// matter (the outcome step says when the police did); this is what follows a death.
+	UWorld* World = GetWorld();
+	APlayerController* PC = FirstController(World);
+	UGTPWantedComponent* Wanted = UGTPWantedComponent::Find(this);
+	if (!PC || !PC->GetPawn())
+	{
+		return EResult::Pending;
+	}
+	if (!UGTPCombatSubsystem::Get(this))
+	{
+		Detail = TEXT("combat is off (-Combat=0): no health, no death");
+		return EResult::Fail;
+	}
+	const double Now = FPlatformTime::Seconds();
+	if (WastedPhase == 0)
+	{
+		if (AGTPVehicle* Car = Cast<AGTPVehicle>(PC->GetPawn()))
+		{
+			if (!bWastedExit)
+			{
+				bWastedExit = true;
+				Car->RequestExit();
+			}
+			Detail = TEXT("getting out");
+			return EResult::Pending;
+		}
+		ACharacter* Character = Cast<ACharacter>(PC->GetPawn());
+		UGTPHealthComponent* Health = Character ? UGTPHealthComponent::Find(Character) : nullptr;
+		if (!Health)
+		{
+			Detail = TEXT("the player has no health component");
+			return EResult::Fail;
+		}
+		if (Wanted)
+		{
+			// One star at least, so that "the police forget a dead player" is something to see.
+			Wanted->EnsureMinStars(1);
+			WastedStars = Wanted->GetStars();
+		}
+		WastedFrom = Character->GetActorLocation();
+		WastedHitAt = Now;
+		const FGTPDamageOutcome Hit = Health->ApplyDamage(100000.f, EGTPDamageCause::Other, nullptr, true);
+		GTP_TRACE(LogGTPGtaRun, TEXT("GTARun: lethal hit on the player (health lost %.0f, killed=%d, ignored=%d)"), Hit.HealthLost, Hit.bKilled ? 1 : 0, Hit.bIgnored ? 1 : 0);
+		if (Hit.bIgnored)
+		{
+			// Dead already or in the grace after a respawn: try again.
+			Detail = TEXT("the lethal hit was ignored (grace after a respawn, or dead already)");
+			return ++WastedTries > 10 ? EResult::Fail : EResult::Pending;
+		}
+		WastedPhase = 1;
+		return EResult::Pending;
+	}
+	if (DiedAt < WastedHitAt)
+	{
+		Detail = TEXT("a lethal hit and no death");
+		return Now - WastedHitAt > 3.0 ? EResult::Fail : EResult::Pending;
+	}
+	if (RespawnedAt < DiedAt)
+	{
+		Detail = FString::Printf(TEXT("dead for %.0f s, no respawn"), Now - DiedAt);
+		return Now - DiedAt > 20.0 ? EResult::Fail : EResult::Pending;
+	}
+	if (Now - RespawnedAt < 1.0)
+	{
+		return EResult::Pending;
+	}
+	ACharacter* Fresh = Cast<ACharacter>(PC->GetPawn());
+	const UGTPHealthComponent* Health = Fresh ? UGTPHealthComponent::Find(Fresh) : nullptr;
+	const bool bAlive = Health && !Health->IsDead() && Health->GetHealth01() > 0.9f;
+	const bool bCanWalk = !PC->IsMoveInputIgnored();
+	const int32 Stars = Wanted ? Wanted->GetStars() : 0;
+	Detail = FString::Printf(TEXT("dead, back %.1f s later at %s, %.0f m from the body, health %.0f %%, can walk=%d, stars %d -> %d"), RespawnedAt - DiedAt,
+		RespawnHospital.IsNone() ? TEXT("the player start (no hospital point on the map)") : *RespawnHospital.ToString(),
+		Fresh ? FVector::Dist2D(Fresh->GetActorLocation(), WastedFrom) / 100.0 : -1.0, Health ? Health->GetHealth01() * 100.f : 0.f, bCanWalk ? 1 : 0, WastedStars, Stars);
+	return (bAlive && bCanWalk && Stars == 0) ? EResult::Ok : EResult::Fail;
 }
 
 UGTPGtaRun::EResult UGTPGtaRun::CheckParked(FString& Detail)
@@ -252,12 +647,19 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckParked(FString& Detail)
 		// The theft library of the traffic thread: a locked car with an alarm at the kerb, the player at its door, the enter key.
 		// Up to three cars: one with both doors blocked (wall, post, another car) stays parked and
 		// the next one takes another kerb spot.
+		// A fourth try looks 300 m around: after an arrest or a death the player stands where the police or the hospital
+		// left him, which can be a street with no kerb to park at (the player start is in a pedestrian street).
 		AGTPVehicle* Car = nullptr;
-		for (int32 Attempt = 0; Attempt < 3 && !Car; ++Attempt)
+		for (int32 Attempt = 0; Attempt < 4 && !Car; ++Attempt)
 		{
-			AGTPVehicle* Candidate = UGTPTheftDemoLibrary::PlaceAlarmCar(World, Character->GetActorLocation(), 3000.f);
+			AGTPVehicle* Candidate = UGTPTheftDemoLibrary::PlaceAlarmCar(World, Character->GetActorLocation(), Attempt < 3 ? 3000.f : 30000.f);
 			if (!Candidate)
 			{
+				if (Attempt < 3)
+				{
+					Attempt = 2; // nothing within 30 m: straight to the wide search
+					continue;
+				}
 				break;
 			}
 			if (UGTPTheftDemoLibrary::PlaceAtDriverDoor(Character, Candidate))
