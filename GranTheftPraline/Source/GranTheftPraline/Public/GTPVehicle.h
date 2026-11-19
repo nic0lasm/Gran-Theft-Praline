@@ -561,8 +561,9 @@ private:
 	 * City Sample cars only: Chaos shares the weight between the springs as if the centre of mass sat
 	 * over the chassis body's origin (ComputeSprungMasses), but City Sample's chassis body alone puts
 	 * it far back (Police13: 0.29 of the wheelbase from the rear axle) and the nose lifts under power.
-	 * The centre of mass goes over the origin, at its own height (CenterOfMassOverride), once the
-	 * physics body exists; logged once per class ("vehicle balance").
+	 * The centre of mass goes over the origin, at its own height (CenterOfMassOverride): set by
+	 * FindWheelBones before the vehicle is created, from the chassis body's shapes; here, from the
+	 * first tick, only when that could not be done. Logged once per class ("vehicle balance").
 	 */
 	void CentreMassOverOrigin();
 	EGTPDamageZone ZoneFromWorldLocation(const FVector& WorldLocation) const;
