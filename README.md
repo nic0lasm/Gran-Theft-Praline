@@ -160,17 +160,20 @@ and characters who react (pedestrians, believable traffic, police who hunt
 you down). All effort goes into **a 300 to 400 m slice of rue de la
 République, from Bellecour to the Jacobins.**
 
-It is done when **10 minutes of play there feel like GTA** (an unedited
-video: steal a car, drive through traffic, passers-by who react, combat,
-wanted stars, a chase) and when **5 real photo / game capture pairs** hold
-up.
+Since the review of November 19, this slice comes in three milestones,
+the game before the image: first **steal a car and flee the police**,
+judged hands-on; then **10 minutes of play that feel like GTA** (an
+unedited video: traffic, passers-by who react, combat, wanted stars, a
+chase); then **5 real photo / game capture pairs** that hold up.
 
 | When (order of magnitude) | What |
 | ---- | ---- |
-| End of November 2026 | The rue de la République slice, on PC |
-| Mid to late December 2026 | The northern Presqu'île, Bellecour to Terreaux |
-| February 2027 | Mac port |
-| Around February 2027, with a wide margin | A playable, good-looking neighbourhood on PC |
+| End of November 2026 | Steal a car and flee the police, on PC |
+| Mid-December 2026 | The 10 minutes of play in the slice |
+| End of January 2027 | The 5 image pairs of the slice |
+| February 2027 | The northern Presqu'île, Bellecour to Terreaux |
+| March 2027 | Mac port |
+| Spring 2027, with a wide margin | A playable, good-looking neighbourhood on PC |
 | Then | The story: thefts of Lyon specialities and getaways through the traboules |
 
 Meanwhile missions, menus, interiors, game saves and audio are frozen. The

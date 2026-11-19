@@ -163,17 +163,21 @@ de GTA et des personnages qui réagissent (piétons, trafic crédible, police
 qui traque). Tout l'effort va sur **une tranche de 300 à 400 m de la rue de
 la République, de Bellecour aux Jacobins.**
 
-Elle sera finie quand **10 minutes de jeu y ressemblent à GTA** (vidéo sans
-montage : voler une voiture, rouler dans le trafic, passants qui
-réagissent, combat, étoiles, poursuite) et quand **5 paires photo réelle /
-capture du jeu** tiennent la comparaison.
+Depuis le bilan du 19 novembre, cette tranche se fait en trois jalons, le
+jeu avant l'image : d'abord **voler une voiture et fuir la police**, jugé
+manette en main ; puis **10 minutes de jeu qui ressemblent à GTA** (vidéo
+sans montage : trafic, passants qui réagissent, combat, étoiles,
+poursuite) ; puis **5 paires photo réelle / capture du jeu** qui tiennent
+la comparaison.
 
 | Quand (ordre de grandeur) | Quoi |
 | ---- | ---- |
-| Fin novembre 2026 | La tranche rue de la République, sur PC |
-| Mi à fin décembre 2026 | Le nord de la Presqu'île, de Bellecour aux Terreaux |
-| Février 2027 | Portage Mac |
-| Vers février 2027, avec une forte marge | Un quartier jouable et beau sur PC |
+| Fin novembre 2026 | Voler une voiture et fuir la police, sur PC |
+| Mi-décembre 2026 | Les 10 minutes de jeu dans la tranche |
+| Fin janvier 2027 | Les 5 paires d'image de la tranche |
+| Février 2027 | Le nord de la Presqu'île, de Bellecour aux Terreaux |
+| Mars 2027 | Portage Mac |
+| Printemps 2027, avec une forte marge | Un quartier jouable et beau sur PC |
 | Ensuite | L'histoire : des vols de produits lyonnais et des fuites par les traboules |
 
 En attendant, les missions, les menus, les intérieurs, la sauvegarde de
