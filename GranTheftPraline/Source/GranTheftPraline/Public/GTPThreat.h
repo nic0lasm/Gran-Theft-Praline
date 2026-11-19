@@ -128,6 +128,16 @@ public:
 		LastNearbyFear = 0.f;
 	}
 
+	/**
+	 * A pooled body lying on the ground (run over): its person is down for as long as the owner of the pool says so,
+	 * frame after frame. Tells nobody. Without it the person's state went "hands up" under a gun while he lay there.
+	 */
+	void StayDown()
+	{
+		Brain.State = GTPThreat::EState::Down;
+		Brain.StateTime = 0.f;
+	}
+
 	/** Where this person runs when he flees (the shop's back door); unset = away from the threat. */
 	UFUNCTION(BlueprintCallable, Category = "Threat")
 	void SetFleeTarget(FVector Location) { FleeTarget = Location; bHasFleeTarget = true; }

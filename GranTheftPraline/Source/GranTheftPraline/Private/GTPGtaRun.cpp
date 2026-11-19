@@ -1087,9 +1087,9 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail, bool bClose)
 		const UAnimationAsset* Played = Single ? Single->GetAnimationAsset() : nullptr;
 		const UAnimInstance* Anim = Mesh->GetAnimInstance();
 		const FRotator Turn = Mesh->GetComponentRotation();
-		return FString::Printf(TEXT("head %.0f above its root and %.0f beside it, pelvis %.0f, foot %.0f (%s), hands %.0f %.0f from the head (%s), body pitch %.0f roll %.0f scale %.2f, rendered %.1f s ago, plays %s, mesh %s"),
+		return FString::Printf(TEXT("head %.0f above its root and %.0f beside it, pelvis %.0f, foot %.0f (%s), hands %.0f %.0f from the head (%s), body pitch %.0f roll %.0f scale %.2f, physics %d, rendered %.1f s ago, plays %s, mesh %s"),
 			Head.Z - Root.Z, FVector::Dist2D(Head, Root), Pelvis - Root.Z, Foot - Root.Z, bUpright ? TEXT("upright") : TEXT("NOT UPRIGHT"), Left - Head.Z, Right - Head.Z,
-			bOver ? TEXT("hands over the head") : TEXT("hands NOT over the head"), Turn.Pitch, Turn.Roll, Mesh->GetComponentScale().Z,
+			bOver ? TEXT("hands over the head") : TEXT("hands NOT over the head"), Turn.Pitch, Turn.Roll, Mesh->GetComponentScale().Z, Mesh->IsSimulatingPhysics() ? 1 : 0,
 			Mesh->GetWorld() ? Mesh->GetWorld()->GetTimeSeconds() - Mesh->GetLastRenderTime() : -1.f,
 			Played ? *Played->GetName() : (Anim ? *Anim->GetClass()->GetName() : TEXT("nothing")),
 			Mesh->GetSkeletalMeshAsset() ? *Mesh->GetSkeletalMeshAsset()->GetName() : TEXT("none"));
@@ -1106,6 +1106,14 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail, bool bClose)
 		AimedHeldSince = Now;
 	}
 	Detail += FString::Printf(TEXT("; the one aimed at: state %d for %.1f s, %s"), AimedFear ? static_cast<int32>(AimedFear->GetState()) : -1, Now - AimedHeldSince, *AimedPose);
+	// Every 5 s the step says where it is: a timeout line alone shows only its last moment (candidate 49 in the editor:
+	// 90 s of the close hold-up, and one line saying a person 5 m away lay on his side).
+	static double LastAimLog = -10.0;
+	if (Now - LastAimLog > 5.0)
+	{
+		LastAimLog = Now;
+		GTP_TRACE(LogGTPGtaRun, TEXT("GTARun aim: %s"), *Detail);
+	}
 	const bool bProved = bInRange && bAimedHeld && bShown && Now - AimedHeldSince >= 1.0;
 	// His state says hands up for 5 s and his body does not show it: that is the defect, said at once.
 	const bool bStateOnly = bInRange && bAimedHeld && !bShown && Now - AimedHeldSince >= 5.0;

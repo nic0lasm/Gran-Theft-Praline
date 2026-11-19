@@ -890,6 +890,14 @@ void UGTPCrowdSubsystem::UpdateNear(float DeltaTime)
 		}
 		if (Actor->IsRagdoll())
 		{
+			// Run over: the person stays where his body lies, down, until the body is given to somebody else. He used to
+			// walk on unseen after 10 s while the body stayed on the road, and his state could go "hands up" under a gun.
+			W->Walker.Pause = FMath::Max(W->Walker.Pause, 1.f);
+			W->Speed = 0.f;
+			if (UGTPThreatResponseComponent* Fear = Actor->FindComponentByClass<UGTPThreatResponseComponent>())
+			{
+				Fear->StayDown();
+			}
 			continue;
 		}
 		if (FVector::Dist2D(W->Location, PlayerLocation) < 170.f && GetWorld())

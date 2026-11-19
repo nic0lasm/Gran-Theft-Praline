@@ -6,8 +6,8 @@
 Uses the retargeter made by create_pedestrian_retargeter.py and fixed by fix_player_retargeter.py (run them
 first; clips baked with the unfixed one have the body's pelvis on the ground). The duplicated animations land
 in /Game/MetaHumans/GTP/Anims with the prefix "MH_" (the game finds them by that name). Everything stays under /Game (not versioned).
-Env: GTP_RTG_ANIMS = comma separated list of source animation paths (default: the pedestrians' walk/idle/run and
-their hands-up loop; GTP_RTG_ANIMS=/Game/Characters/Pedestrians/Anims/A_HandsUp bakes that one alone, as MH_A_HandsUp).
+Env: GTP_RTG_ANIMS = comma separated list of source animation paths (default: the pedestrians' walk/idle/run; their
+hands-up loop is made afterwards, on each skeleton, by tools/pedestrians/make_handsup_animation.py).
 For the crowd: the bodies of the City Sample pack have their own skeleton asset (same name as the MetaHuman one, another
 asset). GTP_RTG_TARGET_MESH=/Game/Crowd/Character/Male/NormalWeight/Meshes/m_tal_nrw_body with GTP_RTG_PREFIX=CS_ and
 GTP_RTG_FOLDER=/Game/MetaHumans/GTP/AnimsCrowd bakes the same loops on that skeleton; the crowd takes CS_<loop> when it
@@ -22,9 +22,9 @@ DEFAULTS = [
     "/Game/Characters/UEFN_Mannequin/Animations/Walk/M_Neutral_Walk_Loop_F_L_20",
     "/Game/Characters/UEFN_Mannequin/Animations/Idle/M_Relaxed_Stand_Idle_Loop",
     "/Game/Characters/UEFN_Mannequin/Animations/Run/M_Neutral_Run_Loop_F_R_20",
-    # The pedestrians' hands-up loop (tools/pedestrians/make_handsup_animation.py makes it); skipped when absent.
-    "/Game/Characters/Pedestrians/Anims/A_HandsUp",
 ]
+# The hands-up loop is not retargeted any more: tools/pedestrians/make_handsup_animation.py makes it on each skeleton,
+# from the idle baked here (MH_A_HandsUp, CS_A_HandsUp). Run it after this script.
 paths = [p for p in os.environ.get("GTP_RTG_ANIMS", "").split(",") if p] or DEFAULTS
 
 registry = unreal.AssetRegistryHelpers.get_asset_registry()

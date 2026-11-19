@@ -62,3 +62,19 @@ tranquille une personne tenue en joue. Les boucles (marche, attente, course, mai
 du pack sont prises quand elles existent (`/Game/MetaHumans/GTP/AnimsCrowd/CS_*`, `retarget_player_animations.py` avec
 `GTP_RTG_TARGET_MESH`, `GTP_RTG_PREFIX=CS_`, `GTP_RTG_FOLDER`). Le journal dit la pose d'un corps 2 s après le début de
 chaque type d'animation (« crowd: pose of … »).
+
+### La pose mains en l'air
+
+Aucun pack d'Epic que nous avons ne contient d'animation mains en l'air : la boucle est faite par
+`tools/pedestrians/make_handsup_animation.py` à partir de l'attente, sur chaque squelette qui la joue (mannequin UEFN
+`A_HandsUp`, MetaHuman `MH_A_HandsUp`, foule City Sample `CS_A_HandsUp`) : bras levés un peu écartés, avant-bras presque
+verticaux, paumes vers l'avant. La pose est résolue dans l'espace du corps à partir de la place de l'épaule, du coude, du
+poignet et du pouce, donc sans dépendre des axes d'un squelette, et le script prouve son résultat en relisant l'asset
+enregistré (« HANDSUP RESULT … : OK (hands N and N cm above the head …) »). Son calcul se vérifie sans l'éditeur
+(`GTP_HANDSUP_SELFTEST=1 python3 tools/pedestrians/make_handsup_animation.py`). La première version écrivait des angles
+locaux fixes avec les clés de position à zéro : les bras perdaient leur longueur et les mains s'arrêtaient 10 à 19 cm sous
+la tête sur les corps de la foule, ce que le test strict du candidat 49 a montré en éditeur.
+
+Une personne renversée par la voiture du joueur reste à terre là où son corps est tombé jusqu'à ce que ce corps soit
+donné à quelqu'un d'autre : elle repartait sans corps visible au bout de 10 s, et son état pouvait passer à « mains en
+l'air » sous une arme alors que le corps était couché sur la route.
