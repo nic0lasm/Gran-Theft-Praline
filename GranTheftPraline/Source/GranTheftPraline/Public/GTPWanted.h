@@ -9,6 +9,7 @@
 #include "GTPChaseTally.h"
 #include "GTPDriveLogic.h"
 #include "GTPTraffic.h"
+#include "GTPUnitRecovery.h"
 #include "GTPWantedLogic.h"
 #include "GTPWitnessLogic.h"
 #include "GTPWanted.generated.h"
@@ -407,6 +408,9 @@ private:
 		float LastObstacle = -1.f;
 		float LastThrottle = 0.f;
 		float LastBrake = 0.f;
+		float LastSteer = 0.f;
+		/** Held against something: backs off. Off its wheels or held for good: given up (GTPUnitRecovery.h). */
+		FGTPUnitRecovery Recovery;
 		/** Where the unit was last put (RepositionUnit) and when to check that it is still around there (0 = nothing to check). */
 		FVector MovedTo = FVector::ZeroVector;
 		float MoveCheckTime = 0.f;
@@ -454,6 +458,10 @@ private:
 	bool FindSpawnPoint(const FVector& PlayerLocation, int32& OutLane, int32& OutPoint, FTransform& OutTransform) const;
 	void DriveUnit(FUnit& Unit, UGTPWantedComponent& Wanted, const AActor& Player, float DeltaSeconds);
 	void DriveStraight(FUnit& Unit, const FVector& Target, float MaxSpeedKmh);
+	/** The pedals the driving decided, tamed by the steering (GTPUnitRecovery::Tame), given to the car. */
+	void ApplyDrive(FUnit& Unit, const FGTPDriveCommand& Command, bool bHandbrake);
+	/** One line when a unit backs off or is given up: where, how it lies, what is in front of it. */
+	void TraceUnitTrouble(const FUnit& Unit, const TCHAR* What) const;
 	void DriveOnLanes(FUnit& Unit, const FVector& Goal, bool bHasGoal, float MaxSpeedKmh);
 	void AddLightBar(FUnit& Unit);
 	void UpdateUnitDetail(AGTPVehicle* Car, float DistanceToView) const;
@@ -471,6 +479,7 @@ private:
 	TArray<FUnit> Units;
 	FGTPChaseTally ChaseTally;
 	FGTPChaseTallySettings ChaseTallySettings;
+	FGTPUnitRecoverySettings RecoverySettings;
 	float NextTallyTraceTime = 0.f;
 	/** Level-dependent behaviour of the current frame (GTPPoliceTactics::Profile). */
 	GTPPoliceTactics::FProfile Profile;

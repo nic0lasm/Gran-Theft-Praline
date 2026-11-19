@@ -41,6 +41,10 @@ struct FGTPChaseTally
 	/** Times a unit left behind was put back near the player, out of sight (the distance then says less). */
 	int Moves = 0;
 	int MovesLost = 0;
+	/** Times a unit held against something backed off, and units given up (off their wheels, or held in the
+	 *  same place after backing off): a given-up car is a wreck, no longer counted among the chasing cars. */
+	int BackOffs = 0;
+	int GivenUp = 0;
 
 	// The frame being filled.
 	int FrameUnits = 0;
@@ -52,6 +56,8 @@ struct FGTPChaseTally
 	void NoteMoved() { ++Moves; }
 	/** A move that the car did not keep (found far from where it was put half a second later). */
 	void NoteMoveLost() { ++MovesLost; }
+	void NoteBackedOff() { ++BackOffs; }
+	void NoteGivenUp() { ++GivenUp; }
 
 	void AddUnit(float SpeedKmh, float DistanceMetres, const FGTPChaseTallySettings& S)
 	{
