@@ -283,6 +283,11 @@ Lyra n'est repris : Lyra repose sur GAS et ShooterCore, que l'ADR-0011 écarte. 
 - **Bancs de test** : `-CombatBench=1` tire toutes les 0,45 s debout, visée à l'épaule tenue (pose et caméra de
   visée) ; `-CombatBench=2` marche en cercle lent (demi-vitesse, 15 degrés par seconde) et tire à la hanche : la
   caméra large montre les jambes qui marchent pendant que la recharge joue sur le haut du corps.
+- **Munitions dans une arme vide (19/11/2026)** : des cartouches données à une arme vide (`AddAmmo` : un ramassage,
+  le réarmement de `-GTARun` après une arrestation) la chargent maintenant, tout de suite si l'arme est sortie, sinon
+  quand on la sort. Les portes 46 à 49 affichaient `0 / 36` en rouge : l'étape de marche armée de `-GTARun` donnait
+  36 cartouches à la réserve sans recharger, et le chargeur restait vide jusqu'à ce qu'un tir lance le rechargement
+  automatique.
 - **Pose de visée tenue (correctif de la nuit du 13/11)** : la capture du candidat 27 ne montrait pas de pose de
   visée. Chaque clip joué en montage arrêtait la pose : le montage Fire de Lyra (même groupe de montages) à chaque
   tir, la recharge et le dégainage dans `DefaultSlot`, et rien ne la relançait. Fire joue maintenant sans arrêter

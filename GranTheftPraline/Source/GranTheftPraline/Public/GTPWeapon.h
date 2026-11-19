@@ -163,8 +163,9 @@ public:
 	/** AI: one shot toward Target with its own spread factor (2.5 = police at two stars). */
 	bool FireAt(const FVector& Target, float SpreadFactor);
 
+	/** Rounds into the reserve; an empty magazine then loads them (now if the gun is out, else when it is drawn). */
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
-	int32 AddAmmo(int32 Rounds) { return GTPWeapon::AddAmmo(Loadout.State(), Loadout.Spec(), Rounds); }
+	int32 AddAmmo(int32 Rounds);
 
 	/** Arrest: the police take the guns and the ammunition (every weapon carried). */
 	void StripAmmo() { Loadout.StripAll(); }

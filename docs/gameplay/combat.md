@@ -268,6 +268,10 @@ is taken: Lyra stands on GAS and ShooterCore, which ADR-0011 leaves out. We take
 - **Test benches**: `-CombatBench=1` fires every 0.45 s standing, shoulder aim held (aim pose, aim camera);
   `-CombatBench=2` walks a slow circle (half speed, 15 degrees a second) and fires from the hip, so the wide camera
   shows the legs walking while the reload plays on the upper body.
+- **Ammunition into an empty gun (2026-11-19)**: rounds given to an empty gun (`AddAmmo`: a pickup, the re-arm of
+  `-GTARun` after an arrest) now load it, at once if the gun is out, else when it is drawn. Gates 46 to 49 showed
+  `0 / 36` in red: the walk-armed step of `-GTARun` gave 36 rounds to the reserve without a reload, and the magazine
+  stayed empty until a shot started the automatic reload.
 - **Aim pose held (fix of 13/11 night)**: the capture of candidate 27 showed no aim pose. Every clip played as a
   montage ended the aim pose: Lyra's Fire montage (same montage group) at every shot, the reload and the draw in
   `DefaultSlot`, and nothing started it again. Fire now plays without stopping the other montages, and while the

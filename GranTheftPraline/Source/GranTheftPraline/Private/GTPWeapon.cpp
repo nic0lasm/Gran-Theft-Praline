@@ -216,6 +216,18 @@ void UGTPWeaponComponent::UpdateMesh()
 	GunMesh->SetVisibility(bDrawn && Mesh != nullptr && !Loadout.IsSwitching());
 }
 
+int32 UGTPWeaponComponent::AddAmmo(int32 Rounds)
+{
+	BuildLoadout();
+	const int32 Given = GTPWeapon::AddAmmo(Loadout.State(), Loadout.Spec(), Rounds);
+	// An empty gun given rounds loads them, as in GTA: otherwise the HUD reads "0 / 36" until the trigger is pulled.
+	if (Given > 0 && bDrawn && Loadout.State().Magazine == 0)
+	{
+		Reload();
+	}
+	return Given;
+}
+
 void UGTPWeaponComponent::SetDrawn(bool bDraw)
 {
 	BuildLoadout();
@@ -234,6 +246,11 @@ void UGTPWeaponComponent::SetDrawn(bool bDraw)
 	UpdateMesh();
 	PlayClip(bDrawn ? TEXT("_Draw") : TEXT("_Holster"));
 	Broadcast(bDrawn ? EGTPWeaponEvent::Drawn : EGTPWeaponEvent::Holstered);
+	// Drawn empty with rounds left (ammunition picked up while holstered): load them.
+	if (bDrawn && Loadout.State().Magazine == 0 && Loadout.State().Reserve > 0)
+	{
+		Reload();
+	}
 }
 
 void UGTPWeaponComponent::SetAiming(bool bAim)
