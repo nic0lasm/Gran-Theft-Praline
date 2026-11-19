@@ -453,6 +453,17 @@ entre les ressorts (`ComputeSprungMasses`), à sa propre hauteur (`CentreMassOve
 700 pour la Police13 au lieu de 1 292, 500 pour les Car03 et Car12 ; notre Clio garde 240, la 208 et
 le Kangoo passent aussi à 240 (258 et 369 avant : leur masse Chaos est les 1 150 kg de la classe).
 
+Trafic au candidat 47 (PC, 19/11, même carte, passe mass de 310 s) : 47,8 voitures en mouvement au lieu
+de 102,0 au candidat 46, 86 arrêtées (64 derrière une autre voiture). MassTraffic simule les voitures
+proches du joueur avec une physique simple qu'il extrait d'une de nos voitures créée pour cela
+(`PhysicsVehicleTemplateActor`, `place_masstraffic.py`) : avec les roues à l'origine jusqu'au 46, avec
+les vraies roues et le centre de gravité de City Sample très en arrière depuis le 47. Probable, pas
+prouvé : ces voitures lèvent le nez et calent comme la Police13. Le centre de gravité est maintenant
+déplacé avant la création du véhicule (`FindWheelBones`, à partir du centre des formes du corps du
+châssis pondéré par leur volume, « vehicle balance ... set before the vehicle is created »), pour que
+le modèle de MassTraffic l'ait aussi ; posé au premier tick (candidat 48), il n'atteignait que les
+acteurs.
+
 ## 9. Préparer une voiture conduisible
 
 ### 9.1 Première voiture d'essai (sans Tripo)

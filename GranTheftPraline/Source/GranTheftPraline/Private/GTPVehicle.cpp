@@ -27,6 +27,7 @@
 #include "PhysicsEngine/BodySetup.h"
 #include "PhysicsEngine/ConstraintInstance.h"
 #include "PhysicsEngine/PhysicsAsset.h"
+#include "PhysicsEngine/SkeletalBodySetup.h"
 #include "PhysicalMaterials/PhysicalMaterial.h"
 #include "CollisionQueryParams.h"
 #include "Engine/DamageEvents.h"
@@ -299,6 +300,73 @@ namespace GTPWheelBones
 			*Picked[2].ToString(), *Picked[3].ToString(), *OutReport);
 		return Picked;
 	}
+
+	/**
+	 * Centre of the root body's shapes (the body Chaos drives: the first bone with a body), weighted by
+	 * their volume as Chaos weighs them at one density, in that body's space; before any physics exists.
+	 * Convex shapes count by their bounds. False without a physics asset or shapes.
+	 */
+	bool RootBodyCentre(USkeletalMeshComponent& Body, USkinnedAsset& Mesh, FVector& OutCentre)
+	{
+		const UPhysicsAsset* Physics = Body.GetPhysicsAsset();
+		if (!Physics)
+		{
+			return false;
+		}
+		const FReferenceSkeleton& Skeleton = Mesh.GetRefSkeleton();
+		const UBodySetup* Root = nullptr;
+		for (int32 BoneIndex = 0; BoneIndex < Skeleton.GetNum() && !Root; ++BoneIndex)
+		{
+			const int32 BodyIndex = Physics->FindBodyIndex(Skeleton.GetBoneName(BoneIndex));
+			if (BodyIndex != INDEX_NONE && Physics->SkeletalBodySetups.IsValidIndex(BodyIndex))
+			{
+				Root = Physics->SkeletalBodySetups[BodyIndex].Get();
+			}
+		}
+		if (!Root)
+		{
+			return false;
+		}
+		double Volume = 0.0;
+		FVector Sum = FVector::ZeroVector;
+		auto Add = [&Volume, &Sum](const FVector& Centre, double ElemVolume)
+		{
+			if (ElemVolume > 0.0)
+			{
+				Sum += Centre * ElemVolume;
+				Volume += ElemVolume;
+			}
+		};
+		const FKAggregateGeom& Geom = Root->AggGeom;
+		for (const FKBoxElem& Elem : Geom.BoxElems)
+		{
+			Add(Elem.Center, static_cast<double>(Elem.X) * Elem.Y * Elem.Z);
+		}
+		for (const FKSphereElem& Elem : Geom.SphereElems)
+		{
+			Add(Elem.Center, 4.0 / 3.0 * UE_DOUBLE_PI * FMath::Cube(static_cast<double>(Elem.Radius)));
+		}
+		for (const FKSphylElem& Elem : Geom.SphylElems)
+		{
+			const double R = Elem.Radius;
+			Add(Elem.Center, UE_DOUBLE_PI * R * R * Elem.Length + 4.0 / 3.0 * UE_DOUBLE_PI * R * R * R);
+		}
+		for (const FKTaperedCapsuleElem& Elem : Geom.TaperedCapsuleElems)
+		{
+			const double R = 0.5 * (Elem.Radius0 + Elem.Radius1);
+			Add(Elem.Center, UE_DOUBLE_PI * R * R * Elem.Length + 4.0 / 3.0 * UE_DOUBLE_PI * R * R * R);
+		}
+		for (const FKConvexElem& Elem : Geom.ConvexElems)
+		{
+			Add(Elem.GetTransform().TransformPosition(Elem.ElemBox.GetCenter()), Elem.ElemBox.GetVolume());
+		}
+		if (Volume <= 0.0)
+		{
+			return false;
+		}
+		OutCentre = Sum / Volume;
+		return true;
+	}
 }
 
 void AGTPVehicle::PreRegisterAllComponents()
@@ -347,6 +415,23 @@ void AGTPVehicle::FindWheelBones()
 			Move->WheelSetups[Index].BoneName = Picked[Index];
 		}
 		bWheelBonesFromMesh = true;
+		// The centre of mass too, before the vehicle exists: Chaos applies the override when it creates
+		// it (SetupVehicleMass), and MassTraffic's simple physics, which it extracts from a car of this
+		// class spawned for that (PhysicsVehicleTemplateActor), gets it as well; set later, from the
+		// first tick, it reached the actors only (candidate 48).
+		FVector Centre;
+		if (!Move->bEnableCenterOfMassOverride && GTPWheelBones::RootBodyCentre(*Body, *Asset, Centre))
+		{
+			Move->bEnableCenterOfMassOverride = true;
+			Move->CenterOfMassOverride = FVector(0.f, 0.f, Centre.Z);
+			static TSet<FName> BalanceLogged;
+			if (!BalanceLogged.Contains(ClassKey))
+			{
+				BalanceLogged.Add(ClassKey);
+				GTP_TRACE(LogGTPVehicle, TEXT("vehicle balance: %s centre of mass moved from X %.0f Y %.0f (its chassis body's shapes) to over the origin, where Chaos shares the weight between the springs; height %.0f cm; set before the vehicle is created"),
+					*GetClass()->GetName(), Centre.X, Centre.Y, Centre.Z);
+			}
+		}
 	}
 }
 

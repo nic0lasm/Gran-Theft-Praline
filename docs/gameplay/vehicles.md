@@ -424,6 +424,16 @@ kilogram (240 N.m for 1 150 kg), or the car's own torque when that is higher: 48
 instead of 785, 700 for Police13 instead of 1 292, 500 for Car03 and Car12; our Clio keeps 240, the 208 and the Kangoo get 240 too (258 and 369 before:
 their Chaos mass is the class's 1 150 kg).
 
+Traffic at candidate 47 (PC, 19/11, same map, mass pass of 310 s): 47.8 cars moving instead of 102.0
+at candidate 46, 86 stopped (64 behind another car). MassTraffic simulates the cars near the player
+with a simple physics it extracts from one of our cars spawned for that (`PhysicsVehicleTemplateActor`,
+`place_masstraffic.py`): with the wheels at the origin until 46, with the real wheels and City Sample's
+centre of mass far back from 47. Likely, not proven: those cars lift their nose and stall as Police13
+did. The centre of mass is now moved before the vehicle is created (`FindWheelBones`, from the volume
+weighted centre of the chassis body's shapes, "vehicle balance ... set before the vehicle is created"),
+so that MassTraffic's template gets it too; set from the first tick (candidate 48), it reached only
+the actors.
+
 ## 9. Making a drivable car
 
 ### 9.1 First test car (no Tripo)
