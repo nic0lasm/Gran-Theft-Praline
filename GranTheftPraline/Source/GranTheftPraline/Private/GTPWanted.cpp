@@ -1318,6 +1318,27 @@ void AGTPPoliceDirector::CountUnits(int32& OutChasing, int32& OutBlocks, int32& 
 	OutOfficers = Officers.Num();
 }
 
+void AGTPPoliceDirector::NearestUnits(const FVector& Where, float& OutChasing, float& OutBlock, float& OutOfficer) const
+{
+	OutChasing = OutBlock = OutOfficer = -1.f;
+	auto Closer = [&Where](const AActor* Who, float& InOut)
+	{
+		if (IsValid(Who))
+		{
+			const float Metres = static_cast<float>(FVector::Dist(Who->GetActorLocation(), Where)) * WantedCmToM;
+			InOut = InOut < 0.f ? Metres : FMath::Min(InOut, Metres);
+		}
+	};
+	for (const FUnit& Unit : Units)
+	{
+		Closer(Unit.Car.Get(), Unit.bBlock ? OutBlock : OutChasing);
+	}
+	for (const TWeakObjectPtr<AGTPPoliceOfficer>& Officer : Officers)
+	{
+		Closer(Officer.Get(), OutOfficer);
+	}
+}
+
 void AGTPPoliceDirector::RemoveUnit(int32 Index)
 {
 	FUnit& Unit = Units[Index];

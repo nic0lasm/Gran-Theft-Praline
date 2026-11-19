@@ -235,9 +235,23 @@ void UGTPGtaRun::TrackWanted()
 		BoundWanted = Wanted;
 		Wanted->OnArrested.AddWeakLambda(this, [this]()
 		{
+			// Who made the arrest, as the player sees it at that instant (the rule is a unit within 7 m for 3 s): at the
+			// gate of candidate 48 the step passed on an arrest it could not describe, made 4 s after the script had put
+			// the car 8 m from a police car.
 			ArrestedAt = FPlatformTime::Seconds();
 			const APlayerController* PC = FirstController(GetWorld());
-			ArrestedWhere = PC && PC->GetPawn() ? PC->GetPawn()->GetActorLocation() : FVector::ZeroVector;
+			const APawn* Pawn = PC ? PC->GetPawn() : nullptr;
+			ArrestedWhere = Pawn ? Pawn->GetActorLocation() : FVector::ZeroVector;
+			ArrestKmh = Pawn ? static_cast<float>(Pawn->GetVelocity().Size()) * 0.036f : 0.f;
+			ArrestChasing = ArrestBlock = ArrestOfficer = -1.f;
+			if (const AGTPPoliceDirector* Director = FindDirector(GetWorld()))
+			{
+				Director->NearestUnits(ArrestedWhere, ArrestChasing, ArrestBlock, ArrestOfficer);
+			}
+			const UGTPDemoRoute* Demo = GetGameInstance() ? GetGameInstance()->GetSubsystem<UGTPDemoRoute>() : nullptr;
+			ArrestSinceRelocation = Demo ? Demo->GetSecondsSinceRelocation() : 1.0e9;
+			GTP_TRACE(LogGTPGtaRun, TEXT("GTARun: arrested at %.0f km/h; nearest chasing car %.0f m, roadblock car %.0f m, officer on foot %.0f m (-1 = none); the script last moved the car %.0f s before"),
+				ArrestKmh, ArrestChasing, ArrestBlock, ArrestOfficer, ArrestSinceRelocation < 1.0e8 ? ArrestSinceRelocation : -1.0);
 		});
 	}
 	UGTPCombatSubsystem* Combat = UGTPCombatSubsystem::Get(this);
@@ -501,11 +515,30 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckOutcome(FString& Detail)
 		}
 		const UGTPWeaponComponent* Weapon = Character ? Character->FindComponentByClass<UGTPWeaponComponent>() : nullptr;
 		const bool bCanWalk = !PC->IsMoveInputIgnored();
-		Detail = FString::Printf(TEXT("arrested %.0f s %s (nearest police car %.0f m when the step began), released %s %.0f m from the arrest, can walk=%d, stars=%d, rounds left=%d; %s"),
-			FMath::Abs(ArrestedAt - GaveUpAt), ArrestedAt >= GaveUpAt ? TEXT("after giving up") : TEXT("before the step, during the flight"), GaveUpNearest,
+		// Who the player saw arrest him: the nearest of the three kinds at that instant. The rule wants a unit within 7 m;
+		// nobody within 10 m is an arrest the player cannot understand. And an arrest in the seconds after the script moved
+		// the car is the script's doing (the script itself keeps the arrest off then; checked all the same).
+		const TCHAR* By = TEXT("nobody");
+		float ByMetres = -1.f;
+		auto Nearer = [&By, &ByMetres](const TCHAR* Kind, float Metres)
+		{
+			if (Metres >= 0.f && (ByMetres < 0.f || Metres < ByMetres))
+			{
+				By = Kind;
+				ByMetres = Metres;
+			}
+		};
+		Nearer(TEXT("a chasing car"), ArrestChasing);
+		Nearer(TEXT("a roadblock car"), ArrestBlock);
+		Nearer(TEXT("an officer on foot"), ArrestOfficer);
+		const bool bSeenUnit = ByMetres >= 0.f && ByMetres <= 10.f;
+		const bool bOwnDoing = ArrestSinceRelocation >= UGTPDemoRoute::RelocationGraceSeconds;
+		Detail = FString::Printf(TEXT("arrested %.0f s %s at %.0f km/h by %s %.0f m away%s%s (chasing car %.0f m, roadblock car %.0f m, officer %.0f m), released %s %.0f m from the arrest, can walk=%d, stars=%d, rounds left=%d; %s"),
+			FMath::Abs(ArrestedAt - GaveUpAt), ArrestedAt >= GaveUpAt ? TEXT("after giving up") : TEXT("before the step, during the flight"), ArrestKmh, By, ByMetres,
+			bSeenUnit ? TEXT("") : TEXT(": NO POLICE WITHIN 10 m"), bOwnDoing ? TEXT("") : TEXT(": THE SCRIPT HAD JUST MOVED THE CAR THERE"), ArrestChasing, ArrestBlock, ArrestOfficer,
 			Character ? TEXT("on foot") : TEXT("STILL AT THE WHEEL"), FVector::Dist2D(PC->GetPawn()->GetActorLocation(), ArrestedWhere) / 100.0, bCanWalk ? 1 : 0,
 			Wanted->GetStars(), Weapon ? Weapon->GetMagazine() + Weapon->GetReserve() : -1, *Police);
-		return (Character && bCanWalk && Wanted->GetStars() == 0) ? EResult::Ok : EResult::Fail;
+		return (Character && bCanWalk && Wanted->GetStars() == 0 && bSeenUnit && bOwnDoing) ? EResult::Ok : EResult::Fail;
 	}
 	if (DiedAt >= ChaseBegan && ChaseBegan >= 0.0)
 	{

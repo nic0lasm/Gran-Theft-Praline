@@ -219,6 +219,16 @@ bool UGTPDemoRoute::RelocateChase(AGTPVehicle* Driven, APlayerController* PC, co
 	const TArray<FGTPTrafficLane>& Lanes = Network->GetLanes();
 	const UGTPRiverRecovery* River = World->GetSubsystem<UGTPRiverRecovery>();
 	FRandomStream Dice(static_cast<int32>(Clock() * 10.0));
+	// The police cars, roadblock cars included: the car is never put within 60 m of one. At the gate of candidate 48
+	// it was put 8 m from one and arrested there 4 s later: an arrest made by the script, not by the police.
+	TArray<FVector, TInlineAllocator<16>> PoliceAt;
+	for (TActorIterator<AGTPVehicle> It(World); It; ++It)
+	{
+		if (It->ActorHasTag(GTPPolice::PoliceTag))
+		{
+			PoliceAt.Add(It->GetActorLocation());
+		}
+	}
 	// Two passes: a lane with open road behind it first (FGTPLaneFollower::OpenRoadMetres), any lane that goes on otherwise.
 	for (int32 Pass = 0; Pass < 2; ++Pass)
 	{
@@ -238,6 +248,10 @@ bool UGTPDemoRoute::RelocateChase(AGTPVehicle* Driven, APlayerController* PC, co
 				continue;
 			}
 			if (Pass == 0 && FGTPLaneFollower::OpenRoadMetres(Lanes, LaneIndex) < FGTPLaneFollower::OpenRoadWanted)
+			{
+				continue;
+			}
+			if (PoliceAt.ContainsByPredicate([&Point](const FVector& At) { return FVector::Dist2D(At, Point) < 6000.0; }))
 			{
 				continue;
 			}
@@ -281,8 +295,11 @@ bool UGTPDemoRoute::RelocateChase(AGTPVehicle* Driven, APlayerController* PC, co
 			if (UGTPWantedComponent* Wanted = PC ? PC->FindComponentByClass<UGTPWantedComponent>() : nullptr)
 			{
 				Wanted->CallPolice();
+				// Standing still where the script put it, the car is not the player's doing: no arrest until it has driven off.
+				Wanted->SetArrestEnabled(false);
 			}
 			++ChaseRelocations;
+			LastRelocationAt = FPlatformTime::Seconds();
 			GTP_TRACE(LogGTPDemo, TEXT("Demo chase: %s at %s, the car is put on lane %d %.0f m away at %s (open road %.0f m, police told)"), Why, *From.ToCompactString(),
 				LaneIndex, Distance / 100.0, *Driven->GetActorLocation().ToCompactString(), FGTPLaneFollower::OpenRoadMetres(Lanes, LaneIndex));
 			return true;
@@ -290,6 +307,11 @@ bool UGTPDemoRoute::RelocateChase(AGTPVehicle* Driven, APlayerController* PC, co
 	}
 	GTP_TRACE(LogGTPDemo, TEXT("Demo chase: %s, no lane 80 to 150 m away to put the car on"), Why);
 	return false;
+}
+
+double UGTPDemoRoute::GetSecondsSinceRelocation() const
+{
+	return LastRelocationAt < 0.0 ? 1.0e9 : FPlatformTime::Seconds() - LastRelocationAt;
 }
 
 void UGTPDemoRoute::FreeChaseLevel()
@@ -692,7 +714,7 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 			if (Wanted)
 			{
 				// Nobody can arrest the player before the flight starts: the chase must show first.
-				Wanted->SetArrestEnabled(bLevelFree || T >= 100.0);
+				Wanted->SetArrestEnabled((bLevelFree || T >= 100.0) && GetSecondsSinceRelocation() >= RelocationGraceSeconds);
 				if (!bLevelFree && T >= 8.0 && T < 60.0)
 				{
 					Wanted->EnsureMinStars(T >= 30.0 ? 3 : 2);
