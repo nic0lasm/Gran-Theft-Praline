@@ -480,7 +480,11 @@ throttle and full lock, still over 1 m/s and so counted as moving; 44 of the 69 
 physics had a wheel off the road at 295 s. The "physics cars" line now also counts the cars lying
 over (roof more than 45 deg from the vertical). The real wheels with City Sample's centre of mass
 (`-MassTemplateWheels`) are measured in a 300 s mass pass at the candidate 51 gate; the stopgap
-should give way to them as soon as they keep the traffic moving.
+should give way to them as soon as they keep the traffic moving. After gate 54 (branch
+`fix/masstraffic-no-simple-physics`, see traffic-mass.md) the template gets the real wheels and City
+Sample's centre of mass by default, though no car is given that physics any more unless
+`-MassTrafficPhysicsRadius=<m>` (line "vehicle physics template: ... given the real wheels and
+City Sample's centre of mass"), `-MassTemplate46` gives back the stopgap.
 
 Since candidate 52 the "MassTraffic cars" line counts as `moving=` only the upright cars (roof within
 45 deg of the vertical) and gives the old count beside it (`moving_with_lying=`, `lying_over=`); a line
