@@ -71,21 +71,22 @@ CARS = {
 # Gear lists given in full where read, else (first, last, count), spaced evenly in ratio.
 # Wheels: radius cm, friction, spring rate, preload, raise cm, drop cm, brake N.m, handbrake N.m,
 # steer degrees. All: drag 0.3, final ratio 3.08, 5 400 rpm, shifts at 4 500 / 2 000 rpm.
+# com: City Sample's centre of mass override, cm (read 19/11 from the Sandbox Blueprints' bytes).
 # Differential (PC, grep of City Sample's Blueprints, 16/11): vehicle02, vehicle07 and the van01 set front
 # wheel drive; vehicle03, 05, 12 and 13 keep the Chaos component's default, rear wheel drive. AGTPVehicle
 # itself is front wheel drive (our Clio, 208 and Kangoo), so every car here sets its own.
 # The wheels: City Sample's own wheel Blueprints when they load (epic_wheels), this table otherwise.
-_SALOON = {"mass": 1850, "torque": 500, "gears": [2.82, 1.5, 1.0, 0.7], "drive": "REAR_WHEEL_DRIVE",
+_SALOON = {"mass": 1850, "torque": 500, "gears": [2.82, 1.5, 1.0, 0.7], "drive": "REAR_WHEEL_DRIVE", "com": (26, 0, 56),
            "wheel": (35.2, 3.8, 220, 300, 8, 13, 1500, 4000, 46)}
 TUNING = {
-    "01": {"mass": 2100, "torque": 400, "gears": (5.25, 0.52, 10), "up_rpm": 3500, "drive": "FRONT_WHEEL_DRIVE",
+    "01": {"mass": 2100, "torque": 400, "gears": (5.25, 0.52, 10), "up_rpm": 3500, "drive": "FRONT_WHEEL_DRIVE", "com": (33, 0, 40),
            "wheel": (35.3, 3.1, 200, 300, 15, 14, 1500, 6000, 45)},
-    "02": {"mass": 1200, "torque": 175, "gears": [3.62, 1.96, 1.29, 1.04, 0.84, 0.7], "drive": "FRONT_WHEEL_DRIVE",
+    "02": {"mass": 1200, "torque": 175, "gears": [3.62, 1.96, 1.29, 1.04, 0.84, 0.7], "drive": "FRONT_WHEEL_DRIVE", "com": (0, 0, 54),
            "wheel": (35.3, 3.0, 100, 300, 10, 17, 900, 3500, 47)},
     "03": dict(_SALOON),
-    "05": {"mass": 2300, "torque": 425, "gears": (4.71, 0.85, 8), "drive": "REAR_WHEEL_DRIVE",
+    "05": {"mass": 2300, "torque": 425, "gears": (4.71, 0.85, 8), "drive": "REAR_WHEEL_DRIVE", "com": (38, 0, 60),
            "wheel": (35.3, 3.6, 260, 300, 10, 12, 1700, 5000, 42)},
-    "07": {"mass": 1400, "torque": 250, "gears": (5.07, 0.67, 8), "drive": "FRONT_WHEEL_DRIVE",
+    "07": {"mass": 1400, "torque": 250, "gears": (5.07, 0.67, 8), "drive": "FRONT_WHEEL_DRIVE", "com": (30, 0, 50),
            "wheel": (31.3, 3.2, 160, 300, 15, 11.75, 1200, 4500, 45)},
     "12": dict(_SALOON),
     "13": dict(_SALOON, torque=700),
@@ -538,6 +539,12 @@ def build_from_parts(number, name, blueprint_path, entry, source_cls=None):
     gearbox.set_editor_property("change_up_rpm", float(tuning.get("up_rpm", 4500)))
     gearbox.set_editor_property("change_down_rpm", 2000.0)
     move.set_editor_property("transmission_setup", gearbox)
+    # City Sample's own centre of mass (CenterOfMassOverride of its Sandbox Blueprints, COMNudge zero
+    # there; read 19/11 with tools/vehicles/read_uasset_props.py). AGTPVehicle sets the same values
+    # when a Blueprint built before has none.
+    if tuning.get("com"):
+        move.set_editor_property("enable_center_of_mass_override", True)
+        move.set_editor_property("center_of_mass_override", unreal.Vector(*[float(v) for v in tuning["com"]]))
     differential = move.get_editor_property("differential_setup")
     drive = getattr(getattr(unreal, "VehicleDifferential", None), tuning.get("drive", "REAR_WHEEL_DRIVE"), None)
     if drive is None:

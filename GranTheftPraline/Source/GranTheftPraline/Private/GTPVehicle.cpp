@@ -307,6 +307,36 @@ namespace GTPWheelBones
 	 * their volume as Chaos weighs them at one density, in that body's space; before any physics exists.
 	 * Convex shapes count by their bounds. False without a physics asset or shapes.
 	 */
+	// City Sample's own centre of mass for its cars: CenterOfMassOverride of BP_veh*_vehicleNN_Sandbox,
+	// whose COMNudge is zero (read on 19/11 by tools/vehicles/read_uasset_props.py, the Blueprints do not
+	// load in our project, so make_epic_vehicles.py could not copy it). In the root body's frame, cm.
+	bool CitySampleCentreOfMass(const FString& ClassName, FVector& OutCentre)
+	{
+		struct FEntry
+		{
+			const TCHAR* Prefix;
+			FVector Centre;
+		};
+		static const FEntry Entries[] = {
+			{ TEXT("BP_GTP_Van01"), FVector(33.0, 0.0, 40.0) },
+			{ TEXT("BP_GTP_Car02"), FVector(0.0, 0.0, 54.0) },
+			{ TEXT("BP_GTP_Car03"), FVector(26.0, 0.0, 56.0) },
+			{ TEXT("BP_GTP_Car05"), FVector(38.0, 0.0, 60.0) },
+			{ TEXT("BP_GTP_Car07"), FVector(30.0, 0.0, 50.0) },
+			{ TEXT("BP_GTP_Car12"), FVector(26.0, 0.0, 56.0) },
+			{ TEXT("BP_GTP_Police13"), FVector(26.0, 0.0, 56.0) },
+		};
+		for (const FEntry& Entry : Entries)
+		{
+			if (ClassName.StartsWith(Entry.Prefix))
+			{
+				OutCentre = Entry.Centre;
+				return true;
+			}
+		}
+		return false;
+	}
+
 	bool RootBodyCentre(USkeletalMeshComponent& Body, USkinnedAsset& Mesh, FVector& OutCentre)
 	{
 		const UPhysicsAsset* Physics = Body.GetPhysicsAsset();
@@ -441,7 +471,22 @@ void AGTPVehicle::FindWheelBones()
 		// class spawned for that (PhysicsVehicleTemplateActor), gets it as well; set later, from the
 		// first tick, it reached the actors only (candidate 48).
 		FVector Centre;
-		if (!Move->bEnableCenterOfMassOverride && GTPWheelBones::RootBodyCentre(*Body, *Asset, Centre))
+		static TSet<FName> CitySampleLogged;
+		if (!Move->bEnableCenterOfMassOverride && GTPWheelBones::CitySampleCentreOfMass(GetClass()->GetName(), Centre))
+		{
+			// City Sample's own value (candidate 49): 26 cm ahead of the origin and 56 cm up for the
+			// saloons, where the fallback below puts it over the origin at the chassis shapes' height
+			// (83 cm for Police13), which lifts the nose under throttle and rolls the car in turns.
+			Move->bEnableCenterOfMassOverride = true;
+			Move->CenterOfMassOverride = Centre;
+			if (!CitySampleLogged.Contains(ClassKey))
+			{
+				CitySampleLogged.Add(ClassKey);
+				GTP_TRACE(LogGTPVehicle, TEXT("vehicle balance: %s centre of mass at City Sample's own override %s (its Sandbox Blueprint), set before the vehicle is created"),
+					*GetClass()->GetName(), *Centre.ToCompactString());
+			}
+		}
+		else if (!Move->bEnableCenterOfMassOverride && GTPWheelBones::RootBodyCentre(*Body, *Asset, Centre))
 		{
 			Move->bEnableCenterOfMassOverride = true;
 			Move->CenterOfMassOverride = FVector(0.f, 0.f, Centre.Z);

@@ -500,6 +500,20 @@ projet ne peut pas charger (leurs classes parentes sont dans le module de jeu de
 `tools/vehicles/read_uasset_props.py DOSSIER` lit, sans l'éditeur, l'override du centre de gravité, le
 COMNudge, l'échelle d'inertie et l'override de masse que ces paquets contiennent.
 
+Lu sur le PC le 19/11 (octets à la place de la propriété, à confirmer dans l'éditeur de City Sample),
+les Blueprints Sandbox de City Sample placent le centre de gravité, en cm dans le repère de la caisse,
+à (26, 0, 56) pour vehicle03, vehicle12 et vehicle13 (Police13), (38, 0, 60) pour vehicle05, (0, 0, 54)
+pour vehicle02, (30, 0, 50) pour vehicle07 et (33, 0, 40) pour la fourgonnette ; leur COMNudge est nul
+(le (10, 0, -15) du parent déformable est remplacé). Nous le mettions au-dessus de l'origine à la
+hauteur des formes de la caisse : (0, 0, 83) pour la Police13, 27 cm plus haut et 26 cm plus en
+arrière, ce qui lève le nez à l'accélération et couche la voiture en virage. `FindWheelBones` pose
+maintenant la valeur de City Sample pour chaque voiture `BP_GTP_*` avant la création du véhicule
+(ligne « vehicle balance: ... City Sample's own override »), et `make_epic_vehicles.py` l'écrit dans
+les Blueprints qu'il construit (`com` dans `TUNING`). Le modèle de MassTraffic garde le réglage du
+candidat 46 sauf avec `-MassTemplateWheels` : ce commutateur essaie maintenant les vraies roues avec le
+centre de gravité de City Sample, candidat pour un seul réglage partagé par le trafic, le joueur et la
+police.
+
 ## 9. Préparer une voiture conduisible
 
 ### 9.1 Première voiture d'essai (sans Tripo)

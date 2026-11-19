@@ -467,6 +467,19 @@ their Blueprints or physics assets, which our project cannot load (their parent 
 Sample's game module): `tools/vehicles/read_uasset_props.py FOLDER` reads, without the editor, the
 centre of mass override, COMNudge, inertia scale and mass override those packages store.
 
+Read on the PC on 19/11 (bytes at the property's place, still to be confirmed in City Sample's
+editor), City Sample's Sandbox Blueprints put the centre of mass, in cm in the body's frame, at
+(26, 0, 56) for vehicle03, vehicle12 and vehicle13 (Police13), (38, 0, 60) for vehicle05, (0, 0, 54)
+for vehicle02, (30, 0, 50) for vehicle07 and (33, 0, 40) for the van; their COMNudge is zero (the
+deformable parent's (10, 0, -15) is overridden). We had it over the origin at the chassis shapes'
+height: (0, 0, 83) for Police13, 27 cm higher and 26 cm further back, which lifts the nose under
+throttle and lays the car down in turns. `FindWheelBones` now sets City Sample's value for each
+`BP_GTP_*` car before the vehicle is created (line "vehicle balance: ... City Sample's own override"),
+and `make_epic_vehicles.py` writes it in the Blueprints it builds (`com` in `TUNING`). MassTraffic's
+template still keeps candidate 46's setting unless `-MassTemplateWheels`: that switch now tests the
+real wheels with City Sample's centre of mass, the candidate for one setting shared by traffic, player
+and police.
+
 ## 9. Making a drivable car
 
 ### 9.1 First test car (no Tripo)
