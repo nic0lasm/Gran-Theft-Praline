@@ -492,6 +492,14 @@ modèle les vraies roues, et les lignes « MassTraffic physics template » / « 
 (GTPMassTraffic, à chaque comptage) donnent ce qui a été extrait et comment roulent les 6 voitures les
 plus proches : vitesse, commandes, rapport, roues sur la route, hauteur et place par rapport à la voie.
 
+Les voitures de police couchées pendant la poursuite du candidat 48 y restaient : la règle « put back
+on its wheels » ne valait que pour la voiture du joueur. Elle vaut maintenant aussi pour les voitures
+conduites par l'IA (`PutBackOnWheels`, ligne « put back on its wheels at ... (AI driver) »). Le centre
+de gravité des voitures City Sample est réglé dans leurs Blueprints ou leurs physics assets, que notre
+projet ne peut pas charger (leurs classes parentes sont dans le module de jeu de City Sample) :
+`tools/vehicles/read_uasset_props.py DOSSIER` lit, sans l'éditeur, l'override du centre de gravité, le
+COMNudge, l'échelle d'inertie et l'override de masse que ces paquets contiennent.
+
 ## 9. Préparer une voiture conduisible
 
 ### 9.1 Première voiture d'essai (sans Tripo)

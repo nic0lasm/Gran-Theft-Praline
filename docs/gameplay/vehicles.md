@@ -460,6 +460,13 @@ again, and "MassTraffic physics template" / "MassTraffic physics car" lines (GTP
 count) give what was mined and how the 6 nearest cars drive: speed, inputs, gear, wheels on the road,
 height and place against the lane.
 
+Police cars turned over in the candidate 48 chase stayed on their side: the "put back on its wheels"
+rule ran for the player's car only. It now runs for the cars driven by the AI too (`PutBackOnWheels`,
+line "put back on its wheels at ... (AI driver)"). The centre of mass of City Sample's cars is set in
+their Blueprints or physics assets, which our project cannot load (their parent classes are in City
+Sample's game module): `tools/vehicles/read_uasset_props.py FOLDER` reads, without the editor, the
+centre of mass override, COMNudge, inertia scale and mass override those packages store.
+
 ## 9. Making a drivable car
 
 ### 9.1 First test car (no Tripo)
