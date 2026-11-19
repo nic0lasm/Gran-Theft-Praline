@@ -114,6 +114,18 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Threat")
 	void SetTemperament(EGTPTemperament NewTemperament) { Brain.Temperament = static_cast<GTPThreat::ETemperament>(static_cast<int32>(NewTemperament)); }
 
+	/**
+	 * A pooled body given to another person: the fear, the state and the death of the one before are not his.
+	 * Keeps the temperament; tells nobody (the owner of the pool moves the person itself).
+	 */
+	void Forget()
+	{
+		const GTPThreat::ETemperament Kept = Brain.Temperament;
+		Brain = GTPThreat::FBrain();
+		Brain.Temperament = Kept;
+		LastNearbyFear = 0.f;
+	}
+
 	/** Where this person runs when he flees (the shop's back door); unset = away from the threat. */
 	UFUNCTION(BlueprintCallable, Category = "Threat")
 	void SetFleeTarget(FVector Location) { FleeTarget = Location; bHasFleeTarget = true; }

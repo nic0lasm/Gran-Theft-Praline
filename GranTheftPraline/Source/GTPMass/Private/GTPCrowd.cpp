@@ -770,6 +770,21 @@ void UGTPCrowdSubsystem::UpdateNear(float DeltaTime)
 			{
 				Look->bNear = false;
 			}
+			// The person goes on without a body that feels fear: nothing would ever lower his hands (measured in the
+			// code: 60 s standing, on a crossing the cars wait all that time). And the body's fear, state and death
+			// stay with nobody: the next person it is given to starts calm.
+			if (FGTPCrowdWalkerFragment* Gone = WalkerOf(NearEntity[Slot]))
+			{
+				if (Gone->Walker.PauseKind == GTPWalk::EPause::HandsUp)
+				{
+					Gone->Walker.Pause = 0.f;
+					Gone->Walker.PauseKind = GTPWalk::EPause::None;
+				}
+			}
+			if (UGTPThreatResponseComponent* Fear = NearActors[Slot]->FindComponentByClass<UGTPThreatResponseComponent>())
+			{
+				Fear->Forget();
+			}
 			NearActors[Slot]->ResetBody();
 			NearActors[Slot]->SetDetail(false, false, -1);
 			NearActors[Slot]->SetActorLocation(FVector(0.f, 0.f, -100000.f), false, nullptr, ETeleportType::TeleportPhysics);

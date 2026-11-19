@@ -40,3 +40,11 @@ vide n'effraie personne.
 - Les personnages (employés) reculent et fuient seuls ; les piétons du pool sont déplacés par le système
   piétons, qui lit `OnThreatState` (`Fuit` remplace sa propre peur).
 - Clips (à affecter par nom dans `Clips`) : `AM_HandsUp_Enter`, `AM_HandsUp_Idle` (tools/animation/car_poses.json).
+
+### Les corps de la foule changent de main
+
+Les 24 corps proches de la foule Mass sont mis en commun : chacun est donné tour à tour aux personnes les plus proches. Quand
+un corps quitte une personne, sa pause mains en l'air s'arrête (plus personne ne lui ferait baisser les mains : elle restait
+60 s, et sur un passage les voitures l'attendaient), et le corps oublie la peur, l'état et la mort de cette personne
+(`UGTPThreatResponseComponent::Forget`) : la suivante commence calme. Tant que le joueur braque quelqu'un sur un passage, les
+voitures attendent : c'est le braquage.
