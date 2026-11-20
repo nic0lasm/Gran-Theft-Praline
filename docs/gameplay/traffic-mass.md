@@ -288,7 +288,7 @@ from the player; 307 of the 577 car lanes are still cut as dead-end branches (20
 junctions). The cut keeps more than half the map, most of it around the player, without traffic, and
 crowds the 120 cars onto the rest: of 88 stopped, 69 stand behind a car; of 18 at a closed junction
 lane, 15 have a full lane after it. The other two differences with City Sample's settings are left:
-its speed PID drives the physics vehicles near the player only (MassTraffic's `PIDVehicleControlFragment`,
+its speed PID drives the physics vehicles near the player only (wrong, see candidate 53; MassTraffic's `PIDVehicleControlFragment`,
 not used while `AGTPVehicle` has no `IMassTrafficVehicleControlInterface`), and its
 `LaneConnectionAngle` of 180 goes with one polygon point per road (see above).
 
@@ -428,6 +428,30 @@ lane; ours were handed over from 1 m/s, so one could be frozen with the flag set
 `RecycleAtDeadEnds` now leaves a committed car to the traffic, and gives back to the traffic a car it
 handed over that turns out to be committed. The recycling line counts "committed to their next lane"
 and "given back to the traffic so far". Cause read in the code, not yet seen on the PC.
+
+## Candidate 53: City Sample's speed PID and sleep
+
+The statement above (candidate 35) that City Sample's speed PID "drives the physics vehicles near
+the player only ... not used while `AGTPVehicle` has no `IMassTrafficVehicleControlInterface`" was
+wrong. Read on the PC on 20/11 (`MassTrafficVehicleControlProcessor.cpp:735-765`): that PID gives the
+throttle or the brake of every car under MassTraffic's simple physics (the cars 50 to 200 m from the
+player), through `FMassTrafficPIDVehicleControlFragment`. City Sample sets it in its own config,
+which our project never had: `Config/DefaultPlugins.ini:112`, `SpeedPIDControllerParams` P 0.0007,
+I 0.00004, window 0.5 s, D 0.0001, where the code's defaults are 0.5, 0.5, 1 s and 0.5; on an error
+in cm/s these saturate the throttle, and the brake times `SpeedPIDBrakeMultiplier` (5), from 2 cm/s
+off the target speed. The probe of candidate 49 read exactly that: "throttle 1.00" or "brake 5.00".
+And `Config/DefaultEngine.ini:222-223`, `MassTraffic.SleepCounterThreshold=4` and
+`MassTraffic.LinearSpeedSleepThreshold=6.0` (the code's: 20 frames under 0.001 cm/s); an asleep car
+skips the simulation, keeps its last speed and wakes only on a throttle of 0.02 or more
+(`MassTrafficVehiclePhysicsProcessor.cpp:159-162, 370-396`). With the real wheels (candidate 51,
+`-MassTemplateWheels`) the 114 probed cars stayed on their 4 wheels, but the cars under physics all
+stopped (62 of 62 at 205 s), nose to tail (car ahead 0 to 5 m), several at full throttle and idle
+(850 rpm, 0 to 6 km/h), and `moving` fell from 106 to 39. GTPMass now sets City
+Sample's values at start, by name (line "MassTraffic settings: City Sample's speed PID set: ... |
+sleep: ..."); `-MassTrafficCodeDefaults` keeps the code's. Expected at the candidate 53 gate, with the
+real wheels: `moving=` (upright cars) 120 to 300 s at 75.6 or more, cars lying over within 100 m of
+the player near 0, and no "brake 5.00" in the "MassTraffic physics car" lines. Cause read in Epic's
+code and config, not yet seen on the PC.
 
 ## Open points
 

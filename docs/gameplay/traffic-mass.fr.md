@@ -323,7 +323,7 @@ laisse plus de la moitié de la carte, surtout autour du joueur, sans trafic, et
 voitures sur le reste : des 88 arrêtées, 69 sont derrière une voiture ; des 18 à une voie de
 carrefour fermée, 15 ont une voie pleine après. Les deux autres écarts avec les réglages de City
 Sample restent : son PID de vitesse ne conduit que les véhicules physiques près du joueur
-(`PIDVehicleControlFragment` de MassTraffic, inutilisé tant qu'`AGTPVehicle` n'a pas
+(faux, voir le candidat 53 ; `PIDVehicleControlFragment` de MassTraffic, inutilisé tant qu'`AGTPVehicle` n'a pas
 `IMassTrafficVehicleControlInterface`), et son `LaneConnectionAngle` de 180 va avec un point de
 polygone par route (voir plus haut).
 
@@ -479,6 +479,32 @@ pouvait être figée avec le drapeau levé et attendre pour toujours. `RecycleAt
 une voiture engagée au trafic, et rend au trafic une voiture remise qui se révèle engagée. La ligne du
 recyclage compte « committed to their next lane » et « given back to the traffic so far ». Cause lue
 dans le code, pas encore vue sur le PC.
+
+## Candidat 53 : le PID de vitesse et le sommeil de City Sample
+
+Ce qui est dit plus haut (candidat 35), que le PID de vitesse de City Sample « ne conduit que les
+véhicules physiques près du joueur ... inutilisé tant qu'`AGTPVehicle` n'a pas
+`IMassTrafficVehicleControlInterface` », était faux. Lu sur le PC le 20/11
+(`MassTrafficVehicleControlProcessor.cpp:735-765`) : ce PID donne le gaz ou le frein de toutes les
+voitures sous la physique simple de MassTraffic (celles à 50-200 m du joueur), par
+`FMassTrafficPIDVehicleControlFragment`. City Sample le règle dans sa propre config, que notre projet
+n'a jamais eue : `Config/DefaultPlugins.ini:112`, `SpeedPIDControllerParams` P 0,0007, I 0,00004,
+fenêtre 0,5 s, D 0,0001, quand les défauts du code sont 0,5, 0,5, 1 s et 0,5 ; sur un écart en cm/s,
+ceux-ci saturent le gaz, et le frein multiplié par `SpeedPIDBrakeMultiplier` (5), dès 2 cm/s d'écart
+à la vitesse visée. La sonde du candidat 49 lisait exactement cela : « throttle 1.00 » ou « brake
+5.00 ». Et `Config/DefaultEngine.ini:222-223`, `MassTraffic.SleepCounterThreshold=4` et
+`MassTraffic.LinearSpeedSleepThreshold=6.0` (ceux du code : 20 images sous 0,001 cm/s) ; une voiture
+endormie saute la simulation, garde sa dernière vitesse et ne se réveille qu'avec un gaz d'au moins
+0,02 (`MassTrafficVehiclePhysicsProcessor.cpp:159-162, 370-396`). Avec les vraies roues (candidat 51,
+`-MassTemplateWheels`), les 114 voitures sondées restaient sur leurs 4 roues, mais les voitures sous
+physique s'arrêtaient toutes (62 sur 62 à 205 s), en file collée (voiture devant à 0-5 m), plusieurs à
+plein gaz au ralenti (850 tr/min, 0-6 km/h), et le « moving » tombait de 106 à 39. GTPMass pose
+maintenant les valeurs de City Sample au démarrage, par leur nom (ligne « MassTraffic settings: City
+Sample's speed PID set: ... | sleep: ... ») ; `-MassTrafficCodeDefaults` garde celles du code. Attendu
+à la porte du candidat 53, avec les vraies roues : `moving=` (voitures debout) de 120 à 300 s à 75,6
+ou plus, voitures couchées à moins de 100 m du joueur proches de 0, et plus de « brake 5.00 » dans les
+lignes « MassTraffic physics car ». Cause lue dans le code et la config d'Epic, pas encore vue sur le
+PC.
 
 ## Points ouverts
 
