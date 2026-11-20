@@ -20,6 +20,7 @@
 #include "CollisionShape.h"
 #include "Components/PointLightComponent.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Engine/OverlapResult.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "GameFramework/Character.h"
@@ -41,6 +42,9 @@ namespace GTPPolice
 namespace
 {
 	constexpr float WantedCmToM = 0.01f;
+	/** A police car is made no nearer than this to any car on the road (cm, flat), and with nothing in this box around it (half sizes, cm). */
+	constexpr float PoliceSpawnRoomCm = 1500.f;
+	const FVector PoliceSpawnRoomExtent(300.f, 130.f, 90.f);
 
 	bool WitnessesDisabledByCommandLine()
 	{
@@ -745,6 +749,18 @@ bool AGTPPoliceDirector::FindSpawnPoint(const FVector& PlayerLocation, int32& Ou
 		return false;
 	}
 	FRandomStream& Dice = const_cast<FRandomStream&>(Random);
+	// Every car on the road, whoever drives it: a police car needs room to pull away, and the traffic's cars stand on
+	// the same lanes (only the other police cars were looked at before).
+	TArray<FVector, TInlineAllocator<96>> CarsOnTheRoad;
+	for (TActorIterator<AGTPVehicle> It(GetWorld()); It; ++It)
+	{
+		if (!It->IsHidden())
+		{
+			CarsOnTheRoad.Add(It->GetActorLocation());
+		}
+	}
+	int32 WrongDistance = 0, NotAhead = 0, NoGround = 0, NoRoom = 0, Taken = 0, Seen = 0;
+	FString LastTakenBy;
 	for (int32 Try = 0; Try < 60; ++Try)
 	{
 		const int32 Lane = Dice.RandRange(0, Lanes.Num() - 1);
@@ -761,41 +777,98 @@ bool AGTPPoliceDirector::FindSpawnPoint(const FVector& PlayerLocation, int32& Ou
 		const double Farthest = bFarSpawn ? FMath::Max(ReplacementMinDistance * 1.2, LeashDistance * 0.85) : (bAheadSpawn ? MaxSpawnDistance * 1.4 : MaxSpawnDistance);
 		if (Distance < Nearest || Distance > Farthest)
 		{
+			++WrongDistance;
 			continue;
 		}
 		// Coming from in front: within about 35 degrees of the player's direction of travel.
 		if (bAheadSpawn && !GTPPoliceTactics::IsAhead(static_cast<float>(Location.X - PlayerLocation.X), static_cast<float>(Location.Y - PlayerLocation.Y),
 			static_cast<float>(AheadDirection.X), static_cast<float>(AheadDirection.Y), 0.8f))
 		{
+			++NotAhead;
 			continue;
 		}
 		FHitResult Ground;
 		FCollisionQueryParams Params(SCENE_QUERY_STAT(GTPPoliceGround), false);
 		if (!GetWorld()->LineTraceSingleByChannel(Ground, Location + FVector(0.f, 0.f, 500.f), Location - FVector(0.f, 0.f, 2000.f), ECC_Visibility, Params))
 		{
+			++NoGround;
 			continue;
 		}
 		Location.Z = Ground.ImpactPoint.Z + 40.f;
 		bool bFree = true;
-		for (const FUnit& Unit : Units)
+		for (const FVector& Other : CarsOnTheRoad)
 		{
-			if (Unit.Car.IsValid() && FVector::Dist(Unit.Car->GetActorLocation(), Location) < 1500.f)
+			if (FVector::Dist2D(Other, Location) < PoliceSpawnRoomCm)
 			{
 				bFree = false;
 				break;
 			}
 		}
-		if (!bFree || Network->IsSeenByPlayer(Location))
+		if (!bFree)
 		{
+			++NoRoom;
 			continue;
 		}
 		const FVector Direction = (Points[Point + 1] - Points[Point]).GetSafeNormal2D();
+		const FTransform Place(Direction.Rotation(), Location);
+		if (!IsSpawnPlaceClear(Place, Ground, false, LastTakenBy))
+		{
+			++Taken;
+			continue;
+		}
+		if (Network->IsSeenByPlayer(Location))
+		{
+			++Seen;
+			continue;
+		}
 		OutLane = Lane;
 		OutPoint = Point;
-		OutTransform = FTransform(Direction.Rotation(), Location);
+		OutTransform = Place;
 		return true;
 	}
+	if (const double Now = GetWorld()->GetTimeSeconds(); Now >= NextNoPlaceLog)
+	{
+		NextNoPlaceLog = Now + 10.0;
+		GTP_TRACE(LogGTPWanted, TEXT("police: no place for a %s in 60 tries: %d too near or too far, %d not ahead, %d without ground, %d within %.0f m of a car, "
+			"%d with a car or somebody on the spot (last: %s), %d in the player's view; %d car(s) on the road"),
+			bFarSpawn ? TEXT("replacement") : TEXT("car"), WrongDistance, NotAhead, NoGround, NoRoom, PoliceSpawnRoomCm * WantedCmToM, Taken,
+			LastTakenBy.IsEmpty() ? TEXT("none") : *LastTakenBy, Seen, CarsOnTheRoad.Num());
+	}
 	return false;
+}
+
+bool AGTPPoliceDirector::IsSpawnPlaceClear(const FTransform& Place, const FHitResult& Ground, bool bRoadblock, FString& OutWhat) const
+{
+	// The trace that looks for the ground is a visibility trace: it stops on the roof of a car standing there.
+	if (const AActor* Under = Ground.GetActor(); Under && Under->IsA<APawn>())
+	{
+		OutWhat = FString::Printf(TEXT("%s under the place"), *Under->GetName());
+		return false;
+	}
+	// The room the new car takes (a little more than its body), from the ground up.
+	const FVector Center = Ground.ImpactPoint + FVector(0.f, 0.f, PoliceSpawnRoomExtent.Z + 20.f);
+	TArray<FOverlapResult> Overlaps;
+	const FCollisionObjectQueryParams Objects(FCollisionObjectQueryParams::InitType::AllDynamicObjects);
+	const FCollisionQueryParams Query(SCENE_QUERY_STAT(GTPPoliceSpawnRoom), false);
+	if (!GetWorld()->OverlapMultiByObjectType(Overlaps, Center, Place.GetRotation(), Objects, FCollisionShape::MakeBox(PoliceSpawnRoomExtent), Query))
+	{
+		return true;
+	}
+	for (const FOverlapResult& Overlap : Overlaps)
+	{
+		const AActor* Other = Overlap.GetActor();
+		if (!Other || Other->IsHidden() || !Other->IsA<APawn>())
+		{
+			continue;
+		}
+		if (bRoadblock && Other->ActorHasTag(GTPPolice::PoliceTag))
+		{
+			continue;
+		}
+		OutWhat = FString::Printf(TEXT("%s on the place"), *Other->GetName());
+		return false;
+	}
+	return true;
 }
 
 bool AGTPPoliceDirector::SpawnUnit(const FVector& PlayerLocation, const FTransform* Placement, bool bBlock)
@@ -984,6 +1057,15 @@ bool AGTPPoliceDirector::PlaceRoadblockCar(const APawn& Player, int32 CarIndex, 
 	Location.Z = Ground.ImpactPoint.Z + 40.f;
 	const FRotator Facing(0.f, static_cast<float>(Along.Rotation().Yaw) + Side * 60.f, 0.f);
 	const FTransform Placement(Facing, Location);
+	// Not on the roof of a car, not onto one, not onto somebody (the ground under Point, the room at the car's own place).
+	FString TakenBy;
+	FHitResult Room = Ground;
+	Room.ImpactPoint = FVector(Location.X, Location.Y, Ground.ImpactPoint.Z);
+	if (!IsSpawnPlaceClear(Placement, Room, true, TakenBy))
+	{
+		GTP_TRACE(LogGTPWanted, TEXT("police: roadblock site refused at %.0f m: %s"), Distance * 0.01, *TakenBy);
+		return false;
+	}
 	if (SpawnUnit(Player.GetActorLocation(), &Placement, true))
 	{
 		GTP_TRACE(LogGTPWanted, TEXT("police: roadblock car %d at %s, %.0f m ahead"), CarIndex, *Location.ToCompactString(), Distance * 0.01);
