@@ -37,12 +37,14 @@ int main()
 		CHECK(R.State == EState::Driving && Near(T, S.BackSeconds, 0.1f));
 	}
 	{
-		// Held in the same place again and again: three back-offs, then the car is given up.
+		// Held in the same place again and again, each back-off taking it 2 m back and the driving bringing it
+		// forward again: three back-offs, then the car is given up.
 		FGTPUnitRecovery R;
 		float T = 0.f;
 		while (!R.IsGivenUp() && T < 60.f)
 		{
-			R.Step(Dt, 0.f, 0.6f, 0.f, 4, 1.f, 10.f, 10.f, S);
+			const bool bBacking = R.State == EState::BackingOff;
+			R.Step(Dt, bBacking ? -4.f : 0.f, 0.6f, 0.f, 4, 1.f, bBacking ? 8.f : 10.f, 10.f, S);
 			T += Dt;
 		}
 		CHECK(R.IsGivenUp() && R.Why == EWhy::Pinned && R.BackOffs == S.MaxBackOffs);
@@ -50,6 +52,33 @@ int main()
 		CHECK(Near(T, 4.f * S.PinnedSeconds + 3.f * S.BackSeconds, 0.5f));
 		// Given up for good.
 		CHECK(R.Step(Dt, 40.f, 1.f, 0.f, 4, 1.f, 500.f, 10.f, S) == EState::GivenUp);
+	}
+	{
+		// Gate 51, units 118 and 108: the back-off does not move the car either (0 km/h, the same place within
+		// 30 cm). Two such back-offs and it is given up as stuck: 2 waits and 2 back-offs, 6.6 s, not 13.
+		FGTPUnitRecovery R;
+		float T = 0.f;
+		while (!R.IsGivenUp() && T < 60.f)
+		{
+			R.Step(Dt, 0.f, 0.6f, 0.f, 4, 1.f, 10.f + (R.State == EState::BackingOff ? 0.2f : 0.f), 10.f, S);
+			T += Dt;
+		}
+		CHECK(R.IsGivenUp() && R.Why == EWhy::Stuck && R.BackOffs == S.MaxDeadBackOffs);
+		CHECK(Near(T, 2.f * S.PinnedSeconds + 2.f * S.BackSeconds, 0.5f));
+	}
+	{
+		// A back-off that did nothing followed by one that moved the car: not stuck, the count starts again.
+		FGTPUnitRecovery R;
+		int Ended = 0;
+		EState Last = EState::Driving;
+		for (int Frame = 0; Frame < 30 * 12 && Ended < 2; ++Frame)
+		{
+			const bool bBacking = R.State == EState::BackingOff;
+			const EState Now = R.Step(Dt, 0.f, 0.6f, 0.f, 4, 1.f, bBacking && Ended == 1 ? 7.f : 10.f, 10.f, S);
+			Ended += Last == EState::BackingOff && Now != EState::BackingOff ? 1 : 0;
+			Last = Now;
+		}
+		CHECK(Ended == 2 && !R.IsGivenUp() && R.DeadBackOffs == 0);
 	}
 	{
 		// Going straight when held: one side, then the other.
