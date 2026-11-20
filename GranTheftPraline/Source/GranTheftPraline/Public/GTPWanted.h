@@ -471,6 +471,17 @@ private:
 	mutable FVector2D LastTravelDirection = FVector2D::ZeroVector;
 	bool IsRoadblockSite(const APawn& Player, const FGTPTrafficLane& Lane, int32 Level, FVector& OutPoint, FVector& OutAlong, double& OutDistance) const;
 	bool FindSpawnPoint(const FVector& PlayerLocation, int32& OutLane, int32& OutPoint, FTransform& OutTransform) const;
+	/**
+	 * True when a police car can be made at Place, on the ground the trace Ground found there. False when that trace
+	 * stopped on a car or a person (the "ground" was a roof), or when one stands in the room the new car takes.
+	 * Gate of candidate 51: a unit was made on a traffic car standing on its lane, came to rest against it on two
+	 * wheels and stayed there 12 s at 0 km/h, which alone took the units' average under the floor.
+	 * bRoadblock: the other police cars are not looked at (the two cars of a roadblock stand nose to tail).
+	 * OutWhat: the name of what is in the way.
+	 */
+	bool IsSpawnPlaceClear(const FTransform& Place, const FHitResult& Ground, bool bRoadblock, FString& OutWhat) const;
+	/** The line that says why no place was found for a car is written once in a while, not every try. */
+	mutable double NextNoPlaceLog = 0.0;
 	void DriveUnit(FUnit& Unit, UGTPWantedComponent& Wanted, const AActor& Player, float DeltaSeconds);
 	void DriveStraight(FUnit& Unit, const FVector& Target, float MaxSpeedKmh);
 	/** The pedals the driving decided, tamed by the steering (GTPUnitRecovery::Tame), given to the car. */

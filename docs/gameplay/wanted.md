@@ -87,6 +87,16 @@ Candidate 49, packaged: `pursuit` passed (22 km/h against 20 wanted, a car withi
 
 None of this has run in the engine at the time of writing. The lanes used outside it are those of 2026-11-11, not the map of the gate; the real braking of the cars is not known (the settings leave it a margin, they do not measure it).
 
+## What the gate of candidate 51 showed: a car made on another car (2026-11-20)
+
+Candidate 51, packaged, with the changes above: no unit put back, no replacement nearer than 150 m (one, at 152 m), the player's car never moved by the script, a police car 4 m behind the player in the picture of the chase, the player arrested by a chasing car 2 m away. `pursuit` failed all the same: 23 km/h against the floor of 25 (the player averaged 24 over the same seconds, which start before he drives off).
+
+Its lines give one cause. The third unit was made on lane 54 at a height 72 cm above the place it then lay, tilted (2 wheels on the ground), a traffic car 130 cm inside its bumper: it had been made on that car. It stayed 12 s at 0 km/h, backing off three times, before it was given up. Those 12 s are about 15 % of the units' time; without them the average is about 27 km/h (worked out from the lines, not measured).
+
+Why: the place of a new police car was checked against the other police cars only, and the ground under it was found by a trace that stops on a roof. Now a place is refused when that trace stops on a car or a person, when one stands in the room the new car takes, or when any car on the road is within 15 m. Roadblock cars get the first two checks (a roadblock car of the same gate was made 112 cm higher than its neighbours). When no place is found, a line says how many tries failed on what (`police: no place for a car in 60 tries`), at most every 10 s.
+
+Not compiled at the time of writing, and no test outside the engine: these are collision queries.
+
 ## Switches
 
 `-PolicePerception=0|1|2` (off, perception only, both = default), `-PoliceEqs=0` (officers sweep a fixed circle again), `-Police=0`, `-WantedStars=N`, `-WantedHold`, `-Witnesses=0`.

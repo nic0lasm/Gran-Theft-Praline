@@ -87,6 +87,16 @@ Candidat 49, packagé : `pursuit` est passée (22 km/h pour 20 voulus, une voitu
 
 Rien de tout cela n'a tourné dans le moteur au moment où ces lignes sont écrites. Les voies utilisées hors du moteur sont celles du 11/11/2026, pas la carte de la porte ; le freinage réel des voitures n'est pas connu (les réglages lui laissent une marge, ils ne le mesurent pas).
 
+## Ce que la porte du candidat 51 a montré : une voiture créée sur une autre (20/11/2026)
+
+Candidat 51, packagé, avec les changements ci-dessus : aucune unité replacée, aucune remplaçante à moins de 150 m (une seule, à 152 m), la voiture du joueur jamais déplacée par le script, une voiture de police 4 m derrière le joueur sur l'image de la poursuite, le joueur arrêté par une voiture de poursuite à 2 m. `pursuit` échoue quand même : 23 km/h pour un plancher de 25 (le joueur a fait 24 de moyenne sur les mêmes secondes, qui commencent avant son départ).
+
+Ses lignes donnent une cause. La troisième unité a été créée sur la voie 54 à une hauteur de 72 cm au-dessus de l'endroit où elle est restée, penchée (2 roues au sol), une voiture du trafic 130 cm à l'intérieur de son pare-chocs : elle avait été créée sur cette voiture. Elle est restée 12 s à 0 km/h, en reculant trois fois, avant d'être abandonnée. Ces 12 s font environ 15 % du temps des unités ; sans elles la moyenne est d'environ 27 km/h (calculé d'après les lignes, pas mesuré).
+
+Pourquoi : la place d'une nouvelle voiture de police n'était comparée qu'aux autres voitures de police, et le sol sous elle était trouvé par un tracé qui s'arrête sur un toit. Désormais une place est refusée quand ce tracé s'arrête sur une voiture ou une personne, quand il y en a une dans le volume que prend la nouvelle voiture, ou quand une voiture quelconque est à moins de 15 m. Les voitures de barrage ont les deux premiers contrôles (une voiture de barrage de la même porte a été créée 112 cm plus haut que ses voisines). Quand aucune place n'est trouvée, une ligne dit combien d'essais ont échoué et sur quoi (`police: no place for a car in 60 tries`), au plus toutes les 10 s.
+
+Pas compilé au moment d'écrire, et aucun test hors moteur : ce sont des requêtes de collision.
+
 ## Interrupteurs
 
 `-PolicePerception=0|1|2` (coupée, perception seule, les deux = défaut), `-PoliceEqs=0` (les policiers balaient de nouveau un cercle fixe), `-Police=0`, `-WantedStars=N`, `-WantedHold`, `-Witnesses=0`.
