@@ -95,6 +95,10 @@ Ses lignes donnent une cause. La troisième unité a été créée sur la voie 5
 
 Pourquoi : la place d'une nouvelle voiture de police n'était comparée qu'aux autres voitures de police, et le sol sous elle était trouvé par un tracé qui s'arrête sur un toit. Désormais une place est refusée quand ce tracé s'arrête sur une voiture ou une personne, quand il y en a une dans le volume que prend la nouvelle voiture, ou quand une voiture quelconque est à moins de 15 m. Les voitures de barrage ont les deux premiers contrôles (une voiture de barrage de la même porte a été créée 112 cm plus haut que ses voisines). Quand aucune place n'est trouvée, une ligne dit combien d'essais ont échoué et sur quoi (`police: no place for a car in 60 tries`), au plus toutes les 10 s.
 
+Une deuxième unité de ce passage est restée sur ses quatre roues, 751 N.m en avant puis 1287 N.m en arrière sur des roues arrière qui ne tournaient pas, rien à moins de 3 m de son pare-chocs : trois reculs qui l'ont déplacée de 30 cm, 12 s à 0 km/h. Ce qui la retenait n'est pas connu. Un recul qui déplace la voiture de moins de 0,5 m n'a servi à rien, et deux de suite font désormais abandonner la voiture (`moves neither forwards nor backwards`) : environ 7 s au lieu de 13 avant l'envoi de sa remplaçante (`GTPUnitRecovery.h`, testé hors moteur). Cela raccourcit le temps pendant lequel une voiture coincée pèse sur la moyenne de l'étape `pursuit` ; le critère lui-même ne change pas.
+
+La voiture du joueur était à 0 km/h à son arrestation : elle avait freiné pour un piéton à 0 m, puis est restée retenue, gaz à fond et volant braqué (850 tr/min, première) pendant 2 s. Contre ce piéton ou contre le décor à côté : les lignes ne le disent pas.
+
 Pas compilé au moment d'écrire, et aucun test hors moteur : ce sont des requêtes de collision.
 
 ## Interrupteurs

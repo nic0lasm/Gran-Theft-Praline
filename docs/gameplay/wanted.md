@@ -95,6 +95,10 @@ Its lines give one cause. The third unit was made on lane 54 at a height 72 cm a
 
 Why: the place of a new police car was checked against the other police cars only, and the ground under it was found by a trace that stops on a roof. Now a place is refused when that trace stops on a car or a person, when one stands in the room the new car takes, or when any car on the road is within 15 m. Roadblock cars get the first two checks (a roadblock car of the same gate was made 112 cm higher than its neighbours). When no place is found, a line says how many tries failed on what (`police: no place for a car in 60 tries`), at most every 10 s.
 
+A second unit of that run stood on its four wheels, 751 N.m forwards then 1287 N.m backwards on rear wheels that did not turn, nothing within 3 m of its bumper: three back-offs that moved it 30 cm, 12 s at 0 km/h. Why it was held is not known. A back-off that moves the car less than 0.5 m did nothing, and two of them in a row now give the car up (`moves neither forwards nor backwards`): about 7 s instead of 13 before its replacement is sent (`GTPUnitRecovery.h`, tested outside the engine). This shortens the time a stuck car weighs on the average of the `pursuit` step; the criterion itself is unchanged.
+
+The player's car stood at 0 km/h when it was arrested: it had braked for a pedestrian at 0 m, then was held with the throttle down, the wheel turned (850 rpm, first gear) for 2 s. Against that pedestrian or against the scenery beside it: the lines do not say.
+
 Not compiled at the time of writing, and no test outside the engine: these are collision queries.
 
 ## Switches

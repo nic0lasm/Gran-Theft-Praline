@@ -12,6 +12,11 @@
 //    (friction 0.7 x 3) than the car needs to roll over (centre of mass 83 cm up).
 // So: the pedals follow the steering (Tame), a car held against something backs off (Step), and a car
 // that stays off its wheels or cannot get away is given up, counted and replaced, never moved back onto a lane.
+//
+// Gate of candidate 51 (2026-11-20): two units backed off three times without moving (one lying against the car
+// it had been made on, one on its four wheels with 751 N.m forwards then 1287 N.m backwards on wheels that did
+// not turn) and stood 12 s at 0 km/h before they were given up. A car that reverse does not move either is
+// stuck: given up after two such back-offs in a row.
 
 #include <algorithm>
 #include <cmath>
@@ -30,6 +35,9 @@ struct FGTPUnitRecoverySettings
 	/** Backed off this many times within SamePlaceMetres without getting away: the car is given up. */
 	int MaxBackOffs = 3;
 	float SamePlaceMetres = 12.f;
+	/** A back-off that moved the car less than this did nothing; this many of them in a row: the car is stuck, given up. */
+	float BackMovedMetres = 0.5f;
+	int MaxDeadBackOffs = 2;
 	/** No wheel on the ground, or lying on its side, and slower than OffWheelsKmh for this long: given up.
 	 *  Longer than the vehicle's own rule, which puts a car lying on its side or roof back on its wheels after
 	 *  2.5 s and lets it fall 1.2 m (AGTPVehicle, AI-driven cars too): a car that rule has righted drives on,
@@ -61,7 +69,9 @@ struct FGTPUnitRecovery
 	{
 		None,
 		Pinned,
-		OffWheels
+		OffWheels,
+		/** Moves neither forwards nor backwards. */
+		Stuck
 	};
 
 	EState State = EState::Driving;
@@ -77,6 +87,10 @@ struct FGTPUnitRecovery
 	bool bHasPlace = false;
 	float PlaceX = 0.f;
 	float PlaceY = 0.f;
+	/** Where the back-off under way began, and the back-offs in a row that did not move the car. */
+	float BackFromX = 0.f;
+	float BackFromY = 0.f;
+	int DeadBackOffs = 0;
 
 	bool IsGivenUp() const { return State == EState::GivenUp; }
 
@@ -107,6 +121,12 @@ struct FGTPUnitRecovery
 			{
 				State = EState::Driving;
 				PinnedTime = 0.f;
+				DeadBackOffs = std::hypot(X - BackFromX, Y - BackFromY) < S.BackMovedMetres ? DeadBackOffs + 1 : 0;
+				if (DeadBackOffs >= S.MaxDeadBackOffs)
+				{
+					State = EState::GivenUp;
+					Why = EWhy::Stuck;
+				}
 			}
 			return State;
 		}
@@ -139,6 +159,8 @@ struct FGTPUnitRecovery
 		++BackOffs;
 		State = EState::BackingOff;
 		BackLeft = S.BackSeconds;
+		BackFromX = X;
+		BackFromY = Y;
 		// Backwards with the wheels turned away from where the car wants to go: the nose swings towards it.
 		// Going straight: one side, then the other.
 		const float Side = std::fabs(SteerAsked) > 0.2f ? (SteerAsked > 0.f ? 1.f : -1.f) : (BackOffsHere % 2 == 1 ? 1.f : -1.f);
@@ -205,6 +227,7 @@ namespace GTPUnitRecovery
 		{
 		case FGTPUnitRecovery::EWhy::Pinned: return "held in the same place after backing off";
 		case FGTPUnitRecovery::EWhy::OffWheels: return "off its wheels";
+		case FGTPUnitRecovery::EWhy::Stuck: return "moves neither forwards nor backwards";
 		default: return "driving";
 		}
 	}
