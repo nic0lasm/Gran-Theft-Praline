@@ -114,3 +114,8 @@ Une seule peur dite partout : quand la rue fait courir une personne pour ses pro
 la panique transmise), l'état du corps dit « en fuite » lui aussi. `-GTARun` ne lève l'arme qu'à l'intérieur de la portée,
 sur une personne qui ne court pas, et photographie les deux étapes de braquage de jour, flou de mouvement coupé (il le dit
 dans le journal).
+
+L'image du braquage de près du candidat 51 (de jour, caméra à l'horizontale) est noire, avec seulement le HUD ; celle à 3 m
+montre la personne debout, mains ouvertes au-dessus de la tête. `-GTARun` dit maintenant où est la caméra quand chaque
+image est prise (« GTARun hold-up probe: the camera is … from the player's eyes … ; within 8 cm of it: INSIDE … | nothing ;
+… screen fade … »). Le test ne déplace pas la caméra : un écran noir à 1,1 m de quelqu'un est ce que le joueur verrait.
