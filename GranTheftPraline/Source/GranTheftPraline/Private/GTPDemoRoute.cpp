@@ -452,8 +452,37 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 		{
 			if (bChase)
 			{
-				// No hunt for a moving car: the free test car (-TestVehicle) is brought to the player's side.
+				// No hunt for a moving car: the nearest free car (a parked one, the -TestVehicle one) is brought to the
+				// player's side. Which model that is changes from run to run. -DemoFreeCar=Car02 makes one of the model
+				// whose class name holds that text instead (among the traffic's classes), so that a run can be played
+				// again with the same car: the theft was seen in Car05 and Car12, not in Car02 (gates 49 to 52).
 				Car = FindCar();
+				FString FreeCarModel;
+				if (FParse::Value(FCommandLine::Get(), TEXT("DemoFreeCar="), FreeCarModel) && !FreeCarModel.IsEmpty())
+				{
+					UClass* Model = nullptr;
+					if (TActorIterator<AGTPTrafficNetwork> Network(Pawn->GetWorld()); Network)
+					{
+						for (const TSubclassOf<AGTPVehicle>& Class : Network->LoadedVehicleClasses)
+						{
+							if (Class.Get() && Class->GetName().Contains(FreeCarModel))
+							{
+								Model = Class.Get();
+								break;
+							}
+						}
+					}
+					FActorSpawnParameters Made;
+					Made.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+					const FVector Beside = Pawn->GetActorLocation() + FRotator(0.f, Pawn->GetActorRotation().Yaw, 0.f).Vector() * 500.f + FVector(0.f, 0.f, 100.f);
+					AGTPVehicle* Asked = Model ? Pawn->GetWorld()->SpawnActor<AGTPVehicle>(Model, Beside, FRotator(0.f, Pawn->GetActorRotation().Yaw, 0.f), Made) : nullptr;
+					if (Asked)
+					{
+						Car = Asked;
+					}
+					GTP_TRACE(LogGTPDemo, TEXT("Demo chase: -DemoFreeCar=%s: %s"), *FreeCarModel,
+						Asked ? *FString::Printf(TEXT("%s made"), *Asked->GetName()) : (Model ? TEXT("the car could not be made, the nearest free car is taken") : TEXT("no traffic class of that name, the nearest free car is taken")));
+				}
 				if (AGTPVehicle* Free = Car.Get())
 				{
 					const FVector Forward = FRotator(0.f, Pawn->GetActorRotation().Yaw, 0.f).Vector();

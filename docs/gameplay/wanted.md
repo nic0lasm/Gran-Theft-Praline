@@ -104,3 +104,5 @@ Not compiled at the time of writing, and no test outside the engine: these are c
 ## Switches
 
 `-PolicePerception=0|1|2` (off, perception only, both = default), `-PoliceEqs=0` (officers sweep a fixed circle again), `-Police=0`, `-WantedStars=N`, `-WantedHold`, `-Witnesses=0`.
+
+`-DemoFreeCar=Car02` (with `-PoliceChaseDemo` or `-GTARun`): the car the automatic run steals is made of the traffic class whose name holds that text, instead of the nearest free car, whose model changes from run to run. For playing a run again with the same car: the theft was seen by passers-by in Car05 and Car12 and not in Car02 (gates 49 to 52), and only a run in Car02 can say whether the witness's line of sight is repaired.

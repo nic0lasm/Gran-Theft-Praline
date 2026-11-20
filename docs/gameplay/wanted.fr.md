@@ -104,3 +104,5 @@ Pas compilé au moment d'écrire, et aucun test hors moteur : ce sont des requê
 ## Interrupteurs
 
 `-PolicePerception=0|1|2` (coupée, perception seule, les deux = défaut), `-PoliceEqs=0` (les policiers balaient de nouveau un cercle fixe), `-Police=0`, `-WantedStars=N`, `-WantedHold`, `-Witnesses=0`.
+
+`-DemoFreeCar=Car02` (avec `-PoliceChaseDemo` ou `-GTARun`) : la voiture que le parcours automatique vole est créée à partir de la classe du trafic dont le nom contient ce texte, au lieu de la voiture libre la plus proche, dont le modèle change d'un passage à l'autre. Pour rejouer un passage avec la même voiture : le vol a été vu par des passants dans Car05 et Car12 et pas dans Car02 (portes 49 à 52), et seul un passage en Car02 peut dire si la ligne de vue du témoin est réparée.
