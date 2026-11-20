@@ -19,6 +19,7 @@
 #include "GTPDemoRoute.h"
 #include "GTPEnvironmentSubsystem.h"
 #include "Engine/Engine.h"
+#include "Engine/OverlapResult.h"
 #include "GTPHealth.h"
 #include "GTPLog.h"
 #include "InputCoreTypes.h"
@@ -1351,6 +1352,29 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail, bool bClose)
 		}
 		GTP_TRACE(LogGTPGtaRun, TEXT("GTARun hold-up probe: the player's own mesh: %s; camera pitch %.0f roll %.0f"), *Pose(Character->GetMesh(), nullptr),
 			PC->PlayerCameraManager ? PC->PlayerCameraManager->GetCameraRotation().Pitch : 0.f, PC->PlayerCameraManager ? PC->PlayerCameraManager->GetCameraRotation().Roll : 0.f);
+		if (PC->PlayerCameraManager)
+		{
+			// Where the camera is when the picture is taken: the close hold-up of candidate 51 gave a black picture, with
+			// only the HUD on it. Inside what, how far from the two heads, and whether the screen is faded.
+			const FVector Camera = PC->PlayerCameraManager->GetCameraLocation();
+			const FVector Eyes = Character->GetPawnViewLocation();
+			const FVector HisHead = Aimed && Aimed->GetBody() ? Aimed->GetBody()->GetSocketLocation(TEXT("head")) : Victim->GetActorLocation();
+			FCollisionQueryParams CameraParams(SCENE_QUERY_STAT(GTPGtaRunCamera), false, Character);
+			FHitResult Between;
+			const bool bBlocked = World->LineTraceSingleByChannel(Between, Eyes, Camera, ECC_Camera, CameraParams);
+			FHitResult Ahead;
+			const bool bWall = World->LineTraceSingleByChannel(Ahead, Camera, Camera + PC->PlayerCameraManager->GetCameraRotation().Vector() * 300.0, ECC_Visibility, CameraParams);
+			TArray<FOverlapResult> Around;
+			World->OverlapMultiByChannel(Around, Camera, FQuat::Identity, ECC_Camera, FCollisionShape::MakeSphere(8.f), CameraParams);
+			GTP_TRACE(LogGTPGtaRun, TEXT("GTARun hold-up probe: the camera is %.0f cm from the player's eyes (%.0f behind, %.0f above), %.0f cm from the head of the one aimed at, "
+				"field of view %.0f; from the eyes to it: %s; within 8 cm of it: %s; first thing within 3 m ahead of it: %s; screen fade %.2f"),
+				FVector::Dist(Camera, Eyes), FVector::DotProduct(Eyes - Camera, Character->GetActorForwardVector()), Camera.Z - Eyes.Z, FVector::Dist(Camera, HisHead),
+				PC->PlayerCameraManager->GetFOVAngle(),
+				bBlocked ? *FString::Printf(TEXT("BLOCKED by %s"), Between.GetActor() ? *Between.GetActor()->GetName() : TEXT("something")) : TEXT("clear"),
+				Around.Num() > 0 ? *FString::Printf(TEXT("INSIDE %s"), Around[0].GetActor() ? *Around[0].GetActor()->GetName() : TEXT("something")) : TEXT("nothing"),
+				bWall ? *FString::Printf(TEXT("%s at %.0f cm"), Ahead.GetActor() ? *Ahead.GetActor()->GetName() : TEXT("something"), Ahead.Distance) : TEXT("nothing"),
+				PC->PlayerCameraManager->FadeAmount);
+		}
 		Threat->ClearThreat();
 		if (!bClose)
 		{

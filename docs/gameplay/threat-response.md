@@ -106,3 +106,8 @@ to 49: the player seen from above, the person out of the frame).
 One fear told everywhere: when the street sends a person running for its own reasons (a crash, a shot heard, panic passed
 on), the body's state says "fleeing" too. `-GTARun` raises the gun only inside the range, on a person who is not running,
 and pictures the two hold-up steps by day with the motion blur off (it says so in the log).
+
+The picture of the close hold-up of candidate 51 (by day, camera level) is black, with only the HUD on it; the one at 3 m
+shows the person standing with open hands over his head. `-GTARun` now says where the camera is when each picture is
+taken ("GTARun hold-up probe: the camera is … from the player's eyes …; within 8 cm of it: INSIDE … | nothing; … screen
+fade …"). The test does not move the camera: a black screen 1.1 m from somebody is what the player would see.
