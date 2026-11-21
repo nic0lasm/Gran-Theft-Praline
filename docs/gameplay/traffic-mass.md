@@ -453,6 +453,39 @@ real wheels: `moving=` (upright cars) 120 to 300 s at 75.6 or more, cars lying o
 the player near 0, and no "brake 5.00" in the "MassTraffic physics car" lines. Cause read in Epic's
 code and config, not yet seen on the PC.
 
+## After gate 54: no car under MassTraffic's simple physics
+
+Gate 54 (real wheels and City Sample's speed PID, both applied as logged): no car lay over (0 of 285
+probed), but 49.8 upright cars moved from 120 to 300 s against 75.6 wanted. At 265 s 54 of the 55
+cars under MassTraffic's simple physics stood still, in queues (car ahead 1 to 3 m, brake 1), while
+the cars on their lanes drove; from 187 s lane [0/5333]'s list of cars broke (81,635 errors "No
+valid current behind vehicle ... not current lane tail vehicle", a lane change to [0/5393] refused
+each frame, one ensure in `MassTrafficLaneChange.cpp:271`), with none at gate 52. The speed PID
+was not the cause, or not the only one.
+
+What MassTraffic does, read in its code (`MassTrafficVehicleSimulationLODProcessor.cpp`,
+`MassTrafficVehicleSimulationTrait.cpp`): a car of simulation LOD High or Medium gets the simple
+physics, if its config names a PhysicsVehicleTemplateActor; by the code's defaults that is every
+car within 200 m of the player, up to 150. The near cars of City Sample are actors with Chaos (we
+spawn none: "actors=0"), and its vehicle configs, read on 14/11, leave PhysicsVehicleTemplateActor
+empty (MassTraffic then warns "Vehicles will be forced to low simulation LOD"). Here that physics
+gives the player nothing he can touch (no collision with it) and is what stops the traffic.
+
+So GTPMass now sets, at start, where the Medium and Low bands begin to 0 m (base and visible
+distances, by name): no car is under the simple physics, every car short of the Off distance
+(500 m) is Low and drives on its lane, as the cars beyond 200 m always did. Line "MassTraffic
+physics radius: no car under MassTraffic's simple physics ... BaseLODDistance Medium 200->0 m, Low
+200->0 m"; `-MassTrafficPhysicsRadius=200` gives the code's 200 m back. The physics template is
+still made from our car with the real wheels and City Sample's centre of mass (7 lines "vehicle
+physics template: ... given the real wheels"), for whoever gives the physics back. A car of LOD Low
+moves when its chunk ticks, at the rate its entity config gives Low: logged once per map ("MassTraffic
+tick rates of N vehicle simulation trait(s), High / Medium / Low / Off"); a Low rate over 0 would
+make the cars near the player move by steps.
+
+Expected at the next gate: "physics cars" 0 under the physics; moving (upright) 120 to 300 s at 75.6
+or more (estimate, not proven: at gate 54 the 65 cars off the physics had 46 moving, 71 %, that is 85
+of 120); 0 car lying over; no "No valid current" error; game p50 no worse (55 fewer cars simulated).
+
 ## Open points
 
 - Near the player MassTraffic may hand a car over to its physics vehicle: our copies name our cars

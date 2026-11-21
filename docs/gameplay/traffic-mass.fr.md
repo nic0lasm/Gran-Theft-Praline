@@ -506,6 +506,43 @@ ou plus, voitures couchées à moins de 100 m du joueur proches de 0, et plus de
 lignes « MassTraffic physics car ». Cause lue dans le code et la config d'Epic, pas encore vue sur le
 PC.
 
+## Après la porte 54 : plus de voiture sous la physique simple de MassTraffic
+
+Porte 54 (vraies roues et PID de vitesse de City Sample, appliqués comme le journal le montre) :
+aucune voiture couchée (0 sur 285 sondées), mais 49,8 voitures debout roulaient de 120 à 300 s, pour
+75,6 voulues. À 265 s, 54 des 55 voitures sous la physique simple de MassTraffic étaient arrêtées,
+en files (voiture devant à 1-3 m, frein 1), pendant que les voitures sur leurs voies roulaient ; à
+partir de 187 s, la liste des voitures de la voie [0/5333] s'est cassée (81 635 erreurs « No valid
+current behind vehicle ... not current lane tail vehicle », un changement de voie vers [0/5393]
+refusé à chaque image, un ensure dans `MassTrafficLaneChange.cpp:271`), aucune à la porte 52. Le PID
+de vitesse n'était pas la cause, ou pas la seule.
+
+Ce que fait MassTraffic, lu dans son code (`MassTrafficVehicleSimulationLODProcessor.cpp`,
+`MassTrafficVehicleSimulationTrait.cpp`) : une voiture de LOD de simulation High ou Medium reçoit la
+physique simple, si sa config nomme un PhysicsVehicleTemplateActor ; par les défauts du code, ce
+sont toutes les voitures à moins de 200 m du joueur, jusqu'à 150. Les voitures proches de City Sample
+sont des acteurs avec Chaos (nous n'en faisons apparaître aucun : « actors=0 »), et ses configs de
+véhicules, lues le 14/11, laissent PhysicsVehicleTemplateActor vide (MassTraffic prévient alors
+« Vehicles will be forced to low simulation LOD »). Ici, cette physique ne donne au joueur rien qu'il
+puisse toucher (aucune collision avec elle) et c'est elle qui arrête le trafic.
+
+GTPMass pose donc au démarrage le début des bandes Medium et Low à 0 m (distances de base et
+visibles, par leur nom) : aucune voiture n'est sous la physique simple, toute voiture en deçà de la
+distance Off (500 m) est Low et roule sur sa voie, comme les voitures au-delà de 200 m l'ont toujours
+fait. Ligne « MassTraffic physics radius: no car under MassTraffic's simple physics ...
+BaseLODDistance Medium 200->0 m, Low 200->0 m » ; `-MassTrafficPhysicsRadius=200` rend les 200 m du
+code. Le gabarit physique est toujours tiré de notre voiture, avec les vraies roues et le centre de
+gravité de City Sample (7 lignes « vehicle physics template: ... given the real wheels »), pour qui
+rendra la physique. Une voiture de LOD Low avance quand son bloc est mis à jour, au rythme que sa
+config d'entité donne au LOD Low : relevé une fois par carte (« MassTraffic tick rates of N vehicle
+simulation trait(s), High / Medium / Low / Off ») ; un rythme Low au-dessus de 0 ferait avancer par
+à-coups les voitures proches du joueur.
+
+Attendu à la prochaine porte : « physics cars » 0 sous la physique ; moving (voitures debout) de 120 à
+300 s à 75,6 ou plus (estimation, non prouvée : à la porte 54, les 65 voitures hors physique en
+avaient 46 qui roulaient, 71 %, soit 85 sur 120) ; 0 voiture couchée ; aucune erreur « No valid
+current » ; game p50 pas pire (55 voitures simulées en moins).
+
 ## Points ouverts
 
 - Près du joueur, MassTraffic peut confier une voiture à son véhicule physique : nos copies
