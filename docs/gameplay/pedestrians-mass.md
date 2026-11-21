@@ -1,3 +1,4 @@
+# Pedestrians on Mass (GTPMass module)
 
 ## First module: the crowd (GTPMass, `-Pedestrians=mass`)
 

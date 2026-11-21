@@ -1,3 +1,5 @@
+# Piétons sur Mass (module GTPMass)
+
 ## Premier module : la foule (GTPMass, `-Pedestrians=mass`)
 
 `GTPCrowd.h/.cpp` : `UGTPCrowdSubsystem` charge le graphe des trottoirs, crée `CrowdCount` (300, `-PedMass=N`) entités Mass
