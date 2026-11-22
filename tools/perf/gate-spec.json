@@ -1,6 +1,6 @@
 {
   "_doc": "What the Windows gate queue checks for this candidate. Edited by the pilot for each candidate; read by the PC queue script. No machine paths here. From candidate 60 the gate judges what the player sees: the default traffic, which is the legacy one (MassTraffic runs only with -Traffic=mass). The 'blocking' criteria are read on the blocking passes; everything under 'informative_mass' is measured and reported on the MassTraffic passes but never fails the gate, and never stops it. Those criteria become blocking again only for switching the default traffic to mass, once a whole gate passes them (ADR-0015).",
-  "candidate": 62,
+  "candidate": 63,
   "map_md5": "bce9008ff024c78673626c4577ead426",
   "game_p50_max_ms": 17.38,
   "game_p95_max_ms": 50,
@@ -122,7 +122,10 @@
     "held up",
     "drive launch test",
     "GTARun encore",
-    "Demo chase: encore"
+    "Demo chase: encore",
+    "Player visual on restart",
+    "view pitch limits",
+    "camera pitch"
   ],
   "video": {
     "pass": "-GTARun -GTARunEncore",
@@ -138,6 +141,5 @@
       120
     ]
   },
-  "_p50_note": "1.3 x the p50 of the last passed gate (59: 13.37 ms); the pilot updates it after the next passed gate",
-  "fallback_head_if_compile_fails": "8c9e98620b19d6ff97bc4ae89ed16337b9396876"
+  "_p50_note": "1.3 x the p50 of the last passed gate (59: 13.37 ms); the pilot updates it after the next passed gate"
 }
