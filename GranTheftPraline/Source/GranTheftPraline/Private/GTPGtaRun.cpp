@@ -1587,16 +1587,65 @@ namespace GTPGtaRunCrash
 		Out = Flat + FVector(0.0, 0.0, 30.0);
 		return true;
 	}
+
+	/**
+	 * The traffic cars within RadiusCm of Near: MassTraffic's (their Mass transform) with -Traffic=mass, else the cars of
+	 * the legacy traffic (the default, what the player sees): those with their AI driver, out of ghost mode (a ghost has
+	 * no physics; a pooled car is one), not police and not wrecked, at the centre of their bounds, with half their
+	 * length for a radius and their actor's id. False when neither traffic runs. bOutMass says which one answered.
+	 */
+	bool FindCars(UWorld& World, const FVector& Near, float RadiusCm, TArray<FGTPMassTrafficCar>& Out, bool& bOutMass)
+	{
+		Out.Reset();
+		bOutMass = GTPMassTrafficCars::Find(World, Near, RadiusCm, Out);
+		if (bOutMass)
+		{
+			return true;
+		}
+		Out.Reset();
+		TActorIterator<AGTPTrafficNetwork> Network(&World);
+		if (!Network)
+		{
+			return false;
+		}
+		const double RadiusSq = FMath::Square(static_cast<double>(RadiusCm));
+		for (const AGTPVehicle* Each : TActorRange<AGTPVehicle>(&World))
+		{
+			if (!Each->HasAIDriver() || Each->IsWrecked() || Each->ActorHasTag(GTPPolice::PoliceTag)
+				|| FVector::DistSquared(Each->GetActorLocation(), Near) > RadiusSq)
+			{
+				continue;
+			}
+			const UGTPAIDriverComponent* Driver = Each->FindComponentByClass<UGTPAIDriverComponent>();
+			// A pooled car waits hidden, as a ghost.
+			if (!Driver || Driver->IsGhost() || Each->IsHidden())
+			{
+				continue;
+			}
+			const FBox Local = Each->CalculateComponentsBoundingBoxInLocalSpace();
+			const FVector Centre = Local.IsValid ? Each->GetActorTransform().TransformPosition(Local.GetCenter()) : Each->GetActorLocation();
+			FGTPMassTrafficCar& Car = Out.AddDefaulted_GetRef();
+			Car.Location = FVector(Centre.X, Centre.Y, Each->GetActorLocation().Z);
+			Car.Forward = Each->GetActorForwardVector();
+			Car.SpeedCmS = Each->GetSpeedKmh() / 0.036f;
+			Car.RadiusCm = Local.IsValid ? FMath::Clamp(static_cast<float>(Local.GetExtent().X), 180.f, 320.f) : 230.f;
+			Car.Id = static_cast<uint64>(Each->GetUniqueID());
+		}
+		return true;
+	}
 }
 
 int32 UGTPGtaRun::ChooseCrashTarget(UWorld& World, const AGTPVehicle& Car, FString& Why)
 {
 	TArray<FGTPMassTrafficCar> Cars;
-	if (!GTPMassTrafficCars::Find(World, Car.GetActorLocation(), 30000.f, Cars))
+	bool bMass = false;
+	if (!GTPGtaRunCrash::FindCars(World, Car.GetActorLocation(), 30000.f, Cars, bMass))
 	{
-		Why = TEXT("no MassTraffic car to drive into: -Traffic=mass is off or MassTraffic is not installed");
+		Why = TEXT("no traffic car to drive into: neither MassTraffic (-Traffic=mass) nor the legacy traffic runs");
 		return -1;
 	}
+	Crash.bMass = bMass;
+	const TCHAR* Kind = bMass ? TEXT("MassTraffic car") : TEXT("legacy traffic car");
 	const FVector From = Car.GetActorLocation();
 	// A stopped car first (at its light or in a queue: still there when the player's car arrives), then the nearest.
 	Cars.Sort([&From](const FGTPMassTrafficCar& A, const FGTPMassTrafficCar& B)
@@ -1666,9 +1715,10 @@ int32 UGTPGtaRun::ChooseCrashTarget(UWorld& World, const AGTPVehicle& Car, FStri
 		bool bInTheWay = World.LineTraceSingleByChannel(Hit, Spot + Lift, Candidate.Location - Forward * (Candidate.RadiusCm + 50.f) + Lift, ECC_Visibility, Params);
 		if (bInTheWay)
 		{
-			// The target itself when MassTraffic shows it with a body (-MassTrafficBodies): its rear is not in the way.
+			// The target itself, when MassTraffic shows it with a body (-MassTrafficBodies) or a legacy car: its rear is not in
+			// the way.
 			const AGTPVehicle* HitCar = Cast<AGTPVehicle>(Hit.GetActor());
-			bInTheWay = !(HitCar && HitCar->IsShownByMassTraffic() && FVector::Dist2D(HitCar->GetActorLocation(), Candidate.Location) < 300.0);
+			bInTheWay = !(HitCar && (HitCar->IsShownByMassTraffic() || !bMass) && FVector::Dist2D(HitCar->GetActorLocation(), Candidate.Location) < 300.0);
 		}
 		if (bInTheWay)
 		{
@@ -1688,21 +1738,21 @@ int32 UGTPGtaRun::ChooseCrashTarget(UWorld& World, const AGTPVehicle& Car, FStri
 		Crash.TargetKmh = Candidate.SpeedCmS * 0.036f;
 		const FBox Local = Car.CalculateComponentsBoundingBoxInLocalSpace();
 		Crash.OwnHalfLength = Local.IsValid ? FMath::Clamp(static_cast<float>(Local.GetExtent().X), 180.f, 320.f) : 230.f;
-		GTP_TRACE(LogGTPGtaRun, TEXT("GTARun crash: attempt %d/3, MassTraffic car %llu at %s, %.0f km/h, radius %.0f cm, %.0f m from the player's car (own half length %.0f cm); %d car(s) within 300 m, %d stopped; set aside: %d with a car on the run-up, %d with no ground behind, %d with something in the way (first: %s)"),
-			Crash.Attempts, Crash.TargetId, *Candidate.Location.ToCompactString(), Crash.TargetKmh, Candidate.RadiusCm, FVector::Dist(Candidate.Location, From) / 100.0,
+		GTP_TRACE(LogGTPGtaRun, TEXT("GTARun crash: attempt %d/3, %s %llu at %s, %.0f km/h, radius %.0f cm, %.0f m from the player's car (own half length %.0f cm); %d car(s) within 300 m, %d stopped; set aside: %d with a car on the run-up, %d with no ground behind, %d with something in the way (first: %s)"),
+			Crash.Attempts, Kind, Crash.TargetId, *Candidate.Location.ToCompactString(), Crash.TargetKmh, Candidate.RadiusCm, FVector::Dist(Candidate.Location, From) / 100.0,
 			Crash.OwnHalfLength, Cars.Num(), Stopped, CarOnRunUp, NoGround, InTheWay, *FirstInTheWay);
 		return 1;
 	}
-	Why = FString::Printf(TEXT("no MassTraffic car to drive into for now: %d within 300 m (%d stopped, %d tried already), %d with a car on the run-up, %d with no ground behind, %d with something in the way (first: %s)"),
-		Cars.Num(), Stopped, TriedBefore, CarOnRunUp, NoGround, InTheWay, *FirstInTheWay);
+	Why = FString::Printf(TEXT("no %s to drive into for now: %d within 300 m (%d stopped, %d tried already), %d with a car on the run-up, %d with no ground behind, %d with something in the way (first: %s)"),
+		Kind, Cars.Num(), Stopped, TriedBefore, CarOnRunUp, NoGround, InTheWay, *FirstInTheWay);
 	return 0;
 }
 
 UGTPGtaRun::EResult UGTPGtaRun::CheckCrash(FString& Detail)
 {
 	// The player's car into a traffic car, from behind at full throttle: what stops it (docs/gameplay/traffic-mass.md).
-	// MassTraffic's cars are drawn as instances with no body: until the near ones have one, the player's car goes
-	// through them and this step says so, on the car the player sees (its Mass transform).
+	// A car of the legacy traffic by default (a Chaos actor), a MassTraffic car with -Traffic=mass, read where the
+	// player sees it (its Mass transform): those are instances with no body farther than -MassTrafficBodies.
 	UWorld* World = GetWorld();
 	APlayerController* PC = FirstController(World);
 	if (!World || !PC || !PC->GetPawn())
@@ -1862,14 +1912,16 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckCrash(FString& Detail)
 	const float Contact = Crash.TargetRadius + Crash.OwnHalfLength;
 	if (Crash.Verdict == 1)
 	{
-		Detail = FString::Printf(TEXT("held behind MassTraffic car %llu: hit at %.0f km/h (best %.0f), down to %.0f km/h, centres %.1f m apart at the closest (contact from about %.1f m), %.1f m aside at most; the car stood at %.0f km/h (%s)"),
-			Crash.TargetId, Crash.ContactKmh, Crash.PeakKmh, Crash.MinKmhAfter, Crash.ClosestCm / 100.f, Contact / 100.f, Crash.MaxAsideCm / 100.f, Crash.TargetKmh, *Crash.Note);
+		Detail = FString::Printf(TEXT("held behind %s %llu: hit at %.0f km/h (best %.0f), down to %.0f km/h, centres %.1f m apart at the closest (contact from about %.1f m), %.1f m aside at most; the car stood at %.0f km/h (%s)"),
+			Crash.bMass ? TEXT("MassTraffic car") : TEXT("legacy traffic car"), Crash.TargetId, Crash.ContactKmh, Crash.PeakKmh, Crash.MinKmhAfter, Crash.ClosestCm / 100.f, Contact / 100.f, Crash.MaxAsideCm / 100.f, Crash.TargetKmh, *Crash.Note);
 		return EResult::Ok;
 	}
 	if (Crash.Verdict == 2)
 	{
-		Detail = FString::Printf(TEXT("went through MassTraffic car %llu: hit at %.0f km/h, still %.0f km/h with the centres %.1f m apart along its axis and %.1f m aside (contact from about %.1f m); the car stood at %.0f km/h; the traffic cars near the player have no body"),
-			Crash.TargetId, Crash.ContactKmh, Crash.EndKmh, Crash.EndAlong / 100.f, Crash.EndAside / 100.f, Contact / 100.f, Crash.TargetKmh);
+		Detail = FString::Printf(TEXT("went through %s %llu: hit at %.0f km/h, still %.0f km/h with the centres %.1f m apart along its axis and %.1f m aside (contact from about %.1f m); the car stood at %.0f km/h; %s"),
+			Crash.bMass ? TEXT("MassTraffic car") : TEXT("legacy traffic car"), Crash.TargetId, Crash.ContactKmh, Crash.EndKmh, Crash.EndAlong / 100.f,
+			Crash.EndAside / 100.f, Contact / 100.f, Crash.TargetKmh,
+			Crash.bMass ? TEXT("the MassTraffic car had no body near the player") : TEXT("a legacy car has a Chaos body, yet its collision did not stop the player's car"));
 		return EResult::Fail;
 	}
 	if (Crash.Verdict == 3)
@@ -1903,7 +1955,8 @@ bool UGTPGtaRun::TickCrash(float /*DeltaTime*/)
 	const double Now = FPlatformTime::Seconds();
 	// Where the target is now (it may pull away when its light turns green).
 	TArray<FGTPMassTrafficCar> Near;
-	GTPMassTrafficCars::Find(*World, Crash.TargetAt, 2500.f, Near);
+	bool bMassNow = false;
+	GTPGtaRunCrash::FindCars(*World, Crash.TargetAt, 2500.f, Near, bMassNow);
 	const uint64 Id = Crash.TargetId;
 	if (const FGTPMassTrafficCar* Target = Near.FindByPredicate([Id](const FGTPMassTrafficCar& Each) { return Each.Id == Id; }))
 	{
@@ -1946,8 +1999,8 @@ bool UGTPGtaRun::TickCrash(float /*DeltaTime*/)
 		Car->NotePlaced(TEXT("GTARun crash"));
 		Crash.Phase = 4;
 		Crash.DriveStart = Now;
-		GTP_TRACE(LogGTPGtaRun, TEXT("GTARun crash: the player's car put %.0f m behind MassTraffic car %llu at %s, physics back on, full throttle at it"),
-			CrashRunUpCm / 100.f, Crash.TargetId, *Spot.ToCompactString());
+		GTP_TRACE(LogGTPGtaRun, TEXT("GTARun crash: the player's car put %.0f m behind %s %llu at %s, physics back on, full throttle at it"),
+			CrashRunUpCm / 100.f, Crash.bMass ? TEXT("MassTraffic car") : TEXT("legacy traffic car"), Crash.TargetId, *Spot.ToCompactString());
 		return true;
 	}
 	// Full throttle, steering at the target's centre (the run-up is on its axis: the steering only keeps it there).

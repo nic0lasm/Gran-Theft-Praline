@@ -598,6 +598,12 @@ du joueur dans le repère de la cible :
   ou 1,5 s au pas près d'elle ;
 - une autre voiture (trois au plus) quand la cible est partie ou n'a pas été atteinte en 12 s.
 
+La cible (après la porte 59) : une voiture du trafic legacy quand -Traffic=mass est absent, le défaut et ce que juge
+la porte : une avec son conducteur IA, ni fantôme ni voiture du pool, pas la police, pas une épave, au centre de ses
+bornes, une demi-longueur pour rayon ; une voiture MassTraffic avec -Traffic=mass. Même choix, même élan, mêmes
+verdicts ; les lignes disent « legacy traffic car » ou « MassTraffic car ». Une voiture legacy est un acteur Chaos :
+« held behind » est attendu.
+
 La montée (la porte 57 y a expiré, 75 s sur « getting in ») : la voiture prise par la touche d'entrée
 est celle qu'on conduit, quelle qu'elle soit (« GTARun crash: the enter key took X, not Y: driving
 it »). Encore à pied 4 s après la touche sans montée en cours (12 s avec une), « GTARun crash: still
