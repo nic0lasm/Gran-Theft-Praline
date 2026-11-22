@@ -263,4 +263,8 @@ private:
 	/** On foot in the path of a car last frame, and how many times he stepped into one (logged). */
 	bool bWasInPath = false;
 	int32 InPathTimes = 0;
+	/** -MassTrafficBodies in cm (read on the first frame), and when the cars near the player were last said (game time). */
+	float BodyRadiusCm = -1.f;
+	double NextNearLog = 0.0;
+	int32 NearLogs = 0;
 };

@@ -40,8 +40,14 @@ DEFINE_LOG_CATEGORY_STATIC(LogGTPCrowd, Log, All);
 
 namespace GTPCrowdLocal
 {
-/** A person seen by the MassTraffic cars: Epic's "Traffic Obstacle" radius for a walker (cm). */
-constexpr float TrafficObstacleRadius = 40.f;
+/**
+ * A person seen by the MassTraffic cars: their radius (cm) in MassTraffic's sphere test, -CrowdObstacleRadius=<cm>.
+ * A car's own sphere is its agent radius, which MassTraffic takes for half its length, on every side: a person on the
+ * other half of a crossing (6 m long in walkways.csv, at the median) can stand inside it and stop the car. 0 keeps a
+ * person a point and frees the next 40 cm (gate 57: the longest queues waited behind people 2 to 5 m beside their
+ * path). 40 was Epic's walker radius.
+ */
+constexpr float TrafficObstacleRadius = 0.f;
 }
 
 // ---------------------------------------------------------------- subsystem
@@ -220,6 +226,9 @@ void UGTPCrowdSubsystem::Spawn(UWorld& InWorld)
 	}
 #endif
 	Archetype = EntityManager.CreateArchetype(Composition);
+	float ObstacleRadius = GTPCrowdLocal::TrafficObstacleRadius;
+	FParse::Value(FCommandLine::Get(), TEXT("CrowdObstacleRadius="), ObstacleRadius);
+	ObstacleRadius = FMath::Max(ObstacleRadius, 0.f);
 	GTPWalk::FRng Rng(987654321u);
 	int32 Placed = 0;
 	for (int32 Index = 0; Index < CrowdCount; ++Index)
@@ -240,7 +249,7 @@ void UGTPCrowdSubsystem::Spawn(UWorld& InWorld)
 		Look.InstanceIndex = Instances->AddInstance(FTransform(FRotator::ZeroRotator, FVector(0.f, 0.f, -100000.f), BaseScale * Look.Scale), false);
 		if (FAgentRadiusFragment* Radius = EntityManager.GetFragmentDataPtr<FAgentRadiusFragment>(Entity))
 		{
-			Radius->Radius = GTPCrowdLocal::TrafficObstacleRadius;
+			Radius->Radius = ObstacleRadius;
 		}
 		Entities.Add(Entity);
 	}
@@ -248,9 +257,9 @@ void UGTPCrowdSubsystem::Spawn(UWorld& InWorld)
 	bRunning = true;
 	UE_LOG(LogGTPCrowd, Log, TEXT("crowd: %d people (%d placed) on %d walkway edges"), CrowdCount, Placed, static_cast<int32>(Graph.Edges.size()));
 #if WITH_GTP_MASSTRAFFIC
-	UE_LOG(LogGTPCrowd, Log, TEXT("crowd: %s"), bTrafficObstacles
+	UE_LOG(LogGTPCrowd, Log, TEXT("crowd: %s, radius %.0f cm (-CrowdObstacleRadius=<cm>)"), bTrafficObstacles
 		? TEXT("traffic obstacles on crossings (MassTraffic cars brake for people crossing)")
-		: TEXT("no traffic obstacles (no MassTraffic cars in this map)"));
+		: TEXT("no traffic obstacles (no MassTraffic cars in this map)"), ObstacleRadius);
 #endif
 }
 
