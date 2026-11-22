@@ -250,6 +250,15 @@ public:
 	void SetParkedAsleep(bool bAsleep);
 	bool IsParkedAsleep() const { return bParkedAsleep; }
 
+	/**
+	 * This actor is a MassTraffic car shown near the player (GTPMass, -MassTrafficBodies): Mass moves it along its lane
+	 * every frame, as Epic's LowResSpawnedActor, so its body follows without simulating, the parked sleep for good (a
+	 * car that hits it is stopped as by a wall), and nobody gets in. One way: the actor stays MassTraffic's. Called every
+	 * frame the car is shown (UGTPMassTrafficBodyProcessor): after the first call it only keeps it kinematic.
+	 */
+	void SetShownByMassTraffic();
+	bool IsShownByMassTraffic() const { return bShownByMassTraffic; }
+
 	// --- Camera ---------------------------------------------------------
 
 	/** Interior (first person) view instead of the chase camera. */
@@ -694,6 +703,7 @@ private:
 	double AlarmUntil = -1.0;
 	bool bAlarmHornOn = false;
 	bool bParkedAsleep = false;
+	bool bShownByMassTraffic = false;
 	void PulseAlarm();
 	FVector FleeFrom = FVector::ZeroVector;
 };

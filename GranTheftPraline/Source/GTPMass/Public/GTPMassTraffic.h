@@ -3,6 +3,9 @@
 #include "CoreMinimal.h"
 #include "Subsystems/WorldSubsystem.h"
 #include "Engine/TimerHandle.h"
+#include "MassProcessor.h"
+#include "MassEntityQuery.h"
+#include "MassEntityTypes.h"
 #include "GTPMassTraffic.generated.h"
 
 struct FZoneGraphTrafficLaneData;
@@ -20,7 +23,8 @@ class AMassSpawner;
  * Proof in the log, every 5 s for the first minute then every 30 s ("MassTraffic count"): ZoneGraph
  * data in the map (lanes, zones: 0 lanes means the ZoneGraph was never built, so no car can
  * spawn), cars drawn by Mass as instances (MassVisualizer) and as actors (City Sample's
- * CitySampleMassVehicleBase), and the nearest one to the player.
+ * CitySampleMassVehicleBase, or our cars shown near the player: -MassTrafficBodies), and the nearest
+ * one to the player.
  * -MassTrafficView: the player is put 12 m from the first Mass car seen (once), for a capture.
  */
 UCLASS()
@@ -156,6 +160,15 @@ private:
 	 * a valid type" on every update of such a car and falls back to its instance. Those LODs are
 	 * given the instance straight away (StaticMeshInstance), and the entity templates already built
 	 * by the spawners are rebuilt at their spawning. Looks the same, without the error.
+	 *
+	 * Near cars with a body (-MassTrafficBodies=<m>, default 35; 0 = instances only, as up to
+	 * candidate 56): the driving cars within that distance of the player, 12 at most
+	 * (-MassTrafficBodiesMax), are shown as our car of the config (its PhysicsVehicleTemplateActor,
+	 * BP_GTP_*), as Epic's LowResSpawnedActor: MassTraffic moves the actor to its entity every frame
+	 * (UMassTrafficVehicleUpdateCustomVisualizationProcessor) and UGTPMassTrafficBodyProcessor makes
+	 * it kinematic (AGTPVehicle::SetShownByMassTraffic). An instance has no body: the player's car went
+	 * through them (the crash step of -GTARun). Parked cars stay instances. The player is an obstacle
+	 * for the cars (FGTPPlayerObstacleTag), else they would push his stopped car along.
 	 */
 	void ShowNearCarsAsInstances(const TArray<AMassSpawner*>& InSpawners);
 	bool bJunctionsLit = false;
@@ -195,4 +208,40 @@ private:
 	int32 DeadEndBranchData = INDEX_NONE;
 	FTimerHandle RecycleTimer;
 	FTimerHandle CountTimer;
+};
+
+/**
+ * The player as a MassTraffic obstacle (two entities, on foot and at the wheel, each with a car's volume, created with
+ * the cars; -MassTrafficPlayerObstacle=0 leaves them out): the cars on the lanes near him brake for him as for a person
+ * on a crossing (UMassTrafficFindObstaclesProcessor, UpdateDistanceToNearestObstacle). Now that the near cars have a
+ * body, a car that does not brake pushes the player's stopped car along, as a wall moving.
+ */
+USTRUCT()
+struct GTPMASS_API FGTPPlayerObstacleTag : public FMassTag
+{
+	GENERATED_BODY()
+};
+
+/**
+ * The first frame MassTraffic shows a car as one of our car actors (LowResSpawnedActor, -MassTrafficBodies): the actor
+ * becomes MassTraffic's (AGTPVehicle::SetShownByMassTraffic: kinematic, its body follows the entity, nobody gets in).
+ * Nothing to do when no car is shown as an actor. Also puts the player's obstacle in use (FGTPPlayerObstacleTag) on him.
+ */
+UCLASS()
+class GTPMASS_API UGTPMassTrafficBodyProcessor : public UMassProcessor
+{
+	GENERATED_BODY()
+
+public:
+	UGTPMassTrafficBodyProcessor();
+
+protected:
+	virtual void ConfigureQueries(const TSharedRef<FMassEntityManager>& EntityManager) override;
+	virtual void Execute(FMassEntityManager& EntityManager, FMassExecutionContext& Context) override;
+
+private:
+	FMassEntityQuery Query;
+	/** The player's obstacle entities (FGTPPlayerObstacleTag): the one in use put where the player is, every frame. */
+	FMassEntityQuery PlayerQuery;
+	int32 Made = 0;
 };

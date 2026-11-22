@@ -1829,6 +1829,11 @@ bool AGTPVehicle::CanEnter(const ACharacter* Character) const
 	{
 		return false;
 	}
+	// MassTraffic moves it along its lane every frame (SetShownByMassTraffic).
+	if (bShownByMassTraffic)
+	{
+		return false;
+	}
 	if (State == EGTPVehicleState::Entering || State == EGTPVehicleState::Exiting)
 	{
 		return false;
@@ -2195,7 +2200,8 @@ void AGTPVehicle::PulseAlarm()
 
 void AGTPVehicle::SetParkedAsleep(bool bAsleep)
 {
-	if (bParkedAsleep == bAsleep || (bAsleep && (Driver || State != EGTPVehicleState::Parked)))
+	// A car MassTraffic moves never wakes: its body follows Mass, a simulated one would fight the teleports.
+	if (bParkedAsleep == bAsleep || (bAsleep && (Driver || State != EGTPVehicleState::Parked)) || (!bAsleep && bShownByMassTraffic))
 	{
 		return;
 	}
@@ -2218,6 +2224,38 @@ void AGTPVehicle::SetParkedAsleep(bool bAsleep)
 	if (!bAsleep)
 	{
 		NotePlaced(TEXT("parked wake"));
+	}
+}
+
+void AGTPVehicle::SetShownByMassTraffic()
+{
+	if (bShownByMassTraffic)
+	{
+		// Called every frame it is shown: Mass turns every component's tick back on when it takes an actor out of its
+		// pool (UMassRepresentationActorManagement::SetActorEnabled), the Chaos vehicle's included.
+		UChaosWheeledVehicleMovementComponent* Move = GetWheeledMovement();
+		if (Move && Move->IsComponentTickEnabled())
+		{
+			Move->SetComponentTickEnabled(false);
+		}
+		if (USkeletalMeshComponent* Body = GetMesh(); Body && Body->IsSimulatingPhysics())
+		{
+			Body->SetSimulatePhysics(false);
+		}
+		return;
+	}
+	// Kinematic as a sleeping parked car (Chaos vehicle and physics off), then held so: SetParkedAsleep(false) and the
+	// entry (CanEnter) refuse such a car.
+	SetParkedAsleep(true);
+	bShownByMassTraffic = true;
+	bAlarm = false;
+	static int32 Logged = 0;
+	if (Logged < 3)
+	{
+		++Logged;
+		GTP_TRACE(LogGTPVehicle, TEXT("vehicle shown by MassTraffic: %s (%s) at %s, kinematic (asleep=%d, simulating=%d), collision %s, nobody gets in"),
+			*GetName(), *GetClass()->GetName(), *GetActorLocation().ToCompactString(), bParkedAsleep ? 1 : 0,
+			GetMesh() && GetMesh()->IsSimulatingPhysics() ? 1 : 0, GetMesh() && GetMesh()->IsCollisionEnabled() ? TEXT("on") : TEXT("OFF"));
 	}
 }
 

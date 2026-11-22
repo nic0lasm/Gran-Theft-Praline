@@ -517,7 +517,50 @@ Lines: "GTARun crash: attempt N/3, MassTraffic car ...", then "GTARun step 12: c
 and the target's speed; the picture `gtarun-crash.png` at that moment. The step is in neither count
 ("GTARun informative: N/1 ok (crash)"; "GTARun done: N/7" is unchanged). Expected now: fail, went
 through, at about 30 to 40 km/h. It becomes a gate criterion with the lot that gives the near cars a
-body as City Sample does (actors near the player, place_masstraffic.py run again on the PC).
+body as City Sample does (next section); with `-MassTrafficBodies=0` the expectation above holds.
+
+## Near cars with a body: Epic's LowResSpawnedActor
+
+How MassTraffic gives its near cars a body (`MassTrafficVehicleVisualizationTrait.cpp`, its
+defaults): up to 40 m a High LOD shown as a Chaos actor (`HighResSpawnedActor`, 10 at most), driven
+by the PID's pedals through `IMassTrafficVehicleControlInterface`, the entity following the actor
+(`MassTrafficPostPhysicsUpdateTrafficVehiclesProcessor.cpp`); from 40 to 45 m a Medium LOD shown as
+an actor that Mass moves to its entity every frame (`LowResSpawnedActor`, 40 at most,
+`UMassTrafficVehicleUpdateCustomVisualizationProcessor`); instances beyond. The High band needs the
+PID, so the simple physics band that stopped the queues at gate 54. Our configs had neither actor:
+City Sample's display Blueprints break the cook, so `place_masstraffic.py` turned both into
+instances.
+
+GTPMass now does the Medium band, at start, on the driving cars' configs (no change to the assets,
+place_masstraffic.py need not run again): the actor is our car of the config, the BP_GTP_* already
+named as its physics template (cooked with the configs), shown within 35 m of the player, 12 at most
+(`-MassTrafficBodies=<m>`, 0 = instances only as up to candidate 56; `-MassTrafficBodiesMax=<n>`).
+The first frame such an actor is shown, `UGTPMassTrafficBodyProcessor` makes it MassTraffic's
+(`AGTPVehicle::SetShownByMassTraffic`): kinematic as a sleeping parked car, never woken, nobody gets
+in, left out of the searches for a free car (demo route, test drive). A car that hits it stops as
+against a wall; it is not pushed (that is the High band, later). Line at start: "MassTraffic near
+cars with a body: on; N visualization trait(s) given our car ... within 35 m, 12 at most ...";
+then "MassTraffic near cars with a body: N of our car actor(s) made MassTraffic's so far",
+"vehicle shown by MassTraffic: ... kinematic (asleep=1, simulating=0), collision on", and the count
+line's "actors=" counts them.
+
+A car moved by Mass into the player's stopped car would push it along: the player is now an obstacle
+for the cars (`FGTPPlayerObstacleTag`), as the people on a crossing are (GTPCrowd). Two entities with
+what Epic's "Traffic Obstacle" trait gives, and a car's volume (`FMassTrafficVehicleVolumeParameters`):
+on foot (radius 0.4 m, box 1.6 × 1 m) and at the wheel (radius 2.3 m, box 6 × 2 m); the one in use is
+put on the player every frame, the other out of the way. With a volume MassTraffic tests the boxes
+(`WillCollide`), not only the spheres: with spheres alone (a car's radius is half its length) a car on
+the next lane, or the player on the sidewalk 2 m from the lane, would brake a car. Each box is longer
+than its sphere, as MassTraffic tests the boxes where the spheres first meet. Line "MassTraffic player
+obstacle: on, on foot entity ... at the wheel entity ..." ("VOLUME NOT SET" if the engine refused the
+volume); `-MassTrafficPlayerObstacle=0` leaves it out.
+
+Expected at the gate: the crash step ok, "held behind ... stopped"; "actors=" 1 to 12 near a road;
+the traffic criteria unchanged (Mass moves the cars as before); game p50 within the gate's 1.3 ×
+(12 kinematic actors). Risks to watch: the chase and the police now meet solid cars near the player
+(the demo route relocates a car that is stuck), and a Low LOD tick rate over 0 (logged at gate 56)
+would make these actors move by steps. Not done: parked cars (still instances), police and other
+cars as obstacles for the traffic, the High band (Chaos, pushed when hit), stealing such a car.
 
 ## Open points
 
@@ -529,5 +572,6 @@ body as City Sample does (actors near the player, place_masstraffic.py run again
   finishes (README of Myxcil/MassTraffic-Test): not done, we never despawn yet.
 - Traffic lights: MassTraffic times its own (every junction since 36r) but draws none; ours
   (`GTPTrafficLights`) are not in step with them.
-- The player on foot is not a traffic obstacle (City Sample gives the player a Mass agent).
+- The player is a traffic obstacle since the near cars have a body (see above); City Sample gives
+  the player a Mass agent instead.
 - Crosswalks at traffic lights (MassCrowd's tracking data, see candidate 34): not done.

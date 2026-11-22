@@ -577,8 +577,54 @@ Lignes : « GTARun crash: attempt N/3, MassTraffic car ... », puis « GTARun st
 et la vitesse de la cible ; l'image `gtarun-crash.png` à cet instant. L'étape n'entre dans aucun
 compte (« GTARun informative: N/1 ok (crash) » ; « GTARun done: N/7 » ne change pas). Attendu
 aujourd'hui : échec, traversée, vers 30 à 40 km/h. Elle deviendra un critère de la porte avec le lot
-qui donne un corps aux voitures proches comme City Sample (des acteurs près du joueur,
-place_masstraffic.py relancé sur le PC).
+qui donne un corps aux voitures proches comme City Sample (section suivante) ; avec
+`-MassTrafficBodies=0`, l'attendu ci-dessus vaut.
+
+## Des voitures proches avec un corps : le LowResSpawnedActor d'Epic
+
+Comment MassTraffic donne un corps à ses voitures proches (`MassTrafficVehicleVisualizationTrait.cpp`,
+ses défauts) : jusqu'à 40 m, un LOD High montré comme un acteur Chaos (`HighResSpawnedActor`, 10 au
+plus), conduit par les pédales du PID via `IMassTrafficVehicleControlInterface`, l'entité suivant
+l'acteur (`MassTrafficPostPhysicsUpdateTrafficVehiclesProcessor.cpp`) ; de 40 à 45 m, un LOD Medium
+montré comme un acteur que Mass place sur son entité à chaque image (`LowResSpawnedActor`, 40 au plus,
+`UMassTrafficVehicleUpdateCustomVisualizationProcessor`) ; des instances au-delà. La bande High
+demande le PID, donc la bande de physique simple qui a arrêté les files à la porte 54. Nos configs
+n'avaient ni l'un ni l'autre acteur : les Blueprints d'affichage de City Sample cassent le cook, donc
+`place_masstraffic.py` les a changés en instances.
+
+GTPMass fait désormais la bande Medium, au démarrage, sur les configs des voitures qui roulent (rien
+ne change dans les assets, place_masstraffic.py n'a pas à être relancé) : l'acteur est notre voiture de
+la config, la BP_GTP_* déjà nommée comme son gabarit physique (cuite avec les configs), montrée à moins
+de 35 m du joueur, 12 au plus (`-MassTrafficBodies=<m>`, 0 = instances seules comme jusqu'au candidat
+56 ; `-MassTrafficBodiesMax=<n>`). À la première image où un tel acteur est montré,
+`UGTPMassTrafficBodyProcessor` le rend à MassTraffic (`AGTPVehicle::SetShownByMassTraffic`) :
+cinématique comme une voiture garée endormie, jamais réveillée, personne n'y monte, écartée des
+recherches de voiture libre (parcours de démo, essai de conduite). Une voiture qui la percute s'arrête
+comme contre un mur ; elle n'est pas poussée (c'est la bande High, plus tard). Ligne au démarrage :
+« MassTraffic near cars with a body: on; N visualization trait(s) given our car ... within 35 m, 12 at
+most ... » ; puis « MassTraffic near cars with a body: N of our car actor(s) made MassTraffic's so
+far », « vehicle shown by MassTraffic: ... kinematic (asleep=1, simulating=0), collision on », et le
+« actors= » de la ligne de compte les compte.
+
+Une voiture déplacée par Mass contre la voiture arrêtée du joueur la pousserait : le joueur est
+désormais un obstacle pour les voitures (`FGTPPlayerObstacleTag`), comme les piétons sur un passage
+(GTPCrowd). Deux entités avec ce que donne le trait « Traffic Obstacle » d'Epic, et un volume de voiture
+(`FMassTrafficVehicleVolumeParameters`) : à pied (rayon 0,4 m, boîte 1,6 × 1 m) et au volant (rayon
+2,3 m, boîte 6 × 2 m) ; celle en service est posée sur le joueur à chaque image, l'autre à l'écart. Avec
+un volume, MassTraffic teste les boîtes (`WillCollide`), pas seulement les sphères : avec les sphères
+seules (le rayon d'une voiture vaut sa demi-longueur), une voiture sur la voie d'à côté, ou le joueur
+sur le trottoir à 2 m de la voie, freinerait une voiture. Chaque boîte est plus longue que sa sphère,
+car MassTraffic teste les boîtes là où les sphères se touchent d'abord. Ligne « MassTraffic player
+obstacle: on, on foot entity ... at the wheel entity ... » (« VOLUME NOT SET » si le moteur a refusé
+le volume) ; `-MassTrafficPlayerObstacle=0` l'enlève.
+
+Attendu à la porte : l'étape crash réussie, « held behind ... stopped » ; « actors= » de 1 à 12 près
+d'une route ; les critères du trafic inchangés (Mass déplace les voitures comme avant) ; game p50 dans
+le 1,3 × de la porte (12 acteurs cinématiques). Risques à surveiller : la fuite et la police
+rencontrent désormais des voitures solides près du joueur (le parcours de démo replace une voiture
+coincée), et un rythme de tick Low au-dessus de 0 (relevé à la porte 56) ferait avancer ces acteurs
+par à-coups. Pas fait : voitures garées (toujours des instances), police et autres voitures comme
+obstacles pour le trafic, bande High (Chaos, poussée au choc), vol d'une telle voiture.
 
 ## Points ouverts
 
@@ -591,5 +637,6 @@ place_masstraffic.py relancé sur le PC).
   générateur est fini (README de Myxcil/MassTraffic-Test) : pas fait, on ne dépeuple pas encore.
 - Feux : MassTraffic cadence les siens (tous les carrefours depuis le 36r) mais n'en dessine aucun ;
   les nôtres (`GTPTrafficLights`) ne sont pas synchronisés avec eux.
-- Le joueur à pied n'est pas un obstacle de trafic (City Sample donne au joueur un agent Mass).
+- Le joueur est un obstacle de trafic depuis que les voitures proches ont un corps (voir plus
+  haut) ; City Sample donne plutôt au joueur un agent Mass.
 - Passages aux feux (données de suivi de MassCrowd, voir le candidat 34) : pas fait.

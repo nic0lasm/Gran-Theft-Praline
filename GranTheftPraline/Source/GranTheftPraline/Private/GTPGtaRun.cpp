@@ -1612,7 +1612,14 @@ int32 UGTPGtaRun::ChooseCrashTarget(UWorld& World, const AGTPVehicle& Car, FStri
 		// Nothing standing on the run-up (a wall where the lane bends, a post, a person), up to the car's bumper.
 		const FVector Lift(0.0, 0.0, 80.0);
 		FHitResult Hit;
-		if (World.LineTraceSingleByChannel(Hit, Spot + Lift, Candidate.Location - Forward * (Candidate.RadiusCm + 50.f) + Lift, ECC_Visibility, Params))
+		bool bInTheWay = World.LineTraceSingleByChannel(Hit, Spot + Lift, Candidate.Location - Forward * (Candidate.RadiusCm + 50.f) + Lift, ECC_Visibility, Params);
+		if (bInTheWay)
+		{
+			// The target itself when MassTraffic shows it with a body (-MassTrafficBodies): its rear is not in the way.
+			const AGTPVehicle* HitCar = Cast<AGTPVehicle>(Hit.GetActor());
+			bInTheWay = !(HitCar && HitCar->IsShownByMassTraffic() && FVector::Dist2D(HitCar->GetActorLocation(), Candidate.Location) < 300.0);
+		}
+		if (bInTheWay)
 		{
 			if (InTheWay == 0)
 			{

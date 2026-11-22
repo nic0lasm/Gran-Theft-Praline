@@ -2,6 +2,7 @@
 
 #include "GTPTraffic.h"
 #include "GTPMassTrafficCars.h"
+#include "GTPVehicle.h"
 #include "Components/InstancedStaticMeshComponent.h"
 #include "EngineUtils.h"
 #include "MassSpawner.h"
@@ -29,6 +30,10 @@
 #include "MassVisualizationTrait.h"
 #include "MassTrafficSettings.h"
 #include "MassTrafficSubsystem.h"
+#include "MassTrafficVehicleSimulationTrait.h"
+#include "MassTrafficVehicleVolumeTrait.h"
+#include "MassActorSubsystem.h"
+#include "MassMovementFragments.h"
 #include "MassZoneGraphNavigationFragments.h"
 #include "ZoneGraphSubsystem.h"
 #include "Camera/PlayerCameraManager.h"
@@ -145,6 +150,57 @@ void UGTPMassTrafficSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 		UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic: started %s (order %d)"), *Entry.Value->GetName(), Entry.Key);
 	}
 	UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic: %d spawner(s) started (tag %s)"), StartedSpawners, *SpawnerTag.ToString());
+	// The player as an obstacle the cars brake for (UGTPMassTrafficBodyProcessor puts it on him): what Epic's "Traffic
+	// Obstacle" trait gives (transform, velocity, radius, the tag) and a car's volume (FMassTrafficVehicleVolumeParameters),
+	// with which MassTraffic tests the boxes (WillCollide), not the spheres only: a car on the next lane, or the player on
+	// the sidewalk, brakes no car. Two entities, on foot and at the wheel (a shared fragment does not change), the one not
+	// in use out of the way. Each box is a little longer than its sphere: MassTraffic tests the boxes where the spheres
+	// first meet, they must overlap there.
+	int32 PlayerObstacle = 1;
+	FParse::Value(FCommandLine::Get(), TEXT("MassTrafficPlayerObstacle="), PlayerObstacle);
+	UMassEntitySubsystem* ObstacleMass = InWorld.GetSubsystem<UMassEntitySubsystem>();
+	if (StartedSpawners > 0 && PlayerObstacle != 0 && ObstacleMass)
+	{
+		FMassEntityManager& Manager = ObstacleMass->GetMutableEntityManager();
+		const TArray<const UScriptStruct*> Composition{FTransformFragment::StaticStruct(), FMassVelocityFragment::StaticStruct(), FAgentRadiusFragment::StaticStruct(),
+			FMassTrafficObstacleTag::StaticStruct(), FGTPPlayerObstacleTag::StaticStruct()};
+		const FMassArchetypeHandle Archetype = Manager.CreateArchetype(Composition);
+		struct FObstacleKind
+		{
+			float Radius;
+			float HalfLength;
+			float HalfWidth;
+			const TCHAR* Name;
+		};
+		// On foot: a walker's radius, as Epic's "Traffic Obstacle" for one (GTPCrowd). At the wheel: our car's half length
+		// (the radius tells the radius above 100 cm from the other, UGTPMassTrafficBodyProcessor).
+		const FObstacleKind Kinds[] = {{40.f, 80.f, 50.f, TEXT("on foot")}, {230.f, 300.f, 100.f, TEXT("at the wheel")}};
+		FString ObstacleReport;
+		for (const FObstacleKind& Kind : Kinds)
+		{
+			const FMassEntityHandle Obstacle = Manager.CreateEntity(Archetype);
+			if (FAgentRadiusFragment* Radius = Manager.GetFragmentDataPtr<FAgentRadiusFragment>(Obstacle))
+			{
+				Radius->Radius = Kind.Radius;
+			}
+			if (FTransformFragment* Transform = Manager.GetFragmentDataPtr<FTransformFragment>(Obstacle))
+			{
+				// Out of the way until the processor puts it on the player.
+				Transform->SetTransform(FTransform(FVector(0.0, 0.0, -100000.0)));
+			}
+			FMassTrafficVehicleVolumeParameters Volume;
+			Volume.HalfLength = Kind.HalfLength;
+			Volume.HalfWidth = Kind.HalfWidth;
+			const bool bVolume = Manager.AddConstSharedFragmentToEntity(Obstacle, Manager.GetOrCreateConstSharedFragment(Volume));
+			ObstacleReport += FString::Printf(TEXT(" %s entity %d radius %.0f box %.0f x %.0f cm%s;"), Kind.Name, Obstacle.Index, Kind.Radius,
+				Kind.HalfLength * 2.f, Kind.HalfWidth * 2.f, bVolume ? TEXT("") : TEXT(" (VOLUME NOT SET: spheres only)"));
+		}
+		UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic player obstacle: on,%s the cars brake for the player in their way (-MassTrafficPlayerObstacle=0 leaves it out)"), *ObstacleReport);
+	}
+	else
+	{
+		UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic player obstacle: off (%s)"), PlayerObstacle == 0 ? TEXT("-MassTrafficPlayerObstacle=0") : TEXT("no spawner or no Mass"));
+	}
 	if (StartedSpawners == 0)
 	{
 		UE_LOG(LogGTPMassTraffic, Warning, TEXT("MassTraffic: no spawner tagged %s in the map, run tools/city/unreal/place_masstraffic.py"),
@@ -191,9 +247,59 @@ void UGTPMassTrafficSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 
 namespace GTPMassTrafficLocal
 {
+#if WITH_GTP_MASSTRAFFIC
+/**
+ * A visualization trait's LOD bands (its LODParams, by name: FMassVisualizationLODParameters) for the near cars with a
+ * body: High and Medium (the actor) up to Cm, half the count each, Low (instances) from there; Off as it was.
+ */
+FString SetVisualLODs(UMassVisualizationTrait& Visual, float Cm, int32 Max)
+{
+	const FStructProperty* Params = FindFProperty<FStructProperty>(Visual.GetClass(), TEXT("LODParams"));
+	void* Values = Params ? Params->ContainerPtrToValuePtr<void>(&Visual) : nullptr;
+	if (!Values)
+	{
+		return TEXT(" LODParams not found, left as they are");
+	}
+	FString Report;
+	const TCHAR* Names[] = {TEXT("BaseLODDistance"), TEXT("VisibleLODDistance")};
+	for (const TCHAR* Name : Names)
+	{
+		const FFloatProperty* Starts = FindFProperty<FFloatProperty>(Params->Struct, Name);
+		if (!Starts || Starts->GetSize() < static_cast<int32>(4 * sizeof(float)))
+		{
+			Report += FString::Printf(TEXT(" %s not found;"), Name);
+			continue;
+		}
+		const float Off = *Starts->ContainerPtrToValuePtr<float>(Values, 3);
+		const float Edge = FMath::Min(Cm, Off);
+		*Starts->ContainerPtrToValuePtr<float>(Values, 0) = 0.f;
+		*Starts->ContainerPtrToValuePtr<float>(Values, 1) = Edge * 0.5f;
+		*Starts->ContainerPtrToValuePtr<float>(Values, 2) = Edge;
+		Report += FString::Printf(TEXT(" %s High 0, Medium %.0f, Low %.0f, Off %.0f m;"), Name, Edge * 0.005f, Edge * 0.01f, Off * 0.01f);
+	}
+	const FIntProperty* Counts = FindFProperty<FIntProperty>(Params->Struct, TEXT("LODMaxCount"));
+	if (Counts && Counts->GetSize() >= static_cast<int32>(4 * sizeof(int32)))
+	{
+		*Counts->ContainerPtrToValuePtr<int32>(Values, 0) = Max / 2;
+		*Counts->ContainerPtrToValuePtr<int32>(Values, 1) = Max - Max / 2;
+		Report += FString::Printf(TEXT(" LODMaxCount High %d, Medium %d"), Max / 2, Max - Max / 2);
+	}
+	else
+	{
+		Report += TEXT(" LODMaxCount not found");
+	}
+	return Report;
+}
+#endif
+
 /** True for an actor of City Sample's car class (MassTraffic's display actors), found by name. */
 bool IsMassCarActor(const AActor* Actor)
 {
+	// Our car shown by MassTraffic near the player (-MassTrafficBodies); hidden, it waits in Mass's actor pool.
+	if (const AGTPVehicle* Ours = Cast<AGTPVehicle>(Actor))
+	{
+		return Ours->IsShownByMassTraffic() && !Ours->IsHidden();
+	}
 	for (const UClass* Class = Actor->GetClass(); Class; Class = Class->GetSuperClass())
 	{
 		if (Class->GetFName() == TEXT("CitySampleMassVehicleBase"))
@@ -1331,6 +1437,18 @@ void UGTPMassTrafficSubsystem::ShowNearCarsAsInstances(const TArray<AMassSpawner
 	int32 Changed = 0;
 	int32 LODsChanged = 0;
 	int32 WithoutMeshes = 0;
+	// Near cars with a body: our car of the config, moved by Mass (see the header).
+	float BodyMetres = 35.f;
+	FParse::Value(FCommandLine::Get(), TEXT("MassTrafficBodies="), BodyMetres);
+	int32 BodyMax = 12;
+	FParse::Value(FCommandLine::Get(), TEXT("MassTrafficBodiesMax="), BodyMax);
+	const float BodyCm = FMath::Max(BodyMetres, 0.f) * 100.f;
+	BodyMax = FMath::Max(BodyMax, 0);
+	int32 WithBodies = 0;
+	int32 BodyClassChanged = 0;
+	int32 HighResCleared = 0;
+	FString BodyClasses;
+	FString BodyReport;
 	TSet<const UMassEntityConfigAsset*> Visited;
 	TSet<const UMassEntityConfigAsset*> ChangedConfigs;
 	TArray<const UMassEntityConfigAsset*> Leaves;
@@ -1348,6 +1466,21 @@ void UGTPMassTrafficSubsystem::ShowNearCarsAsInstances(const TArray<AMassSpawner
 			if (Leaf)
 			{
 				Leaves.AddUnique(Leaf);
+			}
+			// A driving car's own car class (the parked cars have none): its physics template, BP_GTP_* by
+			// place_masstraffic.py, looked for in the config and its parents.
+			UClass* BodyClass = nullptr;
+			int32 Depth = 0;
+			for (const UMassEntityConfigAsset* Config = Leaf; Config && !BodyClass && BodyCm > 0.f && BodyMax > 0 && Depth < 16; Config = Config->GetConfig().GetParent(), ++Depth)
+			{
+				for (UMassEntityTraitBase* Trait : Config->GetConfig().GetTraits())
+				{
+					if (const UMassTrafficVehicleSimulationTrait* Simulation = Cast<UMassTrafficVehicleSimulationTrait>(Trait))
+					{
+						BodyClass = Simulation->Params.PhysicsVehicleTemplateActor.Get();
+						break;
+					}
+				}
 			}
 			// The config and its parents: a trait may come from a parent config. A config already seen
 			// had its parents seen with it.
@@ -1367,6 +1500,30 @@ void UGTPMassTrafficSubsystem::ShowNearCarsAsInstances(const TArray<AMassSpawner
 					}
 					++Traits;
 					WithoutMeshes += Visual->StaticMeshInstanceDesc.Meshes.IsEmpty() ? 1 : 0;
+					if (BodyClass)
+					{
+						// Epic's LowResSpawnedActor up to BodyCm (its trait's default: High and Medium are actors up
+						// to 45 m, at most 10 + 40), instances beyond. Mass moves that actor to the entity every frame.
+						BodyClassChanged += Visual->LowResTemplateActor && Visual->LowResTemplateActor.Get() != BodyClass ? 1 : 0;
+						Visual->LowResTemplateActor = BodyClass;
+						// MassTraffic's actor management takes an actor of the high-res class for its physics car
+						// (InitHighResActor: snapshot, PID inputs): ours is the low-res one only.
+						if (Visual->HighResTemplateActor.Get() == BodyClass)
+						{
+							Visual->HighResTemplateActor = TSubclassOf<AActor>();
+							++HighResCleared;
+						}
+						Visual->Params.LODRepresentation[EMassLOD::High] = EMassRepresentationType::LowResSpawnedActor;
+						Visual->Params.LODRepresentation[EMassLOD::Medium] = EMassRepresentationType::LowResSpawnedActor;
+						Visual->Params.LODRepresentation[EMassLOD::Low] = EMassRepresentationType::StaticMeshInstance;
+						BodyReport = GTPMassTrafficLocal::SetVisualLODs(*Visual, BodyCm, BodyMax);
+						if (!BodyClasses.Contains(BodyClass->GetName()))
+						{
+							BodyClasses += FString::Printf(TEXT(" %s"), *BodyClass->GetName());
+						}
+						++WithBodies;
+						ChangedConfigs.Add(Config);
+					}
 					int32 Here = 0;
 					for (int32 LOD = 0; LOD < EMassLOD::Max; ++LOD)
 					{
@@ -1407,6 +1564,9 @@ void UGTPMassTrafficSubsystem::ShowNearCarsAsInstances(const TArray<AMassSpawner
 	}
 	UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic visuals: %d of %d visualization trait(s) asked for a display actor they do not have, %d LOD(s) shown as instances instead (%d trait(s) without instance meshes), %d entity template(s) rebuilt at spawning; -TrafficActorLODs leaves them"),
 		Changed, Traits, LODsChanged, WithoutMeshes, Rebuilt);
+	UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic near cars with a body: %s; %d visualization trait(s) given our car as a Mass-moved actor (LowResSpawnedActor) within %.0f m, %d at most (-MassTrafficBodies=<m>, 0 = instances only; -MassTrafficBodiesMax),%s; %d trait(s) reached with two car classes, %d high-res class(es) cleared (the same as ours); LODs:%s"),
+		WithBodies > 0 ? TEXT("on") : TEXT("OFF"), WithBodies, BodyCm / 100.f, BodyMax, BodyClasses.IsEmpty() ? TEXT(" no car class") : *BodyClasses,
+		BodyClassChanged, HighResCleared, BodyReport.IsEmpty() ? TEXT(" none") : *BodyReport);
 }
 
 void UGTPMassTrafficSubsystem::LightJunctions()
@@ -1919,3 +2079,91 @@ void UGTPMassTrafficSubsystem::RecycleAtDeadEnds()
 {
 }
 #endif
+
+// ---------------------------------------------------------------- near cars with a body
+
+UGTPMassTrafficBodyProcessor::UGTPMassTrafficBodyProcessor()
+	: Query(*this)
+	, PlayerQuery(*this)
+{
+	ExecutionFlags = static_cast<int32>(EProcessorExecutionFlags::All);
+	// It changes actors (physics, flags): on the game thread.
+	bRequiresGameThreadExecution = true;
+#if !WITH_GTP_MASSTRAFFIC
+	bAutoRegisterWithProcessingPhases = false;
+#endif
+}
+
+void UGTPMassTrafficBodyProcessor::ConfigureQueries(const TSharedRef<FMassEntityManager>& EntityManager)
+{
+#if WITH_GTP_MASSTRAFFIC
+	Query.AddTagRequirement<FMassTrafficVehicleTag>(EMassFragmentPresence::All);
+	Query.AddRequirement<FMassRepresentationFragment>(EMassFragmentAccess::ReadOnly);
+	Query.AddRequirement<FMassActorFragment>(EMassFragmentAccess::ReadWrite);
+	Query.RegisterWithProcessor(*this);
+	PlayerQuery.AddTagRequirement<FGTPPlayerObstacleTag>(EMassFragmentPresence::All);
+	PlayerQuery.AddRequirement<FTransformFragment>(EMassFragmentAccess::ReadWrite);
+	PlayerQuery.AddRequirement<FMassVelocityFragment>(EMassFragmentAccess::ReadWrite);
+	PlayerQuery.AddRequirement<FAgentRadiusFragment>(EMassFragmentAccess::ReadOnly);
+	PlayerQuery.RegisterWithProcessor(*this);
+#endif
+}
+
+void UGTPMassTrafficBodyProcessor::Execute(FMassEntityManager& EntityManager, FMassExecutionContext& Context)
+{
+#if WITH_GTP_MASSTRAFFIC
+	// Collected first, changed after the query: an actor's physics is no business of the chunk loop. Every shown car each
+	// frame (12 at most by default): Mass turns its components' tick back on when it takes it out of its pool.
+	TArray<AGTPVehicle*, TInlineAllocator<16>> Shown;
+	TArray<AGTPVehicle*, TInlineAllocator<16>> Fresh;
+	Query.ForEachEntityChunk(Context, [&Shown, &Fresh](FMassExecutionContext& Chunk)
+	{
+		const TConstArrayView<FMassRepresentationFragment> Representations = Chunk.GetFragmentView<FMassRepresentationFragment>();
+		const TArrayView<FMassActorFragment> Actors = Chunk.GetMutableFragmentView<FMassActorFragment>();
+		for (int32 Index = 0; Index < Chunk.GetNumEntities(); ++Index)
+		{
+			if (Representations[Index].CurrentRepresentation != EMassRepresentationType::LowResSpawnedActor)
+			{
+				continue;
+			}
+			if (AGTPVehicle* Car = Cast<AGTPVehicle>(Actors[Index].GetMutable()))
+			{
+				(Car->IsShownByMassTraffic() ? Shown : Fresh).Add(Car);
+			}
+		}
+	});
+	for (AGTPVehicle* Car : Shown)
+	{
+		Car->SetShownByMassTraffic();
+	}
+	for (AGTPVehicle* Car : Fresh)
+	{
+		Car->SetShownByMassTraffic();
+		++Made;
+	}
+	if (!Fresh.IsEmpty() && (Made <= 3 || Made % 50 == 0))
+	{
+		UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic near cars with a body: %d of our car actor(s) made MassTraffic's so far (last %s)"), Made, *Fresh.Last()->GetName());
+	}
+	// The player's obstacle of the moment (on foot or at the wheel: told by its radius) where he is, the other one out of
+	// the way, both out of the way with no player.
+	const UWorld* World = Context.GetWorld();
+	const APlayerController* PC = World ? World->GetFirstPlayerController() : nullptr;
+	const APawn* Pawn = PC ? PC->GetPawn() : nullptr;
+	const bool bAtWheel = Pawn && Pawn->IsA<AGTPVehicle>();
+	const FTransform Where = Pawn ? FTransform(Pawn->GetActorQuat(), Pawn->GetActorLocation()) : FTransform::Identity;
+	const FVector Velocity = Pawn ? Pawn->GetVelocity() : FVector::ZeroVector;
+	PlayerQuery.ForEachEntityChunk(Context, [&Where, &Velocity, Pawn, bAtWheel](FMassExecutionContext& Chunk)
+	{
+		const TArrayView<FTransformFragment> Transforms = Chunk.GetMutableFragmentView<FTransformFragment>();
+		const TArrayView<FMassVelocityFragment> Velocities = Chunk.GetMutableFragmentView<FMassVelocityFragment>();
+		const TConstArrayView<FAgentRadiusFragment> Radii = Chunk.GetFragmentView<FAgentRadiusFragment>();
+		for (int32 Index = 0; Index < Chunk.GetNumEntities(); ++Index)
+		{
+			const bool bInUse = Pawn && (Radii[Index].Radius > 100.f) == bAtWheel;
+			Transforms[Index].SetTransform(bInUse ? Where : FTransform(FVector(0.0, 0.0, -100000.0)));
+			Velocities[Index].Value = bInUse ? Velocity : FVector::ZeroVector;
+		}
+	});
+#endif
+}
