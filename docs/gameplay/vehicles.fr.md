@@ -238,7 +238,7 @@ Pas de plugin Water ni de volume physique : de simples événements de chevauche
 - Têtes de feux provisoires (une sphère colorée sur un poteau à chaque ligne d'arrêt, sans ombre ni collision) en attendant le modèle de mobilier urbain. `-TrafficLights=0` coupe les feux, `-SignalHeads=0` masque les têtes.
 - Simulation, 300 s sur les voies de la rue de la République : 3, 6 et 12 voitures, aucun contact, aucun feu grillé.
 - Mesuré dans le jeu (après la porte 59, le trafic legacy étant ce que la porte juge) : toutes les 10 s, « traffic cars
-  t=...: driven=D of W wanted (ghosts=G) moving=M (over 1 m/s, upright: P %) stopped=S lying=L mean speed=...
+  t=...: driven=D of W wanted (ghosts=G) moving=M (over 1 m/s, upright: P %) stopped=S lying=L not driving (no route or no decisions)=N mean speed=...
   | within 100 m=N (moving, stopped) within 150 m=N (moving, upright, ghosts; far puppets drawn there) within 200 m=N
   nearest=... | stopped for: a car ahead, the queue along the lanes, a person, something else ahead, a red light, a
   junction in use, held (reaction or stop asked), wedged, nothing ahead; stopped over 20 s, at a dead end | recycled

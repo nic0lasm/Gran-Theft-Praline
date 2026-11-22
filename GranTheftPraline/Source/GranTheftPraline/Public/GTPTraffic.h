@@ -151,6 +151,15 @@ public:
 	/** Starts on Lane at its point StartPoint. */
 	void Start(AGTPTrafficNetwork* InNetwork, int32 Lane, int32 StartPoint);
 
+	/**
+	 * The network of a driver made but not started (AGTPTrafficNetwork::CreateCar): a far traffic puppet is made so and
+	 * only placed by PlaceGhost at its first handover, which needs the network.
+	 */
+	void SetNetwork(AGTPTrafficNetwork* InNetwork) { Network = InNetwork; }
+
+	/** False for a driver with no route or no decisions: never started, or switched off (stolen, wrecked, puppet). */
+	bool IsDriving() const { return Route.Num() > 0 && IsComponentTickEnabled(); }
+
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 	/** True when the car stands at the end of a dead-end lane. */

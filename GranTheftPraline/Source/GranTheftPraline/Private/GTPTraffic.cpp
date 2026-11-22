@@ -380,6 +380,7 @@ void UGTPAIDriverComponent::PlaceGhost(int32 Lane, int32 Point, const FVector& L
 	AGTPVehicle* Vehicle = Cast<AGTPVehicle>(GetOwner());
 	if (!Vehicle || !Network)
 	{
+		GTP_TRACE(LogGTPTraffic, TEXT("traffic: %s cannot be placed as a ghost: %s"), *GetNameSafe(Vehicle), Vehicle ? TEXT("its driver has no network") : TEXT("no car"));
 		return;
 	}
 	SetGhost(true);
@@ -1624,6 +1625,10 @@ AGTPVehicle* AGTPTrafficNetwork::CreateCar(const FTransform& Transform, ESpawnAc
 		return nullptr;
 	}
 	UGTPAIDriverComponent* AIDriver = NewObject<UGTPAIDriverComponent>(Car, TEXT("AIDriver"));
+	// Known from the start, even before Start: a far traffic puppet is made here and first driven through PlaceGhost,
+	// which did nothing without it. Until candidate 63 every puppet handed over stood still where it was, counted as a
+	// driven ghost stopped for nothing (gate 60's default pass: 0 of 22 driven cars moving at 102 s).
+	AIDriver->SetNetwork(this);
 	AIDrivers.Add(AIDriver);
 	AIDriver->RegisterComponent();
 	return Car;
@@ -2076,6 +2081,7 @@ void AGTPTrafficNetwork::LogCars(const APawn* Player)
 	int32 Moving = 0;
 	int32 Stopped = 0;
 	int32 Lying = 0;
+	int32 NotDriving = 0;
 	int32 Within100 = 0;
 	int32 MovingWithin100 = 0;
 	int32 StoppedWithin100 = 0;
@@ -2104,6 +2110,7 @@ void AGTPTrafficNetwork::LogCars(const APawn* Player)
 		const bool bMoving = bUpright && Ms > 1.f;
 		Ghosts += bGhostCar ? 1 : 0;
 		Lying += bUpright ? 0 : 1;
+		NotDriving += Driver && Driver->IsDriving() ? 0 : 1;
 		Moving += bMoving ? 1 : 0;
 		SpeedSum += Ms;
 		if (bUpright && !bMoving)
@@ -2137,8 +2144,8 @@ void AGTPTrafficNetwork::LogCars(const APawn* Player)
 	// The far traffic's puppets drawn near the player: cars he sees too, with no body (they become driven cars at the ghost distance).
 	const int32 FarWithin150 = Player && FarTraffic ? FarTraffic->CountDrawnWithin(15000.f) : 0;
 	using GTPTrafficStop::ELimit;
-	GTP_TRACE(LogGTPTraffic, TEXT("traffic cars t=%.0fs: driven=%d of %d wanted (ghosts=%d) moving=%d (over 1 m/s, upright: %.0f %%) stopped=%d lying=%d mean speed=%.0f km/h | within 100 m=%d (moving %d, stopped %d) within 150 m=%d (moving %d, upright %d, ghosts %d; far puppets drawn there %d) within 200 m=%d nearest=%s | stopped for: a car ahead=%d, the queue along the lanes=%d, a person=%d, something else ahead=%d, a red light=%d, a junction in use=%d, held (reaction or stop asked)=%d, wedged=%d, nothing ahead=%d; stopped over 20 s=%d, at a dead end=%d | recycled so far: stuck=%d far=%d by the chase script or the police=%d, reused from the pool=%d"),
-		Now, Driven, WantedCars, Ghosts, Moving, Driven > 0 ? 100.0 * Moving / Driven : 0.0, Stopped, Lying, Driven > 0 ? SpeedSum / Driven * 3.6 : 0.0,
+	GTP_TRACE(LogGTPTraffic, TEXT("traffic cars t=%.0fs: driven=%d of %d wanted (ghosts=%d) moving=%d (over 1 m/s, upright: %.0f %%) stopped=%d lying=%d not driving (no route or no decisions)=%d mean speed=%.0f km/h | within 100 m=%d (moving %d, stopped %d) within 150 m=%d (moving %d, upright %d, ghosts %d; far puppets drawn there %d) within 200 m=%d nearest=%s | stopped for: a car ahead=%d, the queue along the lanes=%d, a person=%d, something else ahead=%d, a red light=%d, a junction in use=%d, held (reaction or stop asked)=%d, wedged=%d, nothing ahead=%d; stopped over 20 s=%d, at a dead end=%d | recycled so far: stuck=%d far=%d by the chase script or the police=%d, reused from the pool=%d"),
+		Now, Driven, WantedCars, Ghosts, Moving, Driven > 0 ? 100.0 * Moving / Driven : 0.0, Stopped, Lying, NotDriving, Driven > 0 ? SpeedSum / Driven * 3.6 : 0.0,
 		Within100, MovingWithin100, StoppedWithin100, Within150, MovingWithin150, UprightWithin150, GhostsWithin150, FarWithin150, Within200, *NearestText,
 		Why[static_cast<int32>(ELimit::CarAhead)], Why[static_cast<int32>(ELimit::Queue)], Why[static_cast<int32>(ELimit::PersonAhead)],
 		Why[static_cast<int32>(ELimit::OtherAhead)], Why[static_cast<int32>(ELimit::RedLight)], Why[static_cast<int32>(ELimit::Junction)],
