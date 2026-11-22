@@ -176,6 +176,20 @@ Interface, missions, QA ──────────────────�
 Le plafond rend le temps d'image insensible à la variance de ~2 ms du
 palier C ; c'est le GPU p95 qui sert de jauge de marge.
 
+**Porte Windows, à partir du candidat 60** (la porte qui décide de `next`
+aujourd'hui, jouée sur le PC de référence par la file de portes avec les
+critères de `tools/perf/gate-spec.json`) : compilation et package du candidat,
+chaque passe jouée jusqu'au bout, p50 du jeu dans 1,3 × la dernière porte
+passée et p95 sous 50 ms, `-GTARun` à 6 étapes sur 7 ou plus, aucun fatal,
+aucune erreur, et une vidéo de la porte regardée avant que `next` avance. La
+porte juge ce que voit le joueur : le trafic des passes default et `-GTARun`
+est le trafic legacy, et ses relevés (voitures en mouvement, aucune couchée,
+étape de choc sur une voiture legacy) sont les critères de trafic bloquants,
+avec un seuil fixé à partir de la mesure de la porte 59. Les passes MassTraffic
+(`-Traffic=mass`) sont mesurées et relevées à chaque porte, mais elles sont
+informatives : elles ne deviennent bloquantes que pour basculer le trafic par
+défaut sur mass ([ADR-0015](../docs/adr/adr-0015-mass-crowd-and-traffic.fr.md)).
+
 **À chaque version**, en plus : 600 s par scène, une session libre de 30 min
 sans plantage (60 min en 0.9), package et banc Windows (m1 et Ultra, aucune
 image > 100 ms), mesure mémoire, vidéo de preuve, notes FR/EN, numéro de

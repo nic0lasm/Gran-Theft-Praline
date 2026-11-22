@@ -1,33 +1,26 @@
 {
-  "_doc": "What the Windows gate queue checks for this candidate. Edited by the pilot for each candidate; read by the PC queue script. No machine paths here.",
-  "candidate": 59,
+  "_doc": "What the Windows gate queue checks for this candidate. Edited by the pilot for each candidate; read by the PC queue script. No machine paths here. From candidate 60 the gate judges what the player sees: the default traffic, which is the legacy one (MassTraffic runs only with -Traffic=mass). The 'blocking' criteria are read on the blocking passes; everything under 'informative_mass' is measured and reported on the MassTraffic passes but never fails the gate, and never stops it. Those criteria become blocking again only for switching the default traffic to mass, once a whole gate passes them (ADR-0015).",
+  "candidate": 60,
   "map_md5": "bce9008ff024c78673626c4577ead426",
   "game_p50_max_ms": 17.82,
   "game_p95_max_ms": 50,
   "gtarun_min_ok": 6,
-  "stop_if_missing": [
-    "MassTraffic physics radius: no car under MassTraffic's simple physics",
-    "MassTraffic settings: City Sample's speed PID set:",
-    "MassTraffic near cars with a body: on",
-    "MassTraffic player obstacle: on, 4 points of radius 0"
+  "blocking_passes": [
+    "default",
+    "noparked",
+    "notraffic",
+    "gtarun",
+    "gtarun -DemoFreeCar=Car02",
+    "launch",
+    "crowd-base",
+    "crowd-parts3",
+    "crowd-parts5",
+    "crowd-cs0"
   ],
-  "stop_if_present": [
-    "VOLUME NOT SET"
+  "informative_passes": [
+    "mass -MassTrafficPicture",
+    "gtarun -Traffic=mass"
   ],
-  "template_lines": {
-    "text": "given the real wheels and City Sample's centre of mass",
-    "count": 7
-  },
-  "blocking": {
-    "moving_upright_120_300_min": 75.6,
-    "lying_within_100m_max_percent": 5,
-    "no_valid_current_errors_max": 0,
-    "gtarun_informative_crash_ok": true,
-    "fatal_max": 0,
-    "error_lines_max": 0,
-    "logmaterial_max": 0,
-    "template_minus1_max": 0
-  },
   "passes": [
     "mass -MassTrafficPicture",
     "crowd-base",
@@ -39,8 +32,61 @@
     "notraffic",
     "gtarun",
     "gtarun -DemoFreeCar=Car02",
+    "gtarun -Traffic=mass",
     "launch"
   ],
+  "blocking": {
+    "fatal_max": 0,
+    "error_lines_max": 0,
+    "logmaterial_max": 0,
+    "template_minus1_max": 0,
+    "errors_scope": "every blocking pass; Error lines of the MassTraffic passes are counted in informative_mass",
+    "windows_complete": true,
+    "legacy_lying_max": 0,
+    "legacy_moving_120_300_min": null,
+    "gtarun_crash_ok": true,
+    "video_watched_by_pilot": true
+  },
+  "_legacy_note": "legacy_moving_120_300_min is left empty on purpose: the pilot sets it from the measure of gate 59, not before. Until then the legacy counts are reported, not judged. gtarun_crash_ok: step 12 (crash) of the gtarun pass must end ok on a legacy car, so the player does not drive through the traffic. A missing count line or crash line on a blocking pass fails the gate.",
+  "informative_mass": {
+    "moving_upright_120_300_min": 75.6,
+    "lying_within_100m_max_percent": 5,
+    "no_valid_current_errors_max": 0,
+    "error_lines_max": 0,
+    "gtarun_crash_ok": true,
+    "lines_expected": [
+      "MassTraffic physics radius: no car under MassTraffic's simple physics",
+      "MassTraffic settings: City Sample's speed PID set:",
+      "MassTraffic near cars with a body: on",
+      "MassTraffic player obstacle: on, 4 points of radius 0"
+    ],
+    "lines_expected_in_pass": {
+      "gtarun -Traffic=mass": [
+        "kinematic (asleep=1, simulating=0), collision on"
+      ]
+    },
+    "lines_not_expected": [
+      "VOLUME NOT SET"
+    ],
+    "line_must_not_contain": [
+      {
+        "line": "MassTraffic physics radius:",
+        "must_not_contain": "not found"
+      },
+      {
+        "line": "MassTraffic settings:",
+        "must_not_contain": "missing"
+      },
+      {
+        "line": "MassTraffic settings:",
+        "must_not_contain": "not found"
+      }
+    ],
+    "template_lines": {
+      "text": "given the real wheels and City Sample's centre of mass",
+      "count": 7
+    }
+  },
   "report_lines": [
     "GTARun step 12: crash",
     "GTARun informative:",
@@ -62,33 +108,22 @@
     "their obstacles:",
     "vehicle shown by MassTraffic",
     "made MassTraffic's",
-    "nearest="
+    "nearest=",
+    "legacy traffic:"
   ],
   "video": {
     "pass": "-GTARun",
     "seconds": 180,
     "size": "1280x720",
     "fps": 30,
-    "max_mb": 30
-  },
-  "stop_if_line_contains": [
-    {
-      "line": "MassTraffic physics radius:",
-      "must_not_contain": "not found"
-    },
-    {
-      "line": "MassTraffic settings:",
-      "must_not_contain": "missing"
-    },
-    {
-      "line": "MassTraffic settings:",
-      "must_not_contain": "not found"
-    }
-  ],
-  "_p50_note": "1.3 x the p50 of the last passed gate; the pilot updates it after the gate of 56",
-  "stop_if_missing_in_pass": {
-    "gtarun": [
-      "kinematic (asleep=1, simulating=0), collision on"
+    "max_mb": 30,
+    "frames_at_s": [
+      20,
+      40,
+      60,
+      90,
+      120
     ]
-  }
+  },
+  "_p50_note": "1.3 x the p50 of the last passed gate (55: 13.71 ms); the pilot updates it after the next passed gate"
 }

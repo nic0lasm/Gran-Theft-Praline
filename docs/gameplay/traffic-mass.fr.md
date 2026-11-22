@@ -1,7 +1,9 @@
 # Trafic sur MassTraffic (City Sample)
 
-État au 13/11/2026 : préparé, pas compilé, en attente de City Sample sur le PC. Décision :
-ADR-0015 (piétons et trafic sur Mass). Anglais : [traffic-mass.md](traffic-mass.md).
+État au 22/11/2026 : MassTraffic ne tourne qu'avec `-Traffic=mass` ; le trafic par défaut du jeu
+reste le trafic legacy. À partir du candidat 60, les passes MassTraffic de la porte sont informatives,
+et ne redeviennent bloquantes que pour basculer le trafic par défaut sur mass (ADR-0015, correction du
+22/11/2026). Anglais : [traffic-mass.md](traffic-mass.md).
 
 ## Ce qui est prêt
 

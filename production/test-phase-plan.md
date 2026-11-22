@@ -175,6 +175,19 @@ Interface, missions, QA ──────────────────�
 The cap makes frame time insensitive to the ~2 ms variance of tier C; GPU
 p95 is the headroom gauge.
 
+**Windows gate, from candidate 60** (the gate that decides `next` today, run
+on the reference PC by the gate queue with the criteria of
+`tools/perf/gate-spec.json`): compile and package of the candidate, every
+pass played to the end, game p50 within 1.3 × the last passed gate and p95
+under 50 ms, `-GTARun` at 6 steps out of 7 or more, no fatal, no error, and a
+gate video watched before `next` moves. The gate judges what the player sees:
+the traffic of the default and `-GTARun` passes is the legacy one, and its
+counts (cars moving, none lying, the crash step on a legacy car) are the
+blocking traffic criteria, with a threshold set from the measure of gate 59.
+The MassTraffic passes (`-Traffic=mass`) are measured and reported at every
+gate, but are informative: they become blocking only for switching the default
+traffic to mass ([ADR-0015](../docs/adr/adr-0015-mass-crowd-and-traffic.md)).
+
 **On every version**, in addition: 600 s per scene, a 30-min free session
 without crash (60 min for 0.9), Windows package and bench (m1 and Ultra, no
 frame > 100 ms), memory measurement, proof video, FR/EN notes, version

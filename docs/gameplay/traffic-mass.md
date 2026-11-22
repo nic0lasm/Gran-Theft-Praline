@@ -1,7 +1,9 @@
 # Traffic on MassTraffic (City Sample)
 
-Status 13/11/2026: prepared, not compiled, waiting for City Sample on the PC. Decision: ADR-0015
-(pedestrians and traffic on Mass). French: [traffic-mass.fr.md](traffic-mass.fr.md).
+Status 22/11/2026: MassTraffic runs only with `-Traffic=mass`; the default traffic of the game stays
+the legacy one. From candidate 60 the MassTraffic passes of the gate are informative, and become
+blocking only for switching the default traffic to mass (ADR-0015, correction of 22/11/2026).
+French: [traffic-mass.fr.md](traffic-mass.fr.md).
 
 ## What is ready
 
