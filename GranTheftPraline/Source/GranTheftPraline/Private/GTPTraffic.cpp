@@ -375,15 +375,17 @@ void UGTPAIDriverComponent::Start(AGTPTrafficNetwork* InNetwork, int32 Lane, int
 double UGTPAIDriverComponent::TickSeconds = 0.0;
 int32 UGTPAIDriverComponent::TickCount = 0;
 
-void UGTPAIDriverComponent::PlaceGhost(int32 Lane, int32 Point, const FVector& Location, float YawDegrees, float SpeedMs)
+bool UGTPAIDriverComponent::PlaceGhost(int32 Lane, int32 Point, const FVector& Location, float YawDegrees, float SpeedMs)
 {
 	AGTPVehicle* Vehicle = Cast<AGTPVehicle>(GetOwner());
 	if (!Vehicle || !Network)
 	{
 		GTP_TRACE(LogGTPTraffic, TEXT("traffic: %s cannot be placed as a ghost: %s"), *GetNameSafe(Vehicle), Vehicle ? TEXT("its driver has no network") : TEXT("no car"));
-		return;
+		return false;
 	}
 	SetGhost(true);
+	// Already a ghost (put away in the pool, a far puppet): SetGhost kept the ride height measured back then.
+	KeepRideHeightOnWheels(Vehicle, TEXT("placed"));
 	Vehicle->SetActorLocationAndRotation(Location + FVector(0.f, 0.f, GhostRideHeight), FRotator(0.f, YawDegrees, 0.f), false, nullptr,
 		ETeleportType::TeleportPhysics);
 	Vehicle->NotePlaced(TEXT("placed as ghost"));
@@ -392,6 +394,20 @@ void UGTPAIDriverComponent::PlaceGhost(int32 Lane, int32 Point, const FVector& L
 	GhostAlong = 0.f;
 	GhostGroundZ = static_cast<float>(Location.Z);
 	GhostGroundAge = 1.f;
+	return true;
+}
+
+void UGTPAIDriverComponent::KeepRideHeightOnWheels(const AGTPVehicle* Vehicle, const TCHAR* When)
+{
+	// On its wheels, the origin stands a little under or over its spawn height (pivot and suspension).
+	const float Spawn = ParkedClearance(Vehicle->GetClass());
+	if (GhostRideHeight >= Spawn - 80.f && GhostRideHeight <= Spawn + 60.f)
+	{
+		return;
+	}
+	GTP_TRACE(LogGTPTraffic, TEXT("traffic: %s %s %.0f cm above the ground, off its wheels: ridden at %.0f cm"), *Vehicle->GetName(), When,
+		GhostRideHeight, Spawn);
+	GhostRideHeight = Spawn;
 }
 
 void UGTPAIDriverComponent::SetDecisionInterval(float Seconds)
@@ -403,12 +419,12 @@ void UGTPAIDriverComponent::SetDecisionInterval(float Seconds)
 	}
 }
 
-bool UGTPAIDriverComponent::FindGround(const AGTPVehicle* Vehicle, const FVector& Location, float& OutZ) const
+bool UGTPAIDriverComponent::FindGround(const AGTPVehicle* Vehicle, const FVector& Location, float& OutZ, float ReachCm) const
 {
 	FHitResult Hit;
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(GTPTrafficGhostGround), false, Vehicle);
 	FCollisionObjectQueryParams Objects(ECC_WorldStatic);
-	if (!GetWorld()->LineTraceSingleByObjectType(Hit, Location + FVector(0.f, 0.f, 300.f), Location - FVector(0.f, 0.f, 1000.f), Objects, Params))
+	if (!GetWorld()->LineTraceSingleByObjectType(Hit, Location + FVector(0.f, 0.f, 300.f), Location - FVector(0.f, 0.f, ReachCm), Objects, Params))
 	{
 		return false;
 	}
@@ -443,9 +459,20 @@ void UGTPAIDriverComponent::SetGhost(bool bInGhost)
 				GhostAlong = FMath::Clamp(static_cast<float>(FVector2D::DotProduct(From, Segment)) / Length, 0.f, Length);
 			}
 		}
+		// Down to 1 km: a car thrown in the air finds the ground under it, and its ghost slides there, not at the
+		// height it flew (the next ground traces only look 10 m down).
 		float GroundZ = 0.f;
-		GhostRideHeight = FindGround(Vehicle, Location, GroundZ) ? static_cast<float>(Location.Z) - GroundZ : 40.f;
-		GhostGroundZ = static_cast<float>(Location.Z) - GhostRideHeight;
+		if (FindGround(Vehicle, Location, GroundZ, 100000.f))
+		{
+			GhostRideHeight = static_cast<float>(Location.Z) - GroundZ;
+			KeepRideHeightOnWheels(Vehicle, TEXT("became a ghost"));
+			GhostGroundZ = GroundZ;
+		}
+		else
+		{
+			GhostRideHeight = 40.f;
+			GhostGroundZ = static_cast<float>(Location.Z) - GhostRideHeight;
+		}
 		GhostGroundAge = 0.f;
 		Vehicle->SetAIDriveInput(0.f, 0.f, 0.f, false);
 		if (Movement)
@@ -1469,6 +1496,7 @@ AGTPVehicle* AGTPTrafficNetwork::SpawnParkedVehicle(FName Tag, const FVector& Ne
 	const std::vector<GTPKerb::FSegmentRef> Nearby = GTPKerb::SegmentsNear(Polylines,
 		{static_cast<float>(Near.X), static_cast<float>(Near.Y)}, FMath::Max(RadiusCm, 100.f) + FMath::Max(ParkOffset, 0.f) + 1000.f);
 	int32 OnLane = 0;
+	int32 OnFurniture = 0;
 	// Out of sight first; if every spot is seen, a seen one rather than nothing.
 	for (int32 Pass = 0; Pass < 2; ++Pass)
 	{
@@ -1503,6 +1531,16 @@ AGTPVehicle* AGTPTrafficNetwork::SpawnParkedVehicle(FName Tag, const FVector& Ne
 			{
 				continue;
 			}
+			// The first thing under the trace can be street furniture: never a car on a bus shelter roof. The road at
+			// the lane beside gives the height a kerb spot can have (something over the lane would only let a spot by).
+			FHitResult Road;
+			const FVector LaneMiddle = (A + B) * 0.5;
+			if (GetWorld()->LineTraceSingleByChannel(Road, LaneMiddle + FVector(0.f, 0.f, 500.f), LaneMiddle - FVector(0.f, 0.f, 2000.f), ECC_Visibility, Params)
+				&& Ground.ImpactPoint.Z - Road.ImpactPoint.Z > ParkKerbRise)
+			{
+				OnFurniture += Pass == 0 ? 1 : 0;
+				continue;
+			}
 			const float Clearance = ParkedClearance(Class);
 			Location.Z = Ground.ImpactPoint.Z + Clearance;
 			FActorSpawnParameters SpawnParams;
@@ -1516,15 +1554,15 @@ AGTPVehicle* AGTPTrafficNetwork::SpawnParkedVehicle(FName Tag, const FVector& Ne
 			{
 				Car->Tags.AddUnique(Tag);
 			}
-			GTP_TRACE(LogGTPTraffic, TEXT("traffic: parked %s (%s) on lane %d at %s, %.0f m from the request, pivot %.0f cm above the ground (the mesh's lowest point at 40 cm), %d spot(s) on another lane left out"),
-				*Car->GetName(), *Tag.ToString(), Ref.Lane, *Location.ToCompactString(), Ref.Distance / 100.f, Clearance, OnLane);
+			GTP_TRACE(LogGTPTraffic, TEXT("traffic: parked %s (%s) on lane %d at %s, %.0f m from the request, pivot %.0f cm above the ground (the mesh's lowest point at 40 cm), %d spot(s) on another lane left out, %d on street furniture"),
+				*Car->GetName(), *Tag.ToString(), Ref.Lane, *Location.ToCompactString(), Ref.Distance / 100.f, Clearance, OnLane, OnFurniture);
 			return Car;
 		}
 	}
 	if (!bQuietMiss)
 	{
-		GTP_TRACE(LogGTPTraffic, TEXT("traffic: no free spot for a parked car (%s) within %.0f m of %s (%d spot(s) on another lane left out)"), *Tag.ToString(),
-			RadiusCm / 100.f, *Near.ToCompactString(), OnLane);
+		GTP_TRACE(LogGTPTraffic, TEXT("traffic: no free spot for a parked car (%s) within %.0f m of %s (%d spot(s) on another lane left out, %d on street furniture)"),
+			*Tag.ToString(), RadiusCm / 100.f, *Near.ToCompactString(), OnLane, OnFurniture);
 	}
 	return nullptr;
 }
@@ -1656,7 +1694,22 @@ bool AGTPTrafficNetwork::SpawnCar()
 			// spawned beyond the ghost distance went kinematic again the next frame: the Mac
 			// crashes (8 of 8) are all in the Chaos suspension graph (CreateGraphEdge).
 			const FVector Ground = Transform.GetLocation() - FVector(0.f, 0.f, 40.f);
-			ReusedDriver->PlaceGhost(Lane, Point, Ground, static_cast<float>(Transform.Rotator().Yaw), 0.f);
+			if (!ReusedDriver->PlaceGhost(Lane, Point, Ground, static_cast<float>(Transform.Rotator().Yaw), 0.f))
+			{
+				// Not moved. Its collision back on where it was put away, it would stand there, kinematic, in whatever came
+				// by since: until candidate 63 the frozen puppets did, and the chase script puts away the car in front of
+				// the player's van (the probable cause of the van thrown over the roofs in gate 61's video). Taken away.
+				if (ACharacter* Seated = Reused->GetDriver())
+				{
+					if (AController* Brain = Seated->GetController())
+					{
+						Brain->Destroy();
+					}
+					Seated->Destroy();
+				}
+				Reused->Destroy();
+				return false;
+			}
 			Reused->SetActorEnableCollision(true);
 			if (!AIDrivers.Contains(ReusedDriver))
 			{
