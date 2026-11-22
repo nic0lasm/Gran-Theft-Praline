@@ -7,21 +7,71 @@
   "gtarun_min_ok": 6,
   "stop_if_missing": [
     "MassTraffic physics radius: no car under MassTraffic's simple physics",
+    "MassTraffic settings: City Sample's speed PID set:",
     "MassTraffic near cars with a body: on",
     "MassTraffic player obstacle: on",
-    "collision on"
+    "kinematic (asleep=1, simulating=0), collision on"
   ],
-  "stop_if_present": ["VOLUME NOT SET", "MassTraffic settings: City Sample's speed PID set: missing", "not found"],
-  "template_lines": { "text": "given the real wheels and City Sample's centre of mass", "count": 7 },
+  "stop_if_present": [
+    "VOLUME NOT SET"
+  ],
+  "template_lines": {
+    "text": "given the real wheels and City Sample's centre of mass",
+    "count": 7
+  },
   "blocking": {
     "moving_upright_120_300_min": 75.6,
     "lying_within_100m_max_percent": 5,
     "no_valid_current_errors_max": 0,
     "gtarun_informative_crash_ok": true,
-    "fatal_max": 0, "error_lines_max": 0, "logmaterial_max": 0, "template_minus1_max": 0
+    "fatal_max": 0,
+    "error_lines_max": 0,
+    "logmaterial_max": 0,
+    "template_minus1_max": 0
   },
-  "passes": ["mass -MassTrafficPicture", "crowd-base", "crowd-parts3", "crowd-parts5", "crowd-cs0", "default", "noparked", "notraffic", "gtarun", "gtarun -DemoFreeCar=Car02", "launch"],
+  "passes": [
+    "mass -MassTrafficPicture",
+    "crowd-base",
+    "crowd-parts3",
+    "crowd-parts5",
+    "crowd-cs0",
+    "default",
+    "noparked",
+    "notraffic",
+    "gtarun",
+    "gtarun -DemoFreeCar=Car02",
+    "launch"
+  ],
   "fallback_head_if_compile_fails": "9e8bfb13bf69ce8d201fbb5f690bf0d83211886b",
-  "report_lines": ["GTARun step 12: crash", "GTARun informative:", "MassTraffic tick rates", "actors=", "police chase:", "given up", "no place for a car", "MassTraffic picture:"],
-  "video": { "pass": "-GTARun", "seconds": 180, "size": "1280x720", "fps": 30, "max_mb": 30 }
+  "report_lines": [
+    "GTARun step 12: crash",
+    "GTARun informative:",
+    "MassTraffic tick rates",
+    "actors=",
+    "police chase:",
+    "given up",
+    "no place for a car",
+    "MassTraffic picture:"
+  ],
+  "video": {
+    "pass": "-GTARun",
+    "seconds": 180,
+    "size": "1280x720",
+    "fps": 30,
+    "max_mb": 30
+  },
+  "stop_if_line_contains": [
+    {
+      "line": "MassTraffic physics radius:",
+      "must_not_contain": "not found"
+    },
+    {
+      "line": "MassTraffic settings:",
+      "must_not_contain": "missing"
+    },
+    {
+      "line": "MassTraffic settings:",
+      "must_not_contain": "not found"
+    }
+  ]
 }
