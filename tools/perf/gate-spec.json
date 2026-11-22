@@ -125,7 +125,9 @@
     "Demo chase: encore",
     "Player visual on restart",
     "view pitch limits",
-    "camera pitch"
+    "camera pitch",
+    "not driving",
+    "PlaceGhost"
   ],
   "video": {
     "pass": "-GTARun -GTARunEncore",
