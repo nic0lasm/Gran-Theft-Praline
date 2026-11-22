@@ -15,6 +15,32 @@ or `-Pedestrians=N` brings the legacy system back. The Mass crowd does what the 
 an accident, flight from a shot, hands up under a threat and ragdoll under the player's vehicle; its density is 300 people with 24 full
 characters near the player (`CrowdCount`, `NearCount` in `[/Script/GTPMass.GTPCrowdSubsystem]`).
 
+## Crossings with MassTraffic cars (`-CrowdCrossingWait=0` to switch off)
+
+Until candidate 57 the crowd crossed one by one whatever the cars did (`GTPWalk::Step` with `bCrossingUnsafe` always false),
+and each person on a crossing is an obstacle the MassTraffic cars brake for: with a steady flow of people the car at the head of a
+queue never left (queues held up to 250 s at gate 57). Since candidate 58:
+
+- **What a car is to a crossing** (`GTPWalk::LookAtCar`, engine-free): only a car whose line goes over the crossing counts, not one
+  that drives along it or passes in the next street. It is *near* when its front is within 12 m of the crossing, stopped or not, and
+  *dangerous* when it will be on it within 3 s at its speed, or rolls over it. The subsystem looks four times a second at the driving
+  MassTraffic cars around the player (`GTPMassTrafficCars::Find`) and at the car the player drives.
+- **In groups, as at a pedestrian light.** With a car near, people step off the kerb only during the first `CrossingWalkSeconds` (8)
+  of every `CrossingCycleSeconds` (30); each crossing has its own clock. The car gets through between two groups. With a
+  dangerous car they wait whatever the clock says. With no car in sight they cross at once, as before.
+- **Nobody is stuck, on either side.** Who waits at the kerb is not an obstacle for the cars (no `FMassTrafficObstacleTag` until they
+  step off), so a car never waits for somebody who waits for it. Nobody waits longer than `CrossingWaitMaxSeconds` (45): after
+  that they cross and the cars brake. Those who wait stand side by side along the kerb.
+- **The log line, every 10 s:** `crowd: crossings: N waiting at the kerb (longest wait now N s), N on a crossing; since the start:
+  most waiting at once N, longest wait N s, N stepped off after the longest wait allowed (45 s); cars: N seen, N of the N crossings
+  around have one near (N dangerous)`. A good run has people waiting whenever a crossing has a car near, a longest wait under
+  about 25 s, and nobody (or almost) stepping off after the longest wait allowed. `cars: 0 seen (no MassTraffic cars to ask for)` means
+  the map has no MassTraffic cars: nobody waits.
+- **Checked offline** (`python3 tools/pedestrians/check_walk_logic.py`): one person every 2 s for 300 s at a crossing where a car
+  waits. One by one, the crossing is never free. In groups it is free 62 % of the time, never busy more than 11 s in a row, the
+  longest wait is 21 s and as many people get across. Twelve cars are read (stopped before it, coming fast, past it, in the next
+  street, along it). **Not proven in the game**: that the queues of gate 57 drain.
+
 ## City Sample characters (default; `-CrowdCitySample=0` for the mannequins)
 
 The 24 near characters are assembled from the City Sample Crowds subset under `/Game/Crowd` (outside Git): body, three

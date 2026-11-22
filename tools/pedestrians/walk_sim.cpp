@@ -331,6 +331,155 @@ int main(int Argc, char** Argv)
 	}
 	(void)Waited;
 
+	// A steady flow of people at a crossing where a car waits: one by one they never let it go; in groups, on the
+	// walk phase of the crossing, the road is free for most of each cycle, and nobody waits more than a cycle.
+	auto Flow = [&G, Dt](const FSettings& Rule, bool bWait, double& LongestBusy, double& FreeShare, double& LongestWait, int& Crossed) {
+		int Crossing = -1;
+		for (size_t e = 0; e < G.Edges.size(); ++e)
+		{
+			// The longest crossing of the graph: the widest road.
+			if (G.Edges[e].Kind == EKind::Crossing && (Crossing < 0 || G.Edges[e].Length > G.Edges[Crossing].Length))
+			{
+				Crossing = static_cast<int>(e);
+			}
+		}
+		LongestBusy = FreeShare = LongestWait = 0.0;
+		Crossed = 0;
+		if (Crossing < 0)
+		{
+			return;
+		}
+		FRng FlowRng(77u);
+		std::vector<FWalker> People;
+		double Busy = 0.0, Free = 0.0, NextArrival = 0.0;
+		const double Seconds = 300.0;
+		for (double T = 0.0; T < Seconds; T += Dt)
+		{
+			if (T >= NextArrival)
+			{
+				NextArrival += 2.0;
+				FWalker W;
+				W.Edge = Crossing;
+				W.bForward = (People.size() % 2) == 0;
+				W.S = 0.f;
+				People.push_back(W);
+			}
+			bool bOn = false;
+			for (FWalker& W : People)
+			{
+				if (W.Edge != Crossing)
+				{
+					continue;
+				}
+				const bool bUnsafe = bWait && W.S < 30.f && CrossingUnsafe(Crossing, T, true, false, Rule);
+				const float Before = W.S;
+				Step(G, W, Dt, FlowRng, Rule, bUnsafe);
+				if (W.Edge != Crossing)
+				{
+					++Crossed;
+				}
+				else if (W.S >= 30.f || Before >= 30.f)
+				{
+					bOn = true;
+				}
+				LongestWait = std::max(LongestWait, static_cast<double>(W.Edge == Crossing ? W.CrossingWait : 0.f));
+			}
+			Busy = bOn ? Busy + Dt : 0.0;
+			Free += bOn ? 0.0 : Dt;
+			LongestBusy = std::max(LongestBusy, Busy);
+		}
+		FreeShare = Free / Seconds;
+	};
+	FSettings OneByOne = S;
+	FSettings Phased = S;
+	Phased.CrossingCycleSeconds = 30.f;
+	Phased.CrossingWalkSeconds = 8.f;
+	Phased.CrossingWaitMax = 45.f;
+	double BusyA, FreeA, WaitA, BusyB, FreeB, WaitB;
+	int CrossedA, CrossedB;
+	Flow(OneByOne, false, BusyA, FreeA, WaitA, CrossedA);
+	Flow(Phased, true, BusyB, FreeB, WaitB, CrossedB);
+	std::printf("crossing flow, one person every 2 s for 300 s with a car waiting: one by one busy %.0f s in a row, free %.0f %%, %d crossed; "
+		"in groups busy %.0f s in a row, free %.0f %%, longest wait %.0f s, %d crossed\n",
+		BusyA, FreeA * 100.0, CrossedA, BusyB, FreeB * 100.0, WaitB, CrossedB);
+	const bool FlowOk = CrossedA > 0 && BusyB <= 25.0 && FreeB >= 0.3 && WaitB <= 30.5 && CrossedB >= CrossedA * 8 / 10;
+
+	// What a car is to a crossing (LookAtCar): a crossing 8 m long across a road along X, cars 2.5 m each side of their centre.
+	int LookOk = 0, LookTrials = 0;
+	{
+		FEdge Zebra;
+		Zebra.Kind = EKind::Crossing;
+		Zebra.Points = {{0.f, -400.f}, {0.f, 400.f}};
+		Zebra.Length = 800.f;
+		struct FCase { float X, Y, Fx, Fy, Speed; bool bNear, bDangerous; const char* What; };
+		const FCase Cases[] = {
+			{-600.f, 0.f, 1.f, 0.f, 0.f, true, false, "stopped 3.5 m before it"},
+			{-600.f, 0.f, 1.f, 0.f, 100.f, true, false, "creeping 3.5 m before it"},
+			{-2000.f, 0.f, 1.f, 0.f, 0.f, false, false, "stopped 17.5 m before it"},
+			{-2000.f, 0.f, 1.f, 0.f, 1000.f, true, true, "coming at 36 km/h, 1.75 s away"},
+			{-6000.f, 0.f, 1.f, 0.f, 1000.f, false, false, "coming at 36 km/h, 5.75 s away"},
+			{100.f, 0.f, 1.f, 0.f, 300.f, true, true, "rolling over it"},
+			{100.f, 0.f, 1.f, 0.f, 0.f, true, false, "stopped on it"},
+			{600.f, 0.f, 1.f, 0.f, 800.f, false, false, "past it, driving away"},
+			{600.f, 0.f, -1.f, 0.f, 800.f, true, true, "the other way, coming"},
+			{-600.f, 900.f, 1.f, 0.f, 800.f, false, false, "in the next street, 5 m past the end of the crossing"},
+			{-300.f, -1500.f, 0.f, 1.f, 800.f, false, false, "driving along the crossing, 3 m beside it"},
+			{-600.f, 500.f, 1.f, 0.f, 0.f, true, false, "stopped beside the kerb, 1 m past the end of the crossing"},
+		};
+		for (const FCase& C : Cases)
+		{
+			bool bNear = false, bDangerous = false;
+			LookAtCar(Zebra, FPoint{C.X, C.Y}, FPoint{C.Fx, C.Fy}, C.Speed, 250.f, S, bNear, bDangerous);
+			++LookTrials;
+			if (bNear == C.bNear && bDangerous == C.bDangerous)
+			{
+				++LookOk;
+			}
+			else
+			{
+				std::printf("crossing look WRONG for a car %s: near %d (wanted %d), dangerous %d (wanted %d)\n", C.What, bNear, C.bNear, bDangerous, C.bDangerous);
+			}
+		}
+		std::printf("crossing look: %d/%d cars read right\n", LookOk, LookTrials);
+	}
+
+	// Both sides get through: with cars coming one after the other for ever, a person still crosses once the longest
+	// wait is over; with a car stopped at the crossing for ever, at the next walk phase.
+	FWalker Patient;
+	for (size_t e = 0; e < G.Edges.size(); ++e)
+	{
+		if (G.Edges[e].Kind == EKind::Crossing && (Patient.Edge < 0 || G.Edges[e].Length > G.Edges[Patient.Edge].Length))
+		{
+			Patient.Edge = static_cast<int>(e);
+		}
+	}
+	const int PatientEdge = Patient.Edge;
+	FRng PatientRng(5u);
+	double EndlessCars = -1.0, StoppedCar = -1.0;
+	for (double T = 0.0; T < 120.0 && EndlessCars < 0.0; T += Dt)
+	{
+		Step(G, Patient, Dt, PatientRng, Phased, Patient.S < 30.f && CrossingUnsafe(PatientEdge, T, true, true, Phased));
+		EndlessCars = Patient.S >= 30.f || Patient.Edge != PatientEdge ? T : -1.0;
+	}
+	Patient = FWalker();
+	Patient.Edge = PatientEdge;
+	// Arrives just as the walk phase of this crossing ends: the longest wait there is.
+	double Start = 0.0;
+	while (!CrossingWalkPhase(PatientEdge, Start, Phased) || CrossingWalkPhase(PatientEdge, Start + Dt, Phased))
+	{
+		Start += Dt;
+	}
+	Start += Dt;
+	for (double T = Start; T < Start + 120.0 && StoppedCar < 0.0; T += Dt)
+	{
+		Step(G, Patient, Dt, PatientRng, Phased, Patient.S < 30.f && CrossingUnsafe(PatientEdge, T, true, false, Phased));
+		StoppedCar = Patient.S >= 30.f || Patient.Edge != PatientEdge ? T - Start : -1.0;
+	}
+	std::printf("crossing wait: with cars coming for ever a person steps off after %.0f s (longest wait %.0f s); with a car stopped there for ever, after %.0f s at worst (cycle %.0f s, walk %.0f s)\n",
+		EndlessCars, Phased.CrossingWaitMax, StoppedCar, Phased.CrossingCycleSeconds, Phased.CrossingWalkSeconds);
+	const bool WaitOk = PatientEdge >= 0 && EndlessCars >= Phased.CrossingWaitMax - 1.0 && EndlessCars <= Phased.CrossingWaitMax + 1.0
+		&& StoppedCar >= 0.0 && StoppedCar <= Phased.CrossingCycleSeconds - Phased.CrossingWalkSeconds + 1.0;
+
 	// Density of the M1 profile (12 people) on the real graph, with and without avoidance, and pairs.
 	// A crowd five times the density too, where overlaps are frequent enough to compare.
 	double PairSpread = 0;
@@ -345,7 +494,7 @@ int main(int Argc, char** Argv)
 	std::printf("edges=%zu nodes=%zu walkers=%d seconds=%.0f visited=%zu walking=%.2f waiting=%.3f max_jump_cm=%.0f teleports=%d flee_ok=%d/%d crossing_breaches=%d\n",
 		G.Edges.size(), G.NodeEdges.size(), Walkers, Seconds, Visited.size(), Walking, WaitTime / TotalTime,
 		MaxJump, Teleports, FleeOk, FleeTrials, Stepped);
-	const bool Pass = Teleports == 0 && Stepped == 0 && Avoiding <= Plain && Avoiding12 <= Plain12 + 0.0005 && PairSpread < 500.0 && Walking > 0.8 && FleeOk >= FleeTrials * 0.9 && PanicMaxGen <= S.PanicMaxGeneration && PanicCaught >= 1 && HeldOk == HeldTrials && GawkTaken > 5 && GawkFacing == GawkTaken && GawkResumed >= GawkTaken * 0.9 && Visited.size() * 2 >= G.Edges.size();
+	const bool Pass = Teleports == 0 && Stepped == 0 && Avoiding <= Plain && Avoiding12 <= Plain12 + 0.0005 && PairSpread < 500.0 && Walking > 0.8 && FleeOk >= FleeTrials * 0.9 && PanicMaxGen <= S.PanicMaxGeneration && PanicCaught >= 1 && HeldOk == HeldTrials && GawkTaken > 5 && GawkFacing == GawkTaken && GawkResumed >= GawkTaken * 0.9 && Visited.size() * 2 >= G.Edges.size() && FlowOk && LookOk == LookTrials && WaitOk;
 	std::printf("%s\n", Pass ? "PASS" : "FAIL");
 	return Pass ? 0 : 1;
 }

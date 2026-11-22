@@ -80,6 +80,28 @@ void UGTPCrowdSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 	{
 		CrowdCount = FMath::Max(0, Override);
 	}
+	// Crossings: in groups when a car is about to go over one (GTPCrowd.h, CrossingCycleSeconds).
+	int32 CrossingWait = 1;
+	FParse::Value(FCommandLine::Get(), TEXT("CrowdCrossingWait="), CrossingWait);
+	bCrossingWait = CrossingWait != 0;
+	CrossingCars.Init(0, static_cast<int32>(Graph.Edges.size()));
+	for (int32 Edge = 0; Edge < CrossingCars.Num(); ++Edge)
+	{
+		if (Graph.IsValidEdge(Edge) && Graph.Edges[Edge].Kind == GTPWalk::EKind::Crossing && Graph.Edges[Edge].Points.size() >= 2)
+		{
+			CrossingEdges.Add(Edge);
+		}
+	}
+	if (bCrossingWait)
+	{
+		Settings.CrossingCycleSeconds = CrossingCycleSeconds;
+		Settings.CrossingWalkSeconds = CrossingWalkSeconds;
+		Settings.CrossingWaitMax = CrossingWaitMaxSeconds;
+	}
+	UE_LOG(LogGTPCrowd, Log, TEXT("crowd: crossings: %d in the graph; %s"), CrossingEdges.Num(), bCrossingWait
+		? *FString::Printf(TEXT("with a car about to go over one, people step off the kerb for %.0f s every %.0f s and wait for the rest, %.0f s at most"),
+			CrossingWalkSeconds, CrossingCycleSeconds, CrossingWaitMaxSeconds)
+		: TEXT("nobody waits for a car (-CrowdCrossingWait=0)"));
 	Spawn(InWorld);
 	// Hear the shots even when no near character could be dressed (no mesh yet): the far crowd still runs.
 	if (UGTPAudioWorld* Audio = InWorld.GetSubsystem<UGTPAudioWorld>())
@@ -245,6 +267,12 @@ void UGTPCrowdSubsystem::Tick(float DeltaTime)
 		PlayerGroundZ = PlayerLocation.Z - 90.f;
 	}
 	UpdateNear(DeltaTime);
+	NextCarLook -= DeltaTime;
+	if (bCrossingWait && NextCarLook <= 0.f)
+	{
+		NextCarLook = 0.25f;
+		LookAtCars();
+	}
 	NextPanicSpread -= DeltaTime;
 	if (NextPanicSpread <= 0.f)
 	{
@@ -255,6 +283,90 @@ void UGTPCrowdSubsystem::Tick(float DeltaTime)
 	{
 		Instances->MarkRenderStateDirty();
 	}
+}
+
+void UGTPCrowdSubsystem::LookAtCars()
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+	// The driving MassTraffic cars around the player, as far as the crowd goes plus what a fast car covers in the time
+	// people look ahead. Asked here, between two frames of Mass, never from a processor (GTPMassTrafficCars.h).
+	const float FastCarReach = 1400.f * Settings.CrossingCarSeconds + 500.f;
+	CarsSeen.Reset();
+	bCarsToSee = GTPMassTrafficCars::Find(*World, PlayerLocation, RecycleDistance + FastCarReach, CarsSeen);
+	// And the car the player drives: nobody steps in front of it either.
+	if (const APawn* Pawn = UGameplayStatics::GetPlayerPawn(World, 0); Pawn && !Pawn->IsA<ACharacter>())
+	{
+		const FVector Velocity = Pawn->GetVelocity();
+		if (Velocity.SizeSquared2D() > FMath::Square(Settings.CrossingCarFastSpeed))
+		{
+			FGTPMassTrafficCar& Car = CarsSeen.AddDefaulted_GetRef();
+			Car.Location = Pawn->GetActorLocation();
+			Car.Forward = Velocity.GetSafeNormal2D();
+			Car.SpeedCmS = Velocity.Size2D();
+			Car.RadiusCm = 250.f;
+		}
+	}
+	CrossingsLookedAt = CrossingsWithCarNear = CrossingsWithCarDangerous = 0;
+	for (const int32 Edge : CrossingEdges)
+	{
+		CrossingCars[Edge] = 0;
+		const GTPWalk::FEdge& Crossing = Graph.Edges[Edge];
+		const GTPWalk::FPoint& A = Crossing.Points.front();
+		const GTPWalk::FPoint& B = Crossing.Points.back();
+		const FVector Mid((A.X + B.X) * 0.5f, (A.Y + B.Y) * 0.5f, 0.f);
+		if (FVector::DistSquared2D(Mid, PlayerLocation) > FMath::Square(RecycleDistance))
+		{
+			continue;
+		}
+		++CrossingsLookedAt;
+		bool bNear = false, bDangerous = false;
+		const double Reach = FMath::Square(static_cast<double>(FastCarReach + Crossing.Length));
+		for (const FGTPMassTrafficCar& Car : CarsSeen)
+		{
+			if (FVector::DistSquared2D(Car.Location, Mid) > Reach)
+			{
+				continue;
+			}
+			const FVector Forward = Car.Forward.GetSafeNormal2D();
+			if (Forward.IsNearlyZero())
+			{
+				continue;
+			}
+			GTPWalk::LookAtCar(Crossing, GTPWalk::FPoint{static_cast<float>(Car.Location.X), static_cast<float>(Car.Location.Y)},
+				GTPWalk::FPoint{static_cast<float>(Forward.X), static_cast<float>(Forward.Y)}, Car.SpeedCmS, Car.RadiusCm, Settings, bNear, bDangerous);
+			if (bDangerous)
+			{
+				break;
+			}
+		}
+		CrossingCars[Edge] = static_cast<uint8>((bNear ? CrossingHasCarNear : 0) | (bDangerous ? CrossingHasCarDangerous : 0));
+		CrossingsWithCarNear += bNear ? 1 : 0;
+		CrossingsWithCarDangerous += bDangerous ? 1 : 0;
+	}
+	// Every 10 s: who waits at a kerb, for the gate to read that a queue of cars is let through and that nobody
+	// stays there (docs/gameplay/pedestrians-mass.md).
+	const double Now = World->GetTimeSeconds();
+	if (Now - LastCrossingLog >= 10.0)
+	{
+		LastCrossingLog = Now;
+		UE_LOG(LogGTPCrowd, Log, TEXT("crowd: crossings: %d waiting at the kerb (longest wait now %.0f s), %d on a crossing; since the start: most waiting at once %d, longest wait %.0f s, %d stepped off after the longest wait allowed (%.0f s); cars: %d seen%s, %d of the %d crossings around have one near (%d dangerous)"),
+			WaitingAtKerb, LongestWaitNow, OnCrossing, MostWaitingAtKerb, LongestWaitEver, GaveUpWaiting, Settings.CrossingWaitMax,
+			CarsSeen.Num(), bCarsToSee ? TEXT("") : TEXT(" (no MassTraffic cars to ask for)"), CrossingsWithCarNear, CrossingsLookedAt, CrossingsWithCarDangerous);
+	}
+}
+
+void UGTPCrowdSubsystem::ReportCrossings(int32 Waiting, int32 Crossing, float LongestWait, int32 GaveUp)
+{
+	WaitingAtKerb = Waiting;
+	OnCrossing = Crossing;
+	LongestWaitNow = LongestWait;
+	MostWaitingAtKerb = FMath::Max(MostWaitingAtKerb, Waiting);
+	LongestWaitEver = FMath::Max(LongestWaitEver, LongestWait);
+	GaveUpWaiting += GaveUp;
 }
 
 // ---------------------------------------------------------------- processors
@@ -288,7 +400,10 @@ void UGTPCrowdMoveProcessor::Execute(FMassEntityManager& EntityManager, FMassExe
 	const GTPWalk::FSettings& Settings = Crowd->GetSettings();
 	const FVector Player = Crowd->GetPlayerLocation();
 	const float Recycle = Crowd->GetRecycleDistance();
-	Query.ForEachEntityChunk(Context, [this, Crowd, &Graph, &Settings, Player, Recycle](FMassExecutionContext& Chunk)
+	const double Now = Context.GetWorld()->GetTimeSeconds();
+	int32 Waiting = 0, OnCrossing = 0, GaveUp = 0;
+	float LongestWait = 0.f;
+	Query.ForEachEntityChunk(Context, [this, Crowd, &Graph, &Settings, Player, Recycle, Now, &Waiting, &OnCrossing, &GaveUp, &LongestWait](FMassExecutionContext& Chunk)
 	{
 		const float Dt = Chunk.GetDeltaTimeSeconds();
 		const TArrayView<FGTPCrowdWalkerFragment> Walkers = Chunk.GetMutableFragmentView<FGTPCrowdWalkerFragment>();
@@ -298,17 +413,18 @@ void UGTPCrowdMoveProcessor::Execute(FMassEntityManager& EntityManager, FMassExe
 		// lanes, UpdateDistanceToNearestObstacle brakes that car for it). The tag is worn on a
 		// crossing only: on the sidewalk a car passing 2 m away would brake for nothing, and every
 		// obstacle costs a lane search a frame. Adding or removing it moves the person to another
-		// chunk at the end of the phase, once per crossing.
+		// chunk at the end of the phase, once per crossing. Who waits at the kerb for a car does not
+		// wear it: the car would wait for them as they wait for it.
 		const TArrayView<FTransformFragment> Transforms = Chunk.GetMutableFragmentView<FTransformFragment>();
 		const TArrayView<FMassVelocityFragment> Velocities = Chunk.GetMutableFragmentView<FMassVelocityFragment>();
 		const bool bObstacleChunk = Chunk.DoesArchetypeHaveTag<FMassTrafficObstacleTag>();
-		auto Publish = [&Chunk, &Graph, &Transforms, &Velocities, bObstacleChunk](int32 Index, const FGTPCrowdWalkerFragment& W, const FVector& Velocity)
+		auto Publish = [&Chunk, &Graph, &Transforms, &Velocities, bObstacleChunk](int32 Index, const FGTPCrowdWalkerFragment& W, const FVector& Velocity, bool bWaitingAtKerb)
 		{
 			if (Transforms.IsEmpty() || Velocities.IsEmpty())
 			{
 				return;
 			}
-			const bool bOnCrossing = W.Walker.Edge >= 0 && W.Walker.Edge < static_cast<int>(Graph.Edges.size())
+			const bool bOnCrossing = !bWaitingAtKerb && W.Walker.Edge >= 0 && W.Walker.Edge < static_cast<int>(Graph.Edges.size())
 				&& Graph.Edges[W.Walker.Edge].Kind == GTPWalk::EKind::Crossing;
 			Transforms[Index].GetMutableTransform() = FTransform(FRotator(0.f, W.Yaw, 0.f), FVector(W.Location.X, W.Location.Y, W.GroundZ));
 			Velocities[Index].Value = Velocity;
@@ -336,11 +452,30 @@ void UGTPCrowdMoveProcessor::Execute(FMassEntityManager& EntityManager, FMassExe
 					W.GroundZ = Crowd->GroundAt(W.Location);
 				}
 #if WITH_GTP_MASSTRAFFIC
-				Publish(Index, W, FVector::ZeroVector);
+				Publish(Index, W, FVector::ZeroVector, false);
 #endif
 				continue;
 			}
-			const GTPWalk::FStepResult R = GTPWalk::Step(Graph, W.Walker, Dt, Rng, Settings, false);
+			// About to step onto a crossing: is a car about to go over it, and is it this crossing's turn to walk?
+			bool bCrossingUnsafe = false;
+			if (Graph.IsValidEdge(W.Walker.Edge) && Graph.Edges[W.Walker.Edge].Kind == GTPWalk::EKind::Crossing && W.Walker.S < 30.f)
+			{
+				const uint8 Cars = Crowd->GetCrossingCars(W.Walker.Edge);
+				bCrossingUnsafe = Cars != 0 && GTPWalk::CrossingUnsafe(W.Walker.Edge, Now,
+					(Cars & UGTPCrowdSubsystem::CrossingHasCarNear) != 0, (Cars & UGTPCrowdSubsystem::CrossingHasCarDangerous) != 0, Settings);
+			}
+			const float WaitedBefore = W.Walker.CrossingWait;
+			const GTPWalk::FStepResult R = GTPWalk::Step(Graph, W.Walker, Dt, Rng, Settings, bCrossingUnsafe);
+			if (R.bWaitingToCross)
+			{
+				++Waiting;
+				LongestWait = FMath::Max(LongestWait, W.Walker.CrossingWait);
+				GaveUp += WaitedBefore < Settings.CrossingWaitMax && W.Walker.CrossingWait >= Settings.CrossingWaitMax ? 1 : 0;
+			}
+			else if (Graph.IsValidEdge(W.Walker.Edge) && Graph.Edges[W.Walker.Edge].Kind == GTPWalk::EKind::Crossing)
+			{
+				++OnCrossing;
+			}
 			GTPWalk::FPoint P, D;
 			GTPWalk::Locate(Graph, W.Walker, P, D);
 			W.Speed = R.Speed;
@@ -363,10 +498,11 @@ void UGTPCrowdMoveProcessor::Execute(FMassEntityManager& EntityManager, FMassExe
 				W.GroundZ = Crowd->GroundAt(W.Location);
 			}
 #if WITH_GTP_MASSTRAFFIC
-			Publish(Index, W, FVector(D.X, D.Y, 0.f).GetSafeNormal2D() * W.Speed);
+			Publish(Index, W, FVector(D.X, D.Y, 0.f).GetSafeNormal2D() * W.Speed, R.bWaitingToCross);
 #endif
 		}
 	});
+	Crowd->ReportCrossings(Waiting, OnCrossing, LongestWait, GaveUp);
 }
 
 UGTPCrowdRepresentationProcessor::UGTPCrowdRepresentationProcessor()

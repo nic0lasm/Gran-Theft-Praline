@@ -15,6 +15,35 @@ ou `-Pedestrians=N` ramène l'ancien système. La foule Mass fait ce que fait l'
 un accident, fuite au coup de feu, mains en l'air sous la menace et ragdoll sous le véhicule du joueur ; sa densité est de 300 personnes
 dont 24 personnages complets près du joueur (`CrowdCount`, `NearCount` dans `[/Script/GTPMass.GTPCrowdSubsystem]`).
 
+## Passages piétons et voitures MassTraffic (`-CrowdCrossingWait=0` pour couper)
+
+Jusqu'au candidat 57 la foule traversait une personne après l'autre quoi que fassent les voitures (`GTPWalk::Step` avec
+`bCrossingUnsafe` toujours faux), et chaque personne sur un passage est un obstacle pour lequel les voitures MassTraffic freinent :
+avec un flux continu de piétons, la voiture en tête de file ne repartait jamais (files bloquées jusqu'à 250 s à la porte 57).
+Depuis le candidat 58 :
+
+- **Ce qu'une voiture est pour un passage** (`GTPWalk::LookAtCar`, sans moteur) : seule compte une voiture dont la trajectoire coupe
+  le passage, pas celle qui le longe ni celle de la rue voisine. Elle est *proche* quand son avant est à moins de 12 m du passage,
+  arrêtée ou non, et *dangereuse* quand elle y sera dans moins de 3 s à sa vitesse, ou qu'elle roule dessus. Le sous-système regarde
+  quatre fois par seconde les voitures MassTraffic qui roulent autour du joueur (`GTPMassTrafficCars::Find`) et la voiture que conduit
+  le joueur.
+- **Par vagues, comme à un feu piéton.** Avec une voiture proche, les gens ne quittent le bord que pendant les `CrossingWalkSeconds` (8)
+  premières secondes de chaque `CrossingCycleSeconds` (30) ; chaque passage a sa propre horloge. La voiture passe entre deux vagues.
+  Avec une voiture dangereuse ils attendent quelle que soit l'horloge. Sans voiture en vue ils traversent aussitôt, comme avant.
+- **Personne ne reste bloqué, d'aucun côté.** Qui attend au bord n'est pas un obstacle pour les voitures (pas de
+  `FMassTrafficObstacleTag` avant de s'engager) : une voiture n'attend jamais quelqu'un qui l'attend. Personne n'attend plus de
+  `CrossingWaitMaxSeconds` (45) : ensuite il traverse et les voitures freinent. Ceux qui attendent se tiennent côte à côte le long
+  du bord.
+- **La ligne de journal, toutes les 10 s :** `crowd: crossings: N waiting at the kerb (longest wait now N s), N on a crossing; since
+  the start: most waiting at once N, longest wait N s, N stepped off after the longest wait allowed (45 s); cars: N seen, N of the N
+  crossings around have one near (N dangerous)`. Une bonne passe montre des gens en attente dès qu'un passage a une voiture proche,
+  une plus longue attente sous 25 s environ, et personne (ou presque) qui s'engage après l'attente maximale. `cars: 0 seen (no
+  MassTraffic cars to ask for)` : la carte n'a pas de voitures MassTraffic, personne n'attend.
+- **Vérifié hors moteur** (`python3 tools/pedestrians/check_walk_logic.py`) : une personne toutes les 2 s pendant 300 s à un passage
+  où une voiture attend. Une par une, le passage n'est jamais libre. Par vagues il est libre 62 % du temps, jamais occupé plus de
+  11 s de suite, la plus longue attente est de 21 s et autant de gens traversent. Douze voitures sont lues (arrêtée avant, arrivant
+  vite, déjà passée, dans la rue voisine, le long du passage). **Pas prouvé en jeu** : que les files de la porte 57 se vident.
+
 ## Personnages City Sample (par défaut ; `-CrowdCitySample=0` pour les mannequins)
 
 Les 24 personnages proches sont assemblés à partir du sous-ensemble City Sample Crowds sous `/Game/Crowd` (hors Git) :

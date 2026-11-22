@@ -127,6 +127,18 @@ struct FSettings
 	float PauseMax = 6.f;
 	float PhoneShare = 0.3f;        // part of the pauses spent on the phone, the rest looking at a window
 	float CrossingWaitMax = 7.f;    // after that they cross anyway: cars give way to people
+	// People cross a road with cars on it in groups, as at a pedestrian light: they step onto a crossing during the
+	// first CrossingWalkSeconds of every CrossingCycleSeconds, and wait at the kerb for the rest (each crossing has
+	// its own clock). 0 = no such phases. One by one, a steady flow of people never lets a waiting car go.
+	float CrossingCycleSeconds = 0.f;
+	float CrossingWalkSeconds = 8.f;
+	// What a car is to a crossing (LookAtCar): one whose way goes over it and whose front is within CrossingCarNear
+	// of it is "near", stopped or not; one that will be on it within CrossingCarSeconds at its speed, or that rolls
+	// over it, is "dangerous". Slower than CrossingCarFastSpeed it is seen as one that can still stop.
+	float CrossingCarNear = 1200.f;
+	float CrossingCarSeconds = 3.f;
+	float CrossingCarFastSpeed = 150.f;
+	float CrossingCarSide = 150.f;  // the car's way may miss the ends of the crossing by this much and still count (cm)
 	float LateralSpeed = 60.f;      // cm/s sideways drift to the chosen line
 	float CrossingWeight = 0.4f;    // relative chance to take a crossing at a junction
 	float GroupChance = 0.25f;      // chance that a new person is half of a pair walking together
@@ -412,6 +424,83 @@ struct FStepResult
 	float Speed = 0.f;
 };
 
+/** Is this crossing in its "walk" phase at Time (s)? Always when there are no phases. */
+inline bool CrossingWalkPhase(int Edge, double Time, const FSettings& S)
+{
+	if (S.CrossingCycleSeconds <= 0.f)
+	{
+		return true;
+	}
+	const double Cycle = S.CrossingCycleSeconds;
+	// Each crossing its own offset, so that the whole town does not cross at once.
+	const double Offset = static_cast<double>((static_cast<unsigned>(Edge) * 2654435761u) % 1000u) / 1000.0 * Cycle;
+	return std::fmod(Time + Offset, Cycle) < S.CrossingWalkSeconds;
+}
+
+/**
+ * Must a walker stay at the kerb of this crossing now? bCarNear: a car is at the crossing or coming to it, stopped
+ * or not; bCarDangerous: one comes fast and is about to pass. An empty road is crossed at once; with cars about,
+ * people go together on the walk phase and wait for the rest, which is when the cars pass.
+ */
+inline bool CrossingUnsafe(int Edge, double Time, bool bCarNear, bool bCarDangerous, const FSettings& S)
+{
+	return bCarDangerous || (bCarNear && !CrossingWalkPhase(Edge, Time, S));
+}
+
+/**
+ * What one car means for one crossing: sets bNear and bDangerous when it does (never clears them, so that a caller
+ * can pass every car in turn). The car is at CarLocation, heads along CarForward (unit) at CarSpeed (cm/s) and is
+ * CarRadius long on each side of its centre. Its way is taken straight: only a car whose line goes over the crossing
+ * counts, not one that drives along it or passes in the next street.
+ */
+inline void LookAtCar(const FEdge& Crossing, const FPoint& CarLocation, const FPoint& CarForward, float CarSpeed, float CarRadius,
+	const FSettings& S, bool& bNear, bool& bDangerous)
+{
+	if (Crossing.Points.size() < 2 || Crossing.Length <= 1.f)
+	{
+		return;
+	}
+	const FPoint& A = Crossing.Points.front();
+	const FPoint& B = Crossing.Points.back();
+	const float Dx = B.X - A.X, Dy = B.Y - A.Y;
+	const float Chord = std::sqrt(Dx * Dx + Dy * Dy);
+	if (Chord <= 1.f)
+	{
+		return;
+	}
+	// Where the car's line meets the crossing's: Car + Along * Forward = A + Across * (B - A).
+	const float Denominator = CarForward.X * Dy - CarForward.Y * Dx;
+	if (std::fabs(Denominator) < 0.3f * Chord)
+	{
+		return; // drives along the crossing (less than about 17 degrees from it): it does not go over it
+	}
+	const float Ax = A.X - CarLocation.X, Ay = A.Y - CarLocation.Y;
+	const float Along = (Ax * Dy - Ay * Dx) / Denominator;
+	const float Across = (Ax * CarForward.Y - Ay * CarForward.X) / Denominator;
+	const float Side = S.CrossingCarSide / Chord;
+	if (Across < -Side || Across > 1.f + Side)
+	{
+		return;
+	}
+	// From the car's front to the crossing; negative while the car is on it, and past it once its back has left.
+	const float Gap = Along - CarRadius;
+	if (Gap < -2.f * CarRadius - 100.f)
+	{
+		return;
+	}
+	const bool bRollsOver = Gap < 0.f && CarSpeed > 20.f;
+	const bool bComesFast = CarSpeed > S.CrossingCarFastSpeed && Gap <= CarSpeed * S.CrossingCarSeconds;
+	if (bRollsOver || bComesFast)
+	{
+		bNear = true;
+		bDangerous = true;
+	}
+	else if (Gap <= S.CrossingCarNear)
+	{
+		bNear = true;
+	}
+}
+
 /**
  * One decision. bCrossingUnsafe: a car is coming at the crossing the walker is
  * about to use (the caller looks, the graph does not know about cars).
@@ -445,6 +534,11 @@ inline FStepResult Step(const FGraph& G, FWalker& W, float Dt, FRng& Rng, const 
 	{
 		if (bCrossingUnsafe && W.CrossingWait < S.CrossingWaitMax)
 		{
+			if (W.CrossingWait <= 0.f)
+			{
+				// Those who wait stand side by side along the kerb, not all on the line of the crossing.
+				W.LateralTarget = Rng.Range(-1.f, 1.f) * (Current.Width * 0.5f + 60.f);
+			}
 			W.CrossingWait += Dt;
 			Result.bWaitingToCross = true;
 			return Result;

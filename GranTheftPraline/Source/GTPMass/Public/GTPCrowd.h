@@ -6,6 +6,7 @@
 #include "MassEntityQuery.h"
 #include "Subsystems/WorldSubsystem.h"
 #include "GTPWalkLogic.h"
+#include "GTPMassTrafficCars.h"
 #include "MassEntityHandle.h"
 #include "GTPCrowd.generated.h"
 
@@ -121,6 +122,18 @@ public:
 	/** Ground height at a place (a downward trace; the player's ground height when there is none). */
 	float GroundAt(const FVector& Where) const;
 
+	/**
+	 * What the cars are to a crossing (an edge of the graph) right now: CrossingHasCarNear when one is about to go over
+	 * it, stopped or not, CrossingHasCarDangerous too when one comes too fast to step in front of it (GTPWalk::LookAtCar).
+	 * 0 for any other edge, with no car in sight and with -CrowdCrossingWait=0.
+	 */
+	static constexpr uint8 CrossingHasCarNear = 1;
+	static constexpr uint8 CrossingHasCarDangerous = 2;
+	uint8 GetCrossingCars(int32 Edge) const { return CrossingCars.IsValidIndex(Edge) ? CrossingCars[Edge] : 0; }
+
+	/** From the move processor, once a frame: who waits at the kerb of a crossing, who is on one, who stopped waiting. */
+	void ReportCrossings(int32 Waiting, int32 Crossing, float LongestWait, int32 GaveUp);
+
 protected:
 	/** People in the crowd; -PedMass=N overrides. */
 	UPROPERTY(Config)
@@ -142,6 +155,21 @@ protected:
 
 	UPROPERTY(Config)
 	float HeightSpread = 0.06f;
+
+	/**
+	 * Crossings with a car about to go over them are crossed in groups, as at a pedestrian light: people step off the
+	 * kerb during the first CrossingWalkSeconds of every CrossingCycleSeconds (each crossing has its own clock) and wait
+	 * for the rest, so that the car gets through between two groups. Nobody waits longer than CrossingWaitMaxSeconds,
+	 * and a road with no car is crossed at once. -CrowdCrossingWait=0: nobody waits (as before candidate 58).
+	 */
+	UPROPERTY(Config)
+	float CrossingCycleSeconds = 30.f;
+
+	UPROPERTY(Config)
+	float CrossingWalkSeconds = 8.f;
+
+	UPROPERTY(Config)
+	float CrossingWaitMaxSeconds = 45.f;
 
 	/** The mannequin faces +Y: yaw applied to the instances so they face the walking direction. */
 	UPROPERTY(Config)
@@ -219,6 +247,7 @@ private:
 	bool DressFromCitySample(AGTPPedestrian* Actor);
 	void UpdateNear(float DeltaTime);
 	void SpreadPanic();
+	void LookAtCars();
 	void OnLoud(const FVector& Where, float Radius, AActor* Cause);
 	void OnActorThreat(AActor* Body, int32 NewState);
 	void SayWhatIsPlayed(const AGTPPedestrian* Actor, const UAnimSequenceBase* Asked, const TCHAR* What);
@@ -281,6 +310,24 @@ private:
 	TArray<FPoseToSay> PoseToSay;
 	TArray<uint8> PanicSpread;
 	float NextPanicSpread = 0.f;
+	/** The crossings of the graph, what the cars are to each (by edge, GetCrossingCars) and the cars last looked at. */
+	TArray<int32> CrossingEdges;
+	TArray<uint8> CrossingCars;
+	TArray<FGTPMassTrafficCar> CarsSeen;
+	bool bCrossingWait = true;
+	bool bCarsToSee = false;
+	float NextCarLook = 0.f;
+	/** Now (from the move processor) and since the start, logged every 10 s. */
+	int32 WaitingAtKerb = 0;
+	int32 OnCrossing = 0;
+	float LongestWaitNow = 0.f;
+	int32 MostWaitingAtKerb = 0;
+	float LongestWaitEver = 0.f;
+	int32 GaveUpWaiting = 0;
+	int32 CrossingsWithCarNear = 0;
+	int32 CrossingsWithCarDangerous = 0;
+	int32 CrossingsLookedAt = 0;
+	double LastCrossingLog = 0.0;
 	FDelegateHandle LoudHandle;
 	TMap<const AActor*, double> LastLoudBySource;
 	double LastLoudLog = -10.0;
