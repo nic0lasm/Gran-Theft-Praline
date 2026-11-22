@@ -270,7 +270,8 @@ Pas de plugin Water ni de volume physique : de simples événements de chevauche
   assez lente. Les voitures de police ne s'arrêtent pas.
 - **Démarrage** : une voiture garée démarre en 0,7 s, une voiture à vitre brisée est câblée en
   1,4 s (ni gaz ni bruit moteur avant) ; une voiture prise à son conducteur tourne déjà.
-- **Sensations, voiture du joueur seulement** : 240 N.m au lieu de 130 (les PNJ gardent la
+- **Sensations, voiture du joueur seulement** : 300 N.m pour 1 150 kg et autant par kilo pour une
+  voiture plus lourde, ou le couple de la voiture s'il est plus fort (240 jusqu'au candidat 61 ; les PNJ gardent la
   valeur réelle) ; le frein à main au-dessus de 20 km/h réduit l'adhérence arrière et fait
   pivoter l'arrière avec le volant ; les glissades sans frein à main sont amorties pour que la
   voiture se redresse ; sous 35 % de santé le moteur perd jusqu'à 45 % de puissance ; une
@@ -451,6 +452,15 @@ demi-seconde avant que la physique revienne (ligne « drive launch test: physics
 comme le fait ce déplacement. Pour le 0-130 km/h, la Car05 à 480 N.m demande environ 400 m
 (estimation tirée des 94 km/h après 112 m de cette prise, pas une mesure) ; la plus longue ligne de
 voies à moins de 1,5 m d'une droite fait 181 m sur la carte.
+
+Porte 59 (b42ea35, packagée, Car05 à 480 N.m et 2 300 kg) : 0-50 km/h en 2,4 s, 0-100 en 7,9 s, 103 km/h
+après 148 m en 8,3 s, là où la prise s'arrête, 15 m et une demi-seconde avant la fin de la ligne droite
+de 181 m, en gagnant encore environ 2 m/s2. La pointe est celle de la ligne droite, pas de la voiture,
+et reste sous les 105 à 135 km/h du jalon A. Le temps du 0-100 suit l'inverse du couple (4,8 s à
+785 N.m au candidat 47 dans l'éditeur, 7,9 s à 480 : 3 770 et 3 790 N.m.s). Le candidat 62 donne à la voiture du
+joueur 300 N.m pour 1 150 kg au lieu de 240 (600 N.m pour la Car05) : environ 6,3 s jusqu'à 100 km/h
+selon cette règle, et environ 110 à 115 km/h au bout de la même ligne droite selon un modèle simple
+ajusté sur la prise de la porte 59 (pas mesuré).
 
 Candidat 45 (adaf9c1, PC, 16/11) : chaque voiture a ses roues et le différentiel de City Sample
 (Car03, 05, 12 et Police13 en propulsion), `-GTARun` 7/7 avec une poursuite de 154 m. Car05 pied au

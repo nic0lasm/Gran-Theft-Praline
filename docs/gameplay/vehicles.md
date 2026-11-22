@@ -263,8 +263,9 @@ Written in one batch, compiled and tried later (`GTPCarjackLogic.h`, checked off
   enough. Police cars do not stop.
 - **Starting**: a parked car starts in 0.7 s, a car with a broken window is hot-wired in
   1.4 s (no throttle, no engine sound until then); a car taken from its driver is running.
-- **Driving feel, player's car only**: 240 N.m instead of 130 (AI cars keep the real
-  figure); handbrake above 20 km/h lowers rear grip and swings the tail with the steering;
+- **Driving feel, player's car only**: 300 N.m for 1 150 kg and as much per kilogram for a
+  heavier car, or the car's own torque when that is higher (AI cars keep the real figure; 240 until
+  candidate 61); handbrake above 20 km/h lowers rear grip and swings the tail with the steering;
   slides without the handbrake are damped so the car straightens; under 35 % health the
   engine loses up to 45 % of its power; a car dented on one side pulls to that side; a car
   on its roof or side, stopped, is put back on its wheels after 2.5 s.
@@ -422,6 +423,14 @@ three: the solver undoes the teleport of a simulated car, as GTPDemoRoute's chas
 turned back on (line "drive launch test: physics back on at ..."), as that relocation does. For
 0-130 km/h, Car05 at 480 N.m needs about 400 m (estimate from the 94 km/h after 112 m of that run, not
 measured); the map's longest lane line within 1.5 m of a straight line is 181 m.
+
+Gate 59 (b42ea35, packaged, Car05 at 480 N.m and 2 300 kg): 0-50 km/h in 2.4 s, 0-100 in 7.9 s, 103 km/h
+after 148 m in 8.3 s, at which point the run ends, 15 m and half a second before the end of the 181 m
+straight, still gaining about 2 m/s2. The peak is the straight's, not the car's, and short of the
+105 to 135 km/h of milestone A. The 0-100 time goes as the inverse of the torque (4.8 s at 785 N.m at
+candidate 47 in the editor, 7.9 s at 480: 3 770 and 3 790 N.m.s). Candidate 62 gives the player's car 300 N.m per
+1 150 kg instead of 240 (600 N.m for Car05): about 6.3 s to 100 km/h by that rule, and about 110 to
+115 km/h at the end of the same straight by a simple model fitted to the gate 59 run (not measured).
 
 Candidate 45 (adaf9c1, PC, 16/11): every car has its own wheels and City Sample's differential
 (Car03, 05, 12 and Police13 rear wheel drive), `-GTARun` 7/7 with a 154 m chase. Car05 at full
