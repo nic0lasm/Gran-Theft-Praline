@@ -122,7 +122,9 @@
     "held up",
     "drive launch test",
     "GTARun encore",
-    "Demo chase: encore"
+    "Demo chase: encore",
+    "not driving",
+    "PlaceGhost"
   ],
   "video": {
     "pass": "-GTARun -GTARunEncore",
