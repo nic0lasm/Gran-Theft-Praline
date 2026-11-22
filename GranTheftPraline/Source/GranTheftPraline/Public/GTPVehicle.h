@@ -443,9 +443,12 @@ protected:
 	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Camera")
 	float ImpactShakeCm = 22.f;
 
-	/** Arcade help for the player's car (GTPCarjackLogic.h): torque, handbrake turns, stability, damage. */
+	/**
+	 * Arcade help for the player's car (GTPCarjackLogic.h): torque, handbrake turns, stability, damage. PlayerTorque is
+	 * for 1 150 kg, as much per kilogram for a heavier car (BeginPlay).
+	 */
 	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Driving")
-	float PlayerTorque = 240.f;
+	float PlayerTorque = 300.f;
 
 	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Driving")
 	float DriftRearGrip = 0.55f;
