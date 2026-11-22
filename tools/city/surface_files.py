@@ -5,14 +5,15 @@ tools/city/surfaces_build.py --pack (the 2K files to carry from one machine to a
 import os
 import re
 
-# Texture role from its name, Megascans first (T_<name>_<id>_2K_D / _N / _ORDp), then generic.
+# Texture role from its name, Megascans first (T_<name>_<id>_2K_D / _N / _ORDp), then generic
+# (ambientCG CC0: <Name>_2K-JPG_Color / _NormalDX / _NormalGL / _Roughness / _Opacity; DX sorts first).
 ROLES = (
     ("rough", re.compile(r"(_ORDp?|_ORM|_ARD|_ORD)$", re.I), "G"),
     ("rough", re.compile(r"(_R|rough(ness)?)$", re.I), "R"),
     ("ao", re.compile(r"(_AO|ambient_?occlusion)$", re.I), None),
     ("opacity", re.compile(r"(_O|opacity|alpha)$", re.I), None),     # decals
     ("normal", re.compile(r"(_N|normal(gl|dx)?)$", re.I), None),
-    ("basecolor", re.compile(r"(_D|_BC|basecolou?r|albedo|diffuse)$", re.I), None),
+    ("basecolor", re.compile(r"(_D|_BC|basecolou?r|colou?r|albedo|diffuse)$", re.I), None),   # ambientCG: _Color
 )
 IMAGE = (".png", ".jpg", ".jpeg", ".tga", ".exr", ".tif", ".tiff")
 

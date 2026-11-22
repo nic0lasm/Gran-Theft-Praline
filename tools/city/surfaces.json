@@ -15,10 +15,13 @@
     [
      "granite",
      "paving"
+    ],
+    [
+     "granite003a"
     ]
    ],
    "gain": 1.6,
-   "note": "Granite Paving Slabs (Fab 12/11); gain 1.6: the scan read darker than the street's light granite (PC A/B 12/11)",
+   "note": "Granite Paving Slabs (Fab 12/11); gain 1.6: the scan read darker than the street's light granite (PC A/B 12/11); ambientCG CC0 fallback (downloads-free/ambientcg/rue-20261122, 22/11)",
    "exclude": [
     "crack",
     "decal",
@@ -96,7 +99,13 @@
     "decal",
     "stain",
     "gum"
-   ]
+   ],
+   "match_any": [
+    [
+     "granite002a"
+    ]
+   ],
+   "note": "ambientCG CC0 fallback (downloads-free/ambientcg/rue-20261122, 22/11)"
   },
   {
    "id": "zinc_roof",
@@ -154,12 +163,20 @@
     "road"
    ],
    "fab": "worn dry urban asphalt",
-   "note": "Asphalt Road (Fab 12/11)",
+   "note": "Asphalt Road (Fab 12/11); ambientCG CC0 fallback (downloads-free/ambientcg/rue-20261122, 22/11)",
    "exclude": [
     "crack",
     "decal",
     "stain",
     "gum"
+   ],
+   "match_any": [
+    [
+     "asphalt025b"
+    ],
+    [
+     "asphalt025c"
+    ]
    ]
   },
   {
@@ -385,7 +402,16 @@
     "road",
     "marking"
    ],
-   "fab": "worn white road marking"
+   "fab": "worn white road marking",
+   "match_any": [
+    [
+     "roadlines002"
+    ],
+    [
+     "roadlines004"
+    ]
+   ],
+   "note": "ambientCG CC0 fallback (downloads-free/ambientcg/rue-20261122, 22/11)"
   }
  ]
 }
