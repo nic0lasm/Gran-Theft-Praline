@@ -609,11 +609,35 @@ protected:
 	float AllRedSeconds = 2.f;
 
 	/**
-	 * Stand-in signal heads until the street furniture model exists: one small
-	 * coloured sphere on a thin pole at each stop line, no shadow, no collision.
+	 * Signal heads at each stop line, no shadow, no collision: the project's vehicle
+	 * traffic light (SignalHeadMesh) turned towards the incoming cars, with a coloured
+	 * lens disc on its front showing the light. If that mesh does not load (or with
+	 * -SignalHeads=2), the stand-in: a coloured sphere on a thin pole.
 	 */
 	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Lights")
 	bool bShowSignalHeads = true;
+
+	/**
+	 * Street-furniture traffic light (wave 8 prop): pivot at the bottom centre, +X its
+	 * front, the convention tools/city/details.py places it with. Empty: stand-in spheres.
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Lights")
+	FSoftObjectPath SignalHeadMesh = FSoftObjectPath(TEXT("/Game/Environment/Props/Signals/TrafficLight_Vehicle/SM_TrafficLight_Vehicle_A.SM_TrafficLight_Vehicle_A"));
+
+	/** Added to the yaw that turns the mesh's +X towards the incoming cars (degrees; -SignalHeadYaw=D overrides). */
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Lights")
+	float SignalHeadYawOffset = 0.f;
+
+	/** Centre of the red lens below the top of the mesh (cm); amber and green are SignalLensStep lower each. */
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Lights")
+	float SignalLensBelowTop = 25.f;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Lights")
+	float SignalLensStep = 30.f;
+
+	/** Diameter of the lens disc (cm). */
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Lights")
+	float SignalLensSize = 20.f;
 
 	/** Signal heads farther than this from the camera are hidden (cm). */
 	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Lights")
@@ -698,6 +722,9 @@ private:
 		TWeakObjectPtr<UStaticMeshComponent> Lamp;
 		TWeakObjectPtr<UStaticMeshComponent> Pole;
 		TWeakObjectPtr<UMaterialInstanceDynamic> Material;
+		/** From Location: the pole or mesh, and the lens for red (and no light), amber, green. */
+		FVector BodyOffset = FVector::ZeroVector;
+		FVector LensOffset[3] = {FVector::ZeroVector, FVector::ZeroVector, FVector::ZeroVector};
 		/** Foot found on the ground; false while its streamed cell is not loaded yet (retried when seen). */
 		bool bGrounded = false;
 	};

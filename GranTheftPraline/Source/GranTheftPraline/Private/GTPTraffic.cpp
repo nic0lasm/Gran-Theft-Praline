@@ -2217,6 +2217,28 @@ void AGTPTrafficNetwork::BuildLights()
 		GTP_TRACE(LogGTPTraffic, TEXT("traffic lights: engine basic shapes missing, no signal heads"));
 		return;
 	}
+	// The project's traffic light, unless the stand-in is asked for (-SignalHeads=2) or it does not load.
+	UStaticMesh* Body = nullptr;
+	if (HeadsFlag != 2 && SignalHeadMesh.IsValid())
+	{
+		Body = Cast<UStaticMesh>(SignalHeadMesh.TryLoad());
+	}
+	float YawOffset = SignalHeadYawOffset;
+	FParse::Value(FCommandLine::Get(), TEXT("SignalHeadYaw="), YawOffset);
+	const FBox BodyBounds = Body ? Body->GetBoundingBox() : FBox(ForceInit);
+	if (Body)
+	{
+		const FVector BodySize = BodyBounds.GetSize();
+		GTP_TRACE(LogGTPTraffic, TEXT("traffic lights: signal heads are %s, %.0f x %.0f x %.0f cm (front at X=%.0f, top at Z=%.0f), its +X turned %.0f deg from facing the incoming cars, red lens %.0f cm below the top, then %.0f cm steps"),
+			*SignalHeadMesh.ToString(), BodySize.X, BodySize.Y, BodySize.Z, BodyBounds.Max.X, BodyBounds.Max.Z, YawOffset,
+			SignalLensBelowTop, SignalLensStep);
+	}
+	else
+	{
+		const FString Why = HeadsFlag == 2 ? FString(TEXT("-SignalHeads=2"))
+			: SignalHeadMesh.IsValid() ? SignalHeadMesh.ToString() + TEXT(" not found") : FString(TEXT("no SignalHeadMesh"));
+		GTP_TRACE(LogGTPTraffic, TEXT("traffic lights: signal heads are the stand-in spheres (%s)"), *Why);
+	}
 	for (int32 Index = 0; Index < Lanes.Num(); ++Index)
 	{
 		if (Lights.GroupOf(Index) < 0)
@@ -2241,13 +2263,41 @@ void AGTPTrafficNetwork::BuildLights()
 		Head.Lane = Index;
 		Head.Location = Foot;
 		UStaticMeshComponent* Pole = NewObject<UStaticMeshComponent>(this);
-		Pole->SetStaticMesh(Cylinder);
-		Pole->SetWorldLocationAndRotation(Foot + FVector(0.f, 0.f, 150.f), FRotator::ZeroRotator);
-		Pole->SetWorldScale3D(FVector(0.1f, 0.1f, 3.f));
 		UStaticMeshComponent* Lamp = NewObject<UStaticMeshComponent>(this);
-		Lamp->SetStaticMesh(Sphere);
-		Lamp->SetWorldLocation(Foot + FVector(0.f, 0.f, 320.f));
-		Lamp->SetWorldScale3D(FVector(0.35f));
+		if (Body)
+		{
+			// Faces the incoming cars: its +X points back up the lane.
+			const FRotator Facing(0.f, FMath::RadiansToDegrees(FMath::Atan2(-Dir.Y, -Dir.X)) + YawOffset, 0.f);
+			Pole->SetStaticMesh(Body);
+			Pole->SetWorldRotation(Facing);
+			Head.BodyOffset = FVector::ZeroVector;
+			for (int32 LensStep = 0; LensStep < 3; ++LensStep)
+			{
+				// Red, amber, green from the top down, 2 cm in front of the mesh's front face.
+				const FVector Local(BodyBounds.Max.X + 2.f, BodyBounds.GetCenter().Y,
+					BodyBounds.Max.Z - SignalLensBelowTop - SignalLensStep * static_cast<float>(LensStep));
+				Head.LensOffset[LensStep] = Facing.RotateVector(Local);
+			}
+			// The cylinder's axis laid along the facing: a flat disc seen from the road.
+			Lamp->SetStaticMesh(Cylinder);
+			Lamp->SetWorldRotation(FRotator(90.f, Facing.Yaw, 0.f));
+			Lamp->SetWorldScale3D(FVector(SignalLensSize / 100.f, SignalLensSize / 100.f, 0.03f));
+		}
+		else
+		{
+			Pole->SetStaticMesh(Cylinder);
+			Pole->SetWorldScale3D(FVector(0.1f, 0.1f, 3.f));
+			Pole->SetMaterial(0, Base);
+			Head.BodyOffset = FVector(0.f, 0.f, 150.f);
+			for (FVector& Lens : Head.LensOffset)
+			{
+				Lens = FVector(0.f, 0.f, 320.f);
+			}
+			Lamp->SetStaticMesh(Sphere);
+			Lamp->SetWorldScale3D(FVector(0.35f));
+		}
+		Pole->SetWorldLocation(Foot + Head.BodyOffset);
+		Lamp->SetWorldLocation(Foot + Head.LensOffset[0]);
 		for (UStaticMeshComponent* Part : {Pole, Lamp})
 		{
 			Part->SetMobility(EComponentMobility::Movable);
@@ -2258,7 +2308,6 @@ void AGTPTrafficNetwork::BuildLights()
 		}
 		UMaterialInstanceDynamic* Material = UMaterialInstanceDynamic::Create(Base, this);
 		Lamp->SetMaterial(0, Material);
-		Pole->SetMaterial(0, Base);
 		Head.Lamp = Lamp;
 		Head.Pole = Pole;
 		Head.Material = Material;
@@ -2275,6 +2324,8 @@ void AGTPTrafficNetwork::UpdateSignalHeads()
 	const APlayerController* Viewer = GetWorld()->GetFirstPlayerController();
 	const FVector View = Viewer && Viewer->PlayerCameraManager ? Viewer->PlayerCameraManager->GetCameraLocation() : FVector::ZeroVector;
 	const float Now = GetLightTime();
+	// Lens of each light on the head: red (and no light) at the top, amber, green at the bottom.
+	auto LensOf = [](EGTPLight State) { return State == EGTPLight::Green ? 2 : State == EGTPLight::Amber ? 1 : 0; };
 	for (FSignalHead& Head : SignalHeads)
 	{
 		UStaticMeshComponent* Lamp = Head.Lamp.Get();
@@ -2295,8 +2346,8 @@ void AGTPTrafficNetwork::UpdateSignalHeads()
 			{
 				Head.bGrounded = true;
 				Head.Location = Ground.ImpactPoint;
-				Pole->SetWorldLocation(Head.Location + FVector(0.f, 0.f, 150.f));
-				Lamp->SetWorldLocation(Head.Location + FVector(0.f, 0.f, 320.f));
+				Pole->SetWorldLocation(Head.Location + Head.BodyOffset);
+				Lamp->SetWorldLocation(Head.Location + Head.LensOffset[LensOf(Head.Shown)]);
 			}
 		}
 		// Hidden until grounded: no lamp floating or buried while its cell streams in.
@@ -2310,6 +2361,7 @@ void AGTPTrafficNetwork::UpdateSignalHeads()
 		if (Light != Head.Shown)
 		{
 			Head.Shown = Light;
+			Lamp->SetWorldLocation(Head.Location + Head.LensOffset[LensOf(Light)]);
 			if (UMaterialInstanceDynamic* Material = Head.Material.Get())
 			{
 				const FLinearColor Colour = Light == EGTPLight::Green ? FLinearColor(0.f, 1.f, 0.25f)
