@@ -31,7 +31,6 @@
 #include "MassTrafficSettings.h"
 #include "MassTrafficSubsystem.h"
 #include "MassTrafficVehicleSimulationTrait.h"
-#include "MassTrafficVehicleVolumeTrait.h"
 #include "MassActorSubsystem.h"
 #include "MassMovementFragments.h"
 #include "MassZoneGraphNavigationFragments.h"
@@ -150,12 +149,9 @@ void UGTPMassTrafficSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 		UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic: started %s (order %d)"), *Entry.Value->GetName(), Entry.Key);
 	}
 	UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic: %d spawner(s) started (tag %s)"), StartedSpawners, *SpawnerTag.ToString());
-	// The player as an obstacle the cars brake for (UGTPMassTrafficBodyProcessor puts it on him): what Epic's "Traffic
-	// Obstacle" trait gives (transform, velocity, radius, the tag) and a car's volume (FMassTrafficVehicleVolumeParameters),
-	// with which MassTraffic tests the boxes (WillCollide), not the spheres only: a car on the next lane, or the player on
-	// the sidewalk, brakes no car. Two entities, on foot and at the wheel (a shared fragment does not change), the one not
-	// in use out of the way. Each box is a little longer than its sphere: MassTraffic tests the boxes where the spheres
-	// first meet, they must overlap there.
+	// The player as obstacles the cars brake for (FGTPPlayerObstacleFragment; UGTPMassTrafficBodyProcessor puts them on
+	// him): four points with what Epic's "Traffic Obstacle" trait gives (transform, velocity, radius, the tag), as our
+	// people on a crossing (GTPCrowd), out of the way until in use.
 	int32 PlayerObstacle = 1;
 	FParse::Value(FCommandLine::Get(), TEXT("MassTrafficPlayerObstacle="), PlayerObstacle);
 	UMassEntitySubsystem* ObstacleMass = InWorld.GetSubsystem<UMassEntitySubsystem>();
@@ -163,39 +159,28 @@ void UGTPMassTrafficSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 	{
 		FMassEntityManager& Manager = ObstacleMass->GetMutableEntityManager();
 		const TArray<const UScriptStruct*> Composition{FTransformFragment::StaticStruct(), FMassVelocityFragment::StaticStruct(), FAgentRadiusFragment::StaticStruct(),
-			FMassTrafficObstacleTag::StaticStruct(), FGTPPlayerObstacleTag::StaticStruct()};
+			FMassTrafficObstacleTag::StaticStruct(), FGTPPlayerObstacleFragment::StaticStruct()};
 		const FMassArchetypeHandle Archetype = Manager.CreateArchetype(Composition);
-		struct FObstacleKind
-		{
-			float Radius;
-			float HalfLength;
-			float HalfWidth;
-			const TCHAR* Name;
-		};
-		// On foot: a walker's radius, as Epic's "Traffic Obstacle" for one (GTPCrowd). At the wheel: our car's half length
-		// (the radius tells the radius above 100 cm from the other, UGTPMassTrafficBodyProcessor).
-		const FObstacleKind Kinds[] = {{40.f, 80.f, 50.f, TEXT("on foot")}, {230.f, 300.f, 100.f, TEXT("at the wheel")}};
-		FString ObstacleReport;
-		for (const FObstacleKind& Kind : Kinds)
+		FString Entities;
+		for (int32 Point = 0; Point < 4; ++Point)
 		{
 			const FMassEntityHandle Obstacle = Manager.CreateEntity(Archetype);
+			if (FGTPPlayerObstacleFragment* Which = Manager.GetFragmentDataPtr<FGTPPlayerObstacleFragment>(Obstacle))
+			{
+				Which->Point = Point;
+			}
 			if (FAgentRadiusFragment* Radius = Manager.GetFragmentDataPtr<FAgentRadiusFragment>(Obstacle))
 			{
-				Radius->Radius = Kind.Radius;
+				// 0: a car brakes for a point closer to its lane line than its own radius (see the header).
+				Radius->Radius = 0.f;
 			}
 			if (FTransformFragment* Transform = Manager.GetFragmentDataPtr<FTransformFragment>(Obstacle))
 			{
-				// Out of the way until the processor puts it on the player.
 				Transform->SetTransform(FTransform(FVector(0.0, 0.0, -100000.0)));
 			}
-			FMassTrafficVehicleVolumeParameters Volume;
-			Volume.HalfLength = Kind.HalfLength;
-			Volume.HalfWidth = Kind.HalfWidth;
-			const bool bVolume = Manager.AddConstSharedFragmentToEntity(Obstacle, Manager.GetOrCreateConstSharedFragment(Volume));
-			ObstacleReport += FString::Printf(TEXT(" %s entity %d radius %.0f box %.0f x %.0f cm%s;"), Kind.Name, Obstacle.Index, Kind.Radius,
-				Kind.HalfLength * 2.f, Kind.HalfWidth * 2.f, bVolume ? TEXT("") : TEXT(" (VOLUME NOT SET: spheres only)"));
+			Entities += FString::Printf(TEXT(" %d"), Obstacle.Index);
 		}
-		UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic player obstacle: on,%s the cars brake for the player in their way (-MassTrafficPlayerObstacle=0 leaves it out)"), *ObstacleReport);
+		UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic player obstacle: on, 4 points of radius 0 (entities%s): on foot in the path of a car, at the wheel rear bumper, middle and front bumper (-MassTrafficPlayerObstacle=0 leaves them out)"), *Entities);
 	}
 	else
 	{
@@ -265,7 +250,7 @@ FString SetVisualLODs(UMassVisualizationTrait& Visual, float Cm, int32 Max)
 	for (const TCHAR* Name : Names)
 	{
 		const FFloatProperty* Starts = FindFProperty<FFloatProperty>(Params->Struct, Name);
-		if (!Starts || Starts->GetSize() < static_cast<int32>(4 * sizeof(float)))
+		if (!Starts || Starts->ArrayDim < 4)
 		{
 			Report += FString::Printf(TEXT(" %s not found;"), Name);
 			continue;
@@ -278,7 +263,7 @@ FString SetVisualLODs(UMassVisualizationTrait& Visual, float Cm, int32 Max)
 		Report += FString::Printf(TEXT(" %s High 0, Medium %.0f, Low %.0f, Off %.0f m;"), Name, Edge * 0.005f, Edge * 0.01f, Off * 0.01f);
 	}
 	const FIntProperty* Counts = FindFProperty<FIntProperty>(Params->Struct, TEXT("LODMaxCount"));
-	if (Counts && Counts->GetSize() >= static_cast<int32>(4 * sizeof(int32)))
+	if (Counts && Counts->ArrayDim >= 4)
 	{
 		*Counts->ContainerPtrToValuePtr<int32>(Values, 0) = Max / 2;
 		*Counts->ContainerPtrToValuePtr<int32>(Values, 1) = Max - Max / 2;
@@ -2098,30 +2083,59 @@ void UGTPMassTrafficBodyProcessor::ConfigureQueries(const TSharedRef<FMassEntity
 {
 #if WITH_GTP_MASSTRAFFIC
 	Query.AddTagRequirement<FMassTrafficVehicleTag>(EMassFragmentPresence::All);
+	Query.AddRequirement<FTransformFragment>(EMassFragmentAccess::ReadOnly);
 	Query.AddRequirement<FMassRepresentationFragment>(EMassFragmentAccess::ReadOnly);
 	Query.AddRequirement<FMassActorFragment>(EMassFragmentAccess::ReadWrite);
 	Query.RegisterWithProcessor(*this);
-	PlayerQuery.AddTagRequirement<FGTPPlayerObstacleTag>(EMassFragmentPresence::All);
+	PlayerQuery.AddRequirement<FGTPPlayerObstacleFragment>(EMassFragmentAccess::ReadOnly);
 	PlayerQuery.AddRequirement<FTransformFragment>(EMassFragmentAccess::ReadWrite);
 	PlayerQuery.AddRequirement<FMassVelocityFragment>(EMassFragmentAccess::ReadWrite);
-	PlayerQuery.AddRequirement<FAgentRadiusFragment>(EMassFragmentAccess::ReadOnly);
 	PlayerQuery.RegisterWithProcessor(*this);
 #endif
 }
 
+#if WITH_GTP_MASSTRAFFIC
+namespace GTPMassTrafficBodies
+{
+	/** The player on foot is in a car's path within this distance ahead of it and this far from its axis (half a car
+	 * and a person, with some room). */
+	constexpr double PathAheadCm = 4000.0;
+	constexpr double PathAsideCm = 170.0;
+	const FVector OutOfTheWay(0.0, 0.0, -100000.0);
+}
+#endif
+
 void UGTPMassTrafficBodyProcessor::Execute(FMassEntityManager& EntityManager, FMassExecutionContext& Context)
 {
 #if WITH_GTP_MASSTRAFFIC
+	const UWorld* World = Context.GetWorld();
+	const APlayerController* PC = World ? World->GetFirstPlayerController() : nullptr;
+	const APawn* Pawn = PC ? PC->GetPawn() : nullptr;
+	const bool bAtWheel = Pawn && Pawn->IsA<AGTPVehicle>();
+	const FVector PlayerAt = Pawn ? Pawn->GetActorLocation() : FVector::ZeroVector;
 	// Collected first, changed after the query: an actor's physics is no business of the chunk loop. Every shown car each
 	// frame (12 at most by default): Mass turns its components' tick back on when it takes it out of its pool.
 	TArray<AGTPVehicle*, TInlineAllocator<16>> Shown;
 	TArray<AGTPVehicle*, TInlineAllocator<16>> Fresh;
-	Query.ForEachEntityChunk(Context, [&Shown, &Fresh](FMassExecutionContext& Chunk)
+	bool bInPath = false;
+	const bool bLookForPath = Pawn && !bAtWheel;
+	Query.ForEachEntityChunk(Context, [&Shown, &Fresh, &bInPath, bLookForPath, &PlayerAt](FMassExecutionContext& Chunk)
 	{
+		const TConstArrayView<FTransformFragment> Transforms = Chunk.GetFragmentView<FTransformFragment>();
 		const TConstArrayView<FMassRepresentationFragment> Representations = Chunk.GetFragmentView<FMassRepresentationFragment>();
 		const TArrayView<FMassActorFragment> Actors = Chunk.GetMutableFragmentView<FMassActorFragment>();
 		for (int32 Index = 0; Index < Chunk.GetNumEntities(); ++Index)
 		{
+			if (bLookForPath && !bInPath)
+			{
+				const FTransform& CarAt = Transforms[Index].GetTransform();
+				const FVector Forward = CarAt.GetRotation().GetForwardVector().GetSafeNormal2D();
+				const FVector ToPlayer = PlayerAt - CarAt.GetLocation();
+				const double Along = FVector::DotProduct(ToPlayer, Forward);
+				const double Aside = FMath::Abs(Forward.X * ToPlayer.Y - Forward.Y * ToPlayer.X);
+				bInPath = Along > 0.0 && Along < GTPMassTrafficBodies::PathAheadCm && Aside < GTPMassTrafficBodies::PathAsideCm
+					&& FMath::Abs(ToPlayer.Z) < 300.0;
+			}
 			if (Representations[Index].CurrentRepresentation != EMassRepresentationType::LowResSpawnedActor)
 			{
 				continue;
@@ -2145,23 +2159,44 @@ void UGTPMassTrafficBodyProcessor::Execute(FMassEntityManager& EntityManager, FM
 	{
 		UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic near cars with a body: %d of our car actor(s) made MassTraffic's so far (last %s)"), Made, *Fresh.Last()->GetName());
 	}
-	// The player's obstacle of the moment (on foot or at the wheel: told by its radius) where he is, the other one out of
-	// the way, both out of the way with no player.
-	const UWorld* World = Context.GetWorld();
-	const APlayerController* PC = World ? World->GetFirstPlayerController() : nullptr;
-	const APawn* Pawn = PC ? PC->GetPawn() : nullptr;
-	const bool bAtWheel = Pawn && Pawn->IsA<AGTPVehicle>();
-	const FTransform Where = Pawn ? FTransform(Pawn->GetActorQuat(), Pawn->GetActorLocation()) : FTransform::Identity;
-	const FVector Velocity = Pawn ? Pawn->GetVelocity() : FVector::ZeroVector;
-	PlayerQuery.ForEachEntityChunk(Context, [&Where, &Velocity, Pawn, bAtWheel](FMassExecutionContext& Chunk)
+	if (bInPath && !bWasInPath)
 	{
+		++InPathTimes;
+		if (InPathTimes <= 3 || InPathTimes % 50 == 0)
+		{
+			UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic player obstacle: on foot in the path of a car at %s (%d time(s) so far)"), *PlayerAt.ToCompactString(), InPathTimes);
+		}
+	}
+	bWasInPath = bInPath;
+	// The bumpers of the player's car, from its local bounds, once a car.
+	if (bAtWheel && SizedCar.Get() != Pawn)
+	{
+		SizedCar = Pawn;
+		const FBox Local = Pawn->CalculateComponentsBoundingBoxInLocalSpace();
+		const double Length = Local.IsValid ? Local.Max.X - Local.Min.X : 0.0;
+		const bool bSane = Length > 200.0 && Length < 1500.0;
+		RearCm = bSane ? static_cast<float>(Local.Min.X) : -230.f;
+		FrontCm = bSane ? static_cast<float>(Local.Max.X) : 230.f;
+		UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic player obstacle: at the wheel of %s, points at %.0f, %.0f and %.0f cm along it%s"),
+			*Pawn->GetName(), RearCm, 0.5f * (RearCm + FrontCm), FrontCm, bSane ? TEXT("") : TEXT(" (its bounds looked wrong: 4.6 m assumed)"));
+	}
+	// The points in use on the player, the others out of the way (all of them with no player).
+	const FQuat Facing = Pawn ? Pawn->GetActorQuat() : FQuat::Identity;
+	const FVector Velocity = Pawn ? Pawn->GetVelocity() : FVector::ZeroVector;
+	const float Rear = RearCm;
+	const float Front = FrontCm;
+	PlayerQuery.ForEachEntityChunk(Context, [Pawn, bAtWheel, bInPath, &PlayerAt, &Facing, &Velocity, Rear, Front](FMassExecutionContext& Chunk)
+	{
+		const TConstArrayView<FGTPPlayerObstacleFragment> Points = Chunk.GetFragmentView<FGTPPlayerObstacleFragment>();
 		const TArrayView<FTransformFragment> Transforms = Chunk.GetMutableFragmentView<FTransformFragment>();
 		const TArrayView<FMassVelocityFragment> Velocities = Chunk.GetMutableFragmentView<FMassVelocityFragment>();
-		const TConstArrayView<FAgentRadiusFragment> Radii = Chunk.GetFragmentView<FAgentRadiusFragment>();
 		for (int32 Index = 0; Index < Chunk.GetNumEntities(); ++Index)
 		{
-			const bool bInUse = Pawn && (Radii[Index].Radius > 100.f) == bAtWheel;
-			Transforms[Index].SetTransform(bInUse ? Where : FTransform(FVector(0.0, 0.0, -100000.0)));
+			const int32 Point = Points[Index].Point;
+			const bool bInUse = Pawn && (bAtWheel ? Point > 0 : (bInPath && Point == 0));
+			const float X = Point == 1 ? Rear : Point == 2 ? 0.5f * (Rear + Front) : Point == 3 ? Front : 0.f;
+			Transforms[Index].SetTransform(bInUse ? FTransform(Facing, PlayerAt + Facing.RotateVector(FVector(X, 0.0, 0.0)))
+				: FTransform(GTPMassTrafficBodies::OutOfTheWay));
 			Velocities[Index].Value = bInUse ? Velocity : FVector::ZeroVector;
 		}
 	});

@@ -545,15 +545,16 @@ then "MassTraffic near cars with a body: N of our car actor(s) made MassTraffic'
 line's "actors=" counts them.
 
 A car moved by Mass into the player's stopped car would push it along: the player is now an obstacle
-for the cars (`FGTPPlayerObstacleTag`), as the people on a crossing are (GTPCrowd). Two entities with
-what Epic's "Traffic Obstacle" trait gives, and a car's volume (`FMassTrafficVehicleVolumeParameters`):
-on foot (radius 0.4 m, box 1.6 × 1 m) and at the wheel (radius 2.3 m, box 6 × 2 m); the one in use is
-put on the player every frame, the other out of the way. With a volume MassTraffic tests the boxes
-(`WillCollide`), not only the spheres: with spheres alone (a car's radius is half its length) a car on
-the next lane, or the player on the sidewalk 2 m from the lane, would brake a car. Each box is longer
-than its sphere, as MassTraffic tests the boxes where the spheres first meet. Line "MassTraffic player
-obstacle: on, on foot entity ... at the wheel entity ..." ("VOLUME NOT SET" if the engine refused the
-volume); `-MassTrafficPlayerObstacle=0` leaves it out.
+for the cars (`FGTPPlayerObstacleFragment`), as the people on a crossing are (GTPCrowd): four points
+with what Epic's "Traffic Obstacle" trait gives, radius 0. On foot, the player, only while he stands
+in the path of a car (within 40 m ahead of it and 1.7 m of its axis), as our people wear the tag on a
+crossing only; at the wheel, the rear bumper, the middle and the front bumper of his car (its local
+bounds). A point not in use waits out of the way. Radius 0 because MassTraffic brakes a car for an
+obstacle closer to its lane line than the sum of the two radii, and a car's radius is about half its
+length: with a person's 0.4 m or a car's 2.3 m, the cars of the next lane, or of the lane by the
+sidewalk, would brake for the player. Lines "MassTraffic player obstacle: on, 4 points of radius 0",
+"... at the wheel of ..., points at ..." and "... on foot in the path of a car ...";
+`-MassTrafficPlayerObstacle=0` leaves them out.
 
 Expected at the gate: the crash step ok, "held behind ... stopped"; "actors=" 1 to 12 near a road;
 the traffic criteria unchanged (Mass moves the cars as before); game p50 within the gate's 1.3 ×

@@ -10,6 +10,7 @@
 
 struct FZoneGraphTrafficLaneData;
 class AMassSpawner;
+class AActor;
 
 /**
  * Switch to the MassTraffic plugin of City Sample (ADR-0015, docs/gameplay/traffic-mass.md).
@@ -168,7 +169,7 @@ private:
 	 * (UMassTrafficVehicleUpdateCustomVisualizationProcessor) and UGTPMassTrafficBodyProcessor makes
 	 * it kinematic (AGTPVehicle::SetShownByMassTraffic). An instance has no body: the player's car went
 	 * through them (the crash step of -GTARun). Parked cars stay instances. The player is an obstacle
-	 * for the cars (FGTPPlayerObstacleTag), else they would push his stopped car along.
+	 * for the cars (FGTPPlayerObstacleFragment), else they would push his stopped car along.
 	 */
 	void ShowNearCarsAsInstances(const TArray<AMassSpawner*>& InSpawners);
 	bool bJunctionsLit = false;
@@ -211,21 +212,30 @@ private:
 };
 
 /**
- * The player as a MassTraffic obstacle (two entities, on foot and at the wheel, each with a car's volume, created with
- * the cars; -MassTrafficPlayerObstacle=0 leaves them out): the cars on the lanes near him brake for him as for a person
- * on a crossing (UMassTrafficFindObstaclesProcessor, UpdateDistanceToNearestObstacle). Now that the near cars have a
- * body, a car that does not brake pushes the player's stopped car along, as a wall moving.
+ * The player as MassTraffic obstacles (created with the cars; -MassTrafficPlayerObstacle=0 leaves them out): the cars
+ * on the lanes near him brake for him as for a person on a crossing (UMassTrafficFindObstaclesProcessor,
+ * UpdateDistanceToNearestObstacle). Now that the near cars have a body, a car that does not brake pushes the player's
+ * stopped car along, as a wall moving. Four points of radius 0, as Epic's "Traffic Obstacle" trait gives (transform,
+ * velocity, radius, its tag): on foot, the player, only while he stands in the path of a car (as our people wear the
+ * tag on a crossing only, GTPCrowd); at the wheel, the rear bumper, the middle and the front bumper of his car. A
+ * point not in use waits out of the way. Radius 0: MassTraffic brakes a car for an obstacle closer to its lane line
+ * than its own radius (about half its length), so a bigger one would brake the cars of the next lane.
  */
 USTRUCT()
-struct GTPMASS_API FGTPPlayerObstacleTag : public FMassTag
+struct GTPMASS_API FGTPPlayerObstacleFragment : public FMassFragment
 {
 	GENERATED_BODY()
+
+	/** 0 on foot; at the wheel 1 rear bumper, 2 middle, 3 front bumper. */
+	UPROPERTY()
+	int32 Point = 0;
 };
 
 /**
  * The first frame MassTraffic shows a car as one of our car actors (LowResSpawnedActor, -MassTrafficBodies): the actor
  * becomes MassTraffic's (AGTPVehicle::SetShownByMassTraffic: kinematic, its body follows the entity, nobody gets in).
- * Nothing to do when no car is shown as an actor. Also puts the player's obstacle in use (FGTPPlayerObstacleTag) on him.
+ * Nothing to do when no car is shown as an actor. Also puts the player's obstacle points in use on him
+ * (FGTPPlayerObstacleFragment).
  */
 UCLASS()
 class GTPMASS_API UGTPMassTrafficBodyProcessor : public UMassProcessor
@@ -241,7 +251,14 @@ protected:
 
 private:
 	FMassEntityQuery Query;
-	/** The player's obstacle entities (FGTPPlayerObstacleTag): the one in use put where the player is, every frame. */
+	/** The player's obstacle points (FGTPPlayerObstacleFragment): those in use put on the player, every frame. */
 	FMassEntityQuery PlayerQuery;
 	int32 Made = 0;
+	/** The player's car whose bumpers RearCm and FrontCm are (its local bounds along X), measured once a car. */
+	TWeakObjectPtr<const AActor> SizedCar;
+	float RearCm = -230.f;
+	float FrontCm = 230.f;
+	/** On foot in the path of a car last frame, and how many times he stepped into one (logged). */
+	bool bWasInPath = false;
+	int32 InPathTimes = 0;
 };

@@ -607,16 +607,17 @@ far », « vehicle shown by MassTraffic: ... kinematic (asleep=1, simulating=0),
 « actors= » de la ligne de compte les compte.
 
 Une voiture déplacée par Mass contre la voiture arrêtée du joueur la pousserait : le joueur est
-désormais un obstacle pour les voitures (`FGTPPlayerObstacleTag`), comme les piétons sur un passage
-(GTPCrowd). Deux entités avec ce que donne le trait « Traffic Obstacle » d'Epic, et un volume de voiture
-(`FMassTrafficVehicleVolumeParameters`) : à pied (rayon 0,4 m, boîte 1,6 × 1 m) et au volant (rayon
-2,3 m, boîte 6 × 2 m) ; celle en service est posée sur le joueur à chaque image, l'autre à l'écart. Avec
-un volume, MassTraffic teste les boîtes (`WillCollide`), pas seulement les sphères : avec les sphères
-seules (le rayon d'une voiture vaut sa demi-longueur), une voiture sur la voie d'à côté, ou le joueur
-sur le trottoir à 2 m de la voie, freinerait une voiture. Chaque boîte est plus longue que sa sphère,
-car MassTraffic teste les boîtes là où les sphères se touchent d'abord. Ligne « MassTraffic player
-obstacle: on, on foot entity ... at the wheel entity ... » (« VOLUME NOT SET » si le moteur a refusé
-le volume) ; `-MassTrafficPlayerObstacle=0` l'enlève.
+désormais un obstacle pour les voitures (`FGTPPlayerObstacleFragment`), comme les piétons sur un
+passage (GTPCrowd) : quatre points avec ce que donne le trait « Traffic Obstacle » d'Epic, de rayon 0.
+À pied, le joueur, seulement quand il se tient sur le chemin d'une voiture (à moins de 40 m devant
+elle et de 1,7 m de son axe), comme nos piétons ne portent le tag que sur un passage ; au volant, le
+pare-chocs arrière, le milieu et le pare-chocs avant de sa voiture (ses bornes locales). Un point
+inutilisé attend à l'écart. Rayon 0 parce que MassTraffic freine une voiture pour un obstacle plus
+proche de l'axe de sa voie que la somme des deux rayons, et que le rayon d'une voiture vaut environ
+sa demi-longueur : avec les 0,4 m d'une personne ou les 2,3 m d'une voiture, les voitures de la voie
+d'à côté, ou de la voie le long du trottoir, freineraient pour le joueur. Lignes « MassTraffic player
+obstacle: on, 4 points of radius 0 », « ... at the wheel of ..., points at ... » et « ... on foot in
+the path of a car ... » ; `-MassTrafficPlayerObstacle=0` les enlève.
 
 Attendu à la porte : l'étape crash réussie, « held behind ... stopped » ; « actors= » de 1 à 12 près
 d'une route ; les critères du trafic inchangés (Mass déplace les voitures comme avant) ; game p50 dans
