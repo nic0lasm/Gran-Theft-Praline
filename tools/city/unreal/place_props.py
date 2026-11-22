@@ -41,6 +41,7 @@ PROPS_ROOT = "/Game/Environment/Props"
 # the end. Props smaller than NO_SHADOW_BELOW_M cast no dynamic shadow.
 CULL_END_M = {"props": {"small": 30.0, "medium": 60.0, "large": 120.0},   # fil optimisation 10/11
               "details": {"small": 40.0, "medium": 60.0, "large": 120.0},
+              "route": {"small": 30.0, "medium": 60.0, "large": 150.0},   # the flight: lamps and trees seen from a car
               "details_merged": {"small": 40.0, "medium": 60.0, "large": 120.0}}
 SIZE_CLASSES_M = (("small", 1.0), ("medium", 3.0))   # up to 1 m small, up to 3 m medium
 CULL_START_SHARE = 0.8

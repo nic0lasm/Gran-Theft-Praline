@@ -22,6 +22,14 @@ refined by a downward trace in the editor.
 
   python3 tools/city/props.py --name presqu-ile --focus rue-de-la-republique [--buffer 45]
 Output (regenerated, not committed, ODbL-derived): gen/<focus>/props_placement.csv
+
+Route mode (the flight of the car theft runs beyond the 45 m of the street, among the backdrop
+volumes): --set route --ring 45,600 takes every surveyed item between 45 m and 600 m of the
+street (the backdrop radius), or --route <file> (the "GTARun pos" lines of a -GTARun log, or a
+CSV with ue_x,ue_y) buffered by --route-buffer metres, minus the 45 m the street set covers.
+No facade modules there: the front faces away from the nearest building footprint; no shop
+details or terraces. Output gen/<focus>/route_placement.csv, placed by place_props.py with
+GTP_PROPS_SET=route (outliner folder City/Route, the street set untouched).
 """
 
 import argparse
@@ -33,8 +41,8 @@ import sys
 import time
 
 import numpy as np
-from shapely.geometry import Point
-from shapely.ops import unary_union
+from shapely.geometry import LineString, Point
+from shapely.ops import nearest_points, unary_union
 from shapely.strtree import STRtree
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -73,12 +81,35 @@ def manifest_assets(path):
     return out
 
 
+def route_points(path):
+    """Local (x east, y north) metres of a route: 'GTARun pos ... x=<ue cm> y=<ue cm>' log lines,
+    or a CSV with ue_x,ue_y (cm) or x_m,y_m columns."""
+    import re
+    pts = []
+    with open(path, encoding="utf-8", errors="replace") as f:
+        text = f.read()
+    for m in re.finditer(r"GTARun pos t=\S+ step=\S+ x=(-?[\d.]+) y=(-?[\d.]+)", text):
+        pts.append((float(m.group(1)) / 100.0, -float(m.group(2)) / 100.0))
+    if pts:
+        return pts
+    for r in csv.DictReader(text.splitlines()):
+        if "ue_x" in r:
+            pts.append((float(r["ue_x"]) / 100.0, -float(r["ue_y"]) / 100.0))
+        elif "x_m" in r:
+            pts.append((float(r["x_m"]), float(r["y_m"])))
+    return pts
+
+
 def main():  # noqa: C901, PLR0915
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--name", required=True)
     ap.add_argument("--focus", default="rue-de-la-republique")
     ap.add_argument("--street", default="Rue de la République")
     ap.add_argument("--buffer", type=float, default=45.0)
+    ap.add_argument("--set", default="props", help="placement set name: <set>_placement.csv")
+    ap.add_argument("--ring", metavar="R_IN,R_OUT", help="route mode: items between R_IN and R_OUT m of the street")
+    ap.add_argument("--route", help="route mode: -GTARun log ('GTARun pos' lines) or CSV with ue_x,ue_y")
+    ap.add_argument("--route-buffer", type=float, default=40.0)
     ap.add_argument("--cell", metavar="X0,Y0,X1,Y1",
                     help="streaming cell mode (tools/city/cells.py): every surveyed item in this box (local "
                          "metres) and the shops of every street; --focus names the cell, --street is ignored")
@@ -113,17 +144,44 @@ def main():  # noqa: C901, PLR0915
 
         def on_street(name):
             return name == args.street
+    route_mode = bool(args.ring or args.route)
+    if route_mode:
+        axis = unary_union([r[0] for r in roads if r[2] == args.street])
+        if args.route:
+            pts = route_points(args.route)
+            if len(pts) < 2:
+                sys.exit("no route point in %s" % args.route)
+            zone = LineString(pts).buffer(args.route_buffer)
+        else:
+            r_in, r_out = (float(v) for v in args.ring.split(","))
+            zone = axis.buffer(r_out)
+        zone = zone.difference(axis.buffer(args.buffer))   # the street set covers its 45 m
     footprints = [b["poly"] for b in generate.load_buildings(proc) if b["poly"].intersects(zone)]
     fp_tree = STRtree(footprints)
     with open(os.path.join(gen, "facade_modules.csv"), encoding="utf-8") as f:
-        modules = [r for r in csv.DictReader(f) if r["side"] == "street" and r["storey"] == "0"]
+        modules = [] if route_mode else [r for r in csv.DictReader(f) if r["side"] == "street" and r["storey"] == "0"]
     mod_xy = np.array([[float(r["x_m"]), float(r["y_m"])] for r in modules])
 
     def facing(x, y):
         """(ue_yaw of the nearest street facade, distance) -> prop front turned to the street."""
+        if route_mode:
+            return facing_footprint(x, y)
         d = np.hypot(mod_xy[:, 0] - x, mod_xy[:, 1] - y)
         k = int(np.argmin(d))
         return float(modules[k]["ue_yaw"]), float(d[k]), modules[k]
+
+    def facing_footprint(x, y):
+        """Route mode: the front turned away from the nearest building wall (local y north, UE Y south)."""
+        p = Point(x, y)
+        if not footprints:
+            return 0.0, 1e9, None
+        k = int(fp_tree.nearest(p))
+        q = nearest_points(footprints[k].exterior, p)[0]
+        dx, dy = x - q.x, y - q.y
+        d = math.hypot(dx, dy)
+        if d < 1e-3:
+            return 0.0, 0.0, None
+        return math.degrees(math.atan2(-dy, dx)), d, None
 
     rows, placed = [], []
 
@@ -265,7 +323,7 @@ def main():  # noqa: C901, PLR0915
     rows, off_lanes = clear_lanes.split(rows, clear_lanes.lanes_of_focus(proc, gen))
     fields = ["catalog_id", "asset", "family", "asset_path", "x_m", "y_m", "z_m", "ue_x", "ue_y", "ue_z", "ue_yaw",
               "source", "ref"]
-    with open(os.path.join(gen, "props_placement.csv"), "w", newline="", encoding="utf-8") as f:
+    with open(os.path.join(gen, args.set + "_placement.csv"), "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fields)
         w.writeheader()
         w.writerows(rows)
@@ -275,7 +333,7 @@ def main():  # noqa: C901, PLR0915
     report = {"props": len(rows), "terraces": terraces, "by_asset": dict(sorted(by.items())),
               "left_out_on_lanes": clear_lanes.summary(off_lanes),
               "seconds": round(time.time() - t0, 1)}
-    with open(os.path.join(gen, "props_report.json"), "w", encoding="utf-8") as f:
+    with open(os.path.join(gen, args.set + "_report.json"), "w", encoding="utf-8") as f:
         json.dump(report, f, indent=1)
     print(json.dumps(report, indent=1))
 
