@@ -134,6 +134,17 @@ double AGTPFarTraffic::TakeTickSeconds()
 	return Seconds;
 }
 
+int32 AGTPFarTraffic::CountDrawnWithin(float RadiusCm) const
+{
+	const float Limit = FMath::Min(RadiusCm, static_cast<float>(CullEnd));
+	int32 Count = 0;
+	for (const FFarCar& Car : Cars)
+	{
+		Count += Car.Lane != INDEX_NONE && Car.ToPlayer < Limit ? 1 : 0;
+	}
+	return Count;
+}
+
 const GTPFar::FLanePath& AGTPFarTraffic::LanePath(int32 Lane)
 {
 	if (const GTPFar::FLanePath* Found = Paths.Find(Lane))

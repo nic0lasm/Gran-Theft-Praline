@@ -44,6 +44,9 @@ public:
 
 	int32 Num() const { return Cars.Num(); }
 
+	/** Far cars on a lane within RadiusCm of the player (2D, as of their last move) and near enough to be drawn (CullEnd). */
+	int32 CountDrawnWithin(float RadiusCm) const;
+
 	/** Time spent in Tick (seconds) since the last read, for the CPU budget line of the network. */
 	double TakeTickSeconds();
 

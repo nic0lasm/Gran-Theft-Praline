@@ -1321,6 +1321,16 @@ void AGTPTrafficNetwork::BeginPlay()
 		GhostDistance = GhostMetres * 100.f;
 		GhostWakeDistance = FMath::Max(GhostDistance - 2000.f, GhostDistance * 0.5f);
 	}
+	// -TrafficRing=M: driven cars are made out of sight between MinSpawnDistance and M from the player, and taken away
+	// past M out of sight (MaxCarDistance). 150 m since candidate 61: at 250 m, 19 of the 22 driven cars were ghosts past
+	// 90 m at the end of gate 59's default pass, and its video showed none around the player.
+	float RingMetres = 0.f;
+	if (FParse::Value(FCommandLine::Get(), TEXT("TrafficRing="), RingMetres) && RingMetres * 100.f > MinSpawnDistance)
+	{
+		MaxCarDistance = RingMetres * 100.f;
+	}
+	GTP_TRACE(LogGTPTraffic, TEXT("traffic: driven cars made out of sight %.0f to %.0f m from the player, taken away past %.0f m out of sight (-TrafficRing=M)"),
+		MinSpawnDistance / 100.f, MaxCarDistance / 100.f, MaxCarDistance / 100.f);
 	float LodNearMetres = 0.f;
 	if (FParse::Value(FCommandLine::Get(), TEXT("LodNear="), LodNearMetres) && LodNearMetres >= 0.f)
 	{
@@ -1636,6 +1646,7 @@ bool AGTPTrafficNetwork::SpawnCar()
 				AIDrivers.Add(ReusedDriver);
 			}
 			Cars.AddUnique(Reused);
+			++ReusedFromPool;
 			GTP_TRACE(LogGTPTraffic, TEXT("traffic: %s reused on lane %d"), *Reused->GetName(), Lane);
 			return true;
 		}
@@ -1900,6 +1911,7 @@ const AActor* AGTPTrafficNetwork::FindCarAt(const AGTPVehicle* Car, const FTrans
 
 void AGTPTrafficNetwork::Recycle(AGTPVehicle* Car)
 {
+	++RecycledAll;
 	Cars.Remove(Car);
 	if (bTrafficPool && PutAway(Car))
 	{
@@ -2056,6 +2068,11 @@ void AGTPTrafficNetwork::LogCars(const APawn* Player)
 	int32 MovingWithin100 = 0;
 	int32 StoppedWithin100 = 0;
 	int32 Within200 = 0;
+	// The ring where the gate judges the legacy traffic (100 to 150 m around the player).
+	int32 Within150 = 0;
+	int32 MovingWithin150 = 0;
+	int32 UprightWithin150 = 0;
+	int32 GhostsWithin150 = 0;
 	int32 LongStopped = 0;
 	int32 AtDeadEnd = 0;
 	int32 Why[static_cast<int32>(GTPTrafficStop::ELimit::Num)] = {};
@@ -2089,6 +2106,13 @@ void AGTPTrafficNetwork::LogCars(const APawn* Player)
 			const double Distance = FVector::Dist(Car->GetActorLocation(), PlayerAt);
 			Nearest = FMath::Min(Nearest, Distance);
 			Within200 += Distance < 20000.0 ? 1 : 0;
+			if (Distance < 15000.0)
+			{
+				++Within150;
+				MovingWithin150 += bMoving ? 1 : 0;
+				UprightWithin150 += bUpright ? 1 : 0;
+				GhostsWithin150 += bGhostCar ? 1 : 0;
+			}
 			if (Distance < 10000.0)
 			{
 				++Within100;
@@ -2098,14 +2122,16 @@ void AGTPTrafficNetwork::LogCars(const APawn* Player)
 		}
 	}
 	const FString NearestText = Nearest < TNumericLimits<double>::Max() ? FString::Printf(TEXT("%.0f m"), Nearest / 100.0) : FString(TEXT("none"));
+	// The far traffic's puppets drawn near the player: cars he sees too, with no body (they become driven cars at the ghost distance).
+	const int32 FarWithin150 = Player && FarTraffic ? FarTraffic->CountDrawnWithin(15000.f) : 0;
 	using GTPTrafficStop::ELimit;
-	GTP_TRACE(LogGTPTraffic, TEXT("traffic cars t=%.0fs: driven=%d of %d wanted (ghosts=%d) moving=%d (over 1 m/s, upright: %.0f %%) stopped=%d lying=%d mean speed=%.0f km/h | within 100 m=%d (moving %d, stopped %d) within 200 m=%d nearest=%s | stopped for: a car ahead=%d, the queue along the lanes=%d, a person=%d, something else ahead=%d, a red light=%d, a junction in use=%d, held (reaction or stop asked)=%d, wedged=%d, nothing ahead=%d; stopped over 20 s=%d, at a dead end=%d | recycled so far: stuck=%d far=%d"),
+	GTP_TRACE(LogGTPTraffic, TEXT("traffic cars t=%.0fs: driven=%d of %d wanted (ghosts=%d) moving=%d (over 1 m/s, upright: %.0f %%) stopped=%d lying=%d mean speed=%.0f km/h | within 100 m=%d (moving %d, stopped %d) within 150 m=%d (moving %d, upright %d, ghosts %d; far puppets drawn there %d) within 200 m=%d nearest=%s | stopped for: a car ahead=%d, the queue along the lanes=%d, a person=%d, something else ahead=%d, a red light=%d, a junction in use=%d, held (reaction or stop asked)=%d, wedged=%d, nothing ahead=%d; stopped over 20 s=%d, at a dead end=%d | recycled so far: stuck=%d far=%d by the chase script or the police=%d, reused from the pool=%d"),
 		Now, Driven, WantedCars, Ghosts, Moving, Driven > 0 ? 100.0 * Moving / Driven : 0.0, Stopped, Lying, Driven > 0 ? SpeedSum / Driven * 3.6 : 0.0,
-		Within100, MovingWithin100, StoppedWithin100, Within200, *NearestText,
+		Within100, MovingWithin100, StoppedWithin100, Within150, MovingWithin150, UprightWithin150, GhostsWithin150, FarWithin150, Within200, *NearestText,
 		Why[static_cast<int32>(ELimit::CarAhead)], Why[static_cast<int32>(ELimit::Queue)], Why[static_cast<int32>(ELimit::PersonAhead)],
 		Why[static_cast<int32>(ELimit::OtherAhead)], Why[static_cast<int32>(ELimit::RedLight)], Why[static_cast<int32>(ELimit::Junction)],
 		Why[static_cast<int32>(ELimit::Held)], Why[static_cast<int32>(ELimit::Wedged)], Why[static_cast<int32>(ELimit::None)],
-		LongStopped, AtDeadEnd, RecycledStuck, RecycledFar);
+		LongStopped, AtDeadEnd, RecycledStuck, RecycledFar, RecycledAll - RecycledStuck - RecycledFar, ReusedFromPool);
 }
 
 // --- Traffic lights (version 0.4) --------------------------------------------

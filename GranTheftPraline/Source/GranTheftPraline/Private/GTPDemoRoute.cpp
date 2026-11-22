@@ -719,12 +719,16 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 		if (bChase)
 		{
 			Cruise = T >= 12.0 ? 90.f : 40.f;
-			// The way ahead is kept clear of the city's traffic (a demo cannot queue behind a taxi): traffic cars
-			// within 35 m in front of the player are taken off the road twice a second.
+			// The way ahead is kept clear of the city's traffic (a demo cannot queue behind a taxi): twice a second, a
+			// traffic car in the player's own way is taken off the road, ahead within 35 m and within 2.5 m of the line his
+			// car drives on. The cars coming the other way, beside him or crossing further on stay in the street: until
+			// candidate 60 every car within 35 m in a cone of 60 degrees went, and the video of gate 59 showed no traffic
+			// car around the player in the five frames counted.
 			if (Now >= NextClear)
 			{
 				NextClear = Now + 0.5;
 				TActorIterator<AGTPTrafficNetwork> Network(Driven->GetWorld());
+				const FVector Forward = Driven->GetActorForwardVector().GetSafeNormal2D();
 				for (TActorIterator<AGTPVehicle> It(Driven->GetWorld()); Network && It; ++It)
 				{
 					AGTPVehicle* Other = *It;
@@ -733,7 +737,9 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 						continue;
 					}
 					const FVector Offset = Other->GetActorLocation() - Driven->GetActorLocation();
-					if (Offset.Size2D() < 3500.f && FVector::DotProduct(Offset.GetSafeNormal2D(), Driven->GetActorForwardVector().GetSafeNormal2D()) > 0.5f)
+					const double Along = Offset.X * Forward.X + Offset.Y * Forward.Y;
+					const double Aside = FMath::Abs(Offset.X * Forward.Y - Offset.Y * Forward.X);
+					if (Along > 0.0 && Along < 3500.0 && Aside < 250.0)
 					{
 						Network->Recycle(Other);
 					}
