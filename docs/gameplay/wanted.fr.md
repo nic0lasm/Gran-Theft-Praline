@@ -101,6 +101,12 @@ La voiture du joueur était à 0 km/h à son arrestation : elle avait freiné po
 
 Pas compilé au moment d'écrire, et aucun test hors moteur : ce sont des requêtes de collision.
 
+## L'uniforme des policiers à pied (22/11/2026)
+
+Dans la vidéo du candidat 59, les policiers à pied étaient le mannequin orange du joueur avec un pistolet : `AGTPPoliceOfficer` prenait le corps d'`AGTPLiteDriver`, qui est le maillage du joueur quand la config n'en nomme aucun. Un policier est désormais un personnage assemblé de City Sample Crowds, comme les gens de la rue : le grand corps d'homme de corpulence normale, une chemise, un pantalon long et des chaussures qui suivent sa pose, une tête, la boucle de course cuite sur ce squelette, une couleur pour les vêtements, et des pièces rigides (casquette, gilet, ceinture) accrochées à des os du corps. Tout est lu dans `[/Script/GranTheftPraline.GTPPoliceOfficer]` de `DefaultGame.ini` ; un asset qui ne se charge pas est laissé de côté et nommé dans la ligne `police: officer in uniform: ...`, et sans le corps ou la tête le policier garde le mannequin. `-PoliceUniform=0` le garde aussi.
+
+Pas su au moment d'écrire, et pas compilé : comment les matériaux des vêtements prennent une couleur (le bleu marine n'est donné qu'une fois leurs paramètres nommés dans la config), le nom de l'os haut de la colonne pour le gilet, si la tête `m_002` et la boucle de course `CS_M_Neutral_Run_Loop_F_R_20` sont dans le projet. La casquette, le gilet et la ceinture n'existent pas encore.
+
 ## Interrupteurs
 
 `-PolicePerception=0|1|2` (coupée, perception seule, les deux = défaut), `-PoliceEqs=0` (les policiers balaient de nouveau un cercle fixe), `-Police=0`, `-WantedStars=N`, `-WantedHold`, `-Witnesses=0`.

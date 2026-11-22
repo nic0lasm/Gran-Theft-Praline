@@ -101,6 +101,12 @@ The player's car stood at 0 km/h when it was arrested: it had braked for a pedes
 
 Not compiled at the time of writing, and no test outside the engine: these are collision queries.
 
+## The officers' uniform (2026-11-22)
+
+In the video of candidate 59 the officers on foot were the player's orange mannequin with a pistol: `AGTPPoliceOfficer` took the body of `AGTPLiteDriver`, which is the player's mesh when the config names none. An officer is now an assembled character of City Sample Crowds, like the people of the street: the tall normal-weight male body, a shirt, long trousers and shoes that follow its pose, a head, the run loop baked on that skeleton, a colour for the garments, and rigid pieces (cap, vest, belt) hung on bones of the body. Everything is read from `[/Script/GranTheftPraline.GTPPoliceOfficer]` in `DefaultGame.ini`; an asset that does not load is left out and named in the line `police: officer in uniform: ...`, and without the body or the face the officer keeps the mannequin. `-PoliceUniform=0` keeps it too.
+
+Not known at the time of writing, and not compiled: how the garments' materials take a colour (the navy blue is given only once their parameters are named in the config), the name of the upper spine bone for the vest, whether the head `m_002` and the run loop `CS_M_Neutral_Run_Loop_F_R_20` are in the project. The cap, the vest and the belt do not exist yet.
+
 ## Switches
 
 `-PolicePerception=0|1|2` (off, perception only, both = default), `-PoliceEqs=0` (officers sweep a fixed circle again), `-Police=0`, `-WantedStars=N`, `-WantedHold`, `-Witnesses=0`.
