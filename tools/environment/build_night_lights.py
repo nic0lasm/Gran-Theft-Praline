@@ -2,6 +2,7 @@
 
 One row per light, from the city pipeline outputs of each focus (tools/city):
   props_placement.csv    W1-04 street lamps (OpenStreetMap highway=street_lamp)
+  route_placement.csv    the same beyond the street, along the flight (props.py --set route)
   facade_modules.csv     kind=shop modules: one soft rect light per shop front
   details_placement.csv  W14-43 wall sconces, when the street dressing adds them
 
@@ -59,7 +60,8 @@ def row(kind, x, y, z, yaw, pitch, width, height, spec, shadow, level):
 def lights_for(gen_dir):
     level = map_name(gen_dir)
     out = []
-    for r in read_csv(os.path.join(gen_dir, "props_placement.csv")):
+    # route_placement.csv: the lamps along the flight, beyond the street's 45 m (props.py --set route)
+    for r in read_csv(os.path.join(gen_dir, "props_placement.csv")) + read_csv(os.path.join(gen_dir, "route_placement.csv")):
         if r["catalog_id"] == STREET_LAMP["catalog"]:
             out.append(row("street", float(r["ue_x"]), float(r["ue_y"]), float(r["ue_z"]) + STREET_LAMP["head_cm"],
                            float(r["ue_yaw"]), 0, 0, 0, STREET_LAMP, 1, level))
