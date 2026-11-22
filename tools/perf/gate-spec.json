@@ -43,11 +43,11 @@
     "errors_scope": "every blocking pass; Error lines of the MassTraffic passes are counted in informative_mass",
     "windows_complete": true,
     "legacy_lying_max": 0,
-    "legacy_moving_120_300_min": null,
+    "legacy_moving_upright_percent_120_300_min": null,
     "gtarun_crash_ok": true,
     "video_watched_by_pilot": true
   },
-  "_legacy_note": "legacy_moving_120_300_min is left empty on purpose: the pilot sets it from the measure of gate 59, not before. Until then the legacy counts are reported, not judged. gtarun_crash_ok: step 12 (crash) of the gtarun pass must end ok on a legacy car, so the player does not drive through the traffic. A missing count line or crash line on a blocking pass fails the gate.",
+  "_legacy_note": "Legacy counts come from the line 'traffic cars t=...s:' every 10 s (default and gtarun passes). legacy_lying_max is read on its 'lying=' field. legacy_moving_upright_percent_120_300_min is judged on its share 'upright: P %' (the legacy traffic wants fewer cars than MassTraffic's 120, so a share, not a count), mean of 120 to 300 s; left empty on purpose: the pilot sets it from the measure of gate 59, not before. gtarun_crash_ok: step 12 (crash) of the gtarun pass must end ok on a 'legacy traffic car', so the player does not drive through the traffic. A missing count line or crash line on a blocking pass fails the gate.",
   "informative_mass": {
     "moving_upright_120_300_min": 75.6,
     "lying_within_100m_max_percent": 5,
@@ -109,7 +109,10 @@
     "vehicle shown by MassTraffic",
     "made MassTraffic's",
     "nearest=",
-    "legacy traffic:"
+    "traffic cars t=",
+    "traffic: ",
+    "legacy traffic car",
+    "neither MassTraffic nor the legacy traffic runs"
   ],
   "video": {
     "pass": "-GTARun",
