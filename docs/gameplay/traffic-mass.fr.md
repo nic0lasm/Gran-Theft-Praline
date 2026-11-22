@@ -238,7 +238,17 @@ Changements (C++ seulement, la carte reste telle quelle) :
 - `MinTransferDistance` : 200 m (`-TrafficMinTransfer=<m>`) ;
 - une ligne « MassTraffic stops » dit où sont les voitures arrêtées : dans une branche sans issue,
   dans un carrefour, pour un piéton ou le joueur, derrière une voiture, au bout de la voie (pas de
-  voie suivante, carrefour fermé, carrefour ouvert sans place après lui, voie simple), autre.
+  voie suivante, carrefour fermé, carrefour ouvert sans place après lui, voie simple), autre ;
+- depuis le candidat 57, « MassTraffic queue heads » dit qui est en tête des files : une tête est
+  une voiture arrêtée dont la raison la plus proche de s'arrêter n'est pas une voiture à moins de
+  10 m ; chaque voiture en file est rendue à la tête la plus proche devant elle (80 m, même sens).
+  La ligne compte les têtes par raison et, pour les têtes arrêtées par un obstacle, par ce qu'est
+  l'obstacle le plus proche devant (un de nos piétons sur un passage ou hors passage, un point du
+  joueur, un obstacle qui n'est pas à nous) et s'il est sur le chemin de la voiture (à moins de
+  1,5 m de son axe) ou À CÔTÉ : MassTraffic freine une voiture pour un obstacle dont la sphère touche
+  la sienne (le rayon d'une voiture vaut environ sa demi-longueur), donc un obstacle à côté du
+  chemin l'arrête pour rien de visible. Puis les six plus longues files, avec depuis combien de
+  temps leur tête est arrêtée, sa voie et ce qui l'arrête.
 
 PC, candidat 35 (22eb010) : 307 des 775 voies de voitures ne mènent qu'à des impasses (182 dans
 des carrefours), 182 liens retirés, 54 voitures confiées au recyclage, dont 51 sans fragment de

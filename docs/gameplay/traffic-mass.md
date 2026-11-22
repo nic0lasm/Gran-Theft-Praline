@@ -214,7 +214,15 @@ Changes (C++ only, the map stays as it is):
 - `MinTransferDistance`: 200 m (`-TrafficMinTransfer=<m>`);
 - a "MassTraffic stops" line says where the stopped cars stand: in a dead-end branch, inside a
   junction, for a pedestrian or the player, behind a car, at the lane end (no next lane, junction
-  closed, junction open with no room after it, plain lane), other.
+  closed, junction open with no room after it, plain lane), other;
+- since candidate 57, "MassTraffic queue heads" says who heads the queues: a head is a stopped car
+  whose nearest reason to stop is not a car within 10 m; each car queued behind one is given to the
+  nearest head ahead of it (80 m, same way). The line counts the heads by reason and, for the
+  obstacle heads, by what the nearest obstacle ahead is (one of our people on a crossing or off one,
+  a point of the player, an obstacle not ours) and whether it stands in the car's path (within
+  1.5 m of its axis) or BESIDE it: MassTraffic brakes a car for an obstacle whose sphere meets its own
+  (a car's radius is about half its length), so one beside the path stops it for nothing seen. Then
+  the six longest queues, with how long their head has stood, its lane and what stops it.
 
 PC, candidate 35 (22eb010): 307 of the 775 car lanes only lead to dead ends (182 in junctions),
 182 links removed, 54 cars handed to the recycling, 51 of which had no damage fragment and got

@@ -2,6 +2,7 @@
 
 #include "GTPTraffic.h"
 #include "GTPMassTrafficCars.h"
+#include "GTPCrowd.h"
 #include "GTPVehicle.h"
 #include "Components/InstancedStaticMeshComponent.h"
 #include "EngineUtils.h"
@@ -432,6 +433,220 @@ void UGTPMassTrafficSubsystem::LogCounts()
 }
 
 #if WITH_GTP_MASSTRAFFIC
+namespace GTPMassTrafficQueues
+{
+	/** Why a stopped car that is not behind another one stopped (the order of the "MassTraffic stops" line). */
+	enum class EWhy : uint8
+	{
+		Other,
+		DeadEndBranch,
+		InsideJunction,
+		Obstacle,
+		NoNextLane,
+		JunctionOpen,
+		JunctionClosed,
+		HeldAtEdge,
+		LaneEnd,
+		Num
+	};
+
+	const TCHAR* Name(EWhy Why)
+	{
+		switch (Why)
+		{
+		case EWhy::DeadEndBranch: return TEXT("in a dead-end branch");
+		case EWhy::InsideJunction: return TEXT("inside a junction");
+		case EWhy::Obstacle: return TEXT("for an obstacle");
+		case EWhy::NoNextLane: return TEXT("at the lane end, no next lane");
+		case EWhy::JunctionOpen: return TEXT("at the lane end, junction open (no room after it)");
+		case EWhy::JunctionClosed: return TEXT("at the lane end, junction closed");
+		case EWhy::HeldAtEdge: return TEXT("held at the map's edge");
+		case EWhy::LaneEnd: return TEXT("at the end of a plain lane");
+		default: return TEXT("other");
+		}
+	}
+
+	/** What a traffic obstacle is: one of our people (on a crossing or not), a point of the player, or not ours. */
+	enum class EObstacle : uint8
+	{
+		CrowdOnCrossing,
+		CrowdElsewhere,
+		Player,
+		NotOurs
+	};
+
+	struct FObstacle
+	{
+		FVector At = FVector::ZeroVector;
+		EObstacle Kind = EObstacle::NotOurs;
+		FString What;
+	};
+
+	/** A stopped car whose nearest reason to stop is not a car within 10 m. */
+	struct FHead
+	{
+		FVector At = FVector::ZeroVector;
+		FVector Forward = FVector::ForwardVector;
+		EWhy Why = EWhy::Other;
+		int32 Lane = INDEX_NONE;
+		float AlongM = 0.f;
+		float LaneM = 0.f;
+		float ObstacleCm = 0.f;
+		float RadiusCm = 0.f;
+		float StoppedS = 0.f;
+		int32 Entity = INDEX_NONE;
+		int32 Behind = 0;
+		FString Obstacle;
+	};
+
+	/** A stopped car behind another one, within 10 m. */
+	struct FQueued
+	{
+		FVector At = FVector::ZeroVector;
+		FVector Forward = FVector::ForwardVector;
+	};
+
+	/**
+	 * Who heads each queue and why it stopped: each queued car is given to the nearest head ahead of it (80 m, same
+	 * way), and an obstacle head to the traffic obstacle nearest ahead of it, with where that obstacle stands from the
+	 * car's axis. MassTraffic brakes a car for an obstacle whose sphere meets its own on its way: one beside the path
+	 * (over 1.5 m from the axis) stops it for nothing the player can see.
+	 */
+	void Log(const UWorld& World, const TSharedRef<FMassEntityManager>& Manager, TArray<FHead>& Heads, const TArray<FQueued>& Queued)
+	{
+		if (Heads.IsEmpty() && Queued.IsEmpty())
+		{
+			return;
+		}
+		int32 NoHead = 0;
+		for (const FQueued& Car : Queued)
+		{
+			FHead* Best = nullptr;
+			double BestAlong = 8000.0;
+			for (FHead& Head : Heads)
+			{
+				const FVector ToHead = Head.At - Car.At;
+				const double Along = FVector::DotProduct(ToHead, Car.Forward);
+				const double Aside = FMath::Abs(Car.Forward.X * ToHead.Y - Car.Forward.Y * ToHead.X);
+				if (Along > 0.0 && Along < BestAlong && Aside < 500.0 && FVector::DotProduct(Car.Forward, Head.Forward) > 0.3)
+				{
+					BestAlong = Along;
+					Best = &Head;
+				}
+			}
+			if (Best)
+			{
+				++Best->Behind;
+			}
+			else
+			{
+				++NoHead;
+			}
+		}
+		// The traffic obstacles now: our people on a crossing (GTPCrowd), the player's points, any other.
+		TArray<FObstacle> Obstacles;
+		{
+			const UGTPCrowdSubsystem* Crowd = World.GetSubsystem<UGTPCrowdSubsystem>();
+			FMassEntityQuery ObstacleQuery;
+			ObstacleQuery.Initialize(Manager);
+			ObstacleQuery.AddTagRequirement<FMassTrafficObstacleTag>(EMassFragmentPresence::All);
+			ObstacleQuery.AddRequirement<FTransformFragment>(EMassFragmentAccess::ReadOnly);
+			ObstacleQuery.AddRequirement<FGTPCrowdWalkerFragment>(EMassFragmentAccess::ReadOnly, EMassFragmentPresence::Optional);
+			ObstacleQuery.AddRequirement<FGTPPlayerObstacleFragment>(EMassFragmentAccess::ReadOnly, EMassFragmentPresence::Optional);
+			FMassExecutionContext ObstacleContext(*Manager, 0.f);
+			ObstacleQuery.ForEachEntityChunk(ObstacleContext, [&Obstacles, Crowd](FMassExecutionContext& Chunk)
+			{
+				const TConstArrayView<FTransformFragment> ObstacleTransforms = Chunk.GetFragmentView<FTransformFragment>();
+				const TConstArrayView<FGTPCrowdWalkerFragment> Walkers = Chunk.GetFragmentView<FGTPCrowdWalkerFragment>();
+				const TConstArrayView<FGTPPlayerObstacleFragment> Points = Chunk.GetFragmentView<FGTPPlayerObstacleFragment>();
+				for (int32 Index = 0; Index < Chunk.GetNumEntities(); ++Index)
+				{
+					FObstacle& Obstacle = Obstacles.AddDefaulted_GetRef();
+					Obstacle.At = ObstacleTransforms[Index].GetTransform().GetLocation();
+					if (!Walkers.IsEmpty())
+					{
+						const GTPWalk::FWalker& Walker = Walkers[Index].Walker;
+						const GTPWalk::FGraph* WalkGraph = Crowd ? &Crowd->GetGraph() : nullptr;
+						const bool bEdge = WalkGraph && Walker.Edge >= 0 && Walker.Edge < static_cast<int32>(WalkGraph->Edges.size());
+						const bool bCrossing = bEdge && WalkGraph->Edges[Walker.Edge].Kind == GTPWalk::EKind::Crossing;
+						Obstacle.Kind = bCrossing ? EObstacle::CrowdOnCrossing : EObstacle::CrowdElsewhere;
+						Obstacle.What = FString::Printf(TEXT("a person of the crowd on %s edge %d, %.1f of %.1f m walked, %.1f m/s"),
+							bCrossing ? TEXT("crossing") : TEXT("walkway"), Walker.Edge, Walker.S / 100.f,
+							bEdge ? WalkGraph->Edges[Walker.Edge].Length / 100.f : 0.f, Walkers[Index].Speed / 100.f);
+					}
+					else if (!Points.IsEmpty())
+					{
+						Obstacle.Kind = EObstacle::Player;
+						Obstacle.What = FString::Printf(TEXT("the player's obstacle point %d"), Points[Index].Point);
+					}
+					else
+					{
+						Obstacle.What = TEXT("an obstacle that is not ours (a MassTraffic car?)");
+					}
+				}
+			});
+		}
+		int32 Why[static_cast<int32>(EWhy::Num)] = {};
+		int32 InPath[4] = {};
+		int32 Beside[4] = {};
+		int32 NoObstacle = 0;
+		for (FHead& Head : Heads)
+		{
+			++Why[static_cast<int32>(Head.Why)];
+			if (Head.Why != EWhy::Obstacle)
+			{
+				continue;
+			}
+			const FObstacle* Nearest = nullptr;
+			double NearestCm = static_cast<double>(Head.ObstacleCm) + Head.RadiusCm + 800.0;
+			for (const FObstacle& Obstacle : Obstacles)
+			{
+				const FVector ToObstacle = Obstacle.At - Head.At;
+				const double Cm = ToObstacle.Size2D();
+				if (Cm < NearestCm && FVector::DotProduct(ToObstacle, Head.Forward) > -300.0 && FMath::Abs(ToObstacle.Z) < 500.0)
+				{
+					NearestCm = Cm;
+					Nearest = &Obstacle;
+				}
+			}
+			if (!Nearest)
+			{
+				++NoObstacle;
+				Head.Obstacle = TEXT("; no obstacle found near it now");
+				continue;
+			}
+			const FVector ToObstacle = Nearest->At - Head.At;
+			const double Along = FVector::DotProduct(ToObstacle, Head.Forward);
+			const double Aside = Head.Forward.X * ToObstacle.Y - Head.Forward.Y * ToObstacle.X;
+			const bool bInPath = FMath::Abs(Aside) < 150.0;
+			int32* Bucket = bInPath ? InPath : Beside;
+			++Bucket[static_cast<int32>(Nearest->Kind)];
+			Head.Obstacle = FString::Printf(TEXT("; obstacle %.1f m ahead, %.1f m %s of its axis (%s): %s"), Along / 100.0, FMath::Abs(Aside) / 100.0,
+				Aside >= 0.0 ? TEXT("right") : TEXT("left"), bInPath ? TEXT("in its path") : TEXT("BESIDE its path"), *Nearest->What);
+		}
+		int32 Behind = 0;
+		for (const FHead& Head : Heads)
+		{
+			Behind += Head.Behind;
+		}
+		UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic queue heads t=%.0fs: %d head(s), %d car(s) queued behind them (80 m), %d queued with no head found | heads: obstacle=%d (crowd on a crossing in the path=%d beside it=%d, crowd off a crossing in=%d beside=%d, player in=%d beside=%d, not ours in=%d beside=%d, none found=%d) junction closed=%d junction open=%d inside a junction=%d plain lane end=%d no next lane=%d dead-end branch=%d map edge=%d other=%d"),
+			World.GetTimeSeconds(), Heads.Num(), Behind, NoHead, Why[static_cast<int32>(EWhy::Obstacle)],
+			InPath[0], Beside[0], InPath[1], Beside[1], InPath[2], Beside[2], InPath[3], Beside[3], NoObstacle,
+			Why[static_cast<int32>(EWhy::JunctionClosed)], Why[static_cast<int32>(EWhy::JunctionOpen)], Why[static_cast<int32>(EWhy::InsideJunction)],
+			Why[static_cast<int32>(EWhy::LaneEnd)], Why[static_cast<int32>(EWhy::NoNextLane)], Why[static_cast<int32>(EWhy::DeadEndBranch)],
+			Why[static_cast<int32>(EWhy::HeldAtEdge)], Why[static_cast<int32>(EWhy::Other)]);
+		// The longest queues first, then the longest stopped.
+		Heads.Sort([](const FHead& A, const FHead& B) { return A.Behind != B.Behind ? A.Behind > B.Behind : A.StoppedS > B.StoppedS; });
+		for (int32 Rank = 0; Rank < FMath::Min(Heads.Num(), 6); ++Rank)
+		{
+			const FHead& Head = Heads[Rank];
+			UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic queue head %d/%d: %d car(s) behind, stopped %.0f s or more, entity %d at %s, lane %d at %.0f of %.0f m, %s%s"),
+				Rank + 1, Heads.Num(), Head.Behind, Head.StoppedS, Head.Entity, *Head.At.ToCompactString(), Head.Lane, Head.AlongM, Head.LaneM,
+				Name(Head.Why), *Head.Obstacle);
+		}
+	}
+}
+
 void UGTPMassTrafficSubsystem::LogSimulatedCars(UWorld& World, const FVector& PlayerLocation)
 {
 	// The simulated cars themselves, drawn or not: how many there are, how many move and how fast,
@@ -562,6 +777,12 @@ void UGTPMassTrafficSubsystem::LogSimulatedCars(UWorld& World, const FVector& Pl
 	}();
 	double WatchNearest = TNumericLimits<double>::Max();
 	int32 WatchWithin50 = 0;
+	// The head of each queue: a stopped car whose nearest reason to stop is not a car within 10 m
+	// (GTPMassTrafficQueues), and the stopped cars that are behind one.
+	TArray<GTPMassTrafficQueues::FHead> Heads;
+	TArray<GTPMassTrafficQueues::FQueued> Queued;
+	const double CountedAt = World.GetTimeSeconds();
+	TMap<uint64, double> StillStopped;
 	FMassExecutionContext Context(*Manager, 0.f);
 	Query.ForEachEntityChunk(Context, [&](FMassExecutionContext& Chunk)
 	{
@@ -606,17 +827,21 @@ void UGTPMassTrafficSubsystem::LogSimulatedCars(UWorld& World, const FVector& Pl
 				const FZoneGraphTrafficLaneData* Lane = Traffic ? Traffic->GetTrafficLaneData(Location.LaneHandle) : nullptr;
 				const FMassTrafficObstacleAvoidanceFragment& Avoidance = Avoidances[Index];
 				const bool bAtLaneEnd = Location.DistanceAlongLane >= Location.LaneLength - Radii[Index].Radius - 500.f;
+				GTPMassTrafficQueues::EWhy Why = GTPMassTrafficQueues::EWhy::Other;
 				if (IsInDeadEndBranch(Location.LaneHandle.DataHandle.Index, Location.LaneHandle.Index))
 				{
 					++StopInBranch;
+					Why = GTPMassTrafficQueues::EWhy::DeadEndBranch;
 				}
 				else if (Lane && Lane->ConstData.bIsIntersectionLane)
 				{
 					++StopInJunction;
+					Why = GTPMassTrafficQueues::EWhy::InsideJunction;
 				}
 				else if (Avoidance.DistanceToCollidingObstacle < 2000.f)
 				{
 					++StopForObstacle;
+					Why = GTPMassTrafficQueues::EWhy::Obstacle;
 				}
 				else if (Avoidance.DistanceToNext < 1000.f)
 				{
@@ -625,16 +850,19 @@ void UGTPMassTrafficSubsystem::LogSimulatedCars(UWorld& World, const FVector& Pl
 				else if (bAtLaneEnd && (!Control.NextLane || (Lane && Lane->NextLanes.IsEmpty())))
 				{
 					++StopNoNextLane;
+					Why = GTPMassTrafficQueues::EWhy::NoNextLane;
 				}
 				else if (bAtLaneEnd && Control.NextLane->ConstData.bIsIntersectionLane)
 				{
 					if (Control.NextLane->bIsOpen)
 					{
 						++StopJunctionOpen;
+						Why = GTPMassTrafficQueues::EWhy::JunctionOpen;
 					}
 					else
 					{
 						++StopJunctionClosed;
+						Why = GTPMassTrafficQueues::EWhy::JunctionClosed;
 						const float Fraction = static_cast<float>(Fractions[Index].RandomFraction);
 						ClosedWaits.Emplace(Control.NextLane, 2.f * Radii[Index].Radius + FMath::Lerp(static_cast<float>(GapRange.X), static_cast<float>(GapRange.Y), Fraction));
 					}
@@ -642,14 +870,41 @@ void UGTPMassTrafficSubsystem::LogSimulatedCars(UWorld& World, const FVector& Pl
 				else if (bAtLaneEnd && !Control.NextLane->bIsOpen)
 				{
 					++StopHeldAtEdge;
+					Why = GTPMassTrafficQueues::EWhy::HeldAtEdge;
 				}
 				else if (bAtLaneEnd)
 				{
 					++StopLaneEnd;
+					Why = GTPMassTrafficQueues::EWhy::LaneEnd;
 				}
 				else
 				{
 					++StopOther;
+				}
+				// In a queue when a car within 10 m is its nearest reason to stop; the head of one otherwise.
+				const FMassEntityHandle Entity = Chunk.GetEntity(Index);
+				const uint64 Id = (static_cast<uint64>(static_cast<uint32>(Entity.SerialNumber)) << 32) | static_cast<uint32>(Entity.Index);
+				const double* Since = StoppedSince.Find(Id);
+				StillStopped.Add(Id, Since ? *Since : CountedAt);
+				const FTransform& Where = Transforms[Index].GetTransform();
+				const FVector Forward = Where.GetRotation().GetForwardVector().GetSafeNormal2D();
+				if (Avoidance.DistanceToNext < 1000.f && Avoidance.DistanceToNext <= Avoidance.DistanceToCollidingObstacle)
+				{
+					Queued.Add({Where.GetLocation(), Forward});
+				}
+				else
+				{
+					GTPMassTrafficQueues::FHead& Head = Heads.AddDefaulted_GetRef();
+					Head.At = Where.GetLocation();
+					Head.Forward = Forward;
+					Head.Why = Why;
+					Head.Lane = Location.LaneHandle.Index;
+					Head.AlongM = Location.DistanceAlongLane / 100.f;
+					Head.LaneM = Location.LaneLength / 100.f;
+					Head.ObstacleCm = Avoidance.DistanceToCollidingObstacle;
+					Head.RadiusCm = Radii[Index].Radius;
+					Head.StoppedS = static_cast<float>(CountedAt - (Since ? *Since : CountedAt));
+					Head.Entity = Entity.Index;
 				}
 			}
 			const double Distance = FVector::Dist(Transforms[Index].GetTransform().GetLocation(), PlayerLocation);
@@ -801,6 +1056,8 @@ void UGTPMassTrafficSubsystem::LogSimulatedCars(UWorld& World, const FVector& Pl
 			Cars - Moving, StopInBranch, StopInJunction, StopForObstacle, StopBehindCar, StopNoNextLane, StopJunctionClosed, StopJunctionOpen,
 			StopLaneEnd, StopHeldAtEdge, StopOther);
 	}
+	StoppedSince = MoveTemp(StillStopped);
+	GTPMassTrafficQueues::Log(World, Manager, Heads, Queued);
 	if (!ClosedWaits.IsEmpty())
 	{
 		// Why the junction lane stays closed, in the order MassTraffic checks it: ShouldStopAtLaneExit
