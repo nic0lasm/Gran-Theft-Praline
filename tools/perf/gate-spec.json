@@ -124,7 +124,9 @@
     "GTARun encore",
     "Demo chase: encore",
     "not driving",
-    "PlaceGhost"
+    "PlaceGhost",
+    "on street furniture",
+    "off its wheels"
   ],
   "video": {
     "pass": "-GTARun -GTARunEncore",
