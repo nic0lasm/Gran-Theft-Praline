@@ -764,12 +764,20 @@ private:
 	void LogBudget();
 	/** Every 10 s: the driven cars, how many move, how many stand and what holds them, near the player too. */
 	void LogCars(const APawn* Player);
+	/** One line on an overturned driven car: which, where, simulated or not, its reaction, its last placement. */
+	void LogOverturned(const AGTPVehicle* Car, const APawn* Player, const TCHAR* What) const;
 	double NextCarsLogTime = 10.0;
 	int32 RecycledStuck = 0;
 	int32 RecycledFar = 0;
+	/** Overturned (past 45 degrees) out of the player's sight: taken away at once. */
+	int32 RecycledOverturned = 0;
 	/** Every car taken off the road (stuck, far, and by the others: the chase script, the police), and cars put back from the pool. */
 	int32 RecycledAll = 0;
 	int32 ReusedFromPool = 0;
+	/** The player's pawn last seen by the tick, and where: a line when it is gone (gate 62's -GTARun pass, no car near
+	 *  the player from 236 s: no pawn, so no distance to spawn or take cars away by). */
+	TWeakObjectPtr<const APawn> LastPlayerPawn;
+	FVector LastPlayerAt = FVector::ZeroVector;
 
 public:
 	/** Switches the skinned draw of a car body, tracked by a component tag so it is only changed once. */

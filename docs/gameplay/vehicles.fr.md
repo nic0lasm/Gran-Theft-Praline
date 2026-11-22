@@ -242,8 +242,15 @@ Pas de plugin Water ni de volume physique : de simples événements de chevauche
   | within 100 m=N (moving, stopped) within 150 m=N (moving, upright, ghosts; far puppets drawn there) within 200 m=N
   nearest=... | stopped for: a car ahead, the queue along the lanes, a person, something else ahead, a red light, a
   junction in use, held (reaction or stop asked), wedged, nothing ahead; stopped over 20 s, at a dead end | recycled
-  so far: stuck, far, by the chase script or the police, reused from the pool », le pendant de
-  « MassTraffic cars: ». Ce qui arrête une voiture est l'arrêt le plus proche de sa dernière décision
+  so far: stuck, far, overturned, by the chase script or the police, reused from the pool », le pendant de
+  « MassTraffic cars: ». Chaque voiture comptée couchée a sa propre ligne, « traffic: ... overturned, counted
+  lying: up U at X », avec : simulée ou cinématique, vitesse, distance au joueur, réaction, secondes depuis son
+  dernier placement et lequel. Porte 62 : une voiture couchée dans la passe default et une dans la passe -GTARun,
+  sans rien dans le journal pour dire laquelle. Une voiture pilotée renversée au-delà de 45 degrés est retirée
+  aussitôt hors de la vue du joueur (« overturned » dans la ligne) ; en vue, elle se remet sur ses roues après
+  2,5 s à l'arrêt. Quand le joueur n'a plus de pion, une ligne « traffic: no player pawn from t=... » le dit une
+  fois : aucune voiture n'est alors créée ni retirée selon sa distance au joueur. Porte 62, passe -GTARun :
+  aucune voiture à moins de 150 m à partir de 236 s, « nearest=none ». Ce qui arrête une voiture est l'arrêt le plus proche de sa dernière décision
   (`UGTPAIDriverComponent::GetLimit`) : ce que touche la sonde (une voiture, un pion, autre chose), la file le long des
   voies, le feu rouge, la ligne d'arrêt d'un carrefour qu'une autre voiture traverse, une retenue (réaction, arrêt
   demandé par le joueur), coincée (pousse une seconde sans avancer, ou recule pour se dégager).
@@ -276,7 +283,7 @@ Pas de plugin Water ni de volume physique : de simples événements de chevauche
   pivoter l'arrière avec le volant ; les glissades sans frein à main sont amorties pour que la
   voiture se redresse ; sous 35 % de santé le moteur perd jusqu'à 45 % de puissance ; une
   voiture cabossée d'un côté tire de ce côté ; une voiture sur le toit ou le flanc, arrêtée, est
-  remise sur ses roues après 2,5 s.
+  remise sur ses roues après 2,5 s (une voiture du trafic dès 45 degrés).
 - **Caméra de poursuite** : recule de 1,5 m de plus à pleine vitesse, regarde en partie dans
   le sens de la glisse, secoue aux chocs.
 - **Trafic** : 22 voitures conduites (16 avant) et 30 lointaines ; Clio V, 208 et Kangoo quand

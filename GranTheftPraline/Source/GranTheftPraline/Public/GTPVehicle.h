@@ -157,6 +157,10 @@ public:
 	 */
 	void NotePlaced(const TCHAR* How);
 
+	/** The last NotePlaced: how (a literal) and when (world seconds). */
+	const TCHAR* GetLastPlacedHow() const { return LastPlacedHow; }
+	float GetLastPlacedTime() const { return LastPlacedTime; }
+
 	/** Seats a non-player driver (traffic, tests) without any sequence. */
 	UFUNCTION(BlueprintCallable, Category = "Vehicle|Seats")
 	void SeatOccupant(ACharacter* Character);

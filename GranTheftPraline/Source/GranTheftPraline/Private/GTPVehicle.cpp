@@ -1736,7 +1736,10 @@ void AGTPVehicle::PutBackOnWheels(float DeltaSeconds)
 		UpsideDownTime = 0.f;
 		return;
 	}
-	if (GetActorUpVector().Z < 0.25f && FMath::Abs(GetSpeedKmh()) < 5.f)
+	// A traffic car from 45 degrees, where the traffic line counts it lying (gate 62: one on 22 in the default and
+	// in the -GTARun pass); leaning on a car, a kerb or a wall, it stayed there. The player's car from its side.
+	const float LyingUpZ = HasAIDriver() ? 0.7071f : 0.25f;
+	if (GetActorUpVector().Z < LyingUpZ && FMath::Abs(GetSpeedKmh()) < 5.f)
 	{
 		UpsideDownTime += DeltaSeconds;
 		if (UpsideDownTime > 2.5f)

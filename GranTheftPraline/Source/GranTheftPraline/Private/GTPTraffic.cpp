@@ -2012,6 +2012,21 @@ void AGTPTrafficNetwork::Tick(float DeltaSeconds)
 	};
 	LogBudget();
 	const APawn* Player = UGameplayStatics::GetPlayerPawn(this, 0);
+	if (Player)
+	{
+		LastPlayerPawn = Player;
+		LastPlayerAt = Player->GetActorLocation();
+	}
+	else if (!LastPlayerAt.IsZero())
+	{
+		// Once: from here no car is spawned or taken away by its distance to the player.
+		const APlayerController* Controller = GetWorld()->GetFirstPlayerController();
+		const FString ViewTarget = Controller ? GetNameSafe(Controller->GetViewTarget()) : FString(TEXT("no controller"));
+		GTP_TRACE(LogGTPTraffic, TEXT("traffic: no player pawn from t=%.0fs (last %s at %s, %s; view target %s): cars spawn on any lane, none is taken away as far"),
+			GetWorld()->GetTimeSeconds(), *GetNameSafe(LastPlayerPawn.Get()), *LastPlayerAt.ToCompactString(),
+			LastPlayerPawn.IsValid() ? TEXT("still in the world, not possessed") : TEXT("destroyed"), *ViewTarget);
+		LastPlayerAt = FVector::ZeroVector;
+	}
 
 	// Forget stolen cars (the player's now); take away stuck or far cars out of sight.
 	for (int32 Index = Cars.Num() - 1; Index >= 0; --Index)
@@ -2061,10 +2076,18 @@ void AGTPTrafficNetwork::Tick(float DeltaSeconds)
 		const bool bFar = Player && FVector::Dist2D(Car->GetActorLocation(), Player->GetActorLocation()) > MaxCarDistance;
 		// Three back-offs that did not free it: taken away like a car stopped too long.
 		const bool bStuck = AIDriver && (AIDriver->IsAtDeadEnd() || AIDriver->GetStoppedTime() > StuckSeconds || AIDriver->GetWedgeCount() >= 3);
-		if ((bFar || bStuck) && !IsSeenByPlayer(Car->GetActorLocation()))
+		// Overturned (a ghost is always drawn upright): out of sight it goes at once; in sight the car puts itself back
+		// on its wheels after a moment (AGTPVehicle::PutBackOnWheels).
+		const bool bOverturned = AIDriver && !AIDriver->IsGhost() && Car->GetActorUpVector().Z < 0.7071;
+		if ((bFar || bStuck || bOverturned) && !IsSeenByPlayer(Car->GetActorLocation()))
 		{
+			if (bOverturned)
+			{
+				LogOverturned(Car, Player, TEXT("taken away out of sight"));
+			}
 			RecycledFar += bFar ? 1 : 0;
-			RecycledStuck += bFar ? 0 : 1;
+			RecycledOverturned += !bFar && bOverturned ? 1 : 0;
+			RecycledStuck += !bFar && !bOverturned ? 1 : 0;
 			Recycle(Car);
 		}
 	}
@@ -2193,17 +2216,40 @@ void AGTPTrafficNetwork::LogCars(const APawn* Player)
 			}
 		}
 	}
+	for (const AGTPVehicle* Car : Cars)
+	{
+		// Each car the line counts lying, named, so a gate says which one, where and after what.
+		if (IsValid(Car) && Car->GetActorUpVector().Z <= 0.7071)
+		{
+			LogOverturned(Car, Player, TEXT("counted lying"));
+		}
+	}
 	const FString NearestText = Nearest < TNumericLimits<double>::Max() ? FString::Printf(TEXT("%.0f m"), Nearest / 100.0) : FString(TEXT("none"));
 	// The far traffic's puppets drawn near the player: cars he sees too, with no body (they become driven cars at the ghost distance).
 	const int32 FarWithin150 = Player && FarTraffic ? FarTraffic->CountDrawnWithin(15000.f) : 0;
 	using GTPTrafficStop::ELimit;
-	GTP_TRACE(LogGTPTraffic, TEXT("traffic cars t=%.0fs: driven=%d of %d wanted (ghosts=%d) moving=%d (over 1 m/s, upright: %.0f %%) stopped=%d lying=%d not driving (no route or no decisions)=%d mean speed=%.0f km/h | within 100 m=%d (moving %d, stopped %d) within 150 m=%d (moving %d, upright %d, ghosts %d; far puppets drawn there %d) within 200 m=%d nearest=%s | stopped for: a car ahead=%d, the queue along the lanes=%d, a person=%d, something else ahead=%d, a red light=%d, a junction in use=%d, held (reaction or stop asked)=%d, wedged=%d, nothing ahead=%d; stopped over 20 s=%d, at a dead end=%d | recycled so far: stuck=%d far=%d by the chase script or the police=%d, reused from the pool=%d"),
+	GTP_TRACE(LogGTPTraffic, TEXT("traffic cars t=%.0fs: driven=%d of %d wanted (ghosts=%d) moving=%d (over 1 m/s, upright: %.0f %%) stopped=%d lying=%d not driving (no route or no decisions)=%d mean speed=%.0f km/h | within 100 m=%d (moving %d, stopped %d) within 150 m=%d (moving %d, upright %d, ghosts %d; far puppets drawn there %d) within 200 m=%d nearest=%s | stopped for: a car ahead=%d, the queue along the lanes=%d, a person=%d, something else ahead=%d, a red light=%d, a junction in use=%d, held (reaction or stop asked)=%d, wedged=%d, nothing ahead=%d; stopped over 20 s=%d, at a dead end=%d | recycled so far: stuck=%d far=%d overturned=%d by the chase script or the police=%d, reused from the pool=%d"),
 		Now, Driven, WantedCars, Ghosts, Moving, Driven > 0 ? 100.0 * Moving / Driven : 0.0, Stopped, Lying, NotDriving, Driven > 0 ? SpeedSum / Driven * 3.6 : 0.0,
 		Within100, MovingWithin100, StoppedWithin100, Within150, MovingWithin150, UprightWithin150, GhostsWithin150, FarWithin150, Within200, *NearestText,
 		Why[static_cast<int32>(ELimit::CarAhead)], Why[static_cast<int32>(ELimit::Queue)], Why[static_cast<int32>(ELimit::PersonAhead)],
 		Why[static_cast<int32>(ELimit::OtherAhead)], Why[static_cast<int32>(ELimit::RedLight)], Why[static_cast<int32>(ELimit::Junction)],
 		Why[static_cast<int32>(ELimit::Held)], Why[static_cast<int32>(ELimit::Wedged)], Why[static_cast<int32>(ELimit::None)],
-		LongStopped, AtDeadEnd, RecycledStuck, RecycledFar, RecycledAll - RecycledStuck - RecycledFar, ReusedFromPool);
+		LongStopped, AtDeadEnd, RecycledStuck, RecycledFar, RecycledOverturned, RecycledAll - RecycledStuck - RecycledFar - RecycledOverturned,
+		ReusedFromPool);
+}
+
+void AGTPTrafficNetwork::LogOverturned(const AGTPVehicle* Car, const APawn* Player, const TCHAR* What) const
+{
+	const UGTPAIDriverComponent* Driver = Car->FindComponentByClass<UGTPAIDriverComponent>();
+	const USkeletalMeshComponent* Body = Car->GetMesh();
+	const double Now = GetWorld()->GetTimeSeconds();
+	const FString Distance = Player ? FString::Printf(TEXT("%.0f m"), FVector::Dist(Car->GetActorLocation(), Player->GetActorLocation()) / 100.0)
+		: FString(TEXT("no player"));
+	const FString Reaction = Driver ? FString(UTF8_TO_TCHAR(GTPTrafficReact::StateName(Driver->GetReactState()))) : FString(TEXT("none"));
+	GTP_TRACE(LogGTPTraffic, TEXT("traffic: %s overturned, %s: up %.2f at %s, %s%s, %.0f km/h, %s from the player, reaction %s, %.1f s after %s"),
+		*Car->GetName(), What, Car->GetActorUpVector().Z, *Car->GetActorLocation().ToCompactString(),
+		Body && Body->IsSimulatingPhysics() ? TEXT("simulated") : TEXT("kinematic"), Car->IsWrecked() ? TEXT(", wrecked") : TEXT(""),
+		Car->GetSpeedKmh(), *Distance, *Reaction, Now - Car->GetLastPlacedTime(), Car->GetLastPlacedHow());
 }
 
 // --- Traffic lights (version 0.4) --------------------------------------------

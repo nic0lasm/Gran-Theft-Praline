@@ -236,8 +236,14 @@ No water plugin and no physics volume: plain overlap events, nearly free on the 
   | within 100 m=N (moving, stopped) within 150 m=N (moving, upright, ghosts; far puppets drawn there) within 200 m=N
   nearest=... | stopped for: a car ahead, the queue along the lanes, a person, something else ahead, a red light, a
   junction in use, held (reaction or stop asked), wedged, nothing ahead; stopped over 20 s, at a dead end | recycled
-  so far: stuck, far, by the chase script or the police, reused from the pool", the counterpart of
-  "MassTraffic cars:". What stops a car is the nearest stop of its last decision
+  so far: stuck, far, overturned, by the chase script or the police, reused from the pool", the counterpart of
+  "MassTraffic cars:". Each car counted lying gets its own line, "traffic: ... overturned, counted lying: up U
+  at X, simulated or kinematic, speed, distance to the player, reaction, seconds after its last placement and
+  which" (gate 62: one lying car in the default and in the -GTARun pass, with nothing in the log to say which).
+  A driven car overturned past 45 degrees is taken away at once out of the player's sight ("overturned" in the
+  line); in sight, it puts itself back on its wheels after 2.5 s stopped. When the player has no pawn, a line
+  "traffic: no player pawn from t=..." says so once: no car is then spawned or taken away by its distance to
+  the player (gate 62's -GTARun pass, no car within 150 m from 236 s, "nearest=none"). What stops a car is the nearest stop of its last decision
   (`UGTPAIDriverComponent::GetLimit`): the probe's hit (a car, a pawn, anything else), the queue along the lanes, the
   red light, the stop line of a junction another car crosses, a hold (reaction, stop asked by the player), wedged
   (pushing a second without moving, or backing off).
@@ -268,7 +274,7 @@ Written in one batch, compiled and tried later (`GTPCarjackLogic.h`, checked off
   candidate 61); handbrake above 20 km/h lowers rear grip and swings the tail with the steering;
   slides without the handbrake are damped so the car straightens; under 35 % health the
   engine loses up to 45 % of its power; a car dented on one side pulls to that side; a car
-  on its roof or side, stopped, is put back on its wheels after 2.5 s.
+  on its roof or side, stopped, is put back on its wheels after 2.5 s (a traffic car from 45 degrees).
 - **Chase camera**: pulls back 1.5 m more at speed, looks part of the way into slides,
   jolts on impacts.
 - **Traffic**: 22 driven cars (16 before) and 30 far ones; Clio V, 208 and Kangoo when their
