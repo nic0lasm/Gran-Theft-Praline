@@ -751,10 +751,18 @@ void UGTPAIDriverComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 	// Going round: the car being passed is no obstacle any more, nor the queue behind it.
 	const bool bPassing = Reaction.bIgnoreBlocker && ProbeHit && ProbeHit == BypassBlocker.Get();
 	float Obstacle = bPassing ? -1.f : Probe;
+	// What holds the car back, the nearest stop winning as below (the "traffic cars" line of the network).
+	Limit = GTPTrafficStop::ELimit::None;
+	if (Obstacle >= 0.f)
+	{
+		Limit = Cast<AGTPVehicle>(ProbeHit) ? GTPTrafficStop::ELimit::CarAhead
+			: (Cast<APawn>(ProbeHit) ? GTPTrafficStop::ELimit::PersonAhead : GTPTrafficStop::ELimit::OtherAhead);
+	}
 	const float Queue = Reaction.bIgnoreBlocker ? -1.f : Network->GapAlongLanes(this, 40.f);
 	if (Queue >= 0.f && (Obstacle < 0.f || Queue < Obstacle))
 	{
 		Obstacle = Queue;
+		Limit = GTPTrafficStop::ELimit::Queue;
 	}
 	const FVector& LaneEnd = Lane.Points.Last();
 	// Signed distance to the end of the lane along its last segment: negative once past
@@ -770,6 +778,7 @@ void UGTPAIDriverComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 	if (LightStop >= 0.f && (Obstacle < 0.f || LightStop < Obstacle))
 	{
 		Obstacle = LightStop;
+		Limit = GTPTrafficStop::ELimit::RedLight;
 	}
 	// A car waiting at a red light claims no junction (the crossing traffic has green):
 	// one claimed on green just before the light changed is given back.
@@ -782,6 +791,7 @@ void UGTPAIDriverComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 	if (StopLine >= 0.f && (Obstacle < 0.f || StopLine < Obstacle))
 	{
 		Obstacle = StopLine;
+		Limit = GTPTrafficStop::ELimit::Junction;
 	}
 	if (bGhost)
 	{
@@ -807,6 +817,7 @@ void UGTPAIDriverComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 	else if (Reaction.bHold || Vehicle->IsAIStopRequested())
 	{
 		// Shaken, getting out, or the player walking up to take the car: brake and stay put.
+		Limit = GTPTrafficStop::ELimit::Held;
 		Vehicle->SetAIDriveInput(0.f, 1.f, 0.f, Speed < 0.5f);
 	}
 	else
@@ -830,6 +841,7 @@ void UGTPAIDriverComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 		if (BackOffTime > 0.f)
 		{
 			BackOffTime -= DeltaTime;
+			Limit = GTPTrafficStop::ELimit::Wedged;
 			Vehicle->SetAIDriveInput(0.f, 1.f, -Command.Steering, false, true);
 		}
 		else
@@ -837,6 +849,11 @@ void UGTPAIDriverComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 			PushTime = Command.Throttle > 0.5f && FMath::Abs(Speed) < 0.3f ? PushTime + DeltaTime : 0.f;
 			// Free again once it drives at 10 km/h.
 			WedgeCount = Speed > 3.f ? 0 : WedgeCount;
+			if (PushTime > 1.f)
+			{
+				// Pushing for a second without moving: wedged on something the probe does not see.
+				Limit = GTPTrafficStop::ELimit::Wedged;
+			}
 			if (PushTime > 3.f)
 			{
 				PushTime = 0.f;
@@ -1964,9 +1981,12 @@ void AGTPTrafficNetwork::Tick(float DeltaSeconds)
 		const bool bStuck = AIDriver && (AIDriver->IsAtDeadEnd() || AIDriver->GetStoppedTime() > StuckSeconds || AIDriver->GetWedgeCount() >= 3);
 		if ((bFar || bStuck) && !IsSeenByPlayer(Car->GetActorLocation()))
 		{
+			RecycledFar += bFar ? 1 : 0;
+			RecycledStuck += bFar ? 0 : 1;
 			Recycle(Car);
 		}
 	}
+	LogCars(Player);
 	UpdateSignalHeads();
 	UpdateReactDemo();
 	UpdatePlayerShots(Player);
@@ -2013,6 +2033,79 @@ void AGTPTrafficNetwork::LogBudget()
 	NetworkTickSeconds = 0.0;
 	BudgetTicks = 0;
 	BudgetFrame = GFrameCounter;
+}
+
+void AGTPTrafficNetwork::LogCars(const APawn* Player)
+{
+	// The legacy traffic's counterpart of "MassTraffic cars:" (GTPMass), what the gate measures by default: the driven
+	// cars, how many move (over 1 m/s, upright) and how many stand, near the player too, and what holds the standing ones
+	// (the nearest stop of their last decision, UGTPAIDriverComponent::GetLimit).
+	const double Now = GetWorld()->GetTimeSeconds();
+	if (Now < NextCarsLogTime || WantedCars <= 0)
+	{
+		return;
+	}
+	NextCarsLogTime = Now + 10.0;
+	const FVector PlayerAt = Player ? Player->GetActorLocation() : FVector::ZeroVector;
+	int32 Driven = 0;
+	int32 Ghosts = 0;
+	int32 Moving = 0;
+	int32 Stopped = 0;
+	int32 Lying = 0;
+	int32 Within100 = 0;
+	int32 MovingWithin100 = 0;
+	int32 StoppedWithin100 = 0;
+	int32 Within200 = 0;
+	int32 LongStopped = 0;
+	int32 AtDeadEnd = 0;
+	int32 Why[static_cast<int32>(GTPTrafficStop::ELimit::Num)] = {};
+	double Nearest = TNumericLimits<double>::Max();
+	double SpeedSum = 0.0;
+	for (const AGTPVehicle* Car : Cars)
+	{
+		if (!IsValid(Car))
+		{
+			continue;
+		}
+		++Driven;
+		const UGTPAIDriverComponent* Driver = Car->FindComponentByClass<UGTPAIDriverComponent>();
+		const bool bGhostCar = Driver && Driver->IsGhost();
+		const float Ms = bGhostCar ? Driver->GetGhostSpeed() : FMath::Abs(Car->GetSpeedKmh()) / 3.6f;
+		const bool bUpright = Car->GetActorUpVector().Z > 0.7071;
+		const bool bMoving = bUpright && Ms > 1.f;
+		Ghosts += bGhostCar ? 1 : 0;
+		Lying += bUpright ? 0 : 1;
+		Moving += bMoving ? 1 : 0;
+		SpeedSum += Ms;
+		if (bUpright && !bMoving)
+		{
+			++Stopped;
+			++Why[static_cast<int32>(Driver ? Driver->GetLimit() : GTPTrafficStop::ELimit::None)];
+			LongStopped += Driver && Driver->GetStoppedTime() > 20.f ? 1 : 0;
+			AtDeadEnd += Driver && Driver->IsAtDeadEnd() ? 1 : 0;
+		}
+		if (Player)
+		{
+			const double Distance = FVector::Dist(Car->GetActorLocation(), PlayerAt);
+			Nearest = FMath::Min(Nearest, Distance);
+			Within200 += Distance < 20000.0 ? 1 : 0;
+			if (Distance < 10000.0)
+			{
+				++Within100;
+				MovingWithin100 += bMoving ? 1 : 0;
+				StoppedWithin100 += bUpright && !bMoving ? 1 : 0;
+			}
+		}
+	}
+	const FString NearestText = Nearest < TNumericLimits<double>::Max() ? FString::Printf(TEXT("%.0f m"), Nearest / 100.0) : FString(TEXT("none"));
+	using GTPTrafficStop::ELimit;
+	GTP_TRACE(LogGTPTraffic, TEXT("traffic cars t=%.0fs: driven=%d of %d wanted (ghosts=%d) moving=%d (over 1 m/s, upright: %.0f %%) stopped=%d lying=%d mean speed=%.0f km/h | within 100 m=%d (moving %d, stopped %d) within 200 m=%d nearest=%s | stopped for: a car ahead=%d, the queue along the lanes=%d, a person=%d, something else ahead=%d, a red light=%d, a junction in use=%d, held (reaction or stop asked)=%d, wedged=%d, nothing ahead=%d; stopped over 20 s=%d, at a dead end=%d | recycled so far: stuck=%d far=%d"),
+		Now, Driven, WantedCars, Ghosts, Moving, Driven > 0 ? 100.0 * Moving / Driven : 0.0, Stopped, Lying, Driven > 0 ? SpeedSum / Driven * 3.6 : 0.0,
+		Within100, MovingWithin100, StoppedWithin100, Within200, *NearestText,
+		Why[static_cast<int32>(ELimit::CarAhead)], Why[static_cast<int32>(ELimit::Queue)], Why[static_cast<int32>(ELimit::PersonAhead)],
+		Why[static_cast<int32>(ELimit::OtherAhead)], Why[static_cast<int32>(ELimit::RedLight)], Why[static_cast<int32>(ELimit::Junction)],
+		Why[static_cast<int32>(ELimit::Held)], Why[static_cast<int32>(ELimit::Wedged)], Why[static_cast<int32>(ELimit::None)],
+		LongStopped, AtDeadEnd, RecycledStuck, RecycledFar);
 }
 
 // --- Traffic lights (version 0.4) --------------------------------------------

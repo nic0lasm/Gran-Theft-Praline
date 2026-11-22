@@ -532,6 +532,11 @@ physics off, then drives it in at full throttle. Every frame it reads the target
   near it;
 - another car (three at most) when the target drove away or was never reached in 12 s.
 
+The target (after gate 59): a car of the legacy traffic when -Traffic=mass is absent, the default and what the gate
+judges: one with its AI driver, not a ghost or a pooled car, not police, not wrecked, at the centre of its bounds, half
+its length for a radius; a MassTraffic car with -Traffic=mass. Same choice, run-up and verdicts; the lines say
+"legacy traffic car" or "MassTraffic car". A legacy car is a Chaos actor: "held behind" is expected.
+
 Getting in (gate 57 timed out there, 75 s on "getting in"): the car the enter key took is the one
 driven, whichever it is ("GTARun crash: the enter key took X, not Y: driving it"). Still on foot 4 s
 after the key with no entry under way (12 s with one), "GTARun crash: still on foot ..." says what

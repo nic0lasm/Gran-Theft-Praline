@@ -17,6 +17,24 @@ class AGTPTrafficNetwork;
 class AGTPFarTraffic;
 class USkeletalMeshComponent;
 
+/** What held a traffic car back at its last decision: the nearest of its stops ahead (the "traffic cars" line). */
+namespace GTPTrafficStop
+{
+	enum class ELimit : uint8
+	{
+		None,
+		CarAhead,
+		PersonAhead,
+		OtherAhead,
+		Queue,
+		RedLight,
+		Junction,
+		Held,
+		Wedged,
+		Num
+	};
+}
+
 /** One driving lane, in world space (cm), from tools/city/traffic.py. */
 USTRUCT(BlueprintType)
 struct FGTPTrafficLane
@@ -165,6 +183,9 @@ public:
 	float GetStoppedTime() const { return StoppedTime; }
 	int32 GetWedgeCount() const { return WedgeCount; }
 
+	/** What held the car back at its last decision (none when nothing within the probe or the lane's stops). */
+	GTPTrafficStop::ELimit GetLimit() const { return Limit; }
+
 	/**
 	 * Seconds between two decisions (0 = every frame). The pedals keep their
 	 * last value in between, so far cars can decide 4 to 10 times a second
@@ -234,6 +255,7 @@ private:
 	float PushTime = 0.f;        // seconds pressing the throttle without moving (wedged on something)
 	float BackOffTime = 0.f;     // seconds left reversing out of it
 	int32 WedgeCount = 0;        // back-offs since it last drove freely
+	GTPTrafficStop::ELimit Limit = GTPTrafficStop::ELimit::None;
 
 	/** Reactions (GTPTrafficReactLogic.h) and what feeds them. */
 	GTPTrafficReact::FOutput UpdateReactions(AGTPVehicle* Vehicle, float DeltaTime, float Speed, float ProbeM, AActor* ProbeHit);
@@ -682,6 +704,11 @@ private:
 	int32 BudgetTicks = 0;
 	uint64 BudgetFrame = 0;
 	void LogBudget();
+	/** Every 10 s: the driven cars, how many move, how many stand and what holds them, near the player too. */
+	void LogCars(const APawn* Player);
+	double NextCarsLogTime = 10.0;
+	int32 RecycledStuck = 0;
+	int32 RecycledFar = 0;
 
 public:
 	/** Switches the skinned draw of a car body, tracked by a component tag so it is only changed once. */

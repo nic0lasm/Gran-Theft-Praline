@@ -193,6 +193,8 @@ private:
 		int32 Attempts = 0;
 		/** Phase 1: how many times the enter key was pressed for this car. */
 		int32 EnterPresses = 0;
+		/** The target is a MassTraffic car (-Traffic=mass), else a car of the legacy traffic. */
+		bool bMass = true;
 		TArray<uint64> Tried;
 		uint64 TargetId = 0;
 		FVector TargetAt = FVector::ZeroVector;

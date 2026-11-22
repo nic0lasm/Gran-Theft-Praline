@@ -237,6 +237,15 @@ Pas de plugin Water ni de volume physique : de simples événements de chevauche
 - Piétons : `AGTPTrafficNetwork::IsWalkAllowed(Location, WalkDirection)` dit si l'on peut traverser à cet endroit maintenant (toujours vrai loin d'un carrefour à feux).
 - Têtes de feux provisoires (une sphère colorée sur un poteau à chaque ligne d'arrêt, sans ombre ni collision) en attendant le modèle de mobilier urbain. `-TrafficLights=0` coupe les feux, `-SignalHeads=0` masque les têtes.
 - Simulation, 300 s sur les voies de la rue de la République : 3, 6 et 12 voitures, aucun contact, aucun feu grillé.
+- Mesuré dans le jeu (après la porte 59, le trafic legacy étant ce que la porte juge) : toutes les 10 s, « traffic cars
+  t=...: driven=D of W wanted (ghosts=G) moving=M (over 1 m/s, upright: P %) stopped=S lying=L mean speed=...
+  | within 100 m=N (moving, stopped) within 200 m=N nearest=... | stopped for: a car ahead, the queue along the
+  lanes, a person, something else ahead, a red light, a junction in use, held (reaction or stop asked), wedged,
+  nothing ahead; stopped over 20 s, at a dead end | recycled so far: stuck, far », le pendant de
+  « MassTraffic cars: ». Ce qui arrête une voiture est l'arrêt le plus proche de sa dernière décision
+  (`UGTPAIDriverComponent::GetLimit`) : ce que touche la sonde (une voiture, un pion, autre chose), la file le long des
+  voies, le feu rouge, la ligne d'arrêt d'un carrefour qu'une autre voiture traverse, une retenue (réaction, arrêt
+  demandé par le joueur), coincée (pousse une seconde sans avancer, ou recule pour se dégager).
 
 ### 8.3 Passe GTA du 13/11 : vol, sensations de conduite, trafic plus vivant
 
