@@ -1,6 +1,6 @@
 {
   "_doc": "What the Windows gate queue checks for this candidate. Edited by the pilot for each candidate; read by the PC queue script. No machine paths here. From candidate 60 the gate judges what the player sees: the default traffic, which is the legacy one (MassTraffic runs only with -Traffic=mass). The 'blocking' criteria are read on the blocking passes; everything under 'informative_mass' is measured and reported on the MassTraffic passes but never fails the gate, and never stops it. Those criteria become blocking again only for switching the default traffic to mass, once a whole gate passes them (ADR-0015).",
-  "candidate": 61,
+  "candidate": 62,
   "map_md5": "bce9008ff024c78673626c4577ead426",
   "game_p50_max_ms": 17.38,
   "game_p95_max_ms": 50,
@@ -116,7 +116,10 @@
     "within 150 m",
     "taken off the road",
     "traffic: parked",
-    "driven cars made out of sight"
+    "driven cars made out of sight",
+    "on another lane left out",
+    "no free spot",
+    "held up"
   ],
   "video": {
     "pass": "-GTARun",
