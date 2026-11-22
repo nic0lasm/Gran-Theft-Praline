@@ -478,6 +478,8 @@ namespace GTPMassTrafficQueues
 	struct FObstacle
 	{
 		FVector At = FVector::ZeroVector;
+		FVector Velocity = FVector::ZeroVector;
+		float RadiusCm = 0.f;
 		EObstacle Kind = EObstacle::NotOurs;
 		FString What;
 	};
@@ -508,9 +510,12 @@ namespace GTPMassTrafficQueues
 
 	/**
 	 * Who heads each queue and why it stopped: each queued car is given to the nearest head ahead of it (80 m, same
-	 * way), and an obstacle head to the traffic obstacle nearest ahead of it, with where that obstacle stands from the
-	 * car's axis. MassTraffic brakes a car for an obstacle whose sphere meets its own on its way: one beside the path
-	 * (over 1.5 m from the axis) stops it for nothing the player can see.
+	 * way), and an obstacle head to the traffic obstacle MassTraffic brakes it for, with where that obstacle stands from
+	 * the car's axis and whether it walks towards it. MassTraffic brakes a car for an obstacle whose sphere meets its
+	 * own on its way at the lane's speed limit (UpdateDistanceToNearestObstacle), and a car's sphere is half its length
+	 * wide: a person beside the path (over 1.5 m from the axis) can stop it for nothing the player can see. That
+	 * obstacle is the one whose distance minus both radii is the car's DistanceToCollidingObstacle (to what the people
+	 * walked since); the nearest one ahead when none matches (gate 57 only had the nearest one).
 	 */
 	void Log(const UWorld& World, const TSharedRef<FMassEntityManager>& Manager, TArray<FHead>& Heads, const TArray<FQueued>& Queued)
 	{
@@ -553,16 +558,22 @@ namespace GTPMassTrafficQueues
 			ObstacleQuery.AddRequirement<FTransformFragment>(EMassFragmentAccess::ReadOnly);
 			ObstacleQuery.AddRequirement<FGTPCrowdWalkerFragment>(EMassFragmentAccess::ReadOnly, EMassFragmentPresence::Optional);
 			ObstacleQuery.AddRequirement<FGTPPlayerObstacleFragment>(EMassFragmentAccess::ReadOnly, EMassFragmentPresence::Optional);
+			ObstacleQuery.AddRequirement<FAgentRadiusFragment>(EMassFragmentAccess::ReadOnly, EMassFragmentPresence::Optional);
+			ObstacleQuery.AddRequirement<FMassVelocityFragment>(EMassFragmentAccess::ReadOnly, EMassFragmentPresence::Optional);
 			FMassExecutionContext ObstacleContext(*Manager, 0.f);
 			ObstacleQuery.ForEachEntityChunk(ObstacleContext, [&Obstacles, Crowd](FMassExecutionContext& Chunk)
 			{
 				const TConstArrayView<FTransformFragment> ObstacleTransforms = Chunk.GetFragmentView<FTransformFragment>();
 				const TConstArrayView<FGTPCrowdWalkerFragment> Walkers = Chunk.GetFragmentView<FGTPCrowdWalkerFragment>();
 				const TConstArrayView<FGTPPlayerObstacleFragment> Points = Chunk.GetFragmentView<FGTPPlayerObstacleFragment>();
+				const TConstArrayView<FAgentRadiusFragment> ObstacleRadii = Chunk.GetFragmentView<FAgentRadiusFragment>();
+				const TConstArrayView<FMassVelocityFragment> ObstacleVelocities = Chunk.GetFragmentView<FMassVelocityFragment>();
 				for (int32 Index = 0; Index < Chunk.GetNumEntities(); ++Index)
 				{
 					FObstacle& Obstacle = Obstacles.AddDefaulted_GetRef();
 					Obstacle.At = ObstacleTransforms[Index].GetTransform().GetLocation();
+					Obstacle.RadiusCm = ObstacleRadii.IsEmpty() ? 0.f : ObstacleRadii[Index].Radius;
+					Obstacle.Velocity = ObstacleVelocities.IsEmpty() ? FVector::ZeroVector : ObstacleVelocities[Index].Value;
 					if (!Walkers.IsEmpty())
 					{
 						const GTPWalk::FWalker& Walker = Walkers[Index].Walker;
@@ -590,6 +601,9 @@ namespace GTPMassTrafficQueues
 		int32 InPath[4] = {};
 		int32 Beside[4] = {};
 		int32 NoObstacle = 0;
+		int32 Matched = 0;
+		int32 BesideTowards = 0;
+		int32 BesideAway = 0;
 		for (FHead& Head : Heads)
 		{
 			++Why[static_cast<int32>(Head.Why)];
@@ -599,6 +613,8 @@ namespace GTPMassTrafficQueues
 			}
 			const FObstacle* Nearest = nullptr;
 			double NearestCm = static_cast<double>(Head.ObstacleCm) + Head.RadiusCm + 800.0;
+			const FObstacle* Braking = nullptr;
+			double BrakingScore = 60.0;
 			for (const FObstacle& Obstacle : Obstacles)
 			{
 				const FVector ToObstacle = Obstacle.At - Head.At;
@@ -608,21 +624,44 @@ namespace GTPMassTrafficQueues
 					NearestCm = Cm;
 					Nearest = &Obstacle;
 				}
+				// Epic's distance to the colliding obstacle, 60 cm of walking allowed; of two at 0 (touching), the nearer.
+				const double Gap = FMath::Max(ToObstacle.Size() - Obstacle.RadiusCm - Head.RadiusCm, 0.0);
+				const double Score = FMath::Abs(Gap - static_cast<double>(Head.ObstacleCm)) + 0.001 * ToObstacle.Size();
+				if (Score < BrakingScore)
+				{
+					BrakingScore = Score;
+					Braking = &Obstacle;
+				}
 			}
-			if (!Nearest)
+			const FObstacle* Chosen = Braking ? Braking : Nearest;
+			if (!Chosen)
 			{
 				++NoObstacle;
-				Head.Obstacle = TEXT("; no obstacle found near it now");
+				Head.Obstacle = FString::Printf(TEXT("; no obstacle found near it now (its distance to the colliding obstacle %.1f m, radius %.0f cm)"),
+					Head.ObstacleCm / 100.f, Head.RadiusCm);
 				continue;
 			}
-			const FVector ToObstacle = Nearest->At - Head.At;
+			Matched += Braking ? 1 : 0;
+			const FVector ToObstacle = Chosen->At - Head.At;
 			const double Along = FVector::DotProduct(ToObstacle, Head.Forward);
 			const double Aside = Head.Forward.X * ToObstacle.Y - Head.Forward.Y * ToObstacle.X;
 			const bool bInPath = FMath::Abs(Aside) < 150.0;
 			int32* Bucket = bInPath ? InPath : Beside;
-			++Bucket[static_cast<int32>(Nearest->Kind)];
-			Head.Obstacle = FString::Printf(TEXT("; obstacle %.1f m ahead, %.1f m %s of its axis (%s): %s"), Along / 100.0, FMath::Abs(Aside) / 100.0,
-				Aside >= 0.0 ? TEXT("right") : TEXT("left"), bInPath ? TEXT("in its path") : TEXT("BESIDE its path"), *Nearest->What);
+			++Bucket[static_cast<int32>(Chosen->Kind)];
+			// Across the car's axis: towards it when the sideways speed and the side have opposite signs.
+			const double SidewaysCmS = Head.Forward.X * Chosen->Velocity.Y - Head.Forward.Y * Chosen->Velocity.X;
+			const bool bAcross = FMath::Abs(SidewaysCmS) > 20.0;
+			const bool bTowards = bAcross && Aside * SidewaysCmS < 0.0;
+			if (!bInPath && Chosen->Kind == EObstacle::CrowdOnCrossing)
+			{
+				BesideTowards += bTowards ? 1 : 0;
+				BesideAway += bAcross && !bTowards ? 1 : 0;
+			}
+			Head.Obstacle = FString::Printf(TEXT("; obstacle %.1f m ahead, %.1f m %s of its axis (%s): %s; %s, %s at %.1f m/s across its axis; radii car %.0f + obstacle %.0f cm"),
+				Along / 100.0, FMath::Abs(Aside) / 100.0, Aside >= 0.0 ? TEXT("right") : TEXT("left"), bInPath ? TEXT("in its path") : TEXT("BESIDE its path"),
+				*Chosen->What, Braking ? TEXT("the one MassTraffic brakes for") : TEXT("the nearest one (none at the car's distance to its colliding obstacle)"),
+				!bAcross ? TEXT("not walking across") : (bTowards ? TEXT("walking TOWARDS its path") : TEXT("walking away from its path")),
+				FMath::Abs(SidewaysCmS) / 100.0, Head.RadiusCm, Chosen->RadiusCm);
 		}
 		int32 Behind = 0;
 		for (const FHead& Head : Heads)
@@ -635,6 +674,8 @@ namespace GTPMassTrafficQueues
 			Why[static_cast<int32>(EWhy::JunctionClosed)], Why[static_cast<int32>(EWhy::JunctionOpen)], Why[static_cast<int32>(EWhy::InsideJunction)],
 			Why[static_cast<int32>(EWhy::LaneEnd)], Why[static_cast<int32>(EWhy::NoNextLane)], Why[static_cast<int32>(EWhy::DeadEndBranch)],
 			Why[static_cast<int32>(EWhy::HeldAtEdge)], Why[static_cast<int32>(EWhy::Other)]);
+		UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic queue heads t=%.0fs, their obstacles: %d of %d matched to the one MassTraffic brakes for; crowd on a crossing beside the path walking towards it=%d, away from it=%d"),
+			World.GetTimeSeconds(), Matched, Why[static_cast<int32>(EWhy::Obstacle)], BesideTowards, BesideAway);
 		// The longest queues first, then the longest stopped.
 		Heads.Sort([](const FHead& A, const FHead& B) { return A.Behind != B.Behind ? A.Behind > B.Behind : A.StoppedS > B.StoppedS; });
 		for (int32 Rank = 0; Rank < FMath::Min(Heads.Num(), 6); ++Rank)
@@ -2359,6 +2400,32 @@ namespace GTPMassTrafficBodies
 	constexpr double PathAheadCm = 4000.0;
 	constexpr double PathAsideCm = 170.0;
 	const FVector OutOfTheWay(0.0, 0.0, -100000.0);
+
+	const TCHAR* DrawnAs(EMassRepresentationType Type)
+	{
+		switch (Type)
+		{
+		case EMassRepresentationType::HighResSpawnedActor: return TEXT("a high-res actor");
+		case EMassRepresentationType::LowResSpawnedActor: return TEXT("a low-res actor");
+		case EMassRepresentationType::StaticMeshInstance: return TEXT("an instance");
+		case EMassRepresentationType::None: return TEXT("nothing");
+		default: return TEXT("another representation");
+		}
+	}
+
+	/** The cars well inside the body radius of the player (four fifths of it: Mass measures from the camera) and the
+	 * nearest one: whether the actor is ever chosen for them, and whether it is ours when it is. */
+	struct FNearCars
+	{
+		double NearestSq = TNumericLimits<double>::Max();
+		EMassRepresentationType NearestAs = EMassRepresentationType::None;
+		const AActor* NearestActor = nullptr;
+		int32 Ours = 0;
+		int32 OtherActors = 0;
+		int32 WaitingForActor = 0;
+		int32 Instances = 0;
+		int32 NotDrawn = 0;
+	};
 }
 #endif
 
@@ -2376,7 +2443,16 @@ void UGTPMassTrafficBodyProcessor::Execute(FMassEntityManager& EntityManager, FM
 	TArray<AGTPVehicle*, TInlineAllocator<16>> Fresh;
 	bool bInPath = false;
 	const bool bLookForPath = Pawn && !bAtWheel;
-	Query.ForEachEntityChunk(Context, [&Shown, &Fresh, &bInPath, bLookForPath, &PlayerAt](FMassExecutionContext& Chunk)
+	if (BodyRadiusCm < 0.f)
+	{
+		float BodyMetres = 35.f;
+		FParse::Value(FCommandLine::Get(), TEXT("MassTrafficBodies="), BodyMetres);
+		BodyRadiusCm = FMath::Max(BodyMetres, 0.f) * 100.f;
+	}
+	GTPMassTrafficBodies::FNearCars Near;
+	const bool bLookNear = Pawn && BodyRadiusCm > 0.f;
+	const double WellInsideSq = FMath::Square(0.8 * BodyRadiusCm);
+	Query.ForEachEntityChunk(Context, [&Shown, &Fresh, &bInPath, bLookForPath, &PlayerAt, &Near, bLookNear, WellInsideSq](FMassExecutionContext& Chunk)
 	{
 		const TConstArrayView<FTransformFragment> Transforms = Chunk.GetFragmentView<FTransformFragment>();
 		const TConstArrayView<FMassRepresentationFragment> Representations = Chunk.GetFragmentView<FMassRepresentationFragment>();
@@ -2392,6 +2468,41 @@ void UGTPMassTrafficBodyProcessor::Execute(FMassEntityManager& EntityManager, FM
 				const double Aside = FMath::Abs(Forward.X * ToPlayer.Y - Forward.Y * ToPlayer.X);
 				bInPath = Along > 0.0 && Along < GTPMassTrafficBodies::PathAheadCm && Aside < GTPMassTrafficBodies::PathAsideCm
 					&& FMath::Abs(ToPlayer.Z) < 300.0;
+			}
+			if (bLookNear)
+			{
+				const double DistSq = FVector::DistSquared(Transforms[Index].GetTransform().GetLocation(), PlayerAt);
+				const EMassRepresentationType As = Representations[Index].CurrentRepresentation;
+				const AActor* Drawn = Actors[Index].GetMutable();
+				if (DistSq < Near.NearestSq)
+				{
+					Near.NearestSq = DistSq;
+					Near.NearestAs = As;
+					Near.NearestActor = Drawn;
+				}
+				if (DistSq < WellInsideSq)
+				{
+					if (As == EMassRepresentationType::StaticMeshInstance)
+					{
+						++Near.Instances;
+					}
+					else if (As == EMassRepresentationType::None)
+					{
+						++Near.NotDrawn;
+					}
+					else if (!Drawn)
+					{
+						++Near.WaitingForActor;
+					}
+					else if (Drawn->IsA<AGTPVehicle>())
+					{
+						++Near.Ours;
+					}
+					else
+					{
+						++Near.OtherActors;
+					}
+				}
 			}
 			if (Representations[Index].CurrentRepresentation != EMassRepresentationType::LowResSpawnedActor)
 			{
@@ -2425,6 +2536,20 @@ void UGTPMassTrafficBodyProcessor::Execute(FMassEntityManager& EntityManager, FM
 		}
 	}
 	bWasInPath = bInPath;
+	// Gate 57 had no car within the body radius in its measured pass (the player stands 50 m from the nearest lane): what
+	// the cars near the player are drawn as when there are some, every 15 s, 20 times at most. An actor never chosen
+	// shows instances here; one chosen and not ours shows its class.
+	const int32 Inside = Near.Ours + Near.OtherActors + Near.WaitingForActor + Near.Instances + Near.NotDrawn;
+	const double GameNow = World ? World->GetTimeSeconds() : 0.0;
+	if (Inside > 0 && GameNow >= NextNearLog && NearLogs < 20)
+	{
+		NextNearLog = GameNow + 15.0;
+		++NearLogs;
+		UE_LOG(LogGTPMassTraffic, Log, TEXT("MassTraffic near cars with a body: nearest car %.0f m from the player, drawn as %s (%s); within %.0f m: %d of our car actor(s), %d other actor(s), %d waiting for an actor, %d instance(s), %d not drawn (%d of ours made so far)"),
+			FMath::Sqrt(Near.NearestSq) / 100.0, GTPMassTrafficBodies::DrawnAs(Near.NearestAs),
+			Near.NearestActor ? *Near.NearestActor->GetClass()->GetName() : TEXT("no actor"), 0.8 * BodyRadiusCm / 100.0,
+			Near.Ours, Near.OtherActors, Near.WaitingForActor, Near.Instances, Near.NotDrawn, Made);
+	}
 	// The bumpers of the player's car, from its local bounds, once a car.
 	if (bAtWheel && SizedCar.Get() != Pawn)
 	{

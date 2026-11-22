@@ -130,7 +130,7 @@ tells why (below).
   within `ObstacleSearchRadius`, and `UMassTrafficUpdateDistanceToNearestObstacleProcessor` brakes
   that car from the time to collision (down to 0.8 to 3 m from the obstacle). Our Mass crowd
   (`GTPCrowd`, which walks its own walkway graph, not MassCrowd's lanes) now carries the transform,
-  velocity and radius (40 cm) when MassTraffic cars are in the map, and wears the tag only on a
+  velocity and radius (40 cm, 0 since gate 57: see the queue heads) when MassTraffic cars are in the map, and wears the tag only on a
   crossing: on the sidewalk a car passing 2 m away would brake for nothing, every obstacle costs a
   lane search a frame, and the driving-car spawn generator leaves 50 m free around every obstacle
   (`ObstacleExclusionRadius`; Epic's comment: "This won't scale past very few obstacles"). People are
@@ -223,6 +223,18 @@ Changes (C++ only, the map stays as it is):
   1.5 m of its axis) or BESIDE it: MassTraffic brakes a car for an obstacle whose sphere meets its own
   (a car's radius is about half its length), so one beside the path stops it for nothing seen. Then
   the six longest queues, with how long their head has stood, its lane and what stops it.
+- after gate 57 (longest queues behind people on a crossing, often 2 to 5 m beside the path, up to
+  250 s): the obstacle given to a head is the one MassTraffic brakes it for, the one whose distance
+  minus both radii is the car's `DistanceToCollidingObstacle` (60 cm allowed for what people walked
+  since), else the nearest one ahead as before; each head line adds which of the two it is, whether
+  the person walks towards the path or away from it, and both radii. A second line, "MassTraffic queue
+  heads t=..., their obstacles: N of M matched ...", counts them and the people beside the path
+  walking towards it or away. Epic's test (`UpdateDistanceToNearestObstacle`) is a sphere against a
+  sphere at the lane's speed limit, even for a stopped car, with no box on our MassTraffic: a person
+  standing on the other half of a crossing (6 m long at the median, walkways.csv) can be inside a
+  car's sphere. Our people's radius goes from 40 cm to 0 (`-CrowdObstacleRadius=<cm>`, in the line
+  "crowd: traffic obstacles on crossings ..., radius 0 cm"): 40 cm fewer stops for nothing, not
+  measured yet. The people in the path who never wait at the kerb are the pedestrians' part.
 
 PC, candidate 35 (22eb010): 307 of the 775 car lanes only lead to dead ends (182 in junctions),
 182 links removed, 54 cars handed to the recycling, 51 of which had no damage fragment and got
@@ -520,6 +532,13 @@ physics off, then drives it in at full throttle. Every frame it reads the target
   near it;
 - another car (three at most) when the target drove away or was never reached in 12 s.
 
+Getting in (gate 57 timed out there, 75 s on "getting in"): the car the enter key took is the one
+driven, whichever it is ("GTARun crash: the enter key took X, not Y: driving it"). Still on foot 4 s
+after the key with no entry under way (12 s with one), "GTARun crash: still on foot ..." says what
+holds the player: the car's state, can enter, speed, asleep, shown by MassTraffic, its driver, how far
+the player is from a door, the car the key would take, pause and move input; then the player is put
+at the door again and the key pressed again, three times at most, and the step fails with that line.
+
 Lines: "GTARun crash: attempt N/3, MassTraffic car ...", then "GTARun step 12: crash ok|fail ...
 [informative, not counted]", with the impact speed, the speed left, how far apart the centres were
 and the target's speed; the picture `gtarun-crash.png` at that moment. The step is in neither count
@@ -551,6 +570,14 @@ cars with a body: on; N visualization trait(s) given our car ... within 35 m, 12
 then "MassTraffic near cars with a body: N of our car actor(s) made MassTraffic's so far",
 "vehicle shown by MassTraffic: ... kinematic (asleep=1, simulating=0), collision on", and the count
 line's "actors=" counts them.
+
+Gate 57 had none of these in its measured pass: the player stands 50 m from the nearest lane there
+(the count line's "nearest="), so no car comes within 35 m. They can only show in a pass where the
+player drives (-GTARun). To tell an actor never chosen from a line never written, every 15 s (20
+times at most) while cars are within four fifths of the radius (Mass measures from the camera):
+"MassTraffic near cars with a body: nearest car N m from the player, drawn as (an instance, a
+low-res actor ...) (its class); within 28 m: N of our car actor(s), N other actor(s), N waiting for an
+actor, N instance(s), N not drawn (N of ours made so far)".
 
 A car moved by Mass into the player's stopped car would push it along: the player is now an obstacle
 for the cars (`FGTPPlayerObstacleFragment`), as the people on a crossing are (GTPCrowd): four points

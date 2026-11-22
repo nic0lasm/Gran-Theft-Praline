@@ -145,7 +145,7 @@ les copies « à risque », et c'est lui qui est posé dans la carte. Le candida
   `UMassTrafficUpdateDistanceToNearestObstacleProcessor` freine cette voiture d'après le temps de
   collision (jusqu'à 0,8 à 3 m de l'obstacle). Notre foule Mass (`GTPCrowd`, qui marche sur son
   propre graphe de trottoirs et non sur les voies de MassCrowd) porte maintenant transform, vitesse
-  et rayon (40 cm) quand la carte a des voitures MassTraffic, et ne porte le tag que sur un passage :
+  et rayon (40 cm, 0 depuis la porte 57 : voir les têtes de file) quand la carte a des voitures MassTraffic, et ne porte le tag que sur un passage :
   sur le trottoir une voiture qui passe à 2 m freinerait pour rien, chaque obstacle coûte une
   recherche de voies par image, et le générateur de voitures laisse 50 m libres autour de chaque
   obstacle (`ObstacleExclusionRadius` ; commentaire d'Epic : « This won't scale past very few
@@ -249,6 +249,20 @@ Changements (C++ seulement, la carte reste telle quelle) :
   la sienne (le rayon d'une voiture vaut environ sa demi-longueur), donc un obstacle à côté du
   chemin l'arrête pour rien de visible. Puis les six plus longues files, avec depuis combien de
   temps leur tête est arrêtée, sa voie et ce qui l'arrête.
+- après la porte 57 (les plus longues files derrière des piétons sur un passage, souvent à 2 à 5 m
+  à côté du chemin, jusqu'à 250 s) : l'obstacle donné à une tête est celui pour lequel MassTraffic la
+  freine, celui dont la distance moins les deux rayons vaut le `DistanceToCollidingObstacle` de la
+  voiture (60 cm admis pour ce que les piétons ont marché depuis), sinon le plus proche devant comme
+  avant ; chaque ligne de tête dit lequel des deux, si le piéton marche vers le chemin ou s'en
+  éloigne, et les deux rayons. Une deuxième ligne, « MassTraffic queue heads t=..., their obstacles:
+  N of M matched ... », les compte, ainsi que les piétons à côté du chemin qui marchent vers lui ou
+  s'en éloignent. Le test d'Epic (`UpdateDistanceToNearestObstacle`) est une sphère contre une sphère
+  à la vitesse limite de la voie, même pour une voiture arrêtée, sans boîte sur notre MassTraffic :
+  un piéton debout sur l'autre moitié d'un passage (6 m de long en médiane, walkways.csv) peut être
+  dans la sphère d'une voiture. Le rayon de nos piétons passe de 40 cm à 0 (`-CrowdObstacleRadius=<cm>`,
+  dans la ligne « crowd: traffic obstacles on crossings ..., radius 0 cm ») : 40 cm d'arrêts pour rien
+  en moins, pas encore mesuré. Les piétons sur le chemin, qui n'attendent jamais au bord, sont la part
+  des piétons.
 
 PC, candidat 35 (22eb010) : 307 des 775 voies de voitures ne mènent qu'à des impasses (182 dans
 des carrefours), 182 liens retirés, 54 voitures confiées au recyclage, dont 51 sans fragment de
@@ -582,6 +596,14 @@ du joueur dans le repère de la cible :
   ou 1,5 s au pas près d'elle ;
 - une autre voiture (trois au plus) quand la cible est partie ou n'a pas été atteinte en 12 s.
 
+La montée (la porte 57 y a expiré, 75 s sur « getting in ») : la voiture prise par la touche d'entrée
+est celle qu'on conduit, quelle qu'elle soit (« GTARun crash: the enter key took X, not Y: driving
+it »). Encore à pied 4 s après la touche sans montée en cours (12 s avec une), « GTARun crash: still
+on foot ... » dit ce qui retient le joueur : l'état de la voiture, can enter, sa vitesse, endormie,
+montrée par MassTraffic, son conducteur, la distance du joueur à une portière, la voiture que la
+touche prendrait, la pause et l'entrée de déplacement ; puis le joueur est replacé à la portière et
+la touche pressée de nouveau, trois fois au plus, et l'étape échoue avec cette ligne.
+
 Lignes : « GTARun crash: attempt N/3, MassTraffic car ... », puis « GTARun step 12: crash ok|fail ...
 [informative, not counted] », avec la vitesse au choc, la vitesse restante, l'écart entre les centres
 et la vitesse de la cible ; l'image `gtarun-crash.png` à cet instant. L'étape n'entre dans aucun
@@ -615,6 +637,15 @@ comme contre un mur ; elle n'est pas poussée (c'est la bande High, plus tard). 
 most ... » ; puis « MassTraffic near cars with a body: N of our car actor(s) made MassTraffic's so
 far », « vehicle shown by MassTraffic: ... kinematic (asleep=1, simulating=0), collision on », et le
 « actors= » de la ligne de compte les compte.
+
+La porte 57 n'avait aucune de ces lignes dans sa passe mesurée : le joueur s'y tient à 50 m de la
+voie la plus proche (le « nearest= » de la ligne de compte), aucune voiture ne vient à moins de 35 m.
+Elles ne peuvent paraître que dans une passe où le joueur conduit (-GTARun). Pour distinguer un acteur
+jamais choisi d'une ligne jamais écrite, toutes les 15 s (20 fois au plus) tant que des voitures sont
+à moins des quatre cinquièmes du rayon (Mass mesure depuis la caméra) : « MassTraffic near cars with
+a body: nearest car N m from the player, drawn as (an instance, a low-res actor ...) (sa classe);
+within 28 m: N of our car actor(s), N other actor(s), N waiting for an actor, N instance(s), N not
+drawn (N of ours made so far) ».
 
 Une voiture déplacée par Mass contre la voiture arrêtée du joueur la pousserait : le joueur est
 désormais un obstacle pour les voitures (`FGTPPlayerObstacleFragment`), comme les piétons sur un

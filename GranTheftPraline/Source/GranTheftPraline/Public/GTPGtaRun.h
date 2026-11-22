@@ -189,6 +189,8 @@ private:
 		/** 0 get a car, 1 entering, 2 choose a target, 3 held behind it, 4 driving into it. */
 		int32 Phase = 0;
 		int32 Attempts = 0;
+		/** Phase 1: how many times the enter key was pressed for this car. */
+		int32 EnterPresses = 0;
 		TArray<uint64> Tried;
 		uint64 TargetId = 0;
 		FVector TargetAt = FVector::ZeroVector;

@@ -28,6 +28,7 @@
 #include "GTPThreat.h"
 #include "GTPTheftDemo.h"
 #include "GTPVehicle.h"
+#include "GTPVehicleInteractionComponent.h"
 #include "GTPMassTrafficCars.h"
 #include "GTPTraffic.h"
 #include "CollisionQueryParams.h"
@@ -1704,19 +1705,69 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckCrash(FString& Detail)
 		Crash.Car = Car;
 		Crash.Character = Character;
 		Crash.Phase = 1;
+		Crash.PhaseStart = Now;
+		Crash.EnterPresses = 1;
 		GTP_TRACE(LogGTPGtaRun, TEXT("GTARun crash: getting into %s to drive into a traffic car"), *Car->GetName());
 		Detail = TEXT("getting in");
 		return EResult::Pending;
 	}
 	if (Crash.Phase == 1)
 	{
-		if (!UGTPTheftDemoLibrary::IsDriving(Crash.Character.Get(), Crash.Car.Get()))
+		// At the wheel of a car: the one the enter key chose is the one to drive (gate 57 timed out here for 75 s,
+		// waiting on the car it had placed while nothing said which car the key took, if any).
+		if (AGTPVehicle* Driven = Cast<AGTPVehicle>(PC->GetPawn()))
 		{
+			if (Driven != Crash.Car.Get())
+			{
+				GTP_TRACE(LogGTPGtaRun, TEXT("GTARun crash: the enter key took %s, not %s: driving it"), *Driven->GetName(),
+					*GetNameSafe(Crash.Car.Get()));
+				Crash.Car = Driven;
+			}
+			Crash.Phase = 2;
+			Crash.PhaseStart = Now;
+		}
+		else
+		{
+			AGTPVehicle* Target = Crash.Car.Get();
+			ACharacter* Walker = Cast<ACharacter>(PC->GetPawn());
+			if (!Target || !Walker)
+			{
+				Detail = !Target ? TEXT("the parked car to drive is gone while the player got in") : TEXT("the player is neither on foot nor at a wheel");
+				return EResult::Fail;
+			}
+			const EGTPVehicleState TargetState = Target->GetVehicleState();
+			// An entry under way (this car or another one the key chose) freezes the player's move input until it ends.
+			const bool bUnderWay = TargetState == EGTPVehicleState::Entering || PC->IsMoveInputIgnored();
+			if (Now - Crash.PhaseStart < (bUnderWay ? 12.0 : 4.0))
+			{
+				Detail = TEXT("getting in");
+				return EResult::Pending;
+			}
+			// Still on foot 4 s after the key with no entry under way (12 s with one): what holds the player, then the key
+			// again (a player presses it twice), three times at most.
+			const UGTPVehicleInteractionComponent* Interaction = PC->FindComponentByClass<UGTPVehicleInteractionComponent>();
+			const AGTPVehicle* Best = Interaction ? Interaction->FindBestVehicle() : nullptr;
+			const double DoorCm = FMath::Min(FVector::Dist2D(Walker->GetActorLocation(), Target->GetDoorLocation(EGTPVehicleSide::Left)),
+				FVector::Dist2D(Walker->GetActorLocation(), Target->GetDoorLocation(EGTPVehicleSide::Right)));
+			const FString Why = FString::Printf(
+				TEXT("still on foot %.0f s after the enter key (press %d): %s %s, can enter=%d, %.1f km/h, asleep=%d, shown by MassTraffic=%d, ")
+				TEXT("driver %s, %.0f cm from a door, car the key would take %s, paused=%d, move input ignored=%d"),
+				Now - Crash.PhaseStart, Crash.EnterPresses, *Target->GetName(), *StaticEnum<EGTPVehicleState>()->GetNameStringByValue(static_cast<int64>(TargetState)),
+				Target->CanEnter(Walker) ? 1 : 0, Target->GetSpeedKmh(), Target->IsParkedAsleep() ? 1 : 0, Target->IsShownByMassTraffic() ? 1 : 0,
+				*GetNameSafe(Target->GetDriver()), DoorCm, *GetNameSafe(Best), PC->IsPaused() ? 1 : 0, PC->IsMoveInputIgnored() ? 1 : 0);
+			GTP_TRACE(LogGTPGtaRun, TEXT("GTARun crash: %s"), *Why);
+			if (Crash.EnterPresses >= 3)
+			{
+				Detail = Why;
+				return EResult::Fail;
+			}
+			UGTPTheftDemoLibrary::PlaceAtDriverDoor(Walker, Target);
+			UGTPTheftDemoLibrary::PressEnter(World);
+			++Crash.EnterPresses;
+			Crash.PhaseStart = Now;
 			Detail = TEXT("getting in");
 			return EResult::Pending;
 		}
-		Crash.Phase = 2;
-		Crash.PhaseStart = Now;
 	}
 	AGTPVehicle* Car = Crash.Car.Get();
 	if (!Car)
