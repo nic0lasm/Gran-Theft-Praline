@@ -153,6 +153,18 @@ driver. Past the ghost distance, a car does not need to be an actor at all.
   behind taken away as far, put back where they stood, and taken away again.
   `CreateCar` now gives the driver its network, and the "traffic cars" line
   counts the driven cars "not driving (no route or no decisions)".
+- Gate 61's video (candidate 61 still had the frozen puppets): the player's
+  van, stopped where the player gives up, thrown over the roofs with the
+  passers-by around it, and a car floating over the camera at the end.
+  Probable cause, from the code, not proven: a frozen car taken from the
+  pool got its collision back where it had been put away, and the chase
+  script puts away the car in front of the van; a kinematic car appearing
+  inside a simulated one makes the solver throw it out. Two guards since:
+  a car `PlaceGhost` cannot place is destroyed, never turned back on; and a
+  ghost rides at the height it stood when it became one only when that is
+  a car on its wheels (spawn height minus 80 cm to plus 60 cm), otherwise at
+  its spawn height on the ground found down to 1 km, with the line
+  "traffic: ... off its wheels: ridden at N cm".
 - Perceived traffic is the driven cars plus the far cars: palier C (25) is
   `-Traffic=12 -FarTraffic=13`, the target (40) is
   `-Traffic=12 -FarTraffic=28`.

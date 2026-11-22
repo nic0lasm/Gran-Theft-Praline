@@ -299,6 +299,10 @@ Pas de plugin Water ni de volume physique : de simples événements de chevauche
   moins de 2,1 m de l'axe d'une voie (`ParkLaneClearance`) : à la porte 59, une Car03 garée à côté de la
   voie 96 se trouvait sur la voie de la poursuite, et le script a dû déplacer la voiture du joueur. La ligne
   « traffic: parked ... » finit par le nombre de places écartées parce qu'elles sont sur une autre voie.
+  Une place dont le sol se trouve à plus de 60 cm au-dessus de la chaussée de la voie voisine
+  (`ParkKerbRise`) est aussi écartée, comptée « on street furniture » : le tracé vers le sol prend la
+  première chose qu'il touche, et dans la vidéo de la porte 61 un utilitaire garé est resté 30 s sur le
+  toit d'un abribus, à hauteur du premier étage.
 - **Accidents entre voitures du trafic** (à moins de 80 m du joueur, choc d'au moins
   4,5 m/s, deux à la fois au plus) : un léger accrochage finit par un coup de klaxon (ou, une
   fois sur trois, une dispute) ; sinon, une fois sur cinq, celui qui a percuté accélère et

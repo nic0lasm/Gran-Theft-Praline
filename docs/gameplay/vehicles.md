@@ -289,6 +289,9 @@ Written in one batch, not compiled yet (`GTPIncidentLogic.h`, checked offline by
   candidate 62, never at less than 2.1 m from the centre line of any lane (`ParkLaneClearance`): at gate 59
   a Car03 parked beside lane 96 stood on the chase's lane and the script had to move the player's car. The
   "traffic: parked ..." line ends with the number of spots left out for standing on another lane.
+  A spot whose ground stands more than 60 cm above the road at the lane beside it (`ParkKerbRise`) is
+  also left out, counted "on street furniture": the ground trace takes the first thing it meets, and in
+  gate 61's video a parked van stood on a bus shelter roof, at first-floor height, for 30 s.
 - **Crashes between traffic cars** (within 80 m of the player, a change of speed of
   4.5 m/s or more, two at a time at most): a light bump ends in a blast of the horn (or, one
   time in three, an argument); otherwise one time in five the one who hit floors it while
