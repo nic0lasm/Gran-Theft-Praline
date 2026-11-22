@@ -232,7 +232,7 @@ No water plugin and no physics volume: plain overlap events, nearly free on the 
 - Stand-in signal heads (a coloured sphere on a pole at each stop line, no shadow, no collision) until the street furniture model exists. `-TrafficLights=0` turns the lights off, `-SignalHeads=0` hides the heads.
 - Simulation, 300 s on the rue de la République lanes: 3, 6 and 12 cars, no contact, no red light run.
 - Measured in the game (after gate 59, the legacy traffic being what the gate judges): every 10 s, "traffic cars
-  t=...: driven=D of W wanted (ghosts=G) moving=M (over 1 m/s, upright: P %) stopped=S lying=L mean speed=...
+  t=...: driven=D of W wanted (ghosts=G) moving=M (over 1 m/s, upright: P %) stopped=S lying=L not driving (no route or no decisions)=N mean speed=...
   | within 100 m=N (moving, stopped) within 150 m=N (moving, upright, ghosts; far puppets drawn there) within 200 m=N
   nearest=... | stopped for: a car ahead, the queue along the lanes, a person, something else ahead, a red light, a
   junction in use, held (reaction or stop asked), wedged, nothing ahead; stopped over 20 s, at a dead end | recycled

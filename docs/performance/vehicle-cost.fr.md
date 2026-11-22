@@ -163,6 +163,18 @@ besoin d'être un acteur.
   à moins de 50 m repart ailleurs. Celle qui est en vue continue et ne
   disparaît jamais. Hors de vue, une voiture lointaine au-delà de 250 m ou
   dans une impasse repart aussi ailleurs, entre 120 et 250 m.
+- Corrigé au candidat 63 : le conducteur PNJ d'une marionnette n'avait pas
+  de réseau (créé par `CreateCar`, jamais démarré), donc `PlaceGhost` ne
+  faisait rien à son premier passage de relais. La marionnette restait
+  immobile là où elle était, sans route ni décision, comptée comme un
+  fantôme conduit arrêté pour rien ; retirée puis reprise dans la réserve,
+  elle revenait là où on l'avait rangée. Passe default de la porte 60 : 0
+  voiture conduite sur 22 en mouvement à 102 s, 13 à 17 « nothing ahead ».
+  Sa passe -GTARun : 1 936 « reused on lane », des voitures laissées à plus
+  de 250 m derrière, retirées comme lointaines, remises où elles étaient,
+  puis retirées encore. `CreateCar` donne maintenant son réseau au
+  conducteur, et la ligne « traffic cars » compte les voitures conduites
+  « not driving (no route or no decisions) ».
 - Trafic perçu = voitures conduites + voitures lointaines. Le palier C
   (25 véhicules) correspond à `-Traffic=12 -FarTraffic=13`, la cible
   (40 véhicules) à `-Traffic=12 -FarTraffic=28`.

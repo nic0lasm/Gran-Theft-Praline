@@ -143,6 +143,16 @@ driver. Past the ghost distance, a car does not need to be an actor at all.
   car out of sight that comes within 50 m starts again elsewhere. One in
   view keeps going and never vanishes. Out of sight, a far car past 250 m or
   at a dead end also starts again elsewhere, 120 to 250 m away.
+- Fixed at candidate 63: a puppet's AI driver had no network (made by
+  `CreateCar`, never started), so `PlaceGhost` did nothing at its first
+  handover. The puppet stood still where it was, with no route and no
+  decisions, counted as a driven ghost stopped for nothing; taken away and
+  reused from the pool, it came back where it had been put away. Gate 60's
+  default pass: 0 of 22 driven cars moving at 102 s, 13 to 17 "nothing
+  ahead". Its -GTARun pass: 1 936 "reused on lane", cars left over 250 m
+  behind taken away as far, put back where they stood, and taken away again.
+  `CreateCar` now gives the driver its network, and the "traffic cars" line
+  counts the driven cars "not driving (no route or no decisions)".
 - Perceived traffic is the driven cars plus the far cars: palier C (25) is
   `-Traffic=12 -FarTraffic=13`, the target (40) is
   `-Traffic=12 -FarTraffic=28`.
