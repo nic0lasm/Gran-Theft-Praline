@@ -1,6 +1,6 @@
 {
   "_doc": "What the Windows gate queue checks for this candidate. Edited by the pilot for each candidate; read by the PC queue script. No machine paths here.",
-  "candidate": 57,
+  "candidate": 58,
   "map_md5": "bce9008ff024c78673626c4577ead426",
   "game_p50_max_ms": 17.82,
   "game_p95_max_ms": 50,
@@ -53,7 +53,9 @@
     "MassTraffic picture:",
     "at the wheel of",
     "on foot in the path of a car",
-    "radius"
+    "radius",
+    "crowd: crossings:",
+    "MassTraffic queue heads"
   ],
   "video": {
     "pass": "-GTARun",
