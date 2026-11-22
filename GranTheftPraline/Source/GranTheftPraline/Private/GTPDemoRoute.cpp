@@ -96,6 +96,64 @@ void UGTPDemoRoute::Deinitialize()
 	Super::Deinitialize();
 }
 
+void UGTPDemoRoute::StartEncore()
+{
+	APlayerController* PC = GetController();
+	if (AGTPVehicle* Driven = PC ? Cast<AGTPVehicle>(PC->GetPawn()) : nullptr)
+	{
+		// WaitForPawn waits for the player on foot before putting him back at the start.
+		Driven->RequestExit();
+	}
+	if (UPrimitiveComponent* Body = bRelocateHeld && RelocatedCar.IsValid() ? Cast<UPrimitiveComponent>(RelocatedCar->GetRootComponent()) : nullptr)
+	{
+		Body->SetSimulatePhysics(true);
+	}
+	bCarjack = true;
+	bChase = true;
+	bLevelFree = false;
+	bGaveUp = false;
+	Car.Reset();
+	HeldMove = FVector::ZeroVector;
+	StuckSince = 0.0;
+	UnstickUntil = 0.0;
+	UnstickSteer = 0.f;
+	RamUntil = 0.0;
+	SlowSince = 0.0;
+	ChaseStuckCount = 0;
+	HeldUpAt = FVector::ZeroVector;
+	HeldUpHere = 0;
+	bRelocateHeld = false;
+	RelocatedCar.Reset();
+	RelocateHoldUntil = 0.0;
+	OffLaneSince = 0.0;
+	bOnLaneOnce = false;
+	NextDriveDiag = 0.0;
+	PeakKmh = 0.f;
+	NextRelocate = 0.0;
+	NextClear = 0.0;
+	NextChaseLog = 0.0;
+	for (float& Seconds : LimitSeconds)
+	{
+		Seconds = 0.f;
+	}
+	NextLimitLog = 0.0;
+	LastLimitTime = 0.0;
+	CarjackRetarget = 0.0;
+	Follower = FGTPLaneFollower();
+	NextLaneSearch = 0.0;
+	LastLoggedSlot = -1;
+	DriveTime = 150.0;
+	FParse::Value(FCommandLine::Get(), TEXT("DemoDriveTime="), DriveTime);
+	DriveTime = FMath::Clamp(DriveTime, 5.0, 3600.0);
+	RouteStart = Clock();
+	SetPhase(EPhase::WaitForPawn);
+	if (!TickHandle.IsValid())
+	{
+		TickHandle = FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateUObject(this, &UGTPDemoRoute::Tick));
+	}
+	GTP_TRACE(LogGTPDemo, TEXT("Demo chase: encore, a second theft and flight from the start (%.0f s of driving)"), DriveTime);
+}
+
 APlayerController* UGTPDemoRoute::GetController() const
 {
 	const UGameInstance* GameInstance = GetGameInstance();

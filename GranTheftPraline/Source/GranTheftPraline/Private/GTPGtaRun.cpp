@@ -254,6 +254,16 @@ void UGTPGtaRun::EndStep(EResult Result, const FString& Detail)
 	GTP_TRACE(LogGTPGtaRun, TEXT("GTARun police: %d/%d ok (witness, pursuit, outcome, wasted)"), PoliceOkCount, PoliceStepCount);
 	GTP_TRACE(LogGTPGtaRun, TEXT("GTARun informative: %d/%d ok (crash)"), InfoOkCount, InfoStepCount);
 	GTP_TRACE(LogGTPGtaRun, TEXT("GTARun done: %d/%d ok (%.0f s)"), OkCount, StepCount - PoliceStepCount - InfoStepCount, FPlatformTime::Seconds() - RunStart);
+	// -GTARunEncore, for the filmed run only (never a measured pass): the chase plays again until the film ends, instead of
+	// 50 s of a still street (gate 59's video, from 130 to 180 s).
+	if (FParse::Param(FCommandLine::Get(), TEXT("GTARunEncore")))
+	{
+		if (UGTPDemoRoute* Demo = GetGameInstance() ? GetGameInstance()->GetSubsystem<UGTPDemoRoute>() : nullptr)
+		{
+			Demo->StartEncore();
+			GTP_TRACE(LogGTPGtaRun, TEXT("GTARun encore: the chase plays again for the film"));
+		}
+	}
 }
 
 void UGTPGtaRun::TrackWanted()

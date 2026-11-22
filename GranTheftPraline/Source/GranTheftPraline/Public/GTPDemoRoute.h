@@ -63,6 +63,12 @@ public:
 	/** Chase script, for -GTARun: the player gives up: the car brakes to a stop and stays there, the player at the wheel. */
 	void GiveUpChase();
 	bool HasGivenUp() const { return bGaveUp; }
+	/**
+	 * -GTARunEncore (the gate's filmed run only): once -GTARun is over, the chase script plays again from its start, so the
+	 * filmed minutes show play to the end instead of a still street. The player gets out if at the wheel, is put back on
+	 * the quai Jean Moulin, takes the nearest free car and flees, with the same script as the first chase.
+	 */
+	void StartEncore();
 	/** Times the chase script put its car back on a lane (held up for good, off the road, end of the lanes). */
 	int32 GetChaseRelocations() const { return ChaseRelocations; }
 	/** Seconds (real time) since the chase script last put its car on another lane; a large number when it never did. */
