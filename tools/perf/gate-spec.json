@@ -132,7 +132,9 @@
     "crowd: dressed",
     "crowd: cars:",
     "officer in uniform",
-    "GTARun pos"
+    "GTARun pos",
+    "crowd: garments of the first",
+    "NO GROOM"
   ],
   "video": {
     "pass": "-GTARun -GTARunEncore",
