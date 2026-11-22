@@ -2,6 +2,9 @@
 
 #include "Animation/AnimSequenceBase.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "Engine/SkeletalMesh.h"
+#include "Engine/StaticMesh.h"
 #include "Engine/World.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
@@ -10,6 +13,7 @@
 #include "GTPWanted.h"
 #include "GTPWeapon.h"
 #include "Kismet/GameplayStatics.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
 
@@ -45,8 +49,10 @@ void AGTPPoliceOfficer::BeginPlay()
 	}
 	SetActorTickEnabled(true);
 	SpawnTime = GetWorld() ? static_cast<float>(GetWorld()->GetTimeSeconds()) : 0.f;
+	// In uniform the body is another skeleton than the mannequin's: its own run loop, or none.
+	const bool bUniform = WearUniform();
 	FString AnimOverride;
-	FSoftObjectPath Path = RunAnimation;
+	FSoftObjectPath Path = bUniform ? UniformRunAnimation : RunAnimation;
 	if (FParse::Value(FCommandLine::Get(), TEXT("PoliceRunAnim="), AnimOverride) && !AnimOverride.IsEmpty())
 	{
 		Path = FSoftObjectPath(AnimOverride);
@@ -58,7 +64,131 @@ void AGTPPoliceOfficer::BeginPlay()
 			GetMesh()->SetAnimation(Anim);
 			GetMesh()->Play(true);
 		}
+		else if (bUniform)
+		{
+			GTP_TRACE(LogTemp, TEXT("police: officer in uniform without a run loop: %s does not load (it slides in its reference pose)"), *Path.ToString());
+		}
 	}
+}
+
+bool AGTPPoliceOfficer::WearUniform()
+{
+	USkeletalMeshComponent* Body = GetMesh();
+	int32 Switch = 1;
+	FParse::Value(FCommandLine::Get(), TEXT("PoliceUniform="), Switch);
+	if (!Body || Switch == 0 || !UniformBody.IsValid())
+	{
+		return false;
+	}
+	USkeletalMesh* BodyMesh = Cast<USkeletalMesh>(UniformBody.TryLoad());
+	if (!BodyMesh)
+	{
+		GTP_TRACE(LogTemp, TEXT("police: officer without uniform: the body %s does not load"), *UniformBody.ToString());
+		return false;
+	}
+	// The crowd's bodies have no head of their own: without the face asked for, the old body is better than a headless one.
+	if (UniformFace.IsValid() && !Cast<USkeletalMesh>(UniformFace.TryLoad()))
+	{
+		GTP_TRACE(LogTemp, TEXT("police: officer without uniform: the face %s does not load"), *UniformFace.ToString());
+		return false;
+	}
+	Body->SetSkeletalMesh(BodyMesh);
+	Body->SetRelativeRotation(FRotator(0.f, UniformYawOffset, 0.f));
+
+	// Garments and face: skeletal meshes on the body's skeleton that take its pose (as AGTPPedestrian::Dress does).
+	FString Missing;
+	int32 Garments = 0;
+	auto AddFollower = [this, Body, &Missing](const FSoftObjectPath& PartPath, const FString& PartName) -> USkeletalMeshComponent*
+	{
+		USkeletalMesh* PartMesh = PartPath.IsValid() ? Cast<USkeletalMesh>(PartPath.TryLoad()) : nullptr;
+		if (!PartMesh)
+		{
+			if (PartPath.IsValid())
+			{
+				Missing += FString::Printf(TEXT(" %s"), *PartPath.GetAssetName());
+			}
+			return nullptr;
+		}
+		USkeletalMeshComponent* Part = NewObject<USkeletalMeshComponent>(this, *PartName);
+		Part->SetSkeletalMesh(PartMesh);
+		Part->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Part->SetGenerateOverlapEvents(false);
+		Part->SetCanEverAffectNavigation(false);
+		Part->bReceivesDecals = false;
+		Part->bUseAttachParentBound = true;
+		Part->bSyncAttachParentLOD = true;
+		Part->PrimaryComponentTick.bCanEverTick = false;
+		Part->AttachToComponent(Body, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+		Part->RegisterComponent();
+		Part->SetLeaderPoseComponent(Body);
+		UniformParts.Add(Part);
+		return Part;
+	};
+	int32 Coloured = 0;
+	for (int32 Index = 0; Index < UniformClothes.Num(); ++Index)
+	{
+		USkeletalMeshComponent* Part = AddFollower(UniformClothes[Index], FString::Printf(TEXT("UniformGarment%d"), Index));
+		if (!Part)
+		{
+			continue;
+		}
+		++Garments;
+		// The colour goes to the garments only, never to the skin.
+		if (UniformColourDataIndex >= 0)
+		{
+			Part->SetCustomPrimitiveDataVector4(UniformColourDataIndex, FVector4(UniformColour.R, UniformColour.G, UniformColour.B, UniformColour.A));
+			++Coloured;
+		}
+		if (UniformColourParameters.Num() > 0)
+		{
+			for (int32 Slot = 0; Slot < Part->GetNumMaterials(); ++Slot)
+			{
+				if (UMaterialInstanceDynamic* Material = Part->CreateAndSetMaterialInstanceDynamic(Slot))
+				{
+					// A parameter the material does not have is ignored.
+					for (const FName& Parameter : UniformColourParameters)
+					{
+						Material->SetVectorParameterValue(Parameter, UniformColour);
+					}
+				}
+			}
+			++Coloured;
+		}
+	}
+	const bool bFace = AddFollower(UniformFace, TEXT("UniformFace")) != nullptr;
+
+	// Rigid pieces on the bones.
+	FString Worn;
+	for (int32 Index = 0; Index < UniformAccessories.Num(); ++Index)
+	{
+		const FGTPOfficerAccessory& Piece = UniformAccessories[Index];
+		UStaticMesh* PieceMesh = Piece.Mesh.IsValid() ? Cast<UStaticMesh>(Piece.Mesh.TryLoad()) : nullptr;
+		if (!PieceMesh || Body->GetBoneIndex(Piece.Bone) == INDEX_NONE)
+		{
+			const FString Why = PieceMesh ? FString::Printf(TEXT("no bone %s"), *Piece.Bone.ToString()) : FString(TEXT("does not load"));
+			Missing += FString::Printf(TEXT(" %s (%s)"), *Piece.Mesh.GetAssetName(), *Why);
+			continue;
+		}
+		UStaticMeshComponent* Part = NewObject<UStaticMeshComponent>(this, *FString::Printf(TEXT("UniformPiece%d"), Index));
+		Part->SetMobility(EComponentMobility::Movable);
+		Part->SetStaticMesh(PieceMesh);
+		Part->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Part->SetGenerateOverlapEvents(false);
+		Part->SetCanEverAffectNavigation(false);
+		Part->bReceivesDecals = false;
+		Part->PrimaryComponentTick.bCanEverTick = false;
+		Part->AttachToComponent(Body, FAttachmentTransformRules::SnapToTargetNotIncludingScale, Piece.Bone);
+		Part->SetRelativeTransform(FTransform(Piece.Rotation, Piece.Location, FVector(Piece.Scale)));
+		Part->RegisterComponent();
+		UniformParts.Add(Part);
+		Worn += FString::Printf(TEXT(" %s on %s"), *Piece.Mesh.GetAssetName(), *Piece.Bone.ToString());
+	}
+	const FString FaceName = bFace ? UniformFace.GetAssetName() : FString(TEXT("none"));
+	const FString LoopName = UniformRunAnimation.IsValid() ? UniformRunAnimation.GetAssetName() : FString(TEXT("none"));
+	GTP_TRACE(LogTemp, TEXT("police: officer in uniform: body %s, %d garment(s) of %d (%d given the colour), face %s, run loop %s; pieces:%s; left out:%s"),
+		*BodyMesh->GetName(), Garments, UniformClothes.Num(), Coloured, *FaceName, *LoopName, Worn.IsEmpty() ? TEXT(" none") : *Worn,
+		Missing.IsEmpty() ? TEXT(" nothing") : *Missing);
+	return true;
 }
 
 void AGTPPoliceOfficer::EndPlay(const EEndPlayReason::Type EndPlayReason)
