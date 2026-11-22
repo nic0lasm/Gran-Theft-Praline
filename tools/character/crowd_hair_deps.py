@@ -16,9 +16,12 @@ Env: GTP_HAIR_STYLES (default BuzzCut,SideSweptFringe,Messy,PulledBack), GTP_NIC
 GTP_DEPS_OF=/Game/MetaHumans/GTP/Nicolito/BP_Nicolito_Full (comma-separated packages) lists instead everything those
 need under /Game (Saved/CitySampleCopy/closure.txt, size by top folder): what another copy of the project, such as
 the Mac's, must receive at the same paths for the player's visual.
-GTP_CROWD_HAIR=1 lists instead what the hair of the crowd needs (docs/gameplay/pedestrians-mass.md, "Hair"): the
-hair meshes City Sample shows from a distance (Hair_*_LOD5 of its heads) and its baked scalp textures, the player's
-style left out, with everything they depend on; same list file, same copy, run again until 0 missing.
+GTP_CROWD_HAIR=1 lists instead what the hair and the garments of the crowd need (docs/gameplay/pedestrians-mass.md,
+"Hair"): the bindings City Sample made of each groom for the three faces of each sex the crowd uses (the grooms and
+their hair cards come as what the bindings depend on, at the next run), the hair meshes it shows from a distance
+(Hair_*_LOD5), its baked scalp textures, the player's style left out, and every garment mesh the crowd's code asks
+for (tops, bottoms, shoes), with everything they depend on; same list file, same copy, run again until 0 missing.
+A garment City Sample does not have comes back from the copy as "nothing matches": the crowd then takes another.
 Report: Saved/GTPCombat/crowd-hair-deps.txt (lines also in the log, prefixed "HAIRDEPS"); the list:
 Saved/CitySampleCopy/missing.txt.
 """
@@ -56,6 +59,20 @@ CROWD_HAIR_MESHES = [
     "Male/m_006/Hair/Helmets/Hair_S_HairLoss_Helmet_LOD5",
 ]
 CROWD_BAKED = ["Hair_S_AfroFade", "Hair_S_BuzzCut", "Hair_S_Coil", "Hair_S_HairLoss", "Hair_S_Updo"]
+# The grooms with hair cards, by sex (BuzzCut and Messy are strands only), the faces the crowd assembles
+# (UGTPCrowdSubsystem::DressFromCitySample: heads 001 to 003 of each sex) and the garments it asks for, by name.
+CROWD_GROOMS = {
+    "Female": ["Hair_S_Coil", "Hair_S_Pixie", "Hair_S_LowPonytail", "Hair_S_Updo", "Hair_M_BobCurly"],
+    "Male": ["Hair_S_AfroFade", "Hair_S_CurlyFade", "Hair_M_SideSweptFringe", "Hair_S_HairLoss"],
+}
+CROWD_FACES = (1, 2, 3)
+CROWD_GARMENTS = {
+    "Female": ["buttonDown", "buttonOpen", "scoopneck", "turtleneck", "buttonDown_blazer", "scoopneck_croppedJacket",
+               "jeans", "slacks", "skirt", "jeans_belt", "loafers", "oxfords", "dressFlats"],
+    "Male": ["buttonDown", "buttonOpen", "crewneck", "turtleneck", "buttonDown_tie", "crewneck_blazer",
+             "jeans", "jeansLong", "slacks", "slacks_belt", "loafers", "oxfords"],
+}
+CROWD_SHOES = ("loafers", "oxfords", "dressFlats")
 
 eal = unreal.EditorAssetLibrary
 registry = unreal.AssetRegistryHelpers.get_asset_registry()
@@ -141,24 +158,51 @@ def closure_of(roots):
 
 
 def crowd_hair():
-    """GTP_CROWD_HAIR=1: the crowd's hair meshes and baked scalp textures, and what they depend on, missing here."""
-    seeds = ["%s/%s" % (CROWD_ROOT, mesh) for mesh in CROWD_HAIR_MESHES]
+    """GTP_CROWD_HAIR=1: the crowd's groom bindings (their grooms follow), far hair meshes, baked scalp textures and
+    garments, and what they depend on, missing here."""
+    bindings, garments = [], []
+    for sex, grooms in CROWD_GROOMS.items():
+        prefix = sex[0].lower()
+        bindings += ["%s/%s/GroomBindings/GB_%s_%03d_nrw_FaceMesh_%s" % (CROWD_ROOT, sex, prefix, face, groom)
+                     for groom in grooms for face in CROWD_FACES]
+        garments += ["%s/%s/NormalWeight/Meshes/%s_tal_nrw_%s" % (CROWD_ROOT, sex, prefix, part) for part in CROWD_GARMENTS[sex]]
+    seeds = list(bindings)
+    seeds += ["%s/%s" % (CROWD_ROOT, mesh) for mesh in CROWD_HAIR_MESHES]
     seeds += ["%s/%s_baked/%s_baked" % (BAKED_DIR, name, name) for name in CROWD_BAKED]
+    seeds += garments
     missing = {}
     for seed in seeds:
         present = exists(seed)
-        kind = "-"
-        if present:
+        detail = ""
+        if not present:
+            missing.setdefault(seed, "the crowd")
+        elif seed in bindings:
+            # The groom and the face the binding was made for: the game reads the groom from the binding.
             try:
-                kind = eal.load_asset(seed).get_class().get_name()
+                binding = eal.load_asset(seed)
+                groom = binding.get_editor_property("groom")
+                target = binding.get_editor_property("target_skeletal_mesh")
+                detail = ", groom %s, face %s" % (groom.get_path_name().split(".")[0] if groom else "NONE",
+                                                  target.get_name() if target else "NONE")
             except Exception as error:  # noqa: BLE001 (reported)
-                kind = "not loaded (%r)" % (error,)
-        else:
-            missing.setdefault(seed, "the crowd's hair")
-        say("%s: %s, class %s" % (seed, "present" if present else "missing", kind))
+                detail = ", not read (%r)" % (error,)
+        elif seed not in garments:
+            try:
+                detail = ", class %s" % eal.load_asset(seed).get_class().get_name()
+            except Exception as error:  # noqa: BLE001 (reported)
+                detail = ", not loaded (%r)" % (error,)
+        say("%s: %s%s" % (seed, "present" if present else "missing", detail))
+    for sex in CROWD_GROOMS:
+        prefix = sex[0].lower()
+        shoes = [part for part in CROWD_GARMENTS[sex] if part in CROWD_SHOES]
+        have = [part for part in shoes if exists("%s/%s/NormalWeight/Meshes/%s_tal_nrw_%s" % (CROWD_ROOT, sex, prefix, part))]
+        say("shoes, %s: %s in the project of %s%s" % (sex.lower(), ", ".join(have) or "NONE", ", ".join(shoes),
+                                                      "" if have else ": they walk BAREFOOT"))
     walked = follow(seeds, missing)
-    say("crowd hair: %d seeds, %d packages followed" % (len(seeds), walked))
-    say("%d missing" % len(missing))
+    say("crowd hair and garments: %d seeds (%d bindings, %d garments), %d packages followed" % (len(seeds), len(bindings), len(garments), walked))
+    absent_garments = [package for package in missing if package in garments]
+    say("%d missing, of which %d garments the crowd asks for by name: those City Sample does not have come back from "
+        "the copy as 'nothing matches', stop when only they remain" % (len(missing), len(absent_garments)))
     for package, needed_by in sorted(missing.items()):
         say("  missing %s (for %s)" % (package, needed_by))
     return sorted(missing)

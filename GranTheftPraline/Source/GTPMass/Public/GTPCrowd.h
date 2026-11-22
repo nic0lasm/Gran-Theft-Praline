@@ -186,10 +186,11 @@ protected:
 
 	/**
 	 * Hair of the assembled characters (-CrowdHair=0: none, as before candidate 64). City Sample's crowd has no hair
-	 * on its heads: its own character code paints a baked texture on the scalp and adds a groom. Ours paints the
-	 * baked textures found under CrowdCharacterRoot (Hair_*_baked) and fixes on the head the hair meshes found there
-	 * (Hair_*_LOD5, the "helmets" City Sample shows from a distance). A style whose name contains this word is left
-	 * to the player.
+	 * on its heads: its own character code adds a groom bound to the face and paints a baked texture on the scalp.
+	 * Ours does the same with what is found under CrowdCharacterRoot: near the player the groom of the style with the
+	 * binding Epic made for that face (GroomBindings/GB_<face>_<groom>), as hair cards; further away the hair mesh
+	 * City Sample shows from a distance (Hair_*_LOD5); under both the baked scalp texture (Hair_*_baked). A style
+	 * whose name contains this word is left to the player.
 	 */
 	UPROPERTY(Config)
 	FString CrowdHairKeptForPlayer = TEXT("PulledBack");
@@ -197,6 +198,17 @@ protected:
 	/** Share of the men left with a bare scalp (0 to 1). */
 	UPROPERTY(Config)
 	float CrowdBaldShare = 0.1f;
+
+	/**
+	 * A person's groom shows and ticks within this distance of the player (cm); beyond it the far hair mesh and the
+	 * painted scalp. A groom's tick is its game-thread cost: the distance is the budget's lever. -CrowdGrooms=0: none.
+	 */
+	UPROPERTY(Config)
+	float CrowdGroomDistance = 2000.f;
+
+	/** Grooms as hair cards (the component's bUseCards), and only the grooms that have cards: strands cost several times more. */
+	UPROPERTY(Config)
+	bool bCrowdGroomCards = true;
 
 	/** The mannequin faces +Y: yaw applied to the instances so they face the walking direction. */
 	UPROPERTY(Config)
@@ -370,11 +382,25 @@ private:
 	struct FHairStyle
 	{
 		FString Style;
+		/** Hair_<size>_<style>: the name of the groom, as the bindings spell it. */
+		FString GroomName;
 		FSoftObjectPath Baked;
 		FSoftObjectPath Mesh;
+		FSoftObjectPath Groom;
 		bool bMeshIsSkinned = false;
+		bool bHasCards = false;
 	};
 	TArray<FHairStyle> HairStyles[2];
+	/** Groom bindings found, by asset name (GB_<face mesh>_<groom>), and the baked eyebrows. */
+	TMap<FString, FSoftObjectPath> HairBindings;
+	TArray<FSoftObjectPath> EyebrowTextures;
+	bool bGrooms = true;
+	int32 HairGrooms = 0;
+	int32 GroomsShown = 0;
+	int32 MostGroomsShown = 0;
+	int32 GroomsNotMade = 0;
+	int32 BrowsPainted = 0;
+	int32 WithoutShoesWomen = 0;
 	bool bHair = true;
 	bool bHairLooked = false;
 	int32 Dressed = 0;
