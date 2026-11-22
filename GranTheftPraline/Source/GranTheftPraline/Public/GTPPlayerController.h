@@ -90,6 +90,7 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void PlayerTick(float DeltaTime) override;
 	virtual void OnPossess(APawn* InPawn) override;
 	virtual void SetupInputComponent() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
@@ -162,6 +163,17 @@ private:
 
 	UPROPERTY(Config)
 	float MaxViewPitch = 60.f;
+
+	/** Vertical view limits while a gun is raised on foot, in degrees: at -70 the shoulder camera ends above the player's
+	 *  head looking down (close hold-up of candidate 59: the view from above, the gun seen over the head). */
+	UPROPERTY(Config)
+	float AimMinViewPitch = -35.f;
+
+	UPROPERTY(Config)
+	float AimMaxViewPitch = 50.f;
+
+	/** Whether the aim limits were in force at the last tick (for the log line when they change). */
+	bool bAimPitchLimits = false;
 
 	bool bLookSettling = false;
 	bool bViewSettledOnce = false;

@@ -648,6 +648,16 @@ void UGTPCombatSubsystem::RespawnPlayer()
 	GameMode->RestartPlayerAtTransform(PC, Where);
 	if (Old)
 	{
+		// The player's visual would stay standing where the player died (only it: the test camera is attached too).
+		TArray<AActor*> Attached;
+		Old->GetAttachedActors(Attached);
+		for (AActor* Child : Attached)
+		{
+			if (Child && Child->ActorHasTag(TEXT("GTPPlayerVisualActor")))
+			{
+				Child->Destroy();
+			}
+		}
 		Old->Destroy();
 	}
 	EquipPlayer();

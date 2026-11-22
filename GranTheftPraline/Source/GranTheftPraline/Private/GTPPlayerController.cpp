@@ -13,6 +13,7 @@
 #include "GTPVehicleInput.h"
 #include "GTPVehicleInteractionComponent.h"
 #include "GTPWanted.h"
+#include "GTPWeapon.h"
 #include "Blueprint/UserWidget.h"
 #include "Camera/PlayerCameraManager.h"
 #include "EnhancedInputComponent.h"
@@ -167,8 +168,27 @@ void AGTPPlayerController::EndLookSettle()
 	UE_LOG(LogGTPInput, Log, TEXT("View settled at %s"), *GetControlRotation().ToCompactString());
 }
 
+void AGTPPlayerController::PlayerTick(float DeltaTime)
+{
+	// A gun raised on foot narrows the vertical view before the view is updated this frame (the camera manager clamps
+	// the control rotation to these limits), so the shoulder camera never ends over the head looking down.
+	const APawn* OnFoot = GetPawn();
+	const UGTPWeaponComponent* Weapon = OnFoot && !Cast<AGTPVehicle>(OnFoot) ? UGTPWeaponComponent::FindHeld(OnFoot) : nullptr;
+	const bool bAim = Weapon && Weapon->IsAiming();
+	if (bAim != bAimPitchLimits && PlayerCameraManager)
+	{
+		bAimPitchLimits = bAim;
+		PlayerCameraManager->ViewPitchMin = bAim ? AimMinViewPitch : MinViewPitch;
+		PlayerCameraManager->ViewPitchMax = bAim ? AimMaxViewPitch : MaxViewPitch;
+		UE_LOG(LogGTPInput, Log, TEXT("view pitch limits %.0f..%.0f (%s), view pitch %.0f"), PlayerCameraManager->ViewPitchMin,
+			PlayerCameraManager->ViewPitchMax, bAim ? TEXT("gun raised") : TEXT("gun lowered"), FRotator::NormalizeAxis(GetControlRotation().Pitch));
+	}
+	Super::PlayerTick(DeltaTime);
+}
+
 void AGTPPlayerController::ApplyViewPitchLimits()
 {
+	bAimPitchLimits = false; // the next tick narrows them again if a gun is raised
 	if (PlayerCameraManager)
 	{
 		PlayerCameraManager->ViewPitchMin = MinViewPitch;
