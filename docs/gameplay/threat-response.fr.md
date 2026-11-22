@@ -119,3 +119,14 @@ L'image du braquage de près du candidat 51 (de jour, caméra à l'horizontale) 
 montre la personne debout, mains ouvertes au-dessus de la tête. `-GTARun` dit maintenant où est la caméra quand chaque
 image est prise (« GTARun hold-up probe: the camera is … from the player's eyes … ; within 8 cm of it: INSIDE … | nothing ;
 … screen fade … »). Le test ne déplace pas la caméra : un écran noir à 1,1 m de quelqu'un est ce que le joueur verrait.
+
+Lu au candidat 57 : au braquage de près rien ne bloque la caméra et l'écran n'est pas fondu, mais la caméra est à côté du
+joueur (33 cm devant ses yeux, 1,5 m sur le côté, à 154 cm de la tête du visé) et le visé n'est pas dans l'image ; à 3 m
+elle est derrière l'épaule et l'image se lit. La caméra de suivi (`GTPFollowCameraComponent`) ne dépend que de la vue, et en
+jeu l'arme tourne le corps vers la vue tant qu'elle est levée ; le test tournait en plus le corps vers la personne à chaque
+image, ce qu'aucun joueur ne peut faire. Depuis le candidat 59 il laisse le corps à l'arme tant qu'elle est levée, attend
+jusqu'à 3 s après la preuve que la vue arrive à moins de 8 degrés de la personne avant de prendre l'image, et dit ce que
+l'image contient : « GTARun hold-up picture: the one aimed at is IN THE PICTURE, under the reticle | IN THE PICTURE, away
+from the reticle | NOT IN THE PICTURE (…): his chest is N degrees from the reticle (N to the right, N up, …); from the line
+from the player to him, the view looks N degrees aside and the player's body faces N aside ». L'étape réussit ou échoue
+toujours sur la seule pose. **Pas prouvé** : que c'était la cause ; la ligne tranchera à la prochaine porte.

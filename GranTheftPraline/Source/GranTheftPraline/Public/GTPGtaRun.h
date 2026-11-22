@@ -177,6 +177,8 @@ private:
 	/** The person held up at the intended range, and since when (the hold-up steps want his body to show it). */
 	TWeakObjectPtr<AActor> AimedHeld;
 	double AimedHeldSince = 0.0;
+	/** Since when the pose of the hold-up is proved and the picture waits for the view to come onto the person (-1 = not). */
+	double HoldUpProvedSince = -1.0;
 	int32 ShotsFired = 0;
 	double NextShot = 0.0;
 	int32 ShotAttempts = 0;

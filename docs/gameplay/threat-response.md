@@ -111,3 +111,14 @@ The picture of the close hold-up of candidate 51 (by day, camera level) is black
 shows the person standing with open hands over his head. `-GTARun` now says where the camera is when each picture is
 taken ("GTARun hold-up probe: the camera is … from the player's eyes …; within 8 cm of it: INSIDE … | nothing; … screen
 fade …"). The test does not move the camera: a black screen 1.1 m from somebody is what the player would see.
+
+Read at candidate 57: at the close hold-up nothing blocks the camera and the screen is not faded, but the camera is beside
+the player (33 cm ahead of his eyes, 1.5 m to his side, 154 cm from the head of the one aimed at) and that person is not in
+the picture; at 3 m it is behind the shoulder and the picture reads. The follow camera (`GTPFollowCameraComponent`) hangs
+on the view alone, and in play the weapon turns the body to the view while the gun is raised; the test also turned the body
+to the person every frame, which no player can do. Since candidate 59 it leaves the body to the weapon while the gun is
+raised, waits up to 3 s after the proof for the view to come within 8 degrees of the person before taking the picture, and
+says what the picture holds: "GTARun hold-up picture: the one aimed at is IN THE PICTURE, under the reticle | IN THE PICTURE,
+away from the reticle | NOT IN THE PICTURE (…): his chest is N degrees from the reticle (N to the right, N up, …); from the
+line from the player to him, the view looks N degrees aside and the player's body faces N aside". The step still passes or
+fails on the pose alone. **Not proven**: that this was the cause; the line decides at the next gate.

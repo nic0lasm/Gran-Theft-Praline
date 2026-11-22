@@ -182,6 +182,7 @@ void UGTPGtaRun::BeginStep(int32 Index)
 	NextShot = 0.0;
 	bAimExitRequested = false;
 	AimFirstReaction = -1.0;
+	HoldUpProvedSince = -1.0;
 	AimedHeld = nullptr;
 	AimedHeldSince = 0.0;
 	LastAimMoveTime = -1.0;
@@ -1215,7 +1216,36 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail, bool bClose)
 	PC->GetPlayerViewPoint(View, ViewRotation);
 	PC->SetControlRotation((Body - View).Rotation());
 	const FVector Aim = (Body - Character->GetPawnViewLocation()).GetSafeNormal();
-	Character->SetActorRotation(FRotator(0.f, Aim.Rotation().Yaw, 0.f));
+	// The body: while the gun is raised the weapon turns it to the view, as in play (UGTPWeaponComponent::TickComponent).
+	// The test used to turn it to the person every frame on top of that, which no player can do: at the close hold-up of
+	// candidate 57 the camera was beside the player (33 cm ahead of his eyes, 1.5 m to his side) and the person was not
+	// in the picture. It turns the body itself only with the gun down.
+	if (!Weapon->IsAiming())
+	{
+		Character->SetActorRotation(FRotator(0.f, Aim.Rotation().Yaw, 0.f));
+	}
+	// Where the person is in what the player sees: degrees from the reticle (the middle of the view), from the camera.
+	double OffReticleDeg = 180.0;
+	bool bInPicture = false;
+	FString Framing = TEXT("no camera");
+	if (PC->PlayerCameraManager)
+	{
+		const FVector CameraAt = PC->PlayerCameraManager->GetCameraLocation();
+		const FRotator CameraLooks = PC->PlayerCameraManager->GetCameraRotation();
+		const FVector Seen = CameraLooks.UnrotateVector(Body - CameraAt);
+		const double Right = FMath::RadiansToDegrees(FMath::Atan2(Seen.Y, Seen.X));
+		const double Up = FMath::RadiansToDegrees(FMath::Atan2(Seen.Z, Seen.X));
+		OffReticleDeg = FMath::RadiansToDegrees(FMath::Acos(FMath::Clamp(Seen.GetSafeNormal().X, -1.0, 1.0)));
+		// The picture is 16:9: half the field of view each side, 9/16 of its tangent up and down.
+		const double HalfSide = PC->PlayerCameraManager->GetFOVAngle() * 0.5;
+		const double HalfUp = FMath::RadiansToDegrees(FMath::Atan(FMath::Tan(FMath::DegreesToRadians(HalfSide)) * 9.0 / 16.0));
+		bInPicture = Seen.X > 0.0 && FMath::Abs(Right) < HalfSide && FMath::Abs(Up) < HalfUp;
+		const double Line = (Victim->GetActorLocation() - Character->GetActorLocation()).Rotation().Yaw;
+		Framing = FString::Printf(TEXT("his chest is %.0f degrees from the reticle (%.0f to the right, %.0f up, the picture shows %.0f each side and %.0f up and down), %.0f cm from the camera; "
+			"from the line from the player to him, the view looks %.0f degrees aside and the player's body faces %.0f aside"),
+			OffReticleDeg, Right, Up, HalfSide, HalfUp, Seen.Size(),
+			FMath::FindDeltaAngleDegrees(Line, static_cast<double>(CameraLooks.Yaw)), FMath::FindDeltaAngleDegrees(Line, static_cast<double>(Character->GetActorRotation().Yaw)));
+	}
 	if (bAimNow)
 	{
 		Threat->SetThreat(Character, true, Character->GetPawnViewLocation(), Aim);
@@ -1329,8 +1359,28 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail, bool bClose)
 	const bool bProved = bInRange && bAimedHeld && bShown && Now - AimedHeldSince >= 1.0;
 	// His state says hands up for 5 s and his body does not show it: that is the defect, said at once.
 	const bool bStateOnly = bInRange && bAimedHeld && !bShown && Now - AimedHeldSince >= 5.0;
-	if (bProved || bStateOnly)
+	if (!bProved && !bStateOnly)
 	{
+		HoldUpProvedSince = -1.0;
+	}
+	else
+	{
+		// The pose is proved; the picture is for the eye, and shows nothing unless the view has come onto the person
+		// (the view turns to him every frame above, as a player's does). Up to 3 s for that, then the picture is
+		// taken as it is and the line below says that he is not in it: said, not hidden.
+		if (HoldUpProvedSince < 0.0)
+		{
+			HoldUpProvedSince = Now;
+		}
+		if (bProved && OffReticleDeg > 8.0 && Now - HoldUpProvedSince < 3.0)
+		{
+			Detail += TEXT("; proved, waiting for the view to come onto him for the picture");
+			return EResult::Pending;
+		}
+		GTP_TRACE(LogGTPGtaRun, TEXT("GTARun hold-up picture: the one aimed at is %s (%.1f s after the proof): %s"),
+			bInPicture ? (OffReticleDeg <= 8.0 ? TEXT("IN THE PICTURE, under the reticle") : TEXT("IN THE PICTURE, away from the reticle")) : TEXT("NOT IN THE PICTURE"),
+			Now - HoldUpProvedSince, *Framing);
+		HoldUpProvedSince = -1.0;
 		// What the player sees at that moment, for the eye. Written at the end of the frame, hands still up.
 		const FString Shot = FPaths::ConvertRelativePathToFull(FPaths::Combine(FPaths::ScreenShotDir(), bClose ? TEXT("gtarun-aimclose.png") : TEXT("gtarun-aim.png")));
 		FScreenshotRequest::RequestScreenshot(Shot, false, false);
