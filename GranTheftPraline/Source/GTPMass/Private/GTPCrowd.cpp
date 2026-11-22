@@ -17,9 +17,14 @@
 #include "Animation/AnimationAsset.h"
 #include "Animation/Skeleton.h"
 #include "AssetRegistry/AssetRegistryModule.h"
+#include "Components/StaticMeshComponent.h"
+#include "Engine/Texture.h"
+#include "EngineUtils.h"
 #include "GTPAudioWorld.h"
 #include "GTPPedestrians.h"
 #include "GTPThreat.h"
+#include "GTPVehicle.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "Kismet/GameplayStatics.h"
 #include "MassCommonFragments.h"
 #include "MassEntityManager.h"
@@ -104,6 +109,13 @@ void UGTPCrowdSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 		Settings.CrossingWalkSeconds = CrossingWalkSeconds;
 		Settings.CrossingWaitMax = CrossingWaitMaxSeconds;
 	}
+	// Cars standing on a walkway are walked round (-CrowdAvoidCars=0: walked through, as before candidate 64).
+	int32 AvoidCars = 1;
+	FParse::Value(FCommandLine::Get(), TEXT("CrowdAvoidCars="), AvoidCars);
+	bAvoidCars = AvoidCars != 0;
+	int32 Hair = 1;
+	FParse::Value(FCommandLine::Get(), TEXT("CrowdHair="), Hair);
+	bHair = Hair != 0;
 	UE_LOG(LogGTPCrowd, Log, TEXT("crowd: crossings: %d in the graph; %s"), CrossingEdges.Num(), bCrossingWait
 		? *FString::Printf(TEXT("with a car about to go over one, people step off the kerb for %.0f s every %.0f s and wait for the rest, %.0f s at most"),
 			CrossingWalkSeconds, CrossingCycleSeconds, CrossingWaitMaxSeconds)
@@ -152,7 +164,9 @@ float UGTPCrowdSubsystem::GroundAt(const FVector& Where) const
 	const FVector Start(Where.X, Where.Y, PlayerGroundZ + 400.f);
 	const FVector End(Where.X, Where.Y, PlayerGroundZ - 1200.f);
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(GTPCrowdGround), false);
-	if (World->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params))
+	// The town only (static objects), as the cars' own ground traces: a visibility trace also stopped on the roof or
+	// the bonnet of a car, and the person walked up onto it (gate of candidate 59, 130 to 180 s of the video).
+	if (World->LineTraceSingleByObjectType(Hit, Start, End, FCollisionObjectQueryParams(ECC_WorldStatic), Params))
 	{
 		return Hit.ImpactPoint.Z;
 	}
@@ -277,7 +291,7 @@ void UGTPCrowdSubsystem::Tick(float DeltaTime)
 	}
 	UpdateNear(DeltaTime);
 	NextCarLook -= DeltaTime;
-	if (bCrossingWait && NextCarLook <= 0.f)
+	if ((bCrossingWait || bAvoidCars) && NextCarLook <= 0.f)
 	{
 		NextCarLook = 0.25f;
 		LookAtCars();
@@ -318,6 +332,76 @@ void UGTPCrowdSubsystem::LookAtCars()
 			Car.SpeedCmS = Velocity.Size2D();
 			Car.RadiusCm = 250.f;
 		}
+	}
+	// The cars people walk round: every vehicle of the game standing or rolling slowly near the player (his own, the
+	// traffic's, the police's), as the box of its body seen from above, and the slow MassTraffic cars that have no
+	// such actor. A fast car is not walked round: people run from it or are knocked down.
+	StandingCars.Reset();
+	if (bAvoidCars)
+	{
+		const double Reach = FMath::Square(static_cast<double>(CarAvoidDistance));
+		const double Slow = FMath::Square(static_cast<double>(Settings.CrossingCarFastSpeed));
+		for (TActorIterator<AGTPVehicle> It(World); It; ++It)
+		{
+			const UPrimitiveComponent* Body = Cast<UPrimitiveComponent>(It->GetRootComponent());
+			if (!Body || FVector::DistSquared2D(It->GetActorLocation(), PlayerLocation) > Reach || It->GetVelocity().SizeSquared2D() > Slow)
+			{
+				continue;
+			}
+			const FTransform& Transform = It->GetActorTransform();
+			const FVector Forward = Transform.GetUnitAxis(EAxis::X).GetSafeNormal2D();
+			if (Forward.IsNearlyZero())
+			{
+				continue;
+			}
+			// The car's own box (as AGTPTrafficNetwork::FindCarAt reads it).
+			const FBox Local = Body->CalcBounds(FTransform::Identity).GetBox();
+			const FVector Centre = Transform.TransformPosition(Local.GetCenter());
+			const FVector Extent = Local.GetExtent() * Transform.GetScale3D().GetAbs();
+			GTPWalk::FCarBox& Box = StandingCars.AddDefaulted_GetRef();
+			Box.Center = GTPWalk::FPoint{static_cast<float>(Centre.X), static_cast<float>(Centre.Y)};
+			Box.Forward = GTPWalk::FPoint{static_cast<float>(Forward.X), static_cast<float>(Forward.Y)};
+			Box.HalfLength = FMath::Clamp(static_cast<float>(Extent.X), 150.f, 450.f);
+			Box.HalfWidth = FMath::Clamp(static_cast<float>(Extent.Y), 60.f, 150.f);
+		}
+		const int32 Actors = StandingCars.Num();
+		for (const FGTPMassTrafficCar& Car : CarsSeen)
+		{
+			const FVector Forward = Car.Forward.GetSafeNormal2D();
+			if (Car.Id == 0 || Car.SpeedCmS > Settings.CrossingCarFastSpeed || Forward.IsNearlyZero() || FVector::DistSquared2D(Car.Location, PlayerLocation) > Reach)
+			{
+				continue;
+			}
+			bool bHasActor = false;
+			for (int32 Index = 0; Index < Actors && !bHasActor; ++Index)
+			{
+				bHasActor = FMath::Square(StandingCars[Index].Center.X - Car.Location.X) + FMath::Square(StandingCars[Index].Center.Y - Car.Location.Y) < FMath::Square(200.0);
+			}
+			if (!bHasActor)
+			{
+				GTPWalk::FCarBox& Box = StandingCars.AddDefaulted_GetRef();
+				Box.Center = GTPWalk::FPoint{static_cast<float>(Car.Location.X), static_cast<float>(Car.Location.Y)};
+				Box.Forward = GTPWalk::FPoint{static_cast<float>(Forward.X), static_cast<float>(Forward.Y)};
+				Box.HalfLength = FMath::Clamp(Car.RadiusCm, 150.f, 450.f);
+			}
+		}
+	}
+	const double LogNow = World->GetTimeSeconds();
+	const bool bLogNow = LogNow - LastCrossingLog >= 10.0;
+	if (bLogNow && bAvoidCars)
+	{
+		UE_LOG(LogGTPCrowd, Log, TEXT("crowd: cars: %d standing or slow within %.0f m of the player; people going round one %d, standing in front of one %d, within the body of one %d; since the start: most within a body at once %d, turned back at one %d, something high not taken for the ground %d times"),
+			StandingCars.Num(), CarAvoidDistance / 100.f, GoingRoundCar, StandingAtCar, InsideCar, MostInsideCar, TurnedBackAtCar, GroundRefusals);
+	}
+	if (bLogNow && bAssembled)
+	{
+		UE_LOG(LogGTPCrowd, Log, TEXT("crowd: dressed %d times: hair painted on the scalp %d, hair mesh on the head %d, left bald %d, no head material that takes hair %d; without a top %d, without trousers or a skirt %d, without shoes %d, without a face %d"),
+			Dressed, HairPainted, HairMeshes, LeftBald, NoHeadMaterial, WithoutTop, WithoutBottom, WithoutShoes, WithoutFace);
+	}
+	if (!bCrossingWait)
+	{
+		LastCrossingLog = bLogNow ? LogNow : LastCrossingLog;
+		return;
 	}
 	CrossingsLookedAt = CrossingsWithCarNear = CrossingsWithCarDangerous = 0;
 	for (const int32 Edge : CrossingEdges)
@@ -368,6 +452,16 @@ void UGTPCrowdSubsystem::LookAtCars()
 	}
 }
 
+void UGTPCrowdSubsystem::ReportCars(int32 Round, int32 Standing, int32 Inside, int32 TurnedBack, int32 GroundRefused)
+{
+	GoingRoundCar = Round;
+	StandingAtCar = Standing;
+	InsideCar = Inside;
+	MostInsideCar = FMath::Max(MostInsideCar, Inside);
+	TurnedBackAtCar += TurnedBack;
+	GroundRefusals += GroundRefused;
+}
+
 void UGTPCrowdSubsystem::ReportCrossings(int32 Waiting, int32 Crossing, float LongestWait, int32 GaveUp)
 {
 	WaitingAtKerb = Waiting;
@@ -412,7 +506,10 @@ void UGTPCrowdMoveProcessor::Execute(FMassEntityManager& EntityManager, FMassExe
 	const double Now = Context.GetWorld()->GetTimeSeconds();
 	int32 Waiting = 0, OnCrossing = 0, GaveUp = 0;
 	float LongestWait = 0.f;
-	Query.ForEachEntityChunk(Context, [this, Crowd, &Graph, &Settings, Player, Recycle, Now, &Waiting, &OnCrossing, &GaveUp, &LongestWait](FMassExecutionContext& Chunk)
+	const TArray<GTPWalk::FCarBox>& CarBoxes = Crowd->GetStandingCars();
+	int32 RoundCar = 0, AtCar = 0, InCar = 0, BackAtCar = 0, GroundRefused = 0;
+	Query.ForEachEntityChunk(Context, [this, Crowd, &Graph, &Settings, Player, Recycle, Now, &Waiting, &OnCrossing, &GaveUp, &LongestWait,
+		&CarBoxes, &RoundCar, &AtCar, &InCar, &BackAtCar, &GroundRefused](FMassExecutionContext& Chunk)
 	{
 		const float Dt = Chunk.GetDeltaTimeSeconds();
 		const TArrayView<FGTPCrowdWalkerFragment> Walkers = Chunk.GetMutableFragmentView<FGTPCrowdWalkerFragment>();
@@ -473,8 +570,34 @@ void UGTPCrowdMoveProcessor::Execute(FMassEntityManager& EntityManager, FMassExe
 				bCrossingUnsafe = Cars != 0 && GTPWalk::CrossingUnsafe(W.Walker.Edge, Now,
 					(Cars & UGTPCrowdSubsystem::CrossingHasCarNear) != 0, (Cars & UGTPCrowdSubsystem::CrossingHasCarDangerous) != 0, Settings);
 			}
+			// A car standing in the way: round it on the walkway, never through it; right in front of it he stands
+			// (GTPWalk::AvoidBox). Not for somebody who stands for another reason (hands up, a window, a crash).
+			GTPWalk::EAround Around = GTPWalk::EAround::Clear;
+			if (W.Walker.Pause <= 0.f)
+			{
+				for (const GTPWalk::FCarBox& Car : CarBoxes)
+				{
+					const double Reach = static_cast<double>(Car.HalfLength) + Settings.CarLookAhead + 150.0;
+					if (FMath::Square(Car.Center.X - W.Location.X) + FMath::Square(Car.Center.Y - W.Location.Y) > FMath::Square(Reach))
+					{
+						continue;
+					}
+					const bool bWasForward = W.Walker.bForward;
+					const GTPWalk::EAround This = GTPWalk::AvoidBox(Graph, W.Walker, Car, Settings, Dt);
+					BackAtCar += W.Walker.bForward != bWasForward ? 1 : 0;
+					if (This == GTPWalk::EAround::Wait)
+					{
+						Around = This;
+						break;
+					}
+					Around = static_cast<int>(This) > static_cast<int>(Around) ? This : Around;
+				}
+			}
+			RoundCar += Around == GTPWalk::EAround::Around ? 1 : 0;
+			AtCar += Around == GTPWalk::EAround::Wait ? 1 : 0;
+			InCar += Around == GTPWalk::EAround::Inside ? 1 : 0;
 			const float WaitedBefore = W.Walker.CrossingWait;
-			const GTPWalk::FStepResult R = GTPWalk::Step(Graph, W.Walker, Dt, Rng, Settings, bCrossingUnsafe);
+			const GTPWalk::FStepResult R = Around == GTPWalk::EAround::Wait ? GTPWalk::FStepResult() : GTPWalk::Step(Graph, W.Walker, Dt, Rng, Settings, bCrossingUnsafe);
 			if (R.bWaitingToCross)
 			{
 				++Waiting;
@@ -503,8 +626,18 @@ void UGTPCrowdMoveProcessor::Execute(FMassEntityManager& EntityManager, FMassExe
 			}
 			else if (FVector::DistSquared2D(Previous, W.Location) > 2500.f || Rng.Next() < Dt * 0.5f)
 			{
-				// New ground height after a long step and, now and then, as the ground changes along the walk.
-				W.GroundZ = Crowd->GroundAt(W.Location);
+				// New ground height after a long step and, now and then, as the ground changes along the walk. Something
+				// more than 40 cm higher than the ground 60 cm behind him is not ground (a bench, a planter, a parked
+				// car that is part of the town): he does not step up onto it. Stairs and ramps rise less than that.
+				const float Ground = Crowd->GroundAt(W.Location);
+				if (Ground > W.GroundZ + 40.f && Ground > Crowd->GroundAt(W.Location - FVector(D.X, D.Y, 0.f) * 60.f) + 40.f)
+				{
+					++GroundRefused;
+				}
+				else
+				{
+					W.GroundZ = Ground;
+				}
 			}
 #if WITH_GTP_MASSTRAFFIC
 			Publish(Index, W, FVector(D.X, D.Y, 0.f).GetSafeNormal2D() * W.Speed, R.bWaitingToCross);
@@ -512,6 +645,7 @@ void UGTPCrowdMoveProcessor::Execute(FMassEntityManager& EntityManager, FMassExe
 		}
 	});
 	Crowd->ReportCrossings(Waiting, OnCrossing, LongestWait, GaveUp);
+	Crowd->ReportCars(RoundCar, AtCar, InCar, BackAtCar, GroundRefused);
 }
 
 UGTPCrowdRepresentationProcessor::UGTPCrowdRepresentationProcessor()
@@ -1183,6 +1317,202 @@ void UGTPCrowdSubsystem::SpreadPanic()
 	}
 }
 
+void UGTPCrowdSubsystem::FindHair()
+{
+	bHairLooked = true;
+	if (CrowdCharacterRoot.IsEmpty())
+	{
+		return;
+	}
+	// What the project holds of City Sample's hair, asked of the registry (nothing is loaded here): the baked textures
+	// its head material paints on the scalp (Hair_<size>_<style>_baked) and the hair meshes it shows from a distance
+	// (Hair_<size>_<style>_Helmet_LOD5 or _Mesh_LOD5). The styles of City Sample's female heads go to the women.
+	static const TCHAR* const FemaleStyles[] = {TEXT("Coil"), TEXT("Pixie"), TEXT("LowPonytail"), TEXT("Updo"), TEXT("BobCurly"), TEXT("Ponytail")};
+	TArray<FAssetData> Found;
+	FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry")).Get().GetAssetsByPath(FName(*CrowdCharacterRoot), Found, true);
+	const FTopLevelAssetPath FixedMeshClass = UStaticMesh::StaticClass()->GetClassPathName();
+	const FTopLevelAssetPath SkinnedMeshClass = USkeletalMesh::StaticClass()->GetClassPathName();
+	int32 Kept = 0;
+	for (const FAssetData& Asset : Found)
+	{
+		const FString Name = Asset.AssetName.ToString();
+		const bool bBaked = Name.EndsWith(TEXT("_baked"));
+		const bool bMesh = Name.EndsWith(TEXT("_LOD5")) && (Asset.AssetClassPath == FixedMeshClass || Asset.AssetClassPath == SkinnedMeshClass);
+		if (!Name.StartsWith(TEXT("Hair_")) || (!bBaked && !bMesh))
+		{
+			continue;
+		}
+		// Hair_S_AfroFade_baked, Hair_S_AfroFade_Helmet_LOD5: the style is the third word.
+		TArray<FString> Words;
+		Name.ParseIntoArray(Words, TEXT("_"));
+		if (Words.Num() < 4)
+		{
+			continue;
+		}
+		const FString Style = Words[2];
+		if (!CrowdHairKeptForPlayer.IsEmpty() && Style.Contains(CrowdHairKeptForPlayer))
+		{
+			++Kept;
+			continue;
+		}
+		bool bFemale = false;
+		for (const TCHAR* Female : FemaleStyles)
+		{
+			bFemale |= Style.Equals(Female, ESearchCase::IgnoreCase);
+		}
+		TArray<FHairStyle>& Styles = HairStyles[bFemale ? 1 : 0];
+		FHairStyle* Entry = Styles.FindByPredicate([&Style](const FHairStyle& Other) { return Other.Style == Style; });
+		if (!Entry)
+		{
+			Entry = &Styles.AddDefaulted_GetRef();
+			Entry->Style = Style;
+		}
+		if (bBaked)
+		{
+			Entry->Baked = Asset.GetSoftObjectPath();
+		}
+		else
+		{
+			Entry->Mesh = Asset.GetSoftObjectPath();
+			Entry->bMeshIsSkinned = Asset.AssetClassPath == SkinnedMeshClass;
+		}
+	}
+	for (int32 Sex = 0; Sex < 2; ++Sex)
+	{
+		FString List;
+		for (const FHairStyle& Style : HairStyles[Sex])
+		{
+			List += FString::Printf(TEXT("%s%s (%s%s%s)"), List.IsEmpty() ? TEXT("") : TEXT(", "), *Style.Style, Style.Baked.IsValid() ? TEXT("painted") : TEXT(""),
+				Style.Baked.IsValid() && Style.Mesh.IsValid() ? TEXT(" + ") : TEXT(""), Style.Mesh.IsValid() ? (Style.bMeshIsSkinned ? TEXT("skinned mesh") : TEXT("mesh")) : TEXT(""));
+		}
+		UE_LOG(LogGTPCrowd, Log, TEXT("crowd hair: %s: %d styles in the project under %s: %s"), Sex == 1 ? TEXT("women") : TEXT("men"), HairStyles[Sex].Num(), *CrowdCharacterRoot,
+			List.IsEmpty() ? TEXT("NONE, they stay bald") : *List);
+	}
+	UE_LOG(LogGTPCrowd, Log, TEXT("crowd hair: %d assets left to the player (style \"%s\"), %d assets looked at"), Kept, *CrowdHairKeptForPlayer, Found.Num());
+}
+
+void UGTPCrowdSubsystem::GiveHair(AGTPPedestrian* Actor, bool bFemale)
+{
+	if (!bHairLooked)
+	{
+		FindHair();
+	}
+	USkeletalMeshComponent* Face = Actor ? Actor->GetFace() : nullptr;
+	if (!Face)
+	{
+		return;
+	}
+	// The colour first, for everybody: City Sample's head material tints the painted hair and the eyebrows from a
+	// melanin and a redness (each head has its own; here one per person, dark more often than fair).
+	const float Roll = ReactionRng.Next();
+	const float Melanin = Roll < 0.55f ? ReactionRng.Range(0.8f, 1.f) : (Roll < 0.88f ? ReactionRng.Range(0.45f, 0.8f) : ReactionRng.Range(0.15f, 0.45f));
+	const float Redness = ReactionRng.Range(0.f, 0.45f);
+	const TArray<FHairStyle>& Styles = HairStyles[bFemale ? 1 : 0];
+	const bool bBald = Styles.IsEmpty() || (!bFemale && ReactionRng.Next() < CrowdBaldShare);
+	const FHairStyle* Style = bBald ? nullptr : &Styles[FMath::Min(Styles.Num() - 1, static_cast<int32>(ReactionRng.Next() * Styles.Num()))];
+	UTexture* Baked = Style ? Cast<UTexture>(Style->Baked.TryLoad()) : nullptr;
+	// Painted on the scalp: every material of the face that has the head material's HairAttributeMap.
+	static const FName HairMap(TEXT("HairAttributeMap"));
+	bool bHeadMaterial = false, bPainted = false;
+	for (int32 Slot = 0; Slot < Face->GetNumMaterials(); ++Slot)
+	{
+		UMaterialInterface* Material = Face->GetMaterial(Slot);
+		UTexture* Current = nullptr;
+		if (!Material || !Material->GetTextureParameterValue(FHashedMaterialParameterInfo(HairMap), Current))
+		{
+			continue;
+		}
+		bHeadMaterial = true;
+		UMaterialInstanceDynamic* Head = Face->CreateDynamicMaterialInstance(Slot, Material);
+		if (!Head)
+		{
+			continue;
+		}
+		for (const TCHAR* Name : {TEXT("HairMelanin"), TEXT("EyebrowsMelanin"), TEXT("BeardMelanin"), TEXT("MustacheMelanin")})
+		{
+			Head->SetScalarParameterValue(Name, Melanin);
+		}
+		for (const TCHAR* Name : {TEXT("HairRedness"), TEXT("EyebrowsRedness"), TEXT("BeardRedness"), TEXT("MustacheRedness")})
+		{
+			Head->SetScalarParameterValue(Name, Redness);
+		}
+		// A virtual texture where the material samples an ordinary one (or the reverse) would not draw: left alone, said.
+		const bool bSameKind = !Baked || !Current || Baked->IsCurrentlyVirtualTextured() == Current->IsCurrentlyVirtualTextured();
+		if (Baked && bSameKind)
+		{
+			Head->SetTextureParameterValue(HairMap, Baked);
+			Head->SetScalarParameterValue(TEXT("ShowBakedGroomTextures"), 1.f);
+			bPainted = true;
+		}
+		const FString Key = Material->GetName() + TEXT("|") + (Style ? Style->Style : FString(TEXT("bald")));
+		if (!HairSaid.Contains(Key) && HairSaid.Num() < 24)
+		{
+			HairSaid.Add(Key);
+			float Show = -1.f;
+			const bool bShowScalar = Material->GetScalarParameterValue(FHashedMaterialParameterInfo(FName(TEXT("ShowBakedGroomTextures"))), Show);
+			UE_LOG(LogGTPCrowd, Log, TEXT("crowd hair: face slot %d %s: HairAttributeMap was %s (%s), %s; ShowBakedGroomTextures %s; melanin %.2f redness %.2f"), Slot, *Material->GetName(),
+				Current ? *Current->GetName() : TEXT("none"), Current && Current->IsCurrentlyVirtualTextured() ? TEXT("virtual") : TEXT("not virtual"),
+				!Baked ? TEXT("left (no baked texture for this person)") : (bSameKind ? *FString::Printf(TEXT("set to %s"), *Baked->GetName()) : *FString::Printf(TEXT("NOT set to %s: not the same kind of texture"), *Baked->GetName())),
+				bShowScalar ? *FString::Printf(TEXT("is a scalar, was %.0f"), Show) : TEXT("is not a scalar of this material"), Melanin, Redness);
+		}
+	}
+	// And the hair with a volume, when the project has the mesh of the style.
+	UMeshComponent* Hair = nullptr;
+	if (Style && Style->Mesh.IsValid())
+	{
+		UObject* Mesh = Style->Mesh.TryLoad();
+		Hair = Actor->SetHair(Cast<UStaticMesh>(Mesh), Cast<USkeletalMesh>(Mesh));
+		for (int32 Slot = 0; Hair && Slot < Hair->GetNumMaterials(); ++Slot)
+		{
+			UMaterialInterface* Material = Hair->GetMaterial(Slot);
+			UMaterialInstanceDynamic* Tint = Material ? Hair->CreateDynamicMaterialInstance(Slot, Material) : nullptr;
+			if (!Tint)
+			{
+				continue;
+			}
+			// The names differ from one hair material to the other: those the material has are set, and said once.
+			TArray<FMaterialParameterInfo> Scalars;
+			TArray<FGuid> Ids;
+			Material->GetAllScalarParameterInfo(Scalars, Ids);
+			FString Names;
+			for (const FMaterialParameterInfo& Info : Scalars)
+			{
+				const FString Name = Info.Name.ToString();
+				Names += (Names.IsEmpty() ? TEXT("") : TEXT(", ")) + Name;
+				if (Name.Contains(TEXT("Melanin")))
+				{
+					Tint->SetScalarParameterValue(Info.Name, Melanin);
+				}
+				else if (Name.Contains(TEXT("Redness")))
+				{
+					Tint->SetScalarParameterValue(Info.Name, Redness);
+				}
+			}
+			const FString Key = TEXT("mesh|") + Material->GetName();
+			if (!HairSaid.Contains(Key) && HairSaid.Num() < 24)
+			{
+				HairSaid.Add(Key);
+				UE_LOG(LogGTPCrowd, Log, TEXT("crowd hair: mesh %s (%s) slot %d material %s, its scalars: %s"), *Style->Mesh.GetAssetName(), Style->bMeshIsSkinned ? TEXT("skinned") : TEXT("fixed to the head bone"),
+					Slot, *Material->GetPathName(), Names.IsEmpty() ? TEXT("none") : *Names);
+			}
+		}
+	}
+	NoHeadMaterial += bHeadMaterial ? 0 : 1;
+	HairPainted += bPainted ? 1 : 0;
+	HairMeshes += Hair ? 1 : 0;
+	LeftBald += bPainted || Hair ? 0 : 1;
+	if (!bHeadMaterial && !HairSaid.Contains(TEXT("no head material")))
+	{
+		HairSaid.Add(TEXT("no head material"));
+		FString Names;
+		for (int32 Slot = 0; Slot < Face->GetNumMaterials(); ++Slot)
+		{
+			Names += FString::Printf(TEXT("%s%d %s"), Names.IsEmpty() ? TEXT("") : TEXT(", "), Slot, Face->GetMaterial(Slot) ? *Face->GetMaterial(Slot)->GetName() : TEXT("none"));
+		}
+		UE_LOG(LogGTPCrowd, Log, TEXT("crowd hair: NO material of the face %s has a HairAttributeMap texture: %s"), Face->GetSkeletalMeshAsset() ? *Face->GetSkeletalMeshAsset()->GetName() : TEXT("?"), *Names);
+	}
+}
+
 bool UGTPCrowdSubsystem::DressFromCitySample(AGTPPedestrian* Actor)
 {
 	// Path pattern of the pack: <Root>/<Female|Male>/<NormalWeight|OverWeight|UnderWeight>/Meshes/<f|m>_tal_<nrw|ovw|unw>_<part>.
@@ -1276,6 +1606,18 @@ bool UGTPCrowdSubsystem::DressFromCitySample(AGTPPedestrian* Actor)
 		FaceAnim = FaceAnimClass.TryLoadClass<UAnimInstance>();
 	}
 	Actor->Dress(Body, Clothes, Face, FaceAnim);
+	++Dressed;
+	if (bWantClothes)
+	{
+		WithoutTop += Clothes[0] ? 0 : 1;
+		WithoutBottom += Clothes[1] ? 0 : 1;
+		WithoutShoes += Clothes[2] ? 0 : 1;
+	}
+	WithoutFace += Face ? 0 : 1;
+	if (bHair && Face)
+	{
+		GiveHair(Actor, bFemale);
+	}
 	int32 DefaultMaterials = 0;
 	if (FParse::Value(FCommandLine::Get(), TEXT("CrowdDefaultMaterials="), DefaultMaterials) && DefaultMaterials != 0)
 	{

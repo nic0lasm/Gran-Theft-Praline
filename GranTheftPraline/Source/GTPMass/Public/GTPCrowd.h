@@ -134,6 +134,15 @@ public:
 	/** From the move processor, once a frame: who waits at the kerb of a crossing, who is on one, who stopped waiting. */
 	void ReportCrossings(int32 Waiting, int32 Crossing, float LongestWait, int32 GaveUp);
 
+	/**
+	 * The cars standing or rolling slowly near the player, seen from above, for people to walk round them
+	 * (GTPWalk::AvoidBox). Empty with -CrowdAvoidCars=0.
+	 */
+	const TArray<GTPWalk::FCarBox>& GetStandingCars() const { return StandingCars; }
+
+	/** From the move processor, once a frame: people going round a car, standing in front of one, within the body of one, turned back, and heights refused as ground. */
+	void ReportCars(int32 Round, int32 Standing, int32 Inside, int32 TurnedBack, int32 GroundRefused);
+
 protected:
 	/** People in the crowd; -PedMass=N overrides. */
 	UPROPERTY(Config)
@@ -170,6 +179,24 @@ protected:
 
 	UPROPERTY(Config)
 	float CrossingWaitMaxSeconds = 45.f;
+
+	/** People walk round the cars standing within this distance of the player (cm); further away nobody sees them walk through one. */
+	UPROPERTY(Config)
+	float CarAvoidDistance = 7000.f;
+
+	/**
+	 * Hair of the assembled characters (-CrowdHair=0: none, as before candidate 64). City Sample's crowd has no hair
+	 * on its heads: its own character code paints a baked texture on the scalp and adds a groom. Ours paints the
+	 * baked textures found under CrowdCharacterRoot (Hair_*_baked) and fixes on the head the hair meshes found there
+	 * (Hair_*_LOD5, the "helmets" City Sample shows from a distance). A style whose name contains this word is left
+	 * to the player.
+	 */
+	UPROPERTY(Config)
+	FString CrowdHairKeptForPlayer = TEXT("PulledBack");
+
+	/** Share of the men left with a bare scalp (0 to 1). */
+	UPROPERTY(Config)
+	float CrowdBaldShare = 0.1f;
 
 	/** The mannequin faces +Y: yaw applied to the instances so they face the walking direction. */
 	UPROPERTY(Config)
@@ -248,6 +275,8 @@ private:
 	void UpdateNear(float DeltaTime);
 	void SpreadPanic();
 	void LookAtCars();
+	void FindHair();
+	void GiveHair(AGTPPedestrian* Actor, bool bFemale);
 	void OnLoud(const FVector& Where, float Radius, AActor* Cause);
 	void OnActorThreat(AActor* Body, int32 NewState);
 	void SayWhatIsPlayed(const AGTPPedestrian* Actor, const UAnimSequenceBase* Asked, const TCHAR* What);
@@ -328,6 +357,36 @@ private:
 	int32 CrossingsWithCarDangerous = 0;
 	int32 CrossingsLookedAt = 0;
 	double LastCrossingLog = 0.0;
+	/** Cars to walk round (LookAtCars), and what people do about them, now and since the start. */
+	TArray<GTPWalk::FCarBox> StandingCars;
+	bool bAvoidCars = true;
+	int32 GoingRoundCar = 0;
+	int32 StandingAtCar = 0;
+	int32 InsideCar = 0;
+	int32 MostInsideCar = 0;
+	int32 TurnedBackAtCar = 0;
+	int32 GroundRefusals = 0;
+	/** Hair found in the project, by sex (0 male, 1 female): baked scalp textures and meshes, by style name. */
+	struct FHairStyle
+	{
+		FString Style;
+		FSoftObjectPath Baked;
+		FSoftObjectPath Mesh;
+		bool bMeshIsSkinned = false;
+	};
+	TArray<FHairStyle> HairStyles[2];
+	bool bHair = true;
+	bool bHairLooked = false;
+	int32 Dressed = 0;
+	int32 HairPainted = 0;
+	int32 HairMeshes = 0;
+	int32 LeftBald = 0;
+	int32 NoHeadMaterial = 0;
+	int32 WithoutTop = 0;
+	int32 WithoutBottom = 0;
+	int32 WithoutShoes = 0;
+	int32 WithoutFace = 0;
+	TSet<FString> HairSaid;
 	FDelegateHandle LoudHandle;
 	TMap<const AActor*, double> LastLoudBySource;
 	double LastLoudLog = -10.0;

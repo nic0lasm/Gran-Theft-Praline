@@ -41,6 +41,67 @@ queue never left (queues held up to 250 s at gate 57). Since candidate 58:
   longest wait is 21 s and as many people get across. Twelve cars are read (stopped before it, coming fast, past it, in the next
   street, along it). **Not proven in the game**: that the queues of gate 57 drain.
 
+## Hair of the assembled characters (`-CrowdHair=0` for none)
+
+Until candidate 63 every passer-by was bald (video of gate 59). Not a cook problem: City Sample's crowd heads have no
+hair of their own, its character code adds it (a groom, and a baked texture painted on the scalp at a distance), and our
+assembly (`UGTPCrowdSubsystem::DressFromCitySample`) gave none. Shoes were never missing: a top, trousers or a skirt and
+shoes are loaded for everybody, and the log now counts whoever lacks one.
+
+Since candidate 64 (`UGTPCrowdSubsystem::FindHair`, `GiveHair`):
+
+- **What the project holds is asked of the asset registry** under `CrowdCharacterRoot`: the baked scalp textures
+  (`Hair_<size>_<style>_baked`) and the hair meshes City Sample shows from a distance (`Hair_<size>_<style>_Helmet_LOD5`,
+  `_Mesh_LOD5`). The style named in `CrowdHairKeptForPlayer` (`PulledBack`) is left to the player.
+- **Painted on the scalp**: on every material of the face that has the head material's `HairAttributeMap`, a dynamic
+  instance takes the baked texture of the person's style (only one of the same kind as the one it replaces, virtual or
+  not) and `ShowBakedGroomTextures`.
+- **With a volume**: the style's mesh on the head. A static mesh is fixed to the `head` bone, put back by the inverse of
+  that bone's reference pose (it was modelled around the head in that pose); a skeletal one follows the body's pose like a
+  garment (`AGTPPedestrian::SetHair`).
+- **Colours**: one melanin and one redness per person, dark more often than fair, on the head material (hair and
+  eyebrows) and on the scalars of the hair mesh's material whose name contains `Melanin` or `Redness`.
+  `CrowdBaldShare` (0.1) of the men keep a bare scalp.
+- **Log**: at the first person dressed, `crowd hair: men: N styles in the project under …: AfroFade (painted + mesh), …`
+  and the same for women (`NONE, they stay bald` when the project has nothing); once per material,
+  `crowd hair: face slot N <material>: HairAttributeMap was …, set to …; ShowBakedGroomTextures …` and
+  `crowd hair: mesh … slot N material …, its scalars: …`; `crowd hair: NO material of the face … has a HairAttributeMap
+  texture: …` when the face shown has no such material; every 10 s, `crowd: dressed N times: hair painted on the scalp N,
+  hair mesh on the head N, left bald N, no head material that takes hair N; without a top N, without trousers or a skirt
+  N, without shoes N, without a face N`.
+- **What to copy for the volume** (assets outside Git, editor closed, City Sample read only), as for Nicolito's hair:
+  `GTP_CROWD_HAIR=1` with `tools/character/crowd_hair_deps.py` lists the nine hair meshes and five baked textures of the
+  crowd and what they depend on, missing in the project; `tools/vehicles/copy_citysample_content.py --list
+  Saved/CitySampleCopy/missing.txt` copies them (`--dry-run` first); run both again until `0 missing`. The script also
+  gives the class of each mesh (static or skeletal).
+- **Not proven**: anything in the game. Not known from here: whether the face shown at its level 4 has a material with
+  `HairAttributeMap`, whether the hair meshes are static or skeletal, how their material draws on a static mesh, how a
+  mesh modelled on City Sample's reference head sits on each of the six heads. The lines above answer each.
+
+The far crowd (beige figures beyond the 24 near characters) is another matter: one stand-in mesh, `CrowdMesh`.
+
+## Cars standing on a walkway (`-CrowdAvoidCars=0` to walk through them as before)
+
+Video of gate 59, 130 to 180 s: the player's car stands in a pedestrian street and people walk through it, one of them
+up onto the bonnet. Two causes, two answers:
+
+- **The ground under a person** was a visibility trace, which stops on a car: the person stood on it. It is now a trace on
+  the static objects only (`ECC_WorldStatic`, as the cars' own ground traces), and something more than 40 cm higher than
+  the ground 60 cm behind the person is not taken for ground (a bench, a planter).
+- **A car in the way is walked round** (`GTPWalk::AvoidBox`, engine-free): four times a second the subsystem lists the
+  vehicles of the game standing or slower than 5 km/h within `CarAvoidDistance` (70 m) of the player, as the box of
+  their body seen from above, and the slow MassTraffic cars that have no such actor. A person whose next 3.5 m go
+  through a box (45 cm of margin) takes a line beside it on his walkway; right in front of it he stands and steps
+  sideways; with no room on either side he waits 4 s and turns back. A fast car is not walked round: people run from it
+  or are knocked down.
+- **Log**, every 10 s: `crowd: cars: N standing or slow within 70 m of the player; people going round one N, standing in
+  front of one N, within the body of one N; since the start: most within a body at once N, turned back at one N,
+  something high not taken for the ground N times`. A good run keeps "within the body of one" at 0 or 1 (a car that
+  stops on somebody).
+- **Checked offline** (`python3 tools/pedestrians/check_walk_logic.py`): a car on a walkway, 20 people for 180 s. Not
+  avoided: 5 114 frames inside its body. Avoided on a 7 m walkway: 0 frames inside and as many passages (173 for 174);
+  on a 2 m walkway: 0 frames inside, nobody passes, everybody turns back after 4 s. **Not proven in the game.**
+
 ## City Sample characters (default; `-CrowdCitySample=0` for the mannequins)
 
 The 24 near characters are assembled from the City Sample Crowds subset under `/Game/Crowd` (outside Git): body, three

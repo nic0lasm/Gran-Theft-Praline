@@ -14,6 +14,9 @@ class UAnimInstance;
 class USceneComponent;
 class USkeletalMesh;
 class USkeletalMeshComponent;
+class UStaticMeshComponent;
+class UMeshComponent;
+class UStaticMesh;
 
 /**
  * A person on foot, not the player: a skeletal mesh played by a single animation
@@ -51,6 +54,16 @@ public:
 	 */
 	void Dress(USkeletalMesh* BodyMesh, const TArray<USkeletalMesh*>& Clothes, USkeletalMesh* Face, TSubclassOf<UAnimInstance> FaceAnim);
 
+	/** The face of an assembled character (Dress), null without one. */
+	USkeletalMeshComponent* GetFace() const { return FaceComponent; }
+
+	/**
+	 * Hair as a mesh on the head of an assembled character, taken off by the next Dress. A static mesh is fixed to the
+	 * head bone, where it was modelled on the head in the reference pose (City Sample's "helmet" meshes); a skeletal
+	 * mesh follows the body's pose like a garment. Returns the component, null when the head bone is not found.
+	 */
+	UMeshComponent* SetHair(UStaticMesh* Fixed, USkeletalMesh* Skinned);
+
 	bool IsRagdoll() const { return bRagdoll; }
 
 	/** Hit by a car: physics takes over, the subsystem takes the body away a few seconds later. */
@@ -71,6 +84,12 @@ private:
 
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<USkeletalMeshComponent>> Parts;
+
+	UPROPERTY(Transient)
+	TObjectPtr<USkeletalMeshComponent> FaceComponent;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UStaticMeshComponent> HairComponent;
 
 	bool bRagdoll = false;
 	/** Where the body sits under the actor, kept when it falls: it comes back there, upright, when it is given again. */

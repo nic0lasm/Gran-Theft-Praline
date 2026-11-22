@@ -16,6 +16,9 @@ Env: GTP_HAIR_STYLES (default BuzzCut,SideSweptFringe,Messy,PulledBack), GTP_NIC
 GTP_DEPS_OF=/Game/MetaHumans/GTP/Nicolito/BP_Nicolito_Full (comma-separated packages) lists instead everything those
 need under /Game (Saved/CitySampleCopy/closure.txt, size by top folder): what another copy of the project, such as
 the Mac's, must receive at the same paths for the player's visual.
+GTP_CROWD_HAIR=1 lists instead what the hair of the crowd needs (docs/gameplay/pedestrians-mass.md, "Hair"): the
+hair meshes City Sample shows from a distance (Hair_*_LOD5 of its heads) and its baked scalp textures, the player's
+style left out, with everything they depend on; same list file, same copy, run again until 0 missing.
 Report: Saved/GTPCombat/crowd-hair-deps.txt (lines also in the log, prefixed "HAIRDEPS"); the list:
 Saved/CitySampleCopy/missing.txt.
 """
@@ -38,6 +41,21 @@ CITYSAMPLE_GROOMS = {
     "HairLoss": "m_006/Hair/Hair/Hair_S_HairLoss",
 }
 BAKED_STYLES = {"BuzzCut", "PulledBack", "AfroFade", "HairLoss"}
+# For the crowd (GTP_CROWD_HAIR=1): where the full City Sample keeps the hair mesh of each style (its listing,
+# 2026-11-14) and the styles with a baked scalp texture. PulledBack is the player's and is left out.
+CROWD_ROOT = "/Game/Crowd/Character"
+CROWD_HAIR_MESHES = [
+    "Female/f_001/Hair/Helmets/Hair_S_Coil_Helmet_LOD5",
+    "Female/f_002/Hair/Helmets/Hair_S_Pixie_Mesh_LOD5",
+    "Female/f_003/Hair/Helmets/Hair_S_LowPonytail_Helmet_LOD5",
+    "Female/f_004/Hair/Helmets/Hair_S_Updo_Helmet_LOD5",
+    "Female/f_005/Hair/Helmets/Hair_M_BobCurly_Helmet_LOD5",
+    "Male/m_001/Hair/Helmets/Hair_S_AfroFade_Helmet_LOD5",
+    "Male/m_002/Hair/Helmets/Hair_S_CurlyFade_Helmet_LOD5",
+    "Male/m_003/Hair/Helmets/Hair_M_SideSweptFringe_Mesh_LOD5",
+    "Male/m_006/Hair/Helmets/Hair_S_HairLoss_Helmet_LOD5",
+]
+CROWD_BAKED = ["Hair_S_AfroFade", "Hair_S_BuzzCut", "Hair_S_Coil", "Hair_S_HairLoss", "Hair_S_Updo"]
 
 eal = unreal.EditorAssetLibrary
 registry = unreal.AssetRegistryHelpers.get_asset_registry()
@@ -122,6 +140,30 @@ def closure_of(roots):
     say("closure list written to Saved/CitySampleCopy/closure.txt")
 
 
+def crowd_hair():
+    """GTP_CROWD_HAIR=1: the crowd's hair meshes and baked scalp textures, and what they depend on, missing here."""
+    seeds = ["%s/%s" % (CROWD_ROOT, mesh) for mesh in CROWD_HAIR_MESHES]
+    seeds += ["%s/%s_baked/%s_baked" % (BAKED_DIR, name, name) for name in CROWD_BAKED]
+    missing = {}
+    for seed in seeds:
+        present = exists(seed)
+        kind = "-"
+        if present:
+            try:
+                kind = eal.load_asset(seed).get_class().get_name()
+            except Exception as error:  # noqa: BLE001 (reported)
+                kind = "not loaded (%r)" % (error,)
+        else:
+            missing.setdefault(seed, "the crowd's hair")
+        say("%s: %s, class %s" % (seed, "present" if present else "missing", kind))
+    walked = follow(seeds, missing)
+    say("crowd hair: %d seeds, %d packages followed" % (len(seeds), walked))
+    say("%d missing" % len(missing))
+    for package, needed_by in sorted(missing.items()):
+        say("  missing %s (for %s)" % (package, needed_by))
+    return sorted(missing)
+
+
 def main():
     try:
         registry.search_all_assets(True)
@@ -171,6 +213,12 @@ def run():
     try:
         if roots:
             closure_of(roots)
+        elif os.environ.get("GTP_CROWD_HAIR", "").strip() not in ("", "0"):
+            try:
+                registry.search_all_assets(True)
+            except Exception as error:  # noqa: BLE001 (the commandlet's scan is used)
+                say("asset scan not forced (%r)" % (error,))
+            missing = crowd_hair()
         else:
             missing = main()
     except Exception as error:  # noqa: BLE001 (reported, the report is still written)

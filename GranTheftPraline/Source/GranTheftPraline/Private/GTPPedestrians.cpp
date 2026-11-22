@@ -6,10 +6,12 @@
 #include "Animation/AnimSequenceBase.h"
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Components/SceneComponent.h"
+#include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/SkeletalMesh.h"
+#include "ReferenceSkeleton.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "GameFramework/Character.h"
@@ -102,6 +104,12 @@ void AGTPPedestrian::Dress(USkeletalMesh* BodyMesh, const TArray<USkeletalMesh*>
 		}
 	}
 	Parts.Reset();
+	FaceComponent = nullptr;
+	if (HairComponent)
+	{
+		HairComponent->DestroyComponent();
+		HairComponent = nullptr;
+	}
 	auto AddPart = [this](USkeletalMesh* Mesh, const TCHAR* Name, bool bFollower) -> USkeletalMeshComponent*
 	{
 		if (!Mesh)
@@ -155,7 +163,69 @@ void AGTPPedestrian::Dress(USkeletalMesh* BodyMesh, const TArray<USkeletalMesh*>
 			FacePart->SetLeaderPoseComponent(Body);
 			FacePart->SetComponentTickEnabled(false);
 		}
+		FaceComponent = FacePart;
 	}
+}
+
+UMeshComponent* AGTPPedestrian::SetHair(UStaticMesh* Fixed, USkeletalMesh* Skinned)
+{
+	if (HairComponent)
+	{
+		HairComponent->DestroyComponent();
+		HairComponent = nullptr;
+	}
+	if (Skinned)
+	{
+		// Skinned to the head's bones: it follows the body's pose, as a garment does.
+		USkeletalMeshComponent* Part = NewObject<USkeletalMeshComponent>(this, TEXT("HairSkinned"));
+		Part->SetSkeletalMesh(Skinned);
+		Part->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Part->SetGenerateOverlapEvents(false);
+		Part->SetCanEverAffectNavigation(false);
+		Part->bCastContactShadow = false;
+		Part->bReceivesDecals = false;
+		Part->bUseAttachParentBound = true;
+		Part->PrimaryComponentTick.bCanEverTick = false;
+		Part->AttachToComponent(Body, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+		Part->RegisterComponent();
+		Part->SetLeaderPoseComponent(Body);
+		Part->SetComponentTickEnabled(false);
+		Part->bSyncAttachParentLOD = true;
+		Part->SetCastShadow(bShadow);
+		Parts.Add(Part);
+		return Part;
+	}
+	static const FName HeadBone(TEXT("head"));
+	const USkeletalMesh* Reference = FaceComponent && FaceComponent->GetSkeletalMeshAsset() ? FaceComponent->GetSkeletalMeshAsset() : Body->GetSkeletalMeshAsset();
+	if (!Fixed || !Reference || Body->GetBoneIndex(HeadBone) == INDEX_NONE)
+	{
+		return nullptr;
+	}
+	const FReferenceSkeleton& Skeleton = Reference->GetRefSkeleton();
+	const int32 Head = Skeleton.FindBoneIndex(HeadBone);
+	if (Head == INDEX_NONE)
+	{
+		return nullptr;
+	}
+	// Where the head bone is in the mesh's own space in the reference pose: the hair was modelled around it there.
+	FTransform HeadInMesh = FTransform::Identity;
+	for (int32 Bone = Head; Bone != INDEX_NONE; Bone = Skeleton.GetParentIndex(Bone))
+	{
+		HeadInMesh = HeadInMesh * Skeleton.GetRefBonePose()[Bone];
+	}
+	HairComponent = NewObject<UStaticMeshComponent>(this, TEXT("Hair"));
+	HairComponent->SetStaticMesh(Fixed);
+	HairComponent->SetMobility(EComponentMobility::Movable);
+	HairComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	HairComponent->SetGenerateOverlapEvents(false);
+	HairComponent->SetCanEverAffectNavigation(false);
+	HairComponent->SetCastShadow(false);
+	HairComponent->bReceivesDecals = false;
+	HairComponent->PrimaryComponentTick.bCanEverTick = false;
+	HairComponent->AttachToComponent(Body, FAttachmentTransformRules::KeepRelativeTransform, HeadBone);
+	HairComponent->SetRelativeTransform(HeadInMesh.Inverse());
+	HairComponent->RegisterComponent();
+	return HairComponent;
 }
 
 void AGTPPedestrian::MakeCheap()

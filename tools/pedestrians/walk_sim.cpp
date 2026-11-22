@@ -480,6 +480,69 @@ int main(int Argc, char** Argv)
 	const bool WaitOk = PatientEdge >= 0 && EndlessCars >= Phased.CrossingWaitMax - 1.0 && EndlessCars <= Phased.CrossingWaitMax + 1.0
 		&& StoppedCar >= 0.0 && StoppedCar <= Phased.CrossingCycleSeconds - Phased.CrossingWalkSeconds + 1.0;
 
+	// A car standing on a walkway: nobody walks through its body. On a wide walkway people pass beside it; on a
+	// narrow one they wait, then turn back. Without the avoidance they walk straight through.
+	auto Street = [Dt](float Width, bool bAvoid, int& InsideFrames, int& Passed, int& TurnedBack, double& LongestStand) {
+		FGraph Lane;
+		FEdge E;
+		E.NodeA = 0;
+		E.NodeB = 1;
+		E.Kind = EKind::Pedestrian;
+		E.Width = Width;
+		E.Points = {{0.f, 0.f}, {3000.f, 0.f}};
+		Lane.Edges.push_back(E);
+		Lane.Finalize();
+		FSettings Rule;
+		Rule.PauseChancePerSecond = 0.f;
+		FCarBox Car;
+		Car.Center = {1500.f, 0.f};
+		Car.Forward = {1.f, 0.f};
+		FRng LaneRng(31u);
+		std::vector<FWalker> People(20);
+		std::vector<double> Standing(People.size(), 0.0);
+		for (size_t i = 0; i < People.size(); ++i)
+		{
+			People[i].Edge = 0;
+			People[i].bForward = (i % 2) == 0;
+			People[i].S = LaneRng.Range(0.f, 900.f);
+			People[i].Lateral = People[i].LateralTarget = LaneRng.Range(-Width * 0.5f, Width * 0.5f);
+		}
+		InsideFrames = Passed = TurnedBack = 0;
+		LongestStand = 0.0;
+		for (double T = 0.0; T < 180.0; T += Dt)
+		{
+			for (size_t i = 0; i < People.size(); ++i)
+			{
+				FWalker& W = People[i];
+				FPoint Before, Dir;
+				Locate(Lane, W, Before, Dir);
+				const bool bWasForward = W.bForward;
+				const EAround Around = bAvoid ? AvoidBox(Lane, W, Car, Rule, Dt) : EAround::Clear;
+				if (Around != EAround::Wait)
+				{
+					Step(Lane, W, Dt, LaneRng, Rule, false);
+				}
+				FPoint After;
+				Locate(Lane, W, After, Dir);
+				InsideFrames += InCarBox(Car, After, 0.f) ? 1 : 0;
+				Passed += (Before.X - Car.Center.X) * (After.X - Car.Center.X) < 0.f ? 1 : 0;
+				TurnedBack += Around == EAround::Wait && W.bForward != bWasForward ? 1 : 0;
+				Standing[i] = Around == EAround::Wait ? Standing[i] + Dt : 0.0;
+				LongestStand = std::max(LongestStand, Standing[i]);
+			}
+		}
+	};
+	int ThroughInside, ThroughPassed, ThroughBack, WideInside, WidePassed, WideBack, NarrowInside, NarrowPassed, NarrowBack;
+	double ThroughStand, WideStand, NarrowStand;
+	Street(700.f, false, ThroughInside, ThroughPassed, ThroughBack, ThroughStand);
+	Street(700.f, true, WideInside, WidePassed, WideBack, WideStand);
+	Street(200.f, true, NarrowInside, NarrowPassed, NarrowBack, NarrowStand);
+	std::printf("car on a walkway, 20 people for 180 s: not avoided, %d frames inside its body, %d passages; avoided on a 7 m walkway, %d frames inside, %d passages, %d turned back, "
+		"longest stand %.1f s; on a 2 m walkway, %d frames inside, %d passages, %d turned back, longest stand %.1f s\n",
+		ThroughInside, ThroughPassed, WideInside, WidePassed, WideBack, WideStand, NarrowInside, NarrowPassed, NarrowBack, NarrowStand);
+	const bool CarOk = ThroughInside > 0 && WideInside == 0 && WidePassed >= ThroughPassed / 2 && WideStand <= FSettings().CarWaitSeconds + 0.5
+		&& NarrowInside == 0 && NarrowPassed == 0 && NarrowBack > 0 && NarrowStand <= FSettings().CarWaitSeconds + 0.5;
+
 	// Density of the M1 profile (12 people) on the real graph, with and without avoidance, and pairs.
 	// A crowd five times the density too, where overlaps are frequent enough to compare.
 	double PairSpread = 0;
@@ -494,7 +557,7 @@ int main(int Argc, char** Argv)
 	std::printf("edges=%zu nodes=%zu walkers=%d seconds=%.0f visited=%zu walking=%.2f waiting=%.3f max_jump_cm=%.0f teleports=%d flee_ok=%d/%d crossing_breaches=%d\n",
 		G.Edges.size(), G.NodeEdges.size(), Walkers, Seconds, Visited.size(), Walking, WaitTime / TotalTime,
 		MaxJump, Teleports, FleeOk, FleeTrials, Stepped);
-	const bool Pass = Teleports == 0 && Stepped == 0 && Avoiding <= Plain && Avoiding12 <= Plain12 + 0.0005 && PairSpread < 500.0 && Walking > 0.8 && FleeOk >= FleeTrials * 0.9 && PanicMaxGen <= S.PanicMaxGeneration && PanicCaught >= 1 && HeldOk == HeldTrials && GawkTaken > 5 && GawkFacing == GawkTaken && GawkResumed >= GawkTaken * 0.9 && Visited.size() * 2 >= G.Edges.size() && FlowOk && LookOk == LookTrials && WaitOk;
+	const bool Pass = Teleports == 0 && Stepped == 0 && Avoiding <= Plain && Avoiding12 <= Plain12 + 0.0005 && PairSpread < 500.0 && Walking > 0.8 && FleeOk >= FleeTrials * 0.9 && PanicMaxGen <= S.PanicMaxGeneration && PanicCaught >= 1 && HeldOk == HeldTrials && GawkTaken > 5 && GawkFacing == GawkTaken && GawkResumed >= GawkTaken * 0.9 && Visited.size() * 2 >= G.Edges.size() && FlowOk && LookOk == LookTrials && WaitOk && CarOk;
 	std::printf("%s\n", Pass ? "PASS" : "FAIL");
 	return Pass ? 0 : 1;
 }

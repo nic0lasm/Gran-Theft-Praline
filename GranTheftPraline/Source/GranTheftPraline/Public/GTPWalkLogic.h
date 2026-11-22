@@ -140,6 +140,11 @@ struct FSettings
 	float CrossingCarFastSpeed = 150.f;
 	float CrossingCarSide = 150.f;  // the car's way may miss the ends of the crossing by this much and still count (cm)
 	float LateralSpeed = 60.f;      // cm/s sideways drift to the chosen line
+	// A car standing in the way (AvoidBox): seen CarLookAhead in front, passed CarMargin clear of its body; with no
+	// room on either side the walker waits CarWaitSeconds and turns back.
+	float CarLookAhead = 350.f;
+	float CarMargin = 45.f;
+	float CarWaitSeconds = 4.f;
 	float CrossingWeight = 0.4f;    // relative chance to take a crossing at a junction
 	float GroupChance = 0.25f;      // chance that a new person is half of a pair walking together
 	float GroupGap = 70.f;          // the follower walks this far behind its partner (cm)
@@ -180,6 +185,8 @@ struct FWalker
 	FPoint Threat;
 	/** 0 = frightened by the event itself, n = caught the panic from somebody of generation n - 1. */
 	int Generation = 0;
+	/** Seconds spent standing in front of a car with no way round it (AvoidBox). */
+	float BlockedTime = 0.f;
 };
 
 inline int NodeAhead(const FGraph& G, const FWalker& W)
@@ -413,6 +420,113 @@ inline void Separate(const FGraph& G, FWalker& A, const FPoint& PosA, const FPoi
 	const float Side = Dist < 1.f ? ((static_cast<int>(PosA.X) & 1) ? 1.f : -1.f) : ((Dx * DirA.Y - Dy * DirA.X) >= 0.f ? 1.f : -1.f);
 	const float Half = G.Edges[A.Edge].Width * 0.5f;
 	A.LateralTarget = std::max(-Half, std::min(Half, A.Lateral + Side * S.SeparationNudge));
+}
+
+/** The body of a standing car seen from above: centre, heading (unit), half its length and half its width (cm). */
+struct FCarBox
+{
+	FPoint Center;
+	FPoint Forward{1.f, 0.f};
+	float HalfLength = 230.f;
+	float HalfWidth = 95.f;
+};
+
+inline bool InCarBox(const FCarBox& Box, const FPoint& P, float Margin)
+{
+	const float Dx = P.X - Box.Center.X;
+	const float Dy = P.Y - Box.Center.Y;
+	const float Along = Dx * Box.Forward.X + Dy * Box.Forward.Y;
+	const float Side = Dy * Box.Forward.X - Dx * Box.Forward.Y;
+	return std::fabs(Along) <= Box.HalfLength + Margin && std::fabs(Side) <= Box.HalfWidth + Margin;
+}
+
+/** Walks the same edge the other way from where the walker stands. */
+inline void TurnBack(const FGraph& G, FWalker& W)
+{
+	if (!G.IsValidEdge(W.Edge))
+	{
+		return;
+	}
+	W.S = G.Edges[W.Edge].Length - W.S;
+	W.bForward = !W.bForward;
+	W.Lateral = -W.Lateral;
+	W.LateralTarget = -W.LateralTarget;
+}
+
+enum class EAround : int
+{
+	Clear = 0,  // the car is not in the way
+	Around = 1, // in the way further on: walk on, a line to its side is chosen
+	Wait = 2,   // right in front: stand (the caller does not Step), still moving sideways to the chosen line
+	Inside = 3  // already within its body (it stopped on him): walk on out
+};
+
+/**
+ * A car standing in a walker's way: he walks round it on his walkway, never through it nor over it. Call it before
+ * Step for each standing car near; on Wait do not Step. With no room on either side (a narrow walkway, the end of an
+ * edge where everybody is on the line) he waits, and after CarWaitSeconds turns back.
+ */
+inline EAround AvoidBox(const FGraph& G, FWalker& W, const FCarBox& Box, const FSettings& S, float Dt)
+{
+	if (!G.IsValidEdge(W.Edge))
+	{
+		return EAround::Clear;
+	}
+	FPoint Pos, Dir;
+	Locate(G, W, Pos, Dir);
+	if (InCarBox(Box, Pos, 0.f))
+	{
+		return EAround::Inside;
+	}
+	bool bAhead = false, bClose = false;
+	for (float Ahead = 35.f; Ahead <= S.CarLookAhead; Ahead += 35.f)
+	{
+		if (InCarBox(Box, {Pos.X + Dir.X * Ahead, Pos.Y + Dir.Y * Ahead}, S.CarMargin))
+		{
+			bAhead = true;
+			bClose = Ahead <= 70.f;
+			break;
+		}
+	}
+	if (!bAhead)
+	{
+		return EAround::Clear;
+	}
+	// The car's body with its margin, on the walker's sideways axis (his left is (dy, -dx)), from where he is.
+	float MostLeft = -1e9f, MostRight = 1e9f;
+	for (int Corner = 0; Corner < 4; ++Corner)
+	{
+		const float A = (Corner & 1 ? 1.f : -1.f) * (Box.HalfLength + S.CarMargin);
+		const float B = (Corner & 2 ? 1.f : -1.f) * (Box.HalfWidth + S.CarMargin);
+		const float Cx = Box.Center.X + Box.Forward.X * A - Box.Forward.Y * B - Pos.X;
+		const float Cy = Box.Center.Y + Box.Forward.Y * A + Box.Forward.X * B - Pos.Y;
+		const float Left = Cx * Dir.Y - Cy * Dir.X;
+		MostLeft = std::max(MostLeft, Left);
+		MostRight = std::min(MostRight, Left);
+	}
+	const float Half = G.Edges[W.Edge].Width * 0.5f;
+	const float PassLeft = W.Lateral + MostLeft + 10.f;
+	const float PassRight = W.Lateral + MostRight - 10.f;
+	const bool bLeft = PassLeft <= Half;
+	const bool bRight = PassRight >= -Half;
+	if (bLeft || bRight)
+	{
+		W.LateralTarget = bLeft && (!bRight || PassLeft - W.Lateral <= W.Lateral - PassRight) ? PassLeft : PassRight;
+	}
+	if (!bClose && (bLeft || bRight))
+	{
+		W.BlockedTime = 0.f;
+		return EAround::Around;
+	}
+	// Right in front of it: stands, steps sideways if there is a way, and does not wait for ever.
+	W.Lateral += std::max(-S.LateralSpeed * 2.f * Dt, std::min(S.LateralSpeed * 2.f * Dt, W.LateralTarget - W.Lateral));
+	W.BlockedTime += Dt;
+	if (W.BlockedTime >= S.CarWaitSeconds)
+	{
+		W.BlockedTime = 0.f;
+		TurnBack(G, W);
+	}
+	return EAround::Wait;
 }
 
 struct FStepResult

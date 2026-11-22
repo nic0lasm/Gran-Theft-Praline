@@ -44,6 +44,72 @@ Depuis le candidat 58 :
   11 s de suite, la plus longue attente est de 21 s et autant de gens traversent. Douze voitures sont lues (arrêtée avant, arrivant
   vite, déjà passée, dans la rue voisine, le long du passage). **Pas prouvé en jeu** : que les files de la porte 57 se vident.
 
+## Cheveux des personnages assemblés (`-CrowdHair=0` pour aucun)
+
+Jusqu'au candidat 63 tous les passants étaient chauves (vidéo de la porte 59). Ce n'est pas un problème de cook : les têtes
+de la foule de City Sample n'ont pas de cheveux à elles, c'est son code de personnage qui les ajoute (un groom, et une
+texture précalculée peinte sur le crâne à distance), et notre assemblage (`UGTPCrowdSubsystem::DressFromCitySample`) n'en
+donnait aucun. Les chaussures n'ont jamais manqué : un haut, un pantalon ou une jupe et des chaussures sont chargés pour
+tout le monde, et le journal compte maintenant ceux à qui il en manque un.
+
+Depuis le candidat 64 (`UGTPCrowdSubsystem::FindHair`, `GiveHair`) :
+
+- **Ce que le projet contient est demandé au registre d'assets** sous `CrowdCharacterRoot` : les textures précalculées du
+  crâne (`Hair_<taille>_<coiffure>_baked`) et les maillages de cheveux que City Sample montre de loin
+  (`Hair_<taille>_<coiffure>_Helmet_LOD5`, `_Mesh_LOD5`). La coiffure nommée dans `CrowdHairKeptForPlayer` (`PulledBack`)
+  est laissée au joueur.
+- **Peints sur le crâne** : sur chaque matériau du visage qui a le `HairAttributeMap` du matériau de tête, une instance
+  dynamique prend la texture précalculée de la coiffure de la personne (seulement une texture du même genre que celle
+  qu'elle remplace, virtuelle ou non) et `ShowBakedGroomTextures`.
+- **En volume** : le maillage de la coiffure sur la tête. Un maillage statique est fixé à l'os `head`, remis en place par
+  l'inverse de la pose de référence de cet os (il a été modelé autour de la tête dans cette pose) ; un maillage
+  squelettique suit la pose du corps comme un vêtement (`AGTPPedestrian::SetHair`).
+- **Couleurs** : une mélanine et une rousseur par personne, foncé plus souvent que clair, sur le matériau de tête (cheveux
+  et sourcils) et sur les scalaires du matériau du maillage de cheveux dont le nom contient `Melanin` ou `Redness`.
+  `CrowdBaldShare` (0,1) des hommes gardent le crâne nu.
+- **Journal** : à la première personne habillée, `crowd hair: men: N styles in the project under …: AfroFade (painted +
+  mesh), …` et de même pour les femmes (`NONE, they stay bald` quand le projet n'a rien) ; une fois par matériau,
+  `crowd hair: face slot N <matériau>: HairAttributeMap was …, set to …; ShowBakedGroomTextures …` et
+  `crowd hair: mesh … slot N material …, its scalars: …` ; `crowd hair: NO material of the face … has a HairAttributeMap
+  texture: …` quand le visage affiché n'a pas ce matériau ; toutes les 10 s, `crowd: dressed N times: hair painted on the
+  scalp N, hair mesh on the head N, left bald N, no head material that takes hair N; without a top N, without trousers or
+  a skirt N, without shoes N, without a face N`.
+- **À copier pour le volume** (assets hors Git, éditeur fermé, City Sample en lecture seule), comme pour les cheveux de
+  Nicolito : `GTP_CROWD_HAIR=1` avec `tools/character/crowd_hair_deps.py` liste les neuf maillages de cheveux et les cinq
+  textures précalculées de la foule et ce dont ils dépendent, absents du projet ;
+  `tools/vehicles/copy_citysample_content.py --list Saved/CitySampleCopy/missing.txt` les copie (`--dry-run` d'abord) ;
+  relancer les deux jusqu'à `0 missing`. Le script donne aussi la classe de chaque maillage (statique ou squelettique).
+- **Pas prouvé** : rien en jeu. Pas connu d'ici : si le visage affiché à son niveau 4 a un matériau avec
+  `HairAttributeMap`, si les maillages de cheveux sont statiques ou squelettiques, comment leur matériau se dessine sur un
+  maillage statique, comment un maillage modelé sur la tête de référence de City Sample tombe sur chacune des six têtes.
+  Les lignes ci-dessus répondent à chacune.
+
+La foule lointaine (silhouettes beiges au-delà des 24 personnages proches) est un autre sujet : un seul maillage
+provisoire, `CrowdMesh`.
+
+## Voitures arrêtées sur un trottoir ou une rue piétonne (`-CrowdAvoidCars=0` pour les traverser comme avant)
+
+Vidéo de la porte 59, de 130 à 180 s : la voiture du joueur est arrêtée dans une rue piétonne et les gens la traversent,
+l'un d'eux monte sur le capot. Deux causes, deux réponses :
+
+- **Le sol sous une personne** était un tracé de visibilité, qui s'arrête sur une voiture : la personne se tenait dessus.
+  C'est maintenant un tracé sur les seuls objets statiques (`ECC_WorldStatic`, comme les tracés de sol des voitures), et
+  ce qui dépasse de plus de 40 cm le sol 60 cm derrière la personne n'est pas pris pour du sol (un banc, une jardinière).
+- **Une voiture sur le chemin se contourne** (`GTPWalk::AvoidBox`, sans moteur) : quatre fois par seconde le sous-système
+  liste les véhicules du jeu arrêtés ou roulant à moins de 5 km/h à moins de `CarAvoidDistance` (70 m) du joueur, par la
+  boîte de leur carrosserie vue de dessus, et les voitures MassTraffic lentes qui n'ont pas d'acteur. Une personne dont
+  les 3,5 m suivants passent dans une boîte (45 cm de marge) prend une ligne à côté sur son trottoir ; juste devant elle
+  s'arrête et se décale ; sans place d'aucun côté elle attend 4 s et fait demi-tour. Une voiture rapide ne se contourne
+  pas : on la fuit ou elle renverse.
+- **Journal**, toutes les 10 s : `crowd: cars: N standing or slow within 70 m of the player; people going round one N,
+  standing in front of one N, within the body of one N; since the start: most within a body at once N, turned back at one
+  N, something high not taken for the ground N times`. Une bonne passe garde « within the body of one » à 0 ou 1 (une
+  voiture qui s'arrête sur quelqu'un).
+- **Vérifié hors moteur** (`python3 tools/pedestrians/check_walk_logic.py`) : une voiture sur un trottoir, 20 personnes
+  pendant 180 s. Sans contournement : 5 114 images dans sa carrosserie. Avec, sur 7 m de large : 0 image dedans et autant
+  de passages (173 pour 174) ; sur 2 m de large : 0 image dedans, personne ne passe, tout le monde fait demi-tour après
+  4 s. **Pas prouvé en jeu.**
+
 ## Personnages City Sample (par défaut ; `-CrowdCitySample=0` pour les mannequins)
 
 Les 24 personnages proches sont assemblés à partir du sous-ensemble City Sample Crowds sous `/Game/Crowd` (hors Git) :
