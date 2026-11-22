@@ -47,8 +47,10 @@ public class GTPMass : ModuleRules
 			// MassMovement: FMassVelocityFragment, which MassTraffic reads on its obstacles (GTPCrowd);
 			// MassZoneGraphNavigation: the lane a car is on (GTPMassTraffic's log);
 			// MassRepresentation and MassLOD: the cars' visualization trait (ShowNearCarsAsInstances);
-			// MassActors: the actor a near car is shown as (UGTPMassTrafficBodyProcessor).
-			PrivateDependencyModuleNames.AddRange(new string[] { "MassTraffic", "MassMovement", "MassZoneGraphNavigation", "MassRepresentation", "MassLOD", "MassActors" });
+			// MassActors: the actor a near car is shown as (UGTPMassTrafficBodyProcessor);
+			// ChaosVehicles: TSubclassOf<AWheeledVehiclePawn>, the simulation trait's template class
+			// (gate 57: LNK2019 on Z_Construct_UClass_AWheeledVehiclePawn without it).
+			PrivateDependencyModuleNames.AddRange(new string[] { "MassTraffic", "MassMovement", "MassZoneGraphNavigation", "MassRepresentation", "MassLOD", "MassActors", "ChaosVehicles" });
 		}
 		PublicDefinitions.Add("WITH_GTP_MASSTRAFFIC=" + (bMassTraffic ? "1" : "0"));
 	}
