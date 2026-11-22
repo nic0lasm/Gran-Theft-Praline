@@ -116,6 +116,7 @@ private:
 	int32 Step = -1;
 	double StepStart = 0.0;
 	double RunStart = -1.0;
+	double LastPosLog = -1.0e9;
 	int32 OkCount = 0;
 	int32 PoliceOkCount = 0;
 	int32 InfoOkCount = 0;

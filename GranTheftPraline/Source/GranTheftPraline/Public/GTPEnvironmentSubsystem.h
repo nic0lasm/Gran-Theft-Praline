@@ -349,6 +349,12 @@ private:
 	UPROPERTY(Config)
 	float ExposureHalfRange = 0.5f;
 
+	/** By day, how far below the target the eye may adapt (EV): a street in the shade at 14 h reads
+	 *  2 to 3 EV darker than the sunlit one (gate 59 video: the alleys of the flight were near black
+	 *  with only 0.5 EV of room). Blended to ExposureHalfRange at night. */
+	UPROPERTY(Config)
+	float ExposureShadeRange = 0.5f;
+
 	UPROPERTY(Config)
 	float ExposureSpeedUp = 2.f;
 

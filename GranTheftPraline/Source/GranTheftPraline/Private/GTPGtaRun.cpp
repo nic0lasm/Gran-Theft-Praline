@@ -340,6 +340,19 @@ bool UGTPGtaRun::Tick(float /*DeltaTime*/)
 	}
 	TrackWanted();
 	TickChasePicture();
+	// The way the camera goes, for the dressing of what it sees (Realism thread): every 2 s the
+	// player (or the car driven), its heading and speed, and the camera position.
+	if (Step >= 0 && FPlatformTime::Seconds() - LastPosLog >= 2.0)
+	{
+		LastPosLog = FPlatformTime::Seconds();
+		const APawn* Pawn = PC->GetPawn();
+		const FVector At = Pawn->GetActorLocation();
+		const FVector Eye = PC->PlayerCameraManager ? PC->PlayerCameraManager->GetCameraLocation() : At;
+		const AGTPVehicle* Driven = Cast<AGTPVehicle>(Pawn);
+		GTP_TRACE(LogGTPGtaRun, TEXT("GTARun pos t=%.0f step=%d x=%.0f y=%.0f yaw=%.0f kmh=%.0f cam=%.0f,%.0f,%.0f"),
+			LastPosLog - RunStart, Step + 1, At.X, At.Y, FRotator::NormalizeAxis(Pawn->GetActorRotation().Yaw),
+			Driven ? Driven->GetSpeedKmh() : Pawn->GetVelocity().Size2D() * 0.036f, Eye.X, Eye.Y, Eye.Z);
+	}
 	if (Step < 0)
 	{
 		RunStart = FPlatformTime::Seconds();

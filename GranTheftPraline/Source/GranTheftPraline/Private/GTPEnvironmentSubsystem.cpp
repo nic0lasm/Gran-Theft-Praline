@@ -1293,7 +1293,7 @@ void UGTPEnvironmentSubsystem::ApplyExposure()
 	}
 
 	FPostProcessSettings& S = PostProcess->Settings;
-	S.AutoExposureMinBrightness = ExposureTarget - ExposureHalfRange;
+	S.AutoExposureMinBrightness = ExposureTarget - FMath::Lerp(ExposureHalfRange, FMath::Max(ExposureShadeRange, ExposureHalfRange), Daylight);
 	S.AutoExposureMaxBrightness = ExposureTarget + ExposureHalfRange;
 	S.WhiteTemp = FMath::Lerp(DayWhiteTemp, NightWhiteTemp, NightFactor);
 	S.ColorSaturation = FVector4(Weather.Saturation, Weather.Saturation, Weather.Saturation, 1.f);

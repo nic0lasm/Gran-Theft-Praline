@@ -325,6 +325,146 @@ def shell_material():
     return mat
 
 
+# Backdrop volumes (tools/city/backdrop.py: every BD TOPO building within 600 m of the street that
+# has no facade kit) carried the plain shell: blank stone walls along the whole flight of the car
+# theft (gate 59 video, quai Jean Moulin and the alleys east of the street). A procedural Lyon
+# facade drawn in the material: shop ground floor (glass, fascia, carriage doors), storeys of
+# framed windows with surrounds, sills, string courses, persiennes, a balcony on some buildings.
+# All ALU, no texture, faded to its average before it aliases. Per building face, the bay width,
+# storey heights and balcony come from a hash of the wall plane. GTP_BACKDROP_FACADES=0: plain shell.
+BACKDROP_FACADES = os.environ.get("GTP_BACKDROP_FACADES", "1") != "0"
+BACKDROP_HLSL = r"""
+// Procedural Lyon facade on a backdrop volume wall: bays of windows over a shop ground floor.
+// In: P world position (cm, floats), N vertex normal (WS), V camera vector (WS, to the eye),
+//     D pixel depth (cm), WallC wall colour. Out: rgb colour, a = glass (for the roughness).
+float2 nh = Nw.xy;
+float nl = length(nh);
+if (nl < 0.2) return float4(WallC, 0.0);              // roofs and ledges: untouched
+nh /= nl;
+float2 tg = float2(-nh.y, nh.x);
+float u = dot(Pw.xy, tg);                           // along the wall
+float plane = dot(Pw.xy, nh);                       // constant on a flat wall: one building face
+float bid = frac(sin(floor(plane / 70.0) * 12.9898 + floor(atan2(nh.y, nh.x) * 3.0) * 78.233) * 43758.5453);
+float W = 300.0 + 90.0 * bid;                      // bay width
+float GF = 430.0 + 60.0 * frac(bid * 7.3);         // ground floor height (shops)
+float H = 305.0 + 45.0 * frac(bid * 3.1);          // upper storey height
+float z = Pw.z + 80.0;                              // streets of the Presqu'ile lie at -1.4..+0.6 m (BD TOPO)
+float bx = u / W;
+float bay = floor(bx);
+float fx = frac(bx);
+// pixel footprint in bay and storey units: fade the pattern to its average before it aliases
+float px = Depth * 0.0012;
+float fwx = px / (W * max(abs(dot(Vw.xy, nh)), 0.12));
+float fwz = px / H;
+float detail = saturate(1.0 - (max(fwx, fwz) - 0.04) / 0.10);
+float3 wall = WallC;
+float3 col = wall;
+float glass = 0.0;
+float3 dark = float3(0.035, 0.04, 0.045);
+if (z < GF) {
+    float h = frac(sin(bay * 91.7 + bid * 311.0) * 4375.85);
+    float fz = z / GF;
+    if (h < 0.62) {                                // shopfront: glass, frame, fascia
+        float inx = step(0.07, fx) * step(fx, 0.93);
+        float fasc = step(0.80, fz) * step(fz, 0.93) * inx;
+        float win = inx * step(0.04, fz) * step(fz, 0.78);
+        float frame = win * (1.0 - step(0.10, fx) * step(fx, 0.90) * step(0.07, fz) * step(fz, 0.75));
+        float mull = win * step(abs(fx - 0.5), 0.012);
+        float k = frac(h * 17.0);
+        float3 signc = k < 0.25 ? float3(0.06, 0.16, 0.10) : k < 0.5 ? float3(0.25, 0.05, 0.06)
+                    : k < 0.75 ? float3(0.05, 0.07, 0.16) : float3(0.03, 0.03, 0.03);
+        float3 room = lerp(float3(0.10, 0.08, 0.06), float3(0.22, 0.17, 0.11), step(0.3, fz) * step(fz, 0.6));
+        col = lerp(col, room * 0.6 + dark, win);
+        col = lerp(col, float3(0.08, 0.08, 0.08), max(frame, mull));
+        col = lerp(col, signc, fasc);
+        glass = win * (1.0 - max(frame, mull));
+    } else if (h < 0.82) {                         // carriage door, painted wood
+        float door = step(0.18, fx) * step(fx, 0.82) * step(fz, 0.82);
+        float panel = step(abs(fx - 0.5), 0.008) + step(abs(fz - 0.45), 0.01);
+        float3 wood = frac(h * 31.0) < 0.5 ? float3(0.10, 0.06, 0.035) : float3(0.07, 0.11, 0.09);
+        col = lerp(col, wood * (1.0 - 0.4 * saturate(panel)), door);
+        col = lerp(col, wall * 1.12, (1.0 - door) * step(0.12, fx) * step(fx, 0.88) * step(fz, 0.88));
+    } else {                                       // blank rusticated bay with a small barred window
+        float w2 = step(0.32, fx) * step(fx, 0.68) * step(0.45, fz) * step(fz, 0.78);
+        col = lerp(col, dark, w2);
+        glass = w2;
+    }
+    col = lerp(col, col * 0.85, step(abs(frac(z / 55.0) - 0.5), 0.03) * (1.0 - glass));   // rusticated joints
+} else {
+    float zz = z - GF;
+    float storey = floor(zz / H);
+    float fz = frac(zz / H);
+    float h = frac(sin(bay * 12.7 + storey * 57.3 + bid * 101.0) * 43758.5);
+    float open = step(0.30, fx) * step(fx, 0.70) * step(0.20, fz) * step(fz, 0.88);
+    float surround = step(0.26, fx) * step(fx, 0.74) * step(0.16, fz) * step(fz, 0.92) * (1.0 - open);
+    float sill = step(0.27, fx) * step(fx, 0.73) * step(0.155, fz) * step(fz, 0.20);
+    float reveal = open * (step(fz, 0.88) * step(0.84, fz) + step(fx, 0.325) );     // shadow inside the opening
+    float frame = open * (1.0 - step(0.33, fx) * step(fx, 0.67) * step(0.23, fz) * step(fz, 0.85));
+    float mull = open * (step(abs(fx - 0.5), 0.008) + step(abs(fz - 0.68), 0.008));
+    float band = step(fz, 0.035);                  // storey string course
+    float shut = h < 0.22 ? 1.0 : 0.0;             // closed persiennes
+    float3 shc = frac(h * 9.0) < 0.5 ? float3(0.55, 0.54, 0.50) : float3(0.30, 0.37, 0.33);
+    float slats = 0.85 + 0.15 * step(0.5, frac(zz / 6.0));
+    float3 glassc = dark + 0.05 * float3(0.6, 0.7, 0.8) * fz;   // sky reflected at the top
+    col = lerp(col, wall * 1.10, surround);
+    col = lerp(col, wall * 1.18, sill);
+    col = lerp(col, wall * 0.92, band);
+    col = lerp(col, wall * 0.70, step(0.035, fz) * step(fz, 0.05));   // shadow under the band
+    float3 inside = shut > 0.5 ? shc * slats : glassc;
+    col = lerp(col, inside, open);
+    col = lerp(col, float3(0.72, 0.71, 0.68), saturate(frame + mull) * (1.0 - shut));
+    col = lerp(col, col * 0.55, reveal);
+    glass = open * (1.0 - shut) * (1.0 - saturate(frame + mull));
+    // a balcony on the first upper storey of some buildings: railing over the window's lower part
+    float balc = (storey == 0.0 && bid > 0.45) ? 1.0 : 0.0;
+    float rail = balc * step(0.22, fx) * step(fx, 0.78) * step(0.20, fz) * step(fz, 0.50);
+    float bars = 0.35 + 0.65 * step(0.5, frac(u / 11.0));
+    float3 iron = float3(0.03, 0.03, 0.035);
+    col = lerp(col, lerp(col, iron, bars * detail + 0.45 * (1.0 - detail)), rail);
+    col = lerp(col, wall * 0.65, balc * step(0.20, fx) * step(fx, 0.80) * step(0.185, fz) * step(fz, 0.20));
+}
+// far away: the average of the pattern, no moire
+float3 avg = lerp(wall, dark, z < GF ? 0.35 : 0.22);
+col = lerp(avg, col, detail);
+glass *= detail;
+return float4(col, glass);
+"""
+
+
+def backdrop_material():
+    mat = new_material("M_City_Backdrop")
+    mat.set_editor_property("two_sided", True)
+    g = Graph(mat)
+    vc = g.node(unreal.MaterialExpressionVertexColor)
+    n = g.node(unreal.MaterialExpressionVertexNormalWS)
+    nz = g.unary(unreal.MaterialExpressionAbs, g.mask(n, b=True))
+    wall = g.unary(unreal.MaterialExpressionSaturate, g.mul(g.sub(g.const(0.8), nz), g.const(2.0)))
+    wp = g.world_position()
+    f = g.unary(unreal.MaterialExpressionFrac, g.div(g.mask(wp, b=True), g.const(42.0)))   # stone courses
+    d = g.unary(unreal.MaterialExpressionAbs, g.sub(f, g.const(0.5)))
+    course = g.unary(unreal.MaterialExpressionSaturate, g.mul(g.sub(d, g.const(0.46)), g.const(25.0)))
+    shade = g.lerp(g.const(1.0), g.const(0.88), g.mul(course, wall))
+    col = g.mul(g.mask(vc, r=True, g=True, b=True), shade)
+    custom = g.node(unreal.MaterialExpressionCustom, code=BACKDROP_HLSL,
+                    output_type=unreal.CustomMaterialOutputType.CMOT_FLOAT4, description="LyonFacade",
+                    inputs=[custom_input(k) for k in ("Pw", "Nw", "Vw", "Depth", "WallC")])
+    for src, name in ((wp, "Pw"), (n, "Nw"), (g.node(unreal.MaterialExpressionCameraVectorWS), "Vw"),
+                      (g.node(unreal.MaterialExpressionPixelDepth), "Depth"), (col, "WallC")):
+        g.link(src, "", custom, name)
+    facade = g.mask(custom, r=True, g=True, b=True)
+    glass = g.unary(unreal.MaterialExpressionComponentMask, custom, r=False, g=False, b=False, a=True)
+    col = g.lerp(col, facade, wall)
+    weathered, _ = weathering(g, col, per_instance=False)
+    col = g.lerp(col, weathered, g.mul(wall, g.sub(g.const(1.0), glass)))
+    rough = g.lerp(g.lerp(g.const(0.55), g.const(0.88), wall), g.const(0.08), g.mul(glass, wall))
+    mel.connect_material_property(col, "", unreal.MaterialProperty.MP_BASE_COLOR)
+    mel.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS)
+    surfaces().shell(mat)
+    weather(mat, ("wet", "wet_matte"))
+    g.done()
+    return mat
+
+
 def street_level(g):
     """Street level of the building in cm, written by place_facades.py in custom data 3."""
     cls = getattr(unreal, "MaterialExpressionPerInstanceCustomData", None)
@@ -900,6 +1040,10 @@ def main():
         shell = shell_material()
         report["terrain_meshes"] = assign(ROOT + "/Terrain", ground)
         report["shell_meshes"] = assign(ROOT + "/Buildings/" + CAMEL, shell)
+        backdrop_dir = ROOT + "/Backdrop/" + CAMEL
+        if eal.does_directory_exist(backdrop_dir):
+            report["backdrop_meshes"] = assign(backdrop_dir, backdrop_material() if BACKDROP_FACADES else shell)
+            report["backdrop_facades"] = BACKDROP_FACADES
         if eal.does_directory_exist(ROOT + "/Landmarks/" + CAMEL):
             report["landmark_meshes"] = assign(ROOT + "/Landmarks/" + CAMEL, shell)
         river_dir = ROOT + "/Riverside/" + CAMEL
