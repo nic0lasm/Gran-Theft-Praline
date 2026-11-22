@@ -220,9 +220,10 @@ public:
 	/**
 	 * Moves the car, as a ghost, to point Point of Lane at Location (cm) facing
 	 * YawDegrees, rolling at SpeedMs: a far car handed over to this driven car
-	 * (-FarTraffic, GTPFarTraffic.h).
+	 * (-FarTraffic, GTPFarTraffic.h). False if it could not (no network): the car
+	 * has not moved.
 	 */
-	void PlaceGhost(int32 Lane, int32 Point, const FVector& Location, float YawDegrees, float SpeedMs);
+	bool PlaceGhost(int32 Lane, int32 Point, const FVector& Location, float YawDegrees, float SpeedMs);
 
 	/** Time spent in the ticks of all AI drivers (seconds) and their number, since the last read. */
 	static double TickSeconds;
@@ -239,8 +240,14 @@ public:
 private:
 	void PlanRoute();
 	float FindObstacleMetres(const AGTPVehicle* Vehicle) const;
-	/** Ground height under Location (cm), false if nothing within 10 m below. */
-	bool FindGround(const AGTPVehicle* Vehicle, const FVector& Location, float& OutZ) const;
+	/** Ground height under Location (cm), false if nothing within ReachCm below. */
+	bool FindGround(const AGTPVehicle* Vehicle, const FVector& Location, float& OutZ, float ReachCm = 1000.f) const;
+	/**
+	 * A ghost rides at the height the car stood above the ground when it became one. Off
+	 * its wheels (thrown, lying, on another car), that height is not a ride height: the
+	 * car's spawn height instead, so no ghost slides along in the air.
+	 */
+	void KeepRideHeightOnWheels(const AGTPVehicle* Vehicle, const TCHAR* When);
 
 	UPROPERTY(Transient)
 	TObjectPtr<AGTPTrafficNetwork> Network;
@@ -324,6 +331,13 @@ public:
 	 */
 	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Missions")
 	float ParkLaneClearance = 210.f;
+
+	/**
+	 * A parked car's spot is left out when the ground found there stands more than this above the road at the lane
+	 * beside it (cm): a kerb and a slope, not a bus shelter roof (gate 61's video: a van on one, at first-floor height).
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Missions")
+	float ParkKerbRise = 60.f;
 
 	// --- Real cars parked along the streets around the player, to steal (-StreetParked=N) ---
 

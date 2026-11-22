@@ -175,6 +175,20 @@ besoin d'être un acteur.
   puis retirées encore. `CreateCar` donne maintenant son réseau au
   conducteur, et la ligne « traffic cars » compte les voitures conduites
   « not driving (no route or no decisions) ».
+- Vidéo de la porte 61 (le candidat 61 avait encore les marionnettes
+  figées) : la camionnette du joueur, arrêtée là où il se rend, projetée
+  au-dessus des toits avec les passants autour, et une voiture qui flotte
+  au-dessus de la caméra à la fin. Cause probable, lue dans le code, non
+  prouvée : une voiture figée reprise dans la réserve retrouvait sa
+  collision là où on l'avait rangée, et le script de poursuite range la
+  voiture qui est devant la camionnette ; une voiture cinématique qui
+  apparaît dans une voiture simulée la fait éjecter par le solveur. Deux
+  garde-fous depuis : une voiture que `PlaceGhost` ne peut pas placer est
+  détruite, jamais remise en service ; et un fantôme ne garde la hauteur
+  qu'il avait en le devenant que si c'est celle d'une voiture sur ses roues
+  (hauteur d'apparition moins 80 cm à plus 60 cm), sinon il roule à sa
+  hauteur d'apparition, sur le sol trouvé jusqu'à 1 km plus bas, avec la
+  ligne « traffic: ... off its wheels: ridden at N cm ».
 - Trafic perçu = voitures conduites + voitures lointaines. Le palier C
   (25 véhicules) correspond à `-Traffic=12 -FarTraffic=13`, la cible
   (40 véhicules) à `-Traffic=12 -FarTraffic=28`.
