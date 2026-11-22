@@ -135,7 +135,9 @@
     "GTARun pos",
     "crowd: garments of the first",
     "NO GROOM",
-    "traffic lights: signal heads are"
+    "traffic lights: signal heads are",
+    "on street furniture",
+    "off its wheels"
   ],
   "video": {
     "pass": "-GTARun -GTARunEncore",
