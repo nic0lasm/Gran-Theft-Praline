@@ -709,6 +709,9 @@ private:
 	double NextCarsLogTime = 10.0;
 	int32 RecycledStuck = 0;
 	int32 RecycledFar = 0;
+	/** Every car taken off the road (stuck, far, and by the others: the chase script, the police), and cars put back from the pool. */
+	int32 RecycledAll = 0;
+	int32 ReusedFromPool = 0;
 
 public:
 	/** Switches the skinned draw of a car body, tracked by a component tag so it is only changed once. */

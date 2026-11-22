@@ -239,13 +239,22 @@ Pas de plugin Water ni de volume physique : de simples événements de chevauche
 - Simulation, 300 s sur les voies de la rue de la République : 3, 6 et 12 voitures, aucun contact, aucun feu grillé.
 - Mesuré dans le jeu (après la porte 59, le trafic legacy étant ce que la porte juge) : toutes les 10 s, « traffic cars
   t=...: driven=D of W wanted (ghosts=G) moving=M (over 1 m/s, upright: P %) stopped=S lying=L mean speed=...
-  | within 100 m=N (moving, stopped) within 200 m=N nearest=... | stopped for: a car ahead, the queue along the
-  lanes, a person, something else ahead, a red light, a junction in use, held (reaction or stop asked), wedged,
-  nothing ahead; stopped over 20 s, at a dead end | recycled so far: stuck, far », le pendant de
+  | within 100 m=N (moving, stopped) within 150 m=N (moving, upright, ghosts; far puppets drawn there) within 200 m=N
+  nearest=... | stopped for: a car ahead, the queue along the lanes, a person, something else ahead, a red light, a
+  junction in use, held (reaction or stop asked), wedged, nothing ahead; stopped over 20 s, at a dead end | recycled
+  so far: stuck, far, by the chase script or the police, reused from the pool », le pendant de
   « MassTraffic cars: ». Ce qui arrête une voiture est l'arrêt le plus proche de sa dernière décision
   (`UGTPAIDriverComponent::GetLimit`) : ce que touche la sonde (une voiture, un pion, autre chose), la file le long des
   voies, le feu rouge, la ligne d'arrêt d'un carrefour qu'une autre voiture traverse, une retenue (réaction, arrêt
   demandé par le joueur), coincée (pousse une seconde sans avancer, ou recule pour se dégager).
+- Où sont les voitures pilotées (candidat 61) : créées hors de la vue entre 40 et 150 m du joueur, retirées au-delà
+  de 150 m hors de la vue (`MaxCarDistance`, `-TrafficRing=M` ; ligne au démarrage « traffic: driven cars made out of
+  sight ... »). À 250 m, la passe default de la porte 59 finissait avec 19 de ses 22 voitures pilotées au-delà de la
+  distance fantôme (90 m) : réparties sur un anneau de 40 à 250 m, environ une voiture sur neuf tombe à moins de 90 m.
+  Le script de poursuite de la démo (`-PoliceChaseDemo`, `-GTARun`) ne retire de la route, deux fois par seconde, qu'une
+  voiture du trafic sur le chemin du joueur : devant, à moins de 35 m, et à moins de 2,5 m de la ligne que suit sa
+  voiture. Jusqu'au candidat 60 il retirait toute voiture à moins de 35 m dans un cône de 60 degrés, voie d'en face
+  comprise.
 
 ### 8.3 Passe GTA du 13/11 : vol, sensations de conduite, trafic plus vivant
 

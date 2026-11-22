@@ -233,13 +233,21 @@ No water plugin and no physics volume: plain overlap events, nearly free on the 
 - Simulation, 300 s on the rue de la République lanes: 3, 6 and 12 cars, no contact, no red light run.
 - Measured in the game (after gate 59, the legacy traffic being what the gate judges): every 10 s, "traffic cars
   t=...: driven=D of W wanted (ghosts=G) moving=M (over 1 m/s, upright: P %) stopped=S lying=L mean speed=...
-  | within 100 m=N (moving, stopped) within 200 m=N nearest=... | stopped for: a car ahead, the queue along the
-  lanes, a person, something else ahead, a red light, a junction in use, held (reaction or stop asked), wedged,
-  nothing ahead; stopped over 20 s, at a dead end | recycled so far: stuck, far", the counterpart of
+  | within 100 m=N (moving, stopped) within 150 m=N (moving, upright, ghosts; far puppets drawn there) within 200 m=N
+  nearest=... | stopped for: a car ahead, the queue along the lanes, a person, something else ahead, a red light, a
+  junction in use, held (reaction or stop asked), wedged, nothing ahead; stopped over 20 s, at a dead end | recycled
+  so far: stuck, far, by the chase script or the police, reused from the pool", the counterpart of
   "MassTraffic cars:". What stops a car is the nearest stop of its last decision
   (`UGTPAIDriverComponent::GetLimit`): the probe's hit (a car, a pawn, anything else), the queue along the lanes, the
   red light, the stop line of a junction another car crosses, a hold (reaction, stop asked by the player), wedged
   (pushing a second without moving, or backing off).
+- Where the driven cars are (candidate 61): made out of sight 40 to 150 m from the player and taken away past 150 m
+  out of sight (`MaxCarDistance`, `-TrafficRing=M`; logged at start as "traffic: driven cars made out of sight ...").
+  At 250 m, gate 59's default pass ended with 19 of its 22 driven cars past the ghost distance (90 m): spread over a
+  ring of 40 to 250 m, about one car in nine lands within 90 m. The chase script of the demo (`-PoliceChaseDemo`,
+  `-GTARun`) takes off the road, twice a second, only a traffic car in the player's own way: ahead within 35 m and
+  within 2.5 m of the line his car drives on. Until candidate 60 it took every car within 35 m in a cone of 60 degrees,
+  oncoming lane included.
 
 ### 8.3 GTA pass of 13/11: stealing, driving feel, livelier traffic
 
