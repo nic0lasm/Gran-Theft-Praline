@@ -64,6 +64,21 @@ public:
 	 */
 	UMeshComponent* SetHair(UStaticMesh* Fixed, USkeletalMesh* Skinned);
 
+	/**
+	 * A groom of City Sample's crowd on the face of an assembled character (Dress), with the binding Epic made for
+	 * that face, taken off by the next Dress. The groom component's class is found by name: the HairStrands plugin
+	 * is not a dependency of this module (as for the player's grooms). bCards asks for the cards of the groom in
+	 * place of its strands. OutSaid: what was done, or why not, for the log. Null when it could not be made.
+	 */
+	UMeshComponent* SetGroom(UObject* Groom, UObject* Binding, bool bCards, FString& OutSaid);
+
+	/**
+	 * Near the viewer the groom shows and ticks and the far hair mesh (SetHair with a static mesh) is hidden; far
+	 * from him, or hidden, the reverse: a groom's tick is its game-thread cost. No effect without a groom. True when
+	 * the groom shows.
+	 */
+	bool SetHairNear(bool bNear);
+
 	bool IsRagdoll() const { return bRagdoll; }
 
 	/** Hit by a car: physics takes over, the subsystem takes the body away a few seconds later. */
@@ -90,6 +105,11 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UStaticMeshComponent> HairComponent;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UMeshComponent> GroomComponent;
+
+	bool bHairNear = false;
 
 	bool bRagdoll = false;
 	/** Where the body sits under the actor, kept when it falls: it comes back there, upright, when it is given again. */

@@ -35,6 +35,7 @@
 #include "Misc/PackageName.h"
 #include "Misc/Parse.h"
 #include "PhysicsEngine/PhysicsAsset.h"
+#include "UObject/UnrealType.h"
 #if WITH_GTP_MASSTRAFFIC
 #include "GTPTraffic.h"
 #include "MassMovementFragments.h"
@@ -116,6 +117,9 @@ void UGTPCrowdSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 	int32 Hair = 1;
 	FParse::Value(FCommandLine::Get(), TEXT("CrowdHair="), Hair);
 	bHair = Hair != 0;
+	int32 Grooms = 1;
+	FParse::Value(FCommandLine::Get(), TEXT("CrowdGrooms="), Grooms);
+	bGrooms = Grooms != 0;
 	UE_LOG(LogGTPCrowd, Log, TEXT("crowd: crossings: %d in the graph; %s"), CrossingEdges.Num(), bCrossingWait
 		? *FString::Printf(TEXT("with a car about to go over one, people step off the kerb for %.0f s every %.0f s and wait for the rest, %.0f s at most"),
 			CrossingWalkSeconds, CrossingCycleSeconds, CrossingWaitMaxSeconds)
@@ -395,8 +399,8 @@ void UGTPCrowdSubsystem::LookAtCars()
 	}
 	if (bLogNow && bAssembled)
 	{
-		UE_LOG(LogGTPCrowd, Log, TEXT("crowd: dressed %d times: hair painted on the scalp %d, hair mesh on the head %d, left bald %d, no head material that takes hair %d; without a top %d, without trousers or a skirt %d, without shoes %d, without a face %d"),
-			Dressed, HairPainted, HairMeshes, LeftBald, NoHeadMaterial, WithoutTop, WithoutBottom, WithoutShoes, WithoutFace);
+		UE_LOG(LogGTPCrowd, Log, TEXT("crowd: dressed %d times: groom on the head %d (not made %d), far hair mesh %d, hair painted on the scalp %d, eyebrows painted %d, left bald %d, no head material that takes hair %d; grooms shown now %d (most at once %d); without a top %d, without trousers or a skirt %d, without shoes %d (women %d), without a face %d"),
+			Dressed, HairGrooms, GroomsNotMade, HairMeshes, HairPainted, BrowsPainted, LeftBald, NoHeadMaterial, GroomsShown, MostGroomsShown, WithoutTop, WithoutBottom, WithoutShoes, WithoutShoesWomen, WithoutFace);
 	}
 	if (!bCrossingWait)
 	{
@@ -1178,6 +1182,7 @@ void UGTPCrowdSubsystem::UpdateNear(float DeltaTime)
 	}
 	const UGTPThreatSubsystem* HoldUp = UGTPThreatSubsystem::IsEnabled() && GetWorld() ? GetWorld()->GetSubsystem<UGTPThreatSubsystem>() : nullptr;
 	// Follow the entities: position, and the animation that matches what the person does.
+	int32 ShownGrooms = 0;
 	for (int32 Slot = 0; Slot < NearActors.Num(); ++Slot)
 	{
 		AGTPPedestrian* Actor = NearActors[Slot];
@@ -1250,6 +1255,8 @@ void UGTPCrowdSubsystem::UpdateNear(float DeltaTime)
 		const USkeletalMesh* BodyMesh = Actor->GetBody() ? Actor->GetBody()->GetSkeletalMeshAsset() : nullptr;
 		const int32 FarLevel = FMath::Clamp(NearFarLOD, 0, FMath::Max(0, (BodyMesh ? BodyMesh->GetLODNum() : 1) - 1));
 		Actor->SetDetail(true, bDetail, bDetail ? -1 : FarLevel);
+		// A groom only near the player (its tick is its cost); further away the far hair mesh and the painted scalp.
+		ShownGrooms += Actor->SetHairNear(bGrooms && PlayerDistance <= CrowdGroomDistance) ? 1 : 0;
 		if (bNearReduceAnimRate)
 		{
 			Actor->SetAnimInterval(PlayerDistance < 1500.f ? 0.f : (PlayerDistance < 2500.f ? 0.05f : 0.083f));
@@ -1273,6 +1280,8 @@ void UGTPCrowdSubsystem::UpdateNear(float DeltaTime)
 			SayWhatIsPlayed(Actor, Walk, TEXT("walk"));
 		}
 	}
+	GroomsShown = ShownGrooms;
+	MostGroomsShown = FMath::Max(MostGroomsShown, ShownGrooms);
 }
 
 void UGTPCrowdSubsystem::SpreadPanic()
@@ -1324,9 +1333,11 @@ void UGTPCrowdSubsystem::FindHair()
 	{
 		return;
 	}
-	// What the project holds of City Sample's hair, asked of the registry (nothing is loaded here): the baked textures
-	// its head material paints on the scalp (Hair_<size>_<style>_baked) and the hair meshes it shows from a distance
-	// (Hair_<size>_<style>_Helmet_LOD5 or _Mesh_LOD5). The styles of City Sample's female heads go to the women.
+	// What the project holds of City Sample's hair, asked of the registry (nothing is loaded here): the grooms of its
+	// heads (Hair_<size>_<style>) with their cards (Hair_<size>_<style>_CardsMesh_…), the bindings Epic made of each
+	// groom for each face (GB_<face mesh>_<groom>), the hair meshes it shows from a distance (…_Helmet_LOD5 or
+	// …_Mesh_LOD5), the baked textures its head material paints on the scalp (…_baked) and the baked eyebrows. The
+	// styles of City Sample's female heads go to the women. Classes by name: HairStrands is not a dependency.
 	static const TCHAR* const FemaleStyles[] = {TEXT("Coil"), TEXT("Pixie"), TEXT("LowPonytail"), TEXT("Updo"), TEXT("BobCurly"), TEXT("Ponytail")};
 	TArray<FAssetData> Found;
 	FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry")).Get().GetAssetsByPath(FName(*CrowdCharacterRoot), Found, true);
@@ -1336,16 +1347,25 @@ void UGTPCrowdSubsystem::FindHair()
 	for (const FAssetData& Asset : Found)
 	{
 		const FString Name = Asset.AssetName.ToString();
-		const bool bBaked = Name.EndsWith(TEXT("_baked"));
-		const bool bMesh = Name.EndsWith(TEXT("_LOD5")) && (Asset.AssetClassPath == FixedMeshClass || Asset.AssetClassPath == SkinnedMeshClass);
-		if (!Name.StartsWith(TEXT("Hair_")) || (!bBaked && !bMesh))
+		const FString ClassName = Asset.AssetClassPath.GetAssetName().ToString();
+		if (ClassName == TEXT("GroomBindingAsset"))
 		{
+			HairBindings.Add(Name, Asset.GetSoftObjectPath());
 			continue;
 		}
-		// Hair_S_AfroFade_baked, Hair_S_AfroFade_Helmet_LOD5: the style is the third word.
+		const bool bBaked = Name.EndsWith(TEXT("_baked"));
+		if (bBaked && Name.StartsWith(TEXT("Eyebrows_")))
+		{
+			EyebrowTextures.Add(Asset.GetSoftObjectPath());
+			continue;
+		}
+		// Hair_S_AfroFade, Hair_S_AfroFade_baked, Hair_S_AfroFade_Helmet_LOD5: the style is the third word.
 		TArray<FString> Words;
 		Name.ParseIntoArray(Words, TEXT("_"));
-		if (Words.Num() < 4)
+		const bool bGroom = ClassName == TEXT("GroomAsset") && Words.Num() == 3;
+		const bool bCards = Name.Contains(TEXT("_CardsMesh_"));
+		const bool bMesh = !bCards && Name.EndsWith(TEXT("_LOD5")) && (Asset.AssetClassPath == FixedMeshClass || Asset.AssetClassPath == SkinnedMeshClass);
+		if (!Name.StartsWith(TEXT("Hair_")) || Words.Num() < 3 || (!bBaked && !bMesh && !bGroom && !bCards))
 		{
 			continue;
 		}
@@ -1366,8 +1386,17 @@ void UGTPCrowdSubsystem::FindHair()
 		{
 			Entry = &Styles.AddDefaulted_GetRef();
 			Entry->Style = Style;
+			Entry->GroomName = FString::Printf(TEXT("%s_%s_%s"), *Words[0], *Words[1], *Words[2]);
 		}
-		if (bBaked)
+		if (bGroom)
+		{
+			Entry->Groom = Asset.GetSoftObjectPath();
+		}
+		else if (bCards)
+		{
+			Entry->bHasCards = true;
+		}
+		else if (bBaked)
 		{
 			Entry->Baked = Asset.GetSoftObjectPath();
 		}
@@ -1382,13 +1411,21 @@ void UGTPCrowdSubsystem::FindHair()
 		FString List;
 		for (const FHairStyle& Style : HairStyles[Sex])
 		{
-			List += FString::Printf(TEXT("%s%s (%s%s%s)"), List.IsEmpty() ? TEXT("") : TEXT(", "), *Style.Style, Style.Baked.IsValid() ? TEXT("painted") : TEXT(""),
-				Style.Baked.IsValid() && Style.Mesh.IsValid() ? TEXT(" + ") : TEXT(""), Style.Mesh.IsValid() ? (Style.bMeshIsSkinned ? TEXT("skinned mesh") : TEXT("mesh")) : TEXT(""));
+			int32 Bindings = 0;
+			for (const TPair<FString, FSoftObjectPath>& Binding : HairBindings)
+			{
+				Bindings += Binding.Key.EndsWith(TEXT("_") + Style.GroomName) ? 1 : 0;
+			}
+			List += FString::Printf(TEXT("%s%s (groom %s, cards %s, bindings %d, far mesh %s, painted %s)"), List.IsEmpty() ? TEXT("") : TEXT(", "), *Style.Style,
+				Style.Groom.IsValid() ? TEXT("yes") : TEXT("no"), Style.bHasCards ? TEXT("yes") : TEXT("no"), Bindings,
+				Style.Mesh.IsValid() ? (Style.bMeshIsSkinned ? TEXT("skinned") : TEXT("yes")) : TEXT("no"), Style.Baked.IsValid() ? TEXT("yes") : TEXT("no"));
 		}
 		UE_LOG(LogGTPCrowd, Log, TEXT("crowd hair: %s: %d styles in the project under %s: %s"), Sex == 1 ? TEXT("women") : TEXT("men"), HairStyles[Sex].Num(), *CrowdCharacterRoot,
 			List.IsEmpty() ? TEXT("NONE, they stay bald") : *List);
 	}
-	UE_LOG(LogGTPCrowd, Log, TEXT("crowd hair: %d assets left to the player (style \"%s\"), %d assets looked at"), Kept, *CrowdHairKeptForPlayer, Found.Num());
+	UE_LOG(LogGTPCrowd, Log, TEXT("crowd hair: %d groom bindings and %d baked eyebrows in the project; %d assets left to the player (style \"%s\"), %d assets looked at; grooms %s, shown within %.0f m of the player"),
+		HairBindings.Num(), EyebrowTextures.Num(), Kept, *CrowdHairKeptForPlayer, Found.Num(),
+		!bGrooms ? TEXT("off (-CrowdGrooms=0)") : (bCrowdGroomCards ? TEXT("as hair cards, only those that have cards") : TEXT("as the asset's own levels")), CrowdGroomDistance / 100.f);
 }
 
 void UGTPCrowdSubsystem::GiveHair(AGTPPedestrian* Actor, bool bFemale)
@@ -1402,18 +1439,35 @@ void UGTPCrowdSubsystem::GiveHair(AGTPPedestrian* Actor, bool bFemale)
 	{
 		return;
 	}
-	// The colour first, for everybody: City Sample's head material tints the painted hair and the eyebrows from a
+	const FString FaceName = Face->GetSkeletalMeshAsset() ? Face->GetSkeletalMeshAsset()->GetName() : FString();
+	// The colour first, for everybody: City Sample's hair and head materials tint the hair and the eyebrows from a
 	// melanin and a redness (each head has its own; here one per person, dark more often than fair).
 	const float Roll = ReactionRng.Next();
 	const float Melanin = Roll < 0.55f ? ReactionRng.Range(0.8f, 1.f) : (Roll < 0.88f ? ReactionRng.Range(0.45f, 0.8f) : ReactionRng.Range(0.15f, 0.45f));
 	const float Redness = ReactionRng.Range(0.f, 0.45f);
-	const TArray<FHairStyle>& Styles = HairStyles[bFemale ? 1 : 0];
-	const bool bBald = Styles.IsEmpty() || (!bFemale && ReactionRng.Next() < CrowdBaldShare);
-	const FHairStyle* Style = bBald ? nullptr : &Styles[FMath::Min(Styles.Num() - 1, static_cast<int32>(ReactionRng.Next() * Styles.Num()))];
+	// The styles this person can wear: one with a groom bound to his face, a far mesh or a painted scalp.
+	auto BindingOf = [this, &FaceName](const FHairStyle& Of) -> const FSoftObjectPath*
+	{
+		return bGrooms && (Of.bHasCards || !bCrowdGroomCards) ? HairBindings.Find(FString::Printf(TEXT("GB_%s_%s"), *FaceName, *Of.GroomName)) : nullptr;
+	};
+	TArray<const FHairStyle*> Usable;
+	for (const FHairStyle& Candidate : HairStyles[bFemale ? 1 : 0])
+	{
+		if (Candidate.Baked.IsValid() || Candidate.Mesh.IsValid() || BindingOf(Candidate))
+		{
+			Usable.Add(&Candidate);
+		}
+	}
+	const bool bBald = Usable.IsEmpty() || (!bFemale && ReactionRng.Next() < CrowdBaldShare);
+	const FHairStyle* Style = bBald ? nullptr : Usable[FMath::Min(Usable.Num() - 1, static_cast<int32>(ReactionRng.Next() * Usable.Num()))];
 	UTexture* Baked = Style ? Cast<UTexture>(Style->Baked.TryLoad()) : nullptr;
-	// Painted on the scalp: every material of the face that has the head material's HairAttributeMap.
+	UTexture* Brows = EyebrowTextures.Num() > 0
+		? Cast<UTexture>(EyebrowTextures[FMath::Min(EyebrowTextures.Num() - 1, static_cast<int32>(ReactionRng.Next() * EyebrowTextures.Num()))].TryLoad()) : nullptr;
+	// Painted on the face: every material of it that has the head material's HairAttributeMap takes the baked hair
+	// of the style (the scalp under the hair, and all there is of it from far) and baked eyebrows.
 	static const FName HairMap(TEXT("HairAttributeMap"));
-	bool bHeadMaterial = false, bPainted = false;
+	static const FName BrowMap(TEXT("EyebrowsAttributeMap"));
+	bool bHeadMaterial = false, bPainted = false, bBrows = false;
 	for (int32 Slot = 0; Slot < Face->GetNumMaterials(); ++Slot)
 	{
 		UMaterialInterface* Material = Face->GetMaterial(Slot);
@@ -1441,36 +1495,45 @@ void UGTPCrowdSubsystem::GiveHair(AGTPPedestrian* Actor, bool bFemale)
 		if (Baked && bSameKind)
 		{
 			Head->SetTextureParameterValue(HairMap, Baked);
-			Head->SetScalarParameterValue(TEXT("ShowBakedGroomTextures"), 1.f);
 			bPainted = true;
 		}
+		UTexture* CurrentBrows = nullptr;
+		const bool bBrowsHere = Brows && Material->GetTextureParameterValue(FHashedMaterialParameterInfo(BrowMap), CurrentBrows)
+			&& (!CurrentBrows || CurrentBrows->IsCurrentlyVirtualTextured() == Brows->IsCurrentlyVirtualTextured());
+		if (bBrowsHere)
+		{
+			Head->SetTextureParameterValue(BrowMap, Brows);
+			bBrows = true;
+		}
+		if ((Baked && bSameKind) || bBrowsHere)
+		{
+			Head->SetScalarParameterValue(TEXT("ShowBakedGroomTextures"), 1.f);
+		}
 		const FString Key = Material->GetName() + TEXT("|") + (Style ? Style->Style : FString(TEXT("bald")));
-		if (!HairSaid.Contains(Key) && HairSaid.Num() < 24)
+		if (!HairSaid.Contains(Key) && HairSaid.Num() < 40)
 		{
 			HairSaid.Add(Key);
 			float Show = -1.f;
 			const bool bShowScalar = Material->GetScalarParameterValue(FHashedMaterialParameterInfo(FName(TEXT("ShowBakedGroomTextures"))), Show);
-			UE_LOG(LogGTPCrowd, Log, TEXT("crowd hair: face slot %d %s: HairAttributeMap was %s (%s), %s; ShowBakedGroomTextures %s; melanin %.2f redness %.2f"), Slot, *Material->GetName(),
+			UE_LOG(LogGTPCrowd, Log, TEXT("crowd hair: face slot %d %s: HairAttributeMap was %s (%s), %s; eyebrows %s; ShowBakedGroomTextures %s; melanin %.2f redness %.2f"), Slot, *Material->GetName(),
 				Current ? *Current->GetName() : TEXT("none"), Current && Current->IsCurrentlyVirtualTextured() ? TEXT("virtual") : TEXT("not virtual"),
 				!Baked ? TEXT("left (no baked texture for this person)") : (bSameKind ? *FString::Printf(TEXT("set to %s"), *Baked->GetName()) : *FString::Printf(TEXT("NOT set to %s: not the same kind of texture"), *Baked->GetName())),
+				bBrowsHere ? *FString::Printf(TEXT("set to %s"), *Brows->GetName()) : TEXT("left"),
 				bShowScalar ? *FString::Printf(TEXT("is a scalar, was %.0f"), Show) : TEXT("is not a scalar of this material"), Melanin, Redness);
 		}
 	}
-	// And the hair with a volume, when the project has the mesh of the style.
-	UMeshComponent* Hair = nullptr;
-	if (Style && Style->Mesh.IsValid())
+	// The colour of a hair component (groom or mesh): the scalars of its materials named after melanin or redness.
+	// The names differ from one hair material to the other: those the material has are set, and said once.
+	auto Tint = [this, Melanin, Redness](UMeshComponent* Hair, const FString& What)
 	{
-		UObject* Mesh = Style->Mesh.TryLoad();
-		Hair = Actor->SetHair(Cast<UStaticMesh>(Mesh), Cast<USkeletalMesh>(Mesh));
 		for (int32 Slot = 0; Hair && Slot < Hair->GetNumMaterials(); ++Slot)
 		{
 			UMaterialInterface* Material = Hair->GetMaterial(Slot);
-			UMaterialInstanceDynamic* Tint = Material ? Hair->CreateDynamicMaterialInstance(Slot, Material) : nullptr;
-			if (!Tint)
+			UMaterialInstanceDynamic* Dynamic = Material ? Hair->CreateDynamicMaterialInstance(Slot, Material) : nullptr;
+			if (!Dynamic)
 			{
 				continue;
 			}
-			// The names differ from one hair material to the other: those the material has are set, and said once.
 			TArray<FMaterialParameterInfo> Scalars;
 			TArray<FGuid> Ids;
 			Material->GetAllScalarParameterInfo(Scalars, Ids);
@@ -1481,26 +1544,64 @@ void UGTPCrowdSubsystem::GiveHair(AGTPPedestrian* Actor, bool bFemale)
 				Names += (Names.IsEmpty() ? TEXT("") : TEXT(", ")) + Name;
 				if (Name.Contains(TEXT("Melanin")))
 				{
-					Tint->SetScalarParameterValue(Info.Name, Melanin);
+					Dynamic->SetScalarParameterValue(Info.Name, Melanin);
 				}
 				else if (Name.Contains(TEXT("Redness")))
 				{
-					Tint->SetScalarParameterValue(Info.Name, Redness);
+					Dynamic->SetScalarParameterValue(Info.Name, Redness);
 				}
 			}
-			const FString Key = TEXT("mesh|") + Material->GetName();
-			if (!HairSaid.Contains(Key) && HairSaid.Num() < 24)
+			const FString Key = TEXT("tint|") + Material->GetName();
+			if (!HairSaid.Contains(Key) && HairSaid.Num() < 40)
 			{
 				HairSaid.Add(Key);
-				UE_LOG(LogGTPCrowd, Log, TEXT("crowd hair: mesh %s (%s) slot %d material %s, its scalars: %s"), *Style->Mesh.GetAssetName(), Style->bMeshIsSkinned ? TEXT("skinned") : TEXT("fixed to the head bone"),
-					Slot, *Material->GetPathName(), Names.IsEmpty() ? TEXT("none") : *Names);
+				UE_LOG(LogGTPCrowd, Log, TEXT("crowd hair: %s slot %d material %s, its scalars: %s"), *What, Slot, *Material->GetPathName(), Names.IsEmpty() ? TEXT("none") : *Names);
 			}
 		}
+	};
+	// Near the player: the groom of the style, with the binding Epic made of it for this face.
+	UMeshComponent* Groom = nullptr;
+	if (const FSoftObjectPath* BindingPath = Style ? BindingOf(*Style) : nullptr)
+	{
+		UObject* Binding = BindingPath->TryLoad();
+		// The groom the binding was made for, read from the binding: two heads of the pack can have a groom of the
+		// same name, and a binding holds only on its own.
+		UObject* Asset = nullptr;
+		if (const FObjectPropertyBase* Made = Binding ? FindFProperty<FObjectPropertyBase>(Binding->GetClass(), TEXT("Groom")) : nullptr)
+		{
+			Asset = Made->GetObjectPropertyValue_InContainer(Binding);
+		}
+		const bool bFromBinding = Asset != nullptr;
+		if (!Asset)
+		{
+			Asset = Style->Groom.TryLoad();
+		}
+		FString Said = Binding ? TEXT("no groom asset") : TEXT("the binding did not load");
+		Groom = Binding && Asset ? Actor->SetGroom(Asset, Binding, bCrowdGroomCards, Said) : nullptr;
+		GroomsNotMade += Groom ? 0 : 1;
+		const FString Key = TEXT("groom|") + BindingPath->GetAssetName();
+		if (!HairSaid.Contains(Key) && HairSaid.Num() < 40)
+		{
+			HairSaid.Add(Key);
+			UE_LOG(LogGTPCrowd, Log, TEXT("crowd hair: face %s, style %s: %s (%s)%s"), *FaceName, *Style->Style, *Said,
+				bFromBinding ? TEXT("the groom the binding names") : TEXT("the groom found by its name: the binding's Groom was not read"), Groom ? TEXT("") : TEXT(": NO GROOM on this head"));
+		}
+		Tint(Groom, TEXT("groom ") + Style->GroomName);
+	}
+	// Further away: the hair mesh of the style, when the project has it.
+	UMeshComponent* Hair = nullptr;
+	if (Style && Style->Mesh.IsValid())
+	{
+		UObject* Mesh = Style->Mesh.TryLoad();
+		Hair = Actor->SetHair(Cast<UStaticMesh>(Mesh), Cast<USkeletalMesh>(Mesh));
+		Tint(Hair, FString::Printf(TEXT("far mesh %s (%s)"), *Style->Mesh.GetAssetName(), Style->bMeshIsSkinned ? TEXT("skinned") : TEXT("fixed to the head bone")));
 	}
 	NoHeadMaterial += bHeadMaterial ? 0 : 1;
 	HairPainted += bPainted ? 1 : 0;
+	BrowsPainted += bBrows ? 1 : 0;
 	HairMeshes += Hair ? 1 : 0;
-	LeftBald += bPainted || Hair ? 0 : 1;
+	HairGrooms += Groom ? 1 : 0;
+	LeftBald += bPainted || Hair || Groom ? 0 : 1;
 	if (!bHeadMaterial && !HairSaid.Contains(TEXT("no head material")))
 	{
 		HairSaid.Add(TEXT("no head material"));
@@ -1509,7 +1610,7 @@ void UGTPCrowdSubsystem::GiveHair(AGTPPedestrian* Actor, bool bFemale)
 		{
 			Names += FString::Printf(TEXT("%s%d %s"), Names.IsEmpty() ? TEXT("") : TEXT(", "), Slot, Face->GetMaterial(Slot) ? *Face->GetMaterial(Slot)->GetName() : TEXT("none"));
 		}
-		UE_LOG(LogGTPCrowd, Log, TEXT("crowd hair: NO material of the face %s has a HairAttributeMap texture: %s"), Face->GetSkeletalMeshAsset() ? *Face->GetSkeletalMeshAsset()->GetName() : TEXT("?"), *Names);
+		UE_LOG(LogGTPCrowd, Log, TEXT("crowd hair: NO material of the face %s has a HairAttributeMap texture: %s"), *FaceName, *Names);
 	}
 }
 
@@ -1612,6 +1713,17 @@ bool UGTPCrowdSubsystem::DressFromCitySample(AGTPPedestrian* Actor)
 		WithoutTop += Clothes[0] ? 0 : 1;
 		WithoutBottom += Clothes[1] ? 0 : 1;
 		WithoutShoes += Clothes[2] ? 0 : 1;
+		WithoutShoesWomen += !Clothes[2] && bFemale ? 1 : 0;
+		// Once for each sex: what the first one wears, by mesh name, and what the project lacks for him or her.
+		static bool bGarmentsSaid[2] = {false, false};
+		if (!bGarmentsSaid[bFemale ? 1 : 0])
+		{
+			bGarmentsSaid[bFemale ? 1 : 0] = true;
+			UE_LOG(LogGTPCrowd, Log, TEXT("crowd: garments of the first %s: top %s, bottom %s, shoes %s (meshes under %s/%s/%s/Meshes)"), bFemale ? TEXT("woman") : TEXT("man"),
+				Clothes[0] ? *Clothes[0]->GetName() : TEXT("NONE"), Clothes[1] ? *Clothes[1]->GetName() : TEXT("NONE"),
+				Clothes[2] ? *Clothes[2]->GetName() : (bFemale ? TEXT("NONE: no loafers, oxfords or dressFlats mesh in the project, she walks barefoot") : TEXT("NONE: no loafers or oxfords mesh in the project, he walks barefoot")),
+				*CrowdCharacterRoot, *Sex, WeightDir);
+		}
 	}
 	WithoutFace += Face ? 0 : 1;
 	if (bHair && Face)

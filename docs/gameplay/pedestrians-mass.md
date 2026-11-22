@@ -41,42 +41,60 @@ queue never left (queues held up to 250 s at gate 57). Since candidate 58:
   longest wait is 21 s and as many people get across. Twelve cars are read (stopped before it, coming fast, past it, in the next
   street, along it). **Not proven in the game**: that the queues of gate 57 drain.
 
-## Hair of the assembled characters (`-CrowdHair=0` for none)
+## Hair of the assembled characters (`-CrowdHair=0` for none, `-CrowdGrooms=0` for no groom)
 
 Until candidate 63 every passer-by was bald (video of gate 59). Not a cook problem: City Sample's crowd heads have no
-hair of their own, its character code adds it (a groom, and a baked texture painted on the scalp at a distance), and our
-assembly (`UGTPCrowdSubsystem::DressFromCitySample`) gave none. Shoes were never missing: a top, trousers or a skirt and
-shoes are loaded for everybody, and the log now counts whoever lacks one.
+hair of their own, its character code adds it (a groom bound to the face, and a baked texture painted on the scalp), and
+our assembly (`UGTPCrowdSubsystem::DressFromCitySample`) gave none.
 
-Since candidate 64 (`UGTPCrowdSubsystem::FindHair`, `GiveHair`):
+Since candidate 64 the crowd wears City Sample's own hair, the way City Sample puts it on (`FindHair`, `GiveHair`,
+`AGTPPedestrian::SetGroom`, `SetHair`, `SetHairNear`):
 
-- **What the project holds is asked of the asset registry** under `CrowdCharacterRoot`: the baked scalp textures
-  (`Hair_<size>_<style>_baked`) and the hair meshes City Sample shows from a distance (`Hair_<size>_<style>_Helmet_LOD5`,
-  `_Mesh_LOD5`). The style named in `CrowdHairKeptForPlayer` (`PulledBack`) is left to the player.
-- **Painted on the scalp**: on every material of the face that has the head material's `HairAttributeMap`, a dynamic
-  instance takes the baked texture of the person's style (only one of the same kind as the one it replaces, virtual or
-  not) and `ShowBakedGroomTextures`.
-- **With a volume**: the style's mesh on the head. A static mesh is fixed to the `head` bone, put back by the inverse of
-  that bone's reference pose (it was modelled around the head in that pose); a skeletal one follows the body's pose like a
-  garment (`AGTPPedestrian::SetHair`).
-- **Colours**: one melanin and one redness per person, dark more often than fair, on the head material (hair and
-  eyebrows) and on the scalars of the hair mesh's material whose name contains `Melanin` or `Redness`.
-  `CrowdBaldShare` (0.1) of the men keep a bare scalp.
-- **Log**: at the first person dressed, `crowd hair: men: N styles in the project under …: AfroFade (painted + mesh), …`
-  and the same for women (`NONE, they stay bald` when the project has nothing); once per material,
-  `crowd hair: face slot N <material>: HairAttributeMap was …, set to …; ShowBakedGroomTextures …` and
-  `crowd hair: mesh … slot N material …, its scalars: …`; `crowd hair: NO material of the face … has a HairAttributeMap
-  texture: …` when the face shown has no such material; every 10 s, `crowd: dressed N times: hair painted on the scalp N,
-  hair mesh on the head N, left bald N, no head material that takes hair N; without a top N, without trousers or a skirt
-  N, without shoes N, without a face N`.
-- **What to copy for the volume** (assets outside Git, editor closed, City Sample read only), as for Nicolito's hair:
-  `GTP_CROWD_HAIR=1` with `tools/character/crowd_hair_deps.py` lists the nine hair meshes and five baked textures of the
-  crowd and what they depend on, missing in the project; `tools/vehicles/copy_citysample_content.py --list
-  Saved/CitySampleCopy/missing.txt` copies them (`--dry-run` first); run both again until `0 missing`. The script also
-  gives the class of each mesh (static or skeletal).
-- **Not proven**: anything in the game. Not known from here: whether the face shown at its level 4 has a material with
-  `HairAttributeMap`, whether the hair meshes are static or skeletal, how their material draws on a static mesh, how a
-  mesh modelled on City Sample's reference head sits on each of the six heads. The lines above answer each.
+- **What the project holds is asked of the asset registry** under `CrowdCharacterRoot`: the grooms
+  (`Hair_<size>_<style>`), their hair cards (`…_CardsMesh_Group0_LOD0` to `LOD4`), the bindings Epic made of every groom
+  for every face (`<sex>/GroomBindings/GB_<face mesh>_<groom>`), the hair meshes shown from a distance
+  (`…_Helmet_LOD5`, `…_Mesh_LOD5`), the baked scalp textures (`…_baked`) and the baked eyebrows (`Eyebrows_*_baked`).
+  The style named in `CrowdHairKeptForPlayer` (`PulledBack`) is left to the player.
+- **Near the player, the groom**: a groom component on the face, with the binding of that groom for that face and the
+  groom the binding names (two heads of the pack can have a groom of the same name; a binding holds only on its own).
+  As hair cards (`bCrowdGroomCards`, the component's `bUseCards`), and only the grooms that have cards: strands cost
+  several times more. The component's class and properties are reached by name, as for the player's grooms: the
+  HairStrands plugin is not a dependency of the modules. It shows and ticks within `CrowdGroomDistance` (20 m) of the
+  player only: a groom's tick is its game-thread cost (measured on the player's), so that distance is the lever if the
+  frame time rises.
+- **Further away, the far hair mesh** of the style on the head: a static mesh is fixed to the `head` bone, put back by
+  the inverse of that bone's reference pose; a skeletal one follows the body's pose like a garment.
+- **Under both, painted on the face**: on every material of the face that has the head material's `HairAttributeMap`, a
+  dynamic instance takes the baked texture of the style, baked eyebrows (`EyebrowsAttributeMap`) and
+  `ShowBakedGroomTextures` (only a texture of the same kind as the one it replaces, virtual or not).
+- **Colours**: one melanin and one redness per person, dark more often than fair, on the head material and on the
+  scalars of the hair materials whose name contains `Melanin` or `Redness`. `CrowdBaldShare` (0.1) of the men keep a
+  bare scalp.
+- **Log**: at the first person dressed, `crowd hair: men: N styles in the project under …: AfroFade (groom yes, cards
+  yes, bindings 3, far mesh yes, painted yes), …`, the same for women (`NONE, they stay bald` when the project has
+  nothing) and `crowd hair: N groom bindings and N baked eyebrows in the project; …`; once per face and style,
+  `crowd hair: face m_001_nrw_FaceMesh, style AfroFade: groom …, binding …, cards asked for (bUseCards)` or `…: NO GROOM
+  on this head`; once per material, `crowd hair: face slot N <material>: HairAttributeMap was …, set to …; eyebrows …`
+  and `crowd hair: groom … slot N material …, its scalars: …`; `crowd hair: NO material of the face … has a
+  HairAttributeMap texture: …`; every 10 s, `crowd: dressed N times: groom on the head N (not made N), far hair mesh N,
+  hair painted on the scalp N, eyebrows painted N, left bald N, no head material that takes hair N; grooms shown now N
+  (most at once N); without a top N, without trousers or a skirt N, without shoes N (women N), without a face N`.
+- **What to copy** (assets outside Git, editor closed, City Sample read only), as for Nicolito's hair: by the inventory of 14 November the
+  project has one groom (the player's) and two baked scalp textures, so without the copy the crowd only gets a painted
+  scalp. `GTP_CROWD_HAIR=1` with `tools/character/crowd_hair_deps.py` lists what is missing: the 27 bindings of the
+  nine grooms with cards for the faces 001 to 003 of each sex (the grooms and their cards follow at the next run, as
+  what the bindings depend on), the nine far meshes, five baked textures and every garment mesh the code asks for;
+  `tools/vehicles/copy_citysample_content.py --list Saved/CitySampleCopy/missing.txt` copies them (`--dry-run` first,
+  for the size); run both again until only garments City Sample does not have remain ("nothing matches").
+- **Not proven**: anything in the game. Not known from here: whether a groom binds on a face held at its level 4 and
+  following the body's pose, what 24 grooms as cards cost, whether the far meshes are static or skeletal and how they
+  sit on each head, whether the face at level 4 has a material with `HairAttributeMap`. The lines above answer each.
+
+**Shoes.** A top, trousers or a skirt and shoes are loaded for everybody (`LoadAny`, the first mesh of the list the
+project has). At gate 55 the man held up at 3 m wears tan leather shoes (`gtarun-aim.jpg`); from 10 m in the video of
+gate 59 the same shoes read as bare feet. For the women nothing shows it: the materials listed at gate 36 had none for
+her shoes. The log now says it: `crowd: garments of the first man|woman: top …, bottom …, shoes …` (`NONE: … barefoot`
+when the project has none of the meshes), and the script above lists the shoe meshes present and brings the missing.
 
 The far crowd (beige figures beyond the 24 near characters) is another matter: one stand-in mesh, `CrowdMesh`.
 

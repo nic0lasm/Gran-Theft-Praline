@@ -28,6 +28,7 @@
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "Misc/Parse.h"
+#include "UObject/UnrealType.h"
 #include "Engine/GameInstance.h"
 
 #if __has_include("GTPLog.h")
@@ -110,6 +111,12 @@ void AGTPPedestrian::Dress(USkeletalMesh* BodyMesh, const TArray<USkeletalMesh*>
 		HairComponent->DestroyComponent();
 		HairComponent = nullptr;
 	}
+	if (GroomComponent)
+	{
+		GroomComponent->DestroyComponent();
+		GroomComponent = nullptr;
+	}
+	bHairNear = false;
 	auto AddPart = [this](USkeletalMesh* Mesh, const TCHAR* Name, bool bFollower) -> USkeletalMeshComponent*
 	{
 		if (!Mesh)
@@ -228,6 +235,90 @@ UMeshComponent* AGTPPedestrian::SetHair(UStaticMesh* Fixed, USkeletalMesh* Skinn
 	return HairComponent;
 }
 
+UMeshComponent* AGTPPedestrian::SetGroom(UObject* Groom, UObject* Binding, bool bCards, FString& OutSaid)
+{
+	if (GroomComponent)
+	{
+		GroomComponent->DestroyComponent();
+		GroomComponent = nullptr;
+	}
+	bHairNear = false;
+	UClass* GroomClass = FindObject<UClass>(nullptr, TEXT("/Script/HairStrandsCore.GroomComponent"));
+	if (!GroomClass || !GroomClass->IsChildOf(UMeshComponent::StaticClass()))
+	{
+		OutSaid = TEXT("no groom component class (HairStrands plugin not loaded)");
+		return nullptr;
+	}
+	if (!Groom || !FaceComponent)
+	{
+		OutSaid = Groom ? TEXT("no face to bind it to") : TEXT("no groom");
+		return nullptr;
+	}
+	// The assets are set on the new component before it registers, as a blueprint's template has them: it builds
+	// its resources from them when it registers, on the skeletal mesh it is attached to.
+	const FObjectPropertyBase* GroomProp = FindFProperty<FObjectPropertyBase>(GroomClass, TEXT("GroomAsset"));
+	const FObjectPropertyBase* BindingProp = FindFProperty<FObjectPropertyBase>(GroomClass, TEXT("BindingAsset"));
+	if (!GroomProp || !Groom->IsA(GroomProp->PropertyClass))
+	{
+		OutSaid = FString::Printf(TEXT("%s is not what the component's GroomAsset takes"), *Groom->GetName());
+		return nullptr;
+	}
+	if (Binding && (!BindingProp || !Binding->IsA(BindingProp->PropertyClass)))
+	{
+		OutSaid = FString::Printf(TEXT("%s is not what the component's BindingAsset takes"), *Binding->GetName());
+		return nullptr;
+	}
+	UMeshComponent* Part = NewObject<UMeshComponent>(this, GroomClass, TEXT("Groom"));
+	if (!Part)
+	{
+		OutSaid = TEXT("the groom component could not be made");
+		return nullptr;
+	}
+	GroomProp->SetObjectPropertyValue_InContainer(Part, Groom);
+	if (Binding)
+	{
+		BindingProp->SetObjectPropertyValue_InContainer(Part, Binding);
+	}
+	const FBoolProperty* CardsProp = FindFProperty<FBoolProperty>(GroomClass, TEXT("bUseCards"));
+	if (bCards && CardsProp)
+	{
+		CardsProp->SetPropertyValue_InContainer(Part, true);
+	}
+	Part->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	Part->SetGenerateOverlapEvents(false);
+	Part->SetCanEverAffectNavigation(false);
+	Part->bReceivesDecals = false;
+	Part->SetCastShadow(false);
+	Part->AttachToComponent(FaceComponent, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+	Part->RegisterComponent();
+	// Hidden and still until the person is near (SetHairNear).
+	Part->SetVisibility(false, false);
+	Part->SetComponentTickEnabled(false);
+	GroomComponent = Part;
+	OutSaid = FString::Printf(TEXT("groom %s, binding %s, %s"), *Groom->GetName(), Binding ? *Binding->GetName() : TEXT("NONE (it will not follow the head)"),
+		!bCards ? TEXT("strands left to the asset's levels") : (CardsProp ? TEXT("cards asked for (bUseCards)") : TEXT("cards NOT asked for: the component has no bUseCards")));
+	return Part;
+}
+
+bool AGTPPedestrian::SetHairNear(bool bNear)
+{
+	if (!GroomComponent)
+	{
+		return false;
+	}
+	if (bNear != bHairNear)
+	{
+		bHairNear = bNear;
+		GroomComponent->SetVisibility(bNear, false);
+		GroomComponent->SetComponentTickEnabled(bNear);
+		if (HairComponent)
+		{
+			HairComponent->SetVisibility(!bNear, false);
+		}
+	}
+	return bHairNear;
+}
+
 void AGTPPedestrian::MakeCheap()
 {
 	Body->bCastContactShadow = false;
@@ -271,6 +362,10 @@ void AGTPPedestrian::PlayLoop(UAnimSequenceBase* Animation, float PlayRate)
 
 void AGTPPedestrian::SetDetail(bool bVisible, bool bCastShadow, int32 ForcedLOD)
 {
+	if (!bVisible)
+	{
+		SetHairNear(false);
+	}
 	if (bVisible != bShown)
 	{
 		bShown = bVisible;

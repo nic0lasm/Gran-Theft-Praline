@@ -44,45 +44,65 @@ Depuis le candidat 58 :
   11 s de suite, la plus longue attente est de 21 s et autant de gens traversent. Douze voitures sont lues (arrêtée avant, arrivant
   vite, déjà passée, dans la rue voisine, le long du passage). **Pas prouvé en jeu** : que les files de la porte 57 se vident.
 
-## Cheveux des personnages assemblés (`-CrowdHair=0` pour aucun)
+## Cheveux des personnages assemblés (`-CrowdHair=0` pour aucun, `-CrowdGrooms=0` pour aucun groom)
 
 Jusqu'au candidat 63 tous les passants étaient chauves (vidéo de la porte 59). Ce n'est pas un problème de cook : les têtes
-de la foule de City Sample n'ont pas de cheveux à elles, c'est son code de personnage qui les ajoute (un groom, et une
-texture précalculée peinte sur le crâne à distance), et notre assemblage (`UGTPCrowdSubsystem::DressFromCitySample`) n'en
-donnait aucun. Les chaussures n'ont jamais manqué : un haut, un pantalon ou une jupe et des chaussures sont chargés pour
-tout le monde, et le journal compte maintenant ceux à qui il en manque un.
+de la foule de City Sample n'ont pas de cheveux à elles, c'est son code de personnage qui les ajoute (un groom lié au
+visage, et une texture précalculée peinte sur le crâne), et notre assemblage (`UGTPCrowdSubsystem::DressFromCitySample`)
+n'en donnait aucun.
 
-Depuis le candidat 64 (`UGTPCrowdSubsystem::FindHair`, `GiveHair`) :
+Depuis le candidat 64 la foule porte les cheveux de City Sample, montés comme City Sample les monte (`FindHair`,
+`GiveHair`, `AGTPPedestrian::SetGroom`, `SetHair`, `SetHairNear`) :
 
-- **Ce que le projet contient est demandé au registre d'assets** sous `CrowdCharacterRoot` : les textures précalculées du
-  crâne (`Hair_<taille>_<coiffure>_baked`) et les maillages de cheveux que City Sample montre de loin
-  (`Hair_<taille>_<coiffure>_Helmet_LOD5`, `_Mesh_LOD5`). La coiffure nommée dans `CrowdHairKeptForPlayer` (`PulledBack`)
-  est laissée au joueur.
-- **Peints sur le crâne** : sur chaque matériau du visage qui a le `HairAttributeMap` du matériau de tête, une instance
-  dynamique prend la texture précalculée de la coiffure de la personne (seulement une texture du même genre que celle
-  qu'elle remplace, virtuelle ou non) et `ShowBakedGroomTextures`.
-- **En volume** : le maillage de la coiffure sur la tête. Un maillage statique est fixé à l'os `head`, remis en place par
-  l'inverse de la pose de référence de cet os (il a été modelé autour de la tête dans cette pose) ; un maillage
-  squelettique suit la pose du corps comme un vêtement (`AGTPPedestrian::SetHair`).
-- **Couleurs** : une mélanine et une rousseur par personne, foncé plus souvent que clair, sur le matériau de tête (cheveux
-  et sourcils) et sur les scalaires du matériau du maillage de cheveux dont le nom contient `Melanin` ou `Redness`.
-  `CrowdBaldShare` (0,1) des hommes gardent le crâne nu.
-- **Journal** : à la première personne habillée, `crowd hair: men: N styles in the project under …: AfroFade (painted +
-  mesh), …` et de même pour les femmes (`NONE, they stay bald` quand le projet n'a rien) ; une fois par matériau,
-  `crowd hair: face slot N <matériau>: HairAttributeMap was …, set to …; ShowBakedGroomTextures …` et
-  `crowd hair: mesh … slot N material …, its scalars: …` ; `crowd hair: NO material of the face … has a HairAttributeMap
-  texture: …` quand le visage affiché n'a pas ce matériau ; toutes les 10 s, `crowd: dressed N times: hair painted on the
-  scalp N, hair mesh on the head N, left bald N, no head material that takes hair N; without a top N, without trousers or
-  a skirt N, without shoes N, without a face N`.
-- **À copier pour le volume** (assets hors Git, éditeur fermé, City Sample en lecture seule), comme pour les cheveux de
-  Nicolito : `GTP_CROWD_HAIR=1` avec `tools/character/crowd_hair_deps.py` liste les neuf maillages de cheveux et les cinq
-  textures précalculées de la foule et ce dont ils dépendent, absents du projet ;
-  `tools/vehicles/copy_citysample_content.py --list Saved/CitySampleCopy/missing.txt` les copie (`--dry-run` d'abord) ;
-  relancer les deux jusqu'à `0 missing`. Le script donne aussi la classe de chaque maillage (statique ou squelettique).
-- **Pas prouvé** : rien en jeu. Pas connu d'ici : si le visage affiché à son niveau 4 a un matériau avec
-  `HairAttributeMap`, si les maillages de cheveux sont statiques ou squelettiques, comment leur matériau se dessine sur un
-  maillage statique, comment un maillage modelé sur la tête de référence de City Sample tombe sur chacune des six têtes.
-  Les lignes ci-dessus répondent à chacune.
+- **Ce que le projet contient est demandé au registre d'assets** sous `CrowdCharacterRoot` : les grooms
+  (`Hair_<taille>_<coiffure>`), leurs cartes de cheveux (`…_CardsMesh_Group0_LOD0` à `LOD4`), les liaisons qu'Epic a faites
+  de chaque groom pour chaque visage (`<sexe>/GroomBindings/GB_<maillage du visage>_<groom>`), les maillages de cheveux
+  montrés de loin (`…_Helmet_LOD5`, `…_Mesh_LOD5`), les textures précalculées du crâne (`…_baked`) et les sourcils
+  précalculés (`Eyebrows_*_baked`). La coiffure nommée dans `CrowdHairKeptForPlayer` (`PulledBack`) est laissée au joueur.
+- **Près du joueur, le groom** : un composant groom sur le visage, avec la liaison de ce groom pour ce visage et le groom
+  que la liaison nomme (deux têtes du pack peuvent avoir un groom du même nom ; une liaison ne tient que sur le sien). En
+  cartes de cheveux (`bCrowdGroomCards`, le `bUseCards` du composant), et seulement les grooms qui ont des cartes : les
+  brins coûtent plusieurs fois plus. La classe et les propriétés du composant sont atteintes par leur nom, comme pour les
+  grooms du joueur : le plugin HairStrands n'est pas une dépendance des modules. Il ne s'affiche et ne tourne qu'à moins
+  de `CrowdGroomDistance` (20 m) du joueur : le tick d'un groom est son coût sur le fil du jeu (mesuré sur ceux du
+  joueur), cette distance est donc le levier si le temps d'image monte.
+- **Plus loin, le maillage de cheveux lointain** de la coiffure sur la tête : un maillage statique est fixé à l'os `head`,
+  remis en place par l'inverse de la pose de référence de cet os ; un maillage squelettique suit la pose du corps comme un
+  vêtement.
+- **Sous les deux, peint sur le visage** : sur chaque matériau du visage qui a le `HairAttributeMap` du matériau de tête,
+  une instance dynamique prend la texture précalculée de la coiffure, des sourcils précalculés (`EyebrowsAttributeMap`)
+  et `ShowBakedGroomTextures` (seulement une texture du même genre que celle qu'elle remplace, virtuelle ou non).
+- **Couleurs** : une mélanine et une rousseur par personne, foncé plus souvent que clair, sur le matériau de tête et sur
+  les scalaires des matériaux de cheveux dont le nom contient `Melanin` ou `Redness`. `CrowdBaldShare` (0,1) des hommes
+  gardent le crâne nu.
+- **Journal** : à la première personne habillée, `crowd hair: men: N styles in the project under …: AfroFade (groom yes,
+  cards yes, bindings 3, far mesh yes, painted yes), …`, de même pour les femmes (`NONE, they stay bald` quand le projet
+  n'a rien) et `crowd hair: N groom bindings and N baked eyebrows in the project; …` ; une fois par visage et coiffure,
+  `crowd hair: face m_001_nrw_FaceMesh, style AfroFade: groom …, binding …, cards asked for (bUseCards)` ou `…: NO GROOM
+  on this head` ; une fois par matériau, `crowd hair: face slot N <matériau>: HairAttributeMap was …, set to …; eyebrows
+  …` et `crowd hair: groom … slot N material …, its scalars: …` ; `crowd hair: NO material of the face … has a
+  HairAttributeMap texture: …` ; toutes les 10 s, `crowd: dressed N times: groom on the head N (not made N), far hair mesh
+  N, hair painted on the scalp N, eyebrows painted N, left bald N, no head material that takes hair N; grooms shown now N
+  (most at once N); without a top N, without trousers or a skirt N, without shoes N (women N), without a face N`.
+- **À copier** (assets hors Git, éditeur fermé, City Sample en lecture seule), comme pour les cheveux de Nicolito :
+  d'après l'inventaire du 14 novembre le projet a un seul groom (celui du joueur) et deux textures de crâne, donc sans la copie la foule n'a
+  qu'un crâne peint. `GTP_CROWD_HAIR=1` avec `tools/character/crowd_hair_deps.py` liste ce qui manque : les 27 liaisons
+  des neuf grooms à cartes pour les visages 001 à 003 de chaque sexe (les grooms et leurs cartes suivent au tour suivant,
+  comme dépendances des liaisons), les neuf maillages lointains, cinq textures précalculées et tous les maillages de
+  vêtements que le code demande ; `tools/vehicles/copy_citysample_content.py --list Saved/CitySampleCopy/missing.txt` les
+  copie (`--dry-run` d'abord, pour le poids) ; relancer les deux jusqu'à ce qu'il ne reste que des vêtements que City
+  Sample n'a pas (« nothing matches »).
+- **Pas prouvé** : rien en jeu. Pas connu d'ici : si un groom se lie sur un visage tenu à son niveau 4 et qui suit la pose
+  du corps, ce que coûtent 24 grooms en cartes, si les maillages lointains sont statiques ou squelettiques et comment ils
+  tombent sur chaque tête, si le visage au niveau 4 a un matériau avec `HairAttributeMap`. Les lignes ci-dessus
+  répondent à chacune.
+
+**Chaussures.** Un haut, un pantalon ou une jupe et des chaussures sont chargés pour tout le monde (`LoadAny`, le premier
+maillage de la liste que le projet possède). À la porte 55, l'homme braqué à 3 m porte des chaussures de cuir fauve
+(`gtarun-aim.jpg`) ; à 10 m dans la vidéo de la porte 59 les mêmes chaussures se lisent comme des pieds nus. Pour les
+femmes rien ne le montre : les matériaux listés à la porte 36 n'en avaient aucun pour ses chaussures. Le journal le dit
+maintenant : `crowd: garments of the first man|woman: top …, bottom …, shoes …` (`NONE: … barefoot` quand le projet n'a
+aucun des maillages), et le script ci-dessus liste les maillages de chaussures présents et rapporte les manquants.
 
 La foule lointaine (silhouettes beiges au-delà des 24 personnages proches) est un autre sujet : un seul maillage
 provisoire, `CrowdMesh`.
