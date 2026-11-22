@@ -308,6 +308,14 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Missions")
 	float ParkOffset = 250.f;
 
+	/**
+	 * A parked car's centre stays at least this far from the centre line of every lane (cm): two half widths and a
+	 * margin. ParkOffset puts it to the right of one lane, which can be on the next one (gate 59: a street parked car
+	 * beside lane 96 stood in the chase's way, and the script moved the player's car).
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Missions")
+	float ParkLaneClearance = 210.f;
+
 	// --- Real cars parked along the streets around the player, to steal (-StreetParked=N) ---
 
 	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Parked")

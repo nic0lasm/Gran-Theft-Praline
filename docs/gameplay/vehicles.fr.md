@@ -294,6 +294,10 @@ Pas de plugin Water ni de volume physique : de simples événements de chevauche
   150 m quand il ne les voit pas. 60 % sont fermées (une vitre à casser), 40 % de celles-ci ont
   une alarme : le klaxon sonne par à-coups 15 s quand la vitre est cassée ou que la voiture
   garée est heurtée. Physique seulement à moins de 35 m. `-StreetParked=N` (0 = aucune).
+  Chacune est posée à 2,5 m à droite d'une voie (`ParkOffset`) et, depuis le candidat 62, jamais à
+  moins de 2,1 m de l'axe d'une voie (`ParkLaneClearance`) : à la porte 59, une Car03 garée à côté de la
+  voie 96 se trouvait sur la voie de la poursuite, et le script a dû déplacer la voiture du joueur. La ligne
+  « traffic: parked ... » finit par le nombre de places écartées parce qu'elles sont sur une autre voie.
 - **Accidents entre voitures du trafic** (à moins de 80 m du joueur, choc d'au moins
   4,5 m/s, deux à la fois au plus) : un léger accrochage finit par un coup de klaxon (ou, une
   fois sur trois, une dispute) ; sinon, une fois sur cinq, celui qui a percuté accélère et

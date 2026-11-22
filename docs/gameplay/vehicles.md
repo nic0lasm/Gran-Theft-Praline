@@ -284,7 +284,10 @@ Written in one batch, not compiled yet (`GTPIncidentLogic.h`, checked offline by
   the kerb 50 to 110 m around the player, out of sight, and taken away beyond 150 m when
   unseen. 60 % are locked (a window to break), 40 % of those have an alarm: the horn pulses
   for 15 s when the window is broken or the parked car is hit. Physics only within 35 m.
-  `-StreetParked=N` (0 = none).
+  `-StreetParked=N` (0 = none). Each is put 2.5 m to the right of a lane (`ParkOffset`) and, since
+  candidate 62, never at less than 2.1 m from the centre line of any lane (`ParkLaneClearance`): at gate 59
+  a Car03 parked beside lane 96 stood on the chase's lane and the script had to move the player's car. The
+  "traffic: parked ..." line ends with the number of spots left out for standing on another lane.
 - **Crashes between traffic cars** (within 80 m of the player, a change of speed of
   4.5 m/s or more, two at a time at most): a light bump ends in a blast of the horn (or, one
   time in three, an argument); otherwise one time in five the one who hit floors it while

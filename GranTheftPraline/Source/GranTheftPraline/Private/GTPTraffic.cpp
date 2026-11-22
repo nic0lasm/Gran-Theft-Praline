@@ -1463,6 +1463,11 @@ AGTPVehicle* AGTPTrafficNetwork::SpawnParkedVehicle(FName Tag, const FVector& Ne
 	}
 	const std::vector<GTPKerb::FSegmentRef> Segments = GTPKerb::SegmentsNear(Polylines,
 		{static_cast<float>(Near.X), static_cast<float>(Near.Y)}, FMath::Max(RadiusCm, 100.f));
+	// Every lane segment a spot could stand on: a spot is ParkOffset from the middle of a segment of Segments, and lane
+	// points are 4 m apart, so 10 m more than the request's radius holds them all.
+	const std::vector<GTPKerb::FSegmentRef> Nearby = GTPKerb::SegmentsNear(Polylines,
+		{static_cast<float>(Near.X), static_cast<float>(Near.Y)}, FMath::Max(RadiusCm, 100.f) + FMath::Max(ParkOffset, 0.f) + 1000.f);
+	int32 OnLane = 0;
 	// Out of sight first; if every spot is seen, a seen one rather than nothing.
 	for (int32 Pass = 0; Pass < 2; ++Pass)
 	{
@@ -1478,6 +1483,12 @@ AGTPVehicle* AGTPTrafficNetwork::SpawnParkedVehicle(FName Tag, const FVector& Ne
 			GTPKerb::FSpot Spot;
 			if (!GTPKerb::SpotBeside({static_cast<float>(A.X), static_cast<float>(A.Y)}, {static_cast<float>(B.X), static_cast<float>(B.Y)}, ParkOffset, Spot))
 			{
+				continue;
+			}
+			// Never on a lane: beside one lane, the spot can be on the next one (gate 59, a parked car in the chase's way).
+			if (!GTPKerb::IsClearOfLanes(Polylines, Nearby, Spot.Position, ParkLaneClearance))
+			{
+				OnLane += Pass == 0 ? 1 : 0;
 				continue;
 			}
 			FVector Location(Spot.Position.X, Spot.Position.Y, (A.Z + B.Z) * 0.5);
@@ -1504,14 +1515,15 @@ AGTPVehicle* AGTPTrafficNetwork::SpawnParkedVehicle(FName Tag, const FVector& Ne
 			{
 				Car->Tags.AddUnique(Tag);
 			}
-			GTP_TRACE(LogGTPTraffic, TEXT("traffic: parked %s (%s) on lane %d at %s, %.0f m from the request, pivot %.0f cm above the ground (the mesh's lowest point at 40 cm)"),
-				*Car->GetName(), *Tag.ToString(), Ref.Lane, *Location.ToCompactString(), Ref.Distance / 100.f, Clearance);
+			GTP_TRACE(LogGTPTraffic, TEXT("traffic: parked %s (%s) on lane %d at %s, %.0f m from the request, pivot %.0f cm above the ground (the mesh's lowest point at 40 cm), %d spot(s) on another lane left out"),
+				*Car->GetName(), *Tag.ToString(), Ref.Lane, *Location.ToCompactString(), Ref.Distance / 100.f, Clearance, OnLane);
 			return Car;
 		}
 	}
 	if (!bQuietMiss)
 	{
-		GTP_TRACE(LogGTPTraffic, TEXT("traffic: no free spot for a parked car (%s) within %.0f m of %s"), *Tag.ToString(), RadiusCm / 100.f, *Near.ToCompactString());
+		GTP_TRACE(LogGTPTraffic, TEXT("traffic: no free spot for a parked car (%s) within %.0f m of %s (%d spot(s) on another lane left out)"), *Tag.ToString(),
+			RadiusCm / 100.f, *Near.ToCompactString(), OnLane);
 	}
 	return nullptr;
 }

@@ -43,6 +43,21 @@ int main()
 	Check(Found.size() == 2 && Found[1].Point == 0 && Found[0].Distance <= Found[1].Distance, "then the next nearest");
 	Check(SegmentsNear(Lanes, {0.f, 0.f}, 10.f).empty(), "nothing when no middle is inside the radius");
 
+	Check(Near(DistanceToSegment({500.f, 300.f}, {0.f, 0.f}, {1000.f, 0.f}), 300.f), "distance to a segment, beside it");
+	Check(Near(DistanceToSegment({-300.f, 400.f}, {0.f, 0.f}, {1000.f, 0.f}), 500.f), "distance to a segment, past its end");
+
+	// Two lanes the same way, 3 m apart (gate 59: a car parked beside one lane stood on the next one).
+	const std::vector<std::vector<FPoint2>> TwoLanes = {
+		{{0.f, 0.f}, {400.f, 0.f}, {800.f, 0.f}},
+		{{0.f, 300.f}, {400.f, 300.f}, {800.f, 300.f}},
+	};
+	const std::vector<FSegmentRef> Nearby = SegmentsNear(TwoLanes, {400.f, 150.f}, 2000.f);
+	Check(SpotBeside(TwoLanes[0][0], TwoLanes[0][1], 250.f, Spot) && !IsClearOfLanes(TwoLanes, Nearby, Spot.Position, 210.f),
+		"a spot beside the left lane is on the right lane: left out");
+	Check(SpotBeside(TwoLanes[1][0], TwoLanes[1][1], 250.f, Spot) && IsClearOfLanes(TwoLanes, Nearby, Spot.Position, 210.f),
+		"a spot beside the right lane is clear of both");
+	Check(IsClearOfLanes(TwoLanes, {}, {0.f, 0.f}, 210.f), "no segment near: clear");
+
 	std::printf("%d failure(s)\n", Failures);
 	return Failures == 0 ? 0 : 1;
 }

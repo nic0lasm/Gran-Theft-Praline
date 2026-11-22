@@ -38,6 +38,17 @@ namespace GTPKerb
 		return true;
 	}
 
+	/** Distance from P to the segment A->B (same units). */
+	inline float DistanceToSegment(const FPoint2& P, const FPoint2& A, const FPoint2& B)
+	{
+		const float DX = B.X - A.X;
+		const float DY = B.Y - A.Y;
+		const float LengthSq = DX * DX + DY * DY;
+		float T = LengthSq > 1e-6f ? ((P.X - A.X) * DX + (P.Y - A.Y) * DY) / LengthSq : 0.f;
+		T = T < 0.f ? 0.f : (T > 1.f ? 1.f : T);
+		return std::hypot(P.X - (A.X + T * DX), P.Y - (A.Y + T * DY));
+	}
+
 	/**
 	 * Segments of all lanes whose middle lies within Radius of Near, nearest first:
 	 * (lane, first point) pairs. Lanes are polylines; a segment needs two points.
@@ -79,5 +90,22 @@ namespace GTPKerb
 			Found[J] = Item;
 		}
 		return Found;
+	}
+
+	/**
+	 * True when Spot is at least Clearance from every segment of Nearby (segments of Lanes, as SegmentsNear gives them).
+	 * A spot to the right of one lane can stand on another one: the next lane the same way, a bend, a junction.
+	 */
+	inline bool IsClearOfLanes(const std::vector<std::vector<FPoint2>>& Lanes, const std::vector<FSegmentRef>& Nearby, const FPoint2& Spot, float Clearance)
+	{
+		for (const FSegmentRef& Ref : Nearby)
+		{
+			const std::vector<FPoint2>& Line = Lanes[Ref.Lane];
+			if (DistanceToSegment(Spot, Line[Ref.Point], Line[Ref.Point + 1]) < Clearance)
+			{
+				return false;
+			}
+		}
+		return true;
 	}
 }
