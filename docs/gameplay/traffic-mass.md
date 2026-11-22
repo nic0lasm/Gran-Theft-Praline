@@ -486,6 +486,39 @@ Expected at the next gate: "physics cars" 0 under the physics; moving (upright) 
 or more (estimate, not proven: at gate 54 the 65 cars off the physics had 46 moving, 71 %, that is 85
 of 120); 0 car lying over; no "No valid current" error; game p50 no worse (55 fewer cars simulated).
 
+## The player's car against a traffic car: the crash step of -GTARun
+
+Nothing stops the player's car (or a police car) that drives into a MassTraffic car. Near the player
+those cars are instances of `ShowNearCarsAsInstances` with no physics body, and the simple physics
+of MassTraffic (lifted after gate 54 anyway) moves an entity, not a body: its wheel trace is a
+segment against the lane's plane (`MassTrafficVehiclePhysicsProcessor.cpp:449`). City Sample's near
+cars have a body because they are actors (`HighResSpawnedActor` representation, driven through
+`IMassTrafficVehicleControlInterface`, `MassTrafficActorVehiclePhysicsProcessor.cpp:53-67`); our
+copies replace the actors with instances (`place_masstraffic.py`), hence "actors=0". The obstacles
+a MassTraffic car brakes for are other entities (`FMassTrafficObstacleTag`: our people on a
+crossing), not the player's car.
+
+Step 12 of -GTARun, `crash`, measures it on what the player sees. On foot after the wasted step,
+the player gets into an unlocked parked car; the run chooses a MassTraffic car within 300 m (a
+stopped one first, with no other traffic car on the 18 m behind it, ground there and nothing
+standing in the way), holds the player's car 18 m behind it on its axis for half a second with the
+physics off, then drives it in at full throttle. Every frame it reads the target's Mass transform
+(`GTPMassTrafficCars.h`, answered by GTPMass) and the player's car in the target's frame:
+
+- fail, "went through": in line with it (less than 1.5 m aside), the centres nearer than half the
+  shorter car along its axis, or the player's car passed from behind it to in front of it;
+- ok, "held behind": 2.5 s after the contact range (MassTraffic's radius plus the player's half
+  length, 1.5 m margin) with no traversal (stopped, pushing it or pushed aside), or 1.5 s at a crawl
+  near it;
+- another car (three at most) when the target drove away or was never reached in 12 s.
+
+Lines: "GTARun crash: attempt N/3, MassTraffic car ...", then "GTARun step 12: crash ok|fail ...
+[informative, not counted]", with the impact speed, the speed left, how far apart the centres were
+and the target's speed; the picture `gtarun-crash.png` at that moment. The step is in neither count
+("GTARun informative: N/1 ok (crash)"; "GTARun done: N/7" is unchanged). Expected now: fail, went
+through, at about 30 to 40 km/h. It becomes a gate criterion with the lot that gives the near cars a
+body as City Sample does (actors near the player, place_masstraffic.py run again on the PC).
+
 ## Open points
 
 - Near the player MassTraffic may hand a car over to its physics vehicle: our copies name our cars

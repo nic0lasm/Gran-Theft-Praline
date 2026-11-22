@@ -1,6 +1,7 @@
 #include "GTPMassTraffic.h"
 
 #include "GTPTraffic.h"
+#include "GTPMassTrafficCars.h"
 #include "Components/InstancedStaticMeshComponent.h"
 #include "EngineUtils.h"
 #include "MassSpawner.h"
@@ -41,6 +42,51 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogGTPMassTraffic, Log, All);
 
+#if WITH_GTP_MASSTRAFFIC
+namespace GTPMassTrafficCarsQuery
+{
+	/** GTPMassTrafficCars.h: the driving MassTraffic cars within RadiusCm of Near, at their Mass transform (what is shown). */
+	void FindCars(UWorld& World, const FVector& Near, float RadiusCm, TArray<FGTPMassTrafficCar>& Out)
+	{
+		UMassEntitySubsystem* Mass = World.GetSubsystem<UMassEntitySubsystem>();
+		if (!Mass)
+		{
+			return;
+		}
+		FMassEntityManager& Manager = Mass->GetMutableEntityManager();
+		FMassEntityQuery Query;
+		Query.Initialize(Manager.AsShared());
+		Query.AddTagRequirement<FMassTrafficVehicleTag>(EMassFragmentPresence::All);
+		Query.AddRequirement<FTransformFragment>(EMassFragmentAccess::ReadOnly);
+		Query.AddRequirement<FMassTrafficVehicleControlFragment>(EMassFragmentAccess::ReadOnly);
+		Query.AddRequirement<FAgentRadiusFragment>(EMassFragmentAccess::ReadOnly);
+		const double RadiusSquared = FMath::Square(static_cast<double>(RadiusCm));
+		FMassExecutionContext Context(Manager, 0.f);
+		Query.ForEachEntityChunk(Context, [&](FMassExecutionContext& Chunk)
+		{
+			const TConstArrayView<FTransformFragment> Transforms = Chunk.GetFragmentView<FTransformFragment>();
+			const TConstArrayView<FMassTrafficVehicleControlFragment> Controls = Chunk.GetFragmentView<FMassTrafficVehicleControlFragment>();
+			const TConstArrayView<FAgentRadiusFragment> Radii = Chunk.GetFragmentView<FAgentRadiusFragment>();
+			for (int32 Index = 0; Index < Chunk.GetNumEntities(); ++Index)
+			{
+				const FTransform& Transform = Transforms[Index].GetTransform();
+				if (FVector::DistSquared(Transform.GetLocation(), Near) > RadiusSquared)
+				{
+					continue;
+				}
+				const FMassEntityHandle Entity = Chunk.GetEntity(Index);
+				FGTPMassTrafficCar& Car = Out.AddDefaulted_GetRef();
+				Car.Location = Transform.GetLocation();
+				Car.Forward = Transform.GetRotation().GetForwardVector();
+				Car.SpeedCmS = Controls[Index].Speed;
+				Car.RadiusCm = Radii[Index].Radius;
+				Car.Id = (static_cast<uint64>(static_cast<uint32>(Entity.SerialNumber)) << 32) | static_cast<uint64>(static_cast<uint32>(Entity.Index));
+			}
+		});
+	}
+}
+#endif
+
 const FName UGTPMassTrafficSubsystem::SpawnerTag(TEXT("GTPMassTraffic"));
 
 bool UGTPMassTrafficSubsystem::ShouldCreateSubsystem(UObject* Outer) const
@@ -57,6 +103,8 @@ void UGTPMassTrafficSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 		return;
 	}
 #if WITH_GTP_MASSTRAFFIC
+	// For the game module (the crash step of -GTARun): where the cars are. Takes the world it is given, holds nothing.
+	GTPMassTrafficCars::SetQuery(&GTPMassTrafficCarsQuery::FindCars);
 	// Started in the order of their GTPMassTrafficOrder<n> tag (place_masstraffic.py): intersections,
 	// then parked cars, then the driving cars that need both.
 	TArray<TPair<int32, AMassSpawner*>> Spawners;

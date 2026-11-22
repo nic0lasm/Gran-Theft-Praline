@@ -543,6 +543,43 @@ Attendu à la prochaine porte : « physics cars » 0 sous la physique ; moving (
 avaient 46 qui roulaient, 71 %, soit 85 sur 120) ; 0 voiture couchée ; aucune erreur « No valid
 current » ; game p50 pas pire (55 voitures simulées en moins).
 
+## La voiture du joueur contre une voiture du trafic : l'étape crash de -GTARun
+
+Rien n'arrête la voiture du joueur (ni une voiture de police) qui fonce dans une voiture de
+MassTraffic. Près du joueur, ces voitures sont des instances de `ShowNearCarsAsInstances`, sans
+corps physique, et la physique simple de MassTraffic (levée de toute façon après la porte 54) déplace
+une entité, pas un corps : son tracé de roue est un segment contre le plan de la voie
+(`MassTrafficVehiclePhysicsProcessor.cpp:449`). Les voitures proches de City Sample ont un corps parce
+que ce sont des acteurs (représentation `HighResSpawnedActor`, conduits par
+`IMassTrafficVehicleControlInterface`, `MassTrafficActorVehiclePhysicsProcessor.cpp:53-67`) ; nos
+copies remplacent les acteurs par des instances (`place_masstraffic.py`), d'où « actors=0 ». Les
+obstacles pour lesquels une voiture de MassTraffic freine sont d'autres entités
+(`FMassTrafficObstacleTag` : nos piétons sur un passage), pas la voiture du joueur.
+
+L'étape 12 de -GTARun, `crash`, le mesure sur ce que voit le joueur. À pied après l'étape wasted, le
+joueur monte dans une voiture garée non verrouillée ; le parcours choisit une voiture de MassTraffic
+à moins de 300 m (une arrêtée d'abord, sans autre voiture du trafic sur les 18 m derrière elle, avec
+un sol à cet endroit et rien de dressé sur le chemin), tient la voiture du joueur 18 m derrière elle,
+dans son axe, une demi-seconde physique coupée, puis la lance dessus plein gaz. À chaque image, elle
+lit la transformée Mass de la cible (`GTPMassTrafficCars.h`, à laquelle GTPMass répond) et la voiture
+du joueur dans le repère de la cible :
+
+- échec, « went through » : dans son axe (moins de 1,5 m de côté), les centres plus près que la
+  moitié de la plus courte des deux voitures le long de son axe, ou la voiture du joueur est passée
+  de derrière elle à devant elle ;
+- réussite, « held behind » : 2,5 s après la distance de contact (rayon de MassTraffic plus la
+  demi-longueur du joueur, 1,5 m de marge) sans traversée (arrêtée, en train de pousser ou déviée),
+  ou 1,5 s au pas près d'elle ;
+- une autre voiture (trois au plus) quand la cible est partie ou n'a pas été atteinte en 12 s.
+
+Lignes : « GTARun crash: attempt N/3, MassTraffic car ... », puis « GTARun step 12: crash ok|fail ...
+[informative, not counted] », avec la vitesse au choc, la vitesse restante, l'écart entre les centres
+et la vitesse de la cible ; l'image `gtarun-crash.png` à cet instant. L'étape n'entre dans aucun
+compte (« GTARun informative: N/1 ok (crash) » ; « GTARun done: N/7 » ne change pas). Attendu
+aujourd'hui : échec, traversée, vers 30 à 40 km/h. Elle deviendra un critère de la porte avec le lot
+qui donne un corps aux voitures proches comme City Sample (des acteurs près du joueur,
+place_masstraffic.py relancé sur le PC).
+
 ## Points ouverts
 
 - Près du joueur, MassTraffic peut confier une voiture à son véhicule physique : nos copies

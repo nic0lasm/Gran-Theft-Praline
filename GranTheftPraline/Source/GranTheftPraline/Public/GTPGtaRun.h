@@ -30,14 +30,19 @@
  *   10 shoot     the player gets out and fires at the nearest person                 ok: a shot left the gun
  *   11 wasted    the player takes a lethal hit                                       ok: dead, back on his feet at the
  *                                                                                   hospital, the level gone
+ *   12 crash     at the wheel of a parked car, the player is put 18 m behind a      ok: his car is held behind it (stopped,
+ *                MassTraffic car (a stopped one first) and drives into it at full     pushing it or pushed aside); fail: it
+ *                throttle                                                             goes through the car the player sees
  *
  * The order differs from the first request (parked car first) because the demo route's carjack and chase
  * are one script that starts the run. Every step has a time limit: a step that fails or times out is
  * logged and the next one starts.
  *
- * Two last lines: "GTARun police: N/4 ok" for the steps of the wanted level (witness, pursuit, outcome, wasted:
- * what the first milestone asks to prove in the packaged game) and "GTARun done: N/7 ok" for the seven steps
- * the gate has counted since candidate 41, so that its rule reads the same.
+ * Three last lines: "GTARun police: N/4 ok" for the steps of the wanted level (witness, pursuit, outcome, wasted:
+ * what the first milestone asks to prove in the packaged game), "GTARun informative: N/1 ok (crash)" and
+ * "GTARun done: N/7 ok" for the seven steps the gate has counted since candidate 41, so that its rule reads the same.
+ * The crash step is informative (in neither count) until the near traffic cars have a body: MassTraffic's cars are
+ * instances with no collision, so it proves the traversal on what the player sees (docs/gameplay/traffic-mass.md).
  *
  * After the outcome the run clears what is left of the level and the police cannot arrest the player until the
  * end (as in every run so far, where the chase script had left the arrest off): the steps on foot test the theft,
@@ -85,8 +90,19 @@ private:
 	EResult CheckWalkArmed(FString& Detail);
 	EResult CheckAim(FString& Detail, bool bClose);
 	EResult CheckShoot(FString& Detail);
+	EResult CheckCrash(FString& Detail);
+	/**
+	 * Crash step: a MassTraffic car with room behind it and the ground there, for the player's car. 1 chosen, 0 none for now,
+	 * -1 never (no MassTraffic); Why says why not.
+	 */
+	int32 ChooseCrashTarget(class UWorld& World, const class AGTPVehicle& Car, FString& Why);
+	/** Crash step, every frame: holds the player's car behind its target, then drives it in and measures (Crash.Verdict). */
+	bool TickCrash(float DeltaTime);
+	/** Crash step: the pedals released and the frame ticker gone. */
+	void EndCrashDrive();
 
 	FTSTicker::FDelegateHandle TickHandle;
+	FTSTicker::FDelegateHandle CrashHandle;
 	FTSTicker::FDelegateHandle WalkHandle;
 	FVector WalkDirection = FVector::ZeroVector;
 	int32 WalkInputs = 0;
@@ -102,6 +118,7 @@ private:
 	double RunStart = -1.0;
 	int32 OkCount = 0;
 	int32 PoliceOkCount = 0;
+	int32 InfoOkCount = 0;
 	bool bDone = false;
 
 	// What happened to the player, by its real-time second (-1 = never): read by the outcome and wasted steps.
@@ -163,4 +180,41 @@ private:
 	int32 ShotsFired = 0;
 	double NextShot = 0.0;
 	int32 ShotAttempts = 0;
+
+	/** Crash step: its car, its target and what it measured (reset at each step). Distances in cm, speeds in km/h. */
+	struct FCrashRun
+	{
+		TWeakObjectPtr<class AGTPVehicle> Car;
+		TWeakObjectPtr<class ACharacter> Character;
+		/** 0 get a car, 1 entering, 2 choose a target, 3 held behind it, 4 driving into it. */
+		int32 Phase = 0;
+		int32 Attempts = 0;
+		TArray<uint64> Tried;
+		uint64 TargetId = 0;
+		FVector TargetAt = FVector::ZeroVector;
+		FVector TargetForward = FVector::ForwardVector;
+		float TargetRadius = 0.f;
+		float TargetKmh = 0.f;
+		float OwnHalfLength = 230.f;
+		double PhaseStart = 0.0;
+		double HoldUntil = 0.0;
+		double DriveStart = 0.0;
+		double LastSeen = 0.0;
+		double ContactAt = -1.0;
+		double SlowSince = -1.0;
+		float ContactKmh = 0.f;
+		float MinKmhAfter = 0.f;
+		float PeakKmh = 0.f;
+		float ClosestCm = 1.0e9f;
+		float MaxAsideCm = 0.f;
+		float PrevAlong = -1.0e9f;
+		/** Where the player's car stood in the target's frame when the verdict came (along its axis, aside), and its speed. */
+		float EndAlong = 0.f;
+		float EndAside = 0.f;
+		float EndKmh = 0.f;
+		/** 0 pending, 1 held behind the car, 2 went through it, 3 never reached it (next attempt). */
+		int32 Verdict = 0;
+		FString Note;
+	};
+	FCrashRun Crash;
 };

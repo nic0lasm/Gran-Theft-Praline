@@ -41,7 +41,7 @@ Une unité à moins de 7 m d'un joueur à pied ou sous 12 km/h, trois secondes d
 
 ## Preuve dans le jeu packagé (`-GTARun`, 19/11/2026)
 
-Quatre étapes du parcours automatique couvrent la recherche, comptées sur leur propre ligne (`GTARun police: N/4 ok`) ; les sept autres gardent la leur (`GTARun done: N/7 ok`).
+Quatre étapes du parcours automatique couvrent la recherche, comptées sur leur propre ligne (`GTARun police: N/4 ok`) ; les sept autres gardent la leur (`GTARun done: N/7 ok`) ; l'étape crash, informative, a la sienne (`GTARun informative: N/1 ok (crash)`, voir traffic-mass.fr.md).
 
 | Étape | Ce qui se passe | Réussie quand |
 | ---- | ---- | ---- |

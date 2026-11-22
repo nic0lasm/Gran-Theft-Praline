@@ -28,6 +28,10 @@
 #include "GTPThreat.h"
 #include "GTPTheftDemo.h"
 #include "GTPVehicle.h"
+#include "GTPMassTrafficCars.h"
+#include "GTPTraffic.h"
+#include "CollisionQueryParams.h"
+#include "Engine/HitResult.h"
 #include "GTPWanted.h"
 #include "GTPWeapon.h"
 #include "Misc/CommandLine.h"
@@ -42,20 +46,26 @@ namespace
 	// In a namespace of their own: the step functions have locals called Aim or Car.
 	namespace EStep
 	{
-		enum Type : int32 { Carjack, Witness, Chase, Pursuit, Outcome, Parked, WalkArmed, Aim, AimClose, Shoot, Wasted, Count };
+		enum Type : int32 { Carjack, Witness, Chase, Pursuit, Outcome, Parked, WalkArmed, Aim, AimClose, Shoot, Wasted, Crash, Count };
 	}
 	constexpr int32 StepCount = EStep::Count;
 	const TCHAR* StepNames[StepCount] = { TEXT("carjack"), TEXT("witness"), TEXT("chase"), TEXT("pursuit"), TEXT("outcome"), TEXT("parked"),
-		TEXT("walkarmed"), TEXT("aim"), TEXT("aimclose"), TEXT("shoot"), TEXT("wasted") };
+		TEXT("walkarmed"), TEXT("aim"), TEXT("aimclose"), TEXT("shoot"), TEXT("wasted"), TEXT("crash") };
 	// The steps of the wanted level, counted on their own line: the gate's rule on the seven others reads as before.
-	const bool StepIsPolice[StepCount] = { false, true, false, true, true, false, false, false, false, false, true };
+	const bool StepIsPolice[StepCount] = { false, true, false, true, true, false, false, false, false, false, true, false };
 	constexpr int32 PoliceStepCount = 4;
+	// Informative steps, in neither count: the crash step until the near traffic cars have a body.
+	const bool StepIsInfo[StepCount] = { false, false, false, false, false, false, false, false, false, false, false, true };
+	constexpr int32 InfoStepCount = 1;
 	// Time limits (s) per step, counted from the step's start.
 	// Witness: the call takes 4 s (GTPWitnessLogic.h). Chase: 3 stars come at 30 s and a car that flees has its
 	// 150 m by then; a chase that fails must leave the other steps their time (170 s of it ate the bench's 330 s
 	// on 16/11). Pursuit: its 40 s window. Outcome: a stopped player is arrested in 3 s once a unit is within 7 m;
-	// the units have 60 s to come. Wasted: 6 s dead, then the respawn.
-	const double StepLimits[StepCount] = { 90.0, 12.0, 90.0, 50.0, 60.0, 200.0, 40.0, 90.0, 90.0, 30.0, 30.0 };
+	// the units have 60 s to come. Wasted: 6 s dead, then the respawn. Crash: a few seconds to get in, then three
+	// tries of at most 13 s each.
+	const double StepLimits[StepCount] = { 90.0, 12.0, 90.0, 50.0, 60.0, 200.0, 40.0, 90.0, 90.0, 30.0, 30.0, 75.0 };
+	// Crash step: the player's car starts this far behind its target (centre to centre, cm), about 13 m of run-up.
+	constexpr float CrashRunUpCm = 1800.f;
 	// The flight measured by the pursuit step after the chase step (s).
 	constexpr double PursuitSeconds = 40.0;
 
@@ -155,6 +165,7 @@ void UGTPGtaRun::Deinitialize()
 	}
 	FTSTicker::GetCoreTicker().RemoveTicker(TickHandle);
 	FTSTicker::GetCoreTicker().RemoveTicker(WalkHandle);
+	FTSTicker::GetCoreTicker().RemoveTicker(CrashHandle);
 	Super::Deinitialize();
 }
 
@@ -182,6 +193,7 @@ void UGTPGtaRun::BeginStep(int32 Index)
 	bWastedExit = false;
 	WastedPhase = 0;
 	WastedTries = 0;
+	Crash = FCrashRun();
 	if (Step == EStep::Chase)
 	{
 		ChaseBegan = StepStart;
@@ -201,9 +213,13 @@ void UGTPGtaRun::BeginStep(int32 Index)
 void UGTPGtaRun::EndStep(EResult Result, const FString& Detail)
 {
 	const bool bOk = Result == EResult::Ok;
-	(StepIsPolice[Step] ? PoliceOkCount : OkCount) += bOk ? 1 : 0;
-	GTP_TRACE(LogGTPGtaRun, TEXT("GTARun step %d: %s %s %s (%.0f s)"), Step + 1, StepNames[Step], bOk ? TEXT("ok") : TEXT("fail"), *Detail,
-		FPlatformTime::Seconds() - StepStart);
+	(StepIsInfo[Step] ? InfoOkCount : StepIsPolice[Step] ? PoliceOkCount : OkCount) += bOk ? 1 : 0;
+	GTP_TRACE(LogGTPGtaRun, TEXT("GTARun step %d: %s %s %s (%.0f s)%s"), Step + 1, StepNames[Step], bOk ? TEXT("ok") : TEXT("fail"), *Detail,
+		FPlatformTime::Seconds() - StepStart, StepIsInfo[Step] ? TEXT(" [informative, not counted]") : TEXT(""));
+	if (Step == EStep::Crash)
+	{
+		EndCrashDrive();
+	}
 	if (Step == EStep::Chase)
 	{
 		StartChasePicture();
@@ -234,7 +250,8 @@ void UGTPGtaRun::EndStep(EResult Result, const FString& Detail)
 		Wanted->SetArrestEnabled(true);
 	}
 	GTP_TRACE(LogGTPGtaRun, TEXT("GTARun police: %d/%d ok (witness, pursuit, outcome, wasted)"), PoliceOkCount, PoliceStepCount);
-	GTP_TRACE(LogGTPGtaRun, TEXT("GTARun done: %d/%d ok (%.0f s)"), OkCount, StepCount - PoliceStepCount, FPlatformTime::Seconds() - RunStart);
+	GTP_TRACE(LogGTPGtaRun, TEXT("GTARun informative: %d/%d ok (crash)"), InfoOkCount, InfoStepCount);
+	GTP_TRACE(LogGTPGtaRun, TEXT("GTARun done: %d/%d ok (%.0f s)"), OkCount, StepCount - PoliceStepCount - InfoStepCount, FPlatformTime::Seconds() - RunStart);
 }
 
 void UGTPGtaRun::TrackWanted()
@@ -331,7 +348,8 @@ bool UGTPGtaRun::Tick(float /*DeltaTime*/)
 	case EStep::Aim: Result = CheckAim(Detail, false); break;
 	case EStep::AimClose: Result = CheckAim(Detail, true); break;
 	case EStep::Shoot: Result = CheckShoot(Detail); break;
-	default: Result = CheckWasted(Detail); break;
+	case EStep::Wasted: Result = CheckWasted(Detail); break;
+	default: Result = CheckCrash(Detail); break;
 	}
 	if (Result == EResult::Pending && FPlatformTime::Seconds() - StepStart > StepLimits[Step])
 	{
@@ -1475,4 +1493,445 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckShoot(FString& Detail)
 		return EResult::Ok;
 	}
 	return ShotAttempts >= 12 ? EResult::Fail : EResult::Pending;
+}
+
+namespace GTPGtaRunCrash
+{
+	/** A car's axis on the ground plane, and its right. */
+	void Axes(const FVector& Heading, FVector& OutForward, FVector& OutRight)
+	{
+		OutForward = FVector(Heading.X, Heading.Y, 0.0).GetSafeNormal();
+		if (OutForward.IsNearlyZero())
+		{
+			OutForward = FVector::ForwardVector;
+		}
+		OutRight = FVector::CrossProduct(FVector::UpVector, OutForward);
+	}
+
+	/** What a trace from the player's car ignores: the car and whoever rides in it. */
+	FCollisionQueryParams IgnoringCar(const AGTPVehicle& Car)
+	{
+		FCollisionQueryParams Params(SCENE_QUERY_STAT(GTARunCrash), false, &Car);
+		TArray<AActor*> Riders;
+		Car.GetAttachedActors(Riders);
+		Params.AddIgnoredActors(Riders);
+		return Params;
+	}
+
+	/** The run-up's start behind At on its axis, on the ground found there (false: that ground is 1.5 m off the car's). */
+	bool SpotBehind(const UWorld& World, const AGTPVehicle& Car, const FVector& At, const FVector& Forward, FVector& Out)
+	{
+		const FVector Flat = At - Forward * CrashRunUpCm;
+		FHitResult Hit;
+		if (World.LineTraceSingleByChannel(Hit, Flat + FVector(0.0, 0.0, 300.0), Flat - FVector(0.0, 0.0, 500.0), ECC_Visibility, IgnoringCar(Car)))
+		{
+			if (FMath::Abs(Hit.ImpactPoint.Z - At.Z) > 150.0)
+			{
+				return false;
+			}
+			// As GTPVehicle's launch test: 30 cm above the road, the wheels settle.
+			Out = Hit.ImpactPoint + FVector(0.0, 0.0, 30.0);
+			return true;
+		}
+		Out = Flat + FVector(0.0, 0.0, 30.0);
+		return true;
+	}
+}
+
+int32 UGTPGtaRun::ChooseCrashTarget(UWorld& World, const AGTPVehicle& Car, FString& Why)
+{
+	TArray<FGTPMassTrafficCar> Cars;
+	if (!GTPMassTrafficCars::Find(World, Car.GetActorLocation(), 30000.f, Cars))
+	{
+		Why = TEXT("no MassTraffic car to drive into: -Traffic=mass is off or MassTraffic is not installed");
+		return -1;
+	}
+	const FVector From = Car.GetActorLocation();
+	// A stopped car first (at its light or in a queue: still there when the player's car arrives), then the nearest.
+	Cars.Sort([&From](const FGTPMassTrafficCar& A, const FGTPMassTrafficCar& B)
+	{
+		const bool bStoppedA = A.SpeedCmS < 150.f;
+		const bool bStoppedB = B.SpeedCmS < 150.f;
+		if (bStoppedA != bStoppedB)
+		{
+			return bStoppedA;
+		}
+		return FVector::DistSquared(A.Location, From) < FVector::DistSquared(B.Location, From);
+	});
+	int32 Stopped = 0;
+	for (const FGTPMassTrafficCar& Each : Cars)
+	{
+		Stopped += Each.SpeedCmS < 150.f ? 1 : 0;
+	}
+	int32 Tested = 0;
+	int32 TriedBefore = 0;
+	int32 CarOnRunUp = 0;
+	int32 NoGround = 0;
+	int32 InTheWay = 0;
+	FString FirstInTheWay = TEXT("none");
+	const FCollisionQueryParams Params = GTPGtaRunCrash::IgnoringCar(Car);
+	for (const FGTPMassTrafficCar& Candidate : Cars)
+	{
+		if (Tested >= 40)
+		{
+			break;
+		}
+		if (Crash.Tried.Contains(Candidate.Id))
+		{
+			++TriedBefore;
+			continue;
+		}
+		++Tested;
+		FVector Forward;
+		FVector Right;
+		GTPGtaRunCrash::Axes(Candidate.Forward, Forward, Right);
+		// No other traffic car on the run-up: the player's car must come to this one first.
+		bool bCarOnRunUp = false;
+		for (const FGTPMassTrafficCar& Other : Cars)
+		{
+			const FVector Rel = Other.Location - Candidate.Location;
+			const double Along = FVector::DotProduct(Rel, Forward);
+			if (Other.Id != Candidate.Id && FMath::Abs(FVector::DotProduct(Rel, Right)) < 250.0 && Along < 0.0 && Along > -(CrashRunUpCm + 400.0)
+				&& FMath::Abs(Rel.Z) < 300.0)
+			{
+				bCarOnRunUp = true;
+				break;
+			}
+		}
+		if (bCarOnRunUp)
+		{
+			++CarOnRunUp;
+			continue;
+		}
+		FVector Spot;
+		if (!GTPGtaRunCrash::SpotBehind(World, Car, Candidate.Location, Forward, Spot))
+		{
+			++NoGround;
+			continue;
+		}
+		// Nothing standing on the run-up (a wall where the lane bends, a post, a person), up to the car's bumper.
+		const FVector Lift(0.0, 0.0, 80.0);
+		FHitResult Hit;
+		if (World.LineTraceSingleByChannel(Hit, Spot + Lift, Candidate.Location - Forward * (Candidate.RadiusCm + 50.f) + Lift, ECC_Visibility, Params))
+		{
+			if (InTheWay == 0)
+			{
+				FirstInTheWay = GetNameSafe(Hit.GetActor());
+			}
+			++InTheWay;
+			continue;
+		}
+		++Crash.Attempts;
+		Crash.Tried.Add(Candidate.Id);
+		Crash.TargetId = Candidate.Id;
+		Crash.TargetAt = Candidate.Location;
+		Crash.TargetForward = Candidate.Forward;
+		Crash.TargetRadius = FMath::Max(Candidate.RadiusCm, 150.f);
+		Crash.TargetKmh = Candidate.SpeedCmS * 0.036f;
+		const FBox Local = Car.CalculateComponentsBoundingBoxInLocalSpace();
+		Crash.OwnHalfLength = Local.IsValid ? FMath::Clamp(static_cast<float>(Local.GetExtent().X), 180.f, 320.f) : 230.f;
+		GTP_TRACE(LogGTPGtaRun, TEXT("GTARun crash: attempt %d/3, MassTraffic car %llu at %s, %.0f km/h, radius %.0f cm, %.0f m from the player's car (own half length %.0f cm); %d car(s) within 300 m, %d stopped; set aside: %d with a car on the run-up, %d with no ground behind, %d with something in the way (first: %s)"),
+			Crash.Attempts, Crash.TargetId, *Candidate.Location.ToCompactString(), Crash.TargetKmh, Candidate.RadiusCm, FVector::Dist(Candidate.Location, From) / 100.0,
+			Crash.OwnHalfLength, Cars.Num(), Stopped, CarOnRunUp, NoGround, InTheWay, *FirstInTheWay);
+		return 1;
+	}
+	Why = FString::Printf(TEXT("no MassTraffic car to drive into for now: %d within 300 m (%d stopped, %d tried already), %d with a car on the run-up, %d with no ground behind, %d with something in the way (first: %s)"),
+		Cars.Num(), Stopped, TriedBefore, CarOnRunUp, NoGround, InTheWay, *FirstInTheWay);
+	return 0;
+}
+
+UGTPGtaRun::EResult UGTPGtaRun::CheckCrash(FString& Detail)
+{
+	// The player's car into a traffic car, from behind at full throttle: what stops it (docs/gameplay/traffic-mass.md).
+	// MassTraffic's cars are drawn as instances with no body: until the near ones have one, the player's car goes
+	// through them and this step says so, on the car the player sees (its Mass transform).
+	UWorld* World = GetWorld();
+	APlayerController* PC = FirstController(World);
+	if (!World || !PC || !PC->GetPawn())
+	{
+		return EResult::Pending;
+	}
+	const double Now = FPlatformTime::Seconds();
+	if (Crash.Phase == 0)
+	{
+		if (AGTPVehicle* Driven = Cast<AGTPVehicle>(PC->GetPawn()))
+		{
+			Crash.Car = Driven;
+			Crash.Phase = 2;
+			Crash.PhaseStart = Now;
+			return EResult::Pending;
+		}
+		ACharacter* Character = Cast<ACharacter>(PC->GetPawn());
+		if (!Character)
+		{
+			Detail = TEXT("the player is neither on foot nor at a wheel");
+			return EResult::Pending;
+		}
+		AGTPTrafficNetwork* Network = nullptr;
+		{
+			TActorIterator<AGTPTrafficNetwork> It(World);
+			Network = It ? *It : nullptr;
+		}
+		// An unlocked car with no alarm at a kerb (the parked step tests the break-in): 30 m around the player, then 300 m.
+		AGTPVehicle* Car = nullptr;
+		const float Radii[] = { 3000.f, 30000.f };
+		for (const float Radius : Radii)
+		{
+			AGTPVehicle* Candidate = Network ? Network->SpawnStreetParkedNear(Character->GetActorLocation(), Radius, false, false) : nullptr;
+			if (Candidate && UGTPTheftDemoLibrary::PlaceAtDriverDoor(Character, Candidate))
+			{
+				Car = Candidate;
+				break;
+			}
+		}
+		if (!Car)
+		{
+			Detail = Network ? TEXT("no parked car with a free door to drive") : TEXT("no traffic network to park a car");
+			return EResult::Fail;
+		}
+		if (!UGTPTheftDemoLibrary::PressEnter(World))
+		{
+			Detail = FString::Printf(TEXT("could not start the entry into %s"), *Car->GetName());
+			return EResult::Fail;
+		}
+		Crash.Car = Car;
+		Crash.Character = Character;
+		Crash.Phase = 1;
+		GTP_TRACE(LogGTPGtaRun, TEXT("GTARun crash: getting into %s to drive into a traffic car"), *Car->GetName());
+		Detail = TEXT("getting in");
+		return EResult::Pending;
+	}
+	if (Crash.Phase == 1)
+	{
+		if (!UGTPTheftDemoLibrary::IsDriving(Crash.Character.Get(), Crash.Car.Get()))
+		{
+			Detail = TEXT("getting in");
+			return EResult::Pending;
+		}
+		Crash.Phase = 2;
+		Crash.PhaseStart = Now;
+	}
+	AGTPVehicle* Car = Crash.Car.Get();
+	if (!Car)
+	{
+		Detail = TEXT("the player's car is gone");
+		return EResult::Fail;
+	}
+	if (Crash.Phase == 2)
+	{
+		FString Why;
+		const int32 Chosen = ChooseCrashTarget(*World, *Car, Why);
+		if (Chosen <= 0)
+		{
+			// None for now: lights change and queues form, 15 s to find one.
+			Detail = Why;
+			return Chosen < 0 || Now - Crash.PhaseStart > 15.0 ? EResult::Fail : EResult::Pending;
+		}
+		// Physics off while the car is moved and held behind its target: the solver undoes the teleport of a simulated
+		// car (GTPVehicle's launch test). TickCrash gives it back after half a second.
+		if (USkeletalMeshComponent* Body = Car->GetMesh())
+		{
+			Body->SetPhysicsLinearVelocity(FVector::ZeroVector);
+			Body->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
+			Body->SetSimulatePhysics(false);
+		}
+		Car->SetScriptedDriveInput(0.f, 0.f, 0.f, false);
+		Crash.Phase = 3;
+		Crash.HoldUntil = Now + 0.5;
+		Crash.LastSeen = Now;
+		Crash.Verdict = 0;
+		Crash.ContactAt = -1.0;
+		Crash.SlowSince = -1.0;
+		Crash.PeakKmh = 0.f;
+		Crash.ClosestCm = 1.0e9f;
+		Crash.MaxAsideCm = 0.f;
+		Crash.PrevAlong = -1.0e9f;
+		FTSTicker::GetCoreTicker().RemoveTicker(CrashHandle);
+		CrashHandle = FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateUObject(this, &UGTPGtaRun::TickCrash), 0.f);
+		Detail = TEXT("placing");
+		return EResult::Pending;
+	}
+	const float Contact = Crash.TargetRadius + Crash.OwnHalfLength;
+	if (Crash.Verdict == 1)
+	{
+		Detail = FString::Printf(TEXT("held behind MassTraffic car %llu: hit at %.0f km/h (best %.0f), down to %.0f km/h, centres %.1f m apart at the closest (contact from about %.1f m), %.1f m aside at most; the car stood at %.0f km/h (%s)"),
+			Crash.TargetId, Crash.ContactKmh, Crash.PeakKmh, Crash.MinKmhAfter, Crash.ClosestCm / 100.f, Contact / 100.f, Crash.MaxAsideCm / 100.f, Crash.TargetKmh, *Crash.Note);
+		return EResult::Ok;
+	}
+	if (Crash.Verdict == 2)
+	{
+		Detail = FString::Printf(TEXT("went through MassTraffic car %llu: hit at %.0f km/h, still %.0f km/h with the centres %.1f m apart along its axis and %.1f m aside (contact from about %.1f m); the car stood at %.0f km/h; the traffic cars near the player have no body"),
+			Crash.TargetId, Crash.ContactKmh, Crash.EndKmh, Crash.EndAlong / 100.f, Crash.EndAside / 100.f, Contact / 100.f, Crash.TargetKmh);
+		return EResult::Fail;
+	}
+	if (Crash.Verdict == 3)
+	{
+		EndCrashDrive();
+		if (Crash.Attempts < 3)
+		{
+			GTP_TRACE(LogGTPGtaRun, TEXT("GTARun crash: attempt %d/3 left: %s; another car"), Crash.Attempts, *Crash.Note);
+			Crash.Phase = 2;
+			Crash.PhaseStart = Now;
+			Crash.Verdict = 0;
+			Detail = Crash.Note;
+			return EResult::Pending;
+		}
+		Detail = FString::Printf(TEXT("three cars and no hit (last: %s)"), *Crash.Note);
+		return EResult::Fail;
+	}
+	Detail = FString::Printf(TEXT("attempt %d/3, phase %d, best %.0f km/h, centres %.1f m apart at the closest"), Crash.Attempts, Crash.Phase, Crash.PeakKmh,
+		Crash.ClosestCm < 1.0e8f ? Crash.ClosestCm / 100.f : -1.f);
+	return EResult::Pending;
+}
+
+bool UGTPGtaRun::TickCrash(float /*DeltaTime*/)
+{
+	UWorld* World = GetWorld();
+	AGTPVehicle* Car = Crash.Car.Get();
+	if (!World || !Car || Crash.Verdict != 0 || Crash.Phase < 3)
+	{
+		return true;
+	}
+	const double Now = FPlatformTime::Seconds();
+	// Where the target is now (it may pull away when its light turns green).
+	TArray<FGTPMassTrafficCar> Near;
+	GTPMassTrafficCars::Find(*World, Crash.TargetAt, 2500.f, Near);
+	const uint64 Id = Crash.TargetId;
+	if (const FGTPMassTrafficCar* Target = Near.FindByPredicate([Id](const FGTPMassTrafficCar& Each) { return Each.Id == Id; }))
+	{
+		Crash.TargetAt = Target->Location;
+		Crash.TargetForward = Target->Forward;
+		Crash.TargetKmh = Target->SpeedCmS * 0.036f;
+		Crash.LastSeen = Now;
+	}
+	else if (Now - Crash.LastSeen > 1.0)
+	{
+		Crash.Verdict = 3;
+		Crash.Note = TEXT("the car was not found again (recycled, or 25 m away in a frame)");
+		return true;
+	}
+	FVector Forward;
+	FVector Right;
+	GTPGtaRunCrash::Axes(Crash.TargetForward, Forward, Right);
+	if (Crash.Phase == 3)
+	{
+		// Held behind the target, on its axis, wherever it goes, then given back to the solver.
+		FVector Spot;
+		if (!GTPGtaRunCrash::SpotBehind(*World, *Car, Crash.TargetAt, Forward, Spot))
+		{
+			Crash.Verdict = 3;
+			Crash.Note = TEXT("no ground behind the car any more");
+			return true;
+		}
+		Car->SetActorLocationAndRotation(Spot, Forward.Rotation(), false, nullptr, ETeleportType::TeleportPhysics);
+		if (Now < Crash.HoldUntil)
+		{
+			return true;
+		}
+		if (USkeletalMeshComponent* Body = Car->GetMesh())
+		{
+			Body->SetSimulatePhysics(true);
+			Body->SetPhysicsLinearVelocity(FVector::ZeroVector);
+			Body->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
+			Body->WakeAllRigidBodies();
+		}
+		Car->NotePlaced(TEXT("GTARun crash"));
+		Crash.Phase = 4;
+		Crash.DriveStart = Now;
+		GTP_TRACE(LogGTPGtaRun, TEXT("GTARun crash: the player's car put %.0f m behind MassTraffic car %llu at %s, physics back on, full throttle at it"),
+			CrashRunUpCm / 100.f, Crash.TargetId, *Spot.ToCompactString());
+		return true;
+	}
+	// Full throttle, steering at the target's centre (the run-up is on its axis: the steering only keeps it there).
+	const FVector ToTarget = Crash.TargetAt - Car->GetActorLocation();
+	const double AheadCm = FVector::DotProduct(ToTarget, Car->GetActorForwardVector());
+	const double RightCm = FVector::DotProduct(ToTarget, Car->GetActorRightVector());
+	const float Steering = FMath::Clamp(static_cast<float>(FMath::RadiansToDegrees(FMath::Atan2(RightCm, AheadCm))) / 25.f, -1.f, 1.f);
+	Car->SetScriptedDriveInput(1.f, 0.f, Steering, false);
+	// The player's car in the target's frame: along its axis (negative behind it) and aside.
+	const FVector Rel = -ToTarget;
+	const float Along = static_cast<float>(FVector::DotProduct(Rel, Forward));
+	const float Aside = static_cast<float>(FVector::DotProduct(Rel, Right));
+	const float Centres = static_cast<float>(FVector(Rel.X, Rel.Y, 0.0).Size());
+	const float Kmh = Car->GetSpeedKmh();
+	Crash.PeakKmh = FMath::Max(Crash.PeakKmh, Kmh);
+	Crash.ClosestCm = FMath::Min(Crash.ClosestCm, Centres);
+	const float Contact = Crash.TargetRadius + Crash.OwnHalfLength;
+	// Through: in line with it, the centres nearer than half the shorter car along its axis, or the player's car went from
+	// behind it to in front of it between two frames. Two bodies stop about Contact apart.
+	const bool bInLine = FMath::Abs(Aside) < 150.f;
+	const bool bThrough = bInLine && (FMath::Abs(Along) < 0.5f * FMath::Min(Crash.TargetRadius, Crash.OwnHalfLength) || (Crash.PrevAlong < 0.f && Along >= 0.f));
+	Crash.PrevAlong = Along;
+	if (Crash.ContactAt < 0.0 && FMath::Abs(Aside) < 250.f && Along > -(Contact + 150.f) && Along < 0.f)
+	{
+		Crash.ContactAt = Now;
+		Crash.ContactKmh = Kmh;
+		Crash.MinKmhAfter = Kmh;
+	}
+	if (Crash.ContactAt >= 0.0)
+	{
+		Crash.MinKmhAfter = FMath::Min(Crash.MinKmhAfter, Kmh);
+		Crash.MaxAsideCm = FMath::Max(Crash.MaxAsideCm, FMath::Abs(Aside));
+	}
+	// Stopped short of the contact range (a body longer than MassTraffic's radius says): 1.5 s at a crawl near it.
+	const bool bSlowNear = Now - Crash.DriveStart > 2.0 && Kmh < 3.f && Centres < Contact + 400.f;
+	Crash.SlowSince = bSlowNear ? (Crash.SlowSince < 0.0 ? Now : Crash.SlowSince) : -1.0;
+	int32 Verdict = 0;
+	const TCHAR* Note = TEXT("");
+	if (bThrough)
+	{
+		Verdict = 2;
+		Note = TEXT("went through");
+	}
+	else if (Crash.ContactAt >= 0.0 && Now - Crash.ContactAt > 2.5)
+	{
+		Verdict = 1;
+		Note = Crash.MaxAsideCm >= 150.f ? TEXT("pushed aside") : Crash.MinKmhAfter < 5.f ? TEXT("stopped") : TEXT("pushing it");
+	}
+	else if (Crash.SlowSince >= 0.0 && Now - Crash.SlowSince > 1.5)
+	{
+		Verdict = 1;
+		Note = TEXT("stopped short of the contact range");
+	}
+	else if (Crash.ContactAt < 0.0 && (Now - Crash.DriveStart > 12.0 || Centres > 4000.f))
+	{
+		Verdict = 3;
+		Note = Centres > 4000.f ? TEXT("never reached it: the car drove away") : TEXT("never reached it in 12 s");
+	}
+	if (Verdict != 0)
+	{
+		Crash.Verdict = Verdict;
+		Crash.Note = Note;
+		Crash.EndAlong = Along;
+		Crash.EndAside = Aside;
+		Crash.EndKmh = Kmh;
+		// Measured: off the throttle now, not at the step's next half-second tick.
+		Car->SetScriptedDriveInput(0.f, 1.f, 0.f, false);
+		if (Verdict != 3)
+		{
+			// What the player sees at that moment: his car in the traffic car, or against it.
+			const FString Shot = FPaths::ConvertRelativePathToFull(FPaths::Combine(FPaths::ScreenShotDir(), TEXT("gtarun-crash.png")));
+			FScreenshotRequest::RequestScreenshot(Shot, false, false);
+			GTP_TRACE(LogGTPGtaRun, TEXT("GTARun: picture of the crash asked: %s (%s, %.0f km/h, %.1f m along the car's axis, %.1f m aside)"), *Shot, Note, Kmh, Along / 100.f, Aside / 100.f);
+		}
+	}
+	return true;
+}
+
+void UGTPGtaRun::EndCrashDrive()
+{
+	FTSTicker::GetCoreTicker().RemoveTicker(CrashHandle);
+	if (AGTPVehicle* Car = Crash.Car.Get())
+	{
+		if (Crash.Phase == 3)
+		{
+			// Ended while held: the physics back.
+			if (USkeletalMeshComponent* Body = Car->GetMesh())
+			{
+				Body->SetSimulatePhysics(true);
+				Body->WakeAllRigidBodies();
+			}
+		}
+		Car->SetScriptedDriveInput(0.f, 1.f, 0.f, false);
+	}
 }

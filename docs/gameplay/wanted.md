@@ -41,7 +41,7 @@ When the player dies (`OnPlayerDied`), pending reports are dropped; at the respa
 
 ## Proof in the packaged game (`-GTARun`, 2026-11-19)
 
-Four steps of the automatic run cover the wanted level, counted on their own line (`GTARun police: N/4 ok`); the seven others keep their line (`GTARun done: N/7 ok`).
+Four steps of the automatic run cover the wanted level, counted on their own line (`GTARun police: N/4 ok`); the seven others keep their line (`GTARun done: N/7 ok`); the crash step, informative, has its own (`GTARun informative: N/1 ok (crash)`, see traffic-mass.md).
 
 | Step | What happens | Passes when |
 | ---- | ---- | ---- |
