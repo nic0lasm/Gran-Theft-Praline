@@ -1,34 +1,52 @@
 # ADR-0015 : Foule et trafic sur Mass
 
-*Version anglaise : [adr-0015-mass-crowd-and-traffic.md](adr-0015-mass-crowd-and-traffic.md)*
+*English version: [adr-0015-mass-crowd-and-traffic.md](adr-0015-mass-crowd-and-traffic.md)*
 
 ## Statut
 
-Accepté pour les piétons (2026-11-12). Corrigé pour le trafic le 2026-11-22 : le trafic par défaut
-reste le trafic legacy, et MassTraffic est mesuré à chaque porte sans la décider.
+Proposé le 2026-11-12 et décidé le soir même par le chef de projet (bascule sur Mass maintenant). Accepté pour les piétons. Corrigé pour le trafic le 2026-11-22 : le trafic par défaut reste le trafic legacy, et MassTraffic est mesuré à chaque porte sans la décider (voir la correction plus bas, qui l'emporte sur les parties trafic de cet ADR là où elles diffèrent). Remplace les options « Mass plus tard » des ADR-0003 et ADR-0005.
 
 ## Date
 
 2026-11-12, corrigé le 2026-11-22
 
+## Décideurs
+
+nic0lasm (chef de projet)
+
+## Résumé
+
+Piétons et trafic passent sur le framework Mass d'Unreal : des agents sur un ZoneGraph généré depuis nos
+données, un niveau de détail qui transforme l'agent proche du joueur en vrai acteur (nos réactions, témoins,
+ragdoll, vol de voiture) et les agents lointains en instances animées. Les systèmes actuels restent derrière
+`-Pedestrians=legacy` et `-Traffic=legacy` jusqu'à ce que Mass mesure aussi bien.
+
 ## Contexte
 
-La tranche demande une rue animée : plus de 150 personnes et 40 voitures autour du joueur, sur le
-PC de référence, dans le budget d'image de l'ADR-0002. Nos premiers systèmes (ADR-0005 pour les
-piétons, le trafic d'acteurs d'`AGTPTrafficNetwork`) coûtent un acteur par personne et par voiture.
-Le framework Mass d'Unreal et le plugin MassTraffic de City Sample (gratuit, code Epic, jamais dans
-Git) sont faits pour cette densité. Le 2026-11-12, Nico a choisi de basculer à la fois les piétons
-et le trafic sur Mass, à la place de l'option « Mass plus tard » des ADR-0003 et ADR-0005.
+La cible est une rue vivante de 150 piétons et 40 voitures et plus dans la tranche, hors de portée du pool
+fixe de meshes squelettiques de l'ADR-0005 aux budgets M1 et PC. Les raisons du report de Mass (ZoneGraph dessiné à la
+main dans la map, un binaire que plusieurs fils éditent) disparaissent si le ZoneGraph est généré par l'import
+de la ville.
 
 ## Décision
 
-- **Piétons sur Mass par défaut.** Des agents MassCrowd sur le ZoneGraph généré depuis nos données,
-  un vrai personnage près du joueur (réactions, témoins, ragdoll), des instances animées plus loin.
-  `-Pedestrians=legacy` garde l'ancien système.
-- **Trafic : legacy par défaut, MassTraffic derrière `-Traffic=mass`.** Les voies ZoneGraph, les
-  spawners et le module `GTPMass` restent ; MassTraffic ne tourne que si on le demande.
-- **Notre code sur Mass vit dans `GTPMass`**, pour que le jeu compile et tourne sans les plugins de
-  City Sample.
+1. **Plugins** du .uproject : MassGameplay, MassAI (MassCrowd, MassNavigation, MassLOD, MassRepresentation,
+   MassAvoidance), ZoneGraph, ZoneGraphAnnotations, StateTree, GameplayStateTree, AnimToTexture. Smart Objects est déjà actif.
+2. **ZoneGraph généré, jamais dessiné.** Un script Python d'éditeur, dans `run_city_import.sh`, crée les
+   ZoneShapes depuis BD TOPO : trottoirs et passages depuis le graphe de `tools/city/pedestrians.py`, voies
+   depuis `lanes.csv` ; tags Pedestrian, Crossing, Car. La map reste hors Git, recréée par l'import : personne ne l'édite à la main.
+3. **Piétons.** Agents MassCrowd sur les voies piétonnes avec le LOD de Mass :
+   - à moins de 40 m du joueur environ : un vrai acteur avec un personnage City Sample Crowds, nos réactions
+     (panique, badauds, mains en l'air : `GTPWalkLogic.h`, `GTPThreat`), les témoins (`GTPWitnessLogic`) et le
+     ragdoll, appelés depuis l'acteur ou des processeurs Mass ;
+   - au-delà : des instances animées par texture (AnimToTexture) ;
+   - la fuite passe par les annotations de perturbation du ZoneGraph, les arrêts aux vitrines et sur les bancs par les Smart Objects.
+4. **Trafic** (fil Trafic) : MassTraffic copié depuis City Sample 5.8 dans `Plugins/MassTraffic`, ignoré par
+   Git (le code Epic est interdit dans le dépôt public ; le README explique l'installation) ; voitures proches =
+   acteurs Chaos (vol, collisions, poursuites), lointaines = instances ; notre code dépendant vit dans un
+   module à part (GTPMass) pour que le reste compile sans.
+5. **Porte de chaque étape** : CI verte, compilation PC, package PC qui tient 120 s sans crash. La parité est
+   mesurée avant toute suppression de l'ancien code.
 
 ## Correction du 2026-11-22 : ce que juge la porte
 
@@ -51,15 +69,51 @@ Les critères de chaque candidat sont dans `tools/perf/gate-spec.json`.
 
 ## Conséquences
 
-- Le vol de voiture, la poursuite et leurs vidéos sont jugés sur le trafic que le joueur rencontre
-  vraiment.
-- Le travail sur MassTraffic continue, mais aucun nouveau lot MassTraffic n'est prévu avant la lecture
-  de la mesure legacy de la porte 59.
-- Les deux systèmes de trafic restent côte à côte jusqu'à ce que mass passe une porte complète ; le
-  code legacy n'est pas retiré avant.
+- Les règles de réaction (hors moteur, testées en CI) sont conservées : elles deviennent la logique de
+  l'acteur proche et des processeurs Mass ; le travail fait dessus n'est pas perdu.
+- Les assets City Sample Crowds et MassTraffic sont du contenu Epic : hors Git, installés par script.
+- La tranche peut glisser d'une à deux semaines (risque accepté par le chef de projet).
+- Premier objectif mesurable : 150 piétons et plus dans la tranche, coût GPU mesuré sur le PC (semaine 1).
 
-## Liens
+## Détails du trafic (fil Trafic)
 
-ADR-0002 (budget de performance), ADR-0003 (déplacement), ADR-0005 (piétons),
-[docs/gameplay/traffic-mass.fr.md](../gameplay/traffic-mass.fr.md),
-[docs/gameplay/pedestrians-mass.fr.md](../gameplay/pedestrians-mass.fr.md).
+- **ZoneGraph tiré de nos données** (branche `feat/mass-zonegraph`) : `tools/city/zonegraph.py` transforme
+  `lanes.csv` (voies à sens unique, numéros de carrefour, voies suivantes) et `walkways.csv` en une table de
+  formes : des splines « Car » à sens unique, coupées 6 m avant chaque carrefour ; un polygone par carrefour
+  (tags Car et Intersection) dont les points de profil de voie sont ces extrémités coupées, pour que ZoneGraph
+  trace les virages à l'intérieur et que MassTraffic y trouve ses intersections ; des splines « Pedestrian » à
+  double sens, avec le tag Crossing sur les passages. L'étape d'éditeur `place_zonegraph.py` confie la table à
+  un importeur C++ (`UGTPZoneGraphImport`, module GTPMass), qui place les acteurs ZoneShape et ajoute les tags
+  et profils de voie manquants : du C++ plutôt que du Python, car l'API des points de ZoneShape n'est pas
+  exposée à Python. Les tables de la tranche produites par `npc_data.py` (voies avec sens et signalisation)
+  se branchent par `--lanes` et `--walkways`.
+- **Feux** : les intersections de MassTraffic ont leurs propres cycles ; les nôtres (`GTPTrafficLights.h`,
+  testés) leur donnent périodes et phases, pour que les feux dessinés dans la rue (`-SignalHeads`) restent
+  synchrones.
+- **Voiture proche = notre acteur Chaos.** MassTraffic confie la voiture proche du joueur à une classe
+  d'acteur Chaos ; la nôtre est `AGTPVehicle` (portières, vol, dégâts, saut en marche, délits signalés à la
+  police). Sa conduite reste la nôtre : `GTPDriveLogic.h` pour les pédales et `GTPTrafficReactLogic.h` pour le
+  klaxon, le contournement, la panique, la fuite et le choc (branche `feat/traffic-reactions`, testée en CI),
+  pilotés par un pont GTPMass à la place du suiveur de voie quand Mass est actif.
+- **Voitures lointaines** : les instances de MassTraffic remplacent `AGTPFarTraffic` ; la réserve et le mode
+  fantôme ne restent que sous `-Traffic=legacy`.
+- **Modèles de voitures** : MassTraffic en demande plusieurs ; City Sample Vehicles (gratuit, Epic) et le pack
+  gratuit de voitures pilotables relevé par le recensement passent hors Git par le manifeste Fab. D'ici là, la
+  Clio reste le seul modèle.
+- **Police** : des acteurs Chaos qui s'insèrent dans le trafic Mass ; les voitures s'écartent devant les
+  sirènes grâce à une annotation ZoneGraph (étape 4).
+
+## Questions ouvertes (trafic)
+
+- Sens du profil de voie sur les points des polygones de carrefour : l'importeur oriente les points
+  « in » dans le sens de la voie et inverse le profil sur les points « out » ; la première vue de debug sur le
+  PC le confirme ou l'inverse.
+- Comment les données ZoneGraph sont reconstruites après l'import (automatiquement dans l'éditeur, ou par un
+  appel explicite) : vérifié au premier passage sur le Mac.
+- Si MassTraffic a encore besoin, en 5.8, des correctifs du CityTrafficBuilder de City Sample (liste dans le
+  README de Myxcil/MassTraffic-Test, lue seulement, rien de copié).
+
+## Questions ouvertes (piétons)
+
+- Seuils de LOD Mass entre acteur, ISM et instances AnimToTexture : à mesurer.
+- Comment l'API de prêt (`AcquireFromPool`, commerces) s'articule avec les entités Mass : le pool d'acteurs proches reste.
