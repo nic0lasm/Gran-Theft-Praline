@@ -471,3 +471,20 @@ sont fermées, la cause elle-même n'étant pas prouvée :
 
 La preuve est la porte : le `-GTARun` en éditeur et celui du package qui tournent au-delà de `GTARun done` sans
 l'assertion.
+
+## 12. Réapparition après la mort et caméra du braquage de près (22/11/2026, porte 59)
+
+- **Mannequin blanc après la mort.** La réapparition après la mort (`UGTPCombatSubsystem::RespawnPlayer`) appelle
+  `RestartPlayerAtTransform`, qui ne passe jamais par `AGTPGameMode::RestartPlayer`, où le visuel était posé : le
+  nouveau pion gardait son propre maillage (vidéo de la porte 59, vers 125 s). Le visuel est désormais posé dans
+  `FinishRestartPlayer`, la fin de tous les chemins de redémarrage, et l'ancien visuel (étiqueté `GTPPlayerVisualActor`)
+  est détruit avec le pion mort au lieu de rester là où le joueur est mort. Ligne du journal à vérifier :
+  `Player visual on restart: <pion> (visual on)`.
+- **Braquage de près vu de haut.** Arme levée, le tangage de la vue reste entre `AimMinViewPitch` (-35) et
+  `AimMaxViewPitch` (50) (`DefaultGame.ini`, `[/Script/GranTheftPraline.GTPPlayerController]`), les limites normales
+  revenant à l'arme baissée. Ligne : `view pitch limits -35..50 (gun raised)`. L'étape du braquage de près de `-GTARun`
+  prend maintenant son tangage depuis les yeux et non depuis la caméra : depuis la caméra, il s'emballait (regarder vers
+  le bas fait monter la caméra derrière la tête, qui demande encore plus de tangage) jusqu'à la limite de -70, et les
+  bras tendus devant semblaient levés au-dessus de la tête.
+- Non prouvé : rien ne compile dans le cloud ; à juger à la prochaine porte avec la ligne ci-dessus, les lignes
+  `GTARun hold-up probe ... camera pitch` et la vidéo.

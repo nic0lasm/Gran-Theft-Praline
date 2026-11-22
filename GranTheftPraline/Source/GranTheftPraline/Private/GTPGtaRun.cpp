@@ -1225,8 +1225,13 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail, bool bClose)
 	FVector View = Character->GetPawnViewLocation();
 	FRotator ViewRotation;
 	PC->GetPlayerViewPoint(View, ViewRotation);
-	PC->SetControlRotation((Body - View).Rotation());
 	const FVector Aim = (Body - Character->GetPawnViewLocation()).GetSafeNormal();
+	// Turned from the camera, pitched from the eyes. Pitched from the camera, the view ran away at close range in
+	// candidate 59: looking down at the chest swings the camera up behind the head, which asks for more pitch down,
+	// until the view limit (-70): the hold-up was filmed from above, arms held forward looking raised over the head.
+	FRotator Wanted = (Body - View).Rotation();
+	Wanted.Pitch = Aim.Rotation().Pitch;
+	PC->SetControlRotation(Wanted);
 	// The body: while the gun is raised the weapon turns it to the view, as in play (UGTPWeaponComponent::TickComponent).
 	// The test used to turn it to the person every frame on top of that, which no player can do: at the close hold-up of
 	// candidate 57 the camera was beside the player (33 cm ahead of his eyes, 1.5 m to his side) and the person was not

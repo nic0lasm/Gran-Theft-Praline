@@ -437,3 +437,18 @@ previous one gives a NaN. Two windows where that can happen are closed, the caus
   `AGTPVehicle::ReleaseCharacter`, instead of being left with its montages ticking.
 
 The proof is the gate: the editor `-GTARun` and the packaged one running past `GTARun done` without the assertion.
+
+## 12. Respawn after death and the close hold-up camera (2026-11-22, gate 59)
+
+- **White mannequin after death.** The respawn after death (`UGTPCombatSubsystem::RespawnPlayer`) calls
+  `RestartPlayerAtTransform`, which never goes through `AGTPGameMode::RestartPlayer`, where the visual was put on: the
+  new pawn kept its own mesh (video of gate 59, around 125 s). The visual is now put on in `FinishRestartPlayer`, the
+  end of every restart path, and the old visual (tagged `GTPPlayerVisualActor`) is destroyed with the dead pawn instead
+  of staying where the player died. Log line to check: `Player visual on restart: <pawn> (visual on)`.
+- **Close hold-up seen from above.** With the gun raised the view pitch is held between `AimMinViewPitch` (-35) and
+  `AimMaxViewPitch` (50) (`DefaultGame.ini`, `[/Script/GranTheftPraline.GTPPlayerController]`), restored when the gun
+  is lowered. Log line: `view pitch limits -35..50 (gun raised)`. The `-GTARun` close hold-up step now takes its pitch
+  from the eyes, not from the camera: pitched from the camera it ran away (looking down swings the camera up behind
+  the head, which asks for more pitch down) to the -70 limit, and arms held forward looked raised over the head.
+- Not proven: nothing compiles in the cloud; to judge at the next gate with the line above and the
+  `GTARun hold-up probe ... camera pitch` lines, and on the video.

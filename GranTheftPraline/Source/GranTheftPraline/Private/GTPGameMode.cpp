@@ -89,7 +89,7 @@ void AGTPGameMode::StartPlay()
 void AGTPGameMode::RestartPlayer(AController* NewPlayer)
 {
 	Super::RestartPlayer(NewPlayer);
-	ApplyPlayerVisual(NewPlayer ? NewPlayer->GetPawn() : nullptr);
+	ApplyPlayerVisual(NewPlayer ? NewPlayer->GetPawn() : nullptr);  // no-op when FinishRestartPlayer already did it
 
 	if (bTestVehicleSpawned || !FParse::Param(FCommandLine::Get(), TEXT("TestVehicle")))
 	{
@@ -116,6 +116,17 @@ void AGTPGameMode::RestartPlayer(AController* NewPlayer)
 	// Parked parallel to the street, as the player faces down it.
 	const AActor* Car = GetWorld()->SpawnActor<AGTPVehicle>(VehicleClass, Location, Yaw, Params);
 	UE_LOG(LogGTPGameMode, Log, TEXT("-TestVehicle: %s parked at %s"), Car ? *Car->GetName() : TEXT("nothing"), *Location.ToCompactString());
+}
+
+void AGTPGameMode::FinishRestartPlayer(AController* NewPlayer, const FRotator& StartRotation)
+{
+	Super::FinishRestartPlayer(NewPlayer, StartRotation);
+	// The respawn after death goes through RestartPlayerAtTransform, which never calls RestartPlayer: without this
+	// the new pawn kept its white mannequin (gate 59, video ~125 s).
+	APawn* Pawn = NewPlayer ? NewPlayer->GetPawn() : nullptr;
+	ApplyPlayerVisual(Pawn);
+	UE_LOG(LogGTPGameMode, Log, TEXT("Player visual on restart: %s (%s)"), Pawn ? *Pawn->GetName() : TEXT("no pawn"),
+		Pawn && Pawn->ActorHasTag(TEXT("GTPPlayerVisual")) ? TEXT("visual on") : TEXT("NO VISUAL, own mesh"));
 }
 
 /**
@@ -492,6 +503,7 @@ void AGTPGameMode::ApplyPlayerVisual(APawn* Pawn)
 	Visual->SetActorRelativeLocation(PlayerVisualOffset);
 	Visual->SetActorRelativeRotation(FRotator(0.f, PlayerVisualYaw, 0.f));
 	Visual->SetActorEnableCollision(false);
+	Visual->Tags.AddUnique(TEXT("GTPPlayerVisualActor"));  // destroyed with the pawn on the respawn after death
 	Pawn->Tags.AddUnique(VisualTag);
 	// Shown and hidden through flags that other code (camera mode, the sample's blueprints) does not toggle,
 	// enforced again 1.5 s later, with a trace of every component for the log.

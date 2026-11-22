@@ -32,6 +32,8 @@ public:
 
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
 	virtual void RestartPlayer(AController* NewPlayer) override;
+	/** Every restart path ends here, RestartPlayerAtTransform included (the respawn after death): the visual is put on. */
+	virtual void FinishRestartPlayer(AController* NewPlayer, const FRotator& StartRotation) override;
 	virtual void StartPlay() override;
 
 protected:
