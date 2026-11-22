@@ -127,7 +127,10 @@
     "view pitch limits",
     "camera pitch",
     "not driving",
-    "PlaceGhost"
+    "PlaceGhost",
+    "crowd hair:",
+    "crowd: dressed",
+    "crowd: cars:"
   ],
   "video": {
     "pass": "-GTARun -GTARunEncore",
