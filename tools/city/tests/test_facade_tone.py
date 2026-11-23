@@ -68,6 +68,26 @@ class FacadeToneTests(unittest.TestCase):
                 raw = tuple(int(h[i:i + 2], 16) / 255.0 for i in (0, 2, 4))
                 self.assertLessEqual(grey(ft.tone(raw)), LIMESTONE[1], colour)
 
+    def test_stone_and_render_are_told_apart_by_the_colour(self):
+        # the shells carry only the building colour: dressed stone keeps its joints, a strongly
+        # coloured render gets the trowelled detail, in both readings of the vertex colour
+        def readings(colour):
+            h = colour.lstrip("#")
+            return (tuple(int(h[i:i + 2], 16) / 255.0 for i in (0, 2, 4)), ft.hex_linear(colour))
+
+        for typology in ("haussmann", "monument", "moderne"):
+            for colour in procgen.PALETTE[typology]:
+                raw, linear = readings(colour)
+                self.assertEqual(ft.render_share(raw), 0.0, colour)
+                self.assertLess(ft.render_share(linear), 0.85, colour)
+        strong = 0
+        for colour in procgen.PALETTE["ancien"]:
+            raw, linear = readings(colour)
+            self.assertEqual(ft.render_share(linear), 1.0, colour)
+            self.assertGreater(ft.render_share(raw), 0.0, colour)
+            strong += ft.render_share(raw) >= 0.5
+        self.assertGreaterEqual(strong, 5)
+
 
 if __name__ == "__main__":
     unittest.main()

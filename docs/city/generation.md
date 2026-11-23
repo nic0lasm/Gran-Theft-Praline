@@ -270,6 +270,44 @@ the same sums as material nodes (`lyon_tone`) on the walls of `M_City_Shell` and
 `materials_report.json` gives `facade_tone`. `GTP_FACADE_TONE=0` leaves the generator's
 colours. Not yet seen in game: the first gate after it shows it.
 
+### Windows set back in the backdrop walls, and the facade preview (added 2026-11-23)
+
+The buildings away from the route are `M_City_Backdrop`: one flat polygon per wall, the facade
+drawn by a block of HLSL (`BACKDROP_HLSL` in `apply_city_materials.py`). Windows painted flush
+with the wall made the flight streets read as boxes (gate 69 video). Each opening is now set
+back by parallax: the eye ray is followed behind the wall plane to the depth of the joinery
+(18 cm for a window, 4 cm for closed shutters, 12 cm for a shop's glazing, 25 cm for a carriage
+door), and the pixel shows what it meets there, the glass or the reveal (soffit in shade, sill
+in the light, jambs in between). Behind a shop's glazing the back wall stands 3 m in, with
+shelves, side walls, floor and a lit ceiling, and slides with the eye. The slide fades with the
+same distance factor as the pattern, so nothing shimmers far away. A dozen sums more per pixel,
+no texture.
+
+`tools/city/facade_preview.py` renders that same HLSL text without Unreal: compiled as C++ with
+a small shim (`tools/city/facade_preview/hlsl_shim.h`), a street seen from the pavement under a
+plain sun and sky. A typo or an undeclared name in the shader fails in CI
+(`tools/city/tests/test_facade_preview.py`) and not in the editor of the reference PC, and a
+change of the facade can be looked at before a gate:
+
+```
+python tools/city/facade_preview.py --out facade.ppm [--source <another apply_city_materials.py>]
+```
+
+The preview shows the shader's colour only: no scanned detail, no engine lighting, no
+weathering. Not seen in game yet.
+
+### Render detail on the coloured buildings (added 2026-11-23)
+
+Every wall took the detail of the limestone ashlar, so a peach rendered building showed stone
+blocks. The catalogue entry `render_ochre` now has a CC0 fallback (Poly Haven `yellow_plaster`,
+a trowelled render; only its detail is used, each building keeps its colour), and
+`gtp_surfaces.shell` chooses between stone and render from the saturation of the building
+colour (`facade_tone.render_share`: stone under 0.24, render above 0.46, a blend between; the
+Haussmann, monument and modern colours of the palette stay stone, the strong colours of the old
+streets turn to render). On the kit the rendered facade slot takes it as before. Without the
+plaster in the project nothing changes. `materials_report.json` lists `kit.render` and
+`shell.render` under `surfaces.used` when it is in.
+
 ### Carriageways fitted to the kerbs and one-command regeneration
 
 The BD TOPO centre lines sit 0.8 m off the middle of the carriageway (2.2 m at the 90th

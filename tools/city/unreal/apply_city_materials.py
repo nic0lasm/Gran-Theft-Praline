@@ -373,6 +373,11 @@ BACKDROP_HLSL = r"""
 // Procedural Lyon facade on a backdrop volume wall: bays of windows over a shop ground floor.
 // In: P world position (cm, floats), N vertex normal (WS), V camera vector (WS, to the eye),
 //     D pixel depth (cm), WallC wall colour. Out: rgb colour, a = glass (for the roughness).
+// The wall is one flat polygon, so every opening is set back by parallax: the eye ray is
+// followed behind the wall plane to the depth of the glazing (or of the shop's back wall), and
+// the pixel shows what it meets there: the glass, or the jamb, the soffit or the sill of the
+// reveal. Seen from the pavement the windows sink into the stone as they do in a real wall
+// (gate 69: the flight streets read as painted boxes).
 float2 nh = Nw.xy;
 float nl = length(nh);
 if (nl < 0.2) return float4(WallC, 0.0);              // roofs and ledges: untouched
@@ -393,6 +398,8 @@ float px = Depth * 0.0012;
 float fwx = px / (W * max(abs(dot(Vw.xy, nh)), 0.12));
 float fwz = px / H;
 float detail = saturate(1.0 - (max(fwx, fwz) - 0.04) / 0.10);
+// cm slid along the wall (x) and upwards (y) per cm of depth behind it; grazing views clamped
+float2 slide = float2(-dot(Vw.xy, tg), -Vw.z) * (detail / max(abs(dot(Vw.xy, nh)), 0.2));
 float3 wall = WallC;
 float3 col = wall;
 float glass = 0.0;
@@ -404,26 +411,44 @@ if (z < GF) {
         float inx = step(0.07, fx) * step(fx, 0.93);
         float fasc = step(0.80, fz) * step(fz, 0.93) * inx;
         float win = inx * step(0.04, fz) * step(fz, 0.78);
-        float frame = win * (1.0 - step(0.10, fx) * step(fx, 0.90) * step(0.07, fz) * step(fz, 0.75));
-        float mull = win * step(abs(fx - 0.5), 0.012);
+        // glazing 12 cm behind the wall
+        float gx = fx + slide.x * 12.0 / W;
+        float gz = fz + slide.y * 12.0 / GF;
+        float pane = step(0.07, gx) * step(gx, 0.93) * step(0.04, gz) * step(gz, 0.78);
+        float frame = pane * (1.0 - step(0.10, gx) * step(gx, 0.90) * step(0.07, gz) * step(gz, 0.75));
+        float mull = pane * step(abs(gx - 0.5), 0.012);
+        // the shop behind it: back wall 3 m in, with shelves; side walls, floor and lit ceiling
+        float rx = fx + slide.x * 300.0 / W;
+        float rz = fz + slide.y * 300.0 / GF;
+        float back = step(0.07, rx) * step(rx, 0.93) * step(0.04, rz) * step(rz, 0.78);
+        float shelf = step(0.25, rz) * step(rz, 0.62) * step(0.35, frac(rz * 9.0));
+        float3 room = lerp(float3(0.16, 0.13, 0.10), float3(0.30, 0.24, 0.17), shelf);
+        float3 sides = rz > 0.78 ? float3(0.42, 0.40, 0.36) : rz < 0.04 ? float3(0.09, 0.08, 0.07)
+                     : float3(0.11, 0.10, 0.09);
         float k = frac(h * 17.0);
         float3 signc = k < 0.25 ? float3(0.06, 0.16, 0.10) : k < 0.5 ? float3(0.25, 0.05, 0.06)
                     : k < 0.75 ? float3(0.05, 0.07, 0.16) : float3(0.03, 0.03, 0.03);
-        float3 room = lerp(float3(0.10, 0.08, 0.06), float3(0.22, 0.17, 0.11), step(0.3, fz) * step(fz, 0.6));
-        col = lerp(col, room * 0.6 + dark, win);
-        col = lerp(col, float3(0.08, 0.08, 0.08), max(frame, mull));
+        col = lerp(col, lerp(sides, room, back) * 0.7 + dark, win);
+        col = lerp(col, float3(0.08, 0.08, 0.08), win * max(max(frame, mull), 1.0 - pane));
         col = lerp(col, signc, fasc);
-        glass = win * (1.0 - max(frame, mull));
-    } else if (h < 0.82) {                         // carriage door, painted wood
+        glass = win * pane * (1.0 - max(frame, mull));
+    } else if (h < 0.82) {                         // carriage door, painted wood, 25 cm in
         float door = step(0.18, fx) * step(fx, 0.82) * step(fz, 0.82);
-        float panel = step(abs(fx - 0.5), 0.008) + step(abs(fz - 0.45), 0.01);
+        float dx = fx + slide.x * 25.0 / W;
+        float dz = fz + slide.y * 25.0 / GF;
+        float leaf = step(0.18, dx) * step(dx, 0.82) * step(dz, 0.82);
+        float panel = step(abs(dx - 0.5), 0.008) + step(abs(dz - 0.45), 0.01);
         float3 wood = frac(h * 31.0) < 0.5 ? float3(0.10, 0.06, 0.035) : float3(0.07, 0.11, 0.09);
-        col = lerp(col, wood * (1.0 - 0.4 * saturate(panel)), door);
+        float3 jamb = wall * (dz > 0.82 ? 0.45 : 0.62);
+        col = lerp(col, lerp(jamb, wood * (1.0 - 0.4 * saturate(panel)), leaf), door);
         col = lerp(col, wall * 1.12, (1.0 - door) * step(0.12, fx) * step(fx, 0.88) * step(fz, 0.88));
     } else {                                       // blank rusticated bay with a small barred window
         float w2 = step(0.32, fx) * step(fx, 0.68) * step(0.45, fz) * step(fz, 0.78);
-        col = lerp(col, dark, w2);
-        glass = w2;
+        float bx2 = fx + slide.x * 15.0 / W;
+        float bz2 = fz + slide.y * 15.0 / GF;
+        float pane = step(0.32, bx2) * step(bx2, 0.68) * step(0.45, bz2) * step(bz2, 0.78);
+        col = lerp(col, lerp(wall * (bz2 > 0.78 ? 0.50 : 0.70), dark, pane), w2);
+        glass = w2 * pane;
     }
     col = lerp(col, col * 0.85, step(abs(frac(z / 55.0) - 0.5), 0.03) * (1.0 - glass));   // rusticated joints
 } else {
@@ -434,23 +459,29 @@ if (z < GF) {
     float open = step(0.30, fx) * step(fx, 0.70) * step(0.20, fz) * step(fz, 0.88);
     float surround = step(0.26, fx) * step(fx, 0.74) * step(0.16, fz) * step(fz, 0.92) * (1.0 - open);
     float sill = step(0.27, fx) * step(fx, 0.73) * step(0.155, fz) * step(fz, 0.20);
-    float reveal = open * (step(fz, 0.88) * step(0.84, fz) + step(fx, 0.325) );     // shadow inside the opening
-    float frame = open * (1.0 - step(0.33, fx) * step(fx, 0.67) * step(0.23, fz) * step(fz, 0.85));
-    float mull = open * (step(abs(fx - 0.5), 0.008) + step(abs(fz - 0.68), 0.008));
     float band = step(fz, 0.035);                  // storey string course
-    float shut = h < 0.22 ? 1.0 : 0.0;             // closed persiennes
+    float shut = h < 0.22 ? 1.0 : 0.0;             // closed persiennes, near the face of the wall
+    // the joinery sits 18 cm behind the wall: what the ray meets at that depth
+    float rec = shut > 0.5 ? 4.0 : 18.0;
+    float sx = fx + slide.x * rec / W;
+    float sz = fz + slide.y * rec / H;
+    float pane = step(0.30, sx) * step(sx, 0.70) * step(0.20, sz) * step(sz, 0.88);
+    float frame = pane * (1.0 - step(0.33, sx) * step(sx, 0.67) * step(0.23, sz) * step(sz, 0.85));
+    float mull = pane * (step(abs(sx - 0.5), 0.008) + step(abs(sz - 0.68), 0.008));
     float3 shc = frac(h * 9.0) < 0.5 ? float3(0.55, 0.54, 0.50) : float3(0.30, 0.37, 0.33);
-    float slats = 0.85 + 0.15 * step(0.5, frac(zz / 6.0));
-    float3 glassc = dark + 0.05 * float3(0.6, 0.7, 0.8) * fz;   // sky reflected at the top
+    float slats = 0.85 + 0.15 * step(0.5, frac((zz + slide.y * rec) / 6.0));
+    float3 glassc = dark + 0.05 * float3(0.6, 0.7, 0.8) * sz;   // sky reflected at the top
+    // reveal: soffit in shade, sill in the light, jambs in between
+    float3 reveal = wall * (sz > 0.88 ? 0.50 : sz < 0.20 ? 1.12 : 0.74);
     col = lerp(col, wall * 1.10, surround);
     col = lerp(col, wall * 1.18, sill);
     col = lerp(col, wall * 0.92, band);
     col = lerp(col, wall * 0.70, step(0.035, fz) * step(fz, 0.05));   // shadow under the band
     float3 inside = shut > 0.5 ? shc * slats : glassc;
-    col = lerp(col, inside, open);
-    col = lerp(col, float3(0.72, 0.71, 0.68), saturate(frame + mull) * (1.0 - shut));
-    col = lerp(col, col * 0.55, reveal);
-    glass = open * (1.0 - shut) * (1.0 - saturate(frame + mull));
+    inside = lerp(inside, float3(0.72, 0.71, 0.68), saturate(frame + mull) * (1.0 - shut));
+    inside = inside * (1.0 - 0.35 * step(0.82, sz));               // shade of the lintel on the joinery
+    col = lerp(col, lerp(reveal, inside, pane), open);
+    glass = open * pane * (1.0 - shut) * (1.0 - saturate(frame + mull));
     // a balcony on the first upper storey of some buildings: railing over the window's lower part
     float balc = (storey == 0.0 && bid > 0.45) ? 1.0 : 0.0;
     float rail = balc * step(0.22, fx) * step(fx, 0.78) * step(0.20, fz) * step(fz, 0.50);
@@ -1084,6 +1115,7 @@ def main():
             report["backdrop_facades"] = BACKDROP_FACADES
         report["facade_tone"] = dict(on=FACADE_TONE, keep=facade_tone().KEEP, knee=facade_tone().KNEE,
                                      slope=facade_tone().SLOPE) if FACADE_TONE else {"on": False}
+        report["backdrop_recess"] = "slide" in BACKDROP_HLSL     # openings set back by parallax
         if eal.does_directory_exist(ROOT + "/Landmarks/" + CAMEL):
             report["landmark_meshes"] = assign(ROOT + "/Landmarks/" + CAMEL, shell)
         river_dir = ROOT + "/Riverside/" + CAMEL

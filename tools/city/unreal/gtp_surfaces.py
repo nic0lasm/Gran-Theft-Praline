@@ -9,8 +9,9 @@ called by the material generators before gtp_weather, put the textures in:
                        paving G, carriageway R, kerb B off the road), then a large grime
                        texture over all of it (decal_dirt); road markings and any layer
                        without a surface keep the procedural colour
-  shell(mat)           M_City_Shell: roofs (zinc, or terracotta tiles where the vertex colour
-                       is red), stone detail on the walls
+  shell(mat)           M_City_Shell and M_City_Backdrop: roofs (zinc, or terracotta tiles where
+                       the vertex colour is red); on the walls stone detail, or render detail
+                       where the building colour is a coloured render (facade_tone.render_share)
   kit(mat)             M_City_Kit: stone or render detail on the slots that take the building
                        colour (UseBuildingColour), the building hue kept
   kit_params(mic, name) per slot: SurfaceRender 1 on the rendered facade slot
@@ -21,14 +22,19 @@ stays as it is, so the generators run the same on a project without the scans.
 M1 budget (no Nanite there, every fetch is paid per pixel): textures capped at 2K by the import,
 shared wrap samplers, one BaseColor + Normal + roughness map per layer: ground mask + 4 layers =
 up to 21 fetches with the stains (mud, oil, cracks, gum: colour + opacity each), plus the 1x1 mip of each
-ground surface for its albedo cap, kit 4 (one is the 1x1 mip used to keep the building hue), shell 6. GTP_SURFACES_LITE=1
+ground surface for its albedo cap, kit 4 (one is the 1x1 mip used to keep the building hue), shell 6
+(10 with the render detail). GTP_SURFACES_LITE=1
 keeps only the colour maps (ground 5, kit 2, shell 2) if the perf pass asks for it.
 """
 
 import json
 import os
+import sys
 
 import unreal
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+import facade_tone  # noqa: E402  pure Python, shared with the tests
 
 eal = unreal.EditorAssetLibrary
 mel = unreal.MaterialEditingLibrary
@@ -364,12 +370,14 @@ def kit_params(mic, name):
 
 def shell(mat):
     """Roofs: zinc or slate, terracotta where the generator's vertex colour is red (Lyon's
-    canal tiles); walls: stone detail. World projection (the shells have no tiling UVs)."""
+    canal tiles); walls: stone detail, and render detail on the coloured buildings (gate 69: a
+    peach wall cut in ashlar blocks). World projection (the shells have no tiling UVs)."""
     m = _manifest()
     rid, roof = _pick(m, ROOF)
     tid, tile = _pick(m, ROOF_TILE)
     sid, stone = _pick(m, STONE)
-    if not (roof or tile or stone):
+    pid, render = _pick(m, RENDER)
+    if not (roof or tile or stone or render):
         return False
     g = _G(mat)
     vc = g.node(unreal.MaterialExpressionVertexColor)
@@ -390,24 +398,41 @@ def shell(mat):
         _used["shell.tile"] = tid
     if roof_col is not None:
         col = (g.lerp(col0, roof_col, roof_a, col0_out), "")
-    if stone:
-        # Walls: a stone detail projected on X/Z and Y/Z, the dominant one by the normal.
+    if stone or render:
+        # Walls: a detail projected on X/Z and Y/Z, the dominant one by the normal.
         wp = g.node(unreal.MaterialExpressionWorldPosition)
         cls = getattr(unreal, "MaterialExpressionTruncateLWC", None)
         if cls:
             wp = g.unary(cls, wp)
-        k = g.const(1.0 / float(stone.get("tile_cm", 200.0)))
-        xz = g.mul(g.op(unreal.MaterialExpressionAppendVector, g.mask(wp, r=True), g.mask(wp, b=True)), k)
-        yz = g.mul(g.op(unreal.MaterialExpressionAppendVector, g.mask(wp, g=True), g.mask(wp, b=True)), k)
         n = g.node(unreal.MaterialExpressionVertexNormalWS)
         nx = g.unary(unreal.MaterialExpressionAbs, g.mask(n, r=True))
         ny = g.unary(unreal.MaterialExpressionAbs, g.mask(n, g=True))
         side = g.unary(unreal.MaterialExpressionSaturate, g.mul(g.sub(nx, ny), g.const(8.0)))
-        det = g.lerp(_detail(g, stone, xz), _detail(g, stone, yz), side)
+
+        def wall_detail(s):
+            k = g.const(1.0 / float(s.get("tile_cm", 200.0)))
+            xz = g.mul(g.op(unreal.MaterialExpressionAppendVector, g.mask(wp, r=True), g.mask(wp, b=True)), k)
+            yz = g.mul(g.op(unreal.MaterialExpressionAppendVector, g.mask(wp, g=True), g.mask(wp, b=True)), k)
+            return g.lerp(_detail(g, s, xz), _detail(g, s, yz), side)
+
+        if stone and render:
+            # Stone or render from the saturation of the building colour (facade_tone.render_share).
+            r, gr, b = g.mask(vc, r=True), g.mask(vc, g=True), g.mask(vc, b=True)
+            top = g.op(unreal.MaterialExpressionMax, g.op(unreal.MaterialExpressionMax, r, gr), b)
+            low = g.op(unreal.MaterialExpressionMin, g.op(unreal.MaterialExpressionMin, r, gr), b)
+            sat = g.div(g.sub(top, low), g.op(unreal.MaterialExpressionMax, top, g.const(0.001)))
+            lo, hi = facade_tone.RENDER_SATURATION
+            share = g.unary(unreal.MaterialExpressionSaturate, g.div(g.sub(sat, g.const(lo)), g.const(hi - lo)))
+            det = g.lerp(wall_detail(stone), wall_detail(render), share)
+        else:
+            det = wall_detail(stone or render)
         det = g.lerp(g.const((1.0, 1.0, 1.0)), det, g.const(KIT_DETAIL))
         det = g.lerp(det, g.const((1.0, 1.0, 1.0)), roof_a)
         col = (g.mul(col[0], det, col[1]), "")
-        _used["shell.stone"] = sid
+        if stone:
+            _used["shell.stone"] = sid
+        if render:
+            _used["shell.render"] = pid
     mel.connect_material_property(col[0], col[1], unreal.MaterialProperty.MP_BASE_COLOR)
     eal.set_metadata_tag(mat, "GTPSurfaces", "1")
     return True
