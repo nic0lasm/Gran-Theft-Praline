@@ -679,7 +679,9 @@ void UGTPCombatSubsystem::RespawnPlayer()
 			Health->Revive(RespawnGraceSeconds);
 		}
 	}
-	GTP_TRACE(LogGTPCombat, TEXT("combat: player respawned at %s"), *HospitalName.ToString());
+	// "None" was read as a failure at gates 64 to 67: it only meant no hospital point in the map.
+	GTP_TRACE(LogGTPCombat, TEXT("combat: player respawned at %s"), HospitalName.IsNone()
+		? TEXT("the player start (no hospital point in the map)") : *HospitalName.ToString());
 	OnPlayerRespawned.Broadcast(Where.GetLocation(), HospitalName);
 }
 

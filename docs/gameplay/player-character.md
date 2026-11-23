@@ -458,3 +458,12 @@ The proof is the gate: the editor `-GTARun` and the packaged one running past `G
   tried again moved aside, and if there is still none the player start is used. Lines:
   `combat: player pawn after death: <pawn> made at the respawn spot` (or `at the player start` or `NONE ...` with the
   controller's state), and `Player pawn: the spawn of ... was refused` when the engine refused it.
+- **`Accessed None ... BTSController / OffsetGaolsController` (about 31,000 lines a pass since candidate 35).** The
+  Game Animation Sample's `ABP_GenericRetarget`, on the visual's body, reads controller variables its own character
+  fills. Each blueprint variable named `...Controller` that holds nothing is now given the pawn, its controller, or a
+  component of that class (from the pawn or the visual, else made on the visual); `-PlayerVisualNoControllers` leaves
+  them empty. Line: `body anim ...: <variable> (<class>) given ...` or `left empty ...`. Not proven: if the blueprint
+  looks them up again each frame, the warnings stay, and the line gives their class for the next step.
+- **`combat: player respawned at None`** was not a failure: it meant no hospital point in the map, so the player start.
+  The line now says `respawned at the player start (no hospital point in the map)`. One per pass is expected (one
+  `wasted` step).

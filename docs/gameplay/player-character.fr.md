@@ -494,3 +494,13 @@ l'assertion.
   nouveau pion, un refus est retenté en décalant, et s'il n'y a toujours rien, le départ du joueur sert. Lignes :
   `combat: player pawn after death: <pion> made at the respawn spot` (ou `at the player start`, ou `NONE ...` avec
   l'état du contrôleur), et `Player pawn: the spawn of ... was refused` quand le moteur l'a refusé.
+- **`Accessed None ... BTSController / OffsetGaolsController` (environ 31 000 lignes par passe depuis le candidat 35).**
+  L'`ABP_GenericRetarget` du Game Animation Sample, sur le corps du visuel, lit des variables de contrôleur que son propre
+  personnage remplit. Chaque variable du blueprint nommée `...Controller` restée vide reçoit maintenant le pion, son
+  contrôleur, ou un composant de cette classe (pris sur le pion ou le visuel, sinon créé sur le visuel) ;
+  `-PlayerVisualNoControllers` les laisse vides. Ligne : `body anim ...: <variable> (<classe>) given ...` ou
+  `left empty ...`. Non prouvé : si le blueprint les recherche à chaque image, les avertissements restent, et la ligne
+  donne leur classe pour la suite.
+- **`combat: player respawned at None`** n'était pas un échec : aucun point d'hôpital dans la carte, donc le départ du
+  joueur. La ligne dit maintenant `respawned at the player start (no hospital point in the map)`. Une par passe est
+  attendue (une étape `wasted`).

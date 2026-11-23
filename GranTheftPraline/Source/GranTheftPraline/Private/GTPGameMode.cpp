@@ -19,6 +19,8 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "Animation/AnimInstance.h"
 #include "UObject/UnrealType.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "Components/ActorComponent.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
 
@@ -147,6 +149,70 @@ APawn* AGTPGameMode::SpawnDefaultPawnAtTransform_Implementation(AController* New
 		PawnClass ? *PawnClass->GetName() : TEXT("no class"), *SpawnTransform.GetLocation().ToCompactString(),
 		Pawn ? *FString::Printf(TEXT("%s made at %s"), *Pawn->GetName(), *Pawn->GetActorLocation().ToCompactString()) : TEXT("STILL REFUSED"));
 	return Pawn;
+}
+
+/**
+ * The Game Animation Sample's ABP_GenericRetarget, on the visual's body, reads controller variables (BTSController,
+ * OffsetGaolsController, the sample's spelling) that its own character fills: on our visual they stay None and the log
+ * gets about 31,000 "Accessed None" warnings a pass (since candidate 35). Each blueprint variable named "...Controller"
+ * that holds nothing is given the pawn, its controller, or a component of that class (taken from the pawn or the
+ * visual, else made on the visual). -PlayerVisualNoControllers leaves them empty. Returns how many were filled.
+ */
+static int32 FillRetargetControllers(UAnimInstance* Anim, AActor* Visual, APawn* Pawn)
+{
+	if (!Anim || !Visual || FParse::Param(FCommandLine::Get(), TEXT("PlayerVisualNoControllers")))
+	{
+		return 0;
+	}
+	int32 Filled = 0;
+	for (TFieldIterator<FObjectProperty> It(Anim->GetClass()); It; ++It)
+	{
+		FObjectProperty* Prop = *It;
+		if (!Cast<UBlueprintGeneratedClass>(Prop->GetOwnerClass()) || !Prop->GetName().Contains(TEXT("Controller")) || !Prop->PropertyClass
+			|| Prop->GetObjectPropertyValue_InContainer(Anim))
+		{
+			continue;
+		}
+		UClass* Wanted = Prop->PropertyClass;
+		UObject* Given = nullptr;
+		const TCHAR* How = TEXT("left empty: not a pawn, a controller or a component");
+		if (Pawn && Pawn->IsA(Wanted))
+		{
+			Given = Pawn;
+			How = TEXT("the pawn");
+		}
+		else if (Pawn && Pawn->GetController() && Pawn->GetController()->IsA(Wanted))
+		{
+			Given = Pawn->GetController();
+			How = TEXT("the pawn's controller");
+		}
+		else if (Wanted->IsChildOf(UActorComponent::StaticClass()))
+		{
+			UActorComponent* Found = Pawn ? Pawn->GetComponentByClass(Wanted) : nullptr;
+			How = TEXT("the pawn's component");
+			if (!Found)
+			{
+				Found = Visual->GetComponentByClass(Wanted);
+				How = TEXT("the visual's component");
+			}
+			if (!Found && !Wanted->HasAnyClassFlags(CLASS_Abstract))
+			{
+				Found = NewObject<UActorComponent>(Visual, Wanted, MakeUniqueObjectName(Visual, Wanted, Prop->GetFName()));
+				Visual->AddInstanceComponent(Found);
+				Found->RegisterComponent();
+				How = TEXT("a component made on the visual");
+			}
+			Given = Found;
+		}
+		if (Given)
+		{
+			Prop->SetObjectPropertyValue_InContainer(Anim, Given);
+			++Filled;
+		}
+		UE_LOG(LogGTPGameMode, Log, TEXT("  body anim %s: %s (%s) %s%s"), *Anim->GetClass()->GetName(), *Prop->GetName(), *Wanted->GetName(), Given ? TEXT("given ") : TEXT(""),
+			Given ? *FString::Printf(TEXT("%s (%s)"), How, *Given->GetName()) : How);
+	}
+	return Filled;
 }
 
 /**
@@ -626,6 +692,7 @@ void AGTPGameMode::ApplyPlayerVisual(APawn* Pawn)
 				if (Body && Part->GetName() == BodyName && !RetargeterPath.IsEmpty())
 				{
 					ConfigureBodyRetarget(Body, Own, RetargeterPath);
+					FillRetargetControllers(Body->GetAnimInstance(), V, P);
 				}
 			}
 		}
