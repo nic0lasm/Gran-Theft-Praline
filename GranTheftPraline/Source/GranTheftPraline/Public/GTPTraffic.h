@@ -317,6 +317,8 @@ public:
 	 * out of the player's sight when it can, tagged with Tag (empty: no tag). Class empty: a
 	 * random traffic car class. The car is not traffic: never recycled, no AI driver, so the
 	 * player can take it. nullptr when no spot was free. Costs nothing unless called (missions).
+	 * Spots near a lane's end, on a bend or with the body over another lane are left out; when
+	 * bQuietMiss is false (a request that must be met) they are taken if no other spot is free.
 	 */
 	AGTPVehicle* SpawnParkedVehicle(FName Tag, const FVector& Near, float RadiusCm, TSubclassOf<AGTPVehicle> Class = nullptr, bool bQuietMiss = false);
 
@@ -338,6 +340,26 @@ public:
 	 */
 	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Missions")
 	float ParkKerbRise = 60.f;
+
+	/**
+	 * No parked car within this length of lane of a lane's start or end (cm): traffic aims a few metres ahead and cuts
+	 * the corners there, and the next lane often starts two metres aside (gate 62: eight of the nine parked cars traffic
+	 * queued behind stood less than 10 m from a lane's end or start).
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Missions")
+	float ParkEndMargin = 1200.f;
+
+	/** Nor where the lane, within ParkEndMargin of the spot, comes more than this towards the kerb (cm): a bend that traffic cuts. */
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Missions")
+	float ParkBendAllowance = 40.f;
+
+	/**
+	 * A parked car's body (its mesh's bounds) stays at least this far from the centre line of every other lane (cm): a
+	 * driven car's half width and a margin. Its centre can be clear while its bonnet stands over a lane that crosses
+	 * (gate 62: a Clio parked across a lane, its centre 226 cm from it).
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Missions")
+	float ParkBodyClearance = 130.f;
 
 	// --- Real cars parked along the streets around the player, to steal (-StreetParked=N) ---
 

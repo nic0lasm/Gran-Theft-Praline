@@ -310,6 +310,16 @@ Pas de plugin Water ni de volume physique : de simples événements de chevauche
   (`ParkKerbRise`) est aussi écartée, comptée « on street furniture » : le tracé vers le sol prend la
   première chose qu'il touche, et dans la vidéo de la porte 61 un utilitaire garé est resté 30 s sur le
   toit d'un abribus, à hauteur du premier étage.
+  Depuis le candidat 66, une place est aussi écartée quand elle se trouve à moins de 12 m de voie du
+  début ou de la fin de sa voie (`ParkEndMargin`), quand sa voie se rapproche de plus de 40 cm du
+  trottoir dans ces 12 m (`ParkBendAllowance`), ou quand la carrosserie de la voiture (les bornes de son
+  maillage) passe à moins de 1,3 m de l'axe d'une autre voie (`ParkBodyClearance`) ; la ligne les
+  compte « near a lane end or bend » et « with the body over a lane ». Le trafic vise quelques mètres
+  devant lui et coupe les virages, et la voie suivante commence souvent deux mètres à côté : à la porte
+  62, 8 des 9 voitures garées derrière lesquelles le trafic faisait la queue étaient à moins de 10 m du
+  début ou de la fin d'une voie, dont une Clio au capot posé sur une autre voie. Les voitures garées
+  autour du joueur ne prennent jamais une telle place ; une demande qui doit aboutir (une mission, un
+  parcours scripté) en prend une quand aucune autre n'est libre, et sa ligne finit par « no clear spot ».
 - **Accidents entre voitures du trafic** (à moins de 80 m du joueur, choc d'au moins
   4,5 m/s, deux à la fois au plus) : un léger accrochage finit par un coup de klaxon (ou, une
   fois sur trois, une dispute) ; sinon, une fois sur cinq, celui qui a percuté accélère et

@@ -81,6 +81,37 @@ namespace
 		const float Bottom = static_cast<float>(Bounds.Origin.Z - Bounds.BoxExtent.Z) + static_cast<float>(Body->GetRelativeLocation().Z);
 		return FMath::Clamp(40.f - Bottom, -100.f, 200.f);
 	}
+
+	/** A parked car of Class seen from above (cm): how far its mesh's bounds reach ahead of its origin, behind it, and to each side. */
+	void ParkedBody(TSubclassOf<AGTPVehicle> Class, float& OutFront, float& OutBack, float& OutHalfWidth)
+	{
+		OutFront = 230.f;
+		OutBack = 230.f;
+		OutHalfWidth = 95.f;
+		const AGTPVehicle* Defaults = Class ? Class->GetDefaultObject<AGTPVehicle>() : nullptr;
+		const USkeletalMeshComponent* Body = Defaults ? Defaults->GetMesh() : nullptr;
+		const USkeletalMesh* Mesh = Body ? Body->GetSkeletalMeshAsset() : nullptr;
+		if (!Mesh)
+		{
+			return;
+		}
+		const FBoxSphereBounds Bounds = Mesh->GetBounds();
+		float Centre = static_cast<float>(Bounds.Origin.X);
+		float HalfLength = static_cast<float>(Bounds.BoxExtent.X);
+		float HalfWidth = static_cast<float>(Bounds.BoxExtent.Y);
+		// A mesh turned a quarter turn in its car (modelled along Y): its length is along Y.
+		const float MeshYaw = FMath::Abs(static_cast<float>(FRotator::NormalizeAxis(Body->GetRelativeRotation().Yaw)));
+		if (MeshYaw > 45.f && MeshYaw < 135.f)
+		{
+			Centre = 0.f;
+			HalfLength = static_cast<float>(Bounds.BoxExtent.Y);
+			HalfWidth = static_cast<float>(Bounds.BoxExtent.X);
+		}
+		Centre += static_cast<float>(Body->GetRelativeLocation().X);
+		OutFront = FMath::Clamp(Centre + HalfLength, 100.f, 450.f);
+		OutBack = FMath::Clamp(HalfLength - Centre, 100.f, 450.f);
+		OutHalfWidth = FMath::Clamp(HalfWidth, 60.f, 150.f);
+	}
 }
 
 float FGTPTrafficLane::LengthCm() const
@@ -1497,9 +1528,19 @@ AGTPVehicle* AGTPTrafficNetwork::SpawnParkedVehicle(FName Tag, const FVector& Ne
 		{static_cast<float>(Near.X), static_cast<float>(Near.Y)}, FMath::Max(RadiusCm, 100.f) + FMath::Max(ParkOffset, 0.f) + 1000.f);
 	int32 OnLane = 0;
 	int32 OnFurniture = 0;
-	// Out of sight first; if every spot is seen, a seen one rather than nothing.
-	for (int32 Pass = 0; Pass < 2; ++Pass)
+	int32 NearEnd = 0;
+	int32 BodyOnLane = 0;
+	float BodyFront = 230.f;
+	float BodyBack = 230.f;
+	float BodyHalfWidth = 95.f;
+	ParkedBody(Class, BodyFront, BodyBack, BodyHalfWidth);
+	// Out of sight first; if every spot is seen, a seen one rather than nothing. Passes 2 and 3, only for a request that
+	// must be met (bQuietMiss false): the same with the spots near a lane's end, on a bend or with the body over a lane.
+	const int32 Passes = bQuietMiss ? 2 : 4;
+	for (int32 Pass = 0; Pass < Passes; ++Pass)
 	{
+		const bool bUnseenOnly = Pass % 2 == 0;
+		const bool bClearSpotsOnly = Pass < 2;
 		int32 Tried = 0;
 		for (const GTPKerb::FSegmentRef& Ref : Segments)
 		{
@@ -1520,8 +1561,24 @@ AGTPVehicle* AGTPTrafficNetwork::SpawnParkedVehicle(FName Tag, const FVector& Ne
 				OnLane += Pass == 0 ? 1 : 0;
 				continue;
 			}
+			if (bClearSpotsOnly)
+			{
+				// Out of the way of traffic where it cuts corners (gate 62: queues behind parked cars at lane ends and bends,
+				// and behind a Clio whose bonnet stood over another lane).
+				const GTPKerb::FLaneAround Around = GTPKerb::LaneAroundSpot(Polylines[Ref.Lane], Ref.Point, ParkEndMargin);
+				if (Around.FromStart < ParkEndMargin || Around.ToEnd < ParkEndMargin || Around.TowardKerb > ParkBendAllowance)
+				{
+					NearEnd += Pass == 0 ? 1 : 0;
+					continue;
+				}
+				if (!GTPKerb::IsBodyClearOfLanes(Polylines, Nearby, Spot, BodyFront, BodyBack, BodyHalfWidth, ParkBodyClearance, Ref.Lane))
+				{
+					BodyOnLane += Pass == 0 ? 1 : 0;
+					continue;
+				}
+			}
 			FVector Location(Spot.Position.X, Spot.Position.Y, (A.Z + B.Z) * 0.5);
-			if (Pass == 0 && IsSeenByPlayer(Location))
+			if (bUnseenOnly && IsSeenByPlayer(Location))
 			{
 				continue;
 			}
@@ -1554,15 +1611,16 @@ AGTPVehicle* AGTPTrafficNetwork::SpawnParkedVehicle(FName Tag, const FVector& Ne
 			{
 				Car->Tags.AddUnique(Tag);
 			}
-			GTP_TRACE(LogGTPTraffic, TEXT("traffic: parked %s (%s) on lane %d at %s, %.0f m from the request, pivot %.0f cm above the ground (the mesh's lowest point at 40 cm), %d spot(s) on another lane left out, %d on street furniture"),
-				*Car->GetName(), *Tag.ToString(), Ref.Lane, *Location.ToCompactString(), Ref.Distance / 100.f, Clearance, OnLane, OnFurniture);
+			GTP_TRACE(LogGTPTraffic, TEXT("traffic: parked %s (%s) on lane %d at %s, %.0f m from the request, pivot %.0f cm above the ground (the mesh's lowest point at 40 cm), %d spot(s) on another lane left out, %d on street furniture, %d near a lane end or bend, %d with the body over a lane%s"),
+				*Car->GetName(), *Tag.ToString(), Ref.Lane, *Location.ToCompactString(), Ref.Distance / 100.f, Clearance, OnLane, OnFurniture,
+				NearEnd, BodyOnLane, bClearSpotsOnly ? TEXT("") : TEXT(" (no clear spot: one in the way of traffic)"));
 			return Car;
 		}
 	}
 	if (!bQuietMiss)
 	{
-		GTP_TRACE(LogGTPTraffic, TEXT("traffic: no free spot for a parked car (%s) within %.0f m of %s (%d spot(s) on another lane left out, %d on street furniture)"),
-			*Tag.ToString(), RadiusCm / 100.f, *Near.ToCompactString(), OnLane, OnFurniture);
+		GTP_TRACE(LogGTPTraffic, TEXT("traffic: no free spot for a parked car (%s) within %.0f m of %s (%d spot(s) on another lane left out, %d on street furniture, %d near a lane end or bend, %d with the body over a lane)"),
+			*Tag.ToString(), RadiusCm / 100.f, *Near.ToCompactString(), OnLane, OnFurniture, NearEnd, BodyOnLane);
 	}
 	return nullptr;
 }

@@ -298,6 +298,15 @@ Written in one batch, not compiled yet (`GTPIncidentLogic.h`, checked offline by
   A spot whose ground stands more than 60 cm above the road at the lane beside it (`ParkKerbRise`) is
   also left out, counted "on street furniture": the ground trace takes the first thing it meets, and in
   gate 61's video a parked van stood on a bus shelter roof, at first-floor height, for 30 s.
+  Since candidate 66, a spot is also left out when it stands less than 12 m of lane from its lane's
+  start or end (`ParkEndMargin`), where its lane comes more than 40 cm towards the kerb within those
+  12 m (`ParkBendAllowance`), or when the car's body (its mesh's bounds) comes within 1.3 m of the
+  centre line of another lane (`ParkBodyClearance`); the line counts them "near a lane end or bend" and
+  "with the body over a lane". Traffic aims a few metres ahead and cuts the corners, and the next lane
+  often starts two metres aside: at gate 62, 8 of the 9 parked cars traffic queued behind stood less
+  than 10 m from a lane's end or start, a Clio among them with its bonnet over another lane. The cars
+  parked around the player never take such a spot; a request that must be met (a mission, a scripted
+  run) takes one when no other spot is free, and its line ends with "no clear spot".
 - **Crashes between traffic cars** (within 80 m of the player, a change of speed of
   4.5 m/s or more, two at a time at most): a light bump ends in a blast of the horn (or, one
   time in three, an argument); otherwise one time in five the one who hit floors it while
