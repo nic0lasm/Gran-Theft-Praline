@@ -18,6 +18,7 @@ class ACharacter;
 class AGTPVehicle;
 class AGTPTrafficNetwork;
 class UPointLightComponent;
+class UMaterialInterface;
 class UGTPPoliceSenses;
 class UGTPPoliceQueries;
 
@@ -360,6 +361,33 @@ protected:
 	UPROPERTY(Config, EditAnywhere, Category = "Police")
 	FVector LightBarOffset = FVector(0.f, 0.f, 130.f);
 
+	/**
+	 * The livery of the police cars (video of candidate 62: Epic's saloon in its own paint, nothing said "police").
+	 * A blue band on both sides: one deferred decal across the car at door height, so it lies on the body's own
+	 * shape. And white paint: for each material slot N of the car, the material LiveryPaintFolder/MI_GTP_PolicePaint_N
+	 * when it exists. Both are made in the editor by tools/police/unreal/make_police_look.py (out of Git); a car
+	 * without them stays as it is. -PoliceLivery=0 turns it off.
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Police|Livery")
+	FSoftObjectPath LiveryBandMaterial = FSoftObjectPath(TEXT("/Game/Vehicles/Epic/GTP/Police/M_GTP_PoliceBand.M_GTP_PoliceBand"));
+
+	UPROPERTY(Config, EditAnywhere, Category = "Police|Livery")
+	FString LiveryPaintFolder = TEXT("/Game/Vehicles/Epic/GTP/Police");
+
+	/** The band's middle, as a share of the car's height from its lowest point, and its half height (cm). */
+	UPROPERTY(Config, EditAnywhere, Category = "Police|Livery")
+	float LiveryBandHeightShare = 0.43f;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Police|Livery")
+	float LiveryBandHalfHeight = 8.f;
+
+	/** The band's half length as a share of the car's length (between the wheel arches), and its shift along the car (cm). */
+	UPROPERTY(Config, EditAnywhere, Category = "Police|Livery")
+	float LiveryBandLengthShare = 0.2f;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Police|Livery")
+	float LiveryBandForward = 0.f;
+
 	/** With -VehicleLod=1 the light bar is off beyond this distance (cm). */
 	UPROPERTY(Config, EditAnywhere, Category = "Police")
 	float LightBarDistance = 12000.f;
@@ -490,6 +518,14 @@ private:
 	void TraceUnitTrouble(const FUnit& Unit, const TCHAR* What) const;
 	void DriveOnLanes(FUnit& Unit, const FVector& Goal, bool bHasGoal, float MaxSpeedKmh);
 	void AddLightBar(FUnit& Unit);
+	/** The blue band and the white paint of a police car (see LiveryBandMaterial). */
+	void AddLivery(AGTPVehicle& Car);
+	UPROPERTY(Transient)
+	TObjectPtr<UMaterialInterface> LoadedLiveryBand;
+	/** Paint by material slot, null where there is none; filled at the first car. */
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UMaterialInterface>> LoadedLiveryPaint;
+	bool bLiveryLoaded = false;
 	void UpdateUnitDetail(AGTPVehicle* Car, float DistanceToView) const;
 	bool SeatDriver(FUnit& Unit);
 	void BlinkLights(FUnit& Unit, bool bOn, bool bPhase);

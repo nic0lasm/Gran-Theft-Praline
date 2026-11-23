@@ -98,6 +98,14 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category = "Police|Uniform")
 	FLinearColor UniformColour = FLinearColor(0.012f, 0.02f, 0.06f, 1.f);
 
+	/**
+	 * Folder of the garments' own materials: for slot N of the garment G, MI_GTP_Uniform_G_N when it exists (navy
+	 * blue children of Epic's materials, made in the editor by tools/police/unreal/make_police_look.py, out of Git).
+	 * Cooked materials: nothing is made at run time, unlike the two ways below.
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Police|Uniform")
+	FString UniformMaterialFolder = TEXT("/Game/Crowd/GTP/Police");
+
 	/** Vector parameters of the garments' materials that take the colour (a dynamic material instance per slot). */
 	UPROPERTY(Config, EditAnywhere, Category = "Police|Uniform")
 	TArray<FName> UniformColourParameters;

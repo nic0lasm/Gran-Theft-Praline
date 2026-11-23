@@ -107,6 +107,14 @@ In the video of candidate 59 the officers on foot were the player's orange manne
 
 Not known at the time of writing, and not compiled: how the garments' materials take a colour (the navy blue is given only once their parameters are named in the config), the name of the upper spine bone for the vest, whether the head `m_002` and the run loop `CS_M_Neutral_Run_Loop_F_R_20` are in the project. The cap, the vest and the belt do not exist yet.
 
+## The police car's livery and the officers' navy blue (2026-11-23)
+
+Video of candidate 62: the police car is City Sample's saloon (vehicle13 of City Sample Vehicles) in Epic's own paint with our two lights, and nothing on it says "police". Two things are added to every police car when it is made (`AGTPPoliceDirector::AddLivery`): a blue band on both sides, which is one deferred decal projected across the car at door height, between the wheel arches, so that it lies on the body's own shape; and white paint, a material per body slot. The officers' garments get navy blue materials the same way.
+
+None of these materials is in Git: `tools/police/unreal/make_police_look.py`, run once in the editor, makes the band's decal material, and children of Epic's paint and garment materials with their colour parameters set. The names of those parameters are not known in the repository: the script takes the vector parameters whose name reads as a colour, makes nothing for a slot that has none, and writes every slot, material and parameter to `Saved/PoliceLook/police_look_report.txt` (with the bones from the head to the root of the officers' body). Without the script's assets the game runs as before. The log says what was found: `police: livery on ...`, `police: officer in uniform: ...`. `-PoliceLivery=0` turns the livery off.
+
+Not compiled and not seen at the time of writing. Not known: whether Epic's paint takes a decal, where the band falls on the door (the place is worked out from the mesh's box and set by `LiveryBand*` in the config), which parameters the script will find.
+
 ## Switches
 
 `-PolicePerception=0|1|2` (off, perception only, both = default), `-PoliceEqs=0` (officers sweep a fixed circle again), `-Police=0`, `-WantedStars=N`, `-WantedHold`, `-Witnesses=0`.
