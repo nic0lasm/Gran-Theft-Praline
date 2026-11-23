@@ -107,6 +107,14 @@ Dans la vidéo du candidat 59, les policiers à pied étaient le mannequin orang
 
 Pas su au moment d'écrire, et pas compilé : comment les matériaux des vêtements prennent une couleur (le bleu marine n'est donné qu'une fois leurs paramètres nommés dans la config), le nom de l'os haut de la colonne pour le gilet, si la tête `m_002` et la boucle de course `CS_M_Neutral_Run_Loop_F_R_20` sont dans le projet. La casquette, le gilet et la ceinture n'existent pas encore.
 
+## La livrée de la voiture de police et le bleu marine des policiers (23/11/2026)
+
+Vidéo du candidat 62 : la voiture de police est la berline de City Sample (vehicle13 de City Sample Vehicles) dans la peinture d'Epic avec nos deux lumières, et rien dessus ne dit « police ». Deux choses sont ajoutées à chaque voiture de police à sa création (`AGTPPoliceDirector::AddLivery`) : une bande bleue sur les deux flancs, qui est un seul décalque projeté en travers de la voiture à hauteur de portière, entre les passages de roue, pour épouser la forme de la carrosserie ; et une peinture blanche, un matériau par emplacement de carrosserie. Les vêtements des policiers reçoivent des matériaux bleu marine de la même façon.
+
+Aucun de ces matériaux n'est dans Git : `tools/police/unreal/make_police_look.py`, lancé une fois dans l'éditeur, fabrique le matériau de décalque de la bande, et des enfants des matériaux de peinture et de vêtements d'Epic avec leurs paramètres de couleur réglés. Les noms de ces paramètres ne sont pas connus dans le dépôt : le script prend les paramètres vecteur dont le nom se lit comme une couleur, ne fabrique rien pour un emplacement qui n'en a pas, et écrit chaque emplacement, matériau et paramètre dans `Saved/PoliceLook/police_look_report.txt` (avec les os de la tête à la racine du corps des policiers). Sans les assets du script le jeu tourne comme avant. Le journal dit ce qui a été trouvé : `police: livery on ...`, `police: officer in uniform: ...`. `-PoliceLivery=0` coupe la livrée.
+
+Pas compilé et pas vu au moment d'écrire. Pas su : si la peinture d'Epic accepte un décalque, où la bande tombe sur la portière (la place est calculée d'après la boîte du maillage et réglée par `LiveryBand*` dans la config), quels paramètres le script trouvera.
+
 ## Interrupteurs
 
 `-PolicePerception=0|1|2` (coupée, perception seule, les deux = défaut), `-PoliceEqs=0` (les policiers balaient de nouveau un cercle fixe), `-Police=0`, `-WantedStars=N`, `-WantedHold`, `-Witnesses=0`.

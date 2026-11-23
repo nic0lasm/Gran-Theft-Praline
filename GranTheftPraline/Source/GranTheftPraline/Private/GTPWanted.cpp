@@ -18,6 +18,7 @@
 #include "ChaosWheeledVehicleMovementComponent.h"
 #include "CollisionQueryParams.h"
 #include "CollisionShape.h"
+#include "Components/DecalComponent.h"
 #include "Components/PointLightComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/OverlapResult.h"
@@ -28,6 +29,7 @@
 #include "GameFramework/GameModeBase.h"
 #include "GameFramework/PlayerController.h"
 #include "Kismet/GameplayStatics.h"
+#include "Materials/MaterialInterface.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
 #include "TimerManager.h"
@@ -1189,6 +1191,64 @@ void AGTPPoliceDirector::UpdateUnitDetail(AGTPVehicle* Car, float DistanceToView
 	}
 }
 
+void AGTPPoliceDirector::AddLivery(AGTPVehicle& Car)
+{
+	int32 LiverySwitch = 1;
+	FParse::Value(FCommandLine::Get(), TEXT("PoliceLivery="), LiverySwitch);
+	USkeletalMeshComponent* Body = Car.GetMesh();
+	if (LiverySwitch == 0 || !Body)
+	{
+		return;
+	}
+	const bool bFirst = !bLiveryLoaded;
+	if (bFirst)
+	{
+		bLiveryLoaded = true;
+		LoadedLiveryBand = LiveryBandMaterial.IsValid() ? Cast<UMaterialInterface>(LiveryBandMaterial.TryLoad()) : nullptr;
+		// The paint is asked for by slot number: absent for most slots (glass, tyres, lights), and that is not an error.
+		for (int32 Slot = 0; Slot < Body->GetNumMaterials(); ++Slot)
+		{
+			const FString Name = FString::Printf(TEXT("MI_GTP_PolicePaint_%d"), Slot);
+			LoadedLiveryPaint.Add(LoadObject<UMaterialInterface>(nullptr, *FString::Printf(TEXT("%s/%s.%s"), *LiveryPaintFolder, *Name, *Name), nullptr,
+				LOAD_NoWarn | LOAD_Quiet));
+		}
+	}
+	int32 Painted = 0;
+	for (int32 Slot = 0; Slot < Body->GetNumMaterials() && Slot < LoadedLiveryPaint.Num(); ++Slot)
+	{
+		if (LoadedLiveryPaint[Slot])
+		{
+			Body->SetMaterial(Slot, LoadedLiveryPaint[Slot]);
+			++Painted;
+		}
+	}
+	// The car's own box, in its mesh's space: the band goes across it at door height, between the wheel arches.
+	const FBox Box = Body->CalcBounds(FTransform::Identity).GetBox();
+	const FVector Size = Box.GetSize();
+	const FVector Middle(Box.GetCenter().X + LiveryBandForward, Box.GetCenter().Y, Box.Min.Z + Size.Z * LiveryBandHeightShare);
+	if (LoadedLiveryBand && Size.X > 100.0 && Size.Y > 50.0)
+	{
+		UDecalComponent* Band = NewObject<UDecalComponent>(&Car);
+		Band->SetDecalMaterial(LoadedLiveryBand);
+		// A decal projects along its own X: turned to point across the car, it paints both sides at once. Its box:
+		// the car's half width and a little more deep, the band's half length, the band's half height.
+		Band->DecalSize = FVector(Size.Y * 0.5 + 10.0, Size.X * LiveryBandLengthShare, LiveryBandHalfHeight);
+		// Never faded out with distance: a police car is told from far away.
+		Band->FadeScreenSize = 0.f;
+		Band->AttachToComponent(Body, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+		Band->SetRelativeLocationAndRotation(Middle, FRotator(0.f, 90.f, 0.f));
+		Band->RegisterComponent();
+	}
+	if (bFirst)
+	{
+		GTP_TRACE(LogGTPWanted, TEXT("police: livery on %s: band %s, %d of %d material slot(s) painted (from %s); car box %.0f x %.0f x %.0f cm, "
+			"band %.0f cm long and %.0f high, its middle %.0f cm above the box's lowest point"), *Car.GetName(),
+			LoadedLiveryBand ? *LoadedLiveryBand->GetName() : TEXT("NOT THERE (tools/police/unreal/make_police_look.py makes it)"), Painted,
+			Body->GetNumMaterials(), *LiveryPaintFolder, Size.X, Size.Y, Size.Z, Size.X * LiveryBandLengthShare * 2.0, LiveryBandHalfHeight * 2.f,
+			Size.Z * LiveryBandHeightShare);
+	}
+}
+
 void AGTPPoliceDirector::AddLightBar(FUnit& Unit)
 {
 	AGTPVehicle* Car = Unit.Car.Get();
@@ -1759,6 +1819,7 @@ void AGTPPoliceDirector::Tick(float DeltaSeconds)
 		if (Unit.Stage == 2)
 		{
 			AddLightBar(Unit);
+			AddLivery(*Car);
 			Wanted->RegisterPolice(Car);
 			if (!bWarningBound)
 			{

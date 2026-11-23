@@ -125,6 +125,7 @@ bool AGTPPoliceOfficer::WearUniform()
 		return Part;
 	};
 	int32 Coloured = 0;
+	int32 OwnMaterials = 0;
 	for (int32 Index = 0; Index < UniformClothes.Num(); ++Index)
 	{
 		USkeletalMeshComponent* Part = AddFollower(UniformClothes[Index], FString::Printf(TEXT("UniformGarment%d"), Index));
@@ -133,6 +134,18 @@ bool AGTPPoliceOfficer::WearUniform()
 			continue;
 		}
 		++Garments;
+		// The uniform's own materials, slot by slot, where the editor script made them.
+		const FString GarmentName = UniformClothes[Index].GetAssetName();
+		for (int32 Slot = 0; !UniformMaterialFolder.IsEmpty() && Slot < Part->GetNumMaterials(); ++Slot)
+		{
+			const FString MaterialName = FString::Printf(TEXT("MI_GTP_Uniform_%s_%d"), *GarmentName, Slot);
+			if (UMaterialInterface* Own = LoadObject<UMaterialInterface>(nullptr, *FString::Printf(TEXT("%s/%s.%s"), *UniformMaterialFolder, *MaterialName, *MaterialName),
+				nullptr, LOAD_NoWarn | LOAD_Quiet))
+			{
+				Part->SetMaterial(Slot, Own);
+				++OwnMaterials;
+			}
+		}
 		// The colour goes to the garments only, never to the skin.
 		if (UniformColourDataIndex >= 0)
 		{
@@ -185,8 +198,8 @@ bool AGTPPoliceOfficer::WearUniform()
 	}
 	const FString FaceName = bFace ? UniformFace.GetAssetName() : FString(TEXT("none"));
 	const FString LoopName = UniformRunAnimation.IsValid() ? UniformRunAnimation.GetAssetName() : FString(TEXT("none"));
-	GTP_TRACE(LogTemp, TEXT("police: officer in uniform: body %s, %d garment(s) of %d (%d given the colour), face %s, run loop %s; pieces:%s; left out:%s"),
-		*BodyMesh->GetName(), Garments, UniformClothes.Num(), Coloured, *FaceName, *LoopName, Worn.IsEmpty() ? TEXT(" none") : *Worn,
+	GTP_TRACE(LogTemp, TEXT("police: officer in uniform: body %s, %d garment(s) of %d (%d given the colour, %d slot(s) given the uniform's own material), face %s, run loop %s; pieces:%s; left out:%s"),
+		*BodyMesh->GetName(), Garments, UniformClothes.Num(), Coloured, OwnMaterials, *FaceName, *LoopName, Worn.IsEmpty() ? TEXT(" none") : *Worn,
 		Missing.IsEmpty() ? TEXT(" nothing") : *Missing);
 	return true;
 }
