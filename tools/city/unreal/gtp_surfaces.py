@@ -55,6 +55,11 @@ GROUND_GRIME = ("decal_dirt",)
 GROUND_ALBEDO_CAP = {"sidewalk": 0.28, "paving": 0.28, "kerb": 0.30, "road": 0.10}
 GROUND_ROUGH_MIN = float(os.environ.get("GTP_GROUND_ROUGH_MIN", "0.6"))
 LUMA = (0.2126, 0.7152, 0.0722)
+# The stains are laid after the layer caps: a light mud scan made blotches of several metres on
+# the asphalt, up to about 0.2 of albedo against 0.05 (video of gate 69, 47 s, "camouflage").
+# Each stain's colour is capped too, dark like wet dirt, and the mud is laid at a lower strength.
+STAIN_ALBEDO_CAP = 0.08
+MUD_STRENGTH = 0.35
 GRIME_SCALE = 3.0        # the grime repeats every 3 tiles of its own size (about 6 m)
 GRIME_STRENGTH = 0.5
 KIT_DETAIL = float(os.environ.get("GTP_SURFACES_DETAIL", "0.6"))   # share of the stone detail kept
@@ -258,7 +263,7 @@ def ground(mat, mask):
     # decal's colour where its opacity map says so, scattered by two slow sines so the repeat
     # does not read as a grid. Mud over all the ground, oil on the carriageway only.
     off_road = g.sub(g.const(1.0), on_road)
-    for sid_list, region, region_out, period, strength in ((GROUND_GRIME, None, "", 450.0, 0.55),
+    for sid_list, region, region_out, period, strength in ((GROUND_GRIME, None, "", 450.0, MUD_STRENGTH),
                                                           (("decal_oil",), mask, "R", 700.0, 0.7),
                                                           (("decal_cracks",), mask, "R", 900.0, 0.6),
                                                           (("decal_gum",), off_road, "", 260.0, 0.8)):
@@ -274,8 +279,14 @@ def ground(mat, mask):
         a = g.mul(g.mul(a, scatter), g.const(strength))
         if region is not None:
             a = g.mul(a, region, b_out=region_out)
-        col = g.lerp(col, g.colour(st, uv), a)
+        stain = g.colour(st, uv)
+        avg = g.tint(g.mask(g.sample(st["basecolor"], uv, "color", mip=12), r=True, g=True, b=True), st)
+        lum = g.op(unreal.MaterialExpressionMax, g.op(unreal.MaterialExpressionDotProduct, avg, g.const(LUMA)),
+                   g.const(0.01))
+        stain = g.mul(stain, g.op(unreal.MaterialExpressionMin, g.div(g.const(STAIN_ALBEDO_CAP), lum), g.const(1.0)))
+        col = g.lerp(col, stain, a)
         _used["ground.stain." + sid] = sid
+        _used["ground.stain_albedo_cap"] = STAIN_ALBEDO_CAP
     gid, grime = _pick(m, GROUND_GRIME)
     if grime and not grime.get("opacity"):
         # Grime as a texture over the whole ground, not as decal actors: one fetch (plus its
