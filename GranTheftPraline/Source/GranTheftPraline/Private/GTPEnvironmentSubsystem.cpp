@@ -274,6 +274,17 @@ void UGTPEnvironmentSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 	FindNewCars();
 	UpdateNightLights();
 	GTP_TRACE(LogGTPEnvironment, TEXT("daynight: on | %s"), *Describe());
+	if (bLensActive)
+	{
+		const FGTPLensSettings Lens = LensSettings();
+		GTP_TRACE(LogGTPEnvironment, TEXT("picture lens: on | bloom %.2f (night %.2f) | vignette %.2f | motion blur %.2f, %.1f %% at most (driving fast %.2f, %.1f %%) | sharpen %.2f | no lens flare, no chromatic aberration"),
+			Lens.Bloom, Lens.NightBloom, Lens.Vignette, Lens.MotionBlur, Lens.MotionBlurMaxPercent,
+			Lens.DrivingMotionBlur, Lens.DrivingMotionBlurMaxPercent, Lens.Sharpen);
+	}
+	else
+	{
+		GTP_TRACE(LogGTPEnvironment, TEXT("picture lens: off (the map's post-process volume and the engine's defaults)"));
+	}
 	WriteStatusFile();
 }
 
@@ -421,8 +432,27 @@ void UGTPEnvironmentSubsystem::CreateOwnComponents(UWorld& World)
 	S.AutoExposureSpeedDown = ExposureSpeedDown;
 	S.bOverride_WhiteTemp = true;
 	S.bOverride_ColorSaturation = true;
+	if (bLensActive)
+	{
+		// The lens of the art bible (section 9), above the map's volume too. The values follow
+		// the night and the camera speed in ApplyLens.
+		S.bOverride_BloomIntensity = true;
+		S.bOverride_VignetteIntensity = true;
+		S.bOverride_MotionBlurAmount = true;
+		S.bOverride_MotionBlurMax = true;
+		S.bOverride_LensFlareIntensity = true;
+		S.LensFlareIntensity = 0.f;
+		S.bOverride_SceneFringeIntensity = true;
+		S.SceneFringeIntensity = 0.f;
+		const float Sharpen = LensSettings().Sharpen;
+		if (IConsoleVariable* SharpenCVar = Sharpen > 0.f ? IConsoleManager::Get().FindConsoleVariable(TEXT("r.Tonemapper.Sharpen")) : nullptr)
+		{
+			SharpenCVar->Set(Sharpen, ECVF_SetByCode);
+		}
+	}
 	PostProcess->SetupAttachment(Root);
 	PostProcess->RegisterComponent();
+	ApplyLens(0.f);
 
 	// Moon: the map has none at day, add one (no shadows, atmosphere light 1).
 	if (!MoonLight.IsValid())
@@ -836,6 +866,10 @@ void UGTPEnvironmentSubsystem::ReadCommandLine()
 	FString Text;
 	FDateTime Date;
 
+	int32 Lens = 1;
+	FParse::Value(Cmd, TEXT("Lens="), Lens);
+	bLensActive = bLens && Lens != 0;
+
 	// A test ambience first, so the single options below can still override it.
 	if (FParse::Value(Cmd, TEXT("Ambience="), Text))
 	{
@@ -1047,6 +1081,7 @@ void UGTPEnvironmentSubsystem::Tick(float DeltaTime)
 	ApplySunAndMoon(false);
 	ApplyAtmosphere();
 	ApplyExposure();
+	ApplyLens(DeltaTime);
 	ApplyParameters();
 	UpdateRain();
 
@@ -1297,6 +1332,46 @@ void UGTPEnvironmentSubsystem::ApplyExposure()
 	S.AutoExposureMaxBrightness = ExposureTarget + ExposureHalfRange;
 	S.WhiteTemp = FMath::Lerp(DayWhiteTemp, NightWhiteTemp, NightFactor);
 	S.ColorSaturation = FVector4(Weather.Saturation, Weather.Saturation, Weather.Saturation, 1.f);
+}
+
+FGTPLensSettings UGTPEnvironmentSubsystem::LensSettings() const
+{
+	FGTPLensSettings Lens;
+	Lens.Bloom = LensBloom;
+	Lens.NightBloom = LensNightBloom;
+	Lens.Vignette = LensVignette;
+	Lens.MotionBlur = LensMotionBlur;
+	Lens.DrivingMotionBlur = LensDrivingMotionBlur;
+	Lens.MotionBlurMaxPercent = LensMotionBlurMaxPercent;
+	Lens.DrivingMotionBlurMaxPercent = LensDrivingMotionBlurMaxPercent;
+	Lens.Sharpen = LensSharpen;
+	return Lens;
+}
+
+void UGTPEnvironmentSubsystem::ApplyLens(float DeltaTime)
+{
+	if (!bLensActive || !PostProcess)
+	{
+		return;
+	}
+	// The camera's own speed, whoever carries it (the player on foot, a car, a test camera).
+	if (const APlayerCameraManager* Camera = UGameplayStatics::GetPlayerCameraManager(GetWorld(), 0))
+	{
+		const FVector Location = Camera->GetCameraLocation();
+		if (bLensHasCamera)
+		{
+			const float MovedCm = static_cast<float>(FVector::Dist(Location, LensCameraLocation));
+			LensSpeedKmh = GTPPictureLens::FollowSpeed(LensSpeedKmh, MovedCm, DeltaTime);
+		}
+		LensCameraLocation = Location;
+		bLensHasCamera = true;
+	}
+	const FGTPLensState Lens = GTPPictureLens::Evaluate(LensSettings(), NightFactor, LensSpeedKmh);
+	FPostProcessSettings& S = PostProcess->Settings;
+	S.BloomIntensity = Lens.Bloom;
+	S.VignetteIntensity = Lens.Vignette;
+	S.MotionBlurAmount = Lens.MotionBlur;
+	S.MotionBlurMax = Lens.MotionBlurMaxPercent;
 }
 
 void UGTPEnvironmentSubsystem::ApplyParameters()

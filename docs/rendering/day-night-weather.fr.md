@@ -51,6 +51,25 @@ Balance des blancs 6500 K le jour, 5400 K la nuit (chaude sans virer au
 sépia). Saturation selon la météo (0,8 sous la pluie). `tools/environment/environment_model.py`
 refait ces calculs hors Unreal et les tests vérifient chaque état contre la bible.
 
+### Objectif de l'image
+
+Le même composant de post-traitement porte l'objectif de la bible artistique (section 9, un
+objectif photo sobre) : bloom 0,3 le jour et 0,45 quand la ville est éclairée, vignettage 0,2,
+flou de mouvement 0,3 plafonné à 2 % de la largeur de l'écran, pas de reflets d'objectif, pas
+d'aberration chromatique, et un peu de netteté dans le tonemapper (`r.Tonemapper.Sharpen` 0,4)
+pour ce que l'agrandissement temporel adoucit. Avant, le volume de la map donnait bloom 0,2 et
+vignettage 0,25, et le flou de mouvement était celui du moteur (0,5 et 5 %) : la vidéo de la
+porte 69 étalait les arbres et les passants dès que la caméra tournait.
+
+Le flou de mouvement suit la vitesse de la caméra elle-même, quel que soit ce qui la porte :
+les valeurs de la marche jusqu'à 50 km/h, puis jusqu'à 0,45 et 3 % à 110 km/h (« plus marqué
+en conduite rapide »). Une caméra déplacée de plus de 400 km/h en une image (réapparition,
+coupe) ne compte pas. Les règles sont dans `GTPPictureLens.h`, sans types du moteur, et
+`tools/environment/picture_lens_test.cpp` les tient aux valeurs de la bible dans la CI.
+Réglages : `bLens` et `Lens*` dans la section `GTPEnvironmentSubsystem` de `DefaultGame.ini`.
+Au démarrage, une ligne `picture lens: on | …` donne les valeurs utilisées. Pas d'étalonnage :
+la bible garde le tonemapper filmique du moteur et ne laisse bouger que la balance des blancs.
+
 ## 4. Nuit
 
 - **Lumières** : fichier `Content/Environment/Data/NightLights.csv` généré
@@ -171,6 +190,7 @@ Ligne de commande : `-TimeOfDay=22 -Date=2027-01-15 -Weather=Rain
 (ambiance de test figée, définie dans `Ambiences`), `-CloudShadows=0` (sans ombres de nuages, exposition compensée de
 `NoCloudShadowExposureOffset` EV), `-CloudDome=1` (dôme de nuages 2D à la place des nuages volumétriques, 0 = jamais),
 `-Sky=volumetric|lightfunction|cheap` (règle les trois interrupteurs du ciel pour l'A/B), `-CloudShadowLF=0/1` (ombre de nuages en light function),
+`-Lens=0` (l'objectif tel que le volume de la map et le moteur le règlent, pour une image A/B),
 `-DayNight=0` ou `-NoEnvironment` (coupe le système). Au démarrage, une ligne `daynight: on | …` ou `daynight: off` sort sur stdout, Shipping compris.
 
 Enchaînement sans intervention : `tools/environment/setup-environment-mac.sh`
