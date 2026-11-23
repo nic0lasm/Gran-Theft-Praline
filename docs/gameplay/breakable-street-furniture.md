@@ -43,12 +43,13 @@ once on the ground.
 | W1-13 | Bike-share terminal | C | 150 | |
 | W1-24, W1-25 | Post box, parking meter | C | 60 / 80 | |
 | W1-27 | Fire hydrant | C | 80 | Torn off: water jet (particle effect to plan) |
+| W1-31 | Glass recycling container | C | 120 | Thrown above about 22 km/h under a car; fixed until gate 68, where a van rolled over one at 34 km/h |
 | W1-21, W1-39 | Bus shelter, glass windscreen | C (glass only) | | The glass shatters (Geometry Collection), the frame stays |
 | W1-09 | Anti-parking bollard | F | | Lyon bollards really stop cars |
 | W1-17, W14-63, W14-64 | Tree grate, plane trunks | F | | Guarded young tree W14-64: C to discuss |
 | W1-19, W1-22, W1-23 | Poster column, kiosk, phone booth | F | | |
 | W1-30, W8-34 | Street cabinets | F | | |
-| W1-18, W1-31 | Drinking fountain, glass bell | F | | |
+| W1-18 | Drinking fountain | F | | |
 | Monumental W13-xx, W6-xx | Statues, fountains, plinths | F | | |
 | Wall and roof details | Downpipes, plaques, awnings, chimneys | F | | On walls, out of reach |
 
@@ -58,7 +59,9 @@ once on the ground.
 class, mass) and tags every matching HISM component: `GTP_Breakable_R` or `GTP_Breakable_C`,
 plus `GTP_MassKg=<n>`. Fixed props get no tag. At run time `UGTPBreakableSubsystem` swaps the
 hit instance for a physics actor (thresholds: toppleable from 3 km/h; breakable above 400 J +
-20 J/kg). A broken mesh can be named with a `GTP_BrokenMesh=<path>` tag. The map stays
+20 J/kg). A car is tested by its bounds swept 0.12 s ahead (at most 1.5 m, `LeadSeconds`,
+`MaxLeadCm`): a wide prop is found by its centre, which the car's body would otherwise only
+reach after hitting the static mesh. A broken mesh can be named with a `GTP_BrokenMesh=<path>` tag. The map stays
 replayable by script.
 
 ## Broken meshes

@@ -20,7 +20,8 @@ stays as it is, so the generators run the same on a project without the scans.
 
 M1 budget (no Nanite there, every fetch is paid per pixel): textures capped at 2K by the import,
 shared wrap samplers, one BaseColor + Normal + roughness map per layer: ground mask + 4 layers =
-up to 21 fetches with the stains (mud, oil, cracks, gum: colour + opacity each), kit 4 (one is the 1x1 mip used to keep the building hue), shell 6. GTP_SURFACES_LITE=1
+up to 21 fetches with the stains (mud, oil, cracks, gum: colour + opacity each), plus the 1x1 mip of each
+ground surface for its albedo cap, kit 4 (one is the 1x1 mip used to keep the building hue), shell 6. GTP_SURFACES_LITE=1
 keeps only the colour maps (ground 5, kit 2, shell 2) if the perf pass asks for it.
 """
 
@@ -45,6 +46,15 @@ GROUND_LAYERS = {
     "kerb": ("granite_kerb",),
 }
 GROUND_GRIME = ("decal_dirt",)
+# Dry street ground, whatever the source (gate 68): ambientCG's granites are polished worktops,
+# roughness 0.02-0.03 and albedo 0.35-0.46 (measured on Granite002A/003A), so the pavement was a
+# mirror of the sky, white at grazing angles and burnt in the sun. Each layer's colour is scaled
+# down to at most its cap of mean linear albedo (the texture's 1x1 mip, one cheap fetch per
+# surface), and the roughness never goes below the floor (wet weather is added after this, by
+# gtp_weather, and still lowers it when it rains). GTP_GROUND_ROUGH_MIN=0 turns the floor off.
+GROUND_ALBEDO_CAP = {"sidewalk": 0.28, "paving": 0.28, "kerb": 0.30, "road": 0.10}
+GROUND_ROUGH_MIN = float(os.environ.get("GTP_GROUND_ROUGH_MIN", "0.6"))
+LUMA = (0.2126, 0.7152, 0.0722)
 GRIME_SCALE = 3.0        # the grime repeats every 3 tiles of its own size (about 6 m)
 GRIME_STRENGTH = 0.5
 KIT_DETAIL = float(os.environ.get("GTP_SURFACES_DETAIL", "0.6"))   # share of the stone detail kept
@@ -206,13 +216,23 @@ def ground(mat, mask):
     xy = g.world_xy()
     col0, col0_out = _input(mat, unreal.MaterialProperty.MP_BASE_COLOR)
     r0, r0_out = _input(mat, unreal.MaterialProperty.MP_ROUGHNESS)
-    tex, by_id = {}, {}
+    tex, by_id, luma = {}, {}, {}
     for k, (sid, s) in layers.items():
         if s:
             if sid not in by_id:          # one surface on two layers: sampled once
                 uv = g.mul(xy, g.const(1.0 / float(s.get("tile_cm", 200.0))))
                 by_id[sid] = g.layer(s, uv)
-            tex[k] = by_id[sid]
+                avg = g.tint(g.mask(g.sample(s["basecolor"], uv, "color", mip=12), r=True, g=True, b=True), s)
+                luma[sid] = g.op(unreal.MaterialExpressionMax, g.op(unreal.MaterialExpressionDotProduct, avg,
+                                                                    g.const(LUMA)), g.const(0.01))
+            col, nrm, rough = by_id[sid]
+            cap = GROUND_ALBEDO_CAP.get(k)
+            if cap:
+                # colour x min(1, cap / mean albedo): a darker scan is left as it is
+                scale = g.op(unreal.MaterialExpressionMin, g.div(g.const(cap), luma[sid]), g.const(1.0))
+                col = g.mul(col, scale)
+                _used["ground.albedo_cap." + k] = cap
+            tex[k] = (col, nrm, rough)
             _used["ground." + k] = sid
     if not LITE:
         # The terrain is flat and its tangents are not the world X/Y the textures follow:
@@ -272,6 +292,9 @@ def ground(mat, mask):
         mel.connect_material_property(nrm, "", unreal.MaterialProperty.MP_NORMAL)
         if r0 is not None:
             rough, _ = blend(2, r0, r0_out)
+            if GROUND_ROUGH_MIN > 0:
+                rough = g.op(unreal.MaterialExpressionMax, rough, g.const(GROUND_ROUGH_MIN))
+                _used["ground.rough_min"] = GROUND_ROUGH_MIN
             mel.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS)
     eal.set_metadata_tag(mat, "GTPSurfaces", "1")
     return True

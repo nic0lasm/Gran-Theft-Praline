@@ -78,6 +78,8 @@ BREAKABLE = {
     "W14-78": ("R", 25), "W14-73": ("R", 5), "W14-75": ("R", 30), "W1-60": ("R", 3),
     "W1-04": ("C", 250), "W8-01": ("C", 120), "W8-02": ("C", 80), "W1-57": ("C", 25), "W1-12": ("C", 30),
     "W1-01": ("C", 90), "W1-13": ("C", 150), "W1-24": ("C", 60), "W1-25": ("C", 80), "W1-27": ("C", 80),
+    # glass container: fixed, it rolled a van over at 34 km/h (gate 68); breaks above about 22 km/h
+    "W1-31": ("C", 120),
 }
 BREAKABLE.update({"W8-%02d" % k: ("C", 25) for k in range(5, 18)})   # signs on poles
 
@@ -95,7 +97,8 @@ def tag_breakable(comp, catalog_id, report, mesh=None):
             if eal.does_asset_exist(base + "_" + variant):
                 tags.append(unreal.Name("%s=%s_%s" % (key, base, variant)))
                 report.setdefault("broken_meshes", []).append(catalog_id + " " + variant)
-    comp.set_editor_property("component_tags", tags)
+    # added to the cull tags of tune_render, not in their place (UGTPCityRenderTuning reads those)
+    comp.set_editor_property("component_tags", list(comp.get_editor_property("component_tags") or []) + tags)
     tally = report.setdefault("breakable_components", {})
     tally[b[0]] = tally.get(b[0], 0) + 1
 

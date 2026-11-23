@@ -19,6 +19,9 @@ quarter_build.py and surfaces_build.py:
               the scanned stone. Map not saved (GTP_CITY_EV100=off).
   place       place_props.py with GTP_PROPS_SET=route: folder City/Route, the street's own
               City/Props untouched; saves the map
+  street      (only when named in --only) place_props.py on the street's own set, City/Props,
+              from its props_placement.csv: the same breakable tags there (glass containers,
+              gate 68); saves the map
   collision   backdrop_collision.py: complex-as-simple collision and BlockAll on the backdrop
               volumes (gate 65: the player walked into one, the camera stayed inside, black);
               saves the map. GTP_BACKDROP_COLLISION=0 leaves them as they are
@@ -50,7 +53,8 @@ FOCUS = "rue-de-la-republique"
 MAP_DIR = os.path.join(qb.PROJECT_DIR, "Content", "Maps")
 MAP_FILES = [os.path.join(MAP_DIR, "L_City_RueDeLaRepublique" + ext) for ext in (".umap", "_BuiltData.uasset")]
 BACKUP = os.path.join(qb.SAVED, "route_map_backup")
-STEPS = ("props", "backup", "surfaces", "materials", "place", "collision", "lights")
+STEPS = ("props", "backup", "surfaces", "materials", "place", "street", "collision", "lights")
+OPT_IN = ("street",)
 
 
 def md5(path):
@@ -70,7 +74,8 @@ def main():  # noqa: C901
     ap.add_argument("--editor", default=qb.default_editor())
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
-    steps = [s for s in STEPS if not args.only or s in args.only.split(",")]
+    only = args.only.split(",") if args.only else None
+    steps = [s for s in STEPS if (s in only if only else s not in OPT_IN)]
     gen = os.path.join(qb.REPO, "assets", "geo", "processed", "presqu-ile", "gen", FOCUS)
     report = {"steps": [], "started": time.strftime("%Y-%m-%d %H:%M:%S")}
     out = os.path.join(qb.SAVED, "route_dressing.json")
@@ -125,6 +130,9 @@ def main():  # noqa: C901
         elif step == "place":
             ok, _, note = qb.run_editor("route_place", "place_props", "route_report.json", 900,
                                         {"GTP_PROPS_SET": "route"}, args)
+        elif step == "street":
+            ok, _, note = qb.run_editor("route_street", "place_props", "props_report.json", 900,
+                                        {"GTP_PROPS_SET": "props"}, args)
         elif step == "collision":
             ok, _, note = qb.run_editor("route_collision", "backdrop_collision", "backdrop_collision_report.json", 900,
                                         {}, args)
