@@ -164,7 +164,10 @@
     "moved further right",
     "drawn on the street light",
     "body anim",
-    "respawned at the player start"
+    "respawned at the player start",
+    "Demo chase: -DemoFreeCar",
+    "the free car",
+    "carjack ok in"
   ],
   "video": {
     "pass": "-GTARun -GTARunEncore",
@@ -193,5 +196,5 @@
     "_note": "Reported, not judged: since gate 61 some GTARun passes drop to about 7 fps 12 to 17 s after 'GTARun done', with no player pawn (cause not proven)."
   },
   "fallback_head_if_compile_fails": null,
-  "_pre_gate_70": "No map step: the map dressed by the preparation of 68 (md5 110acb3f...). Police white paint off by config (gates 67-68 LogMaterial)."
+  "_pre_gate_70": "No map step: the map dressed by the preparation of 68 (md5 110acb3f...). Police white paint off by config; police car = the white van; City Sample traffic classes off (not drawn): traffic, the car to steal and the police are Clio, 208 and Kangoo. -DemoFreeCar=Car02 then takes the nearest free car (logged)."
 }
