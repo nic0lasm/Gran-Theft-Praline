@@ -1,6 +1,6 @@
 {
   "_doc": "What the Windows gate queue checks for this candidate. Edited by the pilot for each candidate; read by the PC queue script. No machine paths here. From candidate 60 the gate judges what the player sees: the default traffic, which is the legacy one (MassTraffic runs only with -Traffic=mass). The 'blocking' criteria are read on the blocking passes; everything under 'informative_mass' is measured and reported on the MassTraffic passes but never fails the gate, and never stops it. Those criteria become blocking again only for switching the default traffic to mass, once a whole gate passes them (ADR-0015).",
-  "candidate": 66,
+  "candidate": 67,
   "map_md5": "65322206858cf180213f5c3fd06fb398",
   "game_p50_max_ms": 17.38,
   "game_p95_max_ms": 50,
@@ -152,7 +152,10 @@
     "the body leaves the cars' way",
     "player pawn after death",
     "Player pawn: the spawn of",
-    "Couldn't spawn Pawn"
+    "Couldn't spawn Pawn",
+    "pipeline states asked for before it registered",
+    "Handled ensure",
+    "POLICELOOK"
   ],
   "video": {
     "pass": "-GTARun -GTARunEncore",
@@ -179,5 +182,7 @@
       "launch"
     ],
     "_note": "Reported, not judged: since gate 61 some GTARun passes drop to about 7 fps 12 to 17 s after 'GTARun done', with no player pawn (cause not proven)."
-  }
+  },
+  "fallback_head_if_compile_fails": null,
+  "_pre_gate_67": "If the PC session is alive with the lock free: make_police_look.py replayed from this head once before the cook (expected 'POLICELOOK ... 1 paint instance(s) made'). If the groom PSO line does not compile, the error goes to Piétons; -CrowdGrooms=0 is the stop-gap."
 }
