@@ -22,6 +22,7 @@
 #include "ChaosVehicleWheel.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Engine/SkeletalMesh.h"
 #include "Engine/SkinnedAsset.h"
 #include "ReferenceSkeleton.h"
 #include "PhysicsEngine/BodySetup.h"
@@ -572,6 +573,75 @@ void AGTPVehicle::OnConstruction(const FTransform& Transform)
 		Glass->RegisterComponent();
 		GlassComponents.Add(Glass);
 	}
+
+	// City Sample cars: what draws the car, posed by the body (its rig, no geometry of its own).
+	for (USkeletalMeshComponent* Old : LookComponents)
+	{
+		if (Old)
+		{
+			Old->DestroyComponent();
+		}
+	}
+	LookComponents.Reset();
+	for (USkeletalMesh* Look : LookMeshes)
+	{
+		if (!Look || !Body)
+		{
+			continue;
+		}
+		USkeletalMeshComponent* Part = NewObject<USkeletalMeshComponent>(this, NAME_None, RF_Transient);
+		Part->SetSkeletalMesh(Look);
+		Part->SetupAttachment(Body);
+		Part->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Part->SetGenerateOverlapEvents(false);
+		Part->SetCanEverAffectNavigation(false);
+		// Its own size on screen picks its LOD: the rig it follows has one LOD and no bounds.
+		Part->bSyncAttachParentLOD = false;
+		// Never registered for ticking: the body, its pose leader, refreshes it (as the pedestrians' parts).
+		Part->PrimaryComponentTick.bCanEverTick = false;
+		Part->ComponentTags = {TEXT("GTPLook")};
+		Part->RegisterComponent();
+		Part->SetLeaderPoseComponent(Body);
+		LookComponents.Add(Part);
+	}
+}
+
+bool AGTPVehicle::IsClassDrawn(const UClass* Class, FString& OutWhy)
+{
+	OutWhy.Reset();
+	const AGTPVehicle* Defaults = Class ? Cast<AGTPVehicle>(Class->GetDefaultObject()) : nullptr;
+	if (!Defaults)
+	{
+		OutWhy = TEXT("not a car class");
+		return false;
+	}
+	bool bAnyDrawn = false;
+	auto Describe = [&OutWhy, &bAnyDrawn](const USkeletalMesh* DrawnMesh, const TCHAR* Part)
+	{
+		if (!DrawnMesh)
+		{
+			OutWhy += FString::Printf(TEXT("%s none; "), Part);
+			return;
+		}
+		const FVector Size = DrawnMesh->GetBounds().BoxExtent * 2.0;
+		int32 WithMaterial = 0;
+		for (const FSkeletalMaterial& Slot : DrawnMesh->GetMaterials())
+		{
+			WithMaterial += Slot.MaterialInterface ? 1 : 0;
+		}
+		// A car is metres long: a mesh under 1 m every way (City Sample's rig: 0 x 0 x 0) is not one.
+		bAnyDrawn = bAnyDrawn || Size.GetMax() >= 100.0;
+		OutWhy += FString::Printf(TEXT("%s %s %.0f x %.0f x %.0f cm, %d slot(s), %d with a material; "), Part, *DrawnMesh->GetName(),
+			Size.X, Size.Y, Size.Z, DrawnMesh->GetMaterials().Num(), WithMaterial);
+	};
+	const USkeletalMeshComponent* DefaultBody = Defaults->GetMesh();
+	Describe(DefaultBody ? DefaultBody->GetSkeletalMeshAsset() : nullptr, TEXT("body"));
+	for (const USkeletalMesh* Look : Defaults->LookMeshes)
+	{
+		Describe(Look, TEXT("look"));
+	}
+	OutWhy.RemoveFromEnd(TEXT("; "));
+	return bAnyDrawn;
 }
 
 void AGTPVehicle::BeginPlay()
@@ -598,6 +668,25 @@ void AGTPVehicle::BeginPlay()
 		// fewer updates when small on screen (89 skeletal mesh ticks a frame on candidate 31).
 		Body->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::OnlyTickPoseWhenRendered;
 		Body->bEnableUpdateRateOptimizations = true;
+		if (LookComponents.Num() > 0)
+		{
+			// A rig with no geometry is never rendered: it would never pose its wheels for the parts that draw
+			// the car. The traffic lowers this for its cars out of view (AGTPTrafficNetwork::UpdateDetail).
+			Body->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;
+		}
+	}
+	{
+		// Once per class, at its first spawn: what draws it, so a gate log says which cars a player sees.
+		static TSet<FName> LookLogged;
+		const FName ClassName = GetClass()->GetFName();
+		if (!LookLogged.Contains(ClassName))
+		{
+			LookLogged.Add(ClassName);
+			FString LookWhy;
+			const bool bClassDrawn = IsClassDrawn(GetClass(), LookWhy);
+			GTP_TRACE(LogGTPVehicle, TEXT("vehicle look: %s %s, %d look part(s) built: %s"), *ClassName.ToString(),
+				bClassDrawn ? TEXT("drawn") : TEXT("NOT DRAWN"), LookComponents.Num(), *LookWhy);
+		}
 	}
 	// The chase camera's arm only works for the player's car (PossessedBy turns it on).
 	ChaseArm->SetComponentTickEnabled(Cast<APlayerController>(GetController()) != nullptr);

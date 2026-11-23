@@ -712,6 +712,13 @@ void AGTPPoliceDirector::BeginPlay()
 	FParse::Value(FCommandLine::Get(), TEXT("PoliceMax="), MaxUnits);
 	MaxUnits = FMath::Clamp(MaxUnits, 0, 6);
 	LoadedPoliceClass = PoliceVehicleClass.TryLoadClass<AGTPVehicle>();
+	FString PoliceLook;
+	if (LoadedPoliceClass.Get() && !AGTPVehicle::IsClassDrawn(LoadedPoliceClass.Get(), PoliceLook))
+	{
+		// City Sample's saloon drew nothing at gates 51 to 68 (its rig only): a traffic car that is drawn stands in.
+		GTP_TRACE(LogGTPWanted, TEXT("police: car class %s NOT DRAWN, a traffic car stands in: %s"), *GetNameSafe(LoadedPoliceClass.Get()), *PoliceLook);
+		LoadedPoliceClass = nullptr;
+	}
 	LoadedDriverClass = PoliceDriverClass.TryLoadClass<ACharacter>();
 	int32 LiteClassSwitch = 0;
 	FParse::Value(FCommandLine::Get(), TEXT("LiteDriverClass="), LiteClassSwitch);
