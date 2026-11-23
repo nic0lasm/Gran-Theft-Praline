@@ -1,7 +1,7 @@
 {
   "_doc": "What the Windows gate queue checks for this candidate. Edited by the pilot for each candidate; read by the PC queue script. No machine paths here. From candidate 60 the gate judges what the player sees: the default traffic, which is the legacy one (MassTraffic runs only with -Traffic=mass). The 'blocking' criteria are read on the blocking passes; everything under 'informative_mass' is measured and reported on the MassTraffic passes but never fails the gate, and never stops it. Those criteria become blocking again only for switching the default traffic to mass, once a whole gate passes them (ADR-0015).",
-  "candidate": 64,
-  "map_md5": "bce9008ff024c78673626c4577ead426",
+  "candidate": 65,
+  "map_md5": null,
   "game_p50_max_ms": 17.38,
   "game_p95_max_ms": 50,
   "gtarun_min_ok": 6,
@@ -141,7 +141,10 @@
     "on street furniture",
     "off its wheels",
     "overturned, counted lying",
-    "no player pawn from"
+    "no player pawn from",
+    "route dressing",
+    "backdrop_meshes",
+    "surfaces"
   ],
   "video": {
     "pass": "-GTARun -GTARunEncore",
@@ -157,5 +160,6 @@
       120
     ]
   },
-  "_p50_note": "1.3 x the p50 of the last passed gate (59: 13.37 ms); the pilot updates it after the next passed gate"
+  "_p50_note": "1.3 x the p50 of the last passed gate (59: 13.37 ms); the pilot updates it after the next passed gate",
+  "_map_note": "Candidate 65 is the dressing of the flight, the only lot that writes the map. Before its gate, editor closed, from the repository root: (1) the map is saved and its md5 written (route_dressing.py step 2 keeps Saved/CityImport/route_map_backup); (2) GTP_CROWD_HAIR=1 with tools/character/crowd_hair_deps.py, then tools/vehicles/copy_citysample_content.py --list Saved/CitySampleCopy/missing.txt (--dry-run first, 3 rounds at most); (3) python tools/city/route_dressing.py --loose <the downloads-free folder of GTAL-assets>. The pilot then writes the new map md5 here. If game p50 goes over the limit, the dressing is cut down to the corridor of the flight, not dropped."
 }
