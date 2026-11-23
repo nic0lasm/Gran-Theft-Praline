@@ -10,6 +10,8 @@ class AController;
 class ACharacter;
 class UAnimMontage;
 class UCameraComponent;
+class USkeletalMesh;
+class USkeletalMeshComponent;
 class UStaticMesh;
 class UStaticMeshComponent;
 class UChaosWheeledVehicleMovementComponent;
@@ -503,6 +505,26 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Vehicle|Damage")
 	TMap<EGTPDamageZone, TObjectPtr<UStaticMesh>> GlassMeshes;
 
+	/**
+	 * City Sample cars (tools/vehicles/unreal/make_epic_vehicles.py): the meshes that draw the car. Their
+	 * body mesh, which carries the physics and the wheel bones, is City Sample's rig, with no geometry:
+	 * alone, the car is not drawn (gate 67: the stolen Car05 driven invisible for a minute). Each one
+	 * becomes a component on the body, posed by it (leader pose), without collision: the exterior (paint,
+	 * tyres, windscreen), then the glass and lights. Empty on our own cars, drawn by their body.
+	 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Vehicle|Look")
+	TArray<TObjectPtr<USkeletalMesh>> LookMeshes;
+
+	/** The components built from LookMeshes (rebuilt on each construction). */
+	const TArray<TObjectPtr<USkeletalMeshComponent>>& GetLookComponents() const { return LookComponents; }
+
+	/**
+	 * Whether a car class draws anything a player sees as a car, read from its defaults (no spawn): its
+	 * body mesh or one of its LookMeshes at least 1 m long. OutWhy: each mesh with its box (cm) and its
+	 * material slots, how many have a material.
+	 */
+	static bool IsClassDrawn(const UClass* Class, FString& OutWhy);
+
 	/** Blueprint hook: dents, glass, smoke and wreck changes, for FX and sound. */
 	UFUNCTION(BlueprintImplementableEvent, Category = "Vehicle|Damage")
 	void OnDamageChanged(EGTPDamageZone Zone, float AccumulatedZoneDamage, float NewHealth);
@@ -682,6 +704,10 @@ private:
 	/** Components built from GlassMeshes (rebuilt on each construction). */
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UStaticMeshComponent>> GlassComponents;
+
+	/** Components built from LookMeshes (rebuilt on each construction). */
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<USkeletalMeshComponent>> LookComponents;
 	float LastImpactTime = -1000.f;
 	float IgnoredLogTime = -1000.f;
 	int32 IgnoredSinceLog = 0;

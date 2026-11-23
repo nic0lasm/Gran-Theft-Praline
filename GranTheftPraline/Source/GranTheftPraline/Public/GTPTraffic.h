@@ -181,6 +181,16 @@ public:
 
 	/** Reaction state of this driver (GTPTrafficReactLogic.h): cruise, waiting, bypass, panic, flee, shaken. */
 	GTPTrafficReact::EState GetReactState() const { return React.State; }
+	/**
+	 * The still obstacle this car waits behind (reaction Waiting: a parked car, a person, a car waiting itself),
+	 * OutSeconds how long it has been stopped there; null when it is not waiting.
+	 */
+	const AActor* GetWaitingFor(float& OutSeconds) const
+	{
+		const AActor* Blocker = React.State == GTPTrafficReact::EState::Waiting ? WaitingFor.Get() : nullptr;
+		OutSeconds = Blocker ? React.BlockedTime : 0.f;
+		return Blocker;
+	}
 
 	/** Demo and tests: the driver behaves as if aimed at, shot near, or rammed by the player (-TrafficReactDemo). */
 	void InjectReaction(bool bAimed, bool bShot, bool bRammed);
@@ -216,6 +226,7 @@ public:
 
 	/** Ghost speed (m/s). */
 	float GetGhostSpeed() const { return GhostSpeed; }
+	double GetGhostSince() const { return GhostSince; }
 
 	/**
 	 * Moves the car, as a ghost, to point Point of Lane at Location (cm) facing
@@ -272,6 +283,8 @@ private:
 	FGTPJunctionClaims Junctions;
 
 	bool bGhost = false;
+	/** World time its physics went off (the ghost switch on), for the pool's cooldown (AGTPTrafficNetwork::PutAway). */
+	double GhostSince = 0.0;
 	float GhostSpeed = 0.f;      // m/s
 	float GhostAlong = 0.f;      // m past path point Closest
 	float GhostRideHeight = 40.f; // cm from the ground to the actor origin
@@ -291,6 +304,8 @@ private:
 	GTPTrafficReact::ETemperament Temperament = GTPTrafficReact::ETemperament::Calm;
 	float TemperamentSpeed = 1.f;
 	TWeakObjectPtr<AActor> BypassBlocker;
+	/** What the last reaction step saw ahead while Waiting (GetWaitingFor). */
+	TWeakObjectPtr<AActor> WaitingFor;
 	int32 SeenShotSerial = -1;
 	bool bHornOn = false;
 	float InjectAimLeft = 0.f;
@@ -725,7 +740,20 @@ private:
 		double Born = 0.0;
 		/** Kept asleep because another car stands in it (logged once). */
 		bool bWakeBlocked = false;
+		/** Placed for a script (SpawnStreetParkedNear): never taken away for blocking traffic. */
+		bool bOnRequest = false;
+		/** Holds traffic up while in view: logged once. */
+		bool bBlockLogged = false;
 	};
+	/**
+	 * A street parked car of the keeper (not one placed on request) that a traffic car has waited behind for
+	 * this long is taken away once out of sight, and the keeper puts one elsewhere. Gate 67: a parked car in
+	 * the path held 4 cars in turn, each until taken away as stuck (35 s), and a queue of 9 to 16 behind them.
+	 */
+	float StreetParkedBlockSeconds = 8.f;
+	int32 StreetParkedTakenForBlocking = 0;
+	/** After a jump of the player (Tick), until then: every cooled pooled car goes back at once, not four a tick. */
+	double PoolRefillUntil = 0.0;
 	TArray<FStreetParked> StreetParked;
 	double NextStreetParkedTime = 0.0;
 	int32 StreetParkedWanted = -1;
@@ -768,6 +796,13 @@ private:
 
 	UPROPERTY(Transient)
 	TArray<TSubclassOf<AGTPVehicle>> LoadedVehicleClasses;
+	/**
+	 * Leaves out of LoadedVehicleClasses (traffic, parked cars, police fallback) each class that draws
+	 * nothing (AGTPVehicle::IsClassDrawn: gate 67, six City Sample classes of nine invisible), one line per
+	 * class; keeps them all when none is drawn. Once.
+	 */
+	void KeepDrawnClasses();
+	bool bDrawnClassesKept = false;
 
 	UPROPERTY(Transient)
 	TSubclassOf<ACharacter> LoadedDriverClass;
@@ -841,6 +876,8 @@ private:
 	 *  the player from 236 s: no pawn, so no distance to spawn or take cars away by). */
 	TWeakObjectPtr<const APawn> LastPlayerPawn;
 	FVector LastPlayerAt = FVector::ZeroVector;
+	/** Where the player was at the last tick with a player pawn, never cleared: a jump is measured from there. */
+	FVector PlayerJumpCheckAt = FVector::ZeroVector;
 
 public:
 	/** Switches the skinned draw of a car body, tracked by a component tag so it is only changed once. */

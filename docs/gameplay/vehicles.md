@@ -565,6 +565,55 @@ template still keeps candidate 46's setting unless `-MassTemplateWheels`: that s
 real wheels with City Sample's centre of mass, the candidate for one setting shared by traffic, player
 and police.
 
+### 8.8 City Sample cars drawn, traffic during the escape (23/11)
+
+Invisible cars, seen at gate 67: the player steals a Car05 and drives it for a minute without a car
+around them (38 to 61 km/h on the speedometer, Nicolito sliding upright), and no police car is seen on
+any image of gates 51 to 68. Cause, read in `epic_vehicles_report.json` and in Police's
+`police_look_report.txt` (PC): City Sample's car Blueprints are MassTraffic display actors whose
+components the script cannot read, so `make_epic_vehicles.py` took the skeletal mesh with the shortest
+name, `SKM_veh..._vehicleNN`, for all seven cars. That mesh is the rig: the bones, the physics asset,
+one slot `lambert1` without a material and a box of 0 x 0 x 0 cm. The body is drawn by
+`SKM_Exterior_...` (paint, tyres, windscreen, 9 slots) and `SKM_Destructible_...` (glass, lights,
+light bar, 22 slots), next to it.
+
+- `AGTPVehicle::LookMeshes`: the meshes that draw the car. Each becomes a component on the body
+  without collision, posed by it (leader pose, as the pedestrians' parts), with its own LOD. The rig
+  stays the body (physics, wheel bones, unchanged driving). Since the rig is never rendered, its pose
+  is refreshed while a look part was drawn in the last second or the car is near (traffic), always for
+  a car outside the traffic; the traffic's shadow and LOD levers apply to the look parts too.
+- `make_epic_vehicles.py` copies both meshes to `/Game/Vehicles/Epic/GTP/Mesh/SKM_GTP_<Name>_Exterior`
+  and `_Destructible` without their post-process AnimBlueprint and fills `LookMeshes`, only when the
+  body's box is under 1 m. Report: `body_box_cm`, `look`, `drawn` per car, `not_drawn` (must be empty
+  before a package).
+- Log: "vehicle look: <class> drawn | NOT DRAWN, N look part(s) built: <each mesh, its box, its
+  slots>" once per class at its first spawn; "traffic: car class <class> drawn, in the traffic | NOT
+  DRAWN, left out of the traffic and the parked cars" for each traffic class at begin play. A class that
+  draws nothing is left out of the traffic, the street parked cars and the police (a traffic car
+  stands in, "police: car class ... NOT DRAWN"); when no class is drawn, all are kept.
+- Not proven: whether the exterior's tyres follow the wheel bones (it is on the same skeleton
+  `SK_Vehicle`, given in the report), the draw cost of real bodies on 6 classes of 9 (the gates
+  until 68 measured invisible cars), and the look of City Sample's materials once cooked.
+
+Traffic during the escape (gate 67: 7.1 cars moving within 150 m for a threshold of 8; 68, same
+traffic code, 10.1). Two causes in `legacy-traffic-lines-gtarun.txt`:
+
+- At 83 s, GTARun moved the player 700 m: every car was taken away as far, and the cars line, read
+  in that same tick, said "driven=0 of 22". The pool gave them back 4 a tick, once cooled down for 2 s.
+  Now a jump (more than `MaxCarDistance` since the last tick with a player) refills from the pool
+  at once for `PoolCooldown` + 1 s ("traffic: the player moved N m in one tick"); the cooldown counts
+  from when the car's physics went off (a far ghost pooled has cooled down already); a reused car
+  starts rolling at the lane's speed (30 km/h at most) instead of standing; the cars line is read at
+  the end of the tick.
+- From 103 s, a Kangoo stood 1.3 m behind a street parked Car07, and 4 cars waited there in turn, each
+  until taken away as stuck (35 s), with 9 to 16 behind them (moving within 150 m: 5 at 114 s, 1 at
+  124 s). The Kangoo had been pooled in panic and came back three times still panicking: a car put back
+  on a lane now starts calm (`UGTPAIDriverComponent::Start` resets its reactions). A street parked car of
+  the keeper that a traffic car has waited behind for 8 s (`StreetParkedBlockSeconds`) is taken away
+  once out of sight ("traffic: street parked ... taken away out of sight, in the way"), kept and logged
+  once while in view; cars placed on request (GTARun) are never taken. Not proven: why that parked car
+  stood in the Kangoo's way (placement checks passed: no lane under its body).
+
 ## 9. Making a drivable car
 
 ### 9.1 First test car (no Tripo)

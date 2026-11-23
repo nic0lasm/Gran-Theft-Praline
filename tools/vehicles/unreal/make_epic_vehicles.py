@@ -35,6 +35,15 @@ AnimBlueprint copied from the Vehicle template (ABP_GTP_<skeleton>); GTP_EPIC_AN
 again. The report lists, for each car, the packages it would pull into the cook that are missing
 or known to break it ("cook_risk"): it must be empty before a package.
 
+What draws the car (23/11). City Sample's car body, SKM_veh..._vehicleNN, is a rig: the bones, the physics
+asset, no geometry (one slot 'lambert1' without a material, a box of 0 x 0 x 0 cm). Taken alone until 23/11,
+it drew nothing: the stolen Car05 was driven invisible at gate 67, and no police car is seen on any gate
+51 to 68. It stays the body (physics, wheel bones); set_look copies SKM_Exterior_ (paint, tyres, windscreen)
+and SKM_Destructible_ (glass, lights) into our folder, without their post-process AnimBlueprint, and lists
+them in AGTPVehicle::LookMeshes: in game each is a component posed by the body. The report gives, per car,
+the body's box, the look parts with theirs, and "drawn"; "not_drawn" must be empty before a package (in
+game a class that draws nothing is left out of the traffic: "vehicle look" and "traffic: car class" lines).
+
 The Vehicle Variety Pack is not used: its Blueprints derive from PhysX's WheeledVehicle, gone in
 5.8 (only its skeletal meshes could be rigged again, later).
 
@@ -100,6 +109,8 @@ WHEEL_COPY = (
     "spring_rate", "spring_preload", "suspension_smoothing", "rollbar_scaling",
     "traction_control_enabled", "abs_enabled",
 )
+# What draws a City Sample car on its rig (set_look): the exterior, then the glass and lights.
+LOOK_PARTS = ("Exterior", "Destructible")
 SKIP_MESH = re.compile(r"wheel|door|glass|broken|damage|interior|driver|lod|hood|trunk|bumper|light|plate|siren|proxy", re.IGNORECASE)
 
 EPIC_ANIM = os.environ.get("GTP_EPIC_ANIM") == "1"
@@ -264,6 +275,65 @@ def our_mesh(mesh, name, entry):
         entry["post_process_error"] = str(error)
     eal.save_loaded_asset(copy)
     return copy
+
+
+def mesh_box(mesh):
+    """The mesh's box, cm (length, width, height in its own space)."""
+    try:
+        extent = mesh.get_bounds().box_extent
+        return [round(2 * extent.x), round(2 * extent.y), round(2 * extent.z)]
+    except Exception as error:
+        return "unknown (%s)" % type(error).__name__
+
+
+def look_meshes(number, blueprint_path, name, entry):
+    """Copies, in our folder and without their post-process AnimBlueprint, of the meshes that draw the car:
+    City Sample's SKM_Exterior_ (paint, tyres, windscreen) and SKM_Destructible_ (glass, lights)."""
+    registry = unreal.AssetRegistryHelpers.get_asset_registry()
+    folder = blueprint_path.rsplit("/", 1)[0]
+    found = {}
+    for data in registry.get_assets_by_path(folder, recursive=True):
+        if str(data.asset_class_path.asset_name) != "SkeletalMesh":
+            continue
+        asset_name = str(data.asset_name)
+        for part in LOOK_PARTS:
+            if asset_name.lower().startswith("skm_%s_" % part.lower()) and re.search(r"veh(?:icle)?_?%s(?!\d)" % number, asset_name, re.IGNORECASE):
+                found.setdefault(part, str(data.package_name))
+    looks = []
+    entry["look"] = {}
+    for part in LOOK_PARTS:
+        package = found.get(part)
+        mesh = unreal.load_asset(package) if package else None
+        if mesh is None:
+            entry["look"][part] = ("does not load: " + package) if package else ("not found under " + folder)
+            continue
+        part_entry = {}
+        copy = our_mesh(mesh, "%s_%s" % (name, part), part_entry)
+        part_entry["box_cm"] = mesh_box(copy)
+        part_entry["skeleton"] = path_of(copy.get_editor_property("skeleton"))
+        entry["look"][part] = part_entry
+        looks.append(copy)
+    return looks
+
+
+def set_look(cdo, number, blueprint_path, name, body_mesh, entry):
+    """AGTPVehicle::LookMeshes. City Sample's car body (SKM_veh..._vehicleNN, the shortest name, taken until
+    23/11) is a rig with no geometry: one slot 'lambert1' without a material, a box of 0 x 0 x 0 cm. Alone,
+    the car is not drawn (gate 67: the stolen Car05 driven invisible; no police car on any gate 51 to 68).
+    It keeps the physics and the wheel bones; the look parts, posed by it in game, draw the car."""
+    box = mesh_box(body_mesh)
+    entry["body_box_cm"] = box
+    body_draws = isinstance(box, list) and max(box) >= 100
+    looks = [] if body_draws else look_meshes(number, blueprint_path, name, entry)
+    if body_draws:
+        entry["look"] = "the body draws the car: no look part"
+    cdo.set_editor_property("look_meshes", looks)
+    entry["look_meshes"] = [path_of(m) for m in looks]
+    entry["body_skeleton"] = path_of(body_mesh.get_editor_property("skeleton"))
+    look_boxes = [mesh_box(m) for m in looks]
+    entry["drawn"] = bool(body_draws or any(isinstance(b, list) and max(b) >= 100 for b in look_boxes))
+    if not entry["drawn"]:
+        log("%s: NOT DRAWN, body box %s cm and no look part found" % (name, box))
 
 
 def copy_movement(source, target, report_entry):
@@ -522,6 +592,7 @@ def build_from_parts(number, name, blueprint_path, entry, source_cls=None):
     bp, cdo = blueprint_child(path, unreal.GTPVehicle)
     body = cdo.get_editor_property("mesh")
     body.set_editor_property("skeletal_mesh_asset", mesh)
+    set_look(cdo, number, blueprint_path, name, mesh, entry)
     anim = wheel_anim_class(mesh, blueprint_path, entry, blueprint_anim)
     if anim is not None:
         body.set_editor_property("animation_mode", unreal.AnimationMode.ANIMATION_BLUEPRINT)
@@ -589,6 +660,7 @@ def make_one(number, name, source_path, report):
     body = cdo.get_editor_property("mesh")
     mesh = our_mesh(src_body.get_editor_property("skeletal_mesh_asset"), name, entry)
     body.set_editor_property("skeletal_mesh_asset", mesh)
+    set_look(cdo, number, source_path, name, mesh, entry)
     anim = wheel_anim_class(mesh, source_path, entry, src_body.get_editor_property("anim_class"))
     if anim is not None:
         body.set_editor_property("animation_mode", unreal.AnimationMode.ANIMATION_BLUEPRINT)
@@ -646,6 +718,8 @@ def main():
             log("%s failed: %s" % (name, traceback.format_exc()))
     report["cook_risk"] = sorted({r for car in report["cars"].values() for r in car.get("cook_risk", [])})
     report["invalid_classes"] = sorted(n for n, car in report["cars"].items() if not car.get("valid_subclass"))
+    # Must be empty before a package: a class listed here is left out of the traffic in game (vehicle look).
+    report["not_drawn"] = sorted(n for n, car in report["cars"].items() if not car.get("drawn"))
     report["seconds"] = round(time.time() - t0, 1)
     out = os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_saved_dir()), "VehicleImport")
     os.makedirs(out, exist_ok=True)

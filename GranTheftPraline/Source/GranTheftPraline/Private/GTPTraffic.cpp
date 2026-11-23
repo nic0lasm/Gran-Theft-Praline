@@ -396,6 +396,11 @@ void UGTPAIDriverComponent::Start(AGTPTrafficNetwork* InNetwork, int32 Lane, int
 	GhostSpeed = 0.f;
 	GhostAlong = 0.f;
 	bAtDeadEnd = false;
+	// A car put back on a lane starts calm: pooled in panic, a Kangoo of gate 67 came back three times still
+	// panicking (1.6 times its speed, red lights ignored) and ended nose to nose with a parked car.
+	React = GTPTrafficReact::FBrain();
+	BypassBlocker = nullptr;
+	WaitingFor = nullptr;
 	// Each driver has a temperament: speed, patience, what they do under threat.
 	const float Roll = GTPDeterminism::IsOn() ? DriverRandom.FRand() : FMath::FRand();
 	Temperament = GTPTrafficReact::PickTemperament(Roll);
@@ -469,6 +474,8 @@ void UGTPAIDriverComponent::HoldGhostKinematic(AGTPVehicle* Vehicle, const TCHAR
 		Body->SetPhysicsLinearVelocity(FVector::ZeroVector);
 		Body->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
 		Body->SetSimulatePhysics(false);
+		// Its physics went off now: the pool's cooldown counts from here (PutAway).
+		GhostSince = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0;
 	}
 	if (bChaosOn)
 	{
@@ -558,6 +565,7 @@ void UGTPAIDriverComponent::SetGhost(bool bInGhost)
 		{
 			Body->SetSimulatePhysics(false);
 		}
+		GhostSince = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0;
 	}
 	else
 	{
@@ -770,6 +778,7 @@ GTPTrafficReact::FOutput UGTPAIDriverComponent::UpdateReactions(AGTPVehicle* Veh
 
 	const GTPTrafficReact::EState Before = React.State;
 	const GTPTrafficReact::FOutput Out = GTPTrafficReact::Step(React, In, Tuning);
+	WaitingFor = React.State == GTPTrafficReact::EState::Waiting ? ProbeHit : nullptr;
 	if (Out.bChanged)
 	{
 		if (React.State == GTPTrafficReact::EState::Bypass)
@@ -1226,15 +1235,28 @@ void AGTPTrafficNetwork::UpdateDetail(AGTPVehicle* Car, float DistanceToView) co
 	}
 	const bool bNear = DistanceToView < DetailDistance;
 	const bool bShadow = bNear && bCarShadows;
-	if (static_cast<bool>(Body->CastShadow) != bShadow)
+	// A City Sample car is drawn by its look parts (AGTPVehicle::LookMeshes), not by its body: same levers on each.
+	TArray<USkeletalMeshComponent*, TInlineAllocator<3>> DrawnParts;
+	DrawnParts.Add(Body);
+	for (USkeletalMeshComponent* LookPart : Car->GetLookComponents())
 	{
-		Body->SetCastShadow(bShadow);
+		if (LookPart)
+		{
+			DrawnParts.Add(LookPart);
+		}
 	}
-	const int32 Forced = bNear ? (NearLOD > 0 ? FMath::Clamp(NearLOD + 1, 0, Body->GetNumLODs()) : 0)
-		: FMath::Clamp(FarLOD + 1, 0, Body->GetNumLODs());
-	if (Body->GetForcedLOD() != Forced)
+	for (USkeletalMeshComponent* Part : DrawnParts)
 	{
-		Body->SetForcedLOD(Forced);
+		if (static_cast<bool>(Part->CastShadow) != bShadow)
+		{
+			Part->SetCastShadow(bShadow);
+		}
+		const int32 Forced = bNear ? (NearLOD > 0 ? FMath::Clamp(NearLOD + 1, 0, Part->GetNumLODs()) : 0)
+			: FMath::Clamp(FarLOD + 1, 0, Part->GetNumLODs());
+		if (Part->GetForcedLOD() != Forced)
+		{
+			Part->SetForcedLOD(Forced);
+		}
 	}
 	const bool bDrawn = DrawDistance <= 0.f || DistanceToView < DrawDistance;
 	if (Body->IsVisible() != bDrawn)
@@ -1298,6 +1320,22 @@ void AGTPTrafficNetwork::UpdateDetail(AGTPVehicle* Car, float DistanceToView) co
 		if (Body->VisibilityBasedAnimTickOption != Option)
 		{
 			Body->VisibilityBasedAnimTickOption = Option;
+		}
+	}
+	if (DrawnParts.Num() > 1)
+	{
+		// The rig of a City Sample car is never rendered: it poses its look parts while one of them was drawn
+		// in the last second, or near, and not at all out of view (AGTPVehicle::BeginPlay sets it on).
+		bool bPartSeen = false;
+		for (int32 Index = 1; Index < DrawnParts.Num(); ++Index)
+		{
+			bPartSeen = bPartSeen || DrawnParts[Index]->WasRecentlyRendered(1.f);
+		}
+		const EVisibilityBasedAnimTickOption LookOption = bNear || bPartSeen ? EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones
+			: EVisibilityBasedAnimTickOption::OnlyTickPoseWhenRendered;
+		if (Body->VisibilityBasedAnimTickOption != LookOption)
+		{
+			Body->VisibilityBasedAnimTickOption = LookOption;
 		}
 	}
 }
@@ -1472,6 +1510,7 @@ void AGTPTrafficNetwork::BeginPlay()
 			LoadedVehicleClasses.Add(Class);
 		}
 	}
+	KeepDrawnClasses();
 	if (LoadedVehicleClasses.Num() == 0)
 	{
 		// Same car as -TestVehicle, read from the game mode's config.
@@ -1533,6 +1572,34 @@ bool AGTPTrafficNetwork::IsSeenByPlayer(const FVector& Location) const
 	return !GetWorld()->LineTraceSingleByChannel(Hit, Eye, Location + FVector(0.f, 0.f, 150.f), ECC_Visibility, Params);
 }
 
+void AGTPTrafficNetwork::KeepDrawnClasses()
+{
+	if (bDrawnClassesKept || LoadedVehicleClasses.Num() == 0)
+	{
+		return;
+	}
+	bDrawnClassesKept = true;
+	TArray<TSubclassOf<AGTPVehicle>> Drawn;
+	for (const TSubclassOf<AGTPVehicle>& Class : LoadedVehicleClasses)
+	{
+		FString Why;
+		const bool bClassDrawn = AGTPVehicle::IsClassDrawn(Class.Get(), Why);
+		GTP_TRACE(LogGTPTraffic, TEXT("traffic: car class %s %s: %s"), *GetNameSafe(Class.Get()),
+			bClassDrawn ? TEXT("drawn, in the traffic") : TEXT("NOT DRAWN, left out of the traffic and the parked cars"), *Why);
+		if (bClassDrawn)
+		{
+			Drawn.Add(Class);
+		}
+	}
+	if (Drawn.Num() == 0)
+	{
+		GTP_TRACE(LogGTPTraffic, TEXT("traffic: no car class is drawn: all %d kept"), LoadedVehicleClasses.Num());
+		return;
+	}
+	GTP_TRACE(LogGTPTraffic, TEXT("traffic: %d car class(es) drawn of %d"), Drawn.Num(), LoadedVehicleClasses.Num());
+	LoadedVehicleClasses = MoveTemp(Drawn);
+}
+
 AGTPVehicle* AGTPTrafficNetwork::SpawnParkedVehicle(FName Tag, const FVector& Near, float RadiusCm, TSubclassOf<AGTPVehicle> Class, bool bQuietMiss)
 {
 	if (!Class)
@@ -1546,6 +1613,7 @@ AGTPVehicle* AGTPTrafficNetwork::SpawnParkedVehicle(FName Tag, const FVector& Ne
 					LoadedVehicleClasses.Add(Loaded);
 				}
 			}
+			KeepDrawnClasses();
 		}
 		if (LoadedVehicleClasses.Num() == 0)
 		{
@@ -1797,7 +1865,10 @@ bool AGTPTrafficNetwork::SpawnCar()
 			// spawned beyond the ghost distance went kinematic again the next frame: the Mac
 			// crashes (8 of 8) are all in the Chaos suspension graph (CreateGraphEdge).
 			const FVector Ground = Transform.GetLocation() - FVector(0.f, 0.f, 40.f);
-			if (!ReusedDriver->PlaceGhost(Lane, Point, Ground, static_cast<float>(Transform.Rotator().Yaw), 0.f))
+			// Rolling, as the traffic around it (out of sight, at least MinSpawnDistance away): from a standstill a
+			// car counted as standing for its first second, and a refill after a jump stood all at once.
+			const float RollMs = FMath::Min(Lanes.IsValidIndex(Lane) ? Lanes[Lane].SpeedKmh : 30.f, 30.f) / 3.6f;
+			if (!ReusedDriver->PlaceGhost(Lane, Point, Ground, static_cast<float>(Transform.Rotator().Yaw), RollMs))
 			{
 				// Not moved. Its collision back on where it was put away, it would stand there, kinematic, in whatever came
 				// by since: until candidate 63 the frozen puppets did, and the chase script puts away the car in front of
@@ -1852,6 +1923,9 @@ bool AGTPTrafficNetwork::PutAway(AGTPVehicle* Car)
 	AIDriver->ReleaseJunctions();
 	// Physics and the Chaos vehicle off (the ghost switch does both), no decisions, not drawn, no collision.
 	AIDriver->SetGhost(true);
+	// The pool's cooldown counts from when its physics went off: a ghost for a while (a far car) has cooled down
+	// already, a car with physics until now (off just above) waits PoolCooldown.
+	const double PhysicsOffSince = AIDriver->GetGhostSince();
 	AIDriver->SetComponentTickEnabled(false);
 	Car->SetActorHiddenInGame(true);
 	Car->SetActorEnableCollision(false);
@@ -1862,7 +1936,7 @@ bool AGTPTrafficNetwork::PutAway(AGTPVehicle* Car)
 	if (!Pool.Contains(Car))
 	{
 		Pool.Add(Car);
-		PoolSince.Add(GetWorld()->GetTimeSeconds());
+		PoolSince.Add(PhysicsOffSince);
 	}
 	return true;
 }
@@ -1873,14 +1947,21 @@ AGTPVehicle* AGTPTrafficNetwork::TakeFromPool(const FTransform& Transform)
 	const double Now = GetWorld()->GetTimeSeconds();
 	while (Pool.Num() > 0)
 	{
-		// Oldest first, and only once it has cooled down: never a car put away a moment ago.
-		AGTPVehicle* Car = Pool[0];
-		if (IsValid(Car) && Now - PoolSince[0] < PoolCooldown)
+		// Oldest first, and only once it has cooled down (PoolSince: its physics off since): never a car whose
+		// physics went off a moment ago. A far car pooled as a ghost of long standing goes before one pooled with
+		// its physics on.
+		int32 Pick = INDEX_NONE;
+		for (int32 Index = 0; Index < Pool.Num() && Pick == INDEX_NONE; ++Index)
+		{
+			Pick = !IsValid(Pool[Index]) || Now - PoolSince[Index] >= PoolCooldown ? Index : INDEX_NONE;
+		}
+		if (Pick == INDEX_NONE)
 		{
 			return nullptr;
 		}
-		Pool.RemoveAt(0);
-		PoolSince.RemoveAt(0);
+		AGTPVehicle* Car = Pool[Pick];
+		Pool.RemoveAt(Pick);
+		PoolSince.RemoveAt(Pick);
 		if (!IsValid(Car))
 		{
 			continue;
@@ -2115,10 +2196,21 @@ void AGTPTrafficNetwork::Tick(float DeltaSeconds)
 	};
 	LogBudget();
 	const APawn* Player = UGameplayStatics::GetPlayerPawn(this, 0);
+	// Moved farther than the traffic reaches since the last tick with a player (respawn, a script's teleport): every
+	// car is far now, taken away below, and the road around the player is filled again from the pool at once.
+	const FVector PlayerWasAt = PlayerJumpCheckAt;
+	const bool bPlayerJumped = Player && !PlayerWasAt.IsZero()
+		&& FVector::Dist2D(PlayerWasAt, Player->GetActorLocation()) > MaxCarDistance;
+	const int32 RecycledFarBefore = RecycledFar;
+	if (bPlayerJumped)
+	{
+		PoolRefillUntil = GetWorld()->GetTimeSeconds() + PoolCooldown + 1.0;
+	}
 	if (Player)
 	{
 		LastPlayerPawn = Player;
 		LastPlayerAt = Player->GetActorLocation();
+		PlayerJumpCheckAt = LastPlayerAt;
 	}
 	else if (!LastPlayerAt.IsZero())
 	{
@@ -2194,7 +2286,6 @@ void AGTPTrafficNetwork::Tick(float DeltaSeconds)
 			Recycle(Car);
 		}
 	}
-	LogCars(Player);
 	UpdateSignalHeads();
 	UpdateReactDemo();
 	UpdatePlayerShots(Player);
@@ -2204,15 +2295,28 @@ void AGTPTrafficNetwork::Tick(float DeltaSeconds)
 
 	// New cars out of sight: one a second when it means spawning an actor (no burst of spawns),
 	// up to four a tick when the pool has cars to reuse (no spawn cost), so 40 cars fill in time.
-	if (Cars.Num() < WantedCars && GetWorld()->GetTimeSeconds() >= NextSpawnTime)
+	// After a jump, every cooled car of the pool at once, for as long as the others cool down: gate 67 read
+	// "driven=0 of 22" in the tick GTARun moved the player 700 m, and the road filled four cars a tick after.
+	const bool bRefill = bTrafficPool && GetWorld()->GetTimeSeconds() < PoolRefillUntil;
+	if (Cars.Num() < WantedCars && (bRefill || GetWorld()->GetTimeSeconds() >= NextSpawnTime))
 	{
-		const int32 Tries = FMath::Min(WantedCars - Cars.Num(), bTrafficPool && Pool.Num() > 0 ? 4 : 1);
-		for (int32 Try = 0; Try < Tries; ++Try)
+		const int32 Tries = FMath::Min(WantedCars - Cars.Num(), bRefill ? WantedCars : (bTrafficPool && Pool.Num() > 0 ? 4 : 1));
+		for (int32 Try = 0; Try < Tries && !(bRefill && Pool.Num() == 0); ++Try)
 		{
-			SpawnCar();
+			if (!SpawnCar() && bRefill)
+			{
+				break;
+			}
 		}
 		NextSpawnTime = GetWorld()->GetTimeSeconds() + (bTrafficPool && Pool.Num() > 0 ? 0.f : 1.f);
 	}
+	if (bPlayerJumped)
+	{
+		GTP_TRACE(LogGTPTraffic, TEXT("traffic: the player moved %.0f m in one tick: %d car(s) taken away as far, %d driven again around the player (%d pooled)"),
+			FVector::Dist2D(PlayerWasAt, PlayerJumpCheckAt) / 100.0, RecycledFar - RecycledFarBefore, Cars.Num(), Pool.Num());
+	}
+	// Last, the traffic as this tick leaves it (until 23/11 it was read between the cars taken away and the new ones).
+	LogCars(Player);
 }
 
 void AGTPTrafficNetwork::LogBudget()
@@ -2873,6 +2977,31 @@ void AGTPTrafficNetwork::UpdateStreetParked(const APawn* Player)
 		return;
 	}
 	const FVector PlayerLocation = Player->GetActorLocation();
+	// The traffic cars waiting behind something still: the longest wait behind each thing.
+	struct FHeldUp
+	{
+		float Seconds = 0.f;
+		const AGTPVehicle* Waiter = nullptr;
+	};
+	TMap<const AActor*, FHeldUp> HeldUp;
+	if (StreetParked.Num() > 0)
+	{
+		for (const AGTPVehicle* Driven : Cars)
+		{
+			const UGTPAIDriverComponent* WaitingDriver = IsValid(Driven) ? Driven->FindComponentByClass<UGTPAIDriverComponent>() : nullptr;
+			float Waited = 0.f;
+			const AActor* Holder = WaitingDriver ? WaitingDriver->GetWaitingFor(Waited) : nullptr;
+			if (Holder)
+			{
+				FHeldUp& Longest = HeldUp.FindOrAdd(Holder);
+				if (Waited > Longest.Seconds)
+				{
+					Longest.Seconds = Waited;
+					Longest.Waiter = Driven;
+				}
+			}
+		}
+	}
 	for (int32 Index = StreetParked.Num() - 1; Index >= 0; --Index)
 	{
 		AGTPVehicle* Car = StreetParked[Index].Car.Get();
@@ -2887,6 +3016,26 @@ void AGTPTrafficNetwork::UpdateStreetParked(const APawn* Player)
 			Car->SetParkedAsleep(false);
 			StreetParked.RemoveAt(Index);
 			continue;
+		}
+		// In the way of the traffic (StreetParkedBlockSeconds): taken away out of sight, the keeper puts one elsewhere.
+		const FHeldUp* Held = StreetParked[Index].bOnRequest ? nullptr : HeldUp.Find(Car);
+		if (Held && Held->Seconds >= StreetParkedBlockSeconds)
+		{
+			if (!IsSeenByPlayer(Car->GetActorLocation()))
+			{
+				++StreetParkedTakenForBlocking;
+				GTP_TRACE(LogGTPTraffic, TEXT("traffic: street parked %s taken away out of sight, in the way: %s waited %.0f s behind it (%d so far)"),
+					*Car->GetName(), *GetNameSafe(Held->Waiter), Held->Seconds, StreetParkedTakenForBlocking);
+				Car->Destroy();
+				StreetParked.RemoveAt(Index);
+				continue;
+			}
+			if (!StreetParked[Index].bBlockLogged)
+			{
+				StreetParked[Index].bBlockLogged = true;
+				GTP_TRACE(LogGTPTraffic, TEXT("traffic: street parked %s in the way (%s waited %.0f s behind it), kept while in view"),
+					*Car->GetName(), *GetNameSafe(Held->Waiter), Held->Seconds);
+			}
 		}
 		const float Distance = static_cast<float>(FVector::Dist2D(Car->GetActorLocation(), PlayerLocation));
 		bool bAsleep = Distance > StreetParkedWakeDistance;
@@ -3127,7 +3276,11 @@ AGTPVehicle* AGTPTrafficNetwork::SpawnStreetParkedNear(const FVector& Near, floa
 	}
 	Car->bLocked = bLocked;
 	Car->bAlarm = bAlarm;
-	StreetParked.Add({Car, GetWorld()->GetTimeSeconds()});
+	FStreetParked Placed;
+	Placed.Car = Car;
+	Placed.Born = GetWorld()->GetTimeSeconds();
+	Placed.bOnRequest = true;
+	StreetParked.Add(Placed);
 	GTP_TRACE(LogGTPTraffic, TEXT("traffic: street parked %s placed on request%s%s"), *Car->GetName(), bLocked ? TEXT(" locked") : TEXT(""),
 		bAlarm ? TEXT(" alarm") : TEXT(""));
 	return Car;

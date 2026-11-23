@@ -608,6 +608,61 @@ candidat 46 sauf avec `-MassTemplateWheels` : ce commutateur essaie maintenant l
 centre de gravité de City Sample, candidat pour un seul réglage partagé par le trafic, le joueur et la
 police.
 
+### 8.8 Voitures City Sample dessinées, trafic pendant la fuite (23/11)
+
+Voitures invisibles, vues à la porte 67 : le joueur vole une Car05 et la conduit une minute sans
+voiture autour de lui (38 à 61 km/h au compteur, Nicolito qui glisse debout), et aucune voiture de
+police n'apparaît sur les images des portes 51 à 68. Cause, lue dans `epic_vehicles_report.json` et
+dans `police_look_report.txt` de Police (PC) : les Blueprints de voiture de City Sample sont des acteurs
+d'affichage de MassTraffic dont le script ne lit pas les composants, donc `make_epic_vehicles.py` a pris
+le maillage squelettique au nom le plus court, `SKM_veh..._vehicleNN`, pour les sept voitures. Ce
+maillage est le squelette : les os, l'asset physique, un emplacement `lambert1` sans matériau et une
+boîte de 0 x 0 x 0 cm. La carrosserie est dessinée par `SKM_Exterior_...` (peinture, pneus, pare-brise,
+9 emplacements) et `SKM_Destructible_...` (vitres, feux, rampe lumineuse, 22 emplacements), à côté.
+
+- `AGTPVehicle::LookMeshes` : les maillages qui dessinent la voiture. Chacun devient un composant sur
+  la carrosserie, sans collision, posé par elle (leader pose, comme les pièces des piétons), avec son
+  propre LOD. Le squelette reste le corps (physique, os des roues, conduite inchangée). Comme il n'est
+  jamais rendu, sa pose est rafraîchie tant qu'une pièce a été dessinée dans la dernière seconde ou que
+  la voiture est proche (trafic), toujours pour une voiture hors du trafic ; les leviers d'ombre et de
+  LOD du trafic s'appliquent aussi aux pièces.
+- `make_epic_vehicles.py` copie les deux maillages en `/Game/Vehicles/Epic/GTP/Mesh/SKM_GTP_<Nom>_Exterior`
+  et `_Destructible` sans leur AnimBlueprint de post-traitement et remplit `LookMeshes`, seulement si la
+  boîte du corps fait moins de 1 m. Rapport : `body_box_cm`, `look`, `drawn` par voiture, `not_drawn`
+  (vide avant un package).
+- Journal : « vehicle look: <classe> drawn | NOT DRAWN, N look part(s) built: <chaque maillage, sa
+  boîte, ses emplacements> » une fois par classe à sa première apparition ; « traffic: car class
+  <classe> drawn, in the traffic | NOT DRAWN, left out of the traffic and the parked cars » pour chaque
+  classe du trafic au démarrage. Une classe qui ne dessine rien est retirée du trafic, des voitures
+  garées et de la police (une voiture du trafic la remplace, « police: car class ... NOT DRAWN ») ; si
+  aucune n'est dessinée, toutes sont gardées.
+- Pas prouvé : que les pneus de l'extérieur suivent les os des roues (même squelette `SK_Vehicle`,
+  donné par le rapport), le coût de dessin de vraies carrosseries sur 6 classes sur 9 (les portes
+  jusqu'au 68 ont mesuré des voitures invisibles), et l'aspect des matériaux de City Sample une fois
+  cuits.
+
+Trafic pendant la fuite (porte 67 : 7,1 voitures qui roulent à moins de 150 m pour un seuil de 8 ; 68,
+même code de trafic, 10,1). Deux causes dans `legacy-traffic-lines-gtarun.txt` :
+
+- À 83 s, GTARun a déplacé le joueur de 700 m : toutes les voitures ont été retirées comme lointaines,
+  et la ligne des voitures, lue dans ce même tick, disait « driven=0 of 22 ». La réserve les rendait
+  4 par tick, après 2 s de refroidissement. Désormais un saut (plus de `MaxCarDistance` depuis le
+  dernier tick avec un joueur) remplit d'un coup depuis la réserve pendant `PoolCooldown` + 1 s
+  (« traffic: the player moved N m in one tick ») ; le refroidissement compte depuis l'arrêt de la
+  physique de la voiture (un fantôme lointain mis en réserve est déjà refroidi) ; une voiture réutilisée
+  repart en roulant à la vitesse de la voie (30 km/h au plus) au lieu d'être arrêtée ; la ligne des
+  voitures est lue à la fin du tick.
+- À partir de 103 s, une Kangoo s'est arrêtée à 1,3 m derrière une Car07 garée, et 4 voitures y ont
+  attendu tour à tour, chacune jusqu'à son retrait comme bloquée (35 s), avec 9 à 16 derrière elles
+  (qui roulent à moins de 150 m : 5 à 114 s, 1 à 124 s). La Kangoo avait été mise en réserve en panique
+  et en est ressortie trois fois toujours paniquée : une voiture remise sur une voie repart désormais
+  calme (`UGTPAIDriverComponent::Start` remet ses réactions à zéro). Une voiture garée par le gardien
+  derrière laquelle une voiture du trafic attend depuis 8 s (`StreetParkedBlockSeconds`) est retirée
+  hors de vue (« traffic: street parked ... taken away out of sight, in the way »), gardée et notée une
+  fois tant qu'elle est en vue ; les voitures posées à la demande (GTARun) ne sont jamais retirées. Pas
+  prouvé : pourquoi cette voiture garée était sur le chemin de la Kangoo (contrôles de pose passés :
+  aucune voie sous sa carrosserie).
+
 ## 9. Préparer une voiture conduisible
 
 ### 9.1 Première voiture d'essai (sans Tripo)
