@@ -15,7 +15,10 @@ Steps (idempotent, only material assets and the mesh slots change, the map is no
      limestone slabs on sidewalks, dashed centre lines; joints and a slow tone
      variation are procedural (no texture fetch beyond the mask)
   3. M_City_Shell: the building colour the generator wrote in the vertex colours,
-     stone courses on the walls, rougher walls than roofs
+     stone courses on the walls, rougher walls than roofs. The building colours of the shells,
+     the backdrop and the kit go through the Lyon stone tone (tools/city/facade_tone.py:
+     cream limestone, muted renders, no wall lighter than light limestone);
+     GTP_FACADE_TONE=0 leaves the generator's colours
   4. assign them to every terrain tile and building shell mesh, save the meshes
   4b. M_City_Kit and one instance per facade kit slot (colours of kit.py; stone slots take
      the building colour from per-instance custom data) on every kit mesh, in place of the
@@ -213,6 +216,37 @@ def weather(mat, roles):
     gtp_weather.add_weather(mat, roles)
 
 
+FACADE_TONE = os.environ.get("GTP_FACADE_TONE", "1") != "0"
+
+
+def facade_tone():
+    here = os.path.join(REPO, "tools", "city")
+    if here not in sys.path:
+        sys.path.insert(0, here)
+    import facade_tone as ft
+    return ft
+
+
+def lyon_tone(g, col, col_out=""):
+    """The sums of facade_tone.tone() as material nodes, on a linear RGB wall colour: hue pulled
+    towards the cream limestone, luminance compressed above the knee. Gate 69 video: the
+    generator's saturated yellows, salmons and oranges stood in a row like painted toys, and the
+    lightest walls burnt in the sun. Returns col itself with GTP_FACADE_TONE=0."""
+    if not FACADE_TONE:
+        return col
+    ft = facade_tone()
+    lum = g.op(unreal.MaterialExpressionDotProduct, col, g.const(ft.LUMA), col_out)
+    stone = g.mul(g.const(ft.stone_hue()), lum)
+    mixed = g.node(unreal.MaterialExpressionLinearInterpolate)
+    g.link(stone, "", mixed, "A")
+    g.link(col, col_out, mixed, "B")
+    g.link(g.const(ft.KEEP), "", mixed, "Alpha")
+    low = g.op(unreal.MaterialExpressionMin, lum, g.const(ft.KNEE))
+    high = g.mul(g.op(unreal.MaterialExpressionMax, g.sub(lum, g.const(ft.KNEE)), g.const(0.0)), g.const(ft.SLOPE))
+    scale = g.div(g.add(low, high), g.op(unreal.MaterialExpressionMax, lum, g.const(0.001)))
+    return g.mul(mixed, scale)
+
+
 # Usage flags the cooked game needs. A material compiles shaders only for the usages saved
 # with it: the Mac editor sets missing ones in memory when a mesh uses the material, but the
 # saved asset kept none, so on Windows (Nanite on, DX12) 280 city and sign materials drew with
@@ -313,7 +347,9 @@ def shell_material():
     d = g.unary(unreal.MaterialExpressionAbs, g.sub(f, g.const(0.5)))
     course = g.unary(unreal.MaterialExpressionSaturate, g.mul(g.sub(d, g.const(0.46)), g.const(25.0)))
     shade = g.lerp(g.const(1.0), g.const(0.82), g.mul(course, wall))
-    col = g.mul(g.mask(vc, r=True, g=True, b=True), shade)
+    base = g.mask(vc, r=True, g=True, b=True)
+    base = g.lerp(base, lyon_tone(g, base), wall)          # walls only: the roofs keep their zinc and tile
+    col = g.mul(base, shade)
     weathered, _ = weathering(g, col, per_instance=False)
     col = g.lerp(col, weathered, wall)                     # walls only, not the roofs
     rough = g.lerp(g.const(0.55), g.const(0.88), wall)
@@ -444,7 +480,9 @@ def backdrop_material():
     d = g.unary(unreal.MaterialExpressionAbs, g.sub(f, g.const(0.5)))
     course = g.unary(unreal.MaterialExpressionSaturate, g.mul(g.sub(d, g.const(0.46)), g.const(25.0)))
     shade = g.lerp(g.const(1.0), g.const(0.88), g.mul(course, wall))
-    col = g.mul(g.mask(vc, r=True, g=True, b=True), shade)
+    base = g.mask(vc, r=True, g=True, b=True)
+    base = g.lerp(base, lyon_tone(g, base), wall)
+    col = g.mul(base, shade)
     custom = g.node(unreal.MaterialExpressionCustom, code=BACKDROP_HLSL,
                     output_type=unreal.CustomMaterialOutputType.CMOT_FLOAT4, description="LyonFacade",
                     inputs=[custom_input(k) for k in ("Pw", "Nw", "Vw", "Depth", "WallC")])
@@ -515,8 +553,8 @@ def kit_master():
     # UE 5.8: the default is an input pin; the constant fallback is const_default_value.
     pic = g.node(unreal.MaterialExpressionPerInstanceCustomData3Vector, data_index=0,
                  const_default_value=unreal.LinearColor(0.66, 0.60, 0.50, 1.0))
-    # Keep the slot's value contrast (cream stone vs plinth) and take the building's hue.
-    col = g.lerp(g.mask(base, r=True, g=True, b=True), pic, use)
+    # Keep the slot's value contrast (cream stone vs plinth) and take the building's hue, toned.
+    col = g.lerp(g.mask(base, r=True, g=True, b=True), lyon_tone(g, pic), use)
     col, grime = weathering(g, col)
     rough = g.node(unreal.MaterialExpressionScalarParameter, parameter_name="Roughness", default_value=0.8)
     rough = g.add(rough, g.mul(grime, g.const(0.1)))
@@ -1044,6 +1082,8 @@ def main():
         if eal.does_directory_exist(backdrop_dir):
             report["backdrop_meshes"] = assign(backdrop_dir, backdrop_material() if BACKDROP_FACADES else shell)
             report["backdrop_facades"] = BACKDROP_FACADES
+        report["facade_tone"] = dict(on=FACADE_TONE, keep=facade_tone().KEEP, knee=facade_tone().KNEE,
+                                     slope=facade_tone().SLOPE) if FACADE_TONE else {"on": False}
         if eal.does_directory_exist(ROOT + "/Landmarks/" + CAMEL):
             report["landmark_meshes"] = assign(ROOT + "/Landmarks/" + CAMEL, shell)
         river_dir = ROOT + "/Riverside/" + CAMEL
