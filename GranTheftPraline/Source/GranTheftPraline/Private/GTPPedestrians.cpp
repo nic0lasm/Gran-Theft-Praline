@@ -28,6 +28,7 @@
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "Misc/Parse.h"
+#include "TimerManager.h"
 #include "UObject/UnrealType.h"
 #include "Engine/GameInstance.h"
 
@@ -414,11 +415,28 @@ bool AGTPPedestrian::StartRagdoll(const FVector& Impulse)
 	Body->SetCollisionProfileName(TEXT("Ragdoll"));
 	Body->SetSimulatePhysics(true);
 	Body->AddImpulse(Impulse, NAME_None, true);
+	GetWorldTimerManager().SetTimer(SettleTimer, this, &AGTPPedestrian::SettleRagdoll, 3.f, false);
 	return true;
+}
+
+void AGTPPedestrian::SettleRagdoll()
+{
+	if (!bRagdoll)
+	{
+		return;
+	}
+	// A walking person has no collision at all: a body on the ground is the only pedestrian the traffic's probe
+	// ahead can meet, and it waited behind it until the body was taken away (gate of candidate 62: one body, five
+	// queues, 65 s). Down for 3 s, the body keeps its physics against the town only.
+	Body->SetCollisionEnabled(ECollisionEnabled::PhysicsOnly);
+	Body->SetCollisionResponseToChannel(ECC_Vehicle, ECR_Ignore);
+	Body->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
+	GTP_TRACE(LogGTPPedestrians, TEXT("pedestrian %s: down for 3 s, the body leaves the cars' way (no query sees it, vehicles pass over it)"), *GetName());
 }
 
 void AGTPPedestrian::ResetBody()
 {
+	GetWorldTimerManager().ClearTimer(SettleTimer);
 	if (bRagdoll)
 	{
 		if (UGTPRagdollSubsystem* Cap = GetWorld() ? GetWorld()->GetSubsystem<UGTPRagdollSubsystem>() : nullptr)

@@ -138,6 +138,23 @@ blancs, dont un à 3 m de la caméra.
   24, pour une limite de 17,38), et si les gens vus noirs dans cette vidéo ne sont qu'à contre-jour (ceux à moins de
   20 m, soleil derrière la caméra, sont éclairés comme d'habitude).
 
+## Un corps à terre sort du chemin des voitures (candidat 66)
+
+Porte du candidat 62, passe `-GTARun` : les lignes du trafic montrent cinq voitures passer `cruise -> waiting (ahead
+GTPPedestrian_2147479682 …)` de 22:23:05 à 22:24:10, et la ligne de la foule compte `fallen 1` de 22:23:12 à 22:24:02,
+puis 0. Ce n'est pas quelqu'un debout sur la voie : une personne de la foule qui marche n'a aucune collision, donc le
+seul piéton que la sonde avant du trafic (un balayage sur les pions, les véhicules et les corps physiques) peut
+rencontrer est un corps renversé, qui a le profil `Ragdoll`. La personne renversée reste où gît son corps jusqu'à ce que
+le corps soit donné à quelqu'un d'autre, et chaque voiture de cette voie attendait derrière tout ce temps.
+
+Depuis le candidat 66 un corps à terre depuis 3 s sort du chemin des voitures (`AGTPPedestrian::SettleRagdoll`, une
+minuterie posée par `StartRagdoll`) : sa collision devient physique seulement (aucune requête ne le voit : la sonde, une
+balle) et ignore véhicules et pions ; il reste donc étendu au sol et les voitures passent dessus sans le toucher.
+Journal : `pedestrian <nom>: down for 3 s, the body leaves the cars' way …`. À la porte : aucune voiture n'attend
+derrière le même `GTPPedestrian` plus de quelques secondes. **Pas prouvé en jeu.** Pas fait : la personne qui se relève
+et s'enfuit (pas d'animation pour cela), et les voitures du trafic qui s'arrêtent pour les gens debout ou en marche
+(elles ne les voient pas).
+
 ## Voitures arrêtées sur un trottoir ou une rue piétonne (`-CrowdAvoidCars=0` pour les traverser comme avant)
 
 Vidéo de la porte 59, de 130 à 180 s : la voiture du joueur est arrêtée dans une rue piétonne et les gens la traversent,

@@ -112,6 +112,13 @@ private:
 	bool bHairNear = false;
 
 	bool bRagdoll = false;
+	/**
+	 * A body that has been down for a few seconds leaves the cars' way: no query sees it any more (the traffic's
+	 * probe ahead took it for an obstacle and a queue waited behind it as long as it lay there) and the cars pass
+	 * over it without touching it. It still lies on the ground, with its physics.
+	 */
+	void SettleRagdoll();
+	FTimerHandle SettleTimer;
 	/** Where the body sits under the actor, kept when it falls: it comes back there, upright, when it is given again. */
 	FTransform BodyRelative = FTransform::Identity;
 	float AnimInterval = 0.f;

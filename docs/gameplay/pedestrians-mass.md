@@ -128,6 +128,22 @@ from the camera.
   against a limit of 17.38), and whether the people seen black in that video are only against the light (those nearer
   than 20 m, sun behind the camera, are lit as usual).
 
+## A body on the ground leaves the cars' way (candidate 66)
+
+Gate of candidate 62, `-GTARun` pass: the traffic's lines show five cars going `cruise -> waiting (ahead
+GTPPedestrian_2147479682 …)` from 22:23:05 to 22:24:10, and the crowd's own line counts `fallen 1` from 22:23:12 to
+22:24:02, then 0. It is not somebody standing on the lane: a walking person of the crowd has no collision at all, so the
+only pedestrian the traffic's probe ahead (a sweep on pawns, vehicles and physics bodies) can meet is a body knocked
+down, which has the `Ragdoll` profile. The person run over stays where his body lies until the body is given to
+somebody else, and every car on that lane waited behind it all that time.
+
+Since candidate 66 a body that has been down for 3 s leaves the cars' way (`AGTPPedestrian::SettleRagdoll`, a timer
+set by `StartRagdoll`): its collision becomes physics only (no query sees it: the probe, a bullet) and ignores vehicles
+and pawns, so it still lies on the ground and the cars pass over it without touching it. Log:
+`pedestrian <name>: down for 3 s, the body leaves the cars' way …`. At the gate: no car waits behind the same
+`GTPPedestrian` for more than a few seconds. **Not proven in the game.** Not done: the person getting up and running
+off (no animation for it), and the traffic's cars stopping for people who stand or walk (they do not see them).
+
 ## Cars standing on a walkway (`-CrowdAvoidCars=0` to walk through them as before)
 
 Video of gate 59, 130 to 180 s: the player's car stands in a pedestrian street and people walk through it, one of them
