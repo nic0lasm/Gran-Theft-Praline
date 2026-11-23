@@ -2396,10 +2396,49 @@ void AGTPTrafficNetwork::BuildLights()
 			: SignalHeadMesh.IsValid() ? SignalHeadMesh.ToString() + TEXT(" not found") : FString(TEXT("no SignalHeadMesh"));
 		GTP_TRACE(LogGTPTraffic, TEXT("traffic lights: signal heads are the stand-in spheres (%s)"), *Why);
 	}
+	// One head per approach, on the kerb side: a head 2.6 m right of every lane end stood on the
+	// next lane of a multi-lane approach (gate 65 video: five heads in a row across the square,
+	// driven through). A lane keeps its head only when no lane of the same light group, ending
+	// within 15 m in the same direction, lies further to its right.
+	auto EndOf = [this](int32 L, FVector& OutDir) -> FVector
+	{
+		const TArray<FVector>& P = Lanes[L].Points;
+		OutDir = (P.Last() - P[P.Num() - 2]).GetSafeNormal2D();
+		return P.Last();
+	};
+	TArray<int32> Signalled;
 	for (int32 Index = 0; Index < Lanes.Num(); ++Index)
 	{
-		if (Lights.GroupOf(Index) < 0)
+		if (Lights.GroupOf(Index) >= 0 && Lanes[Index].Points.Num() >= 2)
 		{
+			Signalled.Add(Index);
+		}
+	}
+	int32 Merged = 0;
+	for (int32 Index = 0; Index < Lanes.Num(); ++Index)
+	{
+		if (Lights.GroupOf(Index) < 0 || Lanes[Index].Points.Num() < 2)
+		{
+			continue;
+		}
+		FVector OwnDir;
+		const FVector OwnEnd = EndOf(Index, OwnDir);
+		const FVector OwnRight(-OwnDir.Y, OwnDir.X, 0.f);
+		bool bInner = false;
+		for (int32 Other : Signalled)
+		{
+			FVector OtherDir;
+			const FVector OtherEnd = EndOf(Other, OtherDir);
+			if (Other != Index && Lights.GroupOf(Other) == Lights.GroupOf(Index) && FVector::DotProduct(OwnDir, OtherDir) > 0.9f
+				&& FVector::Dist2D(OwnEnd, OtherEnd) < 1500.f && FVector::DotProduct(OtherEnd - OwnEnd, OwnRight) > 100.f)
+			{
+				bInner = true;
+				break;
+			}
+		}
+		if (bInner)
+		{
+			++Merged;
 			continue;
 		}
 		const TArray<FVector>& Points = Lanes[Index].Points;
@@ -2470,6 +2509,7 @@ void AGTPTrafficNetwork::BuildLights()
 		Head.Material = Material;
 		SignalHeads.Add(Head);
 	}
+	GTP_TRACE(LogGTPTraffic, TEXT("traffic lights: %d signal heads, %d inner lanes share the kerb-side head of their approach"), SignalHeads.Num(), Merged);
 }
 
 void AGTPTrafficNetwork::UpdateSignalHeads()

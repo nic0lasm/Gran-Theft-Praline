@@ -170,7 +170,8 @@ def main():
     report["imported_catalog_ids"] = len(by_id)
     comps, snapped, kept, no_collision, no_shadow, culled = {}, 0, 0, set(), set(), set()
     for r in rows:
-        p = r["asset_path"] if r["asset_path"] and eal.does_asset_exist(r["asset_path"]) else \
+        # asset_path may list alternatives, "A|B": the first one in the project
+        p = next((a for a in r["asset_path"].split("|") if a and eal.does_asset_exist(a)), "") or \
             by_id.get(r["catalog_id"], "")
         if MERGED and p:
             m = p.rsplit("/", 1)

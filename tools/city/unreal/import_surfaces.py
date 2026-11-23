@@ -157,6 +157,12 @@ def main():
             for k in ("tint", "gain"):
                 if e.get(k):
                     s[k] = e[k]
+            # A gain set for one scan does not fit another source: 1.6 on the Megascans granite
+            # (read dark) put the ambientCG granite at albedo 0.6, snow-white pavements (gate 65).
+            src = _norm(folder + "/" + found["basecolor"][0])
+            if s.get("gain") and any(_norm(w) in src for w in e.get("gain_skip", [])):
+                s.pop("gain")
+                s["gain_skipped"] = True
             found.pop("ao", None)          # not used: the ORDp red channel or nothing
             for role, (p, ch) in found.items():
                 prepare(p, role, report["changed"])

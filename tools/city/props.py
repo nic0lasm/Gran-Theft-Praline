@@ -64,6 +64,9 @@ OSM_TYPES = {
 # Free Fab/Megascans street trees (free-assets thread), out of Git under /Game/EuropeanBeech.
 LEAFY_TREES = {"mature": "/Game/EuropeanBeech/Geometry/SimpleWind/SM_EuropeanBeech_Field_01",
                "young": "/Game/EuropeanBeech/Geometry/SimpleWind/SM_EuropeanBeech_Sapling_01"}
+# Route set trees (in the game project, cooked: DefaultGame.ini), M1 rebuilds first, then the pack's own.
+ROUTE_TREES = {"mature": "/Game/BlackAlder/M1/SM_BlackAlder_Field_05_M1|/Game/BlackAlder/Geometry/SimpleWind/SM_BlackAlder_Field_05",
+               "young": "/Game/BlackAlder/M1/SM_BlackAlder_Sapling_06_M1|/Game/BlackAlder/Geometry/SimpleWind/SM_BlackAlder_Sapling_06"}
 TERRACE_TRADES = {"restaurant", "cafe", "bar", "pub", "fast_food", "ice_cream"}
 MIN_GAP_M = 0.6
 TERRACE_OUT_M = 2.6        # table centres in front of the facade
@@ -241,8 +244,14 @@ def main():  # noqa: C901, PLR0915
             # young trees get the guarded sapling.
             young = (p.get("circonference_cm") or 100) < 60
             placed.pop()  # the trunk stands in the grate
-            if add("W14-64" if young else "W14-63", x, y, yaw, "grandlyon:trees", str(p.get("identifiant", ""))) \
-                    and args.leafy:
+            planted = add("W14-64" if young else "W14-63", x, y, yaw, "grandlyon:trees", str(p.get("identifiant", "")))
+            if planted and route_mode:
+                # Route set: the leafy alder itself, not the bare trunk the run-time swap should replace
+                # (gate 65 video: the flight's 1 873 trees stayed bare trunks). place_props.py takes the
+                # first path of the list that exists in the project.
+                rows[-1]["asset_path"] = ROUTE_TREES["young" if young else "mature"]
+                rows[-1]["asset"] = rows[-1]["asset_path"].split("|")[0].rsplit("/", 1)[1]
+            elif planted and args.leafy:
                 # same anchor and catalogue id (place_props.py groups by asset path), leafy mesh
                 rows[-1]["asset_path"] = LEAFY_TREES["young" if young else "mature"]
                 rows[-1]["asset"] = rows[-1]["asset_path"].rsplit("/", 1)[1]

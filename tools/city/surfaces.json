@@ -27,6 +27,9 @@
     "decal",
     "stain",
     "gum"
+   ],
+   "gain_skip": [
+    "2K-JPG"
    ]
   },
   {
