@@ -97,6 +97,17 @@ Depuis le candidat 64 la foule porte les cheveux de City Sample, montés comme C
   tombent sur chaque tête, si le visage au niveau 4 a un matériau avec `HairAttributeMap`. Les lignes ci-dessus
   répondent à chacune.
 
+**Un groom créé en jeu demande ses états de pipeline avant de s'enregistrer (candidat 67).** Une fois les coiffures
+copiées sur le PC (porte 65 : 6 styles pour les hommes, 5 pour les femmes, 31 liaisons trouvées), chaque passe qui
+posait un groom sur un personnage proche levait un « handled ensure », environ 36 lignes `Error`, et faisait échouer la
+règle « 0 erreur » de la porte : `PSOPrecache.cpp`, `!IsComponentPSOPrecachingEnabled() || bPSOPrecacheCalled`, sous
+`AGTPPedestrian::SetGroom`. Le composant groom du moteur ne demande ses états de pipeline qu'au chargement depuis le
+disque (son `PostLoad`) ; créé par `NewObject`, il arrivait à `CreateSceneProxy` sans l'avoir fait. `SetGroom` appelle
+maintenant `PrecachePSOs` sur le composant une fois le groom, la liaison et les cartes posés et avant
+`RegisterComponent`, comme le moteur le fait lui-même pour un maillage squelettique. La ligne `crowd hair: face …` se
+termine par « pipeline states asked for before it registered ». **Non prouvé** : rien n'est compilé ; attendu à la
+prochaine porte, aucun ensure `PSOPrecache` dans aucune passe.
+
 **Chaussures.** Un haut, un pantalon ou une jupe et des chaussures sont chargés pour tout le monde (`LoadAny`, le premier
 maillage de la liste que le projet possède). À la porte 55, l'homme braqué à 3 m porte des chaussures de cuir fauve
 (`gtarun-aim.jpg`) ; à 10 m dans la vidéo de la porte 59 les mêmes chaussures se lisent comme des pieds nus. Pour les

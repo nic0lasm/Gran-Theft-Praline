@@ -5,6 +5,7 @@
 #include "Animation/AnimSequence.h"
 #include "Animation/AnimSequenceBase.h"
 #include "Components/InstancedStaticMeshComponent.h"
+#include "Components/PrimitiveComponent.h"
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
@@ -236,6 +237,29 @@ UMeshComponent* AGTPPedestrian::SetHair(UStaticMesh* Fixed, USkeletalMesh* Skinn
 	return HairComponent;
 }
 
+namespace
+{
+	// Reaches UPrimitiveComponent::PrecachePSOs whether the engine declares it public or protected. Never made.
+	struct FGTPPrecacheAccess : public UPrimitiveComponent
+	{
+		using UPrimitiveComponent::PrecachePSOs;
+	};
+
+	/**
+	 * Asks for the render pipeline states of a component made in game, before it registers. The engine does it itself
+	 * for a static or a skinned mesh, but a groom only asks when it is loaded from disk (its PostLoad): one made here
+	 * reached CreateSceneProxy without having asked, and the engine's check in PSOPrecache.cpp said so with a handled
+	 * ensure (36 Error lines in each run of gates 65 and 66). The assets must be on the component already.
+	 */
+	void GTPPrecachePSOs(UPrimitiveComponent* Part)
+	{
+		if (Part)
+		{
+			(Part->*(&FGTPPrecacheAccess::PrecachePSOs))();
+		}
+	}
+}
+
 UMeshComponent* AGTPPedestrian::SetGroom(UObject* Groom, UObject* Binding, bool bCards, FString& OutSaid)
 {
 	if (GroomComponent)
@@ -291,12 +315,14 @@ UMeshComponent* AGTPPedestrian::SetGroom(UObject* Groom, UObject* Binding, bool 
 	Part->bReceivesDecals = false;
 	Part->SetCastShadow(false);
 	Part->AttachToComponent(FaceComponent, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+	// Groom, binding and cards are set: the pipeline states are asked for now, before the scene proxy is made.
+	GTPPrecachePSOs(Part);
 	Part->RegisterComponent();
 	// Hidden and still until the person is near (SetHairNear).
 	Part->SetVisibility(false, false);
 	Part->SetComponentTickEnabled(false);
 	GroomComponent = Part;
-	OutSaid = FString::Printf(TEXT("groom %s, binding %s, %s"), *Groom->GetName(), Binding ? *Binding->GetName() : TEXT("NONE (it will not follow the head)"),
+	OutSaid = FString::Printf(TEXT("groom %s, binding %s, %s, pipeline states asked for before it registered"), *Groom->GetName(), Binding ? *Binding->GetName() : TEXT("NONE (it will not follow the head)"),
 		!bCards ? TEXT("strands left to the asset's levels") : (CardsProp ? TEXT("cards asked for (bUseCards)") : TEXT("cards NOT asked for: the component has no bUseCards")));
 	return Part;
 }

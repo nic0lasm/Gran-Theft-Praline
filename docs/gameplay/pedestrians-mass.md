@@ -90,6 +90,16 @@ Since candidate 64 the crowd wears City Sample's own hair, the way City Sample p
   following the body's pose, what 24 grooms as cards cost, whether the far meshes are static or skeletal and how they
   sit on each head, whether the face at level 4 has a material with `HairAttributeMap`. The lines above answer each.
 
+**A groom made in game asks for its pipeline states before it registers (candidate 67).** With the hair copied to
+the PC (gate 65: 6 styles for the men, 5 for the women, 31 bindings found), every run that put a groom on a near
+character raised one handled ensure, about 36 `Error` lines, and failed the gate's "0 error" rule: `PSOPrecache.cpp`,
+`!IsComponentPSOPrecachingEnabled() || bPSOPrecacheCalled`, under `AGTPPedestrian::SetGroom`. The engine's groom
+component only asks for its pipeline states when it is loaded from disk (its `PostLoad`); one made with `NewObject`
+reached `CreateSceneProxy` without having asked. `SetGroom` now calls `PrecachePSOs` on the component once the groom,
+the binding and the cards are set and before `RegisterComponent`, as the engine does itself for a skinned mesh. The
+line `crowd hair: face …` ends with "pipeline states asked for before it registered". **Not proven**: nothing compiled;
+expected at the next gate, no `PSOPrecache` ensure in any run.
+
 **Shoes.** A top, trousers or a skirt and shoes are loaded for everybody (`LoadAny`, the first mesh of the list the
 project has). At gate 55 the man held up at 3 m wears tan leather shoes (`gtarun-aim.jpg`); from 10 m in the video of
 gate 59 the same shoes read as bare feet. For the women nothing shows it: the materials listed at gate 36 had none for
