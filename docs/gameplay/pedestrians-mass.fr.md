@@ -107,6 +107,37 @@ aucun des maillages), et le script ci-dessus liste les maillages de chaussures p
 La foule lointaine (silhouettes beiges au-delà des 24 personnages proches) est un autre sujet : un seul maillage
 provisoire, `CrowdMesh`.
 
+## Le sol sous une personne, et aucun maillage lointain près du joueur (candidat 66)
+
+Vidéo de la porte 62, de 96 à 140 s : des gens courent en l'air à la hauteur des boules des poteaux de feux, l'un se
+tient sur un parasol, d'autres flottent à côté des arbres ; et dans la foule qui fuit certains sont encore des mannequins
+blancs, dont un à 3 m de la caméra.
+
+- **En l'air.** Le sol sous une personne était la première surface rencontrée depuis 4 m au-dessus du sol du joueur : le
+  dessus d'un arbre, d'un parasol ou d'un poteau quand elle passait dessous, gardé jusqu'au regard suivant (toutes les
+  2 s environ). Maintenant (`UGTPCrowdSubsystem::GroundUnder`, `GTPWalk::PickGround`, sans moteur) les surfaces de la
+  ville sont rencontrées un composant après l'autre, depuis la hauteur de la tête (1,5 m) au-dessus de son propre sol,
+  et son sol est la plus haute sur laquelle elle peut monter d'un pas (`GroundStepUp`, 35 cm) : ce qui la surplombe
+  n'est jamais rencontré, un banc ou une poubelle laisse la place au sol qui est dessous. Quand toutes les surfaces sont
+  plus hautes qu'un pas (une rampe montée en courant), la moins haute. Quelqu'un qui vient d'être placé prend la surface
+  la plus proche du sol du joueur, cherchée depuis 4 m au-dessus. Vérifié hors moteur (`check_walk_logic.py`) : 12 cas
+  sur 12 (arbre, poteau de feu, banc, bordure, rampe, cave, parasol au-dessus d'une table).
+- **Mannequins blancs.** Ce ne sont pas des passants restés sans habits : c'est le maillage de la foule lointaine
+  (`CrowdMesh`, un seul maillage figé tiré du mannequin). Les personnages complets vont aux gens les plus proches, 24
+  jusqu'au candidat 65 ; quand plus de gens fuient autour du joueur, les autres étaient dessinés avec ce maillage, si
+  près soient-ils. Maintenant `NearCount` vaut 36 (`-CrowdNear=N` pour mesurer un autre nombre sans build) et aucun
+  maillage lointain n'est dessiné à moins de `StandInMinDistance` (25 m) du joueur : quelqu'un qui y reste sans
+  personnage complet n'est pas dessiné tant qu'aucun n'est libre. Le maillage lointain lui-même ne change pas au-delà :
+  l'habiller est un travail d'assets (les maillages de foule lointaine de City Sample, `Crowd/VAT`), pas fait.
+- **Journal**, toutes les 10 s : `crowd: ground: N people standing more than 1.5 m above the player's ground within 60 m
+  of him now (highest N m); since the start: most at once N, highest N m, a surface above the ground left aside N times`
+  (une bonne passe garde les deux premiers à 0 sur sol plat) et `crowd: bodies: N full characters; people within 40 m of
+  the player without one N now (most N), of whom not drawn because nearer than 25 m N now (most N)` (le dernier « most »
+  dit si 36 suffisent).
+- **Pas prouvé en jeu.** Pas connu : ce que coûtent 12 personnages complets de plus (13,4 ms de p50 de jeu mesurés avec
+  24, pour une limite de 17,38), et si les gens vus noirs dans cette vidéo ne sont qu'à contre-jour (ceux à moins de
+  20 m, soleil derrière la caméra, sont éclairés comme d'habitude).
+
 ## Voitures arrêtées sur un trottoir ou une rue piétonne (`-CrowdAvoidCars=0` pour les traverser comme avant)
 
 Vidéo de la porte 59, de 130 à 180 s : la voiture du joueur est arrêtée dans une rue piétonne et les gens la traversent,
@@ -114,7 +145,8 @@ l'un d'eux monte sur le capot. Deux causes, deux réponses :
 
 - **Le sol sous une personne** était un tracé de visibilité, qui s'arrête sur une voiture : la personne se tenait dessus.
   C'est maintenant un tracé sur les seuls objets statiques (`ECC_WorldStatic`, comme les tracés de sol des voitures), et
-  ce qui dépasse de plus de 40 cm le sol 60 cm derrière la personne n'est pas pris pour du sol (un banc, une jardinière).
+  ce qui dépasse de plus de 40 cm le sol 60 cm derrière la personne n'est pas pris pour du sol (un banc, une jardinière). Depuis
+  le candidat 66 le sol se distingue de ce qui est posé dessus ou le surplombe par la section ci-dessus.
 - **Une voiture sur le chemin se contourne** (`GTPWalk::AvoidBox`, sans moteur) : quatre fois par seconde le sous-système
   liste les véhicules du jeu arrêtés ou roulant à moins de 5 km/h à moins de `CarAvoidDistance` (70 m) du joueur, par la
   boîte de leur carrosserie vue de dessus, et les voitures MassTraffic lentes qui n'ont pas d'acteur. Une personne dont

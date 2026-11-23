@@ -422,6 +422,37 @@ inline void Separate(const FGraph& G, FWalker& A, const FPoint& PosA, const FPoi
 	A.LateralTarget = std::max(-Half, std::min(Half, A.Lateral + Side * S.SeparationNudge));
 }
 
+/**
+ * Which of the surfaces found under a person is the ground he walks on. Heights: the surfaces met from above (cm),
+ * Reference: the ground he stood on (or the player's for somebody just placed), StepUp: what a walking person
+ * climbs in one step. The highest surface he can step onto is his ground: the top of a tree, a parasol, a signal
+ * pole, a bench or a car above it is not. When every surface is higher than a step (stairs or a ramp taken fast),
+ * the least high. Returns the index, -1 without any surface.
+ */
+inline int PickGround(const float* Heights, int Count, float Reference, float StepUp)
+{
+	int Best = -1;
+	for (int I = 0; I < Count; ++I)
+	{
+		if (Heights[I] <= Reference + StepUp && (Best < 0 || Heights[I] > Heights[Best]))
+		{
+			Best = I;
+		}
+	}
+	if (Best >= 0)
+	{
+		return Best;
+	}
+	for (int I = 0; I < Count; ++I)
+	{
+		if (Best < 0 || Heights[I] < Heights[Best])
+		{
+			Best = I;
+		}
+	}
+	return Best;
+}
+
 /** The body of a standing car seen from above: centre, heading (unit), half its length and half its width (cm). */
 struct FCarBox
 {

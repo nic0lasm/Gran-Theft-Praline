@@ -159,22 +159,56 @@ void UGTPCrowdSubsystem::Deinitialize()
 
 float UGTPCrowdSubsystem::GroundAt(const FVector& Where) const
 {
+	// Somebody just placed: the town is flat around the player, so his ground is the surface nearest the player's.
+	return GroundUnder(Where, PlayerGroundZ, 400.f);
+}
+
+float UGTPCrowdSubsystem::GroundUnder(const FVector& Where, float Reference, float Up, bool* bOutUnderSomething) const
+{
+	if (bOutUnderSomething)
+	{
+		*bOutUnderSomething = false;
+	}
 	const UWorld* World = GetWorld();
 	if (!World)
 	{
-		return PlayerGroundZ;
+		return Reference;
 	}
-	FHitResult Hit;
-	const FVector Start(Where.X, Where.Y, PlayerGroundZ + 400.f);
-	const FVector End(Where.X, Where.Y, PlayerGroundZ - 1200.f);
-	FCollisionQueryParams Params(SCENE_QUERY_STAT(GTPCrowdGround), false);
 	// The town only (static objects), as the cars' own ground traces: a visibility trace also stopped on the roof or
-	// the bonnet of a car, and the person walked up onto it (gate of candidate 59, 130 to 180 s of the video).
-	if (World->LineTraceSingleByObjectType(Hit, Start, End, FCollisionObjectQueryParams(ECC_WorldStatic), Params))
+	// the bonnet of a car (gate of candidate 59). And the first surface met from above is not always the ground: the
+	// top of a tree, a parasol or a signal pole was taken for it and people walked in the air at that height (video of
+	// gate 62, 96 to 140 s). So the surfaces are met one component after the other, down to one he can step onto.
+	const FVector Start(Where.X, Where.Y, Reference + Up);
+	const FVector End(Where.X, Where.Y, Reference - 1200.f);
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(GTPCrowdGround), false);
+	const FCollisionObjectQueryParams Town(ECC_WorldStatic);
+	float Heights[4];
+	int32 Count = 0;
+	while (Count < 4)
 	{
-		return Hit.ImpactPoint.Z;
+		FHitResult Hit;
+		if (!World->LineTraceSingleByObjectType(Hit, Start, End, Town, Params))
+		{
+			break;
+		}
+		Heights[Count++] = static_cast<float>(Hit.ImpactPoint.Z);
+		const UPrimitiveComponent* Met = Hit.GetComponent();
+		if (Heights[Count - 1] <= Reference + GroundStepUp || !Met)
+		{
+			break;
+		}
+		Params.AddIgnoredComponent(Met);
 	}
-	return PlayerGroundZ;
+	const int32 Pick = GTPWalk::PickGround(Heights, Count, Reference, GroundStepUp);
+	if (Pick < 0)
+	{
+		return Reference;
+	}
+	if (bOutUnderSomething)
+	{
+		*bOutUnderSomething = Pick > 0;
+	}
+	return Heights[Pick];
 }
 
 bool UGTPCrowdSubsystem::PlaceAroundPlayer(GTPWalk::FWalker& Walker, GTPWalk::FRng& Rng) const
@@ -397,6 +431,13 @@ void UGTPCrowdSubsystem::LookAtCars()
 		UE_LOG(LogGTPCrowd, Log, TEXT("crowd: cars: %d standing or slow within %.0f m of the player; people going round one %d, standing in front of one %d, within the body of one %d; since the start: most within a body at once %d, turned back at one %d, something high not taken for the ground %d times"),
 			StandingCars.Num(), CarAvoidDistance / 100.f, GoingRoundCar, StandingAtCar, InsideCar, MostInsideCar, TurnedBackAtCar, GroundRefusals);
 	}
+	if (bLogNow)
+	{
+		UE_LOG(LogGTPCrowd, Log, TEXT("crowd: ground: %d people standing more than 1.5 m above the player's ground within 60 m of him now (highest %.1f m); since the start: most at once %d, highest %.1f m, a surface above the ground left aside %d times"),
+			HighNow, HighestNow / 100.f, MostHigh, HighestEver / 100.f, UnderSomething);
+		UE_LOG(LogGTPCrowd, Log, TEXT("crowd: bodies: %d full characters; people within %.0f m of the player without one %d now (most %d), of whom not drawn because nearer than %.0f m %d now (most %d)"),
+			NearActors.Num(), NearRadius / 100.f, WithoutBodyNow, MostWithoutBody, StandInMinDistance / 100.f, NotDrawnNow, MostNotDrawn);
+	}
 	if (bLogNow && bAssembled)
 	{
 		UE_LOG(LogGTPCrowd, Log, TEXT("crowd: dressed %d times: groom on the head %d (not made %d), far hair mesh %d, hair painted on the scalp %d, eyebrows painted %d, left bald %d, no head material that takes hair %d; grooms shown now %d (most at once %d); without a top %d, without trousers or a skirt %d, without shoes %d (women %d), without a face %d"),
@@ -466,6 +507,15 @@ void UGTPCrowdSubsystem::ReportCars(int32 Round, int32 Standing, int32 Inside, i
 	GroundRefusals += GroundRefused;
 }
 
+void UGTPCrowdSubsystem::ReportGround(int32 High, float Highest, int32 Under)
+{
+	HighNow = High;
+	MostHigh = FMath::Max(MostHigh, High);
+	HighestNow = Highest;
+	HighestEver = FMath::Max(HighestEver, Highest);
+	UnderSomething += Under;
+}
+
 void UGTPCrowdSubsystem::ReportCrossings(int32 Waiting, int32 Crossing, float LongestWait, int32 GaveUp)
 {
 	WaitingAtKerb = Waiting;
@@ -512,8 +562,11 @@ void UGTPCrowdMoveProcessor::Execute(FMassEntityManager& EntityManager, FMassExe
 	float LongestWait = 0.f;
 	const TArray<GTPWalk::FCarBox>& CarBoxes = Crowd->GetStandingCars();
 	int32 RoundCar = 0, AtCar = 0, InCar = 0, BackAtCar = 0, GroundRefused = 0;
+	int32 High = 0, UnderSomething = 0;
+	float Highest = 0.f;
+	const float PlayerGround = Crowd->GetPlayerGroundZ();
 	Query.ForEachEntityChunk(Context, [this, Crowd, &Graph, &Settings, Player, Recycle, Now, &Waiting, &OnCrossing, &GaveUp, &LongestWait,
-		&CarBoxes, &RoundCar, &AtCar, &InCar, &BackAtCar, &GroundRefused](FMassExecutionContext& Chunk)
+		&CarBoxes, &RoundCar, &AtCar, &InCar, &BackAtCar, &GroundRefused, &High, &UnderSomething, &Highest, PlayerGround](FMassExecutionContext& Chunk)
 	{
 		const float Dt = Chunk.GetDeltaTimeSeconds();
 		const TArrayView<FGTPCrowdWalkerFragment> Walkers = Chunk.GetMutableFragmentView<FGTPCrowdWalkerFragment>();
@@ -633,8 +686,12 @@ void UGTPCrowdMoveProcessor::Execute(FMassEntityManager& EntityManager, FMassExe
 				// New ground height after a long step and, now and then, as the ground changes along the walk. Something
 				// more than 40 cm higher than the ground 60 cm behind him is not ground (a bench, a planter, a parked
 				// car that is part of the town): he does not step up onto it. Stairs and ramps rise less than that.
-				const float Ground = Crowd->GroundAt(W.Location);
-				if (Ground > W.GroundZ + 40.f && Ground > Crowd->GroundAt(W.Location - FVector(D.X, D.Y, 0.f) * 60.f) + 40.f)
+				// The ground is looked for from head height above his own: what hangs higher is never met, and what
+				// stands on the ground under him (a bench, a bin) is left for the ground beneath it (GroundUnder).
+				bool bUnder = false;
+				const float Ground = Crowd->GroundUnder(W.Location, W.GroundZ, 150.f, &bUnder);
+				UnderSomething += bUnder ? 1 : 0;
+				if (Ground > W.GroundZ + 40.f && Ground > Crowd->GroundUnder(W.Location - FVector(D.X, D.Y, 0.f) * 60.f, W.GroundZ, 150.f) + 40.f)
 				{
 					++GroundRefused;
 				}
@@ -643,6 +700,12 @@ void UGTPCrowdMoveProcessor::Execute(FMassEntityManager& EntityManager, FMassExe
 					W.GroundZ = Ground;
 				}
 			}
+			// For the log: somebody standing well above the player's ground near him walks in the air or on something.
+			if (W.GroundZ > PlayerGround + 150.f && FVector::DistSquared2D(W.Location, Player) < FMath::Square(6000.0))
+			{
+				++High;
+				Highest = FMath::Max(Highest, W.GroundZ - PlayerGround);
+			}
 #if WITH_GTP_MASSTRAFFIC
 			Publish(Index, W, FVector(D.X, D.Y, 0.f).GetSafeNormal2D() * W.Speed, R.bWaitingToCross);
 #endif
@@ -650,6 +713,7 @@ void UGTPCrowdMoveProcessor::Execute(FMassEntityManager& EntityManager, FMassExe
 	});
 	Crowd->ReportCrossings(Waiting, OnCrossing, LongestWait, GaveUp);
 	Crowd->ReportCars(RoundCar, AtCar, InCar, BackAtCar, GroundRefused);
+	Crowd->ReportGround(High, Highest, UnderSomething);
 }
 
 UGTPCrowdRepresentationProcessor::UGTPCrowdRepresentationProcessor()
@@ -678,7 +742,11 @@ void UGTPCrowdRepresentationProcessor::Execute(FMassEntityManager& EntityManager
 	}
 	const float YawOffset = Crowd->GetMeshYawOffset();
 	const FVector BaseScale = Crowd->GetBaseScale();
-	Query.ForEachEntityChunk(Context, [Instances, YawOffset, BaseScale](FMassExecutionContext& Chunk)
+	// No stand-in near the player: a still mannequin a few metres from the camera is what the far mesh must never be
+	// (video of gate 62: more people fled round the player than there were full characters).
+	const FVector Player = Crowd->GetPlayerLocation();
+	const double TooNear = FMath::Square(static_cast<double>(Crowd->GetStandInMinDistance()));
+	Query.ForEachEntityChunk(Context, [Instances, YawOffset, BaseScale, Player, TooNear](FMassExecutionContext& Chunk)
 	{
 		const TConstArrayView<FGTPCrowdWalkerFragment> Walkers = Chunk.GetFragmentView<FGTPCrowdWalkerFragment>();
 		const TConstArrayView<FGTPCrowdLookFragment> Looks = Chunk.GetFragmentView<FGTPCrowdLookFragment>();
@@ -690,7 +758,7 @@ void UGTPCrowdRepresentationProcessor::Execute(FMassEntityManager& EntityManager
 			{
 				continue;
 			}
-			const FTransform Transform = L.bNear
+			const FTransform Transform = L.bNear || FVector::DistSquared2D(W.Location, Player) < TooNear
 				? FTransform(FRotator::ZeroRotator, FVector(0.f, 0.f, -100000.f), FVector(0.01f))
 				: FTransform(FRotator(0.f, W.Yaw + YawOffset, 0.f), FVector(W.Location.X, W.Location.Y, W.GroundZ), BaseScale * L.Scale);
 			Instances->UpdateInstanceTransform(L.InstanceIndex, Transform, true, false, true);
@@ -853,6 +921,9 @@ void UGTPCrowdSubsystem::SetupNearActors(UWorld& InWorld)
 	}
 	FActorSpawnParameters Params;
 	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	// -CrowdNear=N: the number of full characters, to measure what they cost without a new build (24 until candidate 65).
+	FParse::Value(FCommandLine::Get(), TEXT("CrowdNear="), NearCount);
+	NearCount = FMath::Clamp(NearCount, 0, 96);
 	for (int32 Slot = 0; Slot < NearCount; ++Slot)
 	{
 		AGTPPedestrian* Actor = InWorld.SpawnActor<AGTPPedestrian>(FVector(0.f, 0.f, -100000.f), FRotator::ZeroRotator, Params);
@@ -1078,6 +1149,16 @@ void UGTPCrowdSubsystem::UpdateNear(float DeltaTime)
 	{
 		Wanted.Add(Candidates[I].Value);
 	}
+	// More people near the player than full characters: those left without one, and those of them too near to be
+	// shown as a stand-in (UGTPCrowdRepresentationProcessor does not draw them).
+	WithoutBodyNow = FMath::Max(0, Candidates.Num() - NearActors.Num());
+	NotDrawnNow = 0;
+	for (int32 I = NearActors.Num(); I < Candidates.Num(); ++I)
+	{
+		NotDrawnNow += Candidates[I].Key < StandInMinDistance ? 1 : 0;
+	}
+	MostWithoutBody = FMath::Max(MostWithoutBody, WithoutBodyNow);
+	MostNotDrawn = FMath::Max(MostNotDrawn, NotDrawnNow);
 	// Release the actors whose person left the closest set, then give free actors to the new ones.
 	for (int32 Slot = 0; Slot < NearActors.Num(); ++Slot)
 	{

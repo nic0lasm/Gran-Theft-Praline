@@ -119,8 +119,22 @@ public:
 	/** Puts the walker on a walkway between the spawn distances from the player; false when none is found. */
 	bool PlaceAroundPlayer(GTPWalk::FWalker& Walker, GTPWalk::FRng& Rng) const;
 
-	/** Ground height at a place (a downward trace; the player's ground height when there is none). */
+	/** Ground height at a place for somebody just placed there: the surface nearest the player's own ground height. */
 	float GroundAt(const FVector& Where) const;
+
+	/**
+	 * Ground height under a person who stood at Reference (cm): the town's surfaces are looked for from Up above it
+	 * downwards, one component after the other, and GTPWalk::PickGround tells the ground from what stands on it or
+	 * hangs over it (a tree, a parasol, a signal pole, a bench). bOutUnderSomething: a surface above was left aside.
+	 */
+	float GroundUnder(const FVector& Where, float Reference, float Up, bool* bOutUnderSomething = nullptr) const;
+
+	float GetPlayerGroundZ() const { return PlayerGroundZ; }
+	float GetGroundStepUp() const { return GroundStepUp; }
+	float GetStandInMinDistance() const { return StandInMinDistance; }
+
+	/** From the move processor, once a frame: people standing well above the player's ground near him, and surfaces left aside. */
+	void ReportGround(int32 High, float Highest, int32 Under);
 
 	/**
 	 * What the cars are to a crossing (an edge of the graph) right now: CrossingHasCarNear when one is about to go over
@@ -180,6 +194,18 @@ protected:
 	UPROPERTY(Config)
 	float CrossingWaitMaxSeconds = 45.f;
 
+	/** What a walking person climbs in one step (cm): a surface higher than that above his ground is not his ground when there is one under it. */
+	UPROPERTY(Config)
+	float GroundStepUp = 35.f;
+
+	/**
+	 * No stand-in (the instanced far mesh) is drawn nearer the player than this (cm): when more people are near him
+	 * than there are full characters (NearCount), those left without one are not drawn rather than shown as a still
+	 * mannequin a few metres from the camera. 0: stand-ins drawn at any distance, as before candidate 66.
+	 */
+	UPROPERTY(Config)
+	float StandInMinDistance = 2500.f;
+
 	/** People walk round the cars standing within this distance of the player (cm); further away nobody sees them walk through one. */
 	UPROPERTY(Config)
 	float CarAvoidDistance = 7000.f;
@@ -216,7 +242,7 @@ protected:
 
 	/** Near people drawn as full characters (the pedestrian actors of the legacy system) and their animations. */
 	UPROPERTY(Config)
-	int32 NearCount = 24;
+	int32 NearCount = 36;
 
 	UPROPERTY(Config)
 	float NearRadius = 4000.f;
@@ -378,6 +404,15 @@ private:
 	int32 MostInsideCar = 0;
 	int32 TurnedBackAtCar = 0;
 	int32 GroundRefusals = 0;
+	int32 HighNow = 0;
+	int32 MostHigh = 0;
+	float HighestNow = 0.f;
+	float HighestEver = 0.f;
+	int32 UnderSomething = 0;
+	int32 WithoutBodyNow = 0;
+	int32 MostWithoutBody = 0;
+	int32 NotDrawnNow = 0;
+	int32 MostNotDrawn = 0;
 	/** Hair found in the project, by sex (0 male, 1 female): baked scalp textures and meshes, by style name. */
 	struct FHairStyle
 	{

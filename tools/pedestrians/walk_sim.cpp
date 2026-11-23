@@ -557,7 +557,37 @@ int main(int Argc, char** Argv)
 	std::printf("edges=%zu nodes=%zu walkers=%d seconds=%.0f visited=%zu walking=%.2f waiting=%.3f max_jump_cm=%.0f teleports=%d flee_ok=%d/%d crossing_breaches=%d\n",
 		G.Edges.size(), G.NodeEdges.size(), Walkers, Seconds, Visited.size(), Walking, WaitTime / TotalTime,
 		MaxJump, Teleports, FleeOk, FleeTrials, Stepped);
-	const bool Pass = Teleports == 0 && Stepped == 0 && Avoiding <= Plain && Avoiding12 <= Plain12 + 0.0005 && PairSpread < 500.0 && Walking > 0.8 && FleeOk >= FleeTrials * 0.9 && PanicMaxGen <= S.PanicMaxGeneration && PanicCaught >= 1 && HeldOk == HeldTrials && GawkTaken > 5 && GawkFacing == GawkTaken && GawkResumed >= GawkTaken * 0.9 && Visited.size() * 2 >= G.Edges.size() && FlowOk && LookOk == LookTrials && WaitOk && CarOk;
+	// The ground under a person among the surfaces met from above (GTPWalk::PickGround), step of 35 cm.
+	struct FGroundCase { const char* What; float Heights[4]; int Count; float Reference; float Expected; };
+	const FGroundCase GroundCases[] = {
+		{"plain street", {2.f}, 1, 0.f, 2.f},
+		{"under a tree", {420.f, 3.f}, 2, 0.f, 3.f},
+		{"under the ball of a signal pole", {310.f, 0.f}, 2, 0.f, 0.f},
+		{"a bench on the walkway", {45.f, 1.f}, 2, 0.f, 1.f},
+		{"a kerb", {17.f}, 1, 0.f, 17.f},
+		{"a low step with the street under it", {17.f, 0.f}, 2, 0.f, 17.f},
+		{"a ramp run up fast", {60.f}, 1, 0.f, 60.f},
+		{"a bench on a ramp run up fast", {105.f, 60.f}, 2, 0.f, 60.f},
+		{"a cellar under the street", {0.f, -300.f}, 2, 0.f, 0.f},
+		{"off the thing he stood on", {0.f}, 1, 300.f, 0.f},
+		{"just placed under a parasol, street 50 cm above the player's", {290.f, 50.f}, 2, 0.f, 50.f},
+		{"a parasol over a table over the street", {260.f, 75.f, 0.f}, 3, 0.f, 0.f},
+	};
+	int GroundOk = 0, GroundTrials = 0;
+	for (const FGroundCase& Case : GroundCases)
+	{
+		const int Pick = PickGround(Case.Heights, Case.Count, Case.Reference, 35.f);
+		const bool Ok = Pick >= 0 && Case.Heights[Pick] == Case.Expected;
+		GroundOk += Ok ? 1 : 0;
+		++GroundTrials;
+		if (!Ok)
+		{
+			std::printf("ground: %s: took %.0f, expected %.0f\n", Case.What, Pick >= 0 ? Case.Heights[Pick] : -9999.f, Case.Expected);
+		}
+	}
+	const bool GroundPass = GroundOk == GroundTrials && PickGround(nullptr, 0, 0.f, 35.f) == -1;
+	std::printf("ground under a person: %d of %d cases right (tree, signal pole, bench, kerb, ramp, cellar, parasol)\n", GroundOk, GroundTrials);
+	const bool Pass = Teleports == 0 && Stepped == 0 && Avoiding <= Plain && Avoiding12 <= Plain12 + 0.0005 && PairSpread < 500.0 && Walking > 0.8 && FleeOk >= FleeTrials * 0.9 && PanicMaxGen <= S.PanicMaxGeneration && PanicCaught >= 1 && HeldOk == HeldTrials && GawkTaken > 5 && GawkFacing == GawkTaken && GawkResumed >= GawkTaken * 0.9 && Visited.size() * 2 >= G.Edges.size() && FlowOk && LookOk == LookTrials && WaitOk && CarOk && GroundPass;
 	std::printf("%s\n", Pass ? "PASS" : "FAIL");
 	return Pass ? 0 : 1;
 }

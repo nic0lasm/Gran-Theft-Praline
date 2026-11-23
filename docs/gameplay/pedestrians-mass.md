@@ -98,6 +98,36 @@ when the project has none of the meshes), and the script above lists the shoe me
 
 The far crowd (beige figures beyond the 24 near characters) is another matter: one stand-in mesh, `CrowdMesh`.
 
+## The ground under a person, and no stand-in near the player (candidate 66)
+
+Video of gate 62, 96 to 140 s: people run in the air at the height of the balls of the signal poles, one stands on a
+parasol, others float beside the trees; and among the fleeing crowd some are still white mannequins, one of them 3 m
+from the camera.
+
+- **In the air.** The ground under a person was the first surface met from 4 m above the player's ground: the top of a
+  tree, a parasol or a signal pole when he passed under one, kept until the next look (about every 2 s). Now
+  (`UGTPCrowdSubsystem::GroundUnder`, `GTPWalk::PickGround`, engine-free) the town's surfaces are met one component
+  after the other, from head height (1.5 m) above his own ground, and his ground is the highest one he can step onto
+  (`GroundStepUp`, 35 cm): what hangs over him is never met, a bench or a bin is left for the ground beneath it. When
+  every surface is higher than a step (a ramp run up fast), the least high. Somebody just placed takes the surface
+  nearest the player's ground, looked for from 4 m above it. Checked offline (`check_walk_logic.py`): 12 cases of 12
+  (tree, signal pole, bench, kerb, ramp, cellar, parasol over a table).
+- **White mannequins.** They are not passers-by left undressed: they are the stand-in of the far crowd
+  (`CrowdMesh`, one still mesh baked from the mannequin). The full characters go to the nearest people, 24 of them
+  until candidate 65; when more people flee round the player, the others were drawn as that stand-in, however near.
+  Now `NearCount` is 36 (`-CrowdNear=N` to measure another number without a build) and no stand-in is drawn within
+  `StandInMinDistance` (25 m) of the player: somebody left without a full character there is not drawn until one is
+  free. The stand-in itself is unchanged beyond that distance: giving it clothes is asset work (City Sample's own far
+  crowd meshes, `Crowd/VAT`), not done.
+- **Log**, every 10 s: `crowd: ground: N people standing more than 1.5 m above the player's ground within 60 m of him
+  now (highest N m); since the start: most at once N, highest N m, a surface above the ground left aside N times` (a
+  good run keeps the first two at 0 on flat ground) and `crowd: bodies: N full characters; people within 40 m of the
+  player without one N now (most N), of whom not drawn because nearer than 25 m N now (most N)` (the last "most" tells
+  whether 36 is enough).
+- **Not proven in the game.** Not known: what 12 more full characters cost (measured 13.4 ms of game p50 with 24
+  against a limit of 17.38), and whether the people seen black in that video are only against the light (those nearer
+  than 20 m, sun behind the camera, are lit as usual).
+
 ## Cars standing on a walkway (`-CrowdAvoidCars=0` to walk through them as before)
 
 Video of gate 59, 130 to 180 s: the player's car stands in a pedestrian street and people walk through it, one of them
@@ -105,7 +135,8 @@ up onto the bonnet. Two causes, two answers:
 
 - **The ground under a person** was a visibility trace, which stops on a car: the person stood on it. It is now a trace on
   the static objects only (`ECC_WorldStatic`, as the cars' own ground traces), and something more than 40 cm higher than
-  the ground 60 cm behind the person is not taken for ground (a bench, a planter).
+  the ground 60 cm behind the person is not taken for ground (a bench, a planter). Since candidate 66 the ground is told
+  from what stands on it or hangs over it by the section above.
 - **A car in the way is walked round** (`GTPWalk::AvoidBox`, engine-free): four times a second the subsystem lists the
   vehicles of the game standing or slower than 5 km/h within `CarAvoidDistance` (70 m) of the player, as the box of
   their body seen from above, and the slow MassTraffic cars that have no such actor. A person whose next 3.5 m go
