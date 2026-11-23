@@ -149,7 +149,10 @@
     "officer without uniform",
     "crowd: ground:",
     "crowd: bodies:",
-    "the body leaves the cars' way"
+    "the body leaves the cars' way",
+    "player pawn after death",
+    "Player pawn: the spawn of",
+    "Couldn't spawn Pawn"
   ],
   "video": {
     "pass": "-GTARun -GTARunEncore",
