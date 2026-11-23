@@ -146,7 +146,9 @@
     "backdrop_meshes",
     "surfaces",
     "police: livery on",
-    "officer without uniform"
+    "officer without uniform",
+    "crowd: ground:",
+    "crowd: bodies:"
   ],
   "video": {
     "pass": "-GTARun -GTARunEncore",
