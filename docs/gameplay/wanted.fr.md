@@ -115,6 +115,8 @@ Aucun de ces matériaux n'est dans Git : `tools/police/unreal/make_police_look.p
 
 Pas compilé et pas vu au moment d'écrire. Pas su : si la peinture d'Epic accepte un décalque, où la bande tombe sur la portière (la place est calculée d'après la boîte du maillage et réglée par `LiveryBand*` dans la config), quels paramètres le script trouvera.
 
+Premier passage sur le PC (23/11) : le matériau de la bande et cinq matériaux bleu marine ont été créés, aucune peinture. Le maillage de la voiture de police n'a qu'un emplacement, `lambert1`, sans matériau : la phrase ci-dessus sur la peinture d'Epic n'est donc pas établie, aucune image lue à ce jour ne montre une voiture de police d'assez près. Le script relève maintenant, pour un tel emplacement, ce que le Blueprint de la voiture y pose et ce que porte le maillage d'Epic dont il est copié (et les maillages squelettiques voisins, au cas où le nôtre serait un substitut). C'est seulement si rien ne dessine l'emplacement, hormis le matériau gris par défaut du moteur, qu'il fabrique une peinture maison, `M_GTP_PolicePlain` : blanche, assombrie à la hauteur des vitres et au bas de la voiture. Un seul emplacement couvre toute la voiture, donc vitres, montants et pneus ne se distinguent que par la hauteur (`GTP_POLICE_GLASS`, `GTP_POLICE_SKIRT`, en parts de la boîte du maillage). Pas lancé et pas vu au moment d'écrire.
+
 ## Interrupteurs
 
 `-PolicePerception=0|1|2` (coupée, perception seule, les deux = défaut), `-PoliceEqs=0` (les policiers balaient de nouveau un cercle fixe), `-Police=0`, `-WantedStars=N`, `-WantedHold`, `-Witnesses=0`.

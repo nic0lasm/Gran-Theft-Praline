@@ -115,6 +115,8 @@ None of these materials is in Git: `tools/police/unreal/make_police_look.py`, ru
 
 Not compiled and not seen at the time of writing. Not known: whether Epic's paint takes a decal, where the band falls on the door (the place is worked out from the mesh's box and set by `LiveryBand*` in the config), which parameters the script will find.
 
+First run on the PC (23/11): the band's material and five navy materials were made, no paint. The police car's mesh has a single slot, `lambert1`, with no material in it, so the sentence above about Epic's own paint is not established: no picture read so far shows a police car closely enough. The script now reports, for such a slot, what the car's Blueprint puts on it and what the mesh of Epic's it was copied from holds (and the skeletal meshes next to it, in case ours is a stand-in). Only when nothing draws the slot but the engine's grey default material does it make a paint of its own, `M_GTP_PolicePlain`: white, darkened at the windows' height and at the bottom of the car. One slot covers the whole car, so glass, pillars and tyres are told apart by height only (`GTP_POLICE_GLASS`, `GTP_POLICE_SKIRT`, shares of the mesh's box). Not run and not seen at the time of writing.
+
 ## Switches
 
 `-PolicePerception=0|1|2` (off, perception only, both = default), `-PoliceEqs=0` (officers sweep a fixed circle again), `-Police=0`, `-WantedStars=N`, `-WantedHold`, `-Witnesses=0`.
