@@ -229,6 +229,9 @@ public:
 	static double TickSeconds;
 	static int32 TickCount;
 
+	/** Ghosts found with their physics or Chaos vehicle on, and switched off again (HoldGhostKinematic), since the start. */
+	static int32 GhostPhysicsCaught;
+
 	/** Length of the obstacle probe ahead (cm). */
 	UPROPERTY(EditAnywhere, Category = "Traffic")
 	float ProbeLength = 4000.f;
@@ -248,6 +251,12 @@ private:
 	 * car's spawn height instead, so no ghost slides along in the air.
 	 */
 	void KeepRideHeightOnWheels(const AGTPVehicle* Vehicle, const TCHAR* When);
+	/**
+	 * A ghost is kinematic: its teleports throw a simulated body (gate 65: a car placed as a ghost, found simulated 2 s
+	 * later, lying, at 87 km/h, 83 m from the player). Physics and the Chaos vehicle off again when found on, said in the
+	 * log with the car's last placement, so a gate names the path that left them on.
+	 */
+	void HoldGhostKinematic(AGTPVehicle* Vehicle, const TCHAR* Where);
 
 	UPROPERTY(Transient)
 	TObjectPtr<AGTPTrafficNetwork> Network;
@@ -679,6 +688,22 @@ protected:
 	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Lights")
 	float SignalDrawDistance = 6000.f;
 
+	/**
+	 * Least distance from a signal head's foot to the centre line of any lane (cm). Right of its own lane, a head can
+	 * stand on another one: a lane of another light group, a bus lane, the next road where two meet at an angle (gate
+	 * 65's video: a van drove through one). Moved further right 50 cm at a time, up to 3 m, else left out.
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Lights")
+	float SignalHeadLaneClearance = 220.f;
+
+	/**
+	 * A street light of the same mesh (the details layer puts one at each traffic_signals node of OpenStreetMap) within
+	 * this distance of a head (cm) and facing the same cars, within 60 degrees: the head's lenses are drawn on that
+	 * light, and its own mesh is not (gate 65's video: three or four lights at a corner). 0: never.
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Lights")
+	float SignalBorrowRadius = 600.f;
+
 private:
 	friend class AGTPPoliceDirector;
 	friend class AGTPFarTraffic;
@@ -763,7 +788,23 @@ private:
 		FVector LensOffset[3] = {FVector::ZeroVector, FVector::ZeroVector, FVector::ZeroVector};
 		/** Foot found on the ground; false while its streamed cell is not loaded yet (retried when seen). */
 		bool bGrounded = false;
+		/** Yaw of its mesh's +X, its front (degrees). */
+		float FacingYaw = 0.f;
+		/** Looked for a street light to draw its lenses on (BorrowStreetLight), once, when first drawn. */
+		bool bLookedForStreetLight = false;
 	};
+	/**
+	 * The street light of the details layer nearest to Head, if one of the same mesh stands within SignalBorrowRadius
+	 * facing the same cars and no other head took it: Head's lenses go on its front, Pole draws nothing. Lens: the lens
+	 * the head shows now (0 red, 1 amber, 2 green).
+	 */
+	void BorrowStreetLight(FSignalHead& Head, UStaticMeshComponent& Lamp, UStaticMeshComponent& Pole, int32 Lens);
+	/** Package folder of the signal head mesh (empty with the stand-in): a street light in it is the same light. */
+	FString SignalHeadFolder;
+	/** Street lights a head took (component unique id << 32 | instance), and how many heads did, or stood by one facing elsewhere. */
+	TSet<uint64> BorrowedStreetLights;
+	int32 SignalHeadsBorrowed = 0;
+	int32 SignalHeadsBesideOther = 0;
 
 	FGTPJunctionTable JunctionTable;
 	FGTPTrafficLights Lights;

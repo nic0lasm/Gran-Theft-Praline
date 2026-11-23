@@ -546,6 +546,17 @@ holds the player: the car's state, can enter, speed, asleep, shown by MassTraffi
 the player is from a door, the car the key would take, pause and move input; then the player is put
 at the door again and the key pressed again, three times at most, and the step fails with that line.
 
+The run-up, since candidate 67 (gate 65's -GTARun pass, as after f9b086d: "three cars and no hit (last: never
+reached it in 12 s)", nothing in the log to say why). The spot 18 m behind the target is refused when the trace down
+meets a car, a person or a body the solver moves (a parked car is not a traffic car: the run-up check does not see
+it), when its ground is more than 60 cm off the ground under the target, or when the player's car's body would stand
+in something there (a box its size from 25 cm above the ground, against what a car collides with). The run-up is
+checked with a box the width of the player's car, no longer a ray along its middle. "attempt N/3" counts the cars set
+aside with no room behind and says why for the first. A target never reached says how: best and last speed, metres
+covered against the run-up to the contact, the closest centres, where the car ended up from the target (behind,
+aside), its heading off the target's axis, simulated or not, up, the target's speed, and what the player's car's body
+would run into within 6 m ahead. A target not found again says what became of it (a ghost, put away, wrecked, how far).
+
 Lines: "GTARun crash: attempt N/3, MassTraffic car ...", then "GTARun step 12: crash ok|fail ...
 [informative, not counted]", with the impact speed, the speed left, how far apart the centres were
 and the target's speed; the picture `gtarun-crash.png` at that moment. The step is in neither count

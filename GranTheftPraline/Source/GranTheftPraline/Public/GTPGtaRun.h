@@ -200,6 +200,8 @@ private:
 		uint64 TargetId = 0;
 		FVector TargetAt = FVector::ZeroVector;
 		FVector TargetForward = FVector::ForwardVector;
+		/** Where the player's car was let go behind it (phase 4 on). */
+		FVector SpotAt = FVector::ZeroVector;
 		float TargetRadius = 0.f;
 		float TargetKmh = 0.f;
 		float OwnHalfLength = 230.f;

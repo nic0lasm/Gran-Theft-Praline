@@ -612,6 +612,19 @@ montrée par MassTraffic, son conducteur, la distance du joueur à une portière
 touche prendrait, la pause et l'entrée de déplacement ; puis le joueur est replacé à la portière et
 la touche pressée de nouveau, trois fois au plus, et l'étape échoue avec cette ligne.
 
+L'élan, depuis le candidat 67 (porte 65, passe -GTARun, comme après f9b086d : « three cars and no hit (last: never
+reached it in 12 s) », rien dans le journal pour dire pourquoi). Le point à 18 m derrière la cible est refusé quand
+le rayon vers le bas touche une voiture, une personne ou un corps que le solveur déplace (une voiture garée n'est pas
+une voiture du trafic : le contrôle de l'élan ne la voit pas), quand son sol est à plus de 60 cm de celui sous la
+cible, ou quand la carrosserie de la voiture du joueur y serait dans quelque chose (une boîte de sa taille, à partir de
+25 cm au-dessus du sol, contre ce qu'une voiture percute). L'élan est contrôlé avec une boîte de la largeur de la
+voiture du joueur, plus avec un rayon en son milieu. « attempt N/3 » compte les voitures écartées faute de place
+derrière et dit pourquoi pour la première. Une cible jamais atteinte dit comment : vitesse maximale et finale, mètres
+parcourus face à l'élan jusqu'au contact, l'écart minimal des centres, où la voiture a fini par rapport à la cible
+(derrière, de côté), son cap par rapport à l'axe de la cible, simulée ou non, sa verticale, la vitesse de la cible, et
+ce que la carrosserie de la voiture du joueur percuterait dans les 6 m devant. Une cible introuvable dit ce qu'elle
+est devenue (fantôme, rangée, épave, à quelle distance).
+
 Lignes : « GTARun crash: attempt N/3, MassTraffic car ... », puis « GTARun step 12: crash ok|fail ...
 [informative, not counted] », avec la vitesse au choc, la vitesse restante, l'écart entre les centres
 et la vitesse de la cible ; l'image `gtarun-crash.png` à cet instant. L'étape n'entre dans aucun

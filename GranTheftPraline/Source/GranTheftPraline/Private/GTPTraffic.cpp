@@ -31,6 +31,7 @@
 #include "Materials/MaterialInterface.h"
 #include "Engine/World.h"
 #include "Engine/OverlapResult.h"
+#include "Components/InstancedStaticMeshComponent.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/GameModeBase.h"
 #include "GameFramework/PlayerController.h"
@@ -405,6 +406,7 @@ void UGTPAIDriverComponent::Start(AGTPTrafficNetwork* InNetwork, int32 Lane, int
 
 double UGTPAIDriverComponent::TickSeconds = 0.0;
 int32 UGTPAIDriverComponent::TickCount = 0;
+int32 UGTPAIDriverComponent::GhostPhysicsCaught = 0;
 
 bool UGTPAIDriverComponent::PlaceGhost(int32 Lane, int32 Point, const FVector& Location, float YawDegrees, float SpeedMs)
 {
@@ -441,6 +443,39 @@ void UGTPAIDriverComponent::KeepRideHeightOnWheels(const AGTPVehicle* Vehicle, c
 	GhostRideHeight = Spawn;
 }
 
+void UGTPAIDriverComponent::HoldGhostKinematic(AGTPVehicle* Vehicle, const TCHAR* Where)
+{
+	USkeletalMeshComponent* Body = Vehicle->GetMesh();
+	UChaosWheeledVehicleMovementComponent* Movement = Cast<UChaosWheeledVehicleMovementComponent>(Vehicle->GetVehicleMovementComponent());
+	const bool bSimulated = Body && Body->IsSimulatingPhysics();
+	const bool bChaosOn = Movement && Movement->IsComponentTickEnabled();
+	if (!bGhost || (!bSimulated && !bChaosOn))
+	{
+		return;
+	}
+	++GhostPhysicsCaught;
+	// The first ones named, with the last placement: which path left a ghost simulated is not known yet.
+	if (GhostPhysicsCaught <= 20)
+	{
+		const UWorld* World = GetWorld();
+		const double Now = World ? World->GetTimeSeconds() : 0.0;
+		const TCHAR* What = bSimulated ? (bChaosOn ? TEXT("its physics and Chaos vehicle") : TEXT("its physics")) : TEXT("its Chaos vehicle");
+		GTP_TRACE(LogGTPTraffic, TEXT("traffic: %s a ghost with %s on (%s, %.1f s after %s, %.0f km/h, up %.2f): off again, %d so far"),
+			*Vehicle->GetName(), What, Where, Now - Vehicle->GetLastPlacedTime(), Vehicle->GetLastPlacedHow(),
+			bSimulated ? Body->GetPhysicsLinearVelocity().Size() * 0.036 : 0.0, Vehicle->GetActorUpVector().Z, GhostPhysicsCaught);
+	}
+	if (bSimulated)
+	{
+		Body->SetPhysicsLinearVelocity(FVector::ZeroVector);
+		Body->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
+		Body->SetSimulatePhysics(false);
+	}
+	if (bChaosOn)
+	{
+		Movement->SetComponentTickEnabled(false);
+	}
+}
+
 void UGTPAIDriverComponent::SetDecisionInterval(float Seconds)
 {
 	Seconds = FMath::Max(0.f, Seconds);
@@ -466,8 +501,17 @@ bool UGTPAIDriverComponent::FindGround(const AGTPVehicle* Vehicle, const FVector
 void UGTPAIDriverComponent::SetGhost(bool bInGhost)
 {
 	AGTPVehicle* Vehicle = Cast<AGTPVehicle>(GetOwner());
-	if (bGhost == bInGhost || !Vehicle)
+	if (!Vehicle)
 	{
+		return;
+	}
+	if (bGhost == bInGhost)
+	{
+		// Placed again (PlaceGhost), made a puppet or put away while a ghost: nothing to switch, physics checked.
+		if (bGhost)
+		{
+			HoldGhostKinematic(Vehicle, TEXT("already a ghost"));
+		}
 		return;
 	}
 	USkeletalMeshComponent* Body = Vehicle->GetMesh();
@@ -854,6 +898,7 @@ void UGTPAIDriverComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 	}
 	if (bGhost)
 	{
+		HoldGhostKinematic(Vehicle, TEXT("sliding"));
 		// Same speed limits as a driven car, then a slide along the path at that speed.
 		int DecideClosest = Closest;
 		const FGTPDriveCommand Command = GTPDrive::Decide(Path, X, Y, Yaw, Speed, LaneSpeed, Obstacle, Settings, DecideClosest);
@@ -2415,6 +2460,32 @@ void AGTPTrafficNetwork::BuildLights()
 		}
 	}
 	int32 Merged = 0;
+	// A street light in the same folder as the head's mesh is the same light (SM_..._A, or its _Merged bake).
+	SignalHeadFolder = Body ? FPaths::GetPath(Body->GetPathName()) : FString();
+	// The heads' feet off every lane centre line (SignalHeadLaneClearance), the lanes near first by their bounds.
+	const double LaneClearance = FMath::Max(0.0, static_cast<double>(SignalHeadLaneClearance));
+	auto IsOffLanes = [this, LaneClearance](const FVector& Spot) -> bool
+	{
+		const FVector Flat(Spot.X, Spot.Y, 0.0);
+		for (int32 L = 0; L < Lanes.Num(); ++L)
+		{
+			if (!LaneBounds.IsValidIndex(L) || !LaneBounds[L].bIsValid || !LaneBounds[L].ExpandBy(LaneClearance).IsInside(FVector2D(Spot.X, Spot.Y)))
+			{
+				continue;
+			}
+			const TArray<FVector>& Line = Lanes[L].Points;
+			for (int32 K = 0; K + 1 < Line.Num(); ++K)
+			{
+				if (FMath::PointDistToSegment(Flat, FVector(Line[K].X, Line[K].Y, 0.0), FVector(Line[K + 1].X, Line[K + 1].Y, 0.0)) < LaneClearance)
+				{
+					return false;
+				}
+			}
+		}
+		return true;
+	};
+	int32 MovedRight = 0;
+	int32 LeftOut = 0;
 	for (int32 Index = 0; Index < Lanes.Num(); ++Index)
 	{
 		if (Lights.GroupOf(Index) < 0 || Lanes[Index].Points.Num() < 2)
@@ -2446,6 +2517,19 @@ void AGTPTrafficNetwork::BuildLights()
 		// Right-hand side of the stop line, 3 m back from the lane end, 2.6 m to the right.
 		const FVector Right(-Dir.Y, Dir.X, 0.f);
 		FVector Foot = Points.Last() - Dir * 300.f + Right * 260.f;
+		// Never on a lane: further right, 50 cm at a time, up to 3 m, else no head for this approach.
+		bool bOffLanes = IsOffLanes(Foot);
+		for (int32 Step = 1; !bOffLanes && Step <= 6; ++Step)
+		{
+			Foot += Right * 50.f;
+			bOffLanes = IsOffLanes(Foot);
+			MovedRight += bOffLanes ? 1 : 0;
+		}
+		if (!bOffLanes)
+		{
+			++LeftOut;
+			continue;
+		}
 		FHitResult Ground;
 		const FVector Top(Foot.X, Foot.Y, Foot.Z + 10000.f);
 		FCollisionQueryParams Params(SCENE_QUERY_STAT(GTPSignalGround), false, this);
@@ -2458,12 +2542,13 @@ void AGTPTrafficNetwork::BuildLights()
 		Head.bGrounded = bGrounded;
 		Head.Lane = Index;
 		Head.Location = Foot;
+		Head.FacingYaw = static_cast<float>(FMath::RadiansToDegrees(FMath::Atan2(-Dir.Y, -Dir.X))) + YawOffset;
 		UStaticMeshComponent* Pole = NewObject<UStaticMeshComponent>(this);
 		UStaticMeshComponent* Lamp = NewObject<UStaticMeshComponent>(this);
 		if (Body)
 		{
 			// Faces the incoming cars: its +X points back up the lane.
-			const FRotator Facing(0.f, FMath::RadiansToDegrees(FMath::Atan2(-Dir.Y, -Dir.X)) + YawOffset, 0.f);
+			const FRotator Facing(0.f, Head.FacingYaw, 0.f);
 			Pole->SetStaticMesh(Body);
 			Pole->SetWorldRotation(Facing);
 			Head.BodyOffset = FVector::ZeroVector;
@@ -2509,7 +2594,74 @@ void AGTPTrafficNetwork::BuildLights()
 		Head.Material = Material;
 		SignalHeads.Add(Head);
 	}
-	GTP_TRACE(LogGTPTraffic, TEXT("traffic lights: %d signal heads, %d inner lanes share the kerb-side head of their approach"), SignalHeads.Num(), Merged);
+	GTP_TRACE(LogGTPTraffic, TEXT("traffic lights: %d signal heads, %d inner lanes share the kerb-side head of their approach, %d moved further right off another lane, %d left out (on a lane up to 3 m further right)"),
+		SignalHeads.Num(), Merged, MovedRight, LeftOut);
+}
+
+void AGTPTrafficNetwork::BorrowStreetLight(FSignalHead& Head, UStaticMeshComponent& Lamp, UStaticMeshComponent& Pole, int32 Lens)
+{
+	if (SignalHeadFolder.IsEmpty() || SignalBorrowRadius <= 0.f)
+	{
+		return;
+	}
+	// The street lights are instances with collision (tools/city/unreal/place_props.py): an overlap gives each one's index.
+	TArray<FOverlapResult> Overlaps;
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(GTPSignalBorrow), false, this);
+	GetWorld()->OverlapMultiByObjectType(Overlaps, Head.Location + FVector(0.f, 0.f, 150.f), FQuat::Identity, FCollisionObjectQueryParams(ECC_WorldStatic),
+		FCollisionShape::MakeSphere(SignalBorrowRadius), Params);
+	const UInstancedStaticMeshComponent* Best = nullptr;
+	FTransform BestAt;
+	uint64 BestKey = 0;
+	double BestDistance = TNumericLimits<double>::Max();
+	bool bBesideOther = false;
+	for (const FOverlapResult& Each : Overlaps)
+	{
+		const UInstancedStaticMeshComponent* Street = Cast<UInstancedStaticMeshComponent>(Each.GetComponent());
+		const UStaticMesh* Mesh = Street ? Street->GetStaticMesh() : nullptr;
+		FTransform At;
+		if (!Mesh || FPaths::GetPath(Mesh->GetPathName()) != SignalHeadFolder || !Street->GetInstanceTransform(Each.ItemIndex, At, true))
+		{
+			continue;
+		}
+		const uint64 Key = (static_cast<uint64>(Street->GetUniqueID()) << 32) | static_cast<uint32>(Each.ItemIndex);
+		// Facing the same cars (its front is +X, as the head's), and not taken by another head.
+		if (FMath::Abs(FRotator::NormalizeAxis(At.Rotator().Yaw - Head.FacingYaw)) > 60.0 || BorrowedStreetLights.Contains(Key))
+		{
+			bBesideOther = true;
+			continue;
+		}
+		const double Distance = FVector::DistSquared2D(At.GetLocation(), Head.Location);
+		if (Distance < BestDistance)
+		{
+			Best = Street;
+			BestAt = At;
+			BestKey = Key;
+			BestDistance = Distance;
+		}
+	}
+	if (!Best)
+	{
+		SignalHeadsBesideOther += bBesideOther ? 1 : 0;
+		return;
+	}
+	BorrowedStreetLights.Add(BestKey);
+	++SignalHeadsBorrowed;
+	const FBox Bounds = Best->GetStaticMesh()->GetBoundingBox();
+	const FVector Was = Head.Location;
+	Head.Location = BestAt.GetLocation();
+	Head.FacingYaw = static_cast<float>(BestAt.Rotator().Yaw);
+	for (int32 Step = 0; Step < 3; ++Step)
+	{
+		// As BuildLights puts them on the head's own mesh, in the street light's frame (its yaw and scale).
+		const FVector Local(Bounds.Max.X + 2.f, Bounds.GetCenter().Y, Bounds.Max.Z - SignalLensBelowTop - SignalLensStep * static_cast<float>(Step));
+		Head.LensOffset[Step] = BestAt.TransformPosition(Local) - Head.Location;
+	}
+	Lamp.SetWorldRotation(FRotator(90.f, Head.FacingYaw, 0.f));
+	Lamp.SetWorldLocation(Head.Location + Head.LensOffset[FMath::Clamp(Lens, 0, 2)]);
+	Pole.SetStaticMesh(nullptr);
+	GTP_TRACE(LogGTPTraffic, TEXT("traffic lights: the head of lane %d drawn on the street light %s %d, %.1f m from its own spot (%d so far, %d beside a light facing other cars)"),
+		Head.Lane, *GetNameSafe(Best->GetOwner()), static_cast<int32>(BestKey & 0xffffffffull), FVector::Dist2D(Was, Head.Location) / 100.0, SignalHeadsBorrowed,
+		SignalHeadsBesideOther);
 }
 
 void AGTPTrafficNetwork::UpdateSignalHeads()
@@ -2549,6 +2701,12 @@ void AGTPTrafficNetwork::UpdateSignalHeads()
 		}
 		// Hidden until grounded: no lamp floating or buried while its cell streams in.
 		const bool bDrawn = bVisible && Head.bGrounded;
+		if (bDrawn && !Head.bLookedForStreetLight)
+		{
+			// Once, now that the cells around it are loaded: the details layer's light there, if any, carries its lenses.
+			Head.bLookedForStreetLight = true;
+			BorrowStreetLight(Head, *Lamp, *Pole, LensOf(Head.Shown));
+		}
 		if (Lamp->IsVisible() != bDrawn)
 		{
 			Lamp->SetVisibility(bDrawn);

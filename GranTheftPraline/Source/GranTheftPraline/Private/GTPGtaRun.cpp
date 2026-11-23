@@ -1594,26 +1594,123 @@ namespace GTPGtaRunCrash
 		TArray<AActor*> Riders;
 		Car.GetAttachedActors(Riders);
 		Params.AddIgnoredActors(Riders);
+		// Its driver too, attached or not: the box of SpotBehind stands where the car is held.
+		if (const ACharacter* Seated = Car.GetDriver())
+		{
+			Params.AddIgnoredActor(Seated);
+		}
 		return Params;
 	}
 
-	/** The run-up's start behind At on its axis, on the ground found there (false: that ground is 1.5 m off the car's). */
-	bool SpotBehind(const UWorld& World, const AGTPVehicle& Car, const FVector& At, const FVector& Forward, FVector& Out)
+	/** Half the length, width and height of the player's car (cm), from its bounds. */
+	FVector BodyExtent(const AGTPVehicle& Car)
+	{
+		const FBox Local = Car.CalculateComponentsBoundingBoxInLocalSpace();
+		if (!Local.IsValid)
+		{
+			return FVector(230.0, 90.0, 70.0);
+		}
+		const FVector Half = Local.GetExtent();
+		return FVector(FMath::Clamp(Half.X, 180.0, 320.0), FMath::Clamp(Half.Y, 70.0, 120.0), FMath::Clamp(Half.Z, 50.0, 100.0));
+	}
+
+	/** How high the player's car's box rides when tested on the run-up: its bottom over the ground, its half height (cm). */
+	constexpr double BoxFloorCm = 25.0;
+	constexpr double BoxHalfHeightCm = 55.0;
+
+	/** Ground under a traffic car standing at At (its actor's height), static things only: not the car itself. */
+	bool GroundUnder(const UWorld& World, const AGTPVehicle& Car, const FVector& At, FHitResult& Out)
+	{
+		return World.LineTraceSingleByObjectType(Out, At + FVector(0.0, 0.0, 100.0), At - FVector(0.0, 0.0, 400.0),
+			FCollisionObjectQueryParams(ECC_WorldStatic), IgnoringCar(Car));
+	}
+
+	/**
+	 * The run-up's start behind At on its axis, on the ground found there. Empty when it is fine, else why not, with what
+	 * was there: that ground 1.5 m off the car's (60 cm off the ground under the car, when found), the trace down on a car,
+	 * a person or a body the solver moves (a parked car is not a traffic car: the check of the run-up did not see it), or
+	 * the player's car's body, standing there, in something (a post, a bench, a person). Gate 65: three cars and no hit,
+	 * the last never reached in 12 s from a spot nothing checked but the height of what the trace met first.
+	 */
+	FString SpotBehind(const UWorld& World, const AGTPVehicle& Car, const FVector& At, const FVector& Forward, FVector& Out)
 	{
 		const FVector Flat = At - Forward * CrashRunUpCm;
+		const FCollisionQueryParams Params = IgnoringCar(Car);
+		FHitResult Under;
+		const bool bUnder = GroundUnder(World, Car, At, Under);
 		FHitResult Hit;
-		if (World.LineTraceSingleByChannel(Hit, Flat + FVector(0.0, 0.0, 300.0), Flat - FVector(0.0, 0.0, 500.0), ECC_Visibility, IgnoringCar(Car)))
+		if (!World.LineTraceSingleByChannel(Hit, Flat + FVector(0.0, 0.0, 300.0), Flat - FVector(0.0, 0.0, 500.0), ECC_Visibility, Params))
 		{
-			if (FMath::Abs(Hit.ImpactPoint.Z - At.Z) > 150.0)
-			{
-				return false;
-			}
-			// As GTPVehicle's launch test: 30 cm above the road, the wheels settle.
-			Out = Hit.ImpactPoint + FVector(0.0, 0.0, 30.0);
-			return true;
+			Out = Flat + FVector(0.0, 0.0, 30.0);
+			return FString();
 		}
-		Out = Flat + FVector(0.0, 0.0, 30.0);
-		return true;
+		// A car, a person, a body the solver moves (the road itself may be static or not: not judged on that).
+		const UPrimitiveComponent* What = Hit.GetComponent();
+		const ECollisionChannel Type = What ? What->GetCollisionObjectType() : ECC_WorldStatic;
+		if (Cast<APawn>(Hit.GetActor()) || Type == ECC_Vehicle || Type == ECC_Pawn || Type == ECC_PhysicsBody || (What && What->IsSimulatingPhysics()))
+		{
+			return FString::Printf(TEXT("the trace down met %s"), *GetNameSafe(Hit.GetActor()));
+		}
+		const double Off = bUnder ? Hit.ImpactPoint.Z - Under.ImpactPoint.Z : Hit.ImpactPoint.Z - At.Z;
+		if (FMath::Abs(Off) > (bUnder ? 60.0 : 150.0))
+		{
+			return FString::Printf(TEXT("ground %.0f cm off the car's (%s)"), Off, *GetNameSafe(Hit.GetActor()));
+		}
+		// As GTPVehicle's launch test: 30 cm above the road, the wheels settle.
+		Out = Hit.ImpactPoint + FVector(0.0, 0.0, 30.0);
+		// The body there, its bottom over the kerbs, against what a car collides with.
+		const FVector Half = BodyExtent(Car);
+		const FVector Centre = Hit.ImpactPoint + FVector(0.0, 0.0, BoxFloorCm + BoxHalfHeightCm);
+		TArray<FOverlapResult> Overlaps;
+		World.OverlapMultiByChannel(Overlaps, Centre, Forward.ToOrientationQuat(), ECC_Vehicle,
+			FCollisionShape::MakeBox(FVector(Half.X, Half.Y, BoxHalfHeightCm)), Params);
+		for (const FOverlapResult& Each : Overlaps)
+		{
+			if (Each.bBlockingHit)
+			{
+				return FString::Printf(TEXT("the car would stand in %s"), *GetNameSafe(Each.GetActor()));
+			}
+		}
+		return FString();
+	}
+
+	/**
+	 * True when the player's car's body would run into something going from From to To (a box its width, from 25 cm over
+	 * the ground: kerbs aside), Out what it met first. FromGround and ToGround are the ground heights at both ends.
+	 */
+	bool SomethingInTheWay(const UWorld& World, const AGTPVehicle& Car, const FVector& From, double FromGround, const FVector& To,
+		double ToGround, FHitResult& Out)
+	{
+		const FVector Half = BodyExtent(Car);
+		const FVector Direction = FVector(To.X - From.X, To.Y - From.Y, 0.0).GetSafeNormal();
+		if (Direction.IsNearlyZero())
+		{
+			return false;
+		}
+		const double Lift = BoxFloorCm + BoxHalfHeightCm;
+		return World.SweepSingleByChannel(Out, FVector(From.X, From.Y, FromGround + Lift), FVector(To.X, To.Y, ToGround + Lift),
+			Direction.ToOrientationQuat(), ECC_Vehicle, FCollisionShape::MakeBox(FVector(20.0, Half.Y, BoxHalfHeightCm)), IgnoringCar(Car));
+	}
+
+	/** What became of a target FindCars no longer gives: a legacy car looked up by its id, a MassTraffic car not. */
+	FString WhatBecameOf(UWorld& World, bool bMass, uint64 Id, const FVector& LastAt)
+	{
+		if (bMass)
+		{
+			return TEXT("recycled, or 25 m away in a frame");
+		}
+		for (const AGTPVehicle* Each : TActorRange<AGTPVehicle>(&World))
+		{
+			if (static_cast<uint64>(Each->GetUniqueID()) != Id)
+			{
+				continue;
+			}
+			const UGTPAIDriverComponent* Driver = Each->FindComponentByClass<UGTPAIDriverComponent>();
+			const TCHAR* State = !Each->HasAIDriver() ? TEXT("no AI driver any more") : Each->IsWrecked() ? TEXT("wrecked")
+				: Each->IsHidden() ? TEXT("hidden, put away") : Driver && Driver->IsGhost() ? TEXT("a ghost") : TEXT("driven");
+			return FString::Printf(TEXT("%s, %s, %.0f m from where it was"), *Each->GetName(), State, FVector::Dist(Each->GetActorLocation(), LastAt) / 100.0);
+		}
+		return TEXT("destroyed");
 	}
 
 	/**
@@ -1697,7 +1794,7 @@ int32 UGTPGtaRun::ChooseCrashTarget(UWorld& World, const AGTPVehicle& Car, FStri
 	int32 NoGround = 0;
 	int32 InTheWay = 0;
 	FString FirstInTheWay = TEXT("none");
-	const FCollisionQueryParams Params = GTPGtaRunCrash::IgnoringCar(Car);
+	FString FirstNoRoom = TEXT("none");
 	for (const FGTPMassTrafficCar& Candidate : Cars)
 	{
 		if (Tested >= 40)
@@ -1732,15 +1829,23 @@ int32 UGTPGtaRun::ChooseCrashTarget(UWorld& World, const AGTPVehicle& Car, FStri
 			continue;
 		}
 		FVector Spot;
-		if (!GTPGtaRunCrash::SpotBehind(World, Car, Candidate.Location, Forward, Spot))
+		const FString NoRoom = GTPGtaRunCrash::SpotBehind(World, Car, Candidate.Location, Forward, Spot);
+		if (!NoRoom.IsEmpty())
 		{
+			if (NoGround == 0)
+			{
+				FirstNoRoom = NoRoom;
+			}
 			++NoGround;
 			continue;
 		}
-		// Nothing standing on the run-up (a wall where the lane bends, a post, a person), up to the car's bumper.
-		const FVector Lift(0.0, 0.0, 80.0);
+		// Nothing standing on the run-up (a wall where the lane bends, a post, a person), up to the car's bumper: a box the
+		// width of the player's car, not a ray along its middle (gate 65: a run-up nothing set aside never reached its car).
+		FHitResult Under;
+		const double TargetGround = GTPGtaRunCrash::GroundUnder(World, Car, Candidate.Location, Under) ? Under.ImpactPoint.Z : Spot.Z - 30.0;
 		FHitResult Hit;
-		bool bInTheWay = World.LineTraceSingleByChannel(Hit, Spot + Lift, Candidate.Location - Forward * (Candidate.RadiusCm + 50.f) + Lift, ECC_Visibility, Params);
+		bool bInTheWay = GTPGtaRunCrash::SomethingInTheWay(World, Car, Spot, Spot.Z - 30.0, Candidate.Location - Forward * (Candidate.RadiusCm + 50.f),
+			TargetGround, Hit);
 		if (bInTheWay)
 		{
 			// The target itself, when MassTraffic shows it with a body (-MassTrafficBodies) or a legacy car: its rear is not in
@@ -1766,13 +1871,13 @@ int32 UGTPGtaRun::ChooseCrashTarget(UWorld& World, const AGTPVehicle& Car, FStri
 		Crash.TargetKmh = Candidate.SpeedCmS * 0.036f;
 		const FBox Local = Car.CalculateComponentsBoundingBoxInLocalSpace();
 		Crash.OwnHalfLength = Local.IsValid ? FMath::Clamp(static_cast<float>(Local.GetExtent().X), 180.f, 320.f) : 230.f;
-		GTP_TRACE(LogGTPGtaRun, TEXT("GTARun crash: attempt %d/3, %s %llu at %s, %.0f km/h, radius %.0f cm, %.0f m from the player's car (own half length %.0f cm); %d car(s) within 300 m, %d stopped; set aside: %d with a car on the run-up, %d with no ground behind, %d with something in the way (first: %s)"),
+		GTP_TRACE(LogGTPGtaRun, TEXT("GTARun crash: attempt %d/3, %s %llu at %s, %.0f km/h, radius %.0f cm, %.0f m from the player's car (own half length %.0f cm); %d car(s) within 300 m, %d stopped; set aside: %d with a car on the run-up, %d with no room behind (first: %s), %d with something in the way (first: %s)"),
 			Crash.Attempts, Kind, Crash.TargetId, *Candidate.Location.ToCompactString(), Crash.TargetKmh, Candidate.RadiusCm, FVector::Dist(Candidate.Location, From) / 100.0,
-			Crash.OwnHalfLength, Cars.Num(), Stopped, CarOnRunUp, NoGround, InTheWay, *FirstInTheWay);
+			Crash.OwnHalfLength, Cars.Num(), Stopped, CarOnRunUp, NoGround, *FirstNoRoom, InTheWay, *FirstInTheWay);
 		return 1;
 	}
-	Why = FString::Printf(TEXT("no %s to drive into for now: %d within 300 m (%d stopped, %d tried already), %d with a car on the run-up, %d with no ground behind, %d with something in the way (first: %s)"),
-		Kind, Cars.Num(), Stopped, TriedBefore, CarOnRunUp, NoGround, InTheWay, *FirstInTheWay);
+	Why = FString::Printf(TEXT("no %s to drive into for now: %d within 300 m (%d stopped, %d tried already), %d with a car on the run-up, %d with no room behind (first: %s), %d with something in the way (first: %s)"),
+		Kind, Cars.Num(), Stopped, TriedBefore, CarOnRunUp, NoGround, *FirstNoRoom, InTheWay, *FirstInTheWay);
 	return 0;
 }
 
@@ -1996,7 +2101,7 @@ bool UGTPGtaRun::TickCrash(float /*DeltaTime*/)
 	else if (Now - Crash.LastSeen > 1.0)
 	{
 		Crash.Verdict = 3;
-		Crash.Note = TEXT("the car was not found again (recycled, or 25 m away in a frame)");
+		Crash.Note = FString::Printf(TEXT("the car was not found again (%s)"), *GTPGtaRunCrash::WhatBecameOf(*World, Crash.bMass, Id, Crash.TargetAt));
 		return true;
 	}
 	FVector Forward;
@@ -2006,10 +2111,11 @@ bool UGTPGtaRun::TickCrash(float /*DeltaTime*/)
 	{
 		// Held behind the target, on its axis, wherever it goes, then given back to the solver.
 		FVector Spot;
-		if (!GTPGtaRunCrash::SpotBehind(*World, *Car, Crash.TargetAt, Forward, Spot))
+		const FString NoRoom = GTPGtaRunCrash::SpotBehind(*World, *Car, Crash.TargetAt, Forward, Spot);
+		if (!NoRoom.IsEmpty())
 		{
 			Crash.Verdict = 3;
-			Crash.Note = TEXT("no ground behind the car any more");
+			Crash.Note = FString::Printf(TEXT("no room behind the car any more: %s"), *NoRoom);
 			return true;
 		}
 		Car->SetActorLocationAndRotation(Spot, Forward.Rotation(), false, nullptr, ETeleportType::TeleportPhysics);
@@ -2027,6 +2133,7 @@ bool UGTPGtaRun::TickCrash(float /*DeltaTime*/)
 		Car->NotePlaced(TEXT("GTARun crash"));
 		Crash.Phase = 4;
 		Crash.DriveStart = Now;
+		Crash.SpotAt = Spot;
 		GTP_TRACE(LogGTPGtaRun, TEXT("GTARun crash: the player's car put %.0f m behind %s %llu at %s, physics back on, full throttle at it"),
 			CrashRunUpCm / 100.f, Crash.bMass ? TEXT("MassTraffic car") : TEXT("legacy traffic car"), Crash.TargetId, *Spot.ToCompactString());
 		return true;
@@ -2091,6 +2198,24 @@ bool UGTPGtaRun::TickCrash(float /*DeltaTime*/)
 	{
 		Crash.Verdict = Verdict;
 		Crash.Note = Note;
+		if (Verdict == 3)
+		{
+			// What held it back (gate 65: "never reached it in 12 s" and nothing else): how far and how fast it went, where
+			// it ended up from the car, how it lay, and what its body would run into ahead of it now.
+			const FVector At = Car->GetActorLocation();
+			const FVector Heading = Car->GetActorForwardVector().GetSafeNormal2D();
+			const double HeadingOff = FMath::RadiansToDegrees(FMath::Acos(FMath::Clamp(FVector::DotProduct(Heading, Forward), -1.0, 1.0)));
+			const USkeletalMeshComponent* Body = Car->GetMesh();
+			FHitResult Under;
+			const double OwnGround = GTPGtaRunCrash::GroundUnder(*World, *Car, At, Under) ? Under.ImpactPoint.Z : At.Z - 40.0;
+			FHitResult Ahead;
+			const FString AheadText = GTPGtaRunCrash::SomethingInTheWay(*World, *Car, At, OwnGround, At + Heading * (Crash.OwnHalfLength + 600.0), OwnGround, Ahead)
+				? FString::Printf(TEXT("%s %.1f m ahead of its centre"), *GetNameSafe(Ahead.GetActor()), Ahead.Distance / 100.0)
+				: FString(TEXT("nothing within 6 m of its bumper"));
+			Crash.Note += FString::Printf(TEXT(": best %.0f km/h, %.0f km/h at the end, %.1f m covered (contact after about %.1f), centres %.1f m apart at the closest, %.1f m behind it and %.1f m aside at the end, heading %.0f deg off its axis, body %s, up %.2f, the car at %.0f km/h; ahead: %s"),
+				Crash.PeakKmh, Kmh, FVector::Dist2D(At, Crash.SpotAt) / 100.0, (CrashRunUpCm - Contact) / 100.f, Crash.ClosestCm / 100.f, -Along / 100.f, Aside / 100.f,
+				HeadingOff, Body && Body->IsSimulatingPhysics() ? TEXT("simulated") : TEXT("kinematic"), Car->GetActorUpVector().Z, Crash.TargetKmh, *AheadText);
+		}
 		Crash.EndAlong = Along;
 		Crash.EndAside = Aside;
 		Crash.EndKmh = Kmh;
