@@ -4,6 +4,7 @@
 #include "Subsystems/WorldSubsystem.h"
 #include "GTPSolarPosition.h"
 #include "GTPCarSignalLogic.h"
+#include "GTPPictureLens.h"
 #include "GTPEnvironmentSubsystem.generated.h"
 
 class AActor;
@@ -215,7 +216,9 @@ struct FGTPLightBudget
  *     GTP_ShopLight, only the nearest MaxLights on, MaxShadowedLights with shadows;
  *   - car headlights and tail lights on the nearest MaxLitCars vehicles (no shadows);
  *   - the parameter collection MPC_Environment read by the materials
- *     (Wetness, Puddles, RainIntensity, CityLights, EmissiveScale, Cloudiness).
+ *     (Wetness, Puddles, RainIntensity, CityLights, EmissiveScale, Cloudiness);
+ *   - the lens of the picture (GTPPictureLens.h, art bible section 9): bloom, vignette, motion
+ *     blur by the camera speed, no lens flare, no chromatic aberration, a little sharpening.
  *
  * Command line: -TimeOfDay=<hours> -Date=YYYY-MM-DD -TimeScale=<x> (0 freezes)
  * -Weather=<preset> -Ambience=<noon|golden|dusk|night|rain|night-rain|fog>
@@ -225,7 +228,8 @@ struct FGTPLightBudget
  * -CloudShadowLF=0|1 (cheap light function cloud shadows)
  * -CloudShadows=0 (no cloud shadows, exposure compensated by NoCloudShadowExposureOffset)
  * -CloudDome=1 (2D cloud dome instead of the volumetric clouds, 0 = never)
- * -DayNight=0 or -NoEnvironment (leave the map lighting untouched).
+ * -DayNight=0 or -NoEnvironment (leave the map lighting untouched)
+ * -Lens=0 (the lens as the map's volume and the engine set it, for an A/B picture).
  * Start line on stdout, Shipping included: "daynight: on | ..." or "daynight: off".
  * Console: gtp.Time, gtp.Date, gtp.TimeScale, gtp.Weather, gtp.EnvStatus.
  */
@@ -298,6 +302,9 @@ private:
 	void ApplySunAndMoon(bool bForce);
 	void ApplyAtmosphere();
 	void ApplyExposure();
+	/** The lens of the art bible on the post-process component; follows the camera speed. */
+	void ApplyLens(float DeltaTime);
+	FGTPLensSettings LensSettings() const;
 	void ApplyParameters();
 	void UpdateNightLights();
 	void UpdateRain();
@@ -517,6 +524,38 @@ private:
 	UPROPERTY(Config)
 	float LightUpdateInterval = 0.2f;
 
+	/** Lens of the picture (GTPPictureLens.h, art bible section 9). bLens=False or -Lens=0 leaves
+	 *  the map's post-process volume and the engine's defaults as they are. */
+	UPROPERTY(Config)
+	bool bLens = true;
+
+	/** Bloom intensity by day and with the city lights on. */
+	UPROPERTY(Config)
+	float LensBloom = 0.3f;
+
+	UPROPERTY(Config)
+	float LensNightBloom = 0.45f;
+
+	UPROPERTY(Config)
+	float LensVignette = 0.2f;
+
+	/** Motion blur amount and its cap in percent of the screen width, on foot and driving fast. */
+	UPROPERTY(Config)
+	float LensMotionBlur = 0.3f;
+
+	UPROPERTY(Config)
+	float LensDrivingMotionBlur = 0.45f;
+
+	UPROPERTY(Config)
+	float LensMotionBlurMaxPercent = 2.f;
+
+	UPROPERTY(Config)
+	float LensDrivingMotionBlurMaxPercent = 3.f;
+
+	/** Tonemapper sharpening (r.Tonemapper.Sharpen); 0 or less leaves the engine's value. */
+	UPROPERTY(Config)
+	float LensSharpen = 0.4f;
+
 	// ---- state ----
 
 	bool bActive = false;
@@ -540,6 +579,12 @@ private:
 	float NightFactor = 0.f;
 	float ExposureTarget = 14.f;
 	FGTPLightBudget Budget;
+
+	/** Lens: on for this run, smoothed camera speed (km/h) and where the camera was the frame before. */
+	bool bLensActive = false;
+	bool bLensHasCamera = false;
+	float LensSpeedKmh = 0.f;
+	FVector LensCameraLocation = FVector::ZeroVector;
 
 	TWeakObjectPtr<UDirectionalLightComponent> Sun;
 	TWeakObjectPtr<UDirectionalLightComponent> MoonLight;

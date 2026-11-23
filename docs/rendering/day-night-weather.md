@@ -51,6 +51,24 @@ White balance 6500 K by day, 5400 K at night (warm without turning sepia).
 Saturation follows the weather (0.8 in the rain). `tools/environment/environment_model.py`
 redoes these computations outside Unreal and the tests check every state against the bible.
 
+### Lens of the picture
+
+The same post-process component carries the lens of the art bible (section 9, a sober photo
+lens): bloom 0.3 by day and 0.45 with the city lights on, vignette 0.2, motion blur 0.3 capped
+at 2 % of the screen width, no lens flare, no chromatic aberration, and a little sharpening in
+the tonemapper (`r.Tonemapper.Sharpen` 0.4) for what the temporal upscaling softens. Before it
+the map's volume gave bloom 0.2 and vignette 0.25, and the motion blur was the engine's own
+(0.5, 5 %): the gate 69 video smeared the trees and the passers-by as soon as the camera turned.
+
+The motion blur follows the camera's own speed, whoever carries it: the walking values up to
+50 km/h, then up to 0.45 and 3 % at 110 km/h ("more marked when driving fast"). A camera moved
+by more than 400 km/h in one frame (respawn, cut) is not counted. The rules are in
+`GTPPictureLens.h`, without engine types, and `tools/environment/picture_lens_test.cpp` holds
+them to the bible's values in CI. Settings: `bLens` and `Lens*` in the
+`GTPEnvironmentSubsystem` section of `DefaultGame.ini`. At start a `picture lens: on | ...`
+line gives the values in use. No colour grading: the bible keeps the engine's filmic tonemapper
+and lets only the white balance move.
+
 ## 4. Night
 
 - **Lights**: `Content/Environment/Data/NightLights.csv`, written by
@@ -163,6 +181,7 @@ Command line: `-TimeOfDay=22 -Date=2027-01-15 -Weather=Rain -TimeScale=0`
 (frozen test ambience, defined in `Ambiences`), `-CloudShadows=0` (no cloud shadows, exposure compensated by
 `NoCloudShadowExposureOffset` EV), `-CloudDome=1` (2D cloud dome instead of the volumetric clouds, 0 = never),
 `-Sky=volumetric|lightfunction|cheap` (sets the three sky switches for A/B), `-CloudShadowLF=0/1` (light function cloud shadow),
+`-Lens=0` (the lens as the map's volume and the engine set it, for an A/B picture),
 `-DayNight=0` or `-NoEnvironment` (switches the system off). At start a `daynight: on | ...` or `daynight: off` line goes to stdout, Shipping included.
 
 Unattended chain: `tools/environment/setup-environment-mac.sh` (non-zero
