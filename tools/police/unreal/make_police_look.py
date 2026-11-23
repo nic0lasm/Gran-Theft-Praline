@@ -21,6 +21,8 @@ drawn with the engine's grey default material, and only then the script makes a 
 /Game/Vehicles/Epic/GTP/Police/M_GTP_PolicePlain, white, with the windows' height and the bottom of the car darkened
 (one slot covers the whole car: glass, pillars and tyres cannot be told apart, only heights can). The heights are
 shares of the mesh's box: GTP_POLICE_GLASS=low,high (default 0.60,0.90) and GTP_POLICE_SKIRT=share (default 0.12).
+GTP_POLICE_MASK=0 makes it white all over. The report gives its pixel shader instructions: 0 means that it did not
+compile (gate 67: cooked like that, it logged LogMaterial errors in the game); it is then made again without the mask.
 
 The colour parameters of Epic's materials are not known in the repository. A parameter is taken when its name is one
 of COLOUR_NAMES, or holds one of COLOUR_WORDS and none of NOT_COLOUR. When a material has none, nothing is made for
@@ -236,11 +238,26 @@ def link(source, target, pin, output=""):
 
 
 def enum_value(enum, ending):
-    """The value of a Python enum whose name ends with `ending` (the names' prefixes are not sure across versions)."""
-    for name in dir(enum):
-        if name.upper() == ending.upper() or name.upper().endswith("_" + ending.upper()):
-            return getattr(enum, name)
-    raise RuntimeError("%s has no value ending with %s" % (enum.__name__, ending))
+    """The value of a Python enum whose name is `ending` after its prefix. Several names can end the same way
+    (..._WORLD, ..._PERIODIC_WORLD, ..._TRANSLATED_WORLD): the shortest is the plain one. Gate 67: the first in
+    alphabetical order was taken, the material read its height from a space that has no way back to the mesh's,
+    did not compile, and the cooked game logged "invalid ShaderMap" when the first police car loaded it."""
+    names = [name for name in dir(enum)
+             if not name.startswith("_") and (name.upper() == ending.upper() or name.upper().endswith("_" + ending.upper()))]
+    if not names:
+        raise RuntimeError("%s has no value ending with %s" % (enum.__name__, ending))
+    name = min(names, key=len)
+    say("  %s: %s taken among %s" % (enum.__name__, name, ", ".join(sorted(names))))
+    return getattr(enum, name)
+
+
+def pixel_instructions(material):
+    """Pixel shader instructions of a material, compiled if need be: 0 when it does not compile. None: not read."""
+    try:
+        return int(mel.get_statistics(material).num_pixel_shader_instructions)
+    except Exception as error:  # noqa: BLE001 (reported)
+        say("  plain paint: shader instructions not read (%r)" % error)
+        return None
 
 
 def height_mask(material):
@@ -306,11 +323,32 @@ def make_plain():
         say("  plain paint: used with skeletal meshes = %s" % material.get_editor_property("used_with_skeletal_mesh"))
     except Exception as error:  # noqa: BLE001 (reported)
         say("  plain paint: skeletal mesh use not read back (%r)" % error)
+    masked = white_paint(material, os.environ.get("GTP_POLICE_MASK", "1").strip() != "0")
+    mel.recompile_material(material)
+    count = pixel_instructions(material)
+    say("  plain paint: %s, %s pixel shader instruction(s)" % (masked, "unread" if count is None else count))
+    if count == 0 and masked.startswith("white, dark"):
+        # A material that does not compile is cooked without shaders, and the game logs errors when it loads it.
+        say("  plain paint: it did NOT COMPILE with the height mask: made again white all over")
+        mel.delete_all_material_expressions(material)
+        masked = white_paint(material, False)
+        mel.recompile_material(material)
+        count = pixel_instructions(material)
+        say("  plain paint: %s, %s pixel shader instruction(s)" % (masked, "unread" if count is None else count))
+    if count == 0:
+        say("  plain paint: STILL NOT COMPILED: do not let the game load it (LiveryPaintFolder in DefaultGame.ini)")
+    say("  plain paint: %s made, %s, saved=%s" % (path, masked, eal.save_loaded_asset(material, False)))
+    return material
+
+
+def white_paint(material, with_mask):
+    """The nodes of the plain paint. Returns what was made, in words."""
     colour = node(material, unreal.MaterialExpressionVectorParameter, -480, -200, parameter_name="Colour", default_value=PAINT)
     rough = node(material, unreal.MaterialExpressionConstant, -480, 0, r=0.32)
     mel.connect_material_property(colour, "", unreal.MaterialProperty.MP_BASE_COLOR)
     mel.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS)
-    masked = "white all over (the height mask failed, see above)"
+    if not with_mask:
+        return "white all over"
     try:
         dark, glass = height_mask(material)
         dark_colour = node(material, unreal.MaterialExpressionVectorParameter, -480, -60, parameter_name="Dark", default_value=DARK)
@@ -326,12 +364,10 @@ def make_plain():
         # Last, so that a failure above leaves the plain white connected.
         mel.connect_material_property(mixed, "", unreal.MaterialProperty.MP_BASE_COLOR)
         mel.connect_material_property(gloss, "", unreal.MaterialProperty.MP_ROUGHNESS)
-        masked = "white, dark at the windows' height and at the bottom"
+        return "white, dark at the windows' height and at the bottom"
     except Exception:  # noqa: BLE001 (reported; the car is then white all over)
         say("  plain paint: height mask FAILED:\n%s" % traceback.format_exc())
-    mel.recompile_material(material)
-    say("  plain paint: %s made, %s, saved=%s" % (path, masked, eal.save_loaded_asset(material, False)))
-    return material
+        return "white all over (the height mask failed, see above)"
 
 
 def make_plain_instance(index, mesh, plain):
