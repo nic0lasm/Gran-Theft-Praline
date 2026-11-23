@@ -57,6 +57,15 @@ protected:
 	UPROPERTY(Config)
 	float CheckInterval = 0.05f;
 
+	/** The impactor's box also covers where it will be this long ahead (s): a wide object (glass
+	 *  container, bench) is tested by its centre, which a car only reaches after its body has hit
+	 *  the static mesh (gate 68: a van at 34 km/h rolled over a glass container). Cars only, 0 = no lead. */
+	UPROPERTY(Config)
+	float LeadSeconds = 0.12f;
+
+	UPROPERTY(Config)
+	float MaxLeadCm = 150.f;
+
 	/** Impactors slower than this are ignored (km/h). */
 	UPROPERTY(Config)
 	float MinImpactorKmh = 3.f;

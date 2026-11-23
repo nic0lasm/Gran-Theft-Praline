@@ -156,8 +156,12 @@ void UGTPBreakableSubsystem::Check()
 		}
 		FVector Origin, Extent;
 		Impactor->GetActorBounds(true, Origin, Extent);
-		const FBox Box = FBox::BuildAABB(Origin, Extent).ExpandBy(20.f);
-		const float Radius = Extent.Size2D() + 60.f;
+		FBox Box = FBox::BuildAABB(Origin, Extent).ExpandBy(20.f);
+		// Cars only (a running player still has to reach a bin), at most MaxLeadCm ahead.
+		const float LeadCm = bCar ? FMath::Min(static_cast<float>(Velocity.Size2D()) * FMath::Max(0.f, LeadSeconds), MaxLeadCm) : 0.f;
+		const FVector Lead = Velocity.GetSafeNormal2D() * LeadCm;
+		Box += Box.ShiftBy(Lead);   // swept ahead: hit before the body touches the static mesh
+		const float Radius = Extent.Size2D() + 60.f + static_cast<float>(Lead.Size());
 		const FVector Direction = Velocity.GetSafeNormal2D();
 
 		for (FGroup& Group : Groups)
