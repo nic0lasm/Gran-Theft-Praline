@@ -452,3 +452,9 @@ The proof is the gate: the editor `-GTARun` and the packaged one running past `G
   the head, which asks for more pitch down) to the -70 limit, and arms held forward looked raised over the head.
 - Not proven: nothing compiles in the cloud; to judge at the next gate with the line above and the
   `GTARun hold-up probe ... camera pitch` lines, and on the video.
+- **No pawn after death (gate 64, `-DemoFreeCar` pass).** After `wasted`, `combat: player respawned at None` and no pawn:
+  the run stalled. Cause not proven (no `Player visual on restart` line, so the engine made no pawn: its spawn refuses a
+  pawn that would overlap something). Now the dead body is removed before the new pawn is made, a refused spawn is
+  tried again moved aside, and if there is still none the player start is used. Lines:
+  `combat: player pawn after death: <pawn> made at the respawn spot` (or `at the player start` or `NONE ...` with the
+  controller's state), and `Player pawn: the spawn of ... was refused` when the engine refused it.

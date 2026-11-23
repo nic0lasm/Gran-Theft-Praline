@@ -129,6 +129,26 @@ void AGTPGameMode::FinishRestartPlayer(AController* NewPlayer, const FRotator& S
 		Pawn && Pawn->ActorHasTag(TEXT("GTPPlayerVisual")) ? TEXT("visual on") : TEXT("NO VISUAL, own mesh"));
 }
 
+APawn* AGTPGameMode::SpawnDefaultPawnAtTransform_Implementation(AController* NewPlayer, const FTransform& SpawnTransform)
+{
+	APawn* Pawn = Super::SpawnDefaultPawnAtTransform_Implementation(NewPlayer, SpawnTransform);
+	if (Pawn)
+	{
+		return Pawn;
+	}
+	// Gate 64, -DemoFreeCar pass: after "wasted" no pawn was made at the player start and the run stalled.
+	UClass* PawnClass = GetDefaultPawnClassForController(NewPlayer);
+	FActorSpawnParameters SpawnInfo;
+	SpawnInfo.Instigator = GetInstigator();
+	SpawnInfo.ObjectFlags |= RF_Transient;
+	SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+	Pawn = PawnClass ? GetWorld()->SpawnActor<APawn>(PawnClass, SpawnTransform, SpawnInfo) : nullptr;
+	UE_LOG(LogGTPGameMode, Warning, TEXT("Player pawn: the spawn of %s at %s was refused (something there); tried again moved aside: %s"),
+		PawnClass ? *PawnClass->GetName() : TEXT("no class"), *SpawnTransform.GetLocation().ToCompactString(),
+		Pawn ? *FString::Printf(TEXT("%s made at %s"), *Pawn->GetName(), *Pawn->GetActorLocation().ToCompactString()) : TEXT("STILL REFUSED"));
+	return Pawn;
+}
+
 /**
  * Points the body blueprint's "Retarget Pose From Mesh" nodes, and the variables bound to their pins, at the
  * pawn's mesh and the retargeter. Returns how many settings it had to change; Seen, when given, gets what the

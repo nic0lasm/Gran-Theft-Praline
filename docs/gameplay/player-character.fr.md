@@ -488,3 +488,9 @@ l'assertion.
   bras tendus devant semblaient levés au-dessus de la tête.
 - Non prouvé : rien ne compile dans le cloud ; à juger à la prochaine porte avec la ligne ci-dessus, les lignes
   `GTARun hold-up probe ... camera pitch` et la vidéo.
+- **Aucun pion après la mort (porte 64, passe `-DemoFreeCar`).** Après `wasted`, `combat: player respawned at None` et
+  aucun pion : le test restait bloqué. Cause non prouvée (pas de ligne `Player visual on restart`, donc le moteur n'a fait
+  aucun pion : il refuse un pion qui chevaucherait quelque chose). Désormais le corps mort est retiré avant de faire le
+  nouveau pion, un refus est retenté en décalant, et s'il n'y a toujours rien, le départ du joueur sert. Lignes :
+  `combat: player pawn after death: <pion> made at the respawn spot` (ou `at the player start`, ou `NONE ...` avec
+  l'état du contrôleur), et `Player pawn: the spawn of ... was refused` quand le moteur l'a refusé.

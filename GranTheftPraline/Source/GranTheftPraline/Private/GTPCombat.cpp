@@ -645,7 +645,7 @@ void UGTPCombatSubsystem::RespawnPlayer()
 	DeadPawn.Reset();
 	EquippedPawn.Reset();
 	PC->UnPossess();
-	GameMode->RestartPlayerAtTransform(PC, Where);
+	// The dead body (and the visual on it) goes first, so that it is not in the way of the new pawn.
 	if (Old)
 	{
 		// The player's visual would stay standing where the player died (only it: the test camera is attached too).
@@ -660,6 +660,17 @@ void UGTPCombatSubsystem::RespawnPlayer()
 		}
 		Old->Destroy();
 	}
+	GameMode->RestartPlayerAtTransform(PC, Where);
+	const bool bAtSpot = PC->GetPawn() != nullptr;
+	if (!bAtSpot)
+	{
+		// Gate 64: refused at the spot, the run stalled with no pawn. The player start, as at the beginning.
+		GameMode->RestartPlayer(PC);
+	}
+	GTP_TRACE(LogGTPCombat, TEXT("combat: player pawn after death: %s"), PC->GetPawn()
+		? *FString::Printf(TEXT("%s made %s"), *PC->GetPawn()->GetName(), bAtSpot ? TEXT("at the respawn spot") : TEXT("at the player start, the respawn spot refused it"))
+		: *FString::Printf(TEXT("NONE, refused at the respawn spot and at the player start (controller state %s, pawn class %s, pending kill %d)"),
+			*PC->GetStateName().ToString(), *GetNameSafe(GameMode->GetDefaultPawnClassForController(PC)), PC->IsPendingKillPending() ? 1 : 0));
 	EquipPlayer();
 	if (APawn* Fresh = PC->GetPawn())
 	{

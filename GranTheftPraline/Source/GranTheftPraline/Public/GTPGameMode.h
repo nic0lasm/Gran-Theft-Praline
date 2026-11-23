@@ -34,6 +34,8 @@ public:
 	virtual void RestartPlayer(AController* NewPlayer) override;
 	/** Every restart path ends here, RestartPlayerAtTransform included (the respawn after death): the visual is put on. */
 	virtual void FinishRestartPlayer(AController* NewPlayer, const FRotator& StartRotation) override;
+	/** The engine's spawn refuses a pawn that would overlap something; then tried again, moved aside if needed (gate 64). */
+	virtual APawn* SpawnDefaultPawnAtTransform_Implementation(AController* NewPlayer, const FTransform& SpawnTransform) override;
 	virtual void StartPlay() override;
 
 protected:
