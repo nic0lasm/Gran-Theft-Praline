@@ -282,6 +282,46 @@ palette dans les plages de la bible. `materials_report.json` donne `facade_tone`
 `GTP_FACADE_TONE=0` rend les couleurs du générateur. Pas encore vu en jeu : la première porte
 qui suit le montrera.
 
+### Fenêtres en retrait dans les murs de fond, et aperçu des façades (ajouté le 23/11/2026)
+
+Les immeubles hors du parcours sont en `M_City_Backdrop` : un polygone plat par mur, la façade
+dessinée par un bloc de HLSL (`BACKDROP_HLSL` dans `apply_city_materials.py`). Des fenêtres
+peintes au nu du mur faisaient lire les rues de la fuite comme des boîtes (vidéo de la porte
+69). Chaque ouverture est maintenant reculée par parallaxe : le rayon de l'œil est suivi
+derrière le plan du mur jusqu'à la profondeur de la menuiserie (18 cm pour une fenêtre, 4 cm
+pour des persiennes fermées, 12 cm pour le vitrage d'une boutique, 25 cm pour une porte
+cochère), et le pixel montre ce qu'il y rencontre, la vitre ou le tableau (sous-face à l'ombre,
+appui à la lumière, jambages entre les deux). Derrière le vitrage d'une boutique, le mur du
+fond est à 3 m, avec des rayonnages, des murs de côté, un sol et un plafond éclairé, et glisse
+avec l'œil. Le glissement s'efface avec le même facteur de distance que le motif, donc rien ne
+scintille au loin. Une dizaine d'opérations de plus par pixel, aucune texture.
+
+`tools/city/facade_preview.py` rend ce même texte HLSL sans Unreal : compilé en C++ avec une
+petite cale (`tools/city/facade_preview/hlsl_shim.h`), une rue vue du trottoir sous un soleil et
+un ciel simples. Une faute de frappe ou un nom non déclaré dans le shader échoue dans la CI
+(`tools/city/tests/test_facade_preview.py`) et non dans l'éditeur du PC de référence, et un
+changement de façade se regarde avant une porte :
+
+```
+python tools/city/facade_preview.py --out facade.ppm [--source <un autre apply_city_materials.py>]
+```
+
+L'aperçu ne montre que la couleur du shader : ni détail scanné, ni éclairage du moteur, ni
+vieillissement. Pas encore vu en jeu.
+
+### Détail d'enduit sur les immeubles colorés (ajouté le 23/11/2026)
+
+Tous les murs prenaient le détail de la pierre de taille, donc un immeuble enduit couleur pêche
+montrait des blocs de pierre. L'entrée `render_ochre` du catalogue a maintenant un secours CC0
+(Poly Haven `yellow_plaster`, un enduit taloché ; seul son détail sert, chaque immeuble garde
+sa couleur), et `gtp_surfaces.shell` choisit entre pierre et enduit d'après la saturation de la
+couleur du bâtiment (`facade_tone.render_share` : pierre sous 0,24, enduit au-dessus de 0,46,
+mélange entre les deux ; les couleurs haussmanniennes, de monument et modernes de la palette
+restent en pierre, les couleurs franches des rues anciennes passent en enduit). Sur le kit, la
+façade enduite le prend comme avant. Sans l'enduit dans le projet, rien ne change.
+`materials_report.json` liste `kit.render` et `shell.render` dans `surfaces.used` quand il y
+est.
+
 ### Chaussées recalées sur les bordures et régénération en une commande
 
 Les axes BD TOPO sont à 0,8 m du milieu de la chaussée (2,2 m au 90e centile) et les voitures

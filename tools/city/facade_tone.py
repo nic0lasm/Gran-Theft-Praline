@@ -46,6 +46,26 @@ def tone(rgb):
     return tuple(c * scale for c in mixed)
 
 
+# Stone or render, read from the generator's colour: the dressed limestone of the Haussmann
+# blocks and monuments is a pale cream, the renders of the older streets are coloured. The
+# shells carry nothing else than that colour, so the scanned wall detail is chosen by its
+# saturation: stone joints under the low bound, trowelled render above the high one, a blend
+# between them. The bounds are wide because the vertex colour may reach the material as the
+# palette's bytes or as their linear value: no stone turns fully to render in either reading.
+RENDER_SATURATION = (0.24, 0.46)
+
+
+def saturation(rgb):
+    top = max(rgb)
+    return (top - min(rgb)) / top if top > 0.0 else 0.0
+
+
+def render_share(rgb):
+    """0 for dressed stone, 1 for a coloured render."""
+    lo, hi = RENDER_SATURATION
+    return min(1.0, max(0.0, (saturation(rgb) - lo) / (hi - lo)))
+
+
 def srgb_to_linear(c):
     return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
 

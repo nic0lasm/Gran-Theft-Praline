@@ -79,6 +79,10 @@
      "painted",
      "plaster",
      "wall"
+    ],
+    [
+     "cc0-facades-20261123",
+     "yellow_plaster"
     ]
    ],
    "exclude": [
@@ -86,7 +90,8 @@
     "decal",
     "stain",
     "gum"
-   ]
+   ],
+   "note": "CC0 fallback (23/11): Poly Haven yellow_plaster, trowelled render, mean albedo 0.20 and roughness 0.97 (measured); only its detail is used, the building keeps its own colour"
   },
   {
    "id": "granite_kerb",
