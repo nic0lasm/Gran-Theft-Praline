@@ -1,0 +1,60 @@
+"""Lyon stone tone of the generated facades (plain Python, no dependency).
+
+The generator gives each building a colour of its typology (procgen.PALETTE): straw yellows, salmon
+pinks and brick oranges at full saturation, some lighter than any wall is. Side by side on a quay
+they read as a row of painted toys (gate 69 video, 0 to 15 s and 40 s), and the photographs of the
+slice show something else: cream limestone on the rue de la Republique and the quays, pale ochre
+and old rose renders on the side streets (art bible 3.1, "a capture that contradicts a field
+photograph is wrong"). The colour is toned in the materials, where the generated tables and the
+map stay as they are:
+
+  hue    pulled towards the cream of the limestone, KEEP of the generator's own hue left, so the
+         buildings still differ, as renders of one town do
+  light  the luminance above KNEE is compressed by SLOPE: no wall lighter than light limestone
+         (art bible 4.2: albedo 150 to 210 in sRGB 8 bits), and the brightest stay the brightest
+
+tone() is the reference; apply_city_materials.py builds the same sums as material nodes
+(lyon_tone) from the constants below, and tools/city/tests/test_facade_tone.py holds both to the
+art bible's ranges. GTP_FACADE_TONE=0 on apply_city_materials leaves the generator's colours.
+"""
+
+LUMA = (0.2126, 0.7152, 0.0722)      # linear Rec. 709
+STONE = (1.10, 1.00, 0.80)           # hue of the cream limestone, before normalisation
+KEEP = 0.5                           # share of the generator's own hue
+KNEE = 0.38                          # linear luminance left untouched below this
+SLOPE = 0.5                          # what is kept of the luminance above the knee
+
+
+def luminance(rgb):
+    return sum(c * k for c, k in zip(rgb, LUMA))
+
+
+def stone_hue():
+    """STONE scaled to a luminance of 1: multiplying it by a luminance keeps that luminance."""
+    n = luminance(STONE)
+    return tuple(c / n for c in STONE)
+
+
+def tone(rgb):
+    """Toned linear RGB of a linear RGB wall colour."""
+    lum = luminance(rgb)
+    if lum <= 0.0:
+        return tuple(rgb)
+    hue = stone_hue()
+    mixed = tuple(lum * h + (c - lum * h) * KEEP for c, h in zip(rgb, hue))
+    scale = (min(lum, KNEE) + max(lum - KNEE, 0.0) * SLOPE) / lum
+    return tuple(c * scale for c in mixed)
+
+
+def srgb_to_linear(c):
+    return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+
+
+def linear_to_srgb(c):
+    c = min(1.0, max(0.0, c))
+    return 12.92 * c if c <= 0.0031308 else 1.055 * c ** (1.0 / 2.4) - 0.055
+
+
+def hex_linear(colour):
+    h = colour.lstrip("#")
+    return tuple(srgb_to_linear(int(h[i:i + 2], 16) / 255.0) for i in (0, 2, 4))

@@ -263,6 +263,25 @@ chaque corniche et appui, dosés par emplacement avec `Weathering` (pierre 1, bo
 roues). Le masque est dessiné sur des texels carrés puis rééchantillonné : les rues gardent
 leur largeur quel que soit le format de la texture.
 
+### Teinte pierre de Lyon des façades (ajouté le 2026-11-23)
+
+Le générateur donne à chaque bâtiment une couleur de sa typologie (`procgen.PALETTE`) : jaunes
+paille, roses saumon et orangés brique à pleine saturation, certains plus clairs qu'aucun mur.
+Côte à côte sur un quai, ils font une rangée de jouets peints (vidéo de la porte 69), alors que
+les photos de référence de la tranche montrent du calcaire crème rue de la République et sur les
+quais, des enduits pâles dans les rues voisines. `tools/city/facade_tone.py` corrige la couleur
+dans les matériaux, donc les tables générées et la map restent telles quelles : la teinte est
+tirée à moitié vers le crème du calcaire (les bâtiments diffèrent encore, comme les enduits
+d'une même ville) et la luminance au-dessus de 0,38 est divisée par deux, si bien qu'aucun mur
+n'est plus clair qu'un calcaire clair (bible artistique 4.2 : 150 à 210 en sRGB 8 bits, 110 à
+200 pour les enduits) et que les plus clairs restent les plus clairs.
+`apply_city_materials.py` construit les mêmes sommes en nœuds de matériau (`lyon_tone`) sur
+les murs de `M_City_Shell` et de `M_City_Backdrop` (pas les toits) et sur la couleur de
+bâtiment de `M_City_Kit` ; `tools/city/tests/test_facade_tone.py` tient chaque couleur de la
+palette dans les plages de la bible. `materials_report.json` donne `facade_tone`.
+`GTP_FACADE_TONE=0` rend les couleurs du générateur. Pas encore vu en jeu : la première porte
+qui suit le montrera.
+
 ### Chaussées recalées sur les bordures et régénération en une commande
 
 Les axes BD TOPO sont à 0,8 m du milieu de la chaussée (2,2 m au 90e centile) et les voitures

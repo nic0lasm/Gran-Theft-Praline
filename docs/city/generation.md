@@ -253,6 +253,23 @@ per-instance custom data 3) and rain streaks under each cornice and sill, scaled
 (repairs, wheel paths). The mask is drawn on square texels and resampled, so streets keep their
 width whatever the texture aspect.
 
+### Lyon stone tone of the facades (added 2026-11-23)
+
+The generator gives each building a colour of its typology (`procgen.PALETTE`): straw yellows,
+salmon pinks and brick oranges at full saturation, some lighter than any wall is. Side by side
+on a quay they read as a row of painted toys (gate 69 video), and the reference photographs of
+the slice show cream limestone on the rue de la République and the quays, pale renders on the
+side streets. `tools/city/facade_tone.py` tones the colour in the materials, so the generated
+tables and the map stay as they are: the hue is pulled halfway to the cream of the limestone
+(the buildings still differ, as the renders of one town do), and the luminance above 0.38 is
+halved, so no wall is lighter than light limestone (art bible 4.2: 150 to 210 in sRGB 8 bits,
+110 to 200 for renders) and the lightest stay the lightest. `apply_city_materials.py` builds
+the same sums as material nodes (`lyon_tone`) on the walls of `M_City_Shell` and
+`M_City_Backdrop` (not the roofs) and on the building colour of `M_City_Kit`;
+`tools/city/tests/test_facade_tone.py` holds every palette colour to the bible's ranges.
+`materials_report.json` gives `facade_tone`. `GTP_FACADE_TONE=0` leaves the generator's
+colours. Not yet seen in game: the first gate after it shows it.
+
 ### Carriageways fitted to the kerbs and one-command regeneration
 
 The BD TOPO centre lines sit 0.8 m off the middle of the carriageway (2.2 m at the 90th
