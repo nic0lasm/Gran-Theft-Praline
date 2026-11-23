@@ -53,6 +53,7 @@ import citylib as cl  # noqa: E402
 import clear_lanes  # noqa: E402
 import generate  # noqa: E402
 import grandlyon  # noqa: E402
+import route_trees  # noqa: E402
 import raster  # noqa: E402
 
 PROPS_ROOT = "/Game/Environment/Props"
@@ -64,9 +65,6 @@ OSM_TYPES = {
 # Free Fab/Megascans street trees (free-assets thread), out of Git under /Game/EuropeanBeech.
 LEAFY_TREES = {"mature": "/Game/EuropeanBeech/Geometry/SimpleWind/SM_EuropeanBeech_Field_01",
                "young": "/Game/EuropeanBeech/Geometry/SimpleWind/SM_EuropeanBeech_Sapling_01"}
-# Route set trees (in the game project, cooked: DefaultGame.ini), M1 rebuilds first, then the pack's own.
-ROUTE_TREES = {"mature": "/Game/BlackAlder/M1/SM_BlackAlder_Field_05_M1|/Game/BlackAlder/Geometry/SimpleWind/SM_BlackAlder_Field_05",
-               "young": "/Game/BlackAlder/M1/SM_BlackAlder_Sapling_06_M1|/Game/BlackAlder/Geometry/SimpleWind/SM_BlackAlder_Sapling_06"}
 TERRACE_TRADES = {"restaurant", "cafe", "bar", "pub", "fast_food", "ice_cream"}
 MIN_GAP_M = 0.6
 TERRACE_OUT_M = 2.6        # table centres in front of the facade
@@ -249,8 +247,7 @@ def main():  # noqa: C901, PLR0915
                 # Route set: the leafy alder itself, not the bare trunk the run-time swap should replace
                 # (gate 65 video: the flight's 1 873 trees stayed bare trunks). place_props.py takes the
                 # first path of the list that exists in the project.
-                rows[-1]["asset_path"] = ROUTE_TREES["young" if young else "mature"]
-                rows[-1]["asset"] = rows[-1]["asset_path"].split("|")[0].rsplit("/", 1)[1]
+                route_trees.plant(rows[-1], "young" if young else "mature")
             elif planted and args.leafy:
                 # same anchor and catalogue id (place_props.py groups by asset path), leafy mesh
                 rows[-1]["asset_path"] = LEAFY_TREES["young" if young else "mature"]

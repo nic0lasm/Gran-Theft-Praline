@@ -9,7 +9,8 @@ quarter_build.py and surfaces_build.py:
   props       props.py --set route --ring 45,600 (needs assets/geo): every surveyed item between
               45 m and 600 m of the street (lamps, benches, bins, bike racks, shelters, hydrants,
               tree grates with their trees, swapped to the leafy alder at run time), written to
-              gen/<focus>/route_placement.csv. --route-csv <file>: use that table instead.
+              gen/<focus>/route_placement.csv. --route-csv <file>: use that table instead (its
+              tree rows, bare trunks in tables made before gate 65, are given the leafy alder).
   backup      copy of the map files to Saved/CityImport/route_map_backup (md5 in the report)
   surfaces    import_surfaces.py with GTP_SURFACES_DIR=<--loose>: the Megascans exports found by
               tools/city/surfaces.json, imported to /Game/Environment/Surfaces/<id>/ (2K)
@@ -43,6 +44,7 @@ import time
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import quarter_build as qb  # noqa: E402
+import route_trees  # noqa: E402
 
 FOCUS = "rue-de-la-republique"
 MAP_DIR = os.path.join(qb.PROJECT_DIR, "Content", "Maps")
@@ -94,8 +96,11 @@ def main():  # noqa: C901
             dest = os.path.join(gen, "route_placement.csv")
             if args.route_csv:
                 os.makedirs(gen, exist_ok=True)
-                shutil.copyfile(args.route_csv, dest)
-                note = "copied from " + args.route_csv
+                if os.path.abspath(args.route_csv) != os.path.abspath(dest):
+                    shutil.copyfile(args.route_csv, dest)
+                note = "from " + args.route_csv
+                # a table made before gate 65's fix still plants bare trunks: leafy alder instead
+                note += ", %d tree rows made leafy" % route_trees.retree_csv(dest)
             else:
                 rc = subprocess.call([sys.executable, os.path.join(HERE, "props.py"), "--name", "presqu-ile",
                                       "--focus", FOCUS, "--set", "route", "--ring", args.ring])
