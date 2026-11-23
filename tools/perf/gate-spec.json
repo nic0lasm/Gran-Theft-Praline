@@ -1,7 +1,7 @@
 {
   "_doc": "What the Windows gate queue checks for this candidate. Edited by the pilot for each candidate; read by the PC queue script. No machine paths here. From candidate 60 the gate judges what the player sees: the default traffic, which is the legacy one (MassTraffic runs only with -Traffic=mass). The 'blocking' criteria are read on the blocking passes; everything under 'informative_mass' is measured and reported on the MassTraffic passes but never fails the gate, and never stops it. Those criteria become blocking again only for switching the default traffic to mass, once a whole gate passes them (ADR-0015).",
-  "candidate": 70,
-  "map_md5": "110acb3fb9da978ebdfcf94147f8e768",
+  "candidate": 71,
+  "map_md5": null,
   "game_p50_max_ms": 17.38,
   "game_p95_max_ms": 50,
   "gtarun_min_ok": 6,
@@ -167,7 +167,8 @@
     "respawned at the player start",
     "Demo chase: -DemoFreeCar",
     "the free car",
-    "carjack ok in"
+    "carjack ok in",
+    "breakables:"
   ],
   "video": {
     "pass": "-GTARun -GTARunEncore",
@@ -196,5 +197,5 @@
     "_note": "Reported, not judged: since gate 61 some GTARun passes drop to about 7 fps 12 to 17 s after 'GTARun done', with no player pawn (cause not proven)."
   },
   "fallback_head_if_compile_fails": null,
-  "_pre_gate_70": "No map step: the map dressed by the preparation of 68 (md5 110acb3f...). Police white paint off by config; police car = the white van; City Sample traffic classes off (not drawn): traffic, the car to steal and the police are Clio, 208 and Kangoo. -DemoFreeCar=Car02 then takes the nearest free car (logged)."
+  "_pre_gate_71": "After the gate of 70 and before this one, editor closed, map backup verified, at this head after its compile: python tools/city/route_dressing.py --only backup,materials,place,street (place reads the leafy route table already on the PC). New map md5 reported (map_md5 null = not checked). Check: 'breakables: N groups' one more group than at 68; materials_report.json surfaces.used holds ground.rough_min. As 70: police white paint off, police car = the white van, City Sample traffic classes off."
 }
