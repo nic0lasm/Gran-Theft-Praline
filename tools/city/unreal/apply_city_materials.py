@@ -333,12 +333,115 @@ def ground_material(tex, extent):
     mel.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS)
     surfaces().ground(mat, s)
     far_ground(mat, g, uv, (x1 - x0, y1 - y0))
+    try:
+        SQUARE_REPORT.update(square_ground(mat, g, wp, xy, s, uv, (x1 - x0, y1 - y0)))
+    except Exception as e:  # noqa: BLE001  the ground stays as it was: a square never stops the step
+        SQUARE_REPORT["error"] = repr(e)
     weather(mat, ("wet", "puddles"))
     g.done()
     return mat
 
 
 FAR_GROUND_FADE_CM = 3000.0
+
+
+def mask_margin(g, uv, size_cm):
+    """How far inside the ground mask a pixel is, in cm along the nearer axis (negative outside)."""
+    off = g.unary(unreal.MaterialExpressionAbs, g.sub(uv, g.const((0.5, 0.5))))
+    inside = g.mul(g.sub(g.const((0.5, 0.5)), off), g.const((float(size_cm[0]), float(size_cm[1]))))
+    return g.op(unreal.MaterialExpressionMin, g.mask(inside, r=True), g.mask(inside, g=True))
+
+
+def pin(mat, prop):
+    """(node, output name) wired to a material pin, (None, "") when nothing is."""
+    return mel.get_material_property_input_node(mat, prop), \
+        mel.get_material_property_input_node_output_name(mat, prop) or ""
+
+
+# Squares drawn from their outline (tools/city/squares.py). Linear albedo.
+SQUARES = os.environ.get("GTP_SQUARES", "1") != "0"
+SQUARE_INSET_CM = 100.0 * float(os.environ.get("GTP_SQUARE_INSET_M", "0"))   # outline taken this far in
+SQUARE_EDGE_CM = 25.0           # the surface comes in over this width
+SQUARE_BORDER_CM = 60.0         # stone border inside the outline
+RED_GRAVEL = (0.33, 0.155, 0.10)   # place Bellecour: red stabilised sand, dry, in the sun
+SQUARE_STONE = (0.24, 0.225, 0.20)  # its pale stone border
+SQUARE_REPORT = {"on": SQUARES, "squares": []}
+
+
+def squares_module():
+    here = os.path.join(REPO, "tools", "city")
+    if here not in sys.path:
+        sys.path.insert(0, here)
+    import squares as sq
+    return sq
+
+
+def square_ground(mat, g, wp, xy, s, uv, size_cm):
+    """Place Bellecour had the pale slabs of any sidewalk and, past the edge of the ground mask,
+    the dark tone of the far view: nothing of its red ground. Each square of landmarks.json with a
+    drawn surface is laid from its outline, in world space, so the extent of the mask does not
+    matter: red stabilised sand, matt, mottled over 3 to 20 m, behind a stone border. A
+    carriageway the mask knows inside the outline stays a carriageway."""
+    info = {"on": SQUARES, "squares": [], "inset_cm": SQUARE_INSET_CM}
+    if not SQUARES:
+        return info
+    sq = squares_module()
+    path = os.path.join(REPO, "assets", "geo", "processed", ZONE, "landmarks.json")
+    rings = []
+    for q in sq.load(path):
+        ring = sq.simplify(q["ring"])
+        rings.append(ring)
+        info["squares"].append({"key": q["key"], "surface": q["surface"], "area_m2": q["area_m2"],
+                                "corners": len(ring), "bounds_cm": [round(v) for v in sq.bounds([ring])]})
+    if not rings:
+        info["skipped"] = "no square with a drawn surface in landmarks.json" if os.path.exists(path) \
+            else "no landmarks.json for the zone"
+        return info
+    col, col_out = pin(mat, unreal.MaterialProperty.MP_BASE_COLOR)
+    if col is None:
+        info["skipped"] = "no base colour to lay the square over"
+        return info
+    custom = g.node(unreal.MaterialExpressionCustom, code=sq.hlsl(rings),
+                    output_type=unreal.CustomMaterialOutputType.CMOT_FLOAT1, description="SquareDistance",
+                    inputs=[custom_input("XY")])
+    g.link(xy, "", custom, "XY")
+    d = g.add(custom, g.const(SQUARE_INSET_CM))               # negative inside the (inset) outline
+    inside = g.unary(unreal.MaterialExpressionSaturate, g.div(d, g.const(-SQUARE_EDGE_CM)))
+    half = 0.5 * SQUARE_BORDER_CM
+    border = g.unary(unreal.MaterialExpressionSaturate, g.sub(
+        g.const(1.0), g.div(g.unary(unreal.MaterialExpressionAbs, g.add(d, g.const(half))), g.const(half))))
+    # the mask is only to be believed inside its extent: past it, its last texels are drawn out
+    known = g.unary(unreal.MaterialExpressionSaturate, g.div(mask_margin(g, uv, size_cm), g.const(100.0)))
+    off_road = g.sub(g.const(1.0), g.mul(g.mask(s, r=True), known))
+    inside, border = g.mul(inside, off_road), g.mul(border, off_road)
+
+    x, y = g.mask(wp, r=True), g.mask(wp, g=True)
+    wide = g.mul(g.unary(unreal.MaterialExpressionSine, g.div(x, g.const(260.0))),
+                 g.unary(unreal.MaterialExpressionSine, g.add(g.div(y, g.const(340.0)), g.const(1.3))))
+    fine = g.mul(g.unary(unreal.MaterialExpressionSine, g.add(g.div(x, g.const(41.0)), g.div(y, g.const(67.0)))),
+                 g.unary(unreal.MaterialExpressionSine, g.sub(g.div(y, g.const(53.0)), g.div(x, g.const(89.0)))))
+    mottle = g.add(g.const(1.0), g.add(g.mul(wide, g.const(0.10)), g.mul(fine, g.const(0.06))))
+    gravel = g.mul(g.const(RED_GRAVEL), mottle)
+
+    def over(base, base_out, layer, alpha):
+        e = g.node(unreal.MaterialExpressionLinearInterpolate)
+        g.link(base, base_out, e, "A")
+        g.link(layer, "", e, "B")
+        g.link(alpha, "", e, "Alpha")
+        return e
+
+    out = over(over(col, col_out, gravel, inside), "", g.const(SQUARE_STONE), border)
+    mel.connect_material_property(out, "", unreal.MaterialProperty.MP_BASE_COLOR)
+    rough, rough_out = pin(mat, unreal.MaterialProperty.MP_ROUGHNESS)
+    if rough is not None:
+        mel.connect_material_property(over(rough, rough_out, g.const(0.95), inside), "",
+                                      unreal.MaterialProperty.MP_ROUGHNESS)
+    nrm, nrm_out = pin(mat, unreal.MaterialProperty.MP_NORMAL)
+    if nrm is not None:     # no slab joints under the sand
+        mel.connect_material_property(over(nrm, nrm_out, g.const((0.0, 0.0, 1.0)), inside), "",
+                                      unreal.MaterialProperty.MP_NORMAL)
+    info["laid"] = len(rings)
+    return info
 
 
 def far_ground(mat, g, uv, size_cm):
@@ -348,23 +451,18 @@ def far_ground(mat, g, uv, size_cm):
     ground now fades, over 30 m, to the one dark tone of the far view (HORIZON_GROUND), matt."""
     if not FAR_GROUND:
         return False
-    col, col_out = mel.get_material_property_input_node(mat, unreal.MaterialProperty.MP_BASE_COLOR), \
-        mel.get_material_property_input_node_output_name(mat, unreal.MaterialProperty.MP_BASE_COLOR) or ""
+    col, col_out = pin(mat, unreal.MaterialProperty.MP_BASE_COLOR)
     if col is None:
         return False
-    # distance inside the mask along each axis, in cm (negative outside)
-    off = g.unary(unreal.MaterialExpressionAbs, g.sub(uv, g.const((0.5, 0.5))))
-    inside = g.mul(g.sub(g.const((0.5, 0.5)), off), g.const((float(size_cm[0]), float(size_cm[1]))))
-    nearest = g.op(unreal.MaterialExpressionMin, g.mask(inside, r=True), g.mask(inside, g=True))
+    nearest = mask_margin(g, uv, size_cm)
     keep = g.unary(unreal.MaterialExpressionSaturate, g.add(g.div(nearest, g.const(FAR_GROUND_FADE_CM)), g.const(1.0)))
     out = g.node(unreal.MaterialExpressionLinearInterpolate)
     g.link(g.const(HORIZON_GROUND), "", out, "A")
     g.link(col, col_out, out, "B")
     g.link(keep, "", out, "Alpha")
     mel.connect_material_property(out, "", unreal.MaterialProperty.MP_BASE_COLOR)
-    rough = mel.get_material_property_input_node(mat, unreal.MaterialProperty.MP_ROUGHNESS)
+    rough, rough_out = pin(mat, unreal.MaterialProperty.MP_ROUGHNESS)
     if rough is not None:
-        rough_out = mel.get_material_property_input_node_output_name(mat, unreal.MaterialProperty.MP_ROUGHNESS) or ""
         r2 = g.node(unreal.MaterialExpressionLinearInterpolate)
         g.link(g.const(0.92), "", r2, "A")
         g.link(rough, rough_out, r2, "B")
@@ -621,6 +719,8 @@ HORIZON_ROOF = (0.16, 0.17, 0.18)          # zinc and slate, seen from the stree
 HORIZON_GROUND = (0.085, 0.085, 0.08)      # roofs, streets and trees a kilometre away, as one tone
 HORIZON_WOOD = (0.055, 0.06, 0.035)        # Fourviere under its trees
 HORIZON_TOWN = (0.21, 0.19, 0.16)          # the Croix-Rousse: walls and tiles, as one tone
+HORIZON_STONE = (0.56, 0.54, 0.49)         # the basilica of Fourviere: white stone
+HORIZON_IRON = (0.05, 0.05, 0.048)         # the metal tower beside it
 HORIZON_PALETTE = ("#D8CDB6", "#D8C3A0", "#E0B48A", "#BDBDB8")   # procgen.PALETTE: stone, renders, modern
 
 
@@ -655,6 +755,8 @@ def horizon_materials():
     names.append(flat_material("M_City_HorizonGround", HORIZON_GROUND, mottle=0.25).get_name())
     names.append(flat_material("M_City_HorizonWood", HORIZON_WOOD, mottle=0.5).get_name())
     names.append(flat_material("M_City_HorizonTown", HORIZON_TOWN, mottle=0.35).get_name())
+    names.append(flat_material("M_City_HorizonStone", HORIZON_STONE, roughness=0.85).get_name())
+    names.append(flat_material("M_City_HorizonIron", HORIZON_IRON, roughness=0.7).get_name())
     return names
 
 
@@ -1245,6 +1347,7 @@ def main():
         report["backdrop_recess"] = "slide" in BACKDROP_HLSL     # openings set back by parallax
         report["far_ground"] = FAR_GROUND
         report["roof_walls"] = ROOF_WALLS
+        report["squares"] = SQUARE_REPORT
         report["horizon_materials"] = horizon_materials()
         if eal.does_directory_exist(ROOT + "/Landmarks/" + CAMEL):
             report["landmark_meshes"] = assign(ROOT + "/Landmarks/" + CAMEL, shell)

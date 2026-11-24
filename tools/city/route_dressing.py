@@ -35,7 +35,7 @@ quarter_build.py and surfaces_build.py:
               volumes (gate 65: the player walked into one, the camera stayed inside, black);
               saves the map. GTP_BACKDROP_COLLISION=0 leaves them as they are
   horizon     place_horizon.py: the far view of tools/city/horizon.py in the folder City/Horizon
-              (a ground to the horizon, far blocks, the Part-Dieu towers, two hills), with the
+              (a ground to the horizon, far blocks, the Part-Dieu towers, two hills, Fourviere), with the
               materials of the materials step; saves the map. GTP_HORIZON=0 takes it out again
   lights      build_night_lights.py: the route lamps light at night too
 

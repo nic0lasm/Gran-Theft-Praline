@@ -368,6 +368,35 @@ bleu sombre sous le ciel, comme une mer. Quatre causes, quatre changements.
 Les positions des collines et des tours sont approximatives exprès (un lointain, jamais un lieu
 où aller). Pas encore vu en jeu.
 
+### Place Bellecour : le sol rouge et Fourvière sur la ligne d'horizon (ajouté le 24/11/2026)
+
+Bellecour est la vitrine de la ville, et rien dans la carte ne le disait : son sol était le
+dallage clair de n'importe quel trottoir (passé le bord du masque de sol, le ton sombre du
+lointain), et la colline derrière ne portait aucun monument.
+
+1. **Le sol rouge.** `landmarks.py` enregistre déjà la place comme donnée (`place-bellecour`,
+   revêtement `red_gravel`, contour OpenStreetMap). `tools/city/squares.py` le lit, ramène le
+   contour à 12 sommets au plus (chacun se paie sur chaque pixel du sol) et écrit le texte
+   d'une distance signée pour un nœud Custom de `M_City_Ground` (`square_ground` dans
+   `apply_city_materials.py`) : sable stabilisé rouge, mat, nuancé sur 3 à 20 m, sans joints de
+   dalles, derrière une bordure de pierre claire de 60 cm. Il est posé en coordonnées du
+   monde, après le sol lointain, donc l'étendue du masque ne compte pas ; une chaussée que le
+   masque connaît à l'intérieur du contour reste une chaussée. Le texte du shader est compilé
+   en C++ dans les tests et comparé à la référence Python. `GTP_SQUARES=0` le coupe,
+   `GTP_SQUARE_INSET_M=<m>` rentre le contour (si le contour OpenStreetMap va jusqu'aux
+   façades) ; `materials_report.json` donne `squares` (surface, sommets, emprise, `laid`). Un
+   échec de cette partie y est noté (`error`) et laisse le sol comme il était.
+2. **Fourvière.** `horizon.py` place maintenant la basilique (nef, abside, quatre tours de
+   48 m, clocher de l'ancienne chapelle) et la tour métallique à côté, à leurs coordonnées
+   réelles, en huit formes du moteur et deux matériaux unis (`M_City_HorizonStone`,
+   `M_City_HorizonIron`). Le dôme de la colline monte à 150 m pour que la terrasse de la
+   basilique, sur son bord est, soit à ses 115 m réels au-dessus de la ville : depuis le côté
+   est de la place elle passe au-dessus d'un toit de 25 m situé à 250 m. `horizon_report.json`
+   donne `monuments` (8 attendus) et `monuments_skipped`.
+
+Pas encore vu en jeu. Le rouge est une couleur unie pour l'instant : une surface scannée pourra
+suivre une fois le contour prouvé sur une image.
+
 ### Chaussées recalées sur les bordures et régénération en une commande
 
 Les axes BD TOPO sont à 0,8 m du milieu de la chaussée (2,2 m au 90e centile) et les voitures

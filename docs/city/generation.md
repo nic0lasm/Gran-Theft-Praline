@@ -350,6 +350,34 @@ sea. Four causes, four changes.
 Positions of the hills and towers are approximate on purpose (a far view, never a place to go).
 Not seen in game yet.
 
+### Place Bellecour: the red ground and Fourvière on the skyline (added 2026-11-24)
+
+Bellecour is the shop window of the town, and nothing in the map said so: its ground was the
+pale slabs of any sidewalk (past the edge of the ground mask, the dark tone of the far view),
+and the hill behind it carried no monument.
+
+1. **The red ground.** `landmarks.py` already records the square as data (`place-bellecour`,
+   surface `red_gravel`, outline from OpenStreetMap). `tools/city/squares.py` reads it, cuts
+   the outline down to at most 12 corners (each one is paid for on every pixel of the ground)
+   and writes the text of a signed distance for a Custom node of `M_City_Ground`
+   (`square_ground` in `apply_city_materials.py`): red stabilised sand, matt, mottled over 3 to
+   20 m, no slab joints, behind a 60 cm pale stone border. It is laid in world space, after the
+   far ground, so the extent of the mask does not matter; a carriageway the mask knows inside
+   the outline stays a carriageway. The shader text is compiled as C++ in the tests and
+   compared with the Python reference. `GTP_SQUARES=0` turns it off, `GTP_SQUARE_INSET_M=<m>`
+   takes the outline in (if the OpenStreetMap outline turns out to run to the fronts);
+   `materials_report.json` gives `squares` (area, corners, bounds, `laid`). A failure in this
+   part is reported there (`error`) and leaves the ground as it was.
+2. **Fourvière.** `horizon.py` now places the basilica (nave, apse, four towers of 48 m, the
+   tower of the old chapel) and the metal tower beside it, from their true coordinates, as eight
+   engine shapes in two flat materials (`M_City_HorizonStone`, `M_City_HorizonIron`). The dome
+   of the hill is raised to 150 m so that the terrace of the basilica, on its east edge, stands
+   at its true 115 m over the town: from the east side of the square it clears a 25 m roof
+   250 m away. `horizon_report.json` gives `monuments` (8 expected) and `monuments_skipped`.
+
+Not seen in game yet. The red is a flat colour for now: a scanned surface can follow once the
+outline is proven on a picture.
+
 ### Carriageways fitted to the kerbs and one-command regeneration
 
 The BD TOPO centre lines sit 0.8 m off the middle of the carriageway (2.2 m at the 90th

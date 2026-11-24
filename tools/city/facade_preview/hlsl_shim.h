@@ -33,6 +33,7 @@ struct float4
 };
 
 inline float2 operator-(float2 a) { return float2(-a.x, -a.y); }
+inline float2 operator-(float2 a, float2 b) { return float2(a.x - b.x, a.y - b.y); }
 inline float2 operator*(float2 a, float s) { return float2(a.x * s, a.y * s); }
 inline float3 operator+(float3 a, float3 b) { return float3(a.x + b.x, a.y + b.y, a.z + b.z); }
 inline float3 operator-(float3 a, float3 b) { return float3(a.x - b.x, a.y - b.y, a.z - b.z); }
@@ -42,6 +43,7 @@ inline float3 operator*(float s, float3 a) { return a * s; }
 
 inline float abs(double v) { return float(std::fabs(v)); }
 inline float floor(double v) { return float(std::floor(v)); }
+inline float sqrt(double v) { return float(std::sqrt(v)); }
 inline float sin(double v) { return float(std::sin(v)); }
 inline float atan2(double a, double b) { return float(std::atan2(a, b)); }
 inline float max(double a, double b) { return float(a > b ? a : b); }

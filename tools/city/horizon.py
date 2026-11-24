@@ -13,8 +13,12 @@ that distance:
            the procedural Lyon facade of the backdrop (apply_city_materials)
   towers   the three towers of the Part-Dieu, east, as plain shafts: the skyline every view
            of Lyon across the Rhone has
-  hills    Fourviere (west, wooded, 125 m) and the Croix-Rousse (north, built, 85 m) as two
+  hills    Fourviere (west, wooded, 150 m) and the Croix-Rousse (north, built, 85 m) as two
            flattened domes; the blocks that fall on them stand on their slopes
+
+  monuments  what a Lyonnais looks for on the skyline, as a few plain shapes: the basilica of
+           Fourviere (nave, four towers, apse, the old chapel's tower) and the metal tower
+           beside it, on the edge of the hill, where they stand over place Bellecour
 
 Positions are in metres on the Unreal axes of the street map (x east, y SOUTH, origin of the
 generated zone); heights are above the street. tools/city/unreal/place_horizon.py places it.
@@ -30,7 +34,8 @@ BACKDROP_M = 600.0             # backdrop.py stops there: nothing of ours any ne
 SKIRT_HALF_M = 30000.0
 # name, centre x, centre y, half-size x, half-size y, top above the street, wooded
 HILLS = (
-    ("Fourviere", -1250.0, 50.0, 560.0, 1350.0, 125.0, True),
+    # 150 m at the top so that the terrace of the basilica, on its east edge, is at its true 115 m
+    ("Fourviere", -1250.0, 50.0, 620.0, 1350.0, 150.0, True),
     ("CroixRousse", -50.0, -2150.0, 1150.0, 820.0, 85.0, False),
 )
 # x, y, width, depth, top: Part-Dieu, about 1.6 km east of the rue de la Republique
@@ -41,6 +46,23 @@ TOWERS = (
     (1600.0, 420.0, 45.0, 30.0, 82.0),
     (1450.0, 180.0, 50.0, 26.0, 64.0),
 )
+# Fourviere, from the coordinates of the two monuments (WGS84) against the place de la Republique
+# of the map: within some 30 m, on a view from 800 m and more.
+BASILICA_XY = (-853.0, 29.0)
+BASILICA_YAW = 12.0            # the nave is turned a little from east; the apse looks over the town
+IRON_TOWER_XY = (-892.0, -138.0)
+# shape, along the nave, across it, width, depth, height, material (metres; a cylinder's width is its diameter)
+BASILICA_PARTS = (
+    ("Cube", 0.0, 0.0, 78.0, 30.0, 31.0, "stone"),          # nave
+    ("Cylinder", 39.0, 0.0, 24.0, 24.0, 27.0, "stone"),     # apse, town side
+    ("Cylinder", 33.0, -17.0, 9.0, 9.0, 48.0, "stone"),     # the four towers
+    ("Cylinder", 33.0, 17.0, 9.0, 9.0, 48.0, "stone"),
+    ("Cylinder", -35.0, -17.0, 9.0, 9.0, 48.0, "stone"),
+    ("Cylinder", -35.0, 17.0, 9.0, 9.0, 48.0, "stone"),
+    ("Cube", 22.0, 40.0, 8.0, 8.0, 33.0, "stone"),          # tower of the old chapel, south
+)
+IRON_TOWER = ("Cone", 0.0, 0.0, 15.0, 15.0, 86.0, "iron")
+MONUMENT_FOOT_M = 8.0          # how far a monument goes into the hill under it
 COLOURS = 4                    # block colours built by apply_city_materials (horizon_colours)
 TOWER_COLOUR = 3               # the grey of the modern typology
 WOODED_KEEP = 0.35             # share of the blocks kept on a wooded hill
@@ -86,8 +108,28 @@ def row_points(distance, pitch):
     return out
 
 
+def monuments():
+    """The skyline's monuments as plain shapes: [{"name", "shape", "x", "y", "yaw", "width", "depth",
+    "ground", "top", "material"}], ground and top above the street."""
+    out = []
+    a = math.radians(BASILICA_YAW)
+    for (cx, cy), yaw, parts, name in ((BASILICA_XY, BASILICA_YAW, BASILICA_PARTS, "Basilica"),
+                                       (IRON_TOWER_XY, 0.0, (IRON_TOWER,), "IronTower")):
+        ground, _ = hill_at(cx, cy)               # one level for the whole monument: it stands on a terrace
+        for i, (shape, along, across, width, depth, height, material) in enumerate(parts):
+            if yaw:
+                dx, dy = along * math.cos(a) - across * math.sin(a), along * math.sin(a) + across * math.cos(a)
+            else:
+                dx, dy = along, across
+            out.append({"name": "%s_%d" % (name, i), "shape": shape, "x": round(cx + dx, 1), "y": round(cy + dy, 1),
+                        "yaw": yaw, "width": width, "depth": depth, "ground": round(ground, 1),
+                        "top": round(ground + height, 1), "material": material})
+    return out
+
+
 def layout(seed=7):
-    """The whole far view: {"skirt": {...}, "hills": [...], "blocks": [...]}, the same for a seed."""
+    """The whole far view: {"skirt": {...}, "hills": [...], "blocks": [...], "monuments": [...]}, the
+    same for a seed."""
     rng = random.Random(seed)
     blocks = []
     for row, distance in enumerate(ROWS_M):
@@ -112,4 +154,4 @@ def layout(seed=7):
                        "top": top, "colour": TOWER_COLOUR, "kind": "tower"})
     hills = [{"name": name, "x": cx, "y": cy, "half_x": rx, "half_y": ry, "top": top, "wooded": wooded}
              for name, cx, cy, rx, ry, top, wooded in HILLS]
-    return {"skirt": {"half": SKIRT_HALF_M}, "hills": hills, "blocks": blocks}
+    return {"skirt": {"half": SKIRT_HALF_M}, "hills": hills, "blocks": blocks, "monuments": monuments()}

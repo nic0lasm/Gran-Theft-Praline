@@ -57,6 +57,28 @@ class HorizonTests(unittest.TestCase):
         self.assertTrue(all(t["x"] > 1300.0 for t in towers))
         self.assertGreater(max(t["top"] for t in towers), 150.0)
 
+    def test_fourviere_stands_on_the_skyline_seen_from_bellecour(self):
+        parts = self.plan["monuments"]
+        basilica = [m for m in parts if m["name"].startswith("Basilica")]
+        tower = [m for m in parts if m["name"].startswith("IronTower")]
+        self.assertEqual(len(tower), 1)
+        self.assertEqual(sum(1 for m in basilica if abs(m["top"] - m["ground"] - 48.0) < 0.2), 4)    # the four towers
+        for m in parts:
+            self.assertIn(m["shape"], ("Cube", "Cylinder", "Cone"))
+            self.assertIn(m["material"], ("stone", "iron"))
+            self.assertGreater(horizon.axis_distance(m["x"], m["y"]), horizon.BACKDROP_M)
+            self.assertTrue(105.0 <= m["ground"] <= 130.0, m)        # the terrace is about 115 m over the town
+        self.assertGreater(tower[0]["top"], max(m["top"] for m in basilica) + 40.0)
+        # from the east side of place Bellecour, over a roof of 25 m standing 250 m away
+        eye_x, eye_y, roof = -20.0, 530.0, 25.0 / 250.0
+        nave = basilica[0]
+        away = math.hypot(nave["x"] - eye_x, nave["y"] - eye_y)
+        self.assertGreater(nave["ground"] / away, roof)
+        # and no far block hides it: none stands higher between the square and the basilica
+        for b in self.plan["blocks"]:
+            if math.hypot(b["x"] - nave["x"], b["y"] - nave["y"]) < 150.0:
+                self.assertLess(b["top"], nave["top"], b)
+
     def test_the_ground_reaches_the_real_horizon(self):
         # eyes 2 m above the street: the horizon is 5 km away; from a roof at 30 m, 20 km
         self.assertGreaterEqual(self.plan["skirt"]["half"], 20000.0)

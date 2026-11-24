@@ -4,8 +4,9 @@ Gate 76 video, 60 s: from the quay the far bank ended on a dark blue band under 
 sea, and the far volumes stood alone on it. This step puts in the map, in the outliner folder
 City/Horizon: a ground to the real horizon, 1 m under the lowest terrain; the rows of far
 blocks and the towers of the Part-Dieu, with the procedural Lyon facade (M_City_Horizon_<n>,
-built by apply_city_materials.py: run the materials step first); the two hills. Engine basic
-shapes only (cube, plane, sphere): no mesh to import, about 240 actors of 12 triangles that the
+built by apply_city_materials.py: run the materials step first); the two hills; the basilica
+of Fourviere and its metal tower, on the edge of the hill. Engine basic shapes only (cube,
+plane, sphere, cylinder, cone): no mesh to import, about 250 actors of a few triangles that the
 renderer batches by material. No collision, no shadow, not in the ray tracing scene.
 
 Idempotent: the folder is emptied first. GTP_HORIZON=0 empties it and places nothing (undo).
@@ -35,6 +36,7 @@ SEED = int(os.environ.get("GTP_HORIZON_SEED", "7"))
 FALLBACK_BASE_CM = -1500.0     # when the map has no terrain actor to measure
 BELOW_TERRAIN_CM = 100.0
 HILL_FOOT_M = 6.0              # a block on a slope goes this far into the hill
+MONUMENT_MATERIALS = {"stone": "M_City_HorizonStone", "iron": "M_City_HorizonIron"}
 
 eal = unreal.EditorAssetLibrary
 
@@ -54,7 +56,8 @@ def quiet(comp, report):
 
 def main():  # noqa: C901
     t0 = time.time()
-    report = {"map": MAP, "errors": [], "removed": 0, "blocks": 0, "towers": 0, "hills": 0, "skirt": 0}
+    report = {"map": MAP, "errors": [], "removed": 0, "blocks": 0, "towers": 0, "hills": 0, "skirt": 0,
+              "monuments": 0}
     try:
         level_sub = unreal.get_editor_subsystem(unreal.LevelEditorSubsystem)
         actor_sub = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
@@ -89,6 +92,12 @@ def main():  # noqa: C901
         if missing:
             report["errors"].append("missing (run the materials step first): " + ", ".join(missing))
             raise StopIteration
+        # The monuments are a later addition: a project whose materials step is older, or an engine
+        # without these two shapes, still gets the rest of the far view.
+        for n in ("Cylinder", "Cone"):
+            shapes[n] = eal.load_asset("/Engine/BasicShapes/" + n)
+        for n in MONUMENT_MATERIALS.values():
+            mats[n] = eal.load_asset(MAT_DIR + "/" + n) if eal.does_asset_exist(MAT_DIR + "/" + n) else None
 
         def place(shape, label, loc_cm, scale, mat, yaw=0.0):
             a = actor_sub.spawn_actor_from_class(unreal.StaticMeshActor, unreal.Vector(*loc_cm),
@@ -124,6 +133,16 @@ def main():  # noqa: C901
                   (b["x"] * 100.0, b["y"] * 100.0, 0.5 * (foot + top)),
                   (b["width"], b["depth"], (top - foot) / 100.0), "M_City_Horizon_%d" % b["colour"], b["yaw"])
             report["towers" if b["kind"] == "tower" else "blocks"] += 1
+        for m in plan["monuments"]:
+            mat = MONUMENT_MATERIALS[m["material"]]
+            if shapes.get(m["shape"]) is None or mats.get(mat) is None:
+                report.setdefault("monuments_skipped", []).append(m["name"])
+                continue
+            foot = (m["ground"] - horizon.MONUMENT_FOOT_M) * 100.0
+            top = m["top"] * 100.0
+            place(m["shape"], "Horizon_" + m["name"], (m["x"] * 100.0, m["y"] * 100.0, 0.5 * (foot + top)),
+                  (m["width"], m["depth"], (top - foot) / 100.0), mat, m["yaw"])
+            report["monuments"] += 1
         level_sub.save_current_level()
     except StopIteration:
         pass
