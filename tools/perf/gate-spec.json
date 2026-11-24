@@ -20,8 +20,8 @@
   "informative_passes": [
     "mass -MassTrafficPicture",
     "gtarun -Traffic=mass",
-    "gtarun -DPCVars=r.RayTracing.Geometry.SkeletalMeshes=0",
-    "gtarun -DPCVars=r.Lumen.HardwareRayTracing=0"
+    "gtarun -GTPNoSkinRT -DPCVars=r.RayTracing.Geometry.SkeletalMeshes=0",
+    "gtarun -GTPSoftLumen -DPCVars=r.Lumen.HardwareRayTracing=0"
   ],
   "passes": [
     "mass -MassTrafficPicture",
@@ -35,8 +35,8 @@
     "gtarun",
     "gtarun -DemoFreeCar=Car02",
     "gtarun -Traffic=mass",
-    "gtarun -DPCVars=r.RayTracing.Geometry.SkeletalMeshes=0",
-    "gtarun -DPCVars=r.Lumen.HardwareRayTracing=0",
+    "gtarun -GTPNoSkinRT -DPCVars=r.RayTracing.Geometry.SkeletalMeshes=0",
+    "gtarun -GTPSoftLumen -DPCVars=r.Lumen.HardwareRayTracing=0",
     "launch"
   ],
   "blocking": {
@@ -260,5 +260,5 @@
   "_pre_gate_78": "77 plus Combat 6f428da (C++ only: both cameras pulled in by walls, ground, buildings and cars only, people and small props hidden instead; a squeezed camera rises; the whole player hidden when the camera is in the head; lines 'on-foot camera (10 s)' and 'chase camera (10 s)'). Texture pool 3072 -> 2816 MB on Windows (gate 76: video memory 58 MB over budget). Informative pass 'gtarun -DPCVars=r.Streaming.PoolSize=2560' to see whether a smaller pool lowers the GPU p95 further. Same steps before the gate as 77 (materials, then backup and lanes; both idempotent). Then Réalisme a0859b9: new 'pits' step (one map save with lanes): closed pits of the LiDAR terrain over 1 m deep and 6 to 3000 m2 covered at street height (City/PitCovers, BlockAll); gate 76's player fell into one at 92-115 s. Check pit_cover_report.json covered >= 1 is informative; [PitCover] lines in the report. Lanes step taken OUT (Réalisme 09:16Z: the named actors are facade-kit actors spread over the whole city, so the step cut every module within 1.5 m of a lane, facade holes in narrow streets). The map goes back to its state before prep 77's lanes step. Réalisme 4e8330c: 'facades' step turns back the facade modules facing opposite to 2 or more neighbours of their row (gate 75's white block: ShopClosed_B at (26250, -14825) at yaw -90 among neighbours at 90); 'lanes' names no actor by default and never removes anything in City/Facades or City/Signs. One step: backup,facades,lanes,pits on the map restored to fb26cac9.",
   "_pre_gate_79": "78 plus Image 386130f (lot 3, far view): 'horizon' step puts a ground to the horizon, 229 far blocks, 5 Part-Dieu towers and 2 hills beyond the map (engine basic shapes, no collision, no shadow, out of ray tracing); the backdrop keeps its windows far away; dark ground past the ground mask. Gate 76 at 60 s: the quay looked out on a blue band like a sea. Steps: materials, then backup,facades,lanes,pits,horizon (all idempotent, one map save). Undo: GTP_HORIZON=0 on horizon, GTP_FAR_GROUND=0 on materials, or the map backup.",
   "_pre_gate_80": "Same as 79 (abandoned: built on 78 85a3e96, which failed to compile, C4459 PersonRadius in the unity build), now on 78 f2e65fe. Réalisme 0998ff1: a facade module is turned back only with 3 votes or more (prep 78 turned 8 small Blank faces on 2 votes); facade_flip_report gains a 'watch' list around (26250, -14825). Map restored to fb26cac9 before the steps. Window glass NameError fixed (dda197f).",
-  "_pre_gate_81": "80 plus two informative GTARun passes on video memory: gate 78's long take showed 'Video memory has been exhausted' from 175 s (up to 607 MB over budget) with the texture pool at 2816 MB, so the pool is not the main cause (2560 changed nothing clear at 78). Skinned meshes out of the ray tracing scene, then software Lumen: compare GPU p95/p99 and the share of frames under 33 ms with the plain gtarun pass. Steps before the gate: same as 80 on the map left by prep 80 (all idempotent), no map restore."
+  "_pre_gate_81": "80 plus two informative GTARun passes on video memory: gate 78's long take showed 'Video memory has been exhausted' from 175 s (up to 607 MB over budget) with the texture pool at 2816 MB, so the pool is not the main cause (2560 changed nothing clear at 78). Skinned meshes out of the ray tracing scene, then software Lumen: compare GPU p95/p99 and the share of frames under 33 ms with the plain gtarun pass. Steps before the gate: same as 80 on the map left by prep 80 (all idempotent), no map restore. The -GTPNoSkinRT and -GTPSoftLumen switches do nothing in the game; they only give the two passes different names."
 }
