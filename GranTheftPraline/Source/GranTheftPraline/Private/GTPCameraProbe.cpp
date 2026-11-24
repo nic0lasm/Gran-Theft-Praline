@@ -10,7 +10,7 @@
 namespace
 {
 	/** Under this bounds radius (cm) a pawn's part is a person's, not a car's. */
-	constexpr float PersonRadius = 150.f;
+	constexpr float CameraPersonRadius = 150.f;
 
 	/** A person, or a prop small enough to see past (its whole bounds under SmallRadius). Cars and walls are not. */
 	bool IsSeeThrough(const UPrimitiveComponent* Component, float SmallRadius)
@@ -21,7 +21,7 @@ namespace
 		}
 		const AActor* Owner = Component->GetOwner();
 		const bool bOnPawn = Owner && (Owner->IsA<APawn>() || (Owner->GetAttachParentActor() && Owner->GetAttachParentActor()->IsA<APawn>()));
-		return Component->Bounds.SphereRadius < (bOnPawn ? PersonRadius : SmallRadius);
+		return Component->Bounds.SphereRadius < (bOnPawn ? CameraPersonRadius : SmallRadius);
 	}
 
 	FCollisionQueryParams MakeParams(const TArray<const AActor*>& Ignored)
@@ -107,7 +107,7 @@ int32 FGTPCameraOccluders::Update(UWorld* World, const FVector& Camera, const FV
 			{
 				continue;
 			}
-			const bool bCar = Owner->IsA<APawn>() && Component->Bounds.SphereRadius >= PersonRadius;
+			const bool bCar = Owner->IsA<APawn>() && Component->Bounds.SphereRadius >= CameraPersonRadius;
 			if (Owner->IsA<APawn>() && !bCar)
 			{
 				// A person: every visible part of it (body, clothes, the visual attached to it).
