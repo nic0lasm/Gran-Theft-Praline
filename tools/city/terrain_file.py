@@ -81,25 +81,62 @@ def same_tiles(boxes, map_boxes, tol_cm=5.0):
     return True
 
 
-def grid(tiles, step_cm=None):
+ON_GRID_CM = 3          # a corner this close to a line of the lattice is on it
+ON_GRID_SHARE = 0.95    # the lattice is the widest one that carries this share of the corners
+
+
+def _lattice(counts, share=ON_GRID_SHARE):
+    """(step, first, last) of the lines most corners sit on, from {coordinate: corners}. The widest gap
+    between two neighbouring coordinates that still carries `share` of the corners: a few corners
+    off the lattice (256 of 123 104 on the tiles of gate 83) halved the smallest gap, left three
+    cells in four empty and hid every pit."""
+    xs = sorted(counts)
+    total = sum(counts.values())
+    gaps = sorted({b - a for a, b in zip(xs, xs[1:]) if b - a > 1}, reverse=True)
+    for step in gaps:
+        by_rest = {}
+        for x, n in counts.items():
+            by_rest[x % step] = by_rest.get(x % step, 0) + n
+        rest = max(by_rest, key=by_rest.get)
+        on = sum(n for r, n in by_rest.items()
+                 if min((r - rest) % step, (rest - r) % step) <= ON_GRID_CM)
+        if on >= share * total:
+            on_it = [x for x in xs if min((x - rest) % step, (rest - x) % step) <= ON_GRID_CM]
+            return float(step), on_it[0], on_it[-1]
+    return 0.0, 0, 0
+
+
+def grid(tiles, step_cm=None, stats=None):
     """(z, x0, y0, step_cm): z[r][c] is the height at (x0 + c * step, y0 + r * step), None where no
-    tile has a corner. The step is the smallest gap between two columns of corners."""
-    cells = {}
+    tile has a corner. The step is that of the lattice nearly every corner sits on (_lattice);
+    corners off it are left out and counted in stats["off_grid"] when a dict is given."""
+    cells, nx, ny = {}, {}, {}
     for _, pts in tiles:
         for x, y, z in pts:
-            cells[(int(round(x)), int(round(y)))] = z
+            k = (int(round(x)), int(round(y)))
+            if k not in cells:
+                nx[k[0]] = nx.get(k[0], 0) + 1
+                ny[k[1]] = ny.get(k[1], 0) + 1
+            cells[k] = z
     if not cells:
         return [], 0.0, 0.0, 0.0
-    xs = sorted({k[0] for k in cells})
-    ys = sorted({k[1] for k in cells})
+    sx, x0, x1 = _lattice(nx)
+    sy, y0, y1 = _lattice(ny)
     if step_cm is None:
-        gaps = [b - a for a, b in zip(xs, xs[1:]) if b - a > 1] + [b - a for a, b in zip(ys, ys[1:]) if b - a > 1]
-        if not gaps:
-            return [], 0.0, 0.0, 0.0
-        step_cm = float(min(gaps))
-    x0, y0 = xs[0], ys[0]
-    cols, rows = int(round((xs[-1] - x0) / step_cm)) + 1, int(round((ys[-1] - y0) / step_cm)) + 1
+        step_cm = max(sx, sy) if min(sx, sy) > 0 else 0.0
+    if step_cm <= 0:
+        return [], 0.0, 0.0, 0.0
+    cols, rows = int(round((x1 - x0) / step_cm)) + 1, int(round((y1 - y0) / step_cm)) + 1
     z = [[None] * cols for _ in range(rows)]
+    off = 0
     for (x, y), h in cells.items():
-        z[int(round((y - y0) / step_cm))][int(round((x - x0) / step_cm))] = h
+        c, r = (x - x0) / step_cm, (y - y0) / step_cm
+        ci, ri = int(round(c)), int(round(r))
+        if (abs(c - ci) * step_cm > ON_GRID_CM or abs(r - ri) * step_cm > ON_GRID_CM
+                or not (0 <= ci < cols and 0 <= ri < rows)):
+            off += 1
+            continue
+        z[ri][ci] = h
+    if stats is not None:
+        stats["off_grid"] = off
     return z, float(x0), float(y0), step_cm

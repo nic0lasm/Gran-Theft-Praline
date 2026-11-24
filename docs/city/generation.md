@@ -420,7 +420,11 @@ far bank, the Rhône paved like a sidewalk. At 50 s the stolen car rolled into a
    terrain tiles (`tools/city/terrain_file.py`: from `terrain/terrain.glb`, kept only if its
    tiles have the boxes of the map's, else from the tile meshes), covers every closed pit with
    lids that reach the dry corners round it, and fails when no height is read. On the cached
-   terrain: 68 pits, 258 lids, under a second.
+   terrain: 68 pits, 258 lids, under a second. At gate 83 the tiles of the map carried corners
+   off the 4 m lattice (256 heights more than it holds): the smallest gap gave a 2 m grid three quarters empty, where every cell
+   drains, and the step read 123 104 heights and found no pit. The step is now that of the
+   lattice 95 % of the corners sit on (`terrain_file.grid`), the others are counted (`off_grid`),
+   and a grid more than a fifth empty is an error.
 
 `materials_report.json` gives `far_mask` (`texture`, `read_past_the_mask`, `rivers`, `laid`);
 `pit_cover_report.json` gives `heights_from`, `cells_read`, `covered`. Not seen in game yet.
@@ -439,8 +443,13 @@ and 5-7 m. The rows across place Bellecour take the open-grown `Field_02`, broug
 8 m clear of the driven line. A machine without the pack keeps the alders; `GTP_ROUTE_MAPLES=0`
 too. `horizon_report.json` gives `route_maples` (`swapped`, `missing`, `trees`) and, under
 `square_settings`, `tree_mesh`. The lanes step knows a maple for a tree (its trunk counts, not
-its crown). The street trees swapped at run time (`GTPStreetTrees`) are still alders. Not seen
-in game yet.
+its crown). The street trees swapped at run time (`GTPStreetTrees`) are still alders.
+
+Seen in the packaged game at gate 83 (long take, 10-30 s): the swap ran (1 870 trees) and the
+leaves are drawn, but "Forest" means forest-grown, a thin pole with a few leaves at its top, and
+a quay lined with poles reads as bare stems. The swap is therefore **off by default**
+(`GTP_ROUTE_MAPLES=1` turns it on) and the route keeps the alders of the base map, Bellecour's
+rows too, until a maple has been looked at in a picture before being planted.
 
 ### Carriageways fitted to the kerbs and one-command regeneration
 

@@ -73,6 +73,18 @@ class TerrainFileTests(unittest.TestCase):
         self.assertEqual(boxes[0], (3600.0, 1200.0, 6000.0, 2000.0))
         self.assertEqual((min(b[1] for b in boxes), max(b[3] for b in boxes)), (1200.0, 2800.0))
 
+    def test_corners_off_the_lattice_do_not_halve_the_step(self):
+        # the tiles of the map at gate 83: 256 corners half a step off made a 2 m grid three
+        # quarters empty, where every cell drains and no pit is found
+        stray = [(200.0 + 400.0 * i, 200.0, 80.0) for i in range(8)] + [(13000.0, 600.0, 80.0)]
+        stats = {}
+        z, x0, y0, step = tf.grid(self.tiles + [("stray", stray)], stats=stats)
+        self.assertEqual((x0, y0, step), (0.0, 0.0, 400.0))
+        self.assertEqual((len(z), len(z[0])), (17, 33))
+        self.assertEqual(stats["off_grid"], 9)
+        self.assertTrue(all(h is not None for row in z for h in row))
+        self.assertEqual(len(pits.pits(z, step)), 1)
+
     def test_a_file_is_kept_only_if_its_tiles_are_those_of_the_map(self):
         mine = [tf.box(pts) for _, pts in self.tiles]
         self.assertTrue(tf.same_tiles(mine, [tuple(v + 2.0 for v in b) for b in reversed(mine)]))

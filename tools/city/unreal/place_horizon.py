@@ -50,7 +50,9 @@ LEVEL_REACH_CM = (6000.0, 15000.0)     # street furniture this close to the outl
 GROUND_FOLDERS = ("City/Props", "City/Route")
 TREE_SUNK_CM = 10.0
 TREE_CLEAR_M = 8.0             # no tree this close to the line the flight drives (broad crowns)
-ROUTE_MAPLES = os.environ.get("GTP_ROUTE_MAPLES", "1") != "0"
+# Off since gate 83: in the packaged game the "Forest" maples are forest-grown poles, a thin trunk
+# and a few leaves at the top, 1 870 of them along the flight. The alders of the base map stay.
+ROUTE_MAPLES = os.environ.get("GTP_ROUTE_MAPLES", "0") == "1"
 ROUTE_FOLDER = "City/Route"
 TREE_CULL_CM = 60000.0
 

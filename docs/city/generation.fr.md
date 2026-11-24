@@ -443,6 +443,11 @@ dans une rampe de parking.
    ont les boîtes de celles de la carte, sinon dans les maillages des tuiles), couvre chaque
    fosse fermée avec des couvercles qui vont jusqu'aux coins secs autour, et échoue si aucune
    hauteur n'est lue. Sur le terrain du cache : 68 fosses, 258 couvercles, moins d'une seconde.
+   À la porte 83 les tuiles de la carte portaient des coins hors du treillis de 4 m (256 hauteurs de plus qu'il n'en tient) : le plus
+   petit écart donnait une grille de 2 m vide aux trois quarts, où chaque cellule s'écoule, et
+   l'étape a lu 123 104 hauteurs sans trouver de fosse. Le pas est maintenant celui du treillis
+   qui porte 95 % des coins (`terrain_file.grid`), les autres sont comptés (`off_grid`), et une
+   grille vide à plus d'un cinquième est une erreur.
 
 `materials_report.json` donne `far_mask` (`texture`, `read_past_the_mask`, `rivers`, `laid`) ;
 `pit_cover_report.json` donne `heights_from`, `cells_read`, `covered`. Pas encore vu en jeu.
@@ -463,7 +468,14 @@ conduite. Une machine sans le pack garde les aulnes ; `GTP_ROUTE_MAPLES=0` aussi
 `horizon_report.json` donne `route_maples` (`swapped`, `missing`, `trees`) et, sous
 `square_settings`, `tree_mesh`. L'étape des voies reconnaît un érable comme un arbre (son tronc
 compte, pas son houppier). Les arbres des rues remplacés au lancement (`GTPStreetTrees`)
-restent des aulnes. Pas encore vu en jeu.
+restent des aulnes.
+
+Vu dans le jeu empaqueté à la porte 83 (prise longue, 10 à 30 s) : l'échange a tourné (1 870
+arbres) et les feuilles sont dessinées, mais « Forest » veut dire poussé en forêt, une perche
+mince avec quelques feuilles en haut, et un quai bordé de perches se lit comme des tiges nues.
+L'échange est donc **coupé par défaut** (`GTP_ROUTE_MAPLES=1` l'active) et le trajet garde les
+aulnes de la carte de base, les rangs de Bellecour aussi, tant qu'un érable n'a pas été regardé
+sur une image avant d'être planté.
 
 ### Chaussées recalées sur les bordures et régénération en une commande
 

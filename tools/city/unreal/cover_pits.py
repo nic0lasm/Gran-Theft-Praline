@@ -54,6 +54,7 @@ TERRAIN_FOLDER = "City/Terrain"
 FOLDER = "City/PitCovers"
 CUBE = "/Engine/BasicShapes/Cube.Cube"       # 100 cm, centred on its origin
 LID_CM = 60.0
+MAX_EMPTY = 0.2         # share of empty cells past which the grid is not the terrain
 LOOSE_CM = 100.0        # tiles in the right place, their heights not checked
 
 eal = unreal.EditorAssetLibrary
@@ -173,7 +174,9 @@ def main():  # noqa: C901
             report["errors"].append("no terrain height read: %s" % report.get("heights_tried"))
             raise StopIteration
         report["heights_from"] = source
-        z, x0, y0, step = tf.grid(found_tiles)
+        stats = {}
+        z, x0, y0, step = tf.grid(found_tiles, stats=stats)
+        report["off_grid"] = stats.get("off_grid", 0)
         report["grid"] = [len(z), len(z[0]) if z else 0]
         report["step_cm"] = step
         report["cells_read"] = sum(1 for row in z for h in row if h is not None)
@@ -181,6 +184,12 @@ def main():  # noqa: C901
         report["read_s"] = round(time.time() - t0)
         if not report["cells_read"]:
             report["errors"].append("no terrain height read: empty grid from " + source)
+            raise StopIteration
+        if report["cells_empty"] > MAX_EMPTY * (report["cells_read"] + report["cells_empty"]):
+            # a cell beside an empty one drains: on a grid full of holes no pit can be found
+            report["errors"].append("grid mostly empty (%d of %d cells), no pit can be told: step %s from %s"
+                                    % (report["cells_empty"], report["cells_read"] + report["cells_empty"],
+                                       step, source))
             raise StopIteration
         lanes = lc.read_lanes(LANES) if os.path.exists(LANES) else []
         report["lanes"] = len(lanes)
@@ -221,7 +230,7 @@ def main():  # noqa: C901
     os.makedirs(out, exist_ok=True)
     with open(os.path.join(out, "pit_cover_report.json"), "w", encoding="utf-8") as f:
         json.dump(report, f, indent=1)
-    log(json.dumps({k: report.get(k) for k in ("heights_from", "cells_read", "covered", "lids", "grid",
+    log(json.dumps({k: report.get(k) for k in ("heights_from", "cells_read", "off_grid", "covered", "lids", "grid",
                                                 "read_s", "errors", "saved")}))
     for p in report["pits"]:
         log(json.dumps(p))
