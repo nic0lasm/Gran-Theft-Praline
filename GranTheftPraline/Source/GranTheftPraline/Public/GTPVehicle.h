@@ -515,6 +515,7 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Vehicle|Look")
 	TArray<TObjectPtr<USkeletalMesh>> LookMeshes;
 
+public:
 	/** The components built from LookMeshes (rebuilt on each construction). */
 	const TArray<TObjectPtr<USkeletalMeshComponent>>& GetLookComponents() const { return LookComponents; }
 
@@ -524,6 +525,8 @@ protected:
 	 * material slots, how many have a material.
 	 */
 	static bool IsClassDrawn(const UClass* Class, FString& OutWhy);
+
+protected:
 
 	/** Blueprint hook: dents, glass, smoke and wreck changes, for FX and sound. */
 	UFUNCTION(BlueprintImplementableEvent, Category = "Vehicle|Damage")
