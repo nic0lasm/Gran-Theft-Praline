@@ -9,6 +9,7 @@
 #include "GTPChaseTally.h"
 #include "GTPDriveLogic.h"
 #include "GTPTraffic.h"
+#include "GTPUnitAvoid.h"
 #include "GTPUnitRecovery.h"
 #include "GTPWantedLogic.h"
 #include "GTPWitnessLogic.h"
@@ -202,14 +203,16 @@ public:
 
 	/**
 	 * Out of sight, the search runs at HiddenSearchRate times the speed when the player keeps still (below
-	 * HiddenSpeedCmS), more than HiddenMinDistance from every police unit: hiding in a courtyard.
+	 * HiddenSpeedCmS), more than HiddenMinDistance from every police unit: hiding in a courtyard. 80 m, not 25:
+	 * at gate 75 a player stopped in the street with an officer 36 m away was "hiding", and three stars were
+	 * gone in 13 s.
 	 */
 	UPROPERTY(Config, EditAnywhere, Category = "Wanted")
 	float HiddenSearchRate = 2.f;
 	UPROPERTY(Config, EditAnywhere, Category = "Wanted")
 	float HiddenSpeedCmS = 150.f;
 	UPROPERTY(Config, EditAnywhere, Category = "Wanted")
-	float HiddenMinDistance = 2500.f;
+	float HiddenMinDistance = 8000.f;
 
 	/** Changing car or leaving the car out of sight keeps only this share of the search time (0..1). */
 	UPROPERTY(Config, EditAnywhere, Category = "Wanted")
@@ -357,6 +360,31 @@ protected:
 	UPROPERTY(Config, EditAnywhere, Category = "Police")
 	float SpawnInterval = 2.f;
 
+	/**
+	 * Scenery on a unit's way (gate 75: nine cars held against lamp posts, lights and trees in 68 s; a unit only
+	 * looked ahead for cars and people). A unit looks ahead for what does not move, steers round it on the side
+	 * that is free and slows to what it can stop from (GTPUnitAvoid.h). -PoliceAvoid=0 turns it off, and the
+	 * straight way of CloseInDistance with it.
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Police|Driving")
+	bool bAvoidScenery = true;
+
+	/**
+	 * Within this (cm) of a player whose place the police know, a unit drives straight at him when no scenery
+	 * stands between them: a car, a passer-by or a tree's crown in the line of sight no longer sends it round the
+	 * block on the lanes (gate 75: a unit 91 m from the stopped player drove away from him, to 200 m). 0: never.
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Police|Driving")
+	float CloseInDistance = 6000.f;
+
+	/** A unit driving straight at a player who is on foot or nearly stopped comes to a stop this far from him (cm): it boxes him in, it does not push him away from his arrest. */
+	UPROPERTY(Config, EditAnywhere, Category = "Police|Driving")
+	float CloseInStop = 500.f;
+
+	/** A roadblock is only put ahead of a player driving at least this fast (cm/s), and is only "passed" by one driving away from it. */
+	UPROPERTY(Config, EditAnywhere, Category = "Police")
+	float RoadblockMinSpeed = 550.f;
+
 	/** Light bar position on the car, in the car's frame (cm). */
 	UPROPERTY(Config, EditAnywhere, Category = "Police")
 	FVector LightBarOffset = FVector(0.f, 0.f, 130.f);
@@ -469,6 +497,11 @@ private:
 		/** The dead end it turned round in, kept out of its way until AvoidUntil (s). */
 		int32 AvoidLane = INDEX_NONE;
 		float AvoidUntil = 0.f;
+		/** Scenery on its way: the side it goes round it, counted (GTPUnitAvoid.h). */
+		FGTPUnitAvoid Avoid;
+		/** No scenery between it and the player, looked at four times a second. */
+		bool bWayClear = false;
+		float NextWayLookTime = 0.f;
 	};
 
 	/** Siren follows the lights: off without stars, yelp in pursuit, two-tone otherwise. */
@@ -524,7 +557,16 @@ private:
 	mutable double NextNoPlaceLog = 0.0;
 	void DriveUnit(FUnit& Unit, UGTPWantedComponent& Wanted, const AActor& Player, float DeltaSeconds);
 	void DriveStraight(FUnit& Unit, const FVector& Target, float MaxSpeedKmh);
-	/** The pedals the driving decided, tamed by the steering (GTPUnitRecovery::Tame), given to the car. */
+	/**
+	 * Metres from the bumper to the scenery (what does not move: buildings, the street's furniture) on the way of
+	 * Car, looked along its heading turned by YawOffsetRadians, LengthCm far, with a box RadiusCm to each side.
+	 * Negative: none. OutLateralM: where it was met, metres to the right of that line.
+	 */
+	float SceneryAhead(const AGTPVehicle& Car, float YawOffsetRadians, float LengthCm, float RadiusCm, float& OutLateralM) const;
+	/** No scenery between Car and Target (cars and people are not looked at). */
+	bool IsWayClear(const AGTPVehicle& Car, const FVector& Target) const;
+	FGTPUnitAvoidSettings AvoidSettings;
+	/** The pedals the driving decided, turned round the scenery (GTPUnitAvoid.h), tamed by the steering (GTPUnitRecovery::Tame), given to the car. */
 	void ApplyDrive(FUnit& Unit, const FGTPDriveCommand& Command, bool bHandbrake);
 	/** One line when a unit backs off or is given up: where, how it lies, what is in front of it. */
 	void TraceUnitTrouble(const FUnit& Unit, const TCHAR* What) const;
@@ -539,6 +581,8 @@ private:
 	/** Paint by asset name (MI_GTP_PolicePaint_<mesh>_<slot>), null where there is none; filled as cars come. */
 	UPROPERTY(Transient)
 	TMap<FString, TObjectPtr<UMaterialInterface>> LoadedLiveryPaint;
+	/** The paints the folder holds, by the asset registry: only those are asked for (empty: no answer, every slot is asked once). */
+	TSet<FString> LiveryPaintListed;
 	bool bLiveryLoaded = false;
 	void UpdateUnitDetail(AGTPVehicle* Car, float DistanceToView) const;
 	bool SeatDriver(FUnit& Unit);

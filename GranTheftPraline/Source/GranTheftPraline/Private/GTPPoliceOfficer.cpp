@@ -1,6 +1,8 @@
 #include "GTPPoliceOfficer.h"
 
 #include "Animation/AnimSequenceBase.h"
+#include "CollisionQueryParams.h"
+#include "CollisionShape.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/SkeletalMesh.h"
@@ -219,6 +221,38 @@ bool AGTPPoliceOfficer::HasLineOfSight(const FVector& From, const AActor& Target
 	return !GetWorld()->LineTraceSingleByChannel(Hit, From, Target.GetActorLocation() + FVector(0.f, 0.f, 60.f), ECC_Visibility, Params);
 }
 
+bool AGTPPoliceOfficer::IsWayBlocked(const FVector& Direction, const AActor* Ignored, FVector& OutNormal) const
+{
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(GTPOfficerWay), false, this);
+	if (Ignored)
+	{
+		Params.AddIgnoredActor(Ignored);
+	}
+	FCollisionObjectQueryParams Objects;
+	Objects.AddObjectTypesToQuery(ECC_WorldStatic);
+	Objects.AddObjectTypesToQuery(ECC_WorldDynamic);
+	Objects.AddObjectTypesToQuery(ECC_Vehicle);
+	// A ball at his waist, a step and a half ahead: the ground and the kerbs pass under it.
+	const FVector Start = GetActorLocation();
+	FHitResult Hit;
+	if (!GetWorld()->SweepSingleByObjectType(Hit, Start, Start + Direction * 150.f, FQuat::Identity, Objects, FCollisionShape::MakeSphere(30.f), Params))
+	{
+		return false;
+	}
+	// The ground he walks up is not in his way.
+	if (Hit.ImpactNormal.Z > 0.6f)
+	{
+		return false;
+	}
+	FVector Face(Hit.ImpactNormal.X, Hit.ImpactNormal.Y, 0.f);
+	if (Hit.bStartPenetrating || Face.IsNearlyZero())
+	{
+		Face = -Direction;
+	}
+	OutNormal = Face.GetSafeNormal2D();
+	return true;
+}
+
 void AGTPPoliceOfficer::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
@@ -273,7 +307,33 @@ void AGTPPoliceOfficer::Tick(float DeltaSeconds)
 	// Close in until about two metres, then hold (the arrest is the wanted component's, by proximity).
 	if (FVector::Dist2D(Here, Goal) > 200.f)
 	{
-		const FVector Direction = (Goal - Here).GetSafeNormal2D();
+		FVector Direction = (Goal - Here).GetSafeNormal2D();
+		// Something in the way (a wall, a car, his own, the street's furniture): along it, the same hand on it,
+		// until the way is free. At gate 75 the one officer stayed 36 m from the stopped player for 25 s: he
+		// walked straight at his goal, whatever stood between.
+		FVector Wall = FVector::ZeroVector;
+		FVector NextWall = FVector::ZeroVector;
+		const bool bBlocked = IsWayBlocked(Direction, Pawn, Wall);
+		bool bAlongBlocked = false;
+		if (bBlocked)
+		{
+			float AlongX = 0.f;
+			float AlongY = 0.f;
+			Detour.Along(static_cast<float>(Direction.X), static_cast<float>(Direction.Y), static_cast<float>(Wall.X), static_cast<float>(Wall.Y), AlongX, AlongY);
+			bAlongBlocked = IsWayBlocked(FVector(AlongX, AlongY, 0.f), Pawn, NextWall);
+		}
+		float WalkX = 0.f;
+		float WalkY = 0.f;
+		const int32 TurnsBefore = Detour.Detours + Detour.Flips;
+		Detour.Step(DeltaSeconds, static_cast<float>(Here.X) * 0.01f, static_cast<float>(Here.Y) * 0.01f, static_cast<float>(Direction.X),
+			static_cast<float>(Direction.Y), bBlocked, static_cast<float>(Wall.X), static_cast<float>(Wall.Y), bAlongBlocked,
+			static_cast<float>(NextWall.X), static_cast<float>(NextWall.Y), WalkX, WalkY);
+		if (Detour.Detours + Detour.Flips != TurnsBefore)
+		{
+			GTP_TRACE(LogTemp, TEXT("police: officer goes round something (hand %d, %d detour(s), %d change(s) of hand), %.0f m from his goal"), Detour.Hand,
+				Detour.Detours, Detour.Flips, FVector::Dist2D(Here, Goal) * 0.01);
+		}
+		Direction = FVector(WalkX, WalkY, 0.f);
 		AddMovementInput(Direction, 1.f);
 		const FRotator Face = Direction.Rotation();
 		SetActorRotation(FRotator(0.f, Face.Yaw, 0.f));

@@ -103,6 +103,12 @@ jobs:
           /tmp/unit_recovery_test
           printf '#include "GTPUnitRecovery.h"\nint main() { return 0; }\n' > /tmp/hdr.cpp
           clang++ -std=c++17 -fsyntax-only -Wall -Wextra -Werror -Wconversion -Wsign-conversion -Wshadow -Wdouble-promotion -I GranTheftPraline/Source/GranTheftPraline/Public /tmp/hdr.cpp
+      - name: Police car and officer round what stands in the way
+        run: |
+          g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/wanted_sim/unit_avoid_test.cpp -o /tmp/unit_avoid_test
+          /tmp/unit_avoid_test
+          printf '#include "GTPUnitAvoid.h"\nint main() { return 0; }\n' > /tmp/hdr.cpp
+          clang++ -std=c++17 -fsyntax-only -Wall -Wextra -Werror -Wconversion -Wsign-conversion -Wshadow -Wdouble-promotion -I GranTheftPraline/Source/GranTheftPraline/Public /tmp/hdr.cpp
       - name: The way a chasing car takes on the lanes
         run: |
           g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/wanted_sim/lane_route_test.cpp -o /tmp/lane_route_test
