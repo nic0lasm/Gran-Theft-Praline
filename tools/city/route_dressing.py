@@ -168,7 +168,7 @@ def main():  # noqa: C901
             if os.path.exists(rep):
                 with open(rep, encoding="utf-8") as f:
                     r = json.load(f)
-                note += " covered %s, left open %s, lids %s" % (r.get("covered"), r.get("left_open"), r.get("lids"))
+                note += " heights read %s, covered %s, lids %s" % (r.get("cells_read"), r.get("covered"), r.get("lids"))
         elif step == "collision":
             ok, _, note = qb.run_editor("route_collision", "backdrop_collision", "backdrop_collision_report.json", 900,
                                         {}, args)
