@@ -295,8 +295,8 @@ def import_mask():
     return tex
 
 
-def ground_material(tex, extent, far=None):
-    """far: (texture, ground_far.json) of the far mask, or None."""
+def ground_material(tex, extent, far=None, route=None):
+    """far: (texture, ground_far.json) of the far mask, or None; route: the same of the route mask."""
     x0, y0, x1, y1 = extent
     mat = new_material("M_City_Ground")
     g = Graph(mat)
@@ -308,7 +308,7 @@ def ground_material(tex, extent, far=None):
     g.link(uv, "", s, "UVs")
     if far is not None:
         try:
-            s = far_mask(g, xy, uv, (x1 - x0, y1 - y0), s, far[0], far[1]["extent_ue_cm"])
+            s = far_mask(g, xy, uv, (x1 - x0, y1 - y0), s, far[0], far[1]["extent_ue_cm"], route)
             FAR_REPORT["read_past_the_mask"] = True
         except Exception as e:  # noqa: BLE001  the ground stays as it was: the focus mask alone
             FAR_REPORT["error"] = repr(e)
@@ -372,13 +372,16 @@ RIVER_EDGE_CM = 20.0
 RIVER_WATER = (0.012, 0.022, 0.026)     # M_City_Water's
 RIVER_ROUGHNESS = 0.06
 FAR_REPORT = {"on": FAR_MASK}
+ROUTE_MASK = os.environ.get("GTP_ROUTE_MASK", "1") != "0"
+ROUTE_REPORT = {"on": ROUTE_MASK}
 
 
-def import_far_mask():
-    """(texture, meta) of the far mask, None without its two files."""
-    path, meta_path = os.path.join(FAR_DIR, "T_GroundMaskFar.png"), os.path.join(FAR_DIR, "ground_far.json")
+def import_far_mask(name="T_GroundMaskFar", meta_name="ground_far.json", report=None):
+    """(texture, meta) of the far mask (or, named, of the route mask), None without its two files."""
+    rep = FAR_REPORT if report is None else report
+    path, meta_path = os.path.join(FAR_DIR, name + ".png"), os.path.join(FAR_DIR, meta_name)
     if not (os.path.exists(path) and os.path.exists(meta_path)):
-        FAR_REPORT["skipped"] = "no far mask in assets/geo/processed/%s/ground_far" % ZONE
+        rep["skipped"] = "no %s.png in assets/geo/processed/%s/ground_far" % (name, ZONE)
         return None
     with open(meta_path, encoding="utf-8") as f:
         meta = json.load(f)
@@ -389,9 +392,9 @@ def import_far_mask():
     task.set_editor_property("replace_existing", True)
     task.set_editor_property("save", False)
     asset_tools.import_asset_tasks([task])
-    tex = eal.load_asset(MAT_DIR + "/T_GroundMaskFar")
+    tex = eal.load_asset(MAT_DIR + "/" + name)
     if tex is None:
-        FAR_REPORT["skipped"] = "T_GroundMaskFar did not import"
+        rep["skipped"] = name + " did not import"
         return None
     tex.set_editor_property("srgb", False)
     tex.set_editor_property("compression_settings", unreal.TextureCompressionSettings.TC_MASKS)
@@ -399,12 +402,13 @@ def import_far_mask():
     tex.set_editor_property("address_x", unreal.TextureAddress.TA_CLAMP)
     tex.set_editor_property("address_y", unreal.TextureAddress.TA_CLAMP)
     eal.save_loaded_asset(tex)
-    FAR_REPORT["texture"] = {"path": tex.get_path_name(), "size": [tex.blueprint_get_size_x(), tex.blueprint_get_size_y()],
-                             "extent_ue_cm": meta["extent_ue_cm"]}
+    rep["texture"] = {"path": tex.get_path_name(), "size": [tex.blueprint_get_size_x(), tex.blueprint_get_size_y()],
+                             "extent_ue_cm": meta["extent_ue_cm"], "cm_per_px": meta.get("cm_per_px"),
+                             "counts": meta.get("counts")}
     return tex, meta
 
 
-def far_mask(g, xy, uv, size_cm, s, tex, extent):
+def far_mask(g, xy, uv, size_cm, s, tex, extent, route=None):
     """The mask the ground reads: the focus mask inside its extent, the far mask past it.
 
     Gate 81, long take, 0 to 30 s: the flight starts on quai Jules Courmont, 60 m east of the
@@ -416,7 +420,24 @@ def far_mask(g, xy, uv, size_cm, s, tex, extent):
                 sampler_type=unreal.MaterialSamplerType.SAMPLERTYPE_MASKS)
     g.link(fuv, "", fs, "UVs")
     inside = g.unary(unreal.MaterialExpressionSaturate, g.div(mask_margin(g, uv, size_cm), g.const(FAR_BLEND_CM)))
-    return g.lerp(g.mask(fs, r=True, g=True, b=True), g.mask(s, r=True, g=True, b=True), inside)
+    past = g.mask(fs, r=True, g=True, b=True)
+    if route is not None:
+        # Gate 83, long take: on the quay the far mask (34 cm a texel) tells carriageway from
+        # pavement, but a kerb or a lane line is thinner than one texel: a plain of asphalt. The
+        # route mask is as fine as the focus mask, around the part of the driven line past it.
+        try:
+            rx0, ry0, rx1, ry1 = route[1]["extent_ue_cm"]
+            ruv = g.div(g.sub(xy, g.const((rx0, ry0))), g.const((rx1 - rx0, ry1 - ry0)))
+            rs = g.node(unreal.MaterialExpressionTextureSample, texture=route[0],
+                        sampler_type=unreal.MaterialSamplerType.SAMPLERTYPE_MASKS)
+            g.link(ruv, "", rs, "UVs")
+            on_route = g.unary(unreal.MaterialExpressionSaturate,
+                               g.div(mask_margin(g, ruv, (rx1 - rx0, ry1 - ry0)), g.const(FAR_BLEND_CM)))
+            past = g.lerp(past, g.mask(rs, r=True, g=True, b=True), on_route)
+            ROUTE_REPORT["read_on_the_route"] = True
+        except Exception as e:  # noqa: BLE001  the far mask alone
+            ROUTE_REPORT["error"] = repr(e)
+    return g.lerp(past, g.mask(s, r=True, g=True, b=True), inside)
 
 
 def river_ground(mat, g, wp, xy, rivers):
@@ -1468,7 +1489,13 @@ def main():
                 far = import_far_mask()
             except Exception as e:  # noqa: BLE001  the focus mask alone, as before
                 FAR_REPORT["error"] = repr(e)
-        ground = ground_material(tex, meta["extent_ue_cm"], far)
+        route = None
+        if far is not None and ROUTE_MASK:
+            try:
+                route = import_far_mask("T_GroundMaskRoute", "ground_route.json", ROUTE_REPORT)
+            except Exception as e:  # noqa: BLE001  the far mask alone
+                ROUTE_REPORT["error"] = repr(e)
+        ground = ground_material(tex, meta["extent_ue_cm"], far, route)
         shell = shell_material()
         report["terrain_meshes"] = assign(ROOT + "/Terrain", ground)
         report["shell_meshes"] = assign(ROOT + "/Buildings/" + CAMEL, shell)
@@ -1483,6 +1510,7 @@ def main():
         report["roof_walls"] = ROOF_WALLS
         report["squares"] = SQUARE_REPORT
         report["far_mask"] = FAR_REPORT
+        report["route_mask"] = ROUTE_REPORT
         report["horizon_materials"] = horizon_materials()
         if eal.does_directory_exist(ROOT + "/Landmarks/" + CAMEL):
             report["landmark_meshes"] = assign(ROOT + "/Landmarks/" + CAMEL, shell)

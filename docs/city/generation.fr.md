@@ -457,6 +457,18 @@ dans une rampe de parking.
    donne `circuit_lines`, `circuit_clear_cm`, `circuit_removed`, et une telle instance porte
    `"lane": "circuit"`.
 
+5. **Le masque du trajet** (`ground_mask.py --route <Carte>.circuit.csv`, fait par l'étape
+   `materials` après le masque lointain) : à 34 cm le texel, le masque lointain ne peut pas
+   porter une bordure ni une ligne de voie, et dans la prise longue de la porte 83 le quai est
+   une plaine d'asphalte. Le masque du trajet est aussi fin que le masque de la zone (4096
+   texels sur son grand côté : 11 à 16 cm) sur la boîte de la ligne conduite que le masque de
+   la zone ne tient pas, élargie de 40 m (aujourd'hui 161 m sur 460 m des quais Jules Courmont
+   et Jean Moulin) ; le matériau du sol le lit là, le masque lointain au-delà
+   (`GTP_ROUTE_MASK=0` le coupe). Les rues à sens unique de deux voies ou plus reçoivent une
+   ligne discontinue entre leurs voies (trois sur les quatre voies du quai). Non versionné,
+   comme le masque lointain ; `materials_report.json` donne `route_mask` (`texture`,
+   `read_on_the_route`).
+
 `materials_report.json` donne `far_mask` (`texture`, `read_past_the_mask`, `rivers`, `laid`) ;
 `pit_cover_report.json` donne `heights_from`, `cells_read`, `covered`. Pas encore vu en jeu.
 

@@ -107,5 +107,76 @@ class GroundFarTests(unittest.TestCase):
         self.assertEqual(squares.hlsl([ring]).count("if (p.x > "), 1)
 
 
+class RouteMaskTests(unittest.TestCase):
+    """The route mask: as fine as the focus mask, around the part of the driven line past it."""
+
+    @classmethod
+    def setUpClass(cls):
+        from PIL import Image
+        cls.dir = tempfile.TemporaryDirectory()
+        write_zone(cls.dir.name)
+        with open(os.path.join(cls.dir.name, "roads.geojson"), encoding="utf-8") as f:
+            roads = json.load(f)
+        quay = dict(roads["features"][0], properties=dict(roads["features"][0]["properties"], cleabs="ONE_WAY",
+                                                          largeur_de_chaussee=12.0, nombre_de_voies=4,
+                                                          sens_de_circulation="Sens direct"))
+        quay["geometry"] = {"type": "MultiLineString", "coordinates": [[[140.0, -10.0], [140.0, -246.0]]]}
+        roads["features"].append(quay)
+        with open(os.path.join(cls.dir.name, "roads.geojson"), "w", encoding="utf-8") as f:
+            json.dump(roads, f)
+        gen = os.path.join(cls.dir.name, "gen", "focus")
+        os.makedirs(gen)
+        with open(os.path.join(gen, "buildings_gen.csv"), "w", encoding="utf-8") as f:
+            f.write("ue_x,ue_y\n6100,6100\n6200,19000\n")          # the focus mask: x 1 to 122 m
+        cls.line = [(5000.0, 12000.0), (14000.0, 12000.0), (14000.0, 16000.0)]      # leaves it eastwards
+        cls.meta = ground_mask.build("zone", "focus", processed=cls.dir.name, route=cls.line)
+        cls.img = Image.open(os.path.join(cls.dir.name, "ground_far", "T_GroundMaskRoute.png"))
+        cls.img.load()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.dir.cleanup()
+
+    def texel(self, x_m, y_south_m):
+        x0, y0, x1, y1 = self.meta["extent_ue_cm"]
+        w, h = self.img.size
+        return self.img.getpixel((int((x_m * 100.0 - x0) / (x1 - x0) * w), int((y_south_m * 100.0 - y0) / (y1 - y0) * h)))
+
+    def test_the_box_is_round_the_line_past_the_focus_mask(self):
+        m = ground_mask.ROUTE_MARGIN_CM
+        self.assertEqual(self.meta["extent_ue_cm"], [14000.0 - m, 12000.0 - m, 14000.0 + m, 16000.0 + m])
+        self.assertLess(self.meta["cm_per_px"], 20.0)
+        self.assertEqual(self.img.mode, "RGB")
+
+    def test_a_one_way_road_of_four_lanes_has_three_dashed_lines(self):
+        self.assertEqual(ground_mask.lane_offsets({"nombre_de_voies": 4, "sens_de_circulation": "Sens direct"}, 12.0),
+                         [-3.0, 0.0, 3.0])
+        self.assertEqual(ground_mask.lane_offsets({"nombre_de_voies": 3, "sens_de_circulation": "Sens inverse"}, 4.0), [])
+        self.assertEqual(ground_mask.lane_offsets({"nombre_de_voies": 2, "sens_de_circulation": "Double sens"}, 9.0), [0.0])
+        self.assertEqual(ground_mask.lane_offsets({"nombre_de_voies": 1, "sens_de_circulation": "Sens direct"}, 9.0), [])
+        for x in (136.8, 140.0, 143.2):                # 4 lanes of 3.2 m (road_width) about x 140 m
+            column = [self.texel(x, y / 10.0) for y in range(1100, 1300)]
+            marked = sum(1 for r, _, b in column if r > 200 and b > 128)
+            self.assertTrue(0.25 * len(column) < marked < 0.7 * len(column), (x, marked))        # dashes: 3 m in 6.5
+        between = [self.texel(138.5, y / 10.0) for y in range(1100, 1300)]
+        self.assertTrue(all(r > 200 and b < 60 for r, _, b in between))
+
+    def test_a_kerb_is_drawn_whole(self):
+        row = [self.texel(x / 20.0, 140.0) for x in range(2900, 2940)]       # across the east kerb, x 146 m
+        self.assertGreater(max(b for r, _, b in row if r < 128), 200)
+
+    def test_a_line_the_focus_mask_holds_needs_no_route_mask(self):
+        self.assertIsNone(ground_mask.build("zone", "focus", processed=self.dir.name,
+                                            route=[(5000.0, 12000.0), (9000.0, 15000.0)]))
+        self.assertIsNone(ground_mask.route_box([], (0, 0, 1, 1), (0, 0, 1, 1)))
+
+    def test_the_circuit_file_gives_its_line(self):
+        path = os.path.join(self.dir.name, "c.circuit.csv")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("# a comment\nlane_id,start_x_cm,start_y_cm,end_x_cm,end_y_cm,name,line_ue_cm,kmh,mark\napproach\n"
+                    "7,0,0,0,300,QU A,0 0;0 300,100,\nlap\n8,0,300,500,300,R B,0 300;500 300,,end\n")
+        self.assertEqual(ground_mask.circuit_points(path), [(0.0, 0.0), (0.0, 300.0), (0.0, 300.0), (500.0, 300.0)])
+
+
 if __name__ == "__main__":
     unittest.main()
