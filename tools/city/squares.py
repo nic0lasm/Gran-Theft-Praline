@@ -126,17 +126,18 @@ FAR_CM = 100000.0       # what the shader answers away from every square
 
 def hlsl(rings, pad_cm=1000.0):
     """Body of a Custom node with one float2 input, XY (world position, cm): the signed distance
-    to the nearest outline, FAR_CM beyond pad_cm of them all. Plain scalar code, one block an
-    edge, no array and no loop: the same text compiles as C++ in the tests."""
-    x0, y0, x1, y1 = bounds(rings, pad_cm)
-    lines = ["float2 p = XY;",
-             "float best = %.1f;" % FAR_CM,
-             "if (p.x > %.1f && p.x < %.1f && p.y > %.1f && p.y < %.1f)" % (x0, x1, y0, y1),
-             "{",
-             "\tfloat2 a = float2(0.0, 0.0);", "\tfloat2 b = a;", "\tfloat2 e = a;", "\tfloat2 w = a;",
-             "\tfloat2 q = a;", "\tfloat d = 0.0;", "\tfloat s = 1.0;"]
+    to the nearest outline, FAR_CM beyond pad_cm of them all. Each outline is only measured
+    inside its own box (two rivers at either end of the map do not cost each other's corners):
+    the answer is exact within pad_cm of an outline, and no nearer than that elsewhere. Plain
+    scalar code, one block an edge, no array and no loop: the same text compiles as C++ in the
+    tests."""
+    lines = ["float2 p = XY;", "float best = %.1f;" % FAR_CM]
     for ring in rings:
-        lines += ["\td = 1.0e12;", "\ts = 1.0;"]
+        x0, y0, x1, y1 = bounds([ring], pad_cm)
+        lines += ["if (p.x > %.1f && p.x < %.1f && p.y > %.1f && p.y < %.1f)" % (x0, x1, y0, y1),
+                  "{",
+                  "\tfloat2 a = float2(0.0, 0.0);", "\tfloat2 b = a;", "\tfloat2 e = a;", "\tfloat2 w = a;",
+                  "\tfloat2 q = a;", "\tfloat d = 1.0e12;", "\tfloat s = 1.0;"]
         for i, a in enumerate(ring):
             b = ring[(i + 1) % len(ring)]
             lines += ["\ta = float2(%.1f, %.1f); b = float2(%.1f, %.1f);" % (a[0], a[1], b[0], b[1]),
@@ -144,6 +145,6 @@ def hlsl(rings, pad_cm=1000.0):
                       "\tq = w - e * saturate(dot(w, e) / max(dot(e, e), 0.0001));",
                       "\td = min(d, dot(q, q));",
                       "\tif ((a.y > p.y) != (b.y > p.y)) { if (p.x < a.x + (p.y - a.y) * e.x / e.y) { s = -s; } }"]
-        lines += ["\tbest = min(best, s * sqrt(d));"]
-    lines += ["}", "return best;"]
+        lines += ["\tbest = min(best, s * sqrt(d));", "}"]
+    lines += ["return best;"]
     return "\n".join(lines)

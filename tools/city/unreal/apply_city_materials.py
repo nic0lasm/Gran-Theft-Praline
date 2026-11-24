@@ -295,7 +295,8 @@ def import_mask():
     return tex
 
 
-def ground_material(tex, extent):
+def ground_material(tex, extent, far=None):
+    """far: (texture, ground_far.json) of the far mask, or None."""
     x0, y0, x1, y1 = extent
     mat = new_material("M_City_Ground")
     g = Graph(mat)
@@ -305,6 +306,13 @@ def ground_material(tex, extent):
     s = g.node(unreal.MaterialExpressionTextureSample, texture=tex,
                sampler_type=unreal.MaterialSamplerType.SAMPLERTYPE_MASKS)
     g.link(uv, "", s, "UVs")
+    if far is not None:
+        try:
+            s = far_mask(g, xy, uv, (x1 - x0, y1 - y0), s, far[0], far[1]["extent_ue_cm"])
+            FAR_REPORT["read_past_the_mask"] = True
+        except Exception as e:  # noqa: BLE001  the ground stays as it was: the focus mask alone
+            FAR_REPORT["error"] = repr(e)
+            far = None
 
     # Slow tone variation (stains, wear) without a texture: product of two long sines.
     vx = g.unary(unreal.MaterialExpressionSine, g.mul(g.mask(wp, r=True), g.const(1.0 / 900.0)))
@@ -314,7 +322,7 @@ def ground_material(tex, extent):
     slab = g.lerp(g.const(1.0), g.const(0.62), g.joints(xy, 60.0, 0.035))     # 60 cm limestone slabs
     sett = g.lerp(g.const(1.0), g.const(0.6), g.joints(xy, 22.0, 0.08))       # granite setts
     col = g.mul(g.const(SIDEWALK), slab)
-    col = g.lerp(col, g.mul(g.const(PAVING), sett), s, "G")
+    col = g.lerp(col, g.mul(g.const(PAVING), sett), g.mask(s, g=True))
     # B is a road marking on the carriageway (R) and a kerb stone off it.
     on_road = g.mask(s, r=True)
     b_ch = g.mask(s, b=True)
@@ -325,24 +333,139 @@ def ground_material(tex, extent):
     px_ = g.unary(unreal.MaterialExpressionSine, g.mul(g.mask(wp, r=True), g.const(1.0 / 230.0)))
     py_ = g.unary(unreal.MaterialExpressionSine, g.add(g.mul(g.mask(wp, g=True), g.const(1.0 / 310.0)), g.const(0.7)))
     patch = g.add(g.const(1.0), g.mul(g.mul(px_, py_), g.const(0.22)))
-    col = g.lerp(col, g.mul(g.const(ASPHALT), patch), s, "R")
+    col = g.lerp(col, g.mul(g.const(ASPHALT), patch), on_road)
     col = g.lerp(col, g.const(MARKING), mark)
     col = g.mul(col, tone)
-    rough = g.lerp(g.lerp(g.const(0.78), g.const(0.92), s, "R"), g.const(0.6), mark)
+    rough = g.lerp(g.lerp(g.const(0.78), g.const(0.92), on_road), g.const(0.6), mark)
     mel.connect_material_property(col, "", unreal.MaterialProperty.MP_BASE_COLOR)
     mel.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS)
     surfaces().ground(mat, s)
-    far_ground(mat, g, uv, (x1 - x0, y1 - y0))
+    far_ground(mat, g, uv, (x1 - x0, y1 - y0), far is not None)
     try:
         SQUARE_REPORT.update(square_ground(mat, g, wp, xy, s, uv, (x1 - x0, y1 - y0)))
     except Exception as e:  # noqa: BLE001  the ground stays as it was: a square never stops the step
         SQUARE_REPORT["error"] = repr(e)
+    if far is not None:
+        try:
+            FAR_REPORT.update(river_ground(mat, g, wp, xy, far[1].get("rivers") or []))
+        except Exception as e:  # noqa: BLE001  no water, the ground stays
+            FAR_REPORT["river_error"] = repr(e)
     weather(mat, ("wet", "puddles"))
     g.done()
     return mat
 
 
 FAR_GROUND_FADE_CM = 3000.0
+
+
+# The far mask (tools/city/ground_mask.py --far, committed with the code): the same channels as
+# the focus mask over the whole terrain, 34 cm a texel, and the outlines of the rivers.
+FAR_MASK = os.environ.get("GTP_FAR_MASK", "1") != "0"
+FAR_DIR = os.path.join(REPO, "assets", "geo", "processed", ZONE, "ground_far")
+FAR_BLEND_CM = 100.0            # the focus mask hands over to the far mask this far inside its edge
+FAR_GROUND_START_CM = 15000.0
+FAR_GROUND_WIDE_FADE_CM = 6000.0
+RIVERS = os.environ.get("GTP_RIVERS", "1") != "0"
+RIVER_REACH_CM = 1500.0         # water is looked for this far outside the coarse outline of a river
+RIVER_ABOVE_CM = 40.0           # and painted below the level of the river plus this
+RIVER_EDGE_CM = 20.0
+RIVER_WATER = (0.012, 0.022, 0.026)     # M_City_Water's
+RIVER_ROUGHNESS = 0.06
+FAR_REPORT = {"on": FAR_MASK}
+
+
+def import_far_mask():
+    """(texture, meta) of the far mask, None without its two files."""
+    path, meta_path = os.path.join(FAR_DIR, "T_GroundMaskFar.png"), os.path.join(FAR_DIR, "ground_far.json")
+    if not (os.path.exists(path) and os.path.exists(meta_path)):
+        FAR_REPORT["skipped"] = "no far mask in assets/geo/processed/%s/ground_far" % ZONE
+        return None
+    with open(meta_path, encoding="utf-8") as f:
+        meta = json.load(f)
+    task = unreal.AssetImportTask()
+    task.set_editor_property("filename", path)
+    task.set_editor_property("destination_path", MAT_DIR)
+    task.set_editor_property("automated", True)
+    task.set_editor_property("replace_existing", True)
+    task.set_editor_property("save", False)
+    asset_tools.import_asset_tasks([task])
+    tex = eal.load_asset(MAT_DIR + "/T_GroundMaskFar")
+    if tex is None:
+        FAR_REPORT["skipped"] = "T_GroundMaskFar did not import"
+        return None
+    tex.set_editor_property("srgb", False)
+    tex.set_editor_property("compression_settings", unreal.TextureCompressionSettings.TC_MASKS)
+    tex.set_editor_property("lod_group", unreal.TextureGroup.TEXTUREGROUP_WORLD)
+    tex.set_editor_property("address_x", unreal.TextureAddress.TA_CLAMP)
+    tex.set_editor_property("address_y", unreal.TextureAddress.TA_CLAMP)
+    eal.save_loaded_asset(tex)
+    FAR_REPORT["texture"] = {"path": tex.get_path_name(), "size": [tex.blueprint_get_size_x(), tex.blueprint_get_size_y()],
+                             "extent_ue_cm": meta["extent_ue_cm"]}
+    return tex, meta
+
+
+def far_mask(g, xy, uv, size_cm, s, tex, extent):
+    """The mask the ground reads: the focus mask inside its extent, the far mask past it.
+
+    Gate 81, long take, 0 to 30 s: the flight starts on quai Jules Courmont, 60 m east of the
+    focus mask. Its last texels were drawn out across the quay and the Rhone: no carriageway, no
+    kerb, a striped plain to the far bank."""
+    fx0, fy0, fx1, fy1 = extent
+    fuv = g.div(g.sub(xy, g.const((fx0, fy0))), g.const((fx1 - fx0, fy1 - fy0)))
+    fs = g.node(unreal.MaterialExpressionTextureSample, texture=tex,
+                sampler_type=unreal.MaterialSamplerType.SAMPLERTYPE_MASKS)
+    g.link(fuv, "", fs, "UVs")
+    inside = g.unary(unreal.MaterialExpressionSaturate, g.div(mask_margin(g, uv, size_cm), g.const(FAR_BLEND_CM)))
+    return g.lerp(g.mask(fs, r=True, g=True, b=True), g.mask(s, r=True, g=True, b=True), inside)
+
+
+def river_ground(mat, g, wp, xy, rivers):
+    """The LiDAR terrain is flat on the rivers, 5.8 m under the quays, and the ground material
+    paved it: the Rhone was a plain of slabs. Water is painted near the coarse outline of each
+    river (ground_far.json) wherever the terrain lies at the level of the river: the bank is
+    where the terrain drops, whatever the outline. Colour and gloss of M_City_Water, flat."""
+    info = {"rivers_on": RIVERS, "rivers": []}
+    rings, levels = [], []
+    for r in rivers if RIVERS else []:
+        if r.get("level_cm") is None or len(r.get("ring") or []) < 3:
+            continue
+        rings.append([(float(x), float(y)) for x, y in r["ring"]])
+        levels.append(float(r["level_cm"]))
+        info["rivers"].append({"name": r.get("name"), "corners": len(r["ring"]), "level_cm": r["level_cm"]})
+    col, col_out = pin(mat, unreal.MaterialProperty.MP_BASE_COLOR)
+    if not rings or col is None:
+        return info
+    sq = squares_module()
+    custom = g.node(unreal.MaterialExpressionCustom, code=sq.hlsl(rings, RIVER_REACH_CM + 1000.0),
+                    output_type=unreal.CustomMaterialOutputType.CMOT_FLOAT1, description="RiverDistance",
+                    inputs=[custom_input("XY")])
+    g.link(xy, "", custom, "XY")
+    near = g.unary(unreal.MaterialExpressionSaturate,
+                   g.div(g.sub(g.const(RIVER_REACH_CM), custom), g.const(100.0)))
+    top = max(levels) + RIVER_ABOVE_CM
+    low = g.unary(unreal.MaterialExpressionSaturate,
+                  g.div(g.sub(g.const(top), g.mask(wp, b=True)), g.const(RIVER_EDGE_CM)))
+    water = g.mul(near, low)
+
+    def over(base, base_out, layer):
+        e = g.node(unreal.MaterialExpressionLinearInterpolate)
+        g.link(base, base_out, e, "A")
+        g.link(layer, "", e, "B")
+        g.link(water, "", e, "Alpha")
+        return e
+
+    mel.connect_material_property(over(col, col_out, g.const(RIVER_WATER)), "", unreal.MaterialProperty.MP_BASE_COLOR)
+    rough, rough_out = pin(mat, unreal.MaterialProperty.MP_ROUGHNESS)
+    if rough is not None:
+        mel.connect_material_property(over(rough, rough_out, g.const(RIVER_ROUGHNESS)), "",
+                                      unreal.MaterialProperty.MP_ROUGHNESS)
+    nrm, nrm_out = pin(mat, unreal.MaterialProperty.MP_NORMAL)
+    if nrm is not None:
+        mel.connect_material_property(over(nrm, nrm_out, g.const((0.0, 0.0, 1.0))), "",
+                                      unreal.MaterialProperty.MP_NORMAL)
+    info["water_below_cm"] = top
+    info["laid"] = len(rings)
+    return info
 
 
 def mask_margin(g, uv, size_cm):
@@ -444,18 +567,23 @@ def square_ground(mat, g, wp, xy, s, uv, size_cm):
     return info
 
 
-def far_ground(mat, g, uv, size_cm):
+def far_ground(mat, g, uv, size_cm, far_mask_read=False):
     """Past the edge of the ground mask the texture is clamped: its last texels are drawn out to
     the end of the terrain, and wherever the mask says nothing the ground is pale sidewalk slabs.
     Across the river that made a bare white plain (gate 76 video, 60 s). Outside the mask the
-    ground now fades, over 30 m, to the one dark tone of the far view (HORIZON_GROUND), matt."""
+    ground now fades, over 30 m, to the one dark tone of the far view (HORIZON_GROUND), matt.
+    With the far mask the streets go on past the focus mask: the fade then starts 150 m out and
+    takes 60 m, so the quays and the squares next to the detailed streets keep their ground and
+    the far bank keeps its one tone."""
     if not FAR_GROUND:
         return False
     col, col_out = pin(mat, unreal.MaterialProperty.MP_BASE_COLOR)
     if col is None:
         return False
     nearest = mask_margin(g, uv, size_cm)
-    keep = g.unary(unreal.MaterialExpressionSaturate, g.add(g.div(nearest, g.const(FAR_GROUND_FADE_CM)), g.const(1.0)))
+    start, fade = (FAR_GROUND_START_CM, FAR_GROUND_WIDE_FADE_CM) if far_mask_read else (0.0, FAR_GROUND_FADE_CM)
+    keep = g.unary(unreal.MaterialExpressionSaturate,
+                   g.add(g.div(g.add(nearest, g.const(start)), g.const(fade)), g.const(1.0)))
     out = g.node(unreal.MaterialExpressionLinearInterpolate)
     g.link(g.const(HORIZON_GROUND), "", out, "A")
     g.link(col, col_out, out, "B")
@@ -1334,7 +1462,13 @@ def main():
             raise RuntimeError("T_GroundMask did not import into " + MAT_DIR)
         report["mask_texture"] = {"path": tex.get_path_name(), "size": [tex.blueprint_get_size_x(), tex.blueprint_get_size_y()],
                                   "srgb": tex.get_editor_property("srgb")}
-        ground = ground_material(tex, meta["extent_ue_cm"])
+        far = None
+        if FAR_MASK:
+            try:
+                far = import_far_mask()
+            except Exception as e:  # noqa: BLE001  the focus mask alone, as before
+                FAR_REPORT["error"] = repr(e)
+        ground = ground_material(tex, meta["extent_ue_cm"], far)
         shell = shell_material()
         report["terrain_meshes"] = assign(ROOT + "/Terrain", ground)
         report["shell_meshes"] = assign(ROOT + "/Buildings/" + CAMEL, shell)
@@ -1348,6 +1482,7 @@ def main():
         report["far_ground"] = FAR_GROUND
         report["roof_walls"] = ROOF_WALLS
         report["squares"] = SQUARE_REPORT
+        report["far_mask"] = FAR_REPORT
         report["horizon_materials"] = horizon_materials()
         if eal.does_directory_exist(ROOT + "/Landmarks/" + CAMEL):
             report["landmark_meshes"] = assign(ROOT + "/Landmarks/" + CAMEL, shell)

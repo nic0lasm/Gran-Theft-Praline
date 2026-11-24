@@ -16,7 +16,8 @@ quarter_build.py and surfaces_build.py:
               tools/city/surfaces.json, imported to /Game/Environment/Surfaces/<id>/ (2K)
   materials   apply_city_materials.py: the scanned surfaces in the ground, kit and shell materials,
               and the procedural Lyon facade (M_City_Backdrop) on the backdrop volumes, laid over
-              the scanned stone. Map not saved (GTP_CITY_EV100=off).
+              the scanned stone. Map not saved (GTP_CITY_EV100=off). Before it, ground_mask.py
+              --far makes the far mask and the rivers the ground reads past the focus mask
   place       place_props.py with GTP_PROPS_SET=route: folder City/Route, the street's own
               City/Props untouched; saves the map
   street      (only when named in --only) place_props.py on the street's own set, City/Props,
@@ -138,8 +139,19 @@ def main():  # noqa: C901
             ok, _, note = qb.run_editor("route_surfaces", "import_surfaces", "surfaces.json", 1800,
                                         {"GTP_SURFACES_DIR": os.path.abspath(args.loose)}, args)
         elif step == "materials":
+            # the far mask and the rivers the ground material reads past the focus mask: made
+            # here from the data of this machine; without it the ground is as it was
+            far = "far mask: dry run"
+            if not args.dry_run:
+                try:
+                    rc = subprocess.call([sys.executable, os.path.join(HERE, "ground_mask.py"), "--far",
+                                          "--focus", FOCUS], stdout=subprocess.DEVNULL, timeout=600)
+                    far = "far mask: ground_mask.py --far exit %d" % rc
+                except Exception as e:  # noqa: BLE001  never stops the step
+                    far = "far mask: %r" % (e,)
             ok, _, note = qb.run_editor("route_materials", "apply_city_materials", "materials_report.json", 900,
                                         {"GTP_CITY_EV100": "off"}, args)
+            note = (note + " " + far).strip()
         elif step == "place":
             ok, _, note = qb.run_editor("route_place", "place_props", "route_report.json", 900,
                                         {"GTP_PROPS_SET": "route"}, args)

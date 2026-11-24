@@ -417,6 +417,36 @@ lointain), et la colline derrière ne portait aucun monument.
 Pas encore vu en jeu. Le rouge est une couleur unie pour l'instant : une surface scannée pourra
 suivre une fois le contour prouvé sur une image.
 
+### Les quais : le sol hors du masque, les fleuves et les fosses (ajouté le 24/11/2026)
+
+Porte 81, prise longue. La fuite part du quai Jules Courmont, 60 m à l'est du masque du sol
+(il s'arrête 60 m après les immeubles générés) : ni chaussée ni bordure, une plaine grise striée
+jusqu'à la rive d'en face, le Rhône dallé comme un trottoir. À 50 s la voiture volée a basculé
+dans une rampe de parking.
+
+1. **Masque lointain** (`tools/city/ground_mask.py --far`) : les mêmes canaux sur tout le
+   terrain, 4096 texels de côté (34 cm), dessiné deux fois plus fin puis moyenné, écrit avec
+   son json dans `assets/geo/processed/presqu-ile/ground_far/` (non versionné, comme le masque
+   de la rue : `route_dressing.py` le fabrique avec les données de la machine avant son étape
+   `materials`, et sans lui le sol reste comme avant). `M_City_Ground` lit le masque de la rue dans son étendue et le masque lointain au-delà ; le
+   ton sombre du lointain commence alors à 150 m au lieu du bord. `GTP_FAR_MASK=0` revient au
+   seul masque de la rue.
+2. **Fleuves** : le terrain LiDAR est plat sur l'eau, 5,8 m sous les quais. `ground_far.json`
+   porte un contour grossier du Rhône et de la Saône (10 et 22 coins) et leur niveau ; le
+   matériau peint de l'eau (couleur et brillant de `M_City_Water`, à plat) à moins de 15 m d'un
+   contour partout où le terrain est sous ce niveau plus 40 cm : la berge est là où le terrain
+   tombe. `GTP_RIVERS=0` laisse le sol comme avant.
+3. **Fosses** (`cover_pits.py`, étape `pits`) : de la porte 78 à la porte 81 l'étape tirait des
+   rayons sur le terrain, n'obtenait aucune réponse dans l'éditeur sans écran et rendait
+   « aucune fosse ». Elle lit maintenant les coins des tuiles du terrain
+   (`tools/city/terrain_file.py` : dans `terrain/terrain.glb`, gardé seulement si ses tuiles
+   ont les boîtes de celles de la carte, sinon dans les maillages des tuiles), couvre chaque
+   fosse fermée avec des couvercles qui vont jusqu'aux coins secs autour, et échoue si aucune
+   hauteur n'est lue. Sur le terrain du cache : 68 fosses, 258 couvercles, moins d'une seconde.
+
+`materials_report.json` donne `far_mask` (`texture`, `read_past_the_mask`, `rivers`, `laid`) ;
+`pit_cover_report.json` donne `heights_from`, `cells_read`, `covered`. Pas encore vu en jeu.
+
 ### Chaussées recalées sur les bordures et régénération en une commande
 
 Les axes BD TOPO sont à 0,8 m du milieu de la chaussée (2,2 m au 90e centile) et les voitures
