@@ -56,10 +56,16 @@ namespace GTPFlightCircuit
 		std::vector<FLinePoint> Line;
 		/** A row of the approach (the lanes driven to the lap), not of the lap. */
 		bool bApproach = false;
+		/** The speed asked on the lane (km/h); 0: by the width of its road (CruiseKmh). */
+		float Kmh = 0.f;
 	};
 
-	/** A driving line starts and ends this near its lane's ends, and the next line starts this near its end (m). */
-	constexpr float LineEndsMetres = 8.f;
+	/**
+	 * A driving line starts and ends this near its lane's ends, and the next line starts this near its end (m). A short
+	 * lane between two corners (a turn back through a junction, 19 m) keeps only the middle of its length: the corners
+	 * before and after it are rounded on its neighbours' lines.
+	 */
+	constexpr float LineEndsMetres = 12.f;
 
 	/** The two ends of a lane of the network (m). */
 	struct FEnds
@@ -71,7 +77,7 @@ namespace GTPFlightCircuit
 	};
 
 	/**
-	 * The rows of a circuit file, in lap order: "lane_id,start_x_cm,start_y_cm,end_x_cm,end_y_cm[,name[,line_ue_cm]]"
+	 * The rows of a circuit file, in lap order: "lane_id,start_x_cm,start_y_cm,end_x_cm,end_y_cm[,name[,line_ue_cm[,kmh]]]"
 	 * (Unreal cm, as the lanes file; the line as the lanes file writes points, "x y;x y;..."). Lines that start with '#'
 	 * and lines whose first field is not a number (the header) are skipped. The rows after a line that reads
 	 * "approach" are the approach's, those after a line that reads "lap" the lap's.
@@ -150,6 +156,11 @@ namespace GTPFlightCircuit
 					}
 				}
 			}
+			if (Fields.size() >= 8)
+			{
+				const float Kmh = std::strtof(Fields[7].c_str(), nullptr);
+				Row.Kmh = Kmh > 0.f ? Kmh : 0.f;
+			}
 			Rows.push_back(Row);
 		}
 		return Rows;
@@ -222,6 +233,9 @@ namespace GTPFlightCircuit
 		std::vector<int> Approach;
 		/** The line driven on each lane of the approach (SetApproachLines); empty: the lanes' own points are driven. */
 		std::vector<std::vector<FLinePoint>> ApproachLines;
+		/** The speed asked on each lane of the lap and of the approach (SetSpeeds, km/h); 0 or none: by the width of the road. */
+		std::vector<float> Kmh;
+		std::vector<float> ApproachKmh;
 
 		int LinePoints() const
 		{
@@ -270,6 +284,18 @@ namespace GTPFlightCircuit
 			}
 			const int Place = ApproachPlace(Lane);
 			return Place >= 0 && static_cast<std::size_t>(Place) < ApproachLines.size() ? &ApproachLines[static_cast<std::size_t>(Place)] : nullptr;
+		}
+
+		/** The speed asked on Lane by the circuit file (km/h); 0 when it asks none or Lane is not of the circuit. */
+		float KmhOf(int Lane) const
+		{
+			if (IsOn(Lane))
+			{
+				const std::size_t Place = static_cast<std::size_t>(IndexOf[static_cast<std::size_t>(Lane)]);
+				return Place < Kmh.size() ? Kmh[Place] : 0.f;
+			}
+			const int Place = ApproachPlace(Lane);
+			return Place >= 0 && static_cast<std::size_t>(Place) < ApproachKmh.size() ? ApproachKmh[static_cast<std::size_t>(Place)] : 0.f;
 		}
 
 		/** The lane to take after Lane: the next of the lap, or off the lap the exit that leads to it; -1 when there is none. */
@@ -443,6 +469,7 @@ namespace GTPFlightCircuit
 	{
 		Circuit.Approach.clear();
 		Circuit.ApproachLines.clear();
+		Circuit.ApproachKmh.clear();
 		std::vector<int> Exits;
 		for (std::size_t Place = 0; Place < Approach.size(); ++Place)
 		{
@@ -522,6 +549,30 @@ namespace GTPFlightCircuit
 			Circuit.ApproachLines.push_back(Row.Line);
 		}
 		return true;
+	}
+
+	/**
+	 * Gives the circuit the speeds its rows ask (LapRows as Build took them, ApproachRows as SetApproach did; a list
+	 * that is not one row a lane is left out).
+	 */
+	inline void SetSpeeds(FCircuit& Circuit, const std::vector<FRow>& LapRows, const std::vector<FRow>& ApproachRows)
+	{
+		Circuit.Kmh.clear();
+		Circuit.ApproachKmh.clear();
+		if (LapRows.size() == Circuit.Lanes.size())
+		{
+			for (const FRow& Row : LapRows)
+			{
+				Circuit.Kmh.push_back(Row.Kmh);
+			}
+		}
+		if (ApproachRows.size() == Circuit.Approach.size())
+		{
+			for (const FRow& Row : ApproachRows)
+			{
+				Circuit.ApproachKmh.push_back(Row.Kmh);
+			}
+		}
 	}
 
 	/** A carriageway this wide or more is a quay or a boulevard: several lanes each way, long sight lines (m). */

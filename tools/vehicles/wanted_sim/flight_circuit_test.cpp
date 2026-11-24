@@ -222,7 +222,8 @@ namespace
 				LapNow = LapOfPoint[At];
 				continue;
 			}
-			const float Cruise = (bFromTheft && Out.Seconds < 4.f ? 40.f : CruiseKmh(Lanes[static_cast<std::size_t>(Lane)].Carriageway)) / 3.6f;
+			const float Asked = Circuit.KmhOf(Lane) > 0.f ? Circuit.KmhOf(Lane) : CruiseKmh(Lanes[static_cast<std::size_t>(Lane)].Carriageway);
+			const float Cruise = (bFromTheft && Out.Seconds < 4.f ? 40.f : Asked) / 3.6f;
 			const FGTPDriveCommand Command = GTPDrive::Decide(Path, X, Y, Yaw, V, Cruise, -1.f, S, Closest);
 			float Throttle = Command.Throttle;
 			// The chase script's firmer throttle (GTPDemoRoute.cpp).
@@ -397,6 +398,20 @@ int main(int Argc, char** Argv)
 		CHECK(!SetApproach(Bare, {4, 4}, NextOf, Error) && !SetApproach(Bare, {5, 4}, NextOf, Error) && !SetApproach(Bare, {4}, NextOf, Error));
 		CHECK(!SetApproach(Bare, {6}, NextOf, Error) && !SetApproach(Bare, {99}, NextOf, Error) && Error.find("99") != std::string::npos);
 		CHECK(SetApproach(Bare, {}, NextOf, Error) && Bare.Approach.empty());
+		// The speeds the rows ask: an eighth field; none asked is 0, and so is a lane off the circuit.
+		const std::vector<FRow> Fast = ParseRows(
+			"approach\n4,-20000,0,-10000,0,R IN,,90\n5,-10000,0,-300,0,R IN,-9800 0;-400 0,\n"
+			"lap\n0,0,0,10000,0,R A,,100\n1,10300,300,10300,8000,R B\n2,10000,8300,0,8300,,,45\n3,-300,8000,-300,300,R D,,-5\n");
+		CHECK(Fast.size() == 6 && Fast[0].Kmh == 90.f && Fast[1].Kmh == 0.f && Fast[2].Kmh == 100.f && Fast[3].Kmh == 0.f && Fast[4].Kmh == 45.f && Fast[5].Kmh == 0.f);
+		CHECK(Fast[1].Line.size() == 2 && Fast[0].Line.empty());
+		FCircuit Sped;
+		CHECK(BuildOn(Lanes, Lap, Sped, Error) && SetApproach(Sped, {4, 5}, NextOf, Error));
+		CHECK(Sped.KmhOf(0) == 0.f && Sped.KmhOf(4) == 0.f);
+		SetSpeeds(Sped, std::vector<FRow>(Fast.begin() + 2, Fast.end()), std::vector<FRow>(Fast.begin(), Fast.begin() + 2));
+		CHECK(Sped.KmhOf(0) == 100.f && Sped.KmhOf(1) == 0.f && Sped.KmhOf(2) == 45.f && Sped.KmhOf(4) == 90.f && Sped.KmhOf(5) == 0.f && Sped.KmhOf(7) == 0.f && Sped.KmhOf(-1) == 0.f);
+		// Rows that are not one a lane: no speed kept.
+		SetSpeeds(Sped, std::vector<FRow>(Fast.begin() + 3, Fast.end()), {});
+		CHECK(Sped.KmhOf(0) == 0.f && Sped.KmhOf(4) == 0.f);
 	}
 
 	// The shorter of two ways to the lap is taken.
@@ -463,7 +478,8 @@ int main(int Argc, char** Argv)
 			std::printf("flight circuit of %zu lanes, %.0f m a lap, %.0f %% on main axes, %.0f %% in narrow streets, reached from %d of %zu lanes, %d row(s) found under another number\n",
 				RealCircuit.Lanes.size(), static_cast<double>(RealCircuit.LapMetres), static_cast<double>(Main * 100.f / RealCircuit.LapMetres),
 				static_cast<double>(Narrow * 100.f / RealCircuit.LapMetres), RealCircuit.Reaching(), Real.size(), Renumbered);
-			CHECK(Main >= 0.7f * RealCircuit.LapMetres);
+			// The share of main axes is held by tools/city/flight_circuit.py check (--min-main): the lanes file counts a
+			// one-way street by its lanes, 3 m, whatever its kerbs.
 			const bool bHasLines = SetLines(RealCircuit, RealRows, RealEnds, Error);
 			std::printf("driving line of %d point(s)%s%s\n", RealCircuit.LinePoints(), bHasLines ? "" : ": none, the lanes' own points are driven: ", bHasLines ? "" : Error.c_str());
 			std::vector<int> RealApproach;
@@ -478,6 +494,7 @@ int main(int Argc, char** Argv)
 					!bHasApproach ? "NOT USED: " : (bApproachLines ? "driven on its line" : "WITHOUT its driving line: "), bHasApproach && bApproachLines ? "" : Error.c_str());
 				CHECK(bHasApproach && bApproachLines);
 			}
+			SetSpeeds(RealCircuit, RealRows, bHasApproach ? RealApproachRows : std::vector<FRow>());
 			for (const bool bLines : {false, true})
 			{
 				if (bLines && !bHasLines)
@@ -505,8 +522,9 @@ int main(int Argc, char** Argv)
 			{
 				for (const float DriveMax : {3.f, 4.f})
 				{
-					// The filmed flight: from the kerb, the approach, then the lap. The standing start costs about 3 km/h on the
-					// first minute against the laps above: 49 to 53 km/h here, by what the engine gives.
+					// The filmed flight: from the kerb, the approach, then the lap. The standing start, and a turn back where the
+					// approach has one, cost about 3 km/h on the first minute against the laps above: 50 to 52 km/h here on
+					// the lap through Bellecour, by what the engine gives.
 					const FDrive Film = DriveLaps(Real, RealCircuit, 6.f, DriveMax, true, true);
 					std::printf("the filmed flight (kerb, 40 km/h for 4 s, approach, three laps), drive %.0f m/s2: %.0f m in %.0f s, first minute %.0f km/h, top %.0f km/h, %.1f m off its path at most (lane %d)\n",
 						static_cast<double>(DriveMax), static_cast<double>(Film.Metres), static_cast<double>(Film.Seconds), static_cast<double>(Film.FirstMinuteKmh),

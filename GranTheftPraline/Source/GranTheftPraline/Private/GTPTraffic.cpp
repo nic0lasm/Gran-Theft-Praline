@@ -194,6 +194,12 @@ bool FGTPLaneFollower::IsOnCircuit() const
 	return Net && Route.Num() > 0 && Net->GetFlightCircuit().IsKnown(Route[0]);
 }
 
+float FGTPLaneFollower::GetCircuitKmh() const
+{
+	const AGTPTrafficNetwork* Net = Network.Get();
+	return Net && Route.Num() > 0 ? Net->GetFlightCircuit().KmhOf(Route[0]) : 0.f;
+}
+
 float FGTPLaneFollower::GetCarriagewayM() const
 {
 	const AGTPTrafficNetwork* Net = Network.Get();
@@ -1196,6 +1202,15 @@ void AGTPTrafficNetwork::LoadFlightCircuit()
 	{
 		GTP_TRACE(LogGTPTraffic, TEXT("traffic: flight circuit WITHOUT its driving line, the lanes' own points are driven: %s"), UTF8_TO_TCHAR(Why.c_str()));
 	}
+	// The speeds the rows ask, lane by lane (the approach's are added below when it holds).
+	GTPFlightCircuit::SetSpeeds(FlightCircuit, LapRows, {});
+	int32 SpeedRows = 0;
+	for (const GTPFlightCircuit::FRow& SpeedRow : CircuitRows)
+	{
+		SpeedRows += SpeedRow.Kmh > 0.f ? 1 : 0;
+	}
+	GTP_TRACE(LogGTPTraffic, TEXT("traffic: flight circuit speeds asked by %d of %d row(s), the others by the width of their road"),
+		SpeedRows, static_cast<int32>(CircuitRows.size()));
 	// The approach. Without it a flight that starts off the lap takes the shortest way to it.
 	if (ApproachRows.empty())
 	{
@@ -1212,6 +1227,7 @@ void AGTPTrafficNetwork::LoadFlightCircuit()
 	{
 		ApproachText += FString::Printf(TEXT(" %d"), ApproachLane);
 	}
+	GTPFlightCircuit::SetSpeeds(FlightCircuit, LapRows, ApproachRows);
 	const bool bApproachLines = GTPFlightCircuit::SetApproachLines(FlightCircuit, ApproachRows, LaneEnds, Why);
 	const FString ApproachLineText = bApproachLines ? FString(TEXT("driven on its line")) : FString(TEXT("WITHOUT its driving line: ")) + UTF8_TO_TCHAR(Why.c_str());
 	GTP_TRACE(LogGTPTraffic, TEXT("traffic: flight circuit approach of %d lanes:%s, %d row(s) found under another number, %s"),

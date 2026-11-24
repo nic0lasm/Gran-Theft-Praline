@@ -214,7 +214,7 @@ trafic complet avec feux et priorités, c'est la 0.9) :
   voiture à la fois traverse un carrefour (les nœuds proches d'un grand
   carrefour comptent pour un) ; les autres attendent à une ligne d'arrêt.
   Sur une route à plusieurs files, chaque file continue dans celle de même
-  position. Les voies restent à moins de 60 m d'un bâtiment généré. Le même
+  position. Les voies restent à moins de 60 m d'un bâtiment généré, sauf les routes du circuit de fuite, gardées entières ([flight-circuit.fr.md](flight-circuit.fr.md)). Le même
   en-tête tourne dans `tools/vehicles/traffic_sim/` sur les vraies voies,
   avec des critères de réussite.
 - Éjection : personne ne monte dans une voiture à plus de 12 km/h ; une

@@ -14,7 +14,12 @@ GranTheftPraline/Content/City/Traffic/<MapName>.lanes.csv (not committed, staged
 with the game), where the traffic network (GTPTraffic.h) reads it at start.
 
 Rules:
-- lanes are kept within 60 m of a generated building;
+- lanes are kept within 60 m of a generated building; the roads listed in
+  tools/city/through_roads/<focus>.txt (BD TOPO ids, written by flight_circuit.py: the
+  roads of the flight circuit) are kept whole within the extent of the map, however far
+  from a building, so the circuit is not cut where the city has no building yet;
+- a whole road segment is kept however short (a piece cut short by the 60 m rule is
+  dropped under 3 m): BD TOPO draws some junctions with segments of 2 to 3 m;
 - roads closed to cars are left out, as in ground_mask.py (vitesse_moyenne_vl = 0,
   paths, steps, cycle tracks), and tunnels (position_par_rapport_au_sol < 0);
   bridges (position 1) are kept: the deck built by riverside.py carries them,
@@ -53,6 +58,7 @@ MARGIN_CM = 6000.0
 STEP_M = 4.0           # spacing of lane points
 NODE_SNAP_M = 0.5      # road ends closer than this are the same junction
 MIN_LANE_M = 3.0       # shorter lanes (clipping slivers) are dropped
+MIN_SEGMENT_M = 0.6    # a whole road segment is kept down to this (above NODE_SNAP_M: its two ends are two junctions)
 MIN_TWO_WAY_OFFSET_M = 1.4
 LANE_W_M = 3.2         # one traffic lane on a measured carriageway (parking lanes take the rest)
 KERB_CLEAR_M = 1.2     # a lane centre stays this far from the kerb (half a car plus margin)
@@ -145,23 +151,28 @@ def measured_offset(k, per_dir, two_way, half):
     return max(-room, min(room, want))
 
 
-def build_lanes(features, extent_m=None, carriageways=None):
+def build_lanes(features, extent_m=None, carriageways=None, through=(), through_extent_m=None):
     """Lanes (dicts) from road features in local metres, clipped to extent_m:
     a box (x0, y0, x1, y1) or any shapely geometry. With carriageways (from
     load_carriageways), lanes follow the measured carriageway centre and stay
-    KERB_CLEAR_M from its kerbs; junctions still come from the BD TOPO ends."""
+    KERB_CLEAR_M from its kerbs; junctions still come from the BD TOPO ends.
+    The roads whose id is in through are clipped to the box through_extent_m
+    instead (not at all without one)."""
     carriageways = carriageways or {}
     if extent_m is None:
-        clip = None
+        area_clip = None
     elif isinstance(extent_m, tuple):
-        clip = box(*extent_m)
+        area_clip = box(*extent_m)
     else:
-        clip = extent_m
+        area_clip = extent_m
+    through = set(through)
+    through_clip = box(*through_extent_m) if through_extent_m else None
     lanes = []
     for feat in features:
         p = feat["properties"]
         if not is_car_road(p):
             continue
+        clip = through_clip if (p.get("cleabs") or "") in through else area_clip
         width = road_width(p)
         dirs = directions(p)
         total = max(1, int(p.get("nombre_de_voies") or 1))
@@ -178,7 +189,12 @@ def build_lanes(features, extent_m=None, carriageways=None):
                     continue
                 parts = [g for g in getattr(cut, "geoms", [cut]) if g.geom_type == "LineString"]
             for part in parts:
-                if part.length < MIN_LANE_M:
+                # A piece the clip cut short is a sliver and goes. A whole road segment stays however short: BD TOPO
+                # draws some junctions with segments of 2 to 3 m (rue du Président Édouard Herriot at the place des
+                # Jacobins, 2.7 m), and without them the street stopped there for the cars: no way on from it, and
+                # no way into what follows.
+                shortest = MIN_SEGMENT_M if part.length >= centre.length - 0.01 else MIN_LANE_M
+                if part.length < shortest:
                     continue
                 # Junctions are the ends of the drawn centre line, before any offset.
                 start, end = part.coords[0], part.coords[-1]
@@ -189,7 +205,7 @@ def build_lanes(features, extent_m=None, carriageways=None):
                     # Measured points belonging to this part (its centre is at most a few metres off).
                     zone = part.buffer(6.0)
                     keep = [i for i, c in enumerate(m_centre) if zone.contains(Point(c))]
-                    if len(keep) < 2 or LineString([m_centre[i] for i in keep]).length < MIN_LANE_M:
+                    if len(keep) < 2 or LineString([m_centre[i] for i in keep]).length < shortest:
                         measured = None
                 for d in dirs:
                     base = part if d == 1 else LineString(list(part.coords)[::-1])
@@ -208,9 +224,10 @@ def build_lanes(features, extent_m=None, carriageways=None):
                                 offset = -width / 2.0 + (k + 0.5) * lane_w
                             # shapely: positive offset = left side; France drives on the right.
                             lane_line = base.offset_curve(-offset) if abs(offset) > 1e-3 else base
-                        if lane_line.is_empty or lane_line.geom_type != "LineString" or lane_line.length < MIN_LANE_M:
+                        if lane_line.is_empty or lane_line.geom_type != "LineString" or lane_line.length < shortest:
                             continue
                         lanes.append({
+                            "through": (p.get("cleabs") or "") in through,
                             "road": p.get("cleabs") or "",
                             "name": (p.get("nom_collaboratif_gauche") or p.get("nom_collaboratif_droite")
                                      or p.get("nom_1_gauche") or p.get("nom_1_droite") or ""),
@@ -341,6 +358,19 @@ def focus_area_m(gen):
     return unary_union([Point(float(r["cx"]), float(r["cy"])).buffer(AREA_BUFFER_M, 8) for r in rows])
 
 
+def through_roads_file(focus):
+    return os.path.join(HERE, "through_roads", focus + ".txt")
+
+
+def read_through_roads(path):
+    """BD TOPO road ids, one a line; what follows a '#' is a comment. Empty when the file is not there."""
+    if not path or not os.path.exists(path):
+        return []
+    with open(path, encoding="utf-8") as f:
+        ids = [line.split("#")[0].strip() for line in f]
+    return [i for i in ids if i]
+
+
 def focus_extent_m(gen):
     rows = building_rows(gen)
     xs = [float(r["ue_x"]) for r in rows]
@@ -358,16 +388,21 @@ def main():
     ap.add_argument("--roads", help="roads.geojson to read instead of the zone's")
     ap.add_argument("--map", help="map name: copy the lanes into the game for this map")
     ap.add_argument("--carriageway", help="measured carriageways (tools/city/carriageway.py); default: the zone's carriageway.geojson, if any")
+    ap.add_argument("--through-roads", help="file of BD TOPO road ids kept whole within the extent of the map; "
+                    "default: tools/city/through_roads/<focus>.txt, if any; 'none' for no such road")
     args = ap.parse_args()
     base = os.path.join(REPO, "assets", "geo", "processed", args.zone)
     gen = os.path.join(base, "gen", args.focus)
     with open(args.roads or os.path.join(base, "roads.geojson"), encoding="utf-8") as f:
         roads = json.load(f)["features"]
-    _, extent_cm = focus_extent_m(gen)
+    extent_m, extent_cm = focus_extent_m(gen)
     carriageways = load_carriageways(args.carriageway or os.path.join(base, "carriageway.geojson"))
-    lanes = build_lanes(roads, focus_area_m(gen), carriageways)
+    through = [] if args.through_roads == "none" else read_through_roads(args.through_roads or through_roads_file(args.focus))
+    lanes = build_lanes(roads, focus_area_m(gen), carriageways, through, extent_m)
     out = os.path.join(gen, "traffic")
     meta = write(lanes, out, extent_cm)
+    meta["through_roads"] = len(through)
+    meta["through_lanes"] = sum(1 for lane in lanes if lane["through"])
     preview(lanes, os.path.join(out, "lanes.png"))
     if args.map:
         dest = os.path.join(REPO, "GranTheftPraline", "Content", "City", "Traffic", args.map + ".lanes.csv")

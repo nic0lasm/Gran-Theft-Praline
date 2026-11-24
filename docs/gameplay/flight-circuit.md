@@ -12,19 +12,32 @@ The game checks the file when the map starts (`GTPFlightCircuit.h`): each lane l
 
 ## The lap of L_City_RueDeLaRepublique
 
-The lanes of this map are only made within 60 m of a generated building. The largest set of lanes from which one can come back to the theft is 33 lanes round the place des Cordeliers; its closed ways are 214 to 817 m long. The lap kept is the longest: 817 m, 21 lanes, 75 % on main axes (carriageway of 7 m and more), no narrow street. North on the quai Jean Moulin, round at the rue Gentil, south on the quays, the rue Saint-Bonaventure, north on the rue Grolée, east across the place des Cordeliers. Two laps are 1.6 km, three 2.4 km.
+The lap goes through the place Bellecour, the shop window of the town: 1793 m, 37 lanes. South on the quai Jules Courmont (346 m), the rue Childebert, the place de la République and its basin, the rue Marcel-Gabriel Rivière, the place de l'Hôpital, the rue Bellecordière, the rue de la Barre, the north-east corner of the place Bellecour, north on the rue du Président Édouard Herriot past the place des Jacobins, the rue Jean de Tournes, the rue Stella, the rue Grolée, the rue du Président Carnot, and right onto the quay again.
 
-The approach is the middle lane of the quai Jean Moulin from the theft, 189 m straight on, into the lap at the turn of the rue Gentil. Without it the shortest way to the lap was a U-turn at the first junction.
+The theft is on the quai Jean Moulin, northbound, 400 m north of the lap. The approach (488 m) turns back through the junction of the pont Lafayette and runs down the quay into the rue Childebert.
 
-What this lap is not: one loop of 1.5 to 2.5 km, and a way through the rue de la République. That street is pedestrian and has no lane, and the lanes round the place Bellecour are cut off from the quays in today's lanes file. A longer loop needs another lanes file.
+Until gate 80 the lanes file could not hold this lap, for two reasons, both in `tools/city/traffic.py`:
+
+- a road segment of 2.7 m of the rue Herriot at the place des Jacobins was dropped as too short, which cut the street. A whole road segment is now kept from 0.6 m;
+- lanes were only made within 60 m of a generated building, which left out 650 m of this lap (the rue Herriot north of the Jacobins, the rue Jean de Tournes, the quay between the rue Ferrandière and the rue Childebert, the east of the rue Childebert). The roads of the circuit are now listed in `tools/city/through_roads/<focus>.txt` and kept whole within the extent of the map. The lanes file goes from 229 to 255 lanes.
+
+The lap chosen first was 817 m round the place des Cordeliers: the longest closed way of the lanes file as it was. It did not show Bellecour.
+
+What this lap is not:
+
+- a way through the rue de la République itself: that street is pedestrian and has no lane. The lap crosses it at the place de la République and runs beside it;
+- a lap round the place Bellecour: the ground of the map ends 65 m into the square, only its north-east corner is there;
+- 70 % of main axes by the lanes file, which says 41 %: it counts a one-way street by its one lane of 3 m. Between the kerbs measured on the ground (`carriageway.geojson`), 77 % of the lap is 7 m wide or more. `check --carriageway` counts that way.
 
 ## The driving line
 
 The lanes are road centre lines pushed aside. Their points wander by a metre, and a lane starts a metre or two beside the end of the one before. The drivers read each such step as a bend: a step of 15 degrees is worth 42 km/h. On the lanes' own points, three laps driven with the game's decisions average 40 km/h and never pass 74, whatever speed is asked.
 
-So each row carries the line driven on its lane: one closed curve over the lap, a point every 3 m, straights straightened, corners kept where they are and rounded (0.9 m cut inside a right-hand corner, whose inside is the kerb; 2.5 m inside a left-hand one). The line stays within 4.5 m of its lane. On the circuit the flight asks for 100 km/h on a quay or a boulevard (carriageway of 12 m and more), 75 on another main axis, 60 in a middle street, from 4 s after the theft.
+So each row carries the line driven on its lane: one closed curve over the lap, a point every 3 m, straights straightened, corners kept where they are and rounded (0.9 m cut inside a right-hand corner, whose inside is the kerb; 2.5 m inside a left-hand one). The line stays within 4.5 m of its lane, and starts and ends within 12 m of the lane's ends.
 
-What the simulation says (`flight_circuit_test.cpp`: the game's decisions, a bicycle model of a car, not the game's physics): on the line a lap takes 51 to 55 s, the first minute averages 52 to 56 km/h, the top speed is 100 km/h. As the film starts, from a standstill at the kerb: 49 to 53 km/h over the first minute. Only a gate on the PC says what the game's car does.
+Each row also carries the speed the flight asks on it (column `kmh`), from 4 s after the theft: 100 km/h on the quays, 75 on the rue de la Barre, the rue Herriot and the rue Carnot, 60 on Bellecour and in the rue Childebert, Jean de Tournes, Stella and Grolée, 50 in the rue Rivière and the rue Bellecordière, 45 on the place de la République, 40 on the place de l'Hôpital. A row without a speed goes by the width the lanes file gives: 100 km/h on a carriageway of 12 m and more, 75 on another main axis, 60 in a middle street.
+
+What the simulation says (`flight_circuit_test.cpp`: the game's decisions, a bicycle model of a car, not the game's physics): on the line a lap takes about two minutes, the first minute averages 52 to 53 km/h, the top speed is 100 km/h. As the film starts, from a standstill at the kerb and through the turn back: 50 to 52 km/h over the first minute, the place de la République at about 38 s, Bellecour at about 70 s, the place des Jacobins at about 85 s. Only a gate on the PC says what the game's car does.
 
 ## When the car is held up
 
@@ -35,8 +48,10 @@ The script still puts the car back on a lane when it is held up or off its lane 
 `tools/city/flight_circuit.py`, plain Python:
 
 - `find <lanes.csv>`: every closed way with no lane taken twice, the longest first, with its share of main axes;
-- `write <lanes.csv> --lanes 214,7,... --approach 188,215,... --out <Map>.circuit.csv`: the circuit file with its driving lines;
-- `check <circuit.csv> <lanes.csv> --report lane_clear_report.json --png lap.png`: the circuit against the lanes file the game reads, and against the report of the prep step `lanes`: nothing that step only reported (facade modules, signs) may stand on a lane of the circuit. Exit 1 when the circuit does not hold. To run before each gate, on the lanes file of that gate.
+- `write <lanes.csv> --lanes 381,367,... --approach 397,161,... --speeds "QU JULES COURMONT=100,..." --out <Map>.circuit.csv --roads-out tools/city/through_roads/<focus>.txt`: the circuit file with its driving lines and speeds, and the list of its roads for `traffic.py`;
+- `check <circuit.csv> <lanes.csv> --carriageway carriageway.geojson --report lane_clear_report.json --png lap.png`: the circuit against the lanes file the game reads, and against the report of the prep step `lanes`: nothing that step only reported (facade modules, signs) may stand on a lane of the circuit. Exit 1 when the circuit does not hold. To run before each gate, on the lanes file of that gate.
+
+When the roads of the circuit change: `write` on a lanes file that has them (made with `traffic.py` on a through-roads file that lists them), then `traffic.py` again, the prep step `lanes`, and `check`.
 
 ## Switch
 

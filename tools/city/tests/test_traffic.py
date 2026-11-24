@@ -99,6 +99,53 @@ class TrafficTests(unittest.TestCase):
         self.assertAlmostEqual(min(ys), -10, places=3)
         self.assertAlmostEqual(max(ys), 10, places=3)
 
+    def test_short_whole_segment_keeps_the_street_going(self):
+        # BD TOPO draws some junctions with a segment of 2 to 3 m (rue du Président Édouard Herriot at the place des
+        # Jacobins): dropped, the street stopped there, with no way on and no way into what follows.
+        lanes = traffic.build_lanes([
+            road("A", [[0, 0], [0, 50]], sens="Sens direct", voies=1, largeur=4.0),
+            road("B", [[0, 50], [0, 52.7]], sens="Sens direct", voies=1, largeur=4.0),
+            road("C", [[0, 52.7], [0, 100]], sens="Sens direct", voies=1, largeur=4.0),
+            road("D", [[0, 52.7], [60, 53]], sens="Sens direct", voies=1, largeur=4.0),
+        ])
+        by_road = {lane["road"]: lane for lane in lanes}
+        self.assertEqual(set(by_road), {"A", "B", "C", "D"})
+        self.assertGreaterEqual(len(by_road["B"]["points"]), 2)
+        self.assertEqual(by_road["A"]["next"], [by_road["B"]["id"]])
+        self.assertEqual(sorted(by_road["B"]["next"]), sorted([by_road["C"]["id"], by_road["D"]["id"]]))
+
+    def test_sliver_left_by_the_clip_is_still_dropped(self):
+        lanes = traffic.build_lanes([road("A", [[0, 0], [0, 100]], sens="Sens direct", voies=1, largeur=4.0)],
+                                    (-10.0, 98.0, 10.0, 200.0))
+        self.assertEqual(lanes, [])
+
+    def test_through_road_is_kept_whole_within_the_map(self):
+        features = [road("A", [[0, 0], [0, 100]], sens="Sens direct", voies=1, largeur=4.0),
+                    road("B", [[0, 100], [0, 300]], sens="Sens direct", voies=1, largeur=4.0),
+                    road("C", [[0, 300], [0, 400]], sens="Sens direct", voies=1, largeur=4.0)]
+        area = (-10.0, -10.0, 10.0, 150.0)
+        cut = {lane["road"]: lane for lane in traffic.build_lanes(features, area)}
+        self.assertEqual(set(cut), {"A", "B"})
+        self.assertAlmostEqual(cut["B"]["points"][-1][1], 150.0, places=3)
+        self.assertEqual(cut["B"]["next"], [])
+        # B is of the flight circuit: whole within the map (to y = 350), and it leads to C, cut by the map.
+        whole = {lane["road"]: lane for lane in traffic.build_lanes(features, area, None, ["B", "C"], (-10.0, -10.0, 10.0, 350.0))}
+        self.assertEqual(set(whole), {"A", "B", "C"})
+        self.assertAlmostEqual(whole["B"]["points"][-1][1], 300.0, places=3)
+        self.assertEqual(whole["B"]["next"], [whole["C"]["id"]])
+        self.assertAlmostEqual(whole["C"]["points"][-1][1], 350.0, places=3)
+        self.assertTrue(whole["B"]["through"] and not whole["A"]["through"])
+
+    def test_through_roads_file(self):
+        import tempfile
+        with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False, encoding="utf-8") as f:
+            f.write("# roads of the circuit\nTRONROUT1  # quai\n\nTRONROUT2\n")
+        try:
+            self.assertEqual(traffic.read_through_roads(f.name), ["TRONROUT1", "TRONROUT2"])
+        finally:
+            os.remove(f.name)
+        self.assertEqual(traffic.read_through_roads(f.name), [])
+
 
 if __name__ == "__main__":
     unittest.main()
