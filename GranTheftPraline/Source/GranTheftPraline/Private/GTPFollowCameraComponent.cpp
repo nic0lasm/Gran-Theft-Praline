@@ -12,6 +12,7 @@
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
 #include "GTPWeapon.h"
+#include "GTPCameraProbe.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogGTPFollowCamera, Log, All);
 
@@ -78,27 +79,52 @@ void UGTPFollowCameraComponent::SetDriving(bool bDrive)
 	if (!bDriving)
 	{
 		bManualRecenter = false;
-		SetBodyHidden(HiddenBody.Get(), false);
+		SetBodyHidden(nullptr, false);
+		Occluders.Clear();
 	}
 }
 
-void UGTPFollowCameraComponent::SetBodyHidden(USkeletalMeshComponent* Mesh, bool bHidden)
+void UGTPFollowCameraComponent::SetBodyHidden(const ACharacter* Character, bool bHidden)
 {
-	// Owner-no-see would not work: the view target is our camera actor, not the character.
-	if (HiddenBody.IsValid() && HiddenBody.Get() != Mesh)
+	// Owner-no-see would not work: the view target is our camera actor, not the character. The visual attached to
+	// the pawn (Nicolito) is hidden too: hiding only the pawn's own mesh left his legs and arms in the picture (gate 76).
+	if (!bHidden || !Character)
 	{
-		HiddenBody->SetHiddenInGame(false);
-		HiddenBody->SetCastHiddenShadow(false);
-		HiddenBody = nullptr;
+		for (const TWeakObjectPtr<UPrimitiveComponent>& Part : HiddenBodyParts)
+		{
+			if (Part.IsValid())
+			{
+				Part->SetHiddenInGame(false);
+				Part->SetCastHiddenShadow(false);
+			}
+		}
+		HiddenBodyParts.Reset();
+		return;
 	}
-	const bool bIsHidden = HiddenBody.IsValid() && HiddenBody.Get() == Mesh;
-	if (!Mesh || bIsHidden == bHidden)
+	if (HiddenBodyParts.Num() > 0)
 	{
 		return;
 	}
-	Mesh->SetCastHiddenShadow(bHidden);
-	Mesh->SetHiddenInGame(bHidden);
-	HiddenBody = bHidden ? Mesh : nullptr;
+	TArray<AActor*> Actors;
+	const_cast<ACharacter*>(Character)->GetAttachedActors(Actors, false, true);
+	Actors.Add(const_cast<ACharacter*>(Character));
+	for (AActor* Actor : Actors)
+	{
+		if (!Actor || Actor == Camera)
+		{
+			continue;
+		}
+		TInlineComponentArray<UPrimitiveComponent*> Parts(Actor);
+		for (UPrimitiveComponent* Part : Parts)
+		{
+			if (Part && Part->IsVisible() && !Part->bHiddenInGame)
+			{
+				Part->SetCastHiddenShadow(true);
+				Part->SetHiddenInGame(true);
+				HiddenBodyParts.Add(Part);
+			}
+		}
+	}
 }
 
 void UGTPFollowCameraComponent::NotifyLookInput()
@@ -130,6 +156,7 @@ void UGTPFollowCameraComponent::Snap(const ACharacter* Character)
 {
 	bHasState = false;
 	CollisionFraction = 1.f;
+	CurrentLift = 0.f;
 	CurrentFOV = BaseFOV;
 	CurrentArm = ArmLength;
 	if (APlayerController* PC = GetPlayerController())
@@ -273,18 +300,44 @@ void UGTPFollowCameraComponent::UpdateCamera(APlayerController* PC, const AChara
 	const FVector Desired = SmoothedPivot + FVector(0.f, 0.f, AimHeadOffset)
 		+ Rotation.RotateVector(FVector(-CurrentArm, Shoulder.X * ShoulderSide, Shoulder.Y));
 
-	// Collision: sweep from the unlagged pivot (inside the capsule, never in a wall).
+	// Collision, as in the genre: walls, ground and cars pull the arm in; people and small props (poles, bins,
+	// bollards) do not, they are hidden while in the way. Squeezed, the camera rises over the shoulder instead of
+	// pressing into the back of the head (gate 76: on the roofline against a wall, in the granite, legs in the picture).
 	float HitFraction = 1.f;
+	FVector Pivot = RawPivot;
+	FVector Wanted = Desired;
+	TArray<const AActor*> Ignored{Character, Camera};
+	{
+		TArray<AActor*> Attached;
+		Character->GetAttachedActors(Attached, false, true);
+		Ignored.Append(Attached);
+	}
 	if (UWorld* World = GetWorld())
 	{
-		FCollisionQueryParams Params(SCENE_QUERY_STAT(GTPFollowCamera), false, Character);
-		Params.AddIgnoredActor(Camera);
-		FHitResult Hit;
-		if (World->SweepSingleByChannel(Hit, RawPivot, Desired, FQuat::Identity, ECC_Camera, FCollisionShape::MakeSphere(ProbeRadius), Params)
-			&& !Hit.bStartPenetrating)
+		FString Wall;
+		const float Flat = GTPCameraProbe::Sweep(World, RawPivot, Desired, ProbeRadius, SmallObjectRadius, Ignored, &Wall);
+		const float TargetLift = Flat < 1.f ? SqueezeLift * (1.f - Flat) : 0.f;
+		CurrentLift = bInstant ? TargetLift : FMath::Lerp(CurrentLift, TargetLift, SmoothAlpha(TargetLift > CurrentLift ? 8.f : CollisionRecoverSpeed, DeltaTime));
+		HitFraction = Flat;
+		if (CurrentLift > 1.f)
 		{
-			HitFraction = Hit.Time;
+			// Up from the pivot as far as the ceiling allows, then the same arm from there.
+			const FVector Up(0.f, 0.f, CurrentLift);
+			const float Room = GTPCameraProbe::Sweep(World, RawPivot, RawPivot + Up, ProbeRadius, SmallObjectRadius, Ignored);
+			const FVector Raised = RawPivot + Up * Room;
+			const float High = GTPCameraProbe::Sweep(World, Raised, Desired + Up * Room, ProbeRadius, SmallObjectRadius, Ignored);
+			if (High > Flat)
+			{
+				Pivot = Raised;
+				Wanted = Desired + Up * Room;
+				HitFraction = High;
+			}
 		}
+		if (Flat < 1.f && !bSqueezed)
+		{
+			UE_LOG(LogGTPFollowCamera, Verbose, TEXT("Camera squeezed by %s (%.0f%% of the arm)"), *Wall, Flat * 100.f);
+		}
+		bSqueezed = Flat < 1.f;
 	}
 	if (bInstant || HitFraction < CollisionFraction)
 	{
@@ -294,17 +347,49 @@ void UGTPFollowCameraComponent::UpdateCamera(APlayerController* PC, const AChara
 	{
 		CollisionFraction = FMath::Lerp(CollisionFraction, HitFraction, SmoothAlpha(CollisionRecoverSpeed, DeltaTime));
 	}
-	const FVector Location = RawPivot + (Desired - RawPivot) * CollisionFraction;
+	const FVector Location = Pivot + (Wanted - Pivot) * CollisionFraction;
 	CurrentDistance = FVector::Dist(Location, RawPivot);
+	// Raised, the view tips down towards the shoulders so the player stays in the picture.
+	FRotator ViewRotation = Rotation;
+	if (CurrentLift > 1.f)
+	{
+		const double Horizontal = FMath::Max(50.0, FVector::Dist2D(Location, RawPivot));
+		const double Drop = Location.Z - RawPivot.Z;
+		ViewRotation.Pitch = FMath::Min(ViewRotation.Pitch, ViewRotation.Pitch - FMath::RadiansToDegrees(FMath::Atan2(FMath::Max(0.0, Drop - Shoulder.Y), Horizontal)) * 0.7);
+	}
 
 	const float TargetFOV = FMath::Lerp(FMath::Lerp(BaseFOV, SprintFOV, SprintAlpha), AimFOV, AimAlpha);
 	CurrentFOV = bInstant ? TargetFOV : FMath::Lerp(CurrentFOV, TargetFOV, SmoothAlpha(FOVSpeed, DeltaTime));
 
-	Camera->SetActorLocationAndRotation(Location, Rotation);
+	Camera->SetActorLocationAndRotation(Location, ViewRotation);
 	Camera->GetCameraComponent()->SetFieldOfView(CurrentFOV);
 
 	// Pressed against a wall the camera ends up in the head: hide the body for the player only (shadow kept).
-	SetBodyHidden(Character->GetMesh(), CurrentDistance < MinDistance);
+	SetBodyHidden(Character, CurrentDistance < MinDistance);
+	// People and small props between the camera and the player's chest, hidden while they are in the way.
+	if (bHideOccluders)
+	{
+		const int32 Count = Occluders.Update(GetWorld(), Location, RawPivot - FVector(0.f, 0.f, 20.f), OccluderRadius, SmallObjectRadius, Ignored);
+		LastOccluderCount = Count;
+	}
+	// One line every 10 s for the gate: how often the arm was squeezed, how far it rose, what was hidden.
+	if (!bInstant)
+	{
+		StatSeconds += DeltaTime;
+		StatSqueezed += bSqueezed ? DeltaTime : 0.f;
+		StatBodyHidden += HiddenBodyParts.Num() > 0 ? DeltaTime : 0.f;
+		StatMaxLift = FMath::Max(StatMaxLift, CurrentLift);
+		StatMinDistance = FMath::Min(StatMinDistance, CurrentDistance);
+		StatMaxOccluders = FMath::Max(StatMaxOccluders, LastOccluderCount);
+		if (StatSeconds >= 10.f)
+		{
+			UE_LOG(LogGTPFollowCamera, Log, TEXT("on-foot camera (10 s): squeezed %.0f%%, raised up to %.0f cm, nearest %.0f cm from the shoulders, body hidden %.0f%%, up to %d parts hidden in the way"),
+				100.f * StatSqueezed / StatSeconds, StatMaxLift, StatMinDistance, 100.f * StatBodyHidden / StatSeconds, StatMaxOccluders);
+			StatSeconds = StatSqueezed = StatBodyHidden = StatMaxLift = 0.f;
+			StatMinDistance = 1e6f;
+			StatMaxOccluders = 0;
+		}
+	}
 }
 
 void UGTPFollowCameraComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
@@ -331,6 +416,8 @@ void UGTPFollowCameraComponent::TickComponent(float DeltaTime, ELevelTick TickTy
 
 void UGTPFollowCameraComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	Occluders.Clear();
+	SetBodyHidden(nullptr, false);
 	if (Camera)
 	{
 		Camera->Destroy();

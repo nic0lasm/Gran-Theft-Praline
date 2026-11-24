@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "GTPCameraProbe.h"
 #include "GTPFollowCameraComponent.generated.h"
 
 class ACameraActor;
@@ -129,6 +130,22 @@ protected:
 	UPROPERTY(Config, EditAnywhere, Category = "Follow camera|Collision")
 	float CollisionRecoverSpeed = 4.f;
 
+	/** Props whose bounds radius is under this (cm) never pull the camera in: poles, bins, bollards, signs. */
+	UPROPERTY(Config, EditAnywhere, Category = "Follow camera|Collision")
+	float SmallObjectRadius = 120.f;
+
+	/** Squeezed to nothing, the camera rises this much (cm) over the shoulder, as much as the ceiling allows. */
+	UPROPERTY(Config, EditAnywhere, Category = "Follow camera|Collision")
+	float SqueezeLift = 90.f;
+
+	/** People and small props between the camera and the player are hidden while in the way. */
+	UPROPERTY(Config, EditAnywhere, Category = "Follow camera|Collision")
+	bool bHideOccluders = true;
+
+	/** Radius of the sweep that finds them, in cm. */
+	UPROPERTY(Config, EditAnywhere, Category = "Follow camera|Collision")
+	float OccluderRadius = 20.f;
+
 	/** Below this distance from the pivot the body is hidden for the player, in cm. */
 	UPROPERTY(Config, EditAnywhere, Category = "Follow camera|Collision")
 	float MinDistance = 45.f;
@@ -213,13 +230,19 @@ private:
 	void UpdateRecenter(APlayerController* PC, const ACharacter* Character, float DeltaTime);
 	void UpdateCamera(APlayerController* PC, const ACharacter* Character, float DeltaTime, bool bInstant);
 
-	void SetBodyHidden(USkeletalMeshComponent* Mesh, bool bHidden);
+	void SetBodyHidden(const ACharacter* Character, bool bHidden);
 
 	UPROPERTY(Transient)
 	TObjectPtr<ACameraActor> Camera;
 
-	/** Body hidden because the camera is pressed into the head. */
-	TWeakObjectPtr<USkeletalMeshComponent> HiddenBody;
+	/** Body and visual parts hidden because the camera is pressed into the head. */
+	TArray<TWeakObjectPtr<UPrimitiveComponent>> HiddenBodyParts;
+	FGTPCameraOccluders Occluders;
+	int32 LastOccluderCount = 0;
+	float CurrentLift = 0.f;
+	bool bSqueezed = false;
+	float StatSeconds = 0.f, StatSqueezed = 0.f, StatBodyHidden = 0.f, StatMaxLift = 0.f, StatMinDistance = 1e6f;
+	int32 StatMaxOccluders = 0;
 
 	bool bDriving = false;
 	bool bHasState = false;

@@ -124,3 +124,24 @@ warning from our code and no view target fight.
 
 Still to check by hand: the feel itself (mouse and gamepad), the prompts
 next to the Clio in `L_City_RueDeLaRepublique`, the ambience level.
+
+## 8. Camera collision as in the genre (2026-11-24, video of gate 76)
+
+Seen at gate 76: the chase camera on the roofline against a wall (about 30 s), the view masked by a body at the
+arrest, the on-foot camera pressed into a granite wall with the player's legs filling the picture (90 to 115 s).
+
+- **What pulls the camera in** (`GTPCameraProbe`, shared by the on-foot camera and the car's chase camera): walls,
+  ground, buildings and cars. People and small props (bounds radius under `SmallObjectRadius`, 120 cm on foot and
+  `ChaseSmallObjectRadius`, 150 cm in a car: poles, bins, bollards, signs) never do. A sweep that starts inside a wall
+  keeps the camera at the pivot instead of putting it on the far side.
+- **Squeezed, it rises.** The camera goes up over the shoulder (`SqueezeLift`, 90 cm) or above the car
+  (`ChaseSqueezeLift`, 160 cm), as far as the ceiling allows, and the on-foot view tips down to keep the player in the
+  picture. It pulls in at once and comes back out slowly. The car's spring arm no longer does its own collision.
+- **In the way, hidden.** People and small props between the camera and the player (or the car) are hidden while
+  they are in the way, then shown again (rendering only: `bHideOccluders`, `bChaseHideOccluders`).
+- **Camera in the head.** The whole player is hidden for the player, Nicolito's visual included (only the pawn's own
+  mesh was before, so his legs and arms filled the picture).
+- **Lines for the gate**, one every 10 s: `on-foot camera (10 s): squeezed ...%, raised up to ... cm, nearest ... cm
+  from the shoulders, body hidden ...%, up to N parts hidden in the way` and `chase camera (10 s): squeezed ...% (last
+  by <actor>), raised up to ... cm, arm down to ... cm of ..., up to N parts hidden in the way`.
+- Not proven: nothing compiles in the cloud. To judge on the video at the same moments.

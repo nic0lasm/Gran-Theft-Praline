@@ -129,3 +129,24 @@ de vue.
 Reste à vérifier à la main : la sensation elle-même (souris et manette), les
 aides près de la Clio dans `L_City_RueDeLaRepublique`, le niveau de
 l'ambiance.
+
+## 8. Collision de la caméra comme dans le genre (24/11/2026, vidéo de la porte 76)
+
+Vu à la porte 76 : caméra de poursuite au ras du toit contre un mur (vers 30 s), vue masquée par un corps à
+l'arrestation, caméra à pied collée à un mur de granit avec les jambes du joueur plein cadre (de 90 à 115 s).
+
+- **Ce qui rapproche la caméra** (`GTPCameraProbe`, commun à la caméra à pied et à la caméra de poursuite de la
+  voiture) : murs, sol, bâtiments et voitures. Les gens et les petits objets (rayon d'encombrement sous
+  `SmallObjectRadius`, 120 cm à pied, et `ChaseSmallObjectRadius`, 150 cm en voiture : poteaux, poubelles, bornes,
+  panneaux) jamais. Un balayage qui part de l'intérieur d'un mur garde la caméra au pivot au lieu de la mettre de
+  l'autre côté.
+- **Coincée, elle monte.** La caméra s'élève au-dessus de l'épaule (`SqueezeLift`, 90 cm) ou au-dessus de la voiture
+  (`ChaseSqueezeLift`, 160 cm), autant que le plafond le permet, et la vue à pied s'incline pour garder le joueur dans
+  l'image. Elle se rapproche d'un coup et ressort lentement. La perche de la voiture ne fait plus sa propre collision.
+- **Ce qui gêne est masqué.** Les gens et petits objets entre la caméra et le joueur (ou la voiture) sont cachés tant
+  qu'ils gênent, puis réaffichés (rendu seulement : `bHideOccluders`, `bChaseHideOccluders`).
+- **Caméra dans la tête.** Tout le joueur est caché pour le joueur, visuel de Nicolito compris (avant, seul le
+  maillage du pion l'était, d'où les jambes et les bras plein cadre).
+- **Lignes pour la porte**, une toutes les 10 s : `on-foot camera (10 s): ...` et `chase camera (10 s): ...` (part du
+  temps coincée, hauteur atteinte, distance la plus courte, parties masquées).
+- Non prouvé : rien ne compile dans le cloud. À juger sur la vidéo aux mêmes moments.

@@ -40,6 +40,7 @@
 #include "GameFramework/Controller.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "GTPCameraProbe.h"
 #include "InputActionValue.h"
 #include "TimerManager.h"
 #include "Misc/CommandLine.h"
@@ -102,7 +103,9 @@ AGTPVehicle::AGTPVehicle(const FObjectInitializer& ObjectInitializer)
 	ChaseArm->SetupAttachment(GetMesh());
 	ChaseArm->bUsePawnControlRotation = true;
 	ChaseArm->bInheritRoll = false;
-	ChaseArm->bDoCollisionTest = true;
+	// Our own probe in UpdateChaseCamera: the arm's pulled the camera onto the roof for any pedestrian, pole or wall
+	// beside the car (gate 76).
+	ChaseArm->bDoCollisionTest = false;
 	ChaseArm->bEnableCameraLag = true;
 	// Tight lag, capped: the car stays the same size on screen at speed.
 	ChaseArm->CameraLagSpeed = 14.f;
@@ -651,6 +654,7 @@ void AGTPVehicle::BeginPlay()
 
 	ChaseArm->SetRelativeLocation(FVector(0.f, 0.f, ChasePivotHeight));
 	ChaseArm->TargetArmLength = ChaseDistance;
+	ChaseArmWanted = ChaseDistance;
 	ChaseArm->SocketOffset = FVector(0.f, 0.f, ChaseHeight);
 	ChaseCamera->SetFieldOfView(BaseFOV);
 	InteriorCamera->SetRelativeLocation(InteriorEyeOffset);
@@ -1752,6 +1756,10 @@ void AGTPVehicle::Tick(float DeltaSeconds)
 		}
 		UpdateChaseCamera(DeltaSeconds);
 	}
+	else
+	{
+		ChaseOccluders.Clear();
+	}
 }
 
 void AGTPVehicle::SetRearGrip(float Multiplier)
@@ -1852,6 +1860,63 @@ void AGTPVehicle::PutBackOnWheels(float DeltaSeconds)
 	}
 }
 
+void AGTPVehicle::UpdateChaseCollision(const APlayerController* PC, float DeltaSeconds)
+{
+	// As in the genre: walls, the ground and other cars pull the arm in, at once; people and small props (poles,
+	// bins, signs) do not, they are hidden while between the camera and the car. Squeezed, the camera rises above the
+	// car rather than sliding down onto its roof. The arm comes back out slowly.
+	TArray<const AActor*> Ignored{this};
+	{
+		TArray<AActor*> Attached;
+		GetAttachedActors(Attached, false, true);
+		Ignored.Append(Attached);
+	}
+	const FVector Pivot = ChaseArm->GetComponentLocation();
+	const FRotator Look = PC->GetControlRotation();
+	const FVector Back = Look.Vector() * -ChaseArmWanted;
+	const FVector Up = FRotationMatrix(Look).TransformVector(FVector(0.f, 0.f, ChaseHeight));
+	FString Wall;
+	const float Flat = GTPCameraProbe::Sweep(GetWorld(), Pivot, Pivot + Back + Up, ChaseProbeRadius, ChaseSmallObjectRadius, Ignored, &Wall);
+	const float TargetLift = ChaseSqueezeLift * (1.f - Flat);
+	ChaseLift = FMath::FInterpTo(ChaseLift, TargetLift, DeltaSeconds, TargetLift > ChaseLift ? 8.f : 2.f);
+	float Room = 1.f;
+	float Fraction = Flat;
+	if (ChaseLift > 1.f)
+	{
+		const FVector Lift(0.f, 0.f, ChaseLift);
+		Room = GTPCameraProbe::Sweep(GetWorld(), Pivot, Pivot + Lift, ChaseProbeRadius, ChaseSmallObjectRadius, Ignored);
+		Fraction = FMath::Max(Flat, GTPCameraProbe::Sweep(GetWorld(), Pivot + Lift * Room, Pivot + Lift * Room + Back + Up, ChaseProbeRadius, ChaseSmallObjectRadius, Ignored));
+	}
+	ChaseFraction = Fraction < ChaseFraction ? Fraction : FMath::FInterpTo(ChaseFraction, Fraction, DeltaSeconds, 2.5f);
+	// Never closer than the car's own length, unless a wall is right there.
+	ChaseArm->TargetArmLength = FMath::Max(ChaseArmWanted * ChaseFraction, FMath::Min(ChaseArmWanted, 250.f) * Fraction);
+	ChaseArm->SocketOffset = FVector(0.f, 0.f, ChaseHeight + ChaseLift * Room);
+	int32 Hidden = 0;
+	if (bChaseHideOccluders && ChaseCamera && !bInteriorView)
+	{
+		Hidden = ChaseOccluders.Update(GetWorld(), ChaseCamera->GetComponentLocation(), Pivot, 30.f, ChaseSmallObjectRadius, Ignored);
+	}
+	// One line every 10 s for the gate.
+	ChaseStatSeconds += DeltaSeconds;
+	ChaseStatSqueezed += Flat < 1.f ? DeltaSeconds : 0.f;
+	ChaseStatMaxLift = FMath::Max(ChaseStatMaxLift, ChaseLift * Room);
+	ChaseStatShortest = FMath::Min(ChaseStatShortest, ChaseArm->TargetArmLength);
+	ChaseStatMaxHidden = FMath::Max(ChaseStatMaxHidden, Hidden);
+	if (Flat < 1.f)
+	{
+		ChaseStatWall = Wall;
+	}
+	if (ChaseStatSeconds >= 10.f)
+	{
+		UE_LOG(LogGTPVehicle, Log, TEXT("chase camera (10 s): squeezed %.0f%% (last by %s), raised up to %.0f cm, arm down to %.0f cm of %.0f, up to %d parts hidden in the way"),
+			100.f * ChaseStatSqueezed / ChaseStatSeconds, ChaseStatWall.IsEmpty() ? TEXT("nothing") : *ChaseStatWall, ChaseStatMaxLift, ChaseStatShortest, ChaseArmWanted, ChaseStatMaxHidden);
+		ChaseStatSeconds = ChaseStatSqueezed = ChaseStatMaxLift = 0.f;
+		ChaseStatShortest = 1e6f;
+		ChaseStatMaxHidden = 0;
+		ChaseStatWall.Reset();
+	}
+}
+
 void AGTPVehicle::UpdateChaseCamera(float DeltaSeconds)
 {
 	APlayerController* PC = Cast<APlayerController>(GetController());
@@ -1863,7 +1928,8 @@ void AGTPVehicle::UpdateChaseCamera(float DeltaSeconds)
 	const float SpeedAlpha = FOVMaxSpeedKmh > 0.f ? FMath::Clamp(Speed / FOVMaxSpeedKmh, 0.f, 1.f) : 0.f;
 	ChaseCamera->SetFieldOfView(FMath::Lerp(BaseFOV, MaxSpeedFOV, SpeedAlpha) + ImpactShake * 4.f);
 	// Further back at speed, so the road ahead stays in view.
-	ChaseArm->TargetArmLength = FMath::FInterpTo(ChaseArm->TargetArmLength, ChaseDistance + SpeedAlpha * ChaseSpeedExtraDistance, DeltaSeconds, 2.f);
+	ChaseArmWanted = FMath::FInterpTo(ChaseArmWanted, ChaseDistance + SpeedAlpha * ChaseSpeedExtraDistance, DeltaSeconds, 2.f);
+	UpdateChaseCollision(PC, DeltaSeconds);
 	// Impact jolt, fading in a fraction of a second.
 	if (ImpactShake > 0.01f)
 	{

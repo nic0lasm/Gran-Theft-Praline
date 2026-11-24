@@ -4,7 +4,10 @@
 #include "Engine/TimerHandle.h"
 #include "WheeledVehiclePawn.h"
 #include "GTPCarjackLogic.h"
+#include "GTPCameraProbe.h"
 #include "GTPVehicle.generated.h"
+
+class APlayerController;
 
 class AController;
 class ACharacter;
@@ -408,6 +411,22 @@ protected:
 	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Camera")
 	float ChaseHeight = 70.f;
 
+	/** Radius of the chase camera's collision probe (cm). */
+	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Camera")
+	float ChaseProbeRadius = 20.f;
+
+	/** Props under this bounds radius (cm) never pull the chase camera in (poles, bins, signs). */
+	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Camera")
+	float ChaseSmallObjectRadius = 150.f;
+
+	/** Squeezed to nothing, the chase camera rises this much (cm) above the car, as the ceiling allows. */
+	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Camera")
+	float ChaseSqueezeLift = 160.f;
+
+	/** People and small props between the chase camera and the car are hidden while in the way. */
+	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Camera")
+	bool bChaseHideOccluders = true;
+
 	/** Pitch the camera returns to when recentring (degrees). */
 	UPROPERTY(Config, EditAnywhere, Category = "Vehicle|Camera")
 	float ChasePitch = -10.f;
@@ -567,6 +586,14 @@ private:
 
 	// Camera
 	void UpdateChaseCamera(float DeltaSeconds);
+	void UpdateChaseCollision(const APlayerController* PC, float DeltaSeconds);
+	FGTPCameraOccluders ChaseOccluders;
+	float ChaseArmWanted = 620.f;
+	float ChaseFraction = 1.f;
+	float ChaseLift = 0.f;
+	float ChaseStatSeconds = 0.f, ChaseStatSqueezed = 0.f, ChaseStatMaxLift = 0.f, ChaseStatShortest = 1e6f;
+	int32 ChaseStatMaxHidden = 0;
+	FString ChaseStatWall;
 
 	// Arcade driving help and model profiles
 	void UpdateDriveAssist(float DeltaSeconds);
