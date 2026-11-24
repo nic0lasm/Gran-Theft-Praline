@@ -70,6 +70,10 @@ struct FGTPTrafficLane
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Traffic")
 	bool bNeverEnds = false;
 
+	/** A fixed obstacle of the map stands on this lane (AGTPTrafficNetwork::MarkLaneBlocked): flights keep off it. */
+	UPROPERTY(Transient, VisibleAnywhere, BlueprintReadOnly, Category = "Traffic")
+	bool bBlocked = false;
+
 	float LengthCm() const;
 };
 
@@ -89,9 +93,10 @@ struct GRANTHEFTPRALINE_API FGTPLaneFollower
 	/** Chases and demos: the speed given to Step is the limit, not the lane's posted speed. */
 	bool bIgnoreLaneLimit = false;
 
-	/** Chases and demos: at a junction take an exit that never ends (FGTPTrafficLane::bNeverEnds), or else the one with the
-	 *  most open road behind it (OpenRoadMetres); then the widest road (a flight keeps to the main axes, not to the narrow
-	 *  streets); then the one that turns the least (GTPRoadWidth::ExitScore). */
+	/** Chases and demos: at a junction never an exit a fixed obstacle blocks (FGTPTrafficLane::bBlocked), an exit that
+	 *  never ends (FGTPTrafficLane::bNeverEnds) first, then the one with the best way on within 500 m, its metres weighted
+	 *  by width and halved on lanes driven lately (a flight keeps to the main axes, not to the narrow streets, and does
+	 *  not circle one block); then the one that turns the least (GTPRoadWidth::ExitScore). */
 	bool bPreferStraight = false;
 
 	/** Metres of road open after entering Lane (GTPDrive::OpenRoad over the network's lanes, 6 junctions deep, capped at OpenRoadWanted). */
@@ -128,6 +133,16 @@ struct GRANTHEFTPRALINE_API FGTPLaneFollower
 	/** Carriageway around the lane being followed (m, FGTPTrafficLane::CarriagewayM); 0 when idle or unknown. */
 	float GetCarriagewayM() const;
 
+	/** The lane driven lately (the last RecentCount left) or planned ahead: a flight's way counts it for half. */
+	bool IsRecent(int32 Lane) const { return RecentLanes.Contains(Lane) || Route.Contains(Lane); }
+	static constexpr int32 RecentCount = 25;
+	/** The lanes left lately, oldest first: kept by a flight put on another lane (GTPDemoRoute::RelocateChase). */
+	const TArray<int32>& GetRecentLanes() const { return RecentLanes; }
+	void SetRecentLanes(const TArray<int32>& InLanes) { RecentLanes = InLanes; }
+
+	/** Of the lane being followed and the next one, the one nearest Point (world cm, 2D), and how far (m); INDEX_NONE when idle. */
+	int32 LaneNear(const FVector& Point, float& OutMetres) const;
+
 	/** From now on, junction choices lead towards Goal (world cm) instead of being random. */
 	void SetGoal(const FVector& InGoal) { Goal = InGoal; bHasGoal = true; }
 	void ClearGoal() { bHasGoal = false; }
@@ -147,6 +162,7 @@ private:
 	/** Own stream for deterministic runs: the junction choices do not depend on what other cars drew. */
 	FRandomStream OwnRandom{0x44454D4F};
 	TArray<int32> Route;
+	TArray<int32> RecentLanes;
 	std::vector<FGTPDrivePoint> Path;
 	int32 CurrentLaneLength = 0;
 	int Closest = 0;
@@ -511,8 +527,14 @@ public:
 	/** Reads a lanes CSV (traffic.py format) without a network (the launch test with -Traffic=0); false when none. */
 	static bool ReadLanesCsv(const FString& Path, TArray<FGTPTrafficLane>& OutLanes);
 
-	/** Sets FGTPTrafficLane::bNeverEnds on every lane (GTPRoadWidth::NeverEnding): from those, no way ends at a dead end. */
+	/** Sets FGTPTrafficLane::bNeverEnds on every lane (GTPRoadWidth::NeverEnding): from those, no way ends at a dead end or on a blocked lane. */
 	static void MarkNeverEnding(TArray<FGTPTrafficLane>& InLanes);
+
+	/**
+	 * A fixed obstacle of the map (By, at At) stands on Lane: flights keep off it from now on and the lanes that never end
+	 * are found again without it. Logged once per lane. False when the lane was already blocked or does not exist.
+	 */
+	bool MarkLaneBlocked(int32 Lane, const AActor* By, const FVector& At);
 
 	/** Path of the lanes file for a map name, under the project content folder. */
 	static FString LanesFileFor(const FString& MapName);

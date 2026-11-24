@@ -684,38 +684,56 @@ poursuite ignorait la largeur des rues : à un carrefour il prenait la sortie la
 celles qui ont 250 m de route ouverte (6 carrefours devant), et il posait une voiture bloquée ou au
 bout des voies sur une voie tirée au hasard entre 80 et 150 m.
 
+Le journal de la passe filmée, lu sur les 235 voies que lit le jeu (`L_City_RueDeLaRepublique`),
+montre des obstacles fixes de la carte (accessoires en maillage statique instancié hiérarchique,
+collision active) posés sur cinq voies : `StaticMeshActor_27`, le bloc blanc, à 0,5 m du milieu de la
+rue de la Bourse (voie 13) ; `StaticMeshActor_107` sur le passage du quai Jean Moulin à la rue Gentil
+(voies 87 et 211), rencontré 15 fois en 2,5 km par la fuite d'avant la porte 75, qui tournait autour
+de ce pâté ; `StaticMeshActor_22` rue Claudia (voie 4) ; `StaticMeshActor_0` rue Antoine Salles
+(voie 62). Ils relèvent de l'habillage de la carte (Réalisme) : à sortir des voies.
+
 - `GTPRoadWidth.h`, hors Unreal (`tools/vehicles/wanted_sim/road_width_test.cpp`, en CI) :
   - la chaussée autour d'une voie : les `width_m` des voies de la même route BD TOPO (`road_id`) à
-    moins de 20 m de son milieu, dans les deux sens. Sous 5 m une rue étroite, 7 m et plus un grand
-    axe. Sur les 1043 voies du quartier, 349 des 401 voies d'importance BD TOPO 1 à 3 (quais, ponts,
-    rue de la Barre) font 7 m ou plus, et 326 des 642 voies d'importance 4 et 5 moins de 5 m. Les
-    deux colonnes étaient déjà dans le fichier des voies : rien à régénérer ;
-  - les voies qui ne finissent jamais : de chacune, un chemin continue sans fin sans impasse (on
-    retire les impasses, puis les voies qui ne mènent qu'à elles, et ainsi de suite) ;
-  - la sortie prise à un carrefour (`FGTPLaneFollower::bPreferStraight`, utilisé par le seul script
-    de poursuite) : une qui ne finit jamais d'abord, sinon la plus longue route ouverte ; puis la
-    route la plus large (grand axe, puis rue moyenne, puis rue étroite) ; puis la plus droite ;
+    moins de 20 m de son milieu, deux sens compris. Moins de 5 m : rue étroite ; 7 m et plus : grand
+    axe. Sur les 235 voies : 130 grand axe, 46 moyennes, 59 étroites. Les deux colonnes étaient déjà
+    dans le fichier des voies : rien à régénérer ;
+  - les voies sans fin : de là un chemin continue toujours sans impasse ni voie bloquée (on retire
+    les impasses, puis les voies qui n'y mènent qu'elles, et ainsi de suite) : 103 sur 235 ;
+  - la valeur du chemin après une sortie (`WayQuality`) : son meilleur chemin sur 500 m et 10
+    carrefours, chaque mètre pondéré par la largeur (1 sur un grand axe, 0,7 dans une rue moyenne,
+    0,25 dans une rue étroite), divisé par deux sur les 25 dernières voies prises pour que la fuite
+    ne tourne pas autour d'un pâté, arrêté à une voie bloquée ;
+  - la sortie prise à un carrefour (`FGTPLaneFollower::bPreferStraight`, seul le script de poursuite
+    s'en sert) : jamais une voie bloquée s'il en existe une autre ; une voie sans fin d'abord ; puis
+    le meilleur chemin ; puis la plus droite. Une première version (voie sans fin, puis la sortie la
+    plus large) faisait moins bien que l'ancien choix sur les 235 voies : 20 % sur grands axes, 61 %
+    en rues étroites ;
   - la vitesse de la fuite à partir de 12 s : 70 km/h sur un grand axe, 60 dans une rue moyenne ou
-    sur une route de largeur inconnue, 45 dans une rue étroite (90 partout jusqu'à la porte 75) ;
-  - où une voiture est reposée (`UGTPDemoRoute::RelocateChase`), passe après passe : un grand axe qui
-    ne finit jamais, une rue moyenne qui ne finit jamais, toute voie qui ne finit jamais, puis comme
-    avant.
-- Bloquée à moins de 3 m d'un obstacle qui ne bouge pas (pas de corps simulé, pas un pion) : la
-  voiture recule tout de suite au lieu de pousser dessus 3 s.
-- Journal : « traffic: lanes for a flight: N of M never end (no dead end ahead); carriageway: ... »
-  au début de partie ; la ligne de remise sur voie donne « never ends », la chaussée, sa classe et
-  la passe ; la ligne « held up » finit par « , does not move: backing off » le cas échéant.
-- Rejouée avec les règles du jeu sur les voies du quartier (`road_width_test <lanes.csv>
-  [x_cm,y_cm]`), depuis le vol de voiture de -GTARun sur le quai Jean Moulin : jusqu'à la porte 75,
-  16 % des 2,5 km sur des grands axes et 50 % dans des rues étroites (rue Gentil, puis autour des
-  Terreaux) ; désormais 46 % et 36 % (quais Jean Moulin et Jules Courmont, rue Childebert, rue de la
-  Barre, place Bellecour), sans impasse. Une fuite qui part d'une des 705 voies qui ne finissent jamais
-  ne rencontre aucune impasse ; jusqu'à la porte 75, 749 fuites sur 1043 en rencontraient une en
-  2,5 km, chacune une remise sur voie. Le jeu lit les 235 voies de `L_City_RueDeLaRepublique`, pas
-  celles du quartier : la même relecture est à faire sur ce fichier.
-- Pas prouvé : en jeu. Le bloc blanc de 72 s n'est pas identifié (la ligne « held up ... ahead: » de
-  la passe filmée le nomme). La part de la police dans la fuite (passe mesurée de la porte 75 :
-  voitures à 23 km/h de moyenne pour 25 attendus) revient au fil Police.
+    de largeur inconnue, 45 dans une rue étroite (90 partout avant la porte 75) ;
+  - où une voiture est posée (`UGTPDemoRoute::RelocateChase`), passe après passe : un grand axe sans
+    fin, une rue moyenne sans fin, une voie sans fin, puis comme avant ; jamais une voie bloquée et,
+    sauf à la dernière passe, jamais une voie prise récemment.
+- Bloquée sur sa voie (à moins de 3 m de son chemin) contre quelque chose qui ne bouge pas (pas de
+  corps simulé, pas un pion, à moins de 3 m devant, à moins de 3,5 m de la voie) : la voie est marquée
+  bloquée (`AGTPTrafficNetwork::MarkLaneBlocked`, les voies sans fin sont recalculées sans elle) et la
+  voiture est posée tout de suite sur une autre voie. Hors de sa voie, la voiture recule tout de
+  suite au lieu de pousser 3 s.
+- Journaux : « traffic: lanes for a flight: N of M never end (no dead end ahead); carriageway: ... »
+  au démarrage ; « traffic: lane N blocked by ... flights keep off it » une fois par voie ; la ligne
+  de remise sur voie donne « never ends », la chaussée, sa classe et la passe ; la ligne « held up »
+  finit par « , does not move: backing off » le cas échéant.
+- Rejoué avec les règles du jeu sur les 235 voies (`road_width_test <lanes.csv>
+  [x_cm,y_cm|all] [[learn=]voies bloquées]`), 2,5 km depuis le vol de -GTARun sur le quai Jean
+  Moulin : avant la porte 75, 49 % sur grands axes, 51 % en rues moyennes, autour du pâté de la rue
+  Gentil ; maintenant 72 % sur grands axes, 19 % moyennes, 8 % étroites (quais Jean Moulin et Jules
+  Courmont, rue Saint-Bonaventure, rue Grolée, place des Cordeliers), sans impasse. Les cinq voies
+  bloquées rencontrées puis apprises : 2 rencontres (voies 211 et 87, à 190 m du vol) au lieu de 15 ;
+  connues dès le départ : 65 %, 23 %, 12 % et aucune. Depuis chacune des 103 voies sans fin : 56 %
+  sur grands axes (45 % avant), aucune impasse (4 avant), 19 rencontres avec les voies bloquées (260 avant).
+- Non prouvé : en jeu. Tant que `StaticMeshActor_107` reste en place, la fuite de -GTARun devrait le
+  rencontrer une fois environ 190 m après le vol et y être posée sur une autre voie, ce que l'étape
+  pursuit compte comme une aide. La part de la police dans la fuite (passe mesurée de la porte 75 :
+  unités à 23 km/h de moyenne pour 25 attendus) relève du fil Police.
 
 ## 9. Préparer une voiture conduisible
 

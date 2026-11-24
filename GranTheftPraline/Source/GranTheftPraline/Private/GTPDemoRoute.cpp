@@ -291,7 +291,8 @@ bool UGTPDemoRoute::RelocateChase(AGTPVehicle* Driven, APlayerController* PC, co
 	// Pass after pass (GTPRoadWidth::RelocationFits): a main axis that never ends first, then a middle street that never
 	// ends, any lane that never ends, a lane with open road behind it (FGTPLaneFollower::OpenRoadMetres), any lane that
 	// goes on. Until gate 75 the first pass took any lane with 250 m of open road: at 29 s of its film, a narrow street
-	// where the car was wedged between two walls 10 s later.
+	// where the car was wedged between two walls 10 s later. Never a lane a fixed obstacle blocks, and but for the last
+	// pass never one driven lately (gate 75's film: put back twice on the way to the white block of the rue de la Bourse).
 	for (int32 Pass = 0; Pass < GTPRoadWidth::RelocationPasses; ++Pass)
 	{
 		for (int32 Try = 0; Try < 300 && Lanes.Num() > 0; ++Try)
@@ -309,8 +310,9 @@ bool UGTPDemoRoute::RelocateChase(AGTPVehicle* Driven, APlayerController* PC, co
 			{
 				continue;
 			}
-			if (!GTPRoadWidth::RelocationFits(Pass, Lane.bNeverEnds, Pass >= 3 ? FGTPLaneFollower::OpenRoadMetres(Lanes, LaneIndex) : 0.f,
-					FGTPLaneFollower::OpenRoadWanted, Lane.CarriagewayM))
+			if (!GTPRoadWidth::RelocationFits(Pass, Lane.bBlocked, Lane.bNeverEnds, Pass >= 3 ? FGTPLaneFollower::OpenRoadMetres(Lanes, LaneIndex) : 0.f,
+					FGTPLaneFollower::OpenRoadWanted, Lane.CarriagewayM)
+				|| (Pass + 1 < GTPRoadWidth::RelocationPasses && Follower.IsRecent(LaneIndex)))
 			{
 				continue;
 			}
@@ -350,7 +352,10 @@ bool UGTPDemoRoute::RelocateChase(AGTPVehicle* Driven, APlayerController* PC, co
 			bRelocateHeld = true;
 			RelocatedCar = Driven;
 			RelocateHoldUntil = Clock() + 0.5;
+			// The new follower keeps the lanes driven lately: the flight does not come back round to them.
+			const TArray<int32> Recent = Follower.GetRecentLanes();
 			Follower = FGTPLaneFollower();
+			Follower.SetRecentLanes(Recent);
 			Follower.bPreferStraight = true;
 			Follower.AheadMeters = 160.f;
 			bOnLaneOnce = false;
@@ -926,6 +931,8 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 						// Against something that does not move (a wall, a post, a block of the map), within 3 m: pushing on it
 						// only shows a car pressed on a wall (gate 75's film, 24 to 28 s against a traffic light post).
 						bool bStillAhead = false;
+						const AActor* StillActor = nullptr;
+						FVector StillAt = FVector::ZeroVector;
 						{
 							// What holds the car: the first thing within 8 m ahead (any channel the car collides with) and the car's own state.
 							FHitResult Ahead;
@@ -935,6 +942,8 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 							const bool bHit = Driven->GetWorld()->SweepSingleByChannel(Ahead, From, To, FQuat::Identity, ECC_Vehicle, FCollisionShape::MakeSphere(60.f), HeldParams);
 							const UPrimitiveComponent* HitBody = bHit ? Ahead.GetComponent() : nullptr;
 							bStillAhead = HitBody && Ahead.Distance < 300.f && !HitBody->IsSimulatingPhysics() && !Cast<APawn>(Ahead.GetActor());
+							StillActor = bStillAhead ? Ahead.GetActor() : nullptr;
+							StillAt = Ahead.ImpactPoint;
 							GTP_TRACE(LogGTPDemo, TEXT("Demo chase: held up at %s yaw=%.0f gear=%d, ahead: %s (%s) at %.1f m%s"), *Driven->GetActorLocation().ToCompactString(),
 								Driven->GetActorRotation().Yaw, Driven->GetGear(), bHit ? *GetNameSafe(Ahead.GetActor()) : TEXT("nothing"),
 								bHit ? *GetNameSafe(Ahead.GetComponent()) : TEXT("-"), bHit ? Ahead.Distance / 100.f : -1.f,
@@ -957,6 +966,29 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 							if (Cleared > 0)
 							{
 								GTP_TRACE(LogGTPDemo, TEXT("Demo chase: %d traffic car(s) taken off the road around the player"), Cleared);
+							}
+						}
+						// On its lane against a fixed obstacle that stands on the lane (gate 75's film: a white block 2 m from
+						// the middle of the rue de la Bourse, 25 s nose on it; a block on the way from the quai Jean Moulin to
+						// the rue Gentil, met at every turn round that block): that lane is blocked for the flights from now
+						// on (AGTPTrafficNetwork::MarkLaneBlocked) and the chase goes on at once from another lane.
+						if (bStillAhead)
+						{
+							float ObstacleOffLane = 0.f;
+							const int32 BlockedLane = Follower.LaneNear(StillAt, ObstacleOffLane);
+							const float CarOffLane = Follower.OffPathMetres(Driven->GetActorLocation());
+							TActorIterator<AGTPTrafficNetwork> Network(Driven->GetWorld());
+							if (Network && BlockedLane != INDEX_NONE && CarOffLane < 3.f && ObstacleOffLane < 3.5f)
+							{
+								GTP_TRACE(LogGTPDemo, TEXT("Demo chase: the car is %.1f m off its lane, the obstacle %.1f m off lane %d: lane blocked"),
+									CarOffLane, ObstacleOffLane, BlockedLane);
+								Network->MarkLaneBlocked(BlockedLane, StillActor, StillAt);
+								if (RelocateChase(Driven, PC, TEXT("against a fixed obstacle on its lane")))
+								{
+									HeldUpHere = 0;
+									ChaseStuckCount = 0;
+									break;
+								}
 							}
 						}
 						// Held up a second time within 15 m (pushed for 3 s, still there): beached, boxed in or against
