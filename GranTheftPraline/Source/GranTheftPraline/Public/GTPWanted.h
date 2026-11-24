@@ -370,6 +370,14 @@ protected:
 	bool bAvoidScenery = true;
 
 	/**
+	 * On the lanes of the map's flight circuit (GTPFlightCircuit.h) a unit drives the circuit's line, as the flight
+	 * does: the lanes' own points wander by a metre and a driver reads each step as a bend (gate 78: units at 14 to
+	 * 21 km/h on average behind a flight at 33 to 43). -PoliceCircuitLines=0 turns it off.
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Police|Driving")
+	bool bUnitsOnCircuitLines = true;
+
+	/**
 	 * Within this (cm) of a player whose place the police know, a unit drives straight at him when no scenery
 	 * stands between them: a car, a passer-by or a tree's crown in the line of sight no longer sends it round the
 	 * block on the lanes (gate 75: a unit 91 m from the stopped player drove away from him, to 200 m). 0: never.

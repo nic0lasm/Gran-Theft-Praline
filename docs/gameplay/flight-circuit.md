@@ -2,7 +2,7 @@
 
 [Français](flight-circuit.fr.md)
 
-The automatic run (`-GTARun`, `-PoliceChaseDemo`) steals a car on the quai Jean Moulin and flees. Until gate 78 the flight was free on the lanes of the map: at each junction the exit with the best way on. Any wall, post or pit of the whole centre could hold it up, and the script put the car back on a lane 4 to 8 times in four filmed minutes. From now on the flight drives one circuit, chosen outside the game and kept in Git. The police pursue freely.
+The automatic run (`-GTARun`, `-PoliceChaseDemo`) steals a car on the quai Jean Moulin and flees. Until gate 78 the flight was free on the lanes of the map: at each junction the exit with the best way on. Any wall, post or pit of the whole centre could hold it up, and the script put the car back on a lane 4 to 8 times in four filmed minutes. From now on the flight drives one circuit, chosen outside the game and kept in Git. The police pursue freely: they choose their own way, and on a lane of the circuit a unit drives the circuit's line, as the flight does (at gate 78 the units averaged 14 to 21 km/h on the lanes' own points; `-PoliceCircuitLines=0` to compare).
 
 ## The file
 

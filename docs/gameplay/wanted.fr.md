@@ -138,6 +138,6 @@ La porte 75 est passée et a enfin montré la voiture de police : blanche, une b
 
 ## Interrupteurs
 
-`-PolicePerception=0|1|2` (coupée, perception seule, les deux = défaut), `-PoliceEqs=0` (les policiers balaient de nouveau un cercle fixe), `-Police=0`, `-PoliceAvoid=0` (les unités ne regardent pas le décor), `-WantedStars=N`, `-WantedHold`, `-Witnesses=0`. `-FlightCircuit=0` : la fuite filmée est libre sur les voies au lieu de suivre son circuit ([flight-circuit.fr.md](flight-circuit.fr.md)).
+`-PolicePerception=0|1|2` (coupée, perception seule, les deux = défaut), `-PoliceEqs=0` (les policiers balaient de nouveau un cercle fixe), `-Police=0`, `-PoliceAvoid=0` (les unités ne regardent pas le décor), `-PoliceCircuitLines=0` (sur les voies du [circuit de fuite](flight-circuit.fr.md) les unités suivent les points des voies, pas la ligne du circuit), `-WantedStars=N`, `-WantedHold`, `-Witnesses=0`. `-FlightCircuit=0` : la fuite filmée est libre sur les voies au lieu de suivre son circuit ([flight-circuit.fr.md](flight-circuit.fr.md)).
 
 `-DemoFreeCar=Car02` (avec `-PoliceChaseDemo` ou `-GTARun`) : la voiture que le parcours automatique vole est créée à partir de la classe du trafic dont le nom contient ce texte, au lieu de la voiture libre la plus proche, dont le modèle change d'un passage à l'autre. Pour rejouer un passage avec la même voiture : le vol a été vu par des passants dans Car05 et Car12 et pas dans Car02 (portes 49 à 52), et seul un passage en Car02 peut dire si la ligne de vue du témoin est réparée.
