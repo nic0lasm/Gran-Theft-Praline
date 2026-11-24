@@ -14,6 +14,8 @@
 #include "GTPLiteDriver.h"
 #include "GTPPoliceOfficer.h"
 #include "AIController.h"
+#include "AssetRegistry/AssetData.h"
+#include "AssetRegistry/AssetRegistryModule.h"
 #include "ChaosVehicleMovementComponent.h"
 #include "ChaosWheeledVehicleMovementComponent.h"
 #include "CollisionQueryParams.h"
@@ -33,6 +35,7 @@
 #include "Materials/MaterialInterface.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
+#include "Modules/ModuleManager.h"
 #include "TimerManager.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogGTPWanted, Log, All);
@@ -48,6 +51,15 @@ namespace
 	/** A police car is made no nearer than this to any car on the road (cm, flat), and with nothing in this box around it (half sizes, cm). */
 	constexpr float PoliceSpawnRoomCm = 1500.f;
 	const FVector PoliceSpawnRoomExtent(300.f, 130.f, 90.f);
+	/**
+	 * The look for scenery: a box pushed ahead at the height of the bonnet (its middle this many cm above the car's
+	 * place, half this high: the ground and the kerbs pass under it), started inside the car, this far ahead of its
+	 * middle; the bumper is taken this much further (as the line of a held unit does).
+	 */
+	constexpr float SceneryLookHeight = 90.f;
+	constexpr float SceneryLookHalfHeight = 40.f;
+	constexpr float SceneryLookStartCm = 100.f;
+	constexpr float SceneryBumperCm = 130.f;
 
 	bool WitnessesDisabledByCommandLine()
 	{
@@ -712,6 +724,13 @@ void AGTPPoliceDirector::BeginPlay()
 	}
 	FParse::Value(FCommandLine::Get(), TEXT("PoliceMax="), MaxUnits);
 	MaxUnits = FMath::Clamp(MaxUnits, 0, 6);
+	int32 AvoidSwitch = bAvoidScenery ? 1 : 0;
+	FParse::Value(FCommandLine::Get(), TEXT("PoliceAvoid="), AvoidSwitch);
+	bAvoidScenery = AvoidSwitch != 0;
+	if (!bAvoidScenery)
+	{
+		CloseInDistance = 0.f;
+	}
 	LoadedPoliceClass = PoliceVehicleClass.TryLoadClass<AGTPVehicle>();
 	FString PoliceLook;
 	if (LoadedPoliceClass.Get() && !AGTPVehicle::IsClassDrawn(LoadedPoliceClass.Get(), PoliceLook))
@@ -739,7 +758,9 @@ void AGTPPoliceDirector::BeginPlay()
 		Queries->Init();
 	}
 	NextSpawnTime = GetWorld()->GetTimeSeconds() + 3.f;
-	GTP_TRACE(LogGTPWanted, TEXT("police: on, up to %d units, class %s"), MaxUnits, LoadedPoliceClass.Get() ? *GetNameSafe(LoadedPoliceClass.Get()) : TEXT("traffic cars"));
+	GTP_TRACE(LogGTPWanted, TEXT("police: on, up to %d units, class %s; scenery %s, straight at a known player within %.0f m with nothing between"), MaxUnits,
+		LoadedPoliceClass.Get() ? *GetNameSafe(LoadedPoliceClass.Get()) : TEXT("traffic cars"), bAvoidScenery ? TEXT("gone round") : TEXT("not looked at (-PoliceAvoid=0)"),
+		CloseInDistance * WantedCmToM);
 }
 
 void AGTPPoliceDirector::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -1216,6 +1237,18 @@ void AGTPPoliceDirector::AddLivery(AGTPVehicle& Car)
 		// Asked for quietly: the stripe was added after the band, a project that has not made it yet goes without.
 		LoadedLiveryStripe = LiveryStripeMaterial.IsValid()
 			? LoadObject<UMaterialInterface>(nullptr, *LiveryStripeMaterial.ToString(), nullptr, LOAD_NoWarn | LOAD_Quiet) : nullptr;
+		// What the folder holds, asked once: only the paints that are there are loaded (gate 75: 30 of the 32
+		// slots were asked for nothing, a line each in the log). No answer: every slot is asked once, as before.
+		TArray<FAssetData> InFolder;
+		FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry")).Get().GetAssetsByPath(FName(*LiveryPaintFolder), InFolder, false);
+		for (const FAssetData& Found : InFolder)
+		{
+			const FString FoundName = Found.AssetName.ToString();
+			if (FoundName.StartsWith(TEXT("MI_GTP_PolicePaint_")))
+			{
+				LiveryPaintListed.Add(FoundName);
+			}
+		}
 	}
 	// What draws the car: its body and, on City Sample's cars, the look parts posed by it (their body is a rig
 	// without geometry: painting it alone showed nothing). The paint is asked for by mesh name and slot number:
@@ -1250,8 +1283,11 @@ void AGTPPoliceDirector::AddLivery(AGTPVehicle& Car)
 			}
 			else
 			{
-				PaintMaterial = LoadObject<UMaterialInterface>(nullptr, *FString::Printf(TEXT("%s/%s.%s"), *LiveryPaintFolder, *PaintName, *PaintName),
-					nullptr, LOAD_NoWarn | LOAD_Quiet);
+				if (LiveryPaintListed.Num() == 0 || LiveryPaintListed.Contains(PaintName))
+				{
+					PaintMaterial = LoadObject<UMaterialInterface>(nullptr, *FString::Printf(TEXT("%s/%s.%s"), *LiveryPaintFolder, *PaintName, *PaintName),
+						nullptr, LOAD_NoWarn | LOAD_Quiet);
+				}
 				LoadedLiveryPaint.Add(PaintName, TObjectPtr<UMaterialInterface>(PaintMaterial));
 			}
 			if (PaintMaterial)
@@ -1297,11 +1333,11 @@ void AGTPPoliceDirector::AddLivery(AGTPVehicle& Car)
 	}
 	if (bFirst)
 	{
-		GTP_TRACE(LogGTPWanted, TEXT("police: livery on %s: band %s, stripe %s, %d of %d material slot(s) painted on %d mesh(es):%s (from %s); "
+		GTP_TRACE(LogGTPWanted, TEXT("police: livery on %s: band %s, stripe %s, %d of %d material slot(s) painted on %d mesh(es):%s (from %s, %d paint(s) listed there); "
 			"car box %.0f x %.0f x %.0f cm, band %.0f cm long and %.0f high, its middle %.0f cm above the box's lowest point"), *Car.GetName(),
 			LoadedLiveryBand ? *LoadedLiveryBand->GetName() : TEXT("NOT THERE (tools/police/unreal/make_police_look.py makes it)"),
 			LoadedLiveryStripe ? *LoadedLiveryStripe->GetName() : TEXT("not there"), Painted, SlotCount, PaintedParts.Num(),
-			PaintedNames.IsEmpty() ? TEXT(" none") : *PaintedNames, *LiveryPaintFolder, Size.X, Size.Y, Size.Z,
+			PaintedNames.IsEmpty() ? TEXT(" none") : *PaintedNames, *LiveryPaintFolder, LiveryPaintListed.Num(), Size.X, Size.Y, Size.Z,
 			Size.X * LiveryBandLengthShare * 2.0, LiveryBandHalfHeight * 2.f, Size.Z * LiveryBandHeightShare);
 	}
 }
@@ -1382,6 +1418,67 @@ bool AGTPPoliceDirector::HasLineOfSight(const AGTPVehicle* Car, const AActor& Pl
 		Target + FVector(0.f, 0.f, 100.f), ECC_Visibility, Params);
 }
 
+float AGTPPoliceDirector::SceneryAhead(const AGTPVehicle& Car, float YawOffsetRadians, float LengthCm, float RadiusCm, float& OutLateralM) const
+{
+	OutLateralM = 0.f;
+	// What does not move: buildings, walls, the street's furniture (instanced meshes). Cars and people are the
+	// other look's (UGTPAIDriverComponent::ProbeAhead), and the car's own parts are not looked at.
+	const FVector Forward = Car.GetActorForwardVector().GetSafeNormal2D();
+	const FRotator Heading(0.f, static_cast<float>(Forward.Rotation().Yaw) + FMath::RadiansToDegrees(YawOffsetRadians), 0.f);
+	const FVector Along = Heading.Vector();
+	const FVector Start = Car.GetActorLocation() + FVector(0.f, 0.f, SceneryLookHeight) + Forward * SceneryLookStartCm;
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(GTPPoliceScenery), false, &Car);
+	FCollisionObjectQueryParams Objects;
+	Objects.AddObjectTypesToQuery(ECC_WorldStatic);
+	Objects.AddObjectTypesToQuery(ECC_WorldDynamic);
+	FHitResult Hit;
+	if (!GetWorld()->SweepSingleByObjectType(Hit, Start, Start + Along * (LengthCm + SceneryBumperCm), Heading.Quaternion(), Objects,
+		FCollisionShape::MakeBox(FVector(10.f, RadiusCm, SceneryLookHalfHeight)), Params))
+	{
+		return -1.f;
+	}
+	// A slope or a ramp is ground, not scenery.
+	if (Hit.ImpactNormal.Z > 0.6f)
+	{
+		return -1.f;
+	}
+	// The wide look of a car going round something starts beside its own flanks: what stands there (a wall it
+	// drives along) is not on its way. Looked at again no wider than the car.
+	const float NarrowCm = AvoidSettings.LookRadiusM * 100.f;
+	if (Hit.bStartPenetrating && RadiusCm > NarrowCm + 1.f)
+	{
+		return SceneryAhead(Car, YawOffsetRadians, LengthCm, NarrowCm, OutLateralM);
+	}
+	OutLateralM = static_cast<float>(FVector::DotProduct(Hit.ImpactPoint - Start, FVector::CrossProduct(FVector::UpVector, Along))) * WantedCmToM;
+	return FMath::Max(0.f, static_cast<float>(Hit.Distance) - SceneryBumperCm) * WantedCmToM;
+}
+
+bool AGTPPoliceDirector::IsWayClear(const AGTPVehicle& Car, const FVector& Target) const
+{
+	const FVector From = Car.GetActorLocation() + FVector(0.f, 0.f, SceneryLookHeight);
+	const FVector End(Target.X, Target.Y, Target.Z + SceneryLookHeight);
+	const FVector Line = (End - From).GetSafeNormal2D();
+	// Looked at up to 3 m short of him: what he stands against (the block of gate 75) is not between them.
+	const float Reach = static_cast<float>(FVector::Dist2D(From, End)) - 300.f;
+	if (Line.IsNearlyZero() || Reach <= 0.f)
+	{
+		return true;
+	}
+	const FVector To = From + (End - From).GetSafeNormal() * Reach;
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(GTPPoliceWayClear), false, &Car);
+	FCollisionObjectQueryParams Objects;
+	Objects.AddObjectTypesToQuery(ECC_WorldStatic);
+	Objects.AddObjectTypesToQuery(ECC_WorldDynamic);
+	FHitResult Hit;
+	// As wide as the car: a way it can take, not a line it can see along.
+	if (!GetWorld()->SweepSingleByObjectType(Hit, From, To, FRotator(0.f, static_cast<float>(Line.Rotation().Yaw), 0.f).Quaternion(), Objects,
+		FCollisionShape::MakeBox(FVector(10.f, 100.f, SceneryLookHalfHeight)), Params))
+	{
+		return true;
+	}
+	return Hit.ImpactNormal.Z > 0.6f;
+}
+
 void AGTPPoliceDirector::DriveStraight(FUnit& Unit, const FVector& Target, float MaxSpeedKmh)
 {
 	AGTPVehicle* Car = Unit.Car.Get();
@@ -1413,6 +1510,28 @@ void AGTPPoliceDirector::ApplyDrive(FUnit& Unit, const FGTPDriveCommand& Command
 	float Throttle = Command.Throttle;
 	float Brake = Command.Brake;
 	float Steering = Command.Steering;
+	if (bAvoidScenery)
+	{
+		// Scenery on the car's way (GTPUnitAvoid.h): looked for along its heading leaned into the turn, then to
+		// both sides when something is there. The car goes round it or stops short of it.
+		const float SpeedNow = Car->GetSpeedKmh() / 3.6f;
+		const float LookM = FGTPUnitAvoid::LookMetres(SpeedNow, AvoidSettings);
+		const float Lean = Steering * AvoidSettings.LeanRadians;
+		float LateralM = 0.f;
+		float OtherLateralM = 0.f;
+		// Rolling backwards the look ahead says nothing.
+		const float AheadM = SpeedNow > -0.5f ? SceneryAhead(*Car, Lean, LookM * 100.f, Unit.Avoid.LookRadius(AvoidSettings) * 100.f, LateralM) : -1.f;
+		float LeftM = -1.f;
+		float RightM = -1.f;
+		if (AheadM >= 0.f)
+		{
+			LeftM = SceneryAhead(*Car, Lean - AvoidSettings.SideRadians, LookM * 100.f, AvoidSettings.LookRadiusM * 100.f, OtherLateralM);
+			RightM = SceneryAhead(*Car, Lean + AvoidSettings.SideRadians, LookM * 100.f, AvoidSettings.LookRadiusM * 100.f, OtherLateralM);
+		}
+		Unit.Avoid.Step(GetWorld()->GetDeltaSeconds(), SpeedNow, LookM, AheadM, LateralM, LeftM, RightM, AvoidSettings, Throttle, Brake, Steering);
+		// A car held all the same backs off with its wheels turned away from where it steered: away from the way round too.
+		Unit.LastSteer = Steering;
+	}
 	GTPUnitRecovery::Tame(Throttle, Brake, Steering, Car->GetSpeedKmh() / 3.6f, Unit.Settings.MaxLateralAccel, RecoverySettings);
 	Car->SetAIDriveInput(Throttle, Brake, Steering, bHandbrake);
 }
@@ -1598,7 +1717,8 @@ void AGTPPoliceDirector::DriveUnit(FUnit& Unit, UGTPWantedComponent& Wanted, con
 	const float ChaseKmh = Profile.ChaseKmh > 0.f ? Profile.ChaseKmh : GTPWanted::ChaseSpeedKmh(Stars);
 	const float NowSeconds = static_cast<float>(GetWorld()->GetTimeSeconds());
 	// Throttle held and the car does not move: not traffic, the vehicle itself (asleep, parked, no gear). Wake it.
-	if (Unit.StoppedTime > 1.f && Unit.LastThrottle > 0.5f && Unit.LastObstacle < 0.f)
+	// (A car standing short of scenery it cannot get round is not asleep: its recovery backs it off.)
+	if (Unit.StoppedTime > 1.f && Unit.LastThrottle > 0.5f && Unit.LastObstacle < 0.f && !Unit.Avoid.bStood)
 	{
 		// First gear forced every frame while the car does not move with the throttle held.
 		if (UChaosVehicleMovementComponent* Move = Car->GetVehicleMovementComponent())
@@ -1606,7 +1726,7 @@ void AGTPPoliceDirector::DriveUnit(FUnit& Unit, UGTPWantedComponent& Wanted, con
 			Move->SetTargetGear(1, true);
 		}
 	}
-	if (Unit.StoppedTime > 3.f && Unit.LastThrottle > 0.8f && Unit.LastObstacle < 0.f && NowSeconds >= Unit.NextWakeTime)
+	if (Unit.StoppedTime > 3.f && Unit.LastThrottle > 0.8f && Unit.LastObstacle < 0.f && !Unit.Avoid.bStood && NowSeconds >= Unit.NextWakeTime)
 	{
 		Unit.NextWakeTime = NowSeconds + 5.f;
 		if (UChaosVehicleMovementComponent* Move = Car->GetVehicleMovementComponent())
@@ -1641,9 +1761,42 @@ void AGTPPoliceDirector::DriveUnit(FUnit& Unit, UGTPWantedComponent& Wanted, con
 	const bool bPursuit = Wanted.GetPhase() == EGTPWantedPhase::Pursuit;
 	const FVector Target = bPursuit ? Player.GetActorLocation() : Wanted.GetLastKnownLocation();
 	const float Distance = static_cast<float>(FVector::Dist2D(Location, Target));
-	if (bPursuit && HasLineOfSight(Car, Player, Target))
+	const bool bSight = bPursuit && HasLineOfSight(Car, Player, Target);
+	// Near a player whose place is known, with no scenery between: straight at him, as when he is in sight. A car,
+	// a passer-by or a tree's crown cuts the line of sight, and the lanes then took the unit round the block, away
+	// from a player stopped off them (gate 75).
+	const bool bNear = bPursuit && !bSight && Distance < CloseInDistance;
+	if (!bNear)
 	{
-		DriveStraight(Unit, Target, ChaseKmh);
+		Unit.bWayClear = false;
+	}
+	else if (NowSeconds >= Unit.NextWayLookTime)
+	{
+		Unit.NextWayLookTime = NowSeconds + 0.25f;
+		Unit.bWayClear = IsWayClear(*Car, Target);
+	}
+	if (bSight || (bNear && Unit.bWayClear))
+	{
+		// A player on foot or nearly stopped is boxed in, not pushed away from his arrest: the unit slows as it
+		// comes and stops CloseInStop from him (at gate 75 a unit ran into the stopped car at 3 stars and the
+		// arrest, begun, was lost).
+		const bool bHelpless = CloseInStop > 0.f && (Cast<AGTPVehicle>(&Player) == nullptr || Player.GetVelocity().Size() < 330.f);
+		if (bHelpless && Distance < CloseInStop)
+		{
+			Unit.LastThrottle = 0.f;
+			Unit.LastBrake = 1.f;
+			Unit.LastSteer = 0.f;
+			Unit.bOnLanes = false;
+			Car->SetAIDriveInput(0.f, 1.f, 0.f, true);
+			return;
+		}
+		float StraightKmh = ChaseKmh;
+		if (bHelpless)
+		{
+			const float RoomM = (Distance - CloseInStop) * WantedCmToM;
+			StraightKmh = FMath::Min(ChaseKmh, FMath::Max(FMath::Sqrt(2.f * Unit.Settings.ComfortDecel * RoomM) * 3.6f, 10.f));
+		}
+		DriveStraight(Unit, Target, StraightKmh);
 	}
 	else if (Distance > 2500.f)
 	{
@@ -1839,10 +1992,11 @@ void AGTPPoliceDirector::Tick(float DeltaSeconds)
 		{
 			if (AGTPVehicle* Car = Unit.Car.Get())
 			{
-				GTP_TRACE(LogGTPWanted, TEXT("police unit: dist=%.0f m speed=%.0f km/h lanes=%d stopped=%.0f s stage=%d obstacle=%.1f m throttle=%.2f brake=%.2f brain=%d steer=%.2f recovery=%d back-offs=%d wheels=%d up=%.2f at %s"),
+				GTP_TRACE(LogGTPWanted, TEXT("police unit: dist=%.0f m speed=%.0f km/h lanes=%d stopped=%.0f s stage=%d obstacle=%.1f m throttle=%.2f brake=%.2f brain=%d steer=%.2f recovery=%d back-offs=%d wheels=%d up=%.2f scenery=%.1f m side=%d rounds=%d stood=%d straight=%d at %s"),
 					FVector::Dist2D(Car->GetActorLocation(), Player->GetActorLocation()) * 0.01f, Car->GetSpeedKmh(), Unit.bOnLanes ? 1 : 0, Unit.StoppedTime, Unit.Stage,
 					Unit.LastObstacle, Unit.LastThrottle, Unit.LastBrake, static_cast<int32>(Unit.Brain), Unit.LastSteer, static_cast<int32>(Unit.Recovery.State),
-					Unit.Recovery.BackOffs, PoliceWheelsOnGround(*Car), Car->GetActorUpVector().Z, *Car->GetActorLocation().ToCompactString());
+					Unit.Recovery.BackOffs, PoliceWheelsOnGround(*Car), Car->GetActorUpVector().Z, Unit.Avoid.LastAheadM, Unit.Avoid.Side, Unit.Avoid.Rounds,
+					Unit.Avoid.Blocked, Unit.bWayClear ? 1 : 0, *Car->GetActorLocation().ToCompactString());
 				if (const UChaosWheeledVehicleMovementComponent* Move = Cast<UChaosWheeledVehicleMovementComponent>(Car->GetVehicleMovementComponent()))
 				{
 					GTP_TRACE(LogGTPWanted, TEXT("police unit physics: gear=%d rpm=%.0f forward=%.0f cm/s simulating=%d class=%s"), Move->GetCurrentGear(),
@@ -1942,7 +2096,10 @@ void AGTPPoliceDirector::Tick(float DeltaSeconds)
 		{
 			// A roadblock goes once the player is past it, or the level is gone.
 			const FVector Relative = Car->GetActorLocation() - Player->GetActorLocation();
-			const bool bPassed = Relative.Size2D() > 2500.f && FVector::DotProduct(Relative, Player->GetVelocity()) < 0.f;
+			// Passed by a player driving away from it: one who stands has a velocity that points anywhere (gate 75:
+			// the roadblock ahead of a stopped player was taken away and made again every 2 s, 40 cars in 80 s).
+			const bool bPassed = Relative.Size2D() > 2500.f && Player->GetVelocity().Size2D() > RoadblockMinSpeed * 0.5f
+				&& FVector::DotProduct(Relative, Player->GetVelocity()) < 0.f;
 			bBlockDone = bPassed || (Stars == 0 && Unit.IdleTime >= 8.f);
 		}
 		if ((bTooFar || bStuck || bBlockDone || (Stars == 0 && !Unit.bBlock && Unit.IdleTime >= IdleLifetime)) && !Network->IsSeenByPlayer(Car->GetActorLocation()))
@@ -1997,7 +2154,8 @@ void AGTPPoliceDirector::Tick(float DeltaSeconds)
 		NextSpawnTime = Now + SpawnInterval;
 	}
 	// Roadblocks at three stars and more: two cars across the road ahead of a player driving fast.
-	if (Profile.RoadblockCars > 0 && Blocks < Profile.RoadblockCars && Cast<AGTPVehicle>(Player) != nullptr && Now >= NextBlockTime)
+	if (Profile.RoadblockCars > 0 && Blocks < Profile.RoadblockCars && Cast<AGTPVehicle>(Player) != nullptr && Now >= NextBlockTime
+		&& Player->GetVelocity().Size2D() >= RoadblockMinSpeed)
 	{
 		if (Queries && Now >= NextSiteQueryTime)
 		{

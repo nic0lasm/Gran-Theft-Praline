@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "GTPLiteDriver.h"
 #include "GTPPoliceTactics.h"
+#include "GTPUnitAvoid.h"
 #include "GTPPoliceOfficer.generated.h"
 
 class UGTPWeaponComponent;
@@ -124,6 +125,13 @@ protected:
 
 private:
 	bool HasLineOfSight(const FVector& From, const AActor& Target) const;
+	/**
+	 * Something within a step along Direction (flat, unit length): scenery or a car, Ignored left out (the one he is
+	 * after). OutNormal: the way its face is turned, flat.
+	 */
+	bool IsWayBlocked(const FVector& Direction, const AActor* Ignored, FVector& OutNormal) const;
+	/** Round what stands in his way, the same hand on it until the way is free (GTPUnitAvoid.h). */
+	FGTPFootDetour Detour;
 	/** Puts the uniform on; false when there is none to put on (the body the lite driver chose stays). */
 	bool WearUniform();
 
