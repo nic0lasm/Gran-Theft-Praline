@@ -12,29 +12,41 @@ Plain Python, no dependency (Pillow only for --png).
          every closed way without a lane taken twice, the longest first: metres, share of main
          axes (carriageway of 7 m and more, as GTPRoadWidth.h) and of narrow streets (under 5 m)
   write  <lanes.csv> --lanes 214,7,95,... [--approach 188,215,...] --out <Map>.circuit.csv
+         [--speeds "QU JULES COURMONT=100,R STELLA=60"] [--roads-out through_roads/<focus>.txt]
          the circuit file of that lap, checked first, each lane with the line driven on it
          (driving_line: straights straightened, corners rounded). The approach: the lanes driven
          from where the flight starts to the lap, in order; without one the game takes the
-         shortest way to the lap
+         shortest way to the lap. --speeds: the speed the flight asks street by street (column
+         kmh; without one the game goes by the width the lanes file gives). --roads-out: the
+         BD TOPO roads of the circuit, which tools/city/traffic.py then keeps whole
   check  <circuit.csv> <lanes.csv> [--report lane_clear_report.json] [--png lap.png]
+         [--carriageway carriageway.geojson] [--min-main 70]
          the lap against the lanes file the game reads: every row finds its lane, each lane
          leads to the next, the last to the first; metres, widths, turns; the driving lines stay
          within 4.5 m of their lanes and follow one another. With the report of the
          prep step "lanes" (tools/city/unreal/clear_lane_instances.py): nothing the step only
          reported (facade modules, signs: it never takes those out) may stand on a lane of the
-         lap. Exit 0 when the lap holds, 1 when it does not.
+         lap. Main axes are 70 % of the lap or more (--min-main): by the lanes file, or with
+         --carriageway by the kerbs measured on the ground (tools/city/carriageway.py), which is
+         what the rule means. Exit 0 when the lap holds, 1 when it does not.
 
-The lap of L_City_RueDeLaRepublique (2026-11-24): the lanes of that map are only made within 60 m
-of a generated building, and the largest set of lanes from which one can come back to the theft of
--GTARun (quai Jean Moulin) is 33 lanes round the place des Cordeliers. Its closed ways are 214 to
-817 m long. The lap kept is the longest, 817 m, 75 % on main axes, no narrow street: north on the
-quai Jean Moulin, round at the rue Gentil, south on the quays for 270 m, the rue
-Saint-Bonaventure, north on the rue Grolee, east across the place des Cordeliers. Two laps are
-1.6 km, three 2.4 km. The pedestrian rue de la Republique has no lane, and the lanes round the
-place Bellecour are cut off from the quays: a lap through them needs another lanes file.
-The theft is 25 m south of the lap, on the right-hand lane of the quai Jean Moulin; the shortest
-way to the lap from there is a U-turn at the first junction. The approach kept goes straight on:
-the middle lane of the quay (188, 215, 8, 96), 164 m, into the lap at the turn of the rue Gentil.
+The lap of L_City_RueDeLaRepublique (2026-11-24) goes through the place Bellecour, the shop window
+of the town: 1793 m, 37 lanes. South on the quai Jules Courmont (346 m), the rue Childebert, the
+place de la Republique and its basin, the rue Marcel-Gabriel Riviere, the place de l'Hopital, the
+rue Bellecordiere, the rue de la Barre, the north-east corner of the place Bellecour, north on
+the rue du President Edouard Herriot past the place des Jacobins, the rue Jean de Tournes, the
+rue Stella, the rue Grolee, the rue du President Carnot and right onto the quay again. The theft
+of -GTARun is on the quai Jean Moulin, northbound, 400 m north of the lap: the approach turns
+back through the junction of the pont Lafayette (397, 161, 148) and runs down the quay into the
+rue Childebert (488 m).
+Two things kept the lanes file from holding that lap until gate 80, both in tools/city/traffic.py:
+a road segment of 2.7 m of the rue Herriot at the place des Jacobins was dropped as too short and
+cut the street; and lanes were only made within 60 m of a generated building, which left out
+650 m of this lap. The roads of the circuit are now listed in tools/city/through_roads/<focus>.txt
+(write --roads-out) and kept whole. The lap before, 817 m round the place des Cordeliers, did not
+show Bellecour.
+By the lanes file 41 % of the lap is on main axes: it counts a one-way street by its one lane of
+3 m. By the kerbs measured on the ground (carriageway.geojson) 77 % of it is 7 m wide or more.
 """
 
 import argparse
@@ -48,7 +60,7 @@ NARROW_M = 5.0          # GTPRoadWidth::NarrowMetres
 SAME_ROAD_M = 20.0      # GTPRoadWidth::SameRoadMetres
 MATCH_M = 3.0           # GTPFlightCircuit::MatchMetres
 MIN_MAIN_SHARE = 0.70   # the roadmap's rule for the flight circuit
-HEADER = ["lane_id", "start_x_cm", "start_y_cm", "end_x_cm", "end_y_cm", "name", "line_ue_cm"]
+HEADER = ["lane_id", "start_x_cm", "start_y_cm", "end_x_cm", "end_y_cm", "name", "line_ue_cm", "kmh"]
 LINE_STEP_M = 3.0       # spacing of the driving line's points (the lanes file has one every 4 m)
 CORNER_BASE_M = 12.0    # a corner is told by the headings this far before and after a point
 CORNER_DEG = 40.0       # ... when they differ by this much
@@ -57,6 +69,7 @@ SIGMA_STRAIGHT_M = 10.0  # how far a jog of the lanes is spread along a straight
 SIGMA_RIGHT_M = 1.6     # rounding of a right-hand corner: its inside is the kerb (about 0.9 m cut at 90 degrees)
 SIGMA_LEFT_M = 4.5      # rounding of a left-hand corner: its inside is the middle of the junction (about 2.5 m)
 MAX_LINE_GAP_M = 4.5    # the line may leave its lane by this much (the inside of a left-hand corner)
+LINE_ENDS_M = 12.0      # GTPFlightCircuit::LineEndsMetres: a lane's line starts and ends this near the lane's ends
 
 
 def read_lanes(path):
@@ -346,7 +359,18 @@ def line_errors(lap, lines_by_lane, by_id):
             errors.append("the driving line of lane %d is %.1f m from the lane (%.1f allowed)" % (lane, away, MAX_LINE_GAP_M))
         if math.dist(line[-1], after[0]) > 2.0 * LINE_STEP_M:
             errors.append("the driving line of lane %d ends %.1f m from the next one" % (lane, math.dist(line[-1], after[0])))
+        errors += line_ends_errors(lane, line, by_id)
     return errors
+
+
+def line_ends_errors(lane, line, by_id):
+    """The game takes a lane's line only when it starts and ends near the lane's ends (LineEndsMetres)."""
+    points = by_id[lane]["points"]
+    off = max(math.dist(line[0], points[0]), math.dist(line[-1], points[-1]))
+    if off > LINE_ENDS_M:
+        return ["the driving line of lane %d starts or ends %.1f m from the lane's ends (%.1f allowed): the game would not use it"
+                % (lane, off, LINE_ENDS_M)]
+    return []
 
 
 def approach_errors(approach, lap, lanes):
@@ -383,7 +407,28 @@ def approach_line_errors(approach, lap, lines_by_lane, by_id):
             errors.append("the driving line of lane %d of the approach is %.1f m from the lane (%.1f allowed)" % (lane, away, MAX_LINE_GAP_M))
         if math.dist(line[-1], after[0]) > 2.0 * LINE_STEP_M:
             errors.append("the driving line of lane %d of the approach ends %.1f m from the next one" % (lane, math.dist(line[-1], after[0])))
+        errors += line_ends_errors(lane, line, by_id)
     return errors
+
+
+def measured_widths(path):
+    """Kerb to kerb width of each measured road (tools/city/carriageway.py): road id -> median width (m)."""
+    with open(path, encoding="utf-8") as f:
+        features = json.load(f)["features"]
+    out = {}
+    for feature in features:
+        halves = sorted(float(h) for h in feature["properties"].get("half_width_m") or [])
+        if halves:
+            out[feature["properties"]["road_id"]] = 2.0 * halves[len(halves) // 2]
+    return out
+
+
+def measured_main_share(lap, by_id, widths):
+    """Share of the lap on carriageways of MAIN_M and more by the measured kerbs; a road not measured counts by its lanes."""
+    total = sum(by_id[i]["length"] for i in lap)
+    main = sum(by_id[i]["length"] for i in lap if widths.get(by_id[i]["road"], by_id[i]["carriageway"]) >= MAIN_M)
+    measured = sum(by_id[i]["length"] for i in lap if by_id[i]["road"] in widths)
+    return main / total, measured / total
 
 
 def turn_between(before, after):
@@ -423,7 +468,8 @@ def read_circuit(path):
                     line.append((float(v[0]) / 100.0, float(v[1]) / 100.0))
             rows.append({"hint": hint, "start": (float(fields[1]) / 100.0, float(fields[2]) / 100.0),
                          "end": (float(fields[3]) / 100.0, float(fields[4]) / 100.0),
-                         "name": fields[5] if len(fields) > 5 else "", "line": line, "approach": in_approach})
+                         "name": fields[5] if len(fields) > 5 else "", "line": line, "approach": in_approach,
+                         "kmh": float(fields[7]) if len(fields) > 7 and fields[7] else 0.0})
     return rows
 
 
@@ -488,7 +534,7 @@ def reaching(lap, lanes):
     return reach
 
 
-def write_circuit(path, lap, lanes, source, approach=()):
+def write_circuit(path, lap, lanes, source, approach=(), speeds=None):
     by_id = {lane["id"]: lane for lane in lanes}
     total, share = lap_numbers(lap, by_id)
     lap_lines = driving_line(lap, by_id)[0]
@@ -499,9 +545,11 @@ def write_circuit(path, lap, lanes, source, approach=()):
     def row(lane_id):
         lane = by_id[lane_id]
         a, b = lane["points"][0], lane["points"][-1]
-        return "%d,%.0f,%.0f,%.0f,%.0f,%s,%s\n" % (lane_id, a[0] * 100.0, a[1] * 100.0, b[0] * 100.0, b[1] * 100.0,
-                                                  lane["name"].replace(",", " "),
-                                                  ";".join("%.0f %.0f" % (p[0] * 100.0, p[1] * 100.0) for p in lines.get(lane_id, [])))
+        kmh = (speeds or {}).get(lane["name"].upper(), 0.0)
+        return "%d,%.0f,%.0f,%.0f,%.0f,%s,%s,%s\n" % (lane_id, a[0] * 100.0, a[1] * 100.0, b[0] * 100.0, b[1] * 100.0,
+                                                     lane["name"].replace(",", " "),
+                                                     ";".join("%.0f %.0f" % (p[0] * 100.0, p[1] * 100.0) for p in lines.get(lane_id, [])),
+                                                     ("%.0f" % kmh) if kmh > 0.0 else "")
 
     with open(path, "w", encoding="utf-8", newline="\n") as f:
         f.write("# The circuit of the flight (GTPFlightCircuit.h), made by tools/city/flight_circuit.py write from %s.\n" % source)
@@ -512,6 +560,7 @@ def write_circuit(path, lap, lanes, source, approach=()):
                     % (len(approach), sum(by_id[i]["length"] for i in approach)))
         f.write("# A row is a lane by where it starts and ends (Unreal cm); lane_id is its number in that lanes file, a hint.\n")
         f.write("# line_ue_cm: the line driven on that lane, one closed curve over the lap: straights straightened, corners rounded.\n")
+        f.write("# kmh: the speed asked on that lane; empty: by the width the lanes file gives its road (GTPFlightCircuit::CruiseKmh).\n")
         f.write(",".join(HEADER) + "\n")
         if approach:
             f.write("approach\n")
@@ -611,8 +660,30 @@ def cmd_write(args):
     if errors:
         print("not an approach: " + "; ".join(errors))
         return 1
-    write_circuit(args.out, lap, lanes, args.source or "the lanes file of the map", approach)
+    speeds = {}
+    for pair in args.speeds.split(","):
+        if "=" in pair:
+            name, kmh = pair.rsplit("=", 1)
+            speeds[name.strip().upper()] = float(kmh)
+    by_id = {lane["id"]: lane for lane in lanes}
+    unknown = sorted(set(speeds) - {by_id[i]["name"].upper() for i in lap + approach})
+    if unknown:
+        print("no lane of the circuit is of: " + ", ".join(unknown))
+        return 1
+    write_circuit(args.out, lap, lanes, args.source or "the lanes file of the map", approach, speeds)
     print("written: %s" % args.out)
+    if args.roads_out:
+        # The roads of the circuit, for tools/city/traffic.py: kept whole however far from a generated building.
+        seen = []
+        with open(args.roads_out, "w", encoding="utf-8", newline="\n") as f:
+            f.write("# BD TOPO roads of the flight circuit (tools/city/flight_circuit.py write --roads-out): tools/city/traffic.py\n")
+            f.write("# keeps them whole within the extent of the map, however far from a generated building.\n")
+            for lane_id in approach + lap:
+                road = by_id[lane_id]["road"]
+                if road and road not in seen:
+                    seen.append(road)
+                    f.write("%s  # %s\n" % (road, by_id[lane_id]["name"] or "-"))
+        print("written: %s (%d roads)" % (args.roads_out, len(seen)))
     return 0
 
 
@@ -649,9 +720,20 @@ def cmd_check(args):
     else:
         print("  approach: none, a flight that starts off the lap takes the shortest way to it")
     failed = False
-    if share["main"] < MIN_MAIN_SHARE:
-        print("flight circuit: FAIL %.0f %% on main axes, %.0f %% wanted" % (share["main"] * 100.0, MIN_MAIN_SHARE * 100.0))
+    main_share, how = share["main"], "by the lanes file"
+    if args.carriageway:
+        main_share, measured = measured_main_share(lap, by_id, measured_widths(args.carriageway))
+        how = "by the measured kerbs"
+        print("  kerbs measured on %.0f %% of the lap: %.0f %% of it is %.0f m wide or more" % (measured * 100.0, main_share * 100.0, MAIN_M))
+    if main_share * 100.0 < args.min_main:
+        print("flight circuit: FAIL %.0f %% on main axes %s, %.0f %% wanted" % (main_share * 100.0, how, args.min_main))
         failed = True
+    asked = [(lane, row["kmh"]) for lane, row in zip(found, rows) if row["kmh"] > 0.0]
+    if asked:
+        by_speed = {}
+        for lane, kmh in asked:
+            by_speed.setdefault(kmh, []).append(by_id[lane]["name"] or "-")
+        print("  speeds asked: " + "; ".join("%.0f km/h %s" % (kmh, ", ".join(sorted(set(names)))) for kmh, names in sorted(by_speed.items(), reverse=True)))
     if args.report:
         kept, removed, report = report_blockers(args.report, lap + approach)
         print("  prep step \"lanes\" (%s lanes, clear %.0f cm): %d object(s) taken off the circuit's lanes, %d left standing on them"
@@ -692,6 +774,8 @@ def main(argv=None):
     write.add_argument("lanes_csv")
     write.add_argument("--lanes", required=True)
     write.add_argument("--approach", default="")
+    write.add_argument("--speeds", default="", help='speed asked by street, "QU JULES COURMONT=100,R STELLA=60"')
+    write.add_argument("--roads-out", default="", help="also write the BD TOPO ids of the circuit's roads (for traffic.py)")
     write.add_argument("--out", required=True)
     write.add_argument("--source", default="")
     write.set_defaults(run=cmd_write)
@@ -699,6 +783,8 @@ def main(argv=None):
     check.add_argument("circuit_csv")
     check.add_argument("lanes_csv")
     check.add_argument("--report", default="")
+    check.add_argument("--min-main", type=float, default=MIN_MAIN_SHARE * 100.0, help="share of main axes wanted (%%)")
+    check.add_argument("--carriageway", default="", help="count the main axes by the measured kerbs (carriageway.geojson)")
     check.add_argument("--png", default="")
     check.set_defaults(run=cmd_check)
     args = parser.parse_args(argv)

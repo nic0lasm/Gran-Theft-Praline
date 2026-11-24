@@ -12,19 +12,32 @@ Le jeu vérifie le fichier au démarrage de la carte (`GTPFlightCircuit.h`) : ch
 
 ## La boucle de L_City_RueDeLaRepublique
 
-Les voies de cette carte ne sont créées qu'à moins de 60 m d'un immeuble généré. Le plus grand ensemble de voies d'où l'on peut revenir au lieu du vol compte 33 voies autour de la place des Cordeliers ; ses circuits fermés font de 214 à 817 m. La boucle retenue est le plus long : 817 m, 21 voies, 75 % de grands axes (chaussée de 7 m et plus), aucune rue étroite. Quai Jean Moulin vers le nord, demi-tour à la rue Gentil, les quais vers le sud, rue Saint-Bonaventure, rue Grolée vers le nord, place des Cordeliers vers l'est. Deux tours font 1,6 km, trois tours 2,4 km.
+La boucle passe par la place Bellecour, la vitrine de la ville : 1793 m, 37 voies. Le quai Jules Courmont vers le sud (346 m), la rue Childebert, la place de la République et son bassin, la rue Marcel-Gabriel Rivière, la place de l'Hôpital, la rue Bellecordière, la rue de la Barre, l'angle nord-est de la place Bellecour, la rue du Président Édouard Herriot vers le nord en passant la place des Jacobins, la rue Jean de Tournes, la rue Stella, la rue Grolée, la rue du Président Carnot, puis à droite de nouveau sur le quai.
 
-L'approche est la voie du milieu du quai Jean Moulin depuis le lieu du vol, 189 m tout droit, jusqu'à la boucle au demi-tour de la rue Gentil. Sans elle, le chemin le plus court vers la boucle était un demi-tour au premier carrefour.
+Le vol a lieu quai Jean Moulin, côté qui monte vers le nord, 400 m au nord de la boucle. L'approche (488 m) fait demi-tour par le carrefour du pont Lafayette et descend le quai jusqu'à la rue Childebert.
 
-Ce que cette boucle n'est pas : une boucle unique de 1,5 à 2,5 km, ni un passage par la rue de la République. Cette rue est piétonne et n'a pas de voie, et les voies autour de la place Bellecour sont coupées des quais dans le fichier des voies d'aujourd'hui. Une boucle plus longue demande un autre fichier des voies.
+Jusqu'à la porte 80 le fichier des voies ne pouvait pas porter cette boucle, pour deux raisons, toutes deux dans `tools/city/traffic.py` :
+
+- un tronçon de 2,7 m de la rue Herriot, place des Jacobins, était écarté comme trop court, ce qui coupait la rue. Un tronçon de route entier est maintenant gardé à partir de 0,6 m ;
+- les voies n'étaient créées qu'à moins de 60 m d'un immeuble généré, ce qui écartait 650 m de cette boucle (la rue Herriot au nord des Jacobins, la rue Jean de Tournes, le quai entre la rue Ferrandière et la rue Childebert, l'est de la rue Childebert). Les routes du circuit sont maintenant listées dans `tools/city/through_roads/<focus>.txt` et gardées entières dans l'étendue de la carte. Le fichier des voies passe de 229 à 255 voies.
+
+La boucle choisie d'abord faisait 817 m autour de la place des Cordeliers : le plus long circuit fermé du fichier des voies tel qu'il était. Elle ne montrait pas Bellecour.
+
+Ce que cette boucle n'est pas :
+
+- un passage par la rue de la République elle-même : cette rue est piétonne et n'a pas de voie. La boucle la coupe place de la République et la longe ;
+- un tour de la place Bellecour : le sol de la carte s'arrête 65 m après l'entrée de la place, seul son angle nord-est existe ;
+- 70 % de grands axes selon le fichier des voies, qui dit 41 % : il compte une rue à sens unique par sa seule voie de 3 m. Entre les bordures mesurées sur le terrain (`carriageway.geojson`), 77 % de la boucle fait 7 m de large ou plus. `check --carriageway` compte ainsi.
 
 ## La ligne de conduite
 
 Les voies sont des axes de rue décalés sur le côté. Leurs points s'écartent d'un mètre, et une voie commence un mètre ou deux à côté de la fin de la précédente. Les conducteurs lisent chacun de ces écarts comme un virage : un écart de 15 degrés vaut 42 km/h. Sur les points des voies, trois tours conduits avec les décisions du jeu font 40 km/h de moyenne et ne dépassent jamais 74, quelle que soit la vitesse demandée.
 
-Chaque ligne du fichier porte donc la ligne de conduite de sa voie : une seule courbe fermée sur la boucle, un point tous les 3 m, les lignes droites redressées, les virages laissés à leur place et arrondis (0,9 m coupé à l'intérieur d'un virage à droite, dont l'intérieur est le trottoir ; 2,5 m à l'intérieur d'un virage à gauche). La ligne reste à moins de 4,5 m de sa voie. Sur le circuit la fuite demande 100 km/h sur un quai ou un boulevard (chaussée de 12 m et plus), 75 sur un autre grand axe, 60 dans une rue moyenne, à partir de 4 s après le vol.
+Chaque ligne du fichier porte donc la ligne de conduite de sa voie : une seule courbe fermée sur la boucle, un point tous les 3 m, les lignes droites redressées, les virages laissés à leur place et arrondis (0,9 m coupé à l'intérieur d'un virage à droite, dont l'intérieur est le trottoir ; 2,5 m à l'intérieur d'un virage à gauche). La ligne reste à moins de 4,5 m de sa voie, et commence et finit à moins de 12 m des extrémités de la voie.
 
-Ce que dit la simulation (`flight_circuit_test.cpp` : les décisions du jeu, un modèle de voiture à deux roues, pas la physique du jeu) : sur la ligne un tour prend 51 à 55 s, la première minute fait 52 à 56 km/h de moyenne, la pointe est à 100 km/h. Comme le film commence, à l'arrêt le long du trottoir : 49 à 53 km/h sur la première minute. Seule une porte sur le PC dit ce que fait la voiture du jeu.
+Chaque ligne porte aussi la vitesse que la fuite y demande (colonne `kmh`), à partir de 4 s après le vol : 100 km/h sur les quais, 75 rue de la Barre, rue Herriot et rue Carnot, 60 sur Bellecour et dans les rues Childebert, Jean de Tournes, Stella et Grolée, 50 rue Rivière et rue Bellecordière, 45 place de la République, 40 place de l'Hôpital. Une ligne sans vitesse suit la largeur que donne le fichier des voies : 100 km/h sur une chaussée de 12 m et plus, 75 sur un autre grand axe, 60 dans une rue moyenne.
+
+Ce que dit la simulation (`flight_circuit_test.cpp` : les décisions du jeu, un modèle de voiture à deux roues, pas la physique du jeu) : sur la ligne un tour prend environ deux minutes, la première minute fait 52 à 53 km/h de moyenne, la pointe est à 100 km/h. Comme le film commence, à l'arrêt le long du trottoir puis par le demi-tour : 50 à 52 km/h sur la première minute, la place de la République vers 38 s, Bellecour vers 70 s, la place des Jacobins vers 85 s. Seule une porte sur le PC dit ce que fait la voiture du jeu.
 
 ## Quand la voiture est arrêtée
 
@@ -35,8 +48,10 @@ Le script remet encore la voiture sur une voie quand elle est bloquée ou durabl
 `tools/city/flight_circuit.py`, Python sans dépendance :
 
 - `find <lanes.csv>` : tous les circuits fermés sans voie prise deux fois, le plus long d'abord, avec leur part de grands axes ;
-- `write <lanes.csv> --lanes 214,7,... --approach 188,215,... --out <Carte>.circuit.csv` : le fichier du circuit avec ses lignes de conduite ;
-- `check <circuit.csv> <lanes.csv> --report lane_clear_report.json --png boucle.png` : le circuit face au fichier des voies que lit le jeu, et face au rapport de l'étape de préparation `lanes` : rien de ce que cette étape a seulement signalé (modules de façade, enseignes) ne doit se trouver sur une voie du circuit. Code de sortie 1 quand le circuit ne tient pas. À lancer avant chaque porte, sur le fichier des voies de cette porte.
+- `write <lanes.csv> --lanes 381,367,... --approach 397,161,... --speeds "QU JULES COURMONT=100,..." --out <Carte>.circuit.csv --roads-out tools/city/through_roads/<focus>.txt` : le fichier du circuit avec ses lignes de conduite et ses vitesses, et la liste de ses routes pour `traffic.py` ;
+- `check <circuit.csv> <lanes.csv> --carriageway carriageway.geojson --report lane_clear_report.json --png boucle.png` : le circuit face au fichier des voies que lit le jeu, et face au rapport de l'étape de préparation `lanes` : rien de ce que cette étape a seulement signalé (modules de façade, enseignes) ne doit se trouver sur une voie du circuit. Code de sortie 1 quand le circuit ne tient pas. À lancer avant chaque porte, sur le fichier des voies de cette porte.
+
+Quand les routes du circuit changent : `write` sur un fichier des voies qui les contient (fait par `traffic.py` avec un fichier de routes traversantes qui les liste), puis de nouveau `traffic.py`, l'étape de préparation `lanes`, et `check`.
 
 ## Interrupteur
 

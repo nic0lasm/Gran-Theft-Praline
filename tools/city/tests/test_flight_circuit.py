@@ -127,8 +127,51 @@ class FlightCircuitTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("4 lanes, 354 m a lap", out)
         self.assertIn("approach: 2 lanes, 197 m, to lane 1 of the lap: 5,6", out)
-        self.assertIn("on main axes, 70 % wanted", out)
+        self.assertIn("on main axes by the lanes file, 70 % wanted", out)
         self.assertNotIn("NOT USED", out)
+        code, out = self.run_tool("check", self.circuit_path, self.lanes_path, "--min-main", "40")
+        self.assertEqual(code, 0, out)
+
+    def test_main_axes_by_the_measured_kerbs(self):
+        # The lanes file counts rue A and rue C by their one lane (3.5 m); between their kerbs they are 9 m.
+        kerbs = os.path.join(self.dir, "carriageway.geojson")
+        with open(kerbs, "w", encoding="utf-8") as f:
+            json.dump({"features": [{"properties": {"road_id": road, "centre": [[0, 0], [1, 0], [2, 0]], "half_width_m": [4.4, 4.5, 9.0]}}
+                                    for road in ("10", "12")]}, f)
+        self.assertEqual(fc.measured_widths(kerbs), {"10": 9.0, "12": 9.0})
+        share, measured = fc.measured_main_share(LAP, self.by_id, fc.measured_widths(kerbs))
+        self.assertAlmostEqual(share, 1.0)
+        self.assertAlmostEqual(measured, 200.0 / 354.0, places=2)
+        self.run_tool("write", self.lanes_path, "--lanes", "1,2,3,4", "--out", self.circuit_path)
+        code, out = self.run_tool("check", self.circuit_path, self.lanes_path, "--carriageway", kerbs)
+        self.assertEqual(code, 0, out)
+        self.assertIn("100 % of it is 7 m wide or more", out)
+
+    def test_speeds_asked_by_street(self):
+        roads = os.path.join(self.dir, "roads.txt")
+        code, out = self.run_tool("write", self.lanes_path, "--lanes", "1,2,3,4", "--approach", "5,6", "--out", self.circuit_path,
+                                  "--speeds", "rue a=60,QUAI B=100", "--roads-out", roads)
+        self.assertEqual(code, 0, out)
+        rows = fc.read_circuit(self.circuit_path)
+        self.assertEqual([row["kmh"] for row in rows], [60.0, 60.0, 60.0, 100.0, 0.0, 0.0])
+        code, out = self.run_tool("check", self.circuit_path, self.lanes_path, "--min-main", "40")
+        self.assertEqual(code, 0, out)
+        self.assertIn("speeds asked: 100 km/h quai B; 60 km/h rue A", out)
+        # The roads of the circuit, once each, approach first: what tools/city/traffic.py keeps whole.
+        with open(roads, encoding="utf-8") as f:
+            listed = [line.split("#")[0].strip() for line in f if line.split("#")[0].strip()]
+        self.assertEqual(listed, ["10", "11", "12", "13"])
+        # A street that is not of the circuit: a typing mistake, refused.
+        code, out = self.run_tool("write", self.lanes_path, "--lanes", "1,2,3,4", "--out", self.circuit_path, "--speeds", "rue Z=60")
+        self.assertEqual(code, 1)
+        self.assertIn("no lane of the circuit is of: RUE Z", out)
+
+    def test_a_line_far_from_its_lanes_ends_is_refused_as_the_game_refuses_it(self):
+        lines, _ = fc.driving_line(LAP, self.by_id)
+        lines = dict(lines)
+        self.assertEqual(fc.line_ends_errors(1, lines[1], self.by_id), [])
+        cut = [p for p in lines[1] if p[0] > fc.LINE_ENDS_M + 3.0]
+        self.assertIn("the game would not use it", fc.line_ends_errors(1, cut, self.by_id)[0])
 
     def test_write_refuses_what_is_not_a_lap_or_an_approach(self):
         code, out = self.run_tool("write", self.lanes_path, "--lanes", "1,3,2,4", "--out", self.circuit_path)

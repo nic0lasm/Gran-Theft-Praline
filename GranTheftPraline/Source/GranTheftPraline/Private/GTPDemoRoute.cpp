@@ -808,9 +808,13 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 			// axis, 60 in a middle street, 45 in a narrow one. Until gate 75: 90 everywhere, 72 km/h reached in a street
 			// 6 m wide between the facades and the car against a wall at its bend.
 			// On the flight circuit of the map (lap and approach, GTPFlightCircuit.h) the lanes were looked at beforehand
-			// and are driven on a line without the jogs of the lanes: from 4 s, 100 km/h on a quay, 75 on another main axis.
+			// and are driven on a line without the jogs of the lanes: from 4 s, the speed its row asks, street by street
+			// (the kerbs were measured: a one-way street of one lane is 8 to 11 m wide where the lanes file says 3), or
+			// without one 100 km/h on a quay and 75 on another main axis.
 			const bool bOnCircuit = Follower.IsOnCircuit();
-			Cruise = T >= (bOnCircuit ? 4.0 : 12.0) ? (bOnCircuit ? GTPFlightCircuit::CruiseKmh(Follower.GetCarriagewayM()) : GTPRoadWidth::FlightKmh(Follower.GetCarriagewayM())) : 40.f;
+			const float AskedKmh = Follower.GetCircuitKmh();
+			const float CircuitKmh = AskedKmh > 0.f ? AskedKmh : GTPFlightCircuit::CruiseKmh(Follower.GetCarriagewayM());
+			Cruise = T >= (bOnCircuit ? 4.0 : 12.0) ? (bOnCircuit ? CircuitKmh : GTPRoadWidth::FlightKmh(Follower.GetCarriagewayM())) : 40.f;
 			// The way ahead is kept clear of the city's traffic (a demo cannot queue behind a taxi): twice a second, a
 			// traffic car in the player's own way is taken off the road, ahead within 35 m and within 2.5 m of the line his
 			// car drives on. The cars coming the other way, beside him or crossing further on stay in the street: until
