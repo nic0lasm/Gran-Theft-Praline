@@ -782,6 +782,11 @@ protected:
 	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Lights")
 	float SignalDrawDistance = 6000.f;
 
+	/** A signal head is not drawn while the view is this near it on the ground plan (cm): it has no collision, a camera
+	 *  can stand in it. */
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Lights")
+	float SignalCameraClearance = 250.f;
+
 	/**
 	 * Least distance from a signal head's foot to the centre line of any lane (cm). Right of its own lane, a head can
 	 * stand on another one: a lane of another light group, a bus lane, the next road where two meet at an angle (gate

@@ -3139,8 +3139,12 @@ void AGTPTrafficNetwork::UpdateSignalHeads()
 				Lamp->SetWorldLocation(Head.Location + Head.LensOffset[LensOf(Head.Shown)]);
 			}
 		}
-		// Hidden until grounded: no lamp floating or buried while its cell streams in.
-		const bool bDrawn = bVisible && Head.bGrounded;
+		// Hidden until grounded: no lamp floating or buried while its cell streams in. And hidden while the view stands
+		// at the head itself: its parts have no collision, so a camera's own sweeps do not find them (gate 78: the chase
+		// camera stood in a signal head at a junction 40 s into the film, the car held up beside it).
+		const double CameraGapSquared = FMath::Min(FVector::DistSquared2D(View, Head.Location), FVector::DistSquared2D(View, Lamp->GetComponentLocation()));
+		const bool bAtCamera = CameraGapSquared < FMath::Square(static_cast<double>(SignalCameraClearance)) && View.Z < Head.Location.Z + 700.0;
+		const bool bDrawn = bVisible && Head.bGrounded && !bAtCamera;
 		if (bDrawn && !Head.bLookedForStreetLight)
 		{
 			// Once, now that the cells around it are loaded: the details layer's light there, if any, carries its lenses.
