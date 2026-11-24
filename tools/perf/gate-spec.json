@@ -1,6 +1,6 @@
 {
   "_doc": "What the Windows gate queue checks for this candidate. Edited by the pilot for each candidate; read by the PC queue script. No machine paths here. From candidate 60 the gate judges what the player sees: the default traffic, which is the legacy one (MassTraffic runs only with -Traffic=mass). The 'blocking' criteria are read on the blocking passes; everything under 'informative_mass' is measured and reported on the MassTraffic passes but never fails the gate, and never stops it. Those criteria become blocking again only for switching the default traffic to mass, once a whole gate passes them (ADR-0015).",
-  "candidate": 78,
+  "candidate": 79,
   "map_md5": null,
   "game_p50_max_ms": 13.88,
   "game_p95_max_ms": 50,
@@ -197,7 +197,8 @@
     "[PitCover]",
     "on-foot camera (10 s)",
     "chase camera (10 s)",
-    "[FacadeFlip]"
+    "[FacadeFlip]",
+    "[Horizon]"
   ],
   "video": {
     "pass": "-GTARun -GTARunEncore",
@@ -241,19 +242,19 @@
       "script": "tools/city/route_dressing.py",
       "args": [
         "--only",
-        "backup,facades,lanes,pits"
+        "backup,facades,lanes,pits,horizon"
       ],
       "editor_closed": true,
       "saves_map": true,
-      "timeout_min": 90,
-      "check": "Saved/CityImport/facade_flip_report.json: flipped >= 1",
-      "before": "restore the map backup taken by prep 77 before its lanes step (md5 fb26cac9...), check the md5, then run this step",
-      "_check_by_eye": "module at (26250, -14825) among the flips; lane_clear_report.json: no removed instance in City/Facades or City/Signs; pit_cover_report.json: covered >= 1"
+      "timeout_min": 105,
+      "check": "Saved/CityImport/horizon_report.json: blocks >= 200",
+      "_check_by_eye": "horizon_report errors empty, towers 5, hills 2, skirt 1, terrain_measured true; materials_report errors empty, far_ground true, horizon_materials 7 names; facade_flip_report (0 flips expected after 78); lane_clear_report: nothing removed in City/Facades or City/Signs"
     }
   ],
   "_pre_gate_doc": "pre_gate: jobs the PC runs itself at this head, after its compile and before the gate, editor closed, lock held, map backed up first when saves_map; only scripts on the PC's allow-list; the map md5 after them is reported. Empty or absent: none.",
   "_stolen_and_police_cars_drawn": "Blocking from 72 (gate 69: the stolen Car05 was invisible the whole flight and no criterion saw it). In every gtarun pass (gtarun, gtarun -DemoFreeCar=Car02, the video pass): the class of each car in 'carjack ok in <Class>_C_<n>' has a line 'vehicle look: <Class>_C drawn, N look part(s)' in the same log (no 'NOT DRAWN' for it), and no line 'police: car class ... NOT DRAWN'; when a police car comes, its class has a 'vehicle look: ... drawn' line too. A pass without those lines fails it.",
   "_p50_rule": "game_p50_max_ms = 1.3 x the p50 of the last gate passed (76: 10.68 ms -> 13.88).",
   "_pre_gate_77": "Quay pavement darker (0.20, kerb 0.22) in the ground materials before the gate; map unchanged. With 76's bounded run-over bodies. Demo flight kept on wide through lanes (Trafic 4de947f then aef168f, C++): 70/60/45 km/h by width, no dead ends, backs off a fixed obstacle. Police units go round the scenery, close in on a stopped player and stop 5 m short (Police e077e90, C++); criteria changed: hiding needs 80 m from any unit (25), roadblocks only before a player at 20 km/h or more. -PoliceAvoid=0 turns the avoidance off. Scenery a car can hit within 1.5 m of a lane's middle line removed (Réalisme ec9c00c, 'lanes' step; saves the map, new md5 reported).",
-  "_pre_gate_78": "77 plus Combat 6f428da (C++ only: both cameras pulled in by walls, ground, buildings and cars only, people and small props hidden instead; a squeezed camera rises; the whole player hidden when the camera is in the head; lines 'on-foot camera (10 s)' and 'chase camera (10 s)'). Texture pool 3072 -> 2816 MB on Windows (gate 76: video memory 58 MB over budget). Informative pass 'gtarun -DPCVars=r.Streaming.PoolSize=2560' to see whether a smaller pool lowers the GPU p95 further. Same steps before the gate as 77 (materials, then backup and lanes; both idempotent). Then Réalisme a0859b9: new 'pits' step (one map save with lanes): closed pits of the LiDAR terrain over 1 m deep and 6 to 3000 m2 covered at street height (City/PitCovers, BlockAll); gate 76's player fell into one at 92-115 s. Check pit_cover_report.json covered >= 1 is informative; [PitCover] lines in the report. Lanes step taken OUT (Réalisme 09:16Z: the named actors are facade-kit actors spread over the whole city, so the step cut every module within 1.5 m of a lane, facade holes in narrow streets). The map goes back to its state before prep 77's lanes step. Réalisme 4e8330c: 'facades' step turns back the facade modules facing opposite to 2 or more neighbours of their row (gate 75's white block: ShopClosed_B at (26250, -14825) at yaw -90 among neighbours at 90); 'lanes' names no actor by default and never removes anything in City/Facades or City/Signs. One step: backup,facades,lanes,pits on the map restored to fb26cac9."
+  "_pre_gate_78": "77 plus Combat 6f428da (C++ only: both cameras pulled in by walls, ground, buildings and cars only, people and small props hidden instead; a squeezed camera rises; the whole player hidden when the camera is in the head; lines 'on-foot camera (10 s)' and 'chase camera (10 s)'). Texture pool 3072 -> 2816 MB on Windows (gate 76: video memory 58 MB over budget). Informative pass 'gtarun -DPCVars=r.Streaming.PoolSize=2560' to see whether a smaller pool lowers the GPU p95 further. Same steps before the gate as 77 (materials, then backup and lanes; both idempotent). Then Réalisme a0859b9: new 'pits' step (one map save with lanes): closed pits of the LiDAR terrain over 1 m deep and 6 to 3000 m2 covered at street height (City/PitCovers, BlockAll); gate 76's player fell into one at 92-115 s. Check pit_cover_report.json covered >= 1 is informative; [PitCover] lines in the report. Lanes step taken OUT (Réalisme 09:16Z: the named actors are facade-kit actors spread over the whole city, so the step cut every module within 1.5 m of a lane, facade holes in narrow streets). The map goes back to its state before prep 77's lanes step. Réalisme 4e8330c: 'facades' step turns back the facade modules facing opposite to 2 or more neighbours of their row (gate 75's white block: ShopClosed_B at (26250, -14825) at yaw -90 among neighbours at 90); 'lanes' names no actor by default and never removes anything in City/Facades or City/Signs. One step: backup,facades,lanes,pits on the map restored to fb26cac9.",
+  "_pre_gate_79": "78 plus Image 386130f (lot 3, far view): 'horizon' step puts a ground to the horizon, 229 far blocks, 5 Part-Dieu towers and 2 hills beyond the map (engine basic shapes, no collision, no shadow, out of ray tracing); the backdrop keeps its windows far away; dark ground past the ground mask. Gate 76 at 60 s: the quay looked out on a blue band like a sea. Steps: materials, then backup,facades,lanes,pits,horizon (all idempotent, one map save). Undo: GTP_HORIZON=0 on horizon, GTP_FAR_GROUND=0 on materials, or the map backup."
 }
