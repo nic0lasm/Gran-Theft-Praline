@@ -240,12 +240,12 @@
       "script": "tools/city/route_dressing.py",
       "args": [
         "--only",
-        "backup,pits"
+        "backup,facades,lanes,pits"
       ],
       "editor_closed": true,
       "saves_map": true,
-      "timeout_min": 60,
-      "check": "Saved/CityImport/pit_cover_report.json: covered >= 1",
+      "timeout_min": 90,
+      "check": "Saved/CityImport/facade_flip_report.json: flipped >= 1, the module at (26250, -14825) among the flips; lane_clear_report.json: no removed instance in folder City/Facades or City/Signs; pit_cover_report.json: covered >= 1",
       "before": "restore the map backup taken by prep 77 before its lanes step (md5 fb26cac9...), check the md5, then run this step"
     }
   ],

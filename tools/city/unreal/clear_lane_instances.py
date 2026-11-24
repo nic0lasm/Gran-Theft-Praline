@@ -11,9 +11,11 @@ What is looked at: every instanced static mesh component (HISM, ISM) of the map,
 taller than 15 cm (manhole covers and grates stay), whose lowest point is less than 2.5 m above
 the lane (an overhead sign stays). Footprint: the mesh box turned by the instance's yaw; a tree
 (mesh path with "Tree" or "Alder", not a grate) by a 40 cm trunk. Removed: the street furniture
-and detail sets (City/Props, City/Route, City/Details, tag GTP_Set_*) and every actor named in
-GTP_LANE_ACTORS (gate 75's four by default). The facade kit (City/Facades) and the signs are only
-reported: a facade on a lane is a building matter (generate.py trim_footprints), not one to cut.
+and detail sets (City/Props, City/Route, City/Details, tag GTP_Set_*) and the actors named in
+GTP_LANE_ACTORS (none by default). The facade kit (City/Facades) and the signs are only ever
+reported, even when named: the kit has one actor per module mesh over the whole city, so gate 75's
+StaticMeshActor_27 is every ShopClosed_B module of the map. Its white block was one module turned
+round (fix_facade_flips.py), not an object to cut.
 
 GTP_LANE_CLEAR=0: report only, nothing removed, map not saved. Lanes: GTP_LANES_CSV, else
 Content/City/Traffic/<Map>.lanes.csv (the file the game reads). Map: GTP_CITY_FOCUS as
@@ -41,8 +43,7 @@ LANES = os.environ.get("GTP_LANES_CSV") or os.path.join(
     MAP_NAME + ".lanes.csv")
 APPLY = os.environ.get("GTP_LANE_CLEAR", "1") != "0"
 CLEAR_CM = float(os.environ.get("GTP_LANE_CLEAR_M", "1.5")) * 100.0
-NAMED = [n for n in os.environ.get("GTP_LANE_ACTORS",
-                                   "StaticMeshActor_27,StaticMeshActor_107,StaticMeshActor_22,StaticMeshActor_0").split(",") if n]
+NAMED = [n for n in os.environ.get("GTP_LANE_ACTORS", "").split(",") if n]
 SET_FOLDERS = ("City/Props", "City/Route", "City/Details")
 REPORT_ONLY_FOLDERS = ("City/Facades", "City/Signs")
 MIN_HEIGHT_CM = 15.0
@@ -70,7 +71,7 @@ def which_set(actor):
     for t in actor.tags:
         if str(t).startswith("GTP_Set_"):
             return str(t)[8:]
-    if actor.get_name() in NAMED:
+    if actor.get_name() in NAMED and not folder.startswith(REPORT_ONLY_FOLDERS):
         return "named:" + actor.get_name()
     return None
 
@@ -123,7 +124,7 @@ def main():  # noqa: C901
                 entry = [{"actor": actor.get_name(), "label": actor.get_actor_label(), "folder": folder,
                           "mesh": path.split(".")[0], "index": i, "lane": lane, "gap_cm": round(g),
                           "xyz": list(xyz)} for i, (lane, g), xyz in hits]
-                if only_report or (folder.startswith(REPORT_ONLY_FOLDERS) and actor.get_name() not in NAMED):
+                if only_report or folder.startswith(REPORT_ONLY_FOLDERS):
                     report["reported_only"].extend(entry)
                     continue
                 report["removed_instances"].extend(entry)

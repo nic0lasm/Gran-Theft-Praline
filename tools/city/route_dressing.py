@@ -22,9 +22,12 @@ quarter_build.py and surfaces_build.py:
   street      (only when named in --only) place_props.py on the street's own set, City/Props,
               from its props_placement.csv: the same breakable tags there (glass containers,
               gate 68); saves the map
-  lanes       clear_lane_instances.py: every placed object a car can hit within 1.5 m of a lane of
-              the lanes file the game reads is taken out (street sets and gate 75's named
-              actors; the facade kit only reported); saves the map
+  facades     fix_facade_flips.py: a facade kit module facing the other way from its neighbours
+              on the same facade line is turned round on its pivot (gate 75: a shop module turned
+              round stood its room on lane 13, the white block); saves the map
+  lanes       clear_lane_instances.py: every street object a car can hit within 1.5 m of a lane
+              of the lanes file the game reads is taken out (street sets only; the facade kit
+              and the signs are only reported); saves the map
   pits        cover_pits.py: the closed pits of the LiDAR terrain (car park ramps, underpass
               mouths: gate 76, the player fell into one) get a flat lid at street height, except
               where a lane runs down into one; saves the map
@@ -59,7 +62,7 @@ FOCUS = "rue-de-la-republique"
 MAP_DIR = os.path.join(qb.PROJECT_DIR, "Content", "Maps")
 MAP_FILES = [os.path.join(MAP_DIR, "L_City_RueDeLaRepublique" + ext) for ext in (".umap", "_BuiltData.uasset")]
 BACKUP = os.path.join(qb.SAVED, "route_map_backup")
-STEPS = ("props", "backup", "surfaces", "materials", "place", "street", "lanes", "pits", "collision", "lights")
+STEPS = ("props", "backup", "surfaces", "materials", "place", "street", "facades", "lanes", "pits", "collision", "lights")
 OPT_IN = ("street",)
 
 
@@ -139,6 +142,13 @@ def main():  # noqa: C901
         elif step == "street":
             ok, _, note = qb.run_editor("route_street", "place_props", "props_report.json", 900,
                                         {"GTP_PROPS_SET": "props"}, args)
+        elif step == "facades":
+            ok, _, note = qb.run_editor("route_facades", "fix_facade_flips", "facade_flip_report.json", 900, {}, args)
+            rep = os.path.join(qb.SAVED, "facade_flip_report.json")
+            if os.path.exists(rep):
+                with open(rep, encoding="utf-8") as f:
+                    r = json.load(f)
+                note += " modules %s, flipped %s %s" % (r.get("modules"), r.get("flipped"), r.get("by_mesh"))
         elif step == "lanes":
             ok, _, note = qb.run_editor("route_lanes", "clear_lane_instances", "lane_clear_report.json", 900,
                                         {}, args)
