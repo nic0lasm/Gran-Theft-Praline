@@ -96,3 +96,12 @@ def lid_runs(cells):
             prev = c
         runs.append((r, start, prev))
     return runs
+
+
+def lids(cells, x0, y0, step_cm, reach=1):
+    """Boxes (x0, y0, x1, y1) that cover a pit, one per row run. The cells are corners of the
+    terrain grid: the ground slopes from each wet corner up to its dry neighbours, so a lid that
+    stopped half a step away would leave a ditch all round it. Each box reaches the neighbouring
+    corners (reach = 1 step), where the ground is back at the height of the lid."""
+    return [(x0 + (ca - reach) * step_cm, y0 + (r - reach) * step_cm,
+             x0 + (cb + reach) * step_cm, y0 + (r + reach) * step_cm) for r, ca, cb in lid_runs(cells)]
