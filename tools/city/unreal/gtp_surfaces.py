@@ -71,7 +71,9 @@ GRIME_STRENGTH = 0.5
 KIT_DETAIL = float(os.environ.get("GTP_SURFACES_DETAIL", "0.6"))   # share of the stone detail kept
 ROOF = ("zinc_roof", "slate_roof")
 ROOF_TILE = ("terracotta_tile",)
-STONE = ("limestone_ashlar",)
+# Dressed stone first: the "Roman limestone wall" scan behind limestone_ashlar is rough rubble,
+# and on a sunlit wall of the flight it read as a fortress (gate 76 video, 43 s).
+STONE = ("dressed_stone", "limestone_ashlar")
 RENDER = ("render_ochre",)
 
 _used = {}

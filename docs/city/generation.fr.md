@@ -322,6 +322,44 @@ façade enduite le prend comme avant. Sans l'enduit dans le projet, rien ne chan
 `materials_report.json` liste `kit.render` et `shell.render` dans `surfaces.used` quand il y
 est.
 
+### Le lointain : horizon, rive d'en face et façades éloignées (ajouté le 24/11/2026)
+
+Vidéo de la porte 76, à 60 s sur le quai : de l'autre côté du fleuve, le sol était une plaine
+blanche et nue, les volumes lointains des blocs beiges lisses, et la vue finissait sur une bande
+bleu sombre sous le ciel, comme une mer. Quatre causes, quatre changements.
+
+1. **Rien au-delà de la carte.** Passé les volumes BD TOPO (600 m de l'axe de la rue), le monde
+   était vide, donc le ciel se voyait sous l'horizon. `tools/city/horizon.py` compose un
+   lointain sans aucune donnée géographique : un sol jusqu'à l'horizon réel (il prend la brume
+   comme tout sol), quatre rangs de blocs simples de 720 m à 1,5 km de l'axe (cinq à huit
+   étages, une rue entre deux blocs), les tours de la Part-Dieu à l'est, et deux dômes aplatis
+   pour Fourvière (ouest, boisée) et la Croix-Rousse (nord, bâtie), les blocs qui tombent
+   dessus étant posés sur leurs pentes. `tools/city/unreal/place_horizon.py` le place dans le
+   dossier City/Horizon avec les seules formes de base du moteur (environ 240 acteurs de
+   12 triangles, regroupés par matériau ; ni collision, ni ombre, hors de la scène de lancer de
+   rayons), 1 m sous le terrain le plus bas. C'est l'étape `horizon` de `route_dressing.py`,
+   après `materials` ; elle sauvegarde la carte ; `GTP_HORIZON=0` l'enlève. Rapport :
+   `horizon_report.json`.
+2. **Les façades lointaines devenaient lisses.** Le shader de fond effaçait tout son motif vers
+   une moyenne dès que les traits fins (cadres, barreaux) approchaient du pixel : à partir de
+   350 m de face, de 60 m le long d'une rue. Les traits fins partent toujours en premier, mais
+   les ouvertures restent des rectangles sombres jusqu'à faire elles-mêmes environ un pixel.
+   Les blocs lointains prennent la même façade (`M_City_Horizon_<n>`, un par couleur de mur,
+   teintée comme le reste).
+3. **Sol blanc au-delà du masque de sol.** La texture du masque est bornée, donc passé son bord
+   ses derniers texels étaient étirés et le sol était en dalles claires de trottoir jusqu'au
+   bout du terrain. `far_ground` fond le sol, sur 30 m hors du masque, vers le ton sombre
+   unique du lointain. `GTP_FAR_GROUND=0` le coupe. `materials_report.json` donne `far_ground`
+   et `horizon_materials`.
+4. **Du moellon sur les murs.** Le scan derrière `limestone_ashlar` est un mur romain brut : sur
+   un mur au soleil de la fuite, il se lisait comme une forteresse (43 s). Une nouvelle entrée
+   `dressed_stone` du catalogue (Poly Haven `sandstone_blocks_08`, CC0 : blocs lisses, joints
+   fins) passe en premier pour le détail des murs ; sans elle dans le projet, l'ancien scan
+   reste.
+
+Les positions des collines et des tours sont approximatives exprès (un lointain, jamais un lieu
+où aller). Pas encore vu en jeu.
+
 ### Chaussées recalées sur les bordures et régénération en une commande
 
 Les axes BD TOPO sont à 0,8 m du milieu de la chaussée (2,2 m au 90e centile) et les voitures

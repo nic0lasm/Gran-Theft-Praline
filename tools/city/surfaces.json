@@ -34,6 +34,24 @@
    ]
   },
   {
+   "id": "dressed_stone",
+   "priority": 1,
+   "role": "facade.stone",
+   "tile_cm": 300,
+   "match": [
+    "cc0-facades-20261123",
+    "sandstone_blocks_08"
+   ],
+   "fab": "smooth dressed stone wall, large regular blocks, fine joints",
+   "exclude": [
+    "crack",
+    "decal",
+    "stain",
+    "gum"
+   ],
+   "note": "CC0 (24/11): Poly Haven sandstone_blocks_08, mean albedo 0.30 and roughness 0.51 (measured); only its detail is used, the building keeps its own colour. Preferred to limestone_ashlar (rough rubble) on the walls."
+  },
+  {
    "id": "limestone_ashlar",
    "priority": 1,
    "role": "facade.stone",
