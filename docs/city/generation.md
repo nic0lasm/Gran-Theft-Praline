@@ -397,6 +397,34 @@ and the hill behind it carried no monument.
 Not seen in game yet. The red is a flat colour for now: a scanned surface can follow once the
 outline is proven on a picture.
 
+### The quays: ground past the focus mask, the rivers, and the pits (added 2026-11-24)
+
+Gate 81, long take. The flight starts on quai Jules Courmont, 60 m east of the ground mask (it
+stops 60 m past the generated buildings): no carriageway, no kerb, a striped grey plain to the
+far bank, the Rhône paved like a sidewalk. At 50 s the stolen car rolled into a car park ramp.
+
+1. **Far mask** (`tools/city/ground_mask.py --far`): the same channels over the whole terrain,
+   4096 texels a side (34 cm), drawn twice as fine and averaged, written with its json in
+   `assets/geo/processed/presqu-ile/ground_far/` (not committed, like the focus mask:
+   `route_dressing.py` makes it from the data of the machine before its `materials` step, and
+   without it the ground stays as it was). `M_City_Ground` reads the
+   focus mask inside its extent and the far mask past it; the dark tone of the far view then
+   starts 150 m out instead of at the edge. `GTP_FAR_MASK=0` goes back to the focus mask alone.
+2. **Rivers**: the LiDAR terrain is flat on the water, 5.8 m under the quays. `ground_far.json`
+   carries a coarse outline of the Rhône and of the Saône (10 and 22 corners) and their level;
+   the material paints water (colour and gloss of `M_City_Water`, flat) within 15 m of an
+   outline wherever the terrain lies below that level plus 40 cm: the bank is where the terrain
+   drops. `GTP_RIVERS=0` leaves the ground as it was.
+3. **Pits** (`cover_pits.py`, step `pits`): from gate 78 to gate 81 the step traced the terrain,
+   got no answer in the headless editor and reported "no pit". It now reads the corners of the
+   terrain tiles (`tools/city/terrain_file.py`: from `terrain/terrain.glb`, kept only if its
+   tiles have the boxes of the map's, else from the tile meshes), covers every closed pit with
+   lids that reach the dry corners round it, and fails when no height is read. On the cached
+   terrain: 68 pits, 258 lids, under a second.
+
+`materials_report.json` gives `far_mask` (`texture`, `read_past_the_mask`, `rivers`, `laid`);
+`pit_cover_report.json` gives `heights_from`, `cells_read`, `covered`. Not seen in game yet.
+
 ### Carriageways fitted to the kerbs and one-command regeneration
 
 The BD TOPO centre lines sit 0.8 m off the middle of the carriageway (2.2 m at the 90th

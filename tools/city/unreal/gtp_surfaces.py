@@ -263,7 +263,7 @@ def ground(mat, mask):
 
     def blend(i, fallback, fallback_out=""):
         v, vo = pick("sidewalk", i, fallback, fallback_out)
-        for k, alpha, alpha_out in (("paving", mask, "G"), ("kerb", kerb, ""), ("road", mask, "R")):
+        for k, alpha, alpha_out in (("paving", g.mask(mask, g=True), ""), ("kerb", kerb, ""), ("road", on_road, "")):
             b, bo = pick(k, i, fallback, fallback_out)
             v, vo = g.lerp(v, b, alpha, vo, bo, alpha_out), ""
         return v, vo
@@ -274,8 +274,8 @@ def ground(mat, mask):
     # does not read as a grid. Mud over all the ground, oil on the carriageway only.
     off_road = g.sub(g.const(1.0), on_road)
     for sid_list, region, region_out, period, strength in ((GROUND_GRIME, None, "", 450.0, MUD_STRENGTH),
-                                                          (("decal_oil",), mask, "R", 700.0, 0.7),
-                                                          (("decal_cracks",), mask, "R", 900.0, 0.6),
+                                                          (("decal_oil",), on_road, "", 700.0, 0.7),
+                                                          (("decal_cracks",), on_road, "", 900.0, 0.6),
                                                           (("decal_gum",), off_road, "", 260.0, 0.8)):
         sid, st = _pick(m, sid_list)
         if not st or not st.get("opacity"):
