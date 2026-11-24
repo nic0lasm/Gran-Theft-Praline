@@ -19,7 +19,7 @@ The theft is on the quai Jean Moulin, northbound, 400 m north of the lap. The ap
 Until gate 80 the lanes file could not hold this lap, for two reasons, both in `tools/city/traffic.py`:
 
 - a road segment of 2.7 m of the rue Herriot at the place des Jacobins was dropped as too short, which cut the street. A whole road segment is now kept from 0.6 m;
-- lanes were only made within 60 m of a generated building, which left out 650 m of this lap (the rue Herriot north of the Jacobins, the rue Jean de Tournes, the quay between the rue Ferrandière and the rue Childebert, the east of the rue Childebert). The roads of the circuit are now listed in `tools/city/through_roads/<focus>.txt` and kept whole within the extent of the map. The lanes file goes from 229 to 255 lanes.
+- lanes were only made within 60 m of a generated building, which cut 610 m out of this lap (201 m of the quay north of the rue Childebert, 118 m of the rue Grolée, 96 m of the rue Herriot north of the Jacobins, 82 m of the rue Childebert, 81 m of the rue Stella, 32 m of the rue Jean de Tournes). The roads of the circuit are now listed in `tools/city/through_roads/<focus>.txt` and kept whole within the extent of the map. The lanes file goes from 229 to 255 lanes.
 
 The lap chosen first was 817 m round the place des Cordeliers: the longest closed way of the lanes file as it was. It did not show Bellecour.
 
