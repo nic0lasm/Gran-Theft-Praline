@@ -61,14 +61,17 @@ namespace
 	// Time limits (s) per step, counted from the step's start.
 	// Witness: the call takes 4 s (GTPWitnessLogic.h). Chase: 3 stars come at 30 s and a car that flees has its
 	// 150 m by then; a chase that fails must leave the other steps their time (170 s of it ate the bench's 330 s
-	// on 16/11). Pursuit: its 40 s window. Outcome: a stopped player is arrested in 3 s once a unit is within 7 m;
+	// on 16/11). Pursuit: its 40 s window, and up to 20 s more to reach the place the circuit ends on. Outcome: a stopped player is arrested in 3 s once a unit is within 7 m;
 	// the units have 60 s to come. Wasted: 6 s dead, then the respawn. Crash: a few seconds to get in, then three
 	// tries of at most 13 s each.
-	const double StepLimits[StepCount] = { 90.0, 12.0, 90.0, 50.0, 60.0, 200.0, 40.0, 90.0, 90.0, 30.0, 30.0, 75.0 };
+	const double StepLimits[StepCount] = { 90.0, 12.0, 90.0, 70.0, 60.0, 200.0, 40.0, 90.0, 90.0, 30.0, 30.0, 75.0 };
 	// Crash step: the player's car starts this far behind its target (centre to centre, cm), about 13 m of run-up.
 	constexpr float CrashRunUpCm = 1800.f;
 	// The flight measured by the pursuit step after the chase step (s).
 	constexpr double PursuitSeconds = 40.0;
+	// Past that window the flight goes on until the car is on a lane the map's flight circuit ends on (the place
+	// Bellecour: the film ends there, not 150 m short of it), this long at most (s).
+	constexpr double EndPlaceSeconds = 20.0;
 
 	AGTPPoliceDirector* FindDirector(const UWorld* World)
 	{
@@ -192,6 +195,7 @@ void UGTPGtaRun::BeginStep(int32 Index)
 	WalkArmedPhaseStart = -1.0;
 	bWalkArmedExit = false;
 	OutcomePhase = 0;
+	bPursuitOnEndPlace = false;
 	bWastedExit = false;
 	WastedPhase = 0;
 	WastedTries = 0;
@@ -654,10 +658,20 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckPursuit(FString& Detail)
 		static_cast<float>(Tally.Seconds), Settings.MinNearShare * 100.f, Tally.PeakUnits, Tally.Sent, Tally.Replacements, Tally.ReplacementNearest,
 		Settings.ReplacementMinMetres, Tally.BackOffs, Tally.GivenUp, Relocations, Wanted->GetStars());
 	// Over when the window is, or when nobody is wanted any more (lost, arrested, dead: the outcome step says which).
-	if (FPlatformTime::Seconds() - StepStart < PursuitSeconds && Wanted->GetStars() > 0)
+	// A flight the script drives on a circuit that names where it ends goes on until it is there, EndPlaceSeconds at most.
+	// A car that crossed that place before the window was over does not go round the lap for it.
+	const double PursuitElapsed = FPlatformTime::Seconds() - StepStart;
+	const bool bOnEndPlace = Demo && Demo->IsOnFlightEndPlace();
+	bPursuitOnEndPlace = bPursuitOnEndPlace || bOnEndPlace;
+	const bool bToEndPlace = Demo && Demo->IsChaseDriving() && Demo->HasFlightEndPlace() && !bPursuitOnEndPlace
+		&& PursuitElapsed < PursuitSeconds + EndPlaceSeconds;
+	if ((PursuitElapsed < PursuitSeconds || bToEndPlace) && Wanted->GetStars() > 0)
 	{
 		return EResult::Pending;
 	}
+	const TCHAR* EndPlaceText = !Demo || !Demo->HasFlightEndPlace() ? TEXT("")
+		: (bOnEndPlace ? TEXT(" on the place the circuit ends on") : (bPursuitOnEndPlace ? TEXT(" past the place the circuit ends on") : TEXT(" short of the place the circuit ends on")));
+	Detail += FString::Printf(TEXT(", ended after %.0f s%s"), PursuitElapsed, EndPlaceText);
 	return Verdict == GTPChase::EVerdict::Follows && bUnaided ? EResult::Ok : EResult::Fail;
 }
 

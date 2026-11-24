@@ -145,6 +145,8 @@ private:
 	bool bRunCleared = false;
 	double ChaseBegan = -1.0;
 	int32 OutcomePhase = 0;
+	/** Pursuit step: the car has been on a lane the flight circuit ends on since the step began. */
+	bool bPursuitOnEndPlace = false;
 	int32 OutcomeStars = 0;
 	double GaveUpAt = -1.0;
 	float GaveUpNearest = -1.f;

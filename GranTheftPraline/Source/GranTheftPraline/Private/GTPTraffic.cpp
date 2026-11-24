@@ -200,6 +200,18 @@ float FGTPLaneFollower::GetCircuitKmh() const
 	return Net && Route.Num() > 0 ? Net->GetFlightCircuit().KmhOf(Route[0]) : 0.f;
 }
 
+bool FGTPLaneFollower::HasCircuitEndPlace() const
+{
+	const AGTPTrafficNetwork* Net = Network.Get();
+	return Net && Net->GetFlightCircuit().HasEndPlace();
+}
+
+bool FGTPLaneFollower::IsOnCircuitEndPlace() const
+{
+	const AGTPTrafficNetwork* Net = Network.Get();
+	return Net && Route.Num() > 0 && Net->GetFlightCircuit().IsEndPlace(Route[0]);
+}
+
 float FGTPLaneFollower::GetCarriagewayM() const
 {
 	const AGTPTrafficNetwork* Net = Network.Get();
@@ -1202,8 +1214,17 @@ void AGTPTrafficNetwork::LoadFlightCircuit()
 	{
 		GTP_TRACE(LogGTPTraffic, TEXT("traffic: flight circuit WITHOUT its driving line, the lanes' own points are driven: %s"), UTF8_TO_TCHAR(Why.c_str()));
 	}
-	// The speeds the rows ask, lane by lane (the approach's are added below when it holds).
+	// The speeds the rows ask, lane by lane (the approach's are added below when it holds), and the lanes the filmed
+	// flight is to end on.
 	GTPFlightCircuit::SetSpeeds(FlightCircuit, LapRows, {});
+	GTPFlightCircuit::SetEndPlaces(FlightCircuit, LapRows);
+	int32 EndPlaceRows = 0;
+	for (const GTPFlightCircuit::FRow& EndRow : LapRows)
+	{
+		EndPlaceRows += EndRow.bEndPlace ? 1 : 0;
+	}
+	GTP_TRACE(LogGTPTraffic, TEXT("traffic: flight circuit: the filmed flight ends on %d lane(s) of the lap%s"), EndPlaceRows,
+		FlightCircuit.HasEndPlace() ? TEXT("") : TEXT(" (none named: where its time ends)"));
 	int32 SpeedRows = 0;
 	for (const GTPFlightCircuit::FRow& SpeedRow : CircuitRows)
 	{

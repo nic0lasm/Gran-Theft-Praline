@@ -13,12 +13,15 @@ Plain Python, no dependency (Pillow only for --png).
          axes (carriageway of 7 m and more, as GTPRoadWidth.h) and of narrow streets (under 5 m)
   write  <lanes.csv> --lanes 214,7,95,... [--approach 188,215,...] --out <Map>.circuit.csv
          [--speeds "QU JULES COURMONT=100,R STELLA=60"] [--roads-out through_roads/<focus>.txt]
+         [--end 373,379,381]
          the circuit file of that lap, checked first, each lane with the line driven on it
          (driving_line: straights straightened, corners rounded). The approach: the lanes driven
          from where the flight starts to the lap, in order; without one the game takes the
          shortest way to the lap. --speeds: the speed the flight asks street by street (column
          kmh; without one the game goes by the width the lanes file gives). --roads-out: the
-         BD TOPO roads of the circuit, which tools/city/traffic.py then keeps whole
+         BD TOPO roads of the circuit, which tools/city/traffic.py then keeps whole. --end: the
+         lanes of the lap the filmed flight is to end on (column mark): -GTARun holds the end
+         of its pursuit until the car is there, 20 s at most
   check  <circuit.csv> <lanes.csv> [--report lane_clear_report.json] [--png lap.png]
          [--carriageway carriageway.geojson] [--min-main 70]
          the lap against the lanes file the game reads: every row finds its lane, each lane
@@ -60,7 +63,7 @@ NARROW_M = 5.0          # GTPRoadWidth::NarrowMetres
 SAME_ROAD_M = 20.0      # GTPRoadWidth::SameRoadMetres
 MATCH_M = 3.0           # GTPFlightCircuit::MatchMetres
 MIN_MAIN_SHARE = 0.70   # the roadmap's rule for the flight circuit
-HEADER = ["lane_id", "start_x_cm", "start_y_cm", "end_x_cm", "end_y_cm", "name", "line_ue_cm", "kmh"]
+HEADER = ["lane_id", "start_x_cm", "start_y_cm", "end_x_cm", "end_y_cm", "name", "line_ue_cm", "kmh", "mark"]
 LINE_STEP_M = 3.0       # spacing of the driving line's points (the lanes file has one every 4 m)
 CORNER_BASE_M = 12.0    # a corner is told by the headings this far before and after a point
 CORNER_DEG = 40.0       # ... when they differ by this much
@@ -469,7 +472,8 @@ def read_circuit(path):
             rows.append({"hint": hint, "start": (float(fields[1]) / 100.0, float(fields[2]) / 100.0),
                          "end": (float(fields[3]) / 100.0, float(fields[4]) / 100.0),
                          "name": fields[5] if len(fields) > 5 else "", "line": line, "approach": in_approach,
-                         "kmh": float(fields[7]) if len(fields) > 7 and fields[7] else 0.0})
+                         "kmh": float(fields[7]) if len(fields) > 7 and fields[7] else 0.0,
+                         "end_place": len(fields) > 8 and fields[8] == "end"})
     return rows
 
 
@@ -534,7 +538,7 @@ def reaching(lap, lanes):
     return reach
 
 
-def write_circuit(path, lap, lanes, source, approach=(), speeds=None):
+def write_circuit(path, lap, lanes, source, approach=(), speeds=None, end_places=()):
     by_id = {lane["id"]: lane for lane in lanes}
     total, share = lap_numbers(lap, by_id)
     lap_lines = driving_line(lap, by_id)[0]
@@ -546,10 +550,10 @@ def write_circuit(path, lap, lanes, source, approach=(), speeds=None):
         lane = by_id[lane_id]
         a, b = lane["points"][0], lane["points"][-1]
         kmh = (speeds or {}).get(lane["name"].upper(), 0.0)
-        return "%d,%.0f,%.0f,%.0f,%.0f,%s,%s,%s\n" % (lane_id, a[0] * 100.0, a[1] * 100.0, b[0] * 100.0, b[1] * 100.0,
-                                                     lane["name"].replace(",", " "),
-                                                     ";".join("%.0f %.0f" % (p[0] * 100.0, p[1] * 100.0) for p in lines.get(lane_id, [])),
-                                                     ("%.0f" % kmh) if kmh > 0.0 else "")
+        return "%d,%.0f,%.0f,%.0f,%.0f,%s,%s,%s,%s\n" % (lane_id, a[0] * 100.0, a[1] * 100.0, b[0] * 100.0, b[1] * 100.0,
+                                                        lane["name"].replace(",", " "),
+                                                        ";".join("%.0f %.0f" % (p[0] * 100.0, p[1] * 100.0) for p in lines.get(lane_id, [])),
+                                                        ("%.0f" % kmh) if kmh > 0.0 else "", "end" if lane_id in end_places else "")
 
     with open(path, "w", encoding="utf-8", newline="\n") as f:
         f.write("# The circuit of the flight (GTPFlightCircuit.h), made by tools/city/flight_circuit.py write from %s.\n" % source)
@@ -561,6 +565,7 @@ def write_circuit(path, lap, lanes, source, approach=(), speeds=None):
         f.write("# A row is a lane by where it starts and ends (Unreal cm); lane_id is its number in that lanes file, a hint.\n")
         f.write("# line_ue_cm: the line driven on that lane, one closed curve over the lap: straights straightened, corners rounded.\n")
         f.write("# kmh: the speed asked on that lane; empty: by the width the lanes file gives its road (GTPFlightCircuit::CruiseKmh).\n")
+        f.write("# mark: end on the lanes of the lap the filmed flight is to end on (-GTARun holds the end of its pursuit until there).\n")
         f.write(",".join(HEADER) + "\n")
         if approach:
             f.write("approach\n")
@@ -670,7 +675,11 @@ def cmd_write(args):
     if unknown:
         print("no lane of the circuit is of: " + ", ".join(unknown))
         return 1
-    write_circuit(args.out, lap, lanes, args.source or "the lanes file of the map", approach, speeds)
+    end_places = [int(v) for v in args.end.split(",") if v.strip()]
+    if set(end_places) - set(lap):
+        print("the flight can only end on lanes of the lap, not on: " + ", ".join(str(i) for i in sorted(set(end_places) - set(lap))))
+        return 1
+    write_circuit(args.out, lap, lanes, args.source or "the lanes file of the map", approach, speeds, end_places)
     print("written: %s" % args.out)
     if args.roads_out:
         # The roads of the circuit, for tools/city/traffic.py: kept whole however far from a generated building.
@@ -734,6 +743,10 @@ def cmd_check(args):
         for lane, kmh in asked:
             by_speed.setdefault(kmh, []).append(by_id[lane]["name"] or "-")
         print("  speeds asked: " + "; ".join("%.0f km/h %s" % (kmh, ", ".join(sorted(set(names)))) for kmh, names in sorted(by_speed.items(), reverse=True)))
+    ends = [lane for lane, row in zip(found, rows) if row["end_place"] and not row["approach"]]
+    if ends:
+        print("  the filmed flight ends on: %s (%.0f m)" % (", ".join("%d %s" % (lane, by_id[lane]["name"] or "-") for lane in ends),
+                                                           sum(by_id[lane]["length"] for lane in ends)))
     if args.report:
         kept, removed, report = report_blockers(args.report, lap + approach)
         print("  prep step \"lanes\" (%s lanes, clear %.0f cm): %d object(s) taken off the circuit's lanes, %d left standing on them"
@@ -775,6 +788,7 @@ def main(argv=None):
     write.add_argument("--lanes", required=True)
     write.add_argument("--approach", default="")
     write.add_argument("--speeds", default="", help='speed asked by street, "QU JULES COURMONT=100,R STELLA=60"')
+    write.add_argument("--end", default="", help="lanes of the lap the filmed flight is to end on, 373,379,381")
     write.add_argument("--roads-out", default="", help="also write the BD TOPO ids of the circuit's roads (for traffic.py)")
     write.add_argument("--out", required=True)
     write.add_argument("--source", default="")

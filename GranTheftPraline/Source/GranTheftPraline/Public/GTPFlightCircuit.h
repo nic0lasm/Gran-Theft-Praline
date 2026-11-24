@@ -58,6 +58,8 @@ namespace GTPFlightCircuit
 		bool bApproach = false;
 		/** The speed asked on the lane (km/h); 0: by the width of its road (CruiseKmh). */
 		float Kmh = 0.f;
+		/** The filmed flight is to end on this lane (ninth field "end"): the place the film is about. */
+		bool bEndPlace = false;
 	};
 
 	/**
@@ -161,6 +163,7 @@ namespace GTPFlightCircuit
 				const float Kmh = std::strtof(Fields[7].c_str(), nullptr);
 				Row.Kmh = Kmh > 0.f ? Kmh : 0.f;
 			}
+			Row.bEndPlace = Fields.size() >= 9 && Fields[8] == "end";
 			Rows.push_back(Row);
 		}
 		return Rows;
@@ -236,6 +239,8 @@ namespace GTPFlightCircuit
 		/** The speed asked on each lane of the lap and of the approach (SetSpeeds, km/h); 0 or none: by the width of the road. */
 		std::vector<float> Kmh;
 		std::vector<float> ApproachKmh;
+		/** The lanes of the lap the filmed flight is to end on (SetEndPlaces), by their place in the lap; empty: anywhere. */
+		std::vector<char> EndPlaces;
 
 		int LinePoints() const
 		{
@@ -296,6 +301,30 @@ namespace GTPFlightCircuit
 			}
 			const int Place = ApproachPlace(Lane);
 			return Place >= 0 && static_cast<std::size_t>(Place) < ApproachKmh.size() ? ApproachKmh[static_cast<std::size_t>(Place)] : 0.f;
+		}
+
+		/** The circuit names lanes for the flight to end on. */
+		bool HasEndPlace() const
+		{
+			for (const char Each : EndPlaces)
+			{
+				if (Each != 0)
+				{
+					return true;
+				}
+			}
+			return false;
+		}
+
+		/** Lane is one of the lanes of the lap the flight is to end on. */
+		bool IsEndPlace(int Lane) const
+		{
+			if (!IsOn(Lane))
+			{
+				return false;
+			}
+			const std::size_t Place = static_cast<std::size_t>(IndexOf[static_cast<std::size_t>(Lane)]);
+			return Place < EndPlaces.size() && EndPlaces[Place] != 0;
 		}
 
 		/** The lane to take after Lane: the next of the lap, or off the lap the exit that leads to it; -1 when there is none. */
@@ -571,6 +600,19 @@ namespace GTPFlightCircuit
 			for (const FRow& Row : ApproachRows)
 			{
 				Circuit.ApproachKmh.push_back(Row.Kmh);
+			}
+		}
+	}
+
+	/** Gives the circuit the lanes its rows name for the flight to end on (LapRows as Build took them, or none is kept). */
+	inline void SetEndPlaces(FCircuit& Circuit, const std::vector<FRow>& LapRows)
+	{
+		Circuit.EndPlaces.clear();
+		if (LapRows.size() == Circuit.Lanes.size())
+		{
+			for (const FRow& Row : LapRows)
+			{
+				Circuit.EndPlaces.push_back(Row.bEndPlace ? 1 : 0);
 			}
 		}
 	}

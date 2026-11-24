@@ -69,6 +69,12 @@ public:
 	void GiveUpChase();
 	bool HasGivenUp() const { return bGaveUp; }
 	/**
+	 * Chase script, for -GTARun: the flight circuit of the map names the lanes the filmed flight is to end on (the
+	 * place Bellecour), and the car is on one of them. -GTARun holds the end of its pursuit until then, 20 s at most.
+	 */
+	bool HasFlightEndPlace() const;
+	bool IsOnFlightEndPlace() const;
+	/**
 	 * -GTARunEncore (the gate's filmed run only): once -GTARun is over, the chase script plays again from its start, so the
 	 * filmed minutes show play to the end instead of a still street. The player gets out if at the wheel, is put back on
 	 * the quai Jean Moulin, takes the nearest free car and flees, with the same script as the first chase.

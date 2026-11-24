@@ -409,6 +409,16 @@ void UGTPDemoRoute::FreeChaseLevel()
 	}
 }
 
+bool UGTPDemoRoute::HasFlightEndPlace() const
+{
+	return bChase && Follower.HasCircuitEndPlace();
+}
+
+bool UGTPDemoRoute::IsOnFlightEndPlace() const
+{
+	return bChase && Follower.IsOnCircuitEndPlace();
+}
+
 void UGTPDemoRoute::GiveUpChase()
 {
 	if (bChase && !bGaveUp)
