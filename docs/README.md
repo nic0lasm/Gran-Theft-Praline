@@ -56,6 +56,7 @@ no longer drive the work.
 | [Traffic on MassTraffic](gameplay/traffic-mass.md), [traffic reactions](gameplay/traffic-reactions.md) | City Sample traffic in Lyon |
 | [Pedestrians](gameplay/pedestrians.md), [pedestrians on Mass](gameplay/pedestrians-mass.md) | The crowd and its reactions |
 | [Wanted level and police](gameplay/wanted.md) | Witnesses, stars, pursuit |
+| [The circuit of the filmed flight](gameplay/flight-circuit.md) | The lap the automatic run flees on, its file, its driving line |
 | [Combat and weapons](gameplay/combat.md), [hit reactions](gameplay/hit-reactions.md), [threat response](gameplay/threat-response.md) | Hold-ups and shooting |
 | [Ragdoll](gameplay/ragdoll.md), [breakable street furniture](gameplay/breakable-street-furniture.md) | Physical reactions |
 | [Animation sources](animation/sources.md), [combat animations](animation/combat-sources.md), [car poses](animation/car-poses.md) | Where the animations come from |

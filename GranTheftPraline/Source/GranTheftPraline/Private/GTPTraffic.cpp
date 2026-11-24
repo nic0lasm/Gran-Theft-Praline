@@ -1,6 +1,7 @@
 #include "GTPTraffic.h"
 
 #include "GTPDeterminism.h"
+#include "GTPFlightCircuit.h"
 #include "GTPLaneRoute.h"
 #include "GTPRoadWidth.h"
 #include "GTPLog.h"
@@ -131,7 +132,14 @@ float FGTPTrafficLane::LengthCm() const
 bool FGTPLaneFollower::StartNear(AGTPTrafficNetwork* InNetwork, const FVector& Location, float YawDegrees, float MaxDistanceCm)
 {
 	int32 Lane = INDEX_NONE, Point = 0;
-	if (!InNetwork || !InNetwork->FindNearestLane(Location, YawDegrees, MaxDistanceCm, Lane, Point))
+	if (!InNetwork)
+	{
+		return false;
+	}
+	// A flight on the circuit of the map: a lane of the circuit when one is near, before the nearest lane of all. The
+	// theft of -GTARun is on the right-hand lane of the quay, 3 m from the lane the approach starts on.
+	const bool bOnCircuitLane = bFollowCircuit && InNetwork->FindNearestLane(Location, YawDegrees, MaxDistanceCm, Lane, Point, true);
+	if (!bOnCircuitLane && !InNetwork->FindNearestLane(Location, YawDegrees, MaxDistanceCm, Lane, Point))
 	{
 		return false;
 	}
@@ -140,6 +148,23 @@ bool FGTPLaneFollower::StartNear(AGTPTrafficNetwork* InNetwork, const FVector& L
 	Route.Add(Lane);
 	Closest = Point;
 	Plan();
+	if (bFollowCircuit && InNetwork->GetFlightCircuit().LineOf(Lane))
+	{
+		// The lane is driven on its line (Plan): the closest point is one of the line's, not of the lane's.
+		const float AtX = static_cast<float>(Location.X) * CmToM;
+		const float AtY = static_cast<float>(Location.Y) * CmToM;
+		float NearestSquared = TNumericLimits<float>::Max();
+		Closest = 0;
+		for (int32 Index = 0; Index < CurrentLaneLength && Index < static_cast<int32>(Path.size()); ++Index)
+		{
+			const float GapSquared = FMath::Square(Path[Index].X - AtX) + FMath::Square(Path[Index].Y - AtY);
+			if (GapSquared < NearestSquared)
+			{
+				NearestSquared = GapSquared;
+				Closest = Index;
+			}
+		}
+	}
 	return true;
 }
 
@@ -161,6 +186,12 @@ float FGTPLaneFollower::OffPathMetres(const FVector& Location) const
 		Best = FMath::Min(Best, static_cast<float>(FVector2D::Distance(P, FMath::ClosestPointOnSegment2D(P, A, B))));
 	}
 	return Best;
+}
+
+bool FGTPLaneFollower::IsOnCircuit() const
+{
+	const AGTPTrafficNetwork* Net = Network.Get();
+	return Net && Route.Num() > 0 && Net->GetFlightCircuit().IsKnown(Route[0]);
 }
 
 float FGTPLaneFollower::GetCarriagewayM() const
@@ -282,11 +313,22 @@ void FGTPLaneFollower::Plan()
 		{
 			Next = PickOpenToward(Lanes, Route.Last());
 		}
+		// A flight on the circuit of the map: the next lane of the lap, or off the lap the exit that leads to it.
+		bool bByCircuit = false;
+		if (Next == INDEX_NONE && bFollowCircuit && !bHasGoal)
+		{
+			const int32 CircuitNext = Net->GetFlightCircuit().Next(Route.Last());
+			if (Lanes.IsValidIndex(CircuitNext) && Lanes[Route.Last()].Next.Contains(CircuitNext))
+			{
+				Next = CircuitNext;
+				bByCircuit = true;
+			}
+		}
 		if (Next == INDEX_NONE)
 		{
 			Next = bHasGoal ? Net->PickNextToward(Route.Last(), Goal) : Net->PickNext(Route.Last(), GTPDeterminism::IsOn() ? &OwnRandom : nullptr);
 		}
-		if (Next != INDEX_NONE && bPreferStraight && !bHasGoal)
+		if (Next != INDEX_NONE && bPreferStraight && !bHasGoal && !bByCircuit)
 		{
 			// Never an exit a fixed obstacle blocks; an exit that never ends first (a dead end stops the flight and the
 			// script puts the car elsewhere); then the best way on within 500 m, its metres weighted by width and halved on
@@ -336,14 +378,31 @@ void FGTPLaneFollower::Plan()
 		AheadM += Lanes[Next].LengthCm() * CmToM;
 	}
 	Path.clear();
-	for (const int32 Lane : Route)
+	CurrentLaneLength = 0;
+	for (int32 RouteIndex = 0; RouteIndex < Route.Num(); ++RouteIndex)
 	{
-		for (const FVector& Point : Lanes[Lane].Points)
+		const int32 Lane = Route[RouteIndex];
+		// A lane of the flight circuit is driven on its line (GTPFlightCircuit.h), the others on their own points.
+		const std::vector<GTPFlightCircuit::FLinePoint>* DrivenLine = bFollowCircuit ? Net->GetFlightCircuit().LineOf(Lane) : nullptr;
+		if (DrivenLine)
 		{
-			Path.push_back({static_cast<float>(Point.X) * CmToM, static_cast<float>(Point.Y) * CmToM});
+			for (const GTPFlightCircuit::FLinePoint& LinePoint : *DrivenLine)
+			{
+				Path.push_back({LinePoint.X, LinePoint.Y});
+			}
+		}
+		else
+		{
+			for (const FVector& Point : Lanes[Lane].Points)
+			{
+				Path.push_back({static_cast<float>(Point.X) * CmToM, static_cast<float>(Point.Y) * CmToM});
+			}
+		}
+		if (RouteIndex == 0)
+		{
+			CurrentLaneLength = static_cast<int32>(Path.size());
 		}
 	}
-	CurrentLaneLength = Lanes[Route[0]].Points.Num();
 }
 
 bool FGTPLaneFollower::Step(const FVector& Location, float YawDegrees, float SpeedKmh, float MaxSpeedKmh, float ObstacleMetres, FGTPDriveCommand& Out)
@@ -1054,6 +1113,111 @@ FString AGTPTrafficNetwork::LanesFileFor(const FString& MapName)
 	return FPaths::ProjectContentDir() / TEXT("City/Traffic") / (MapName + TEXT(".lanes.csv"));
 }
 
+FString AGTPTrafficNetwork::CircuitFileFor(const FString& MapName)
+{
+	return FPaths::ProjectContentDir() / TEXT("Test/Circuits") / (MapName + TEXT(".circuit.csv"));
+}
+
+void AGTPTrafficNetwork::LoadFlightCircuit()
+{
+	FlightCircuit = GTPFlightCircuit::FCircuit();
+	int32 CircuitSwitch = 1;
+	FParse::Value(FCommandLine::Get(), TEXT("FlightCircuit="), CircuitSwitch);
+	if (CircuitSwitch == 0)
+	{
+		GTP_TRACE(LogGTPTraffic, TEXT("traffic: flight circuit off (-FlightCircuit=0): the flights are free on the lanes"));
+		return;
+	}
+	const FString CircuitFile = CircuitFileFor(UGameplayStatics::GetCurrentLevelName(this, true));
+	FString CircuitText;
+	if (!FFileHelper::LoadFileToString(CircuitText, *CircuitFile))
+	{
+		GTP_TRACE(LogGTPTraffic, TEXT("traffic: no flight circuit for this map (%s): the flights are free on the lanes"), *CircuitFile);
+		return;
+	}
+	const std::vector<GTPFlightCircuit::FRow> CircuitRows = GTPFlightCircuit::ParseRows(std::string(TCHAR_TO_UTF8(*CircuitText)));
+	// A row names a lane by its two ends (m): the numbers of the lanes file move when it is made again.
+	std::vector<GTPFlightCircuit::FEnds> LaneEnds;
+	LaneEnds.reserve(static_cast<size_t>(Lanes.Num()));
+	for (const FGTPTrafficLane& Lane : Lanes)
+	{
+		GTPFlightCircuit::FEnds& Ends = LaneEnds.emplace_back();
+		const bool bHasPoints = Lane.Points.Num() > 0;
+		Ends.StartX = bHasPoints ? static_cast<float>(Lane.Points[0].X) * CmToM : 1.e9f;
+		Ends.StartY = bHasPoints ? static_cast<float>(Lane.Points[0].Y) * CmToM : 1.e9f;
+		Ends.EndX = bHasPoints ? static_cast<float>(Lane.Points.Last().X) * CmToM : 1.e9f;
+		Ends.EndY = bHasPoints ? static_cast<float>(Lane.Points.Last().Y) * CmToM : 1.e9f;
+	}
+	// The rows of the approach (the lanes driven to the lap from where the flight starts) and those of the lap.
+	std::vector<GTPFlightCircuit::FRow> LapRows;
+	std::vector<GTPFlightCircuit::FRow> ApproachRows;
+	for (const GTPFlightCircuit::FRow& CircuitRow : CircuitRows)
+	{
+		(CircuitRow.bApproach ? ApproachRows : LapRows).push_back(CircuitRow);
+	}
+	std::vector<int> Lap;
+	std::vector<int> ApproachLanes;
+	int Renumbered = 0;
+	int ApproachRenumbered = 0;
+	std::string Why;
+	const TArray<FGTPTrafficLane>& AllLanes = Lanes;
+	const auto ExitsOf = [&AllLanes](int Index) -> const TArray<int32>& { return AllLanes[Index].Next; };
+	const bool bFits = GTPFlightCircuit::Resolve(LapRows, LaneEnds, Lap, Renumbered, Why)
+		&& GTPFlightCircuit::Build(AllLanes.Num(), Lap, ExitsOf,
+			[&AllLanes](int Index) { return AllLanes[Index].LengthCm() * CmToM; }, FlightCircuit, Why);
+	if (!bFits)
+	{
+		FlightCircuit = GTPFlightCircuit::FCircuit();
+		GTP_TRACE(LogGTPTraffic, TEXT("traffic: flight circuit NOT USED: the %d row(s) of %s do not fit the %d lanes read: %s. The flights are free on the lanes"),
+			static_cast<int32>(CircuitRows.size()), *CircuitFile, Lanes.Num(), UTF8_TO_TCHAR(Why.c_str()));
+		return;
+	}
+	float OnMainM = 0.f;
+	float OnNarrowM = 0.f;
+	FString LapText;
+	for (const int LapLane : FlightCircuit.Lanes)
+	{
+		const GTPRoadWidth::EClass WidthClass = GTPRoadWidth::Classify(Lanes[LapLane].CarriagewayM);
+		const float Metres = Lanes[LapLane].LengthCm() * CmToM;
+		OnMainM += WidthClass == GTPRoadWidth::EClass::Main ? Metres : 0.f;
+		OnNarrowM += WidthClass == GTPRoadWidth::EClass::Narrow ? Metres : 0.f;
+		LapText += FString::Printf(TEXT(" %d"), LapLane);
+	}
+	const float LapMetres = FMath::Max(FlightCircuit.LapMetres, 1.f);
+	GTP_TRACE(LogGTPTraffic, TEXT("traffic: flight circuit of %d lanes, %.0f m a lap, %.0f %% on main axes, %.0f %% in narrow streets, reached from %d of %d lanes, %d row(s) found under another number; lap:%s"),
+		static_cast<int32>(FlightCircuit.Lanes.size()), FlightCircuit.LapMetres, OnMainM * 100.f / LapMetres, OnNarrowM * 100.f / LapMetres,
+		FlightCircuit.Reaching(), Lanes.Num(), Renumbered, *LapText);
+	// The line driven on the lap. Without it the lanes' own points are driven: the lap holds, slower.
+	if (GTPFlightCircuit::SetLines(FlightCircuit, LapRows, LaneEnds, Why))
+	{
+		GTP_TRACE(LogGTPTraffic, TEXT("traffic: flight circuit driven on its line of %d points"), FlightCircuit.LinePoints());
+	}
+	else
+	{
+		GTP_TRACE(LogGTPTraffic, TEXT("traffic: flight circuit WITHOUT its driving line, the lanes' own points are driven: %s"), UTF8_TO_TCHAR(Why.c_str()));
+	}
+	// The approach. Without it a flight that starts off the lap takes the shortest way to it.
+	if (ApproachRows.empty())
+	{
+		return;
+	}
+	if (!GTPFlightCircuit::Resolve(ApproachRows, LaneEnds, ApproachLanes, ApproachRenumbered, Why) || !GTPFlightCircuit::SetApproach(FlightCircuit, ApproachLanes, ExitsOf, Why))
+	{
+		GTP_TRACE(LogGTPTraffic, TEXT("traffic: flight circuit WITHOUT its approach of %d row(s), the shortest way to the lap is taken: %s"),
+			static_cast<int32>(ApproachRows.size()), UTF8_TO_TCHAR(Why.c_str()));
+		return;
+	}
+	FString ApproachText;
+	for (const int ApproachLane : FlightCircuit.Approach)
+	{
+		ApproachText += FString::Printf(TEXT(" %d"), ApproachLane);
+	}
+	const bool bApproachLines = GTPFlightCircuit::SetApproachLines(FlightCircuit, ApproachRows, LaneEnds, Why);
+	const FString ApproachLineText = bApproachLines ? FString(TEXT("driven on its line")) : FString(TEXT("WITHOUT its driving line: ")) + UTF8_TO_TCHAR(Why.c_str());
+	GTP_TRACE(LogGTPTraffic, TEXT("traffic: flight circuit approach of %d lanes:%s, %d row(s) found under another number, %s"),
+		static_cast<int32>(FlightCircuit.Approach.size()), *ApproachText, ApproachRenumbered, *ApproachLineText);
+}
+
 int32 AGTPTrafficNetwork::LoadLanesFromCsv(const FString& Path)
 {
 	TArray<FGTPTrafficLane> Read;
@@ -1223,13 +1387,17 @@ void AGTPTrafficNetwork::LanesInRing(const FVector& Center, float MinCm, float M
 	}
 }
 
-bool AGTPTrafficNetwork::FindNearestLane(const FVector& Location, float YawDegrees, float MaxDistanceCm, int32& OutLane, int32& OutPoint) const
+bool AGTPTrafficNetwork::FindNearestLane(const FVector& Location, float YawDegrees, float MaxDistanceCm, int32& OutLane, int32& OutPoint, bool bFlightCircuitOnly) const
 {
 	const FVector Heading = FRotator(0.f, YawDegrees, 0.f).Vector();
 	double Best = static_cast<double>(MaxDistanceCm) * MaxDistanceCm;
 	OutLane = INDEX_NONE;
 	for (int32 LaneIndex = 0; LaneIndex < Lanes.Num(); ++LaneIndex)
 	{
+		if (bFlightCircuitOnly && !FlightCircuit.IsKnown(LaneIndex))
+		{
+			continue;
+		}
 		const TArray<FVector>& Points = Lanes[LaneIndex].Points;
 		for (int32 PointIndex = 0; PointIndex + 1 < Points.Num(); ++PointIndex)
 		{
@@ -1513,6 +1681,7 @@ void AGTPTrafficNetwork::BeginPlay()
 			ByClass[static_cast<int32>(GTPRoadWidth::EClass::Middle)], ByClass[static_cast<int32>(GTPRoadWidth::EClass::Narrow)], GTPRoadWidth::NarrowMetres,
 			ByClass[static_cast<int32>(GTPRoadWidth::EClass::Unknown)]);
 	}
+	LoadFlightCircuit();
 	int32 ParkedSwitch = bParkedCars ? 1 : 0;
 	FParse::Value(FCommandLine::Get(), TEXT("ParkedCars="), ParkedSwitch);
 	bParkedCars = ParkedSwitch != 0;

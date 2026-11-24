@@ -6,6 +6,7 @@
 #include "Materials/MaterialInstanceDynamic.h"
 #include "UObject/SoftObjectPath.h"
 #include "GTPDriveLogic.h"
+#include "GTPFlightCircuit.h"
 #include "GTPTrafficReactLogic.h"
 #include "GTPTrafficLights.h"
 #include "GTPTraffic.generated.h"
@@ -98,6 +99,16 @@ struct GRANTHEFTPRALINE_API FGTPLaneFollower
 	 *  by width and halved on lanes driven lately (a flight keeps to the main axes, not to the narrow streets, and does
 	 *  not circle one block); then the one that turns the least (GTPRoadWidth::ExitScore). */
 	bool bPreferStraight = false;
+
+	/** Chases and demos: the flight keeps to the circuit of the map when it has one (AGTPTrafficNetwork::GetFlightCircuit,
+	 *  GTPFlightCircuit.h): on the lap the next lane of the lap, on the approach its next lane, elsewhere the exit that
+	 *  leads to the lap by the shortest way; the lanes of the circuit are driven on their lines, not on their own
+	 *  points, and StartNear takes a lane of the circuit when one is near. From a lane no way leads from to the lap,
+	 *  bPreferStraight chooses as before. Set before StartNear. */
+	bool bFollowCircuit = false;
+
+	/** The lane being followed is of the map's flight circuit, lap or approach. */
+	bool IsOnCircuit() const;
 
 	/** Metres of road open after entering Lane (GTPDrive::OpenRoad over the network's lanes, 6 junctions deep, capped at OpenRoadWanted). */
 	static float OpenRoadMetres(const TArray<FGTPTrafficLane>& Lanes, int32 Lane);
@@ -539,6 +550,16 @@ public:
 	/** Path of the lanes file for a map name, under the project content folder. */
 	static FString LanesFileFor(const FString& MapName);
 
+	/** Path of the flight circuit of a map (Content/Test/Circuits/<Map>.circuit.csv: in Git, staged with the game). */
+	static FString CircuitFileFor(const FString& MapName);
+
+	/**
+	 * The circuit the flights of the chase script keep to (GTPFlightCircuit.h, tools/city/flight_circuit.py). Not valid
+	 * when the map has none, when its file does not fit the lanes read, or with -FlightCircuit=0: the flights are then
+	 * free on the lanes, as until gate 78.
+	 */
+	const GTPFlightCircuit::FCircuit& GetFlightCircuit() const { return FlightCircuit; }
+
 	/** Picks a random lane among Lane's next lanes, INDEX_NONE at a dead end. Draws from Stream when given (deterministic runs), else from the network's own stream. */
 	int32 PickNext(int32 Lane, FRandomStream* Stream = nullptr);
 
@@ -567,8 +588,9 @@ public:
 	 */
 	float GapAlongLanes(const UGTPAIDriverComponent* Driver, float MaxMetres) const;
 
-	/** Lane and point closest to Location whose direction is within 60 degrees of YawDegrees. */
-	bool FindNearestLane(const FVector& Location, float YawDegrees, float MaxDistanceCm, int32& OutLane, int32& OutPoint) const;
+	/** Lane and point closest to Location whose direction is within 60 degrees of YawDegrees; bFlightCircuitOnly: among
+	 *  the lanes of the flight circuit (lap and approach) only. */
+	bool FindNearestLane(const FVector& Location, float YawDegrees, float MaxDistanceCm, int32& OutLane, int32& OutPoint, bool bFlightCircuitOnly = false) const;
 
 	/**
 	 * A point to drive to in order to join the nearest lane, whatever its
@@ -821,6 +843,10 @@ private:
 
 	/** 2D bounds of each lane (cm), filled when the lanes load, for LanesInRing. */
 	TArray<FBox2D> LaneBounds;
+
+	/** The flight circuit of the map, read after the lanes (BeginPlay). */
+	GTPFlightCircuit::FCircuit FlightCircuit;
+	void LoadFlightCircuit();
 
 	/** Puts Car away into Pool; false if it cannot be reused (wrecked, no driver). */
 	bool PutAway(AGTPVehicle* Car);

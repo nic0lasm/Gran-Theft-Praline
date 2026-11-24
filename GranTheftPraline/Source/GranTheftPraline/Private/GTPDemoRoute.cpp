@@ -8,6 +8,7 @@
 #include "GameFramework/Character.h"
 #include "GameFramework/PlayerController.h"
 #include "GTPDeterminism.h"
+#include "GTPFlightCircuit.h"
 #include "GTPLog.h"
 #include "GTPPlayerController.h"
 #include "GTPRiverRecovery.h"
@@ -293,24 +294,39 @@ bool UGTPDemoRoute::RelocateChase(AGTPVehicle* Driven, APlayerController* PC, co
 	// goes on. Until gate 75 the first pass took any lane with 250 m of open road: at 29 s of its film, a narrow street
 	// where the car was wedged between two walls 10 s later. Never a lane a fixed obstacle blocks, and but for the last
 	// pass never one driven lately (gate 75's film: put back twice on the way to the white block of the rue de la Bourse).
+	// With a flight circuit (GTPFlightCircuit.h) the car is only ever put on a lane of the lap, 60 to 250 m away, and one
+	// held up lately (bBlocked) only at the last pass. It is still a relocation: counted, and the film is not a valid one.
+	const std::vector<int>& LapLanes = Network->GetFlightCircuit().Lanes;
+	const bool bOnLap = !LapLanes.empty();
 	for (int32 Pass = 0; Pass < GTPRoadWidth::RelocationPasses; ++Pass)
 	{
 		for (int32 Try = 0; Try < 300 && Lanes.Num() > 0; ++Try)
 		{
-			const int32 LaneIndex = Dice.RandRange(0, Lanes.Num() - 1);
+			const int32 LaneIndex = bOnLap ? LapLanes[static_cast<size_t>(Dice.RandRange(0, static_cast<int32>(LapLanes.size()) - 1))] : Dice.RandRange(0, Lanes.Num() - 1);
+			if (!Lanes.IsValidIndex(LaneIndex))
+			{
+				continue;
+			}
 			const FGTPTrafficLane& Lane = Lanes[LaneIndex];
-			if (Lane.Points.Num() < 10 || Lane.Next.Num() == 0)
+			if (Lane.Points.Num() < (bOnLap ? 6 : 10) || Lane.Next.Num() == 0)
 			{
 				continue;
 			}
 			const int32 Index = Lane.Points.Num() / 3;
 			const FVector Point = Lane.Points[Index];
 			const double Distance = FVector::Dist2D(Point, Driven->GetActorLocation());
-			if (Distance < 8000.0 || Distance > 15000.0)
+			if (Distance < (bOnLap ? 6000.0 : 8000.0) || Distance > (bOnLap ? 25000.0 : 15000.0))
 			{
 				continue;
 			}
-			if (!GTPRoadWidth::RelocationFits(Pass, Lane.bBlocked, Lane.bNeverEnds, Pass >= 3 ? FGTPLaneFollower::OpenRoadMetres(Lanes, LaneIndex) : 0.f,
+			if (bOnLap)
+			{
+				if (Lane.bBlocked && Pass + 1 < GTPRoadWidth::RelocationPasses)
+				{
+					continue;
+				}
+			}
+			else if (!GTPRoadWidth::RelocationFits(Pass, Lane.bBlocked, Lane.bNeverEnds, Pass >= 3 ? FGTPLaneFollower::OpenRoadMetres(Lanes, LaneIndex) : 0.f,
 					FGTPLaneFollower::OpenRoadWanted, Lane.CarriagewayM)
 				|| (Pass + 1 < GTPRoadWidth::RelocationPasses && Follower.IsRecent(LaneIndex)))
 			{
@@ -357,6 +373,7 @@ bool UGTPDemoRoute::RelocateChase(AGTPVehicle* Driven, APlayerController* PC, co
 			Follower = FGTPLaneFollower();
 			Follower.SetRecentLanes(Recent);
 			Follower.bPreferStraight = true;
+			Follower.bFollowCircuit = true;
 			Follower.AheadMeters = 160.f;
 			bOnLaneOnce = false;
 			Follower.StartNear(*Network, Driven->GetActorLocation(), static_cast<float>(Driven->GetActorRotation().Yaw), 900.f);
@@ -790,7 +807,10 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 			// From 12 s a credible flight for a city by the width of the street (GTPRoadWidth::FlightKmh): 70 km/h on a main
 			// axis, 60 in a middle street, 45 in a narrow one. Until gate 75: 90 everywhere, 72 km/h reached in a street
 			// 6 m wide between the facades and the car against a wall at its bend.
-			Cruise = T >= 12.0 ? GTPRoadWidth::FlightKmh(Follower.GetCarriagewayM()) : 40.f;
+			// On the flight circuit of the map (lap and approach, GTPFlightCircuit.h) the lanes were looked at beforehand
+			// and are driven on a line without the jogs of the lanes: from 4 s, 100 km/h on a quay, 75 on another main axis.
+			const bool bOnCircuit = Follower.IsOnCircuit();
+			Cruise = T >= (bOnCircuit ? 4.0 : 12.0) ? (bOnCircuit ? GTPFlightCircuit::CruiseKmh(Follower.GetCarriagewayM()) : GTPRoadWidth::FlightKmh(Follower.GetCarriagewayM())) : 40.f;
 			// The way ahead is kept clear of the city's traffic (a demo cannot queue behind a taxi): twice a second, a
 			// traffic car in the player's own way is taken off the road, ahead within 35 m and within 2.5 m of the line his
 			// car drives on. The cars coming the other way, beside him or crossing further on stay in the street: until
@@ -853,6 +873,7 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 				// Before the first plan: the exits are chosen when the lanes are planned, and StartNear plans. Set afterwards,
 				// the first 50 m were drawn at random (door 41: into a lane whose way ends on the quay).
 				Follower.bPreferStraight = true;
+				Follower.bFollowCircuit = true;
 				Follower.AheadMeters = 160.f;
 				bOnLaneOnce = false;
 			}
@@ -911,6 +932,7 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 			{
 				Follower.SetHardDriving();
 				Follower.bPreferStraight = true;
+				Follower.bFollowCircuit = true;
 				Follower.AheadMeters = 160.f;
 			}
 			// Held up for more than 2.5 s (a car in a narrow street, a corner cut too short): first push through for

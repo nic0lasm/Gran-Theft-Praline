@@ -43,6 +43,9 @@ class APlayerController;
  * from 12 s on the player flees at 45 to 70 km/h by the width of the street (GTPRoadWidth.h), through the corners at 5 m/s2, keeping to the lanes
  * that never end and to the main axes (arrest possible from 100 s; 40 km/h before) and the level is left to fall by itself. Held up
  * on its lane against a fixed obstacle of the map, the car marks that lane blocked for the flights and goes on from another lane.
+ * When the map has a flight circuit (Content/Test/Circuits/<Map>.circuit.csv, GTPFlightCircuit.h, off with -FlightCircuit=0) the flight
+ * keeps to it instead: its approach from the theft, then its lap again and again, on the circuit's driving line, from 4 s on at 100 km/h
+ * on a quay and 75 on another main axis; the car is then only ever put back on a lane of the lap, and each time counts in "relocations=".
  * Logged as "DemoChase t=... stars=... phase=..." every 5 s.
  */
 UCLASS()
