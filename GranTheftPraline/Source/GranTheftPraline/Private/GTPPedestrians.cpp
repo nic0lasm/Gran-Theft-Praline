@@ -20,12 +20,14 @@
 #include "Camera/PlayerCameraManager.h"
 #include "GTPGraphicsProfile.h"
 #include "GTPHealth.h"
+#include "GTPImpactLogic.h"
 #include "GTPThreat.h"
 #include "GTPAudioWorld.h"
 #include "GTPTraffic.h"
 #include "GTPVehicle.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/CommandLine.h"
+#include "PhysicsEngine/BodyInstance.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "Misc/Parse.h"
@@ -58,7 +60,9 @@ DEFINE_LOG_CATEGORY_STATIC(LogGTPPedestrians, Log, All);
 
 AGTPPedestrian::AGTPPedestrian()
 {
-	PrimaryActorTick.bCanEverTick = false;
+	// Ticks only while its body falls (StartRagdoll to ResetBody), to keep it within bounds.
+	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bStartWithTickEnabled = false;
 	Root = CreateDefaultSubobject<USceneComponent>(TEXT("Root"));
 	SetRootComponent(Root);
 	Body = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Body"));
@@ -420,7 +424,18 @@ void AGTPPedestrian::SetDetail(bool bVisible, bool bCastShadow, int32 ForcedLOD)
 	}
 }
 
-bool AGTPPedestrian::StartRagdoll(const FVector& Impulse)
+namespace
+{
+	AGTPPedestrian::FRagdollTally GTPRagdollTally;
+	const GTPImpact::FBodyBounds GTPBodyBounds = GTPImpact::FBodyBounds();
+}
+
+const AGTPPedestrian::FRagdollTally& AGTPPedestrian::GetRagdollTally()
+{
+	return GTPRagdollTally;
+}
+
+bool AGTPPedestrian::StartRagdoll(const FVector& Launch, const AActor* By)
 {
 	if (bRagdoll || !Body->GetPhysicsAsset())
 	{
@@ -440,9 +455,124 @@ bool AGTPPedestrian::StartRagdoll(const FVector& Impulse)
 	Body->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 	Body->SetCollisionProfileName(TEXT("Ragdoll"));
 	Body->SetSimulatePhysics(true);
-	Body->AddImpulse(Impulse, NAME_None, true);
+	// The bounds of the fall. The actor stands on the person's ground; the car's speed caps the body's.
+	RagdollBy = By;
+	RagdollCarSpeed = FMath::Max(static_cast<float>(Launch.Size2D()), By ? static_cast<float>(By->GetVelocity().Size2D()) : 0.f);
+	RagdollGroundZ = static_cast<float>(GetActorLocation().Z);
+	RagdollAge = 0.f;
+	RagdollOnCarSeconds = 0.f;
+	RagdollHighest = 0.f;
+	RagdollBounded = 0;
+	bRagdollSlid = false;
+	bRagdollDropped = false;
+	// A part that starts inside the car is pushed out of it gently, not thrown.
+	for (FBodyInstance* Part : Body->Bodies)
+	{
+		if (Part)
+		{
+			Part->SetMaxDepenetrationVelocity(GTPBodyBounds.MaxUpCmS);
+		}
+	}
+	// The whole body leaves together: an impulse on the pelvis alone made it somersault.
+	const GTPImpact::FVec Leaves = GTPImpact::BoundVelocity({static_cast<float>(Launch.X), static_cast<float>(Launch.Y), static_cast<float>(Launch.Z)}, 0.f, RagdollCarSpeed, GTPBodyBounds);
+	Body->SetAllPhysicsLinearVelocity(FVector(Leaves.X, Leaves.Y, Leaves.Z), false);
+	SetActorTickEnabled(true);
+	++GTPRagdollTally.Started;
 	GetWorldTimerManager().SetTimer(SettleTimer, this, &AGTPPedestrian::SettleRagdoll, 3.f, false);
+	GTP_TRACE(LogGTPPedestrians, TEXT("pedestrian %s: falls, leaves at %.0f cm/s along the ground and %.0f up (asked %.0f and %.0f), car at %.0f km/h"), *GetName(),
+		GTPImpact::Length2D(Leaves), Leaves.Z, Launch.Size2D(), Launch.Z, RagdollCarSpeed * 0.036f);
 	return true;
+}
+
+void AGTPPedestrian::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+	if (bRagdoll)
+	{
+		BoundRagdoll(DeltaTime);
+	}
+	else
+	{
+		SetActorTickEnabled(false);
+	}
+}
+
+void AGTPPedestrian::BoundRagdoll(float DeltaTime)
+{
+	const GTPImpact::FBodyBounds& B = GTPBodyBounds;
+	const FVector Pelvis = Body->GetSocketLocation(TEXT("pelvis"));
+	const float Height = static_cast<float>(Pelvis.Z) - RagdollGroundZ;
+	RagdollHighest = FMath::Max(RagdollHighest, Height);
+	GTPRagdollTally.HighestCm = FMath::Max(GTPRagdollTally.HighestCm, Height);
+
+	// Lying on a car? Off its nearer side first; dropped through it if that did not do.
+	GTPImpact::FOnCarState OnCar;
+	OnCar.Age = RagdollAge;
+	OnCar.Seconds = RagdollOnCarSeconds;
+	const GTPImpact::EOnCar Lies = bRagdollDropped ? GTPImpact::EOnCar::No
+		: GTPImpact::StepOnCar(OnCar, Height, static_cast<float>(Body->GetPhysicsLinearVelocity().Z), DeltaTime, B);
+	RagdollAge = OnCar.Age;
+	RagdollOnCarSeconds = OnCar.Seconds;
+	const AActor* Car = RagdollBy.Get();
+	FVector Slide = FVector::ZeroVector;
+	bool bSlide = false;
+	if (Lies == GTPImpact::EOnCar::Slide && Car && FVector::DistSquared2D(Car->GetActorLocation(), Pelvis) < FMath::Square(400.0))
+	{
+		const FVector Right = Car->GetActorRightVector().GetSafeNormal2D();
+		const double Side = FVector::DotProduct(Pelvis - Car->GetActorLocation(), Right) >= 0.0 ? 1.0 : -1.0;
+		const FVector CarVelocity = Car->GetVelocity();
+		Slide = FVector(CarVelocity.X, CarVelocity.Y, 0.0) + Right * Side * B.SlideCmS;
+		bSlide = true;
+		if (!bRagdollSlid)
+		{
+			bRagdollSlid = true;
+			++GTPRagdollTally.SlidOff;
+			GTP_TRACE(LogGTPPedestrians, TEXT("pedestrian %s: lies on the car, pelvis %.0f cm above the ground: slid off its %s side"), *GetName(), Height, Side > 0.0 ? TEXT("right") : TEXT("left"));
+		}
+	}
+	else if (Lies == GTPImpact::EOnCar::Drop)
+	{
+		bRagdollDropped = true;
+		++GTPRagdollTally.Dropped;
+		Body->SetCollisionResponseToChannel(ECC_Vehicle, ECR_Ignore);
+		GTP_TRACE(LogGTPPedestrians, TEXT("pedestrian %s: still %.0f cm above the ground after %.1f s on a car: the cars hold it no more, it drops"), *GetName(), Height, RagdollOnCarSeconds);
+	}
+
+	bool bBounded = false;
+	for (FBodyInstance* Part : Body->Bodies)
+	{
+		if (!Part || !Part->IsInstanceSimulatingPhysics())
+		{
+			continue;
+		}
+		const FVector Was = Part->GetUnrealWorldVelocity();
+		const GTPImpact::FVec Kept = GTPImpact::BoundVelocity({static_cast<float>(Was.X), static_cast<float>(Was.Y), static_cast<float>(Was.Z)}, Height, RagdollCarSpeed, B);
+		FVector Now(Kept.X, Kept.Y, Kept.Z);
+		if (bSlide)
+		{
+			Now.X = Slide.X;
+			Now.Y = Slide.Y;
+		}
+		if (!Now.Equals(Was, 1.0))
+		{
+			bBounded = bBounded || !bSlide;
+			GTPRagdollTally.FastestCmS = FMath::Max(GTPRagdollTally.FastestCmS, static_cast<float>(Was.Size()));
+			Part->SetLinearVelocity(Now, false);
+		}
+		const FVector Spin = Part->GetUnrealWorldAngularVelocityInRadians();
+		const GTPImpact::FVec SpinKept = GTPImpact::BoundSpin({static_cast<float>(Spin.X), static_cast<float>(Spin.Y), static_cast<float>(Spin.Z)}, B);
+		const FVector SpinNow(SpinKept.X, SpinKept.Y, SpinKept.Z);
+		if (!SpinNow.Equals(Spin, 0.01))
+		{
+			bBounded = true;
+			Part->SetAngularVelocityInRadians(SpinNow, false);
+		}
+	}
+	if (bBounded)
+	{
+		++RagdollBounded;
+		++GTPRagdollTally.Bounded;
+	}
 }
 
 void AGTPPedestrian::SettleRagdoll()
@@ -457,12 +587,14 @@ void AGTPPedestrian::SettleRagdoll()
 	Body->SetCollisionEnabled(ECollisionEnabled::PhysicsOnly);
 	Body->SetCollisionResponseToChannel(ECC_Vehicle, ECR_Ignore);
 	Body->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
-	GTP_TRACE(LogGTPPedestrians, TEXT("pedestrian %s: down for 3 s, the body leaves the cars' way (no query sees it, vehicles pass over it)"), *GetName());
+	GTP_TRACE(LogGTPPedestrians, TEXT("pedestrian %s: down for 3 s, the body leaves the cars' way (no query sees it, vehicles pass over it); pelvis went %.0f cm above the ground at most, %d frames brought back within bounds%s%s"),
+		*GetName(), RagdollHighest, RagdollBounded, bRagdollSlid ? TEXT(", slid off a car") : TEXT(""), bRagdollDropped ? TEXT(", dropped through a car") : TEXT(""));
 }
 
 void AGTPPedestrian::ResetBody()
 {
 	GetWorldTimerManager().ClearTimer(SettleTimer);
+	SetActorTickEnabled(false);
 	if (bRagdoll)
 	{
 		if (UGTPRagdollSubsystem* Cap = GetWorld() ? GetWorld()->GetSubsystem<UGTPRagdollSubsystem>() : nullptr)

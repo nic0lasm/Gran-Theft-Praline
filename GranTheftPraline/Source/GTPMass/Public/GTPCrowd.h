@@ -319,6 +319,23 @@ private:
 	void OnActorThreat(AActor* Body, int32 NewState);
 	void SayWhatIsPlayed(const AGTPPedestrian* Actor, const UAnimSequenceBase* Asked, const TCHAR* What);
 	void HitByPlayerVehicle(int32 Slot);
+
+	/** The player's car this frame, when he drives one fast enough to knock somebody over (above 18 km/h). */
+	struct FPlayerCar
+	{
+		bool bValid = false;
+		FVector Centre = FVector::ZeroVector;
+		FVector Forward = FVector::ForwardVector;
+		float HalfLength = 200.f;
+		float HalfWidth = 90.f;
+		/** Speed along its own length (cm/s), negative when it backs. */
+		float AlongSpeed = 0.f;
+	};
+	FPlayerCar PlayerCar;
+	void ReadPlayerCar();
+	/** Does the leading end of the player's car, or a flank, reach a person standing there (GTPImpact::CarReaches)? */
+	bool PlayerCarReaches(const FVector& Person) const;
+	int32 CarHits = 0;
 	FGTPCrowdWalkerFragment* WalkerOf(int32 EntityIndex);
 	FGTPCrowdLookFragment* LookOf(int32 EntityIndex);
 

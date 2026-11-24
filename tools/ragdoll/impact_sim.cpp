@@ -459,6 +459,133 @@ int main()
 		CHECK(!T::InAimCone(0, 0, 160, 1, 0, 0, -500, 0, 160, 2000, 10), "behind the aim");
 	}
 
+	// A body thrown by a car stays within bounds, whatever the physics does to it.
+	{
+		const FBodyBounds B;
+		const float Car40 = CmSFromKmh(40.f);
+		// A part kicked at 20 m/s upward and 25 m/s ahead by the car's collision.
+		const FVec Kicked = BoundVelocity({2500.f, 0.f, 2000.f}, 95.f, Car40, B);
+		CHECK(Kicked.Z <= B.MaxUpCmS + 1e-3f, "upward speed bounded: %.0f", Kicked.Z);
+		CHECK(Length2D(Kicked) <= Car40 * B.CarShare + 1e-2f, "no faster than the car: %.0f", Length2D(Kicked));
+		CHECK(BoundVelocity({100.f, 50.f, -900.f}, 95.f, Car40, B).Z == -900.f, "a fall is left alone");
+		CHECK(BoundVelocity({100.f, 50.f, 200.f}, B.MaxHeightCm + 1.f, Car40, B).Z == 0.f, "nothing goes up above the height bound");
+		CHECK(HorizontalCap(0.f, B) == B.MinHorizontalCmS, "a floor for the cap");
+		const float Nan = std::nanf("");
+		CHECK(Length(BoundVelocity({Nan, 0.f, 0.f}, 95.f, Car40, B)) == 0.f, "a bad number becomes rest");
+		CHECK(Length(BoundSpin({40.f, 30.f, 0.f}, B)) <= B.MaxSpinRadS + 1e-3f, "spin bounded");
+		CHECK(Length(BoundSpin({1.f, 2.f, 0.f}, B)) < 3.f, "a slow spin is left alone");
+
+		// The worst the physics can do: every frame it kicks the pelvis upward at 20 m/s (a car's bonnet under it).
+		// With the bounds the pelvis never passes the height bound by more than one frame's travel; without, it flies.
+		for (const float Dt : {1.f / 30.f, 1.f / 60.f, 1.f / 120.f})
+		{
+			float Height = 95.f, Highest = 0.f, Vz = 0.f;
+			for (float T = 0.f; T < 3.f; T += Dt)
+			{
+				Vz = 2000.f; // the kick
+				Vz = BoundVelocity({0.f, 0.f, Vz}, Height, Car40, B).Z;
+				Height = std::max(15.f, Height + Vz * Dt);
+				Vz -= 980.f * Dt;
+				Highest = std::max(Highest, Height);
+			}
+			CHECK(Highest <= B.MaxHeightCm + B.MaxUpCmS * Dt + 1e-2f, "kicked every frame at dt %.4f: highest %.0f cm", Dt, Highest);
+		}
+		// One kick, then free flight: the top of the throw.
+		{
+			float Height = 95.f, Highest = 0.f;
+			float Vz = BoundVelocity({0.f, 0.f, 2000.f}, Height, Car40, B).Z;
+			for (float T = 0.f; T < 3.f; T += 1.f / 60.f)
+			{
+				Height = std::max(15.f, Height + Vz / 60.f);
+				Vz -= 980.f / 60.f;
+				Highest = std::max(Highest, Height);
+			}
+			CHECK(Highest < 150.f, "one kick: the pelvis tops at %.0f cm (it was 4 to 5 m in the video of gate 74)", Highest);
+			std::printf("thrown body: pelvis tops at %.0f cm above the ground after the hardest kick (bound %.0f)\n", Highest, B.MaxHeightCm);
+		}
+
+		// Lying on a car: slides after 0.4 s, dropped after 1.5 s; a free throw over the car never counts as lying.
+		{
+			FOnCarState S;
+			EOnCar Last = EOnCar::No;
+			float SlideAt = -1.f, DropAt = -1.f;
+			for (float T = 0.f; T < 3.f; T += 1.f / 60.f)
+			{
+				Last = StepOnCar(S, 100.f, 0.f, 1.f / 60.f, B);
+				if (Last == EOnCar::Slide && SlideAt < 0.f) SlideAt = T;
+				if (Last == EOnCar::Drop && DropAt < 0.f) DropAt = T;
+			}
+			CHECK(SlideAt > 1.1f && SlideAt < 1.3f, "slides off %.2f s after the hit", SlideAt);
+			CHECK(DropAt > 2.2f && DropAt < 2.4f, "dropped %.2f s after the hit", DropAt);
+			// A person who takes his time to go down (pelvis high, hardly moving) is not lying on a car.
+			FOnCarState Slow;
+			bool bSlowCounted = false;
+			for (float T = 0.f; T < 0.75f; T += 1.f / 60.f)
+			{
+				bSlowCounted = bSlowCounted || StepOnCar(Slow, 90.f, -20.f, 1.f / 60.f, B) != EOnCar::No;
+			}
+			CHECK(!bSlowCounted, "still going down is not lying on a car");
+			FOnCarState Fly;
+			float Height = 95.f, Vz = B.MaxUpCmS;
+			bool bCounted = false;
+			for (float T = 0.f; T < 2.f && Height > 20.f; T += 1.f / 60.f)
+			{
+				bCounted = bCounted || StepOnCar(Fly, Height, Vz, 1.f / 60.f, B) != EOnCar::No;
+				Height += Vz / 60.f;
+				Vz -= 980.f / 60.f;
+			}
+			CHECK(!bCounted, "a free throw is not a body lying on a car");
+			FOnCarState Ground;
+			for (int I = 0; I < 600; ++I)
+			{
+				CHECK(StepOnCar(Ground, 20.f, 0.f, 1.f / 60.f, B) == EOnCar::No, "a body on the ground is not on a car");
+			}
+			FOnCarState Again;
+			for (int I = 0; I < 70; ++I) StepOnCar(Again, 100.f, 0.f, 1.f / 60.f, B);
+			CHECK(Again.Seconds > 0.f, "counting once the grace is over");
+			StepOnCar(Again, 20.f, 0.f, 1.f / 60.f, B);
+			CHECK(Again.Seconds == 0.f, "back on the ground, the count starts again");
+		}
+
+		// When a car reaches a person. A 4 m car, 1.8 m wide, going ahead at 40 km/h (lead 56 cm at 0.05 s).
+		{
+			const float HL = 200.f, HW = 90.f;
+			CHECK(!CarReaches(400.f, 0.f, HL, HW, Car40), "2 m ahead of the bumper: not yet");
+			CHECK(!CarReaches(300.f, 0.f, HL, HW, Car40), "1 m ahead at 40 km/h: not yet");
+			CHECK(CarReaches(270.f, 0.f, HL, HW, Car40), "70 cm ahead at 40 km/h: now, before the bumper is in him");
+			CHECK(CarReaches(210.f, 100.f, HL, HW, Car40), "at the corner of the bumper");
+			CHECK(!CarReaches(210.f, 130.f, HL, HW, Car40), "40 cm beside the corner: missed");
+			CHECK(CarReaches(0.f, 95.f, HL, HW, Car40), "brushed by the flank");
+			CHECK(!CarReaches(0.f, 110.f, HL, HW, Car40), "20 cm from the flank: missed (the old circle of 170 cm took him)");
+			CHECK(!CarReaches(-230.f, 0.f, HL, HW, Car40), "behind a car going ahead");
+			CHECK(CarReaches(-230.f, 0.f, HL, HW, -Car40), "behind a car backing at speed");
+			CHECK(!CarReaches(260.f, 0.f, HL, HW, -Car40), "60 cm in front of a car backing away");
+			// The old rule let the car's bumper go 30 cm into the person before he fell; the new one never does.
+			bool bBefore = true;
+			for (float Kmh = 18.f; Kmh <= 130.f; Kmh += 1.f)
+			{
+				const float Speed = CmSFromKmh(Kmh);
+				// Walk the car up to a standing person at 30 and 60 frames a second, from several starts, and note
+				// where he is when it reaches him.
+				for (const float Fps : {30.f, 60.f})
+				{
+					for (float Start = 800.f; Start < 900.f; Start += 7.f)
+					{
+						for (float Along = Start; Along > 0.f; Along -= Speed / Fps)
+						{
+							if (CarReaches(Along, 0.f, HL, HW, Speed))
+							{
+								bBefore = bBefore && Along >= HL;
+								break;
+							}
+						}
+					}
+				}
+			}
+			CHECK(bBefore, "from 18 to 130 km/h, at 30 and 60 frames a second, the person falls before the bumper is inside him");
+		}
+	}
+
 	std::printf(Failures == 0 ? "PASS impact logic\n" : "FAILED %d checks\n", Failures);
 	return Failures == 0 ? 0 : 1;
 }

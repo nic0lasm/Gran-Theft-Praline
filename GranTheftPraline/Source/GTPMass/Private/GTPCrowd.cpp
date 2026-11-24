@@ -21,6 +21,7 @@
 #include "Engine/Texture.h"
 #include "EngineUtils.h"
 #include "GTPAudioWorld.h"
+#include "GTPImpactLogic.h"
 #include "GTPPedestrians.h"
 #include "GTPThreat.h"
 #include "GTPVehicle.h"
@@ -1068,6 +1069,51 @@ void UGTPCrowdSubsystem::OnActorThreat(AActor* Body, int32 NewState)
 	}
 }
 
+void UGTPCrowdSubsystem::ReadPlayerCar()
+{
+	PlayerCar = FPlayerCar();
+	const APawn* Pawn = GetWorld() ? UGameplayStatics::GetPlayerPawn(GetWorld(), 0) : nullptr;
+	// A car, not the player on foot: he runs at 500 cm/s, right on this threshold, and knocked down like a car the
+	// people he walked up to (candidate 49 in the editor: "walking at 500 cm/s", people upright then lying).
+	if (!Pawn || Pawn->IsA<ACharacter>() || Pawn->GetVelocity().Size2D() <= 500.f)
+	{
+		return;
+	}
+	const FTransform& Transform = Pawn->GetActorTransform();
+	const FVector Forward = Transform.GetUnitAxis(EAxis::X).GetSafeNormal2D();
+	const UPrimitiveComponent* Hull = Cast<UPrimitiveComponent>(Pawn->GetRootComponent());
+	if (Forward.IsNearlyZero() || !Hull)
+	{
+		return;
+	}
+	// The car's own box, as for the cars standing on a walkway. Its bounds are often wider than its body: held to
+	// what a car or a van can be.
+	const FBox Local = Hull->CalcBounds(FTransform::Identity).GetBox();
+	const FVector Extent = Local.GetExtent() * Transform.GetScale3D().GetAbs();
+	PlayerCar.bValid = true;
+	PlayerCar.Centre = Transform.TransformPosition(Local.GetCenter());
+	PlayerCar.Forward = Forward;
+	PlayerCar.HalfLength = FMath::Clamp(static_cast<float>(Extent.X), 150.f, 300.f);
+	PlayerCar.HalfWidth = FMath::Clamp(static_cast<float>(Extent.Y), 70.f, 115.f);
+	PlayerCar.AlongSpeed = static_cast<float>(FVector::DotProduct(Pawn->GetVelocity(), Forward));
+}
+
+bool UGTPCrowdSubsystem::PlayerCarReaches(const FVector& Person) const
+{
+	if (!PlayerCar.bValid)
+	{
+		return false;
+	}
+	const FVector To = Person - PlayerCar.Centre;
+	if (To.SizeSquared2D() > FMath::Square(900.0))
+	{
+		return false;
+	}
+	const float Along = static_cast<float>(To.X * PlayerCar.Forward.X + To.Y * PlayerCar.Forward.Y);
+	const float Side = static_cast<float>(To.Y * PlayerCar.Forward.X - To.X * PlayerCar.Forward.Y);
+	return GTPImpact::CarReaches(Along, Side, PlayerCar.HalfLength, PlayerCar.HalfWidth, PlayerCar.AlongSpeed);
+}
+
 void UGTPCrowdSubsystem::HitByPlayerVehicle(int32 Slot)
 {
 	AGTPPedestrian* Actor = NearActors.IsValidIndex(Slot) ? NearActors[Slot].Get() : nullptr;
@@ -1081,9 +1127,23 @@ void UGTPCrowdSubsystem::HitByPlayerVehicle(int32 Slot)
 	{
 		return;
 	}
+	// How hard, and what the body leaves with: the rule shared with the player run over (GTPImpactLogic.h). The
+	// car's own collision then keeps pushing the body, within the bounds AGTPPedestrian holds it to.
 	const FVector Velocity = Pawn->GetVelocity();
-	if (Actor->StartRagdoll(Velocity * 0.4f + FVector(0.f, 0.f, 200.f)))
+	const FVector ToCar = Pawn->GetActorLocation() - W->Location;
+	GTPImpact::FCarHitInput In;
+	In.CarVelocity = {static_cast<float>(Velocity.X), static_cast<float>(Velocity.Y), 0.f};
+	In.ToCar = {static_cast<float>(ToCar.X), static_cast<float>(ToCar.Y), 0.f};
+	const GTPImpact::FCarHitResult Hit = GTPImpact::ClassifyCarHit(In, GTPImpact::FSettings());
+	// Brushed by a flank, the car is hardly coming at him: he is still shoved over, the way the car goes.
+	const FVector Launch = Hit.Severity >= GTPImpact::ESeverity::Knock
+		? FVector(Hit.LaunchVelocity.X, Hit.LaunchVelocity.Y, Hit.LaunchVelocity.Z)
+		: Velocity.GetSafeNormal2D() * 150.0 + FVector(0.0, 0.0, 40.0);
+	if (Actor->StartRagdoll(Launch, Pawn))
 	{
+		++CarHits;
+		UE_LOG(LogGTPCrowd, Log, TEXT("crowd: %s hit by the player's car at %.0f km/h (closing %.0f, severity %d): leaves at %.0f cm/s along the ground, %.0f up; he was %.0f cm from the car's centre"),
+			*Actor->GetName(), Velocity.Size2D() * 0.036, Hit.RelativeKmh, static_cast<int32>(Hit.Severity), Launch.Size2D(), Launch.Z, ToCar.Size2D());
 		// The ones around stop and look.
 		const GTPWalk::FPoint Point{float(W->Location.X), float(W->Location.Y)};
 		for (int32 Index = 0; Index < Entities.Num(); ++Index)
@@ -1259,9 +1319,15 @@ void UGTPCrowdSubsystem::UpdateNear(float DeltaTime)
 			}
 			UE_LOG(LogGTPCrowd, Log, TEXT("crowd: bodies released %d (hands up reset %d, fear reset %d, dead reset %d), frozen far from the player %d, held up put back standing %d, fallen %d, lying without physics %d"),
 				BodiesReleased, HandsUpReset, FearReset, DeadReset, FrozenFar, HeldPutBack, Fallen, LyingStill);
+			// And of the bodies thrown by the player's car: none higher than a car's roof, none left lying on a car.
+			const AGTPPedestrian::FRagdollTally& Thrown = AGTPPedestrian::GetRagdollTally();
+			UE_LOG(LogGTPCrowd, Log, TEXT("crowd: run over: %d people hit by the player's car, %d bodies fell; highest a pelvis went above its ground %.0f cm (bound %.0f), fastest part found %.0f cm/s, %d frames brought back within bounds, %d bodies slid off a car, %d dropped through one"),
+				CarHits, Thrown.Started, Thrown.HighestCm, GTPImpact::FBodyBounds().MaxHeightCm, Thrown.FastestCmS, Thrown.Bounded, Thrown.SlidOff, Thrown.Dropped);
 		}
 	}
 	const UGTPThreatSubsystem* HoldUp = UGTPThreatSubsystem::IsEnabled() && GetWorld() ? GetWorld()->GetSubsystem<UGTPThreatSubsystem>() : nullptr;
+	// The player's car, once for everybody: its box and its speed, to know whom it reaches this frame.
+	ReadPlayerCar();
 	// Follow the entities: position, and the animation that matches what the person does.
 	int32 ShownGrooms = 0;
 	for (int32 Slot = 0; Slot < NearActors.Num(); ++Slot)
@@ -1285,16 +1351,10 @@ void UGTPCrowdSubsystem::UpdateNear(float DeltaTime)
 			}
 			continue;
 		}
-		if (FVector::Dist2D(W->Location, PlayerLocation) < 170.f && GetWorld())
+		if (PlayerCarReaches(W->Location))
 		{
-			const APawn* Pawn = UGameplayStatics::GetPlayerPawn(GetWorld(), 0);
-			// A car, not the player on foot: he runs at 500 cm/s, right on this threshold, and knocked down like a car the
-			// people he walked up to (candidate 49 in the editor: "walking at 500 cm/s", people upright then lying).
-			if (Pawn && !Pawn->IsA<ACharacter>() && Pawn->GetVelocity().Size2D() > 500.f)
-			{
-				HitByPlayerVehicle(Slot);
-				continue;
-			}
+			HitByPlayerVehicle(Slot);
+			continue;
 		}
 		// One authority for a person who has a body: the body's fear. The walker is put in line with it every frame,
 		// whatever happened in between (an event missed while the body was changing hands, a panic that overrode

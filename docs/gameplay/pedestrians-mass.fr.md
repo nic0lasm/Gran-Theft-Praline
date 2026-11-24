@@ -166,6 +166,44 @@ derrière le même `GTPPedestrian` plus de quelques secondes. **Pas prouvé en j
 et s'enfuit (pas d'animation pour cela), et les voitures du trafic qui s'arrêtent pour les gens debout ou en marche
 (elles ne les voient pas).
 
+## Un corps projeté par la voiture du joueur reste borné et glisse de la voiture
+
+Vidéo longue de la porte 74 (`-GTARun`, candidat 74) : à 75 s la voiture volée, vers 30 km/h, heurte un homme qui monte
+à 4 ou 5 m, retombe sur le toit et glisse sur le côté gauche ; à 143 s et 148 s, à 38 à 40 km/h dans une foule, des
+corps volent aussi haut et 15 m en avant ; à 160 s l'un retombe sur le toit de la camionnette. (À 80 s le corps est au
+sol contre le flanc gauche de la voiture ; la tache claire sur le toit est son vitrage qui reflète le ciel.) Deux
+causes dans le code :
+
+- **La chute commençait dans la voiture.** La règle était « à moins de 170 cm du centre de la voiture » : une voiture
+  mesure 4 m, le pare-chocs était donc déjà entré de 30 cm dans la personne quand son corps recevait sa collision, et la
+  physique l'éjectait du volume de la voiture. La boîte de la voiture est maintenant lue une fois par image
+  (`UGTPCrowdSubsystem::ReadPlayerCar`) et `GTPImpact::CarReaches` dit quand son extrémité qui avance va toucher la
+  personne (son rayon, plus ce que la voiture parcourt en 0,05 s) ou quand un flanc la frôle. Quelqu'un à 20 cm du
+  flanc n'est plus renversé.
+- **Rien ne bornait ce que la collision de la voiture faisait ensuite au corps.** `AGTPPedestrian` tique maintenant
+  tant que son corps tombe et tient chaque partie dans `GTPImpact::FBodyBounds` : jamais plus vite au sol que la
+  voiture qui a heurté (fois 1,05), jamais plus de 3 m/s vers le haut, plus rien ne monte une fois le bassin à 1,4 m
+  au-dessus du sol où la personne se tenait (sous le toit d'une voiture), rotation de 10 rad/s au plus, et une partie
+  qui commence dans la voiture en est repoussée à 3 m/s au plus. Le lancer lui-même est la règle qu'a déjà le joueur
+  renversé (`GTPImpact::ClassifyCarHit` : 5,7 m/s vers l'avant et 2 m/s vers le haut à 40 km/h), donné à tout le corps
+  d'un coup : sur le bassin seul il faisait faire un saut périlleux.
+
+**Un corps couché sur une voiture.** Bassin à plus de 60 cm du sol, ni en chute ni lancé (`GTPImpact::StepOnCar`) :
+après 0,4 s le corps est poussé en travers de la voiture, vers son côté le plus proche, à 2,8 m/s ; encore là-haut
+après 1,5 s (une autre voiture, ou la poussée n'a pas suffi), les voitures ne le retiennent plus et il tombe au sol. Le
+compte ne commence que 0,8 s après le choc, le temps qu'une personne met à tomber.
+
+Vérifié hors moteur (`python3 tools/ragdoll/check_impact_logic.py`) : un bassin frappé vers le haut à 20 m/s à chaque
+image ne dépasse jamais 1,4 m de plus que le trajet d'une image, et culmine à 143 cm après un seul coup ; de 18 à
+130 km/h, à 30 et 60 images par seconde, la personne tombe avant que le pare-chocs soit en elle ; un lancer libre n'est
+jamais pris pour un corps couché sur une voiture. Journal, toutes les 10 s : `crowd: run over: N people hit by the
+player's car, N bodies fell; highest a pelvis went above its ground … cm (bound 140), fastest part found … cm/s, …
+frames brought back within bounds, … bodies slid off a car, … dropped through one` ; par choc `crowd: <nom> hit by the
+player's car at … km/h …` et `pedestrian <nom>: falls, leaves at …` ; la ligne `down for 3 s …` se termine maintenant
+par la hauteur maximale du bassin. **Non prouvé** : rien n'est compilé, rien n'est vu en jeu. Attendu dans la prochaine
+vidéo longue : personne au-dessus du toit d'une voiture, aucun corps resté sur une voiture plus de 2 à 3 s, « highest »
+à 140 cm ou juste au-dessus.
+
 ## Voitures arrêtées sur un trottoir ou une rue piétonne (`-CrowdAvoidCars=0` pour les traverser comme avant)
 
 Vidéo de la porte 59, de 130 à 180 s : la voiture du joueur est arrêtée dans une rue piétonne et les gens la traversent,

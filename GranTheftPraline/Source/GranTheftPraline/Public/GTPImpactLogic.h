@@ -334,4 +334,131 @@ inline std::vector<int> ChooseToFreeze(const std::vector<FRagdollEntry>& Active,
 	}
 	return Freeze;
 }
+
+// ---------------------------------------------------------------- a body thrown by a car, kept within bounds
+
+/**
+ * A pedestrian's body hit by a car is a ragdoll that the car's own collision keeps pushing. Left to the physics
+ * alone it flew 4 to 5 m up and 15 m ahead at 35 to 40 km/h and came down on the roof (long video of gate 74,
+ * 75 s, 143 s, 148 s, 160 s). These bounds are applied to every part of the body at every frame.
+ */
+struct FBodyBounds
+{
+	/** No part goes up faster than this (cm/s): a free rise of 46 cm. */
+	float MaxUpCmS = 300.f;
+	/** Pelvis this high above the ground the person stood on (cm): nothing goes up any more. Under a car's roof. */
+	float MaxHeightCm = 140.f;
+	/** No part goes faster along the ground than the car that hit, times this... */
+	float CarShare = 1.05f;
+	/** ...and never is the cap under this (cm/s): a body shoved by a slow car still falls over. */
+	float MinHorizontalCmS = 250.f;
+	/** No part spins faster than this (rad/s). */
+	float MaxSpinRadS = 10.f;
+
+	/** Pelvis higher than this above the ground (cm) and not falling: the body lies on something, a car. */
+	float OnCarHeightCm = 60.f;
+	/** "Not falling, not thrown": vertical speed under this (cm/s). */
+	float OnCarRestCmS = 150.f;
+	/** A person takes this long to go down (s): before, his pelvis is high because he still stands. */
+	float OnCarGrace = 0.8f;
+	/** Lying on a car for this long (s): it slides off to the nearer side. Longer than the top of a free throw. */
+	float SlideAfter = 0.4f;
+	/** Speed of the slide, across the car (cm/s). */
+	float SlideCmS = 280.f;
+	/** Still up there after this long (s): the cars stop holding it and it drops to the ground. */
+	float DropAfter = 1.5f;
+};
+
+/** The fastest a part may go along the ground, for a hit by a car going at CarSpeedCmS. */
+inline float HorizontalCap(float CarSpeedCmS, const FBodyBounds& B)
+{
+	return std::max(B.MinHorizontalCmS, std::fabs(CarSpeedCmS) * B.CarShare);
+}
+
+/** Velocity of a part brought back within the bounds. PelvisHeightCm: above the ground the person stood on. */
+inline FVec BoundVelocity(const FVec& V, float PelvisHeightCm, float CarSpeedCmS, const FBodyBounds& B)
+{
+	FVec R = V;
+	if (!std::isfinite(R.X) || !std::isfinite(R.Y) || !std::isfinite(R.Z))
+	{
+		return FVec();
+	}
+	const float Cap = HorizontalCap(CarSpeedCmS, B);
+	const float Along = Length2D(R);
+	if (Along > Cap)
+	{
+		R.X *= Cap / Along;
+		R.Y *= Cap / Along;
+	}
+	const float Up = PelvisHeightCm >= B.MaxHeightCm ? 0.f : B.MaxUpCmS;
+	R.Z = std::min(R.Z, Up);
+	return R;
+}
+
+/** Spin of a part (rad/s) brought back within the bounds. */
+inline FVec BoundSpin(const FVec& W, const FBodyBounds& B)
+{
+	if (!std::isfinite(W.X) || !std::isfinite(W.Y) || !std::isfinite(W.Z))
+	{
+		return FVec();
+	}
+	const float Size = Length(W);
+	return Size > B.MaxSpinRadS ? Scale(W, B.MaxSpinRadS / Size) : W;
+}
+
+enum class EOnCar : int
+{
+	/** On the ground, falling or thrown. */
+	No = 0,
+	/** Lying on a car: push it across, off the nearer side. */
+	Slide = 1,
+	/** Up there for too long: stop colliding with cars, it drops. */
+	Drop = 2
+};
+
+struct FOnCarState
+{
+	/** Since the fall began, and of that, lying up on something. */
+	float Age = 0.f;
+	float Seconds = 0.f;
+};
+
+/** One frame of a body that may lie on a car. Back on the ground, the count starts again. */
+inline EOnCar StepOnCar(FOnCarState& S, float PelvisHeightCm, float PelvisVerticalCmS, float DeltaTime, const FBodyBounds& B)
+{
+	S.Age += std::max(0.f, DeltaTime);
+	if (PelvisHeightCm < B.OnCarHeightCm || S.Age < B.OnCarGrace)
+	{
+		S.Seconds = 0.f;
+		return EOnCar::No;
+	}
+	if (std::fabs(PelvisVerticalCmS) < B.OnCarRestCmS)
+	{
+		S.Seconds += std::max(0.f, DeltaTime);
+	}
+	if (S.Seconds >= B.DropAfter)
+	{
+		return EOnCar::Drop;
+	}
+	return S.Seconds >= B.SlideAfter ? EOnCar::Slide : EOnCar::No;
+}
+
+/**
+ * Does a moving car reach a person now? Along and Side: the person in the car's frame (cm, from the centre of its
+ * box; Along positive ahead). The person falls when the end of the car that leads is about to touch him, or when a
+ * flank brushes him, and not once he is 30 cm inside the body: a ragdoll that starts inside the car's collision is
+ * thrown out of it by the physics (the old rule was "within 170 cm of the car's centre", inside a 4 m car).
+ */
+inline bool CarReaches(float Along, float Side, float HalfLength, float HalfWidth, float AlongSpeedCmS, float PersonRadius = 30.f, float LeadSeconds = 0.05f)
+{
+	const float Forward = AlongSpeedCmS >= 0.f ? Along : -Along;
+	const float Lead = std::fabs(AlongSpeedCmS) * LeadSeconds;
+	if (Forward < -HalfLength || Forward > HalfLength + PersonRadius + Lead)
+	{
+		return false;
+	}
+	// In front of the leading end the whole width counts, with the person's own; along a flank only a brush does.
+	const float Margin = Forward > HalfLength - 60.f ? PersonRadius : 10.f;
+	return std::fabs(Side) <= HalfWidth + Margin;
+}
 } // namespace GTPImpact

@@ -81,8 +81,30 @@ public:
 
 	bool IsRagdoll() const { return bRagdoll; }
 
-	/** Hit by a car: physics takes over, the subsystem takes the body away a few seconds later. */
-	bool StartRagdoll(const FVector& Impulse);
+	/**
+	 * Hit by a car: physics takes over, the subsystem takes the body away a few seconds later. Launch is the velocity
+	 * the whole body leaves with (cm/s). By: the car that hit, when there is one. As long as it falls the body is kept
+	 * within the bounds of GTPImpact::FBodyBounds (how fast and how high it may go) and slides off a car it lands on.
+	 */
+	bool StartRagdoll(const FVector& Launch, const AActor* By = nullptr);
+
+	/** What the bodies that fell did, since the start of the game, for the log. */
+	struct FRagdollTally
+	{
+		int32 Started = 0;
+		/** Frames where a part was going faster or higher than the bounds and was brought back. */
+		int32 Bounded = 0;
+		/** Bodies that lay on a car and were slid off its side; that had to be dropped through it. */
+		int32 SlidOff = 0;
+		int32 Dropped = 0;
+		/** The highest a pelvis went above the ground its person stood on (cm). */
+		float HighestCm = 0.f;
+		/** The fastest a part was found going before it was bounded (cm/s). */
+		float FastestCmS = 0.f;
+	};
+	static const FRagdollTally& GetRagdollTally();
+
+	virtual void Tick(float DeltaTime) override;
 
 	/** Back to the standing pose, ready to be placed again. */
 	void ResetBody();
@@ -119,6 +141,18 @@ private:
 	 */
 	void SettleRagdoll();
 	FTimerHandle SettleTimer;
+	/** One frame of a falling body: its parts back within the bounds, and off the car it lies on. */
+	void BoundRagdoll(float DeltaTime);
+	/** The car that hit, its speed then, the ground the person stood on, and what this fall did (for the log). */
+	TWeakObjectPtr<const AActor> RagdollBy;
+	float RagdollCarSpeed = 0.f;
+	float RagdollGroundZ = 0.f;
+	float RagdollAge = 0.f;
+	float RagdollOnCarSeconds = 0.f;
+	float RagdollHighest = 0.f;
+	int32 RagdollBounded = 0;
+	bool bRagdollSlid = false;
+	bool bRagdollDropped = false;
 	/** Where the body sits under the actor, kept when it falls: it comes back there, upright, when it is given again. */
 	FTransform BodyRelative = FTransform::Identity;
 	float AnimInterval = 0.f;

@@ -154,6 +154,40 @@ and pawns, so it still lies on the ground and the cars pass over it without touc
 `GTPPedestrian` for more than a few seconds. **Not proven in the game.** Not done: the person getting up and running
 off (no animation for it), and the traffic's cars stopping for people who stand or walk (they do not see them).
 
+## A body thrown by the player's car stays within bounds and slides off the car
+
+Long video of gate 74 (`-GTARun`, candidate 74): at 75 s the stolen car, at about 30 km/h, hits a man who goes 4 to 5 m
+up, comes down on the roof and slides off its left side; at 143 s and 148 s, at 38 to 40 km/h through a crowd, bodies
+fly as high and 15 m ahead; at 160 s one lands on the van's roof. (At 80 s the body lies on the road against the car's
+left side; the light patch on the roof is its glass reflecting the sky.) Two causes in the code:
+
+- **The fall began inside the car.** The rule was "within 170 cm of the car's centre": a car is 4 m long, so the
+  bumper was already 30 cm into the person when his body got its collision, and the physics threw it out of the car's
+  volume. Now the car's own box is read once a frame (`UGTPCrowdSubsystem::ReadPlayerCar`) and
+  `GTPImpact::CarReaches` says when its leading end is about to touch the person (his radius, plus what the car covers
+  in 0.05 s) or when a flank brushes him. Somebody 20 cm from the flank is no longer knocked down.
+- **Nothing bounded what the car's collision did to the body afterwards.** `AGTPPedestrian` now ticks while its body
+  falls and holds every part to `GTPImpact::FBodyBounds`: never faster along the ground than the car that hit
+  (times 1.05), never up faster than 3 m/s, nothing going up once the pelvis is 1.4 m above the ground the person
+  stood on (under a car's roof), spin at most 10 rad/s, and a part that starts inside the car is pushed out at 3 m/s
+  at most. The launch itself is the rule the player run over already has (`GTPImpact::ClassifyCarHit`: 5.7 m/s ahead
+  and 2 m/s up at 40 km/h), given to the whole body at once: on the pelvis alone it made the body somersault.
+
+**A body that lies on a car.** Pelvis more than 60 cm above the ground and neither falling nor thrown
+(`GTPImpact::StepOnCar`): after 0.4 s the body is pushed across the car, off its nearer side, at 2.8 m/s; still up
+there after 1.5 s (another car, or the push did not do), the cars stop holding it and it drops to the ground. The
+count only starts 0.8 s after the hit, the time a person takes to go down.
+
+Checked without the engine (`python3 tools/ragdoll/check_impact_logic.py`): a pelvis kicked upward at 20 m/s at every
+frame never passes 1.4 m by more than one frame's travel, and tops at 143 cm after one kick; from 18 to 130 km/h, at
+30 and 60 frames a second, the person falls before the bumper is inside him; a free throw is never taken for a body
+lying on a car. Log, every 10 s: `crowd: run over: N people hit by the player's car, N bodies fell; highest a pelvis
+went above its ground … cm (bound 140), fastest part found … cm/s, … frames brought back within bounds, … bodies slid
+off a car, … dropped through one`; per hit `crowd: <name> hit by the player's car at … km/h …` and
+`pedestrian <name>: falls, leaves at …`; the line `down for 3 s …` now ends with the highest the pelvis went.
+**Not proven**: nothing compiled, nothing seen in the game. Expected in the next long video: nobody above a car's
+roof, no body left on a car for more than 2 to 3 s, "highest" at 140 cm or just above.
+
 ## Cars standing on a walkway (`-CrowdAvoidCars=0` to walk through them as before)
 
 Video of gate 59, 130 to 180 s: the player's car stands in a pedestrian street and people walk through it, one of them
