@@ -591,6 +591,14 @@ light bar, 22 slots), next to it.
   DRAWN, left out of the traffic and the parked cars" for each traffic class at begin play. A class that
   draws nothing is left out of the traffic, the street parked cars and the police (a traffic car
   stands in, "police: car class ... NOT DRAWN"); when no class is drawn, all are kept.
+- The script's run on the PC (candidate 72) logged 34 Error lines and the job failed, none from our
+  assets (`cook_risk` empty for the seven cars, no post-process AnimBlueprint on the 14 look parts): 12
+  from loading City Sample's MassTraffic display actors (their `ABP_Proxy_Post_*`, "Unknown structure",
+  and `ABP_vehCar_vehicle05`), 22 "FindAssetData failed" for City Sample packages not copied (BrokenGlass,
+  `CAS_*`, `NS_FlashingLight`) looked up while finding the wheels. The script now reads the asset
+  registry for those lookups and loads a Blueprint only when the registry says it is a Chaos vehicle or
+  a wheel. The look parts are on City Sample's `SK_Proxy_*` skeletons, the rig on `SK_veh*`: the leader
+  pose matches bones by name, unchecked.
 - Not proven: whether the exterior's tyres follow the wheel bones (it is on the same skeleton
   `SK_Vehicle`, given in the report), the draw cost of real bodies on 6 classes of 9 (the gates
   until 68 measured invisible cars), and the look of City Sample's materials once cooked.
