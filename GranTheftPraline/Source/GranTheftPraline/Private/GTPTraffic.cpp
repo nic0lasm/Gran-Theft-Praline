@@ -2,6 +2,7 @@
 
 #include "GTPDeterminism.h"
 #include "GTPLaneRoute.h"
+#include "GTPRoadWidth.h"
 #include "GTPLog.h"
 #include "GTPVehicle.h"
 #include "GTPTrafficGhost.h"
@@ -162,6 +163,12 @@ float FGTPLaneFollower::OffPathMetres(const FVector& Location) const
 	return Best;
 }
 
+float FGTPLaneFollower::GetCarriagewayM() const
+{
+	const AGTPTrafficNetwork* Net = Network.Get();
+	return Net && Route.Num() > 0 && Net->GetLanes().IsValidIndex(Route[0]) ? Net->GetLanes()[Route[0]].CarriagewayM : 0.f;
+}
+
 float FGTPLaneFollower::OpenRoadMetres(const TArray<FGTPTrafficLane>& Lanes, int32 Lane)
 {
 	if (!Lanes.IsValidIndex(Lane))
@@ -256,11 +263,11 @@ void FGTPLaneFollower::Plan()
 		}
 		if (Next != INDEX_NONE && bPreferStraight && !bHasGoal)
 		{
-			// The exit whose first segment keeps the heading of the end of this lane the best.
+			// An exit that never ends first (a dead end stops the flight and the script puts the car elsewhere), or else
+			// the most open road; then the widest road (gate 75: the flight lost 17 s in two narrow streets); then the
+			// exit whose first segment keeps the heading of the end of this lane the best (GTPRoadWidth::ExitScore).
 			const TArray<FVector>& From = Lanes[Route.Last()].Points;
 			const FVector Heading = From.Num() >= 2 ? (From.Last() - From[From.Num() - 2]).GetSafeNormal2D() : FVector::ZeroVector;
-			// Open road first (a dead end stops the flight), then the straightest: 10 points a metre of open road
-			// against 1 for a full change of heading.
 			float BestScore = -1.e9f;
 			for (const int32 Candidate : Lanes[Route.Last()].Next)
 			{
@@ -272,7 +279,8 @@ void FGTPLaneFollower::Plan()
 				if (To.Num() >= 2)
 				{
 					const float Dot = static_cast<float>(FVector::DotProduct(Heading, (To[1] - To[0]).GetSafeNormal2D()));
-					const float Score = OpenRoadMetres(Lanes, Candidate) * 10.f + Dot;
+					const FGTPTrafficLane& Exit = Lanes[Candidate];
+					const float Score = GTPRoadWidth::ExitScore(Exit.bNeverEnds, OpenRoadMetres(Lanes, Candidate), Exit.CarriagewayM, Dot);
 					if (Score > BestScore)
 					{
 						BestScore = Score;
@@ -1030,6 +1038,9 @@ bool AGTPTrafficNetwork::ReadLanesCsv(const FString& Path, TArray<FGTPTrafficLan
 		return false;
 	}
 	OutLanes.Reset();
+	// The BD TOPO road of each lane (column road_id), as a small number: the lanes of a road add up to its carriageway.
+	TMap<FString, int32> RoadKeyOf;
+	std::vector<int> RoadKeys;
 	for (int32 RowIndex = 1; RowIndex < Rows.Num(); ++RowIndex)
 	{
 		// lane_id,road_id,"name",speed_kmh,width_m,points_ue_cm,next : the name may hold commas.
@@ -1059,6 +1070,9 @@ bool AGTPTrafficNetwork::ReadLanesCsv(const FString& Path, TArray<FGTPTrafficLan
 		}
 		FGTPTrafficLane Lane;
 		Lane.SpeedKmh = FCString::Atof(*Fields[3]);
+		Lane.WidthM = FMath::Max(FCString::Atof(*Fields[4]), 0.f);
+		const FString RoadId = Fields[1].TrimStartAndEnd();
+		RoadKeys.push_back(RoadId.IsEmpty() ? -1 : RoadKeyOf.FindOrAdd(RoadId, RoadKeyOf.Num()));
 		TArray<FString> Points;
 		Fields[5].ParseIntoArray(Points, TEXT(";"));
 		for (const FString& Point : Points)
@@ -1086,7 +1100,38 @@ bool AGTPTrafficNetwork::ReadLanesCsv(const FString& Path, TArray<FGTPTrafficLan
 	{
 		Lane.Next.RemoveAll([&OutLanes](int32 Id) { return !OutLanes.IsValidIndex(Id); });
 	}
+	// The carriageway around each lane (GTPRoadWidth.h): what a flight makes of the street, main axis or narrow street.
+	std::vector<float> Widths;
+	std::vector<std::vector<GTPRoadWidth::FPoint>> Points;
+	Widths.reserve(static_cast<size_t>(OutLanes.Num()));
+	Points.reserve(static_cast<size_t>(OutLanes.Num()));
+	for (const FGTPTrafficLane& Lane : OutLanes)
+	{
+		Widths.push_back(Lane.WidthM);
+		std::vector<GTPRoadWidth::FPoint>& LanePoints = Points.emplace_back();
+		LanePoints.reserve(static_cast<size_t>(Lane.Points.Num()));
+		for (const FVector& Point : Lane.Points)
+		{
+			LanePoints.push_back({static_cast<float>(Point.X) * CmToM, static_cast<float>(Point.Y) * CmToM});
+		}
+	}
+	const std::vector<float> RoadWidths = GTPRoadWidth::Carriageways(RoadKeys, Widths, Points);
+	for (int32 Index = 0; Index < OutLanes.Num() && static_cast<size_t>(Index) < RoadWidths.size(); ++Index)
+	{
+		OutLanes[Index].CarriagewayM = RoadWidths[static_cast<size_t>(Index)];
+	}
+	MarkNeverEnding(OutLanes);
 	return OutLanes.Num() > 0;
+}
+
+void AGTPTrafficNetwork::MarkNeverEnding(TArray<FGTPTrafficLane>& InLanes)
+{
+	const std::vector<bool> Alive = GTPRoadWidth::NeverEnding(InLanes.Num(),
+		[&InLanes](int Index) -> const TArray<int32>& { return InLanes[Index].Next; });
+	for (int32 Index = 0; Index < InLanes.Num(); ++Index)
+	{
+		InLanes[Index].bNeverEnds = static_cast<size_t>(Index) < Alive.size() && Alive[static_cast<size_t>(Index)];
+	}
 }
 
 void AGTPTrafficNetwork::LanesInRing(const FVector& Center, float MinCm, float MaxCm, TArray<int32>& Out) const
@@ -1382,6 +1427,25 @@ void AGTPTrafficNetwork::BeginPlay()
 		const FString File = LanesFileFor(UGameplayStatics::GetCurrentLevelName(this, true));
 		const int32 Count = LoadLanesFromCsv(File);
 		GTP_TRACE(LogGTPTraffic, TEXT("%d lanes from %s"), Count, *File);
+	}
+	else
+	{
+		// Lanes set by hand on the actor: no carriageway known, but the dead ends are.
+		MarkNeverEnding(Lanes);
+	}
+	{
+		// What a flight finds on these lanes (GTPRoadWidth.h): the lanes it can keep to without a dead end, and the widths.
+		int32 NeverEnd = 0;
+		int32 ByClass[4] = {0, 0, 0, 0};
+		for (const FGTPTrafficLane& Lane : Lanes)
+		{
+			NeverEnd += Lane.bNeverEnds ? 1 : 0;
+			++ByClass[static_cast<int32>(GTPRoadWidth::Classify(Lane.CarriagewayM))];
+		}
+		GTP_TRACE(LogGTPTraffic, TEXT("traffic: lanes for a flight: %d of %d never end (no dead end ahead); carriageway: %d main axis (%.0f m and over), %d middle, %d narrow (under %.0f m), %d unknown"),
+			NeverEnd, Lanes.Num(), ByClass[static_cast<int32>(GTPRoadWidth::EClass::Main)], GTPRoadWidth::MainMetres,
+			ByClass[static_cast<int32>(GTPRoadWidth::EClass::Middle)], ByClass[static_cast<int32>(GTPRoadWidth::EClass::Narrow)], GTPRoadWidth::NarrowMetres,
+			ByClass[static_cast<int32>(GTPRoadWidth::EClass::Unknown)]);
 	}
 	int32 ParkedSwitch = bParkedCars ? 1 : 0;
 	FParse::Value(FCommandLine::Get(), TEXT("ParkedCars="), ParkedSwitch);

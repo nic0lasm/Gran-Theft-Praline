@@ -11,6 +11,7 @@
 #include "GTPLog.h"
 #include "GTPPlayerController.h"
 #include "GTPRiverRecovery.h"
+#include "GTPRoadWidth.h"
 #include "GTPVehicle.h"
 #include "GTPVehicleInteractionComponent.h"
 #include "GTPWanted.h"
@@ -287,8 +288,11 @@ bool UGTPDemoRoute::RelocateChase(AGTPVehicle* Driven, APlayerController* PC, co
 			PoliceAt.Add(It->GetActorLocation());
 		}
 	}
-	// Two passes: a lane with open road behind it first (FGTPLaneFollower::OpenRoadMetres), any lane that goes on otherwise.
-	for (int32 Pass = 0; Pass < 2; ++Pass)
+	// Pass after pass (GTPRoadWidth::RelocationFits): a main axis that never ends first, then a middle street that never
+	// ends, any lane that never ends, a lane with open road behind it (FGTPLaneFollower::OpenRoadMetres), any lane that
+	// goes on. Until gate 75 the first pass took any lane with 250 m of open road: at 29 s of its film, a narrow street
+	// where the car was wedged between two walls 10 s later.
+	for (int32 Pass = 0; Pass < GTPRoadWidth::RelocationPasses; ++Pass)
 	{
 		for (int32 Try = 0; Try < 300 && Lanes.Num() > 0; ++Try)
 		{
@@ -305,7 +309,8 @@ bool UGTPDemoRoute::RelocateChase(AGTPVehicle* Driven, APlayerController* PC, co
 			{
 				continue;
 			}
-			if (Pass == 0 && FGTPLaneFollower::OpenRoadMetres(Lanes, LaneIndex) < FGTPLaneFollower::OpenRoadWanted)
+			if (!GTPRoadWidth::RelocationFits(Pass, Lane.bNeverEnds, Pass >= 3 ? FGTPLaneFollower::OpenRoadMetres(Lanes, LaneIndex) : 0.f,
+					FGTPLaneFollower::OpenRoadWanted, Lane.CarriagewayM))
 			{
 				continue;
 			}
@@ -358,8 +363,9 @@ bool UGTPDemoRoute::RelocateChase(AGTPVehicle* Driven, APlayerController* PC, co
 			}
 			++ChaseRelocations;
 			LastRelocationAt = FPlatformTime::Seconds();
-			GTP_TRACE(LogGTPDemo, TEXT("Demo chase: %s at %s, the car is put on lane %d %.0f m away at %s (open road %.0f m, police told)"), Why, *From.ToCompactString(),
-				LaneIndex, Distance / 100.0, *Driven->GetActorLocation().ToCompactString(), FGTPLaneFollower::OpenRoadMetres(Lanes, LaneIndex));
+			GTP_TRACE(LogGTPDemo, TEXT("Demo chase: %s at %s, the car is put on lane %d %.0f m away at %s (open road %.0f m, never ends=%d, carriageway %.1f m, %s, pass %d, police told)"),
+				Why, *From.ToCompactString(), LaneIndex, Distance / 100.0, *Driven->GetActorLocation().ToCompactString(), FGTPLaneFollower::OpenRoadMetres(Lanes, LaneIndex),
+				Lane.bNeverEnds ? 1 : 0, Lane.CarriagewayM, ANSI_TO_TCHAR(GTPRoadWidth::ClassName(GTPRoadWidth::Classify(Lane.CarriagewayM))), Pass);
 			return true;
 		}
 	}
@@ -776,7 +782,10 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 		float Cruise = CruiseKmh;
 		if (bChase)
 		{
-			Cruise = T >= 12.0 ? 90.f : 40.f;
+			// From 12 s a credible flight for a city by the width of the street (GTPRoadWidth::FlightKmh): 70 km/h on a main
+			// axis, 60 in a middle street, 45 in a narrow one. Until gate 75: 90 everywhere, 72 km/h reached in a street
+			// 6 m wide between the facades and the car against a wall at its bend.
+			Cruise = T >= 12.0 ? GTPRoadWidth::FlightKmh(Follower.GetCarriagewayM()) : 40.f;
 			// The way ahead is kept clear of the city's traffic (a demo cannot queue behind a taxi): twice a second, a
 			// traffic car in the player's own way is taken off the road, ahead within 35 m and within 2.5 m of the line his
 			// car drives on. The cars coming the other way, beside him or crossing further on stay in the street: until
@@ -914,6 +923,9 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 					if (Now - SlowSince > 2.0 && Now >= RamUntil)
 					{
 						SlowSince = 0.0;
+						// Against something that does not move (a wall, a post, a block of the map), within 3 m: pushing on it
+						// only shows a car pressed on a wall (gate 75's film, 24 to 28 s against a traffic light post).
+						bool bStillAhead = false;
 						{
 							// What holds the car: the first thing within 8 m ahead (any channel the car collides with) and the car's own state.
 							FHitResult Ahead;
@@ -921,9 +933,12 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 							const FVector From = Driven->GetActorLocation() + FVector(0.f, 0.f, 60.f);
 							const FVector To = From + Driven->GetActorForwardVector() * 800.f;
 							const bool bHit = Driven->GetWorld()->SweepSingleByChannel(Ahead, From, To, FQuat::Identity, ECC_Vehicle, FCollisionShape::MakeSphere(60.f), HeldParams);
-							GTP_TRACE(LogGTPDemo, TEXT("Demo chase: held up at %s yaw=%.0f gear=%d, ahead: %s (%s) at %.1f m"), *Driven->GetActorLocation().ToCompactString(),
+							const UPrimitiveComponent* HitBody = bHit ? Ahead.GetComponent() : nullptr;
+							bStillAhead = HitBody && Ahead.Distance < 300.f && !HitBody->IsSimulatingPhysics() && !Cast<APawn>(Ahead.GetActor());
+							GTP_TRACE(LogGTPDemo, TEXT("Demo chase: held up at %s yaw=%.0f gear=%d, ahead: %s (%s) at %.1f m%s"), *Driven->GetActorLocation().ToCompactString(),
 								Driven->GetActorRotation().Yaw, Driven->GetGear(), bHit ? *GetNameSafe(Ahead.GetActor()) : TEXT("nothing"),
-								bHit ? *GetNameSafe(Ahead.GetComponent()) : TEXT("-"), bHit ? Ahead.Distance / 100.f : -1.f);
+								bHit ? *GetNameSafe(Ahead.GetComponent()) : TEXT("-"), bHit ? Ahead.Distance / 100.f : -1.f,
+								bStillAhead ? TEXT(", does not move: backing off") : TEXT(""));
 						}
 						// The demo must not wait on the city's traffic: cars of the traffic within 25 m are taken off the road.
 						{
@@ -955,7 +970,7 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 							ChaseStuckCount = 0;
 							break;
 						}
-						if (++ChaseStuckCount % 2 == 1)
+						if (++ChaseStuckCount % 2 == 1 && !bStillAhead)
 						{
 							RamUntil = Now + 3.0;
 							GTP_TRACE(LogGTPDemo, TEXT("Demo chase: held up, pushing through"));

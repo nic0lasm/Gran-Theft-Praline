@@ -55,6 +55,21 @@ struct FGTPTrafficLane
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Traffic")
 	int32 ToJunction = -1;
 
+	/** This lane's share of its road's carriageway (m), from the lanes file; 0 when unknown. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Traffic")
+	float WidthM = 0.f;
+
+	/**
+	 * Width of the carriageway around the lane (m, GTPRoadWidth::Carriageways: the lanes of its road near its middle,
+	 * both directions); 0 when unknown. Under 5 m a narrow street, 7 m and over a main axis.
+	 */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Traffic")
+	float CarriagewayM = 0.f;
+
+	/** Some way goes on for ever from this lane (GTPRoadWidth::NeverEnding): a flight that takes it meets no dead end. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Traffic")
+	bool bNeverEnds = false;
+
 	float LengthCm() const;
 };
 
@@ -74,8 +89,9 @@ struct GRANTHEFTPRALINE_API FGTPLaneFollower
 	/** Chases and demos: the speed given to Step is the limit, not the lane's posted speed. */
 	bool bIgnoreLaneLimit = false;
 
-	/** Chases and demos: at a junction take the exit that turns the least (a flight keeps to the main axes),
-	 *  among the exits with open road behind them (OpenRoadMetres): never into a dead end when another way exists. */
+	/** Chases and demos: at a junction take an exit that never ends (FGTPTrafficLane::bNeverEnds), or else the one with the
+	 *  most open road behind it (OpenRoadMetres); then the widest road (a flight keeps to the main axes, not to the narrow
+	 *  streets); then the one that turns the least (GTPRoadWidth::ExitScore). */
 	bool bPreferStraight = false;
 
 	/** Metres of road open after entering Lane (GTPDrive::OpenRoad over the network's lanes, 6 junctions deep, capped at OpenRoadWanted). */
@@ -108,6 +124,9 @@ struct GRANTHEFTPRALINE_API FGTPLaneFollower
 
 	/** Index of the lane being followed, INDEX_NONE when idle (logged by the deterministic demo to compare two runs). */
 	int32 GetLane() const { return Route.Num() > 0 ? Route[0] : INDEX_NONE; }
+
+	/** Carriageway around the lane being followed (m, FGTPTrafficLane::CarriagewayM); 0 when idle or unknown. */
+	float GetCarriagewayM() const;
 
 	/** From now on, junction choices lead towards Goal (world cm) instead of being random. */
 	void SetGoal(const FVector& InGoal) { Goal = InGoal; bHasGoal = true; }
@@ -491,6 +510,9 @@ public:
 
 	/** Reads a lanes CSV (traffic.py format) without a network (the launch test with -Traffic=0); false when none. */
 	static bool ReadLanesCsv(const FString& Path, TArray<FGTPTrafficLane>& OutLanes);
+
+	/** Sets FGTPTrafficLane::bNeverEnds on every lane (GTPRoadWidth::NeverEnding): from those, no way ends at a dead end. */
+	static void MarkNeverEnding(TArray<FGTPTrafficLane>& InLanes);
 
 	/** Path of the lanes file for a map name, under the project content folder. */
 	static FString LanesFileFor(const FString& MapName);

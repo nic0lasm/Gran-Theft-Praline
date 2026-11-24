@@ -622,6 +622,49 @@ traffic code, 10.1). Two causes in `legacy-traffic-lines-gtarun.txt`:
   once while in view; cars placed on request (GTARun) are never taken. Not proven: why that parked car
   stood in the Kangoo's way (placement checks passed: no lane under its body).
 
+### 8.9 The flight keeps to the main axes (24/11)
+
+Gate 75's filmed flight (`-GTARun -GTARunEncore`) averaged 24 to 34 km/h. On its frames: from 22 to
+28 s, turning off the quai Jean Moulin, the car cut the corner onto a traffic light post and stood
+there; at 29 s the script put it on another lane (held up twice in the same place), a narrow street
+driven at 57 to 72 km/h, where it was wedged between two walls from 39 to 46 s before being put
+elsewhere again; from 72 to 95 s it stood against a white block at the corner of a square, then the
+run's outcome step stopped it (the player gives up) until the arrest. The chase script knew nothing
+of the width of a street: at a junction it took the straightest exit among those with 250 m of open
+road (6 junctions ahead), and it put a car held up or at the end of the lanes on a lane drawn at
+random 80 to 150 m away.
+
+- `GTPRoadWidth.h`, outside Unreal (`tools/vehicles/wanted_sim/road_width_test.cpp`, in CI):
+  - the carriageway around a lane: the `width_m` of the lanes of the same BD TOPO road (`road_id`)
+    within 20 m of its middle, both directions. Under 5 m a narrow street, 7 m and over a main axis.
+    On the quarter's 1043 lanes, 349 of the 401 lanes of BD TOPO importance 1 to 3 (quays, bridges,
+    rue de la Barre) are 7 m wide or more, and 326 of the 642 lanes of importance 4 and 5 are under
+    5 m. Both columns were already in the lanes file: nothing to regenerate;
+  - the lanes that never end: from them some way goes on for ever without a dead end (the dead ends
+    peeled off, then the lanes that lead only to them, and so on);
+  - the exit taken at a junction (`FGTPLaneFollower::bPreferStraight`, used by the chase script
+    only): one that never ends first, otherwise the most open road; then the widest road (a main
+    axis, then a middle street, then a narrow one); then the straightest;
+  - the speed of the flight from 12 s: 70 km/h on a main axis, 60 in a middle street or on a road of
+    unknown width, 45 in a narrow street (90 everywhere until gate 75);
+  - where a car is put (`UGTPDemoRoute::RelocateChase`), pass after pass: a main axis that never
+    ends, a middle street that never ends, any lane that never ends, then as before.
+- Held up within 3 m of something that does not move (no simulated body, not a pawn): the car backs
+  off at once instead of pushing on it for 3 s.
+- Logs: "traffic: lanes for a flight: N of M never end (no dead end ahead); carriageway: ..." at
+  begin play; the relocation line gives "never ends", the carriageway, its class and the pass; the
+  "held up" line ends with ", does not move: backing off" when it does.
+- Replayed with the game's own rules on the quarter's lanes (`road_width_test <lanes.csv>
+  [x_cm,y_cm]`), from the carjack of -GTARun on the quai Jean Moulin: until gate 75, 16 % of 2.5 km
+  on main axes and 50 % in narrow streets (rue Gentil, then round the Terreaux); now 46 % and 36 %
+  (quais Jean Moulin and Jules Courmont, rue Childebert, rue de la Barre, place Bellecour), no dead
+  end. A flight that starts on one of the 705 lanes that never end meets no dead end; until gate 75,
+  749 flights of 1043 met one within 2.5 km, each a relocation. The game reads the 235 lanes of
+  `L_City_RueDeLaRepublique`, not the quarter's: the same replay is to be run on that file.
+- Not proven: in the game. The white block of 72 s is not identified (the "held up ... ahead:" line
+  of the filmed pass names it). The police's part of the flight (gate 75's measured pass: units at
+  23 km/h on average for 25 wanted) belongs to the Police thread.
+
 ## 9. Making a drivable car
 
 ### 9.1 First test car (no Tripo)

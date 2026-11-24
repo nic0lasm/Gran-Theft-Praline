@@ -109,6 +109,12 @@ jobs:
           /tmp/lane_route_test
           printf '#include "GTPLaneRoute.h"\nint main() { return 0; }\n' > /tmp/hdr.cpp
           clang++ -std=c++17 -fsyntax-only -Wall -Wextra -Werror -Wconversion -Wsign-conversion -Wshadow -Wdouble-promotion -I GranTheftPraline/Source/GranTheftPraline/Public /tmp/hdr.cpp
+      - name: The roads a flight takes (carriageway width, lanes that never end)
+        run: |
+          g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/wanted_sim/road_width_test.cpp -o /tmp/road_width_test
+          /tmp/road_width_test
+          printf '#include "GTPRoadWidth.h"\nint main() { return 0; }\n' > /tmp/hdr.cpp
+          clang++ -std=c++17 -fsyntax-only -Wall -Wextra -Werror -Wconversion -Wsign-conversion -Wshadow -Wdouble-promotion -I GranTheftPraline/Source/GranTheftPraline/Public /tmp/hdr.cpp
       - name: Witnesses of a crime
         run: |
           g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/wanted_sim/witness_test.cpp -o /tmp/witness_test
