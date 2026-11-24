@@ -672,6 +672,51 @@ même code de trafic, 10,1). Deux causes dans `legacy-traffic-lines-gtarun.txt` 
   prouvé : pourquoi cette voiture garée était sur le chemin de la Kangoo (contrôles de pose passés :
   aucune voie sous sa carrosserie).
 
+### 8.9 La fuite reste sur les grands axes (24/11)
+
+La fuite filmée de la porte 75 (`-GTARun -GTARunEncore`) tenait 24 à 34 km/h de moyenne. Sur ses
+images : de 22 à 28 s, en quittant le quai Jean Moulin, la voiture coupe le virage sur un poteau de
+feu tricolore et y reste ; à 29 s le script la pose sur une autre voie (bloquée deux fois au même
+endroit), une rue étroite parcourue à 57-72 km/h, où elle se coince entre deux murs de 39 à 46 s avant
+d'être reposée ailleurs ; de 72 à 95 s elle est arrêtée contre un bloc blanc au coin d'une place,
+puis l'étape « outcome » du run l'arrête (le joueur se rend) jusqu'à l'arrestation. Le script de
+poursuite ignorait la largeur des rues : à un carrefour il prenait la sortie la plus droite parmi
+celles qui ont 250 m de route ouverte (6 carrefours devant), et il posait une voiture bloquée ou au
+bout des voies sur une voie tirée au hasard entre 80 et 150 m.
+
+- `GTPRoadWidth.h`, hors Unreal (`tools/vehicles/wanted_sim/road_width_test.cpp`, en CI) :
+  - la chaussée autour d'une voie : les `width_m` des voies de la même route BD TOPO (`road_id`) à
+    moins de 20 m de son milieu, dans les deux sens. Sous 5 m une rue étroite, 7 m et plus un grand
+    axe. Sur les 1043 voies du quartier, 349 des 401 voies d'importance BD TOPO 1 à 3 (quais, ponts,
+    rue de la Barre) font 7 m ou plus, et 326 des 642 voies d'importance 4 et 5 moins de 5 m. Les
+    deux colonnes étaient déjà dans le fichier des voies : rien à régénérer ;
+  - les voies qui ne finissent jamais : de chacune, un chemin continue sans fin sans impasse (on
+    retire les impasses, puis les voies qui ne mènent qu'à elles, et ainsi de suite) ;
+  - la sortie prise à un carrefour (`FGTPLaneFollower::bPreferStraight`, utilisé par le seul script
+    de poursuite) : une qui ne finit jamais d'abord, sinon la plus longue route ouverte ; puis la
+    route la plus large (grand axe, puis rue moyenne, puis rue étroite) ; puis la plus droite ;
+  - la vitesse de la fuite à partir de 12 s : 70 km/h sur un grand axe, 60 dans une rue moyenne ou
+    sur une route de largeur inconnue, 45 dans une rue étroite (90 partout jusqu'à la porte 75) ;
+  - où une voiture est reposée (`UGTPDemoRoute::RelocateChase`), passe après passe : un grand axe qui
+    ne finit jamais, une rue moyenne qui ne finit jamais, toute voie qui ne finit jamais, puis comme
+    avant.
+- Bloquée à moins de 3 m d'un obstacle qui ne bouge pas (pas de corps simulé, pas un pion) : la
+  voiture recule tout de suite au lieu de pousser dessus 3 s.
+- Journal : « traffic: lanes for a flight: N of M never end (no dead end ahead); carriageway: ... »
+  au début de partie ; la ligne de remise sur voie donne « never ends », la chaussée, sa classe et
+  la passe ; la ligne « held up » finit par « , does not move: backing off » le cas échéant.
+- Rejouée avec les règles du jeu sur les voies du quartier (`road_width_test <lanes.csv>
+  [x_cm,y_cm]`), depuis le vol de voiture de -GTARun sur le quai Jean Moulin : jusqu'à la porte 75,
+  16 % des 2,5 km sur des grands axes et 50 % dans des rues étroites (rue Gentil, puis autour des
+  Terreaux) ; désormais 46 % et 36 % (quais Jean Moulin et Jules Courmont, rue Childebert, rue de la
+  Barre, place Bellecour), sans impasse. Une fuite qui part d'une des 705 voies qui ne finissent jamais
+  ne rencontre aucune impasse ; jusqu'à la porte 75, 749 fuites sur 1043 en rencontraient une en
+  2,5 km, chacune une remise sur voie. Le jeu lit les 235 voies de `L_City_RueDeLaRepublique`, pas
+  celles du quartier : la même relecture est à faire sur ce fichier.
+- Pas prouvé : en jeu. Le bloc blanc de 72 s n'est pas identifié (la ligne « held up ... ahead: » de
+  la passe filmée le nomme). La part de la police dans la fuite (passe mesurée de la porte 75 :
+  voitures à 23 km/h de moyenne pour 25 attendus) revient au fil Police.
+
 ## 9. Préparer une voiture conduisible
 
 ### 9.1 Première voiture d'essai (sans Tripo)
