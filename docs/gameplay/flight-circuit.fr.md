@@ -2,7 +2,7 @@
 
 [English](flight-circuit.md)
 
-Le parcours automatique (`-GTARun`, `-PoliceChaseDemo`) vole une voiture quai Jean Moulin et s'enfuit. Jusqu'à la porte 78 la fuite était libre sur les voies de la carte : à chaque carrefour, la sortie qui offrait la meilleure suite. N'importe quel mur, poteau ou trou de tout le centre pouvait l'arrêter, et le script remettait la voiture sur une voie 4 à 8 fois en quatre minutes filmées. Désormais la fuite suit un circuit, choisi hors du jeu et gardé dans Git. La police poursuit librement.
+Le parcours automatique (`-GTARun`, `-PoliceChaseDemo`) vole une voiture quai Jean Moulin et s'enfuit. Jusqu'à la porte 78 la fuite était libre sur les voies de la carte : à chaque carrefour, la sortie qui offrait la meilleure suite. N'importe quel mur, poteau ou trou de tout le centre pouvait l'arrêter, et le script remettait la voiture sur une voie 4 à 8 fois en quatre minutes filmées. Désormais la fuite suit un circuit, choisi hors du jeu et gardé dans Git. La police poursuit librement : elle choisit son chemin, et sur une voie du circuit une unité suit la ligne du circuit, comme la fuite (à la porte 78 les unités faisaient 14 à 21 km/h de moyenne sur les points des voies ; `-PoliceCircuitLines=0` pour comparer).
 
 ## Le fichier
 

@@ -148,7 +148,7 @@ bool FGTPLaneFollower::StartNear(AGTPTrafficNetwork* InNetwork, const FVector& L
 	Route.Add(Lane);
 	Closest = Point;
 	Plan();
-	if (bFollowCircuit && InNetwork->GetFlightCircuit().LineOf(Lane))
+	if ((bFollowCircuit || bDriveCircuitLines) && InNetwork->GetFlightCircuit().LineOf(Lane))
 	{
 		// The lane is driven on its line (Plan): the closest point is one of the line's, not of the lane's.
 		const float AtX = static_cast<float>(Location.X) * CmToM;
@@ -389,7 +389,7 @@ void FGTPLaneFollower::Plan()
 	{
 		const int32 Lane = Route[RouteIndex];
 		// A lane of the flight circuit is driven on its line (GTPFlightCircuit.h), the others on their own points.
-		const std::vector<GTPFlightCircuit::FLinePoint>* DrivenLine = bFollowCircuit ? Net->GetFlightCircuit().LineOf(Lane) : nullptr;
+		const std::vector<GTPFlightCircuit::FLinePoint>* DrivenLine = bFollowCircuit || bDriveCircuitLines ? Net->GetFlightCircuit().LineOf(Lane) : nullptr;
 		if (DrivenLine)
 		{
 			for (const GTPFlightCircuit::FLinePoint& LinePoint : *DrivenLine)

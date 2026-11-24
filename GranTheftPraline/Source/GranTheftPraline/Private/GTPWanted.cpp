@@ -731,6 +731,9 @@ void AGTPPoliceDirector::BeginPlay()
 	{
 		CloseInDistance = 0.f;
 	}
+	int32 CircuitLinesSwitch = bUnitsOnCircuitLines ? 1 : 0;
+	FParse::Value(FCommandLine::Get(), TEXT("PoliceCircuitLines="), CircuitLinesSwitch);
+	bUnitsOnCircuitLines = CircuitLinesSwitch != 0;
 	LoadedPoliceClass = PoliceVehicleClass.TryLoadClass<AGTPVehicle>();
 	FString PoliceLook;
 	if (LoadedPoliceClass.Get() && !AGTPVehicle::IsClassDrawn(LoadedPoliceClass.Get(), PoliceLook))
@@ -758,9 +761,9 @@ void AGTPPoliceDirector::BeginPlay()
 		Queries->Init();
 	}
 	NextSpawnTime = GetWorld()->GetTimeSeconds() + 3.f;
-	GTP_TRACE(LogGTPWanted, TEXT("police: on, up to %d units, class %s; scenery %s, straight at a known player within %.0f m with nothing between"), MaxUnits,
+	GTP_TRACE(LogGTPWanted, TEXT("police: on, up to %d units, class %s; scenery %s, straight at a known player within %.0f m with nothing between; flight circuit lanes driven on %s"), MaxUnits,
 		LoadedPoliceClass.Get() ? *GetNameSafe(LoadedPoliceClass.Get()) : TEXT("traffic cars"), bAvoidScenery ? TEXT("gone round") : TEXT("not looked at (-PoliceAvoid=0)"),
-		CloseInDistance * WantedCmToM);
+		CloseInDistance * WantedCmToM, bUnitsOnCircuitLines ? TEXT("the circuit's line") : TEXT("their own points (-PoliceCircuitLines=0)"));
 }
 
 void AGTPPoliceDirector::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -1598,6 +1601,7 @@ void AGTPPoliceDirector::DriveOnLanes(FUnit& Unit, const FVector& Goal, bool bHa
 		Unit.Follower = FGTPLaneFollower();
 		Unit.Follower.bIgnoreLaneLimit = true;
 		Unit.Follower.bRouteToGoal = true;
+		Unit.Follower.bDriveCircuitLines = bUnitsOnCircuitLines;
 		Unit.Follower.AvoidLane = NowSeconds < Unit.AvoidUntil ? Unit.AvoidLane : INDEX_NONE;
 		// The unit's chase settings on the lanes too: the follower's own are the calm city ones
 		// (bends at 2.2 m/s2, soft throttle), which held a chase at 105 km/h near 70.

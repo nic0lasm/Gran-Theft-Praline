@@ -107,6 +107,12 @@ struct GRANTHEFTPRALINE_API FGTPLaneFollower
 	 *  bPreferStraight chooses as before. Set before StartNear. */
 	bool bFollowCircuit = false;
 
+	/** Pursuers of a flight: the lanes of the map's flight circuit are driven on their lines (looked at beforehand,
+	 *  without the jogs of the lanes) whatever chooses the way; the other lanes on their own points. Where the way
+	 *  leaves the circuit the line ends up to 4.5 m beside the next lane, a jog as the lanes have many. Set before
+	 *  StartNear. */
+	bool bDriveCircuitLines = false;
+
 	/** The lane being followed is of the map's flight circuit, lap or approach. */
 	bool IsOnCircuit() const;
 
