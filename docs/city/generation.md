@@ -340,6 +340,13 @@ sea. Four causes, four changes.
    `dressed_stone` (Poly Haven `sandstone_blocks_08`, CC0: smooth blocks, fine joints) comes
    first for the wall detail; without it in the project the old scan stays.
 
+5. **Fronts in roof colours.** The LiDAR-fitted roofs of the backdrop volumes have vertical
+   faces, painted like the roof: whole fronts of the quay stood brick red (tiles) or blue-grey
+   (zinc) at 9 s, and the steep slopes (mansards) took the facade's windows in the roof colour.
+   `M_City_Backdrop` now knows a roof colour by its value (`facade_tone.ROOF_ON_WALLS`): on a
+   vertical face it becomes stone, on a slope it stays a roof and leaves the wall mask.
+   `GTP_ROOF_WALLS=0` turns it off; `materials_report.json` gives `roof_walls`.
+
 Positions of the hills and towers are approximate on purpose (a far view, never a place to go).
 Not seen in game yet.
 

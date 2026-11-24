@@ -66,6 +66,34 @@ def render_share(rgb):
     return min(1.0, max(0.0, (saturation(rgb) - lo) / (hi - lo)))
 
 
+# Walls painted in a roof colour. The LiDAR-fitted roofs of the backdrop volumes have vertical
+# faces (the sides of a roof block, down to a low eave), painted like the roof: whole fronts of
+# the quay stood brick red (tiles) or blue-grey (zinc) in gate 76's video. The backdrop material
+# knows a roof colour by its value (meshkit.ROOF_COLOURS, as bytes or decoded): on a vertical
+# face it becomes stone, on a slope it stays a roof and takes no windows.
+ROOF_ON_WALLS = ((0.62, 0.33, 0.24), (0.43, 0.46, 0.49))    # tile, zinc
+ROOF_RADIUS = 0.05             # distance in RGB under which a colour is that roof colour
+ROOF_AS_WALL = (0.72, 0.66, 0.55)                            # the stone it becomes, before the tone
+
+
+def roof_colour_readings():
+    """Each roof colour as the material may receive it: the bytes as they are, or decoded."""
+    out = []
+    for colour in ROOF_ON_WALLS:
+        out.append(tuple(round(c * 255.0) / 255.0 for c in colour))
+        out.append(tuple(srgb_to_linear(round(c * 255.0) / 255.0) for c in colour))
+    return out
+
+
+def roof_share(rgb):
+    """1 when rgb is one of the roof colours, 0 beyond ROOF_RADIUS of all of them."""
+    best = 0.0
+    for colour in roof_colour_readings():
+        d2 = sum((a - b) ** 2 for a, b in zip(rgb, colour))
+        best = max(best, 1.0 - d2 / ROOF_RADIUS ** 2)
+    return max(0.0, best)
+
+
 def srgb_to_linear(c):
     return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
 

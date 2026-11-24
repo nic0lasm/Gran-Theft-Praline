@@ -357,6 +357,14 @@ bleu sombre sous le ciel, comme une mer. Quatre causes, quatre changements.
    fins) passe en premier pour le détail des murs ; sans elle dans le projet, l'ancien scan
    reste.
 
+5. **Des façades en couleur de toit.** Les toits ajustés au LiDAR des volumes de fond ont des
+   faces verticales, peintes comme le toit : des façades entières du quai étaient rouge brique
+   (tuiles) ou bleu-gris (zinc) à 9 s, et les pentes raides (mansardes) prenaient les fenêtres
+   de la façade dans la couleur du toit. `M_City_Backdrop` reconnaît maintenant une couleur de
+   toit à sa valeur (`facade_tone.ROOF_ON_WALLS`) : sur une face verticale elle devient pierre,
+   sur une pente elle reste un toit et sort du masque de mur. `GTP_ROOF_WALLS=0` le coupe ;
+   `materials_report.json` donne `roof_walls`.
+
 Les positions des collines et des tours sont approximatives exprès (un lointain, jamais un lieu
 où aller). Pas encore vu en jeu.
 
