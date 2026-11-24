@@ -19,7 +19,7 @@ Le vol a lieu quai Jean Moulin, côté qui monte vers le nord, 400 m au nord de 
 Jusqu'à la porte 80 le fichier des voies ne pouvait pas porter cette boucle, pour deux raisons, toutes deux dans `tools/city/traffic.py` :
 
 - un tronçon de 2,7 m de la rue Herriot, place des Jacobins, était écarté comme trop court, ce qui coupait la rue. Un tronçon de route entier est maintenant gardé à partir de 0,6 m ;
-- les voies n'étaient créées qu'à moins de 60 m d'un immeuble généré, ce qui écartait 650 m de cette boucle (la rue Herriot au nord des Jacobins, la rue Jean de Tournes, le quai entre la rue Ferrandière et la rue Childebert, l'est de la rue Childebert). Les routes du circuit sont maintenant listées dans `tools/city/through_roads/<focus>.txt` et gardées entières dans l'étendue de la carte. Le fichier des voies passe de 229 à 255 voies.
+- les voies n'étaient créées qu'à moins de 60 m d'un immeuble généré, ce qui retirait 610 m à cette boucle (201 m du quai au nord de la rue Childebert, 118 m de la rue Grolée, 96 m de la rue Herriot au nord des Jacobins, 82 m de la rue Childebert, 81 m de la rue Stella, 32 m de la rue Jean de Tournes). Les routes du circuit sont maintenant listées dans `tools/city/through_roads/<focus>.txt` et gardées entières dans l'étendue de la carte. Le fichier des voies passe de 229 à 255 voies.
 
 La boucle choisie d'abord faisait 817 m autour de la place des Cordeliers : le plus long circuit fermé du fichier des voies tel qu'il était. Elle ne montrait pas Bellecour.
 

@@ -41,8 +41,8 @@ back through the junction of the pont Lafayette (397, 161, 148) and runs down th
 rue Childebert (488 m).
 Two things kept the lanes file from holding that lap until gate 80, both in tools/city/traffic.py:
 a road segment of 2.7 m of the rue Herriot at the place des Jacobins was dropped as too short and
-cut the street; and lanes were only made within 60 m of a generated building, which left out
-650 m of this lap. The roads of the circuit are now listed in tools/city/through_roads/<focus>.txt
+cut the street; and lanes were only made within 60 m of a generated building, which cut 610 m
+out of this lap. The roads of the circuit are now listed in tools/city/through_roads/<focus>.txt
 (write --roads-out) and kept whole. The lap before, 817 m round the place des Cordeliers, did not
 show Bellecour.
 By the lanes file 41 % of the lap is on main axes: it counts a one-way street by its one lane of
