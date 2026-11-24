@@ -56,6 +56,7 @@ mémoire et ne guident plus le travail.
 | [Trafic sur MassTraffic](gameplay/traffic-mass.fr.md), [réactions du trafic](gameplay/traffic-reactions.fr.md) | Le trafic de City Sample à Lyon |
 | [Piétons](gameplay/pedestrians.fr.md), [piétons sur Mass](gameplay/pedestrians-mass.fr.md) | La foule et ses réactions |
 | [Recherche et police](gameplay/wanted.fr.md) | Témoins, étoiles, poursuite |
+| [Le circuit de la fuite filmée](gameplay/flight-circuit.fr.md) | La boucle que suit la fuite du parcours automatique, son fichier, sa ligne de conduite |
 | [Combat et armes](gameplay/combat.fr.md), [réactions aux coups](gameplay/hit-reactions.fr.md), [réaction à la menace](gameplay/threat-response.fr.md) | Braquages et tir |
 | [Ragdoll](gameplay/ragdoll.fr.md), [mobilier cassable](gameplay/breakable-street-furniture.fr.md) | Réactions physiques |
 | [Sources d'animation](animation/sources.fr.md), [animations de combat](animation/combat-sources.fr.md), [poses de voiture](animation/car-poses.fr.md) | D'où viennent les animations |

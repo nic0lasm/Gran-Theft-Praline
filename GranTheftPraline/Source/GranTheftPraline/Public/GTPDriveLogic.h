@@ -400,9 +400,28 @@ namespace GTPDrive
 				Out.Limit = LimitObstacle;
 			}
 		}
-		// End of the known path: stop there.
+		// End of the known path: stop there. Counted along the path when that is longer than as the crow flies: where
+		// the path comes back beside itself (a quay driven up one side and down the other, a lap), its end lies a few
+		// metres from a car that still has 200 m to drive, and the straight distance held that car to 45 km/h.
 		const FGTPDrivePoint& Last = Path.back();
-		const float ToEnd = std::hypot(Last.X - X, Last.Y - Y);
+		float ToEnd = std::hypot(Last.X - X, Last.Y - Y);
+		{
+			const int Count = static_cast<int>(Path.size());
+			const int From = InOutClosest < 0 ? 0 : (InOutClosest >= Count ? Count - 1 : InOutClosest);
+			float AlongPath = 0.f;
+			for (int Index = From; Index + 1 < Count; ++Index)
+			{
+				AlongPath += std::hypot(Path[Index + 1].X - Path[Index].X, Path[Index + 1].Y - Path[Index].Y);
+			}
+			if (From + 1 < Count)
+			{
+				// Less what the car has driven past its closest point (more when that point is still ahead).
+				const float Dx = Path[From + 1].X - Path[From].X, Dy = Path[From + 1].Y - Path[From].Y;
+				const float Length = std::hypot(Dx, Dy);
+				AlongPath -= Length > 1e-4f ? ((X - Path[From].X) * Dx + (Y - Path[From].Y) * Dy) / Length : 0.f;
+			}
+			ToEnd = AlongPath > ToEnd ? AlongPath : ToEnd;
+		}
 		const float VEnd = std::sqrt(2.f * S.ComfortDecel * (ToEnd > 1.f ? ToEnd - 1.f : 0.f));
 		if (VEnd < Want)
 		{
