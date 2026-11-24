@@ -260,7 +260,7 @@ salmon pinks and brick oranges at full saturation, some lighter than any wall is
 on a quay they read as a row of painted toys (gate 69 video), and the reference photographs of
 the slice show cream limestone on the rue de la République and the quays, pale renders on the
 side streets. `tools/city/facade_tone.py` tones the colour in the materials, so the generated
-tables and the map stay as they are: the hue is pulled halfway to the cream of the limestone
+tables and the map stay as they are: the hue is pulled most of the way to the cream of the limestone (0.3 of the generator's hue is kept; 0.5 until gate 77, whose video still showed painted yellows on the quay)
 (the buildings still differ, as the renders of one town do), and the luminance above 0.38 is
 halved, so no wall is lighter than light limestone (art bible 4.2: 150 to 210 in sRGB 8 bits,
 110 to 200 for renders) and the lightest stay the lightest. `apply_city_materials.py` builds

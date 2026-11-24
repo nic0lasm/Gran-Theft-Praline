@@ -20,7 +20,7 @@ art bible's ranges. GTP_FACADE_TONE=0 on apply_city_materials leaves the generat
 
 LUMA = (0.2126, 0.7152, 0.0722)      # linear Rec. 709
 STONE = (1.10, 1.00, 0.80)           # hue of the cream limestone, before normalisation
-KEEP = 0.5                           # share of the generator's own hue
+KEEP = 0.3                           # share of the generator's own hue (0.5 until gate 77: the quay's yellows still read as paint)
 KNEE = 0.38                          # linear luminance left untouched below this
 SLOPE = 0.5                          # what is kept of the luminance above the knee
 

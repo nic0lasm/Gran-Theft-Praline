@@ -271,7 +271,7 @@ Côte à côte sur un quai, ils font une rangée de jouets peints (vidéo de la 
 les photos de référence de la tranche montrent du calcaire crème rue de la République et sur les
 quais, des enduits pâles dans les rues voisines. `tools/city/facade_tone.py` corrige la couleur
 dans les matériaux, donc les tables générées et la map restent telles quelles : la teinte est
-tirée à moitié vers le crème du calcaire (les bâtiments diffèrent encore, comme les enduits
+tirée presque entièrement vers le crème du calcaire (0,3 de la teinte du générateur est gardé ; 0,5 jusqu'à la porte 77, dont la vidéo montrait encore des jaunes peints sur le quai) (les bâtiments diffèrent encore, comme les enduits
 d'une même ville) et la luminance au-dessus de 0,38 est divisée par deux, si bien qu'aucun mur
 n'est plus clair qu'un calcaire clair (bible artistique 4.2 : 150 à 210 en sRGB 8 bits, 110 à
 200 pour les enduits) et que les plus clairs restent les plus clairs.
