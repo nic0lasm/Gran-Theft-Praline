@@ -1,41 +1,41 @@
 """Make what the police wear, inside the Unreal Editor (no UI): the car's livery and the officers' navy blue.
 
-Run once per clone, before a cook (Epic's content is out of Git, so are the assets made here):
+Run once per clone, before a cook (Epic's content is out of Git, so are the assets made here), and after
+tools/vehicles/unreal/make_epic_vehicles.py, which makes the police car:
     UnrealEditor-Cmd GranTheftPraline.uproject -run=pythonscript -script=tools/police/unreal/make_police_look.py
 
 The police car is vehicle13 of City Sample Vehicles with our two lights on the roof, and nothing says "police" on it.
 The officers wear the crowd's garments in their own colours.
 
-1. /Game/Vehicles/Epic/GTP/Police/M_GTP_PoliceBand: a deferred decal, plain blue. AGTPPoliceDirector hangs one on
-   each police car, projected across the car at door height: a blue band on both sides, on the body's own shape.
-2. /Game/Vehicles/Epic/GTP/Police/MI_GTP_PolicePaint_<slot>: for each material slot of the police car's mesh that is
-   body paint, a child of Epic's material with its colour parameters set to white. The director puts them on the car.
+1. /Game/Vehicles/Epic/GTP/Police/M_GTP_PoliceBand and M_GTP_PoliceStripe: deferred decals, plain blue and plain
+   red. AGTPPoliceDirector hangs them on each police car, projected across the car at door height: a blue band
+   with a thin red stripe above it on both sides, on the body's own shape.
+2. /Game/Vehicles/Epic/GTP/Police/MI_GTP_PolicePaint_<mesh>_<slot>: for each material slot that is body paint, on
+   each mesh that draws the car, a child of Epic's material with its colour parameters set to white. The meshes are
+   the car's body and the look parts its Blueprint lists (a City Sample car's body is a rig without geometry; its
+   exterior and its glass are drawn by look parts). The director puts each child on its slot.
 3. /Game/Crowd/GTP/Police/MI_GTP_Uniform_<garment>_<slot>: for each material slot of the officers' garments, a
    child of Epic's material with its colour parameters set to navy blue (black for the shoes). AGTPPoliceOfficer
    puts them on the garments.
 
-Run of 23/11: the police car's mesh has one slot, 'lambert1', with no material in it. So for a slot without a
-material the script now looks at what the car's Blueprint puts on it and at the mesh of Epic's it was copied from
-(named by Saved/VehicleImport/epic_vehicles_report.json), and reports both. When nothing at all is found, that slot is
-drawn with the engine's grey default material, and only then the script makes a paint of its own for it:
-/Game/Vehicles/Epic/GTP/Police/M_GTP_PolicePlain, white, with the windows' height and the bottom of the car darkened
-(one slot covers the whole car: glass, pillars and tyres cannot be told apart, only heights can). The heights are
-shares of the mesh's box: GTP_POLICE_GLASS=low,high (default 0.60,0.90) and GTP_POLICE_SKIRT=share (default 0.12).
-GTP_POLICE_MASK=0 makes it white all over. The report gives its pixel shader instructions: 0 means that it did not
-compile (gate 67: cooked like that, it logged LogMaterial errors in the game); it is then made again without the mask.
+A child that only changes colours has no shader of its own: it is cooked with its parent's. The navy children have
+loaded without an error since gate 66. A paint of our own (M_GTP_PolicePlain, 23/11) did not: it logged "invalid
+ShaderMap" at gates 67 and 68, and its pixel shader instructions read 0 in this commandlet whatever its nodes, so
+that figure cannot tell here whether it compiles. It is no longer made; GTP_POLICE_PLAIN=1 makes it again for a
+slot that has no material (GTP_POLICE_MASK=0: white all over; GTP_POLICE_GLASS, GTP_POLICE_SKIRT: its heights).
 
 The colour parameters of Epic's materials are not known in the repository. A parameter is taken when its name is one
 of COLOUR_NAMES, or holds one of COLOUR_WORDS and none of NOT_COLOUR. When a material has none, nothing is made for
 that slot and the game keeps Epic's material: read the report, add the name, run again. The report lists every slot,
 its material and all its parameters: Saved/PoliceLook/police_look_report.txt. It also gives the bones from the head
-to the root of the officers' body (the vest needs the name of the upper spine bone) and says whether the head and
-the run loop named in DefaultGame.ini are there.
+to the root of the officers' body and says whether the head and the run loop named in DefaultGame.ini are there.
 
-Assets that exist are made again from their parent (same path). Nothing is deleted, nothing of Epic's is changed.
-GTP_POLICE_PAINT=R,G,B, GTP_POLICE_BAND=R,G,B and GTP_POLICE_NAVY=R,G,B change the colours (linear, 0 to 1).
+Assets that exist are made again from their parent (same path). Nothing of Epic's is changed. Nothing is deleted,
+unless GTP_POLICE_CLEAN=1 asks for the two assets of the paint of 23/11, which the game no longer loads.
+GTP_POLICE_PAINT=R,G,B, GTP_POLICE_BAND=R,G,B, GTP_POLICE_STRIPE=R,G,B and GTP_POLICE_NAVY=R,G,B change the colours
+(linear, 0 to 1); the band and the stripe keep theirs once made.
 """
 
-import json
 import os
 import re
 import traceback
@@ -48,7 +48,6 @@ mel = unreal.MaterialEditingLibrary
 CAR_DIR = "/Game/Vehicles/Epic/GTP/Police"
 CAR_MESH = "/Game/Vehicles/Epic/GTP/Mesh/SKM_GTP_Police13"
 CAR_BLUEPRINT = "/Game/Vehicles/Epic/GTP/BP_GTP_Police13"
-CAR_NAME = "Police13"  # its entry in Saved/VehicleImport/epic_vehicles_report.json
 UNIFORM_DIR = "/Game/Crowd/GTP/Police"
 CROWD_MESHES = "/Game/Crowd/Character/Male/NormalWeight/Meshes"
 BODY = "m_tal_nrw_body"
@@ -67,7 +66,7 @@ COLOUR_NAMES = {"color", "colour", "basecolor", "base color", "basecolour", "bas
                 "albedo tint", "albedotint", "diffuse color", "diffusecolor", "main color", "maincolor",
                 "fabric color", "fabriccolor", "cloth color", "clothcolor", "primary color", "primarycolor",
                 "color tint", "colortint", "base tint", "basetint"}
-COLOUR_WORDS = re.compile(r"colou?r|tint|paint", re.IGNORECASE)
+COLOUR_WORDS = re.compile(r"colou?r|tint|paint|albedo|diffuse", re.IGNORECASE)
 NOT_COLOUR = re.compile(r"dirt|dust|rust|flake|fresnel|emissive|specular|spec|sss|subsurface|fuzz|sheen|rim[ _]?light|scratch|"
                         r"wet|mask|bbox|vector|light|glow|damage|burn|mud|clear ?coat|second|makeup|lip|eye|skin|"
                         r"hair|shadow|ambient|occlusion|pattern", re.IGNORECASE)
@@ -94,6 +93,7 @@ def colour_from_env(name, default):
 
 PAINT = colour_from_env("GTP_POLICE_PAINT", (0.82, 0.82, 0.82))
 BAND = colour_from_env("GTP_POLICE_BAND", (0.0, 0.06, 0.42))
+STRIPE = colour_from_env("GTP_POLICE_STRIPE", (0.55, 0.0, 0.02))
 NAVY = colour_from_env("GTP_POLICE_NAVY", (0.010, 0.016, 0.050))
 BLACK = unreal.LinearColor(0.008, 0.008, 0.008, 1.0)
 DARK = unreal.LinearColor(0.012, 0.014, 0.018, 1.0)
@@ -123,27 +123,33 @@ def node(material, cls, x, y, **props):
     return expression
 
 
-def make_band():
-    """A plain blue deferred decal (as tools/combat/unreal/make_blood_material.py makes the blood pool)."""
-    path = CAR_DIR + "/M_GTP_PoliceBand"
+def make_decal(name, colour, what):
+    """A plain deferred decal of one colour (as tools/combat/unreal/make_blood_material.py makes the blood pool)."""
+    path = CAR_DIR + "/" + name
     if eal.does_asset_exist(path):
-        say("band: %s already there, left as it is (delete it to change its colour)" % path)
+        say("%s: %s already there, left as it is (delete it to change its colour)" % (what, path))
         return
-    material = unreal.AssetToolsHelpers.get_asset_tools().create_asset(
-        "M_GTP_PoliceBand", CAR_DIR, unreal.Material, unreal.MaterialFactoryNew())
+    material = unreal.AssetToolsHelpers.get_asset_tools().create_asset(name, CAR_DIR, unreal.Material, unreal.MaterialFactoryNew())
     if material is None:
-        say("band: NOT made (the asset could not be created)")
+        say("%s: NOT made (the asset could not be created)" % what)
         return
     material.set_editor_property("material_domain", unreal.MaterialDomain.MD_DEFERRED_DECAL)
     material.set_editor_property("blend_mode", unreal.BlendMode.BLEND_TRANSLUCENT)
-    colour = node(material, unreal.MaterialExpressionConstant3Vector, -400, -200, constant=BAND)
+    tone = node(material, unreal.MaterialExpressionConstant3Vector, -400, -200, constant=colour)
     rough = node(material, unreal.MaterialExpressionConstant, -400, -80, r=0.45)
     opacity = node(material, unreal.MaterialExpressionConstant, -400, 20, r=1.0)
-    mel.connect_material_property(colour, "", unreal.MaterialProperty.MP_BASE_COLOR)
+    mel.connect_material_property(tone, "", unreal.MaterialProperty.MP_BASE_COLOR)
     mel.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS)
     mel.connect_material_property(opacity, "", unreal.MaterialProperty.MP_OPACITY)
     mel.recompile_material(material)
-    say("band: %s made, saved=%s" % (path, eal.save_loaded_asset(material, False)))
+    say("%s: %s made, saved=%s" % (what, path, eal.save_loaded_asset(material, False)))
+
+
+def make_band():
+    """The blue band, and the thin red stripe that goes above it: the same material but for its colour (the band
+    has been cooked and loaded without an error since gate 66)."""
+    make_decal("M_GTP_PoliceBand", BAND, "band")
+    make_decal("M_GTP_PoliceStripe", STRIPE, "stripe")
 
 
 def slots_of(mesh):
@@ -370,16 +376,16 @@ def white_paint(material, with_mask):
         return "white all over (the height mask failed, see above)"
 
 
-def make_plain_instance(index, mesh, plain):
-    """MI_GTP_PolicePaint_<index>, a child of the plain paint with the heights of this mesh."""
+def make_plain_instance(index, mesh, plain, instance_name):
+    """A child of the plain paint with the heights of this mesh, for its slot `index`."""
     bounds = mesh.get_bounds()
     bottom = bounds.origin.z - bounds.box_extent.z
     height = 2.0 * bounds.box_extent.z
     say("    mesh box: bottom %.0f cm, height %.0f cm, length %.0f, width %.0f (in the mesh's space)"
         % (bottom, height, 2.0 * bounds.box_extent.x, 2.0 * bounds.box_extent.y))
-    if not make_instance(CAR_DIR, "MI_GTP_PolicePaint_%d" % index, plain, ["Colour"], PAINT):
+    if not make_instance(CAR_DIR, instance_name, plain, ["Colour"], PAINT):
         return False
-    instance = unreal.load_asset("%s/MI_GTP_PolicePaint_%d" % (CAR_DIR, index))
+    instance = unreal.load_asset("%s/%s" % (CAR_DIR, instance_name))
     values = {"GlassLow": bottom + height * GLASS[0], "GlassHigh": bottom + height * GLASS[1], "SkirtHigh": bottom + height * SKIRT}
     for name, value in values.items():
         mel.set_material_instance_scalar_parameter_value(instance, name, value)
@@ -389,120 +395,81 @@ def make_plain_instance(index, mesh, plain):
     return True
 
 
-def blueprint_materials():
-    """What the car's Blueprint puts on its body: {slot: material}, read on its class defaults. Reported."""
-    found = {}
+def drawing_meshes():
+    """The meshes that draw the police car: its body and, for a City Sample car, the look parts its Blueprint
+    lists (AGTPVehicle::LookMeshes, set by tools/vehicles/unreal/make_epic_vehicles.py: the body is then City
+    Sample's rig, without geometry)."""
+    meshes = []
+    body = unreal.load_asset(CAR_MESH) if eal.does_asset_exist(CAR_MESH) else None
+    if body is None:
+        say("  the body %s is not there (tools/vehicles/unreal/make_epic_vehicles.py makes it)" % CAR_MESH)
+    else:
+        meshes.append(body)
     try:
         cls = eal.load_blueprint_class(CAR_BLUEPRINT)
-        body = unreal.get_default_object(cls).get_editor_property("mesh")
-        shown = None
-        for name in ("skeletal_mesh_asset", "skeletal_mesh"):
-            try:
-                shown = body.get_editor_property(name)
-                break
-            except Exception:  # noqa: BLE001 (the property's name changed across versions)
-                continue
-        say("  Blueprint %s draws %s" % (CAR_BLUEPRINT, shown.get_path_name() if shown else "NO MESH"))
-        overrides = list(body.get_editor_property("override_materials"))
-        say("  its body has %d override material(s)%s" % (len(overrides), ":" if overrides else ""))
-        for index, material in enumerate(overrides):
-            say("    %d: %s" % (index, material.get_path_name() if material else "-"))
-            if material is not None:
-                found[index] = material
+        looks = [mesh for mesh in unreal.get_default_object(cls).get_editor_property("look_meshes") if mesh is not None]
+        say("  Blueprint %s lists %d look part(s): %s" % (CAR_BLUEPRINT, len(looks), ", ".join(mesh.get_name() for mesh in looks) or "none"))
+        meshes.extend(looks)
     except Exception as error:  # noqa: BLE001 (reported)
-        say("  Blueprint %s not read (%r)" % (CAR_BLUEPRINT, error))
-    return found
+        say("  look parts of %s not read (%r)" % (CAR_BLUEPRINT, error))
+    return meshes
 
 
-def epic_source():
-    """The mesh of Epic's our car was copied from, named by make_epic_vehicles.py's report: {slot: material}.
-    Also lists the skeletal meshes next to it: if ours is a stand-in, the one to take is among them."""
-    found = {}
-    path = os.path.join(unreal.Paths.project_saved_dir(), "VehicleImport", "epic_vehicles_report.json")
-    try:
-        with open(path, encoding="utf-8") as handle:
-            entry = json.load(handle).get("cars", {}).get(CAR_NAME, {})
-    except Exception as error:  # noqa: BLE001 (reported)
-        say("  Saved/VehicleImport/epic_vehicles_report.json not read (%r): Epic's mesh not looked at" % error)
-        return found
-    for key in ("epic", "mode", "epic_kind", "mesh_from", "components_from", "blueprint_meshes", "mesh_candidates", "mesh_source"):
-        if key in entry:
-            say("  vehicles report, %s: %s" % (key, entry[key]))
-    source = str(entry.get("mesh_source") or "")
-    if not source:
-        say("  the vehicles report names no mesh of Epic's for %s" % CAR_NAME)
-        return found
-    package = source.split(".")[0]
-    mesh = unreal.load_asset(package) if eal.does_asset_exist(package) else None
-    if mesh is None:
-        say("  Epic's mesh %s is not there" % package)
-    else:
-        say("  Epic's mesh %s:" % package)
-        for index, name, material in slots_of(mesh):
-            say("    slot %d '%s': %s" % (index, name, material.get_path_name() if material else "no material"))
-            if material is not None:
-                found[index] = material
-    try:
-        # The folder of Epic's Blueprint for that car holds its meshes; without it, the mesh's own folder.
-        folder = str(entry.get("epic") or package).split(".")[0].rsplit("/", 1)[0]
-        registry = unreal.AssetRegistryHelpers.get_asset_registry()
-        say("  skeletal meshes under %s:" % folder)
-        listed = 0
-        for data in registry.get_assets_by_path(folder, recursive=True):
-            if str(data.asset_class_path.asset_name) != "SkeletalMesh":
-                continue
-            listed += 1
-            if listed > 16:
-                say("    (more, not listed)")
-                break
-            other = unreal.load_asset(str(data.package_name))
-            slots = slots_of(other) if other is not None else []
-            say("    %s: %d slot(s), %d with a material (%s)" % (
-                data.package_name, len(slots), sum(1 for _, _, material in slots if material is not None),
-                ", ".join(name for _, name, _ in slots[:8])))
-    except Exception as error:  # noqa: BLE001 (reported)
-        say("  skeletal meshes next to Epic's not listed (%r)" % error)
-    return found
+def is_paint(slot_name, material_name):
+    """Body paint, told by the slot's name; by the material's name only when the slot's says nothing (a material
+    may carry a colour's name, 'lightGrey', that the words for lamps would refuse)."""
+    if PAINT_SLOT.search(slot_name):
+        return not NOT_PAINT_SLOT.search(slot_name)
+    if NOT_PAINT_SLOT.search(slot_name):
+        return False
+    return bool(PAINT_SLOT.search(material_name)) and not NOT_PAINT_SLOT.search(material_name)
 
 
 def make_paint():
-    say("== police car paint (%s)" % CAR_MESH)
-    mesh = unreal.load_asset(CAR_MESH) if eal.does_asset_exist(CAR_MESH) else None
-    if mesh is None:
-        say("  the mesh is not there (tools/vehicles/unreal/make_epic_vehicles.py makes it): no paint made")
-        return
-    slots = slots_of(mesh)
-    from_blueprint = blueprint_materials()
-    from_epic = epic_source() if any(material is None for _, _, material in slots) else {}
-    made = 0
+    """MI_GTP_PolicePaint_<mesh>_<slot> for each paint slot of the meshes that draw the car: a child of Epic's own
+    paint with its colour parameters set to white. A child that only changes colours brings no shader of its own:
+    it is cooked with its parent's (as the officers' navy children, loaded without an error since gate 66). The
+    paint of our own of 23/11 (M_GTP_PolicePlain) logged errors at gates 67 and 68 and is no longer made, unless
+    GTP_POLICE_PLAIN=1 asks for it on a slot that has no material."""
+    say("== police car paint")
+    plain_asked = os.environ.get("GTP_POLICE_PLAIN", "0").strip() == "1"
+    made = []
     plain = None
-    for index, name, material in slots:
-        found = describe(index, name, material)
-        if material is None:
-            # Not on the mesh: what the Blueprint puts on that slot, else what Epic's own mesh has there.
-            for where, materials in (("the Blueprint's override", from_blueprint), ("Epic's mesh", from_epic)):
-                if materials.get(index) is not None:
-                    material = materials[index]
-                    say("    taken from %s:" % where)
-                    found = describe(index, name, material)
-                    break
-        if material is None:
-            say("    nothing draws this slot but the engine's grey default material: plain paint of our own")
-            plain = plain or make_plain()
-            if plain is not None:
-                made += 1 if make_plain_instance(index, mesh, plain) else 0
-            continue
-        label = "%s %s" % (name, material.get_name())
-        # A mesh of one slot is the whole car: its only material is the paint, whatever its name.
-        if len(slots) > 1 and (not PAINT_SLOT.search(label) or NOT_PAINT_SLOT.search(label)):
-            say("    not taken for body paint")
-            continue
-        names = colour_parameters(found["vector"])
-        if not names:
-            say("    body paint, but none of its vector parameters reads as its colour: NOTHING MADE for this slot")
-            continue
-        made += 1 if make_instance(CAR_DIR, "MI_GTP_PolicePaint_%d" % index, material, names, PAINT) else 0
-    say("  %d paint instance(s) made" % made)
+    for mesh in drawing_meshes():
+        slots = slots_of(mesh)
+        say(" %s: %d slot(s)" % (mesh.get_path_name(), len(slots)))
+        try:
+            bounds = mesh.get_bounds()
+            say("  box %.0f x %.0f x %.0f cm" % (2 * bounds.box_extent.x, 2 * bounds.box_extent.y, 2 * bounds.box_extent.z))
+            drawn = max(bounds.box_extent.x, bounds.box_extent.y, bounds.box_extent.z) >= 50.0
+        except Exception as error:  # noqa: BLE001 (reported)
+            say("  box not read (%r)" % error)
+            drawn = True
+        for index, name, material in slots:
+            found = describe(index, name, material)
+            instance = "MI_GTP_PolicePaint_%s_%d" % (mesh.get_name(), index)
+            if material is None:
+                if not drawn:
+                    say("    no material and no geometry (a rig): nothing to paint")
+                elif not plain_asked:
+                    say("    no material: left as it is (GTP_POLICE_PLAIN=1 gives it a plain white of our own)")
+                else:
+                    plain = plain or make_plain()
+                    if plain is not None and make_plain_instance(index, mesh, plain, instance):
+                        made.append(instance)
+                continue
+            if not is_paint(name, material.get_name()):
+                say("    not body paint")
+                continue
+            names = colour_parameters(found["vector"])
+            if not names:
+                say("    BODY PAINT, but none of its vector parameters reads as its colour: NOTHING MADE, the car keeps "
+                    "Epic's colour (give the parameter's name, read above, to COLOUR_NAMES)")
+                continue
+            if make_instance(CAR_DIR, instance, material, names, PAINT):
+                made.append(instance)
+    say("  %d paint instance(s) made: %s" % (len(made), ", ".join(made) or "none"))
+    say("  the game puts each on its slot when LiveryPaintFolder is %s (DefaultGame.ini); its line: 'police: livery on'" % CAR_DIR)
 
 
 def make_uniform():
@@ -559,8 +526,26 @@ def report_body():
         say("  bones not read (%r)" % error)
 
 
+OLD_PAINT = (CAR_DIR + "/MI_GTP_PolicePaint_0", CAR_DIR + "/M_GTP_PolicePlain")
+
+
+def old_paint():
+    """The paint of our own of 23/11: the game no longer asks for it, so it is cooked and never loaded. Left where
+    it is unless GTP_POLICE_CLEAN=1 asks for these two assets, by their exact paths, to be deleted."""
+    say("== paint of 23/11 (no longer loaded by the game)")
+    clean = os.environ.get("GTP_POLICE_CLEAN", "0").strip() == "1" and os.environ.get("GTP_POLICE_PLAIN", "0").strip() != "1"
+    for path in OLD_PAINT:
+        if not eal.does_asset_exist(path):
+            say("  %s: not there" % path)
+        elif not clean:
+            say("  %s: still there, never loaded (GTP_POLICE_CLEAN=1 deletes it)" % path)
+        else:
+            deleted = eal.delete_asset(path)
+            say("  %s: delete asked (%s), there afterwards: %s" % (path, deleted, eal.does_asset_exist(path)))
+
+
 def main():
-    for step in (make_band, make_paint, make_uniform, report_body):
+    for step in (make_band, make_paint, old_paint, make_uniform, report_body):
         try:
             step()
         except Exception:  # noqa: BLE001 (one step failing must not hide the others' report)

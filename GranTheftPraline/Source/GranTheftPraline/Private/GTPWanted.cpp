@@ -22,6 +22,7 @@
 #include "Components/PointLightComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/OverlapResult.h"
+#include "Engine/SkeletalMesh.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "GameFramework/Character.h"
@@ -1212,28 +1213,64 @@ void AGTPPoliceDirector::AddLivery(AGTPVehicle& Car)
 	{
 		bLiveryLoaded = true;
 		LoadedLiveryBand = LiveryBandMaterial.IsValid() ? Cast<UMaterialInterface>(LiveryBandMaterial.TryLoad()) : nullptr;
-		// The paint is asked for by slot number: absent for most slots (glass, tyres, lights), and that is not an error.
-		for (int32 Slot = 0; Slot < Body->GetNumMaterials(); ++Slot)
+		// Asked for quietly: the stripe was added after the band, a project that has not made it yet goes without.
+		LoadedLiveryStripe = LiveryStripeMaterial.IsValid()
+			? LoadObject<UMaterialInterface>(nullptr, *LiveryStripeMaterial.ToString(), nullptr, LOAD_NoWarn | LOAD_Quiet) : nullptr;
+	}
+	// What draws the car: its body and, on City Sample's cars, the look parts posed by it (their body is a rig
+	// without geometry: painting it alone showed nothing). The paint is asked for by mesh name and slot number:
+	// absent for most slots (glass, tyres, lights), and that is not an error.
+	TArray<USkeletalMeshComponent*> PaintedParts;
+	PaintedParts.Add(Body);
+	for (const TObjectPtr<USkeletalMeshComponent>& LookPart : Car.GetLookComponents())
+	{
+		if (LookPart)
 		{
-			const FString Name = FString::Printf(TEXT("MI_GTP_PolicePaint_%d"), Slot);
-			LoadedLiveryPaint.Add(LoadObject<UMaterialInterface>(nullptr, *FString::Printf(TEXT("%s/%s.%s"), *LiveryPaintFolder, *Name, *Name), nullptr,
-				LOAD_NoWarn | LOAD_Quiet));
+			PaintedParts.Add(LookPart.Get());
 		}
 	}
 	int32 Painted = 0;
-	for (int32 Slot = 0; Slot < Body->GetNumMaterials() && Slot < LoadedLiveryPaint.Num(); ++Slot)
+	int32 SlotCount = 0;
+	FString PaintedNames;
+	for (USkeletalMeshComponent* PaintedPart : PaintedParts)
 	{
-		if (LoadedLiveryPaint[Slot])
+		const USkeletalMesh* PartAsset = PaintedPart->GetSkeletalMeshAsset();
+		if (!PartAsset)
 		{
-			Body->SetMaterial(Slot, LoadedLiveryPaint[Slot]);
-			++Painted;
+			continue;
+		}
+		for (int32 Slot = 0; Slot < PaintedPart->GetNumMaterials(); ++Slot)
+		{
+			++SlotCount;
+			const FString PaintName = FString::Printf(TEXT("MI_GTP_PolicePaint_%s_%d"), *PartAsset->GetName(), Slot);
+			UMaterialInterface* PaintMaterial = nullptr;
+			if (const TObjectPtr<UMaterialInterface>* Known = LoadedLiveryPaint.Find(PaintName))
+			{
+				PaintMaterial = Known->Get();
+			}
+			else
+			{
+				PaintMaterial = LoadObject<UMaterialInterface>(nullptr, *FString::Printf(TEXT("%s/%s.%s"), *LiveryPaintFolder, *PaintName, *PaintName),
+					nullptr, LOAD_NoWarn | LOAD_Quiet);
+				LoadedLiveryPaint.Add(PaintName, TObjectPtr<UMaterialInterface>(PaintMaterial));
+			}
+			if (PaintMaterial)
+			{
+				PaintedPart->SetMaterial(Slot, PaintMaterial);
+				++Painted;
+				if (bFirst)
+				{
+					PaintedNames += FString::Printf(TEXT(" %s"), *PaintName);
+				}
+			}
 		}
 	}
 	// The car's own box, in its mesh's space: the band goes across it at door height, between the wheel arches.
 	const FBox Box = Body->CalcBounds(FTransform::Identity).GetBox();
 	const FVector Size = Box.GetSize();
 	const FVector Middle(Box.GetCenter().X + LiveryBandForward, Box.GetCenter().Y, Box.Min.Z + Size.Z * LiveryBandHeightShare);
-	if (LoadedLiveryBand && Size.X > 100.0 && Size.Y > 50.0)
+	const bool bRoomForBand = Size.X > 100.0 && Size.Y > 50.0;
+	if (LoadedLiveryBand && bRoomForBand)
 	{
 		UDecalComponent* Band = NewObject<UDecalComponent>(&Car);
 		Band->SetDecalMaterial(LoadedLiveryBand);
@@ -1246,13 +1283,26 @@ void AGTPPoliceDirector::AddLivery(AGTPVehicle& Car)
 		Band->SetRelativeLocationAndRotation(Middle, FRotator(0.f, 90.f, 0.f));
 		Band->RegisterComponent();
 	}
+	if (LoadedLiveryStripe && bRoomForBand)
+	{
+		// The same box as the band, thinner, just above it.
+		const FVector StripeMiddle = Middle + FVector(0.0, 0.0, LiveryBandHalfHeight + LiveryStripeGap + LiveryStripeHalfHeight);
+		UDecalComponent* RedStripe = NewObject<UDecalComponent>(&Car);
+		RedStripe->SetDecalMaterial(LoadedLiveryStripe);
+		RedStripe->DecalSize = FVector(Size.Y * 0.5 + 10.0, Size.X * LiveryBandLengthShare, LiveryStripeHalfHeight);
+		RedStripe->FadeScreenSize = 0.f;
+		RedStripe->AttachToComponent(Body, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+		RedStripe->SetRelativeLocationAndRotation(StripeMiddle, FRotator(0.f, 90.f, 0.f));
+		RedStripe->RegisterComponent();
+	}
 	if (bFirst)
 	{
-		GTP_TRACE(LogGTPWanted, TEXT("police: livery on %s: band %s, %d of %d material slot(s) painted (from %s); car box %.0f x %.0f x %.0f cm, "
-			"band %.0f cm long and %.0f high, its middle %.0f cm above the box's lowest point"), *Car.GetName(),
-			LoadedLiveryBand ? *LoadedLiveryBand->GetName() : TEXT("NOT THERE (tools/police/unreal/make_police_look.py makes it)"), Painted,
-			Body->GetNumMaterials(), *LiveryPaintFolder, Size.X, Size.Y, Size.Z, Size.X * LiveryBandLengthShare * 2.0, LiveryBandHalfHeight * 2.f,
-			Size.Z * LiveryBandHeightShare);
+		GTP_TRACE(LogGTPWanted, TEXT("police: livery on %s: band %s, stripe %s, %d of %d material slot(s) painted on %d mesh(es):%s (from %s); "
+			"car box %.0f x %.0f x %.0f cm, band %.0f cm long and %.0f high, its middle %.0f cm above the box's lowest point"), *Car.GetName(),
+			LoadedLiveryBand ? *LoadedLiveryBand->GetName() : TEXT("NOT THERE (tools/police/unreal/make_police_look.py makes it)"),
+			LoadedLiveryStripe ? *LoadedLiveryStripe->GetName() : TEXT("not there"), Painted, SlotCount, PaintedParts.Num(),
+			PaintedNames.IsEmpty() ? TEXT(" none") : *PaintedNames, *LiveryPaintFolder, Size.X, Size.Y, Size.Z,
+			Size.X * LiveryBandLengthShare * 2.0, LiveryBandHalfHeight * 2.f, Size.Z * LiveryBandHeightShare);
 	}
 }
 
