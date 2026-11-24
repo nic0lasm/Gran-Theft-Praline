@@ -308,6 +308,41 @@ streets turn to render). On the kit the rendered facade slot takes it as before.
 plaster in the project nothing changes. `materials_report.json` lists `kit.render` and
 `shell.render` under `surfaces.used` when it is in.
 
+### The far view: horizon, far bank and distant facades (added 2026-11-24)
+
+Gate 76's video, at 60 s on the quay: across the river the ground was a bare white plain, the
+far volumes smooth beige blocks, and the view ended on a dark blue band under the sky, like a
+sea. Four causes, four changes.
+
+1. **Nothing beyond the map.** Past the BD TOPO volumes (600 m from the street axis) the world
+   was empty, so the sky showed under the horizon. `tools/city/horizon.py` lays out a far view
+   without any geo data: a ground to the real horizon (it takes the haze like any ground), four
+   rows of plain blocks 720 m to 1.5 km from the axis (five to eight storeys, a street gap
+   between them), the towers of the Part-Dieu east, and two flattened domes for Fourvière
+   (west, wooded) and the Croix-Rousse (north, built), with the blocks that fall on them
+   standing on their slopes. `tools/city/unreal/place_horizon.py` places it in the folder
+   City/Horizon with engine basic shapes only (about 240 actors of 12 triangles, batched by
+   material; no collision, no shadow, not in the ray tracing scene), 1 m under the lowest
+   terrain. It is the `horizon` step of `route_dressing.py`, after `materials`; it saves the
+   map; `GTP_HORIZON=0` takes it out. Report: `horizon_report.json`.
+2. **Far facades went blank.** The backdrop shader faded its whole pattern to an average as soon
+   as the thin lines (frames, bars) neared a pixel: from 350 m in front, from 60 m along a
+   street. The thin lines still go first, but the openings stay as plain dark rectangles until
+   they are about a pixel themselves. The far blocks use the same facade
+   (`M_City_Horizon_<n>`, one per wall colour, toned like the rest).
+3. **White ground beyond the ground mask.** The mask texture is clamped, so past its edge the
+   last texels were drawn out and the ground was pale sidewalk slabs to the end of the terrain.
+   `far_ground` fades the ground, over 30 m outside the mask, to the one dark tone of the far
+   view. `GTP_FAR_GROUND=0` turns it off. `materials_report.json` gives `far_ground` and
+   `horizon_materials`.
+4. **Rubble on the walls.** The scan behind `limestone_ashlar` is a rough Roman wall: on a
+   sunlit wall of the flight it read as a fortress (43 s). A new catalogue entry
+   `dressed_stone` (Poly Haven `sandstone_blocks_08`, CC0: smooth blocks, fine joints) comes
+   first for the wall detail; without it in the project the old scan stays.
+
+Positions of the hills and towers are approximate on purpose (a far view, never a place to go).
+Not seen in game yet.
+
 ### Carriageways fitted to the kerbs and one-command regeneration
 
 The BD TOPO centre lines sit 0.8 m off the middle of the carriageway (2.2 m at the 90th

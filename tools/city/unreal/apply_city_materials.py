@@ -217,6 +217,7 @@ def weather(mat, roles):
 
 
 FACADE_TONE = os.environ.get("GTP_FACADE_TONE", "1") != "0"
+FAR_GROUND = os.environ.get("GTP_FAR_GROUND", "1") != "0"
 
 
 def facade_tone():
@@ -330,9 +331,45 @@ def ground_material(tex, extent):
     mel.connect_material_property(col, "", unreal.MaterialProperty.MP_BASE_COLOR)
     mel.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS)
     surfaces().ground(mat, s)
+    far_ground(mat, g, uv, (x1 - x0, y1 - y0))
     weather(mat, ("wet", "puddles"))
     g.done()
     return mat
+
+
+FAR_GROUND_FADE_CM = 3000.0
+
+
+def far_ground(mat, g, uv, size_cm):
+    """Past the edge of the ground mask the texture is clamped: its last texels are drawn out to
+    the end of the terrain, and wherever the mask says nothing the ground is pale sidewalk slabs.
+    Across the river that made a bare white plain (gate 76 video, 60 s). Outside the mask the
+    ground now fades, over 30 m, to the one dark tone of the far view (HORIZON_GROUND), matt."""
+    if not FAR_GROUND:
+        return False
+    col, col_out = mel.get_material_property_input_node(mat, unreal.MaterialProperty.MP_BASE_COLOR), \
+        mel.get_material_property_input_node_output_name(mat, unreal.MaterialProperty.MP_BASE_COLOR) or ""
+    if col is None:
+        return False
+    # distance inside the mask along each axis, in cm (negative outside)
+    off = g.unary(unreal.MaterialExpressionAbs, g.sub(uv, g.const((0.5, 0.5))))
+    inside = g.mul(g.sub(g.const((0.5, 0.5)), off), g.const((float(size_cm[0]), float(size_cm[1]))))
+    nearest = g.op(unreal.MaterialExpressionMin, g.mask(inside, r=True), g.mask(inside, g=True))
+    keep = g.unary(unreal.MaterialExpressionSaturate, g.add(g.div(nearest, g.const(FAR_GROUND_FADE_CM)), g.const(1.0)))
+    out = g.node(unreal.MaterialExpressionLinearInterpolate)
+    g.link(g.const(HORIZON_GROUND), "", out, "A")
+    g.link(col, col_out, out, "B")
+    g.link(keep, "", out, "Alpha")
+    mel.connect_material_property(out, "", unreal.MaterialProperty.MP_BASE_COLOR)
+    rough = mel.get_material_property_input_node(mat, unreal.MaterialProperty.MP_ROUGHNESS)
+    if rough is not None:
+        rough_out = mel.get_material_property_input_node_output_name(mat, unreal.MaterialProperty.MP_ROUGHNESS) or ""
+        r2 = g.node(unreal.MaterialExpressionLinearInterpolate)
+        g.link(g.const(0.92), "", r2, "A")
+        g.link(rough, rough_out, r2, "B")
+        g.link(keep, "", r2, "Alpha")
+        mel.connect_material_property(r2, "", unreal.MaterialProperty.MP_ROUGHNESS)
+    return True
 
 
 def shell_material():
@@ -404,6 +441,8 @@ float3 wall = WallC;
 float3 col = wall;
 float glass = 0.0;
 float3 dark = float3(0.035, 0.04, 0.045);
+float hole = 0.0;                                   // the opening itself, for the far view
+float3 holec = dark;
 if (z < GF) {
     float h = frac(sin(bay * 91.7 + bid * 311.0) * 4375.85);
     float fz = z / GF;
@@ -432,6 +471,8 @@ if (z < GF) {
         col = lerp(col, float3(0.08, 0.08, 0.08), win * max(max(frame, mull), 1.0 - pane));
         col = lerp(col, signc, fasc);
         glass = win * pane * (1.0 - max(frame, mull));
+        hole = win;
+        holec = float3(0.09, 0.09, 0.10);
     } else if (h < 0.82) {                         // carriage door, painted wood, 25 cm in
         float door = step(0.18, fx) * step(fx, 0.82) * step(fz, 0.82);
         float dx = fx + slide.x * 25.0 / W;
@@ -441,6 +482,8 @@ if (z < GF) {
         float3 wood = frac(h * 31.0) < 0.5 ? float3(0.10, 0.06, 0.035) : float3(0.07, 0.11, 0.09);
         float3 jamb = wall * (dz > 0.82 ? 0.45 : 0.62);
         col = lerp(col, lerp(jamb, wood * (1.0 - 0.4 * saturate(panel)), leaf), door);
+        hole = door;
+        holec = wood;
         col = lerp(col, wall * 1.12, (1.0 - door) * step(0.12, fx) * step(fx, 0.88) * step(fz, 0.88));
     } else {                                       // blank rusticated bay with a small barred window
         float w2 = step(0.32, fx) * step(fx, 0.68) * step(0.45, fz) * step(fz, 0.78);
@@ -449,6 +492,7 @@ if (z < GF) {
         float pane = step(0.32, bx2) * step(bx2, 0.68) * step(0.45, bz2) * step(bz2, 0.78);
         col = lerp(col, lerp(wall * (bz2 > 0.78 ? 0.50 : 0.70), dark, pane), w2);
         glass = w2 * pane;
+        hole = w2;
     }
     col = lerp(col, col * 0.85, step(abs(frac(z / 55.0) - 0.5), 0.03) * (1.0 - glass));   // rusticated joints
 } else {
@@ -482,6 +526,8 @@ if (z < GF) {
     inside = inside * (1.0 - 0.35 * step(0.82, sz));               // shade of the lintel on the joinery
     col = lerp(col, lerp(reveal, inside, pane), open);
     glass = open * pane * (1.0 - shut) * (1.0 - saturate(frame + mull));
+    hole = open;
+    holec = shut > 0.5 ? shc : dark;
     // a balcony on the first upper storey of some buildings: railing over the window's lower part
     float balc = (storey == 0.0 && bid > 0.45) ? 1.0 : 0.0;
     float rail = balc * step(0.22, fx) * step(fx, 0.78) * step(0.20, fz) * step(fz, 0.50);
@@ -490,17 +536,24 @@ if (z < GF) {
     col = lerp(col, lerp(col, iron, bars * detail + 0.45 * (1.0 - detail)), rail);
     col = lerp(col, wall * 0.65, balc * step(0.20, fx) * step(fx, 0.80) * step(0.185, fz) * step(fz, 0.20));
 }
-// far away: the average of the pattern, no moire
+// Far away the thin lines go first (frames, bars, joints) and the openings stay as plain dark
+// rectangles; only when an opening is about a pixel does the wall fall to the average of the
+// pattern. Gate 76, 60 s: with one fade for both, the volumes across the river were smooth
+// beige blocks from 350 m.
+float coarse = saturate(1.0 - (max(fwx, fwz) - 0.22) / 0.30);
 float3 avg = lerp(wall, dark, z < GF ? 0.35 : 0.22);
-col = lerp(avg, col, detail);
+col = lerp(lerp(wall, holec, hole), col, detail);
+col = lerp(avg, col, coarse);
 glass *= detail;
 return float4(col, glass);
 """
 
 
-def backdrop_material():
-    mat = new_material("M_City_Backdrop")
-    mat.set_editor_property("two_sided", True)
+def backdrop_material(name="M_City_Backdrop", colour=None):
+    """colour (linear RGB, already toned): a far block of the horizon (place_horizon.py), which is
+    an engine cube without vertex colours: that wall colour, a zinc roof, no scanned detail."""
+    mat = new_material(name)
+    mat.set_editor_property("two_sided", colour is None)
     g = Graph(mat)
     vc = g.node(unreal.MaterialExpressionVertexColor)
     n = g.node(unreal.MaterialExpressionVertexNormalWS)
@@ -511,8 +564,11 @@ def backdrop_material():
     d = g.unary(unreal.MaterialExpressionAbs, g.sub(f, g.const(0.5)))
     course = g.unary(unreal.MaterialExpressionSaturate, g.mul(g.sub(d, g.const(0.46)), g.const(25.0)))
     shade = g.lerp(g.const(1.0), g.const(0.88), g.mul(course, wall))
-    base = g.mask(vc, r=True, g=True, b=True)
-    base = g.lerp(base, lyon_tone(g, base), wall)
+    if colour is None:
+        base = g.mask(vc, r=True, g=True, b=True)
+        base = g.lerp(base, lyon_tone(g, base), wall)
+    else:
+        base = g.lerp(g.const(HORIZON_ROOF), g.const(tuple(colour)), wall)
     col = g.mul(base, shade)
     custom = g.node(unreal.MaterialExpressionCustom, code=BACKDROP_HLSL,
                     output_type=unreal.CustomMaterialOutputType.CMOT_FLOAT4, description="LyonFacade",
@@ -528,10 +584,53 @@ def backdrop_material():
     rough = g.lerp(g.lerp(g.const(0.55), g.const(0.88), wall), g.const(0.08), g.mul(glass, wall))
     mel.connect_material_property(col, "", unreal.MaterialProperty.MP_BASE_COLOR)
     mel.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS)
-    surfaces().shell(mat)
+    if colour is None:
+        surfaces().shell(mat)
     weather(mat, ("wet", "wet_matte"))
     g.done()
     return mat
+
+
+# Far view (tools/city/horizon.py, placed by place_horizon.py). Linear albedo.
+HORIZON_ROOF = (0.16, 0.17, 0.18)          # zinc and slate, seen from the street as a dark edge
+HORIZON_GROUND = (0.085, 0.085, 0.08)      # roofs, streets and trees a kilometre away, as one tone
+HORIZON_WOOD = (0.055, 0.06, 0.035)        # Fourviere under its trees
+HORIZON_TOWN = (0.21, 0.19, 0.16)          # the Croix-Rousse: walls and tiles, as one tone
+HORIZON_PALETTE = ("#D8CDB6", "#D8C3A0", "#E0B48A", "#BDBDB8")   # procgen.PALETTE: stone, renders, modern
+
+
+def flat_material(name, colour, roughness=0.92, mottle=0.0):
+    """One tone, for what is only ever seen far away; mottle: slow variation over 150 to 400 m."""
+    mat = new_material(name)
+    g = Graph(mat)
+    col = g.const(tuple(colour))
+    if mottle > 0.0:
+        wp = g.world_position()
+        a = g.unary(unreal.MaterialExpressionSine, g.div(g.mask(wp, r=True), g.const(15000.0)))
+        b = g.unary(unreal.MaterialExpressionSine, g.add(g.div(g.mask(wp, g=True), g.const(23000.0)), g.const(1.7)))
+        c = g.unary(unreal.MaterialExpressionSine, g.div(g.add(g.mask(wp, r=True), g.mask(wp, g=True)), g.const(41000.0)))
+        col = g.mul(col, g.add(g.const(1.0), g.mul(g.mul(g.add(a, c), b), g.const(0.5 * mottle))))
+    mel.connect_material_property(col, "", unreal.MaterialProperty.MP_BASE_COLOR)
+    mel.connect_material_property(g.const(roughness), "", unreal.MaterialProperty.MP_ROUGHNESS)
+    g.done()
+    return mat
+
+
+def horizon_colours():
+    """The far blocks' wall colours: palette colours through the Lyon stone tone."""
+    ft = facade_tone()
+    return [ft.tone(ft.hex_linear(c)) if FACADE_TONE else ft.hex_linear(c) for c in HORIZON_PALETTE]
+
+
+def horizon_materials():
+    """Materials of the far view, whether or not the map has it yet: place_horizon.py needs them."""
+    names = []
+    for i, colour in enumerate(horizon_colours()):
+        names.append(backdrop_material("M_City_Horizon_%d" % i, colour).get_name())
+    names.append(flat_material("M_City_HorizonGround", HORIZON_GROUND, mottle=0.25).get_name())
+    names.append(flat_material("M_City_HorizonWood", HORIZON_WOOD, mottle=0.5).get_name())
+    names.append(flat_material("M_City_HorizonTown", HORIZON_TOWN, mottle=0.35).get_name())
+    return names
 
 
 def street_level(g):
@@ -1116,6 +1215,8 @@ def main():
         report["facade_tone"] = dict(on=FACADE_TONE, keep=facade_tone().KEEP, knee=facade_tone().KNEE,
                                      slope=facade_tone().SLOPE) if FACADE_TONE else {"on": False}
         report["backdrop_recess"] = "slide" in BACKDROP_HLSL     # openings set back by parallax
+        report["far_ground"] = FAR_GROUND
+        report["horizon_materials"] = horizon_materials()
         if eal.does_directory_exist(ROOT + "/Landmarks/" + CAMEL):
             report["landmark_meshes"] = assign(ROOT + "/Landmarks/" + CAMEL, shell)
         river_dir = ROOT + "/Riverside/" + CAMEL
