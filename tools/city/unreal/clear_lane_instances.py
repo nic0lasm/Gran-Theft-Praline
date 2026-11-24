@@ -17,6 +17,12 @@ reported, even when named: the kit has one actor per module mesh over the whole 
 StaticMeshActor_27 is every ShopClosed_B module of the map. Its white block was one module turned
 round (fix_facade_flips.py), not an object to cut.
 
+Where the filmed flight ends (rows marked "end" in Content/Test/Circuits/<Map>.circuit.csv), a
+tree of those sets whose trunk is within GTP_END_TREE_CLEAR_M (8) of the driven line goes too:
+the arrest is played there with the chase camera turning round the stopped car, and leaves have
+no collision (gate 78, 80 s: the camera inside a tree). Such an instance has "lane": "end" in the
+report. GTP_END_TREE_CLEAR_M=0 turns that off.
+
 GTP_LANE_CLEAR=0: report only, nothing removed, map not saved. Lanes: GTP_LANES_CSV, else
 Content/City/Traffic/<Map>.lanes.csv (the file the game reads). Map: GTP_CITY_FOCUS as
 place_props.py. Report: Saved/CityImport/lane_clear_report.json (removed per set and per mesh,
@@ -47,6 +53,10 @@ NAMED = [n for n in os.environ.get("GTP_LANE_ACTORS", "").split(",") if n]
 SET_FOLDERS = ("City/Props", "City/Route", "City/Details")
 REPORT_ONLY_FOLDERS = ("City/Facades", "City/Signs")
 MIN_HEIGHT_CM = 15.0
+CIRCUIT = os.environ.get("GTP_CIRCUIT_CSV") or os.path.join(
+    unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_content_dir()), "Test", "Circuits",
+    MAP_NAME + ".circuit.csv")
+END_TREE_CM = float(os.environ.get("GTP_END_TREE_CLEAR_M", str(lc.END_TREE_CLEAR_CM / 100.0))) * 100.0
 
 level_sub = unreal.get_editor_subsystem(unreal.LevelEditorSubsystem)
 actor_sub = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
@@ -88,6 +98,9 @@ def main():  # noqa: C901
         lanes = lc.read_lanes(LANES)
         index = lc.LaneIndex(lanes, CLEAR_CM)
         report["lanes"] = len(lanes)
+        end_lines = lc.read_end_lines(CIRCUIT) if END_TREE_CM > 0.0 else []
+        report["end_lines"] = len(end_lines)
+        report["end_tree_clear_cm"] = END_TREE_CM
         if not level_sub.load_level(MAP):
             report["errors"].append("cannot open " + MAP)
             raise StopIteration
@@ -117,6 +130,10 @@ def main():  # noqa: C901
                     shape = ((x, y), lc.TRUNK_RADIUS_CM) if tree else \
                         lc.footprint_box(x, y, yaw, (lo.x, lo.y), (hi.x, hi.y), (s.x, s.y))
                     near = index.nearest(shape, z_low=z + lo.z * s.z)
+                    if not near and tree and end_lines:
+                        g = lc.end_gap(x, y, end_lines)
+                        if g < END_TREE_CM:
+                            near = ("end", g)
                     if near:
                         hits.append((i, near, (round(x), round(y), round(z))))
                 if not hits:

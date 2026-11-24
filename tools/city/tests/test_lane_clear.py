@@ -53,6 +53,39 @@ class LaneClearTests(unittest.TestCase):
         self.assertIsNone(self.index.nearest(box, z_low=900.0))
         self.assertIsNotNone(self.index.nearest(box, z_low=100.0))
 
+    def test_trees_are_kept_off_the_line_where_the_filmed_flight_ends(self):
+        fd, path = tempfile.mkstemp(suffix=".circuit.csv")
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write("# The circuit of the flight\n"
+                    "lane_id,start_x_cm,start_y_cm,end_x_cm,end_y_cm,name,line_ue_cm,kmh,mark\n"
+                    "approach\n"
+                    "7,0,0,0,-3000,QU A,0 -300;0 -600,100,\n"
+                    "lap\n"
+                    "381,6000,56000,3000,55000,PL BELLECOUR,6000 56000;4500 55500;3000 55000,60,end\n"
+                    "373,12000,58000,7000,56500,R DE LA BARRE,12000 58000;7000 56500,,\n"
+                    "379,7000,56300,6100,56000,R DE LA BARRE,,75,end\n")
+        lines = lc.read_end_lines(path)
+        os.remove(path)
+        self.assertEqual(len(lines), 2)
+        self.assertEqual(lines[0], [(6000.0, 56000.0), (4500.0, 55500.0), (3000.0, 55000.0)])
+        self.assertEqual(lines[1], [(7000.0, 56300.0), (6100.0, 56000.0)])       # no line written: the lane's ends
+        self.assertAlmostEqual(lc.end_gap(4500.0, 55500.0, lines), 0.0)
+        self.assertLess(lc.end_gap(4700.0, 56100.0, lines), lc.END_TREE_CLEAR_CM)     # 5 m off the line
+        self.assertGreater(lc.end_gap(4000.0, 57000.0, lines), lc.END_TREE_CLEAR_CM)  # across the street
+        self.assertGreater(lc.end_gap(10000.0, 57400.0, lines), lc.END_TREE_CLEAR_CM)  # a lane not marked
+        self.assertEqual(lc.read_end_lines(path), [])                             # no file: no rule
+        self.assertEqual(lc.end_gap(0.0, 0.0, []), float("inf"))
+
+    def test_the_circuit_of_the_map_names_where_it_ends(self):
+        circuit = os.path.join(os.path.dirname(__file__), "..", "..", "..", "GranTheftPraline", "Content", "Test",
+                               "Circuits", "L_City_RueDeLaRepublique.circuit.csv")
+        if not os.path.exists(circuit):
+            self.skipTest("no circuit file in this tree")
+        lines = lc.read_end_lines(circuit)
+        self.assertGreaterEqual(len(lines), 1)
+        length = sum(((b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2) ** 0.5 for pts in lines for a, b in zip(pts, pts[1:]))
+        self.assertTrue(2000.0 <= length <= 30000.0, length)                      # 20 to 300 m of street
+
 
 if __name__ == "__main__":
     unittest.main()

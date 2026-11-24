@@ -38,6 +38,54 @@ def read_lanes(path):
     return lanes
 
 
+END_TREE_CLEAR_CM = 800.0   # where the filmed flight ends, no tree trunk this close to the driven line
+
+
+def read_end_lines(path):
+    """The driven lines [[(x, y), ...]] of the rows marked "end" in a flight circuit file
+    (Content/Test/Circuits/<Map>.circuit.csv): where the filmed flight stops and the arrest is
+    played, the chase camera turning round the car 6.5 m away and up to 3 m above it. Leaves have
+    no collision: gate 78, 80 s, the camera sat inside a tree. [] without the file or the column."""
+    out, header = [], None
+    try:
+        with open(path, encoding="utf-8") as f:
+            rows = f.read().splitlines()
+    except OSError:
+        return out
+    for row in rows:
+        if row.startswith("#") or not row.strip():
+            continue
+        cells = row.split(",")
+        if cells[0] == "lane_id":
+            header = cells
+            continue
+        if header is None or "mark" not in header or "line_ue_cm" not in header or len(cells) < len(header):
+            continue
+        if cells[header.index("mark")].strip() != "end":
+            continue
+        pts = []
+        for pair in cells[header.index("line_ue_cm")].split(";"):
+            xy = pair.split()
+            if len(xy) == 2:
+                pts.append((float(xy[0]), float(xy[1])))
+        if not pts:        # no line written: the lane's own ends
+            pts = [(float(cells[header.index("start_x_cm")]), float(cells[header.index("start_y_cm")])),
+                   (float(cells[header.index("end_x_cm")]), float(cells[header.index("end_y_cm")]))]
+        out.append(pts)
+    return out
+
+
+def end_gap(x, y, lines):
+    """Distance (cm) from a point to the nearest of those lines (their points joined), inf without any."""
+    best = float("inf")
+    for pts in lines:
+        if len(pts) == 1:
+            best = min(best, math.hypot(x - pts[0][0], y - pts[0][1]))
+        for a, b in zip(pts, pts[1:]):
+            best = min(best, _seg_point((x, y), a, b))
+    return best
+
+
 class LaneIndex:
     """Lane centre lines and lane-to-lane links as segments, in a uniform grid."""
 
