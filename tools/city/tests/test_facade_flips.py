@@ -24,6 +24,12 @@ class FacadeFlipTests(unittest.TestCase):
         inst = [("w1", 0, 0, 0, 90.0), ("w2", 0, 300, 0, 90.0), ("e1", 100, 0, 0, -90.0), ("e2", 100, 300, 0, -90.0)]
         self.assertEqual(ff.flipped(inst), [])
 
+    def test_notch_face_on_two_votes_is_left(self):
+        # prep 78: a short Blank face with 2 opposite neighbours only
+        inst = [("a", 0, 0, 0, 90.0), ("notch", 0, 200, 0, -90.0), ("b", 0, 400, 0, 90.0)]
+        self.assertEqual(ff.flipped(inst), [])
+        self.assertEqual(ff.votes(inst)[1], (0, 2))
+
     def test_lone_pair_is_not_enough(self):
         self.assertEqual(ff.flipped([("a", 0, 0, 0, 90.0), ("b", 0, 300, 0, -90.0)]), [])
 

@@ -22,7 +22,8 @@ NEAR_CM = 600.0
 LINE_CM = 40.0
 DZ_CM = 450.0
 TOL_DEG = 10.0
-MIN_VOTES = 2
+MIN_VOTES = 3            # prep 78: eight Blank modules flipped on 2 votes each, odd yaws, most likely
+#                         the short faces of a notch in a footprint, which do face the other way
 CELL_CM = 600.0
 
 
@@ -30,13 +31,13 @@ def _wrap(d):
     return (d + 180.0) % 360.0 - 180.0
 
 
-def flipped(instances):
-    """instances: [(key, x, y, z, yaw_deg)]. Returns [(key, votes_opposite)] to turn round."""
+def votes(instances):
+    """instances: [(key, x, y, z, yaw_deg)]. Returns [(same, opposite)] per instance."""
     grid = {}
     for i, (_, x, y, _, _) in enumerate(instances):
         grid.setdefault((int(x // CELL_CM), int(y // CELL_CM)), []).append(i)
     out = []
-    for i, (key, x, y, z, yaw) in enumerate(instances):
+    for i, (_, x, y, z, yaw) in enumerate(instances):
         a = math.radians(yaw)
         nx, ny = -math.sin(a), math.cos(a)          # facade normal: the bay runs along local X
         same = opposite = 0
@@ -57,6 +58,11 @@ def flipped(instances):
                         same += 1
                     elif d >= 180.0 - TOL_DEG:
                         opposite += 1
-        if opposite >= MIN_VOTES and same == 0:
-            out.append((key, opposite))
+        out.append((same, opposite))
     return out
+
+
+def flipped(instances, min_votes=None):
+    """[(key, votes_opposite)] of the instances to turn round."""
+    need = MIN_VOTES if min_votes is None else min_votes
+    return [(inst[0], o) for inst, (s, o) in zip(instances, votes(instances)) if o >= need and s == 0]

@@ -29,6 +29,11 @@ MAP_NAME = "L_City_" + "".join(p.capitalize() for p in FOCUS.split("-"))
 MAP = "/Game/Maps/" + MAP_NAME
 APPLY = os.environ.get("GTP_FACADE_FLIP", "1") != "0"
 FOLDER = "City/Facades"
+# Points to explain in the report: every module within WATCH_CM of one, with its yaw and its
+# votes. Prep 78 flipped 11 modules but not gate 75's white block at (26250, -14825).
+WATCH = [tuple(float(v) for v in p.split(",")) for p in
+         os.environ.get("GTP_FACADE_WATCH", "26250,-14825").split(";") if p.strip()]
+WATCH_CM = 300.0
 
 level_sub = unreal.get_editor_subsystem(unreal.LevelEditorSubsystem)
 actor_sub = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
@@ -63,6 +68,16 @@ def main():
             report["errors"].append("no facade module in folder " + FOLDER)
             raise StopIteration
         flips = ff.flipped(inst)
+        if WATCH:
+            allv = ff.votes(inst)
+            report["watch"] = []
+            for k, ((ci, i), x, y, z, yaw) in enumerate(inst):
+                if not any((x - wx) ** 2 + (y - wy) ** 2 < WATCH_CM ** 2 for wx, wy in WATCH):
+                    continue
+                mesh = comps[ci][1].get_editor_property("static_mesh").get_path_name().split(".")[-1]
+                report["watch"].append({"actor": comps[ci][0].get_name(), "mesh": mesh, "index": i,
+                                        "xyz": [round(x), round(y), round(z)], "yaw": round(yaw, 1),
+                                        "same": allv[k][0], "opposite": allv[k][1]})
         where = {k: (x, y, z, yaw) for k, x, y, z, yaw in inst}
         touched = set()
         for (ci, i), votes in flips:
@@ -94,7 +109,7 @@ def main():
     os.makedirs(out, exist_ok=True)
     with open(os.path.join(out, "facade_flip_report.json"), "w", encoding="utf-8") as f:
         json.dump(report, f, indent=1)
-    log(json.dumps({k: report.get(k) for k in ("modules", "flipped", "by_mesh", "errors", "saved")}))
+    log(json.dumps({k: report.get(k) for k in ("modules", "flipped", "by_mesh", "watch", "errors", "saved")}))
 
 
 main()
