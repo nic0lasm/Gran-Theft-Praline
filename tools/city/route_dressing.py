@@ -172,8 +172,9 @@ def main():  # noqa: C901
             if os.path.exists(rep):
                 with open(rep, encoding="utf-8") as f:
                     r = json.load(f)
-                note += " removed %s %s, reported only %s" % (r.get("removed_total"), r.get("removed"),
-                                                              r.get("reported_only_total"))
+                note += " removed %s %s, of which %s within %s cm of the %s driven lines, reported only %s" % (
+                    r.get("removed_total"), r.get("removed"), r.get("circuit_removed"), r.get("circuit_clear_cm"),
+                    r.get("circuit_lines"), r.get("reported_only_total"))
         elif step == "pits":
             ok, _, note = qb.run_editor("route_pits", "cover_pits", "pit_cover_report.json", 2400, {}, args)
             rep = os.path.join(qb.SAVED, "pit_cover_report.json")

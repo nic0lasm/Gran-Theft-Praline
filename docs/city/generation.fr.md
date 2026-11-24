@@ -449,6 +449,14 @@ dans une rampe de parking.
    qui porte 95 % des coins (`terrain_file.grid`), les autres sont comptés (`off_grid`), et une
    grille vide à plus d'un cinquième est une erreur.
 
+4. **La ligne conduite** (`clear_lane_instances.py`, étape `lanes`) : l'étape dégageait 1,5 m
+   autour de l'axe des voies, mais la fuite roule sur la ligne du fichier de circuit
+   (`line_ue_cm`, approche et tour), jusqu'à 3,9 m de cet axe : à la porte 83 la voiture a
+   touché un arbre du quai à 96 km/h. Les mêmes jeux d'objets sont maintenant aussi dégagés à
+   2,5 m de part et d'autre de chaque ligne de ce fichier (`GTP_CIRCUIT_CLEAR_M`) ; le rapport
+   donne `circuit_lines`, `circuit_clear_cm`, `circuit_removed`, et une telle instance porte
+   `"lane": "circuit"`.
+
 `materials_report.json` donne `far_mask` (`texture`, `read_past_the_mask`, `rivers`, `laid`) ;
 `pit_cover_report.json` donne `heights_from`, `cells_read`, `covered`. Pas encore vu en jeu.
 

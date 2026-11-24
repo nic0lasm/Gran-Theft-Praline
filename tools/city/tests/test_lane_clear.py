@@ -76,6 +76,32 @@ class LaneClearTests(unittest.TestCase):
         self.assertEqual(lc.read_end_lines(path), [])                             # no file: no rule
         self.assertEqual(lc.end_gap(0.0, 0.0, []), float("inf"))
 
+    def test_the_driven_line_is_cleared_wider_than_the_lanes(self):
+        # gate 83, 19 s: "the car is 1.8 m off its lane, the obstacle 2.5 m off lane 20": the
+        # flight drives the line of the circuit file, not the lane centre
+        fd, path = tempfile.mkstemp(suffix=".circuit.csv")
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write("lane_id,start_x_cm,start_y_cm,end_x_cm,end_y_cm,name,line_ue_cm,kmh,mark\n"
+                    "approach\n"
+                    "7,0,0,0,3000,QU A,0 0;0 3000,100,\n"
+                    "lap\n"
+                    "8,200,3300,5000,3300,R B,200 3300;5000 3300,,\n"
+                    "9,5000,3600,5000,9000,R C,5000 3600;5000 9000,,end\n"
+                    "10,90000,0,90000,500,FAR,90000 0;90000 500,,\n")
+        lines = lc.read_lines(path)
+        os.remove(path)
+        self.assertEqual(len(lines), 4)                                   # approach and lap, marked or not
+        index = lc.circuit_index(lines)
+        tree = lambda x, y: ((x, y), lc.TRUNK_RADIUS_CM)                  # noqa: E731
+        self.assertEqual(index.nearest(tree(280.0, 1500.0))[0], "0")      # trunk 2.4 m from the line
+        self.assertIsNone(index.nearest(tree(300.0, 1500.0)))             # 2.6 m: stays
+        self.assertIsNotNone(index.nearest(tree(60.0, 3180.0)))           # on the join of two rows
+        self.assertIsNotNone(index.nearest(tree(4900.0, 3450.0), z_low=900.0))    # no height on the line
+        self.assertIsNone(index.nearest(tree(45000.0, 300.0)))            # no join across the map
+        bench = lc.footprint_box(300.0, 1500.0, 0.0, (-100.0, -30.0), (100.0, 30.0))
+        self.assertAlmostEqual(index.nearest(bench)[1], 200.0, delta=1.0)  # its near edge 2 m off
+        self.assertEqual(lc.read_lines(path), [])
+
     def test_the_circuit_of_the_map_names_where_it_ends(self):
         circuit = os.path.join(os.path.dirname(__file__), "..", "..", "..", "GranTheftPraline", "Content", "Test",
                                "Circuits", "L_City_RueDeLaRepublique.circuit.csv")
