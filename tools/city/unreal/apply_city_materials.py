@@ -218,6 +218,7 @@ def weather(mat, roles):
 
 FACADE_TONE = os.environ.get("GTP_FACADE_TONE", "1") != "0"
 FAR_GROUND = os.environ.get("GTP_FAR_GROUND", "1") != "0"
+ROOF_WALLS = os.environ.get("GTP_ROOF_WALLS", "1") != "0"
 
 
 def facade_tone():
@@ -549,6 +550,28 @@ return float4(col, glass);
 """
 
 
+def roof_coloured_faces(g, col, wall, nz):
+    """Faces painted in a roof colour (facade_tone.ROOF_ON_WALLS): the vertical ones are the
+    sides of a LiDAR roof block and become stone walls; the sloped ones are roofs, mansards
+    among them, and leave the wall mask so that no window is drawn on them. Returns the
+    colour and the wall mask to use. GTP_ROOF_WALLS=0: both as they came."""
+    if not ROOF_WALLS:
+        return col, wall
+    ft = facade_tone()
+    share = None
+    for c in ft.roof_colour_readings():
+        diff = g.sub(col, g.const(c))
+        near = g.sub(g.const(1.0), g.div(g.op(unreal.MaterialExpressionDotProduct, diff, diff),
+                                         g.const(ft.ROOF_RADIUS ** 2)))
+        share = near if share is None else g.op(unreal.MaterialExpressionMax, share, near)
+    share = g.unary(unreal.MaterialExpressionSaturate, share)
+    sloped = g.unary(unreal.MaterialExpressionSaturate, g.mul(g.sub(nz, g.const(0.2)), g.const(10.0)))
+    upright = g.mul(share, g.sub(g.const(1.0), sloped))
+    col = g.lerp(col, g.const(ft.ROOF_AS_WALL), upright)
+    wall = g.mul(wall, g.sub(g.const(1.0), g.mul(share, sloped)))
+    return col, wall
+
+
 def backdrop_material(name="M_City_Backdrop", colour=None):
     """colour (linear RGB, already toned): a far block of the horizon (place_horizon.py), which is
     an engine cube without vertex colours: that wall colour, a zinc roof, no scanned detail."""
@@ -559,14 +582,16 @@ def backdrop_material(name="M_City_Backdrop", colour=None):
     n = g.node(unreal.MaterialExpressionVertexNormalWS)
     nz = g.unary(unreal.MaterialExpressionAbs, g.mask(n, b=True))
     wall = g.unary(unreal.MaterialExpressionSaturate, g.mul(g.sub(g.const(0.8), nz), g.const(2.0)))
+    raw = g.mask(vc, r=True, g=True, b=True)
+    if colour is None:
+        raw, wall = roof_coloured_faces(g, raw, wall, nz)
     wp = g.world_position()
     f = g.unary(unreal.MaterialExpressionFrac, g.div(g.mask(wp, b=True), g.const(42.0)))   # stone courses
     d = g.unary(unreal.MaterialExpressionAbs, g.sub(f, g.const(0.5)))
     course = g.unary(unreal.MaterialExpressionSaturate, g.mul(g.sub(d, g.const(0.46)), g.const(25.0)))
     shade = g.lerp(g.const(1.0), g.const(0.88), g.mul(course, wall))
     if colour is None:
-        base = g.mask(vc, r=True, g=True, b=True)
-        base = g.lerp(base, lyon_tone(g, base), wall)
+        base = g.lerp(raw, lyon_tone(g, raw), wall)
     else:
         base = g.lerp(g.const(HORIZON_ROOF), g.const(tuple(colour)), wall)
     col = g.mul(base, shade)
@@ -1216,6 +1241,7 @@ def main():
                                      slope=facade_tone().SLOPE) if FACADE_TONE else {"on": False}
         report["backdrop_recess"] = "slide" in BACKDROP_HLSL     # openings set back by parallax
         report["far_ground"] = FAR_GROUND
+        report["roof_walls"] = ROOF_WALLS
         report["horizon_materials"] = horizon_materials()
         if eal.does_directory_exist(ROOT + "/Landmarks/" + CAMEL):
             report["landmark_meshes"] = assign(ROOT + "/Landmarks/" + CAMEL, shell)

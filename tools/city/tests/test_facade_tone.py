@@ -88,6 +88,20 @@ class FacadeToneTests(unittest.TestCase):
             strong += ft.render_share(raw) >= 0.5
         self.assertGreaterEqual(strong, 5)
 
+    def test_roof_colours_on_walls_are_known_and_no_wall_colour_is_taken_for_one(self):
+        import meshkit
+        self.assertEqual(set(ft.ROOF_ON_WALLS), {meshkit.ROOF_COLOURS["tile"], meshkit.ROOF_COLOURS["zinc"]})
+        for colour in ft.roof_colour_readings():
+            self.assertGreater(ft.roof_share(colour), 0.99)
+        for colours in procgen.PALETTE.values():
+            for colour in colours:
+                h = colour.lstrip("#")
+                raw = tuple(int(h[i:i + 2], 16) / 255.0 for i in (0, 2, 4))
+                self.assertEqual(ft.roof_share(raw), 0.0, colour)
+                self.assertEqual(ft.roof_share(ft.hex_linear(colour)), 0.0, colour)
+        # the stone a roof-coloured wall becomes lands in the bible's limestone range
+        self.assertTrue(LIMESTONE[0] <= grey(ft.tone(ft.ROOF_AS_WALL)) <= LIMESTONE[1])
+
 
 if __name__ == "__main__":
     unittest.main()
