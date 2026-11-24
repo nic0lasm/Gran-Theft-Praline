@@ -20,6 +20,9 @@ that distance:
            Fourviere (nave, four towers, apse, the old chapel's tower) and the metal tower
            beside it, on the edge of the hill, where they stand over place Bellecour
 
+  square setting  where a square runs past the end of the map's ground (place Bellecour, 150 m
+           past it): the ground carried on, the fronts round the square, two rows of trees
+
 Positions are in metres on the Unreal axes of the street map (x east, y SOUTH, origin of the
 generated zone); heights are above the street. tools/city/unreal/place_horizon.py places it.
 Everything is approximate on purpose: this is a far view, never a place to go.
@@ -46,11 +49,11 @@ TOWERS = (
     (1600.0, 420.0, 45.0, 30.0, 82.0),
     (1450.0, 180.0, 50.0, 26.0, 64.0),
 )
-# Fourviere, from the coordinates of the two monuments (WGS84) against the place de la Republique
-# of the map: within some 30 m, on a view from 800 m and more.
-BASILICA_XY = (-853.0, 29.0)
+# Fourviere, from the coordinates of the two monuments (WGS84 through Lambert-93, against the
+# origin of the zone): within some 20 m, on a view from 800 m and more.
+BASILICA_XY = (-845.0, 97.0)
 BASILICA_YAW = 12.0            # the nave is turned a little from east; the apse looks over the town
-IRON_TOWER_XY = (-892.0, -138.0)
+IRON_TOWER_XY = (-887.0, -58.0)
 # shape, along the nave, across it, width, depth, height, material (metres; a cylinder's width is its diameter)
 BASILICA_PARTS = (
     ("Cube", 0.0, 0.0, 78.0, 30.0, 31.0, "stone"),          # nave
@@ -124,6 +127,196 @@ def monuments():
             out.append({"name": "%s_%d" % (name, i), "shape": shape, "x": round(cx + dx, 1), "y": round(cy + dy, 1),
                         "yaw": yaw, "width": width, "depth": depth, "ground": round(ground, 1),
                         "top": round(ground + height, 1), "material": material})
+    return out
+
+
+# --- the setting of a square that runs past the end of the map -------------------------------
+# The ground of the map is a rectangle; place Bellecour runs 150 m past its south edge. Seen from
+# the street along its north side the square was 30 to 65 m of ground, then the edge of the world.
+SQUARE_STREET_M = 16.0             # between the outline of the square and the fronts round it
+SQUARE_FRONT_DEPTH_M = 14.0
+SQUARE_FRONT_CLEAR_M = 4.0         # a front stands at least this far from the map's ground and buildings
+SQUARE_FRONT_M = (21.0, 24.5)      # eave of the fronts of a great square: five storeys and an attic
+SQUARE_APRON_PAD_M = 140.0         # ground laid this far round the square, past the map
+SQUARE_APRON_LAP_M = 2.0           # and this far under the edge of the map's own ground
+SQUARE_TREE_ROWS_M = (9.0, 19.0)   # rows along the far long side, this far inside the outline
+SQUARE_TREE_PITCH_M = 9.0
+SQUARE_TREE_END_M = 14.0           # no tree this close to the ends of the rows
+
+
+def convex_hull(points):
+    """Andrew's monotone chain; counter-clockwise, no repeated point."""
+    pts = sorted(set((float(x), float(y)) for x, y in points))
+    if len(pts) < 3:
+        return pts
+
+    def half(seq):
+        out = []
+        for p in seq:
+            while len(out) >= 2 and (out[-1][0] - out[-2][0]) * (p[1] - out[-2][1]) - \
+                    (out[-1][1] - out[-2][1]) * (p[0] - out[-2][0]) <= 0.0:
+                out.pop()
+            out.append(p)
+        return out[:-1]
+
+    return half(pts) + half(reversed(pts))
+
+
+def oriented_box(ring):
+    """Smallest rectangle round an outline: (cx, cy, ux, uy, half_u, half_v), u its long side."""
+    hull = convex_hull(ring)
+    best = None
+    for i, a in enumerate(hull):
+        b = hull[(i + 1) % len(hull)]
+        length = math.hypot(b[0] - a[0], b[1] - a[1])
+        if length <= 0.0:
+            continue
+        ux, uy = (b[0] - a[0]) / length, (b[1] - a[1]) / length
+        us = [p[0] * ux + p[1] * uy for p in hull]
+        vs = [-p[0] * uy + p[1] * ux for p in hull]
+        du, dv = max(us) - min(us), max(vs) - min(vs)
+        if best is None or du * dv < best[0]:
+            cu, cv = 0.5 * (max(us) + min(us)), 0.5 * (max(vs) + min(vs))
+            best = (du * dv, cu * ux - cv * uy, cu * uy + cv * ux, ux, uy, 0.5 * du, 0.5 * dv)
+    _, cx, cy, ux, uy, hu, hv = best
+    if hv > hu:                                    # u is the long side
+        ux, uy, hu, hv = -uy, ux, hv, hu
+    return cx, cy, ux, uy, hu, hv
+
+
+def _inside(box, x, y, pad=0.0):
+    return box[0] - pad <= x <= box[2] + pad and box[1] - pad <= y <= box[3] + pad
+
+
+def square_setting(ring, ground_box, seed=7, built=()):
+    """What a square needs where it runs past the ground of the map (ring: its outline, ground_box:
+    (x0, y0, x1, y1) of the map's ground, built: the boxes of the real building volumes that stand
+    past that ground, metres on the Unreal axes):
+
+      aprons  flat ground past the edge of the map, round the square: axis-aligned rectangles
+              {"x", "y", "width", "depth"} that lap under the map's ground; they take the ground
+              material, which draws the square's own surface in world space
+      fronts  the buildings round the square, a street back from its outline, as plain blocks in
+              the format of layout()'s (kind "front"; "top" is above the square); only those that
+              stand wholly past the map's ground and clear of the real volumes: no front on a
+              building, a street or a lane of the map
+      trees   two rows along its far long side: {"x", "y", "yaw", "scale"}
+
+    A square that lies wholly on the map's ground gets none of them."""
+    rng = random.Random(seed)
+    cx, cy, ux, uy, hu, hv = oriented_box(ring)
+    vx, vy = -uy, ux
+    reach = SQUARE_STREET_M + SQUARE_FRONT_DEPTH_M
+    corners = [(cx + su * (hu + reach) * ux + sv * (hv + reach) * vx, cy + su * (hu + reach) * uy + sv * (hv + reach) * vy)
+               for su in (-1.0, 1.0) for sv in (-1.0, 1.0)]
+    if all(_inside(ground_box, x, y) for x, y in corners):
+        return {"aprons": [], "fronts": [], "trees": [], "box": [round(v, 2) for v in (cx, cy, ux, uy, hu, hv)]}
+
+    # ground: the box round the square and its fronts, padded, less the ground of the map
+    x0 = min(p[0] for p in corners) - SQUARE_APRON_PAD_M
+    x1 = max(p[0] for p in corners) + SQUARE_APRON_PAD_M
+    y0 = min(p[1] for p in corners) - SQUARE_APRON_PAD_M
+    y1 = max(p[1] for p in corners) + SQUARE_APRON_PAD_M
+    gx0, gy0, gx1, gy1 = ground_box
+    lap = SQUARE_APRON_LAP_M
+    pieces = [(x0, y0, x1, min(y1, gy0 + lap)),                                   # north of the map
+              (x0, max(y0, gy1 - lap), x1, y1),                                   # south of it
+              (x0, max(y0, gy0 + lap), min(x1, gx0 + lap), min(y1, gy1 - lap)),   # west, between the two
+              (max(x0, gx1 - lap), max(y0, gy0 + lap), x1, min(y1, gy1 - lap))]   # east
+    aprons = [{"x": round(0.5 * (a + c), 2), "y": round(0.5 * (b + d), 2), "width": round(c - a, 2),
+               "depth": round(d - b, 2)} for a, b, c, d in pieces if c - a > 1.0 and d - b > 1.0]
+
+    # fronts: a row along each side, a street back from the outline, only where the map has no ground
+    fronts = []
+    for nx, ny, tx, ty, half_side, half_out in ((vx, vy, ux, uy, hu, hv), (-vx, -vy, ux, uy, hu, hv),
+                                                (ux, uy, vx, vy, hv, hu), (-ux, -uy, vx, vy, hv, hu)):
+        back = half_out + SQUARE_STREET_M + 0.5 * SQUARE_FRONT_DEPTH_M
+        along, end = -(half_side + SQUARE_STREET_M), half_side + SQUARE_STREET_M
+        since_street = 0.0
+        while along < end - 12.0:
+            width = min(rng.uniform(26.0, 44.0), end - along)
+            top = rng.uniform(*SQUARE_FRONT_M)
+            colour = rng.randrange(2)                      # the two stone colours
+            mid = along + 0.5 * width
+            x, y = cx + nx * back + tx * mid, cy + ny * back + ty * mid
+            hw, hd = 0.5 * width, 0.5 * SQUARE_FRONT_DEPTH_M
+            footprint = [(x + a * hw * tx + b * hd * nx, y + a * hw * ty + b * hd * ny)
+                         for a in (-1.0, 1.0) for b in (-1.0, 1.0)]
+            fx0, fx1 = min(p[0] for p in footprint), max(p[0] for p in footprint)
+            fy0, fy1 = min(p[1] for p in footprint), max(p[1] for p in footprint)
+            # wholly past the map's ground (its streets and lanes) and clear of every real building
+            if not any(fx0 < b[2] + SQUARE_FRONT_CLEAR_M and fx1 > b[0] - SQUARE_FRONT_CLEAR_M and
+                       fy0 < b[3] + SQUARE_FRONT_CLEAR_M and fy1 > b[1] - SQUARE_FRONT_CLEAR_M
+                       for b in [ground_box] + list(built)):
+                fronts.append({"x": round(x, 1), "y": round(y, 1),
+                               "yaw": round(math.degrees(math.atan2(ty, tx)) % 360.0, 1),
+                               "width": round(width, 1), "depth": SQUARE_FRONT_DEPTH_M, "ground": 0.0,
+                               "top": round(top, 1), "colour": colour, "kind": "front"})
+            along += width
+            since_street += width
+            if since_street > 85.0:                        # a street opens on the square
+                along += rng.uniform(9.0, 13.0)
+                since_street = 0.0
+
+    # trees: along the long side farther from the map (the side the camera looks at across the square)
+    far = 1.0 if _far_from(ground_box, cx + vx * hv, cy + vy * hv) >= _far_from(ground_box, cx - vx * hv, cy - vy * hv) \
+        else -1.0
+    trees = []
+    count = int((2.0 * hu - 2.0 * SQUARE_TREE_END_M) / SQUARE_TREE_PITCH_M)
+    for row, inset in enumerate(SQUARE_TREE_ROWS_M):
+        for i in range(count + 1):
+            u = -hu + SQUARE_TREE_END_M + i * SQUARE_TREE_PITCH_M + (0.5 * SQUARE_TREE_PITCH_M if row % 2 else 0.0)
+            if u > hu - SQUARE_TREE_END_M:
+                continue
+            v = far * (hv - inset)
+            trees.append({"x": round(cx + ux * u + vx * v + rng.uniform(-0.4, 0.4), 2),
+                          "y": round(cy + uy * u + vy * v + rng.uniform(-0.4, 0.4), 2),
+                          "yaw": round(rng.uniform(0.0, 360.0), 1), "scale": round(rng.uniform(0.95, 1.25), 2)})
+    return {"aprons": aprons, "fronts": fronts, "trees": trees,
+            "box": [round(v, 2) for v in (cx, cy, ux, uy, hu, hv)]}
+
+
+def _far_from(box, x, y):
+    """How far outside a box a point is (0 inside)."""
+    return math.hypot(max(box[0] - x, 0.0, x - box[2]), max(box[1] - y, 0.0, y - box[3]))
+
+
+def keep_clear(items, line, clear_m):
+    """The items ({"x", "y"}) at least clear_m from every point of a driven line [(x, y)], metres.
+    The line's points are a few metres apart: the half of that step is added to the distance."""
+    if not line:
+        return list(items)
+    gaps = sorted(math.hypot(b[0] - a[0], b[1] - a[1]) for a, b in zip(line, line[1:]))
+    step = gaps[len(gaps) // 2] if gaps else 0.0          # the usual step: lanes follow one another in the list
+    need = clear_m + 0.5 * step
+    cell = max(need, 1.0)
+    grid = {}
+    for x, y in line:
+        grid.setdefault((int(x // cell), int(y // cell)), []).append((x, y))
+    out = []
+    for it in items:
+        gx, gy = int(it["x"] // cell), int(it["y"] // cell)
+        near = (p for i in (gx - 1, gx, gx + 1) for j in (gy - 1, gy, gy + 1) for p in grid.get((i, j), ()))
+        if all(math.hypot(px - it["x"], py - it["y"]) >= need for px, py in near):
+            out.append(it)
+    return out
+
+
+def circuit_line(text):
+    """Every point of the driven line of a flight circuit file (its line_ue_cm column), in metres."""
+    out = []
+    for row in text.splitlines():
+        if row.startswith("#") or ";" not in row:
+            continue
+        for cell in row.split(","):
+            if ";" in cell:
+                for pair in cell.split(";"):
+                    xy = pair.split()
+                    if len(xy) == 2:
+                        try:
+                            out.append((float(xy[0]) / 100.0, float(xy[1]) / 100.0))
+                        except ValueError:
+                            pass
     return out
 
 

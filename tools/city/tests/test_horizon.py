@@ -79,6 +79,83 @@ class HorizonTests(unittest.TestCase):
             if math.hypot(b["x"] - nave["x"], b["y"] - nave["y"]) < 150.0:
                 self.assertLess(b["top"], nave["top"], b)
 
+    # A square like place Bellecour on the map of the street: 300 m by 190 m, turned 18.5 degrees,
+    # its north side on the map, the rest past the south edge of the ground (y = 617 m).
+    GROUND = (-413.0, -557.0, 413.0, 617.0)
+    U, V = (-0.948, -0.317), (-0.317, 0.948)
+    NE = (120.0, 610.0)
+    RING = [NE, (NE[0] + 300 * U[0], NE[1] + 300 * U[1]),
+            (NE[0] + 300 * U[0] + 190 * V[0], NE[1] + 300 * U[1] + 190 * V[1]),
+            (NE[0] + 190 * V[0], NE[1] + 190 * V[1])]
+
+    def test_the_box_round_a_square_follows_its_long_side(self):
+        cx, cy, ux, uy, hu, hv = horizon.oriented_box(self.RING)
+        self.assertAlmostEqual(hu, 150.0, delta=0.5)
+        self.assertAlmostEqual(hv, 95.0, delta=0.5)
+        self.assertAlmostEqual(abs(ux * self.U[0] + uy * self.U[1]), 1.0, delta=0.001)
+        self.assertAlmostEqual(cx, sum(p[0] for p in self.RING) / 4.0, delta=0.5)
+        self.assertAlmostEqual(cy, sum(p[1] for p in self.RING) / 4.0, delta=0.5)
+
+    def test_a_square_past_the_end_of_the_map_gets_ground_fronts_and_trees(self):
+        st = horizon.square_setting(self.RING, self.GROUND)
+        self.assertEqual(st, horizon.square_setting(self.RING, self.GROUND))        # one seed, one setting
+        # ground: every point of the square past the map's ground lies on an apron
+        def on_apron(x, y):
+            return any(abs(x - a["x"]) <= 0.5 * a["width"] and abs(y - a["y"]) <= 0.5 * a["depth"] for a in st["aprons"])
+        for i in range(0, 301, 10):
+            for j in range(0, 191, 10):
+                x = self.NE[0] + i * self.U[0] + j * self.V[0]
+                y = self.NE[1] + i * self.U[1] + j * self.V[1]
+                if y > self.GROUND[3]:
+                    self.assertTrue(on_apron(x, y), (x, y))
+        for a in st["aprons"]:                         # and laps under the map's edge without covering it
+            self.assertLessEqual(self.GROUND[3] - (a["y"] - 0.5 * a["depth"]), horizon.SQUARE_APRON_LAP_M + 0.01)
+        # fronts: none on the map's ground, a row along the whole south side, at a street's distance
+        self.assertGreaterEqual(len(st["fronts"]), 10)
+        south = 0.0
+        for f in st["fronts"]:
+            self.assertGreater(f["y"] - 0.5 * math.hypot(f["width"], f["depth"]), self.GROUND[3] - 12.0, f)
+            self.assertTrue(21.0 <= f["top"] <= 24.5 and f["colour"] in (0, 1) and f["kind"] == "front", f)
+            away = (f["x"] - st["box"][0]) * self.V[0] + (f["y"] - st["box"][1]) * self.V[1]
+            if away > 100.0:
+                south += f["width"]
+                self.assertAlmostEqual(away, 95.0 + horizon.SQUARE_STREET_M + 7.0, delta=0.6)
+        self.assertGreater(south, 0.85 * 300.0)
+        # trees: two rows inside the square, on its south side, never on a front
+        self.assertTrue(50 <= len(st["trees"]) <= 70, len(st["trees"]))
+        for t in st["trees"]:
+            away = (t["x"] - st["box"][0]) * self.V[0] + (t["y"] - st["box"][1]) * self.V[1]
+            self.assertTrue(70.0 <= away <= 90.0, t)
+
+    def test_no_front_stands_on_a_real_building_past_the_ground(self):
+        # the real volumes of the west side of the square run on 60 m past the ground of the map
+        real = (-300.0, 600.0, -200.0, 680.0)
+        free = horizon.square_setting(self.RING, self.GROUND)["fronts"]
+        kept = horizon.square_setting(self.RING, self.GROUND, built=[real])["fronts"]
+        self.assertLess(len(kept), len(free))
+        for f in kept:
+            reach = 0.5 * math.hypot(f["width"], f["depth"])
+            self.assertFalse(real[0] - 4.0 < f["x"] < real[2] + 4.0 and real[1] - 4.0 < f["y"] < real[3] + 4.0, f)
+            self.assertTrue(f["x"] - reach > real[2] or f["x"] + reach < real[0] or f["y"] - reach > real[3] or
+                            f["y"] + reach < real[1] or abs(f["x"] - 0.5 * (real[0] + real[2])) > 50.0 or
+                            abs(f["y"] - 0.5 * (real[1] + real[3])) > 40.0, f)
+
+    def test_a_square_on_the_map_needs_nothing(self):
+        ring = [(0.0, 0.0), (80.0, 0.0), (80.0, 60.0), (0.0, 60.0)]
+        st = horizon.square_setting(ring, self.GROUND)
+        self.assertEqual((st["aprons"], st["fronts"], st["trees"]), ([], [], []))
+
+    def test_nothing_is_left_on_the_driven_line(self):
+        text = "# a circuit\nlane_id,start_x_cm,start_y_cm,end_x_cm,end_y_cm,name,line_ue_cm,kmh\n" \
+               "1,0,0,3000,0,R A,0 0;300 0;600 0;900 0;1200 0,60\napproach\n2,0,0,0,900,R B,0 300;0 600;0 900,\n"
+        line = horizon.circuit_line(text)
+        self.assertEqual(len(line), 8)
+        self.assertEqual(line[1], (3.0, 0.0))
+        items = [{"x": 4.5, "y": 4.0}, {"x": 9.0, "y": 7.5}, {"x": 40.0, "y": 0.0}, {"x": 2.0, "y": 6.0}]
+        kept = horizon.keep_clear(items, line, 5.0)
+        self.assertEqual(kept, [{"x": 9.0, "y": 7.5}, {"x": 40.0, "y": 0.0}])
+        self.assertEqual(horizon.keep_clear(items, [], 5.0), items)
+
     def test_the_ground_reaches_the_real_horizon(self):
         # eyes 2 m above the street: the horizon is 5 km away; from a roof at 30 m, 20 km
         self.assertGreaterEqual(self.plan["skirt"]["half"], 20000.0)
