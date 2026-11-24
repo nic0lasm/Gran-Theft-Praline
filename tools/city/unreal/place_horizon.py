@@ -46,6 +46,9 @@ GROUND_MATERIAL = "M_City_Ground"
 APRON_BELOW_CM = 3.0           # the carried-on ground lies this far under the level measured on the map
 LEVEL_GRID_CM = 800.0          # the square's level: one trace every 8 m on the part the map holds
 LEVEL_MIN_HITS = 8
+LEVEL_REACH_CM = (6000.0, 15000.0)     # street furniture this close to the outline tells the level
+GROUND_FOLDERS = ("City/Props", "City/Route")
+TREE_SUNK_CM = 10.0
 TREE_CLEAR_M = 5.0             # no tree this close to the line the flight drives
 TREE_CULL_CM = 60000.0
 
@@ -81,21 +84,43 @@ def trace_z(world, x, y, z_top, z_bottom):
     return None if res is None else res.to_tuple()[4].z
 
 
-def square_level(world, squares, ring, tiles):
-    """(level in cm, how it was found) of a square, from the part of it the map's ground holds:
-    the median of downward traces inside its outline; failing that, the lowest top of the terrain
-    tiles under it."""
+def ground_points():
+    """(x, y, z) of every instance of the street furniture and of the route dressing: the generator
+    set each one on the terrain from the LiDAR model, and the lanes step reads them the same way."""
+    out = []
+    for actor in actor_sub_().get_all_level_actors():
+        if not str(actor.get_folder_path()).startswith(GROUND_FOLDERS):
+            continue
+        for comp in actor.get_components_by_class(unreal.InstancedStaticMeshComponent):
+            for i in range(comp.get_instance_count()):
+                t = comp.get_instance_transform(i, True).translation
+                out.append((t.x, t.y, t.z))
+    return out
+
+
+def square_level(world, squares, ring, tiles, base, points):
+    """(level in cm, how it was found) of a square.
+
+    Prep 81: every downward trace went through the terrain (in the headless editor its tiles
+    answer no trace, as the pits step had found) and stopped on the far ground of this very
+    folder, 6.7 m under the street: the fronts stood 6.7 m too low and the trees were buried to
+    their crowns. The lanes file carries no height either. The level is now read, in this order:
+    on the street furniture standing inside the outline or within 60 m of it, then 150 m; on the
+    traces that stop above the far ground; on the lowest top of the terrain tiles under it."""
+    for reach in LEVEL_REACH_CM:
+        zs = squares.heights_near(ring, points, reach)
+        if len(zs) >= LEVEL_MIN_HITS:
+            return zs[len(zs) // 2], "furniture (%d within %d m)" % (len(zs), reach / 100.0)
     x0, y0, x1, y1 = squares.bounds([ring])
     top = max(t[5] for t in tiles) + 500.0
-    bottom = min(t[4] for t in tiles) - 500.0
     hits = []
     y = y0
     while y <= y1:
         x = x0
         while x <= x1:
             if any(t[0] <= x <= t[2] and t[1] <= y <= t[3] for t in tiles) and squares.distance([ring], (x, y)) < -300.0:
-                z = trace_z(world, x, y, top, bottom)
-                if z is not None:
+                z = trace_z(world, x, y, top, base - 100.0)
+                if z is not None and z > base + 50.0:
                     hits.append(z)
             x += LEVEL_GRID_CM
         y += LEVEL_GRID_CM
@@ -104,7 +129,7 @@ def square_level(world, squares, ring, tiles):
         return hits[len(hits) // 2], "trace (%d hits)" % len(hits)
     under = [t[5] for t in tiles if t[0] <= x1 and t[2] >= x0 and t[1] <= y1 and t[3] >= y0]
     if under:
-        return min(under) - 50.0, "terrain bounds (%d traces hit)" % len(hits)
+        return min(under) - 50.0, "terrain bounds (%d furniture, %d traces)" % (len(zs), len(hits))
     return 0.0, "nothing measured"
 
 
@@ -122,7 +147,7 @@ def square_settings(report, place, tiles, built, base):  # noqa: C901
     ground_m = (min(t[0] for t in tiles) / 100.0, min(t[1] for t in tiles) / 100.0,
                 max(t[2] for t in tiles) / 100.0, max(t[3] for t in tiles) / 100.0)
     report["ground_box_m"] = [round(v, 1) for v in ground_m]
-    line = []
+    line, points = [], None
     circuit = os.path.join(REPO, "GranTheftPraline", "Content", "Test", "Circuits", "L_City_" + CAMEL + ".circuit.csv")
     if os.path.exists(circuit):
         with open(circuit, encoding="utf-8") as f:
@@ -136,7 +161,9 @@ def square_settings(report, place, tiles, built, base):  # noqa: C901
         if not st["aprons"]:
             info["skipped"] = "on the map's ground"
             continue
-        level, how = square_level(world, squares, q["ring"], tiles)
+        if points is None:
+            points = ground_points()
+        level, how = square_level(world, squares, q["ring"], tiles, base, points)
         info["level_cm"], info["level_from"] = round(level, 1), how
         for i, a in enumerate(st["aprons"]):
             # a cube, 1 m thick, its top the ground: the engine's cube has a collision box for certain
@@ -178,15 +205,9 @@ def square_settings(report, place, tiles, built, base):  # noqa: C901
         comp.set_collision_profile_name("BlockAll")
         comp.set_editor_property("instance_start_cull_distance", int(0.8 * TREE_CULL_CM))
         comp.set_editor_property("instance_end_cull_distance", int(TREE_CULL_CM))
-        top = max(t[5] for t in tiles) + 500.0
-        bottom = min(t[4] for t in tiles) - 500.0
         for t in trees:
-            x, y, z = t["x"] * 100.0, t["y"] * 100.0, None
-            if ground_m[0] * 100.0 <= x <= ground_m[2] * 100.0 and ground_m[1] * 100.0 <= y <= ground_m[3] * 100.0:
-                z = trace_z(world, x, y, top, bottom)
-                if z is not None and abs(z - level) > 150.0:      # a roof, a lamp, a pit: not the ground
-                    z = None
-            comp.add_instance(unreal.Transform(unreal.Vector(x, y, level if z is None else z),
+            # at the level of the square, a hand deep: no trace tells the ground here (see square_level)
+            comp.add_instance(unreal.Transform(unreal.Vector(t["x"] * 100.0, t["y"] * 100.0, level - TREE_SUNK_CM),
                                                unreal.Rotator(0.0, 0.0, t["yaw"]),
                                                unreal.Vector(t["scale"], t["scale"], t["scale"])), True)
             info["trees"] += 1

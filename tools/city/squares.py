@@ -109,6 +109,12 @@ def distance(rings, p):
     return best
 
 
+def heights_near(ring, points, reach_cm):
+    """Sorted heights of the points (x, y, z) inside an outline or within reach_cm of it: what
+    stands on the ground round a square tells its level where no trace does."""
+    return sorted(p[2] for p in points if len(p) > 2 and distance([ring], (p[0], p[1])) < reach_cm)
+
+
 def bounds(rings, pad_cm=0.0):
     xs = [p[0] for r in rings for p in r]
     ys = [p[1] for r in rings for p in r]

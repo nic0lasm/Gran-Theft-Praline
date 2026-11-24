@@ -389,7 +389,10 @@ and the hill behind it carried no monument.
    drives (read from the circuit file). Ground, fronts and trees block the player; the fronts
    cast shadows. These are stand-ins until the zone itself is extended south.
    `GTP_SQUARE_SETTING=0` leaves them out; `horizon_report.json` gives `square_settings`
-   (`level_cm`, `level_from`, `aprons`, `fronts`, `trees`) and `ground_box_m`.
+   (`level_cm`, `level_from`, `aprons`, `fronts`, `trees`) and `ground_box_m`. The level of the
+   square is the median height of the street furniture standing in or within 60 m of its
+   outline (`level_from` then starts with `furniture`): in the headless editor a trace goes
+   through the terrain tiles and would stop on the far ground, several metres too low.
 
 Not seen in game yet. The red is a flat colour for now: a scanned surface can follow once the
 outline is proven on a picture.

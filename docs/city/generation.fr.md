@@ -409,7 +409,10 @@ lointain), et la colline derrière ne portait aucun monument.
    façades et arbres arrêtent le joueur ; les façades portent ombre. Ce sont des doublures en
    attendant que la zone elle-même soit étendue au sud. `GTP_SQUARE_SETTING=0` les retire ;
    `horizon_report.json` donne `square_settings` (`level_cm`, `level_from`, `aprons`,
-   `fronts`, `trees`) et `ground_box_m`.
+   `fronts`, `trees`) et `ground_box_m`. Le niveau de la place est la hauteur médiane du
+   mobilier urbain posé dans son contour ou à moins de 60 m (`level_from` commence alors par
+   `furniture`) : dans l'éditeur sans écran un tir de rayon traverse les tuiles du terrain et
+   s'arrêterait sur le sol lointain, plusieurs mètres trop bas.
 
 Pas encore vu en jeu. Le rouge est une couleur unie pour l'instant : une surface scannée pourra
 suivre une fois le contour prouvé sur une image.

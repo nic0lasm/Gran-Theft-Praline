@@ -70,6 +70,15 @@ class SquaresTests(unittest.TestCase):
         self.assertLess(squares.distance([RING], (-9200.0, 61500.0)), 0.0)      # inside, beside the notch
         self.assertGreater(squares.distance([RING], (-15000.0, 62500.0)), 0.0)  # in the notch: outside
 
+    def test_the_level_of_a_square_is_read_on_what_stands_round_it(self):
+        box = [(0.0, 0.0), (10000.0, 0.0), (10000.0, 5000.0), (0.0, 5000.0)]
+        points = [(5000.0, -800.0, 212.0), (9000.0, -900.0, 208.0), (-2000.0, 2000.0, 215.0),   # streets round it
+                  (5000.0, 2500.0, 210.0),                                                    # across it
+                  (5000.0, -9000.0, 480.0), (30000.0, 0.0, -350.0),                           # other streets
+                  (5000.0, -500.0)]                                                           # no height written
+        self.assertEqual(squares.heights_near(box, points, 3000.0), [208.0, 210.0, 212.0, 215.0])
+        self.assertEqual(squares.heights_near(box, points, 100.0), [210.0])
+
     @unittest.skipUnless(shutil.which(os.environ.get("CXX", "g++")), "no C++ compiler")
     def test_the_shader_text_compiles_and_agrees_with_the_reference(self):
         rings = [squares.simplify(dense(RING)), [(30000.0, 10000.0), (34000.0, 10000.0), (32000.0, 13000.0)]]
