@@ -163,6 +163,10 @@ def square_settings(report, place, tiles, built, base):  # noqa: C901
         actor = actor_sub_().spawn_actor_from_class(unreal.StaticMeshActor, unreal.Vector(0.0, 0.0, 0.0))
         actor.set_actor_label("Horizon_%s_Trees" % name)
         actor.set_folder_path(FOLDER)
+        try:
+            actor.set_editor_property("is_spatially_loaded", False)    # seen from across the square
+        except Exception:  # noqa: BLE001  plain level: no such property to set
+            pass
         sds = unreal.get_engine_subsystem(unreal.SubobjectDataSubsystem)
         sdl = unreal.SubobjectDataBlueprintFunctionLibrary
         root = sds.k2_gather_subobject_data_for_instance(actor)[0]
