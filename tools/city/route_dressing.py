@@ -29,8 +29,9 @@ quarter_build.py and surfaces_build.py:
               of the lanes file the game reads is taken out (street sets only; the facade kit
               and the signs are only reported); saves the map
   pits        cover_pits.py: the closed pits of the LiDAR terrain (car park ramps, underpass
-              mouths: gate 76, the player fell into one) get a flat lid at street height, except
-              where a lane runs down into one; saves the map
+              mouths: gate 76, the player fell into one) get a flat lid at street height; the
+              heights are read from terrain.glb or the tile meshes, never traced; fails when
+              none is read; saves the map
   collision   backdrop_collision.py: complex-as-simple collision and BlockAll on the backdrop
               volumes (gate 65: the player walked into one, the camera stayed inside, black);
               saves the map. GTP_BACKDROP_COLLISION=0 leaves them as they are
