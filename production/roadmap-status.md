@@ -1,23 +1,62 @@
 # Dashboard: where the game stands
 
 *French version: [roadmap-status.fr.md](roadmap-status.fr.md). Roadmap: [roadmap.md](roadmap.md). Systems: [systems-inventory.md](systems-inventory.md).*
-*Updated at every milestone and every review. Last update: 2026-11-21 (`next` = `main` = candidate 52, gate of candidate 54 running).*
+*Updated at every milestone and every review. Last update: 2026-11-24 (`next` = `main` = candidate 76; roadmap version 6).*
 
 Legend: ✅ proven in the packaged game · 🟡 partly · ⬜ not done · ❓ not measured, unknown · ❄️ frozen
 
-## Current target: the rue de la République slice, in three milestones
+## Current target: milestone A on the getaway circuit
 
-300 to 400 m from Bellecour to the Jacobins, judged on PC. Full bars:
-[roadmap §3](roadmap.md#3-the-target-the-slice-in-three-milestones).
+Full criteria: [roadmap §3](roadmap.md#3-what-changes) and
+[§4](roadmap.md#4-the-milestones).
 
 | Milestone | Target | Status | Latest proof |
 | ---- | ---- | ---- | ---- |
-| A. Steal a car and flee the police | End of November 2026 | 🟡 theft and witness proven; 251 m getaway with a 70 km/h peak (target 105 to 135); police units at 17 km/h for 25; traffic broken (cars tipped over); video not shot | candidate 52, 20 Nov |
-| B. The 10 minutes | Mid-December 2026 | ⬜ video not shot; pedestrian reactions, lights, arrest, death and respawn ❓ | |
-| C. The 5 photo / capture pairs | End of January 2027 | 🟡 a single board: 1/5 on two views, 0 on three; nothing measured since | candidate 17b, 12 Nov |
-| PC package without crashes (every gate) | Permanent | ✅ twelve gates in a row without a crash | candidates 40 to 52, 15 to 20 Nov |
+| A1. The circuit holds (grid points 1 to 6) | 27 November 2026 | 🟡 3 points out of 6; the circuit is not chosen yet | candidate 76, 24 Nov |
+| A2. What the camera sees (points 7 to 9) | 1 December 2026 | ⬜ 0 out of 3 | candidate 76, 24 Nov |
+| A3. The 3-minute video, then the hands-on session (point 10) | Around 4 December 2026 | ⬜ | |
+| B. The 10 minutes | End of December 2026, re-dated at milestone A | ⬜ | |
+| C. The 5 photo / capture pairs | End of January 2027 | 🟡 a single board: 1/5 on two views, 0 on three | candidate 17b, 12 Nov |
+| PC package without crashes (every gate) | Permanent | ✅ no crash at gates 70 to 77 | 24 Nov |
 
-## Gates since version 4
+## The 10-point grid, candidate 76
+
+Read on the gate's logs and on the frames of its video.
+
+| # | Point | Candidate 76 | |
+| ---- | ---- | ---- | ---- |
+| 1 | The theft in under 10 s | 6 s | ✅ |
+| 2 | 50 km/h on average, a 90 km/h peak | 35 on average, an 89 peak | ⬜ |
+| 3 | Unaided | put back on a lane 4 times in 4 filmed minutes | ⬜ |
+| 4 | Police in frame, units at 25 km/h | recognisable police car; units at 17 km/h | 🟡 |
+| 5 | 8 moving cars within 150 m | gate criterion met | ✅ |
+| 6 | A readable ending before 120 s | arrest at 63 s, warning on screen | ✅ |
+| 7 | The camera holds | camera on the car's roof at the arrest | ⬜ |
+| 8 | No emptiness | bare ground, blocks without façades, a blue band on the horizon (60 s) | ⬜ |
+| 9 | Whole characters | shaved heads | ⬜ |
+| 10 | Smooth and clean | automated run: 64.8 % of frames under 33 ms (99.8 % in candidate 77) | ⬜ |
+
+**3 out of 10.**
+
+## Gates from 22 to 24 November
+
+18 gates, 24 hours of PC, 81 minutes per gate on average.
+
+| Candidate | Verdict | What decided |
+| ---- | ---- | ---- |
+| 59 to 62 | passed (5 gates) | From 60 the gate judges the traffic of the default game |
+| 64 | criteria met | |
+| 65 | failed | Incomplete run, 288 error lines after the dressing of the getaway |
+| 66 | failed | 288 error lines |
+| 67, 68, 69 | failed | The same uncooked police paint shader (6 error lines); 7.1 cars for 8 in 67 |
+| 70, 71 | criteria met | Police paint switched off, matt ground |
+| 72 | criteria met, turned down on the video | Game logic +49 %, video memory exhausted, a New York taxi |
+| 74 | failed | 7.6 moving cars for 8 |
+| 75 | passed | White police car with a blue band, recognisable |
+| 76 | passed, `next` = `main` | Theft, getaway peaking at 89 km/h, arrest at 63 s |
+| 77 | criteria met, not promoted | A preparation step removed 14 façade modules |
+
+## Gates from 15 to 21 November
 
 | Candidate | Date | Automated run | Game logic, median | Traffic moving | What it brings |
 | ---- | ---- | ---- | ---- | ---- | ---- |
@@ -39,7 +78,7 @@ Up to candidate 51, "traffic moving" also counted cars lying on their side
 and sliding: with the honest count, 52 has 49.7 upright cars moving, and
 71 to 100 % of the cars within 100 m of the player are tipped over.
 
-Gate thresholds: game logic median at most 1.3 times that of the previous
+Gate thresholds at that date: game logic median at most 1.3 times that of the previous
 gate; automated run at least 6 out of 7; from candidate 53, at least 75.6
 upright cars moving on average from 120 to 300 s and at most 5 % of the
 cars within 100 m tipped over; no crash.
@@ -48,27 +87,31 @@ cars within 100 m tipped over; no crash.
 
 | System | Measured on the PC | What is missing |
 | ---- | ---- | ---- |
-| Walking, running, camera | ✅ Nicolito player, armed walk tested | Hands-on session |
-| Stealing a car | ✅ moving and parked, alarm | Hands-on session |
-| Driving | 🟡 0 to 50 km/h in 4.4 s, 71 km/h peak (launch trial, candidate 46); wheel fix in 47 | 0 to 100, a 105 to 135 peak, a body that no longer touches the road |
-| Traffic | ❌ about fifty upright cars moving, most nearby cars tipped over (candidate 52) | Upright traffic, then lights and giving way ❓ |
-| Pedestrians | 🟡 City Sample crowd, 24 near characters; hands-up pose measured; a witness calls the police (one car model) | Fear animations, witness with every car ❓ |
-| Police, wanted stars | 🟡 3 stars, 5 units; 3 of 4 police checks | Pursuit speed (17 km/h for 25), losing the police ❓, arrest ❓ |
-| Basic combat | 🟡 hold-up and pistol shooting tested | Bare hands ❓ |
-| Death and respawn | ❓ | Packaged test |
+| Walk, run, camera | 🟡 Nicolito as the player; camera inside walls and on car roofs | Chase camera, hands-on session |
+| Stealing a car | ✅ a moving car, in 6 s (candidate 76) | Hands-on session |
+| Driving | 🟡 0 to 100 km/h in 6.6 s, 102 km/h after 134 m (launch test, candidate 76) | Hands-on session |
+| Traffic | 🟡 default traffic upright, 8 to 12 moving cars within 150 m during the getaway | Lights and avoidance ❓ |
+| Pedestrians | 🟡 City Sample crowd, passers-by who flee and raise their hands | Shaved heads, bodies under cars |
+| Police, stars | 🟡 3 stars, recognisable car, warning, arrest | Units at 17 to 21 km/h for 25; losing the police ❓ |
+| Basic combat | 🟡 hold-up and pistol fire tested | Unarmed ❓ |
+| Death and respawn | ❓ | Not re-read for this review |
 
 ## Image
 
-| Gap on the first board (12 Nov) | Since |
-| ---- | ---- |
-| Black shadows | Ultra profile on PC (13 Nov); no new board ❓ |
-| Empty map beyond 45 m | Far backdrop ready, never opened in the editor ⬜ |
-| Grey tiled ground | ❓ |
-| Black shop windows and night | Shop windows and night lighting validated on PC (13 Nov) |
-| Mannequin player | ✅ Nicolito (candidate 42) |
-| No pedestrians or cars in the views | City Sample crowd and cars in game; no new board ❓ |
+The image has moved forward alongside the game since 23 November, on what
+the camera sees during the getaway.
 
-No capture has left the PC since 13 November.
+| Gap | State |
+| ---- | ---- |
+| Façades of the getaway streets read as "painted boxes" | Lyon stone tone and recessed windows in `main` (candidate 76); the stone still reads as planks at 89 km/h |
+| Empty distance (bare ground, blue band, smooth blocks) | "Distance" batch written, not seen in the game yet ⬜ |
+| Bare quay, white pavements | Ground albedo capped; neither trees nor furniture on the quay ⬜ |
+| The 5 photo / capture pairs | A single board (12 Nov); the second is taken with the video of milestone A ⬜ |
+
+## Defects noted outside the corridor
+
+To be filled in once the circuit is chosen: a defect seen outside the
+corridor is written here, not fixed before milestone A.
 
 ## Frozen
 

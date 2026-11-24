@@ -51,8 +51,9 @@ There is no story yet, on purpose: the playground comes first.
 
 ## Where it stands
 
-*Last checked on 21 November 2026, against the automated tests of the
-latest candidate merged on `main`.*
+*Last checked on 24 November 2026 for the theft, the getaway, the police
+and the traffic, against the gate and the video of the latest candidate
+merged on `main` (76); on 21 November for the rest.*
 
 This is a work in progress, and this section says what is **proven** in the
 packaged game, not what the code is meant to do.
@@ -63,15 +64,16 @@ packaged game, not what the code is meant to do.
 | ✅ | Walk up to a parked car and steal it | Proven in every automated run |
 | ✅ | Hold up a passer-by with a pistol: they raise their hands | Proven by measurement; the close-up view still renders too dark |
 | ✅ | A passer-by who saw the theft calls the police: a wanted star | Proven with one car model; being checked with a second one |
-| 🟡 | Drive away with the police behind | A 251 m getaway is driven by the automated test; peak at 70 km/h, target 105 to 135 |
-| 🟡 | Police units chase the player | 3 of 4 police checks pass; units average 17 km/h instead of 25 |
-| ❌ | Drive through living traffic | **Broken on `main`**: most cars near the player end up tipped over. A fix is in testing |
-| ⬜ | Lose the police, get arrested, die and respawn | Not measured yet |
-| ⬜ | An image that matches the real street | 1 out of 5 on the first photo / capture comparison (12 November) |
+| 🟡 | Steal a moving car and drive away with the police behind | Theft in 6 s, peak at 89 km/h; the getaway is driven by the automated test, which still gets stuck: 35 km/h on average |
+| 🟡 | The police chase the player and arrest him | Recognisable police car, warning on screen, arrest at 63 s; units average 17 km/h instead of 25 |
+| 🟡 | Drive through living traffic | Cars drive upright, at least 8 moving within 150 m during the getaway; lights and avoidance not measured yet |
+| ⬜ | Lose the police, die and respawn | Not measured yet |
+| ⬜ | An image that matches the real street | 1 out of 5 on the first photo / capture comparison (12 November); outside the dressed street the distance is still empty |
 
-Milestone A, *steal a car and flee the police*, is due at the end of
-November 2026 and will be shown as an unedited three-minute video recorded
-on the PC. It has not been filmed yet.
+Milestone A, *steal a car and flee the police*, is due around 4 December
+2026. It is judged on a 10-point grid read on an unedited three-minute
+video recorded on the PC; candidate 76 meets 3 of them
+([dashboard](production/roadmap-status.md)).
 
 ## Lyon, for real
 
@@ -175,13 +177,13 @@ All documentation, in English and French: **[docs/README.md](docs/README.md)**.
 
 ## Roadmap
 
-The game comes before the image. The slice is delivered in three
-milestones:
+The game comes first, and the image follows what the camera sees. The
+slice is delivered in three milestones, each judged on an unedited video:
 
 | When (order of magnitude) | What |
 | ---- | ---- |
-| End of November 2026 | **A.** Steal a car and flee the police, on PC, as an unedited video |
-| Mid-December 2026 | **B.** Ten minutes of play that feel like GTA: traffic, passers-by who react, combat, wanted stars, a chase |
+| Around 4 December 2026 | **A.** Steal a car and flee the police on a fixed getaway circuit, on PC, as an unedited video |
+| End of December 2026 | **B.** Ten minutes of play that feel like GTA: traffic, passers-by who react, combat, wanted stars, a chase |
 | End of January 2027 | **C.** Five real photo / game capture pairs that hold up |
 | February 2027 | The northern Presqu'île, Bellecour to Terreaux |
 | March 2027 | Mac port |
