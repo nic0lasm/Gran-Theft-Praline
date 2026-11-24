@@ -45,7 +45,7 @@ Dans `-GTARun` le joueur se rend après l'étape de poursuite : la voiture s'arr
 
 ## Quand la voiture est arrêtée
 
-Le script remet encore la voiture sur une voie quand elle est bloquée ou durablement hors de sa voie, mais seulement sur une voie de la boucle, et chaque remise compte dans `DemoChase ... relocations=N`. Un film avec une remise sur voie n'est pas valable.
+Le script remet encore la voiture sur une voie quand elle est bloquée ou durablement hors de sa voie, mais seulement sur une voie de la boucle, et chaque remise compte dans `DemoChase ... relocations=N`. Un film avec une remise sur voie n'est pas valable. Il ne la pose jamais dans une autre voiture ni, depuis la porte 83, sur quoi que ce soit d'autre qui arrête une voiture (un arceau à vélos, un muret, un arbre) : l'endroit est écarté, et la ligne de la remise dit combien l'ont été (`N place(s) passed over with something standing there`).
 
 ## Choisir et vérifier un circuit
 

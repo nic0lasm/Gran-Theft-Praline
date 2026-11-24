@@ -45,7 +45,7 @@ In `-GTARun` the player gives up after the pursuit step: the car stops and the p
 
 ## When the car is held up
 
-The script still puts the car back on a lane when it is held up or off its lane for good, but only on a lane of the lap, and each time counts in `DemoChase ... relocations=N`. A film with a relocation is not a valid one.
+The script still puts the car back on a lane when it is held up or off its lane for good, but only on a lane of the lap, and each time counts in `DemoChase ... relocations=N`. A film with a relocation is not a valid one. It never puts it into another car, nor, since gate 83, onto anything else that stops a car (a bike rack, a low wall, a tree): the place is passed over, and the line of the relocation says how many were (`N place(s) passed over with something standing there`).
 
 ## Choosing and checking a circuit
 
