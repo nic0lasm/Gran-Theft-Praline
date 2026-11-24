@@ -298,6 +298,8 @@ bool UGTPDemoRoute::RelocateChase(AGTPVehicle* Driven, APlayerController* PC, co
 	// held up lately (bBlocked) only at the last pass. It is still a relocation: counted, and the film is not a valid one.
 	const std::vector<int>& LapLanes = Network->GetFlightCircuit().Lanes;
 	const bool bOnLap = !LapLanes.empty();
+	// Places passed over because something stood there (said in the line of the relocation).
+	int32 SpotsTaken = 0;
 	for (int32 Pass = 0; Pass < GTPRoadWidth::RelocationPasses; ++Pass)
 	{
 		for (int32 Try = 0; Try < 300 && Lanes.Num() > 0; ++Try)
@@ -355,6 +357,21 @@ bool UGTPDemoRoute::RelocateChase(AGTPVehicle* Driven, APlayerController* PC, co
 			{
 				continue;
 			}
+			// Nor onto anything else that stops a car (a bike rack, a tree, a bench, a shelter): only cars were looked
+			// for, and the lanes are cleared 1.5 m around their middle, not where their points are. Gate 83's long
+			// take: put on a lane of the rue Jean de Tournes, the car lay on its roof 2 s later (the probable cause,
+			// read in the code, not seen in the log). The car's box from 40 cm above the ground, so the ground and
+			// the kerbs do not count.
+			{
+				const FVector HalfBox(235.f, 120.f, 60.f);
+				const FVector BoxCentre(Point.X, Point.Y, Ground.ImpactPoint.Z + 40.f + HalfBox.Z);
+				FCollisionQueryParams BoxParams(SCENE_QUERY_STAT(GTPChaseRelocateBox), false, Driven);
+				if (World->OverlapBlockingTestByChannel(BoxCentre, RelocatedTo.GetRotation(), ECC_Vehicle, FCollisionShape::MakeBox(HalfBox), BoxParams))
+				{
+					++SpotsTaken;
+					continue;
+				}
+			}
 			// Physics off while the car is moved, and for half a second after: the solver undoes the teleport of a
 			// simulated car (seen in GTPTestDrive on the M1, and here on 16/11: put 119 m away, the car was back
 			// where it stood 2 s later, seven times in a row). RunStep turns the physics back on.
@@ -385,9 +402,9 @@ bool UGTPDemoRoute::RelocateChase(AGTPVehicle* Driven, APlayerController* PC, co
 			}
 			++ChaseRelocations;
 			LastRelocationAt = FPlatformTime::Seconds();
-			GTP_TRACE(LogGTPDemo, TEXT("Demo chase: %s at %s, the car is put on lane %d %.0f m away at %s (open road %.0f m, never ends=%d, carriageway %.1f m, %s, pass %d, police told)"),
+			GTP_TRACE(LogGTPDemo, TEXT("Demo chase: %s at %s, the car is put on lane %d %.0f m away at %s (open road %.0f m, never ends=%d, carriageway %.1f m, %s, pass %d, police told, %d place(s) passed over with something standing there)"),
 				Why, *From.ToCompactString(), LaneIndex, Distance / 100.0, *Driven->GetActorLocation().ToCompactString(), FGTPLaneFollower::OpenRoadMetres(Lanes, LaneIndex),
-				Lane.bNeverEnds ? 1 : 0, Lane.CarriagewayM, ANSI_TO_TCHAR(GTPRoadWidth::ClassName(GTPRoadWidth::Classify(Lane.CarriagewayM))), Pass);
+				Lane.bNeverEnds ? 1 : 0, Lane.CarriagewayM, ANSI_TO_TCHAR(GTPRoadWidth::ClassName(GTPRoadWidth::Classify(Lane.CarriagewayM))), Pass, SpotsTaken);
 			return true;
 		}
 	}
