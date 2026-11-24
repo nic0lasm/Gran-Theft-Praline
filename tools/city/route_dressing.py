@@ -25,6 +25,9 @@ quarter_build.py and surfaces_build.py:
   lanes       clear_lane_instances.py: every placed object a car can hit within 1.5 m of a lane of
               the lanes file the game reads is taken out (street sets and gate 75's named
               actors; the facade kit only reported); saves the map
+  pits        cover_pits.py: the closed pits of the LiDAR terrain (car park ramps, underpass
+              mouths: gate 76, the player fell into one) get a flat lid at street height, except
+              where a lane runs down into one; saves the map
   collision   backdrop_collision.py: complex-as-simple collision and BlockAll on the backdrop
               volumes (gate 65: the player walked into one, the camera stayed inside, black);
               saves the map. GTP_BACKDROP_COLLISION=0 leaves them as they are
@@ -56,7 +59,7 @@ FOCUS = "rue-de-la-republique"
 MAP_DIR = os.path.join(qb.PROJECT_DIR, "Content", "Maps")
 MAP_FILES = [os.path.join(MAP_DIR, "L_City_RueDeLaRepublique" + ext) for ext in (".umap", "_BuiltData.uasset")]
 BACKUP = os.path.join(qb.SAVED, "route_map_backup")
-STEPS = ("props", "backup", "surfaces", "materials", "place", "street", "lanes", "collision", "lights")
+STEPS = ("props", "backup", "surfaces", "materials", "place", "street", "lanes", "pits", "collision", "lights")
 OPT_IN = ("street",)
 
 
@@ -145,6 +148,13 @@ def main():  # noqa: C901
                     r = json.load(f)
                 note += " removed %s %s, reported only %s" % (r.get("removed_total"), r.get("removed"),
                                                               r.get("reported_only_total"))
+        elif step == "pits":
+            ok, _, note = qb.run_editor("route_pits", "cover_pits", "pit_cover_report.json", 2400, {}, args)
+            rep = os.path.join(qb.SAVED, "pit_cover_report.json")
+            if os.path.exists(rep):
+                with open(rep, encoding="utf-8") as f:
+                    r = json.load(f)
+                note += " covered %s, left open %s, lids %s" % (r.get("covered"), r.get("left_open"), r.get("lids"))
         elif step == "collision":
             ok, _, note = qb.run_editor("route_collision", "backdrop_collision", "backdrop_collision_report.json", 900,
                                         {}, args)
