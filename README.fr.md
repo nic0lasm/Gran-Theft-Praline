@@ -53,8 +53,9 @@ d'abord.
 
 ## Où on en est
 
-*Vérifié le 21 novembre 2026, d'après les tests automatiques du dernier
-candidat fusionné sur `main`.*
+*Vérifié le 24 novembre 2026 pour le vol, la fuite, la police et la
+circulation, d'après la porte et la vidéo du dernier candidat fusionné sur
+`main` (76) ; le 21 novembre pour le reste.*
 
 C'est un travail en cours, et cette partie dit ce qui est **prouvé** dans le
 jeu packagé, pas ce que le code est censé faire.
@@ -65,15 +66,16 @@ jeu packagé, pas ce que le code est censé faire.
 | ✅ | S'approcher d'une voiture garée et la voler | Prouvé à chaque test automatique |
 | ✅ | Braquer un passant au pistolet : il lève les mains | Prouvé par la mesure ; la vue de près reste trop sombre |
 | ✅ | Un passant témoin du vol appelle la police : une étoile de recherche | Prouvé avec un modèle de voiture ; vérification en cours avec un second |
-| 🟡 | Fuir en voiture avec la police derrière | Une fuite de 251 m conduite par le test automatique ; pointe à 70 km/h, objectif 105 à 135 |
-| 🟡 | Les unités de police prennent le joueur en chasse | 3 contrôles de police sur 4 passent ; les unités roulent à 17 km/h de moyenne au lieu de 25 |
-| ❌ | Rouler dans une circulation vivante | **Cassé sur `main`** : la plupart des voitures proches du joueur finissent couchées. Un correctif est en test |
-| ⬜ | Semer la police, se faire arrêter, mourir et revenir | Pas encore mesuré |
-| ⬜ | Une image fidèle à la vraie rue | 1 sur 5 à la première comparaison photo / capture (12 novembre) |
+| 🟡 | Voler une voiture en circulation et fuir avec la police derrière | Vol en 6 s, pointe à 89 km/h ; la fuite est conduite par le test automatique, qui se coince encore : 35 km/h de moyenne |
+| 🟡 | La police prend le joueur en chasse et l'arrête | Voiture de police reconnaissable, sommation à l'écran, arrestation à 63 s ; les unités roulent à 17 km/h de moyenne au lieu de 25 |
+| 🟡 | Rouler dans une circulation vivante | Les voitures roulent debout, au moins 8 en mouvement à moins de 150 m pendant la fuite ; feux et évitement pas encore mesurés |
+| ⬜ | Semer la police, mourir et revenir | Pas encore mesuré |
+| ⬜ | Une image fidèle à la vraie rue | 1 sur 5 à la première comparaison photo / capture (12 novembre) ; hors de la rue habillée, le lointain est encore vide |
 
-Le jalon A, *voler une voiture et fuir la police*, est attendu fin novembre
-2026 et sera montré par une vidéo de trois minutes sans montage, enregistrée
-sur le PC. Elle n'est pas encore tournée.
+Le jalon A, *voler une voiture et fuir la police*, est attendu vers le
+4 décembre 2026. Il est jugé sur une grille de 10 points lue sur une vidéo
+de trois minutes sans montage, enregistrée sur le PC ; le candidat 76 en
+tient 3 ([tableau de bord](production/roadmap-status.fr.md)).
 
 ## Lyon, pour de vrai
 
@@ -186,12 +188,13 @@ Toute la documentation, en français et en anglais :
 
 ## Feuille de route
 
-Le jeu passe avant l'image. La tranche se livre en trois jalons :
+Le jeu d'abord, et l'image suit ce que la caméra voit. La tranche se
+livre en trois jalons, chacun jugé sur une vidéo sans montage :
 
 | Quand (ordre de grandeur) | Quoi |
 | ---- | ---- |
-| Fin novembre 2026 | **A.** Voler une voiture et fuir la police, sur PC, en vidéo sans montage |
-| Mi-décembre 2026 | **B.** Dix minutes de jeu qui font GTA : circulation, passants qui réagissent, combat, étoiles de recherche, poursuite |
+| Vers le 4 décembre 2026 | **A.** Voler une voiture et fuir la police sur un circuit de fuite fixe, sur PC, en vidéo sans montage |
+| Fin décembre 2026 | **B.** Dix minutes de jeu qui font GTA : circulation, passants qui réagissent, combat, étoiles de recherche, poursuite |
 | Fin janvier 2027 | **C.** Cinq paires photo réelle / capture du jeu qui tiennent |
 | Février 2027 | Le nord de la Presqu'île, de Bellecour aux Terreaux |
 | Mars 2027 | Portage Mac |
