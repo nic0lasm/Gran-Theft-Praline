@@ -169,6 +169,31 @@ float FGTPLaneFollower::GetCarriagewayM() const
 	return Net && Route.Num() > 0 && Net->GetLanes().IsValidIndex(Route[0]) ? Net->GetLanes()[Route[0]].CarriagewayM : 0.f;
 }
 
+int32 FGTPLaneFollower::LaneNear(const FVector& Point, float& OutMetres) const
+{
+	OutMetres = TNumericLimits<float>::Max();
+	const AGTPTrafficNetwork* Net = Network.Get();
+	if (!Net)
+	{
+		return INDEX_NONE;
+	}
+	int32 Best = INDEX_NONE;
+	for (int32 Index = 0; Index < FMath::Min(Route.Num(), 2); ++Index)
+	{
+		if (!Net->GetLanes().IsValidIndex(Route[Index]))
+		{
+			continue;
+		}
+		const float Metres = FollowerDistanceToLane(Net->GetLanes()[Route[Index]].Points, Point, 0) * CmToM;
+		if (Metres < OutMetres)
+		{
+			OutMetres = Metres;
+			Best = Route[Index];
+		}
+	}
+	return Best;
+}
+
 float FGTPLaneFollower::OpenRoadMetres(const TArray<FGTPTrafficLane>& Lanes, int32 Lane)
 {
 	if (!Lanes.IsValidIndex(Lane))
@@ -263,12 +288,24 @@ void FGTPLaneFollower::Plan()
 		}
 		if (Next != INDEX_NONE && bPreferStraight && !bHasGoal)
 		{
-			// An exit that never ends first (a dead end stops the flight and the script puts the car elsewhere), or else
-			// the most open road; then the widest road (gate 75: the flight lost 17 s in two narrow streets); then the
-			// exit whose first segment keeps the heading of the end of this lane the best (GTPRoadWidth::ExitScore).
+			// Never an exit a fixed obstacle blocks; an exit that never ends first (a dead end stops the flight and the
+			// script puts the car elsewhere); then the best way on within 500 m, its metres weighted by width and halved on
+			// lanes driven lately (gate 75: the flight lost 17 s in two narrow streets, and went round the block of the rue
+			// Gentil whose way in a fixed obstacle stops); then the exit whose first segment keeps the heading of the end
+			// of this lane the best (GTPRoadWidth::ExitScore).
 			const TArray<FVector>& From = Lanes[Route.Last()].Points;
 			const FVector Heading = From.Num() >= 2 ? (From.Last() - From[From.Num() - 2]).GetSafeNormal2D() : FVector::ZeroVector;
-			float BestScore = -1.e9f;
+			const auto NextOf = [&Lanes](int Index) -> const TArray<int32>& { return Lanes[Index].Next; };
+			const auto LengthOf = [&Lanes](int Index) { return Lanes[Index].LengthCm() * CmToM; };
+			const auto WeightOf = [this, &Lanes](int Index)
+			{
+				if (!Lanes.IsValidIndex(Index) || Lanes[Index].bBlocked)
+				{
+					return 0.f;
+				}
+				return GTPRoadWidth::MetreWeight(Lanes[Index].CarriagewayM) * (IsRecent(Index) ? 0.5f : 1.f);
+			};
+			float BestScore = -1.e10f;
 			for (const int32 Candidate : Lanes[Route.Last()].Next)
 			{
 				if (!Lanes.IsValidIndex(Candidate))
@@ -280,7 +317,9 @@ void FGTPLaneFollower::Plan()
 				{
 					const float Dot = static_cast<float>(FVector::DotProduct(Heading, (To[1] - To[0]).GetSafeNormal2D()));
 					const FGTPTrafficLane& Exit = Lanes[Candidate];
-					const float Score = GTPRoadWidth::ExitScore(Exit.bNeverEnds, OpenRoadMetres(Lanes, Candidate), Exit.CarriagewayM, Dot);
+					int NodesLeft = GTPRoadWidth::LookNodes;
+					const float Quality = GTPRoadWidth::WayQuality(Candidate, GTPRoadWidth::LookDepth, GTPRoadWidth::LookMetres, NextOf, LengthOf, WeightOf, NodesLeft);
+					const float Score = GTPRoadWidth::ExitScore(Exit.bBlocked, Exit.bNeverEnds, Quality, Dot);
 					if (Score > BestScore)
 					{
 						BestScore = Score;
@@ -362,6 +401,12 @@ bool FGTPLaneFollower::Step(const FVector& Location, float YawDegrees, float Spe
 	if (Closest >= CurrentLaneLength && Route.Num() > 1)
 	{
 		Closest -= CurrentLaneLength;
+		// The lanes left lately count for half in a flight's way on (Plan): it does not circle one block.
+		RecentLanes.Add(Route[0]);
+		if (RecentLanes.Num() > RecentCount)
+		{
+			RecentLanes.RemoveAt(0);
+		}
 		Route.RemoveAt(0);
 		Plan();
 	}
@@ -1127,11 +1172,32 @@ bool AGTPTrafficNetwork::ReadLanesCsv(const FString& Path, TArray<FGTPTrafficLan
 void AGTPTrafficNetwork::MarkNeverEnding(TArray<FGTPTrafficLane>& InLanes)
 {
 	const std::vector<bool> Alive = GTPRoadWidth::NeverEnding(InLanes.Num(),
-		[&InLanes](int Index) -> const TArray<int32>& { return InLanes[Index].Next; });
+		[&InLanes](int Index) -> const TArray<int32>& { return InLanes[Index].Next; },
+		[&InLanes](int Index) { return InLanes[Index].bBlocked; });
 	for (int32 Index = 0; Index < InLanes.Num(); ++Index)
 	{
 		InLanes[Index].bNeverEnds = static_cast<size_t>(Index) < Alive.size() && Alive[static_cast<size_t>(Index)];
 	}
+}
+
+bool AGTPTrafficNetwork::MarkLaneBlocked(int32 Lane, const AActor* By, const FVector& At)
+{
+	if (!Lanes.IsValidIndex(Lane) || Lanes[Lane].bBlocked)
+	{
+		return false;
+	}
+	Lanes[Lane].bBlocked = true;
+	MarkNeverEnding(Lanes);
+	int32 NeverEnd = 0;
+	int32 Blocked = 0;
+	for (const FGTPTrafficLane& Each : Lanes)
+	{
+		NeverEnd += Each.bNeverEnds ? 1 : 0;
+		Blocked += Each.bBlocked ? 1 : 0;
+	}
+	GTP_TRACE(LogGTPTraffic, TEXT("traffic: lane %d blocked by %s at %s (a fixed obstacle of the map on the lane): flights keep off it; %d lane(s) blocked, %d of %d never end now"),
+		Lane, *GetNameSafe(By), *At.ToCompactString(), Blocked, NeverEnd, Lanes.Num());
+	return true;
 }
 
 void AGTPTrafficNetwork::LanesInRing(const FVector& Center, float MinCm, float MaxCm, TArray<int32>& Out) const
