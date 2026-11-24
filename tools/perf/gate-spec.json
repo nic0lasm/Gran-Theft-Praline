@@ -30,45 +30,6 @@
     "stolen_and_police_cars_drawn": true
   },
   "_legacy_note": "Legacy counts come from the line 'traffic cars t=...s:' every 10 s (default and gtarun passes). legacy_lying_max is read on its 'lying=' field. legacy_moving_upright_percent_120_300_min is judged on its share 'upright: P %' (the legacy traffic wants fewer cars than MassTraffic's 120, so a share, not a count), mean of 120 to 300 s; left empty on purpose: the pilot sets it from the measure of gate 59, not before. gtarun_crash_ok: step 12 (crash) of the gtarun pass must end ok on a 'legacy traffic car', so the player does not drive through the traffic. A missing count line or crash line on a blocking pass fails the gate. From candidate 64 (thresholds set by the pilot from the measure of 616cff8, 22/11): within 150 m of the player, the mean of 'within 150 m=N (moving M' must be at least 8 in the gtarun pass from 30 s to 'GTARun done' (the theft and the flight; measured 9.4) and at least 3 in the default pass after 30 s (measured 4.2). Target 15 in the flight, not blocking.",
-  "informative_mass": {
-    "moving_upright_120_300_min": 75.6,
-    "lying_within_100m_max_percent": 5,
-    "no_valid_current_errors_max": 0,
-    "error_lines_max": 0,
-    "gtarun_crash_ok": true,
-    "lines_expected": [
-      "MassTraffic physics radius: no car under MassTraffic's simple physics",
-      "MassTraffic settings: City Sample's speed PID set:",
-      "MassTraffic near cars with a body: on",
-      "MassTraffic player obstacle: on, 4 points of radius 0"
-    ],
-    "lines_expected_in_pass": {
-      "gtarun -Traffic=mass": [
-        "kinematic (asleep=1, simulating=0), collision on"
-      ]
-    },
-    "lines_not_expected": [
-      "VOLUME NOT SET"
-    ],
-    "line_must_not_contain": [
-      {
-        "line": "MassTraffic physics radius:",
-        "must_not_contain": "not found"
-      },
-      {
-        "line": "MassTraffic settings:",
-        "must_not_contain": "missing"
-      },
-      {
-        "line": "MassTraffic settings:",
-        "must_not_contain": "not found"
-      }
-    ],
-    "template_lines": {
-      "text": "given the real wheels and City Sample's centre of mass",
-      "count": 7
-    }
-  },
   "report_lines": [
     "GTARun step 12: crash",
     "GTARun informative:",
@@ -283,5 +244,5 @@
     "_doc": "Roadmap V6 3.4: a candidate's map is the frozen base map plus the steps of pre_gate replayed in order, never the map left by the previous gate. The runner restores the base (md5 checked before and after) before the first step that saves the map. The base is refrozen only after a passed gate with its video watched."
   },
   "_gate_kind_doc": "Roadmap V6 3.3. Short gate (each candidate, moves next): build, package, the default pass, the GTARun pass, the filmed run; judged on the 10-point grid read on the video, the blocking numbers and errors. Full gate (once a day on the last head that passed a short gate, moves main): today's passes without the MassTraffic ones, plus next_full_gate_extra_passes. A number missed by less than 10 % does not fail a gate on its own: the grid decides.",
-  "_pre_gate_82": "81 plus Décor a7e05ee: Bellecour's south background laid at the right level (prep 81 put it 6.7 m low: level_from must start with 'furniture', level_cm between -150 and +50 in horizon_report). Launcher and Fab closed during the whole gate (gate 80's measure was spoiled by it)."
+  "_pre_gate_82": "81 plus Décor a7e05ee: Bellecour's south background laid at the right level (prep 81 put it 6.7 m low: level_from must start with 'furniture', level_cm between -150 and +50 in horizon_report). Launcher and Fab closed during the whole gate (gate 80's measure was spoiled by it). Pilot: the cars loop of AGTPTrafficNetwork::Tick skips an index past the end (gate 81 crashed at t=152 s on Cars[Index], GTPTraffic.cpp:2565, police backing up); line 'traffic: the list of driven cars shrank by more than one' once. informative_mass removed: queue v8 read run-mass/game.log, absent in a short gate, and ended gate 81 in 'error'."
 }

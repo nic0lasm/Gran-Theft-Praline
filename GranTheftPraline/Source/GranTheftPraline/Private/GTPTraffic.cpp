@@ -2562,6 +2562,18 @@ void AGTPTrafficNetwork::Tick(float DeltaSeconds)
 	// Forget stolen cars (the player's now); take away stuck or far cars out of sight.
 	for (int32 Index = Cars.Num() - 1; Index >= 0; --Index)
 	{
+		// Gate 81 crashed here at t=152 s (index out of range, police backing up nearby): one pass of the loop took
+		// more than one car out of Cars (Recycle removes every entry of a car; a destroyed car can take another).
+		// The index walks down until it is in the array again.
+		if (!Cars.IsValidIndex(Index))
+		{
+			if (!bLoggedCarsShrank)
+			{
+				bLoggedCarsShrank = true;
+				GTP_TRACE(LogGTPTraffic, TEXT("traffic: the list of driven cars shrank by more than one in a tick (index %d, %d left), went on"), Index, Cars.Num());
+			}
+			continue;
+		}
 		AGTPVehicle* Car = Cars[Index];
 		if (!IsValid(Car) || !Car->HasAIDriver())
 		{

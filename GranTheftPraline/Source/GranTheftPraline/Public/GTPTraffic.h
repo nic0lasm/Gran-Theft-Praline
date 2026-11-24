@@ -955,6 +955,8 @@ private:
 	double NextCarsLogTime = 10.0;
 	int32 RecycledStuck = 0;
 	int32 RecycledFar = 0;
+	/** The cars loop of Tick met an index past the end once (gate 81's crash): logged the first time only. */
+	bool bLoggedCarsShrank = false;
 	/** Overturned (past 45 degrees) out of the player's sight: taken away at once. */
 	int32 RecycledOverturned = 0;
 	/** Every car taken off the road (stuck, far, and by the others: the chase script, the police), and cars put back from the pool. */
