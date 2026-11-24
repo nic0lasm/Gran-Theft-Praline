@@ -1,6 +1,6 @@
 {
   "_doc": "What the Windows gate queue checks for this candidate. Edited by the pilot for each candidate; read by the PC queue script. No machine paths here. From candidate 60 the gate judges what the player sees: the default traffic, which is the legacy one (MassTraffic runs only with -Traffic=mass). The 'blocking' criteria are read on the blocking passes; everything under 'informative_mass' is measured and reported on the MassTraffic passes but never fails the gate, and never stops it. Those criteria become blocking again only for switching the default traffic to mass, once a whole gate passes them (ADR-0015).",
-  "candidate": 73,
+  "candidate": 74,
   "map_md5": null,
   "game_p50_max_ms": 17.38,
   "game_p95_max_ms": 50,
@@ -219,5 +219,5 @@
   ],
   "_pre_gate_doc": "pre_gate: jobs the PC runs itself at this head, after its compile and before the gate, editor closed, lock held, map backed up first when saves_map; only scripts on the PC's allow-list; the map md5 after them is reported. Empty or absent: none.",
   "_stolen_and_police_cars_drawn": "Blocking from 72 (gate 69: the stolen Car05 was invisible the whole flight and no criterion saw it). In every gtarun pass (gtarun, gtarun -DemoFreeCar=Car02, the video pass): the class of each car in 'carjack ok in <Class>_C_<n>' has a line 'vehicle look: <Class>_C drawn, N look part(s)' in the same log (no 'NOT DRAWN' for it), and no line 'police: car class ... NOT DRAWN'; when a police car comes, its class has a 'vehicle look: ... drawn' line too. A pass without those lines fails it.",
-  "_pre_gate_73": "Map and vehicles as prepared for 71 and 72. Facade tone (Lyon stone) on the city materials before the gate; picture lens of the art bible in code (-Lens=0 turns it off). Video: 90 MB so textures can be judged, 240 s so the second theft is filmed. Backdrop windows, shop fronts and carriage doors set back by parallax in M_City_Backdrop (not compiled by Unreal yet). Engine on-screen messages off (gate 70 video showed the ray tracing budget and video memory warnings over the game)."
+  "_pre_gate_74": "Map and vehicles as prepared for 71 and 72 (73 was 72 before its compile fix, abandoned). Facade tone (Lyon stone) on the city materials before the gate; picture lens of the art bible in code (-Lens=0 turns it off). Video: 90 MB so textures can be judged, 240 s so the second theft is filmed. Backdrop windows, shop fronts and carriage doors set back by parallax in M_City_Backdrop (not compiled by Unreal yet). Engine on-screen messages off (gate 70 video showed the ray tracing budget and video memory warnings over the game)."
 }
