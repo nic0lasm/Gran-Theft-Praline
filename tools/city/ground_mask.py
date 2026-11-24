@@ -26,6 +26,18 @@ ends. Output (not committed, like the rest; route_dressing.py makes it before it
       levels of the rivers (water.geojson, BD TOPO) in Unreal cm, which the material draws as water
 
   python3 tools/city/ground_mask.py --far [--processed <the zone's folder of processed data>]
+
+--route <Map>.circuit.csv: the route mask. On the quay the far mask tells carriageway from
+pavement, but a kerb or a lane line is thinner than one of its texels: gate 83, long take, the
+flight drives a plain of asphalt with no line and no kerb. This mask is as fine as the focus mask
+(4096 texels on its long side, 11 to 16 cm on today's circuit), over the box of the driven line
+(column line_ue_cm) the focus mask does not hold, 40 m wider; the material reads it there, the
+far mask past it. Nothing is written when the focus mask holds the whole line. Output:
+  assets/geo/processed/<zone>/ground_far/T_GroundMaskRoute.png, ground_route.json
+
+Lane lines: a one-way road of two lanes or more has a dashed line between each pair of its
+lanes when they are at least 2.5 m wide (the quays: four lanes, three lines); a two-way road
+keeps its one centre line. A focus mask made before 2026-11-25 has the centre lines only.
 """
 
 import argparse
@@ -48,6 +60,9 @@ KERB_M = 0.35
 PEDESTRIAN_W_M = 22.0
 DASH_M, GAP_M, MARK_W_M = 3.0, 3.5, 0.15
 FAR_TEXELS = 4096
+ROUTE_TEXELS = 4096          # the long side of the route mask
+ROUTE_MARGIN_CM = 4000.0     # the route mask reaches this far around the driven line
+LANE_MIN_M = 2.5             # no lane line on a road whose lanes would be narrower
 FAR_FINER = 2                # the far mask is drawn this much finer, then averaged
 RIVER_MIN_M2 = 2000.0
 RIVER_TOLERANCE_M = 10.0     # each corner of a river is paid for on every pixel of its box
@@ -113,29 +128,100 @@ def rivers(base, extent, tiles):
     return out
 
 
-def build(zone, focus, far=False, processed=None, far_texels=FAR_TEXELS):
+def focus_extent(gen):
+    """(x0, y0, x1, y1) in Unreal cm of the focus mask: the generated buildings and a margin."""
+    made = os.path.join(gen, "ground", "ground.json")
+    if not os.path.exists(os.path.join(gen, "buildings_gen.csv")) and os.path.exists(made):
+        with open(made, encoding="utf-8") as f:
+            return tuple(json.load(f)["extent_ue_cm"])       # the focus mask as it was made
+    with open(os.path.join(gen, "buildings_gen.csv"), encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+    xs = [float(r["ue_x"]) for r in rows]
+    ys = [float(r["ue_y"]) for r in rows]
+    return min(xs) - MARGIN_CM, min(ys) - MARGIN_CM, max(xs) + MARGIN_CM, max(ys) + MARGIN_CM
+
+
+def circuit_points(path):
+    """The line the flight drives, [(x, y)] in Unreal cm, from a <Map>.circuit.csv."""
+    with open(path, encoding="utf-8") as f:
+        rows = csv.DictReader(line for line in f if not line.startswith("#"))
+        out = []
+        for row in rows:
+            for p in (row.get("line_ue_cm") or "").split(";"):
+                v = p.split()
+                if len(v) >= 2:
+                    out.append((float(v[0]), float(v[1])))
+    return out
+
+
+def route_box(points, focus, terrain, margin_cm=ROUTE_MARGIN_CM):
+    """The box of the route mask: around the points of the driven line the focus mask does not
+    hold, a margin wider, kept on the terrain. None when the focus mask holds the whole line."""
+    fx0, fy0, fx1, fy1 = focus
+    out = [(x, y) for x, y in points if not (fx0 <= x <= fx1 and fy0 <= y <= fy1)]
+    if not out:
+        return None
+    x0, y0 = min(p[0] for p in out) - margin_cm, min(p[1] for p in out) - margin_cm
+    x1, y1 = max(p[0] for p in out) + margin_cm, max(p[1] for p in out) + margin_cm
+    tx0, ty0, tx1, ty1 = terrain
+    return max(x0, tx0), max(y0, ty0), min(x1, tx1), min(y1, ty1)
+
+
+def offset_line(pts, d):
+    """pts moved d to the left of their direction (canvas pixels), corner by corner."""
+    out = []
+    for i, (x, y) in enumerate(pts):
+        ax, ay = pts[max(i - 1, 0)]
+        bx, by = pts[min(i + 1, len(pts) - 1)]
+        n = math.hypot(bx - ax, by - ay)
+        if n == 0:
+            out.append((x, y))
+            continue
+        out.append((x + (by - ay) / n * d, y - (bx - ax) / n * d))
+    return out
+
+
+def lane_offsets(p, width_m):
+    """Where the dashed lines of a road run, in metres from its centre line. A two-way road of two
+    lanes or more has its centre line, as before; a one-way road has a line between each pair of
+    its lanes (the quays are four lanes one way: three lines), if the lanes are wide enough."""
+    n = p.get("nombre_de_voies") or 1
+    if n < 2:
+        return []
+    if p.get("sens_de_circulation") == "Double sens":
+        return [0.0] if width_m >= 6 else []
+    if p.get("sens_de_circulation") not in ("Sens direct", "Sens inverse") or width_m / n < LANE_MIN_M:
+        return []
+    return [(k - n / 2.0) * width_m / n for k in range(1, n)]
+
+
+def build(zone, focus, far=False, processed=None, far_texels=FAR_TEXELS, route=None):
+    """route: the points of the driven line (circuit_points): the route mask, as fine as the
+    focus mask, around the part of the line the focus mask does not hold. None is returned, and
+    nothing written, when it holds the whole line."""
     base = processed or os.path.join(REPO, "assets", "geo", "processed", zone)
     gen = os.path.join(base, "gen", focus)
-    if far:
+    if route is not None:
+        far = False
+        box = route_box(route, focus_extent(gen), terrain_extent(terrain_tiles(base)))
+        if box is None:
+            return None
+        x0, y0, x1, y1 = box
+    elif far:
         tiles = terrain_tiles(base)
         x0, y0, x1, y1 = terrain_extent(tiles)
     else:
-        with open(os.path.join(gen, "buildings_gen.csv"), encoding="utf-8") as f:
-            rows = list(csv.DictReader(f))
-        xs = [float(r["ue_x"]) for r in rows]
-        ys = [float(r["ue_y"]) for r in rows]
-        x0, x1 = min(xs) - MARGIN_CM, max(xs) + MARGIN_CM
-        y0, y1 = min(ys) - MARGIN_CM, max(ys) + MARGIN_CM
+        x0, y0, x1, y1 = focus_extent(gen)
     # Power-of-two sides (mipmaps in Unreal); texels may be slightly non-square.
-    texels = far_texels if far else TEXELS_LONG
+    texels = far_texels if far else (ROUTE_TEXELS if route is not None else TEXELS_LONG)
     long_cm = max(x1 - x0, y1 - y0)
     w = h = texels
     if far:
         pass                    # the terrain is nearly square: 4096 both ways
     elif x1 - x0 < y1 - y0:
-        w = 2 ** int(round(math.log2(TEXELS_LONG * (x1 - x0) / long_cm)))
+        w = 2 ** int(round(math.log2(texels * (x1 - x0) / long_cm)))
     else:
-        h = 2 ** int(round(math.log2(TEXELS_LONG * (y1 - y0) / long_cm)))
+        h = 2 ** int(round(math.log2(texels * (y1 - y0) / long_cm)))
     sx, sy = (x1 - x0) / w, (y1 - y0) / h
     cm_per_px = max(sx, sy)
     # Draw on square texels (the finer axis) and resample to (w, h) at the end:
@@ -152,7 +238,7 @@ def build(zone, focus, far=False, processed=None, far_texels=FAR_TEXELS):
     layers = {k: Image.new("L", (cw, ch), 0) for k in ("asphalt", "kerb", "paving", "mark")}
     draw = {k: ImageDraw.Draw(v) for k, v in layers.items()}
     m2px = 100.0 / s
-    counts = {"asphalt": 0, "paving": 0, "marked": 0, "tunnel": 0}
+    counts = {"asphalt": 0, "paving": 0, "marked": 0, "lane_lines": 0, "tunnel": 0}
 
     def line(d, pts, width_m):
         wpx = max(1, int(round(width_m * m2px)))
@@ -219,12 +305,18 @@ def build(zone, focus, far=False, processed=None, far_texels=FAR_TEXELS):
                 line(draw["asphalt"], pts, wd)
                 line(draw["kerb"], pts, wd + 2 * KERB_M)
             counts["asphalt"] += 1
-            if (p.get("nombre_de_voies") or 1) >= 2 and wd >= 6 and p.get("sens_de_circulation") == "Double sens":
+            lines = lane_offsets(p, wd)
+            if lines:
                 counts["marked"] += 1
+            for off in lines:
+                counts["lane_lines"] += 1
+                run = offset_line(pts, off * m2px) if off else pts
                 period = (DASH_M + GAP_M) * m2px
                 carry = 0.0
-                for a, b in zip(pts, pts[1:]):
+                for a, b in zip(run, run[1:]):
                     seg = math.hypot(b[0] - a[0], b[1] - a[1])
+                    if seg == 0:
+                        continue
                     t = -carry
                     while t < seg:
                         s0, s1 = max(t, 0.0), min(t + DASH_M * m2px, seg)
@@ -253,6 +345,10 @@ def build(zone, focus, far=False, processed=None, far_texels=FAR_TEXELS):
         img = Image.fromarray(rgb, "RGB").resize((w, h), Image.BOX, box=(0, 0, w * sx / s, h * sy / s))
         out = os.path.join(base, "ground_far")
         name, meta_name = "T_GroundMaskFar.png", "ground_far.json"
+    elif route is not None:
+        img = Image.fromarray(rgb, "RGB").filter(ImageFilter.SMOOTH)
+        out = os.path.join(base, "ground_far")
+        name, meta_name = "T_GroundMaskRoute.png", "ground_route.json"
     else:
         img = Image.fromarray(rgb, "RGB").filter(ImageFilter.SMOOTH)
         out = os.path.join(gen, "ground")
@@ -276,9 +372,18 @@ def main():
     ap.add_argument("--zone", default="presqu-ile")
     ap.add_argument("--focus", default="rue-de-la-republique")
     ap.add_argument("--far", action="store_true", help="the far mask, over the whole terrain")
+    ap.add_argument("--route", metavar="CIRCUIT_CSV",
+                    help="the route mask: as fine as the focus mask, around the part of this circuit past it")
     ap.add_argument("--processed", help="folder of the zone's processed data (default assets/geo/processed/<zone>)")
     a = ap.parse_args()
-    meta = build(a.zone, a.focus, a.far, a.processed)
+    meta = build(a.zone, a.focus, a.far, a.processed, route=circuit_points(a.route) if a.route else None)
+    if meta is None:
+        stale = os.path.join(a.processed or os.path.join(REPO, "assets", "geo", "processed", a.zone), "ground_far")
+        for name in ("T_GroundMaskRoute.png", "ground_route.json"):
+            if os.path.exists(os.path.join(stale, name)):
+                os.remove(os.path.join(stale, name))        # the mask of an older circuit
+        print(json.dumps({"route_mask": "the focus mask holds the whole circuit"}))
+        return
     print(json.dumps({k: v for k, v in meta.items() if k != "rivers"}, indent=2))
 
 

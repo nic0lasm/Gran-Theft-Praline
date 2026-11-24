@@ -433,6 +433,16 @@ far bank, the Rhône paved like a sidewalk. At 50 s the stolen car rolled into a
    (`GTP_CIRCUIT_CLEAR_M`); the report gives `circuit_lines`, `circuit_clear_cm`,
    `circuit_removed`, and such an instance has `"lane": "circuit"`.
 
+5. **The route mask** (`ground_mask.py --route <Map>.circuit.csv`, made by the `materials`
+   step after the far mask): at 34 cm a texel the far mask cannot hold a kerb or a lane line,
+   and in the long take of gate 83 the quay is a plain of asphalt. The route mask is as fine as
+   the focus mask (4096 texels on its long side: 11 to 16 cm) over the box of the driven line
+   the focus mask does not hold, 40 m wider (today 161 m by 460 m of quai Jules Courmont and quai
+   Jean Moulin); the ground material reads it there, the far mask past it (`GTP_ROUTE_MASK=0`
+   turns it off). One-way roads of two lanes or more get a dashed line between their lanes
+   (three on the four lanes of the quay). Not versioned, like the far mask;
+   `materials_report.json` gives `route_mask` (`texture`, `read_on_the_route`).
+
 `materials_report.json` gives `far_mask` (`texture`, `read_past_the_mask`, `rivers`, `laid`);
 `pit_cover_report.json` gives `heights_from`, `cells_read`, `covered`. Not seen in game yet.
 

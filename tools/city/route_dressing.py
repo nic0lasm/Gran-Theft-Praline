@@ -147,6 +147,12 @@ def main():  # noqa: C901
                     rc = subprocess.call([sys.executable, os.path.join(HERE, "ground_mask.py"), "--far",
                                           "--focus", FOCUS], stdout=subprocess.DEVNULL, timeout=600)
                     far = "far mask: ground_mask.py --far exit %d" % rc
+                    circuit = os.path.join(qb.PROJECT_DIR, "Content", "Test", "Circuits",
+                                           "L_City_RueDeLaRepublique.circuit.csv")
+                    if os.path.exists(circuit):
+                        rc = subprocess.call([sys.executable, os.path.join(HERE, "ground_mask.py"), "--route",
+                                              circuit, "--focus", FOCUS], stdout=subprocess.DEVNULL, timeout=600)
+                        far += ", route mask: ground_mask.py --route exit %d" % rc
                 except Exception as e:  # noqa: BLE001  never stops the step
                     far = "far mask: %r" % (e,)
             ok, _, note = qb.run_editor("route_materials", "apply_city_materials", "materials_report.json", 900,
