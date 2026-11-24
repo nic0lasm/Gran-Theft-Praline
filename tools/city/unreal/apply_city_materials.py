@@ -978,6 +978,9 @@ def window_interior_master():
     fres = g.node(unreal.MaterialExpressionFresnel)
     emis = g.mul(custom, g.sub(g.const(1.0), g.mul(fres, g.const(0.85))))
     emis = lit_by_hour(g, emis, WINDOW_DAY_GLOW, WINDOW_NIGHT_SCREEN)
+    # As on the shop glass: the pane reflects less at night so the lit room shows (it was never defined here,
+    # gate 78's materials step stopped on a NameError and left the windows opaque).
+    spec = g.lerp(g.const(1.0), g.const(SHOP_NIGHT_SPECULAR), night)
     mel.connect_material_property(g.const((0.015, 0.017, 0.02)), "", unreal.MaterialProperty.MP_BASE_COLOR)
     mel.connect_material_property(g.const(0.03), "", unreal.MaterialProperty.MP_ROUGHNESS)
     mel.connect_material_property(g.const(0.0), "", unreal.MaterialProperty.MP_METALLIC)
