@@ -1,0 +1,156 @@
+"""Take out of the street map the placed objects that stand on a traffic lane (Unreal Editor,
+headless, like place_props.py). Gate 75: the stolen car stood 25 s against a white block on lane
+13, rue de la Bourse (StaticMeshActor_27); three more objects stood on the flight's lanes.
+
+Rule and geometry: tools/city/lane_clear.py (clear_lanes.py's rule on the map itself): an
+instance whose footprint comes within GTP_LANE_CLEAR_M (1.5) of a lane centre line, or of the
+link from a lane's end to the next lane, is removed, not moved: beside a lane there is a facade,
+a doorway or another object, and a moved object would no longer stand where it was surveyed.
+
+What is looked at: every instanced static mesh component (HISM, ISM) of the map, with collision,
+taller than 15 cm (manhole covers and grates stay), whose lowest point is less than 2.5 m above
+the lane (an overhead sign stays). Footprint: the mesh box turned by the instance's yaw; a tree
+(mesh path with "Tree" or "Alder", not a grate) by a 40 cm trunk. Removed: the street furniture
+and detail sets (City/Props, City/Route, City/Details, tag GTP_Set_*) and every actor named in
+GTP_LANE_ACTORS (gate 75's four by default). The facade kit (City/Facades) and the signs are only
+reported: a facade on a lane is a building matter (generate.py trim_footprints), not one to cut.
+
+GTP_LANE_CLEAR=0: report only, nothing removed, map not saved. Lanes: GTP_LANES_CSV, else
+Content/City/Traffic/<Map>.lanes.csv (the file the game reads). Map: GTP_CITY_FOCUS as
+place_props.py. Report: Saved/CityImport/lane_clear_report.json (removed per set and per mesh,
+each removed instance with its lane and gap, what was only reported) and one log line
+"[LaneClear] ...".
+"""
+
+import json
+import os
+import sys
+import time
+
+import unreal
+
+REPO = os.path.abspath(os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_dir()), ".."))
+sys.path.insert(0, os.path.join(REPO, "tools", "city"))
+import lane_clear as lc  # noqa: E402
+
+FOCUS = os.environ.get("GTP_CITY_FOCUS", "rue-de-la-republique")
+MAP_NAME = "L_City_" + "".join(p.capitalize() for p in FOCUS.split("-"))
+MAP = "/Game/Maps/" + MAP_NAME
+LANES = os.environ.get("GTP_LANES_CSV") or os.path.join(
+    unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_content_dir()), "City", "Traffic",
+    MAP_NAME + ".lanes.csv")
+APPLY = os.environ.get("GTP_LANE_CLEAR", "1") != "0"
+CLEAR_CM = float(os.environ.get("GTP_LANE_CLEAR_M", "1.5")) * 100.0
+NAMED = [n for n in os.environ.get("GTP_LANE_ACTORS",
+                                   "StaticMeshActor_27,StaticMeshActor_107,StaticMeshActor_22,StaticMeshActor_0").split(",") if n]
+SET_FOLDERS = ("City/Props", "City/Route", "City/Details")
+REPORT_ONLY_FOLDERS = ("City/Facades", "City/Signs")
+MIN_HEIGHT_CM = 15.0
+
+level_sub = unreal.get_editor_subsystem(unreal.LevelEditorSubsystem)
+actor_sub = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
+
+
+def log(msg):
+    unreal.log_warning("[LaneClear] " + msg)
+
+
+def blocks(comp):
+    try:
+        return comp.get_collision_enabled() != unreal.CollisionEnabled.NO_COLLISION
+    except Exception:  # noqa: BLE001
+        return True
+
+
+def which_set(actor):
+    folder = str(actor.get_folder_path())
+    for f in SET_FOLDERS:
+        if folder.startswith(f):
+            return f.split("/")[1].lower()
+    for t in actor.tags:
+        if str(t).startswith("GTP_Set_"):
+            return str(t)[8:]
+    if actor.get_name() in NAMED:
+        return "named:" + actor.get_name()
+    return None
+
+
+def main():  # noqa: C901
+    t0 = time.time()
+    report = {"map": MAP, "lanes_file": LANES, "clear_cm": CLEAR_CM, "apply": APPLY, "named": NAMED,
+              "removed": {}, "removed_by_mesh": {}, "removed_instances": [], "reported_only": [],
+              "named_found": [], "errors": []}
+    try:
+        if not os.path.exists(LANES):
+            report["errors"].append("no lanes file " + LANES)
+            raise StopIteration
+        lanes = lc.read_lanes(LANES)
+        index = lc.LaneIndex(lanes, CLEAR_CM)
+        report["lanes"] = len(lanes)
+        if not level_sub.load_level(MAP):
+            report["errors"].append("cannot open " + MAP)
+            raise StopIteration
+        for actor in actor_sub.get_all_level_actors():
+            folder = str(actor.get_folder_path())
+            if actor.get_name() in NAMED:
+                report["named_found"].append({"name": actor.get_name(), "label": actor.get_actor_label(),
+                                              "folder": folder})
+            owner = which_set(actor)
+            only_report = owner is None
+            for comp in actor.get_components_by_class(unreal.InstancedStaticMeshComponent):
+                mesh = comp.get_editor_property("static_mesh")
+                if mesh is None or not blocks(comp):
+                    continue
+                box = mesh.get_bounding_box()
+                lo, hi = box.min, box.max
+                path = mesh.get_path_name()
+                tree = ("Tree" in path or "Alder" in path) and "Grate" not in path
+                hits = []
+                for i in range(comp.get_instance_count()):
+                    t = comp.get_instance_transform(i, True)
+                    s = t.scale3d
+                    if (hi.z - lo.z) * abs(s.z) < MIN_HEIGHT_CM:
+                        continue
+                    x, y, z = t.translation.x, t.translation.y, t.translation.z
+                    yaw = t.rotation.rotator().yaw
+                    shape = ((x, y), lc.TRUNK_RADIUS_CM) if tree else \
+                        lc.footprint_box(x, y, yaw, (lo.x, lo.y), (hi.x, hi.y), (s.x, s.y))
+                    near = index.nearest(shape, z_low=z + lo.z * s.z)
+                    if near:
+                        hits.append((i, near, (round(x), round(y), round(z))))
+                if not hits:
+                    continue
+                entry = [{"actor": actor.get_name(), "label": actor.get_actor_label(), "folder": folder,
+                          "mesh": path.split(".")[0], "index": i, "lane": lane, "gap_cm": round(g),
+                          "xyz": list(xyz)} for i, (lane, g), xyz in hits]
+                if only_report or (folder.startswith(REPORT_ONLY_FOLDERS) and actor.get_name() not in NAMED):
+                    report["reported_only"].extend(entry)
+                    continue
+                report["removed_instances"].extend(entry)
+                report["removed"][owner] = report["removed"].get(owner, 0) + len(hits)
+                key = path.split(".")[0].rsplit("/", 1)[-1]
+                report["removed_by_mesh"][key] = report["removed_by_mesh"].get(key, 0) + len(hits)
+                if APPLY:
+                    comp.modify()
+                    # highest index first: removing an instance moves the last one into its place
+                    for i in sorted((h[0] for h in hits), reverse=True):
+                        comp.remove_instance(i)
+        report["removed_total"] = sum(report["removed"].values())
+        report["reported_only_total"] = len(report["reported_only"])
+        if APPLY and report["removed_total"]:
+            level_sub.save_current_level()
+            report["saved"] = True
+    except StopIteration:
+        pass
+    except Exception as e:  # noqa: BLE001  report, never leave the editor on a dialog
+        report["errors"].append(repr(e))
+    report["seconds"] = round(time.time() - t0, 1)
+    out = os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_saved_dir()), "CityImport")
+    os.makedirs(out, exist_ok=True)
+    with open(os.path.join(out, "lane_clear_report.json"), "w", encoding="utf-8") as f:
+        json.dump(report, f, indent=1)
+    log(json.dumps({k: report.get(k) for k in ("removed_total", "removed", "removed_by_mesh", "reported_only_total",
+                                                "named_found", "errors", "saved")}))
+
+
+main()
