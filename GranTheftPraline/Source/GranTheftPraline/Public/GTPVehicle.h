@@ -293,6 +293,17 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vehicle|Seats")
 	bool bLocked = false;
 
+	/** The components built from AGTPVehicle::LookMeshes (rebuilt on each construction). */
+	const TArray<TObjectPtr<USkeletalMeshComponent>>& GetLookComponents() const { return LookComponents; }
+
+	/**
+	 * Whether a car class draws anything a player sees as a car, read from its defaults (no spawn): its
+	 * body mesh or one of its LookMeshes at least 1 m long. OutWhy: each mesh with its box (cm) and its
+	 * material slots, how many have a material. Public: the traffic and the police leave out the classes
+	 * that draw nothing.
+	 */
+	static bool IsClassDrawn(const UClass* Class, FString& OutWhy);
+
 protected:
 	virtual void PreRegisterAllComponents() override;
 	virtual void OnConstruction(const FTransform& Transform) override;
@@ -514,16 +525,6 @@ protected:
 	 */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Vehicle|Look")
 	TArray<TObjectPtr<USkeletalMesh>> LookMeshes;
-
-	/** The components built from LookMeshes (rebuilt on each construction). */
-	const TArray<TObjectPtr<USkeletalMeshComponent>>& GetLookComponents() const { return LookComponents; }
-
-	/**
-	 * Whether a car class draws anything a player sees as a car, read from its defaults (no spawn): its
-	 * body mesh or one of its LookMeshes at least 1 m long. OutWhy: each mesh with its box (cm) and its
-	 * material slots, how many have a material.
-	 */
-	static bool IsClassDrawn(const UClass* Class, FString& OutWhy);
 
 	/** Blueprint hook: dents, glass, smoke and wreck changes, for FX and sound. */
 	UFUNCTION(BlueprintImplementableEvent, Category = "Vehicle|Damage")
