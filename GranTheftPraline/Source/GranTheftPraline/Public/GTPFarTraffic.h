@@ -44,6 +44,12 @@ public:
 
 	int32 Num() const { return Cars.Num(); }
 
+	/**
+	 * Puppet mode: true when Vehicle is the car drawn for one of the far cars. Such a car is the far traffic's, moved
+	 * by it at every tick: it is not a driven car of the network and never goes to the network's pool.
+	 */
+	bool IsPuppet(const AGTPVehicle* Vehicle) const;
+
 	/** Far cars on a lane within RadiusCm of the player (2D, as of their last move) and near enough to be drawn (CullEnd). */
 	int32 CountDrawnWithin(float RadiusCm) const;
 

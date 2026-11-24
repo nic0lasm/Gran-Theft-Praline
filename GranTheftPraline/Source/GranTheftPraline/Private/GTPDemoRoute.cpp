@@ -995,8 +995,7 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 								if (Other != Driven && Other->HasAIDriver() && !Other->ActorHasTag(TEXT("GTPPolice"))
 									&& FVector::Dist(Other->GetActorLocation(), Driven->GetActorLocation()) < 2500.f)
 								{
-									Network->Recycle(Other);
-									++Cleared;
+									Cleared += Network->Recycle(Other) ? 1 : 0;
 								}
 							}
 							if (Cleared > 0)

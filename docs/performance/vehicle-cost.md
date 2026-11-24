@@ -165,6 +165,17 @@ driver. Past the ghost distance, a car does not need to be an actor at all.
   a car on its wheels (spawn height minus 80 cm to plus 60 cm), otherwise at
   its spawn height on the ground found down to 1 km, with the line
   "traffic: ... off its wheels: ridden at N cm".
+- One owner for a car (after gate 81, whose -GTARun pass crashed at 152 s on
+  an index past the end of the list of driven cars). Read in the code, not
+  seen in a log: the chase script hands every car with an AI driver near the
+  player's to the network to be taken off the road, far traffic puppets
+  too. A puppet went to the pool and came back as a driven car, with its
+  collision, while the far traffic still moved it at every tick; at its
+  next handover it was listed a second time among the driven cars, and
+  taking it away removed two entries in one pass. Since then the network
+  refuses a puppet (line "traffic: ... is a far traffic puppet, not taken
+  away") and a car that is in the pool already, and a handover never lists
+  a car twice (line "far traffic: puppet ... was a driven car already").
 - Perceived traffic is the driven cars plus the far cars: palier C (25) is
   `-Traffic=12 -FarTraffic=13`, the target (40) is
   `-Traffic=12 -FarTraffic=28`.

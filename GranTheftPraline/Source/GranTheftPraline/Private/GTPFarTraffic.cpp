@@ -127,6 +127,22 @@ int32 AGTPFarTraffic::Build(AGTPTrafficNetwork* InNetwork, int32 Count)
 	return Placed;
 }
 
+bool AGTPFarTraffic::IsPuppet(const AGTPVehicle* Vehicle) const
+{
+	if (!bPuppets || !Vehicle)
+	{
+		return false;
+	}
+	for (const FFarCar& FarCar : Cars)
+	{
+		if (FarCar.Puppet.Get() == Vehicle)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 double AGTPFarTraffic::TakeTickSeconds()
 {
 	const double Seconds = TickSeconds;
@@ -429,6 +445,13 @@ void AGTPFarTraffic::Wake(AGTPVehicle* Vehicle, int32 Lane, int32 Point, const F
 	if (UGTPAIDriverComponent* Driver = Vehicle->FindComponentByClass<UGTPAIDriverComponent>())
 	{
 		Driver->PlaceGhost(Lane, Point, Location, YawDegrees, SpeedMs);
+	}
+	// Once in the list, never twice: taking a car away removes every entry of it, and the network's loop over its cars
+	// ran past the end of the list when two left in one pass (gate 81's crash at 152 s).
+	if (Network->Cars.Contains(Vehicle))
+	{
+		GTP_TRACE(LogGTPFarTraffic, TEXT("far traffic: puppet %s was a driven car already, not listed twice"), *Vehicle->GetName());
+		return;
 	}
 	Network->Cars.Add(Vehicle);
 }

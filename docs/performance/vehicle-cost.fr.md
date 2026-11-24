@@ -189,6 +189,20 @@ besoin d'être un acteur.
   (hauteur d'apparition moins 80 cm à plus 60 cm), sinon il roule à sa
   hauteur d'apparition, sur le sol trouvé jusqu'à 1 km plus bas, avec la
   ligne « traffic: ... off its wheels: ridden at N cm ».
+- Un seul propriétaire par voiture (après la porte 81, dont la passe
+  -GTARun a planté à 152 s sur un index au-delà de la fin de la liste des
+  voitures conduites). Lu dans le code, pas vu dans un journal : le script
+  de poursuite remet au réseau, pour les retirer de la route, toutes les
+  voitures à conducteur PNJ proches de celle du joueur, marionnettes du
+  trafic lointain comprises. Une marionnette partait dans la réserve et
+  revenait en voiture conduite, avec sa collision, alors que le trafic
+  lointain la déplaçait encore à chaque image ; à son passage de relais
+  suivant elle était inscrite une seconde fois parmi les voitures
+  conduites, et la retirer enlevait deux entrées dans la même passe.
+  Depuis, le réseau refuse une marionnette (ligne « traffic: ... is a far
+  traffic puppet, not taken away ») et une voiture déjà dans la réserve,
+  et un passage de relais n'inscrit jamais une voiture deux fois (ligne
+  « far traffic: puppet ... was a driven car already »).
 - Trafic perçu = voitures conduites + voitures lointaines. Le palier C
   (25 véhicules) correspond à `-Traffic=12 -FarTraffic=13`, la cible
   (40 véhicules) à `-Traffic=12 -FarTraffic=28`.

@@ -2499,13 +2499,36 @@ const AActor* AGTPTrafficNetwork::FindCarAt(const AGTPVehicle* Car, const FTrans
 	return nullptr;
 }
 
-void AGTPTrafficNetwork::Recycle(AGTPVehicle* Car)
+bool AGTPTrafficNetwork::Recycle(AGTPVehicle* Car)
 {
+	if (!IsValid(Car))
+	{
+		return false;
+	}
+	// One owner for a car. A far traffic puppet is the far traffic's: drawn and moved by it at every tick, without
+	// collision. The chase script hands in every car with an AI driver near the player's, puppets too: put in the pool,
+	// a puppet came back as a driven car while the far traffic still moved it, and at its next handover it was
+	// listed a second time in Cars. Taking it away then removed two entries in one pass of Tick's loop, which ran
+	// past the end of the list. Read in the code after gate 81's crash at 152 s, not seen in its log.
+	if (FarTraffic && FarTraffic->IsPuppet(Car))
+	{
+		Cars.Remove(Car);
+		if (++PuppetsLeft <= 3)
+		{
+			GTP_TRACE(LogGTPTraffic, TEXT("traffic: %s is a far traffic puppet, not taken away (%d so far)"), *Car->GetName(), PuppetsLeft);
+		}
+		return false;
+	}
+	// Put away already (the chase script looks at every car, hidden ones too): nothing to do, nothing to count.
+	if (Pool.Contains(Car))
+	{
+		return false;
+	}
 	++RecycledAll;
 	Cars.Remove(Car);
 	if (bTrafficPool && PutAway(Car))
 	{
-		return;
+		return true;
 	}
 	if (UGTPAIDriverComponent* AIDriver = Car->FindComponentByClass<UGTPAIDriverComponent>())
 	{
@@ -2520,6 +2543,7 @@ void AGTPTrafficNetwork::Recycle(AGTPVehicle* Car)
 		Driver->Destroy();
 	}
 	Car->Destroy();
+	return true;
 }
 
 void AGTPTrafficNetwork::Tick(float DeltaSeconds)
@@ -2562,9 +2586,10 @@ void AGTPTrafficNetwork::Tick(float DeltaSeconds)
 	// Forget stolen cars (the player's now); take away stuck or far cars out of sight.
 	for (int32 Index = Cars.Num() - 1; Index >= 0; --Index)
 	{
-		// Gate 81 crashed here at t=152 s (index out of range, police backing up nearby): one pass of the loop took
-		// more than one car out of Cars (Recycle removes every entry of a car; a destroyed car can take another).
-		// The index walks down until it is in the array again.
+		// Gate 81 crashed here at t=152 s (index out of range): one pass of the loop took more than one car out of
+		// Cars. Recycle removes every entry of a car, and a far traffic puppet the chase script puts in the pool can be
+		// listed twice (see Recycle and AGTPFarTraffic::Wake, which no longer let it happen). Kept as a net: the
+		// index walks down until it is in the array again.
 		if (!Cars.IsValidIndex(Index))
 		{
 			if (!bLoggedCarsShrank)

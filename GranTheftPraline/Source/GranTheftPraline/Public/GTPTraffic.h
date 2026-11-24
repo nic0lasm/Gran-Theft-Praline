@@ -812,7 +812,12 @@ private:
 	AGTPVehicle* CreateCar(const FTransform& Transform, ESpawnActorCollisionHandlingMethod Collision);
 	bool FindSpawnPoint(int32& OutLane, int32& OutPoint, FTransform& OutTransform) const;
 	bool IsSeenByPlayer(const FVector& Location) const;
-	void Recycle(AGTPVehicle* Car);
+	/**
+	 * Takes Car off the road: to the pool, or destroyed. Any car with an AI driver can be handed in (the chase script
+	 * hands in whatever stands in the player's way, the police its own cars). False, and nothing done, for a car
+	 * that is not the network's to take: a far traffic puppet, or a car that is in the pool already.
+	 */
+	bool Recycle(AGTPVehicle* Car);
 	void MakeCheap(AGTPVehicle* Car, ACharacter* Driver) const;
 	void UpdateDetail(AGTPVehicle* Car, float DistanceToView) const;
 	void UpdateStreetParked(const APawn* Player);
@@ -961,6 +966,8 @@ private:
 	int32 RecycledOverturned = 0;
 	/** Every car taken off the road (stuck, far, and by the others: the chase script, the police), and cars put back from the pool. */
 	int32 RecycledAll = 0;
+	/** Far traffic puppets handed to Recycle and left where they were (the chase script meets them on the road). */
+	int32 PuppetsLeft = 0;
 	int32 ReusedFromPool = 0;
 	/** The player's pawn last seen by the tick, and where: a line when it is gone (gate 62's -GTARun pass, no car near
 	 *  the player from 236 s: no pawn, so no distance to spawn or take cars away by). */
