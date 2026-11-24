@@ -135,6 +135,26 @@ def load_class(path):
         return None
 
 
+def registry_assets(package):
+    """The asset registry's entries for a package, [] when it is not in the project. Unlike
+    EditorAssetLibrary.find_asset_data / does_asset_exist, logs no "FindAssetData failed" error: a
+    missing City Sample package (BrokenGlass, CAS_*, NS_FlashingLight) made 22 of the 34 Error lines
+    that failed the job at candidate 72."""
+    registry = unreal.AssetRegistryHelpers.get_asset_registry()
+    try:
+        return list(registry.get_assets_by_package_name(package))
+    except Exception:
+        return [eal.find_asset_data(package)] if eal.does_asset_exist(package) else []
+
+
+def native_parent(data):
+    """The Blueprint's nearest C++ parent, read from the asset registry (no load)."""
+    try:
+        return str(data.get_tag_value("NativeParentClass") or "")
+    except Exception:
+        return ""
+
+
 def is_chaos(cls):
     """True for a Chaos vehicle class (one MassTraffic display actor is not)."""
     if cls is None:
@@ -171,7 +191,7 @@ def find_epic_blueprints():
             if not name.startswith("BP_") or "trailer" in name.lower():
                 continue
             if match and str(data.package_path) != OUT:
-                found.setdefault(match.group(1), []).append((name, str(data.package_name)))
+                found.setdefault(match.group(1), []).append((name, str(data.package_name), native_parent(data)))
     # Several Blueprints per car in the full City Sample (variants, MassTraffic display actors):
     # a Chaos vehicle first, then the plain BP_vehicleNN_Kind, else the shortest name. All
     # candidates go to the report with their kind.
@@ -180,11 +200,18 @@ def find_epic_blueprints():
         candidates.sort(key=lambda c: (re.fullmatch(r"BP_vehicle\d\d_[A-Za-z]+", c[0]) is None, len(c[0])))
         kinds[number] = {}
         if number in CARS:
-            for _, package in candidates:
+            for _, package, parent in candidates:
+                # Only a Chaos vehicle is loaded: City Sample's MassTraffic display actors pull their
+                # AnimBlueprints (ABP_Proxy_Post_*, ABP_vehCar_vehicle05), which log 12 Error lines when
+                # they load (candidate 72), and its Sandbox cars need its game module.
+                if parent and "WheeledVehiclePawn" not in parent:
+                    kinds[number][package] = "not a Chaos vehicle, not loaded (native parent %s)" % parent.rsplit(".", 1)[-1].strip("'")
+                    continue
                 cls = load_class(package)
                 kinds[number][package] = "chaos" if is_chaos(cls) else ("actor" if cls is not None else "not loaded")
         chaos = [c[1] for c in candidates if kinds[number].get(c[1]) == "chaos"]
         chosen[number] = chaos[0] if chaos else candidates[0][1]
+    find_epic_blueprints.kinds = {package: kind for by_number in kinds.values() for package, kind in by_number.items()}
     find_epic_blueprints.candidates = {n: kinds[n] or [c[1] for c in cs] for n, cs in found.items()}
     return chosen
 
@@ -204,7 +231,7 @@ def missing_dependencies(package, limit=400):
             dep = str(dep)
             if not dep.startswith("/Game/") or dep in seen:
                 continue
-            if not eal.does_asset_exist(dep):
+            if not registry_assets(dep):
                 missing.append(dep)
                 seen.add(dep)
             else:
@@ -227,7 +254,7 @@ def cook_risk(package, limit=2000):
             dep = str(dep)
             if dep.startswith(("/Script/", "/Engine/", "/Temp/")) or dep in seen:
                 continue
-            if not eal.does_asset_exist(dep):
+            if not registry_assets(dep):
                 risks.append(dep + " (missing)")
                 seen.add(dep)
                 continue
@@ -521,11 +548,13 @@ def epic_wheels(number, entry):
     def consider(package, how):
         if package.startswith(OUT) or any(package in paths for paths in found.values()):
             return
-        try:
-            data = eal.find_asset_data(package)
-            if not data.is_valid() or str(data.asset_class_path.asset_name) != "Blueprint":
-                return
-        except Exception:
+        datas = [d for d in registry_assets(package) if str(d.asset_class_path.asset_name) == "Blueprint"]
+        if not datas:
+            return
+        # A wheel Blueprint only (CVW_*, child of ChaosVehicleWheel): the Sandbox car's other references
+        # (BP_VehicleBase_*, City Sample's game classes) do not load and log errors.
+        parent = native_parent(datas[0])
+        if (parent and "Wheel" not in parent) or (not parent and "wheel" not in package.lower()):
             return
         cls = load_class(package)
         axle = wheel_axle(cls) if cls is not None else None
@@ -641,9 +670,12 @@ def build_from_parts(number, name, blueprint_path, entry, source_cls=None):
 def make_one(number, name, source_path, report):
     entry = {"epic": source_path}
     entry["missing_dependencies"] = missing_dependencies(source_path)
-    source_cls = load_class(source_path)
+    kind = getattr(find_epic_blueprints, "kinds", {}).get(source_path, "")
+    # Loaded only when it is a Chaos vehicle (find_epic_blueprints): a MassTraffic display actor is
+    # built from its parts, its meshes found by name next to it (find_mesh, look_meshes).
+    source_cls = load_class(source_path) if kind in ("", "chaos") else None
     if not is_chaos(source_cls):
-        entry["epic_kind"] = "not loaded" if source_cls is None else "actor, not a Chaos vehicle"
+        entry["epic_kind"] = kind or ("not loaded" if source_cls is None else "actor, not a Chaos vehicle")
         built = build_from_parts(number, name, source_path, entry, source_cls)
         report["cars"][name] = entry
         if built is None:

@@ -636,6 +636,15 @@ boîte de 0 x 0 x 0 cm. La carrosserie est dessinée par `SKM_Exterior_...` (pei
   classe du trafic au démarrage. Une classe qui ne dessine rien est retirée du trafic, des voitures
   garées et de la police (une voiture du trafic la remplace, « police: car class ... NOT DRAWN ») ; si
   aucune n'est dessinée, toutes sont gardées.
+- Le passage du script sur le PC (candidat 72) a écrit 34 lignes Error et la tâche a échoué, aucune
+  venue de nos assets (`cook_risk` vide pour les sept voitures, aucun AnimBlueprint de post-traitement
+  sur les 14 pièces) : 12 au chargement des acteurs d'affichage MassTraffic de City Sample (leurs
+  `ABP_Proxy_Post_*`, « Unknown structure », et `ABP_vehCar_vehicle05`), 22 « FindAssetData failed »
+  pour des paquets City Sample non copiés (BrokenGlass, `CAS_*`, `NS_FlashingLight`) cherchés en
+  trouvant les roues. Le script lit désormais le registre d'assets pour ces recherches et ne charge un
+  Blueprint que si le registre dit que c'est un véhicule Chaos ou une roue. Les pièces sont sur les
+  squelettes `SK_Proxy_*` de City Sample, le squelette porteur sur `SK_veh*` : la leader pose apparie
+  les os par leur nom, non vérifié.
 - Pas prouvé : que les pneus de l'extérieur suivent les os des roues (même squelette `SK_Vehicle`,
   donné par le rapport), le coût de dessin de vraies carrosseries sur 6 classes sur 9 (les portes
   jusqu'au 68 ont mesuré des voitures invisibles), et l'aspect des matériaux de City Sample une fois
