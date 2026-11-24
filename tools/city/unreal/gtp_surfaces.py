@@ -58,7 +58,9 @@ GROUND_GRIME = ("decal_dirt",)
 # down to at most its cap of mean linear albedo (the texture's 1x1 mip, one cheap fetch per
 # surface), and the roughness never goes below the floor (wet weather is added after this, by
 # gtp_weather, and still lowers it when it rains). GTP_GROUND_ROUGH_MIN=0 turns the floor off.
-GROUND_ALBEDO_CAP = {"sidewalk": 0.28, "paving": 0.28, "kerb": 0.30, "road": 0.10}
+# Gate 75: at 0.28 the sunlit quai still read white next to 0.05 asphalt (measured on the video:
+# 4.6 times the road's brightness, 190/255): 0.20, weathered concrete or grey granite.
+GROUND_ALBEDO_CAP = {"sidewalk": 0.20, "paving": 0.20, "kerb": 0.22, "road": 0.10}
 GROUND_ROUGH_MIN = float(os.environ.get("GTP_GROUND_ROUGH_MIN", "0.6"))
 LUMA = (0.2126, 0.7152, 0.0722)
 # The stains are laid after the layer caps: a light mud scan made blotches of several metres on
