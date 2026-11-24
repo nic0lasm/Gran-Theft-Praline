@@ -5,7 +5,9 @@ sea, and the far volumes stood alone on it. This step puts in the map, in the ou
 City/Horizon: a ground to the real horizon, 1 m under the lowest terrain; the rows of far
 blocks and the towers of the Part-Dieu, with the procedural Lyon facade (M_City_Horizon_<n>,
 built by apply_city_materials.py: run the materials step first); the two hills; the basilica
-of Fourviere and its metal tower, on the edge of the hill. Engine basic shapes only (cube,
+of Fourviere and its metal tower, on the edge of the hill; and, where a square runs past the
+end of the map's ground (place Bellecour), that ground carried on, the fronts round the square
+and two rows of trees (GTP_SQUARE_SETTING=0 leaves them out). Engine basic shapes only (cube,
 plane, sphere, cylinder, cone): no mesh to import, about 250 actors of a few triangles that the
 renderer batches by material. No collision, no shadow, not in the ray tracing scene.
 
@@ -37,6 +39,15 @@ FALLBACK_BASE_CM = -1500.0     # when the map has no terrain actor to measure
 BELOW_TERRAIN_CM = 100.0
 HILL_FOOT_M = 6.0              # a block on a slope goes this far into the hill
 MONUMENT_MATERIALS = {"stone": "M_City_HorizonStone", "iron": "M_City_HorizonIron"}
+REPO = os.path.abspath(os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_dir()), ".."))
+BUILT_FOLDERS = ("City/Backdrop", "City/Buildings", "City/Landmarks")   # real volumes: no stand-in on them
+SQUARE_SETTING = os.environ.get("GTP_SQUARE_SETTING", "1") != "0"
+GROUND_MATERIAL = "M_City_Ground"
+APRON_BELOW_CM = 3.0           # the carried-on ground lies this far under the level measured on the map
+LEVEL_GRID_CM = 800.0          # the square's level: one trace every 8 m on the part the map holds
+LEVEL_MIN_HITS = 8
+TREE_CLEAR_M = 5.0             # no tree this close to the line the flight drives
+TREE_CULL_CM = 60000.0
 
 eal = unreal.EditorAssetLibrary
 
@@ -54,6 +65,133 @@ def quiet(comp, report):
             report["skipped_properties"] = sorted(set(report.get("skipped_properties", [])) | {prop})
 
 
+def solid(comp):
+    """What stands round a square is close enough to walk or drive into."""
+    comp.set_collision_enabled(unreal.CollisionEnabled.QUERY_AND_PHYSICS)
+    comp.set_collision_profile_name("BlockAll")
+
+
+def trace_z(world, x, y, z_top, z_bottom):
+    """Height of what a downward trace meets at (x, y), or None (as place_props.py reads it)."""
+    res = unreal.SystemLibrary.line_trace_single(
+        world, unreal.Vector(x, y, z_top), unreal.Vector(x, y, z_bottom),
+        unreal.TraceTypeQuery.TRACE_TYPE_QUERY1, True, [], unreal.DrawDebugTrace.NONE, True)
+    if isinstance(res, tuple):
+        res = res[1] if res[0] else None
+    return None if res is None else res.to_tuple()[4].z
+
+
+def square_level(world, squares, ring, tiles):
+    """(level in cm, how it was found) of a square, from the part of it the map's ground holds:
+    the median of downward traces inside its outline; failing that, the lowest top of the terrain
+    tiles under it."""
+    x0, y0, x1, y1 = squares.bounds([ring])
+    top = max(t[5] for t in tiles) + 500.0
+    bottom = min(t[4] for t in tiles) - 500.0
+    hits = []
+    y = y0
+    while y <= y1:
+        x = x0
+        while x <= x1:
+            if any(t[0] <= x <= t[2] and t[1] <= y <= t[3] for t in tiles) and squares.distance([ring], (x, y)) < -300.0:
+                z = trace_z(world, x, y, top, bottom)
+                if z is not None:
+                    hits.append(z)
+            x += LEVEL_GRID_CM
+        y += LEVEL_GRID_CM
+    if len(hits) >= LEVEL_MIN_HITS:
+        hits.sort()
+        return hits[len(hits) // 2], "trace (%d hits)" % len(hits)
+    under = [t[5] for t in tiles if t[0] <= x1 and t[2] >= x0 and t[1] <= y1 and t[3] >= y0]
+    if under:
+        return min(under) - 50.0, "terrain bounds (%d traces hit)" % len(hits)
+    return 0.0, "nothing measured"
+
+
+def square_settings(report, place, tiles, built, base):  # noqa: C901
+    """Where a square of landmarks.json runs past the map's ground (place Bellecour): the ground
+    carried on at the square's level with the ground material, which draws the square's surface
+    in world space; the fronts round the square; two rows of trees. See horizon.square_setting."""
+    import route_trees
+    import squares
+    out = report.setdefault("square_settings", [])
+    found = squares.load(os.path.join(REPO, "assets", "geo", "processed", ZONE, "landmarks.json"))
+    if not found or not tiles:
+        return
+    world = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world()
+    ground_m = (min(t[0] for t in tiles) / 100.0, min(t[1] for t in tiles) / 100.0,
+                max(t[2] for t in tiles) / 100.0, max(t[3] for t in tiles) / 100.0)
+    report["ground_box_m"] = [round(v, 1) for v in ground_m]
+    line = []
+    circuit = os.path.join(REPO, "GranTheftPraline", "Content", "Test", "Circuits", "L_City_" + CAMEL + ".circuit.csv")
+    if os.path.exists(circuit):
+        with open(circuit, encoding="utf-8") as f:
+            line = horizon.circuit_line(f.read())
+    for q in found:
+        name = "".join(w.capitalize() for w in q["key"].split("-"))
+        st = horizon.square_setting([(x / 100.0, y / 100.0) for x, y in q["ring"]], ground_m, SEED,
+                                    [tuple(v / 100.0 for v in b) for b in built])
+        info = {"key": q["key"], "box_m": st["box"], "aprons": 0, "fronts": 0, "trees": 0}
+        out.append(info)
+        if not st["aprons"]:
+            info["skipped"] = "on the map's ground"
+            continue
+        level, how = square_level(world, squares, q["ring"], tiles)
+        info["level_cm"], info["level_from"] = round(level, 1), how
+        for i, a in enumerate(st["aprons"]):
+            # a cube, 1 m thick, its top the ground: the engine's cube has a collision box for certain
+            actor = place("Cube", "Horizon_%s_Ground_%d" % (name, i),
+                          (a["x"] * 100.0, a["y"] * 100.0, level - APRON_BELOW_CM - 50.0),
+                          (a["width"], a["depth"], 1.0), GROUND_MATERIAL)
+            solid(actor.static_mesh_component)
+            info["aprons"] += 1
+        for i, b in enumerate(st["fronts"]):
+            top = level + b["top"] * 100.0
+            actor = place("Cube", "Horizon_%s_Front_%02d" % (name, i),
+                          (b["x"] * 100.0, b["y"] * 100.0, 0.5 * (base + top)),
+                          (b["width"], b["depth"], (top - base) / 100.0), "M_City_Horizon_%d" % b["colour"], b["yaw"])
+            solid(actor.static_mesh_component)
+            actor.static_mesh_component.set_editor_property("cast_shadow", True)    # the sun is behind them
+            info["fronts"] += 1
+        trees = horizon.keep_clear(st["trees"], line, TREE_CLEAR_M)
+        info["trees_left_off_the_line"] = len(st["trees"]) - len(trees)
+        mesh = next((eal.load_asset(p) for p in route_trees.ROUTE_TREES["mature"].split("|")
+                     if eal.does_asset_exist(p)), None)
+        if mesh is None:
+            info["trees_skipped"] = "no leafy tree mesh in the project"
+            continue
+        actor = actor_sub_().spawn_actor_from_class(unreal.StaticMeshActor, unreal.Vector(0.0, 0.0, 0.0))
+        actor.set_actor_label("Horizon_%s_Trees" % name)
+        actor.set_folder_path(FOLDER)
+        sds = unreal.get_engine_subsystem(unreal.SubobjectDataSubsystem)
+        sdl = unreal.SubobjectDataBlueprintFunctionLibrary
+        root = sds.k2_gather_subobject_data_for_instance(actor)[0]
+        handle, _ = sds.add_new_subobject(unreal.AddNewSubobjectParams(
+            parent_handle=root, new_class=unreal.HierarchicalInstancedStaticMeshComponent))
+        comp = sdl.get_object(sdl.get_data(handle))
+        comp.set_static_mesh(mesh)
+        comp.set_editor_property("mobility", unreal.ComponentMobility.STATIC)
+        comp.set_collision_profile_name("BlockAll")
+        comp.set_editor_property("instance_start_cull_distance", int(0.8 * TREE_CULL_CM))
+        comp.set_editor_property("instance_end_cull_distance", int(TREE_CULL_CM))
+        top = max(t[5] for t in tiles) + 500.0
+        bottom = min(t[4] for t in tiles) - 500.0
+        for t in trees:
+            x, y, z = t["x"] * 100.0, t["y"] * 100.0, None
+            if ground_m[0] * 100.0 <= x <= ground_m[2] * 100.0 and ground_m[1] * 100.0 <= y <= ground_m[3] * 100.0:
+                z = trace_z(world, x, y, top, bottom)
+                if z is not None and abs(z - level) > 150.0:      # a roof, a lamp, a pit: not the ground
+                    z = None
+            comp.add_instance(unreal.Transform(unreal.Vector(x, y, level if z is None else z),
+                                               unreal.Rotator(0.0, 0.0, t["yaw"]),
+                                               unreal.Vector(t["scale"], t["scale"], t["scale"])), True)
+            info["trees"] += 1
+
+
+def actor_sub_():
+    return unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
+
+
 def main():  # noqa: C901
     t0 = time.time()
     report = {"map": MAP, "errors": [], "removed": 0, "blocks": 0, "towers": 0, "hills": 0, "skirt": 0,
@@ -64,7 +202,7 @@ def main():  # noqa: C901
         if not level_sub.load_level(MAP):
             report["errors"].append("cannot open " + MAP)
             raise StopIteration
-        lowest = None
+        lowest, tiles, built = None, [], []
         for a in actor_sub.get_all_level_actors():
             folder = str(a.get_folder_path())
             if folder.startswith(FOLDER):
@@ -74,6 +212,11 @@ def main():  # noqa: C901
                 origin, extent = a.get_actor_bounds(False)
                 bottom = origin.z - extent.z
                 lowest = bottom if lowest is None else min(lowest, bottom)
+                tiles.append((origin.x - extent.x, origin.y - extent.y, origin.x + extent.x, origin.y + extent.y,
+                              bottom, origin.z + extent.z))
+            elif folder.startswith(BUILT_FOLDERS):
+                origin, extent = a.get_actor_bounds(False)
+                built.append((origin.x - extent.x, origin.y - extent.y, origin.x + extent.x, origin.y + extent.y))
         if not ENABLED:
             report["skipped"] = "GTP_HORIZON=0"
             if report["removed"]:
@@ -96,7 +239,7 @@ def main():  # noqa: C901
         # without these two shapes, still gets the rest of the far view.
         for n in ("Cylinder", "Cone"):
             shapes[n] = eal.load_asset("/Engine/BasicShapes/" + n)
-        for n in MONUMENT_MATERIALS.values():
+        for n in list(MONUMENT_MATERIALS.values()) + [GROUND_MATERIAL]:
             mats[n] = eal.load_asset(MAT_DIR + "/" + n) if eal.does_asset_exist(MAT_DIR + "/" + n) else None
 
         def place(shape, label, loc_cm, scale, mat, yaw=0.0):
@@ -143,6 +286,11 @@ def main():  # noqa: C901
             place(m["shape"], "Horizon_" + m["name"], (m["x"] * 100.0, m["y"] * 100.0, 0.5 * (foot + top)),
                   (m["width"], m["depth"], (top - foot) / 100.0), mat, m["yaw"])
             report["monuments"] += 1
+        if SQUARE_SETTING and mats.get(GROUND_MATERIAL) is not None:
+            try:
+                square_settings(report, place, tiles, built, base)
+            except Exception as e:  # noqa: BLE001  the far view is placed: a square's setting never loses it
+                report["square_setting_error"] = repr(e)
         level_sub.save_current_level()
     except StopIteration:
         pass

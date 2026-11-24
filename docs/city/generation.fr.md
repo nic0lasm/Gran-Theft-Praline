@@ -394,6 +394,23 @@ lointain), et la colline derrière ne portait aucun monument.
    est de la place elle passe au-dessus d'un toit de 25 m situé à 250 m. `horizon_report.json`
    donne `monuments` (8 attendus) et `monuments_skipped`.
 
+3. **La place au-delà du bout de la carte.** Le sol de la carte est un rectangle qui s'arrête
+   150 m avant le côté sud de la place : depuis la rue qui longe son côté nord (où passe le
+   circuit de fuite) on voyait 30 à 65 m de sol, puis le bord du monde. Là où une place de
+   `landmarks.json` dépasse le sol, `horizon.square_setting` compose, et l'étape `horizon`
+   place dans City/Horizon : le sol prolongé au niveau de la place (médiane de traces sur la
+   partie que la carte porte ; cubes d'1 m d'épaisseur avec `M_City_Ground`, qui dessine le
+   rouge en coordonnées du monde, 2 m sous le bord du sol de la carte, 140 m autour de la
+   place) ; les façades du tour de la place, à une rue du contour, en blocs simples de 21 à
+   24,5 m avec la façade lyonnaise procédurale, seulement là où ils tiennent entièrement hors
+   du sol et à l'écart de tout volume réel (dossiers City/Backdrop, City/Buildings,
+   City/Landmarks) ; deux rangs de l'arbre feuillu du trajet le long du grand côté éloigné,
+   aucun à moins de 5 m de la ligne que la fuite conduit (lue dans le fichier du circuit). Sol,
+   façades et arbres arrêtent le joueur ; les façades portent ombre. Ce sont des doublures en
+   attendant que la zone elle-même soit étendue au sud. `GTP_SQUARE_SETTING=0` les retire ;
+   `horizon_report.json` donne `square_settings` (`level_cm`, `level_from`, `aprons`,
+   `fronts`, `trees`) et `ground_box_m`.
+
 Pas encore vu en jeu. Le rouge est une couleur unie pour l'instant : une surface scannée pourra
 suivre une fois le contour prouvé sur une image.
 

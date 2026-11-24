@@ -375,6 +375,22 @@ and the hill behind it carried no monument.
    at its true 115 m over the town: from the east side of the square it clears a 25 m roof
    250 m away. `horizon_report.json` gives `monuments` (8 expected) and `monuments_skipped`.
 
+3. **The square past the end of the map.** The ground of the map is a rectangle that stops
+   150 m short of the south side of the square: from the street along its north side (where the
+   flight circuit runs) one saw 30 to 65 m of ground, then the edge of the world. Where a square
+   of `landmarks.json` runs past the ground, `horizon.square_setting` lays out, and the
+   `horizon` step places in City/Horizon: the ground carried on at the level of the square
+   (median of traces on the part the map holds; cubes 1 m thick with `M_City_Ground`, which
+   draws the red in world space, 2 m under the edge of the map's ground, 140 m round the
+   square); the fronts round the square, a street back from its outline, as plain blocks of 21
+   to 24.5 m with the procedural Lyon facade, only where they stand wholly past the ground and
+   clear of every real volume (folders City/Backdrop, City/Buildings, City/Landmarks); two rows
+   of the route's leafy tree along the far long side, none within 5 m of the line the flight
+   drives (read from the circuit file). Ground, fronts and trees block the player; the fronts
+   cast shadows. These are stand-ins until the zone itself is extended south.
+   `GTP_SQUARE_SETTING=0` leaves them out; `horizon_report.json` gives `square_settings`
+   (`level_cm`, `level_from`, `aprons`, `fronts`, `trees`) and `ground_box_m`.
+
 Not seen in game yet. The red is a flat colour for now: a scanned surface can follow once the
 outline is proven on a picture.
 
