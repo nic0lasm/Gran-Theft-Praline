@@ -49,7 +49,9 @@ LEVEL_MIN_HITS = 8
 LEVEL_REACH_CM = (6000.0, 15000.0)     # street furniture this close to the outline tells the level
 GROUND_FOLDERS = ("City/Props", "City/Route")
 TREE_SUNK_CM = 10.0
-TREE_CLEAR_M = 5.0             # no tree this close to the line the flight drives
+TREE_CLEAR_M = 8.0             # no tree this close to the line the flight drives (broad crowns)
+ROUTE_MAPLES = os.environ.get("GTP_ROUTE_MAPLES", "1") != "0"
+ROUTE_FOLDER = "City/Route"
 TREE_CULL_CM = 60000.0
 
 eal = unreal.EditorAssetLibrary
@@ -182,8 +184,8 @@ def square_settings(report, place, tiles, built, base):  # noqa: C901
             info["fronts"] += 1
         trees = horizon.keep_clear(st["trees"], line, TREE_CLEAR_M)
         info["trees_left_off_the_line"] = len(st["trees"]) - len(trees)
-        mesh = next((eal.load_asset(p) for p in route_trees.ROUTE_TREES["mature"].split("|")
-                     if eal.does_asset_exist(p)), None)
+        paths = ([route_trees.MAPLES["square"]] if ROUTE_MAPLES else []) + route_trees.ROUTE_TREES["mature"].split("|")
+        mesh = next((eal.load_asset(p) for p in paths if eal.does_asset_exist(p)), None)
         if mesh is None:
             info["trees_skipped"] = "no leafy tree mesh in the project"
             continue
@@ -205,12 +207,67 @@ def square_settings(report, place, tiles, built, base):  # noqa: C901
         comp.set_collision_profile_name("BlockAll")
         comp.set_editor_property("instance_start_cull_distance", int(0.8 * TREE_CULL_CM))
         comp.set_editor_property("instance_end_cull_distance", int(TREE_CULL_CM))
+        tall = mesh_height(mesh)
+        size = route_trees.SQUARE_TREE_CM / tall if tall > 0.0 else 1.0    # whatever the mesh, trees of 16 m
+        info["tree_mesh"], info["tree_mesh_height_cm"] = mesh.get_name(), round(tall)
         for t in trees:
             # at the level of the square, a hand deep: no trace tells the ground here (see square_level)
+            k = t["scale"] * size
             comp.add_instance(unreal.Transform(unreal.Vector(t["x"] * 100.0, t["y"] * 100.0, level - TREE_SUNK_CM),
-                                               unreal.Rotator(0.0, 0.0, t["yaw"]),
-                                               unreal.Vector(t["scale"], t["scale"], t["scale"])), True)
+                                               unreal.Rotator(0.0, 0.0, t["yaw"]), unreal.Vector(k, k, k)), True)
             info["trees"] += 1
+
+
+def mesh_height(mesh):
+    box = mesh.get_bounding_box()
+    return box.max.z - box.min.z
+
+
+def route_maples():
+    """The trees of the route (folder City/Route) become Norway maples where the pack is in the
+    project: same places, same turns, the mean height kept (route_trees.rescale). The base map
+    keeps its alders, so this runs at each candidate; a machine without the pack keeps them."""
+    import route_trees
+    out = {"on": ROUTE_MAPLES, "swapped": [], "missing": []}
+    if not ROUTE_MAPLES:
+        return out
+    for actor in actor_sub_().get_all_level_actors():
+        if not str(actor.get_folder_path()).startswith(ROUTE_FOLDER):
+            continue
+        for comp in actor.get_components_by_class(unreal.InstancedStaticMeshComponent):
+            old = comp.get_editor_property("static_mesh")
+            kind = route_trees.kind_of(old.get_name()) if old is not None else None
+            if kind is None or comp.get_instance_count() == 0:
+                continue
+            path = route_trees.MAPLES[kind]
+            if not eal.does_asset_exist(path):
+                if path not in out["missing"]:
+                    out["missing"].append(path)
+                continue
+            new = eal.load_asset(path)
+            if new is None:
+                out["missing"].append(path + " (does not load)")
+                continue
+            found = [comp.get_instance_transform(i, True) for i in range(comp.get_instance_count())]
+            mean = sum(abs(t.scale3d.z) for t in found) / len(found)
+            old_tall, new_tall = mesh_height(old), mesh_height(new)
+            k = route_trees.rescale(kind, old_tall, new_tall, mean)
+            comp.clear_instances()
+            comp.set_static_mesh(new)
+            try:
+                comp.set_editor_property("override_materials", [])     # the alder's, if any were set
+            except Exception:  # noqa: BLE001
+                pass
+            for t in found:
+                s = t.scale3d
+                comp.add_instance(unreal.Transform(t.translation, t.rotation.rotator(),
+                                                   unreal.Vector(s.x * k, s.y * k, s.z * k)), True)
+            out["swapped"].append({"actor": actor.get_actor_label(), "from": old.get_name(), "to": new.get_name(),
+                                   "trees": len(found), "kept": comp.get_instance_count(),
+                                   "mean_height_cm": [round(old_tall * mean), round(new_tall * mean * k)],
+                                   "scale_factor": round(k, 3)})
+    out["trees"] = sum(e["trees"] for e in out["swapped"])
+    return out
 
 
 def actor_sub_():
@@ -316,6 +373,10 @@ def main():  # noqa: C901
                 square_settings(report, place, tiles, built, base)
             except Exception as e:  # noqa: BLE001  the far view is placed: a square's setting never loses it
                 report["square_setting_error"] = repr(e)
+        try:
+            report["route_maples"] = route_maples()
+        except Exception as e:  # noqa: BLE001  the far view is placed: the route keeps the trees it has left
+            report["route_maples_error"] = repr(e)
         level_sub.save_current_level()
     except StopIteration:
         pass

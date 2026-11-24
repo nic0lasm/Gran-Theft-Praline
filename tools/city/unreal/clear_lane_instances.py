@@ -40,6 +40,7 @@ import unreal
 REPO = os.path.abspath(os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_dir()), ".."))
 sys.path.insert(0, os.path.join(REPO, "tools", "city"))
 import lane_clear as lc  # noqa: E402
+import route_trees  # noqa: E402
 
 FOCUS = os.environ.get("GTP_CITY_FOCUS", "rue-de-la-republique")
 MAP_NAME = "L_City_" + "".join(p.capitalize() for p in FOCUS.split("-"))
@@ -118,7 +119,7 @@ def main():  # noqa: C901
                 box = mesh.get_bounding_box()
                 lo, hi = box.min, box.max
                 path = mesh.get_path_name()
-                tree = ("Tree" in path or "Alder" in path) and "Grate" not in path
+                tree = route_trees.is_tree(path)
                 hits = []
                 for i in range(comp.get_instance_count()):
                     t = comp.get_instance_transform(i, True)

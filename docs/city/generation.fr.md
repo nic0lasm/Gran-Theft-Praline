@@ -447,6 +447,24 @@ dans une rampe de parking.
 `materials_report.json` donne `far_mask` (`texture`, `read_past_the_mask`, `rivers`, `laid`) ;
 `pit_cover_report.json` donne `heights_from`, `cells_read`, `covered`. Pas encore vu en jeu.
 
+### Arbres des rues : l'érable plane à la place de l'aulne (ajouté le 24/11/2026)
+
+Le trajet était planté avec la forme « Field » de l'aulne glutineux, branchue dès le sol : dans
+la prise longue de la porte 81 (85 à 100 s) ses branches bouchaient la caméra. Le pack érable
+plane de Fab (Megaplants, 15 maillages SimpleWind, tous Nanite, de 0,3 à 25 m ; dans le Content
+du jeu sur le PC, hors Git) a des formes « Forest » au tronc dégagé d'un arbre d'alignement, la
+doublure gratuite la plus proche des platanes de Lyon. La carte de base est figée et garde ses
+aulnes : à chaque candidat l'étape `horizon` (`place_horizon.py`, `route_maples`) donne aux
+composants d'arbres du dossier City/Route l'érable de leur sorte (`tools/city/route_trees.py` :
+adulte `Forest_04`, 15,9 m ; jeune `Forest_07`, 6 m), mêmes places et mêmes orientations, la
+hauteur moyenne gardée entre 13 et 17 m et entre 5 et 7 m. Les rangs du fond de la place
+Bellecour prennent le `Field_02` de plein vent, ramené à 16,5 m, à 8 m au moins de la ligne
+conduite. Une machine sans le pack garde les aulnes ; `GTP_ROUTE_MAPLES=0` aussi.
+`horizon_report.json` donne `route_maples` (`swapped`, `missing`, `trees`) et, sous
+`square_settings`, `tree_mesh`. L'étape des voies reconnaît un érable comme un arbre (son tronc
+compte, pas son houppier). Les arbres des rues remplacés au lancement (`GTPStreetTrees`)
+restent des aulnes. Pas encore vu en jeu.
+
 ### Chaussées recalées sur les bordures et régénération en une commande
 
 Les axes BD TOPO sont à 0,8 m du milieu de la chaussée (2,2 m au 90e centile) et les voitures

@@ -37,3 +37,38 @@ def retree_csv(path):
             w.writeheader()
             w.writerows(rows)
     return changed
+
+
+# The Norway maple of Fab (Megaplants, copied into the game's Content on the PC on 24/11/2026: 15
+# SimpleWind meshes, all Nanite, 0.3 to 25 m). Lyon's streets are lined with plane trees and no
+# free plane tree exists: the maple is the nearest free crown, and its "Forest" forms have the
+# clear trunk of a street tree. The alder "Field" form the route was planted with branches from
+# the ground: in the long take of gate 81 (85-100 s) it filled the camera. The map keeps its
+# alders (the base map is frozen); the horizon step replaces them where the maple is there.
+MAPLE = "/Game/NorwayMaple/Geometry/SimpleWind/SM_NorwayMaple_"
+MAPLES = {"mature": MAPLE + "Forest_04",      # 15.9 m
+          "young": MAPLE + "Forest_07",       # 6.0 m
+          "square": MAPLE + "Field_02"}       # 22.3 m, open grown: the rows across a square
+HEIGHTS_CM = {"mature": (1300.0, 1700.0), "young": (500.0, 700.0)}   # mean height kept inside
+SQUARE_TREE_CM = 1650.0
+REPLACED = {"SM_BlackAlder_Field_05": "mature", "SM_BlackAlder_Field_05_M1": "mature",
+            "SM_BlackAlder_Sapling_06": "young", "SM_BlackAlder_Sapling_06_M1": "young"}
+
+
+def is_tree(path):
+    """True for the mesh of a tree (its trunk is what stands in a lane, not the box of its crown)."""
+    return any(w in path for w in ("Tree", "Alder", "Maple", "Beech")) and "Grate" not in path
+
+
+def kind_of(mesh_name):
+    """'mature', 'young' or None: which maple replaces a mesh of the route."""
+    return REPLACED.get(mesh_name)
+
+
+def rescale(kind, old_height_cm, new_height_cm, mean_scale):
+    """Factor for the scale of every instance when a mesh new_height_cm tall replaces one
+    old_height_cm tall: the mean height of the trees stays what it was, brought inside the range
+    of its kind (a sapling scaled up to stand for a tree does not become a 12 m maple)."""
+    lo, hi = HEIGHTS_CM[kind]
+    target = min(max(old_height_cm * mean_scale, lo), hi)
+    return target / (new_height_cm * mean_scale) if new_height_cm > 0.0 and mean_scale > 0.0 else 1.0

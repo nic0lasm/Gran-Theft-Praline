@@ -425,6 +425,23 @@ far bank, the Rhône paved like a sidewalk. At 50 s the stolen car rolled into a
 `materials_report.json` gives `far_mask` (`texture`, `read_past_the_mask`, `rivers`, `laid`);
 `pit_cover_report.json` gives `heights_from`, `cells_read`, `covered`. Not seen in game yet.
 
+### Street trees: Norway maple for the alder (added 2026-11-24)
+
+The route was planted with the black alder's "Field" form, which branches from the ground: in
+the long take of gate 81 (85-100 s) its branches filled the camera. The Norway maple pack of
+Fab (Megaplants, 15 SimpleWind meshes, all Nanite, 0.3 to 25 m; in the game's Content on the
+PC, outside Git) has "Forest" forms with the clear trunk of a street tree, the nearest free
+stand-in for Lyon's plane trees. The base map is frozen and keeps its alders: at each
+candidate the `horizon` step (`place_horizon.py`, `route_maples`) gives the tree components of
+folder City/Route the maple of their kind (`tools/city/route_trees.py`: mature `Forest_04`,
+15.9 m; young `Forest_07`, 6 m), same places and turns, the mean height kept inside 13-17 m
+and 5-7 m. The rows across place Bellecour take the open-grown `Field_02`, brought to 16.5 m,
+8 m clear of the driven line. A machine without the pack keeps the alders; `GTP_ROUTE_MAPLES=0`
+too. `horizon_report.json` gives `route_maples` (`swapped`, `missing`, `trees`) and, under
+`square_settings`, `tree_mesh`. The lanes step knows a maple for a tree (its trunk counts, not
+its crown). The street trees swapped at run time (`GTPStreetTrees`) are still alders. Not seen
+in game yet.
+
 ### Carriageways fitted to the kerbs and one-command regeneration
 
 The BD TOPO centre lines sit 0.8 m off the middle of the carriageway (2.2 m at the 90th
