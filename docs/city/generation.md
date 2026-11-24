@@ -426,6 +426,13 @@ far bank, the Rhône paved like a sidewalk. At 50 s the stolen car rolled into a
    lattice 95 % of the corners sit on (`terrain_file.grid`), the others are counted (`off_grid`),
    and a grid more than a fifth empty is an error.
 
+4. **The driven line** (`clear_lane_instances.py`, step `lanes`): the step cleared 1.5 m around
+   the lane centres, but the flight drives the line of the circuit file (`line_ue_cm`, approach
+   and lap), up to 3.9 m off them: at gate 83 the car hit a tree of the quay at 96 km/h. The
+   same sets are now also cleared 2.5 m either side of every line of that file
+   (`GTP_CIRCUIT_CLEAR_M`); the report gives `circuit_lines`, `circuit_clear_cm`,
+   `circuit_removed`, and such an instance has `"lane": "circuit"`.
+
 `materials_report.json` gives `far_mask` (`texture`, `read_past_the_mask`, `rivers`, `laid`);
 `pit_cover_report.json` gives `heights_from`, `cells_read`, `covered`. Not seen in game yet.
 

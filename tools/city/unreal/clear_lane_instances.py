@@ -23,6 +23,13 @@ the arrest is played there with the chase camera turning round the stopped car, 
 no collision (gate 78, 80 s: the camera inside a tree). Such an instance has "lane": "end" in the
 report. GTP_END_TREE_CLEAR_M=0 turns that off.
 
+The flight does not drive the lane centres but the line of the circuit file (column
+line_ue_cm, approach and lap), up to 3.9 m off them: gate 83, 19 s, the car hit a tree of the quay
+at 96 km/h, "1.8 m off its lane, the obstacle 2.5 m off lane 20". So the same objects also go
+within GTP_CIRCUIT_CLEAR_M (2.5: half a car and 1.3 m of driving off the line) of every line of
+that file, rows joined to the next; such an instance has "lane": "circuit" in the report, which
+gives circuit_lines, circuit_clear_cm and circuit_removed. GTP_CIRCUIT_CLEAR_M=0 turns that off.
+
 GTP_LANE_CLEAR=0: report only, nothing removed, map not saved. Lanes: GTP_LANES_CSV, else
 Content/City/Traffic/<Map>.lanes.csv (the file the game reads). Map: GTP_CITY_FOCUS as
 place_props.py. Report: Saved/CityImport/lane_clear_report.json (removed per set and per mesh,
@@ -57,6 +64,7 @@ MIN_HEIGHT_CM = 15.0
 CIRCUIT = os.environ.get("GTP_CIRCUIT_CSV") or os.path.join(
     unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_content_dir()), "Test", "Circuits",
     MAP_NAME + ".circuit.csv")
+CIRCUIT_CM = float(os.environ.get("GTP_CIRCUIT_CLEAR_M", str(lc.CIRCUIT_CLEAR_CM / 100.0))) * 100.0
 END_TREE_CM = float(os.environ.get("GTP_END_TREE_CLEAR_M", str(lc.END_TREE_CLEAR_CM / 100.0))) * 100.0
 
 level_sub = unreal.get_editor_subsystem(unreal.LevelEditorSubsystem)
@@ -99,6 +107,11 @@ def main():  # noqa: C901
         lanes = lc.read_lanes(LANES)
         index = lc.LaneIndex(lanes, CLEAR_CM)
         report["lanes"] = len(lanes)
+        driven = lc.read_lines(CIRCUIT) if CIRCUIT_CM > 0.0 else []
+        circuit = lc.circuit_index(driven, CIRCUIT_CM) if driven else None
+        report["circuit_lines"] = len(driven)
+        report["circuit_clear_cm"] = CIRCUIT_CM
+        report["circuit_removed"] = 0
         end_lines = lc.read_end_lines(CIRCUIT) if END_TREE_CM > 0.0 else []
         report["end_lines"] = len(end_lines)
         report["end_tree_clear_cm"] = END_TREE_CM
@@ -131,6 +144,10 @@ def main():  # noqa: C901
                     shape = ((x, y), lc.TRUNK_RADIUS_CM) if tree else \
                         lc.footprint_box(x, y, yaw, (lo.x, lo.y), (hi.x, hi.y), (s.x, s.y))
                     near = index.nearest(shape, z_low=z + lo.z * s.z)
+                    if not near and circuit is not None:
+                        c = circuit.nearest(shape)
+                        if c:
+                            near = ("circuit", c[1])
                     if not near and tree and end_lines:
                         g = lc.end_gap(x, y, end_lines)
                         if g < END_TREE_CM:
@@ -146,6 +163,7 @@ def main():  # noqa: C901
                     report["reported_only"].extend(entry)
                     continue
                 report["removed_instances"].extend(entry)
+                report["circuit_removed"] += sum(1 for e in entry if e["lane"] == "circuit")
                 report["removed"][owner] = report["removed"].get(owner, 0) + len(hits)
                 key = path.split(".")[0].rsplit("/", 1)[-1]
                 report["removed_by_mesh"][key] = report["removed_by_mesh"].get(key, 0) + len(hits)
@@ -168,7 +186,8 @@ def main():  # noqa: C901
     os.makedirs(out, exist_ok=True)
     with open(os.path.join(out, "lane_clear_report.json"), "w", encoding="utf-8") as f:
         json.dump(report, f, indent=1)
-    log(json.dumps({k: report.get(k) for k in ("removed_total", "removed", "removed_by_mesh", "reported_only_total",
+    log(json.dumps({k: report.get(k) for k in ("removed_total", "circuit_removed", "removed", "removed_by_mesh",
+                                                "reported_only_total",
                                                 "named_found", "errors", "saved")}))
 
 

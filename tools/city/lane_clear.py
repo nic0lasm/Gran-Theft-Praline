@@ -46,6 +46,34 @@ def read_end_lines(path):
     (Content/Test/Circuits/<Map>.circuit.csv): where the filmed flight stops and the arrest is
     played, the chase camera turning round the car 6.5 m away and up to 3 m above it. Leaves have
     no collision: gate 78, 80 s, the camera sat inside a tree. [] without the file or the column."""
+    return read_lines(path, "end")
+
+
+CIRCUIT_CLEAR_CM = 250.0    # half a car (0.95 m) and what the driving strays from the line (1.3 m)
+CIRCUIT_LINK_CM = 3000.0    # two rows are joined when one starts this close to where the other ends
+
+
+def circuit_index(lines, clear_cm=CIRCUIT_CLEAR_CM, link_cm=CIRCUIT_LINK_CM):
+    """A LaneIndex of the lines the flight really drives (read_lines(path): approach and lap),
+    each joined to the next and the last to the nearest earlier start, the lap being closed.
+    Gate 83: the flight drives the line of the circuit file, up to 3.9 m off the lane centre the
+    lanes are cleared around, and the car hit a tree of the quay at 96 km/h. The lines carry no
+    height: nothing is taken for being over them."""
+    high = float("inf")
+    lanes = [{"id": i, "points": [(x, y, high) for x, y in pts], "next": []} for i, pts in enumerate(lines) if pts]
+    for i, lane in enumerate(lanes):
+        end = lane["points"][-1]
+        others = lanes[i + 1:i + 2] or lanes[:i]            # the next row, else (last row) any earlier one
+        near = [(math.hypot(o["points"][0][0] - end[0], o["points"][0][1] - end[1]), o["id"]) for o in others]
+        near = [n for n in near if n[0] <= link_cm]
+        if near:
+            lane["next"].append(min(near)[1])
+    return LaneIndex(lanes, clear_cm)
+
+
+def read_lines(path, mark=None):
+    """The driven lines [[(x, y), ...]] of a flight circuit file, approach and lap, in the order
+    of the file; mark: only the rows with that mark. [] without the file or the columns."""
     out, header = [], None
     try:
         with open(path, encoding="utf-8") as f:
@@ -59,9 +87,9 @@ def read_end_lines(path):
         if cells[0] == "lane_id":
             header = cells
             continue
-        if header is None or "mark" not in header or "line_ue_cm" not in header or len(cells) < len(header):
+        if header is None or "line_ue_cm" not in header or len(cells) < len(header):
             continue
-        if cells[header.index("mark")].strip() != "end":
+        if mark is not None and ("mark" not in header or cells[header.index("mark")].strip() != mark):
             continue
         pts = []
         for pair in cells[header.index("line_ue_cm")].split(";"):
