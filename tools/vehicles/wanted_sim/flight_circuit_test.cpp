@@ -409,6 +409,16 @@ int main(int Argc, char** Argv)
 		CHECK(Sped.KmhOf(0) == 0.f && Sped.KmhOf(4) == 0.f);
 		SetSpeeds(Sped, std::vector<FRow>(Fast.begin() + 2, Fast.end()), std::vector<FRow>(Fast.begin(), Fast.begin() + 2));
 		CHECK(Sped.KmhOf(0) == 100.f && Sped.KmhOf(1) == 0.f && Sped.KmhOf(2) == 45.f && Sped.KmhOf(4) == 90.f && Sped.KmhOf(5) == 0.f && Sped.KmhOf(7) == 0.f && Sped.KmhOf(-1) == 0.f);
+		// The lanes the filmed flight is to end on: a ninth field "end", on the lap only.
+		const std::vector<FRow> Ending = ParseRows(
+			"approach\n4,-20000,0,-10000,0,R IN,,,end\n"
+			"lap\n0,0,0,10000,0,R A,,100,\n1,10300,300,10300,8000,R B,,,end\n2,10000,8300,0,8300,,,45,end\n3,-300,8000,-300,300,R D,,,END\n");
+		CHECK(Ending.size() == 5 && Ending[0].bEndPlace && !Ending[1].bEndPlace && Ending[2].bEndPlace && Ending[3].bEndPlace && !Ending[4].bEndPlace);
+		CHECK(!Sped.HasEndPlace() && !Sped.IsEndPlace(1));
+		SetEndPlaces(Sped, std::vector<FRow>(Ending.begin() + 1, Ending.end()));
+		CHECK(Sped.HasEndPlace() && !Sped.IsEndPlace(0) && Sped.IsEndPlace(1) && Sped.IsEndPlace(2) && !Sped.IsEndPlace(3) && !Sped.IsEndPlace(4) && !Sped.IsEndPlace(-1) && !Sped.IsEndPlace(99));
+		SetEndPlaces(Sped, std::vector<FRow>(Ending.begin() + 2, Ending.end()));
+		CHECK(!Sped.HasEndPlace() && !Sped.IsEndPlace(1));
 		// Rows that are not one a lane: no speed kept.
 		SetSpeeds(Sped, std::vector<FRow>(Fast.begin() + 3, Fast.end()), {});
 		CHECK(Sped.KmhOf(0) == 0.f && Sped.KmhOf(4) == 0.f);

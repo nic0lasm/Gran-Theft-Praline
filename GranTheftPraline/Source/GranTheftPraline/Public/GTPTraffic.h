@@ -119,6 +119,10 @@ struct GRANTHEFTPRALINE_API FGTPLaneFollower
 	/** The speed the flight circuit asks on the lane being followed (km/h); 0 when it asks none or the lane is not of it. */
 	float GetCircuitKmh() const;
 
+	/** The map's flight circuit names lanes for the flight to end on, and the lane being followed is one of them. */
+	bool HasCircuitEndPlace() const;
+	bool IsOnCircuitEndPlace() const;
+
 	/** Metres of road open after entering Lane (GTPDrive::OpenRoad over the network's lanes, 6 junctions deep, capped at OpenRoadWanted). */
 	static float OpenRoadMetres(const TArray<FGTPTrafficLane>& Lanes, int32 Lane);
 	static constexpr float OpenRoadWanted = 250.f;

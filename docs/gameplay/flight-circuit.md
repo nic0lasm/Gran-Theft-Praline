@@ -39,6 +39,10 @@ Each row also carries the speed the flight asks on it (column `kmh`), from 4 s a
 
 What the simulation says (`flight_circuit_test.cpp`: the game's decisions, a bicycle model of a car, not the game's physics): on the line a lap takes about two minutes, the first minute averages 52 to 53 km/h, the top speed is 100 km/h. As the film starts, from a standstill at the kerb and through the turn back: 50 to 52 km/h over the first minute, the place de la République at about 38 s, Bellecour at about 70 s, the place des Jacobins at about 85 s. Only a gate on the PC says what the game's car does.
 
+## Where the film ends
+
+In `-GTARun` the player gives up after the pursuit step: the car stops and the police come to it. By the clock alone that fell 100 to 200 m short of the place Bellecour. The circuit file marks the lanes the flight is to end on (column `mark`, value `end`): the last 65 m of the rue de la Barre and the 30 m of the place Bellecour, along the north side of the square. Once its 40 s are over, the pursuit step goes on until the car is on one of them, 20 s more at most; a car that crossed them before the 40 s were over stops where it is. The step says which: `ended after N s on the place the circuit ends on`, `past` it or `short of` it.
+
 ## When the car is held up
 
 The script still puts the car back on a lane when it is held up or off its lane for good, but only on a lane of the lap, and each time counts in `DemoChase ... relocations=N`. A film with a relocation is not a valid one.

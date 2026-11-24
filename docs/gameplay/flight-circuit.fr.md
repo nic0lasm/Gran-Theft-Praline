@@ -39,6 +39,10 @@ Chaque ligne porte aussi la vitesse que la fuite y demande (colonne `kmh`), à p
 
 Ce que dit la simulation (`flight_circuit_test.cpp` : les décisions du jeu, un modèle de voiture à deux roues, pas la physique du jeu) : sur la ligne un tour prend environ deux minutes, la première minute fait 52 à 53 km/h de moyenne, la pointe est à 100 km/h. Comme le film commence, à l'arrêt le long du trottoir puis par le demi-tour : 50 à 52 km/h sur la première minute, la place de la République vers 38 s, Bellecour vers 70 s, la place des Jacobins vers 85 s. Seule une porte sur le PC dit ce que fait la voiture du jeu.
 
+## Où finit le film
+
+Dans `-GTARun` le joueur se rend après l'étape de poursuite : la voiture s'arrête et la police vient à elle. À l'horloge seule, cela tombait 100 à 200 m avant la place Bellecour. Le fichier du circuit marque les voies où la fuite doit finir (colonne `mark`, valeur `end`) : les 65 derniers mètres de la rue de la Barre et les 30 m de la place Bellecour, le long du côté nord de la place. Une fois ses 40 s écoulées, l'étape de poursuite continue jusqu'à ce que la voiture soit sur l'une d'elles, 20 s de plus au maximum ; une voiture qui les a franchies avant la fin des 40 s s'arrête là où elle est. L'étape le dit : `ended after N s on the place the circuit ends on`, `past` ou `short of`.
+
 ## Quand la voiture est arrêtée
 
 Le script remet encore la voiture sur une voie quand elle est bloquée ou durablement hors de sa voie, mais seulement sur une voie de la boucle, et chaque remise compte dans `DemoChase ... relocations=N`. Un film avec une remise sur voie n'est pas valable.

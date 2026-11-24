@@ -166,6 +166,20 @@ class FlightCircuitTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("no lane of the circuit is of: RUE Z", out)
 
+    def test_the_lanes_the_flight_ends_on(self):
+        code, out = self.run_tool("write", self.lanes_path, "--lanes", "1,2,3,4", "--approach", "5,6", "--out", self.circuit_path, "--end", "3")
+        self.assertEqual(code, 0, out)
+        rows = fc.read_circuit(self.circuit_path)
+        self.assertEqual([row["hint"] for row in rows if row["end_place"]], [3])
+        code, out = self.run_tool("check", self.circuit_path, self.lanes_path, "--min-main", "40")
+        self.assertEqual(code, 0, out)
+        self.assertIn("the filmed flight ends on: 3 rue C (100 m)", out)
+        # Not on the approach, nor on a lane off the circuit.
+        for wrong in ("5", "8"):
+            code, out = self.run_tool("write", self.lanes_path, "--lanes", "1,2,3,4", "--approach", "5,6", "--out", self.circuit_path, "--end", wrong)
+            self.assertEqual(code, 1)
+            self.assertIn("only end on lanes of the lap", out)
+
     def test_a_line_far_from_its_lanes_ends_is_refused_as_the_game_refuses_it(self):
         lines, _ = fc.driving_line(LAP, self.by_id)
         lines = dict(lines)
