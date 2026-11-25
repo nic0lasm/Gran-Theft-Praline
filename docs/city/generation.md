@@ -797,7 +797,8 @@ its LiDAR volume, corner tower included (35 m; the generic roof clipped it), and
 de la République (way 129172257) a new `basin` kind: stone coping 0.45 m from the OSM outline and a
 water surface, since the LiDAR sees no volume there. The carousel has no OSM footprint: a `carousel` stand-in (12 m, 6.5 m high) stands on the north
 edge of the basin, position estimated from photo V4 (+-10 m, to be set on the top view V0).
-Since gate 89 it stands 12 m further north (local 172,-239), wholly on the square: where it was
+Since gate 91 it stands further north, wholly on the square (12 m at gate 91, local 172,-239;
+15 m since, local 172,-236: the corner of its box came 1.46 m from a traffic lane): where it was
 first put it covered the carriageway of rue Jean de Tournes, the stolen car stood against it at
 gates 85 and 86 and the traffic drove into it. The frozen base map still has it at the old place:
 the `lanes` step of the prep moves its actor (`lane_clear.LANDMARK_MOVES`, `landmarks_moved` in

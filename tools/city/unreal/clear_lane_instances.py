@@ -38,7 +38,7 @@ landmark) is only reported, with its folder and the middle of its box; buildings
 the ground are not looked at this way, their box being no plan of them.
 
 Before all that, a landmark the base map holds in the wrong place is moved (lane_clear.
-LANDMARK_MOVES: the carrousel of place de la Republique, 12 m north, off the carriageway and
+LANDMARK_MOVES: the carrousel of place de la Republique, 15 m north, off the carriageway and
 onto the square), and what stood where it now stands is taken out like what stands on a lane
 ("lane": "landmark"). The report gives landmarks_moved; GTP_LANDMARK_MOVES=0 leaves it.
 

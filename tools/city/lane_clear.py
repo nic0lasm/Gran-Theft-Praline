@@ -54,8 +54,10 @@ def read_end_lines(path):
 # place de la Republique had no surveyed footprint (landmarks.py: "+-10 m") and was put on the
 # carriageway of rue Jean de Tournes: the flight's line and the traffic lanes 218 and 145 ran
 # through it, the stolen car stood against it at gates 85 and 86 and a van turned over there. It
-# goes 12 m north, wholly on the square.
-LANDMARK_MOVES = {"SM_Landmark_CarrouselRepublique": ((17200.0, 25100.0), (17200.0, 23900.0), 20.0)}
+# goes 15 m north, wholly on the square: 12 m at gate 91, where the corner of its box came
+# 1.46 m from the centre of the short lane that leaves the street northwards (its real edge
+# 1.6 m: a car of the traffic could touch it); 3 m more put 4.6 m between them.
+LANDMARK_MOVES = {"SM_Landmark_CarrouselRepublique": ((17200.0, 25100.0), (17200.0, 23600.0), 20.0)}
 LANDMARK_MOVE_TOL_CM = 300.0
 
 

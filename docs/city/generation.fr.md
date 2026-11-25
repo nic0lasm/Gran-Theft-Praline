@@ -844,7 +844,9 @@ place de la République (voie 129172257) un nouveau type `basin` : margelle en p
 contour OSM et un plan d'eau, car le LiDAR n'y voit aucun volume. Le carrousel n'a pas d'emprise
 OSM : un volume `carousel` (12 m, 6,5 m de haut) est posé au bord nord du bassin, position estimée
 sur la photo V4 (±10 m, à recaler sur la vue de dessus V0).
-Depuis la porte 89 il est 12 m plus au nord (local 172,-239), entièrement sur la place : à sa
+Depuis la porte 91 il est plus au nord, entièrement sur la place (12 m à la porte 91, local
+172,-239 ; 15 m depuis, local 172,-236 : le coin de sa boîte arrivait à 1,46 m d'une voie de
+circulation) : à sa
 première position il couvrait la chaussée de la rue Jean de Tournes, la voiture volée s'y est
 arrêtée aux portes 85 et 86 et la circulation roulait dedans. La carte de base figée l'a encore à
 l'ancienne place : l'étape `lanes` de la préparation déplace son acteur
