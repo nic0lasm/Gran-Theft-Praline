@@ -79,6 +79,44 @@ def md5(path):
     return h.hexdigest()
 
 
+def ground_masks():
+    """The masks the ground material reads, made from the data of this machine before the
+    materials step: the focus mask again (lane lines; the one of the PC dated from the making of
+    the city), the far mask, the route mask. Returns the note of the step: each exit code, and
+    what the masks held under the driven line before and after (ground_mask.py --probe). Never
+    stops the step: a mask that is not made again stays as it was."""
+    tool = [sys.executable, os.path.join(HERE, "ground_mask.py"), "--focus", FOCUS]
+    circuit = os.path.join(qb.PROJECT_DIR, "Content", "Test", "Circuits", "L_City_RueDeLaRepublique.circuit.csv")
+    notes = []
+
+    def probe(label):
+        try:
+            out = subprocess.run(tool + ["--probe", circuit], capture_output=True, text=True, timeout=300).stdout
+            seen = json.loads(out.strip().splitlines()[-1])
+            notes.append("%s: %s" % (label, "; ".join(
+                "%s %s of %s px, %d points: asphalt %d, marking %d, paving %d, kerb %d, sidewalk %d"
+                % (k, v["extent_ue_cm"], v["size_px"], v["points"], v["asphalt"], v["marking"], v["paving"],
+                   v["kerb"], v["sidewalk"]) for k, v in seen.items())))
+        except Exception as e:  # noqa: BLE001
+            notes.append("%s: %r" % (label, e))
+
+    has_circuit = os.path.exists(circuit)
+    if has_circuit:
+        probe("under the driven line before")
+    for label, extra in (("focus mask", []), ("far mask", ["--far"]),
+                         ("route mask", ["--route", circuit] if has_circuit else None)):
+        if extra is None:
+            continue
+        try:
+            rc = subprocess.call(tool + extra, stdout=subprocess.DEVNULL, timeout=600)
+            notes.append("%s: ground_mask.py %s exit %d" % (label, " ".join(extra[:1]) or "(focus)", rc))
+        except Exception as e:  # noqa: BLE001
+            notes.append("%s: %r" % (label, e))
+    if has_circuit:
+        probe("after")
+    return ", ".join(notes)
+
+
 def main():  # noqa: C901
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--loose", help="folder of the Fab/Megascans exports (downloads-free)")
@@ -141,20 +179,9 @@ def main():  # noqa: C901
         elif step == "materials":
             # the far mask and the rivers the ground material reads past the focus mask: made
             # here from the data of this machine; without it the ground is as it was
-            far = "far mask: dry run"
+            far = "masks: dry run"
             if not args.dry_run:
-                try:
-                    rc = subprocess.call([sys.executable, os.path.join(HERE, "ground_mask.py"), "--far",
-                                          "--focus", FOCUS], stdout=subprocess.DEVNULL, timeout=600)
-                    far = "far mask: ground_mask.py --far exit %d" % rc
-                    circuit = os.path.join(qb.PROJECT_DIR, "Content", "Test", "Circuits",
-                                           "L_City_RueDeLaRepublique.circuit.csv")
-                    if os.path.exists(circuit):
-                        rc = subprocess.call([sys.executable, os.path.join(HERE, "ground_mask.py"), "--route",
-                                              circuit, "--focus", FOCUS], stdout=subprocess.DEVNULL, timeout=600)
-                        far += ", route mask: ground_mask.py --route exit %d" % rc
-                except Exception as e:  # noqa: BLE001  never stops the step
-                    far = "far mask: %r" % (e,)
+                far = ground_masks()
             ok, _, note = qb.run_editor("route_materials", "apply_city_materials", "materials_report.json", 900,
                                         {"GTP_CITY_EV100": "off"}, args)
             note = (note + " " + far).strip()

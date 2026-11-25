@@ -450,6 +450,14 @@ far bank, the Rhône paved like a sidewalk. At 50 s the stolen car rolled into a
    in this mask (31 cm: one texel did not show at gate 86). Not versioned, like the far mask;
    `materials_report.json` gives `route_mask` (`texture`, `read_on_the_route`).
 
+6. **The focus mask made again** (step `materials`, `route_dressing.ground_masks`): on the PC
+   the focus mask reaches the quay (4096 x 8192: the route mask is not needed there and is not
+   written) and dated from the making of the city: no lane line, and at gate 86 the carriageway
+   the flight drives was pale and smooth. The step now makes the focus mask again from the data
+   of the machine, then the far and route masks, and its note says what each mask held under
+   the driven line before and after (`ground_mask.py --probe`: asphalt, marking, paving, kerb,
+   sidewalk).
+
 `materials_report.json` gives `far_mask` (`texture`, `read_past_the_mask`, `rivers`, `laid`);
 `pit_cover_report.json` gives `heights_from`, `cells_read`, `covered`. Not seen in game yet.
 
