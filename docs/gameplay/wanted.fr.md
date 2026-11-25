@@ -6,6 +6,8 @@ Code : `GTPWantedLogic.h` (règles, testées en CI), `GTPWanted.*` (composant et
 
 Chaque délit ajoute de la « chaleur » ; les étoiles sont un palier de la chaleur (1 à 20, 2 à 60, 3 à 120, 4 à 220, 5 à 360). Un délit ne compte que si un témoin a pu le voir ou l'entendre (`GTPWitnessLogic.h`) ; `-Witnesses=0` fait tout compter. La ligne de vue d'un témoin finit 150 cm au-dessus du lieu du délit ; ce que vise le délit (la voiture volée, la voiture qui a heurté quelqu'un) et le joueur ne la coupent jamais. Quand personne n'a rien vu, la ligne de log `crime N not witnessed` dit combien de gens étaient près et ce qui a coupé la vue du plus proche.
 
+Un délit d'un même type est examiné une fois par demi-seconde (`FGTPCrimeReportGate`) : une voiture qui en racle une autre donne un choc à chaque contact, et à la porte 85 une seule collision a été signalée 26 fois en trois images, en demandant chaque fois une ligne de vue à chaque personne de la carte. Le journal dit combien de signalements ont été écartés.
+
 | Ce que fait le joueur | Délit | Chaleur | Étoiles seul | Signalé par |
 |---|---|---|---|---|
 | Prend une voiture (vu) | CarTheft | 25 | 1 | `AGTPVehicle` |

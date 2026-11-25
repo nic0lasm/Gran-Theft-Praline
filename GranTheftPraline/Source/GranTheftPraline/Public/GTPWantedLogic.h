@@ -223,3 +223,49 @@ namespace GTPWanted
 		return 55.f + 10.f * static_cast<float>(Stars < 0 ? 0 : (Stars > 5 ? 5 : Stars));
 	}
 }
+
+/**
+ * One report of a kind of crime every Gap seconds, counted apart with and without a victim on the scene.
+ *
+ * A car scraping another gives a hit every physics contact: at gate 85 the same collision was reported 26 times in
+ * three frames (3, 10 and 13 times a frame), each one asking every person of the map for a line of sight, each one
+ * queued as a phone call of its own. The heat counted it once (FGTPWantedState::AddCrime); the work was done 26 times.
+ */
+struct FGTPCrimeReportGate
+{
+	float Gap = 0.5f;
+
+	FGTPCrimeReportGate()
+	{
+		for (int Kind = 0; Kind < GTPCrimeKindCount; ++Kind)
+		{
+			Last[Kind][0] = Last[Kind][1] = -1000.f;
+		}
+	}
+
+	/** True when this report is to be looked at; false when one of the same kind was less than Gap seconds ago. */
+	bool Take(EGTPCrimeKind Kind, bool bVictim, float Time)
+	{
+		float& Before = Last[static_cast<int>(Kind)][bVictim ? 1 : 0];
+		// A clock that went back (a new map): start over.
+		if (Time >= Before && Time - Before < Gap)
+		{
+			++LeftOut;
+			return false;
+		}
+		Before = Time;
+		return true;
+	}
+
+	/** Reports left out since the last call of this. */
+	int TakeLeftOut()
+	{
+		const int Count = LeftOut;
+		LeftOut = 0;
+		return Count;
+	}
+
+private:
+	float Last[GTPCrimeKindCount][2];
+	int LeftOut = 0;
+};

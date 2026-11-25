@@ -37,6 +37,33 @@ namespace GTPFlightPedals
 	constexpr float BrakePerMs = 0.25f;
 	constexpr float BrakeMost = 0.8f;
 
+	/** What the script's brakes are counted for when it asks whether it can still stop (m/s2), and the room it keeps (m). */
+	constexpr float StopDecel = 7.f;
+	constexpr float StopRoom = 1.f;
+	/** A person nearer than this to the bumper is against the car already (m). */
+	constexpr float PersonTouching = 1.f;
+	/** Under this speed (m/s) the script waits for a person as any driver does. */
+	constexpr float WalkingPace = 3.f;
+
+	/**
+	 * True when the script brakes for a person Metres ahead of its bumper at Speed (m/s): when it can still stop
+	 * before them, or is at walking pace.
+	 *
+	 * Its probe is 9 m long. Gate 86, on the quay: `kmh=98 brake=1.00 want=0 limit=obstacle obstacle=0 m
+	 * (GTPPedestrian...)`. The whole brake a third of a second before a person, or with them on the bonnet already,
+	 * stops for nobody: the car hit them at 86 km/h, went sideways and ended against a tree 4.4 m from its line, the
+	 * first of that film's seven relocations. A thief who cannot stop keeps his line.
+	 */
+	inline bool StopsForPerson(float Metres, float Speed)
+	{
+		const float V = std::fabs(Speed);
+		if (V < WalkingPace)
+		{
+			return true;
+		}
+		return Metres >= PersonTouching && V * V / (2.f * StopDecel) + StopRoom <= Metres;
+	}
+
 	/** The speed (m/s) at which the car turns as tightly as Steering (-1..1) asks, at S.MaxLateralAccel. */
 	inline float HoldSpeed(float Steering, const FGTPDriveSettings& S)
 	{

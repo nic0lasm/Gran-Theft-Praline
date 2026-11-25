@@ -11,6 +11,7 @@
 #include "GTPFlightCircuit.h"
 #include "GTPFlightPedals.h"
 #include "GTPLog.h"
+#include "GTPPedestrians.h"
 #include "GTPPlayerController.h"
 #include "GTPRiverRecovery.h"
 #include "GTPRoadWidth.h"
@@ -368,6 +369,18 @@ bool UGTPDemoRoute::RelocateChase(AGTPVehicle* Driven, APlayerController* PC, co
 				const FVector BoxCentre(Point.X, Point.Y, Ground.ImpactPoint.Z + 40.f + HalfBox.Z);
 				FCollisionQueryParams BoxParams(SCENE_QUERY_STAT(GTPChaseRelocateBox), false, Driven);
 				if (World->OverlapBlockingTestByChannel(BoxCentre, RelocatedTo.GetRotation(), ECC_Vehicle, FCollisionShape::MakeBox(HalfBox), BoxParams))
+				{
+					++SpotsTaken;
+					continue;
+				}
+				// Nor onto a person or a car, whatever they answer to a car's channel (gate 86, rue Grolee: the car stood
+				// on its nose 2 s after it was put down, a passer-by under it).
+				FCollisionObjectQueryParams Standing;
+				Standing.AddObjectTypesToQuery(ECC_Pawn);
+				Standing.AddObjectTypesToQuery(ECC_Vehicle);
+				Standing.AddObjectTypesToQuery(ECC_PhysicsBody);
+				const FVector TallBox(HalfBox.X + 50.f, HalfBox.Y + 50.f, 90.f);
+				if (World->OverlapAnyTestByObjectType(FVector(Point.X, Point.Y, Ground.ImpactPoint.Z + 10.f + TallBox.Z), RelocatedTo.GetRotation(), Standing, FCollisionShape::MakeBox(TallBox), BoxParams))
 				{
 					++SpotsTaken;
 					continue;
@@ -1077,8 +1090,21 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 			// The first seconds at the wheel ignore what stands ahead: the taken car starts from a kerb, among the others.
 			// What the probe met (pawns, vehicles, physics bodies), named in the DemoDrive line.
 			AActor* ObstacleActor = nullptr;
-			const float ObstacleM = (Now < RamUntil || (bChase && T < 6.0)) ? 1000.f
+			float ObstacleM = (Now < RamUntil || (bChase && T < 6.0)) ? 1000.f
 				: (bChase ? UGTPAIDriverComponent::ProbeAhead(Driven, 900.f, 60.f, &ObstacleActor) : UGTPAIDriverComponent::ProbeAhead(Driven, 4000.f, 90.f, &ObstacleActor));
+			// A person the flight can no longer stop for is not braked for (GTPFlightPedals::StopsForPerson; gate 86: the
+			// whole brake at 98 km/h for a person at 0 m, the car sideways into a tree). -DemoStopsForPeople: as until then.
+			float PersonPassedM = -1.f;
+			if (bChase && ObstacleActor && ObstacleM >= 0.f && ObstacleM < 1000.f && (ObstacleActor->IsA<AGTPPedestrian>() || ObstacleActor->IsA<ACharacter>()))
+			{
+				static const bool bStopsForPeople = FParse::Param(FCommandLine::Get(), TEXT("DemoStopsForPeople"));
+				if (!bStopsForPeople && !GTPFlightPedals::StopsForPerson(ObstacleM, Driven->GetSpeedKmh() / 3.6f))
+				{
+					PersonPassedM = ObstacleM;
+					ObstacleM = -1.f;
+					++PeopleNotBrakedFor;
+				}
+			}
 			if (Follower.Step(Driven->GetActorLocation(), static_cast<float>(Driven->GetActorRotation().Yaw), Driven->GetSpeedKmh(), Cruise, ObstacleM, Command))
 			{
 				if (bChase)
@@ -1140,7 +1166,8 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 					GTP_TRACE(LogGTPDemo, TEXT("DemoDrive t=%.0f kmh=%.0f gear=%d rpm=%.0f lane=%d throttle=%.2f brake=%.2f steer=%.2f cruise=%.0f want=%.0f limit=%s obstacle=%.0f m%s"), static_cast<float>(T),
 						Driven->GetSpeedKmh(), Driven->GetGear(), Driven->GetEngineRpm(), Follower.GetLane(), Command.Throttle, Command.Brake, Command.Steering, Cruise, Command.TargetSpeed * 3.6f,
 						LimitName(Command.Limit), ObstacleM,
-						ObstacleActor ? *FString::Printf(TEXT(" (%s at %s)"), *ObstacleActor->GetName(), *ObstacleActor->GetActorLocation().ToCompactString()) : TEXT(""));
+						ObstacleActor ? *FString::Printf(TEXT(" (%s at %s%s)"), *ObstacleActor->GetName(), *ObstacleActor->GetActorLocation().ToCompactString(),
+							PersonPassedM >= 0.f ? *FString::Printf(TEXT(", %.0f m ahead, not braked for: %d frame(s) so far"), PersonPassedM, PeopleNotBrakedFor) : TEXT("")) : TEXT(""));
 				}
 				if (bDeterministic && Follower.GetLane() != LastLoggedLane)
 				{

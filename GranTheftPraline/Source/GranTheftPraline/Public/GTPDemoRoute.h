@@ -144,6 +144,8 @@ private:
 	bool bLevelFree = false;
 	bool bGaveUp = false;
 	int32 ChaseRelocations = 0;
+	/** Frames in which a person stood in the probe and the flight did not brake: it could no longer stop (GTPFlightPedals::StopsForPerson). */
+	int32 PeopleNotBrakedFor = 0;
 	/** FPlatformTime second of the last relocation (-1 = never). */
 	double LastRelocationAt = -1.0;
 	double RamUntil = 0.0;

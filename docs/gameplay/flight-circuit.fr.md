@@ -55,7 +55,11 @@ Dans `-GTARun` le joueur se rend après l'étape de poursuite : la voiture s'arr
 
 ## Quand la voiture est arrêtée
 
-Le script remet encore la voiture sur une voie quand elle est bloquée ou durablement hors de sa voie, mais seulement sur une voie de la boucle, et chaque remise compte dans `DemoChase ... relocations=N`. Un film avec une remise sur voie n'est pas valable. Il ne la pose jamais dans une autre voiture ni, depuis la porte 83, sur quoi que ce soit d'autre qui arrête une voiture (un arceau à vélos, un muret, un arbre) : l'endroit est écarté, et la ligne de la remise dit combien l'ont été (`N place(s) passed over with something standing there`).
+Le script remet encore la voiture sur une voie quand elle est bloquée ou durablement hors de sa voie, mais seulement sur une voie de la boucle, et chaque remise compte dans `DemoChase ... relocations=N`. Un film avec une remise sur voie n'est pas valable. Il ne la pose jamais dans une autre voiture ni, depuis la porte 83, sur quoi que ce soit d'autre qui arrête une voiture (un arceau à vélos, un muret, un arbre) : l'endroit est écarté, et la ligne de la remise dit combien l'ont été (`N place(s) passed over with something standing there`). Depuis la porte 86, un endroit où se tient une personne ou une voiture est écarté aussi, quoi qu'elles répondent au canal de collision d'une voiture : rue Grolée, la voiture était debout sur le nez deux secondes après avoir été posée, un passant dessous.
+
+## Les gens sur la chaussée
+
+La sonde du script fait 9 m. À 98 km/h, c'est un tiers de seconde : à la porte 86 le script a freiné à fond pour une personne à 0 m (`kmh=98 brake=1.00 limit=obstacle obstacle=0 m`), la voiture l'a heurtée à 86 km/h, est partie en travers et s'est arrêtée contre un arbre à 4,4 m de sa ligne. Depuis, la fuite ne freine pour une personne que si elle peut encore s'arrêter avant elle (7 m/s², 1 m de marge : sous 43 km/h pour une personne au bout de la sonde) ou si elle roule au pas ; sinon elle garde sa ligne et sa vitesse (`GTPFlightPedals::StopsForPerson`). La ligne `DemoDrive` le dit : `not braked for`. Les passants qui s'écartent d'une voiture, ce n'est pas encore fait.
 
 ## Choisir et vérifier un circuit
 
@@ -74,6 +78,8 @@ Quand les routes du circuit changent : `write` sur un fichier des voies qui les 
 `-DemoPedalsAlone` : les pédales ne suivent plus la direction, comme jusqu'à la porte 83.
 
 `-LaneKeptBehind=0` : une voie quittée est abandonnée entière, comme jusqu'à la porte 83.
+
+`-DemoStopsForPeople` : la fuite freine pour toute personne dans sa sonde, comme jusqu'à la porte 86.
 
 ## Changé aussi pour tous les conducteurs
 
