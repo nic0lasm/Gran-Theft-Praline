@@ -7,7 +7,8 @@ blocks and the towers of the Part-Dieu, with the procedural Lyon facade (M_City_
 built by apply_city_materials.py: run the materials step first); the two hills; the basilica
 of Fourviere and its metal tower, on the edge of the hill; and, where a square runs past the
 end of the map's ground (place Bellecour), that ground carried on, the fronts round the square
-and two rows of trees (GTP_SQUARE_SETTING=0 leaves them out). Engine basic shapes only (cube,
+and two rows of trees (GTP_SQUARE_SETTING=0 leaves them out), and the statue in the middle of
+the square (GTP_SQUARE_STATUE=0 leaves it out). Engine basic shapes only (cube,
 plane, sphere, cylinder, cone): no mesh to import, about 250 actors of a few triangles that the
 renderer batches by material. No collision, no shadow, not in the ray tracing scene.
 
@@ -38,11 +39,14 @@ SEED = int(os.environ.get("GTP_HORIZON_SEED", "7"))
 FALLBACK_BASE_CM = -1500.0     # when the map has no terrain actor to measure
 BELOW_TERRAIN_CM = 100.0
 HILL_FOOT_M = 6.0              # a block on a slope goes this far into the hill
-MONUMENT_MATERIALS = {"stone": "M_City_HorizonStone", "iron": "M_City_HorizonIron"}
+MONUMENT_MATERIALS = {"stone": "M_City_HorizonStone", "iron": "M_City_HorizonIron", "bronze": "M_City_HorizonBronze"}
+STATUE_MATERIALS = {"stone": ("M_City_HorizonStone",), "bronze": ("M_City_HorizonBronze", "M_City_HorizonIron")}
 REPO = os.path.abspath(os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_dir()), ".."))
 BUILT_FOLDERS = ("City/Backdrop", "City/Buildings", "City/Landmarks")   # real volumes: no stand-in on them
 SQUARE_SETTING = os.environ.get("GTP_SQUARE_SETTING", "1") != "0"
 GROUND_MATERIAL = "M_City_Ground"
+SQUARE_STATUE = os.environ.get("GTP_SQUARE_STATUE", "1") != "0"
+STATUE_SUNK_CM = 10.0          # the lowest step goes this far into the square
 APRON_BELOW_CM = 3.0           # the carried-on ground lies this far under the level measured on the map
 LEVEL_GRID_CM = 800.0          # the square's level: one trace every 8 m on the part the map holds
 LEVEL_MIN_HITS = 8
@@ -138,7 +142,35 @@ def square_level(world, squares, ring, tiles, base, points):
     return 0.0, "nothing measured"
 
 
-def square_settings(report, place, tiles, built, base):  # noqa: C901
+def square_statue(parts, name, level, place, have):
+    """The statue of a square (horizon.square_statues) at the level of the square: the stone is
+    solid, the bronze is only seen; every part casts its shadow on the sand. {"parts", "bronze"},
+    or why nothing was placed."""
+    if not parts:
+        return {"parts": 0}
+    for actor in actor_sub_().get_all_level_actors():
+        try:
+            if str(actor.get_folder_path()).startswith("City/Landmarks") and "statue" in actor.get_actor_label().lower():
+                return {"parts": 0, "skipped": "the map has " + actor.get_actor_label()}
+        except Exception:  # noqa: BLE001  an actor without a folder
+            continue
+    mat = {k: next((n for n in names if n in have), None) for k, names in STATUE_MATERIALS.items()}
+    missing = sorted(set(p["shape"] for p in parts if p["shape"] not in have) | set(k for k, n in mat.items() if n is None))
+    if missing:
+        return {"parts": 0, "skipped": "missing " + ", ".join(missing)}
+    for p in parts:
+        bottom = level + p["bottom"] * 100.0 - (STATUE_SUNK_CM if p["bottom"] <= 0.0 else 0.0)
+        top = level + p["top"] * 100.0
+        actor = place(p["shape"], "Horizon_%s_Statue_%s" % (name, p["name"]),
+                      (p["x"] * 100.0, p["y"] * 100.0, 0.5 * (bottom + top)),
+                      (p["width"], p["depth"], (top - bottom) / 100.0), mat[p["material"]], p["yaw"])
+        if p["material"] == "stone":
+            solid(actor.static_mesh_component)
+        actor.static_mesh_component.set_editor_property("cast_shadow", True)
+    return {"parts": len(parts), "bronze": mat["bronze"], "yaw": parts[0]["yaw"]}
+
+
+def square_settings(report, place, tiles, built, base, have=()):  # noqa: C901
     """Where a square of landmarks.json runs past the map's ground (place Bellecour): the ground
     carried on at the square's level with the ground material, which draws the square's surface
     in world space; the fronts round the square; two rows of trees. See horizon.square_setting."""
@@ -185,6 +217,11 @@ def square_settings(report, place, tiles, built, base):  # noqa: C901
             solid(actor.static_mesh_component)
             actor.static_mesh_component.set_editor_property("cast_shadow", True)    # the sun is behind them
             info["fronts"] += 1
+        if SQUARE_STATUE:
+            try:
+                info["statue"] = square_statue(st.get("statues") or [], name, level, place, have)
+            except Exception as e:  # noqa: BLE001  the square keeps its ground, its fronts and its trees
+                info["statue_error"] = repr(e)
         trees = horizon.keep_clear(st["trees"], line, TREE_CLEAR_M)
         info["trees_left_off_the_line"] = len(st["trees"]) - len(trees)
         paths = ([route_trees.MAPLES["square"]] if ROUTE_MAPLES else []) + route_trees.ROUTE_TREES["mature"].split("|")
@@ -424,7 +461,8 @@ def main():  # noqa: C901
             report["monuments"] += 1
         if SQUARE_SETTING and mats.get(GROUND_MATERIAL) is not None:
             try:
-                square_settings(report, place, tiles, built, base)
+                square_settings(report, place, tiles, built, base,
+                                {n for n, m in list(shapes.items()) + list(mats.items()) if m is not None})
             except Exception as e:  # noqa: BLE001  the far view is placed: a square's setting never loses it
                 report["square_setting_error"] = repr(e)
         try:

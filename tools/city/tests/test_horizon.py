@@ -118,6 +118,47 @@ class HorizonTests(unittest.TestCase):
             if math.hypot(b["x"] - nave["x"], b["y"] - nave["y"]) < 150.0:
                 self.assertLess(b["top"], nave["top"], b)
 
+    def test_the_horseman_stands_on_place_bellecour(self):
+        # the outline of the square as OpenStreetMap draws it, through oriented_box
+        box = (-101.37, 607.9, 0.939, 0.343, 132.57, 95.13)
+        parts = horizon.square_statues(box)
+        self.assertEqual(len(parts), len(horizon.STATUE_PARTS))
+        self.assertEqual(horizon.square_statues((500.0, 500.0, 1.0, 0.0, 50.0, 50.0)), [])    # not on another square
+        _, sx, sy = horizon.SQUARE_STATUES[0]
+        stone = [p for p in parts if p["material"] == "stone"]
+        bronze = [p for p in parts if p["material"] == "bronze"]
+        self.assertEqual(len(stone) + len(bronze), len(parts))
+        for p in parts:
+            self.assertIn(p["shape"], ("Cube", "Sphere"))
+            self.assertLess(math.hypot(p["x"] - sx, p["y"] - sy), 4.0)
+            self.assertGreater(p["top"], p["bottom"])
+        # a pedestal of five to six metres, the horse and its rider as much again on top of it
+        pedestal = max(p["top"] for p in stone)
+        self.assertTrue(5.0 <= pedestal <= 6.0)
+        self.assertTrue(5.2 <= max(p["top"] for p in bronze) - pedestal <= 6.0)
+        self.assertAlmostEqual(min(p["bottom"] for p in parts), 0.0)
+        # nothing in the air: every part stands on the square or on a part under it
+        for p in parts:
+            self.assertTrue(p["bottom"] == 0.0 or any(q is not p and q["bottom"] < p["bottom"] <= q["top"] + 1e-6
+                                                      for q in parts), p)
+        # the horse stands across the square and looks south, its head ahead of its tail
+        yaw = math.radians(parts[0]["yaw"])
+        self.assertAlmostEqual(abs(math.cos(yaw) * box[2] + math.sin(yaw) * box[3]), 0.0, places=2)
+        self.assertGreater(math.sin(yaw), 0.0)
+        head = max(bronze, key=lambda p: (p["x"] - sx) * math.cos(yaw) + (p["y"] - sy) * math.sin(yaw))
+        self.assertGreater(head["top"], pedestal + 4.0)
+        # 126 m from the flight's line, and off every tree of the square's rows
+        self.assertGreater(math.hypot(sx - 34.48, sy - 544.98), 100.0)
+
+    def test_a_square_carries_its_statue_in_its_setting(self):
+        ring = [(120.0 + self.U[0] * a + self.V[0] * b, 610.0 + self.U[1] * a + self.V[1] * b)
+                for a, b in ((0.0, 0.0), (300.0, 0.0), (300.0, 190.0), (0.0, 190.0))]
+        st = horizon.square_setting(ring, self.GROUND)
+        self.assertEqual(st["statues"], horizon.square_statues(horizon.oriented_box(ring)))
+        for t in st["trees"]:
+            for p in st["statues"]:
+                self.assertGreater(math.hypot(t["x"] - p["x"], t["y"] - p["y"]), 8.0)
+
     # A square like place Bellecour on the map of the street: 300 m by 190 m, turned 18.5 degrees,
     # its north side on the map, the rest past the south edge of the ground (y = 617 m).
     GROUND = (-413.0, -557.0, 413.0, 617.0)
