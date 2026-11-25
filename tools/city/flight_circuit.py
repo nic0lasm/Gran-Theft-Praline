@@ -167,7 +167,7 @@ def wrap(deg):
     return (deg + 180.0) % 360.0 - 180.0
 
 
-def driving_line(lap, by_id, walls=None, roads=None):
+def driving_line(lap, by_id, walls=None, roads=None, fast=()):
     """The line a flight drives on the lap: [(lane id, [(x, y) m])] in lap order, one closed curve.
 
     The lanes of tools/city/traffic.py are road centre lines pushed aside: a lane's points wander by
@@ -176,7 +176,9 @@ def driving_line(lap, by_id, walls=None, roads=None):
     42 km/h): three laps driven with the game's decisions on the raw lanes average 39 km/h and
     never pass 73, whatever speed is asked. Here the lap becomes one curve: steps back removed,
     points every LINE_STEP_M, straights straightened (a jog spread over SIGMA_STRAIGHT_M), corners
-    kept where they are and rounded a little, more to the left than to the right.
+    kept where they are and rounded a little, more to the left than to the right. On the lanes `fast` (those the
+    flight is asked line_room.FAST_KMH or more on) the curve first leaves the kerbs by a lane's width, where the
+    carriageway has it (line_room.off_kerbs; roads, as line_room.read_roads gives them).
     """
     # 1. One closed polyline, each point with its lane; no step back at a joint.
     points = []
@@ -218,6 +220,9 @@ def driving_line(lap, by_id, walls=None, roads=None):
     corners = smooth(curve, step, closed=True)
     # 4b. With the walls of the town: round what stands on the line, then eased, bends as wide as the room allows.
     corners = [(owner[k], angle) for k, angle in corners]
+    if roads is not None and fast:
+        curve = line_room.off_kerbs(curve, roads, [line_room.KERB_FAST_M if owner[k] in fast else line_room.KERB_M for k in range(count)],
+                                    step, closed=True)[0]
     if walls is not None:
         rounds = line_room.go_round(curve, walls, closed=True)
         curve, by = line_room.ease(curve, walls, step, closed=True, round_names={r[0] for r in rounds}, roads=roads)
@@ -291,7 +296,7 @@ def smooth(curve, step, closed, pinned=()):
     return corners
 
 
-def approach_line(approach, lap, lap_lines, by_id, walls=None, roads=None):
+def approach_line(approach, lap, lap_lines, by_id, walls=None, roads=None, fast=()):
     """The line driven on the approach: [(lane id, [(x, y) m])], from the start of its first lane to the lap's line.
 
     The approach's lanes as one open curve that runs on into the line of the lap (lap_lines, as driving_line gives
@@ -338,6 +343,9 @@ def approach_line(approach, lap, lap_lines, by_id, walls=None, roads=None):
         owner.append(a[2])
     whole = curve + [[p[0], p[1]] for p in tail]
     smooth(whole, step, closed=False, pinned=range(count, len(whole)))
+    if roads is not None and fast:
+        want = [line_room.KERB_FAST_M if k < count and owner[k] in fast else line_room.KERB_M for k in range(len(whole))]
+        whole = line_room.off_kerbs(whole, roads, want, step, closed=False, still={0} | set(range(count, len(whole))))[0]
     if walls is not None:
         whole, by = line_room.ease(whole, walls, step, closed=False, tail=len(tail), roads=roads)
         owner = [owner[k] if k < count else owner[-1] for k in by[:count]]
@@ -575,10 +583,13 @@ def reaching(lap, lanes):
 def write_circuit(path, lap, lanes, source, approach=(), speeds=None, end_places=(), walls=None, roads=None):
     by_id = {lane["id"]: lane for lane in lanes}
     total, share = lap_numbers(lap, by_id)
-    lap_lines = driving_line(lap, by_id, walls, roads)[0]
+    # Where the flight is asked a quay's speed, its line keeps a lane's width from the kerbs.
+    fast = {lane_id for lane_id in list(lap) + list(approach)
+            if (speeds or {}).get(by_id[lane_id]["name"].upper(), 0.0) >= line_room.FAST_KMH}
+    lap_lines = driving_line(lap, by_id, walls, roads, fast)[0]
     lines = dict(lap_lines)
     if approach:
-        lines.update(dict(approach_line(list(approach), lap, lap_lines, by_id, walls, roads)))
+        lines.update(dict(approach_line(list(approach), lap, lap_lines, by_id, walls, roads, fast)))
     # A row whose line goes round something that stands on its lane says so: it may be further from the lane.
     rounds = {lane_id for lane_id, line in lines.items()
               if max(point_to_polyline(p, by_id[lane_id]["points"]) for p in line) > MAX_LINE_GAP_M}

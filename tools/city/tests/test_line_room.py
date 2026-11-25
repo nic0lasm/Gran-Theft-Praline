@@ -134,6 +134,32 @@ class LineRoomTests(unittest.TestCase):
             self.assertTrue((abs(y) <= 5.0 - lr.KERB_M + 0.3 and x <= 65.0) or (55.0 + lr.KERB_M - 0.3 <= x <= 65.0 - lr.KERB_M + 0.3), (x, y))
 
 
+    def test_a_fast_line_leaves_the_kerb_by_a_lane(self):
+        # A quay of 13 m, and a street of 6 m after it. In the lanes' frame (y south) the quay runs from y = -6.5 to
+        # 6.5; the line given is its outer lane, 1.5 m from the kerb.
+        write_town(self.dir, roads=[box(0, -6.5, 200, 6.5), box(200, 2.0, 400, 8.0)])
+        roads = lr.read_roads(self.dir)
+        given = [[3.0 * k, -5.0] for k in range(60)]
+        fast = [lr.KERB_FAST_M] * len(given)
+        moved, most = lr.off_kerbs(given, roads, fast, 3.0, closed=False, still={0, len(given) - 1})
+        self.assertEqual(moved[0], given[0])
+        self.assertEqual(moved[-1], given[-1])
+        for x, y in moved[25:35]:        # far from its ends: a lane's width from the kerb, on the same side of the road
+            self.assertAlmostEqual(y, -6.5 + lr.KERB_FAST_M, delta=0.3)
+        self.assertAlmostEqual(most, lr.KERB_FAST_M - 1.5, delta=0.3)
+        steps = [abs(moved[k + 1][1] - moved[k][1]) for k in range(len(moved) - 1)]
+        self.assertLess(max(steps), 0.5)        # spread along the line: no jump aside
+        # Where the flight is not asked that speed, nothing moves; nor does a line already that far from both kerbs.
+        self.assertEqual(lr.off_kerbs(given, roads, [lr.KERB_M] * len(given), 3.0, closed=False)[1], 0.0)
+        middle = [[3.0 * k, 0.5] for k in range(60)]
+        self.assertEqual(lr.off_kerbs(middle, roads, fast, 3.0, closed=False)[1], 0.0)
+        # A street narrower than twice that: its middle.
+        narrow = [[210.0 + 3.0 * k, -3.0] for k in range(50)]
+        moved, _ = lr.off_kerbs(narrow, roads, [lr.KERB_FAST_M] * len(narrow), 3.0, closed=False)
+        for x, y in moved[20:30]:
+            self.assertAlmostEqual(y, -5.0, delta=0.3)
+
+
 class CircuitInTownTests(unittest.TestCase):
     """flight_circuit.py write --town: the line of the lap eased among the walls, and what the check says of it."""
 

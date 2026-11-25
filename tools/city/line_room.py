@@ -35,6 +35,10 @@ CORNER_FADE_M = 30.0    # ... none of it from here on
 WALL_SPREAD_M = 24.0    # a line too near a wall leaves it and comes back over this length, before and after
 WALL_MARGIN_M = 0.4     # ... with this much more slack than the distance it lacks
 KERB_M = 1.2            # the eased line keeps this far inside the kerbs, where the line given is on the carriageway
+KERB_FAST_M = 4.25      # where the flight is asked FAST_KMH or more: a lane of 3 m between the car and the kerb
+FAST_KMH = 90.0
+KERB_REACH_M = 10.0     # the kerbs are looked for this far across the line
+KERB_SPREAD_M = 8.0     # the line moves away from a kerb, and back, over about three times this
 CELL_M = 25.0
 THROUGH_M = 0.5         # a line this near a wall, or inside it, runs through it
 NORMAL_BASE_M = 9.0     # the normal of the line given is told over this length before and after a point
@@ -300,20 +304,96 @@ def slack_for_walls(ref, slack, walls, step, closed, clear_of):
     return out
 
 
+class Roads:
+    """The carriageways of the zone: contains(point) says a point is on them KERB_M inside the kerbs, on(point) that
+    it is on them at all."""
+
+    def __init__(self, whole):
+        from shapely.prepared import prep
+
+        self.whole = whole
+        self._kerbed = prep(whole.buffer(-KERB_M))
+        self._whole = prep(whole)
+
+    def contains(self, point):
+        return self._kerbed.contains(point)
+
+    def on(self, point):
+        return self._whole.contains(point)
+
+
 def read_roads(folder):
-    """The carriageways of the zone (carriageway.geojson, tools/city/carriageway.py) as one shape in the lanes' frame,
-    KERB_M inside the kerbs; None without the file."""
+    """The carriageways of the zone (carriageway.geojson, tools/city/carriageway.py) as one shape in the lanes' frame
+    (Roads); None without the file."""
     path = os.path.join(folder, "carriageway.geojson")
     if not os.path.exists(path):
         return None
     from shapely.geometry import shape
     from shapely.ops import unary_union
     from shapely.affinity import scale
-    from shapely.prepared import prep
 
     with open(path, encoding="utf-8") as f:
         shapes = [shape(feature["geometry"]).buffer(0.0) for feature in json.load(f)["features"]]
-    return prep(scale(unary_union(shapes), xfact=1.0, yfact=-1.0, origin=(0.0, 0.0)).buffer(-KERB_M))
+    return Roads(scale(unary_union(shapes), xfact=1.0, yfact=-1.0, origin=(0.0, 0.0)))
+
+
+def _across(ref, step, closed):
+    """The normal of a line at each of its points, told over NORMAL_BASE_M so that it turns slowly through a corner."""
+    count = len(ref)
+    base = max(int(round(NORMAL_BASE_M / step)), 1)
+    out = []
+    for k in range(count):
+        a = ref[(k - base) % count if closed else max(k - base, 0)]
+        b = ref[(k + base) % count if closed else min(k + base, count - 1)]
+        length = math.dist(a, b) or 1.0
+        out.append((-(b[1] - a[1]) / length, (b[0] - a[0]) / length))
+    return out
+
+
+def off_kerbs(curve, roads, want, step, closed=True, still=()):
+    """The line given ([[x, y]] a point every step m) moved across itself so that each point on the carriageway is
+    want[k] m from the kerbs (roads, a Roads), where the carriageway is that wide; in its middle where it is not.
+    The kerbs are those met across the line within KERB_REACH_M: the mouth of a side street is no kerb. The move is
+    spread along the line, and none at the points `still`. Gate 89's long take: on the quay the lanes file puts the
+    left lane 1.5 m from the kerb of the promenade, the flight drove it at 98 km/h, and a metre and a half off its
+    line it was among the trees and the people. Returns ([[x, y]], the largest move in m)."""
+    from shapely.geometry import Point
+
+    count = len(curve)
+    ref = [(p[0], p[1]) for p in curve]
+    across = _across(ref, step, closed)
+    reach = int(round(KERB_REACH_M / SCAN_M))
+    move = [0.0] * count
+    for k in range(count):
+        if want[k] <= KERB_M or k in still or not roads.on(Point(ref[k])):
+            continue
+        room = []
+        for side in (1.0, -1.0):
+            i = 1
+            while i <= reach and roads.on(Point(ref[k][0] + across[k][0] * side * i * SCAN_M, ref[k][1] + across[k][1] * side * i * SCAN_M)):
+                i += 1
+            room.append((i - 1) * SCAN_M)
+        one, other = room
+        if one >= want[k] and other >= want[k]:
+            continue
+        if one + other >= 2.0 * want[k]:
+            move[k] = -(want[k] - one) if one < want[k] else want[k] - other
+        else:
+            move[k] = 0.5 * (one - other)
+    # Spread along the line: a running mean, three times over (about a bell curve), and nothing at the points that stay.
+    half = max(int(round(KERB_SPREAD_M / step)), 1)
+    for _ in range(3):
+        spread = []
+        for k in range(count):
+            near_by = [move[(k + d) % count] if closed else move[min(max(k + d, 0), count - 1)] for d in range(-half, half + 1)]
+            spread.append(sum(near_by) / len(near_by))
+        move = spread
+    fixed = sorted(still)
+    for k in range(count):
+        if fixed:
+            away = min(abs(k - f) for f in fixed) * step
+            move[k] *= min(away / (3.0 * KERB_SPREAD_M), 1.0)
+    return [[ref[k][0] + across[k][0] * move[k], ref[k][1] + across[k][1] * move[k]] for k in range(count)], max(abs(m) for m in move)
 
 
 def _evenly(points, anchors, closed, last):
@@ -379,13 +459,7 @@ def ease(curve, walls, step, closed=True, tail=0, round_names=(), roads=None):
 
     still = set() if closed else {0} | set(range(last, count))
     slack = slack_for_walls(ref, slack_along(ref, step, closed, still), walls, step, closed, clear_of)
-    # Across the line: the normal of the line given, told over NORMAL_BASE_M so that it turns slowly through a corner.
-    base = max(int(round(NORMAL_BASE_M / step)), 1)
-    across = []
-    for k in range(count):
-        a, b = ref[at(k - base)], ref[at(k + base)]
-        length = math.dist(a, b) or 1.0
-        across.append((-(b[1] - a[1]) / length, (b[0] - a[0]) / length))
+    across = _across(ref, step, closed)
     # How far each point may go, to one side and to the other: the stretch of allowed places nearest to where it is.
     low, high = [0.0] * count, [0.0] * count
     for k in range(count):
