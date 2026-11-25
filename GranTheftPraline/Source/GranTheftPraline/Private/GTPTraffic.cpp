@@ -481,7 +481,14 @@ bool FGTPLaneFollower::Step(const FVector& Location, float YawDegrees, float Spe
 	{
 		// The lane goes, its last metres stay: where lanes meet in a corner the car is in the middle of it, and the
 		// bend is measured with the path before it (gate 83: 24 to 57 km/h wanted in the corner of the rue Childebert).
-		std::vector<FGTPDrivePoint> Kept = GTPDrive::KeptBehind(Path, CurrentLaneLength);
+		// -LaneKeptBehind=0: the lane goes whole, as until gate 83.
+		static const bool bKeepLaneEnd = []
+		{
+			int32 KeepSwitch = 1;
+			FParse::Value(FCommandLine::Get(), TEXT("LaneKeptBehind="), KeepSwitch);
+			return KeepSwitch != 0;
+		}();
+		std::vector<FGTPDrivePoint> Kept = bKeepLaneEnd ? GTPDrive::KeptBehind(Path, CurrentLaneLength) : std::vector<FGTPDrivePoint>();
 		Closest += static_cast<int>(Kept.size()) - CurrentLaneLength;
 		LaneBehind = MoveTemp(Kept);
 		// The lanes left lately count for half in a flight's way on (Plan): it does not circle one block.

@@ -73,6 +73,8 @@ When the roads of the circuit change: `write` on a lanes file that has them (mad
 
 `-DemoPedalsAlone`: the pedals no longer follow the steering, as until gate 83.
 
+`-LaneKeptBehind=0`: a lane left is dropped whole, as until gate 83.
+
 ## Also changed for every driver
 
 The speed limit at the end of the known path counted the straight distance to that end. Where a path comes back beside itself (a lap, a quay driven up one side and down the other), the end lies a few metres from a car that still has 200 m to drive. The distance is now counted along the path when that is longer (`GTPDriveLogic.h`).
