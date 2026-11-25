@@ -6,9 +6,9 @@
 // A driver of the traffic gets out and runs from a threat (shots, a gun aimed at him: AGTPVehicle::PanicExit). His
 // car then stood on its lane for good: the network forgot it the moment it had no driver, and only the cars of a
 // crash were ever taken away (AGTPTrafficNetwork::UpdateIncidents). The traffic queues behind it, and so does the
-// filmed flight, whose way was kept clear of the cars that have a driver only. Read in the code. Seen in gate 91's
-// film: at 62 s the flight stops behind three cars standing in its lane beside officers on foot, and is arrested
-// there at 70 s; that their drivers had run is likely and in no line read so far.
+// filmed flight, whose way was kept clear of the cars that have a driver only. Read in the code, seen in no gate:
+// the three cars the flight of gate 91 stopped behind at 62 s were parked cars (no driver got out in its log before
+// the player did; AGTPTrafficNetwork::ParkFlightClearance is the rule for those).
 
 namespace GTPLeftCars
 {

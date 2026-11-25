@@ -114,6 +114,19 @@ int main()
 	Check(Near(LaneAroundSpot(Straight, 10, 1200.f).ToEnd, 0.f) && Near(LaneAroundSpot({{0.f, 0.f}}, 0, 1200.f).FromStart, 0.f),
 		"no segment there: nothing");
 
+	// The line of the filmed flight is kept clear as the lanes are, with its own clearance (ParkFlightClearance, 340 cm).
+	// Gate 91: a row of parked cars 2.4 m to the right of the line in the rue Bellecordiere. A line of two streets
+	// that meet at a corner: clear of it 3.5 m beside either, not at 2.4 m, nor in the inside of the corner.
+	{
+		const std::vector<std::vector<FPoint2>> FlightLines = {{{0.f, 0.f}, {1000.f, 0.f}, {2000.f, 0.f}}, {{2000.f, 0.f}, {2000.f, 1000.f}}};
+		const std::vector<FSegmentRef> FlightNearby = SegmentsNear(FlightLines, {1000.f, 0.f}, 3000.f);
+		Check(FlightNearby.size() == 3, "the three segments of the two lines are near");
+		Check(!IsClearOfLanes(FlightLines, FlightNearby, {500.f, 240.f}, 340.f), "2.4 m beside the flight's line: no spot");
+		Check(IsClearOfLanes(FlightLines, FlightNearby, {500.f, 350.f}, 340.f), "3.5 m beside it: a spot");
+		Check(!IsClearOfLanes(FlightLines, FlightNearby, {1700.f, 350.f}, 340.f), "3.5 m beside one street, 3 m from the other: no spot");
+		Check(IsClearOfLanes({}, SegmentsNear({}, {0.f, 0.f}, 3000.f), {0.f, 0.f}, 340.f), "a map without a flight circuit: every spot");
+	}
+
 	std::printf("%d failure(s)\n", Failures);
 	return Failures == 0 ? 0 : 1;
 }
