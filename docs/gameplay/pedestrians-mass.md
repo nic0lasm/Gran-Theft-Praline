@@ -229,6 +229,42 @@ up onto the bonnet. Two causes, two answers:
   avoided: 5 114 frames inside its body. Avoided on a 7 m walkway: 0 frames inside and as many passages (173 for 174);
   on a 2 m walkway: 0 frames inside, nobody passes, everybody turns back after 4 s. **Not proven in the game.**
 
+## A car that comes fast: people get out of its way (`-CrowdDodgeCars=0` for the crowd of gate 93)
+
+Gate 93, the long take: the filmed flight runs 47 people over, 16 of them in 10 s on place Bellecour at 73 km/h, 12 at
+26 km/h or less, often two to five in the same instant. The log does not say where each one stood. Read in the code:
+nobody looked at a fast car except at the kerb of a crossing, and there only at MassTraffic's cars and the player's;
+whoever ran from a siren or an engine ran onto a crossing whatever came; and a street closed to cars has three lines of
+walkers, the middle one where a car drives. Three rules (`GTPWalkLogic.h`, engine-free):
+
+- **In its way** (`InTheWay`, `ComesAt`): a car's way is taken straight, as wide as its body plus 70 cm on each side,
+  from its back to where its front will be in 1.5 s (35 m at most). A person is in it where he stands, or when his walk
+  takes him into it within 1.5 s (at the end of an edge everybody comes back to the line of the walkway).
+- **Out of it** (`Dodge`): he takes 0.1 to 0.45 s to react, one in eight 0.7 to 1.2 s, then goes the way that is sooner
+  out. A **leap sideways** at 3 m/s on his walkway, up to 60 cm past its edge, and he stands there until the car has
+  passed (a street the car drives along); or a **run along** his walkway (a crossing the car drives over). With no room
+  he goes as far aside as the walkway lets him. Not somebody lying on the ground, nor somebody held at gunpoint.
+- **At the kerb** (`Step`): a car about to pass keeps at the kerb even somebody who runs from something.
+
+The fast cars are listed four times a second with the standing ones and put where they are now each frame: the
+player's car from 14 km/h (it knocks nobody down under 18), any other vehicle of the game from 40 km/h, so the police
+in a chase and the legacy traffic are seen, by the crossings too. Only the player's car knocks people down; the others
+are got out of the way of all the same. Who leaps is turned the way he goes and plays the run.
+
+- **Log**, once: `crowd: fast cars: people get out of the way of the player's car from 14 km/h and of any other from
+  40 km/h, …`; every 10 s: `crowd: fast cars: N coming fast within N m of the player now (his own: yes); people with
+  one coming at them N now (most N); since the start: N leapt aside, N ran off along their walkway; people who run from
+  something kept at a kerb by a car about to pass N now (most N)`. To read with `crowd: run over: N people hit by the
+  player's car`: 47 at gate 93.
+- **Checked offline** (`tools/pedestrians/dodge_test.cpp`, in CI): a car driven straight along a street closed to
+  cars, 80 people on it, at 26, 50, 73 and 99 km/h: 49 to 51 run over when nobody moves, nobody when everybody is
+  quick; as the game plays it, over twelve runs, 10 for 475. A crossing at 26, 60 and 99 km/h: 2 to 4 of 12 before,
+  nobody after. A pavement 3 m from the car's line: nobody does anything. Nobody moves faster than 6 m/s, and
+  everybody walks on once the car has passed. The car of the test goes straight and is seen every frame: one that
+  turns into a street gives less warning. **Not compiled, not played.**
+- **What it may cost**: people standing aside on a pavement the car passes within 1.7 m of its line; a crowd that
+  parts in front of the flight shows less of the bodies that fell.
+
 ## City Sample characters (default; `-CrowdCitySample=0` for the mannequins)
 
 The 24 near characters are assembled from the City Sample Crowds subset under `/Game/Crowd` (outside Git): body, three

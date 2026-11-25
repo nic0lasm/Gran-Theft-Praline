@@ -246,6 +246,45 @@ l'un d'eux monte sur le capot. Deux causes, deux réponses :
   de passages (173 pour 174) ; sur 2 m de large : 0 image dedans, personne ne passe, tout le monde fait demi-tour après
   4 s. **Pas prouvé en jeu.**
 
+## Une voiture qui arrive vite : les gens s'écartent (`-CrowdDodgeCars=0` pour la foule de la porte 93)
+
+Porte 93, la prise longue : la fuite filmée renverse 47 personnes, dont 16 en 10 s place Bellecour à 73 km/h, 12 à
+26 km/h ou moins, souvent deux à cinq au même instant. Le journal ne dit pas où chacune se tenait. Lu dans le code :
+personne ne regardait une voiture rapide, sauf au bord d'un passage piéton, et là seulement les voitures MassTraffic et
+celle du joueur ; qui fuyait une sirène ou un moteur s'engageait sur un passage quoi qu'il arrive ; et une rue
+piétonne a trois lignes de marcheurs, celle du milieu là où roule une voiture. Trois règles (`GTPWalkLogic.h`, sans
+moteur) :
+
+- **Sur son chemin** (`InTheWay`, `ComesAt`) : le chemin d'une voiture est pris tout droit, large comme sa carrosserie
+  plus 70 cm de chaque côté, de son arrière jusqu'où sera son avant dans 1,5 s (35 m au plus). Une personne y est là où
+  elle se tient, ou quand sa marche l'y amène dans les 1,5 s (au bout d'une arête tout le monde revient sur la ligne
+  du trottoir).
+- **En sortir** (`Dodge`) : elle met 0,1 à 0,45 s à réagir, une sur huit 0,7 à 1,2 s, puis prend le côté le plus vite
+  dégagé. Un **bond de côté** à 3 m/s sur son trottoir, jusqu'à 60 cm au-delà du bord, et elle reste là jusqu'à ce que
+  la voiture soit passée (une rue que la voiture longe) ; ou une **course le long** de son trottoir (un passage que la
+  voiture traverse). Sans place, elle se serre aussi loin que le trottoir le permet. Pas une personne à terre, ni une
+  personne tenue en joue.
+- **Au bord** (`Step`) : une voiture sur le point de passer retient au bord même celui qui fuit quelque chose.
+
+Les voitures rapides sont listées quatre fois par seconde avec celles à l'arrêt, et replacées là où elles sont à
+chaque image : celle du joueur à partir de 14 km/h (elle ne renverse personne sous 18), tout autre véhicule du jeu à
+partir de 40 km/h, donc la police en poursuite et le trafic legacy sont vus, par les passages piétons aussi. Seule la
+voiture du joueur renverse ; on s'écarte des autres quand même. Qui bondit est tourné vers où il va et joue la course.
+
+- **Journal**, une fois : `crowd: fast cars: people get out of the way of the player's car from 14 km/h and of any
+  other from 40 km/h, …` ; toutes les 10 s : `crowd: fast cars: N coming fast within N m of the player now (his own:
+  yes); people with one coming at them N now (most N); since the start: N leapt aside, N ran off along their walkway;
+  people who run from something kept at a kerb by a car about to pass N now (most N)`. À lire avec `crowd: run over: N
+  people hit by the player's car` : 47 à la porte 93.
+- **Vérifié hors moteur** (`tools/pedestrians/dodge_test.cpp`, dans la CI) : une voiture menée tout droit le long d'une
+  rue piétonne, 80 personnes dessus, à 26, 50, 73 et 99 km/h : 49 à 51 renversées quand personne ne bouge, aucune quand
+  tout le monde est vif ; comme le jeu le joue, sur douze passes, 10 pour 475. Un passage piéton à 26, 60 et 99 km/h :
+  2 à 4 sur 12 avant, aucune après. Un trottoir à 3 m de la ligne de la voiture : personne ne fait rien. Personne ne
+  va plus vite que 6 m/s, et tout le monde repart une fois la voiture passée. La voiture de l'essai va tout droit et
+  elle est vue à chaque image : une voiture qui tourne dans une rue prévient moins. **Pas compilé, pas joué.**
+- **Ce que cela peut coûter** : des gens qui se rangent sur un trottoir que la voiture frôle à moins de 1,7 m de sa
+  ligne ; une foule qui s'ouvre devant la fuite montre moins les corps qui tombent.
+
 ## Personnages City Sample (par défaut ; `-CrowdCitySample=0` pour les mannequins)
 
 Les 24 personnages proches sont assemblés à partir du sous-ensemble City Sample Crowds sous `/Game/Crowd` (hors Git) :

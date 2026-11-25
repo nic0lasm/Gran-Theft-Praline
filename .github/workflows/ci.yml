@@ -121,6 +121,12 @@ jobs:
         run: |
           g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/wanted_sim/left_cars_test.cpp -o /tmp/left_cars_test
           /tmp/left_cars_test
+      - name: People get out of the way of a car that comes fast
+        run: |
+          g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/pedestrians/dodge_test.cpp -o /tmp/dodge_test
+          /tmp/dodge_test
+          printf '#include "GTPWalkLogic.h"\nint main() { return 0; }\n' > /tmp/hdr_walk.cpp
+          clang++ -std=c++17 -fsyntax-only -Wall -Wextra -Werror -Wshadow -I GranTheftPraline/Source/GranTheftPraline/Public /tmp/hdr_walk.cpp
       - name: Hit, fall and ragdoll rules (a body that fell stays with its person)
         run: |
           g++ -O2 -std=c++17 -Wall -Wextra -Werror tools/ragdoll/impact_sim.cpp -o /tmp/impact_sim
