@@ -102,6 +102,20 @@ class LaneClearTests(unittest.TestCase):
         self.assertAlmostEqual(index.nearest(bench)[1], 200.0, delta=1.0)  # its near edge 2 m off
         self.assertEqual(lc.read_lines(path), [])
 
+    def test_the_carrousel_goes_north_once(self):
+        label = "SM_Landmark_CarrouselRepublique"
+        self.assertEqual(lc.landmark_move(label, (17200.0, 25100.0)), (0.0, -1200.0, 20.0))
+        dx, dy, _ = lc.landmark_move(label, (17150.0, 25180.0))            # the box as the editor reads it
+        self.assertEqual((17150.0 + dx, 25180.0 + dy), (17200.0, 23900.0))
+        self.assertIsNone(lc.landmark_move(label, (17200.0, 23900.0)))     # moved already, or a newer map
+        self.assertIsNone(lc.landmark_move("SM_Landmark_Opera", (17200.0, 25100.0)))
+        box = lc.footprint_box(17200.0, 23900.0, 0.0, (-630.0, -630.0), (630.0, 630.0))
+        self.assertTrue(lc.under((17000.0, 24000.0), [box]))               # a lamp under the canopy
+        self.assertTrue(lc.under((17860.0, 23900.0), [box]))               # a bench against its edge
+        self.assertFalse(lc.under((17200.0, 24700.0), [box]))              # the pavement of the street
+        # the lanes of rue Jean de Tournes run at y 247 to 257 m: 1.7 m and more from its new edge
+        self.assertGreater(24700.0 - max(p[1] for p in box), 150.0)
+
     def test_the_circuit_of_the_map_names_where_it_ends(self):
         circuit = os.path.join(os.path.dirname(__file__), "..", "..", "..", "GranTheftPraline", "Content", "Test",
                                "Circuits", "L_City_RueDeLaRepublique.circuit.csv")

@@ -49,6 +49,34 @@ def read_end_lines(path):
     return read_lines(path, "end")
 
 
+# A landmark the frozen base map holds in the wrong place: label -> (the middle of its box as the
+# map has it, where it goes, how much higher the ground is there), Unreal cm. The carrousel of
+# place de la Republique had no surveyed footprint (landmarks.py: "+-10 m") and was put on the
+# carriageway of rue Jean de Tournes: the flight's line and the traffic lanes 218 and 145 ran
+# through it, the stolen car stood against it at gates 85 and 86 and a van turned over there. It
+# goes 12 m north, wholly on the square.
+LANDMARK_MOVES = {"SM_Landmark_CarrouselRepublique": ((17200.0, 25100.0), (17200.0, 23900.0), 20.0)}
+LANDMARK_MOVE_TOL_CM = 300.0
+
+
+def landmark_move(label, centre):
+    """(dx, dy, dz) to give the actor of that label whose box is centred there, None when it is
+    not one to move or is no longer where the base map had it (moved already, or a newer map)."""
+    move = LANDMARK_MOVES.get(label)
+    if move is None:
+        return None
+    (ox, oy), (nx, ny), dz = move
+    if math.hypot(centre[0] - ox, centre[1] - oy) > LANDMARK_MOVE_TOL_CM:
+        return None
+    return nx - centre[0], ny - centre[1], dz
+
+
+def under(point, boxes, pad_cm=50.0):
+    """True when a point stands inside one of those footprints (four corners each), or this close."""
+    return any(gap((point, pad_cm), b[i], b[(i + 1) % len(b)]) == 0.0 or _inside(point, b)
+               for b in boxes for i in range(len(b)))
+
+
 CIRCUIT_CLEAR_CM = 250.0    # half a car (0.95 m) and what the driving strays from the line (1.3 m)
 CIRCUIT_LINK_CM = 3000.0    # two rows are joined when one starts this close to where the other ends
 

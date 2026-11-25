@@ -71,8 +71,10 @@ LANDMARKS = [
     ("bassin-republique", "Bassin de la place de la République", "basin", ("way", "129172257"), None,
      {"wall": "#cfc8ba", "top": "#5f7378"}),           # stone coping, water (jets: props, later)
     # No OSM footprint: position estimated from the reference photo V4 (+-10 m, to be set on the
-    # top view V0), on the north edge of the basin, street side. Local metres.
-    ("carrousel-republique", "Carrousel de la place de la République", "carousel", ("local", "172,-251"), None,
+    # top view V0), north of the basin. Local metres. Until gate 89 it stood at 172,-251, on the
+    # carriageway of rue Jean de Tournes, in the way of the traffic and of the flight: 12 m north,
+    # on the square (a map made before that is put right by lane_clear.LANDMARK_MOVES).
+    ("carrousel-republique", "Carrousel de la place de la République", "carousel", ("local", "172,-239"), None,
      {"wall": "#e9e2cf", "top": "#b8423a", "radius_m": 6.0}),   # cream drum, red canopy
     ("fontaine-bartholdi", "Fontaine Bartholdi", "monument", ("way", "55071957"), "Q10144",
      {"wall": "#8f8a80", "top": "#3f4a45"}),           # granite basin, lead group
