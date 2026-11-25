@@ -39,6 +39,14 @@ Chaque ligne porte aussi la vitesse que la fuite y demande (colonne `kmh`), à p
 
 Ce que dit la simulation (`flight_circuit_test.cpp` : les décisions du jeu, un modèle de voiture à deux roues, pas la physique du jeu) : sur la ligne un tour prend environ deux minutes, la première minute fait 52 à 53 km/h de moyenne, la pointe est à 100 km/h. Comme le film commence, à l'arrêt le long du trottoir puis par le demi-tour : 50 à 52 km/h sur la première minute, la place de la République vers 38 s, Bellecour vers 70 s, la place des Jacobins vers 85 s. Seule une porte sur le PC dit ce que fait la voiture du jeu.
 
+## Les pédales dans les virages
+
+Porte 83 : la voiture volée a quitté sa voie dans trois virages (quai vers rue Childebert, rue Childebert vers place de la République, rue Herriot vers rue Jean de Tournes) et a été remise sur une voie 6 fois dans une passe, 3 dans l'autre. Ses lignes, une par seconde, disent pourquoi. Le suiveur de voie abandonne les points d'une voie dès que le point le plus proche de la voiture est sur la suivante, et un virage placé tout au début d'un chemin n'est pas compté comme un virage : la vitesse voulue passe de 24 à 57 km/h au milieu du virage, et la voiture reçoit tout l'accélérateur roues braquées à fond (`lane=45 kmh=36 throttle=1.00 steer=1.00`, puis `kmh=52`, puis 27 m hors de sa voie).
+
+Depuis, les pédales du script suivent sa direction (`GTPFlightPedals.h`) : au-delà d'un tiers du braquage demandé, pas d'accélérateur et un peu de frein tant que la voiture va plus vite que ce que ce braquage tient à 6 m/s² (15 km/h braquée à fond, 28 à un tiers). Sous un tiers du braquage rien ne change : sur le quai la voiture demande 0,14 du braquage à 98 km/h, et dans les lignes de la porte 83 elle n'en demande jamais un tiers au-dessus de 45 km/h. La direction reste telle que demandée. Les lignes `DemoDrive` montrent les pédales que la voiture reçoit.
+
+Pas prouvé sur la voiture du jeu au moment d'écrire. `flight_pedals_test.cpp` conduit les trois virages sur les lignes mêmes du circuit avec les décisions du jeu : le saut de la vitesse voulue y est, la règle retire l'accélérateur et coûte moins d'une demi-seconde par virage, mais la voiture de ce modèle tient les virages dans les deux cas. La cause dans le suiveur de voie (le virage oublié quand la voie est quittée) reste là pour tous les conducteurs.
+
 ## Où finit le film
 
 Dans `-GTARun` le joueur se rend après l'étape de poursuite : la voiture s'arrête et la police vient à elle. À l'horloge seule, cela tombait 100 à 200 m avant la place Bellecour. Le fichier du circuit marque les voies où la fuite doit finir (colonne `mark`, valeur `end`) : les 65 derniers mètres de la rue de la Barre et les 30 m de la place Bellecour, le long du côté nord de la place. Une fois ses 40 s écoulées, l'étape de poursuite continue jusqu'à ce que la voiture soit sur l'une d'elles, 20 s de plus au maximum ; une voiture qui les a franchies avant la fin des 40 s s'arrête là où elle est. L'étape le dit : `ended after N s on the place the circuit ends on`, `past` ou `short of`.
@@ -60,6 +68,8 @@ Quand les routes du circuit changent : `write` sur un fichier des voies qui les 
 ## Interrupteur
 
 `-FlightCircuit=0` : la fuite est libre sur les voies, comme jusqu'à la porte 78.
+
+`-DemoPedalsAlone` : les pédales ne suivent plus la direction, comme jusqu'à la porte 83.
 
 ## Changé aussi pour tous les conducteurs
 

@@ -9,6 +9,7 @@
 #include "GameFramework/PlayerController.h"
 #include "GTPDeterminism.h"
 #include "GTPFlightCircuit.h"
+#include "GTPFlightPedals.h"
 #include "GTPLog.h"
 #include "GTPPlayerController.h"
 #include "GTPRiverRecovery.h"
@@ -1120,12 +1121,16 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 						}
 					}
 				}
-				if (bChase && Command.Throttle > 0.f && Command.Brake < 0.05f && Driven->GetSpeedKmh() < Cruise - 4.f)
+				if (bChase)
 				{
-					// The lane follower's throttle is soft (half of the time under 0.3 below the set speed): firmer for the chase.
-					// Only when it asks for throttle at all: under a bend's speed it asks for none, and 0.7 there pushed the
-					// car past the speed wanted and onto the brake, again and again.
-					Command.Throttle = FMath::Max(Command.Throttle, 0.7f);
+					// The flight's pedals (GTPFlightPedals.h): a firm throttle on the straights, and with the wheels turned
+					// past a third of lock no throttle while the car is faster than that lock holds. Gate 83: the whole
+					// throttle at full lock as a lane was left in a corner, the car 27 m from its lane a second later.
+					// -DemoPedalsAlone: the firm throttle only, as until then.
+					static const bool bPedalsAlone = FParse::Param(FCommandLine::Get(), TEXT("DemoPedalsAlone"));
+					FGTPDriveSettings FlightDriving;
+					GTPDrive::SetChaseDriving(FlightDriving);
+					GTPFlightPedals::Apply(Command.Throttle, Command.Brake, Command.Steering, Driven->GetSpeedKmh() / 3.6f, Cruise / 3.6f, FlightDriving, !bPedalsAlone);
 				}
 				DriveInputs(Driven, Command.Throttle, Command.Brake, Command.Steering, false);
 				PeakKmh = FMath::Max(PeakKmh, Driven->GetSpeedKmh());
