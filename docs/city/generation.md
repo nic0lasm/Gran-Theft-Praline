@@ -441,8 +441,9 @@ far bank, the Rhône paved like a sidewalk. At 50 s the stolen car rolled into a
 
    Plain actors count as well as instances since gate 86 (the octagonal kiosk of rue de la
    République, one static mesh actor 0.1 m off the line, stopped the car at gates 85 and 86):
-   one of those sets, at most 30 m wide, is destroyed (`removed_actors`); a landmark or a facade
-   is only reported. And the `collision` step (`backdrop_collision.py`) now ends on an audit:
+   one of those sets, at most 30 m wide, is destroyed (`removed_actors`); a landmark is only
+   reported (the carrousel of place de la République stands on the lap: the line goes round it),
+   and buildings, facades and ground are not looked at this way, a box being no plan of them. And the `collision` step (`backdrop_collision.py`) now ends on an audit:
    what stands 2.5 m or more and stops nothing, by outliner folder, and by name within 60 m of
    the driven line (`walls_without_collision`): at 171 s of that take the player walked through
    a blind stone wall and the picture stayed black for 18 s.

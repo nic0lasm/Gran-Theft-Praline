@@ -53,9 +53,11 @@ def audit(actors):
     out = {"by_folder": {}, "near_the_line": [], "lines": len(lines)}
     for a in actors:
         open_comps = []
+        if str(a.get_folder_path()).startswith("Gameplay"):
+            continue                        # a parked car's own parts
         for comp in a.get_components_by_class(unreal.StaticMeshComponent):
-            if comp.get_editor_property("static_mesh") is None:
-                continue
+            if comp.get_editor_property("static_mesh") is None or isinstance(comp, unreal.InstancedStaticMeshComponent):
+                continue                    # instances are the dressing of the fronts, a street long
             try:
                 if comp.get_collision_enabled() != unreal.CollisionEnabled.NO_COLLISION:
                     continue

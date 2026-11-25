@@ -467,7 +467,9 @@ dans une rampe de parking.
    Les acteurs simples comptent comme les instances depuis la porte 86 (le kiosque octogonal de
    la rue de la République, un acteur à 0,1 m de la ligne, a arrêté la voiture aux portes 85 et
    86) : celui de ces jeux d'objets, large de 30 m au plus, est détruit (`removed_actors`) ; un
-   monument ou une façade est seulement signalé. Et l'étape `collision`
+   monument est seulement signalé (le manège de la place de la République est sur le tour : la
+   ligne le contourne), et les immeubles, façades et sols ne sont pas regardés ainsi, une boîte
+   n'étant pas leur plan. Et l'étape `collision`
    (`backdrop_collision.py`) finit par un relevé : ce qui tient debout sur 2,5 m ou plus et
    n'arrête rien, par dossier, et par nom à moins de 60 m de la ligne conduite
    (`walls_without_collision`) : à 171 s de cette prise le joueur a traversé un mur de pierre

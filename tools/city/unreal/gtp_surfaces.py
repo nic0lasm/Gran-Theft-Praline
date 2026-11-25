@@ -62,6 +62,10 @@ GROUND_GRIME = ("decal_dirt",)
 # 4.6 times the road's brightness, 190/255): 0.20, weathered concrete or grey granite.
 GROUND_ALBEDO_CAP = {"sidewalk": 0.20, "paving": 0.20, "kerb": 0.22, "road": 0.10}
 GROUND_ROUGH_MIN = float(os.environ.get("GTP_GROUND_ROUGH_MIN", "0.6"))
+# Gate 86, long take, 13 s and 120 s: driving towards the sun the carriageway of the quay is a
+# pale sheet, nearly white, its grain gone, while the same asphalt is dark seen across the sun.
+# Dry asphalt is among the roughest grounds of a street: its floor is higher than the stone's.
+ROAD_ROUGH_MIN = float(os.environ.get("GTP_ROAD_ROUGH_MIN", "0.85"))
 LUMA = (0.2126, 0.7152, 0.0722)
 # The stains are laid after the layer caps: a light mud scan made blotches of several metres on
 # the asphalt, up to about 0.2 of albedo against 0.05 (video of gate 69, 47 s, "camouflage").
@@ -316,6 +320,9 @@ def ground(mat, mask):
             if GROUND_ROUGH_MIN > 0:
                 rough = g.op(unreal.MaterialExpressionMax, rough, g.const(GROUND_ROUGH_MIN))
                 _used["ground.rough_min"] = GROUND_ROUGH_MIN
+            if ROAD_ROUGH_MIN > GROUND_ROUGH_MIN:
+                rough = g.op(unreal.MaterialExpressionMax, rough, g.mul(on_road, g.const(ROAD_ROUGH_MIN)))
+                _used["ground.road_rough_min"] = ROAD_ROUGH_MIN
             mel.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS)
     eal.set_metadata_tag(mat, "GTPSurfaces", "1")
     return True

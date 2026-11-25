@@ -34,7 +34,8 @@ Plain actors are looked at as well as instances (a static mesh actor with collis
 30 m wide: the octagonal kiosk of rue de la Republique stood 0.1 m off the driven line and
 stopped the car at gates 85 and 86): same rule, same sets, the actor is destroyed; it is listed
 in removed_actors and in removed_instances with "index": -1. One that belongs to no set (a
-landmark, a facade) is only reported, with its folder.
+landmark) is only reported, with its folder and the middle of its box; buildings, facades and
+the ground are not looked at this way, their box being no plan of them.
 
 GTP_LANE_CLEAR=0: report only, nothing removed, map not saved. Lanes: GTP_LANES_CSV, else
 Content/City/Traffic/<Map>.lanes.csv (the file the game reads). Map: GTP_CITY_FOCUS as
@@ -67,6 +68,8 @@ NAMED = [n for n in os.environ.get("GTP_LANE_ACTORS", "").split(",") if n]
 SET_FOLDERS = ("City/Props", "City/Route", "City/Details")
 REPORT_ONLY_FOLDERS = ("City/Facades", "City/Signs")
 MIN_HEIGHT_CM = 15.0
+BOX_IS_NO_FOOTPRINT = ("City/Buildings", "City/Backdrop", "City/Terrain", "City/Horizon", "City/Riverside",
+                       "City/CellProxies", "City/PitCovers", "City/Facades", "City/Signs")
 ACTOR_MAX_CM = 3000.0       # a plain actor wider than this is ground, a building or a merged set
 CIRCUIT = os.environ.get("GTP_CIRCUIT_CSV") or os.path.join(
     unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_content_dir()), "Test", "Circuits",
@@ -193,6 +196,8 @@ def main():  # noqa: C901
             if mesh is None or isinstance(comp, unreal.InstancedStaticMeshComponent) or not blocks(comp):
                 continue
             folder = str(actor.get_folder_path())
+            if folder.startswith(BOX_IS_NO_FOOTPRINT):
+                continue                    # a building's box is not its plan: 11 false alarms at prep 88
             box = mesh.get_bounding_box()
             lo, hi = box.min, box.max
             t = actor.get_actor_transform()
@@ -212,7 +217,9 @@ def main():  # noqa: C901
             path = mesh.get_path_name()
             entry = {"actor": actor.get_name(), "label": actor.get_actor_label(), "folder": folder,
                      "mesh": path.split(".")[0], "index": -1, "lane": near[0], "gap_cm": round(near[1]),
-                     "xyz": [round(x), round(y), round(z)], "wide_cm": round(wide)}
+                     "xyz": [round(sum(p[0] for p in shape) / 4.0), round(sum(p[1] for p in shape) / 4.0),
+                             round(z + lo.z * s.z)],          # the middle of its box: such a mesh is often
+                     "wide_cm": round(wide)}                  # modelled in place, its actor at the origin
             owner = which_set(actor)
             if owner is None or folder.startswith(REPORT_ONLY_FOLDERS):
                 report["reported_only"].append(entry)
