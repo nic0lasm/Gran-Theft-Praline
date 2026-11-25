@@ -58,6 +58,65 @@ namespace GTPPoliceTactics
 		return Out;
 	}
 
+	/** What the probe of a unit's car meets ahead of its bumper. */
+	enum class EMet
+	{
+		Nothing,
+		Quarry,    // the man the police are after, or the car he drives
+		Police,    // a police car (a unit, a roadblock car) or an officer on foot
+		Person,
+		Other,     // a car of the traffic, a parked car, a thing that moves when pushed
+	};
+
+	/**
+	 * The obstacle a unit drives by (metres ahead of its bumper, negative: none), from what its probe met Metres ahead.
+	 *
+	 * A unit that rams (FProfile::bRam, from three stars) does not brake for the man it is after or the car he is in.
+	 * It brakes for everything else. Until gate 101 it looked at nothing at all: at 105 to 135 km/h into the parked
+	 * cars, the roadblock cars of its own side, the other units and the people on the road. Gate 93's long take,
+	 * three then four stars, 60 seconds: four units with no wheel on the ground and "obstacle=-1", one of them on its
+	 * roof 5 s after it was made, 1.1 m higher than it was made, one 1.6 m higher 6 s after it backed off from a car
+	 * 75 cm ahead of its bumper, one that had just slowed from 44 to 6 km/h where a roadblock car stood. Read from
+	 * those lines and the code: no line says what each of them climbed.
+	 * What it still pushes through, from a crawl: ShovesThrough.
+	 */
+	inline float ObstacleFor(float Metres, EMet Met, bool bRams)
+	{
+		return bRams && Met == EMet::Quarry ? -1.f : Metres;
+	}
+
+	/**
+	 * Does a unit held up behind what it met push through it after a moment (AGTPPoliceDirector: 1.5 s under 15 km/h)?
+	 * A car in its way, and the car of the man it is after: yes. A colleague or a person: it waits, as any driver.
+	 * (A unit stopped 4 s far from the player still pushes through whatever holds it.)
+	 */
+	inline bool ShovesThrough(EMet Met)
+	{
+		return Met == EMet::Other || Met == EMet::Quarry;
+	}
+
+	/** A unit is held up behind what is nearer than this ahead of its bumper (m), and under this speed (km/h) below the ramming levels. */
+	constexpr float HeldUpMetres = 12.f;
+	constexpr float HeldUpKmh = 15.f;
+
+	/**
+	 * Is a unit held up behind what it met, this frame? After a moment of it the unit pushes through for a few seconds.
+	 * From two stars, behind something it shoves (ShovesThrough) nearer than HeldUpMetres. Under three stars only at a
+	 * crawl, as before. From three (bRams) at any speed: a unit that now brakes for the cars of the traffic would
+	 * follow one at 30 km/h down a whole street; it bumps it out of its way instead, from the speed of that car and
+	 * not from 105 km/h.
+	 */
+	inline bool IsHeldUp(float Kmh, float ObstacleMetres, EMet Met, int Stars, bool bRams)
+	{
+		return Stars >= 2 && ObstacleMetres > 0.f && ObstacleMetres < HeldUpMetres && ShovesThrough(Met) && (bRams || Kmh < HeldUpKmh);
+	}
+
+	inline const char* MetName(EMet Met)
+	{
+		static const char* const Names[] = {"nothing", "quarry", "police", "person", "other"};
+		return Names[static_cast<int>(Met)];
+	}
+
 	/**
 	 * Is a point ahead of a moving player? Direction of travel (DirX, DirY) unit vector; the point at
 	 * (Dx, Dy) from the player (m). Used to place flanking cars and roadblocks.

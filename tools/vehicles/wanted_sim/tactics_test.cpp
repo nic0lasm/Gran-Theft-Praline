@@ -95,6 +95,36 @@ int main()
 		CHECK(!IsAhead(0.f, 100.f, 1.f, 0.f, 0.8f));
 	}
 
+	// What a unit does with what its probe meets (gate 93: at three stars and more it looked at nothing, four units
+	// off their wheels in a minute).
+	{
+		// Below the ramming levels everything ahead is braked for, the car of the man it is after too.
+		for (const EMet Met : {EMet::Quarry, EMet::Police, EMet::Person, EMet::Other})
+		{
+			CHECK(ObstacleFor(8.f, Met, false) == 8.f);
+		}
+		// A unit that rams: only the man it is after and his car are not braked for.
+		CHECK(ObstacleFor(8.f, EMet::Quarry, true) < 0.f);
+		CHECK(ObstacleFor(8.f, EMet::Police, true) == 8.f && ObstacleFor(8.f, EMet::Person, true) == 8.f && ObstacleFor(8.f, EMet::Other, true) == 8.f);
+		CHECK(ObstacleFor(0.f, EMet::Other, true) == 0.f);
+		// Nothing met stays nothing.
+		CHECK(ObstacleFor(-1.f, EMet::Nothing, true) < 0.f && ObstacleFor(-1.f, EMet::Nothing, false) < 0.f);
+		// Held up: pushed through after a moment. A car, yes; a colleague or a person, no.
+		CHECK(ShovesThrough(EMet::Other) && ShovesThrough(EMet::Quarry) && !ShovesThrough(EMet::Police) && !ShovesThrough(EMet::Person) && !ShovesThrough(EMet::Nothing));
+		// Two stars: at a crawl only, as before. One star: never.
+		CHECK(IsHeldUp(10.f, 6.f, EMet::Other, 2, false) && !IsHeldUp(30.f, 6.f, EMet::Other, 2, false) && !IsHeldUp(10.f, 6.f, EMet::Other, 1, false));
+		CHECK(IsHeldUp(10.f, 6.f, EMet::Quarry, 2, false));
+		// Three stars: behind a car of the traffic at 30 km/h too; not behind a colleague, a person, or nothing.
+		CHECK(IsHeldUp(30.f, 6.f, EMet::Other, 3, true) && IsHeldUp(80.f, 11.f, EMet::Other, 4, true));
+		CHECK(!IsHeldUp(30.f, 6.f, EMet::Police, 3, true) && !IsHeldUp(5.f, 6.f, EMet::Person, 3, true) && !IsHeldUp(5.f, -1.f, EMet::Nothing, 3, true));
+		// Far ahead is not held up.
+		CHECK(!IsHeldUp(5.f, 12.f, EMet::Other, 3, true) && !IsHeldUp(5.f, 30.f, EMet::Other, 2, false));
+		for (const EMet Met : {EMet::Nothing, EMet::Quarry, EMet::Police, EMet::Person, EMet::Other})
+		{
+			CHECK(MetName(Met) != nullptr && MetName(Met)[0] != 0);
+		}
+	}
+
 	if (Failures == 0)
 	{
 		std::printf("tactics_test: all checks passed\n");

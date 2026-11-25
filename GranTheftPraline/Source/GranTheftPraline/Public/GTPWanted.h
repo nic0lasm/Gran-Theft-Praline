@@ -522,6 +522,8 @@ private:
 		/** Tactical state (GTPPoliceBrainLogic.h): drives the siren, logged with the unit. */
 		GTPPoliceBrain::EState Brain = GTPPoliceBrain::EState::Idle;
 		float LastObstacle = -1.f;
+		/** What the probe last met ahead (GTPPoliceTactics::EMet): a unit held up pushes through a car, not through a colleague or a person. */
+		GTPPoliceTactics::EMet LastMet = GTPPoliceTactics::EMet::Nothing;
 		float LastThrottle = 0.f;
 		float LastBrake = 0.f;
 		float LastSteer = 0.f;
@@ -607,6 +609,12 @@ private:
 	mutable double NextNoPlaceLog = 0.0;
 	void DriveUnit(FUnit& Unit, UGTPWantedComponent& Wanted, const AActor& Player, float DeltaSeconds);
 	void DriveStraight(FUnit& Unit, const FVector& Target, float MaxSpeedKmh);
+	/**
+	 * The obstacle ahead a unit drives by (m from its bumper, negative: none), looked for LengthCm far with a sphere
+	 * of RadiusCm: cars and people, and what GTPPoliceTactics::ObstacleFor says of them. Sets LastObstacle and LastMet
+	 * of the unit.
+	 */
+	float ObstacleAhead(FUnit& Unit, const AGTPVehicle& Car, float LengthCm, float RadiusCm);
 	/**
 	 * Metres from the bumper to the scenery (what does not move: buildings, the street's furniture) on the way of
 	 * Car, looked along its heading turned by YawOffsetRadians, LengthCm far, with a box RadiusCm to each side.

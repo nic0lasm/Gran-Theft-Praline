@@ -1676,13 +1676,54 @@ void AGTPPoliceDirector::DriveStraight(FUnit& Unit, const FVector& Target, float
 	const FVector End = Target + Direction * 2000.f;
 	Path.push_back({static_cast<float>(End.X) * WantedCmToM, static_cast<float>(End.Y) * WantedCmToM});
 	int Closest = 0;
-	const float Obstacle = (Profile.bRam || GetWorld()->GetTimeSeconds() < Unit.RamUntil) ? -1.f : UGTPAIDriverComponent::ProbeAhead(Car, 4000.f, 100.f);
-	Unit.LastObstacle = Obstacle;
+	const float Obstacle = ObstacleAhead(Unit, *Car, 4000.f, 100.f);
 	const float Speed = Car->GetSpeedKmh() / 3.6f;
 	const FGTPDriveCommand Command = GTPDrive::Decide(Path, Path[0].X, Path[0].Y, FMath::DegreesToRadians(static_cast<float>(Car->GetActorRotation().Yaw)),
 		Speed, MaxSpeedKmh / 3.6f, Obstacle, Unit.Settings, Closest);
 	ApplyDrive(Unit, Command, Command.Brake >= 1.f && Speed < 0.5f);
 	Unit.bOnLanes = false;
+}
+
+float AGTPPoliceDirector::ObstacleAhead(FUnit& Unit, const AGTPVehicle& Car, float LengthCm, float RadiusCm)
+{
+	Unit.LastObstacle = -1.f;
+	Unit.LastMet = GTPPoliceTactics::EMet::Nothing;
+	// Pushing through what held it up (RamUntil): nothing is looked at for those seconds.
+	if (GetWorld()->GetTimeSeconds() < Unit.RamUntil)
+	{
+		return -1.f;
+	}
+	// -PoliceRamBlind: from three stars a unit looks at nothing ahead of it, as until gate 101.
+	static const bool bRamBlind = FParse::Param(FCommandLine::Get(), TEXT("PoliceRamBlind"));
+	if (Profile.bRam && bRamBlind)
+	{
+		return -1.f;
+	}
+	AActor* MetActor = nullptr;
+	const float Metres = UGTPAIDriverComponent::ProbeAhead(&Car, LengthCm, RadiusCm, &MetActor);
+	if (MetActor)
+	{
+		const APawn* Quarry = UGameplayStatics::GetPlayerPawn(this, 0);
+		if (MetActor == Quarry)
+		{
+			Unit.LastMet = GTPPoliceTactics::EMet::Quarry;
+		}
+		else if (MetActor->ActorHasTag(GTPPolice::PoliceTag) || MetActor->IsA<AGTPPoliceOfficer>())
+		{
+			Unit.LastMet = GTPPoliceTactics::EMet::Police;
+		}
+		else if (MetActor->IsA<ACharacter>() || MetActor->IsA<AGTPPedestrian>())
+		{
+			Unit.LastMet = GTPPoliceTactics::EMet::Person;
+		}
+		else
+		{
+			Unit.LastMet = GTPPoliceTactics::EMet::Other;
+		}
+	}
+	// A unit that rams brakes for everything but the man it is after and his car (gate 93: four units off their wheels).
+	Unit.LastObstacle = GTPPoliceTactics::ObstacleFor(Metres, Unit.LastMet, Profile.bRam);
+	return Unit.LastObstacle;
 }
 
 void AGTPPoliceDirector::ApplyDrive(FUnit& Unit, const FGTPDriveCommand& Command, bool bHandbrake)
@@ -1820,8 +1861,7 @@ void AGTPPoliceDirector::DriveOnLanes(FUnit& Unit, const FVector& Goal, bool bHa
 	}
 	// Watched as far as the car needs to stop from its speed (40 m is the braking distance of 85 km/h).
 	const float ProbeCm = FMath::Max(4000.f, GTPDrive::PathNeeded(FMath::Abs(Car->GetSpeedKmh()) / 3.6f, Unit.Settings) * 100.f);
-	const float Obstacle = (Profile.bRam || GetWorld()->GetTimeSeconds() < Unit.RamUntil) ? -1.f : UGTPAIDriverComponent::ProbeAhead(Car, ProbeCm, 90.f);
-	Unit.LastObstacle = Obstacle;
+	const float Obstacle = ObstacleAhead(Unit, *Car, ProbeCm, 90.f);
 	FGTPDriveCommand Command;
 	const int32 LaneBefore = Unit.Follower.GetLane();
 	if (!Unit.Follower.Step(Location, Yaw, Car->GetSpeedKmh(), MaxSpeedKmh, Obstacle, Command))
@@ -1932,7 +1972,8 @@ void AGTPPoliceDirector::DriveUnit(FUnit& Unit, UGTPWantedComponent& Wanted, con
 		}
 	}
 	// Slow behind something close ahead (a taxi, a queue): after 1.5 s the unit shoves through, the way the police do in a chase.
-	Unit.SlowTime = (Stars >= 2 && Car->GetSpeedKmh() < 15.f && Unit.LastObstacle > 0.f && Unit.LastObstacle < 12.f) ? Unit.SlowTime + DeltaSeconds : 0.f;
+	// Not through a colleague nor a person; from three stars at any speed (GTPPoliceTactics::IsHeldUp).
+	Unit.SlowTime = GTPPoliceTactics::IsHeldUp(Car->GetSpeedKmh(), Unit.LastObstacle, Unit.LastMet, Stars, Profile.bRam) ? Unit.SlowTime + DeltaSeconds : 0.f;
 	if (Unit.SlowTime > 1.5f && NowSeconds >= Unit.RamUntil)
 	{
 		Unit.RamUntil = NowSeconds + 3.f;
@@ -2180,9 +2221,9 @@ void AGTPPoliceDirector::Tick(float DeltaSeconds)
 		{
 			if (AGTPVehicle* Car = Unit.Car.Get())
 			{
-				GTP_TRACE(LogGTPWanted, TEXT("police unit: dist=%.0f m speed=%.0f km/h lanes=%d stopped=%.0f s stage=%d obstacle=%.1f m throttle=%.2f brake=%.2f brain=%d steer=%.2f recovery=%d back-offs=%d wheels=%d up=%.2f scenery=%.1f m side=%d rounds=%d stood=%d straight=%d at %s"),
+				GTP_TRACE(LogGTPWanted, TEXT("police unit: dist=%.0f m speed=%.0f km/h lanes=%d stopped=%.0f s stage=%d obstacle=%.1f m met=%s throttle=%.2f brake=%.2f brain=%d steer=%.2f recovery=%d back-offs=%d wheels=%d up=%.2f scenery=%.1f m side=%d rounds=%d stood=%d straight=%d at %s"),
 					FVector::Dist2D(Car->GetActorLocation(), Player->GetActorLocation()) * 0.01f, Car->GetSpeedKmh(), Unit.bOnLanes ? 1 : 0, Unit.StoppedTime, Unit.Stage,
-					Unit.LastObstacle, Unit.LastThrottle, Unit.LastBrake, static_cast<int32>(Unit.Brain), Unit.LastSteer, static_cast<int32>(Unit.Recovery.State),
+					Unit.LastObstacle, ANSI_TO_TCHAR(GTPPoliceTactics::MetName(Unit.LastMet)), Unit.LastThrottle, Unit.LastBrake, static_cast<int32>(Unit.Brain), Unit.LastSteer, static_cast<int32>(Unit.Recovery.State),
 					Unit.Recovery.BackOffs, PoliceWheelsOnGround(*Car), Car->GetActorUpVector().Z, Unit.Avoid.LastAheadM, Unit.Avoid.Side, Unit.Avoid.Rounds,
 					Unit.Avoid.Blocked, Unit.bWayClear ? 1 : 0, *Car->GetActorLocation().ToCompactString());
 				if (const UChaosWheeledVehicleMovementComponent* Move = Cast<UChaosWheeledVehicleMovementComponent>(Car->GetVehicleMovementComponent()))
