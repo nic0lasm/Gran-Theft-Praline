@@ -933,6 +933,18 @@ private:
 	bool bReactDemoMoved = false;
 	bool MovePlayerAhead(const UGTPAIDriverComponent* Driver);
 	bool bPoolSpawnCheck = true;
+	/**
+	 * The room a traffic car put on the road keeps from a police car (cm). A place was only kept clear of the traffic's
+	 * own cars, and of what stood on the very place (FindCarAt).
+	 * Gate 103: a car taken back from the pool was put on lane 187 a car's length in front of a police unit that drove
+	 * there at 25 km/h, in the frame another place had been refused for that same unit ("reuse blocked by"); the unit
+	 * stood against it and two more behind, and nobody reached the player who had stopped 84 m further.
+	 * -TrafficPoliceRoom=<m>; 0: police cars are not looked at, as until gate 106.
+	 */
+	float PoliceSpawnRoom = 5000.f;
+	/** Places left free for a police car, told every 10 s at most (FindSpawnPoint is const). */
+	mutable int32 PlacesLeftToPolice = 0;
+	mutable double NextPoliceRoomTraceTime = 0.0;
 
 	UPROPERTY(Transient)
 	TArray<TSubclassOf<AGTPVehicle>> LoadedVehicleClasses;
