@@ -346,6 +346,12 @@ int main(int Argc, char** Argv)
 		CHECK(std::fabs(LineRows[1].Line[2].Y - 78.f) < 0.01f);
 		FCircuit Lined = Circuit;
 		CHECK(SetLines(Lined, LineRows, Ends, Error) && Lined.Lines.size() == 4 && Lined.LinePoints() == 10);
+		// How far a place is from the lines driven (a roadblock is kept off them while a script drives the flight):
+		// beside a line, between two, on the join from a line to the next, and on the one that closes the lap.
+		CHECK(std::fabs(Lined.MetresToLines(50.f, 10.2f) - 10.f) < 0.05f);
+		CHECK(Lined.MetresToLines(60.f, 40.f) > 39.5f && Lined.MetresToLines(60.f, 40.f) < 40.f);
+		CHECK(Lined.MetresToLines(100.25f, 2.f) < 0.01f && Lined.MetresToLines(-1.f, 2.5f) < 0.01f);
+		CHECK(std::fabs(Lined.MetresToLines(-11.f, 40.f) - 8.f) < 0.01f && Circuit.MetresToLines(50.f, 10.2f) == NoLineMetres);
 		// A row without its line, a line that belongs to another lane, a line that stops short: none is kept.
 		std::vector<FRow> Broken = LineRows;
 		Broken[2].Line.clear();
@@ -357,6 +363,7 @@ int main(int Argc, char** Argv)
 		Broken[0].Line.pop_back();
 		CHECK(!SetLines(Lined, Broken, Ends, Error) && Lined.Lines.empty());
 		CHECK(!SetLines(Lined, Rows, Ends, Error) && Lined.Lines.empty());
+		CHECK(Lined.MetresToLines(50.f, 10.2f) == NoLineMetres);
 	}
 
 	// The approach: the rows after "approach", up to "lap". From its lanes the way to the lap is the approach's.
@@ -385,8 +392,10 @@ int main(int Argc, char** Argv)
 		CHECK(!With.IsKnown(4) && With.LineOf(4) == nullptr && With.LineOf(0) != nullptr && With.LineOf(0)->size() == 3);
 		CHECK(SetApproach(With, {4, 5}, NextOfTwo, Error) && With.Approach.size() == 2 && With.Next(4) == 5 && With.Next(5) == 0);
 		CHECK(With.IsKnown(4) && With.IsKnown(5) && With.IsKnown(0) && !With.IsKnown(7) && !With.IsOn(4) && With.ApproachPlace(5) == 1);
-		CHECK(With.LineOf(4) == nullptr);
+		CHECK(With.LineOf(4) == nullptr && With.MetresToLines(-150.f, 10.3f) > 140.f);
 		CHECK(SetApproachLines(With, ApproachRows, Ends, Error) && With.LineOf(4) != nullptr && With.LineOf(5)->size() == 3 && With.LinePoints() == 16);
+		// The lines of the approach count as the lap's do.
+		CHECK(std::fabs(With.MetresToLines(-150.f, 10.3f) - 10.f) < 0.05f && With.MetresToLines(-101.f, 0.f) < 0.01f);
 		// A line of the approach that stops short of the lap's, an approach without the lap's lines: no line kept.
 		std::vector<FRow> Short = ApproachRows;
 		Short[1].Line.pop_back();

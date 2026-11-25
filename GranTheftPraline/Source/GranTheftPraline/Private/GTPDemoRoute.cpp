@@ -1102,6 +1102,13 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 					}
 				}
 			}
+			// The police keep their roadblocks off the lines of the circuit while this script drives the flight
+			// (AGTPPoliceDirector::KeepFlightLineClear): it follows its line, it cannot go round two cars across the
+			// street. Gate 91: one stood 13 m past the place where the first flight ended, short of the place Bellecour.
+			if (TActorIterator<AGTPPoliceDirector> FlightPolice(Driven->GetWorld()); FlightPolice)
+			{
+				FlightPolice->KeepFlightLineClear(2.f);
+			}
 			UGTPWantedComponent* Wanted = PC->FindComponentByClass<UGTPWantedComponent>();
 			if (Wanted)
 			{

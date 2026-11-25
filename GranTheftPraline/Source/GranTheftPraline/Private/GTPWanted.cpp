@@ -756,6 +756,11 @@ void AGTPPoliceDirector::BeginPlay()
 	int32 UpstreamSwitch = bUpstreamSpawn ? 1 : 0;
 	FParse::Value(FCommandLine::Get(), TEXT("PoliceUpstream="), UpstreamSwitch);
 	bUpstreamSpawn = UpstreamSwitch != 0;
+	// -RoadblocksOnFlightLine: the roadblocks stand on the way of a scripted flight too, as until gate 97.
+	if (FParse::Param(FCommandLine::Get(), TEXT("RoadblocksOnFlightLine")))
+	{
+		RoadblockFlightClearance = 0.f;
+	}
 	int32 CircuitLinesSwitch = bUnitsOnCircuitLines ? 1 : 0;
 	FParse::Value(FCommandLine::Get(), TEXT("PoliceCircuitLines="), CircuitLinesSwitch);
 	bUnitsOnCircuitLines = CircuitLinesSwitch != 0;
@@ -1184,10 +1189,53 @@ bool AGTPPoliceDirector::IsRoadblockSite(const APawn& Player, const FGTPTrafficL
 	{
 		return false;
 	}
+	// Not on the way of a flight a script drives (RoadblockFlightClearance).
+	if (IsFlightLineKeptClear())
+	{
+		const float ToLine = FlightLineMetres(Point);
+		if (ToLine >= 0.f && ToLine * 100.f < RoadblockFlightClearance)
+		{
+			return false;
+		}
+	}
 	OutPoint = Point;
 	OutAlong = Along;
 	OutDistance = Distance;
 	return true;
+}
+
+void AGTPPoliceDirector::KeepFlightLineClear(float Seconds)
+{
+	const UWorld* World = GetWorld();
+	if (!World || RoadblockFlightClearance <= 0.f)
+	{
+		return;
+	}
+	const bool bNews = !IsFlightLineKeptClear();
+	FlightLineClearUntil = World->GetTimeSeconds() + static_cast<double>(Seconds);
+	if (bNews)
+	{
+		const bool bCircuit = Network && Network->GetFlightCircuit().IsValid() && Network->GetFlightCircuit().LinePoints() > 0;
+		GTP_TRACE(LogGTPWanted, TEXT("police: a script drives the flight, %s"), bCircuit
+			? *FString::Printf(TEXT("no roadblock within %.1f m of the driving lines of the map's circuit while it does"), RoadblockFlightClearance * 0.01f)
+			: TEXT("and the map's circuit has no driving line: the roadblocks stand where they would for a player"));
+	}
+}
+
+bool AGTPPoliceDirector::IsFlightLineKeptClear() const
+{
+	const UWorld* World = GetWorld();
+	return World && RoadblockFlightClearance > 0.f && FlightLineClearUntil >= 0.0 && World->GetTimeSeconds() <= FlightLineClearUntil;
+}
+
+float AGTPPoliceDirector::FlightLineMetres(const FVector& Location) const
+{
+	if (!Network || !Network->GetFlightCircuit().IsValid())
+	{
+		return -1.f;
+	}
+	const float Metres = Network->GetFlightCircuit().MetresToLines(static_cast<float>(Location.X) * 0.01f, static_cast<float>(Location.Y) * 0.01f);
+	return Metres < GTPFlightCircuit::NoLineMetres ? Metres : -1.f;
 }
 
 void AGTPPoliceDirector::CollectRoadblockSites(const APawn& Player, TArray<FVector>& OutSites, int32 Level) const
@@ -1235,7 +1283,9 @@ bool AGTPPoliceDirector::PlaceRoadblockCar(const APawn& Player, int32 CarIndex, 
 	}
 	if (SpawnUnit(Player.GetActorLocation(), &Placement, true))
 	{
-		GTP_TRACE(LogGTPWanted, TEXT("police: roadblock car %d at %s, %.0f m ahead"), CarIndex, *Location.ToCompactString(), Distance * 0.01);
+		GTP_TRACE(LogGTPWanted, TEXT("police: roadblock car %d at %s, %.0f m ahead, %.1f m from the flight circuit's line (-1 = no circuit)%s"), CarIndex,
+			*Location.ToCompactString(), Distance * 0.01, FlightLineMetres(Location),
+			IsFlightLineKeptClear() ? TEXT(", kept off it for the script that drives the flight") : TEXT(""));
 		return true;
 	}
 	return false;
@@ -1294,8 +1344,9 @@ bool AGTPPoliceDirector::SpawnRoadblockCar(const APawn& Player, int32 CarIndex)
 			}
 		}
 	}
-	GTP_TRACE(LogGTPWanted, TEXT("police: no roadblock placed: lane sites ahead %d / %d / %d (strict, wide, widest), %d from EQS, %d lanes, player %.0f km/h, %d units"),
-		Found[0], Found[1], Found[2], Queries ? Queries->GetRoadblockSites().Num() : 0, Lanes.Num(), Player.GetVelocity().Size2D() * 0.036f, Units.Num());
+	GTP_TRACE(LogGTPWanted, TEXT("police: no roadblock placed: lane sites ahead %d / %d / %d (strict, wide, widest), %d from EQS, %d lanes, player %.0f km/h, %d units%s"),
+		Found[0], Found[1], Found[2], Queries ? Queries->GetRoadblockSites().Num() : 0, Lanes.Num(), Player.GetVelocity().Size2D() * 0.036f, Units.Num(),
+		IsFlightLineKeptClear() ? TEXT("; a script drives the flight: the sites on its way are not counted") : TEXT(""));
 	return false;
 }
 

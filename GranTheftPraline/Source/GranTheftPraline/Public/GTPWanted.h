@@ -409,6 +409,18 @@ protected:
 	UPROPERTY(Config, EditAnywhere, Category = "Police")
 	float RoadblockMinSpeed = 550.f;
 
+	/**
+	 * While a script drives the player's flight on the map's circuit (KeepFlightLineClear), no roadblock is put on a
+	 * place nearer than this to a driving line of the circuit (cm); 0: anywhere, as for a player. The two cars of a
+	 * roadblock stand across their lane, 3.3 m to each side of its middle, and the car of the flight strays up to 2.3 m
+	 * from its line. Gate 91: of the 19 roadblock cars of its long take, 11 stood within 8 m of the line of the
+	 * flight (8 of them within 1.5 m), which has neither the steering to go round them nor a reason to stop there;
+	 * one stood 13 m past the place where the first flight ended, short of the place Bellecour, and the second flight
+	 * was held up at another for 5 s and put elsewhere.
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Police")
+	float RoadblockFlightClearance = 800.f;
+
 	/** Light bar position on the car, in the car's frame (cm). */
 	UPROPERTY(Config, EditAnywhere, Category = "Police")
 	FVector LightBarOffset = FVector(0.f, 0.f, 130.f);
@@ -562,7 +574,19 @@ public:
 	 */
 	void CollectRoadblockSites(const APawn& Player, TArray<FVector>& OutSites, int32 Level = 1) const;
 
+	/**
+	 * A script drives the player's flight along the circuit of the map (UGTPDemoRoute's chase): for Seconds from now
+	 * the roadblocks keep RoadblockFlightClearance from its driving lines. Asked again as long as the script drives;
+	 * it lapses by itself, and a player at the wheel never asks.
+	 */
+	void KeepFlightLineClear(float Seconds);
+	/** Metres from Location to the nearest driving line of the map's flight circuit; negative when the map has none. */
+	float FlightLineMetres(const FVector& Location) const;
+
 private:
+	/** World time until which the roadblocks keep off the flight's line (KeepFlightLineClear); negative: never asked. */
+	double FlightLineClearUntil = -1.0;
+	bool IsFlightLineKeptClear() const;
 	/** Where the player is heading: their velocity, else the last direction they were driving in, else where the car points. */
 	FVector2D GetTravelDirection(const APawn& Player) const;
 	mutable FVector2D LastTravelDirection = FVector2D::ZeroVector;
