@@ -54,6 +54,7 @@ TREE_CLEAR_M = 8.0             # no tree this close to the line the flight drive
 # and a few leaves at the top, 1 870 of them along the flight. The alders of the base map stay.
 ROUTE_MAPLES = os.environ.get("GTP_ROUTE_MAPLES", "0") == "1"
 ROUTE_FOLDER = "City/Route"
+ROOFS = os.environ.get("GTP_HORIZON_ROOFS", "1") != "0"
 TREE_CULL_CM = 60000.0
 
 eal = unreal.EditorAssetLibrary
@@ -220,6 +221,53 @@ def square_settings(report, place, tiles, built, base):  # noqa: C901
             info["trees"] += 1
 
 
+ROOF_MATERIALS = {"tile": ("M_City_HorizonTile", "M_City_HorizonTown"),      # best first
+                  "zinc": ("M_City_HorizonRoof", "M_City_HorizonIron"),
+                  "chimney": ("M_City_HorizonTown",)}
+
+
+def block_roofs(plan, cube, report):
+    """The roofs and chimney stacks of the far blocks (horizon.roofs), as instances of the engine
+    cube: one actor a material, whatever the number of blocks. {"tile", "zinc", "chimney"}: boxes
+    placed; {} when ROOFS is off."""
+    out = {}
+    if not ROOFS or cube is None:
+        return out
+    boxes = {"tile": [r for r in plan.get("roofs", []) if r["kind"] == "tile"],
+             "zinc": [r for r in plan.get("roofs", []) if r["kind"] == "zinc"],
+             "chimney": plan.get("chimneys", [])}
+    sds = unreal.get_engine_subsystem(unreal.SubobjectDataSubsystem)
+    sdl = unreal.SubobjectDataBlueprintFunctionLibrary
+    for kind, items in boxes.items():
+        path = next((MAT_DIR + "/" + n for n in ROOF_MATERIALS[kind] if eal.does_asset_exist(MAT_DIR + "/" + n)), None)
+        if not items or path is None:
+            out[kind] = 0
+            continue
+        actor = actor_sub_().spawn_actor_from_class(unreal.StaticMeshActor, unreal.Vector(0.0, 0.0, 0.0))
+        actor.set_actor_label("Horizon_Roofs_" + kind.capitalize())
+        actor.set_folder_path(FOLDER)
+        try:
+            actor.set_editor_property("is_spatially_loaded", False)
+        except Exception:  # noqa: BLE001  plain level: no such property to set
+            pass
+        root = sds.k2_gather_subobject_data_for_instance(actor)[0]
+        handle, _ = sds.add_new_subobject(unreal.AddNewSubobjectParams(
+            parent_handle=root, new_class=unreal.HierarchicalInstancedStaticMeshComponent))
+        comp = sdl.get_object(sdl.get_data(handle))
+        comp.set_static_mesh(cube)
+        comp.set_material(0, eal.load_asset(path))
+        quiet(comp, report)
+        for r in items:
+            tall = r["top"] - r["bottom"]
+            comp.add_instance(unreal.Transform(
+                unreal.Vector(r["x"] * 100.0, r["y"] * 100.0, 50.0 * (r["top"] + r["bottom"])),
+                unreal.Rotator(roll=0.0, pitch=0.0, yaw=r["yaw"]),
+                unreal.Vector(r["width"], r["depth"], tall)), True)
+        out[kind] = comp.get_instance_count()
+        out[kind + "_material"] = path.rsplit("/", 1)[-1]
+    return out
+
+
 def mesh_height(mesh):
     box = mesh.get_bounding_box()
     return box.max.z - box.min.z
@@ -360,6 +408,10 @@ def main():  # noqa: C901
                   (b["x"] * 100.0, b["y"] * 100.0, 0.5 * (foot + top)),
                   (b["width"], b["depth"], (top - foot) / 100.0), "M_City_Horizon_%d" % b["colour"], b["yaw"])
             report["towers" if b["kind"] == "tower" else "blocks"] += 1
+        try:
+            report["roofs"] = block_roofs(plan.get("roofs") or {}, shapes["Cube"], report)
+        except Exception as e:  # noqa: BLE001  the blocks stay, flat topped as before
+            report["roofs_error"] = repr(e)
         for m in plan["monuments"]:
             mat = MONUMENT_MATERIALS[m["material"]]
             if shapes.get(m["shape"]) is None or mats.get(mat) is None:

@@ -11,6 +11,8 @@ that distance:
   blocks   rows of plain building volumes around the map, 720 m to 1.5 km from the street
            axis, facing it, five to eight storeys with a street gap between them; they take
            the procedural Lyon facade of the backdrop (apply_city_materials)
+  roofs    on each of those blocks a tiled roof or a zinc mansard, stepped on the wide ones, and
+           chimney stacks: from the street a far block is its roof line
   towers   the three towers of the Part-Dieu, east, as plain shafts: the skyline every view
            of Lyon across the Rhone has
   hills    Fourviere (west, wooded, 150 m) and the Croix-Rousse (north, built, 85 m) as two
@@ -320,6 +322,56 @@ def circuit_line(text):
     return out
 
 
+ROOF_TILE_SHARE = 0.6           # Lyon from afar is tile; the rest zinc, the mansards of the centre
+ROOF_SEED = 1009                # the roofs have their own draw: the blocks stay where they were
+
+
+def roofs(blocks, seed=7):
+    """What tops the far blocks, as boxes: {"roofs": [...], "chimneys": [...]}, each {x, y, yaw,
+    width, depth, bottom, top} in metres, a roof with its "kind" ("tile" or "zinc").
+
+    Gate 86, long take, 120 s: at the end of the quay the far blocks are flat grey boxes under
+    one straight line. A town's skyline is its roofs: each block gets a tiled roof (a low slab
+    that overhangs the wall, the eave line) or a zinc mansard (a storey set back), a wide block
+    one that steps up over part of its length, and chimney stacks on its party walls. Towers
+    keep their flat top."""
+    rng = random.Random(seed * ROOF_SEED)
+    out = {"roofs": [], "chimneys": []}
+    for b in blocks:
+        if b["kind"] != "block":
+            continue
+        kind = "tile" if rng.random() < ROOF_TILE_SHARE else "zinc"
+        grow, tall = (0.5, rng.uniform(2.2, 3.0)) if kind == "tile" else (-0.9, rng.uniform(3.0, 3.8))
+        cos, sin = math.cos(math.radians(b["yaw"])), math.sin(math.radians(b["yaw"]))
+
+        def at(lx, ly, b=b, cos=cos, sin=sin):       # along the block, across it -> the map's x, y
+            return round(b["x"] + lx * cos - ly * sin, 1), round(b["y"] + lx * sin + ly * cos, 1)
+
+        # one roof, or two when the block is wide: two houses of different heights side by side
+        cut = rng.uniform(0.35, 0.65) if b["width"] > 60.0 else 1.0
+        step = rng.choice((1.6, 3.2)) if cut < 1.0 else 0.0
+        spans = [(-0.5, cut - 0.5, 0.0)] + ([(cut - 0.5, 0.5, step)] if cut < 1.0 else [])
+        if rng.random() < 0.5:
+            spans = [(-hi, -lo, up) for lo, hi, up in spans]
+        ridge = []
+        for lo, hi, up in spans:
+            x, y = at(0.5 * (lo + hi) * b["width"], 0.0)
+            top = b["top"] + up + tall
+            out["roofs"].append({"x": x, "y": y, "yaw": b["yaw"], "kind": kind,
+                                 "width": round((hi - lo) * b["width"] + 2.0 * grow, 1),
+                                 "depth": round(b["depth"] + 2.0 * grow, 1),
+                                 "bottom": b["top"] - 0.2, "top": round(top, 1)})
+            ridge.append((lo, hi, top))
+        for k in range(max(2, int(round(b["width"] / 13.0)))):
+            f = (k + rng.uniform(0.25, 0.75)) / max(2, int(round(b["width"] / 13.0))) - 0.5
+            top = next(t for lo, hi, t in ridge if lo <= f <= hi)
+            x, y = at(f * b["width"], rng.choice((-0.22, 0.22)) * b["depth"])
+            out["chimneys"].append({"x": x, "y": y, "yaw": b["yaw"], "width": round(rng.uniform(1.2, 1.8), 1),
+                                    "depth": round(rng.uniform(2.4, 3.6), 1), "bottom": round(top - 0.5, 1),
+                                    "top": round(top + rng.uniform(2.0, 3.4), 1)})
+    return out
+
+
 def layout(seed=7):
     """The whole far view: {"skirt": {...}, "hills": [...], "blocks": [...], "monuments": [...]}, the
     same for a seed."""
@@ -347,4 +399,5 @@ def layout(seed=7):
                        "top": top, "colour": TOWER_COLOUR, "kind": "tower"})
     hills = [{"name": name, "x": cx, "y": cy, "half_x": rx, "half_y": ry, "top": top, "wooded": wooded}
              for name, cx, cy, rx, ry, top, wooded in HILLS]
-    return {"skirt": {"half": SKIRT_HALF_M}, "hills": hills, "blocks": blocks, "monuments": monuments()}
+    return {"skirt": {"half": SKIRT_HALF_M}, "hills": hills, "blocks": blocks, "monuments": monuments(),
+            "roofs": roofs(blocks, seed)}
