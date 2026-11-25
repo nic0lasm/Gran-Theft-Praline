@@ -2819,7 +2819,9 @@ void AGTPVehicle::OnBodyHit(UPrimitiveComponent* HitComponent, AActor* OtherActo
 	}
 	// A car nobody drives, touched by somebody on foot: said, a few times a car. Gate 99's long take: the stolen car,
 	// empty on place Bellecour, was thrown over the square as two officers reached it, and no line said by what.
-	if (StandingTouchesTold < 6 && !HasAIDriver() && (State != EGTPVehicleState::Driven || FMath::Abs(GetSpeedKmh()) < 5.f) && OtherActor && OtherActor->IsA<ACharacter>())
+	// Not its own driver: he is made inside the car a moment before he is seated (gate 103: 118 such lines, one a car).
+	if (StandingTouchesTold < 6 && !HasAIDriver() && (State != EGTPVehicleState::Driven || FMath::Abs(GetSpeedKmh()) < 5.f) && OtherActor && OtherActor->IsA<ACharacter>()
+		&& OtherActor->GetGameTimeSinceCreation() > 1.f)
 	{
 		++StandingTouchesTold;
 		GTP_TRACE(LogGTPVehicle, TEXT("%s: %s, touched by %s (%s) at %s, normal %.2f %.2f %.2f, impulse %.0f; the car up %.2f, %.0f km/h"),
