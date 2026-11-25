@@ -115,6 +115,16 @@ void UGTPCrowdSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 	int32 AvoidCars = 1;
 	FParse::Value(FCommandLine::Get(), TEXT("CrowdAvoidCars="), AvoidCars);
 	bAvoidCars = AvoidCars != 0;
+	// A car that comes fast: people get out of its way, and who runs from something does not run under it at a
+	// crossing (-CrowdDodgeCars=0: neither, as at gate 93, where the filmed flight ran 47 people over).
+	int32 DodgeCars = 1;
+	FParse::Value(FCommandLine::Get(), TEXT("CrowdDodgeCars="), DodgeCars);
+	bDodgeCars = DodgeCars != 0;
+	UE_LOG(LogGTPCrowd, Log, TEXT("crowd: fast cars: %s"), bDodgeCars
+		? *FString::Printf(TEXT("people get out of the way of the player's car from %.0f km/h and of any other from %.0f km/h, seen %.1f s and %.0f m ahead at most; they react in %.2f to %.2f s, one in %.0f in %.1f to %.1f s"),
+			Settings.DodgeCarSpeed * 0.036f, Settings.DodgeTrafficSpeed * 0.036f, Settings.DodgeSeconds, Settings.DodgeReach / 100.f,
+			Settings.DodgeReactMin, Settings.DodgeReactMax, Settings.DodgeSlowShare > 0.f ? 1.f / Settings.DodgeSlowShare : 0.f, Settings.DodgeSlowMin, Settings.DodgeSlowMax)
+		: TEXT("nobody gets out of their way (-CrowdDodgeCars=0)"));
 	int32 Hair = 1;
 	FParse::Value(FCommandLine::Get(), TEXT("CrowdHair="), Hair);
 	bHair = Hair != 0;
@@ -330,7 +340,7 @@ void UGTPCrowdSubsystem::Tick(float DeltaTime)
 	}
 	UpdateNear(DeltaTime);
 	NextCarLook -= DeltaTime;
-	if ((bCrossingWait || bAvoidCars) && NextCarLook <= 0.f)
+	if ((bCrossingWait || bAvoidCars || bDodgeCars) && NextCarLook <= 0.f)
 	{
 		NextCarLook = 0.25f;
 		LookAtCars();
@@ -370,6 +380,55 @@ void UGTPCrowdSubsystem::LookAtCars()
 			Car.Forward = Velocity.GetSafeNormal2D();
 			Car.SpeedCmS = Velocity.Size2D();
 			Car.RadiusCm = 250.f;
+		}
+	}
+	// The cars that come fast, whoever drives them: people get out of their way (GTPWalk::Dodge, in the move
+	// processor), and nobody steps onto a crossing in front of one. Until gate 93 only MassTraffic's cars and the
+	// player's were looked at, for the crossings alone: a police car in a chase was not seen at all.
+	FastCars.Reset();
+	FastCarsTime = World->GetTimeSeconds();
+	bPlayerCarFast = false;
+	if (bDodgeCars)
+	{
+		const APawn* Driven = UGameplayStatics::GetPlayerPawn(World, 0);
+		if (Driven && !Driven->IsA<ACharacter>())
+		{
+			const FVector DrivenVelocity = Driven->GetVelocity();
+			const float DrivenSpeed = static_cast<float>(DrivenVelocity.Size2D());
+			if (DrivenSpeed >= Settings.DodgeCarSpeed)
+			{
+				const FVector DrivenWay = DrivenVelocity.GetSafeNormal2D();
+				GTPWalk::FFastCar& Fast = FastCars.AddDefaulted_GetRef();
+				Fast.Location = GTPWalk::FPoint{static_cast<float>(Driven->GetActorLocation().X), static_cast<float>(Driven->GetActorLocation().Y)};
+				Fast.Forward = GTPWalk::FPoint{static_cast<float>(DrivenWay.X), static_cast<float>(DrivenWay.Y)};
+				Fast.Speed = DrivenSpeed;
+				bPlayerCarFast = true;
+			}
+		}
+		const double FastWithin = FMath::Square(static_cast<double>(RecycleDistance + FastCarReach));
+		for (TActorIterator<AGTPVehicle> It(World); It; ++It)
+		{
+			if (*It == Driven || FVector::DistSquared2D(It->GetActorLocation(), PlayerLocation) > FastWithin)
+			{
+				continue;
+			}
+			const FVector OtherVelocity = It->GetVelocity();
+			const float OtherSpeed = static_cast<float>(OtherVelocity.Size2D());
+			if (OtherSpeed < Settings.DodgeTrafficSpeed)
+			{
+				continue;
+			}
+			const FVector OtherWay = OtherVelocity.GetSafeNormal2D();
+			GTPWalk::FFastCar& Fast = FastCars.AddDefaulted_GetRef();
+			Fast.Location = GTPWalk::FPoint{static_cast<float>(It->GetActorLocation().X), static_cast<float>(It->GetActorLocation().Y)};
+			Fast.Forward = GTPWalk::FPoint{static_cast<float>(OtherWay.X), static_cast<float>(OtherWay.Y)};
+			Fast.Speed = OtherSpeed;
+			// For the crossings too, as the player's car above.
+			FGTPMassTrafficCar& Seen = CarsSeen.AddDefaulted_GetRef();
+			Seen.Location = It->GetActorLocation();
+			Seen.Forward = OtherWay;
+			Seen.SpeedCmS = OtherSpeed;
+			Seen.RadiusCm = 250.f;
 		}
 	}
 	// The cars people walk round: every vehicle of the game standing or rolling slowly near the player (his own, the
@@ -431,6 +490,11 @@ void UGTPCrowdSubsystem::LookAtCars()
 	{
 		UE_LOG(LogGTPCrowd, Log, TEXT("crowd: cars: %d standing or slow within %.0f m of the player; people going round one %d, standing in front of one %d, within the body of one %d; since the start: most within a body at once %d, turned back at one %d, something high not taken for the ground %d times"),
 			StandingCars.Num(), CarAvoidDistance / 100.f, GoingRoundCar, StandingAtCar, InsideCar, MostInsideCar, TurnedBackAtCar, GroundRefusals);
+	}
+	if (bLogNow && bDodgeCars)
+	{
+		UE_LOG(LogGTPCrowd, Log, TEXT("crowd: fast cars: %d coming fast within %.0f m of the player now (his own: %s); people with one coming at them %d now (most %d); since the start: %d leapt aside, %d ran off along their walkway; people who run from something kept at a kerb by a car about to pass %d now (most %d)"),
+			FastCars.Num(), (RecycleDistance + FastCarReach) / 100.f, bPlayerCarFast ? TEXT("yes") : TEXT("no"), InWayNow, MostInWay, LeaptAside, RanOffAlong, RunnersAtKerbNow, MostRunnersAtKerb);
 	}
 	if (bLogNow)
 	{
@@ -508,6 +572,16 @@ void UGTPCrowdSubsystem::ReportCars(int32 Round, int32 Standing, int32 Inside, i
 	GroundRefusals += GroundRefused;
 }
 
+void UGTPCrowdSubsystem::ReportDodges(int32 InWay, int32 Leapt, int32 Ran, int32 HeldAtKerb)
+{
+	InWayNow = InWay;
+	MostInWay = FMath::Max(MostInWay, InWay);
+	LeaptAside += Leapt;
+	RanOffAlong += Ran;
+	RunnersAtKerbNow = HeldAtKerb;
+	MostRunnersAtKerb = FMath::Max(MostRunnersAtKerb, HeldAtKerb);
+}
+
 void UGTPCrowdSubsystem::ReportGround(int32 High, float Highest, int32 Under)
 {
 	HighNow = High;
@@ -566,8 +640,22 @@ void UGTPCrowdMoveProcessor::Execute(FMassEntityManager& EntityManager, FMassExe
 	int32 High = 0, UnderSomething = 0;
 	float Highest = 0.f;
 	const float PlayerGround = Crowd->GetPlayerGroundZ();
+	// The cars that come fast, put where they are now: they were looked at up to a quarter of a second ago, and a
+	// car at 99 km/h is 7 m further on.
+	TArray<GTPWalk::FFastCar, TInlineAllocator<16>> FastCars;
+	const float CarsAge = FMath::Clamp(static_cast<float>(Now - Crowd->GetFastCarsTime()), 0.f, 0.5f);
+	for (const GTPWalk::FFastCar& Seen : Crowd->GetFastCars())
+	{
+		GTPWalk::FFastCar& Placed = FastCars.Add_GetRef(Seen);
+		Placed.Location.X += Placed.Forward.X * Placed.Speed * CarsAge;
+		Placed.Location.Y += Placed.Forward.Y * Placed.Speed * CarsAge;
+	}
+	const bool bDodge = Crowd->DodgesCars();
+	const double DodgeWithin = FMath::Square(static_cast<double>(Settings.DodgeReach) + 800.0);
+	int32 InWay = 0, Leapt = 0, Ran = 0, HeldAtKerb = 0;
 	Query.ForEachEntityChunk(Context, [this, Crowd, &Graph, &Settings, Player, Recycle, Now, &Waiting, &OnCrossing, &GaveUp, &LongestWait,
-		&CarBoxes, &RoundCar, &AtCar, &InCar, &BackAtCar, &GroundRefused, &High, &UnderSomething, &Highest, PlayerGround](FMassExecutionContext& Chunk)
+		&CarBoxes, &RoundCar, &AtCar, &InCar, &BackAtCar, &GroundRefused, &High, &UnderSomething, &Highest, PlayerGround,
+		&FastCars, bDodge, DodgeWithin, &InWay, &Leapt, &Ran, &HeldAtKerb](FMassExecutionContext& Chunk)
 	{
 		const float Dt = Chunk.GetDeltaTimeSeconds();
 		const TArrayView<FGTPCrowdWalkerFragment> Walkers = Chunk.GetMutableFragmentView<FGTPCrowdWalkerFragment>();
@@ -621,17 +709,51 @@ void UGTPCrowdMoveProcessor::Execute(FMassEntityManager& EntityManager, FMassExe
 				continue;
 			}
 			// About to step onto a crossing: is a car about to go over it, and is it this crossing's turn to walk?
+			// And a car that comes fast keeps at the kerb even somebody who runs from something (GTPWalk::Step).
 			bool bCrossingUnsafe = false;
+			bool bCrossingDangerous = false;
 			if (Graph.IsValidEdge(W.Walker.Edge) && Graph.Edges[W.Walker.Edge].Kind == GTPWalk::EKind::Crossing && W.Walker.S < 30.f)
 			{
 				const uint8 Cars = Crowd->GetCrossingCars(W.Walker.Edge);
 				bCrossingUnsafe = Cars != 0 && GTPWalk::CrossingUnsafe(W.Walker.Edge, Now,
 					(Cars & UGTPCrowdSubsystem::CrossingHasCarNear) != 0, (Cars & UGTPCrowdSubsystem::CrossingHasCarDangerous) != 0, Settings);
+				bCrossingDangerous = bDodge && (Cars & UGTPCrowdSubsystem::CrossingHasCarDangerous) != 0;
+			}
+			// A car that comes fast at him, or that his walk would take him in front of: out of its way, the one
+			// that will be on him first (GTPWalk::ComesAt and Dodge). The player's car knocks down whoever stays.
+			{
+				const GTPWalk::FFastCar* Coming = nullptr;
+				float ComingSide = 0.f, ComingSeconds = 0.f;
+				for (const GTPWalk::FFastCar& Fast : FastCars)
+				{
+					if (FMath::Square(Fast.Location.X - W.Location.X) + FMath::Square(Fast.Location.Y - W.Location.Y) > DodgeWithin)
+					{
+						continue;
+					}
+					float Side = 0.f, Seconds = 0.f;
+					if (GTPWalk::ComesAt(Graph, W.Walker, Fast, Settings, Side, Seconds) && (!Coming || Seconds < ComingSeconds))
+					{
+						Coming = &Fast;
+						ComingSide = Side;
+						ComingSeconds = Seconds;
+					}
+				}
+				if (Coming)
+				{
+					const GTPWalk::FDodgeResult Dodged = GTPWalk::Dodge(Graph, W.Walker, *Coming, ComingSide, ComingSeconds, Settings, Rng, Dt);
+					InWay += Dodged.What != GTPWalk::EDodge::None ? 1 : 0;
+					Leapt += Dodged.bStarted && Dodged.What == GTPWalk::EDodge::Sideways ? 1 : 0;
+					Ran += Dodged.bStarted && Dodged.What == GTPWalk::EDodge::Along ? 1 : 0;
+				}
+				else
+				{
+					W.Walker.DodgeReact = -1.f;
+				}
 			}
 			// A car standing in the way: round it on the walkway, never through it; right in front of it he stands
 			// (GTPWalk::AvoidBox). Not for somebody who stands for another reason (hands up, a window, a crash).
 			GTPWalk::EAround Around = GTPWalk::EAround::Clear;
-			if (W.Walker.Pause <= 0.f)
+			if (W.Walker.Pause <= 0.f && W.Walker.DodgeTimeLeft <= 0.f)
 			{
 				for (const GTPWalk::FCarBox& Car : CarBoxes)
 				{
@@ -655,10 +777,11 @@ void UGTPCrowdMoveProcessor::Execute(FMassEntityManager& EntityManager, FMassExe
 			AtCar += Around == GTPWalk::EAround::Wait ? 1 : 0;
 			InCar += Around == GTPWalk::EAround::Inside ? 1 : 0;
 			const float WaitedBefore = W.Walker.CrossingWait;
-			const GTPWalk::FStepResult R = Around == GTPWalk::EAround::Wait ? GTPWalk::FStepResult() : GTPWalk::Step(Graph, W.Walker, Dt, Rng, Settings, bCrossingUnsafe);
+			const GTPWalk::FStepResult R = Around == GTPWalk::EAround::Wait ? GTPWalk::FStepResult() : GTPWalk::Step(Graph, W.Walker, Dt, Rng, Settings, bCrossingUnsafe, bCrossingDangerous);
 			if (R.bWaitingToCross)
 			{
 				++Waiting;
+				HeldAtKerb += R.bFleeing && bCrossingDangerous ? 1 : 0;
 				LongestWait = FMath::Max(LongestWait, W.Walker.CrossingWait);
 				GaveUp += WaitedBefore < Settings.CrossingWaitMax && W.Walker.CrossingWait >= Settings.CrossingWaitMax ? 1 : 0;
 			}
@@ -669,9 +792,26 @@ void UGTPCrowdMoveProcessor::Execute(FMassEntityManager& EntityManager, FMassExe
 			GTPWalk::FPoint P, D;
 			GTPWalk::Locate(Graph, W.Walker, P, D);
 			W.Speed = R.Speed;
+			const FVector Previous = W.Location;
+			if (R.bStandsAside)
+			{
+				// Out of a car's way he moves across his walkway, not along it: turned the way he goes and at the speed
+				// he goes, a run to the side; then he stands as he is until the car has passed.
+				const FVector2D Step2D(P.X - Previous.X, P.Y - Previous.Y);
+				const float StepLength = static_cast<float>(Step2D.Size());
+				if (Dt > UE_KINDA_SMALL_NUMBER && StepLength > 20.f * Dt)
+				{
+					W.Speed = FMath::Min(StepLength / Dt, 700.f);
+					D = GTPWalk::FPoint{static_cast<float>(Step2D.X) / StepLength, static_cast<float>(Step2D.Y) / StepLength};
+				}
+				else
+				{
+					W.Speed = 0.f;
+					D = GTPWalk::FPoint{FMath::Cos(FMath::DegreesToRadians(W.Yaw)), FMath::Sin(FMath::DegreesToRadians(W.Yaw))};
+				}
+			}
 			const float Target = FMath::RadiansToDegrees(FMath::Atan2(D.Y, D.X));
 			W.Yaw = FMath::RInterpTo(FRotator(0.f, W.Yaw, 0.f), FRotator(0.f, Target, 0.f), Dt, 8.f).Yaw;
-			const FVector Previous = W.Location;
 			W.Location = FVector(P.X, P.Y, 0.f);
 			if (FVector::Dist2D(W.Location, Player) > Recycle)
 			{
@@ -715,6 +855,7 @@ void UGTPCrowdMoveProcessor::Execute(FMassEntityManager& EntityManager, FMassExe
 	Crowd->ReportCrossings(Waiting, OnCrossing, LongestWait, GaveUp);
 	Crowd->ReportCars(RoundCar, AtCar, InCar, BackAtCar, GroundRefused);
 	Crowd->ReportGround(High, Highest, UnderSomething);
+	Crowd->ReportDodges(InWay, Leapt, Ran, HeldAtKerb);
 }
 
 UGTPCrowdRepresentationProcessor::UGTPCrowdRepresentationProcessor()
@@ -1351,6 +1492,9 @@ void UGTPCrowdSubsystem::UpdateNear(float DeltaTime)
 			// Run over: the person stays where his body lies, down, until the body is given to somebody else. He used to
 			// walk on unseen after 10 s while the body stayed on the road, and his state could go "hands up" under a gun.
 			W->Walker.Pause = FMath::Max(W->Walker.Pause, 1.f);
+			// ...and he does not leap out of the way of the next car (GTPWalk::Dodge): his body lies where it fell.
+			W->Walker.Down = 1.f;
+			W->Walker.DodgeTimeLeft = 0.f;
 			W->Speed = 0.f;
 			if (UGTPThreatResponseComponent* Fear = Actor->FindComponentByClass<UGTPThreatResponseComponent>())
 			{
@@ -1418,7 +1562,7 @@ void UGTPCrowdSubsystem::UpdateNear(float DeltaTime)
 			Actor->PlayLoop(Still, 1.f);
 			SayWhatIsPlayed(Actor, Still, bHandsUp ? TEXT("hands up") : (bGawk ? TEXT("cower") : TEXT("idle")));
 		}
-		else if (W->Walker.FleeTimeLeft > 0.f && Run)
+		else if ((W->Walker.FleeTimeLeft > 0.f || W->Walker.DodgeTimeLeft > 0.f) && Run)
 		{
 			Actor->PlayLoop(FearRun ? FearRun.Get() : Run.Get(), W->Speed / RunAnimationSpeed);
 		}

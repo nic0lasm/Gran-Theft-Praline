@@ -145,6 +145,24 @@ struct FSettings
 	float CarLookAhead = 350.f;
 	float CarMargin = 45.f;
 	float CarWaitSeconds = 4.f;
+	// A car coming fast at somebody (InTheWay, Dodge): he gets out of its way. Seen DodgeSeconds before its front
+	// reaches him and never further than DodgeReach; "out of its way" is DodgeClear from its flank. Each person takes
+	// between DodgeReactMin and DodgeReactMax to move, then leaps sideways at DodgeSideSpeed or runs along his walkway,
+	// whichever is sooner out. DodgeCarSpeed: from this speed on the player's car is one (under it, it knocks nobody
+	// down); DodgeTrafficSpeed: the same for the other cars, which pass people on the pavement all day long.
+	float DodgeCarSpeed = 400.f;
+	float DodgeTrafficSpeed = 1100.f;
+	float DodgeSeconds = 1.5f;
+	float DodgeReach = 3500.f;
+	float DodgeClear = 70.f;
+	float DodgeSideSpeed = 300.f;
+	float DodgeBeyond = 60.f;       // a leap may end this far off the walkway (cm), as those who wait at a kerb stand
+	float DodgeReactMin = 0.1f;
+	float DodgeReactMax = 0.45f;
+	// One in eight looks elsewhere and sees it late: with a car driven straight at a crowd a few are still run over.
+	float DodgeSlowShare = 0.125f;
+	float DodgeSlowMin = 0.7f;
+	float DodgeSlowMax = 1.2f;
 	float CrossingWeight = 0.4f;    // relative chance to take a crossing at a junction
 	float GroupChance = 0.25f;      // chance that a new person is half of a pair walking together
 	float GroupGap = 70.f;          // the follower walks this far behind its partner (cm)
@@ -187,7 +205,25 @@ struct FWalker
 	int Generation = 0;
 	/** Seconds spent standing in front of a car with no way round it (AvoidBox). */
 	float BlockedTime = 0.f;
+	/** Leaping out of a car's way, then standing aside until it has passed (Dodge): seconds left. */
+	float DodgeTimeLeft = 0.f;
+	/** Seconds before he reacts to the car coming at him; 0 once he has, negative while no car comes at him. */
+	float DodgeReact = -1.f;
+	/** 0..1: how much of his sideways offset he keeps at the ends of his edge, where it otherwise fades (EdgeFade). */
+	float Unfade = 0.f;
+	/** Lying on the ground, run over: seconds left (the caller keeps it up while the body lies). No leap. */
+	float Down = 0.f;
 };
+
+/**
+ * The sideways offset of a walker fades out over the last metres of an edge, so that walkers meet at the nodes
+ * whatever the angle between two edges (no jump at a corner). 1 = whole offset, 0 = on the line.
+ */
+inline float EdgeFade(const FEdge& E, float S)
+{
+	const float Ramp = 300.f;
+	return std::max(0.f, std::min(1.f, std::min(S, E.Length - S) / Ramp));
+}
 
 inline int NodeAhead(const FGraph& G, const FWalker& W)
 {
@@ -295,11 +331,8 @@ inline void Locate(const FGraph& G, const FWalker& W, FPoint& OutPos, FPoint& Ou
 	{
 		D = {-D.X, -D.Y};
 	}
-	// The sideways drift fades out over the last metres of an edge, so walkers meet at the nodes
-	// whatever the angle between two edges (no jump at a corner).
-	const float Ramp = 300.f;
-	const float Fade = std::max(0.f, std::min(1.f, std::min(W.S, E.Length - W.S) / Ramp));
-	const float Side = W.Lateral * Fade;
+	// Somebody who leapt out of a car's way keeps his offset wherever he is on the edge (Unfade).
+	const float Side = W.Lateral * std::max(EdgeFade(E, W.S), W.Unfade);
 	// Unreal: x forward (east), y right (south). The left of (dx, dy) is (dy, -dx).
 	OutPos = {P.X + D.Y * Side, P.Y - D.X * Side};
 	OutDir = D;
@@ -560,11 +593,201 @@ inline EAround AvoidBox(const FGraph& G, FWalker& W, const FCarBox& Box, const F
 	return EAround::Wait;
 }
 
+/** A car that comes fast: the centre of its body, the way it moves (unit), its speed (cm/s) and half its size (cm). */
+struct FFastCar
+{
+	FPoint Location;
+	FPoint Forward{1.f, 0.f};
+	float Speed = 0.f;
+	float HalfLength = 240.f;
+	float HalfWidth = 100.f;
+};
+
+/**
+ * Is somebody standing at Pos in the way of this car? Its way is taken straight, as wide as its body plus DodgeClear
+ * on each side, from its back to where its front will be in DodgeSeconds (DodgeReach at most). OutSide: where he is
+ * across that way (cm from its middle, positive on the car's left); OutSeconds: before its front is on him.
+ */
+inline bool InTheWay(const FFastCar& Car, const FPoint& Pos, const FSettings& S, float& OutSide, float& OutSeconds)
+{
+	if (Car.Speed <= 1.f)
+	{
+		return false;
+	}
+	const float Dx = Pos.X - Car.Location.X;
+	const float Dy = Pos.Y - Car.Location.Y;
+	const float Gap = Dx * Car.Forward.X + Dy * Car.Forward.Y - Car.HalfLength;
+	if (Gap < -2.f * Car.HalfLength || Gap > std::min(S.DodgeReach, Car.Speed * S.DodgeSeconds))
+	{
+		return false;
+	}
+	// The left of (dx, dy) is (dy, -dx).
+	const float Side = Dx * Car.Forward.Y - Dy * Car.Forward.X;
+	if (std::fabs(Side) >= Car.HalfWidth + S.DodgeClear)
+	{
+		return false;
+	}
+	OutSide = Side;
+	OutSeconds = std::max(0.f, Gap) / Car.Speed;
+	return true;
+}
+
+/**
+ * Does this car come at this walker? It does when he is in its way where he stands, and also when his walk takes him
+ * into its way within the next DodgeSeconds: nobody walks into the way of a car he sees coming (at the end of an
+ * edge everybody comes back to the line of the walkway, which a car driving along a street closed to cars is on).
+ * OutSide: where he is now across the car's way (cm, positive on its left, further than its way is wide in the
+ * second case); OutSeconds: before its front is on him, or on where he is going.
+ */
+inline bool ComesAt(const FGraph& G, const FWalker& W, const FFastCar& Car, const FSettings& S, float& OutSide, float& OutSeconds)
+{
+	if (!G.IsValidEdge(W.Edge))
+	{
+		return false;
+	}
+	FPoint Pos, Dir;
+	Locate(G, W, Pos, Dir);
+	if (InTheWay(Car, Pos, S, OutSide, OutSeconds))
+	{
+		return true;
+	}
+	const FEdge& E = G.Edges[W.Edge];
+	if (W.Pause > 0.f || W.DodgeTimeLeft > 0.f || (E.Kind == EKind::Crossing && W.S < 30.f))
+	{
+		return false; // he stands where he is, or at the kerb of a crossing, where a car about to pass keeps him (Step)
+	}
+	FWalker Ahead = W;
+	const float Speed = S.WalkSpeed * W.SpeedScale * (W.FleeTimeLeft > 0.f ? S.FleeSpeedScale : 1.f);
+	Ahead.S = std::min(E.Length, W.S + Speed * S.DodgeSeconds);
+	FPoint There;
+	Locate(G, Ahead, There, Dir);
+	float Unused = 0.f;
+	if (!InTheWay(Car, There, S, Unused, OutSeconds))
+	{
+		return false;
+	}
+	OutSide = (Pos.X - Car.Location.X) * Car.Forward.Y - (Pos.Y - Car.Location.Y) * Car.Forward.X;
+	return true;
+}
+
+enum class EDodge : int
+{
+	None = 0,     // nothing to do (lying on the ground, hands up at gunpoint)
+	Sees = 1,     // has seen the car, has not moved yet
+	Sideways = 2, // leaps aside on his walkway and stands there until the car has passed
+	Along = 3     // runs along his walkway, out of the car's way (somebody on a crossing)
+};
+
+struct FDodgeResult
+{
+	EDodge What = EDodge::None;
+	/** True on the one call where he starts to move. */
+	bool bStarted = false;
+};
+
+/**
+ * A car comes fast at a walker (ComesAt said so, with Side and Seconds): he gets out of its way. Call it every frame
+ * while a car threatens him, with the one that will be on him first, before Step; with no such car set DodgeReact
+ * to -1. He takes his time to react, then goes the way that is sooner out: a leap sideways on his walkway (a street
+ * the car drives along) or a run along it (a crossing the car drives over). A leap that has no room on the near side
+ * goes to the far side when the walkway has room there, and as far as it can otherwise.
+ */
+inline FDodgeResult Dodge(const FGraph& G, FWalker& W, const FFastCar& Car, float Side, float Seconds, const FSettings& S, FRng& Rng, float Dt)
+{
+	FDodgeResult Result;
+	if (!G.IsValidEdge(W.Edge) || W.Down > 0.f || (W.PauseKind == EPause::HandsUp && W.Pause > 0.f))
+	{
+		return Result;
+	}
+	if (W.DodgeReact < 0.f)
+	{
+		W.DodgeReact = Rng.Next() < S.DodgeSlowShare ? Rng.Range(S.DodgeSlowMin, S.DodgeSlowMax) : Rng.Range(S.DodgeReactMin, S.DodgeReactMax);
+	}
+	if (W.DodgeReact > 0.f)
+	{
+		W.DodgeReact = std::max(0.f, W.DodgeReact - Dt);
+		if (W.DodgeReact > 0.f)
+		{
+			Result.What = EDodge::Sees;
+			return Result;
+		}
+		Result.bStarted = true;
+	}
+	const FEdge& E = G.Edges[W.Edge];
+	FPoint Pos, Dir;
+	Locate(G, W, Pos, Dir);
+	// How much a step to his left, and a step along his way, take him to the car's left.
+	const float SideGain = Dir.X * Car.Forward.X + Dir.Y * Car.Forward.Y;
+	const float AlongGain = Dir.X * Car.Forward.Y - Dir.Y * Car.Forward.X;
+	const float Clear = Car.HalfWidth + S.DodgeClear + 15.f;
+	const float Out = Side >= 0.f ? 1.f : -1.f;
+	const float Half = E.Width * 0.5f + S.DodgeBeyond;
+	const float Kept = W.Lateral * std::max(EdgeFade(E, W.S), W.Unfade);
+	// Sideways: to the near side of the car's way, else to the far side.
+	bool bSideways = false;
+	float SideTarget = 0.f, SideTime = 1e9f;
+	if (std::fabs(SideGain) > 0.3f)
+	{
+		for (int Way = 0; Way < 2 && !bSideways; ++Way)
+		{
+			// Already clear of it (it is his walk that would take him into its way): he stays on the side he is on.
+			const float Wanted = Way == 0 ? Out * std::max(Clear, std::fabs(Side)) : -Out * Clear;
+			const float Target = Kept + (Wanted - Side) / SideGain;
+			if (std::fabs(Target) <= Half)
+			{
+				bSideways = true;
+				SideTarget = Target;
+				SideTime = std::fabs(Wanted - Side) / (std::fabs(SideGain) * S.DodgeSideSpeed);
+			}
+		}
+	}
+	const float Run = S.WalkSpeed * W.SpeedScale * S.FleeSpeedScale;
+	const float AlongTime = std::fabs(AlongGain) > 0.3f ? std::max(0.f, Clear - std::fabs(Side)) / (std::fabs(AlongGain) * Run) : 1e9f;
+	const bool bLeaping = W.DodgeTimeLeft > 0.f;
+	if (bSideways && (bLeaping || SideTime <= AlongTime))
+	{
+		W.LateralTarget = SideTarget;
+	}
+	else if (AlongTime < 1e8f && !bLeaping)
+	{
+		// Along his walkway, the way that leaves the car's: on if that takes him further to the side he is on.
+		if (Out * AlongGain < 0.f)
+		{
+			W.S = E.Length - W.S;
+			W.bForward = !W.bForward;
+			W.Lateral = -W.Lateral;
+			W.LateralTarget = -W.LateralTarget;
+		}
+		W.FleeTimeLeft = std::max(W.FleeTimeLeft, AlongTime + 1.f);
+		W.Threat = Car.Location;
+		W.Generation = 0;
+		W.Pause = 0.f;
+		W.PauseKind = EPause::None;
+		W.CrossingWait = 0.f;
+		Result.What = EDodge::Along;
+		return Result;
+	}
+	else
+	{
+		// No room on either side and a walkway that runs along the car's way: as far aside as it goes.
+		const float Far = (SideGain >= 0.f ? Out : -Out) * Half;
+		W.LateralTarget = Far;
+	}
+	W.DodgeTimeLeft = std::max(W.DodgeTimeLeft, Seconds + 2.f * Car.HalfLength / Car.Speed + 0.4f);
+	W.Pause = 0.f;
+	W.PauseKind = EPause::None;
+	W.BlockedTime = 0.f;
+	Result.What = EDodge::Sideways;
+	return Result;
+}
+
 struct FStepResult
 {
 	bool bMoving = false;
 	bool bFleeing = false;
 	bool bWaitingToCross = false;
+	/** Stands aside, out of a car's way, or steps back to his line afterwards: he does not walk on. */
+	bool bStandsAside = false;
 	/** Walking speed after this step (cm/s). */
 	float Speed = 0.f;
 };
@@ -648,16 +871,31 @@ inline void LookAtCar(const FEdge& Crossing, const FPoint& CarLocation, const FP
 
 /**
  * One decision. bCrossingUnsafe: a car is coming at the crossing the walker is
- * about to use (the caller looks, the graph does not know about cars).
+ * about to use (the caller looks, the graph does not know about cars). bCrossingDangerous: that car comes fast and
+ * is about to pass; then even somebody who runs from something stays at the kerb (he used to run under it).
  */
-inline FStepResult Step(const FGraph& G, FWalker& W, float Dt, FRng& Rng, const FSettings& S, bool bCrossingUnsafe)
+inline FStepResult Step(const FGraph& G, FWalker& W, float Dt, FRng& Rng, const FSettings& S, bool bCrossingUnsafe, bool bCrossingDangerous = false)
 {
 	FStepResult Result;
 	if (!G.IsValidEdge(W.Edge))
 	{
 		return Result;
 	}
-	W.Lateral += std::max(-S.LateralSpeed * Dt, std::min(S.LateralSpeed * Dt, W.LateralTarget - W.Lateral));
+	W.Down = std::max(0.f, W.Down - Dt);
+	W.DodgeTimeLeft = std::max(0.f, W.DodgeTimeLeft - Dt);
+	const bool bDodging = W.DodgeTimeLeft > 0.f;
+	const float SideSpeed = bDodging ? S.DodgeSideSpeed : S.LateralSpeed;
+	W.Lateral += std::max(-SideSpeed * Dt, std::min(SideSpeed * Dt, W.LateralTarget - W.Lateral));
+	// The offset kept at the end of an edge comes and goes no faster than a leap, and than a walk back to the line.
+	const float UnfadeRate = (bDodging ? S.DodgeSideSpeed : S.WalkSpeed) / std::max(std::fabs(W.Lateral), 50.f);
+	const float Faded = EdgeFade(G.Edges[W.Edge], W.S);
+	W.Unfade = bDodging ? std::min(1.f, std::max(W.Unfade, Faded) + UnfadeRate * Dt) : std::max(0.f, W.Unfade - UnfadeRate * Dt);
+	if (bDodging || W.Unfade > Faded)
+	{
+		// Aside until the car has passed, then back to where the walkway has him at this place before he walks on.
+		Result.bStandsAside = true;
+		return Result;
+	}
 	if (W.FleeTimeLeft > 0.f)
 	{
 		W.FleeTimeLeft -= Dt;
@@ -675,9 +913,9 @@ inline FStepResult Step(const FGraph& G, FWalker& W, float Dt, FRng& Rng, const 
 
 	const FEdge& Current = G.Edges[W.Edge];
 	const bool bFleeing = W.FleeTimeLeft > 0.f;
-	if (Current.Kind == EKind::Crossing && W.S < 30.f && !bFleeing)
+	if (Current.Kind == EKind::Crossing && W.S < 30.f && (!bFleeing || bCrossingDangerous))
 	{
-		if (bCrossingUnsafe && W.CrossingWait < S.CrossingWaitMax)
+		if ((bCrossingUnsafe || bCrossingDangerous) && W.CrossingWait < S.CrossingWaitMax)
 		{
 			if (W.CrossingWait <= 0.f)
 			{
