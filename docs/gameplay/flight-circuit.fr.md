@@ -73,6 +73,8 @@ Et le tirage des bosses. Une voiture abîmée d'un côté tire de ce côté : l'
 
 La ligne `DemoDrive`, une par seconde, porte maintenant ce qui manquait pour départager : `off` (mètres depuis la ligne conduite), `xy` et `yaw`, `pull` (ce que les bosses ajouteraient), et `sent` à côté de `steer` (donné à la voiture, et demandé par le suiveur de voie).
 
+La même prise a retenu quatre fois la fourgonnette de la seconde fuite au même endroit de la place Bellecour, et chaque ligne `held up` nommait le propre personnage du joueur « à 1,5 m devant », là où est le siège d'une fourgonnette. La sonde ne voit plus le conducteur de la voiture, et avant qu'une voiture retenue deux fois soit posée ailleurs le journal dit qui et quoi se trouve dedans et autour (`who is in the car (held up twice in the same place)`).
+
 ## Les gens sur la chaussée
 
 La sonde du script fait 9 m. À 98 km/h, c'est un tiers de seconde : à la porte 86 le script a freiné à fond pour une personne à 0 m (`kmh=98 brake=1.00 limit=obstacle obstacle=0 m`), la voiture l'a heurtée à 86 km/h, est partie en travers et s'est arrêtée contre un arbre à 4,4 m de sa ligne. Depuis, la fuite ne freine pour une personne que si elle peut encore s'arrêter avant elle (7 m/s², 1 m de marge : sous 43 km/h pour une personne au bout de la sonde) ou si elle roule au pas ; sinon elle garde sa ligne et sa vitesse (`GTPFlightPedals::StopsForPerson`). La ligne `DemoDrive` le dit : `not braked for`. Les passants qui s'écartent d'une voiture, ce n'est pas encore fait.

@@ -73,6 +73,8 @@ And the pull of the dents. A car beaten on one side pulls to that side: the driv
 
 The `DemoDrive` line, one a second, now carries what was missing to tell these apart: `off` (metres from the line driven), `xy` and `yaw`, `pull` (what the dents would add), and `sent` beside `steer` (given to the car, and asked by the lane follower).
 
+The same take held the second flight's van up four times at one place of the place Bellecour, and each `held up` line named the player's own character "1.5 m ahead", where a van's seat is. The probe no longer sees the car's driver, and before a car held up twice goes elsewhere the log says who and what is in it and round it (`who is in the car (held up twice in the same place)`).
+
 ## People in the road
 
 The script's probe is 9 m long. At 98 km/h that is a third of a second: at gate 86 the script gave the whole brake for a person at 0 m (`kmh=98 brake=1.00 limit=obstacle obstacle=0 m`), the car hit them at 86 km/h, went sideways and stopped against a tree 4.4 m from its line. Since then the flight brakes for a person only when it can still stop before them (7 m/s², 1 m of room: under 43 km/h for a person at the end of the probe) or when it is at walking pace; otherwise it keeps its line and its speed (`GTPFlightPedals::StopsForPerson`). The `DemoDrive` line says so: `not braked for`. People getting out of the way of a car is not done yet.

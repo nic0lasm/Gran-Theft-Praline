@@ -1213,6 +1213,13 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 							// What holds the car: the first thing within 8 m ahead (any channel the car collides with) and the car's own state.
 							FHitResult Ahead;
 							FCollisionQueryParams HeldParams(SCENE_QUERY_STAT(GTPChaseHeld), false, Driven);
+							// Not the car's own driver. Gate 89's long take, 210 to 237 s: held up four times at the same place of
+							// the place Bellecour in the van of the second flight, and each time the line named the player's own
+							// character "1.5 m ahead", where a van's seat is: what really held the car was never said.
+							if (const ACharacter* AtTheWheel = Driven->GetDriver())
+							{
+								HeldParams.AddIgnoredActor(AtTheWheel);
+							}
 							// Level ahead and clear of the ground: from 55 to 145 cm above the car's origin. Gate 86's long take: a
 							// sphere of 60 cm at 60 cm, along the car's own pitch, touched the road, and two tiles of the terrain
 							// (StaticMeshActor_741 and _742, 256 m wide) were read as obstacles "at 0 to 2 m", their lanes blocked
@@ -1276,6 +1283,11 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 						const FVector HeldAt = Driven->GetActorLocation();
 						HeldUpHere = FVector::Dist2D(HeldAt, HeldUpAt) < 1500.0 ? HeldUpHere + 1 : 1;
 						HeldUpAt = HeldAt;
+						if (HeldUpHere >= 2)
+						{
+							// Before the car goes elsewhere: who and what stands in it and round it (the town's bodies too while it is upright).
+							DemoWhoIsInTheCar(Driven, TEXT("held up twice in the same place"), Driven->GetActorUpVector().Z > 0.9);
+						}
 						if (HeldUpHere >= 2 && RelocateChase(Driven, PC, TEXT("held up twice in the same place")))
 						{
 							HeldUpHere = 0;
