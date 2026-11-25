@@ -5,6 +5,8 @@
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "GTPFrameTimeRecorder.generated.h"
 
+class UWorld;
+
 /**
  * Records per-frame timings to a CSV file. Works in every build
  * configuration, Shipping included, so the packaged game can be measured.
@@ -12,7 +14,9 @@
  * Command line:
  *   -FrameLog                write <Saved>/Profiling/frametimes-<date>.csv
  *   -FrameLogFile=<path>     write to this file instead
- *   -FrameLogWarmup=<s>      ignore the first seconds (default 5)
+ *   -FrameLogWarmup=<s>      ignore the first seconds (default 5), counted again from the
+ *                            end of each map load: the first frames after LoadMap (sky light
+ *                            capture, shader tables) are loading, not play (gate 93: 3.76 s)
  *   -ExitAfter=<s>           quit cleanly after this many seconds (soak tests)
  *
  * Columns: frame, time_s, frame_ms, game_ms, render_ms, gpu_ms.
@@ -40,8 +44,12 @@ private:
 
 	bool Tick(float DeltaTime);
 	void WriteResults();
+	void OnPostLoadMap(UWorld* LoadedWorld);
 
 	FTSTicker::FDelegateHandle TickHandle;
+	FDelegateHandle PostLoadMapHandle;
+	/** When the last map load ended (FPlatformTime seconds), or -1 before any. */
+	double MapLoadedSeconds = -1.0;
 	TArray<FFrameSample> Samples;
 	FString OutputPath;
 	double StartSeconds = 0.0;

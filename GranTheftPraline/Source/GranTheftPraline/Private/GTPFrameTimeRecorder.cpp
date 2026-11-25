@@ -15,6 +15,7 @@
 #include "ProfilingDebugging/CsvProfiler.h"
 #include "RenderCore.h"
 #include "RHI.h"
+#include "UObject/UObjectGlobals.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogGTPFrameTime, Log, All);
 
@@ -94,6 +95,17 @@ void UGTPFrameTimeRecorder::Initialize(FSubsystemCollectionBase& Collection)
 
 	StartSeconds = FPlatformTime::Seconds();
 	TickHandle = FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateUObject(this, &UGTPFrameTimeRecorder::Tick));
+	PostLoadMapHandle = FCoreUObjectDelegates::PostLoadMapWithWorld.AddUObject(this, &UGTPFrameTimeRecorder::OnPostLoadMap);
+}
+
+void UGTPFrameTimeRecorder::OnPostLoadMap(UWorld* LoadedWorld)
+{
+	MapLoadedSeconds = FPlatformTime::Seconds();
+	if (bRecording)
+	{
+		UE_LOG(LogGTPFrameTime, Log, TEXT("Map loaded at %.1f s: the next %.0f s are warm-up, not recorded"),
+			MapLoadedSeconds - StartSeconds, WarmupSeconds);
+	}
 }
 
 void UGTPFrameTimeRecorder::Deinitialize()
@@ -102,6 +114,11 @@ void UGTPFrameTimeRecorder::Deinitialize()
 	{
 		FTSTicker::GetCoreTicker().RemoveTicker(TickHandle);
 		TickHandle.Reset();
+	}
+	if (PostLoadMapHandle.IsValid())
+	{
+		FCoreUObjectDelegates::PostLoadMapWithWorld.Remove(PostLoadMapHandle);
+		PostLoadMapHandle.Reset();
 	}
 	WriteResults();
 	Super::Deinitialize();
@@ -116,7 +133,9 @@ bool UGTPFrameTimeRecorder::Tick(float DeltaTime)
 		FirstTickSinceLaunch = FPlatformTime::Seconds() - GStartTime;
 	}
 
-	if (bRecording && Elapsed >= WarmupSeconds)
+	// Warm-up from launch, and again from the end of each map load (MapLoadedSeconds < 0: no load seen).
+	const bool bAfterLoad = MapLoadedSeconds < 0.0 || FPlatformTime::Seconds() - MapLoadedSeconds >= WarmupSeconds;
+	if (bRecording && Elapsed >= WarmupSeconds && bAfterLoad)
 	{
 		FFrameSample& Sample = Samples.AddDefaulted_GetRef();
 		Sample.TimeSeconds = Elapsed;
