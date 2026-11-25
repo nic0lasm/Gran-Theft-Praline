@@ -220,6 +220,9 @@ namespace GTPFlightCircuit
 		return true;
 	}
 
+	/** FCircuit::MetresToLines of a circuit that has no driving line. */
+	constexpr float NoLineMetres = 1.0e6f;
+
 	struct FCircuit
 	{
 		/** The lanes of one lap, in the order driven; the last leads to the first. */
@@ -258,6 +261,57 @@ namespace GTPFlightCircuit
 		}
 
 		bool IsValid() const { return !Lanes.empty(); }
+
+		/**
+		 * Metres from (X, Y) to the nearest line driven on the circuit, lap and approach, the joins from a line to the
+		 * next included; NoLineMetres when it has no line. The police keep their roadblocks off the lines of a flight a
+		 * script drives (AGTPPoliceDirector::KeepFlightLineClear).
+		 */
+		float MetresToLines(float X, float Y) const
+		{
+			float Best = NoLineMetres * NoLineMetres;
+			const auto Segment = [&Best, X, Y](const FLinePoint& From, const FLinePoint& To)
+			{
+				const float Dx = To.X - From.X;
+				const float Dy = To.Y - From.Y;
+				const float Length2 = Dx * Dx + Dy * Dy;
+				float Share = Length2 > 0.f ? ((X - From.X) * Dx + (Y - From.Y) * Dy) / Length2 : 0.f;
+				Share = Share < 0.f ? 0.f : (Share > 1.f ? 1.f : Share);
+				const float Ox = X - (From.X + Share * Dx);
+				const float Oy = Y - (From.Y + Share * Dy);
+				const float Gap2 = Ox * Ox + Oy * Oy;
+				Best = Gap2 < Best ? Gap2 : Best;
+			};
+			const auto Look = [&Segment](const std::vector<std::vector<FLinePoint>>& Set, bool bClosed)
+			{
+				const FLinePoint* Last = nullptr;
+				const FLinePoint* First = nullptr;
+				for (const std::vector<FLinePoint>& Line : Set)
+				{
+					if (Line.empty())
+					{
+						continue;
+					}
+					if (Last)
+					{
+						Segment(*Last, Line.front());
+					}
+					First = First ? First : &Line.front();
+					for (std::size_t Index = 0; Index + 1 < Line.size(); ++Index)
+					{
+						Segment(Line[Index], Line[Index + 1]);
+					}
+					Last = &Line.back();
+				}
+				if (bClosed && Last && First)
+				{
+					Segment(*Last, *First);
+				}
+			};
+			Look(Lines, true);
+			Look(ApproachLines, false);
+			return Best < NoLineMetres * NoLineMetres ? std::sqrt(Best) : NoLineMetres;
+		}
 
 		bool IsOn(int Lane) const
 		{
