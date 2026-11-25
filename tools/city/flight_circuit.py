@@ -61,9 +61,11 @@ Since gate 86 the line is written with --town. Its long take showed what the lin
 alone could not hold: five right-hand corners of 2 to 4 m of radius, which no car turns (the car
 ran wide or went round at full lock, and was put back on a lane six times); a building 1.6 m from
 the line on the place de l'Hopital; and the carrousel of the place de la Republique, a stand-in
-whose estimated place is on the carriageway of the rue Jean de Tournes. The line now goes round
-the carrousel by the north, over the place, comes no nearer than 2.5 m to a wall, and its
-tightest bend has a radius of 8.7 m (the turn back of the approach; 9.2 m on the lap).
+whose estimated place was on the carriageway of the rue Jean de Tournes. At gate 90 the line went
+round the carrousel by the north, over the place. Since gate 91 the carrousel itself stands 12 m
+north, on the place (lane_clear.LANDMARK_MOVES; line_room.py reads it there whatever the data
+say), and the line runs straight down the street again. It comes no nearer than 2.8 m to a wall,
+and its tightest bend has a radius of 8.8 m (the turn back of the approach; 9.3 m on the lap).
 """
 
 import argparse

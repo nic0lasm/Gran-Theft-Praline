@@ -318,7 +318,7 @@ bool UGTPDemoRoute::RelocateChase(AGTPVehicle* Driven, APlayerController* PC, co
 			}
 			const int32 Index = Lane.Points.Num() / 3;
 			// On the lap the car is put on the line it drives there (GTPFlightCircuit.h), not on the lane's own points: the
-			// two are metres apart at a corner, 12 m where the line goes round the carrousel of the place de la Republique.
+			// two are metres apart at a corner, more where the line goes round something that stands on the lane.
 			// Gate 86's long take: put on the lane's points of the rue Grolee, the car started at full lock toward its line.
 			FVector PutAt = Lane.Points[Index];
 			FVector PutToward = Lane.Points[Index + 1];

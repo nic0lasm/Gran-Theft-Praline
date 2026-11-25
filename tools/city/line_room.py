@@ -18,6 +18,9 @@ needs neither.
 import json
 import math
 import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 CLEAR_WALL_M = 2.8      # the line keeps this far from a wall (the prep step "lanes" clears 2.5 m round the line)
 CLEAR_ROUND_M = 2.6     # ... and this far from something it goes round
@@ -68,6 +71,20 @@ class Town(list):
                     self.cells.setdefault((i, j), []).append(wall)
 
 
+def _moved(wall):
+    """The landmark where the map has it: the prep step "lanes" moves the actor of a landmark the frozen base map holds
+    in the wrong place (lane_clear.LANDMARK_MOVES, by the label of its actor: SM_Landmark_ and its key in capitals),
+    and data made before the move still have it where it was."""
+    import lane_clear
+
+    label = "SM_Landmark_" + "".join(part.capitalize() for part in wall["name"].split("-"))
+    box = wall["box"]
+    move = lane_clear.landmark_move(label, ((box[0] + box[2]) * 50.0, (box[1] + box[3]) * 50.0))
+    if move is None:
+        return wall
+    return _wall(wall["name"], [(x + move[0] / 100.0, y + move[1] / 100.0) for x, y in wall["ring"]], wall["kind"])
+
+
 def read_town(folder):
     """The walls of the zone: [{name, kind (building, landmark, water), ring [(x, y)] closed, box, centre, radius}]."""
     walls = []
@@ -96,7 +113,7 @@ def read_town(folder):
                     continue    # a place is ground, not a wall
                 for ring in landmark.get("polygon_xy") or []:
                     if len(ring) >= 4:
-                        walls.append(_wall(landmark.get("key", "landmark"), _ring(ring), "landmark"))
+                        walls.append(_moved(_wall(landmark.get("key", "landmark"), _ring(ring), "landmark")))
     return Town(walls)
 
 

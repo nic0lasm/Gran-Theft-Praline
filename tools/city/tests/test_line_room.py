@@ -63,6 +63,18 @@ class LineRoomTests(unittest.TestCase):
         self.assertAlmostEqual(lr.to_wall((20.0, -43.0), b1)[0], 3.0)
         self.assertAlmostEqual(lr.to_wall((20.0, -38.0), b1)[0], -2.0)          # inside
         self.assertTrue(lr.has_town(self.dir))
+
+    def test_a_landmark_the_prep_moves_is_read_where_it_goes(self):
+        import lane_clear
+        (ox, oy), (nx, ny), _ = lane_clear.LANDMARK_MOVES["SM_Landmark_CarrouselRepublique"]
+        # Data made before the move (Unreal cm there, local metres with y north here), and data made after it.
+        for cx, cy in ((ox / 100.0, -oy / 100.0), (nx / 100.0, -ny / 100.0)):
+            write_town(self.dir, landmarks=[("carrousel-republique", "carousel", circle(cx, cy, 6.3)), ("kiosk", "kiosk", circle(cx + 40.0, cy, 3))])
+            walls = {w["name"]: w for w in lr.read_town(self.dir)}
+            box = walls["carrousel-republique"]["box"]
+            self.assertAlmostEqual((box[0] + box[2]) / 2.0, nx / 100.0, places=3)
+            self.assertAlmostEqual((box[1] + box[3]) / 2.0, ny / 100.0, places=3)
+            self.assertAlmostEqual((walls["kiosk"]["box"][1] + walls["kiosk"]["box"][3]) / 2.0, -cy, places=3)
         self.assertFalse(lr.has_town(os.path.join(self.dir, "none")))
 
     def test_room_and_least_radius_of_a_line(self):
