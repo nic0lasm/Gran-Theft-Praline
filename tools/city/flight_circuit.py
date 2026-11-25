@@ -6,14 +6,14 @@ lap, again and again: GranTheftPraline/Content/Test/Circuits/<Map>.circuit.csv, 
 (GTPFlightCircuit.h). A row names a lane by where it starts and ends (Unreal cm); its number in
 the lanes file is only a hint, the numbers move when tools/city/traffic.py makes the file again.
 
-Plain Python, no dependency (Pillow only for --png).
+Plain Python, no dependency (Pillow only for --png; numpy, scipy and shapely only for write --town).
 
   find   <lanes.csv> [--avoid 42,4] [--top 12]
          every closed way without a lane taken twice, the longest first: metres, share of main
          axes (carriageway of 7 m and more, as GTPRoadWidth.h) and of narrow streets (under 5 m)
   write  <lanes.csv> --lanes 214,7,95,... [--approach 188,215,...] --out <Map>.circuit.csv
          [--speeds "QU JULES COURMONT=100,R STELLA=60"] [--roads-out through_roads/<focus>.txt]
-         [--end 373,379,381]
+         [--end 373,379,381] [--town <processed data of the zone>]
          the circuit file of that lap, checked first, each lane with the line driven on it
          (driving_line: straights straightened, corners rounded). The approach: the lanes driven
          from where the flight starts to the lap, in order; without one the game takes the
@@ -21,12 +21,19 @@ Plain Python, no dependency (Pillow only for --png).
          kmh; without one the game goes by the width the lanes file gives). --roads-out: the
          BD TOPO roads of the circuit, which tools/city/traffic.py then keeps whole. --end: the
          lanes of the lap the filmed flight is to end on (column mark): -GTARun holds the end
-         of its pursuit until the car is there, 20 s at most
+         of its pursuit until the car is there, 20 s at most. --town: the folder of the zone's
+         processed data (buildings.geojson, landmarks.json, water.geojson, carriageway.geojson):
+         the line is then eased among the walls of the town (line_room.py): taken round what
+         stands on it, kept 2.8 m from the walls and on the carriageway, each bend entered from
+         its outside and cut at its inside, as wide as the room allows. A row whose line goes
+         further than 8 m from its lane says so (column mark: round)
   check  <circuit.csv> <lanes.csv> [--report lane_clear_report.json] [--png lap.png]
-         [--carriageway carriageway.geojson] [--min-main 70]
+         [--carriageway carriageway.geojson] [--min-main 70] [--town <processed data>]
          the lap against the lanes file the game reads: every row finds its lane, each lane
          leads to the next, the last to the first; metres, widths, turns; the driving lines stay
-         within 4.5 m of their lanes and follow one another. With the report of the
+         within 8 m of their lanes (16 m on a row marked round) and follow one another. With
+         the town (--town, or the files next to --carriageway): how near the line comes to a
+         wall and its tightest bend; a line through a wall fails. With the report of the
          prep step "lanes" (tools/city/unreal/clear_lane_instances.py): nothing the step only
          reported (facade modules, signs: it never takes those out) may stand on a lane of the
          lap. Main axes are 70 % of the lap or more (--min-main): by the lanes file, or with
@@ -50,13 +57,24 @@ out of this lap. The roads of the circuit are now listed in tools/city/through_r
 show Bellecour.
 By the lanes file 41 % of the lap is on main axes: it counts a one-way street by its one lane of
 3 m. By the kerbs measured on the ground (carriageway.geojson) 77 % of it is 7 m wide or more.
+Since gate 86 the line is written with --town. Its long take showed what the line of the lanes
+alone could not hold: five right-hand corners of 2 to 4 m of radius, which no car turns (the car
+ran wide or went round at full lock, and was put back on a lane six times); a building 1.6 m from
+the line on the place de l'Hopital; and the carrousel of the place de la Republique, a stand-in
+whose estimated place is on the carriageway of the rue Jean de Tournes. The line now goes round
+the carrousel by the north, over the place, comes no nearer than 2.5 m to a wall, and its
+tightest bend has a radius of 8.7 m (the turn back of the approach; 9.2 m on the lap).
 """
 
 import argparse
 import csv
 import json
 import math
+import os
 import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import line_room  # noqa: E402
 
 MAIN_M = 7.0            # GTPRoadWidth::MainMetres
 NARROW_M = 5.0          # GTPRoadWidth::NarrowMetres
@@ -71,8 +89,9 @@ CORNER_ZONE_M = 12.0    # around a corner the line is only rounded, not straight
 SIGMA_STRAIGHT_M = 10.0  # how far a jog of the lanes is spread along a straight
 SIGMA_RIGHT_M = 1.6     # rounding of a right-hand corner: its inside is the kerb (about 0.9 m cut at 90 degrees)
 SIGMA_LEFT_M = 4.5      # rounding of a left-hand corner: its inside is the middle of the junction (about 2.5 m)
-MAX_LINE_GAP_M = 4.5    # the line may leave its lane by this much (the inside of a left-hand corner)
-LINE_ENDS_M = 12.0      # GTPFlightCircuit::LineEndsMetres: a lane's line starts and ends this near the lane's ends
+MAX_LINE_GAP_M = 8.0    # the line may leave its lane by this much (a corner taken from the outside to the inside)
+LINE_ENDS_M = 16.0      # GTPFlightCircuit::LineEndsMetres: a lane's line starts and ends this near the lane's ends
+ROUND_MARK = "round"    # mark of a row whose line goes round something that stands on its lane: up to LINE_ENDS_M from it
 
 
 def read_lanes(path):
@@ -146,7 +165,7 @@ def wrap(deg):
     return (deg + 180.0) % 360.0 - 180.0
 
 
-def driving_line(lap, by_id):
+def driving_line(lap, by_id, walls=None, roads=None):
     """The line a flight drives on the lap: [(lane id, [(x, y) m])] in lap order, one closed curve.
 
     The lanes of tools/city/traffic.py are road centre lines pushed aside: a lane's points wander by
@@ -195,6 +214,12 @@ def driving_line(lap, by_id):
         owner.append(a[2])
     # 3 and 4. Corners kept and rounded, straights straightened.
     corners = smooth(curve, step, closed=True)
+    # 4b. With the walls of the town: round what stands on the line, then eased, bends as wide as the room allows.
+    corners = [(owner[k], angle) for k, angle in corners]
+    if walls is not None:
+        rounds = line_room.go_round(curve, walls, closed=True)
+        curve, by = line_room.ease(curve, walls, step, closed=True, round_names={r[0] for r in rounds}, roads=roads)
+        owner = [owner[k] for k in by]
     # 5. Each lane's share of the curve, in lap order (the curve starts on the first lane): the points up to the
     #    first one that belongs to a later lane of the lap. A lane of a few metres gets two points from its
     #    neighbours: the game needs two to drive a lane.
@@ -219,7 +244,7 @@ def driving_line(lap, by_id):
         else:
             break
     lines = [(lane_id, shares[index]) for index, lane_id in enumerate(lap)]
-    return lines, [(owner[k], angle) for k, angle in corners]
+    return lines, corners
 
 
 def smooth(curve, step, closed, pinned=()):
@@ -264,7 +289,7 @@ def smooth(curve, step, closed, pinned=()):
     return corners
 
 
-def approach_line(approach, lap, lap_lines, by_id):
+def approach_line(approach, lap, lap_lines, by_id, walls=None, roads=None):
     """The line driven on the approach: [(lane id, [(x, y) m])], from the start of its first lane to the lap's line.
 
     The approach's lanes as one open curve that runs on into the line of the lap (lap_lines, as driving_line gives
@@ -311,6 +336,9 @@ def approach_line(approach, lap, lap_lines, by_id):
         owner.append(a[2])
     whole = curve + [[p[0], p[1]] for p in tail]
     smooth(whole, step, closed=False, pinned=range(count, len(whole)))
+    if walls is not None:
+        whole, by = line_room.ease(whole, walls, step, closed=False, tail=len(tail), roads=roads)
+        owner = [owner[k] if k < count else owner[-1] for k in by[:count]]
     place_of = {lane_id: index for index, lane_id in enumerate(approach)}
     shares = [[] for _ in approach]
     index = 0
@@ -346,8 +374,9 @@ def point_to_polyline(p, pts):
     return best
 
 
-def line_errors(lap, lines_by_lane, by_id):
-    """What keeps the rows' driving lines from being used (GTPFlightCircuit::LinesFit); empty when they fit."""
+def line_errors(lap, lines_by_lane, by_id, round_lanes=()):
+    """What keeps the rows' driving lines from being used (GTPFlightCircuit::LinesFit); empty when they fit.
+    round_lanes: the lanes whose row says its line goes round something (ROUND_MARK)."""
     errors = []
     for lane in lap:
         if len(lines_by_lane.get(lane, [])) < 2:
@@ -358,8 +387,9 @@ def line_errors(lap, lines_by_lane, by_id):
         line = lines_by_lane[lane]
         after = lines_by_lane[lap[(place + 1) % len(lap)]]
         away = max(point_to_polyline(p, by_id[lane]["points"]) for p in line)
-        if away > MAX_LINE_GAP_M:
-            errors.append("the driving line of lane %d is %.1f m from the lane (%.1f allowed)" % (lane, away, MAX_LINE_GAP_M))
+        allowed = LINE_ENDS_M if lane in round_lanes else MAX_LINE_GAP_M
+        if away > allowed:
+            errors.append("the driving line of lane %d is %.1f m from the lane (%.1f allowed)" % (lane, away, allowed))
         if math.dist(line[-1], after[0]) > 2.0 * LINE_STEP_M:
             errors.append("the driving line of lane %d ends %.1f m from the next one" % (lane, math.dist(line[-1], after[0])))
         errors += line_ends_errors(lane, line, by_id)
@@ -393,7 +423,7 @@ def approach_errors(approach, lap, lanes):
     return errors
 
 
-def approach_line_errors(approach, lap, lines_by_lane, by_id):
+def approach_line_errors(approach, lap, lines_by_lane, by_id, round_lanes=()):
     """What keeps the approach's driving lines from being used (GTPFlightCircuit::SetApproachLines)."""
     errors = ["lane %d of the approach has no driving line of two points or more" % lane
               for lane in approach if len(lines_by_lane.get(lane, [])) < 2]
@@ -406,8 +436,9 @@ def approach_line_errors(approach, lap, lines_by_lane, by_id):
         line = lines_by_lane[lane]
         after = lines_by_lane[approach[place + 1] if place + 1 < len(approach) else entry]
         away = max(point_to_polyline(p, by_id[lane]["points"]) for p in line)
-        if away > MAX_LINE_GAP_M:
-            errors.append("the driving line of lane %d of the approach is %.1f m from the lane (%.1f allowed)" % (lane, away, MAX_LINE_GAP_M))
+        allowed = LINE_ENDS_M if lane in round_lanes else MAX_LINE_GAP_M
+        if away > allowed:
+            errors.append("the driving line of lane %d of the approach is %.1f m from the lane (%.1f allowed)" % (lane, away, allowed))
         if math.dist(line[-1], after[0]) > 2.0 * LINE_STEP_M:
             errors.append("the driving line of lane %d of the approach ends %.1f m from the next one" % (lane, math.dist(line[-1], after[0])))
         errors += line_ends_errors(lane, line, by_id)
@@ -473,7 +504,8 @@ def read_circuit(path):
                          "end": (float(fields[3]) / 100.0, float(fields[4]) / 100.0),
                          "name": fields[5] if len(fields) > 5 else "", "line": line, "approach": in_approach,
                          "kmh": float(fields[7]) if len(fields) > 7 and fields[7] else 0.0,
-                         "end_place": len(fields) > 8 and fields[8] == "end"})
+                         "end_place": len(fields) > 8 and fields[8] == "end",
+                         "round": len(fields) > 8 and fields[8] == ROUND_MARK})
     return rows
 
 
@@ -538,13 +570,18 @@ def reaching(lap, lanes):
     return reach
 
 
-def write_circuit(path, lap, lanes, source, approach=(), speeds=None, end_places=()):
+def write_circuit(path, lap, lanes, source, approach=(), speeds=None, end_places=(), walls=None, roads=None):
     by_id = {lane["id"]: lane for lane in lanes}
     total, share = lap_numbers(lap, by_id)
-    lap_lines = driving_line(lap, by_id)[0]
+    lap_lines = driving_line(lap, by_id, walls, roads)[0]
     lines = dict(lap_lines)
     if approach:
-        lines.update(dict(approach_line(list(approach), lap, lap_lines, by_id)))
+        lines.update(dict(approach_line(list(approach), lap, lap_lines, by_id, walls, roads)))
+    # A row whose line goes round something that stands on its lane says so: it may be further from the lane.
+    rounds = {lane_id for lane_id, line in lines.items()
+              if max(point_to_polyline(p, by_id[lane_id]["points"]) for p in line) > MAX_LINE_GAP_M}
+    if rounds & set(end_places):
+        raise ValueError("lane(s) %s: a row has one mark, the film cannot end where the line goes round something" % sorted(rounds & set(end_places)))
 
     def row(lane_id):
         lane = by_id[lane_id]
@@ -553,7 +590,8 @@ def write_circuit(path, lap, lanes, source, approach=(), speeds=None, end_places
         return "%d,%.0f,%.0f,%.0f,%.0f,%s,%s,%s,%s\n" % (lane_id, a[0] * 100.0, a[1] * 100.0, b[0] * 100.0, b[1] * 100.0,
                                                         lane["name"].replace(",", " "),
                                                         ";".join("%.0f %.0f" % (p[0] * 100.0, p[1] * 100.0) for p in lines.get(lane_id, [])),
-                                                        ("%.0f" % kmh) if kmh > 0.0 else "", "end" if lane_id in end_places else "")
+                                                        ("%.0f" % kmh) if kmh > 0.0 else "",
+                                                        "end" if lane_id in end_places else (ROUND_MARK if lane_id in rounds else ""))
 
     with open(path, "w", encoding="utf-8", newline="\n") as f:
         f.write("# The circuit of the flight (GTPFlightCircuit.h), made by tools/city/flight_circuit.py write from %s.\n" % source)
@@ -563,9 +601,11 @@ def write_circuit(path, lap, lanes, source, approach=(), speeds=None, end_places
             f.write("# Before it the approach: %d lanes, %.0f m, from where the flight starts to the lap.\n"
                     % (len(approach), sum(by_id[i]["length"] for i in approach)))
         f.write("# A row is a lane by where it starts and ends (Unreal cm); lane_id is its number in that lanes file, a hint.\n")
-        f.write("# line_ue_cm: the line driven on that lane, one closed curve over the lap: straights straightened, corners rounded.\n")
+        f.write("# line_ue_cm: the line driven on that lane, one closed curve over the lap: straights straightened, corners rounded%s.\n"
+                % ("" if walls is None else ", then eased among the walls of the town (line_room.py)"))
         f.write("# kmh: the speed asked on that lane; empty: by the width the lanes file gives its road (GTPFlightCircuit::CruiseKmh).\n")
-        f.write("# mark: end on the lanes of the lap the filmed flight is to end on (-GTARun holds the end of its pursuit until there).\n")
+        f.write("# mark: end on the lanes of the lap the filmed flight is to end on (-GTARun holds the end of its pursuit until there);\n")
+        f.write("#       round where the line goes round something that stands on the lane (the game reads only end).\n")
         f.write(",".join(HEADER) + "\n")
         if approach:
             f.write("approach\n")
@@ -574,6 +614,25 @@ def write_circuit(path, lap, lanes, source, approach=(), speeds=None, end_places
             f.write("lap\n")
         for lane_id in lap:
             f.write(row(lane_id))
+
+
+def room_report(lap, approach, lines_by_lane, walls):
+    """(lines to print, failed) on the room the driving line has among the walls of the town: the least distance to a
+    wall and the tightest bend. Fails only a line that runs through a wall."""
+    lap_points = [p for lane in lap for p in lines_by_lane.get(lane, [])]
+    approach_points = [p for lane in approach for p in lines_by_lane.get(lane, [])]
+    if not lap_points:
+        return [], False
+    least, at, name = min(line_room.room(lap_points + lap_points[:1], walls), line_room.room(approach_points, walls) if approach_points else (float("inf"), None, ""))
+    radius, where = line_room.least_radius(lap_points, closed=True)
+    if approach_points:
+        radius, where = min((radius, where), line_room.least_radius(approach_points, closed=False))
+    out = ["  room: %d wall(s) of the town; the line is %.1f m from the nearest (%s, at %.0f %.0f cm), %.1f m wanted; its tightest bend has a radius of %.1f m (at %.0f %.0f cm)"
+           % (len(walls), least, name or "-", at[0] * 100.0 if at else 0.0, at[1] * 100.0 if at else 0.0, line_room.CLEAR_ROUND_M,
+              radius, where[0] * 100.0 if where else 0.0, where[1] * 100.0 if where else 0.0)]
+    if least < line_room.THROUGH_M:
+        out.append("flight circuit: FAIL the driving line runs through %s" % name)
+    return out, least < line_room.THROUGH_M
 
 
 def is_landmark(item):
@@ -685,8 +744,38 @@ def cmd_write(args):
     if set(end_places) - set(lap):
         print("the flight can only end on lanes of the lap, not on: " + ", ".join(str(i) for i in sorted(set(end_places) - set(lap))))
         return 1
-    write_circuit(args.out, lap, lanes, args.source or "the lanes file of the map", approach, speeds, end_places)
+    walls = roads = None
+    if args.town:
+        if not line_room.has_town(args.town):
+            print("no town in %s: buildings.geojson is wanted there" % args.town)
+            return 1
+        walls = line_room.read_town(args.town)
+        roads = line_room.read_roads(args.town)
+    try:
+        write_circuit(args.out, lap, lanes, args.source or "the lanes file of the map", approach, speeds, end_places, walls, roads)
+    except ValueError as error:
+        print("not written: %s" % error)
+        return 1
     print("written: %s" % args.out)
+    # What was written is read again, as the game and the check read it.
+    rows = read_circuit(args.out)
+    found = resolve(rows, lanes)[0]
+    lines_by_lane = {lane: row["line"] for lane, row in zip(found, rows)}
+    round_lanes = {lane for lane, row in zip(found, rows) if row["round"]}
+    problems = line_errors(lap, lines_by_lane, by_id, round_lanes)
+    if approach and not problems:
+        problems = approach_line_errors(approach, lap, lines_by_lane, by_id, round_lanes)
+    failed = bool(problems)
+    if problems:
+        print("the driving line would NOT be used by the game: " + "; ".join(problems))
+    if round_lanes:
+        print("  the line goes round something on: " + ", ".join("%d %s" % (lane, by_id[lane]["name"] or "-") for lane in found if lane in round_lanes))
+    if walls is not None:
+        told, through = room_report(lap, approach, lines_by_lane, walls)
+        print("\n".join(told))
+        failed = failed or through
+    if failed:
+        return 1
     if args.roads_out:
         # The roads of the circuit, for tools/city/traffic.py: kept whole however far from a generated building.
         seen = []
@@ -770,13 +859,23 @@ def cmd_check(args):
             failed = True
     lines_by_lane = {lane: row["line"] for lane, row in zip(found, rows) if row["line"]}
     if lines_by_lane:
-        problems = line_errors(lap, lines_by_lane, by_id)
+        round_lanes = {lane for lane, row in zip(found, rows) if row["round"]}
+        problems = line_errors(lap, lines_by_lane, by_id, round_lanes)
         if approach and not problems:
-            problems = approach_line_errors(approach, lap, lines_by_lane, by_id)
+            problems = approach_line_errors(approach, lap, lines_by_lane, by_id, round_lanes)
         count = sum(len(line) for line in lines_by_lane.values())
         away = max(point_to_polyline(p, by_id[lane]["points"]) for lane, line in lines_by_lane.items() for p in line)
         print("  driving line: %d point(s), %.1f m from its lane at most%s" % (count, away, "" if not problems else "; NOT USED by the game: " + "; ".join(problems)))
         failed = failed or bool(problems)
+        if round_lanes:
+            print("  the line goes round something on: " + ", ".join("%d %s" % (lane, by_id[lane]["name"] or "-") for lane in found if lane in round_lanes))
+        town = args.town or (os.path.dirname(args.carriageway) if args.carriageway else "")
+        if line_room.has_town(town):
+            told, through = room_report(lap, approach, lines_by_lane, line_room.read_town(town))
+            print("\n".join(told))
+            failed = failed or through
+        else:
+            print("  room: not measured, no town given (--town, or buildings.geojson next to --carriageway)")
     else:
         print("  driving line: none, the game drives the lanes' own points")
     if args.png:
@@ -803,6 +902,7 @@ def main(argv=None):
     write.add_argument("--roads-out", default="", help="also write the BD TOPO ids of the circuit's roads (for traffic.py)")
     write.add_argument("--out", required=True)
     write.add_argument("--source", default="")
+    write.add_argument("--town", default="", help="processed data of the zone (buildings.geojson, landmarks.json, water.geojson): the line is eased among its walls")
     write.set_defaults(run=cmd_write)
     check = sub.add_parser("check")
     check.add_argument("circuit_csv")
@@ -811,6 +911,7 @@ def main(argv=None):
     check.add_argument("--min-main", type=float, default=MIN_MAIN_SHARE * 100.0, help="share of main axes wanted (%%)")
     check.add_argument("--carriageway", default="", help="count the main axes by the measured kerbs (carriageway.geojson)")
     check.add_argument("--png", default="")
+    check.add_argument("--town", default="", help="processed data of the zone, to measure the room of the line (default: next to --carriageway)")
     check.set_defaults(run=cmd_check)
     args = parser.parse_args(argv)
     return args.run(args)

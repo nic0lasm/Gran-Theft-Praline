@@ -65,9 +65,10 @@ namespace GTPFlightCircuit
 	/**
 	 * A driving line starts and ends this near its lane's ends, and the next line starts this near its end (m). A short
 	 * lane between two corners (a turn back through a junction, 19 m) keeps only the middle of its length: the corners
-	 * before and after it are rounded on its neighbours' lines.
+	 * before and after it are rounded on its neighbours' lines. 12 m until gate 86; 16 since the line goes round what
+	 * stands on a lane (the carrousel of the place de la Republique, 12 m north of the lanes of the rue Jean de Tournes).
 	 */
-	constexpr float LineEndsMetres = 12.f;
+	constexpr float LineEndsMetres = 16.f;
 
 	/** The two ends of a lane of the network (m). */
 	struct FEnds

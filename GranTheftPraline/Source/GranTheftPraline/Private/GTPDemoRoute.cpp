@@ -317,7 +317,29 @@ bool UGTPDemoRoute::RelocateChase(AGTPVehicle* Driven, APlayerController* PC, co
 				continue;
 			}
 			const int32 Index = Lane.Points.Num() / 3;
-			const FVector Point = Lane.Points[Index];
+			// On the lap the car is put on the line it drives there (GTPFlightCircuit.h), not on the lane's own points: the
+			// two are metres apart at a corner, 12 m where the line goes round the carrousel of the place de la Republique.
+			// Gate 86's long take: put on the lane's points of the rue Grolee, the car started at full lock toward its line.
+			FVector PutAt = Lane.Points[Index];
+			FVector PutToward = Lane.Points[Index + 1];
+			bool bPutOnLine = false;
+			if (const std::vector<GTPFlightCircuit::FLinePoint>* DrivenThere = bOnLap ? Network->GetFlightCircuit().LineOf(LaneIndex) : nullptr)
+			{
+				if (DrivenThere->size() >= 3)
+				{
+					const size_t Third = DrivenThere->size() / 3;
+					PutAt = FVector((*DrivenThere)[Third].X * 100.0, (*DrivenThere)[Third].Y * 100.0, PutAt.Z);
+					PutToward = FVector((*DrivenThere)[Third + 1].X * 100.0, (*DrivenThere)[Third + 1].Y * 100.0, PutAt.Z);
+					bPutOnLine = true;
+				}
+			}
+			// Not where the line is far from its lane (it goes round something there): the follower starts from the lane
+			// it finds within 9 m of the car.
+			if (bPutOnLine && !Lane.Points.ContainsByPredicate([&PutAt](const FVector& Of) { return FVector::Dist2D(Of, PutAt) < 600.0; }))
+			{
+				continue;
+			}
+			const FVector Point = PutAt;
 			const double Distance = FVector::Dist2D(Point, Driven->GetActorLocation());
 			if (Distance < (bOnLap ? 6000.0 : 8000.0) || Distance > (bOnLap ? 25000.0 : 15000.0))
 			{
@@ -352,7 +374,7 @@ bool UGTPDemoRoute::RelocateChase(AGTPVehicle* Driven, APlayerController* PC, co
 				continue;
 			}
 			const FVector From = Driven->GetActorLocation();
-			const FVector Direction = (Lane.Points[Index + 1] - Point).GetSafeNormal2D();
+			const FVector Direction = (PutToward - Point).GetSafeNormal2D();
 			RelocatedTo = FTransform(Direction.Rotation(), FVector(Point.X, Point.Y, Ground.ImpactPoint.Z + 60.f));
 			// Never into another car (traffic, police, parked): the solver does not survive a deep overlap.
 			if (Network->bPoolSpawnCheck && Network->FindCarAt(Driven, RelocatedTo))
@@ -416,9 +438,10 @@ bool UGTPDemoRoute::RelocateChase(AGTPVehicle* Driven, APlayerController* PC, co
 			}
 			++ChaseRelocations;
 			LastRelocationAt = FPlatformTime::Seconds();
-			GTP_TRACE(LogGTPDemo, TEXT("Demo chase: %s at %s, the car is put on lane %d %.0f m away at %s (open road %.0f m, never ends=%d, carriageway %.1f m, %s, pass %d, police told, %d place(s) passed over with something standing there)"),
+			GTP_TRACE(LogGTPDemo, TEXT("Demo chase: %s at %s, the car is put on lane %d %.0f m away at %s (open road %.0f m, never ends=%d, carriageway %.1f m, %s, pass %d, police told, %d place(s) passed over with something standing there, %s)"),
 				Why, *From.ToCompactString(), LaneIndex, Distance / 100.0, *Driven->GetActorLocation().ToCompactString(), FGTPLaneFollower::OpenRoadMetres(Lanes, LaneIndex),
-				Lane.bNeverEnds ? 1 : 0, Lane.CarriagewayM, ANSI_TO_TCHAR(GTPRoadWidth::ClassName(GTPRoadWidth::Classify(Lane.CarriagewayM))), Pass, SpotsTaken);
+				Lane.bNeverEnds ? 1 : 0, Lane.CarriagewayM, ANSI_TO_TCHAR(GTPRoadWidth::ClassName(GTPRoadWidth::Classify(Lane.CarriagewayM))), Pass, SpotsTaken,
+				bPutOnLine ? TEXT("on its driving line") : TEXT("on the lane's own points"));
 			return true;
 		}
 	}
@@ -1004,17 +1027,22 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 							// What holds the car: the first thing within 8 m ahead (any channel the car collides with) and the car's own state.
 							FHitResult Ahead;
 							FCollisionQueryParams HeldParams(SCENE_QUERY_STAT(GTPChaseHeld), false, Driven);
-							const FVector From = Driven->GetActorLocation() + FVector(0.f, 0.f, 60.f);
-							const FVector To = From + Driven->GetActorForwardVector() * 800.f;
-							const bool bHit = Driven->GetWorld()->SweepSingleByChannel(Ahead, From, To, FQuat::Identity, ECC_Vehicle, FCollisionShape::MakeSphere(60.f), HeldParams);
+							// Level ahead and clear of the ground: from 55 to 145 cm above the car's origin. Gate 86's long take: a
+							// sphere of 60 cm at 60 cm, along the car's own pitch, touched the road, and two tiles of the terrain
+							// (StaticMeshActor_741 and _742, 256 m wide) were read as obstacles "at 0 to 2 m", their lanes blocked
+							// and the car put elsewhere. Ground is never an obstacle: nothing whose face looks up counts.
+							const FVector From = Driven->GetActorLocation() + FVector(0.f, 0.f, 100.f);
+							const FVector To = From + Driven->GetActorForwardVector().GetSafeNormal2D() * 800.f;
+							const bool bHit = Driven->GetWorld()->SweepSingleByChannel(Ahead, From, To, FQuat::Identity, ECC_Vehicle, FCollisionShape::MakeSphere(45.f), HeldParams);
 							const UPrimitiveComponent* HitBody = bHit ? Ahead.GetComponent() : nullptr;
-							bStillAhead = HitBody && Ahead.Distance < 300.f && !HitBody->IsSimulatingPhysics() && !Cast<APawn>(Ahead.GetActor());
+							const bool bGround = bHit && Ahead.ImpactNormal.Z > 0.7f;
+							bStillAhead = HitBody && !bGround && Ahead.Distance < 300.f && !HitBody->IsSimulatingPhysics() && !Cast<APawn>(Ahead.GetActor());
 							StillActor = bStillAhead ? Ahead.GetActor() : nullptr;
 							StillAt = Ahead.ImpactPoint;
 							GTP_TRACE(LogGTPDemo, TEXT("Demo chase: held up at %s yaw=%.0f gear=%d, ahead: %s (%s) at %.1f m%s"), *Driven->GetActorLocation().ToCompactString(),
 								Driven->GetActorRotation().Yaw, Driven->GetGear(), bHit ? *GetNameSafe(Ahead.GetActor()) : TEXT("nothing"),
 								bHit ? *GetNameSafe(Ahead.GetComponent()) : TEXT("-"), bHit ? Ahead.Distance / 100.f : -1.f,
-								bStillAhead ? TEXT(", does not move: backing off") : TEXT(""));
+								bStillAhead ? TEXT(", does not move: backing off") : bGround ? TEXT(", the ground: not an obstacle") : TEXT(""));
 						}
 						// The demo must not wait on the city's traffic: cars of the traffic within 25 m are taken off the road.
 						{
