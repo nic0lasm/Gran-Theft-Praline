@@ -91,6 +91,21 @@ int main(int ArgCount, char**)
 		CHECK(GTPFlightPedals::StopsForPerson(2.f, 5.f / 3.6f) && GTPFlightPedals::StopsForPerson(0.f, 0.f));
 		// 20 km/h, a person 2 m ahead: too late. 4 m ahead: it stops.
 		CHECK(!GTPFlightPedals::StopsForPerson(2.f, 20.f / 3.6f) && GTPFlightPedals::StopsForPerson(4.f, 20.f / 3.6f));
+		// The steering sent (gate 89). In town as asked; at 100 km/h the car keeps 46 % of it, so 0.12 asked goes as 0.26.
+		CHECK(GTPFlightPedals::SteeringSent(0.5f, 30.f) == 0.5f && GTPFlightPedals::SteeringSent(-0.5f, 50.f) == -0.5f);
+		CHECK(std::fabs(GTPSteeringCurve::ShareAtKmh(100.f) - 0.46f) < 0.01f && GTPSteeringCurve::ShareAtKmh(0.f) == 1.f);
+		CHECK(std::fabs(GTPSteeringCurve::ShareAtKmh(30.f / 0.621371f) - 0.75f) < 0.001f && std::fabs(GTPSteeringCurve::ShareAtKmh(400.f) - 0.22f) < 0.001f);
+		CHECK(std::fabs(GTPFlightPedals::SteeringSent(0.12f, 100.f) - 0.26f) < 0.01f);
+		CHECK(std::fabs(GTPFlightPedals::SteeringSent(-0.12f, -100.f) + 0.26f) < 0.01f);
+		// What the wheels get is what was asked, from 80 km/h up; never more than the whole lock.
+		CHECK(std::fabs(GTPFlightPedals::SteeringSent(0.2f, 90.f) * GTPSteeringCurve::ShareAtKmh(90.f) - 0.2f) < 0.001f);
+		CHECK(GTPFlightPedals::SteeringSent(0.9f, 120.f) == 1.f && GTPFlightPedals::SteeringSent(-0.9f, 120.f) == -1.f);
+		// Between 50 and 80 km/h it comes in bit by bit: no step in the steering as the car gathers speed.
+		for (float Kmh = 45.f; Kmh < 130.f; Kmh += 1.f)
+		{
+			CHECK(GTPFlightPedals::SteeringSent(0.1f, Kmh + 1.f) >= GTPFlightPedals::SteeringSent(0.1f, Kmh));
+			CHECK(GTPFlightPedals::SteeringSent(0.1f, Kmh + 1.f) - GTPFlightPedals::SteeringSent(0.1f, Kmh) < 0.006f);
+		}
 		// -DemoPedalsAlone: as before.
 		Throttle = 1.f; Brake = 0.f;
 		GTPFlightPedals::Apply(Throttle, Brake, 1.f, 10.f, 16.7f, Settings, false);

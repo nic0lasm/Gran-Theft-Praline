@@ -5,6 +5,7 @@
 #include "GTPCameraModeComponent.h"
 #include "GTPCarjackVictim.h"
 #include "GTPLog.h"
+#include "GTPSteeringCurve.h"
 #include "GTPPlayerReaction.h"
 #include "GTPEngineSoundComponent.h"
 #include "GTPHornComponent.h"
@@ -203,10 +204,11 @@ void AGTPVehicle::ApplyCityCarTuning()
 	if (FRichCurve* Steering = Move->SteeringSetup.SteeringCurve.GetRichCurve())
 	{
 		Steering->Reset();
-		Steering->AddKey(0.f, 1.f);
-		Steering->AddKey(30.f, 0.75f);
-		Steering->AddKey(80.f, 0.3f);
-		Steering->AddKey(120.f, 0.22f);
+		// The keys are in GTPSteeringCurve.h: the script of the filmed flight undoes them at speed (GTPFlightPedals.h).
+		for (const GTPSteeringCurve::FKey& Key : GTPSteeringCurve::Keys)
+		{
+			Steering->AddKey(Key.Speed, Key.Share);
+		}
 	}
 }
 
@@ -1531,6 +1533,7 @@ void AGTPVehicle::SetScriptedDriveInput(float Throttle, float Brake, float Steer
 	Move->SetBrakeInput(FMath::Clamp(Brake, 0.f, 1.f));
 	Move->SetSteeringInput(FMath::Clamp(Steering, -1.f, 1.f));
 	Move->SetHandbrakeInput(bHandbrake);
+	NoteScriptedSteering();
 }
 
 // --- Input -----------------------------------------------------------------
@@ -1814,13 +1817,39 @@ void AGTPVehicle::UpdateDriveAssist(float DeltaSeconds)
 	}
 
 	// A car beaten on one side pulls to that side.
-	const float FullDent = FullDentDamage > 0.f ? FullDentDamage : 1.f;
-	const float Pull = GTPCarjack::PullFromDents(FMath::Clamp(ZoneDamage[static_cast<int32>(EGTPDamageZone::Left)] / FullDent, 0.f, 1.f),
-		FMath::Clamp(ZoneDamage[static_cast<int32>(EGTPDamageZone::Right)] / FullDent, 0.f, 1.f), Assist);
+	const float Pull = GetDentPull();
 	if (Pull != 0.f)
 	{
-		Move->SetSteeringInput(FMath::Clamp(SteerInput + Pull * FMath::Clamp(FMath::Abs(Speed) / 30.f, 0.f, 1.f), -1.f, 1.f));
+		// Not with a script at the wheel (the filmed flight, a test drive). The script gives its steering to the
+		// movement component, not to SteerInput, which is the player's stick and stays at 0: the line below then put
+		// "0 + the pull" over what the script had asked, at every tick, and from its first dent on one side the car of
+		// the flight no longer steered at all. Gate 89's long take, 19 to 23 s: 0.10 to 0.13 of steering asked at
+		// 99 km/h, the car 1.5 then 4.9 m off its line, through 12 people and into a tree of the quay (the dent itself
+		// is not in that log: read in the code). Nor is the pull added to the script's steering: it has no hand to
+		// hold against it, and 0.08 of steering is 3 m off the line at 100 km/h.
+		const bool bScriptSteers = GetWorld() && GetWorld()->GetTimeSeconds() - ScriptSteerTime < 0.5f;
+		if (!bScriptSteers)
+		{
+			Move->SetSteeringInput(FMath::Clamp(SteerInput + Pull * FMath::Clamp(FMath::Abs(Speed) / 30.f, 0.f, 1.f), -1.f, 1.f));
+		}
+		else if (!bDentPullWithheldTold)
+		{
+			bDentPullWithheldTold = true;
+			GTP_TRACE(LogGTPVehicle, TEXT("%s: its dents pull the steering by %.2f; a script holds the wheel, the pull is left out"), *GetName(), Pull);
+		}
 	}
+}
+
+float AGTPVehicle::GetDentPull() const
+{
+	const float FullDent = FullDentDamage > 0.f ? FullDentDamage : 1.f;
+	return GTPCarjack::PullFromDents(FMath::Clamp(ZoneDamage[static_cast<int32>(EGTPDamageZone::Left)] / FullDent, 0.f, 1.f),
+		FMath::Clamp(ZoneDamage[static_cast<int32>(EGTPDamageZone::Right)] / FullDent, 0.f, 1.f), Assist);
+}
+
+void AGTPVehicle::NoteScriptedSteering()
+{
+	ScriptSteerTime = GetWorld() ? static_cast<float>(GetWorld()->GetTimeSeconds()) : 0.f;
 }
 
 void AGTPVehicle::PutBackOnWheels(float DeltaSeconds)

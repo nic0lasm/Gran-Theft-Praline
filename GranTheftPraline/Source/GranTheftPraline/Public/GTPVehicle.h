@@ -164,6 +164,15 @@ public:
 
 	/** The last NotePlaced: how (a literal) and when (world seconds). */
 	const TCHAR* GetLastPlacedHow() const { return LastPlacedHow; }
+
+	/**
+	 * A script holds the wheel and has just given its steering to the movement component (the filmed flight, a test
+	 * drive): for half a second the driving aids leave the steering alone (UpdateDriveAssist, the pull of the dents).
+	 */
+	void NoteScriptedSteering();
+
+	/** What the dents add to the player's steering (-1 to 1, negative to the left): 0 with no side beaten more than the other. */
+	float GetDentPull() const;
 	float GetLastPlacedTime() const { return LastPlacedTime; }
 
 	/** Seats a non-player driver (traffic, tests) without any sequence. */
@@ -757,6 +766,9 @@ private:
 	bool bPlayerAssist = false;
 	bool bHandbrakeHeld = false;
 	float SteerInput = 0.f;
+	/** NoteScriptedSteering: when a script last steered (world seconds), and the pull of the dents left out was said once. */
+	float ScriptSteerTime = -1000.f;
+	bool bDentPullWithheldTold = false;
 	float BaseTorque = 130.f;
 	float RearGripBase = 1.f;
 	float RearGripNow = 1.f;

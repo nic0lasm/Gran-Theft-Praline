@@ -22,7 +22,16 @@
 // as much as its wheels say, and the lane follower's own bend limit is what slows it there. In those lines the
 // steering asked never passes a third of lock above 45 km/h. The steering itself is left as asked.
 
+//
+// Gate 89 (2026-11-25), and gate 83 before it, on the quay: 0.10 to 0.14 of steering asked at 98 km/h, the car 1.4 m
+// off its line, then 4.8 m two seconds later, then a tree. The lane follower asks for the angle of the front wheels
+// that takes the car back to its line (pure pursuit, GTPDriveLogic.h). The car gives its wheels a share of the
+// steering asked that falls with speed (GTPSteeringCurve.h: under half of it at 100 km/h), a rule made for a
+// keyboard. At speed the script therefore asks for more, so that the wheels get the angle it reckoned: SteeringSent.
+// In town nothing changes: the corners there were set gate after gate with the steering as it was.
+
 #include "GTPDriveLogic.h"
+#include "GTPSteeringCurve.h"
 #include "GTPUnitRecovery.h"
 
 namespace GTPFlightPedals
@@ -62,6 +71,26 @@ namespace GTPFlightPedals
 			return true;
 		}
 		return Metres >= PersonTouching && V * V / (2.f * StopDecel) + StopRoom <= Metres;
+	}
+
+	/** Under this speed (km/h) the steering goes to the car as asked; from FullMakeUpKmh the car's own cut is made up whole. */
+	constexpr float NoMakeUpKmh = 50.f;
+	constexpr float FullMakeUpKmh = 80.f;
+
+	/**
+	 * The steering (-1..1) to give the car at Kmh so that its wheels turn as Steering asks: above FullMakeUpKmh the
+	 * share the car keeps at that speed is made up for, under NoMakeUpKmh nothing is, in between part of it.
+	 */
+	inline float SteeringSent(float Steering, float Kmh)
+	{
+		const float V = std::fabs(Kmh);
+		if (V <= NoMakeUpKmh)
+		{
+			return Steering;
+		}
+		const float Whole = 1.f / std::max(GTPSteeringCurve::ShareAtKmh(V), 0.1f);
+		const float Part = std::min((V - NoMakeUpKmh) / (FullMakeUpKmh - NoMakeUpKmh), 1.f);
+		return std::max(-1.f, std::min(1.f, Steering * (1.f + (Whole - 1.f) * Part)));
 	}
 
 	/** The speed (m/s) at which the car turns as tightly as Steering (-1..1) asks, at S.MaxLateralAccel. */
