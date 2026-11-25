@@ -223,6 +223,18 @@ class FlightCircuitTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("STANDS on lane 6 rue A", out)
 
+    def test_a_landmark_by_the_circuit_is_told_not_failed(self):
+        report = os.path.join(self.dir, "lane_clear_report.json")
+        with open(report, "w", encoding="utf-8") as f:
+            json.dump({"lanes": 11, "clear_cm": 150.0, "removed_instances": [],
+                       "reported_only": [{"lane": "6 rue A", "label": "carrousel", "actor": "C", "folder": "City/Landmarks",
+                                          "index": -1, "xyz": [0, 0, 0], "gap_cm": 0}]}, f)
+        self.run_tool("write", self.lanes_path, "--lanes", "1,2,3,4", "--approach", "5,6", "--out", self.circuit_path)
+        code, out = self.run_tool("check", self.circuit_path, self.lanes_path, "--report", report, "--min-main", "0")
+        self.assertEqual(code, 0)
+        self.assertIn("landmark by lane 6 rue A", out)
+        self.assertNotIn("STANDS", out)
+
 
 if __name__ == "__main__":
     unittest.main()

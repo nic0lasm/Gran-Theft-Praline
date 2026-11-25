@@ -576,6 +576,12 @@ def write_circuit(path, lap, lanes, source, approach=(), speeds=None, end_places
             f.write(row(lane_id))
 
 
+def is_landmark(item):
+    """A landmark of the real city (the carrousel of place de la Republique) is never taken out of the map, and the
+    prep step measures a plain actor by its bounding box, which a round building fills only in part: it is told, not failed."""
+    return int(item.get("index", 0)) == -1 and str(item.get("folder", "")).startswith("City/Landmarks")
+
+
 def report_blockers(report_path, lap):
     """Objects the prep step "lanes" only reported (never taken out) on a lane of the lap."""
     with open(report_path, encoding="utf-8-sig") as f:
@@ -751,8 +757,13 @@ def cmd_check(args):
         kept, removed, report = report_blockers(args.report, lap + approach)
         print("  prep step \"lanes\" (%s lanes, clear %.0f cm): %d object(s) taken off the circuit's lanes, %d left standing on them"
               % (report.get("lanes", "?"), float(report.get("clear_cm", 0.0)), len(removed), len(kept)))
+        landmarks = [item for item in kept if is_landmark(item)]
+        kept = [item for item in kept if not is_landmark(item)]
         for item in kept:
             print("    STANDS on lane %s: %s (%s) at %s, %s cm from the line" % (item.get("lane"), item.get("label"), item.get("actor"), item.get("xyz"), item.get("gap_cm")))
+        for item in landmarks:
+            print("    landmark by lane %s: %s (%s), its bounding box %s cm from the line; not failed, the line has to go round it"
+                  % (item.get("lane"), item.get("label"), item.get("actor"), item.get("gap_cm")))
         failed = failed or bool(kept)
         if int(report.get("lanes", len(lanes))) != len(lanes):
             print("flight circuit: FAIL the report was made with %s lanes, this lanes file has %d" % (report.get("lanes"), len(lanes)))
