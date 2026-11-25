@@ -517,6 +517,17 @@ dans une rampe de parking.
    n'arrête rien, par dossier, et par nom à moins de 60 m de la ligne conduite
    (`walls_without_collision`) : à 171 s de cette prise le joueur a traversé un mur de pierre
    aveugle et l'image est restée noire 18 s.
+   La porte 101 a nommé ce mur : le cinéma au bout sud de la rue, un repère qui tient lieu de
+   tout son immeuble sous la forme d'une coque LiDAR (genre `building` dans `landmarks.json`).
+   Ses murs laissent entrer un marcheur alors que le relevé lui voit une collision (cause non
+   établie : faces tournées dans un sens ou l'autre, ou trous laissés là où le bord du toit se
+   lit au niveau de la rue), et le joueur est resté un mètre à l'intérieur pendant 47 s. L'étape remplit maintenant le
+   contour de chaque coque de ce genre avec des boîtes qui ne sont pas dessinées
+   (`footprint_fill.strips`, bandes de 50 cm, 6 m de haut, dossier `City/Blockers` ;
+   `landmark_blockers` au rapport, 47 boîtes attendues pour le cinéma ;
+   `GTP_LANDMARK_BLOCKERS=0` les retire). Et l'étape `materials` donne à cette coque la
+   façade dessinée des volumes du fond au lieu du matériau nu des coques (`landmark_fronts`
+   dans `materials_report.json` ; `GTP_LANDMARK_FRONTS=` la laisse nue). Pas encore vu en jeu.
 
 5. **Le masque du trajet** (`ground_mask.py --route <Carte>.circuit.csv`, fait par l'étape
    `materials` après le masque lointain) : à 34 cm le texel, le masque lointain ne peut pas
