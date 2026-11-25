@@ -48,7 +48,10 @@ walks along what stands in his way, a hand on it. Officers, the player on foot a
 longer push (`GTPOnFoot::NoShoving`; `-PeopleShoveCars` gives the push back). To read at the gate: `police: officers
 on foot do not push the cars they run into`, and, if a car nobody drives is still touched by somebody on foot,
 `<car>: with nobody at the wheel, touched by <who> …, impulse N; the car up U, N km/h` (six lines a car at most).
-**Not compiled, not played.**
+Gate 100 showed the same car on its side 16 s after the arrest, then on its roof, with nothing filmed in between: a
+car nobody drives now says once a second, twice a car at most, when it is off its wheels or moves at more than
+15 km/h: `<car>: nobody at the wheel and it is off its wheels: up U, N km/h at …; on foot within 5 m: <who> (class) at
+D m, V cm/s, pushes 0|1; cars within 8 m: <which> at D m, N km/h`. **Not compiled, not played.**
 
 ## Dead
 

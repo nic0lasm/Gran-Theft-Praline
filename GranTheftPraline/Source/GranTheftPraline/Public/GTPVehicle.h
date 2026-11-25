@@ -595,6 +595,13 @@ private:
 	int32 PlacedHitsTold = 8;
 	/** OnBodyHit: how many touches by somebody on foot were said while nobody drove the car. */
 	int32 StandingTouchesTold = 0;
+	/**
+	 * Once a second: a car nobody drives that lies on its side or its roof, or moves at more than 15 km/h, says so
+	 * with who is on foot within 5 m and which cars are within 8 m (twice a car at most).
+	 */
+	void TellIfLeftCarMoves();
+	int32 LeftCarMovesTold = 0;
+	bool bLeftCarMoving = false;
 	void ReleaseCharacter(ACharacter* Character, const FVector& Location, const FRotator& Rotation);
 	/** Tag of a hidden seated driver's mesh put to sleep by AttachToSeat (no pose at all until released). */
 	static FName SeatDormantTag();
