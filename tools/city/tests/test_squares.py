@@ -106,6 +106,35 @@ class SquaresTests(unittest.TestCase):
                 inside += want < 0.0
         self.assertGreater(inside, 500)
 
+    @unittest.skipUnless(shutil.which(os.environ.get("CXX", "g++")), "no C++ compiler")
+    def test_the_grain_of_the_sand_compiles_and_is_no_regular_pattern(self):
+        step, n = 10.0, 400                                        # a line of 40 m, a point every 10 cm
+        lines = [[(-9000.0 + i * step, 61000.0 + 137.0 * row) for i in range(n)] for row in range(6)]
+        with tempfile.TemporaryDirectory() as tmp:
+            with open(os.path.join(tmp, "square_body.inc"), "w", encoding="utf-8") as f:
+                f.write(squares.grain_hlsl())
+            exe = os.path.join(tmp, "grain")
+            subprocess.run([os.environ.get("CXX", "g++"), "-O2", "-std=c++17", "-Wall", "-Wextra", "-Werror",
+                            "-I", tmp, "-I", HARNESS, os.path.join(HARNESS, "square_distance.cpp"), "-o", exe],
+                           check=True)
+            got = subprocess.run([exe], input="".join("%f %f\n" % p for line in lines for p in line), check=True,
+                                 capture_output=True, text=True).stdout.split()
+        values = [float(v) for v in got]
+        self.assertEqual(len(values), 6 * n)
+        half = 0.5 * sum(w for _, w in squares.GRAIN_OCTAVES)
+        self.assertTrue(all(1.0 - half - 1e-3 <= v <= 1.0 + half + 1e-3 for v in values))
+        mean = sum(values) / len(values)
+        self.assertAlmostEqual(mean, 1.0, delta=0.03)
+        self.assertGreater(max(values) - min(values), 0.12)        # it shows
+        # no jump from a point to the next (continuous), and no period: a line never comes back on itself
+        row = values[:n]
+        self.assertLess(max(abs(a - b) for a, b in zip(row, row[1:])), 0.05)
+        dev = [v - sum(row) / n for v in row]
+        power = sum(d * d for d in dev)
+        for lag in range(20, 200):
+            auto = sum(dev[i] * dev[i + lag] for i in range(n - lag)) / power
+            self.assertLess(auto, 0.75, lag)
+
 
 if __name__ == "__main__":
     unittest.main()

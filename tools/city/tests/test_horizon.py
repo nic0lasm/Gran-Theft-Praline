@@ -72,16 +72,23 @@ class HorizonTests(unittest.TestCase):
             self.assertGreaterEqual(n, 12, side)
 
     def test_blocks_are_town_buildings_and_stand_on_the_hills(self):
-        on_hills = 0
+        on_hills = houses = 0
         for b in self.plan["blocks"]:
             self.assertLess(b["colour"], horizon.COLOURS)
-            if b["kind"] == "block":
+            ground, hill = horizon.hill_at(b["x"], b["y"])
+            if b["kind"] == "block" and hill is not None and hill[6]:
+                # Fourviere: houses among the trees, none on the crest (gate 99: slabs against the sky)
+                self.assertTrue(13.0 <= b["top"] - b["ground"] <= 19.0, b)
+                self.assertTrue(18.0 <= b["width"] <= 34.0 and b["depth"] <= b["width"], b)
+                self.assertLessEqual(b["ground"], horizon.WOODED_CREST * hill[5] + 0.1, b)
+                houses += 1
+            elif b["kind"] == "block":
                 self.assertTrue(18.0 <= b["top"] - b["ground"] <= 34.0, b)
                 self.assertTrue(40.0 <= b["width"] <= 170.0, b)
-            ground, _ = horizon.hill_at(b["x"], b["y"])
             self.assertAlmostEqual(b["ground"], ground, delta=1.0)    # the position is rounded to 10 cm
             on_hills += ground > 0.0
         self.assertGreater(on_hills, 10)
+        self.assertGreater(houses, 10)
 
     def test_the_part_dieu_towers_rise_east_above_everything(self):
         towers = [b for b in self.plan["blocks"] if b["kind"] == "tower"]
