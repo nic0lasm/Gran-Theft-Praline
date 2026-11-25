@@ -517,7 +517,10 @@ SQUARES = os.environ.get("GTP_SQUARES", "1") != "0"
 SQUARE_INSET_CM = 100.0 * float(os.environ.get("GTP_SQUARE_INSET_M", "0"))   # outline taken this far in
 SQUARE_EDGE_CM = 25.0           # the surface comes in over this width
 SQUARE_BORDER_CM = 60.0         # stone border inside the outline
-RED_GRAVEL = (0.33, 0.155, 0.10)   # place Bellecour: red stabilised sand, dry, in the sun
+# Place Bellecour: red stabilised sand, dry, in the sun. (0.33, 0.155, 0.10) until gate 99, where
+# it stood salmon under the sun, lighter than the sand is: an eighth darker.
+RED_GRAVEL = (0.29, 0.135, 0.085)
+SQUARE_GRAIN = os.environ.get("GTP_SQUARE_GRAIN", "1") != "0"
 SQUARE_STONE = (0.24, 0.225, 0.20)  # its pale stone border
 SQUARE_REPORT = {"on": SQUARES, "squares": []}
 
@@ -575,6 +578,17 @@ def square_ground(mat, g, wp, xy, s, uv, size_cm):
     fine = g.mul(g.unary(unreal.MaterialExpressionSine, g.add(g.div(x, g.const(41.0)), g.div(y, g.const(67.0)))),
                  g.unary(unreal.MaterialExpressionSine, g.sub(g.div(y, g.const(53.0)), g.div(x, g.const(89.0)))))
     mottle = g.add(g.const(1.0), g.add(g.mul(wide, g.const(0.10)), g.mul(fine, g.const(0.06))))
+    info["grain"] = "sines"
+    if SQUARE_GRAIN:
+        try:        # gate 99, 112 s: the sines read as a woven cloth under the car
+            grain = g.node(unreal.MaterialExpressionCustom, code=sq.grain_hlsl(),
+                           output_type=unreal.CustomMaterialOutputType.CMOT_FLOAT1, description="SandGrain",
+                           inputs=[custom_input("XY")])
+            g.link(xy, "", grain, "XY")
+            mottle = grain
+            info["grain"] = "noise"
+        except Exception as e:  # noqa: BLE001  the sines, as before
+            info["grain_error"] = repr(e)
     gravel = g.mul(g.const(RED_GRAVEL), mottle)
 
     def over(base, base_out, layer, alpha):

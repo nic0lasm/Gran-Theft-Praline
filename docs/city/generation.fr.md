@@ -387,6 +387,12 @@ tuiles, sur la teinte des tuiles (`gtp_surfaces.shell`). `GTP_ROOF_TONES=0` coup
 (densité 0,005 et 0,008, au lieu de 0,008 et 0,012) : à 700 m le bout du quai n'était qu'une
 seule teinte pâle. Pas encore vu en jeu.
 
+Depuis la place Bellecour (porte 99, 76 s) Fourvière portait des barres de sept étages longues
+de cent mètres, grises sur le ciel. Sur une colline boisée un bloc est maintenant une grande
+maison (18 à 34 m, trois ou quatre étages) et aucun ne se tient au-dessus des quatre cinquièmes
+de la hauteur de la colline : la crête est laissée aux arbres, à la basilique et à la tour
+métallique (`horizon.WOODED_WIDTH_M`, `WOODED_CREST`).
+
 Les positions des collines et des tours sont approximatives exprès (un lointain, jamais un lieu
 où aller). Pas encore vu en jeu.
 
@@ -404,7 +410,12 @@ lointain), et la colline derrière ne portait aucun monument.
    dalles, derrière une bordure de pierre claire de 60 cm. Il est posé en coordonnées du
    monde, après le sol lointain, donc l'étendue du masque ne compte pas ; une chaussée que le
    masque connaît à l'intérieur du contour reste une chaussée. Le texte du shader est compilé
-   en C++ dans les tests et comparé à la référence Python. `GTP_SQUARES=0` le coupe,
+   en C++ dans les tests et comparé à la référence Python. Vu en jeu à la porte 99 (la fuite
+   atteint la place) : le sol rouge est là, mais ses nuances, deux produits de sinus, se
+   lisaient comme une toile tissée sous la voiture, et la teinte était saumon au soleil. Les
+   nuances sont maintenant un bruit de valeur (`squares.grain_hlsl` : taches de 9 m, de 1,4 m,
+   grain de 30 cm ; `GTP_SQUARE_GRAIN=0` rend les sinus, `squares.grain` de
+   `materials_report.json` dit lequel) et le sable un huitième plus sombre. `GTP_SQUARES=0` le coupe,
    `GTP_SQUARE_INSET_M=<m>` rentre le contour (si le contour OpenStreetMap va jusqu'aux
    façades) ; `materials_report.json` donne `squares` (surface, sommets, emprise, `laid`). Un
    échec de cette partie y est noté (`error`) et laisse le sol comme il était.
