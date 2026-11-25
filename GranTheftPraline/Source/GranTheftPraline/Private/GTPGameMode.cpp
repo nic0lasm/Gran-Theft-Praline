@@ -1,4 +1,5 @@
 #include "GTPGameMode.h"
+#include "GTPOnFoot.h"
 
 #include "GTPHUD.h"
 #include "GTPPlayerController.h"
@@ -127,6 +128,8 @@ void AGTPGameMode::FinishRestartPlayer(AController* NewPlayer, const FRotator& S
 	// the new pawn kept its white mannequin (gate 59, video ~125 s).
 	APawn* Pawn = NewPlayer ? NewPlayer->GetPawn() : nullptr;
 	ApplyPlayerVisual(Pawn);
+	// On foot the player shoves no car either (GTPOnFoot.h).
+	GTPOnFoot::NoShoving(Cast<ACharacter>(Pawn));
 	UE_LOG(LogGTPGameMode, Log, TEXT("Player visual on restart: %s (%s)"), Pawn ? *Pawn->GetName() : TEXT("no pawn"),
 		Pawn && Pawn->ActorHasTag(TEXT("GTPPlayerVisual")) ? TEXT("visual on") : TEXT("NO VISUAL, own mesh"));
 }

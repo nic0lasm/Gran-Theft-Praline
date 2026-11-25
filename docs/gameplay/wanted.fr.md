@@ -39,6 +39,17 @@ Voir ADR-0004 : niveau 1 une voiture à 70 km/h ; 2 deux voitures à 90, une arr
 
 Une unité à moins de 7 m d'un joueur à pied ou sous 12 km/h, trois secondes de suite. À la première seconde les policiers crient la sommation (`OnArrestWarning`, pour le son et le sous-titre). Ensuite : bandeau, arme rangée et munitions confisquées, étoiles effacées, puis après `BustedSeconds` le joueur réapparaît sur un TargetPoint étiqueté `GTPPoliceStation`, sinon à `ArrestReturnLocation`, sinon au point de départ.
 
+**Les agents à pied ne poussent aucune voiture.** Prise longue de la porte 99, de 97 à 107 s : la voiture volée est
+vide sur la place Bellecour (le joueur s'est rendu), deux agents courent vers elle et la longent, et elle part de côté
+à 35 km/h, se met sur le toit et traverse la place en l'air. Aucune ligne du journal ne dit pourquoi. Cause probable,
+lue dans le code et dans la référence d'Epic, pas mesurée : un agent est un personnage, et le déplacement d'un
+personnage pousse tout corps simulé qu'il rencontre (`bEnablePhysicsInteraction`, actif par défaut, avec une force qui
+ne tient pas compte du poids du corps) ; il longe ce qui lui barre la route, une main dessus. Les agents, le joueur à
+pied et quiconque sort d'une voiture ne poussent plus (`GTPOnFoot::NoShoving` ; `-PeopleShoveCars` rend la poussée). À
+lire à la porte : `police: officers on foot do not push the cars they run into`, et, si une voiture que personne ne
+conduit est encore touchée par quelqu'un à pied, `<car>: with nobody at the wheel, touched by <who> …, impulse N; the
+car up U, N km/h` (six lignes par voiture au plus). **Pas compilé, pas joué.**
+
 ## Mort
 
 À la mort du joueur (`OnPlayerDied`), les signalements en attente sont abandonnés ; à la réapparition à l'hôpital, les étoiles sont effacées.

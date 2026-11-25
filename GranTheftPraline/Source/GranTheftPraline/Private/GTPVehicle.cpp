@@ -1,4 +1,5 @@
 #include "GTPVehicle.h"
+#include "GTPOnFoot.h"
 
 #include "Kismet/GameplayStatics.h"
 
@@ -2356,6 +2357,8 @@ void AGTPVehicle::ReleaseCharacter(ACharacter* Character, const FVector& Locatio
 	{
 		Move->SetMovementMode(MOVE_Walking);
 	}
+	// Out of the car and walking: he shoves neither this car nor the next (GTPOnFoot.h).
+	GTPOnFoot::NoShoving(Character);
 }
 
 void AGTPVehicle::PanicExit(const FVector& ThreatLocation)
@@ -2768,6 +2771,15 @@ void AGTPVehicle::OnBodyHit(UPrimitiveComponent* HitComponent, AActor* OtherActo
 			*GetName(), GetWorld()->GetTimeSeconds() - LastPlacedTime, LastPlacedHow, *GetNameSafe(OtherComp), *GetNameSafe(OtherActor),
 			OtherActor ? *OtherActor->GetClass()->GetName() : TEXT("-"), OtherComp ? static_cast<int32>(OtherComp->GetCollisionObjectType()) : -1,
 			OtherComp && OtherComp->IsSimulatingPhysics() ? 1 : 0, TouchedAt.X, TouchedAt.Y, TouchedAt.Z, *Hit.ImpactPoint.ToCompactString(),
+			Hit.ImpactNormal.X, Hit.ImpactNormal.Y, Hit.ImpactNormal.Z, NormalImpulse.Size(), GetActorUpVector().Z, GetSpeedKmh());
+	}
+	// A car nobody drives, touched by somebody on foot: said, a few times a car. Gate 99's long take: the stolen car,
+	// empty on place Bellecour, was thrown over the square as two officers reached it, and no line said by what.
+	if (StandingTouchesTold < 6 && State != EGTPVehicleState::Driven && OtherActor && OtherActor->IsA<ACharacter>())
+	{
+		++StandingTouchesTold;
+		GTP_TRACE(LogGTPVehicle, TEXT("%s: with nobody at the wheel, touched by %s (%s) at %s, normal %.2f %.2f %.2f, impulse %.0f; the car up %.2f, %.0f km/h"),
+			*GetName(), *GetNameSafe(OtherActor), *OtherActor->GetClass()->GetName(), *Hit.ImpactPoint.ToCompactString(),
 			Hit.ImpactNormal.X, Hit.ImpactNormal.Y, Hit.ImpactNormal.Z, NormalImpulse.Size(), GetActorUpVector().Z, GetSpeedKmh());
 	}
 	// Crimes by the player at the wheel: running into people, cars and police.

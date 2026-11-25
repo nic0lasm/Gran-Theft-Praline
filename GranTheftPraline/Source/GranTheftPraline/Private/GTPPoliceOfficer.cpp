@@ -1,4 +1,5 @@
 #include "GTPPoliceOfficer.h"
+#include "GTPOnFoot.h"
 
 #include "Animation/AnimSequenceBase.h"
 #include "CollisionQueryParams.h"
@@ -48,6 +49,16 @@ void AGTPPoliceOfficer::BeginPlay()
 	{
 		Move->SetMovementMode(MOVE_Walking);
 		Move->SetComponentTickEnabled(true);
+	}
+	// He runs to the player's car and along it: he must not throw it (gate 99, GTPOnFoot.h).
+	GTPOnFoot::NoShoving(this);
+	static bool bShovingTold = false;
+	if (!bShovingTold)
+	{
+		bShovingTold = true;
+		const UCharacterMovementComponent* Legs = GetCharacterMovement();
+		GTP_TRACE(LogTemp, TEXT("police: officers on foot %s the cars they run into (-PeopleShoveCars to have them push)"),
+			Legs && Legs->bEnablePhysicsInteraction ? TEXT("PUSH") : TEXT("do not push"));
 	}
 	SetActorTickEnabled(true);
 	SpawnTime = GetWorld() ? static_cast<float>(GetWorld()->GetTimeSeconds()) : 0.f;

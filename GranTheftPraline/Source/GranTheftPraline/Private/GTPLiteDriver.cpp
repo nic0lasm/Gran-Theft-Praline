@@ -24,6 +24,8 @@ AGTPLiteDriver::AGTPLiteDriver(const FObjectInitializer& ObjectInitializer)
 		Move->SetComponentTickEnabled(false);
 		Move->DefaultLandMovementMode = MOVE_None;
 		Move->bRunPhysicsWithNoController = false;
+		// A driver put out of his car, an officer: on foot they shove no car (GTPOnFoot.h).
+		Move->bEnablePhysicsInteraction = false;
 	}
 	if (USkeletalMeshComponent* Body = GetMesh())
 	{

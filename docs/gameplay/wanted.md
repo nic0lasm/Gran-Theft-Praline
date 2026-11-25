@@ -39,6 +39,17 @@ See ADR-0004: level 1 one car at 70 km/h; 2 two cars at 90, one comes from in fr
 
 A unit within 7 m of a player on foot or under 12 km/h, three seconds in a row. At the first second the police shout (`OnArrestWarning`, for sound and subtitle). Then: banner, the weapon is holstered and the ammunition taken, the stars are cleared, and after `BustedSeconds` the player reappears at a TargetPoint tagged `GTPPoliceStation`, else at `ArrestReturnLocation`, else at the player start.
 
+**Officers on foot shove no car.** Gate 99's long take, 97 to 107 s: the stolen car stands empty on place Bellecour
+(the player gave himself up), two officers run to it and along it, and it goes sideways at 35 km/h, onto its roof and
+over the square. No line of the log says why. Probable cause, read in the code and in Epic's reference, not measured:
+an officer is a character, and a character's movement pushes every simulating body it runs into
+(`bEnablePhysicsInteraction`, on by default, with a push force that is not scaled to the weight of the body); he
+walks along what stands in his way, a hand on it. Officers, the player on foot and whoever is put out of a car no
+longer push (`GTPOnFoot::NoShoving`; `-PeopleShoveCars` gives the push back). To read at the gate: `police: officers
+on foot do not push the cars they run into`, and, if a car nobody drives is still touched by somebody on foot,
+`<car>: with nobody at the wheel, touched by <who> …, impulse N; the car up U, N km/h` (six lines a car at most).
+**Not compiled, not played.**
+
 ## Dead
 
 When the player dies (`OnPlayerDied`), pending reports are dropped; at the respawn at the hospital the stars are cleared.

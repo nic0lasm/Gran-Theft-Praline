@@ -593,6 +593,8 @@ private:
 	int32 SeatedAgainCount = 0;
 	/** OnBodyHit: how many touches were named since the car was last placed (NotePlaced). */
 	int32 PlacedHitsTold = 8;
+	/** OnBodyHit: how many touches by somebody on foot were said while nobody drove the car. */
+	int32 StandingTouchesTold = 0;
 	void ReleaseCharacter(ACharacter* Character, const FVector& Location, const FRotator& Rotation);
 	/** Tag of a hidden seated driver's mesh put to sleep by AttachToSeat (no pose at all until released). */
 	static FName SeatDormantTag();
