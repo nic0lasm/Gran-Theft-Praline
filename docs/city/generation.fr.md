@@ -365,6 +365,13 @@ bleu sombre sous le ciel, comme une mer. Quatre causes, quatre changements.
    sur une pente elle reste un toit et sort du masque de mur. `GTP_ROOF_WALLS=0` le coupe ;
    `materials_report.json` donne `roof_walls`.
 
+Depuis la porte 86 (prise longue, 120 s : au bout du quai les blocs lointains étaient des boîtes
+grises plates sous une seule ligne droite) chaque bloc lointain a un toit : un toit de tuiles
+dont la dalle déborde du mur ou une mansarde de zinc en retrait, à deux hauteurs sur les blocs
+larges, et des souches de cheminées (`horizon.roofs`, posés par `place_horizon.block_roofs`
+en instances d'un seul cube, un acteur par matériau ; `GTP_HORIZON_ROOFS=0` les coupe ;
+`horizon_report.json` donne `roofs`).
+
 Les positions des collines et des tours sont approximatives exprès (un lointain, jamais un lieu
 où aller). Pas encore vu en jeu.
 
@@ -465,7 +472,8 @@ dans une rampe de parking.
    la zone ne tient pas, élargie de 40 m (aujourd'hui 161 m sur 460 m des quais Jules Courmont
    et Jean Moulin) ; le matériau du sol le lit là, le masque lointain au-delà
    (`GTP_ROUTE_MASK=0` le coupe). Les rues à sens unique de deux voies ou plus reçoivent une
-   ligne discontinue entre leurs voies (trois sur les quatre voies du quai). Non versionné,
+   ligne discontinue entre leurs voies (trois sur les quatre voies du quai), large de deux texels
+   au moins dans ce masque (31 cm : un texel ne se voyait pas à la porte 86). Non versionné,
    comme le masque lointain ; `materials_report.json` donne `route_mask` (`texture`,
    `read_on_the_route`).
 

@@ -238,6 +238,9 @@ def build(zone, focus, far=False, processed=None, far_texels=FAR_TEXELS, route=N
     layers = {k: Image.new("L", (cw, ch), 0) for k in ("asphalt", "kerb", "paving", "mark")}
     draw = {k: ImageDraw.Draw(v) for k, v in layers.items()}
     m2px = 100.0 / s
+    # Gate 86: the lane lines of the route mask, one texel wide, did not show in the game. A line
+    # of the route mask is two texels of the coarser axis at least (31 cm today).
+    mark_w_m = max(MARK_W_M, 2.0 * cm_per_px / 100.0) if route is not None else MARK_W_M
     counts = {"asphalt": 0, "paving": 0, "marked": 0, "lane_lines": 0, "tunnel": 0}
 
     def line(d, pts, width_m):
@@ -326,7 +329,7 @@ def build(zone, focus, far=False, processed=None, far_texels=FAR_TEXELS, route=N
                             bx = a[0] + (b[0] - a[0]) * s1 / seg
                             by = a[1] + (b[1] - a[1]) * s1 / seg
                             draw["mark"].line([(ax, ay), (bx, by)], fill=255,
-                                              width=max(1, int(round(MARK_W_M * m2px))))
+                                              width=max(1, int(round(mark_w_m * m2px))))
                         t += period
                     carry = (seg + carry) % period
 

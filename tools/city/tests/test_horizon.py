@@ -26,6 +26,38 @@ class HorizonTests(unittest.TestCase):
                 y = h["y"] + h["half_y"] * math.sin(math.radians(t))
                 self.assertGreater(horizon.axis_distance(x, y), horizon.BACKDROP_M, h["name"])
 
+    def test_every_far_block_has_a_roof_and_chimneys_above_its_wall(self):
+        roofs, chimneys = self.plan["roofs"]["roofs"], self.plan["roofs"]["chimneys"]
+        blocks = [b for b in self.plan["blocks"] if b["kind"] == "block"]
+        self.assertTrue(len(blocks) <= len(roofs) <= 2 * len(blocks))
+        self.assertGreaterEqual(len(chimneys), 2 * len(blocks))
+        self.assertEqual({r["kind"] for r in roofs}, {"tile", "zinc"})
+        tops = {(b["x"], b["y"]): b for b in blocks}
+        for r in roofs:
+            near = min(blocks, key=lambda b: math.hypot(b["x"] - r["x"], b["y"] - r["y"]))
+            self.assertLess(math.hypot(near["x"] - r["x"], near["y"] - r["y"]), 0.5 * near["width"], r)
+            self.assertLess(r["bottom"], near["top"])                    # no gap under the roof
+            self.assertTrue(2.0 <= r["top"] - near["top"] <= 7.5, r)
+            self.assertLessEqual(r["width"], near["width"] + 1.01)
+        for c in chimneys:
+            near = min(blocks, key=lambda b: math.hypot(b["x"] - c["x"], b["y"] - c["y"]))
+            self.assertLess(math.hypot(near["x"] - c["x"], near["y"] - c["y"]),
+                            0.5 * math.hypot(near["width"], near["depth"]), c)
+            self.assertTrue(near["top"] + 3.0 < c["top"] < near["top"] + 11.0, c)
+            self.assertLess(c["bottom"], c["top"] - 1.0)
+        self.assertEqual(len(tops), len(blocks))
+        self.assertEqual(self.plan["blocks"], [dict(b) for b in horizon.layout()["blocks"]])
+
+    def test_a_chimney_stands_on_its_block_whatever_the_yaw(self):
+        block = {"x": 100.0, "y": 50.0, "yaw": 90.0, "width": 80.0, "depth": 30.0, "ground": 0.0, "top": 20.0,
+                 "colour": 0, "kind": "block"}
+        out = horizon.roofs([block])
+        for c in out["chimneys"]:               # turned a quarter: the width runs along y
+            self.assertLess(abs(c["x"] - 100.0), 15.0, c)
+            self.assertLess(abs(c["y"] - 50.0), 40.0, c)
+        self.assertEqual(len(out["roofs"]), 2)  # wide: two houses
+        self.assertEqual(horizon.roofs([dict(block, kind="tower")]), {"roofs": [], "chimneys": []})
+
     def test_the_actor_count_stays_small(self):
         self.assertTrue(150 <= len(self.plan["blocks"]) <= 320, len(self.plan["blocks"]))
 

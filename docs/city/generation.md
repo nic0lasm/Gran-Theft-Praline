@@ -347,6 +347,12 @@ sea. Four causes, four changes.
    vertical face it becomes stone, on a slope it stays a roof and leaves the wall mask.
    `GTP_ROOF_WALLS=0` turns it off; `materials_report.json` gives `roof_walls`.
 
+Since gate 86 (long take, 120 s: at the end of the quay the far blocks were flat grey boxes
+under one straight line) each far block has a roof: a tiled roof whose slab overhangs the wall
+or a zinc mansard set back, stepped on the wide blocks, and chimney stacks (`horizon.roofs`,
+placed by `place_horizon.block_roofs` as instances of one cube, one actor a material;
+`GTP_HORIZON_ROOFS=0` turns them off; `horizon_report.json` gives `roofs`).
+
 Positions of the hills and towers are approximate on purpose (a far view, never a place to go).
 Not seen in game yet.
 
@@ -440,7 +446,8 @@ far bank, the Rhône paved like a sidewalk. At 50 s the stolen car rolled into a
    the focus mask does not hold, 40 m wider (today 161 m by 460 m of quai Jules Courmont and quai
    Jean Moulin); the ground material reads it there, the far mask past it (`GTP_ROUTE_MASK=0`
    turns it off). One-way roads of two lanes or more get a dashed line between their lanes
-   (three on the four lanes of the quay). Not versioned, like the far mask;
+   (three on the four lanes of the quay), two texels wide at least
+   in this mask (31 cm: one texel did not show at gate 86). Not versioned, like the far mask;
    `materials_report.json` gives `route_mask` (`texture`, `read_on_the_route`).
 
 `materials_report.json` gives `far_mask` (`texture`, `read_past_the_mask`, `rivers`, `laid`);

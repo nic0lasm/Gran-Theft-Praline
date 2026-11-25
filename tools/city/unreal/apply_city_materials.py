@@ -868,6 +868,7 @@ HORIZON_ROOF = (0.16, 0.17, 0.18)          # zinc and slate, seen from the stree
 HORIZON_GROUND = (0.085, 0.085, 0.08)      # roofs, streets and trees a kilometre away, as one tone
 HORIZON_WOOD = (0.055, 0.06, 0.035)        # Fourviere under its trees
 HORIZON_TOWN = (0.21, 0.19, 0.16)          # the Croix-Rousse: walls and tiles, as one tone
+HORIZON_TILE = (0.27, 0.13, 0.085)         # Roman tiles, the roofs of Lyon from across the river
 HORIZON_STONE = (0.56, 0.54, 0.49)         # the basilica of Fourviere: white stone
 HORIZON_IRON = (0.05, 0.05, 0.048)         # the metal tower beside it
 HORIZON_PALETTE = ("#D8CDB6", "#D8C3A0", "#E0B48A", "#BDBDB8")   # procgen.PALETTE: stone, renders, modern
@@ -904,6 +905,8 @@ def horizon_materials():
     names.append(flat_material("M_City_HorizonGround", HORIZON_GROUND, mottle=0.25).get_name())
     names.append(flat_material("M_City_HorizonWood", HORIZON_WOOD, mottle=0.5).get_name())
     names.append(flat_material("M_City_HorizonTown", HORIZON_TOWN, mottle=0.35).get_name())
+    names.append(flat_material("M_City_HorizonRoof", HORIZON_ROOF, roughness=0.6, mottle=0.2).get_name())
+    names.append(flat_material("M_City_HorizonTile", HORIZON_TILE, mottle=0.35).get_name())
     names.append(flat_material("M_City_HorizonStone", HORIZON_STONE, roughness=0.85).get_name())
     names.append(flat_material("M_City_HorizonIron", HORIZON_IRON, roughness=0.7).get_name())
     return names
