@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <string>
 #include <vector>
 
 static int Failures = 0;
@@ -246,6 +247,14 @@ int main()
 		CHECK(Joins(120.f, 120.f, 60.f, 19.9f, 3, Game) == EJoin::Waits);
 		CHECK(Joins(120.f, 120.f, 60.f, 20.f, 3, Game) == EJoin::Late);
 		CHECK(Joins(120.f, 120.f, 60.f, 1.f, 0, Game) == EJoin::Over);
+		// He stands still (gate 103: 41 s stopped and no police car came): it does not wait for a man who no longer comes.
+		// A corner taken slowly is not a stop.
+		CHECK(Joins(120.f, 120.f, 3.f, 5.f, 3, Game, 1.9f) == EJoin::Waits);
+		CHECK(Joins(120.f, 120.f, 0.f, 5.f, 3, Game, 2.f) == EJoin::Stands);
+		CHECK(Joins(20.f, 20.f, 0.f, 5.f, 3, Game, 2.f) == EJoin::Stands);
+		CHECK(Joins(120.f, 120.f, 0.f, 5.f, 0, Game, 9.f) == EJoin::Over);
+		CHECK(std::string(JoinName(EJoin::Stands)) == "he stands still");
+		CHECK(std::string(JoinName(EJoin::Over)) == "nobody is wanted any more");
 
 		// It comes out behind him, never in front: its street meets his road at a right angle, it stands 25 m from
 		// the junction, picks up at Accel and takes the corner at 25 km/h. From 15 to 99 km/h and for a slow and a

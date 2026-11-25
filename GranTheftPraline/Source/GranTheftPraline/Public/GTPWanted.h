@@ -573,6 +573,8 @@ private:
 		bool bWaits = false;
 		float WaitSeconds = 0.f;
 		float WaitNearestM = 1.e9f;
+		/** While it waits: how long he has stood still (s). */
+		float QuarryStoodSeconds = 0.f;
 		/** Pulled out as he came by: until JoinUntil (s) it drives to JoinGoal, on his road past its junction, whichever
 		 *  side of that junction he still is; then after him like any other unit. */
 		FVector JoinGoal = FVector::ZeroVector;

@@ -34,6 +34,9 @@ namespace GTPPoliceIntercept
 		float PassedM = 30.f;
 		/** It waits no longer than this (s). */
 		float MaxWaitS = 20.f;
+		/** He stands still (slower than StandKmh for StandS): it does not wait for a man who no longer comes (km/h, s). */
+		float StandKmh = 8.f;
+		float StandS = 2.f;
 	};
 
 	struct FPlace
@@ -217,6 +220,8 @@ namespace GTPPoliceIntercept
 		Passed,
 		/** It has waited long enough. */
 		Late,
+		/** He stands still: he gave up, or his car is stuck (gate 103: stopped for 41 s, no police car came). */
+		Stands,
 		/** Nobody is wanted any more. */
 		Over,
 	};
@@ -224,13 +229,17 @@ namespace GTPPoliceIntercept
 	/**
 	 * Does a car that waits pull out now?
 	 * AwayM: how far he is in a straight line; NearestM: the nearest he has been since it waits; QuarryKmh: his speed;
-	 * WaitedS: how long it has waited; Stars: the level.
+	 * WaitedS: how long it has waited; Stars: the level; StoodS: how long he has been slower than S.StandKmh.
 	 */
-	inline EJoin Joins(float AwayM, float NearestM, float QuarryKmh, float WaitedS, int Stars, const FSettings& S)
+	inline EJoin Joins(float AwayM, float NearestM, float QuarryKmh, float WaitedS, int Stars, const FSettings& S, float StoodS = 0.f)
 	{
 		if (Stars <= 0)
 		{
 			return EJoin::Over;
+		}
+		if (StoodS >= S.StandS)
+		{
+			return EJoin::Stands;
 		}
 		const float Lead = S.JoinSeconds * (QuarryKmh > 0.f ? QuarryKmh : 0.f) / 3.6f;
 		if (AwayM <= (Lead > S.JoinMinM ? Lead : S.JoinMinM))
@@ -246,7 +255,7 @@ namespace GTPPoliceIntercept
 
 	inline const char* JoinName(EJoin Why)
 	{
-		static const char* const Names[] = {"waits", "he is about to pass", "he goes away from it", "it has waited long enough", "nobody is wanted any more"};
+		static const char* const Names[] = {"waits", "he is about to pass", "he goes away from it", "it has waited long enough", "he stands still", "nobody is wanted any more"};
 		return Names[static_cast<int>(Why)];
 	}
 

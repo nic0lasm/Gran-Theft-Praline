@@ -2066,7 +2066,9 @@ void AGTPPoliceDirector::DriveUnit(FUnit& Unit, UGTPWantedComponent& Wanted, con
 		const float AwayM = static_cast<float>(FVector::Dist2D(Location, Player.GetActorLocation())) * WantedCmToM;
 		const float QuarryKmh = static_cast<float>(Player.GetVelocity().Size2D()) * 0.036f;
 		Unit.WaitSeconds += DeltaSeconds;
-		const GTPPoliceIntercept::EJoin Why = GTPPoliceIntercept::Joins(AwayM, Unit.WaitNearestM, QuarryKmh, Unit.WaitSeconds, Stars, InterceptSettings);
+		Unit.QuarryStoodSeconds = QuarryKmh < InterceptSettings.StandKmh ? Unit.QuarryStoodSeconds + DeltaSeconds : 0.f;
+		const GTPPoliceIntercept::EJoin Why = GTPPoliceIntercept::Joins(AwayM, Unit.WaitNearestM, QuarryKmh, Unit.WaitSeconds, Stars, InterceptSettings,
+			Unit.QuarryStoodSeconds);
 		Unit.WaitNearestM = FMath::Min(Unit.WaitNearestM, AwayM);
 		if (Why == GTPPoliceIntercept::EJoin::Waits)
 		{
@@ -2191,10 +2193,14 @@ void AGTPPoliceDirector::DriveUnit(FUnit& Unit, UGTPWantedComponent& Wanted, con
 		GTP_TRACE(LogGTPWanted, TEXT("police unit: stopped, pushing through (obstacle %.1f m)"), Unit.LastObstacle);
 	}
 	const bool bPursuit = Wanted.GetPhase() == EGTPWantedPhase::Pursuit;
+	// The police know where he is: seen now, or told by radio after a crime (the last known place then follows him,
+	// UGTPWantedComponent::DispatchSeconds). A unit 150 m behind him sees nothing, 65 m is as far as it sees
+	// (SightRange): what is meant for a unit left behind goes by this, not by the pursuit phase.
+	const bool bPlaceKnown = bPursuit || FVector::Dist2D(Wanted.GetLastKnownLocation(), Player.GetActorLocation()) < 200.f;
 	if (NowSeconds < Unit.JoinUntil)
 	{
 		// Just out of its side street (GTPPoliceIntercept.h): to his road, 30 m past the junction, then after him.
-		if (!bPursuit || FVector::Dist2D(Location, Unit.JoinGoal) < 1500.f)
+		if (!bPlaceKnown || FVector::Dist2D(Location, Unit.JoinGoal) < 1500.f)
 		{
 			Unit.JoinUntil = 0.f;
 		}
@@ -2248,7 +2254,7 @@ void AGTPPoliceDirector::DriveUnit(FUnit& Unit, UGTPWantedComponent& Wanted, con
 	{
 		// No way through the buildings: take the lanes, always towards the target; faster than its level's speed when
 		// it is left behind a player whose place is known.
-		DriveOnLanes(Unit, Target, true, bPursuit ? TopSpeedFor(Unit, ChaseKmh * 0.9f, Player, Stars) : ChaseKmh * 0.9f);
+		DriveOnLanes(Unit, Target, true, bPlaceKnown ? TopSpeedFor(Unit, ChaseKmh * 0.9f, Player, Stars) : ChaseKmh * 0.9f);
 	}
 	else if (!bPursuit && Distance > 1200.f && HasLineOfSight(Car, Player, Target))
 	{
