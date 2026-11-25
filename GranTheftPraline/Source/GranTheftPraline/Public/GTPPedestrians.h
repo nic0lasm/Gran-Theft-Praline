@@ -101,6 +101,10 @@ public:
 		float HighestCm = 0.f;
 		/** The fastest a part was found going before it was bounded (cm/s). */
 		float FastestCmS = 0.f;
+		/** Falls during which the crowd wanted the body for somebody else and left it (CanBeTaken, NoteKeptFalling). */
+		int32 KeptFalling = 0;
+		/** Bodies taken while they still fell or moved: the 8 s of GTPImpact::FallHoldMaxSeconds were over, or another rule took them. */
+		int32 TakenMoving = 0;
 	};
 	static const FRagdollTally& GetRagdollTally();
 
@@ -108,6 +112,16 @@ public:
 
 	/** Back to the standing pose, ready to be placed again. */
 	void ResetBody();
+
+	/**
+	 * Can the body be taken from its person now (given to somebody else, put away)? Always, but for a body that fell:
+	 * that one stays until it has been down for its 3 s and none of its parts moves, 8 s at most
+	 * (GTPImpact::BodyCanBeTaken). Taken while it fell, it lost its physics and its collision in one frame, in the
+	 * middle of its contacts.
+	 */
+	bool CanBeTaken() const;
+	/** The crowd wanted this body for somebody else and left it because it falls: counted once a fall. */
+	void NoteKeptFalling();
 
 private:
 	UPROPERTY(VisibleAnywhere)
@@ -153,6 +167,10 @@ private:
 	int32 RagdollBounded = 0;
 	bool bRagdollSlid = false;
 	bool bRagdollDropped = false;
+	/** World time of the fall; down for its 3 s (SettleRagdoll ran); the crowd was refused this body during this fall. */
+	double RagdollSince = 0.0;
+	bool bRagdollDown = false;
+	bool bRagdollKept = false;
 	/** Where the body sits under the actor, kept when it falls: it comes back there, upright, when it is given again. */
 	FTransform BodyRelative = FTransform::Identity;
 	float AnimInterval = 0.f;

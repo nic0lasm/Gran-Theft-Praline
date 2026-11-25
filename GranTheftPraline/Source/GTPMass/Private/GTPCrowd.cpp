@@ -1224,6 +1224,12 @@ void UGTPCrowdSubsystem::UpdateNear(float DeltaTime)
 	{
 		if (NearEntity[Slot] != INDEX_NONE && !Wanted.Contains(NearEntity[Slot]))
 		{
+			// Not a body that is falling (AGTPPedestrian::CanBeTaken): the person run over keeps it until it lies still.
+			if (!NearActors[Slot]->CanBeTaken())
+			{
+				NearActors[Slot]->NoteKeptFalling();
+				continue;
+			}
 			if (FGTPCrowdLookFragment* Look = LookOf(NearEntity[Slot]))
 			{
 				Look->bNear = false;
@@ -1321,8 +1327,9 @@ void UGTPCrowdSubsystem::UpdateNear(float DeltaTime)
 				BodiesReleased, HandsUpReset, FearReset, DeadReset, FrozenFar, HeldPutBack, Fallen, LyingStill);
 			// And of the bodies thrown by the player's car: none higher than a car's roof, none left lying on a car.
 			const AGTPPedestrian::FRagdollTally& Thrown = AGTPPedestrian::GetRagdollTally();
-			UE_LOG(LogGTPCrowd, Log, TEXT("crowd: run over: %d people hit by the player's car, %d bodies fell; highest a pelvis went above its ground %.0f cm (bound %.0f), fastest part found %.0f cm/s, %d frames brought back within bounds, %d bodies slid off a car, %d dropped through one"),
-				CarHits, Thrown.Started, Thrown.HighestCm, GTPImpact::FBodyBounds().MaxHeightCm, Thrown.FastestCmS, Thrown.Bounded, Thrown.SlidOff, Thrown.Dropped);
+			UE_LOG(LogGTPCrowd, Log, TEXT("crowd: run over: %d people hit by the player's car, %d bodies fell; highest a pelvis went above its ground %.0f cm (bound %.0f), fastest part found %.0f cm/s, %d frames brought back within bounds, %d bodies slid off a car, %d dropped through one; %d kept with their person while they fell, %d taken still moving"),
+				CarHits, Thrown.Started, Thrown.HighestCm, GTPImpact::FBodyBounds().MaxHeightCm, Thrown.FastestCmS, Thrown.Bounded, Thrown.SlidOff, Thrown.Dropped,
+				Thrown.KeptFalling, Thrown.TakenMoving);
 		}
 	}
 	const UGTPThreatSubsystem* HoldUp = UGTPThreatSubsystem::IsEnabled() && GetWorld() ? GetWorld()->GetSubsystem<UGTPThreatSubsystem>() : nullptr;

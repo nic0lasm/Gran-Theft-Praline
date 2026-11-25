@@ -188,6 +188,24 @@ off a car, … dropped through one`; per hit `crowd: <name> hit by the player's 
 **Not proven**: nothing compiled, nothing seen in the game. Expected in the next long video: nobody above a car's
 roof, no body left on a car for more than 2 to 3 s, "highest" at 140 cm or just above.
 
+## A body that fell stays with its person until it lies still
+
+The crowd has 36 bodies for the people within 40 m of the player: a body goes from whoever left the closest set to
+somebody nearer. A person run over at 73 km/h is 40 m behind the car two seconds later. His body, still falling, was
+taken from him: its physics and its collision went in one frame, in the middle of its contacts, and it stood elsewhere
+the next. Gate 92's long take: a person falls at 150.2 s, the line `down for 3 s` of his body never comes, and at
+153.9 s the physics engine reports a disabled body in a group that goes to sleep (`Ensure condition failed:
+!PBDRigid->Disabled()`), 5.3 s to write its stack: the picture froze for 6 s. The link between the two is read in the
+code and in the order of the lines, not proven.
+
+A body that fell now stays until it has been down for its 3 s and none of its parts moves, 8 s at most
+(`AGTPPedestrian::CanBeTaken`, `GTPImpact::BodyCanBeTaken`, checked by `tools/ragdoll/check_impact_logic.py`). The
+crowd asks before it takes a body, and so does the older pedestrian subsystem before it moves a far person. A body
+run over therefore lies in the street for 3 s and more instead of 2. Log: the line `crowd: run over` ends with
+`N kept with their person while they fell, N taken still moving`, and the first ten bodies taken while they moved are
+named (`pedestrian <name>: its body is taken … s after it fell`). At the gate: every `falls` has its `down for 3 s`,
+no `Handled ensure`. Not compiled nor played when written.
+
 ## Cars standing on a walkway (`-CrowdAvoidCars=0` to walk through them as before)
 
 Video of gate 59, 130 to 180 s: the player's car stands in a pedestrian street and people walk through it, one of them

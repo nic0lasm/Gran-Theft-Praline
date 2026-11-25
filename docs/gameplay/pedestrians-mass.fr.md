@@ -204,6 +204,24 @@ par la hauteur maximale du bassin. **Non prouvé** : rien n'est compilé, rien n
 vidéo longue : personne au-dessus du toit d'une voiture, aucun corps resté sur une voiture plus de 2 à 3 s, « highest »
 à 140 cm ou juste au-dessus.
 
+## Un corps tombé reste à sa personne jusqu'à ce qu'il soit immobile
+
+La foule a 36 corps pour les personnes à moins de 40 m du joueur : un corps passe de celle qui a quitté le groupe le
+plus proche à une personne plus proche. Une personne renversée à 73 km/h est 40 m derrière la voiture deux secondes
+plus tard. Son corps, encore en train de tomber, lui était repris : sa physique et sa collision coupées en une image,
+au milieu de ses contacts, et il était debout ailleurs à la suivante. Prise longue de la porte 92 : une personne tombe
+à 150,2 s, la ligne `down for 3 s` de son corps ne vient jamais, et à 153,9 s le moteur physique signale un corps
+désactivé dans un groupe qui s'endort (`Ensure condition failed: !PBDRigid->Disabled()`), 5,3 s pour écrire sa pile :
+l'image a gelé 6 s. Le lien entre les deux est lu dans le code et dans l'ordre des lignes, pas prouvé.
+
+Un corps tombé reste désormais jusqu'à ce qu'il soit à terre depuis ses 3 s et qu'aucune de ses parties ne bouge,
+8 s au plus (`AGTPPedestrian::CanBeTaken`, `GTPImpact::BodyCanBeTaken`, vérifié par
+`tools/ragdoll/check_impact_logic.py`). La foule le demande avant de reprendre un corps, et l'ancien sous-système des
+piétons aussi avant de déplacer une personne lointaine. Un corps renversé reste donc dans la rue 3 s et plus au lieu
+de 2. Journal : la ligne `crowd: run over` finit par `N kept with their person while they fell, N taken still moving`,
+et les dix premiers corps repris en mouvement sont nommés (`pedestrian <name>: its body is taken … s after it
+fell`). À la porte : chaque `falls` a son `down for 3 s`, aucun `Handled ensure`. Ni compilé ni joué à l'écriture.
+
 ## Voitures arrêtées sur un trottoir ou une rue piétonne (`-CrowdAvoidCars=0` pour les traverser comme avant)
 
 Vidéo de la porte 59, de 130 à 180 s : la voiture du joueur est arrêtée dans une rue piétonne et les gens la traversent,

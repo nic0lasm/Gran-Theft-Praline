@@ -465,6 +465,9 @@ bool AGTPPedestrian::StartRagdoll(const FVector& Launch, const AActor* By)
 	RagdollBounded = 0;
 	bRagdollSlid = false;
 	bRagdollDropped = false;
+	RagdollSince = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0;
+	bRagdollDown = false;
+	bRagdollKept = false;
 	// A part that starts inside the car is pushed out of it gently, not thrown.
 	for (FBodyInstance* Part : Body->Bodies)
 	{
@@ -587,6 +590,7 @@ void AGTPPedestrian::SettleRagdoll()
 	Body->SetCollisionEnabled(ECollisionEnabled::PhysicsOnly);
 	Body->SetCollisionResponseToChannel(ECC_Vehicle, ECR_Ignore);
 	Body->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
+	bRagdollDown = true;
 	GTP_TRACE(LogGTPPedestrians, TEXT("pedestrian %s: down for 3 s, the body leaves the cars' way (no query sees it, vehicles pass over it); pelvis went %.0f cm above the ground at most, %d frames brought back within bounds%s%s"),
 		*GetName(), RagdollHighest, RagdollBounded, bRagdollSlid ? TEXT(", slid off a car") : TEXT(""), bRagdollDropped ? TEXT(", dropped through a car") : TEXT(""));
 }
@@ -601,6 +605,16 @@ void AGTPPedestrian::ResetBody()
 		{
 			Cap->ReleaseExternal(this);
 		}
+		// Taken while it still fell or moved (CanBeTaken says when it should not be): said, the first times.
+		if (!bRagdollDown || Body->IsAnyRigidBodyAwake())
+		{
+			if (++GTPRagdollTally.TakenMoving <= 10)
+			{
+				GTP_TRACE(LogGTPPedestrians, TEXT("pedestrian %s: its body is taken %.1f s after it fell, %s, %s (%d taken so)"), *GetName(),
+					GetWorld() ? GetWorld()->GetTimeSeconds() - RagdollSince : 0.0, bRagdollDown ? TEXT("down for its 3 s") : TEXT("before its 3 s down"),
+					Body->IsAnyRigidBodyAwake() ? TEXT("a part still moving") : TEXT("asleep"), GTPRagdollTally.TakenMoving);
+			}
+		}
 		Body->SetSimulatePhysics(false);
 		Body->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		// A skeletal mesh that simulates stays attached and takes the turn of its pelvis: attaching it again "snapping to
@@ -613,6 +627,26 @@ void AGTPPedestrian::ResetBody()
 		bRagdoll = false;
 		CurrentAnimation = nullptr;
 		Body->SetAnimationMode(EAnimationMode::AnimationSingleNode);
+	}
+}
+
+bool AGTPPedestrian::CanBeTaken() const
+{
+	if (!bRagdoll)
+	{
+		return true;
+	}
+	const UWorld* World = GetWorld();
+	const float FallSeconds = World ? static_cast<float>(World->GetTimeSeconds() - RagdollSince) : GTPImpact::FallHoldMaxSeconds;
+	return GTPImpact::BodyCanBeTaken(true, bRagdollDown, Body && Body->IsAnyRigidBodyAwake(), FallSeconds);
+}
+
+void AGTPPedestrian::NoteKeptFalling()
+{
+	if (bRagdoll && !bRagdollKept)
+	{
+		bRagdollKept = true;
+		++GTPRagdollTally.KeptFalling;
 	}
 }
 
@@ -1849,7 +1883,8 @@ void UGTPPedestrianSubsystem::Tick(float DeltaTime)
 			}
 			const bool bFar = P.Distance > MaxDistance;
 			const bool bDown = P.Actor.IsValid() && P.Actor->IsRagdoll() && P.RagdollLeft <= 0.f;
-			if ((bFar || bDown) && !IsSeen(P.Location))
+			// Never a body in the middle of its fall (AGTPPedestrian::CanBeTaken).
+			if ((bFar || bDown) && !IsSeen(P.Location) && (!P.Actor.IsValid() || P.Actor->CanBeTaken()))
 			{
 				Retire(P);
 			}

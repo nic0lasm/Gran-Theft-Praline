@@ -584,6 +584,17 @@ int main()
 			}
 			CHECK(bBefore, "from 18 to 130 km/h, at 30 and 60 frames a second, the person falls before the bumper is inside him");
 		}
+
+		// A body that fell stays with its person until it lies still, 8 s at most.
+		{
+			CHECK(BodyCanBeTaken(false, false, false, 0.f), "a body that stands or walks can be given to somebody else");
+			CHECK(!BodyCanBeTaken(true, false, true, 2.f), "falling for 2 s (the car is 40 m further at 73 km/h): kept");
+			CHECK(!BodyCanBeTaken(true, false, false, 2.5f), "at rest before its 3 s down: kept (it may be on its way up a bonnet)");
+			CHECK(!BodyCanBeTaken(true, true, true, 4.f), "down for 3 s and still moving: kept");
+			CHECK(BodyCanBeTaken(true, true, false, 4.f), "down and asleep: it can go");
+			CHECK(BodyCanBeTaken(true, false, true, FallHoldMaxSeconds), "8 s after the fall it goes whatever it does: the crowd has 36 bodies");
+			CHECK(!BodyCanBeTaken(true, true, true, 7.9f) && BodyCanBeTaken(true, true, true, 3.f, 3.f), "the longest hold is the one given");
+		}
 	}
 
 	std::printf(Failures == 0 ? "PASS impact logic\n" : "FAILED %d checks\n", Failures);

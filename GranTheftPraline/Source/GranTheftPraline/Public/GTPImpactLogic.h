@@ -461,4 +461,20 @@ inline bool CarReaches(float Along, float Side, float HalfLength, float HalfWidt
 	const float Margin = Forward > HalfLength - 60.f ? PersonRadius : 10.f;
 	return std::fabs(Side) <= HalfWidth + Margin;
 }
+/**
+ * A body that fell stays with its person until it lies still. The crowd has fewer bodies than people: it takes a body
+ * from whoever left the closest set around the player and gives it to somebody nearer. A person run over at 73 km/h
+ * is 40 m behind the car two seconds later: his body, still falling, lost its physics and its collision in one frame
+ * and was put elsewhere. Gate 92's long take: a person falls at 150.2 s, the line of his body down for 3 s never comes,
+ * and at 153.9 s the physics engine finds a disabled body in a group that goes to sleep (an ensure, 5.3 s to write
+ * its stack, the picture frozen for 6 s).
+ * bFalling: the body is given to the physics. bDown: it has been down for its 3 s (the cars pass over it).
+ * bAwake: one of its parts still moves. FallSeconds: since it fell. Past MaxSeconds it is taken whatever it does.
+ */
+constexpr float FallHoldMaxSeconds = 8.f;
+
+inline bool BodyCanBeTaken(bool bFalling, bool bDown, bool bAwake, float FallSeconds, float MaxSeconds = FallHoldMaxSeconds)
+{
+	return !bFalling || (bDown && !bAwake) || FallSeconds >= MaxSeconds;
+}
 } // namespace GTPImpact
