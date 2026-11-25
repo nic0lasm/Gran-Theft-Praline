@@ -372,6 +372,21 @@ larges, et des souches de cheminées (`horizon.roofs`, posés par `place_horizon
 en instances d'un seul cube, un acteur par matériau ; `GTP_HORIZON_ROOFS=0` les coupe ;
 `horizon_report.json` donne `roofs`).
 
+La porte 88 (prise longue, 13 s) les a montrés posés, et le lointain se lisait encore en blocs
+gris : les toits étaient aussi clairs que les murs. Deux causes, corrigées dans les matériaux.
+Les couleurs de toit du générateur arrivent au moteur telles qu'écrites et se lisent en pastel
+(tuiles saumon, zinc gris pâle), et sur le PC tout toit de moins de 55 degrés prend l'unique
+scan de toit de sa bibliothèque, un toit de métal peint teinté en zinc : aucun toit n'était
+rouge. Les faces en pente de couleur toit prennent désormais la vraie teinte et la vraie
+rugosité du toit (`facade_tone.ROOF_TRUE` : tuiles canal patinées 0,30 / 0,14 / 0,09, zinc
+terni 0,20 / 0,215 / 0,235), et le scan ne garde que ses taches claires et sombres, posées sur
+la teinte du zinc ou, là où le générateur dit tuiles et où la bibliothèque n'a pas de scan de
+tuiles, sur la teinte des tuiles (`gtp_surfaces.shell`). `GTP_ROOF_TONES=0` coupe les deux ;
+`materials_report.json` donne `roof_tones` et, sous `surfaces.used`, `shell.roof_tone`,
+`shell.tile` et `shell.tile_tone`. La brume des temps Clear et Cloudy est aussi allégée
+(densité 0,005 et 0,008, au lieu de 0,008 et 0,012) : à 700 m le bout du quai n'était qu'une
+seule teinte pâle. Pas encore vu en jeu.
+
 Les positions des collines et des tours sont approximatives exprès (un lointain, jamais un lieu
 où aller). Pas encore vu en jeu.
 

@@ -85,6 +85,35 @@ def roof_colour_readings():
     return out
 
 
+# What a roof is in the game. The generator's roof colours reach the material as they are
+# written, and read as linear they are pastels: salmon for the tiles, pale grey for the zinc.
+# With the sun on them the roofs came out as light as the walls, and the far bank of the Rhone
+# read as grey blocks without roofs (gate 88, long take, 13 s). Albedo, linear, same order as
+# ROOF_ON_WALLS: Roman tiles weathered brown-red, zinc gone dull blue-grey.
+ROOF_TRUE = ((0.30, 0.14, 0.09), (0.20, 0.215, 0.235))
+ROOF_TRUE_ROUGHNESS = (0.85, 0.5)
+
+
+def roof_kind_readings():
+    """roof_colour_readings() by kind: one list of readings for the tiles, one for the zinc."""
+    readings = roof_colour_readings()
+    return [readings[2 * k:2 * k + 2] for k in range(len(ROOF_ON_WALLS))]
+
+
+def roof_true(rgb):
+    """The colour a sloped face takes: ROOF_TRUE of its kind when rgb is a roof colour, by the
+    share of roof_share(); rgb itself otherwise."""
+    out = tuple(rgb)
+    for readings, true in zip(roof_kind_readings(), ROOF_TRUE):
+        share = 0.0
+        for colour in readings:
+            d2 = sum((a - b) ** 2 for a, b in zip(rgb, colour))
+            share = max(share, 1.0 - d2 / ROOF_RADIUS ** 2)
+        share = min(1.0, max(0.0, share))
+        out = tuple(o + (t - o) * share for o, t in zip(out, true))
+    return out
+
+
 def roof_share(rgb):
     """1 when rgb is one of the roof colours, 0 beyond ROOF_RADIUS of all of them."""
     best = 0.0

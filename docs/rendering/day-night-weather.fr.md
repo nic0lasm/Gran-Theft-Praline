@@ -157,8 +157,8 @@ Six états qui se fondent en 60 s ; la météo automatique en tire un toutes les
 
 | État | Nuages | Soleil | Brouillard | Pluie | EV | Poids |
 | ---- | ---- | ---- | ---- | ---- | ---- | ---- |
-| Clear | 0,15 | 1 | 0,008 | 0 | 0 | 3 |
-| Cloudy | 0,55 | 0,7 | 0,012 | 0 | −0,7 | 3 |
+| Clear | 0,15 | 1 | 0,005 | 0 | 0 | 3 |
+| Cloudy | 0,55 | 0,7 | 0,008 | 0 | −0,7 | 3 |
 | Overcast | 0,95 | 0,15 | 0,02 | 0 | −2,2 | 2 |
 | Rain | 1 | 0,1 | 0,035 | 0,7 | −2,4 | 2 |
 | Storm | 1 | 0,06 | 0,05 | 1 | −3 | 0,5 |

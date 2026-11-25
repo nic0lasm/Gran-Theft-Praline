@@ -219,6 +219,9 @@ def weather(mat, roles):
 FACADE_TONE = os.environ.get("GTP_FACADE_TONE", "1") != "0"
 FAR_GROUND = os.environ.get("GTP_FAR_GROUND", "1") != "0"
 ROOF_WALLS = os.environ.get("GTP_ROOF_WALLS", "1") != "0"
+ROOF_TONES = os.environ.get("GTP_ROOF_TONES", "1") != "0"
+ROOF_REPORT = {}
+ROOF_ROUGHNESS = 0.55          # of a face that is no wall and has no roof colour (flat roofs, ledges)
 
 
 def facade_tone():
@@ -632,12 +635,14 @@ def shell_material():
     d = g.unary(unreal.MaterialExpressionAbs, g.sub(f, g.const(0.5)))
     course = g.unary(unreal.MaterialExpressionSaturate, g.mul(g.sub(d, g.const(0.46)), g.const(25.0)))
     shade = g.lerp(g.const(1.0), g.const(0.82), g.mul(course, wall))
-    base = g.mask(vc, r=True, g=True, b=True)
-    base = g.lerp(base, lyon_tone(g, base), wall)          # walls only: the roofs keep their zinc and tile
+    raw = g.mask(vc, r=True, g=True, b=True)
+    base = g.lerp(raw, lyon_tone(g, raw), wall)            # walls only
+    # the roofs: their real zinc and tile, over whatever share of the wall tone a slope took
+    base, roof_rough = roof_tones(g, base, roof_shares(g, raw), roof_slope(g, nz), g.const(ROOF_ROUGHNESS))
     col = g.mul(base, shade)
     weathered, _ = weathering(g, col, per_instance=False)
     col = g.lerp(col, weathered, wall)                     # walls only, not the roofs
-    rough = g.lerp(g.const(0.55), g.const(0.88), wall)
+    rough = g.lerp(roof_rough, g.const(0.88), wall)
     mel.connect_material_property(col, "", unreal.MaterialProperty.MP_BASE_COLOR)
     mel.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS)
     surfaces().shell(mat)
@@ -797,26 +802,66 @@ return float4(col, glass);
 """
 
 
+def roof_shares(g, col):
+    """How much col is each roof colour of the generator, by kind (tile, zinc): 1 on it."""
+    ft = facade_tone()
+    out = []
+    for readings in ft.roof_kind_readings():
+        share = None
+        for c in readings:
+            diff = g.sub(col, g.const(c))
+            near = g.sub(g.const(1.0), g.div(g.op(unreal.MaterialExpressionDotProduct, diff, diff),
+                                             g.const(ft.ROOF_RADIUS ** 2)))
+            share = near if share is None else g.op(unreal.MaterialExpressionMax, share, near)
+        out.append(g.unary(unreal.MaterialExpressionSaturate, share))
+    return out
+
+
+def roof_slope(g, nz):
+    return g.unary(unreal.MaterialExpressionSaturate, g.mul(g.sub(nz, g.const(0.2)), g.const(10.0)))
+
+
+def roof_tones(g, col, shares, sloped, rough):
+    """Sloped faces in a roof colour take the roof's real tone and its roughness
+    (facade_tone.ROOF_TRUE): as written by the generator the colours are pastels, and in the
+    sun the roofs were as light as the walls (gate 88, 13 s: the far bank as grey blocks).
+    Returns the colour and the roughness. GTP_ROOF_TONES=0: both as they came."""
+    if not ROOF_TONES:
+        return col, rough
+    ft = facade_tone()
+    was = (col, rough)
+    try:
+        for share, true, r in zip(shares, ft.ROOF_TRUE, ft.ROOF_TRUE_ROUGHNESS):
+            on = g.mul(share, sloped)
+            col = g.lerp(col, g.const(tuple(true)), on)
+            rough = g.lerp(rough, g.const(r), on)
+    except Exception as e:  # noqa: BLE001  the roofs stay as the generator painted them
+        ROOF_REPORT["error"] = repr(e)
+        return was
+    ROOF_REPORT["materials"] = ROOF_REPORT.get("materials", 0) + 1
+    return col, rough
+
+
 def roof_coloured_faces(g, col, wall, nz):
     """Faces painted in a roof colour (facade_tone.ROOF_ON_WALLS): the vertical ones are the
     sides of a LiDAR roof block and become stone walls; the sloped ones are roofs, mansards
-    among them, and leave the wall mask so that no window is drawn on them. Returns the
-    colour and the wall mask to use. GTP_ROOF_WALLS=0: both as they came."""
+    among them: they leave the wall mask so that no window is drawn on them, and take the
+    roof's real tone (roof_tones). Returns the colour, the wall mask and the roughness of what
+    is not a wall. GTP_ROOF_WALLS=0: all as they came."""
+    rough = g.const(ROOF_ROUGHNESS)
     if not ROOF_WALLS:
-        return col, wall
+        return col, wall, rough
     ft = facade_tone()
-    share = None
-    for c in ft.roof_colour_readings():
-        diff = g.sub(col, g.const(c))
-        near = g.sub(g.const(1.0), g.div(g.op(unreal.MaterialExpressionDotProduct, diff, diff),
-                                         g.const(ft.ROOF_RADIUS ** 2)))
-        share = near if share is None else g.op(unreal.MaterialExpressionMax, share, near)
-    share = g.unary(unreal.MaterialExpressionSaturate, share)
-    sloped = g.unary(unreal.MaterialExpressionSaturate, g.mul(g.sub(nz, g.const(0.2)), g.const(10.0)))
+    shares = roof_shares(g, col)
+    share = shares[0]
+    for other in shares[1:]:
+        share = g.op(unreal.MaterialExpressionMax, share, other)
+    sloped = roof_slope(g, nz)
     upright = g.mul(share, g.sub(g.const(1.0), sloped))
     col = g.lerp(col, g.const(ft.ROOF_AS_WALL), upright)
     wall = g.mul(wall, g.sub(g.const(1.0), g.mul(share, sloped)))
-    return col, wall
+    col, rough = roof_tones(g, col, shares, sloped, rough)
+    return col, wall, rough
 
 
 def backdrop_material(name="M_City_Backdrop", colour=None):
@@ -830,8 +875,9 @@ def backdrop_material(name="M_City_Backdrop", colour=None):
     nz = g.unary(unreal.MaterialExpressionAbs, g.mask(n, b=True))
     wall = g.unary(unreal.MaterialExpressionSaturate, g.mul(g.sub(g.const(0.8), nz), g.const(2.0)))
     raw = g.mask(vc, r=True, g=True, b=True)
+    roof_rough = g.const(ROOF_ROUGHNESS)
     if colour is None:
-        raw, wall = roof_coloured_faces(g, raw, wall, nz)
+        raw, wall, roof_rough = roof_coloured_faces(g, raw, wall, nz)
     wp = g.world_position()
     f = g.unary(unreal.MaterialExpressionFrac, g.div(g.mask(wp, b=True), g.const(42.0)))   # stone courses
     d = g.unary(unreal.MaterialExpressionAbs, g.sub(f, g.const(0.5)))
@@ -853,7 +899,7 @@ def backdrop_material(name="M_City_Backdrop", colour=None):
     col = g.lerp(col, facade, wall)
     weathered, _ = weathering(g, col, per_instance=False)
     col = g.lerp(col, weathered, g.mul(wall, g.sub(g.const(1.0), glass)))
-    rough = g.lerp(g.lerp(g.const(0.55), g.const(0.88), wall), g.const(0.08), g.mul(glass, wall))
+    rough = g.lerp(g.lerp(roof_rough, g.const(0.88), wall), g.const(0.08), g.mul(glass, wall))
     mel.connect_material_property(col, "", unreal.MaterialProperty.MP_BASE_COLOR)
     mel.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS)
     if colour is None:
@@ -1511,6 +1557,8 @@ def main():
         report["backdrop_recess"] = "slide" in BACKDROP_HLSL     # openings set back by parallax
         report["far_ground"] = FAR_GROUND
         report["roof_walls"] = ROOF_WALLS
+        report["roof_tones"] = dict(ROOF_REPORT, on=ROOF_TONES, tile=list(facade_tone().ROOF_TRUE[0]),
+                                    zinc=list(facade_tone().ROOF_TRUE[1]))
         report["squares"] = SQUARE_REPORT
         report["far_mask"] = FAR_REPORT
         report["route_mask"] = ROUTE_REPORT

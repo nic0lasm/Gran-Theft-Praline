@@ -74,6 +74,7 @@ STAIN_ALBEDO_CAP = 0.08
 MUD_STRENGTH = 0.35
 GRIME_SCALE = 3.0        # the grime repeats every 3 tiles of its own size (about 6 m)
 GRIME_STRENGTH = 0.5
+ROOF_TONES = os.environ.get("GTP_ROOF_TONES", "1") != "0"      # apply_city_materials.roof_tones
 KIT_DETAIL = float(os.environ.get("GTP_SURFACES_DETAIL", "0.6"))   # share of the stone detail kept
 ROOF = ("zinc_roof", "slate_roof")
 ROOF_TILE = ("terracotta_tile",)
@@ -398,13 +399,45 @@ def shell(mat):
     col0, col0_out = _input(mat, unreal.MaterialProperty.MP_BASE_COLOR)
     col = (col0, col0_out)
     roof_col = None
+    red = g.unary(unreal.MaterialExpressionSaturate,
+                  g.mul(g.sub(g.mask(vc, r=True), g.mask(vc, b=True)), g.const(4.0)))
+
+    def patches(surf, uv):
+        """The scan's light and dark patches around 1: its grey over its own mean, 0.6 to 1.5."""
+        grey = g.op(unreal.MaterialExpressionDotProduct,
+                    g.mask(g.sample(surf["basecolor"], uv, "color"), r=True, g=True, b=True), g.const(LUMA))
+        mean = g.op(unreal.MaterialExpressionMax, g.op(
+            unreal.MaterialExpressionDotProduct,
+            g.mask(g.sample(surf["basecolor"], uv, "color", mip=12), r=True, g=True, b=True), g.const(LUMA)),
+            g.const(0.01))
+        return g.op(unreal.MaterialExpressionMin,
+                    g.op(unreal.MaterialExpressionMax, g.div(grey, mean), g.const(0.6)), g.const(1.5))
+
+    zinc_true, tile_true = facade_tone.ROOF_TRUE[1], facade_tone.ROOF_TRUE[0]
     if roof:
-        roof_col = g.colour(roof, g.mul(xy, g.const(1.0 / float(roof.get("tile_cm", 200.0)))))
+        uv = g.mul(xy, g.const(1.0 / float(roof.get("tile_cm", 200.0))))
+        roof_col = g.colour(roof, uv)
         _used["shell.roof"] = rid
+        try:
+            toned = ROOF_TONES and (roof.get("tint") or not tile)
+            relief = patches(roof, uv) if toned else None
+            if ROOF_TONES and roof.get("tint"):
+                # a scan standing in for zinc (a painted metal roof, tinted): its patches on the
+                # real tone of zinc, whatever the scan's own lightness (gate 88: roofs as light
+                # as the walls, the far bank read as grey blocks)
+                roof_col = g.mul(relief, g.const(tuple(zinc_true)))
+                _used["shell.roof_tone"] = list(zinc_true)
+            if ROOF_TONES and not tile:
+                # no scan of tiles on this machine: the roofs the generator painted as tiles
+                # stood in zinc like the others. The same patches, on weathered Roman tiles.
+                roof_col = g.lerp(roof_col, g.mul(relief, g.const(tuple(tile_true))), red)
+                _used["shell.tile"] = "tone on " + rid
+                _used["shell.tile_tone"] = list(tile_true)
+        except Exception as e:  # noqa: BLE001  the roofs keep the scan as it was
+            roof_col = g.colour(roof, uv)
+            _used["shell.roof_tone_error"] = repr(e)
     if tile:
         tcol = g.colour(tile, g.mul(xy, g.const(1.0 / float(tile.get("tile_cm", 150.0)))))
-        red = g.unary(unreal.MaterialExpressionSaturate,
-                      g.mul(g.sub(g.mask(vc, r=True), g.mask(vc, b=True)), g.const(4.0)))
         roof_col = g.lerp(roof_col, tcol, red) if roof_col is not None else tcol
         _used["shell.tile"] = tid
     if roof_col is not None:

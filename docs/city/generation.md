@@ -353,6 +353,20 @@ or a zinc mansard set back, stepped on the wide blocks, and chimney stacks (`hor
 placed by `place_horizon.block_roofs` as instances of one cube, one actor a material;
 `GTP_HORIZON_ROOFS=0` turns them off; `horizon_report.json` gives `roofs`).
 
+Gate 88 (long take, 13 s) showed them placed, and the far view still read as grey blocks: the
+roofs were as light as the walls. Two causes, both corrected in the materials. The roof colours
+of the generator reach the engine as written and read as pastels (salmon tiles, pale grey
+zinc), and on the PC every roof flatter than 55 degrees takes the one roof scan of its library,
+a painted metal roof tinted as zinc: no roof was red. Sloped faces in a roof colour now take
+the roof's real tone and roughness (`facade_tone.ROOF_TRUE`: weathered Roman tiles
+0.30 / 0.14 / 0.09, dull zinc 0.20 / 0.215 / 0.235), and the scan keeps only its light and
+dark patches, laid on the zinc tone or, where the generator says tiles and the library has no
+scan of tiles, on the tile tone (`gtp_surfaces.shell`). `GTP_ROOF_TONES=0` turns both off;
+`materials_report.json` gives `roof_tones` and, under `surfaces.used`, `shell.roof_tone`,
+`shell.tile` and `shell.tile_tone`. The haze of the Clear and Cloudy weather is lighter too
+(fog density 0.005 and 0.008, from 0.008 and 0.012): at 700 m the end of the quay was one
+pale tone. Not seen in game yet.
+
 Positions of the hills and towers are approximate on purpose (a far view, never a place to go).
 Not seen in game yet.
 

@@ -102,6 +102,27 @@ class FacadeToneTests(unittest.TestCase):
         # the stone a roof-coloured wall becomes lands in the bible's limestone range
         self.assertTrue(LIMESTONE[0] <= grey(ft.tone(ft.ROOF_AS_WALL)) <= LIMESTONE[1])
 
+    def test_roofs_take_a_tone_darker_than_any_wall(self):
+        import meshkit
+        luma = lambda c: 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
+        tile, zinc = ft.ROOF_TRUE
+        for kind, true in (("tile", tile), ("zinc", zinc)):
+            raw = meshkit.ROOF_COLOURS[kind]
+            byte = tuple(round(c * 255.0) / 255.0 for c in raw)
+            decoded = tuple(ft.srgb_to_linear(c) for c in byte)
+            for reading in (byte, decoded):
+                got = ft.roof_true(reading)
+                for a, b in zip(got, true):
+                    self.assertAlmostEqual(a, b, places=3)
+        self.assertGreater(tile[0], 2.0 * tile[2])                 # the tiles are red
+        self.assertLess(abs(zinc[0] - zinc[2]), 0.05)              # the zinc is grey
+        # every toned wall of the palette is lighter than either roof, the darkest render by 15 %
+        for colours in procgen.PALETTE.values():
+            for colour in colours:
+                wall = ft.tone(ft.hex_linear(colour))
+                self.assertEqual(ft.roof_true(ft.hex_linear(colour)), ft.hex_linear(colour))
+                self.assertGreater(luma(wall), 1.15 * max(luma(tile), luma(zinc)), colour)
+
 
 if __name__ == "__main__":
     unittest.main()
