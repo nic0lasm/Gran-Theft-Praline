@@ -1402,11 +1402,16 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 					GTPDrive::SetChaseDriving(FlightDriving);
 					GTPFlightPedals::Apply(Command.Throttle, Command.Brake, Command.Steering, Driven->GetSpeedKmh() / 3.6f, Cruise / 3.6f, FlightDriving, !bPedalsAlone);
 				}
-				// At speed the car gives its wheels a share of the steering asked (GTPSteeringCurve.h): the flight asks for
-				// more, so that they turn as the lane follower reckoned (GTPFlightPedals::SteeringSent).
+				// The car squares the steering it is given, then gives its wheels a share of it that falls with speed
+				// (GTPSteeringCurve.h): the flight undoes both, so that the wheels turn as the lane follower reckoned
+				// (GTPFlightPedals::SteeringSent). Gate 93: 0.07 asked on the quay at 99 km/h, a seventh of it at the wheels,
+				// the car 2.2 m off its line.
+				// -DemoSteerSquared: the share of the speed made up and the square left, as from gate 93 to gate 99.
 				// -DemoSteerAlone: the steering as asked, as until gate 92.
 				static const bool bSteerAlone = FParse::Param(FCommandLine::Get(), TEXT("DemoSteerAlone"));
-				const float SteerSent = bChase && !bSteerAlone ? GTPFlightPedals::SteeringSent(Command.Steering, Driven->GetSpeedKmh()) : Command.Steering;
+				static const bool bSteerSquared = FParse::Param(FCommandLine::Get(), TEXT("DemoSteerSquared"));
+				const float SteerSent = !bChase || bSteerAlone ? Command.Steering
+					: (bSteerSquared ? GTPFlightPedals::SteeringShareMadeUp(Command.Steering, Driven->GetSpeedKmh()) : GTPFlightPedals::SteeringSent(Command.Steering, Driven->GetSpeedKmh()));
 				DriveInputs(Driven, Command.Throttle, Command.Brake, SteerSent, false);
 				PeakKmh = FMath::Max(PeakKmh, Driven->GetSpeedKmh());
 				if (bChase && Now >= NextDriveDiag)
@@ -1414,11 +1419,12 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 					// off: metres from the line the car drives (the path of its follower); xy and yaw: where it is (cm) and
 					// where it points; pull: what its dents would add to a player's steering (0 = no side beaten more than the
 					// other). Gate 89's long take: 2 s at 98 km/h left of the quay's kerb, then a tree; the log did not say how
-					// far the car was from its line, nor whether its steering answered. sent: the steering given to the car.
+					// far the car was from its line, nor whether its steering answered. sent: the steering given to the car;
+					// wheels: the share of the lock its front wheels get of it (GTPSteeringCurve::WheelsGet), to set against steer.
 					NextDriveDiag = Now + 1.0;
-					GTP_TRACE(LogGTPDemo, TEXT("DemoDrive t=%.0f kmh=%.0f gear=%d rpm=%.0f lane=%d off=%.1f m xy=%.0f,%.0f yaw=%.0f pull=%.2f throttle=%.2f brake=%.2f steer=%.2f sent=%.2f cruise=%.0f want=%.0f limit=%s obstacle=%.0f m%s"), static_cast<float>(T),
+					GTP_TRACE(LogGTPDemo, TEXT("DemoDrive t=%.0f kmh=%.0f gear=%d rpm=%.0f lane=%d off=%.1f m xy=%.0f,%.0f yaw=%.0f pull=%.2f throttle=%.2f brake=%.2f steer=%.2f sent=%.2f wheels=%.3f cruise=%.0f want=%.0f limit=%s obstacle=%.0f m%s"), static_cast<float>(T),
 						Driven->GetSpeedKmh(), Driven->GetGear(), Driven->GetEngineRpm(), Follower.GetLane(), Follower.OffPathMetres(Driven->GetActorLocation()),
-						Driven->GetActorLocation().X, Driven->GetActorLocation().Y, Driven->GetActorRotation().Yaw, Driven->GetDentPull(), Command.Throttle, Command.Brake, Command.Steering, SteerSent, Cruise, Command.TargetSpeed * 3.6f,
+						Driven->GetActorLocation().X, Driven->GetActorLocation().Y, Driven->GetActorRotation().Yaw, Driven->GetDentPull(), Command.Throttle, Command.Brake, Command.Steering, SteerSent, GTPSteeringCurve::WheelsGet(SteerSent, Driven->GetSpeedKmh()), Cruise, Command.TargetSpeed * 3.6f,
 						LimitName(Command.Limit), ObstacleM,
 						ObstacleActor ? *FString::Printf(TEXT(" (%s at %s%s)"), *ObstacleActor->GetName(), *ObstacleActor->GetActorLocation().ToCompactString(),
 							PersonPassedM >= 0.f ? *FString::Printf(TEXT(", %.0f m ahead, not braked for: %d frame(s) so far"), PersonPassedM, PeopleNotBrakedFor) : TEXT("")) : TEXT(""));

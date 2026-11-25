@@ -5,6 +5,8 @@
 // each), with the speed asked on each. The car is a bicycle model, not the game's: 2.97 m between the axles,
 // 45 degrees of lock reached at 2.5 lock/s, pedals that answer in 0.2 s, 4.5 m/s2 of drive (gate 83's lines: 36 to
 // 52 km/h in a second with the wheels turned), 8 m/s2 of brakes, and no more than 8 m/s2 sideways.
+// Its front wheels get the steering asked (ECar::Model, what the tests of gates 83 to 89 were written with), or what
+// the game's car makes of the steering the flight sends it (ECar::Gate93, ECar::Game: steering_input_test.cpp).
 #pragma once
 
 #include "GTPFlightPedals.h"
@@ -85,8 +87,16 @@ namespace
 		Never,      // nothing ever goes: one path from the first point to the last
 	};
 
+	/** What the front wheels of the car get of the steering its driver asks. */
+	enum class ECar
+	{
+		Model,     // the steering asked
+		Gate93,    // the game's car (GTPSteeringCurve::WheelsGet) sent the steering of gates 93 to 99 (GTPFlightPedals::SteeringShareMadeUp)
+		Game,      // the game's car sent the steering of the flight (GTPFlightPedals::SteeringSent)
+	};
+
 	/** From a standstill on the first lane, FromPoint points into it (the script puts the car back on a lane at rest). */
-	FRun Drive(const FCorner& Corner, int FromPoint, bool bFollowSteering, ELeave Leave, bool bTrace = false)
+	FRun Drive(const FCorner& Corner, int FromPoint, bool bFollowSteering, ELeave Leave, bool bTrace = false, ECar Car = ECar::Model)
 	{
 		FGTPDriveSettings Settings;
 		GTPDrive::SetChaseDriving(Settings);
@@ -151,9 +161,22 @@ namespace
 			}
 			const float Wanted = Command.Throttle * DriveMost - Command.Brake * BrakesMost - 0.3f;
 			Accel += (Wanted - Accel) * std::min(1.f, Dt / 0.2f);
-			Steer += std::max(-Dt * 2.5f, std::min(Dt * 2.5f, Command.Steering - Steer));
+			float Lock = 0.f;
+			if (Car == ECar::Model)
+			{
+				Steer += std::max(-Dt * 2.5f, std::min(Dt * 2.5f, Command.Steering - Steer));
+				Lock = Steer;
+			}
+			else
+			{
+				// The steering input of the game's car: 2.5 a second towards more lock, 5 a second back.
+				const float Sent = Car == ECar::Gate93 ? GTPFlightPedals::SteeringShareMadeUp(Command.Steering, V * 3.6f) : GTPFlightPedals::SteeringSent(Command.Steering, V * 3.6f);
+				const float Rate = (std::fabs(Sent) > std::fabs(Steer) && Sent * Steer >= 0.f ? 2.5f : 5.f) * Dt;
+				Steer += std::max(-Rate, std::min(Rate, Sent - Steer));
+				Lock = GTPSteeringCurve::WheelsGet(Steer, V * 3.6f);
+			}
 			V = std::max(0.f, V + Accel * Dt);
-			float YawRate = V * std::tan(Steer * 0.785f) / 2.97f;
+			float YawRate = V * std::tan(Lock * 0.785f) / 2.97f;
 			if (std::fabs(V * YawRate) > SidewaysMost)
 			{
 				YawRate *= SidewaysMost / std::fabs(V * YawRate);
@@ -163,7 +186,7 @@ namespace
 			Y += V * std::sin(Yaw) * Dt;
 			Run.Seconds += Dt;
 			Run.Off = std::max(Run.Off, Stray(Whole, X, Y));
-			if (std::fabs(Steer) > 0.5f)
+			if (std::fabs(Lock) > 0.5f)
 			{
 				Run.TurnedKmh = std::max(Run.TurnedKmh, V * 3.6f);
 			}

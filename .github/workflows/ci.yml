@@ -95,6 +95,12 @@ jobs:
           /tmp/flight_pedals_test
           printf '#include "GTPFlightPedals.h"\nint main() { return 0; }\n' > /tmp/hdr_pedals.cpp
           clang++ -std=c++17 -fsyntax-only -Wall -Wextra -Werror -Wshadow -I GranTheftPraline/Source/GranTheftPraline/Public /tmp/hdr_pedals.cpp
+      - name: The steering a car is given and what its wheels get (gate 93 replayed)
+        run: |
+          g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/wanted_sim/steering_input_test.cpp -o /tmp/steering_input_test
+          /tmp/steering_input_test
+          printf '#include "GTPSteeringCurve.h"\nint main() { return 0; }\n' > /tmp/hdr_steering.cpp
+          clang++ -std=c++17 -fsyntax-only -Wall -Wextra -Werror -Wconversion -Wsign-conversion -Wshadow -Wdouble-promotion -I GranTheftPraline/Source/GranTheftPraline/Public /tmp/hdr_steering.cpp
       - name: A lane left in the middle of a corner
         run: |
           g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/wanted_sim/lane_change_corner_test.cpp -o /tmp/lane_change_corner_test
