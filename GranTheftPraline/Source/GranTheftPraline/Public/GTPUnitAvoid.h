@@ -39,6 +39,8 @@ struct FGTPUnitAvoidSettings
 	float MinSteer = 0.4f;
 	/** A way round counts when it is free this much further (m) than the way ahead. */
 	float BetterByM = 1.f;
+	/** A car slower than this (m/s) stands: it is gone round as scenery is (IsStandingCar). */
+	float StandingCarMps = 1.5f;
 };
 
 struct FGTPUnitAvoid
@@ -54,6 +56,16 @@ struct FGTPUnitAvoid
 	bool bStood = false;
 
 	static float Clamp(float V, float Lo, float Hi) { return V < Lo ? Lo : (V > Hi ? Hi : V); }
+
+	/**
+	 * Is a car on the unit's way gone round as scenery is? One that stands, and not the car of the man the unit is after.
+	 * Gate 103: a traffic car stood on the lane 84 m from a player who had stopped; three units stood behind it in a
+	 * queue, pushed, backed off and came again, and none reached him in the 40 s the level lasted.
+	 */
+	static bool IsStandingCar(float SpeedMps, bool bQuarrys, const FGTPUnitAvoidSettings& S) { return !bQuarrys && std::fabs(SpeedMps) < S.StandingCarMps; }
+
+	/** A way round is being taken: the standing car the unit's other look meets is then not braked for. */
+	bool TakesWayRound() const { return Side != 0; }
 
 	/** The radius (m) of the ball to push along the look this frame. */
 	float LookRadius(const FGTPUnitAvoidSettings& S) const { return Side != 0 ? S.RoundRadiusM : S.LookRadiusM; }

@@ -758,6 +758,12 @@ void AGTPPoliceDirector::BeginPlay()
 	{
 		CloseInDistance = 0.f;
 	}
+	int32 RoundCarsSwitch = bRoundStandingCars ? 1 : 0;
+	FParse::Value(FCommandLine::Get(), TEXT("PoliceRoundCars="), RoundCarsSwitch);
+	bRoundStandingCars = RoundCarsSwitch != 0 && bAvoidScenery;
+	int32 BlocksArrestSwitch = bRoadblocksArrest ? 1 : 0;
+	FParse::Value(FCommandLine::Get(), TEXT("PoliceBlocksArrest="), BlocksArrestSwitch);
+	bRoadblocksArrest = BlocksArrestSwitch != 0;
 	int32 UpstreamSwitch = bUpstreamSpawn ? 1 : 0;
 	FParse::Value(FCommandLine::Get(), TEXT("PoliceUpstream="), UpstreamSwitch);
 	bUpstreamSpawn = UpstreamSwitch != 0;
@@ -815,6 +821,10 @@ void AGTPPoliceDirector::BeginPlay()
 			LeftBehind.Metres, LeftBehind.Seconds) : TEXT("no car waits for him in a side street (-PoliceIntercept=0)"),
 		bFollowLeaders ? TEXT("follows it at a time gap") : TEXT("brakes for it as for a wall (-PoliceFollow=0)"),
 		bCatchUp ? *FString::Printf(TEXT("may drive up to %.0f km/h from %.0f m behind him"), CatchUp.TopKmh, CatchUp.FullM) : TEXT("keeps to its level's speed (-PoliceCatchUp=0)"));
+	GTP_TRACE(LogGTPWanted, TEXT("police: a car that stands on a unit's way is %s; a roadblock car %s"),
+		bRoundStandingCars ? TEXT("gone round as scenery is") : TEXT("only braked for (-PoliceRoundCars=0, or -PoliceAvoid=0)"),
+		bRoadblocksArrest ? *FString::Printf(TEXT("comes to arrest a man who stands within %.0f m of it for %.1f s"), BlockRelease.WithinM, BlockRelease.Seconds)
+			: TEXT("never leaves its place (-PoliceBlocksArrest=0)"));
 }
 
 void AGTPPoliceDirector::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -1770,14 +1780,45 @@ float AGTPPoliceDirector::SceneryAhead(const AGTPVehicle& Car, float YawOffsetRa
 	FCollisionObjectQueryParams Objects;
 	Objects.AddObjectTypesToQuery(ECC_WorldStatic);
 	Objects.AddObjectTypesToQuery(ECC_WorldDynamic);
-	FHitResult Hit;
-	if (!GetWorld()->SweepSingleByObjectType(Hit, Start, Start + Along * (LengthCm + SceneryBumperCm), Heading.Quaternion(), Objects,
-		FCollisionShape::MakeBox(FVector(10.f, RadiusCm, SceneryLookHalfHeight)), Params))
+	if (bRoundStandingCars)
 	{
-		return -1.f;
+		// A car that stands is scenery too (gate 103); the bodies of cars are of these two types, as the other look knows.
+		Objects.AddObjectTypesToQuery(ECC_Vehicle);
+		Objects.AddObjectTypesToQuery(ECC_PhysicsBody);
 	}
-	// A slope or a ramp is ground, not scenery.
-	if (Hit.ImpactNormal.Z > 0.6f)
+	const APawn* Quarry = bRoundStandingCars ? UGameplayStatics::GetPlayerPawn(this, 0) : nullptr;
+	FHitResult Hit;
+	bool bStandingCar = false;
+	for (int32 Looks = 0; ; ++Looks)
+	{
+		if (!GetWorld()->SweepSingleByObjectType(Hit, Start, Start + Along * (LengthCm + SceneryBumperCm), Heading.Quaternion(), Objects,
+			FCollisionShape::MakeBox(FVector(10.f, RadiusCm, SceneryLookHalfHeight)), Params))
+		{
+			return -1.f;
+		}
+		const UPrimitiveComponent* MetPart = Hit.GetComponent();
+		const ECollisionChannel MetType = MetPart ? MetPart->GetCollisionObjectType() : ECC_WorldStatic;
+		if (MetType != ECC_Vehicle && MetType != ECC_PhysicsBody)
+		{
+			break;
+		}
+		// Of what moves or can be moved, only a car that stands is gone round, and never his: the one that drives, the
+		// people and what lies in the street are the other look's, or nobody's.
+		const AActor* MetActor = Hit.GetActor();
+		const AGTPVehicle* MetCar = Cast<AGTPVehicle>(MetActor);
+		if (MetCar && FGTPUnitAvoid::IsStandingCar(static_cast<float>(MetCar->GetVelocity().Size2D()) * WantedCmToM, MetCar == Quarry, AvoidSettings))
+		{
+			bStandingCar = true;
+			break;
+		}
+		if (!MetActor || Looks >= 3)
+		{
+			return -1.f;
+		}
+		Params.AddIgnoredActor(MetActor);
+	}
+	// A slope or a ramp is ground, not scenery (the bonnet of a car that stands is not ground).
+	if (!bStandingCar && Hit.ImpactNormal.Z > 0.6f)
 	{
 		return -1.f;
 	}
@@ -1878,6 +1919,23 @@ float AGTPPoliceDirector::ObstacleAhead(FUnit& Unit, const AGTPVehicle& Car, flo
 			// What drives the unit's own way is followed, not braked for as a wall (gate 102).
 			Unit.LastLeaderMps = GTPPoliceTactics::LeaderSpeed(Unit.LastMet,
 				static_cast<float>(FVector::DotProduct(MetActor->GetVelocity(), Car.GetActorForwardVector().GetSafeNormal2D())) * WantedCmToM);
+		}
+	}
+	// A car that stands is gone round as scenery is (SceneryAhead): while a way round it is taken, it is not braked for.
+	if (bRoundStandingCars && Unit.Avoid.TakesWayRound() && (Unit.LastMet == GTPPoliceTactics::EMet::Other || Unit.LastMet == GTPPoliceTactics::EMet::Police))
+	{
+		const AGTPVehicle* MetCar = Cast<AGTPVehicle>(MetActor);
+		if (MetCar && FGTPUnitAvoid::IsStandingCar(static_cast<float>(MetCar->GetVelocity().Size2D()) * WantedCmToM, false, AvoidSettings))
+		{
+			if (Unit.RoundedCar.Get() != MetCar)
+			{
+				Unit.RoundedCar = MetCar;
+				++CarsGoneRound;
+				GTP_TRACE(LogGTPWanted, TEXT("police unit: %s goes round %s, which stands %.1f m ahead of it, by the %s (%d car(s) gone round so far)"), *Car.GetName(),
+					*MetCar->GetName(), Metres, Unit.Avoid.Side < 0 ? TEXT("left") : TEXT("right"), CarsGoneRound);
+			}
+			Unit.LastLeaderMps = -1.f;
+			return -1.f;
 		}
 	}
 	// A unit that rams brakes for everything but the man it is after and his car (gate 93: four units off their wheels).
@@ -2048,6 +2106,21 @@ void AGTPPoliceDirector::DriveOnLanes(FUnit& Unit, const FVector& Goal, bool bHa
 	ApplyDrive(Unit, Command, Command.Brake >= 1.f && Car->GetSpeedKmh() < 2.f);
 }
 
+void AGTPPoliceDirector::LetGo(AGTPVehicle& Car)
+{
+	if (UChaosVehicleMovementComponent* Move = Car.GetVehicleMovementComponent())
+	{
+		Move->SetParked(false);
+		Move->SetHandbrakeInput(false);
+		Move->SetUseAutomaticGears(true);
+		Move->SetTargetGear(1, true);
+	}
+	if (USkeletalMeshComponent* Body = Car.GetMesh())
+	{
+		Body->WakeAllRigidBodies();
+	}
+}
+
 void AGTPPoliceDirector::DriveUnit(FUnit& Unit, UGTPWantedComponent& Wanted, const AActor& Player, float DeltaSeconds)
 {
 	AGTPVehicle* Car = Unit.Car.Get();
@@ -2056,9 +2129,23 @@ void AGTPPoliceDirector::DriveUnit(FUnit& Unit, UGTPWantedComponent& Wanted, con
 	Unit.StoppedTime = FMath::Abs(Car->GetSpeedKmh()) < 1.f ? Unit.StoppedTime + DeltaSeconds : 0.f;
 	if (Unit.bBlock)
 	{
-		// A roadblock car stands where it was put.
-		Car->SetAIDriveInput(0.f, 1.f, 0.f, true);
-		return;
+		// A roadblock car stands where it was put, until a man who can no longer flee stands near it: it then comes to
+		// arrest him, a unit like the others (GTPPoliceTactics::FBlockRelease, gate 103).
+		const float BlockAwayM = static_cast<float>(FVector::Dist2D(Location, Player.GetActorLocation())) * WantedCmToM;
+		const float BlockQuarryKmh = static_cast<float>(Player.GetVelocity().Size2D()) * 0.036f;
+		Unit.BlockNearSeconds = bRoadblocksArrest
+			? GTPPoliceTactics::BlockNearSeconds(Unit.BlockNearSeconds, DeltaSeconds, BlockAwayM, BlockQuarryKmh, Cast<AGTPVehicle>(&Player) == nullptr, Stars, BlockRelease) : 0.f;
+		if (!GTPPoliceTactics::LeavesBlock(Unit.BlockNearSeconds, BlockRelease))
+		{
+			Car->SetAIDriveInput(0.f, 1.f, 0.f, true);
+			return;
+		}
+		Unit.bBlock = false;
+		Unit.StoppedTime = 0.f;
+		++BlocksLeft;
+		LetGo(*Car);
+		GTP_TRACE(LogGTPWanted, TEXT("police: %s leaves its roadblock for a player who stands %.0f m from it at %.0f km/h for %.1f s (%d roadblock car(s) left their place so far)"),
+			*Car->GetName(), BlockAwayM, BlockQuarryKmh, Unit.BlockNearSeconds, BlocksLeft);
 	}
 	if (Unit.bWaits)
 	{
@@ -2088,17 +2175,7 @@ void AGTPPoliceDirector::DriveUnit(FUnit& Unit, UGTPWantedComponent& Wanted, con
 		// there round the block. He went elsewhere, or it waited long enough: after him at once.
 		Unit.JoinUntil = Why == GTPPoliceIntercept::EJoin::Comes ? static_cast<float>(GetWorld()->GetTimeSeconds()) + 6.f : 0.f;
 		// A car that stood for seconds may be asleep with its handbrake on: it goes now, not after the 3 s of the wake below.
-		if (UChaosVehicleMovementComponent* Move = Car->GetVehicleMovementComponent())
-		{
-			Move->SetParked(false);
-			Move->SetHandbrakeInput(false);
-			Move->SetUseAutomaticGears(true);
-			Move->SetTargetGear(1, true);
-		}
-		if (USkeletalMeshComponent* Body = Car->GetMesh())
-		{
-			Body->WakeAllRigidBodies();
-		}
+		LetGo(*Car);
 		GTP_TRACE(LogGTPWanted, TEXT("police: %s pulls out of its side street after %.1f s: %s, the player %.0f m away at %.0f km/h, the nearest he has been %.0f m (%d pulled out so far)"),
 			*Car->GetName(), Unit.WaitSeconds, ANSI_TO_TCHAR(GTPPoliceIntercept::JoinName(Why)), AwayM, QuarryKmh, Unit.WaitNearestM, InterceptJoined);
 	}
@@ -2185,7 +2262,8 @@ void AGTPPoliceDirector::DriveUnit(FUnit& Unit, UGTPWantedComponent& Wanted, con
 		Unit.SlowTime = 0.f;
 	}
 	// Stopped far from the player in a chase: push through whatever is in the way for a few seconds.
-	if (Unit.StoppedTime > 4.f && NowSeconds >= Unit.RamUntil + 1.f && FVector::Dist2D(Location, Player.GetActorLocation()) > 1500.f)
+	// Not through a colleague (GTPPoliceTactics::PushesThrough): it is gone round, or waited for.
+	if (GTPPoliceTactics::PushesThrough(Unit.StoppedTime, Unit.LastMet) && NowSeconds >= Unit.RamUntil + 1.f && FVector::Dist2D(Location, Player.GetActorLocation()) > 1500.f)
 	{
 		// The stopped time is kept: reset here every 4 s, it never reached the 12 s after which a stuck unit is taken away.
 		Unit.RamUntil = NowSeconds + 3.f;

@@ -415,6 +415,24 @@ protected:
 	bool bAvoidScenery = true;
 
 	/**
+	 * A car that stands on a unit's way is gone round as scenery is (FGTPUnitAvoid::IsStandingCar), and is not braked
+	 * for while a way round it is taken. Gate 103: a traffic car stood on the lane 84 m from a player who had stopped;
+	 * three units stood behind it in a queue, pushed, backed off and came again, two climbed on one another, and none
+	 * reached him in the 40 s the level lasted. Never the car of the man they are after. Needs bAvoidScenery.
+	 * -PoliceRoundCars=0: a standing car is only braked for, as until gate 105.
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Police|Driving")
+	bool bRoundStandingCars = true;
+
+	/**
+	 * A roadblock car near a man who stands, or is on foot, leaves its place and comes to arrest him
+	 * (GTPPoliceTactics::FBlockRelease; gate 103: one stood 17 m from the stopped player and nobody arrested him).
+	 * -PoliceBlocksArrest=0: a roadblock car never moves, as until gate 105.
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Police")
+	bool bRoadblocksArrest = true;
+
+	/**
 	 * On the lanes of the map's flight circuit (GTPFlightCircuit.h) a unit drives the circuit's line, as the flight
 	 * does: the lanes' own points wander by a metre and a driver reads each step as a bend (gate 78: units at 14 to
 	 * 21 km/h on average behind a flight at 33 to 43). -PoliceCircuitLines=0 turns it off.
@@ -575,6 +593,10 @@ private:
 		float WaitNearestM = 1.e9f;
 		/** While it waits: how long he has stood still (s). */
 		float QuarryStoodSeconds = 0.f;
+		/** A roadblock car: how long a man who stands has been near it (GTPPoliceTactics::BlockNearSeconds). */
+		float BlockNearSeconds = 0.f;
+		/** The standing car it last went round, told once a car (bRoundStandingCars). */
+		TWeakObjectPtr<const AActor> RoundedCar;
 		/** Pulled out as he came by: until JoinUntil (s) it drives to JoinGoal, on his road past its junction, whichever
 		 *  side of that junction he still is; then after him like any other unit. */
 		FVector JoinGoal = FVector::ZeroVector;
@@ -736,6 +758,12 @@ private:
 	GTPPoliceIntercept::FSettings InterceptSettings;
 	GTPPoliceIntercept::FLeftBehind LeftBehind;
 	GTPPoliceTactics::FCatchUp CatchUp;
+	GTPPoliceTactics::FBlockRelease BlockRelease;
+	/** Roadblock cars that left their place for a man who stood, and standing cars units went round, since the start. */
+	int32 BlocksLeft = 0;
+	int32 CarsGoneRound = 0;
+	/** A unit that stood (handbrake, maybe asleep) drives from this frame on: brake off, first gear, body awake. */
+	static void LetGo(AGTPVehicle& Car);
 	/** Cars made upstream since the start, and tries that found no place there (the ring was used). */
 	int32 UpstreamMade = 0;
 	int32 UpstreamNoPlace = 0;
