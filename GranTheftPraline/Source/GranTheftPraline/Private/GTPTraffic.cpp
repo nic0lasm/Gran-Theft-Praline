@@ -18,6 +18,7 @@
 #include "GTPLeftCars.h"
 #include "GTPTrafficIncident.h"
 #include "GTPWeapon.h"
+#include "GTPWanted.h"
 #include "GameFramework/Controller.h"
 #include "Misc/ScopeExit.h"
 #include "Modules/ModuleManager.h"
@@ -1786,6 +1787,12 @@ void AGTPTrafficNetwork::BeginPlay()
 	int32 PoolSpawnCheckSwitch = 1;
 	FParse::Value(FCommandLine::Get(), TEXT("PoolSpawnCheck="), PoolSpawnCheckSwitch);
 	bPoolSpawnCheck = PoolSpawnCheckSwitch != 0;
+	float PoliceRoomMetres = PoliceSpawnRoom * 0.01f;
+	FParse::Value(FCommandLine::Get(), TEXT("TrafficPoliceRoom="), PoliceRoomMetres);
+	PoliceSpawnRoom = FMath::Max(PoliceRoomMetres, 0.f) * 100.f;
+	GTP_TRACE(LogGTPTraffic, TEXT("traffic: a car is put on the road %s"), PoliceSpawnRoom > 0.f
+		? *FString::Printf(TEXT("no nearer than %.0f m to a police car"), PoliceSpawnRoom * 0.01f)
+		: TEXT("with room from the traffic's own cars only (-TrafficPoliceRoom=0)"));
 	GTP_TRACE(LogGTPTraffic, TEXT("traffic: car pool %s, cooldown %.1f s, spot check %d"), bTrafficPool ? TEXT("on") : TEXT("off"), PoolCooldown,
 		bPoolSpawnCheck ? 1 : 0);
 	int32 ReactSwitch = bTrafficReact ? 1 : 0;
@@ -2134,6 +2141,18 @@ bool AGTPTrafficNetwork::FindSpawnPoint(int32& OutLane, int32& OutPoint, FTransf
 			return false;
 		}
 	}
+	// The police cars: no traffic car is put on the road within PoliceSpawnRoom of one (gate 103).
+	TArray<FVector, TInlineAllocator<16>> PoliceCars;
+	if (PoliceSpawnRoom > 0.f)
+	{
+		for (TActorIterator<AGTPVehicle> It(GetWorld()); It; ++It)
+		{
+			if (!It->IsHidden() && It->ActorHasTag(GTPPolice::PoliceTag))
+			{
+				PoliceCars.Add(It->GetActorLocation());
+			}
+		}
+	}
 	for (int32 Try = 0; Try < MaxTries; ++Try)
 	{
 		const int32 Lane = Player ? Candidates[Random.RandRange(0, Candidates.Num() - 1)] : Random.RandRange(0, Lanes.Num() - 1);
@@ -2165,6 +2184,21 @@ bool AGTPTrafficNetwork::FindSpawnPoint(int32& OutLane, int32& OutPoint, FTransf
 			{
 				bFree = false;
 				break;
+			}
+		}
+		for (const FVector& PoliceCar : PoliceCars)
+		{
+			if (bFree && FVector::Dist(PoliceCar, Location) < PoliceSpawnRoom)
+			{
+				bFree = false;
+				++PlacesLeftToPolice;
+				const double TimeNow = GetWorld()->GetTimeSeconds();
+				if (TimeNow >= NextPoliceRoomTraceTime)
+				{
+					NextPoliceRoomTraceTime = TimeNow + 10.0;
+					GTP_TRACE(LogGTPTraffic, TEXT("traffic: no car put on lane %d at %s, a police car is %.0f m from that place (%d place(s) left to the police so far)"), Lane,
+						*Location.ToCompactString(), FVector::Dist(PoliceCar, Location) * 0.01, PlacesLeftToPolice);
+				}
 			}
 		}
 		if (!bFree || IsSeenByPlayer(Location))
