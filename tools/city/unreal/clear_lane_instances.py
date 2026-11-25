@@ -37,6 +37,11 @@ in removed_actors and in removed_instances with "index": -1. One that belongs to
 landmark) is only reported, with its folder and the middle of its box; buildings, facades and
 the ground are not looked at this way, their box being no plan of them.
 
+Before all that, a landmark the base map holds in the wrong place is moved (lane_clear.
+LANDMARK_MOVES: the carrousel of place de la Republique, 12 m north, off the carriageway and
+onto the square), and what stood where it now stands is taken out like what stands on a lane
+("lane": "landmark"). The report gives landmarks_moved; GTP_LANDMARK_MOVES=0 leaves it.
+
 GTP_LANE_CLEAR=0: report only, nothing removed, map not saved. Lanes: GTP_LANES_CSV, else
 Content/City/Traffic/<Map>.lanes.csv (the file the game reads). Map: GTP_CITY_FOCUS as
 place_props.py. Report: Saved/CityImport/lane_clear_report.json (removed per set and per mesh,
@@ -70,6 +75,7 @@ REPORT_ONLY_FOLDERS = ("City/Facades", "City/Signs")
 MIN_HEIGHT_CM = 15.0
 BOX_IS_NO_FOOTPRINT = ("City/Buildings", "City/Backdrop", "City/Terrain", "City/Horizon", "City/Riverside",
                        "City/CellProxies", "City/PitCovers", "City/Facades", "City/Signs")
+MOVES = os.environ.get("GTP_LANDMARK_MOVES", "1") != "0"
 ACTOR_MAX_CM = 3000.0       # a plain actor wider than this is ground, a building or a merged set
 CIRCUIT = os.environ.get("GTP_CIRCUIT_CSV") or os.path.join(
     unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_content_dir()), "Test", "Circuits",
@@ -109,7 +115,7 @@ def main():  # noqa: C901
     t0 = time.time()
     report = {"map": MAP, "lanes_file": LANES, "clear_cm": CLEAR_CM, "apply": APPLY, "named": NAMED,
               "removed": {}, "removed_by_mesh": {}, "removed_instances": [], "removed_actors": [],
-              "reported_only": [],
+              "reported_only": [], "landmarks_moved": [],
               "named_found": [], "errors": []}
     try:
         if not os.path.exists(LANES):
@@ -130,6 +136,33 @@ def main():  # noqa: C901
             report["errors"].append("cannot open " + MAP)
             raise StopIteration
         actors = list(actor_sub.get_all_level_actors())
+        moved_boxes = []
+        for actor in actors if MOVES else []:
+            if not isinstance(actor, unreal.StaticMeshActor) or actor.get_actor_label() not in lc.LANDMARK_MOVES:
+                continue
+            comp = actor.static_mesh_component
+            mesh = comp.get_editor_property("static_mesh") if comp is not None else None
+            if mesh is None:
+                continue
+            box = mesh.get_bounding_box()
+            lo, hi = box.min, box.max
+            t = actor.get_actor_transform()
+            sc = t.scale3d
+            x, y, yaw = t.translation.x, t.translation.y, t.rotation.rotator().yaw
+            was = lc.footprint_box(x, y, yaw, (lo.x, lo.y), (hi.x, hi.y), (sc.x, sc.y))
+            centre = (sum(p[0] for p in was) / 4.0, sum(p[1] for p in was) / 4.0)
+            move = lc.landmark_move(actor.get_actor_label(), centre)
+            entry = {"actor": actor.get_name(), "label": actor.get_actor_label(),
+                     "from": [round(centre[0]), round(centre[1])], "moved": move is not None}
+            if move is not None:
+                dx, dy, dz = move
+                entry["to"] = [round(centre[0] + dx), round(centre[1] + dy)]
+                entry["raised_cm"] = dz
+                moved_boxes.append(lc.footprint_box(x + dx, y + dy, yaw, (lo.x, lo.y), (hi.x, hi.y), (sc.x, sc.y)))
+                if APPLY:
+                    actor.modify()
+                    actor.set_actor_location(unreal.Vector(x + dx, y + dy, t.translation.z + dz), False, False)
+            report["landmarks_moved"].append(entry)
         for actor in actors:
             folder = str(actor.get_folder_path())
             if actor.get_name() in NAMED:
@@ -160,6 +193,8 @@ def main():  # noqa: C901
                         c = circuit.nearest(shape)
                         if c:
                             near = ("circuit", c[1])
+                    if not near and moved_boxes and lc.under((x, y), moved_boxes):
+                        near = ("landmark", 0.0)        # where a landmark now stands
                     if not near and tree and end_lines:
                         g = lc.end_gap(x, y, end_lines)
                         if g < END_TREE_CM:
@@ -237,7 +272,7 @@ def main():  # noqa: C901
         report["removed_actors_total"] = len(report["removed_actors"])
         report["removed_total"] = sum(report["removed"].values())
         report["reported_only_total"] = len(report["reported_only"])
-        if APPLY and report["removed_total"]:
+        if APPLY and (report["removed_total"] or any(m["moved"] for m in report["landmarks_moved"])):
             level_sub.save_current_level()
             report["saved"] = True
     except StopIteration:
@@ -250,6 +285,7 @@ def main():  # noqa: C901
     with open(os.path.join(out, "lane_clear_report.json"), "w", encoding="utf-8") as f:
         json.dump(report, f, indent=1)
     log(json.dumps({k: report.get(k) for k in ("removed_total", "circuit_removed", "removed", "removed_by_mesh", "removed_actors_total",
+                                                "landmarks_moved",
                                                 "reported_only_total",
                                                 "named_found", "errors", "saved")}))
 
