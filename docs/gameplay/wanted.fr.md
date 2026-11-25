@@ -48,7 +48,12 @@ ne tient pas compte du poids du corps) ; il longe ce qui lui barre la route, une
 pied et quiconque sort d'une voiture ne poussent plus (`GTPOnFoot::NoShoving` ; `-PeopleShoveCars` rend la poussée). À
 lire à la porte : `police: officers on foot do not push the cars they run into`, et, si une voiture que personne ne
 conduit est encore touchée par quelqu'un à pied, `<car>: with nobody at the wheel, touched by <who> …, impulse N; the
-car up U, N km/h` (six lignes par voiture au plus). **Pas compilé, pas joué.**
+car up U, N km/h` (six lignes par voiture au plus).
+La porte 100 a montré la même voiture sur le flanc 16 s après l'arrestation, puis sur le toit, sans rien de filmé
+entre les deux : une voiture que personne ne conduit dit maintenant, une fois par seconde et deux fois par voiture au
+plus, quand elle n'est plus sur ses roues ou roule à plus de 15 km/h : `<car>: nobody at the wheel and it is off its
+wheels: up U, N km/h at …; on foot within 5 m: <who> (class) at D m, V cm/s, pushes 0|1; cars within 8 m: <which> at
+D m, N km/h`. **Pas compilé, pas joué.**
 
 ## Mort
 
