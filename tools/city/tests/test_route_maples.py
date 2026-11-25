@@ -36,6 +36,23 @@ class RouteMapleTests(unittest.TestCase):
         self.assertAlmostEqual(600.0 * 3.0 * k, 700.0, delta=0.5)
         self.assertEqual(route_trees.rescale("young", 250.0, 0.0, 1.0), 1.0)      # a mesh with no height: untouched
 
+    def test_a_leafy_tree_is_its_trunk(self):
+        self.assertTrue(route_trees.is_leafy("/Game/BlackAlder/Geometry/SimpleWind/SM_BlackAlder_Field_05"))
+        self.assertTrue(route_trees.is_leafy("/Game/NorwayMaple/Geometry/SimpleWind/SM_NorwayMaple_Field_02"))
+        # the bare trunk of the street trees is its own collision already, a grate is no tree
+        self.assertFalse(route_trees.is_leafy("/Game/Environment/Props/Greenery/PlaneTree_Trunk/SM_PlaneTree_Trunk_A"))
+        self.assertFalse(route_trees.is_leafy("/Game/Environment/Props/SM_TreeGrate_Square_A"))
+        x, y, z, side, height = route_trees.trunk_post(32300.0, 900.0, -40.0, 1.1, 1300.0)
+        self.assertEqual((x, y, z), (32300.0, 900.0, 110.0))        # stands on the ground of the tree
+        self.assertAlmostEqual(side, 49.5)
+        self.assertEqual(height, 300.0)                             # higher than any car
+        # the lanes step counts a trunk as a circle of 40 cm: the post stays inside it
+        import lane_clear
+        self.assertLess(route_trees.trunk_post(0, 0, 0, 3.0, 2000.0)[3] * 2 ** 0.5 / 2.0, lane_clear.TRUNK_RADIUS_CM * 1.3)
+        self.assertLess(side * 2 ** 0.5 / 2.0, lane_clear.TRUNK_RADIUS_CM)
+        young = route_trees.trunk_post(0.0, 0.0, 0.0, 1.0, 350.0)
+        self.assertEqual(young[3:], (16.0, 200.0))
+
 
 if __name__ == "__main__":
     unittest.main()

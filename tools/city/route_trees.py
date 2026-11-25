@@ -72,3 +72,28 @@ def rescale(kind, old_height_cm, new_height_cm, mean_scale):
     lo, hi = HEIGHTS_CM[kind]
     target = min(max(old_height_cm * mean_scale, lo), hi)
     return target / (new_height_cm * mean_scale) if new_height_cm > 0.0 and mean_scale > 0.0 else 1.0
+
+
+# A leafy tree of the packs carries the collision of its own shape, and the alder of the route
+# is a field tree: its stems lean a metre and more over what is beside it, at the height of a
+# car. Gate 91: the car of the flight, 0.3 to 0.9 m off its line, was "held up" six times by
+# trees whose trunks stood clear of that line (quay, 22 s; rue du President Carnot, 140 to 182 s).
+# A tree of a street is its trunk: the leafy mesh stops nothing, a plain post stands for the
+# trunk (as the street trees swapped in at launch, whose leafy twin has no collision).
+LEAFY = ("Alder", "Maple", "Beech")
+YOUNG_BELOW_CM = 700.0                                          # a sapling: a thinner, shorter post
+TRUNK_POST_CM = {"mature": (45.0, 300.0), "young": (16.0, 200.0)}   # side, height
+
+
+def is_leafy(path):
+    """True for a whole tree of the packs (trunk, stems and crown in one mesh)."""
+    return any(w in path for w in LEAFY)
+
+
+def trunk_post(x, y, z, scale, tall_cm):
+    """The post that stands for the trunk of a tree planted at (x, y, z), cm: (x, y, z of its
+    middle, side, height) for a box. tall_cm: the tree's height once scaled; scale: the scale
+    of the instance, which the post follows between 0.6 and 1.6."""
+    side, height = TRUNK_POST_CM["young" if tall_cm < YOUNG_BELOW_CM else "mature"]
+    k = min(max(abs(scale), 0.6), 1.6)
+    return (x, y, z + height / 2.0, side * k, height)

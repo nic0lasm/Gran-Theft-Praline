@@ -506,6 +506,16 @@ a quay lined with poles reads as bare stems. The swap is therefore **off by defa
 (`GTP_ROUTE_MAPLES=1` turns it on) and the route keeps the alders of the base map, Bellecour's
 rows too, until a maple has been looked at in a picture before being planted.
 
+The alders of the route are field trees: their stems lean a metre and more over what stands
+beside them, at the height of a car, and the mesh carries the collision of its own shape. At
+gate 91 the stolen car, 0.3 to 0.9 m off its line, was held up six times by trees whose trunks
+stood clear of that line (quay, 22 s; rue du Président Carnot, 140 to 182 s). Since then a tree
+of the route is its trunk, as the street trees swapped in at launch already were: at the end of
+the `lanes` step the leafy trees of the sets stop nothing any more and one hidden post a tree
+stands for its trunk (`route_trees.trunk_post`, actor `Route_TreeTrunks`). `GTP_TREE_TRUNKS=0`
+leaves the trees as they are; `lane_clear_report.json` gives `tree_trunks` (trees, posts, the
+actors that carried them). Not seen in game yet.
+
 ### Carriageways fitted to the kerbs and one-command regeneration
 
 The BD TOPO centre lines sit 0.8 m off the middle of the carriageway (2.2 m at the 90th
