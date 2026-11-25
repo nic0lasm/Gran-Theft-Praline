@@ -488,6 +488,16 @@ far bank, the Rhône paved like a sidewalk. At 50 s the stolen car rolled into a
    what stands 2.5 m or more and stops nothing, by outliner folder, and by name within 60 m of
    the driven line (`walls_without_collision`): at 171 s of that take the player walked through
    a blind stone wall and the picture stayed black for 18 s.
+   Gate 101 named the wall: the cinema at the south end of the street, a landmark that stands
+   for its whole building as a LiDAR hull (kind `building` in `landmarks.json`). Its walls let
+   a walker in although the audit sees a collision on it (why is not known: quads wound either
+   way, or the gaps left where the roof edge reads at street level), and the player stood a
+   metre inside it for 47 s. The step now fills the outline of every such hull with boxes that
+   are not drawn (`footprint_fill.strips`, strips of 50 cm, 6 m high, folder `City/Blockers`;
+   `landmark_blockers` in the report, 47 boxes expected for the cinema;
+   `GTP_LANDMARK_BLOCKERS=0` leaves them out). And the `materials` step gives that hull the
+   drawn front of the backdrop volumes instead of the bare shell material (`landmark_fronts`
+   in `materials_report.json`; `GTP_LANDMARK_FRONTS=` leaves it bare). Not seen in game yet.
 
 5. **The route mask** (`ground_mask.py --route <Map>.circuit.csv`, made by the `materials`
    step after the far mask): at 34 cm a texel the far mask cannot hold a kerb or a lane line,
