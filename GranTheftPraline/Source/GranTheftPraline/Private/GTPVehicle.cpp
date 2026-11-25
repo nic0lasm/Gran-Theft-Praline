@@ -819,7 +819,13 @@ void AGTPVehicle::SetAIDriveInput(float Throttle, float Brake, float Steering, b
 	ThrottleAmount = FMath::Clamp(Throttle, 0.f, 1.f);
 	Move->SetThrottleInput(ThrottleAmount);
 	Move->SetBrakeInput(FMath::Clamp(Brake, 0.f, 1.f));
-	Move->SetSteeringInput(FMath::Clamp(Steering, -1.f, 1.f));
+	// The car squares the steering it is given (GTPSteeringCurve.h: made for a stick, measured at gate 93). A driver
+	// that is not a hand on a stick reckons the angle of the front wheels: 0.3 of the lock for a street corner, where
+	// the wheels got 0.09 and the car ran wide. The square is undone; the share of the car's speed stays.
+	// -AISteerSquared: the steering as given, as until gate 99.
+	static const bool bSteerSquared = FParse::Param(FCommandLine::Get(), TEXT("AISteerSquared"));
+	const float SteeringAsked = FMath::Clamp(Steering, -1.f, 1.f);
+	Move->SetSteeringInput(bSteerSquared ? SteeringAsked : GTPSteeringCurve::InputFor(SteeringAsked));
 	Move->SetHandbrakeInput(bHandbrake);
 
 	// A car pulling away from a stop: a sleeping body ignores the pedals, and a

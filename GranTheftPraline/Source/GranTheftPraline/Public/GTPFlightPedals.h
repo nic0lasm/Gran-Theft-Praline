@@ -27,8 +27,16 @@
 // off its line, then 4.8 m two seconds later, then a tree. The lane follower asks for the angle of the front wheels
 // that takes the car back to its line (pure pursuit, GTPDriveLogic.h). The car gives its wheels a share of the
 // steering asked that falls with speed (GTPSteeringCurve.h: under half of it at 100 km/h), a rule made for a
-// keyboard. At speed the script therefore asks for more, so that the wheels get the angle it reckoned: SteeringSent.
-// In town nothing changes: the corners there were set gate after gate with the steering as it was.
+// keyboard. At speed the script therefore asks for more, so that the wheels get the angle it reckoned
+// (SteeringShareMadeUp, gates 93 to 99). In town nothing changed then.
+//
+// Gate 93 (2026-11-25): the quay is held at 99 km/h, but 2.2 m off the line, and the car is 4.4 m off its line at
+// 71 km/h in the rue du President Carnot. Its lines say why (GTPSteeringCurve.h): the car squares the steering it is
+// given, so the 0.07 asked on the quay, sent as 0.15, was 0.02 of lock at the wheels times the share of the speed,
+// a seventh of what was reckoned. SteeringSent now undoes both, at every speed: the wheels get the angle asked.
+// The same lines replayed outside the game (tools/vehicles/wanted_sim/steering_input_test.cpp): 2.3 m off the line
+// on the quay with the steering as it was sent at gate 93, where the game's car was 2.2 m off it; 0.1 m at 99 km/h
+// with this one.
 
 #include "GTPDriveLogic.h"
 #include "GTPSteeringCurve.h"
@@ -73,15 +81,16 @@ namespace GTPFlightPedals
 		return Metres >= PersonTouching && V * V / (2.f * StopDecel) + StopRoom <= Metres;
 	}
 
-	/** Under this speed (km/h) the steering goes to the car as asked; from FullMakeUpKmh the car's own cut is made up whole. */
+	/** SteeringShareMadeUp: under this speed (km/h) the steering went as asked; from FullMakeUpKmh the car's own cut was made up whole. */
 	constexpr float NoMakeUpKmh = 50.f;
 	constexpr float FullMakeUpKmh = 80.f;
 
 	/**
-	 * The steering (-1..1) to give the car at Kmh so that its wheels turn as Steering asks: above FullMakeUpKmh the
-	 * share the car keeps at that speed is made up for, under NoMakeUpKmh nothing is, in between part of it.
+	 * The steering given to the car from gate 93 to gate 99 (-DemoSteerSquared): above FullMakeUpKmh the share the car
+	 * keeps at that speed made up for, under NoMakeUpKmh nothing, in between part of it. The square the car then takes
+	 * of it was not known: at 99 km/h the wheels got a seventh of the angle asked.
 	 */
-	inline float SteeringSent(float Steering, float Kmh)
+	inline float SteeringShareMadeUp(float Steering, float Kmh)
 	{
 		const float V = std::fabs(Kmh);
 		if (V <= NoMakeUpKmh)
@@ -91,6 +100,16 @@ namespace GTPFlightPedals
 		const float Whole = 1.f / std::max(GTPSteeringCurve::ShareAtKmh(V), 0.1f);
 		const float Part = std::min((V - NoMakeUpKmh) / (FullMakeUpKmh - NoMakeUpKmh), 1.f);
 		return std::max(-1.f, std::min(1.f, Steering * (1.f + (Whole - 1.f) * Part)));
+	}
+
+	/**
+	 * The steering (-1..1) to give the car at Kmh so that its front wheels turn as Steering asks (a share of the lock,
+	 * as the lane follower reckons it): the square the car takes of its steering and the share it keeps at that speed
+	 * are both undone (GTPSteeringCurve::InputForWheels). Where the car cannot give that much at its speed: all it has.
+	 */
+	inline float SteeringSent(float Steering, float Kmh)
+	{
+		return GTPSteeringCurve::InputForWheels(Steering, Kmh);
 	}
 
 	/** The speed (m/s) at which the car turns as tightly as Steering (-1..1) asks, at S.MaxLateralAccel. */
