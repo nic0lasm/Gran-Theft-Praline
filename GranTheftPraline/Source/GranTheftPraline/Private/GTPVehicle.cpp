@@ -1751,6 +1751,7 @@ void AGTPVehicle::Tick(float DeltaSeconds)
 		NextBodyCheckTime = World->GetTimeSeconds() + 1.f;
 		KeepChassisBodyOnly();
 		CentreMassOverOrigin();
+		TellIfLeftCarMoves();
 	}
 	RunLaunchTest();
 	ProbeDrive();
@@ -1771,6 +1772,47 @@ void AGTPVehicle::Tick(float DeltaSeconds)
 	{
 		ChaseOccluders.Clear();
 	}
+}
+
+void AGTPVehicle::TellIfLeftCarMoves()
+{
+	// Gates 99 and 100: the stolen car, left empty on place Bellecour, was thrown over the square once and found on
+	// its side, then on its roof, the other time, and no line said when nor by what. The cars of the traffic and of
+	// the police have their own lines (lying, overturned): this one is for the car nobody drives.
+	const float UpZ = static_cast<float>(GetActorUpVector().Z);
+	const float Kmh = FMath::Abs(GetSpeedKmh());
+	const bool bMoves = State != EGTPVehicleState::Driven && !HasAIDriver() && (UpZ < 0.7f || Kmh > 15.f);
+	if (!bMoves || bLeftCarMoving || LeftCarMovesTold >= 2 || !GetWorld())
+	{
+		bLeftCarMoving = bMoves;
+		return;
+	}
+	bLeftCarMoving = true;
+	++LeftCarMovesTold;
+	const FVector Here = GetActorLocation();
+	FString OnFoot;
+	for (TActorIterator<ACharacter> It(GetWorld()); It; ++It)
+	{
+		const double Metres = FVector::Dist2D(It->GetActorLocation(), Here) * 0.01;
+		if (Metres <= 5.0 && !It->IsHidden())
+		{
+			const UCharacterMovementComponent* Legs = It->GetCharacterMovement();
+			OnFoot += FString::Printf(TEXT("%s%s (%s) at %.1f m, %.0f cm/s, pushes %d"), OnFoot.IsEmpty() ? TEXT("") : TEXT("; "), *It->GetName(),
+				*It->GetClass()->GetName(), Metres, It->GetVelocity().Size2D(), Legs && Legs->bEnablePhysicsInteraction ? 1 : 0);
+		}
+	}
+	FString Cars;
+	for (TActorIterator<AGTPVehicle> It(GetWorld()); It; ++It)
+	{
+		const double Metres = FVector::Dist2D(It->GetActorLocation(), Here) * 0.01;
+		if (*It != this && Metres <= 8.0)
+		{
+			Cars += FString::Printf(TEXT("%s%s at %.1f m, %.0f km/h"), Cars.IsEmpty() ? TEXT("") : TEXT("; "), *It->GetName(), Metres, It->GetSpeedKmh());
+		}
+	}
+	GTP_TRACE(LogGTPVehicle, TEXT("%s: nobody at the wheel and it %s: up %.2f, %.0f km/h at %s; on foot within 5 m: %s; cars within 8 m: %s"),
+		*GetName(), UpZ < 0.7f ? TEXT("is off its wheels") : TEXT("moves"), UpZ, Kmh, *Here.ToCompactString(),
+		OnFoot.IsEmpty() ? TEXT("nobody") : *OnFoot, Cars.IsEmpty() ? TEXT("none") : *Cars);
 }
 
 void AGTPVehicle::SetRearGrip(float Multiplier)
@@ -2775,7 +2817,7 @@ void AGTPVehicle::OnBodyHit(UPrimitiveComponent* HitComponent, AActor* OtherActo
 	}
 	// A car nobody drives, touched by somebody on foot: said, a few times a car. Gate 99's long take: the stolen car,
 	// empty on place Bellecour, was thrown over the square as two officers reached it, and no line said by what.
-	if (StandingTouchesTold < 6 && State != EGTPVehicleState::Driven && OtherActor && OtherActor->IsA<ACharacter>())
+	if (StandingTouchesTold < 6 && State != EGTPVehicleState::Driven && !HasAIDriver() && OtherActor && OtherActor->IsA<ACharacter>())
 	{
 		++StandingTouchesTold;
 		GTP_TRACE(LogGTPVehicle, TEXT("%s: with nobody at the wheel, touched by %s (%s) at %s, normal %.2f %.2f %.2f, impulse %.0f; the car up %.2f, %.0f km/h"),
