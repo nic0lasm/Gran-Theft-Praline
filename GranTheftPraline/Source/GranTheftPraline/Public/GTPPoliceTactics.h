@@ -111,6 +111,64 @@ namespace GTPPoliceTactics
 		return Stars >= 2 && ObstacleMetres > 0.f && ObstacleMetres < HeldUpMetres && ShovesThrough(Met) && (bRams || Kmh < HeldUpKmh);
 	}
 
+	/**
+	 * The speed (m/s) of what a unit met ahead when that drives the unit's own way, for the unit to follow it at a time
+	 * gap (GTPDrive::Decide, LeaderSpeed); negative: the unit stops short of it, as short of a wall.
+	 *
+	 * AlongMps: the speed of what was met along the unit's own heading (negative: it comes the other way).
+	 * Until gate 102 everything met was a wall: gate 102, three units behind one another on the way of the flight, the
+	 * second at 66 km/h with "obstacle=29.8 m met=police brake=1.00", the whole brake for a colleague who drove 30 m
+	 * ahead of it; again at 46 km/h and 13 m. The units averaged 40 km/h after a player at 59.
+	 * A colleague, a car of the traffic, the car of the man it is after below the ramming levels: followed from
+	 * FollowMinMps. A person is never followed: the unit stops for someone who walks on the road.
+	 */
+	constexpr float FollowMinMps = 2.f;
+	inline float LeaderSpeed(EMet Met, float AlongMps)
+	{
+		const bool bDrives = Met == EMet::Police || Met == EMet::Other || Met == EMet::Quarry;
+		return bDrives && AlongMps >= FollowMinMps ? AlongMps : -1.f;
+	}
+
+	/** How a unit left behind catches up (CatchUpKmh). */
+	struct FCatchUp
+	{
+		/** From this level on: one star is a patrol that follows at its own speed, and a fast car loses it. */
+		int FromStars = 2;
+		/** A unit nearer than this to the man it is after drives at its level's speed (m). */
+		float FromM = 60.f;
+		/** From this far it may drive TopKmh; between the two, as much of the way from its level's speed to TopKmh as it is far (m, km/h). */
+		float FullM = 150.f;
+		float TopKmh = 140.f;
+		/** And never less than his own speed and this much, by the same share: he does not leave it behind again from FromM. */
+		float GainKmh = 35.f;
+	};
+
+	/**
+	 * The top speed (km/h) of a unit that drives after the man it is after: its level's (LevelKmh), and more when he
+	 * has left it behind.
+	 *
+	 * The level's speed was all a unit had: 63 km/h on the lanes at one star, 81 at two, 94 at three (0.9 of
+	 * FProfile::ChaseKmh), after a flight that holds 99 km/h on the quay. Gate 93, the first 20 s: the nearest unit
+	 * 82 m away on average when the car reaches the quay, 132 m ten seconds of quay later. Gates 99 to 102: within
+	 * 80 m of him 10, 43, 8 and 5 % of the time, the nearest unit 146 to 169 m away on average, with units that
+	 * drive (0 back-off, 0 given up at 102). No unit that is behind a faster car comes back to it at a lower speed.
+	 * Bends, obstacles and the end of the road still slow it as before: this is the speed it may reach, not one it holds.
+	 */
+	inline float CatchUpKmh(float LevelKmh, float QuarryKmh, float DistanceM, int Stars, const FCatchUp& C)
+	{
+		if (Stars < C.FromStars || DistanceM <= C.FromM || C.FullM <= C.FromM || LevelKmh >= C.TopKmh)
+		{
+			return LevelKmh;
+		}
+		const float Share = DistanceM >= C.FullM ? 1.f : (DistanceM - C.FromM) / (C.FullM - C.FromM);
+		// As much of the way to its top speed as it is far, and never less than his own speed and a share of GainKmh:
+		// behind a car that drives faster than its level, a unit 61 m away would otherwise fall back to 87 m.
+		const float ByDistance = LevelKmh + (C.TopKmh - LevelKmh) * Share;
+		const float ByHim = (QuarryKmh > 0.f ? QuarryKmh : 0.f) + C.GainKmh * Share;
+		const float Faster = ByDistance > ByHim ? ByDistance : ByHim;
+		return Faster < C.TopKmh ? Faster : C.TopKmh;
+	}
+
 	inline const char* MetName(EMet Met)
 	{
 		static const char* const Names[] = {"nothing", "quarry", "police", "person", "other"};

@@ -117,6 +117,12 @@ jobs:
         run: |
           g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/wanted_sim/police_upstream_test.cpp -o /tmp/police_upstream_test
           /tmp/police_upstream_test
+      - name: Police car that waits in a side street and pulls out behind the player; the flight of gates 93 and 102 replayed
+        run: |
+          g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/wanted_sim/police_intercept_test.cpp -o /tmp/police_intercept_test
+          /tmp/police_intercept_test
+          printf '#include "GTPPoliceIntercept.h"\nint main() { return 0; }\n' > /tmp/hdr_intercept.cpp
+          clang++ -std=c++17 -fsyntax-only -Wall -Wextra -Werror -Wconversion -Wsign-conversion -Wshadow -Wdouble-promotion -I GranTheftPraline/Source/GranTheftPraline/Public /tmp/hdr_intercept.cpp
       - name: Traffic car left in the street by its driver
         run: |
           g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/wanted_sim/left_cars_test.cpp -o /tmp/left_cars_test

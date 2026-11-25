@@ -1,9 +1,11 @@
 // Checks the police tactics rules (GTPPoliceTactics.h): deploying officers, shooting, searching, foot chase.
 //   g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/wanted_sim/tactics_test.cpp -o /tmp/tactics_test && /tmp/tactics_test
 #include "GTPPoliceTactics.h"
+#include "GTPDriveLogic.h"
 
 #include <cmath>
 #include <cstdio>
+#include <vector>
 
 static int Failures = 0;
 #define CHECK(Cond) do { if (!(Cond)) { std::printf("FAIL line %d: %s\n", __LINE__, #Cond); ++Failures; } } while (0)
@@ -123,6 +125,57 @@ int main()
 		{
 			CHECK(MetName(Met) != nullptr && MetName(Met)[0] != 0);
 		}
+	}
+
+	// What drives the unit's own way is followed, not braked for as a wall (gate 102: "speed=66 km/h obstacle=29.8 m
+	// met=police brake=1.00", three units one behind the other on the way of the flight, 40 km/h on average).
+	{
+		// A colleague, a car of the traffic, the car of the man it is after: followed from 2 m/s. A person never.
+		CHECK(LeaderSpeed(EMet::Police, 18.f) == 18.f && LeaderSpeed(EMet::Other, 9.f) == 9.f && LeaderSpeed(EMet::Quarry, 14.f) == 14.f);
+		CHECK(LeaderSpeed(EMet::Person, 3.f) < 0.f && LeaderSpeed(EMet::Nothing, 18.f) < 0.f);
+		// One that stands, creeps or comes the other way is a wall, as before.
+		CHECK(LeaderSpeed(EMet::Police, 0.f) < 0.f && LeaderSpeed(EMet::Other, 1.9f) < 0.f && LeaderSpeed(EMet::Other, -12.f) < 0.f);
+		// The line of gate 102, on a straight road with a unit's own settings: the whole brake without the speed of
+		// the colleague, the throttle with it; and still the brake when the colleague is 6 m ahead.
+		FGTPDriveSettings Unit;
+		GTPDrive::SetChaseDriving(Unit);
+		Unit.SafeGap = 3.f;
+		Unit.IdmTimeGap = 0.7f;
+		Unit.IdmMaxAccel = 3.f;
+		const std::vector<FGTPDrivePoint> Road = {{0.f, 0.f}, {400.f, 0.f}};
+		int Closest = 0;
+		const float Speed = 66.f / 3.6f;
+		const FGTPDriveCommand Wall = GTPDrive::Decide(Road, 10.f, 0.f, 0.f, Speed, 94.f / 3.6f, 29.8f, Unit, Closest);
+		CHECK(Wall.Brake >= 0.99f && Wall.Throttle == 0.f);
+		const FGTPDriveCommand Followed = GTPDrive::Decide(Road, 10.f, 0.f, 0.f, Speed, 94.f / 3.6f, 29.8f, Unit, Closest, LeaderSpeed(EMet::Police, Speed));
+		CHECK(Followed.Brake == 0.f && Followed.Throttle > 0.3f);
+		const FGTPDriveCommand Close = GTPDrive::Decide(Road, 10.f, 0.f, 0.f, Speed, 94.f / 3.6f, 6.f, Unit, Closest, LeaderSpeed(EMet::Police, Speed));
+		CHECK(Close.Brake > 0.5f && Close.Throttle == 0.f);
+		// A colleague who stands 29.8 m ahead: braked for, as before.
+		const FGTPDriveCommand Stands = GTPDrive::Decide(Road, 10.f, 0.f, 0.f, Speed, 94.f / 3.6f, 29.8f, Unit, Closest, LeaderSpeed(EMet::Police, 0.f));
+		CHECK(Stands.Brake >= 0.99f);
+	}
+
+	// The speed a unit left behind may reach (CatchUpKmh).
+	{
+		const FCatchUp C;
+		// Near him, at one star, and with nothing to catch up: its level's speed.
+		CHECK(CatchUpKmh(81.f, 99.f, 60.f, 2, C) == 81.f && CatchUpKmh(81.f, 99.f, 20.f, 3, C) == 81.f);
+		CHECK(CatchUpKmh(63.f, 99.f, 250.f, 1, C) == 63.f);
+		// 150 m behind and more: its top speed, whatever he does.
+		CHECK(CatchUpKmh(81.f, 99.f, 150.f, 2, C) == C.TopKmh && CatchUpKmh(94.5f, 20.f, 290.f, 3, C) == C.TopKmh);
+		// Between the two it rises with the distance, never under its level's speed, never over the top.
+		float Before = 81.f;
+		for (float Metres = 60.f; Metres <= 300.f; Metres += 5.f)
+		{
+			const float Kmh = CatchUpKmh(81.f, 50.f, Metres, 2, C);
+			CHECK(Kmh >= Before && Kmh >= 81.f && Kmh <= C.TopKmh);
+			Before = Kmh;
+		}
+		// Just past 60 m behind a car faster than its level: at least his speed, he does not leave it behind again.
+		CHECK(CatchUpKmh(81.f, 99.f, 61.f, 2, C) >= 99.f && CatchUpKmh(81.f, 99.f, 61.f, 2, C) < 102.f);
+		// A level already faster than the top keeps its speed.
+		CHECK(CatchUpKmh(150.f, 99.f, 250.f, 5, C) == 150.f);
 	}
 
 	if (Failures == 0)

@@ -88,8 +88,11 @@ struct GRANTHEFTPRALINE_API FGTPLaneFollower
 	/** Starts on the lane closest to Location heading like Yaw (degrees); false if none within MaxDistanceCm. */
 	bool StartNear(AGTPTrafficNetwork* InNetwork, const FVector& Location, float YawDegrees, float MaxDistanceCm);
 
-	/** One decision; false when the route ended (dead end) or there is none. */
-	bool Step(const FVector& Location, float YawDegrees, float SpeedKmh, float MaxSpeedKmh, float ObstacleMetres, FGTPDriveCommand& Out);
+	/** One decision; false when the route ended (dead end) or there is none. LeaderSpeedMps: the speed of what stands
+	 *  ObstacleMetres ahead when it drives the same way and is to be followed at a time gap (GTPDrive::Decide);
+	 *  negative: the car stops short of it. */
+	bool Step(const FVector& Location, float YawDegrees, float SpeedKmh, float MaxSpeedKmh, float ObstacleMetres, FGTPDriveCommand& Out,
+		float LeaderSpeedMps = -1.f);
 
 	/** Chases and demos: the speed given to Step is the limit, not the lane's posted speed. */
 	bool bIgnoreLaneLimit = false;
