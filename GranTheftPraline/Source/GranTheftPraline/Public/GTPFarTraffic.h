@@ -56,6 +56,13 @@ public:
 	/** Time spent in Tick (seconds) since the last read, for the CPU budget line of the network. */
 	double TakeTickSeconds();
 
+	/**
+	 * The far cars within RadiusCm of Location start again elsewhere, out of sight (not drawn until a place is found).
+	 * For a script that puts the player's car somewhere: a far car has no collision, so no overlap test sees one
+	 * standing there, and handed over a moment later it gets its collision back inside the player's car. Returns how many.
+	 */
+	int32 SendAway(const FVector& Location, float RadiusCm);
+
 protected:
 	/** Instances of the parked car meshes instead of puppet cars (-FarInstances=1). */
 	UPROPERTY(Config, EditAnywhere, Category = "Far traffic")

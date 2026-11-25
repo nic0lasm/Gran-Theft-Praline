@@ -166,6 +166,9 @@ private:
 	/** From the end of that hold and for 4 s: the car's attitude is watched, and who is in it said if it leans. */
 	bool bRelocationWatched = false;
 	int32 RelocationsTipped = 0;
+	/** The hold of a relocation: a car found in the held car was said once, and the far traffic cars sent away from the place. */
+	bool bRelocateBlockedTold = false;
+	int32 RelocateFarSent = 0;
 	double NextDriveDiag = 0.0;
 	/** Highest speed of the driven car in the chase (km/h), logged with DemoChase. */
 	float PeakKmh = 0.f;

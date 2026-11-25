@@ -11,6 +11,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "GTPDeterminism.h"
+#include "GTPFarTraffic.h"
 #include "GTPFlightCircuit.h"
 #include "GTPFlightPedals.h"
 #include "GTPLog.h"
@@ -61,7 +62,7 @@ namespace
 	 * car's driver and what hangs from him, every character within 5 m (with or without collision), and every body in
 	 * the car's box that a car collides with.
 	 */
-	void DemoWhoIsInTheCar(const AGTPVehicle* Car, const TCHAR* When)
+	void DemoWhoIsInTheCar(const AGTPVehicle* Car, const TCHAR* When, bool bWithTheTown)
 	{
 		UWorld* World = Car ? Car->GetWorld() : nullptr;
 		if (!World)
@@ -111,15 +112,44 @@ namespace
 				GTP_TRACE(LogGTPDemo, TEXT("Demo chase, who is in the car: within 5 m, %s"), *Told(*It));
 			}
 		}
+		// The people of the crowd are plain actors, without collision while they stand or walk.
+		int32 People = 0;
+		for (TActorIterator<AGTPPedestrian> It(World); It && People < 8; ++It)
+		{
+			if (!It->IsHidden() && FVector::Dist(It->GetActorLocation(), Car->GetActorLocation()) < 500.0)
+			{
+				++People;
+				GTP_TRACE(LogGTPDemo, TEXT("Demo chase, who is in the car: of the crowd within 5 m, %s"), *Told(*It));
+			}
+		}
+		// Every car within 8 m, whatever it is: a far traffic puppet is drawn without collision, and no overlap finds it.
+		int32 CarsNear = 0;
+		for (TActorIterator<AGTPVehicle> It(World); It && CarsNear < 6; ++It)
+		{
+			if (*It != Car && FVector::Dist(It->GetActorLocation(), Car->GetActorLocation()) < 800.0)
+			{
+				++CarsNear;
+				const FVector In = CarFrame.InverseTransformPosition(It->GetActorLocation());
+				const UPrimitiveComponent* Shell = Cast<UPrimitiveComponent>(It->GetRootComponent());
+				GTP_TRACE(LogGTPDemo, TEXT("Demo chase, who is in the car: a car within 8 m, %s at %.0f %.0f %.0f of the car, hidden %d, collision %d, simulating %d, AI driver %d, %.0f km/h"),
+					*It->GetName(), In.X, In.Y, In.Z, It->IsHidden() ? 1 : 0, It->GetActorEnableCollision() ? 1 : 0,
+					Shell && Shell->IsSimulatingPhysics() ? 1 : 0, It->HasAIDriver() ? 1 : 0, It->GetSpeedKmh());
+			}
+		}
 		TArray<FOverlapResult> Inside;
 		FCollisionObjectQueryParams Kinds;
 		Kinds.AddObjectTypesToQuery(ECC_Pawn);
 		Kinds.AddObjectTypesToQuery(ECC_PhysicsBody);
 		Kinds.AddObjectTypesToQuery(ECC_Vehicle);
 		Kinds.AddObjectTypesToQuery(ECC_WorldDynamic);
+		if (bWithTheTown)
+		{
+			// Upright and just put down, the box is clear of the road: what the town has in it is in the car.
+			Kinds.AddObjectTypesToQuery(ECC_WorldStatic);
+		}
 		FCollisionQueryParams NotTheCar(SCENE_QUERY_STAT(GTPDemoInCar), false, Car);
-		World->OverlapMultiByObjectType(Inside, Car->GetActorLocation() + Car->GetActorUpVector() * 80.f, Car->GetActorQuat(), Kinds,
-			FCollisionShape::MakeBox(FVector(250.f, 110.f, 70.f)), NotTheCar);
+		World->OverlapMultiByObjectType(Inside, Car->GetActorLocation() + Car->GetActorUpVector() * 95.f, Car->GetActorQuat(), Kinds,
+			FCollisionShape::MakeBox(FVector(250.f, 110.f, 60.f)), NotTheCar);
 		TSet<const UPrimitiveComponent*> Parts;
 		for (const FOverlapResult& Touch : Inside)
 		{
@@ -134,7 +164,23 @@ namespace
 				static_cast<int32>(Part->GetCollisionResponseToChannel(ECC_Vehicle)), Part->IsSimulatingPhysics() ? 1 : 0,
 				Touch.GetActor()->GetAttachParentActor() ? *Touch.GetActor()->GetAttachParentActor()->GetName() : TEXT("nothing"));
 		}
-		GTP_TRACE(LogGTPDemo, TEXT("Demo chase, who is in the car: %d pawn(s) within 5 m, %d body(ies) in its box"), Near, Parts.Num());
+		GTP_TRACE(LogGTPDemo, TEXT("Demo chase, who is in the car: %d pawn(s) and %d of the crowd within 5 m, %d car(s) within 8 m, %d body(ies) in its box (35 to 155 cm over its origin%s)"),
+			Near, People, CarsNear, Parts.Num(), bWithTheTown ? TEXT(", the town's included") : TEXT(""));
+	}
+
+	/**
+	 * The far traffic cars within 15 m of the place the player's car is put on start again elsewhere. They are drawn
+	 * and have no collision: the overlap tests of the relocation do not see one standing there, and the far traffic
+	 * hands it over as a driven car, with its collision, once the player is that close.
+	 */
+	int32 DemoSendFarCarsAway(UWorld* InWorld, const FVector& PutThere)
+	{
+		int32 FarSent = 0;
+		for (TActorIterator<AGTPFarTraffic> Far(InWorld); Far; ++Far)
+		{
+			FarSent += Far->SendAway(PutThere, 1500.f);
+		}
+		return FarSent;
 	}
 
 	const TCHAR* PhaseName(int32 Phase)
@@ -216,6 +262,8 @@ void UGTPDemoRoute::StartEncore()
 	RelocatedCar.Reset();
 	RelocateHoldUntil = 0.0;
 	bRelocationWatched = false;
+	bRelocateBlockedTold = false;
+	RelocateFarSent = 0;
 	OffLaneSince = 0.0;
 	bOnLaneOnce = false;
 	NextDriveDiag = 0.0;
@@ -508,6 +556,11 @@ bool UGTPDemoRoute::RelocateChase(AGTPVehicle* Driven, APlayerController* PC, co
 			bRelocateHeld = true;
 			RelocatedCar = Driven;
 			RelocateHoldUntil = Clock() + 0.5;
+			bRelocateBlockedTold = false;
+			// Gate 88's long take: a grey car of the traffic was in the stolen car while it was held here, and the
+			// stolen car stood on its tail 0.3 s after its physics came back. No test above saw it: a far traffic
+			// car has no collision. They are sent away from the place now, and at every step of the hold.
+			RelocateFarSent = DemoSendFarCarsAway(World, RelocatedTo.GetLocation());
 			// The new follower keeps the lanes driven lately: the flight does not come back round to them.
 			const TArray<int32> Recent = Follower.GetRecentLanes();
 			Follower = FGTPLaneFollower();
@@ -525,10 +578,10 @@ bool UGTPDemoRoute::RelocateChase(AGTPVehicle* Driven, APlayerController* PC, co
 			}
 			++ChaseRelocations;
 			LastRelocationAt = FPlatformTime::Seconds();
-			GTP_TRACE(LogGTPDemo, TEXT("Demo chase: %s at %s, the car is put on lane %d %.0f m away at %s (open road %.0f m, never ends=%d, carriageway %.1f m, %s, pass %d, police told, %d place(s) passed over with something standing there, %s)"),
+			GTP_TRACE(LogGTPDemo, TEXT("Demo chase: %s at %s, the car is put on lane %d %.0f m away at %s (open road %.0f m, never ends=%d, carriageway %.1f m, %s, pass %d, police told, %d place(s) passed over with something standing there, %s, %d far traffic car(s) sent away from the place)"),
 				Why, *From.ToCompactString(), LaneIndex, Distance / 100.0, *Driven->GetActorLocation().ToCompactString(), FGTPLaneFollower::OpenRoadMetres(Lanes, LaneIndex),
 				Lane.bNeverEnds ? 1 : 0, Lane.CarriagewayM, ANSI_TO_TCHAR(GTPRoadWidth::ClassName(GTPRoadWidth::Classify(Lane.CarriagewayM))), Pass, SpotsTaken,
-				bPutOnLine ? TEXT("on its driving line") : TEXT("on the lane's own points"));
+				bPutOnLine ? TEXT("on its driving line") : TEXT("on the lane's own points"), RelocateFarSent);
 			return true;
 		}
 	}
@@ -927,10 +980,39 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 		{
 			// Just put on another lane (RelocateChase): held there with the physics off, then given back to the solver.
 			Driven->SetActorLocationAndRotation(RelocatedTo.GetLocation(), RelocatedTo.GetRotation(), false, nullptr, ETeleportType::TeleportPhysics);
+			RelocateFarSent += DemoSendFarCarsAway(Driven->GetWorld(), RelocatedTo.GetLocation());
 			if (Now < RelocateHoldUntil)
 			{
 				break;
 			}
+			// Never back to the solver with another car in it (a ghost of the traffic slides through what stands on its
+			// lane, and weighs as much as a wall): a car of the traffic is taken off the road, any other is waited for,
+			// 3 s at most.
+			if (Now < RelocateHoldUntil + 3.0)
+			{
+				TActorIterator<AGTPTrafficNetwork> HeldNetwork(Driven->GetWorld());
+				if (const AActor* InTheCar = HeldNetwork && HeldNetwork->bPoolSpawnCheck ? HeldNetwork->FindCarAt(Driven, RelocatedTo) : nullptr)
+				{
+					bool bTakenAway = false;
+					for (TActorIterator<AGTPVehicle> It(Driven->GetWorld()); It; ++It)
+					{
+						if (*It == InTheCar && It->HasAIDriver() && !It->ActorHasTag(TEXT("GTPPolice")))
+						{
+							bTakenAway = HeldNetwork->Recycle(*It);
+							break;
+						}
+					}
+					if (!bRelocateBlockedTold || bTakenAway)
+					{
+						bRelocateBlockedTold = true;
+						GTP_TRACE(LogGTPDemo, TEXT("Demo chase: %s is in the car held on its new lane, %s; the physics wait"), *InTheCar->GetName(),
+							bTakenAway ? TEXT("taken off the road") : TEXT("not a car of the traffic to take away"));
+					}
+					break;
+				}
+			}
+			const double HeldLonger = Now - RelocateHoldUntil;
+			RelocateHoldUntil = Now;
 			bRelocateHeld = false;
 			if (UPrimitiveComponent* Body = Cast<UPrimitiveComponent>(Driven->GetRootComponent()))
 			{
@@ -941,8 +1023,9 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 			}
 			Driven->NotePlaced(TEXT("chase relocation"));
 			SlowSince = 0.0;
-			GTP_TRACE(LogGTPDemo, TEXT("Demo chase: the car is on its new lane at %s, physics back on"), *Driven->GetActorLocation().ToCompactString());
-			DemoWhoIsInTheCar(Driven, TEXT("physics back on"));
+			GTP_TRACE(LogGTPDemo, TEXT("Demo chase: the car is on its new lane at %s, physics back on (held %.1f s longer for a car in it, %d far traffic car(s) sent away from the place)"),
+				*Driven->GetActorLocation().ToCompactString(), HeldLonger, RelocateFarSent);
+			DemoWhoIsInTheCar(Driven, TEXT("physics back on"), true);
 			bRelocationWatched = true;
 			break;
 		}
@@ -955,7 +1038,7 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 				++RelocationsTipped;
 				GTP_TRACE(LogGTPDemo, TEXT("Demo chase: the car leans past 45 degrees %.1f s after its relocation (%d relocation(s) ended so, of %d)"),
 					Now - RelocateHoldUntil, RelocationsTipped, ChaseRelocations);
-				DemoWhoIsInTheCar(Driven, TEXT("leaning"));
+				DemoWhoIsInTheCar(Driven, TEXT("leaning"), false);
 			}
 		}
 		if (bChase && bGaveUp)

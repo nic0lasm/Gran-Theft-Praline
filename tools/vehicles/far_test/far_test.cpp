@@ -46,6 +46,9 @@ int main()
 	Check(GTPFar::Decide(30000.f, false, false, false, 9000.f, 5000.f, 25000.f) == EAction::Relocate, "too far and unseen: relocate");
 	Check(GTPFar::Decide(15000.f, false, false, true, 9000.f, 5000.f, 25000.f) == EAction::Relocate, "dead end, unseen: relocate");
 	Check(GTPFar::Decide(15000.f, false, false, false, 9000.f, 5000.f, 25000.f) == EAction::Keep, "in the far ring: keep");
+	Check(GTPFar::OnThePlayer(300.f), "3 m from the player: in its car, no handover there");
+	Check(GTPFar::OnThePlayer(690.f), "two car halves and a margin: still on the player");
+	Check(!GTPFar::OnThePlayer(900.f), "9 m from the player: a car length of room, handed over as usual");
 
 	Check(GTPFar::PickSwap({3000.f, 12000.f, 20000.f}, 9000.f, 8000.f) == 2, "swap with the farthest driven car");
 	Check(GTPFar::PickSwap({3000.f, 6000.f}, 9000.f, 8000.f) == -1, "no driven car past the ghost distance: no swap");

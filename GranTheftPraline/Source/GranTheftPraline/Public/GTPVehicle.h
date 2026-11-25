@@ -582,6 +582,8 @@ private:
 	/** The driver of the player's car found off the seat is said in the log and seated again. */
 	void KeepDriverSeated();
 	int32 SeatedAgainCount = 0;
+	/** OnBodyHit: how many touches were named since the car was last placed (NotePlaced). */
+	int32 PlacedHitsTold = 8;
 	void ReleaseCharacter(ACharacter* Character, const FVector& Location, const FRotator& Rotation);
 	/** Tag of a hidden seated driver's mesh put to sleep by AttachToSeat (no pose at all until released). */
 	static FName SeatDormantTag();

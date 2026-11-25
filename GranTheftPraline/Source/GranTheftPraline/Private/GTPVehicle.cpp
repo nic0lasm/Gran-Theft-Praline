@@ -2722,6 +2722,19 @@ void AGTPVehicle::OnBodyHit(UPrimitiveComponent* HitComponent, AActor* OtherActo
 	{
 		++GroundHitsSinceProbe;
 	}
+	// The player's car just put somewhere (a relocation of the chase, back on its wheels): what it touches in its first
+	// two seconds there is named. Gate 88's long take: a crash was heard 12 ms after the physics of the relocated car
+	// came back, and the car stood on its tail 0.3 s later; nothing in the log said what it had been put into.
+	if (PlacedHitsTold < 8 && Cast<APlayerController>(GetController()) && GetWorld() && GetWorld()->GetTimeSeconds() - LastPlacedTime < 2.f)
+	{
+		++PlacedHitsTold;
+		const FVector TouchedAt = GetActorTransform().InverseTransformPosition(Hit.ImpactPoint);
+		GTP_TRACE(LogGTPVehicle, TEXT("%s: %.2f s after %s it touches %s of %s (%s), object type %d, simulating %d, at %.0f %.0f %.0f of the car (world %s), normal %.2f %.2f %.2f, impulse %.0f; the car up %.2f, %.0f km/h"),
+			*GetName(), GetWorld()->GetTimeSeconds() - LastPlacedTime, LastPlacedHow, *GetNameSafe(OtherComp), *GetNameSafe(OtherActor),
+			OtherActor ? *OtherActor->GetClass()->GetName() : TEXT("-"), OtherComp ? static_cast<int32>(OtherComp->GetCollisionObjectType()) : -1,
+			OtherComp && OtherComp->IsSimulatingPhysics() ? 1 : 0, TouchedAt.X, TouchedAt.Y, TouchedAt.Z, *Hit.ImpactPoint.ToCompactString(),
+			Hit.ImpactNormal.X, Hit.ImpactNormal.Y, Hit.ImpactNormal.Z, NormalImpulse.Size(), GetActorUpVector().Z, GetSpeedKmh());
+	}
 	// Crimes by the player at the wheel: running into people, cars and police.
 	if (OtherActor && State == EGTPVehicleState::Driven && Cast<APlayerController>(GetController()) && FMath::Abs(GetSpeedKmh()) > 12.f)
 	{
@@ -2811,6 +2824,7 @@ void AGTPVehicle::NotePlaced(const TCHAR* How)
 {
 	LastPlacedTime = GetWorld() ? static_cast<float>(GetWorld()->GetTimeSeconds()) : 0.f;
 	LastPlacedHow = How;
+	PlacedHitsTold = 0;
 }
 
 EGTPDamageZone AGTPVehicle::ZoneFromWorldLocation(const FVector& WorldLocation) const

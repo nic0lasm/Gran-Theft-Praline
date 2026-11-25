@@ -285,6 +285,15 @@ bool AGTPFarTraffic::Promote(FFarCar& Car)
 	{
 		return false;
 	}
+	// Never in the player's car. A far car comes that close when the player's car was just put there by a script (the
+	// chase relocation looks for what stands on the place, and a far car has no collision to be found by), or when it
+	// slid up to the player in view with no driven car to swap with. Gate 88's long take: a grey car in the stolen one
+	// while it was held on its new lane, the stolen car on its tail 0.3 s after its physics came back (seen in the
+	// frames; the handovers went from 5 to 9 in that window; no line of the log names the car).
+	if (GTPFar::OnThePlayer(Car.ToPlayer))
+	{
+		return false;
+	}
 	// Driven cars that are ghosts by now (past the ghost distance), with their distance.
 	TArray<AGTPVehicle*> Candidates;
 	std::vector<float> Distances;
@@ -338,6 +347,29 @@ bool AGTPFarTraffic::Promote(FFarCar& Car)
 	Car.Speed = DrivenSpeed;
 	++Promoted;
 	return true;
+}
+
+int32 AGTPFarTraffic::SendAway(const FVector& Location, float RadiusCm)
+{
+	const APawn* Player = UGameplayStatics::GetPlayerPawn(this, 0);
+	int32 Sent = 0;
+	for (FFarCar& Car : Cars)
+	{
+		float Unused = 0.f;
+		if (Car.Lane == INDEX_NONE || FVector::Dist2D(Where(Car, Unused), Location) >= RadiusCm)
+		{
+			continue;
+		}
+		if (!Place(Car, true))
+		{
+			// No free place out of sight this time: not drawn, and Tick tries again now and then.
+			Car.Lane = INDEX_NONE;
+		}
+		Car.ToPlayer = Car.Lane != INDEX_NONE && Player ? static_cast<float>(FVector::Dist2D(Where(Car, Unused), Player->GetActorLocation())) : 0.f;
+		Show(Car);
+		++Sent;
+	}
+	return Sent;
 }
 
 void AGTPFarTraffic::Show(FFarCar& Car)

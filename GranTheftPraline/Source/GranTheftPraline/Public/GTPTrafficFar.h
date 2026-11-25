@@ -124,6 +124,18 @@ namespace GTPFar
 	}
 
 	/**
+	 * Closer than this to the player (cm), a far car stands in the player's car or against it. It is never made a
+	 * driven car there: a far car has no collision and a driven one has, and a car that gets its collision back inside
+	 * another is thrown out of it by the solver, the other with it.
+	 */
+	constexpr float OnPlayerCm = 700.f;
+
+	inline bool OnThePlayer(float ToPlayer)
+	{
+		return ToPlayer < OnPlayerCm;
+	}
+
+	/**
 	 * The driven car to swap with a far car that comes close: the farthest one
 	 * past MinDistance (cm) and farther than the far car itself. -1 if none.
 	 */
