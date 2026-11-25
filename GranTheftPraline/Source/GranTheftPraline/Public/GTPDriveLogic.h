@@ -89,6 +89,32 @@ namespace GTPDrive
 
 	inline float Clamp(float V, float Lo, float Hi) { return V < Lo ? Lo : (V > Hi ? Hi : V); }
 
+	/** What a driver keeps of the lane it leaves, in metres of path (KeptBehind). */
+	constexpr float KeepBehindMetres = 12.f;
+
+	/**
+	 * The last points of the first Count points of Path that cover Metres of it, the last of them included: what a
+	 * driver keeps, at the head of its path, of the lane it leaves.
+	 *
+	 * A driver's path is the lanes ahead of it, and it dropped a lane whole the moment its closest point was on the
+	 * next one. Where lanes meet in a corner, that is in the middle of the corner: the bend is measured with the path
+	 * before a vertex (BendSpeedAt), there was none any more, and the corner was no longer one. Gate of candidate 83:
+	 * the speed wanted went from 24 to 57 km/h in the corner from the quay to the rue Childebert, and the flight's
+	 * car got the whole throttle at full lock.
+	 */
+	inline std::vector<FGTPDrivePoint> KeptBehind(const std::vector<FGTPDrivePoint>& Path, int Count, float Metres = KeepBehindMetres)
+	{
+		const int N = Count < static_cast<int>(Path.size()) ? Count : static_cast<int>(Path.size());
+		int First = N - 1;
+		float Covered = 0.f;
+		while (First > 0 && Covered < Metres)
+		{
+			Covered += std::hypot(Path[First].X - Path[First - 1].X, Path[First].Y - Path[First - 1].Y);
+			--First;
+		}
+		return N > 0 ? std::vector<FGTPDrivePoint>(Path.begin() + First, Path.begin() + N) : std::vector<FGTPDrivePoint>();
+	}
+
 	/** The point Distance metres along Path ahead of a car at (X, Y); also returns the index of the path point closest to it. */
 	inline FGTPDrivePoint PointAhead(const std::vector<FGTPDrivePoint>& Path, float X, float Y, float Distance, int& InOutClosest)
 	{
