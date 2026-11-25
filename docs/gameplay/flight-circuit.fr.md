@@ -73,6 +73,8 @@ Quand les routes du circuit changent : `write` sur un fichier des voies qui les 
 
 `-DemoPedalsAlone` : les pédales ne suivent plus la direction, comme jusqu'à la porte 83.
 
+`-LaneKeptBehind=0` : une voie quittée est abandonnée entière, comme jusqu'à la porte 83.
+
 ## Changé aussi pour tous les conducteurs
 
 La limite de vitesse à la fin du chemin connu comptait la distance à vol d'oiseau jusqu'à cette fin. Là où un chemin revient à côté de lui-même (une boucle, un quai monté d'un côté et descendu de l'autre), la fin se trouve à quelques mètres d'une voiture qui a encore 200 m à parcourir. La distance est maintenant comptée le long du chemin quand elle est plus longue (`GTPDriveLogic.h`).
