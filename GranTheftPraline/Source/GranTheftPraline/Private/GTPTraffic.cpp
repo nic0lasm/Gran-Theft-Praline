@@ -3575,8 +3575,35 @@ namespace
 	}
 }
 
+void AGTPTrafficNetwork::NoteLeftAtArrest(AGTPVehicle* Car)
+{
+	static const bool bKeepArrestCars = FParse::Param(FCommandLine::Get(), TEXT("KeepArrestCars"));
+	if (bKeepArrestCars || !IsValid(Car) || !GetWorld() || Car->ActorHasTag(TEXT("GTPPolice")))
+	{
+		return;
+	}
+	ArrestCars.Add({Car, GetWorld()->GetTimeSeconds()});
+}
+
 void AGTPTrafficNetwork::UpdateLeftCars(const APawn* Player)
 {
+	// The car of an arrest: the player is still getting out when it is noted, and it is his until he is out.
+	for (int32 Index = ArrestCars.Num() - 1; Index >= 0; --Index)
+	{
+		AGTPVehicle* Arrested = ArrestCars[Index].Car.Get();
+		const bool bOut = IsValid(Arrested) && LeftCarState(*Arrested).bEmpty;
+		if (bOut && !LeftCars.ContainsByPredicate([Arrested](const FLeftCar& Left) { return Left.Car.Get() == Arrested; }))
+		{
+			LeftCars.Add({Arrested, GetWorld()->GetTimeSeconds()});
+			++LeftCarsNoted;
+			GTP_TRACE(LogGTPTraffic, TEXT("traffic: %s, the car the player was arrested in, stays at %s until he is %.0f m away and does not see it"),
+				*Arrested->GetName(), *Arrested->GetActorLocation().ToCompactString(), LeftCarRemoveDistance * CmToM);
+		}
+		if (bOut || !IsValid(Arrested) || GetWorld()->GetTimeSeconds() - ArrestCars[Index].Since > 15.0)
+		{
+			ArrestCars.RemoveAt(Index);
+		}
+	}
 	for (int32 Index = LeftCars.Num() - 1; Index >= 0; --Index)
 	{
 		AGTPVehicle* Car = LeftCars[Index].Car.Get();
