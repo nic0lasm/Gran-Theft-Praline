@@ -122,6 +122,83 @@ static FRun Drive(const std::vector<FPost>& Posts, bool bAvoid, float UntilX, fl
 	return Run;
 }
 
+// The same car with the look every unit has for cars and people (UGTPAIDriverComponent::ProbeAhead): a ball of 1 m
+// pushed 40 m along its heading from its nose, the car stopping 3 m short of what it meets. Cars: the posts a
+// standing car is made of. bRound: a standing car is looked at as scenery too, and no longer braked for while a way
+// round it is taken (FGTPUnitAvoid::TakesWayRound). Walls: scenery, never met by the probe.
+static FRun DriveToCar(const std::vector<FPost>& Cars, const std::vector<FPost>& Walls, bool bRound, float UntilX, float MaxSeconds)
+{
+	const float HalfWidth = 1.075f, Nose = 2.3f, Tail = 2.3f, Dt = 1.f / 60.f;
+	FGTPDriveSettings Driving;
+	GTPDrive::SetChaseDriving(Driving);
+	Driving.SafeGap = 3.f;
+	const FGTPUnitRecoverySettings Recovery;
+	const FGTPUnitAvoidSettings S;
+	const std::vector<FGTPDrivePoint> Path = {{0.f, 0.f}, {400.f, 0.f}};
+	std::vector<FPost> Scenery = Walls;
+	if (bRound)
+	{
+		Scenery.insert(Scenery.end(), Cars.begin(), Cars.end());
+	}
+	std::vector<FPost> All = Walls;
+	All.insert(All.end(), Cars.begin(), Cars.end());
+	float X = 0.f, Y = 0.f, Yaw = 0.f, Speed = 0.f;
+	int Closest = 0;
+	FRun Run;
+	while (X < UntilX && Run.Seconds < MaxSeconds)
+	{
+		float Unused = 0.f;
+		const float Met = Sweep(Cars, X + Nose * std::cos(Yaw), Y + Nose * std::sin(Yaw), std::cos(Yaw), std::sin(Yaw), 40.f, 1.f, Unused);
+		const float Obstacle = bRound && Run.Avoid.TakesWayRound() ? -1.f : Met;
+		const FGTPDriveCommand Command = GTPDrive::Decide(Path, X, Y, Yaw, Speed, 60.f / 3.6f, Obstacle, Driving, Closest);
+		float Throttle = Command.Throttle, Brake = Command.Brake, Steering = Command.Steering;
+		const float Look = FGTPUnitAvoid::LookMetres(Speed, S);
+		const float Lean = Yaw + Steering * S.LeanRadians;
+		const float StartX = X + std::cos(Yaw), StartY = Y + std::sin(Yaw);
+		float Lateral = 0.f;
+		const float Raw = Sweep(Scenery, StartX, StartY, std::cos(Lean), std::sin(Lean), Look + 1.3f, Run.Avoid.LookRadius(S), Lateral);
+		const float Ahead = Raw < 0.f ? -1.f : std::max(0.f, Raw - 1.3f);
+		float Left = -1.f, Right = -1.f;
+		if (Ahead >= 0.f)
+		{
+			const float RawLeft = Sweep(Scenery, StartX, StartY, std::cos(Lean - S.SideRadians), std::sin(Lean - S.SideRadians), Look + 1.3f, S.LookRadiusM, Unused);
+			const float RawRight = Sweep(Scenery, StartX, StartY, std::cos(Lean + S.SideRadians), std::sin(Lean + S.SideRadians), Look + 1.3f, S.LookRadiusM, Unused);
+			Left = RawLeft < 0.f ? -1.f : std::max(0.f, RawLeft - 1.3f);
+			Right = RawRight < 0.f ? -1.f : std::max(0.f, RawRight - 1.3f);
+		}
+		Run.Avoid.Step(Dt, Speed, Look, Ahead, Lateral, Left, Right, S, Throttle, Brake, Steering);
+		GTPUnitRecovery::Tame(Throttle, Brake, Steering, Speed, Driving.MaxLateralAccel, Recovery);
+		Speed = std::max(0.f, Speed + (Throttle * 3.f - Brake * 8.f) * Dt);
+		Yaw += Speed / 2.97f * std::tan(Steering * 0.785f) * Dt;
+		X += Speed * std::cos(Yaw) * Dt;
+		Y += Speed * std::sin(Yaw) * Dt;
+		Run.Seconds += Dt;
+		Run.FarthestAside = std::max(Run.FarthestAside, std::fabs(Y));
+		for (const FPost& Post : All)
+		{
+			const float Rx = Post.X - X, Ry = Post.Y - Y;
+			const float Along = Rx * std::cos(Yaw) + Ry * std::sin(Yaw);
+			const float Aside = -Rx * std::sin(Yaw) + Ry * std::cos(Yaw);
+			const float Dx = std::max(std::max(-Tail - Along, Along - Nose), 0.f);
+			const float Dy = std::max(std::fabs(Aside) - HalfWidth, 0.f);
+			if (std::hypot(Dx, Dy) < Post.Radius)
+			{
+				Run.bTouched = true;
+			}
+		}
+	}
+	Run.EndX = X;
+	Run.EndY = Y;
+	Run.EndSpeed = Speed;
+	return Run;
+}
+
+// A car 4.2 m long and 1.8 m wide that stands along X, its middle at (X, Y): four posts.
+static std::vector<FPost> StandingCar(float X, float Y)
+{
+	return {{X - 1.2f, Y, 0.9f}, {X - 0.4f, Y, 0.9f}, {X + 0.4f, Y, 0.9f}, {X + 1.2f, Y, 0.9f}};
+}
+
 // An officer walking at 4.3 m/s from (X, Y) to the goal, boxes in his way. Returns the seconds taken (negative: not there in MaxSeconds).
 struct FBox
 {
@@ -273,6 +350,43 @@ int main()
 			Seeing.bTouched ? 1 : 0, Seeing.FarthestAside, Seeing.Seconds, Blind.Seconds, Seeing.Avoid.Rounds, Seeing.EndY, Seeing.EndSpeed * 3.6f);
 		CHECK(!Seeing.bTouched && Seeing.EndX >= 120.f && std::fabs(Seeing.EndY) < 1.f && Seeing.FarthestAside < 4.f);
 		CHECK(Seeing.Seconds < Blind.Seconds + 4.f && Seeing.Avoid.Rounds >= 1 && Seeing.Avoid.Blocked == 0);
+	}
+	{
+		// Gate 103: a traffic car stands on the lane, 84 m from a player who has stopped. The units stop behind it, push,
+		// back off and come again, three of them in a queue, and the level is lost 40 s later. Seen only as a car, the
+		// unit stands behind it for good; seen as scenery too, it goes round and drives on.
+		CHECK(FGTPUnitAvoid::IsStandingCar(0.f, false, S) && FGTPUnitAvoid::IsStandingCar(-1.f, false, S));
+		// One that drives is followed or braked for, and the car of the man they are after is never gone round.
+		CHECK(!FGTPUnitAvoid::IsStandingCar(2.f, false, S) && !FGTPUnitAvoid::IsStandingCar(0.f, true, S));
+		const std::vector<FPost> Clio = StandingCar(60.f, 0.f);
+		const FRun Behind = DriveToCar(Clio, {}, false, 120.f, 30.f);
+		const FRun Round = DriveToCar(Clio, {}, true, 120.f, 30.f);
+		std::printf("a car that stands on the lane: as until gate 103 the unit ends %.1f m short of 120 m after %.0f s; going round it: touched %d, %.1f m aside at most, %.1f s to 120 m, %d way(s) round, ends %.2f m from the lane\n",
+			120.f - Behind.EndX, Behind.Seconds, Round.bTouched ? 1 : 0, Round.FarthestAside, Round.Seconds, Round.Avoid.Rounds, Round.EndY);
+		CHECK(!Behind.bTouched && Behind.EndX < 57.f && Behind.EndSpeed < 0.1f);
+		CHECK(!Round.bTouched && Round.EndX >= 120.f && Round.FarthestAside < 4.5f && std::fabs(Round.EndY) < 1.f && Round.Seconds < 20.f);
+		// The car stands a little to one side of the lane: round it by the other.
+		const FRun RoundLeft = DriveToCar(StandingCar(60.f, 0.5f), {}, true, 120.f, 30.f);
+		const FRun RoundRight = DriveToCar(StandingCar(60.f, -0.5f), {}, true, 120.f, 30.f);
+		CHECK(!RoundLeft.bTouched && RoundLeft.EndX >= 120.f && !RoundRight.bTouched && RoundRight.EndX >= 120.f);
+		// Two cars one behind the other (the queue of gate 103): round both.
+		std::vector<FPost> Queue = StandingCar(60.f, 0.f);
+		const std::vector<FPost> Second = StandingCar(66.f, 0.2f);
+		Queue.insert(Queue.end(), Second.begin(), Second.end());
+		const FRun RoundQueue = DriveToCar(Queue, {}, true, 120.f, 30.f);
+		std::printf("two cars that stand one behind the other: touched %d, %.1f m aside at most, %.1f s to 120 m\n", RoundQueue.bTouched ? 1 : 0, RoundQueue.FarthestAside, RoundQueue.Seconds);
+		CHECK(!RoundQueue.bTouched && RoundQueue.EndX >= 120.f);
+		// A street no wider than the car that stands in it, walls 1.6 m from the lane's middle: no way round, the unit
+		// stands short of it and touches nothing.
+		std::vector<FPost> Walls;
+		for (float X = 0.f; X <= 120.f; X += 0.5f)
+		{
+			Walls.push_back({X, 2.1f, 0.5f});
+			Walls.push_back({X, -2.1f, 0.5f});
+		}
+		const FRun Narrow = DriveToCar(Clio, Walls, true, 120.f, 30.f);
+		std::printf("the same in a street with no room: touched %d, ends %.1f m short of the car\n", Narrow.bTouched ? 1 : 0, 57.9f - Narrow.EndX - 2.3f);
+		CHECK(!Narrow.bTouched && Narrow.EndX < 57.f);
 	}
 	{
 		// The same post dead on the middle of the lane.

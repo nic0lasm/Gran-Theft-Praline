@@ -177,6 +177,34 @@ int main()
 		// A level already faster than the top keeps its speed.
 		CHECK(CatchUpKmh(150.f, 99.f, 250.f, 5, C) == 150.f);
 	}
+	{
+		// Gate 103: the player gave up 17 m from a roadblock car, which stood there and was taken away 12 s later.
+		const FBlockRelease R;
+		float Near = 0.f;
+		// He drives past it: it stands.
+		for (int Frame = 0; Frame < 600; ++Frame)
+		{
+			Near = BlockNearSeconds(Near, 1.f / 60.f, 14.f, 74.f, false, 3, R);
+		}
+		CHECK(Near == 0.f && !LeavesBlock(Near, R));
+		// He has stopped 17 m from it: it leaves its place after a second and a half, not at the first frame.
+		Near = BlockNearSeconds(Near, 1.f / 60.f, 17.f, 0.f, false, 3, R);
+		CHECK(Near > 0.f && !LeavesBlock(Near, R));
+		for (int Frame = 0; Frame < 95; ++Frame)
+		{
+			Near = BlockNearSeconds(Near, 1.f / 60.f, 17.f, 0.f, false, 3, R);
+		}
+		CHECK(LeavesBlock(Near, R));
+		// He stopped far from it, or nobody is wanted: it stands.
+		CHECK(BlockNearSeconds(1.f, 0.1f, 61.f, 0.f, false, 3, R) == 0.f);
+		CHECK(BlockNearSeconds(1.f, 0.1f, 17.f, 0.f, false, 0, R) == 0.f);
+		// A slow corner in front of it is not a stop; on foot he can no longer flee whatever his speed.
+		CHECK(BlockNearSeconds(1.f, 0.1f, 17.f, 13.f, false, 3, R) == 0.f);
+		CHECK(BlockNearSeconds(1.f, 0.1f, 17.f, 13.f, true, 3, R) > 1.f);
+		// A unit that stands far from him pushes through a traffic car, never through a colleague.
+		CHECK(PushesThrough(4.1f, EMet::Other) && PushesThrough(4.1f, EMet::Nothing) && !PushesThrough(3.9f, EMet::Other));
+		CHECK(!PushesThrough(30.f, EMet::Police));
+	}
 
 	if (Failures == 0)
 	{
