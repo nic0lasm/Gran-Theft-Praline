@@ -55,7 +55,11 @@ In `-GTARun` the player gives up after the pursuit step: the car stops and the p
 
 ## When the car is held up
 
-The script still puts the car back on a lane when it is held up or off its lane for good, but only on a lane of the lap, and each time counts in `DemoChase ... relocations=N`. A film with a relocation is not a valid one. It never puts it into another car, nor, since gate 83, onto anything else that stops a car (a bike rack, a low wall, a tree): the place is passed over, and the line of the relocation says how many were (`N place(s) passed over with something standing there`).
+The script still puts the car back on a lane when it is held up or off its lane for good, but only on a lane of the lap, and each time counts in `DemoChase ... relocations=N`. A film with a relocation is not a valid one. It never puts it into another car, nor, since gate 83, onto anything else that stops a car (a bike rack, a low wall, a tree): the place is passed over, and the line of the relocation says how many were (`N place(s) passed over with something standing there`). Since gate 86 a place where a person or a car stands is passed over too, whatever they answer to a car's collision channel: on the rue Grolée the car stood on its nose two seconds after it was put down, a passer-by under it.
+
+## People in the road
+
+The script's probe is 9 m long. At 98 km/h that is a third of a second: at gate 86 the script gave the whole brake for a person at 0 m (`kmh=98 brake=1.00 limit=obstacle obstacle=0 m`), the car hit them at 86 km/h, went sideways and stopped against a tree 4.4 m from its line. Since then the flight brakes for a person only when it can still stop before them (7 m/s², 1 m of room: under 43 km/h for a person at the end of the probe) or when it is at walking pace; otherwise it keeps its line and its speed (`GTPFlightPedals::StopsForPerson`). The `DemoDrive` line says so: `not braked for`. People getting out of the way of a car is not done yet.
 
 ## Choosing and checking a circuit
 
@@ -74,6 +78,8 @@ When the roads of the circuit change: `write` on a lanes file that has them (mad
 `-DemoPedalsAlone`: the pedals no longer follow the steering, as until gate 83.
 
 `-LaneKeptBehind=0`: a lane left is dropped whole, as until gate 83.
+
+`-DemoStopsForPeople`: the flight brakes for any person in its probe, as until gate 86.
 
 ## Also changed for every driver
 

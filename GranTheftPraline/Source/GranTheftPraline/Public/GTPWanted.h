@@ -266,6 +266,8 @@ private:
 		float DueTime = 0.f;
 	};
 	TArray<FPendingReport> PendingReports;
+	/** One report of a kind every half second (a scrape is a hit every contact). */
+	FGTPCrimeReportGate ReportGate;
 	FGTPWitnessSettings WitnessSettings;
 	FCrimeReports CrimeReports;
 	int32 ScriptedStars = 0;

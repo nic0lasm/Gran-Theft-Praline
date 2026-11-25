@@ -79,6 +79,18 @@ int main(int ArgCount, char**)
 		// Full lock is held at 15 km/h, a third of lock at 28.
 		CHECK(std::fabs(GTPFlightPedals::HoldSpeed(1.f, Settings) * 3.6f - 15.2f) < 0.5f);
 		CHECK(std::fabs(GTPFlightPedals::HoldSpeed(0.35f, Settings) * 3.6f - 28.3f) < 0.5f);
+		// People ahead (gate 86). 98 km/h, a person at 0 m, or 9 m ahead at the end of the probe: no brake, the line is kept.
+		CHECK(!GTPFlightPedals::StopsForPerson(0.f, 98.f / 3.6f));
+		CHECK(!GTPFlightPedals::StopsForPerson(9.f, 98.f / 3.6f));
+		// 36 km/h and a person 9 m ahead: 7.1 m to stop and 1 m of room, it brakes. 6 m ahead: it does not.
+		CHECK(GTPFlightPedals::StopsForPerson(9.f, 36.f / 3.6f));
+		CHECK(!GTPFlightPedals::StopsForPerson(6.f, 36.f / 3.6f));
+		// 43 km/h is the fastest it brakes at with 9 m of probe.
+		CHECK(GTPFlightPedals::StopsForPerson(9.f, 37.f / 3.6f) && !GTPFlightPedals::StopsForPerson(9.f, 39.f / 3.6f));
+		// At walking pace it waits for anybody, against the bumper or not (the script pushes through after its wait).
+		CHECK(GTPFlightPedals::StopsForPerson(2.f, 5.f / 3.6f) && GTPFlightPedals::StopsForPerson(0.f, 0.f));
+		// 20 km/h, a person 2 m ahead: too late. 4 m ahead: it stops.
+		CHECK(!GTPFlightPedals::StopsForPerson(2.f, 20.f / 3.6f) && GTPFlightPedals::StopsForPerson(4.f, 20.f / 3.6f));
 		// -DemoPedalsAlone: as before.
 		Throttle = 1.f; Brake = 0.f;
 		GTPFlightPedals::Apply(Throttle, Brake, 1.f, 10.f, 16.7f, Settings, false);

@@ -131,6 +131,15 @@ void UGTPWantedComponent::ReportCrime(EGTPCrimeKind Kind, const FVector& Locatio
 			return;
 		}
 	}
+	// A scrape is a hit every contact: one report of a kind every half second (gate 85: 26 in three frames).
+	if (!ReportGate.Take(Kind, bVictimInvolved, static_cast<float>(GetWorld()->GetTimeSeconds())))
+	{
+		return;
+	}
+	if (const int32 LeftOut = ReportGate.TakeLeftOut())
+	{
+		GTP_TRACE(LogGTPWanted, TEXT("wanted: %d report(s) left out since the last one looked at, each less than %.1f s after one of its kind"), LeftOut, ReportGate.Gap);
+	}
 	if (Kind != EGTPCrimeKind::ArmedThreat)
 	{
 		// Every crime makes noise the police units nearby can hear (a shot, a crash, a scream).

@@ -195,6 +195,25 @@ int main()
 		Swap.Tick(0.1f, true);
 		CHECK(Swap.GetPhase() == EGTPWantedPhase::Pursuit);
 	}
+	{
+		// A scrape: the same hit reported 26 times in three frames (gate 85). One is looked at, 25 left out.
+		FGTPCrimeReportGate Gate;
+		int Taken = 0;
+		for (int Report = 0; Report < 26; ++Report)
+		{
+			Taken += Gate.Take(EGTPCrimeKind::HitVehicle, false, 10.f + 0.016f * static_cast<float>(Report < 3 ? 0 : (Report < 13 ? 1 : 2))) ? 1 : 0;
+		}
+		CHECK(Taken == 1);
+		CHECK(Gate.TakeLeftOut() == 25 && Gate.TakeLeftOut() == 0);
+		// Another kind, or the same with a victim on the scene, is its own report; so is the same kind half a second later.
+		CHECK(Gate.Take(EGTPCrimeKind::HitPedestrian, false, 10.04f));
+		CHECK(Gate.Take(EGTPCrimeKind::HitVehicle, true, 10.04f));
+		CHECK(!Gate.Take(EGTPCrimeKind::HitVehicle, false, 10.4f));
+		CHECK(Gate.Take(EGTPCrimeKind::HitVehicle, false, 10.9f));
+		// The first report ever, and a clock that starts again at zero.
+		CHECK(Gate.Take(EGTPCrimeKind::CarTheft, false, 0.f));
+		CHECK(Gate.Take(EGTPCrimeKind::HitVehicle, false, 0.1f));
+	}
 	std::printf(Failures ? "FAILED (%d)\n" : "OK\n", Failures);
 	return Failures ? 1 : 0;
 }
