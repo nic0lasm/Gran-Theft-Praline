@@ -579,6 +579,9 @@ private:
 	bool FindExitLocation(const ACharacter* Character, FVector& OutLocation, EGTPVehicleSide& OutSide) const;
 	EGTPVehicleSide GetPassengerSide() const;
 	void AttachToSeat(ACharacter* Character);
+	/** The driver of the player's car found off the seat is said in the log and seated again. */
+	void KeepDriverSeated();
+	int32 SeatedAgainCount = 0;
 	void ReleaseCharacter(ACharacter* Character, const FVector& Location, const FRotator& Rotation);
 	/** Tag of a hidden seated driver's mesh put to sleep by AttachToSeat (no pose at all until released). */
 	static FName SeatDormantTag();

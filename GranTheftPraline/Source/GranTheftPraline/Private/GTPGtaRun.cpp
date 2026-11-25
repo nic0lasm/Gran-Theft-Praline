@@ -1397,7 +1397,14 @@ UGTPGtaRun::EResult UGTPGtaRun::CheckAim(FString& Detail, bool bClose)
 	if (Now - LastAimLog > 5.0)
 	{
 		LastAimLog = Now;
-		GTP_TRACE(LogGTPGtaRun, TEXT("GTARun aim: %s"), *Detail);
+		// Where he stands, and whether anything is over his head: gate 86, long take, 171 s, he walked through a blank
+		// wall that stops neither a pawn nor the camera, and the picture stayed black for 18 s.
+		const FVector Stands = Character->GetActorLocation();
+		FHitResult Above;
+		FCollisionQueryParams AboveParams(SCENE_QUERY_STAT(GTPGtaRunAbove), false, Character);
+		const bool bRoof = World->LineTraceSingleByChannel(Above, Stands, Stands + FVector(0.0, 0.0, 6000.0), ECC_Visibility, AboveParams);
+		GTP_TRACE(LogGTPGtaRun, TEXT("GTARun aim: %s; the player at %.0f %.0f %.0f, over his head: %s"), *Detail, Stands.X, Stands.Y, Stands.Z,
+			bRoof && Above.GetActor() ? *FString::Printf(TEXT("%s at %.0f cm"), *Above.GetActor()->GetName(), Above.Distance) : TEXT("the sky"));
 	}
 	const bool bProved = bInRange && bAimedHeld && bShown && Now - AimedHeldSince >= 1.0;
 	// His state says hands up for 5 s and his body does not show it: that is the defect, said at once.

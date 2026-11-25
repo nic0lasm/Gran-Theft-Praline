@@ -120,6 +120,12 @@ void UGTPPlayerReactionComponent::CheckCars()
 	{
 		return;
 	}
+	// At the wheel nobody is run over: his own car is around him (nothing between them, so the whole of its speed
+	// counted as the speed it closed at), and a car scraping his door would have thrown him out of his seat.
+	if (Character->GetAttachParentActor())
+	{
+		return;
+	}
 	LastFallSpeed = static_cast<float>(Character->GetVelocity().Z);
 
 	const FVector Center = Character->GetActorLocation();

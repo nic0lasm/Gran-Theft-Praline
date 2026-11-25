@@ -35,6 +35,17 @@ Accroupi, la vitesse comptée est divisée par deux. Sortir d'une voiture à 8-3
 trébuchement ; 30-55 : renversé ; au-delà de 55 : projeté. Environ 3 m de chute
 donnent un trébuchement, 8 m un ragdoll.
 
+## Au volant
+
+Un conducteur assis n'a pas de ragdoll et n'est pas renversé (`UGTPRagdollComponent::BeginRagdoll`,
+`UGTPPlayerReactionComponent::CheckCars`). Un corps assis n'a pas de collision : ses membres tomberaient à travers
+la voiture et la rue, et en se relevant le conducteur serait debout là où gisait son bassin, toujours attaché à
+la voiture. Porte 86, prise longue, de 75 à 91 s : une tête et une épaule hors de la portière du conducteur, qui
+roulent avec la voiture. Lequel des deux l'a fait n'est pas prouvé : le journal de cette prise n'a pas été lu.
+La voiture du joueur vérifie donc aussi à chaque image que son conducteur est sur le siège
+(`AGTPVehicle::KeepDriverSeated`) : trouvé à plus de 15 cm, elle dit où il était et ce que faisait son corps
+(`the driver ... is N cm off the seat`), et le rassoit. `-DriverSeatFree` : pas de vérification.
+
 ## Coût
 
 Au plus 3 ragdolls simulés en m1 (6 fidelity, 10 ultra) ; au-delà, le plus loin est
