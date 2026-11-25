@@ -464,6 +464,15 @@ dans une rampe de parking.
    donne `circuit_lines`, `circuit_clear_cm`, `circuit_removed`, et une telle instance porte
    `"lane": "circuit"`.
 
+   Les acteurs simples comptent comme les instances depuis la porte 86 (le kiosque octogonal de
+   la rue de la République, un acteur à 0,1 m de la ligne, a arrêté la voiture aux portes 85 et
+   86) : celui de ces jeux d'objets, large de 30 m au plus, est détruit (`removed_actors`) ; un
+   monument ou une façade est seulement signalé. Et l'étape `collision`
+   (`backdrop_collision.py`) finit par un relevé : ce qui tient debout sur 2,5 m ou plus et
+   n'arrête rien, par dossier, et par nom à moins de 60 m de la ligne conduite
+   (`walls_without_collision`) : à 171 s de cette prise le joueur a traversé un mur de pierre
+   aveugle et l'image est restée noire 18 s.
+
 5. **Le masque du trajet** (`ground_mask.py --route <Carte>.circuit.csv`, fait par l'étape
    `materials` après le masque lointain) : à 34 cm le texel, le masque lointain ne peut pas
    porter une bordure ni une ligne de voie, et dans la prise longue de la porte 83 le quai est

@@ -9,6 +9,9 @@ BlockAll on its component in the street map, so pawns, cars and the camera stop 
 
 Steps (idempotent): collision on the meshes of /Game/Environment/City/<Zone>/Backdrop/<Focus>,
 open the map, BlockAll on the static mesh components in the outliner folder City/Backdrop, save.
+Then an audit: every standing thing of the map (2.5 m or more) whose
+component stops nothing, counted by outliner folder, and those within 60 m of the line the
+flight drives listed by name (walls_without_collision in the report).
 GTP_BACKDROP_COLLISION=0: nothing is changed (report only). Report:
 Saved/CityImport/backdrop_collision_report.json.
 """
@@ -27,6 +30,56 @@ MAP = "/Game/Maps/L_City_" + CAMEL
 FOLDER = "City/Backdrop"
 
 eal = unreal.EditorAssetLibrary
+
+
+AUDIT_MIN_HEIGHT_CM = 250.0     # what a walker or the camera can go into
+AUDIT_NEAR_CM = 6000.0          # listed when this close to the line the flight drives
+AUDIT_LIST = 60
+
+
+def audit(actors):
+    """Every standing thing of the map that stops nothing, by outliner folder, and those near the
+    driven line by name. Gate 86, 171 s: the player on foot ran into a blind stone wall beside a
+    Haussmann front, went through it, and the picture stayed black for 18 s; nobody could say
+    which volume it was. {"by_folder": {folder: n}, "near_the_line": [...], "lines": n}."""
+    import math
+    import sys
+    repo = os.path.abspath(os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_dir()), ".."))
+    sys.path.insert(0, os.path.join(repo, "tools", "city"))
+    import lane_clear as lc
+    circuit = os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_content_dir()), "Test",
+                           "Circuits", "L_City_" + CAMEL + ".circuit.csv")
+    lines = lc.read_lines(circuit)
+    out = {"by_folder": {}, "near_the_line": [], "lines": len(lines)}
+    for a in actors:
+        open_comps = []
+        for comp in a.get_components_by_class(unreal.StaticMeshComponent):
+            if comp.get_editor_property("static_mesh") is None:
+                continue
+            try:
+                if comp.get_collision_enabled() != unreal.CollisionEnabled.NO_COLLISION:
+                    continue
+            except Exception:  # noqa: BLE001
+                continue
+            open_comps.append(comp)
+        if not open_comps:
+            continue
+        origin, extent = a.get_actor_bounds(False)
+        if 2.0 * extent.z < AUDIT_MIN_HEIGHT_CM:
+            continue
+        folder = str(a.get_folder_path()) or "(none)"
+        out["by_folder"][folder] = out["by_folder"].get(folder, 0) + 1
+        gap = lc.end_gap(origin.x, origin.y, lines) - math.hypot(extent.x, extent.y)
+        if gap < AUDIT_NEAR_CM and not folder.startswith("City/Horizon"):
+            mesh = open_comps[0].get_editor_property("static_mesh")
+            out["near_the_line"].append({"actor": a.get_name(), "label": a.get_actor_label(), "folder": folder,
+                                         "mesh": mesh.get_name(), "components": len(open_comps),
+                                         "gap_cm": round(gap), "origin": [round(origin.x), round(origin.y), round(origin.z)],
+                                         "extent": [round(extent.x), round(extent.y), round(extent.z)]})
+    out["near_the_line"].sort(key=lambda e: e["gap_cm"])
+    out["near_total"] = len(out["near_the_line"])
+    out["near_the_line"] = out["near_the_line"][:AUDIT_LIST]
+    return out
 
 
 def main():
@@ -70,6 +123,10 @@ def main():
             level_sub.save_current_level()
         else:
             report["errors"].append("no component in folder " + FOLDER)
+        try:
+            report["walls_without_collision"] = audit(actor_sub.get_all_level_actors())
+        except Exception as e:  # noqa: BLE001  the audit never fails the step
+            report["audit_error"] = repr(e)
     except StopIteration:
         pass
     except Exception as e:  # noqa: BLE001  report, never leave the editor on a dialog

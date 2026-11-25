@@ -30,6 +30,12 @@ within GTP_CIRCUIT_CLEAR_M (2.5: half a car and 1.3 m of driving off the line) o
 that file, rows joined to the next; such an instance has "lane": "circuit" in the report, which
 gives circuit_lines, circuit_clear_cm and circuit_removed. GTP_CIRCUIT_CLEAR_M=0 turns that off.
 
+Plain actors are looked at as well as instances (a static mesh actor with collision, at most
+30 m wide: the octagonal kiosk of rue de la Republique stood 0.1 m off the driven line and
+stopped the car at gates 85 and 86): same rule, same sets, the actor is destroyed; it is listed
+in removed_actors and in removed_instances with "index": -1. One that belongs to no set (a
+landmark, a facade) is only reported, with its folder.
+
 GTP_LANE_CLEAR=0: report only, nothing removed, map not saved. Lanes: GTP_LANES_CSV, else
 Content/City/Traffic/<Map>.lanes.csv (the file the game reads). Map: GTP_CITY_FOCUS as
 place_props.py. Report: Saved/CityImport/lane_clear_report.json (removed per set and per mesh,
@@ -61,6 +67,7 @@ NAMED = [n for n in os.environ.get("GTP_LANE_ACTORS", "").split(",") if n]
 SET_FOLDERS = ("City/Props", "City/Route", "City/Details")
 REPORT_ONLY_FOLDERS = ("City/Facades", "City/Signs")
 MIN_HEIGHT_CM = 15.0
+ACTOR_MAX_CM = 3000.0       # a plain actor wider than this is ground, a building or a merged set
 CIRCUIT = os.environ.get("GTP_CIRCUIT_CSV") or os.path.join(
     unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_content_dir()), "Test", "Circuits",
     MAP_NAME + ".circuit.csv")
@@ -98,7 +105,8 @@ def which_set(actor):
 def main():  # noqa: C901
     t0 = time.time()
     report = {"map": MAP, "lanes_file": LANES, "clear_cm": CLEAR_CM, "apply": APPLY, "named": NAMED,
-              "removed": {}, "removed_by_mesh": {}, "removed_instances": [], "reported_only": [],
+              "removed": {}, "removed_by_mesh": {}, "removed_instances": [], "removed_actors": [],
+              "reported_only": [],
               "named_found": [], "errors": []}
     try:
         if not os.path.exists(LANES):
@@ -118,7 +126,8 @@ def main():  # noqa: C901
         if not level_sub.load_level(MAP):
             report["errors"].append("cannot open " + MAP)
             raise StopIteration
-        for actor in actor_sub.get_all_level_actors():
+        actors = list(actor_sub.get_all_level_actors())
+        for actor in actors:
             folder = str(actor.get_folder_path())
             if actor.get_name() in NAMED:
                 report["named_found"].append({"name": actor.get_name(), "label": actor.get_actor_label(),
@@ -172,6 +181,53 @@ def main():  # noqa: C901
                     # highest index first: removing an instance moves the last one into its place
                     for i in sorted((h[0] for h in hits), reverse=True):
                         comp.remove_instance(i)
+        # Plain actors too (one mesh, not instances): gates 85 and 86, the stolen car stood against
+        # the octagonal kiosk of rue de la Republique (StaticMeshActor_766, 0.1 m off the driven
+        # line) and was put back on its lane at place de l'Hopital (StaticMeshActor_781, 0.8 m).
+        doomed = []
+        for actor in actors:
+            if not isinstance(actor, unreal.StaticMeshActor):
+                continue
+            comp = actor.static_mesh_component
+            mesh = comp.get_editor_property("static_mesh") if comp is not None else None
+            if mesh is None or isinstance(comp, unreal.InstancedStaticMeshComponent) or not blocks(comp):
+                continue
+            folder = str(actor.get_folder_path())
+            box = mesh.get_bounding_box()
+            lo, hi = box.min, box.max
+            t = actor.get_actor_transform()
+            s = t.scale3d
+            wide = max((hi.x - lo.x) * abs(s.x), (hi.y - lo.y) * abs(s.y))
+            if (hi.z - lo.z) * abs(s.z) < MIN_HEIGHT_CM or wide > ACTOR_MAX_CM:
+                continue                    # flat on the ground, or a tile, a block, a merged set
+            x, y, z = t.translation.x, t.translation.y, t.translation.z
+            shape = lc.footprint_box(x, y, t.rotation.rotator().yaw, (lo.x, lo.y), (hi.x, hi.y), (s.x, s.y))
+            near = index.nearest(shape, z_low=z + lo.z * s.z)
+            if not near and circuit is not None:
+                c = circuit.nearest(shape)
+                if c:
+                    near = ("circuit", c[1])
+            if not near:
+                continue
+            path = mesh.get_path_name()
+            entry = {"actor": actor.get_name(), "label": actor.get_actor_label(), "folder": folder,
+                     "mesh": path.split(".")[0], "index": -1, "lane": near[0], "gap_cm": round(near[1]),
+                     "xyz": [round(x), round(y), round(z)], "wide_cm": round(wide)}
+            owner = which_set(actor)
+            if owner is None or folder.startswith(REPORT_ONLY_FOLDERS):
+                report["reported_only"].append(entry)
+                continue
+            report["removed_instances"].append(entry)
+            report["removed_actors"].append(entry)
+            report["circuit_removed"] += 1 if near[0] == "circuit" else 0
+            report["removed"][owner] = report["removed"].get(owner, 0) + 1
+            key = path.split(".")[0].rsplit("/", 1)[-1]
+            report["removed_by_mesh"][key] = report["removed_by_mesh"].get(key, 0) + 1
+            doomed.append(actor)
+        if APPLY:
+            for actor in doomed:
+                actor_sub.destroy_actor(actor)
+        report["removed_actors_total"] = len(report["removed_actors"])
         report["removed_total"] = sum(report["removed"].values())
         report["reported_only_total"] = len(report["reported_only"])
         if APPLY and report["removed_total"]:
@@ -186,7 +242,7 @@ def main():  # noqa: C901
     os.makedirs(out, exist_ok=True)
     with open(os.path.join(out, "lane_clear_report.json"), "w", encoding="utf-8") as f:
         json.dump(report, f, indent=1)
-    log(json.dumps({k: report.get(k) for k in ("removed_total", "circuit_removed", "removed", "removed_by_mesh",
+    log(json.dumps({k: report.get(k) for k in ("removed_total", "circuit_removed", "removed", "removed_by_mesh", "removed_actors_total",
                                                 "reported_only_total",
                                                 "named_found", "errors", "saved")}))
 
