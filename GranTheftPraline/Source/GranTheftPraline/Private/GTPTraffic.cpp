@@ -146,6 +146,7 @@ bool FGTPLaneFollower::StartNear(AGTPTrafficNetwork* InNetwork, const FVector& L
 	Network = InNetwork;
 	Route.Reset();
 	Route.Add(Lane);
+	LaneBehind.clear();
 	Closest = Point;
 	Plan();
 	if ((bFollowCircuit || bDriveCircuitLines) && InNetwork->GetFlightCircuit().LineOf(Lane))
@@ -395,7 +396,8 @@ void FGTPLaneFollower::Plan()
 		Route.Add(Next);
 		AheadM += Lanes[Next].LengthCm() * CmToM;
 	}
-	Path.clear();
+	// The end of the lane left last stays at the head of the path (GTPDrive::KeptBehind).
+	Path = LaneBehind;
 	CurrentLaneLength = 0;
 	for (int32 RouteIndex = 0; RouteIndex < Route.Num(); ++RouteIndex)
 	{
@@ -477,7 +479,11 @@ bool FGTPLaneFollower::Step(const FVector& Location, float YawDegrees, float Spe
 		FMath::DegreesToRadians(YawDegrees), Speed, LaneSpeed, ObstacleMetres, Settings, Closest);
 	if (Closest >= CurrentLaneLength && Route.Num() > 1)
 	{
-		Closest -= CurrentLaneLength;
+		// The lane goes, its last metres stay: where lanes meet in a corner the car is in the middle of it, and the
+		// bend is measured with the path before it (gate 83: 24 to 57 km/h wanted in the corner of the rue Childebert).
+		std::vector<FGTPDrivePoint> Kept = GTPDrive::KeptBehind(Path, CurrentLaneLength);
+		Closest += static_cast<int>(Kept.size()) - CurrentLaneLength;
+		LaneBehind = MoveTemp(Kept);
 		// The lanes left lately count for half in a flight's way on (Plan): it does not circle one block.
 		RecentLanes.Add(Route[0]);
 		if (RecentLanes.Num() > RecentCount)

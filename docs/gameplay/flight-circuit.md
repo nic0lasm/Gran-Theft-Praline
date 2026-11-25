@@ -45,7 +45,9 @@ Gate 83: the stolen car left its lane at three corners (quay to rue Childebert, 
 
 Since then the script's pedals follow its steering (`GTPFlightPedals.h`): with more than a third of lock asked, no throttle and some brake while the car is faster than that lock holds at 6 m/s² (15 km/h at full lock, 28 at a third). Under a third of lock nothing changes: on the quay the car asks 0.14 of lock at 98 km/h, and in the lines of gate 83 it never asks a third above 45 km/h. The steering is left as asked. `DemoDrive` lines show the pedals the car gets.
 
-Not proven on the game's car at the time of writing. `flight_pedals_test.cpp` drives the three corners on the circuit's own lines with the game's decisions: the jump of the speed wanted is there, the rule takes the throttle away and costs under half a second a corner, but the car of that model holds the corners either way. The cause in the lane follower (the corner forgotten as the lane is left) is still there for every driver.
+The cause itself is gone too, for the flight and for the police units, which drive with the same lane follower: a lane left keeps its last 12 m at the head of the driver's path (`GTPDrive::KeptBehind`), so the corner is still measured with the path before it. `lane_change_corner_test.cpp` drives the three corners three ways: with the lane dropped whole the speed wanted jumps, with its end kept the driver decides frame for frame as one whose path is never cut. The cars of the traffic have their own copy of that code and still drop the lane whole.
+
+Not proven on the game's car at the time of writing. Both tests drive the corners on the circuit's own lines with the game's decisions, but the car of their model holds the corners either way: they show the decisions, not the 13 to 27 m by which the game's car left its lane.
 
 ## Where the film ends
 

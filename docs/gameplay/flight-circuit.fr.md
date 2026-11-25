@@ -45,7 +45,9 @@ Porte 83 : la voiture volée a quitté sa voie dans trois virages (quai vers rue
 
 Depuis, les pédales du script suivent sa direction (`GTPFlightPedals.h`) : au-delà d'un tiers du braquage demandé, pas d'accélérateur et un peu de frein tant que la voiture va plus vite que ce que ce braquage tient à 6 m/s² (15 km/h braquée à fond, 28 à un tiers). Sous un tiers du braquage rien ne change : sur le quai la voiture demande 0,14 du braquage à 98 km/h, et dans les lignes de la porte 83 elle n'en demande jamais un tiers au-dessus de 45 km/h. La direction reste telle que demandée. Les lignes `DemoDrive` montrent les pédales que la voiture reçoit.
 
-Pas prouvé sur la voiture du jeu au moment d'écrire. `flight_pedals_test.cpp` conduit les trois virages sur les lignes mêmes du circuit avec les décisions du jeu : le saut de la vitesse voulue y est, la règle retire l'accélérateur et coûte moins d'une demi-seconde par virage, mais la voiture de ce modèle tient les virages dans les deux cas. La cause dans le suiveur de voie (le virage oublié quand la voie est quittée) reste là pour tous les conducteurs.
+La cause elle-même a disparu aussi, pour la fuite et pour les unités de police, qui conduisent avec le même suiveur de voie : une voie quittée garde ses 12 derniers mètres en tête du chemin du conducteur (`GTPDrive::KeptBehind`), et le virage reste mesuré avec le chemin qui le précède. `lane_change_corner_test.cpp` conduit les trois virages de trois façons : voie abandonnée entière, la vitesse voulue saute ; fin de voie gardée, le conducteur décide image par image comme celui dont le chemin n'est jamais coupé. Les voitures du trafic ont leur propre copie de ce code et abandonnent encore la voie entière.
+
+Pas prouvé sur la voiture du jeu au moment d'écrire. Les deux tests conduisent les virages sur les lignes mêmes du circuit avec les décisions du jeu, mais la voiture de leur modèle tient les virages dans tous les cas : ils montrent les décisions, pas les 13 à 27 m dont la voiture du jeu a quitté sa voie.
 
 ## Où finit le film
 

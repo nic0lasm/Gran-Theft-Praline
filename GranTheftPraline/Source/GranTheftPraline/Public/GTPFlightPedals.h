@@ -10,9 +10,9 @@
 //   lane=140 kmh=37 throttle=1.00 steer=-0.41 want=45 limit=lane     (then into the pit beside the lane)
 //   lane=41  kmh=26 throttle=0.00 steer=0.03  want=24 limit=bend
 //   lane=45  kmh=36 throttle=1.00 steer=1.00  want=57 limit=bend     (then 52 km/h at full lock, 27 m past the corner)
-// The speed wanted jumps the moment the car's closest point is on the next lane: the lane follower then drops the
-// points of the lane left (FGTPLaneFollower::Step), and a corner at the very start of the path is not counted
-// (GTPDrive::BendSpeedAt wants 3.6 m of path before a vertex). The car, still turning, gets the whole throttle with
+// The speed wanted jumps the moment the car's closest point is on the next lane: the lane follower then dropped the
+// points of the lane left (FGTPLaneFollower::Step; it keeps the last of them since, GTPDrive::KeptBehind), and a
+// corner at the very start of the path is not counted (GTPDrive::BendSpeedAt wants 3.6 m of path before a vertex). The car, still turning, gets the whole throttle with
 // its front wheels at full lock: it runs wide, at 52 km/h and 27 m from its lane a second later.
 //
 // So with the wheels turned the script's pedals follow its steering, as the police units' do

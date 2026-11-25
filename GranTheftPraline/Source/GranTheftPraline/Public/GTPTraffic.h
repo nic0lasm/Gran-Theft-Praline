@@ -188,6 +188,9 @@ private:
 	TArray<int32> Route;
 	TArray<int32> RecentLanes;
 	std::vector<FGTPDrivePoint> Path;
+	/** The end of the lane left last, kept at the head of Path (GTPDrive::KeptBehind): a corner the lane change falls in stays one. */
+	std::vector<FGTPDrivePoint> LaneBehind;
+	/** Points of Path up to the end of the first lane of the route, LaneBehind included. */
 	int32 CurrentLaneLength = 0;
 	int Closest = 0;
 	FGTPDriveSettings Settings;
