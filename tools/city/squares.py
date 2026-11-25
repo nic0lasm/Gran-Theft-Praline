@@ -13,6 +13,7 @@ the extent of the mask.
                     on every pixel of the ground
   distance(...)     the reference the shader text is tested against
   hlsl(rings)       the shader text
+  grain_hlsl()      the shader text of the grain of a sanded ground
 
 Axes: landmarks.json is in local metres, x east, y north; Unreal is x east, y south, cm.
 """
@@ -122,6 +123,37 @@ def bounds(rings, pad_cm=0.0):
 
 
 FAR_CM = 100000.0       # what the shader answers away from every square
+
+
+# The grain of a sanded ground. Gate 99 (112 s, the car on place Bellecour): two products of sines
+# made a woven pattern, as regular as a cloth, on a ground of one tone. Value noise instead:
+# patches of several metres, footprints of a metre, a grain of a hand's width.
+GRAIN_OCTAVES = ((900.0, 0.14), (140.0, 0.10), (31.0, 0.07))     # cell (cm), weight
+GRAIN_WRAP = 289.0             # cells before the draw repeats: small numbers in the hash
+
+
+def grain_hlsl(octaves=GRAIN_OCTAVES):
+    """Body of a Custom node with one float2 input, XY (world position, cm): a factor round 1
+    (1 +- half the sum of the weights) to multiply a ground colour by. Scalar code, no loop, no
+    texture: the same text compiles as C++ in the tests."""
+    lines = ["float total = 1.0;"]
+    for cell, weight in octaves:
+        lines += ["{",
+                  "\tfloat gx = XY.x / %.1f; float gy = XY.y / %.1f;" % (cell, cell),
+                  "\tfloat ix = floor(gx); float iy = floor(gy);",
+                  "\tfloat fx = gx - ix; float fy = gy - iy;",
+                  "\tfx = fx * fx * (3.0 - 2.0 * fx); fy = fy * fy * (3.0 - 2.0 * fy);",
+                  "\tix = ix - %.1f * floor(ix / %.1f); iy = iy - %.1f * floor(iy / %.1f);" % ((GRAIN_WRAP,) * 4),
+                  "\tfloat jx = ix + 1.0; float jy = iy + 1.0;",
+                  "\tjx = jx - %.1f * floor(jx / %.1f); jy = jy - %.1f * floor(jy / %.1f);" % ((GRAIN_WRAP,) * 4),
+                  "\tfloat a = frac(sin(ix * 127.1 + iy * 311.7) * 43758.5453);",
+                  "\tfloat b = frac(sin(jx * 127.1 + iy * 311.7) * 43758.5453);",
+                  "\tfloat c = frac(sin(ix * 127.1 + jy * 311.7) * 43758.5453);",
+                  "\tfloat d = frac(sin(jx * 127.1 + jy * 311.7) * 43758.5453);",
+                  "\ttotal += %.3f * (lerp(lerp(a, b, fx), lerp(c, d, fx), fy) - 0.5);" % weight,
+                  "}"]
+    lines += ["return total;"]
+    return "\n".join(lines)
 
 
 def hlsl(rings, pad_cm=1000.0):

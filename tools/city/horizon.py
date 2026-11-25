@@ -71,6 +71,13 @@ MONUMENT_FOOT_M = 8.0          # how far a monument goes into the hill under it
 COLOURS = 4                    # block colours built by apply_city_materials (horizon_colours)
 TOWER_COLOUR = 3               # the grey of the modern typology
 WOODED_KEEP = 0.35             # share of the blocks kept on a wooded hill
+# Gate 99, 76 s: from place Bellecour, Fourviere carried slabs of seven storeys a hundred metres
+# long, grey against the sky, where the hill has houses among its trees and, on its crest, the
+# basilica and the metal tower. On a wooded hill a block is a large house, and none stands on
+# the crest.
+WOODED_WIDTH_M = (18.0, 34.0)
+WOODED_STOREYS = (3, 4)
+WOODED_CREST = 0.8             # no block above this share of the hill's height
 
 
 def hill_at(x, y):
@@ -389,8 +396,13 @@ def layout(seed=7):
             y += rng.uniform(-12.0, 12.0)
             ground, hill = hill_at(x, y)
             keep = rng.random()                            # drawn for every block: one seed, one layout
-            if hill is not None and hill[6] and keep > WOODED_KEEP:
-                continue
+            if hill is not None and hill[6]:
+                if keep > WOODED_KEEP or ground > WOODED_CREST * hill[5]:
+                    continue
+                lo, hi = WOODED_WIDTH_M                      # no new draw: the other blocks stay put
+                width = lo + (hi - lo) * keep / WOODED_KEEP
+                depth = min(depth, 0.8 * width)
+                top = 4.0 + 3.0 * WOODED_STOREYS[storeys % 2] + (top - 4.5 - 3.2 * storeys)
             blocks.append({"x": round(x, 1), "y": round(y, 1), "yaw": round(yaw % 360.0, 1),
                            "width": round(width, 1), "depth": round(depth, 1), "ground": round(ground, 1),
                            "top": round(ground + top, 1), "colour": colour, "kind": "block"})
