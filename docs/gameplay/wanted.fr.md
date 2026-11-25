@@ -53,7 +53,15 @@ La porte 100 a montré la même voiture sur le flanc 16 s après l'arrestation, 
 entre les deux : une voiture que personne ne conduit dit maintenant, une fois par seconde et deux fois par voiture au
 plus, quand elle n'est plus sur ses roues ou roule à plus de 15 km/h : `<car>: nobody at the wheel and it is off its
 wheels: up U, N km/h at …; on foot within 5 m: <who> (class) at D m, V cm/s, pushes 0|1; cars within 8 m: <which> at
-D m, N km/h`. **Pas compilé, pas joué.**
+D m, N km/h`. La voiture du joueur le dit aussi quand elle n'est plus sur ses roues : à la porte 99 il était encore
+dedans, arrêté, en attente de son arrestation.
+
+**La voiture d'une arrestation ne reste pas pour de bon.** Le joueur est sorti de sa voiture quand il est arrêté et
+réapparaît au commissariat ; la voiture restait où elle était, et à la porte 100 la seconde fuite s'est arrêtée contre
+elle place Bellecour à 235 s. C'est maintenant une voiture laissée dans la rue comme celle dont le conducteur a fui
+(`GTPLeftCars.h`) : enlevée dès que le joueur est à 80 m et ne la voit pas. Lignes : `traffic: <car>, the car the
+player was arrested in, stays at … until he is 80 m away and does not see it`, puis `traffic: <car>, left in the
+street … taken away … far from the player and out of sight`. `-KeepArrestCars` la laisse. **Pas compilé, pas joué.**
 
 ## Mort
 

@@ -1781,7 +1781,9 @@ void AGTPVehicle::TellIfLeftCarMoves()
 	// the police have their own lines (lying, overturned): this one is for the car nobody drives.
 	const float UpZ = static_cast<float>(GetActorUpVector().Z);
 	const float Kmh = FMath::Abs(GetSpeedKmh());
-	const bool bMoves = State != EGTPVehicleState::Driven && !HasAIDriver() && (UpZ < 0.7f || Kmh > 15.f);
+	// The player's own too when it is off its wheels: at gate 99 he was still in it, stopped, waiting to be arrested.
+	const bool bNobody = State != EGTPVehicleState::Driven;
+	const bool bMoves = !HasAIDriver() && (UpZ < 0.7f || (bNobody && Kmh > 15.f));
 	if (!bMoves || bLeftCarMoving || LeftCarMovesTold >= 2 || !GetWorld())
 	{
 		bLeftCarMoving = bMoves;
@@ -1810,8 +1812,8 @@ void AGTPVehicle::TellIfLeftCarMoves()
 			Cars += FString::Printf(TEXT("%s%s at %.1f m, %.0f km/h"), Cars.IsEmpty() ? TEXT("") : TEXT("; "), *It->GetName(), Metres, It->GetSpeedKmh());
 		}
 	}
-	GTP_TRACE(LogGTPVehicle, TEXT("%s: nobody at the wheel and it %s: up %.2f, %.0f km/h at %s; on foot within 5 m: %s; cars within 8 m: %s"),
-		*GetName(), UpZ < 0.7f ? TEXT("is off its wheels") : TEXT("moves"), UpZ, Kmh, *Here.ToCompactString(),
+	GTP_TRACE(LogGTPVehicle, TEXT("%s: %s and it %s: up %.2f, %.0f km/h at %s; on foot within 5 m: %s; cars within 8 m: %s"),
+		*GetName(), bNobody ? TEXT("nobody at the wheel") : TEXT("the player at the wheel"), UpZ < 0.7f ? TEXT("is off its wheels") : TEXT("moves"), UpZ, Kmh, *Here.ToCompactString(),
 		OnFoot.IsEmpty() ? TEXT("nobody") : *OnFoot, Cars.IsEmpty() ? TEXT("none") : *Cars);
 }
 
@@ -2817,11 +2819,11 @@ void AGTPVehicle::OnBodyHit(UPrimitiveComponent* HitComponent, AActor* OtherActo
 	}
 	// A car nobody drives, touched by somebody on foot: said, a few times a car. Gate 99's long take: the stolen car,
 	// empty on place Bellecour, was thrown over the square as two officers reached it, and no line said by what.
-	if (StandingTouchesTold < 6 && State != EGTPVehicleState::Driven && !HasAIDriver() && OtherActor && OtherActor->IsA<ACharacter>())
+	if (StandingTouchesTold < 6 && !HasAIDriver() && (State != EGTPVehicleState::Driven || FMath::Abs(GetSpeedKmh()) < 5.f) && OtherActor && OtherActor->IsA<ACharacter>())
 	{
 		++StandingTouchesTold;
-		GTP_TRACE(LogGTPVehicle, TEXT("%s: with nobody at the wheel, touched by %s (%s) at %s, normal %.2f %.2f %.2f, impulse %.0f; the car up %.2f, %.0f km/h"),
-			*GetName(), *GetNameSafe(OtherActor), *OtherActor->GetClass()->GetName(), *Hit.ImpactPoint.ToCompactString(),
+		GTP_TRACE(LogGTPVehicle, TEXT("%s: %s, touched by %s (%s) at %s, normal %.2f %.2f %.2f, impulse %.0f; the car up %.2f, %.0f km/h"),
+			*GetName(), State == EGTPVehicleState::Driven ? TEXT("standing with the player in it") : TEXT("with nobody at the wheel"), *GetNameSafe(OtherActor), *OtherActor->GetClass()->GetName(), *Hit.ImpactPoint.ToCompactString(),
 			Hit.ImpactNormal.X, Hit.ImpactNormal.Y, Hit.ImpactNormal.Z, NormalImpulse.Size(), GetActorUpVector().Z, GetSpeedKmh());
 	}
 	// Crimes by the player at the wheel: running into people, cars and police.

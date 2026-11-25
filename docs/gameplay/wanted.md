@@ -51,7 +51,15 @@ on foot do not push the cars they run into`, and, if a car nobody drives is stil
 Gate 100 showed the same car on its side 16 s after the arrest, then on its roof, with nothing filmed in between: a
 car nobody drives now says once a second, twice a car at most, when it is off its wheels or moves at more than
 15 km/h: `<car>: nobody at the wheel and it is off its wheels: up U, N km/h at …; on foot within 5 m: <who> (class) at
-D m, V cm/s, pushes 0|1; cars within 8 m: <which> at D m, N km/h`. **Not compiled, not played.**
+D m, V cm/s, pushes 0|1; cars within 8 m: <which> at D m, N km/h`. The player's own car says it too when it is off
+its wheels: at gate 99 he was still in it, stopped, waiting to be arrested.
+
+**The car of an arrest does not stay for good.** The player is taken out of his car when he is arrested and reappears
+at the police station; the car stayed where it was, and at gate 100 the second flight stopped against it on place
+Bellecour at 235 s. It is now a car left in the street like one its driver ran from (`GTPLeftCars.h`): taken away
+once the player is 80 m away and does not see it. Lines: `traffic: <car>, the car the player was arrested in, stays
+at … until he is 80 m away and does not see it`, then `traffic: <car>, left in the street … taken away … far from the
+player and out of sight`. `-KeepArrestCars` leaves it. **Not compiled, not played.**
 
 ## Dead
 
