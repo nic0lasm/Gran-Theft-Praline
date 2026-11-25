@@ -367,6 +367,11 @@ scan of tiles, on the tile tone (`gtp_surfaces.shell`). `GTP_ROOF_TONES=0` turns
 (fog density 0.005 and 0.008, from 0.008 and 0.012): at 700 m the end of the quay was one
 pale tone. Not seen in game yet.
 
+From place Bellecour (gate 99, 76 s) Fourvière carried slabs of seven storeys a hundred metres
+long, grey against the sky. On a wooded hill a block is now a large house (18 to 34 m, three or
+four storeys) and none stands above four fifths of the hill's height: the crest is left to the
+trees, the basilica and the metal tower (`horizon.WOODED_WIDTH_M`, `WOODED_CREST`).
+
 Positions of the hills and towers are approximate on purpose (a far view, never a place to go).
 Not seen in game yet.
 
@@ -384,7 +389,12 @@ and the hill behind it carried no monument.
    20 m, no slab joints, behind a 60 cm pale stone border. It is laid in world space, after the
    far ground, so the extent of the mask does not matter; a carriageway the mask knows inside
    the outline stays a carriageway. The shader text is compiled as C++ in the tests and
-   compared with the Python reference. `GTP_SQUARES=0` turns it off, `GTP_SQUARE_INSET_M=<m>`
+   compared with the Python reference. Seen in game at gate 99 (the flight reaches the place):
+   the red ground is there, but its mottle, two products of sines, read as a woven cloth under
+   the car, and the tone stood salmon in the sun. The mottle is now a value noise
+   (`squares.grain_hlsl`: patches of 9 m, of 1.4 m, a grain of 30 cm; `GTP_SQUARE_GRAIN=0` gives
+   the sines back, `squares.grain` in `materials_report.json` says which) and the sand an
+   eighth darker. `GTP_SQUARES=0` turns it off, `GTP_SQUARE_INSET_M=<m>`
    takes the outline in (if the OpenStreetMap outline turns out to run to the fronts);
    `materials_report.json` gives `squares` (area, corners, bounds, `laid`). A failure in this
    part is reported there (`error`) and leaves the ground as it was.
