@@ -42,6 +42,13 @@ LANDMARK_MOVES: the carrousel of place de la Republique, 15 m north, off the car
 onto the square), and what stood where it now stands is taken out like what stands on a lane
 ("lane": "landmark"). The report gives landmarks_moved; GTP_LANDMARK_MOVES=0 leaves it.
 
+After all that, what is left of the leafy trees of the sets (route_trees.is_leafy: the alders of
+the route, whole trees with the collision of their own shape) stops nothing any more, and one
+hidden post a tree stands for its trunk (actor Route_TreeTrunks, City/Route). Gate 91: the
+stems of those alders lean over the carriageway and held the stolen car up six times while
+their trunks stood clear of its line. The report gives tree_trunks (trees, posts, the actors
+that carried them); GTP_TREE_TRUNKS=0 leaves the trees as they are.
+
 GTP_LANE_CLEAR=0: report only, nothing removed, map not saved. Lanes: GTP_LANES_CSV, else
 Content/City/Traffic/<Map>.lanes.csv (the file the game reads). Map: GTP_CITY_FOCUS as
 place_props.py. Report: Saved/CityImport/lane_clear_report.json (removed per set and per mesh,
@@ -83,8 +90,14 @@ CIRCUIT = os.environ.get("GTP_CIRCUIT_CSV") or os.path.join(
 CIRCUIT_CM = float(os.environ.get("GTP_CIRCUIT_CLEAR_M", str(lc.CIRCUIT_CLEAR_CM / 100.0))) * 100.0
 END_TREE_CM = float(os.environ.get("GTP_END_TREE_CLEAR_M", str(lc.END_TREE_CLEAR_CM / 100.0))) * 100.0
 
+TRUNKS = os.environ.get("GTP_TREE_TRUNKS", "1") != "0"
+TRUNKS_LABEL = "Route_TreeTrunks"
+TRUNKS_FOLDER = "City/Route"
+CUBE = "/Engine/BasicShapes/Cube.Cube"       # 100 cm, centred on its origin
+
 level_sub = unreal.get_editor_subsystem(unreal.LevelEditorSubsystem)
 actor_sub = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
+eal = unreal.EditorAssetLibrary
 
 
 def log(msg):
@@ -96,6 +109,84 @@ def blocks(comp):
         return comp.get_collision_enabled() != unreal.CollisionEnabled.NO_COLLISION
     except Exception:  # noqa: BLE001
         return True
+
+
+def post_component():
+    """One actor, one instanced cube that is not drawn in the game and stops everything (as the
+    lids of cover_pits.py). Raises when it cannot be hidden: a white post in every tree is worse
+    than the stems."""
+    sds = unreal.get_engine_subsystem(unreal.SubobjectDataSubsystem)
+    sdl = unreal.SubobjectDataBlueprintFunctionLibrary
+    actor = actor_sub.spawn_actor_from_class(unreal.StaticMeshActor, unreal.Vector(0, 0, 0))
+    try:
+        actor.set_actor_label(TRUNKS_LABEL)
+        actor.set_folder_path(TRUNKS_FOLDER)
+        root = sds.k2_gather_subobject_data_for_instance(actor)[0]
+        handle, _ = sds.add_new_subobject(unreal.AddNewSubobjectParams(
+            parent_handle=root, new_class=unreal.HierarchicalInstancedStaticMeshComponent))
+        comp = sdl.get_object(sdl.get_data(handle))
+        comp.set_static_mesh(eal.load_asset(CUBE))
+        comp.set_editor_property("mobility", unreal.ComponentMobility.STATIC)
+        comp.set_collision_profile_name("BlockAll")
+        try:
+            comp.set_hidden_in_game(True)
+        except Exception:  # noqa: BLE001  the property, when the call is not there
+            comp.set_editor_property("hidden_in_game", True)
+        for prop in ("cast_shadow", "visible_in_ray_tracing", "affect_distance_field_lighting"):
+            try:
+                comp.set_editor_property(prop, False)
+            except Exception:  # noqa: BLE001  hidden already: these only spare the renderer
+                pass
+    except Exception:
+        actor_sub.destroy_actor(actor)
+        raise
+    return actor, comp
+
+
+def tree_trunks(actors, info):
+    """The leafy trees of the sets (route_trees.is_leafy) stop nothing any more, and a hidden
+    post stands for each trunk. Gate 91: the stems of the route's alders lean over the
+    carriageway and held the stolen car up six times, their trunks clear of its line. The posts
+    are laid first: if they fail, the trees are left as they were. True when the map changed."""
+    posts, comps = [], []
+    for actor in actors:
+        if which_set(actor) is None or actor.get_actor_label() == TRUNKS_LABEL:
+            continue
+        for comp in actor.get_components_by_class(unreal.InstancedStaticMeshComponent):
+            mesh = comp.get_editor_property("static_mesh")
+            if mesh is None or not blocks(comp) or not route_trees.is_leafy(mesh.get_path_name()):
+                continue
+            box = mesh.get_bounding_box()
+            tall = box.max.z - box.min.z
+            count = comp.get_instance_count()
+            for i in range(count):
+                t = comp.get_instance_transform(i, True)
+                posts.append(route_trees.trunk_post(t.translation.x, t.translation.y, t.translation.z,
+                                                    t.scale3d.z, tall * abs(t.scale3d.z)))
+            comps.append(comp)
+            key = mesh.get_path_name().split(".")[0].rsplit("/", 1)[-1]
+            info["by_mesh"][key] = info["by_mesh"].get(key, 0) + count
+            info["actors"].append({"actor": actor.get_name(), "label": actor.get_actor_label(), "mesh": key,
+                                   "trees": count})
+    info["components"] = len(comps)
+    info["trees"] = len(posts)
+    if not posts or not APPLY:
+        return False
+    actor, post = post_component()
+    try:
+        for x, y, z, side, height in posts:
+            post.add_instance(unreal.Transform(unreal.Vector(x, y, z), unreal.Rotator(0, 0, 0),
+                                               unreal.Vector(side / 100.0, side / 100.0, height / 100.0)), True)
+    except Exception:
+        actor_sub.destroy_actor(actor)
+        raise
+    info["posts"] = post.get_instance_count()
+    info["post_actor"] = actor.get_name()
+    for comp in comps:
+        comp.modify()
+        comp.set_collision_enabled(unreal.CollisionEnabled.NO_COLLISION)
+        info["without_collision"] = info.get("without_collision", 0) + 1
+    return True
 
 
 def which_set(actor):
@@ -116,6 +207,7 @@ def main():  # noqa: C901
     report = {"map": MAP, "lanes_file": LANES, "clear_cm": CLEAR_CM, "apply": APPLY, "named": NAMED,
               "removed": {}, "removed_by_mesh": {}, "removed_instances": [], "removed_actors": [],
               "reported_only": [], "landmarks_moved": [],
+              "tree_trunks": {"on": TRUNKS, "components": 0, "trees": 0, "by_mesh": {}, "actors": []},
               "named_found": [], "errors": []}
     try:
         if not os.path.exists(LANES):
@@ -272,7 +364,13 @@ def main():  # noqa: C901
         report["removed_actors_total"] = len(report["removed_actors"])
         report["removed_total"] = sum(report["removed"].values())
         report["reported_only_total"] = len(report["reported_only"])
-        if APPLY and (report["removed_total"] or any(m["moved"] for m in report["landmarks_moved"])):
+        trunks = False
+        if TRUNKS:
+            try:        # after the removals: what is left of the trees
+                trunks = tree_trunks(actor_sub.get_all_level_actors(), report["tree_trunks"])
+            except Exception as e:  # noqa: BLE001  the trees stay as they were, the step goes on
+                report["tree_trunks"]["error"] = repr(e)
+        if APPLY and (report["removed_total"] or trunks or any(m["moved"] for m in report["landmarks_moved"])):
             level_sub.save_current_level()
             report["saved"] = True
     except StopIteration:
@@ -285,7 +383,7 @@ def main():  # noqa: C901
     with open(os.path.join(out, "lane_clear_report.json"), "w", encoding="utf-8") as f:
         json.dump(report, f, indent=1)
     log(json.dumps({k: report.get(k) for k in ("removed_total", "circuit_removed", "removed", "removed_by_mesh", "removed_actors_total",
-                                                "landmarks_moved",
+                                                "landmarks_moved", "tree_trunks",
                                                 "reported_only_total",
                                                 "named_found", "errors", "saved")}))
 

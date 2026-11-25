@@ -539,6 +539,16 @@ L'échange est donc **coupé par défaut** (`GTP_ROUTE_MAPLES=1` l'active) et le
 aulnes de la carte de base, les rangs de Bellecour aussi, tant qu'un érable n'a pas été regardé
 sur une image avant d'être planté.
 
+Les aulnes du trajet sont des arbres de plein champ : leurs tiges penchent d'un mètre et plus
+sur ce qui est à côté, à hauteur de voiture, et le maillage porte la collision de sa propre
+forme. À la porte 91 la voiture volée, à 0,3 à 0,9 m de sa ligne, a été arrêtée six fois par des
+arbres dont le tronc était à l'écart de cette ligne (quai, 22 s ; rue du Président Carnot, 140 à
+182 s). Depuis, un arbre du trajet est son tronc, comme l'étaient déjà les arbres des rues
+échangés au lancement : à la fin de l'étape `lanes` les arbres feuillus des jeux n'arrêtent plus
+rien et un poteau caché par arbre tient lieu de tronc (`route_trees.trunk_post`, acteur
+`Route_TreeTrunks`). `GTP_TREE_TRUNKS=0` laisse les arbres tels quels ; `lane_clear_report.json`
+donne `tree_trunks` (arbres, poteaux, acteurs qui les portaient). Pas encore vu en jeu.
+
 ### Chaussées recalées sur les bordures et régénération en une commande
 
 Les axes BD TOPO sont à 0,8 m du milieu de la chaussée (2,2 m au 90e centile) et les voitures
