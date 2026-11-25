@@ -107,6 +107,10 @@ jobs:
         run: |
           g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/wanted_sim/chase_tally_test.cpp -o /tmp/chase_tally_test
           /tmp/chase_tally_test
+      - name: Police car made upstream of the player (his road, the ring's distances)
+        run: |
+          g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/wanted_sim/police_upstream_test.cpp -o /tmp/police_upstream_test
+          /tmp/police_upstream_test
       - name: Police car held, off its wheels, steering and pedals
         run: |
           g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/wanted_sim/unit_recovery_test.cpp -o /tmp/unit_recovery_test

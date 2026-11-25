@@ -363,6 +363,20 @@ protected:
 	float SpawnInterval = 2.f;
 
 	/**
+	 * A car sent after a player who drives is made upstream of him: on the lanes that lead to the one he is on,
+	 * behind him, at the distances of the ring (a replacement: of a replacement), and it rolls from its first frame
+	 * at his speed, UpstreamStartKmh at most (GTPPoliceUpstream.h). It has his road to drive and nothing else.
+	 * Made on any lane of the ring it had the one-way streets to drive round first (gates 83 to 91: nearest unit
+	 * 98 to 165 m away on average, within 80 m 0 % of the time at gate 91). The flank cars of a level still come
+	 * from in front. -PoliceUpstream=0 turns it off.
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Police")
+	bool bUpstreamSpawn = true;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Police")
+	float UpstreamStartKmh = 50.f;
+
+	/**
 	 * Scenery on a unit's way (gate 75: nine cars held against lamp posts, lights and trees in 68 s; a unit only
 	 * looked ahead for cars and people). A unit looks ahead for what does not move, steers round it on the side
 	 * that is free and slows to what it can stop from (GTPUnitAvoid.h). -PoliceAvoid=0 turns it off, and the
@@ -554,6 +568,8 @@ private:
 	mutable FVector2D LastTravelDirection = FVector2D::ZeroVector;
 	bool IsRoadblockSite(const APawn& Player, const FGTPTrafficLane& Lane, int32 Level, FVector& OutPoint, FVector& OutAlong, double& OutDistance) const;
 	bool FindSpawnPoint(const FVector& PlayerLocation, int32& OutLane, int32& OutPoint, FTransform& OutTransform) const;
+	/** A place for a car upstream of a player who drives (bUpstreamSpawn); OutAlongM: the road it has to him (m). */
+	bool FindUpstreamPoint(const FVector& PlayerLocation, int32& OutLane, int32& OutPoint, FTransform& OutTransform, float& OutAlongM) const;
 	/**
 	 * True when a police car can be made at Place, on the ground the trace Ground found there. False when that trace
 	 * stopped on a car or a person (the "ground" was a roof), or when one stands in the room the new car takes.
@@ -617,6 +633,11 @@ private:
 	FVector2D AheadDirection = FVector2D::ZeroVector;
 	/** Spawn bias: when set, FindSpawnPoint picks a point between ReplacementMinDistance and the leash (a replacement). */
 	bool bFarSpawn = false;
+	/** Spawn bias: when set, SpawnUnit looks upstream of the player first (FindUpstreamPoint). */
+	bool bUpstreamTry = false;
+	/** Cars made upstream since the start, and tries that found no place there (the ring was used). */
+	int32 UpstreamMade = 0;
+	int32 UpstreamNoPlace = 0;
 	/** Chasing cars sent since the level rose from nothing: past the number the level asks for, a car sent is a replacement. */
 	int32 ResponseSent = 0;
 	int32 LastStars = 0;
