@@ -157,6 +157,21 @@ public:
 	/** From the move processor, once a frame: people going round a car, standing in front of one, within the body of one, turned back, and heights refused as ground. */
 	void ReportCars(int32 Round, int32 Standing, int32 Inside, int32 TurnedBack, int32 GroundRefused);
 
+	/**
+	 * The cars that come fast near the player (his own from GTPWalk::FSettings::DodgeCarSpeed, the police's and the
+	 * traffic's from DodgeTrafficSpeed), where they were at GetFastCarsTime (world seconds): people get out of their
+	 * way (GTPWalk::Dodge) and nobody steps onto a crossing in front of one. Empty with -CrowdDodgeCars=0.
+	 */
+	const TArray<GTPWalk::FFastCar>& GetFastCars() const { return FastCars; }
+	double GetFastCarsTime() const { return FastCarsTime; }
+	bool DodgesCars() const { return bDodgeCars; }
+
+	/**
+	 * From the move processor, once a frame: people with a fast car coming at them, those who started to leap aside
+	 * or to run off along their walkway, and those who run from something and are kept at a kerb by a car about to pass.
+	 */
+	void ReportDodges(int32 InWay, int32 Leapt, int32 Ran, int32 HeldAtKerb);
+
 protected:
 	/** People in the crowd; -PedMass=N overrides. */
 	UPROPERTY(Config)
@@ -412,6 +427,17 @@ private:
 	int32 CrossingsWithCarDangerous = 0;
 	int32 CrossingsLookedAt = 0;
 	double LastCrossingLog = 0.0;
+	/** Cars that come fast (LookAtCars), and what people do about them, now and since the start. */
+	TArray<GTPWalk::FFastCar> FastCars;
+	double FastCarsTime = 0.0;
+	bool bDodgeCars = true;
+	bool bPlayerCarFast = false;
+	int32 InWayNow = 0;
+	int32 MostInWay = 0;
+	int32 LeaptAside = 0;
+	int32 RanOffAlong = 0;
+	int32 RunnersAtKerbNow = 0;
+	int32 MostRunnersAtKerb = 0;
 	/** Cars to walk round (LookAtCars), and what people do about them, now and since the start. */
 	TArray<GTPWalk::FCarBox> StandingCars;
 	bool bAvoidCars = true;
