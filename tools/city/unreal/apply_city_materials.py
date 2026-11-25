@@ -372,8 +372,15 @@ RIVERS = os.environ.get("GTP_RIVERS", "1") != "0"
 RIVER_REACH_CM = 1500.0         # water is looked for this far outside the coarse outline of a river
 RIVER_ABOVE_CM = 40.0           # and painted below the level of the river plus this
 RIVER_EDGE_CM = 20.0
-RIVER_WATER = (0.012, 0.022, 0.026)     # M_City_Water's
-RIVER_ROUGHNESS = 0.06
+# Gate 93 (long take, 139 s; the same at 88, 13 s): from the quay the Rhone was a pale slab as
+# light as the sky, 200 m wide, under the far bank. Nearly black and nearly a mirror (0.06), seen
+# at two degrees it showed nothing but the haze of the horizon. A river in the wind is not a
+# mirror: rougher, it reflects a wider and bluer part of the sky, less of it, and its own
+# green-grey shows. GTP_WATER_ROUGHNESS=0.06 and GTP_WATER_TONE=0 give the old water back.
+WATER_ROUGHNESS = float(os.environ.get("GTP_WATER_ROUGHNESS", "0.4"))
+WATER_TONE = os.environ.get("GTP_WATER_TONE", "1") != "0"
+RIVER_WATER = (0.02, 0.04, 0.045) if WATER_TONE else (0.012, 0.022, 0.026)     # M_City_Water's
+RIVER_ROUGHNESS = WATER_ROUGHNESS
 FAR_REPORT = {"on": FAR_MASK}
 ROUTE_MASK = os.environ.get("GTP_ROUTE_MASK", "1") != "0"
 ROUTE_REPORT = {"on": ROUTE_MASK}
@@ -1425,8 +1432,8 @@ def water_material():
     g.link(n, "", n3, "A")
     g.link(g.const(1.0), "", n3, "B")
     mel.connect_material_property(g.unary(unreal.MaterialExpressionNormalize, n3), "", unreal.MaterialProperty.MP_NORMAL)
-    mel.connect_material_property(g.const((0.012, 0.022, 0.026)), "", unreal.MaterialProperty.MP_BASE_COLOR)
-    mel.connect_material_property(g.const(0.06), "", unreal.MaterialProperty.MP_ROUGHNESS)
+    mel.connect_material_property(g.const(RIVER_WATER), "", unreal.MaterialProperty.MP_BASE_COLOR)
+    mel.connect_material_property(g.const(RIVER_ROUGHNESS), "", unreal.MaterialProperty.MP_ROUGHNESS)
     mel.connect_material_property(g.const(0.6), "", unreal.MaterialProperty.MP_SPECULAR)
     g.done()
     return mat
@@ -1557,6 +1564,7 @@ def main():
         report["backdrop_recess"] = "slide" in BACKDROP_HLSL     # openings set back by parallax
         report["far_ground"] = FAR_GROUND
         report["roof_walls"] = ROOF_WALLS
+        report["water"] = {"roughness": RIVER_ROUGHNESS, "colour": list(RIVER_WATER)}
         report["roof_tones"] = dict(ROOF_REPORT, on=ROOF_TONES, tile=list(facade_tone().ROOF_TRUE[0]),
                                     zinc=list(facade_tone().ROOF_TRUE[1]))
         report["squares"] = SQUARE_REPORT

@@ -457,7 +457,11 @@ dans une rampe de parking.
    porte un contour grossier du Rhône et de la Saône (10 et 22 coins) et leur niveau ; le
    matériau peint de l'eau (couleur et brillant de `M_City_Water`, à plat) à moins de 15 m d'un
    contour partout où le terrain est sous ce niveau plus 40 cm : la berge est là où le terrain
-   tombe. `GTP_RIVERS=0` laisse le sol comme avant.
+   tombe. `GTP_RIVERS=0` laisse le sol comme avant. Depuis la porte 93 l'eau est plus
+   rugueuse (0,4 au lieu de 0,06) et gris-vert plutôt que noire : vue du quai sous deux degrés,
+   le quasi-miroir ne montrait que la brume de l'horizon et le Rhône était une dalle pâle sous
+   la rive d'en face. `GTP_WATER_ROUGHNESS=0.06` et `GTP_WATER_TONE=0` rendent l'ancienne eau ;
+   `materials_report.json` donne `water`. Pas encore vu en jeu.
 3. **Fosses** (`cover_pits.py`, étape `pits`) : de la porte 78 à la porte 81 l'étape tirait des
    rayons sur le terrain, n'obtenait aucune réponse dans l'éditeur sans écran et rendait
    « aucune fosse ». Elle lit maintenant les coins des tuiles du terrain

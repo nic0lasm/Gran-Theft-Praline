@@ -434,7 +434,11 @@ far bank, the Rhône paved like a sidewalk. At 50 s the stolen car rolled into a
    carries a coarse outline of the Rhône and of the Saône (10 and 22 corners) and their level;
    the material paints water (colour and gloss of `M_City_Water`, flat) within 15 m of an
    outline wherever the terrain lies below that level plus 40 cm: the bank is where the terrain
-   drops. `GTP_RIVERS=0` leaves the ground as it was.
+   drops. `GTP_RIVERS=0` leaves the ground as it was. Since gate 93 the water is rougher
+   (0.4, was 0.06) and green-grey rather than black: seen from the quay at two degrees, the
+   near-mirror showed only the haze of the horizon and the Rhône was a pale slab under the
+   far bank. `GTP_WATER_ROUGHNESS=0.06` and `GTP_WATER_TONE=0` give the old water back;
+   `materials_report.json` gives `water`. Not seen in game yet.
 3. **Pits** (`cover_pits.py`, step `pits`): from gate 78 to gate 81 the step traced the terrain,
    got no answer in the headless editor and reported "no pit". It now reads the corners of the
    terrain tiles (`tools/city/terrain_file.py`: from `terrain/terrain.glb`, kept only if its
