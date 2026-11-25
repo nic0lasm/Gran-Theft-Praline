@@ -153,6 +153,61 @@ SQUARE_TREE_PITCH_M = 9.0
 SQUARE_TREE_END_M = 14.0           # no tree this close to the ends of the rows
 
 
+# --- the statue in the middle of a great square -----------------------------------------------
+# Place Bellecour without its horseman is any square of red sand. The statue is in the table of
+# landmarks.py, but a map generated round one street only keeps the landmarks within 60 m of the
+# street's buildings, and the statue stands 126 m from the flight's line: seen from the street,
+# never close. So it is drawn here, with the square's setting, as plain shapes: a pedestal of
+# white marble on two steps, the two river figures lying against its long sides, the horse and
+# its rider in bronze. About 11.5 m in all, the horse 5.5 m long, as the real one.
+# name, x, y: metres on the Unreal axes (OpenStreetMap node 236376643 for Louis XIV)
+SQUARE_STATUES = (("LouisXIV", -88.0, 575.2),)
+STATUE_FACES = (0.0, 1.0)      # the horse stands across the square and looks to this side (south)
+# shape, along the horse, across it, length, width, bottom, top (metres above the square), material
+STATUE_PARTS = (
+    ("Cube", 0.0, 0.0, 9.6, 6.4, 0.0, 0.45, "stone"),        # two steps
+    ("Cube", 0.0, 0.0, 8.2, 5.0, 0.45, 0.9, "stone"),
+    ("Cube", 0.0, 0.0, 5.4, 2.6, 0.9, 5.3, "stone"),         # pedestal
+    ("Cube", 0.0, 0.0, 6.0, 3.2, 5.3, 5.7, "stone"),         # its cornice
+    ("Cube", 0.0, 1.95, 3.4, 1.3, 0.9, 2.0, "bronze"),        # the Rhone and the Saone
+    ("Cube", 0.0, -1.95, 3.4, 1.3, 0.9, 2.0, "bronze"),
+    ("Cube", 1.35, 0.4, 0.4, 0.4, 5.7, 7.8, "bronze"),       # three legs on the pedestal
+    ("Cube", -1.35, 0.4, 0.4, 0.4, 5.7, 7.8, "bronze"),
+    ("Cube", -1.35, -0.4, 0.4, 0.4, 5.7, 7.8, "bronze"),
+    ("Cube", 1.55, -0.4, 0.4, 0.4, 6.6, 7.8, "bronze"),      # and one foreleg raised
+    ("Cube", 0.0, 0.0, 3.4, 1.3, 7.7, 9.3, "bronze"),        # the horse
+    ("Cube", 1.9, 0.0, 1.0, 0.8, 8.6, 10.3, "bronze"),       # its neck
+    ("Cube", 2.6, 0.0, 1.3, 0.6, 9.7, 10.5, "bronze"),       # its head
+    ("Cube", -2.0, 0.0, 0.5, 0.5, 7.4, 9.0, "bronze"),       # its tail
+    ("Cube", 0.1, 0.0, 0.5, 2.0, 8.3, 9.4, "bronze"),        # the rider's legs, one each side
+    ("Cube", -0.1, 0.0, 0.9, 1.2, 9.3, 10.9, "bronze"),      # the rider
+    ("Sphere", -0.1, 0.0, 0.75, 0.75, 10.8, 11.55, "bronze"),
+)
+
+
+def square_statues(box, statues=SQUARE_STATUES):
+    """The statues that stand on the square of this box (oriented_box), as plain shapes:
+    [{"name", "shape", "x", "y", "yaw", "width", "depth", "bottom", "top", "material"}], width along
+    the horse and depth across it, bottom and top above the square. The horse stands across the
+    square, along its short side, and looks the way of STATUE_FACES."""
+    cx, cy, ux, uy, hu, hv = box
+    hx, hy = -uy, ux
+    if hx * STATUE_FACES[0] + hy * STATUE_FACES[1] < 0.0:
+        hx, hy = -hx, -hy
+    yaw = round(math.degrees(math.atan2(hy, hx)), 1)
+    out = []
+    for name, sx, sy in statues:
+        du, dv = (sx - cx) * ux + (sy - cy) * uy, (sy - cy) * ux - (sx - cx) * uy
+        if abs(du) > hu or abs(dv) > hv:
+            continue
+        for i, (shape, along, across, width, depth, bottom, top, material) in enumerate(STATUE_PARTS):
+            out.append({"name": "%s_%02d" % (name, i), "shape": shape,
+                        "x": round(sx + along * hx - across * hy, 2), "y": round(sy + along * hy + across * hx, 2),
+                        "yaw": yaw, "width": width, "depth": depth, "bottom": bottom, "top": top,
+                        "material": material})
+    return out
+
+
 def convex_hull(points):
     """Andrew's monotone chain; counter-clockwise, no repeated point."""
     pts = sorted(set((float(x), float(y)) for x, y in points))
@@ -210,6 +265,7 @@ def square_setting(ring, ground_box, seed=7, built=()):
               stand wholly past the map's ground and clear of the real volumes: no front on a
               building, a street or a lane of the map
       trees   two rows along its far long side: {"x", "y", "yaw", "scale"}
+      statues the statue that stands on it, as plain shapes (square_statues)
 
     A square that lies wholly on the map's ground gets none of them."""
     rng = random.Random(seed)
@@ -282,6 +338,7 @@ def square_setting(ring, ground_box, seed=7, built=()):
                           "y": round(cy + uy * u + vy * v + rng.uniform(-0.4, 0.4), 2),
                           "yaw": round(rng.uniform(0.0, 360.0), 1), "scale": round(rng.uniform(0.95, 1.25), 2)})
     return {"aprons": aprons, "fronts": fronts, "trees": trees,
+            "statues": square_statues((cx, cy, ux, uy, hu, hv)),
             "box": [round(v, 2) for v in (cx, cy, ux, uy, hu, hv)]}
 
 

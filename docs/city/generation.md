@@ -372,6 +372,19 @@ long, grey against the sky. On a wooded hill a block is now a large house (18 to
 four storeys) and none stands above four fifths of the hill's height: the crest is left to the
 trees, the basilica and the metal tower (`horizon.WOODED_WIDTH_M`, `WOODED_CREST`).
 
+The same take showed place Bellecour without its horseman. The statue of Louis XIV is in the
+table of `landmarks.py`, but a map generated round one street only keeps the landmarks within
+60 m of the street's buildings, and the statue stands 126 m from the flight's line. The
+`horizon` step now draws it with the square's setting, as plain shapes at the level of the
+square (`horizon.SQUARE_STATUES`, `STATUE_PARTS`): a pedestal of pale stone on two steps, the
+two river figures against its long sides, the horse and its rider in dark bronze
+(`M_City_HorizonBronze`, the iron tone if the materials step is older), 11.5 m in all. The
+horse stands across the square and looks south, which is how photographs remembered show it:
+`STATUE_FACES` turns it. The stone is solid, every part casts its shadow. Nothing is placed if
+the map already holds a statue among its landmarks. `GTP_SQUARE_STATUE=0` leaves it out;
+`horizon_report.json` gives `statue` under `square_settings` (17 parts expected). Not seen in
+game yet.
+
 Positions of the hills and towers are approximate on purpose (a far view, never a place to go).
 Not seen in game yet.
 

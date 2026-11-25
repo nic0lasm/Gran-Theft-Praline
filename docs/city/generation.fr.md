@@ -393,6 +393,19 @@ maison (18 à 34 m, trois ou quatre étages) et aucun ne se tient au-dessus des 
 de la hauteur de la colline : la crête est laissée aux arbres, à la basilique et à la tour
 métallique (`horizon.WOODED_WIDTH_M`, `WOODED_CREST`).
 
+La même prise montrait la place Bellecour sans son cavalier. La statue de Louis XIV est dans
+la table de `landmarks.py`, mais une carte générée autour d'une rue ne garde que les repères à
+moins de 60 m des immeubles de la rue, et la statue est à 126 m de la ligne de la fuite.
+L'étape `horizon` la dessine maintenant avec le décor de la place, en formes simples au niveau
+de la place (`horizon.SQUARE_STATUES`, `STATUE_PARTS`) : un piédestal de pierre claire sur
+deux marches, les deux figures de fleuves contre ses grands côtés, le cheval et son cavalier
+en bronze sombre (`M_City_HorizonBronze`, le ton du fer si l'étape des matériaux est plus
+ancienne), 11,5 m en tout. Le cheval est en travers de la place et regarde le sud, d'après le
+souvenir de photographies : `STATUE_FACES` le tourne. La pierre est solide, chaque pièce porte
+son ombre. Rien n'est posé si la carte a déjà une statue parmi ses repères.
+`GTP_SQUARE_STATUE=0` la retire ; `horizon_report.json` donne `statue` sous `square_settings`
+(17 pièces attendues). Pas encore vu en jeu.
+
 Les positions des collines et des tours sont approximatives exprès (un lointain, jamais un lieu
 où aller). Pas encore vu en jeu.
 
