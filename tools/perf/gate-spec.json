@@ -1,18 +1,34 @@
 {
   "_doc": "What the Windows gate queue checks for this candidate. Edited by the pilot for each candidate; read by the PC queue script. No machine paths here. From candidate 60 the gate judges what the player sees: the default traffic, which is the legacy one (MassTraffic runs only with -Traffic=mass). The 'blocking' criteria are read on the blocking passes; everything under 'informative_mass' is measured and reported on the MassTraffic passes but never fails the gate, and never stops it. Those criteria become blocking again only for switching the default traffic to mass, once a whole gate passes them (ADR-0015).",
-  "candidate": 86,
+  "candidate": 87,
   "map_md5": null,
   "game_p50_max_ms": 13.95,
   "game_p95_max_ms": 50,
   "gtarun_min_ok": 6,
   "blocking_passes": [
     "default",
-    "gtarun"
+    "noparked",
+    "notraffic",
+    "gtarun",
+    "gtarun -DemoFreeCar=Car02",
+    "launch",
+    "crowd-base",
+    "crowd-parts3",
+    "crowd-parts5",
+    "crowd-cs0"
   ],
   "informative_passes": [],
   "passes": [
     "default",
-    "gtarun"
+    "noparked",
+    "notraffic",
+    "gtarun",
+    "gtarun -DemoFreeCar=Car02",
+    "launch",
+    "crowd-base",
+    "crowd-parts3",
+    "crowd-parts5",
+    "crowd-cs0"
   ],
   "blocking": {
     "fatal_max": 0,
@@ -173,7 +189,9 @@
   "_pre_gate_66": "Once, in the PC editor, before the cook (creates /Game/Vehicles/Epic/GTP/Police and /Game/Crowd/GTP/Police, deletes nothing, changes nothing of Epic): UnrealEditor-Cmd GranTheftPraline.uproject -run=pythonscript -script=tools/police/unreal/make_police_look.py ; its Saved/PoliceLook/police_look_report.txt goes to captures/police/. Without it the game runs as before.",
   "informative_perf": {
     "game_p95_ms_per_pass": [
-      "gtarun"
+      "gtarun",
+      "gtarun -DemoFreeCar=Car02",
+      "launch"
     ],
     "_note": "Reported, not judged: since gate 61 some GTARun passes drop to about 7 fps 12 to 17 s after 'GTARun done', with no player pawn (cause not proven)."
   },
@@ -239,7 +257,7 @@
   "_pre_gate_79": "78 plus Image 386130f (lot 3, far view): 'horizon' step puts a ground to the horizon, 229 far blocks, 5 Part-Dieu towers and 2 hills beyond the map (engine basic shapes, no collision, no shadow, out of ray tracing); the backdrop keeps its windows far away; dark ground past the ground mask. Gate 76 at 60 s: the quay looked out on a blue band like a sea. Steps: materials, then backup,facades,lanes,pits,horizon (all idempotent, one map save). Undo: GTP_HORIZON=0 on horizon, GTP_FAR_GROUND=0 on materials, or the map backup.",
   "_pre_gate_80": "Same as 79 (abandoned: built on 78 85a3e96, which failed to compile, C4459 PersonRadius in the unity build), now on 78 f2e65fe. Réalisme 0998ff1: a facade module is turned back only with 3 votes or more (prep 78 turned 8 small Blank faces on 2 votes); facade_flip_report gains a 'watch' list around (26250, -14825). Map restored to fb26cac9 before the steps. Window glass NameError fixed (dda197f).",
   "_pre_gate_81": "80 plus the roadmap V6 (dde936e); Jeu d31450a, 9498b01, d366ab9: the filmed flight keeps to a circuit THROUGH PLACE BELLECOUR (Nico 24/11 13:05Z): loop of 1793 m, 37 lanes (quai Jules Courmont, Childebert, République, Bellecordière, rue de la Barre, Bellecour corner, Herriot, Jean de Tournes, Stella, Grolée, Carnot), approach 488 m with a U-turn at the pont Lafayette crossing; Décor 729075a: Bellecour's red ground, Fourvière on the skyline. Video should show: a faster flight, no relocation, Bellecour around 70 s. Grid points aimed at: 2, 3, 8. Steps: traffic.py regenerates the lanes (26 new lanes, through roads of the circuit), materials, base map fb26cac9 restored then backup,facades,lanes,pits,horizon, then flight_circuit.py check (blocking). Lines: 'flight circuit of 37 lanes, 1793 m a lap', 'driven on its line of 604 points', 'speeds asked by 47 of 47', 'approach of 10 lanes', NOT USED / WITHOUT with their reason, 'relocations='. Switch: -FlightCircuit=0. Plus Jeu 4f1f152 (police units drive the circuit's smoothed line on its lanes; -PoliceCircuitLines=0) and 1e797c6 (the filmed flight ends on the north side of Bellecour: pursuit step limit 50 -> 70 s, chase window 40 to 60 s by the arrival on the place). Plus Décor 93b8911, 1ad66b9 (lot 5, horizon step only): the ground of Bellecour carried on past y = 617 m, the square's facades beyond the map and two rows of trees, basilica moved 70 m; horizon_report keys square_settings, level_from, ground_box_m; undo GTP_SQUARE_SETTING=0.",
-  "gate_kind": "short",
+  "gate_kind": "full",
   "next_full_gate_extra_passes": [
     "gtarun -GTPNoSkinRT -DPCVars=r.RayTracing.Geometry.SkeletalMeshes=0",
     "gtarun -GTPSoftLumen -DPCVars=r.Lumen.HardwareRayTracing=0"
@@ -254,5 +272,6 @@
   "_pre_gate_83": "82 plus Décor 15e3d8b (lot 8, horizon step only): the alders of City/Route replaced by clear-trunk Norway maples (Forest_04 mature, Forest_07 young, mean height kept), Bellecour's rows Field_02 at 16.5 m; horizon_report key route_maples; undo GTP_ROUTE_MAPLES=0. Video should show: no low branches in the chase camera (grid point 7), maples along the flight. Cost not measured: watch GPU and the video memory text (point 10).",
   "_pre_gate_84": "83 plus Décor 047fa95 (lot 9): pits grid on the 4 m lattice (pit_cover_report: step_cm 400, cells_empty near 0, pits and lids above 0; an empty grid over 20 % is an error); the maple swap off by default, the alders of 82 come back. Video should show: no overturn in a ramp (grid point 3), full trees (8). Pilot: the two video-memory passes (-GTPNoSkinRT, -GTPSoftLumen) run in this short gate, informative, because the red text comes back at every gate from 130-175 s (grid point 10). Plus Jeu 74287a1: a relocation never puts the car where something stands (line 'N place(s) passed over with something standing there'). Plus Décor 2899504: the lanes step also clears 2.5 m each side of the line actually driven (circuit file, approach and lap); lane_clear_report: circuit_lines 47, circuit_removed above 0 (gate 83: a tree hit at 96 km/h on the quay at 19 s). Plus Décor c3b49d7 (lot 10, materials step): a fine route mask (1024 x 4096) over the quays the flight drives outside the zone mask, three lane lines and sharp kerbs; materials_report route_mask.read_on_the_route true.",
   "_pre_gate_85": "Same code as 84 b24ed33, prepared on its own commit this time (gate 84's prep ran on 898db37, the queue v8 took the later head). Video-memory passes dropped: at gate 84 neither -GTPNoSkinRT (p95 frame 17.78 vs 17.69) nor -GTPSoftLumen (worse, p99 106 ms) helped, so the skinned meshes in ray tracing and hardware Lumen are not the cause.",
-  "_pre_gate_86": "85 plus Jeu e1d524c: in the flight script, past a third of the steering asked, no throttle and up to 0.8 brake while the car is faster than that steering holds at 6 m/s2 (gate 83: throttle 1 with full lock after a lane change in a corner, 27 m off the lane, then the pit). Expected: DemoDrive lines with steer >= 0.35 show throttle=0.00. Switch -DemoPedalsAlone. Plus Jeu (2 commits up to 83e10db): FGTPLaneFollower (flight and police units) keeps the last 12 m of the lane it left at the head of its path, so the corner where the lane change falls stays measured; 'want' no longer jumps mid-corner (24 -> 57 on rue Childebert at 83). Switch -LaneKeptBehind=0."
+  "_pre_gate_86": "85 plus Jeu e1d524c: in the flight script, past a third of the steering asked, no throttle and up to 0.8 brake while the car is faster than that steering holds at 6 m/s2 (gate 83: throttle 1 with full lock after a lane change in a corner, 27 m off the lane, then the pit). Expected: DemoDrive lines with steer >= 0.35 show throttle=0.00. Switch -DemoPedalsAlone. Plus Jeu (2 commits up to 83e10db): FGTPLaneFollower (flight and police units) keeps the last 12 m of the lane it left at the head of its path, so the corner where the lane change falls stays measured; 'want' no longer jumps mid-corner (24 -> 57 on rue Childebert at 83). Switch -LaneKeptBehind=0.",
+  "_pre_gate_87": "Full gate of 25/11 on the code of 86 (87bdb2b, last head through a short gate): today's passes without the MassTraffic ones. Moves main if it holds and its video is watched. Same steps before the gate as 86."
 }
