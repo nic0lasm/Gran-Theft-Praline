@@ -672,6 +672,11 @@ void UGTPWantedComponent::OnBusted()
 	if (AGTPVehicle* Vehicle = Cast<AGTPVehicle>(PC->GetPawn()))
 	{
 		Vehicle->RequestExit();
+		// His car does not stay in the street for good (AGTPTrafficNetwork::NoteLeftAtArrest).
+		if (TActorIterator<AGTPTrafficNetwork> Network(GetWorld()); Network)
+		{
+			Network->NoteLeftAtArrest(Vehicle);
+		}
 	}
 	if (bArrestTakesWeapon && PC->GetPawn())
 	{

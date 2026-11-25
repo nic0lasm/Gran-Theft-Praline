@@ -621,6 +621,14 @@ public:
 	bool IsLeftInTheStreet(const AGTPVehicle* Car) const;
 	bool TakeLeftCarAway(AGTPVehicle* Car, const TCHAR* Why);
 
+	/**
+	 * The car the player is taken out of at his arrest stays in the street like one its driver ran from: taken away
+	 * once he is far from it and does not see it (he reappears at the police station). Gate 100's long take: it stayed
+	 * on place Bellecour, where the first flight ends, and the second flight stopped against it at 235 s.
+	 * -KeepArrestCars leaves it there for good.
+	 */
+	void NoteLeftAtArrest(AGTPVehicle* Car);
+
 	/** A car left in the street by its driver is taken away beyond this (cm), out of the player's sight. */
 	UPROPERTY(Config, EditAnywhere, Category = "Traffic")
 	float LeftCarRemoveDistance = 8000.f;
@@ -882,6 +890,8 @@ private:
 		double Since = 0.0;
 	};
 	TArray<FLeftCar> LeftCars;
+	/** Cars the player was arrested in (NoteLeftAtArrest): left cars once he is out of them. */
+	TArray<FLeftCar> ArrestCars;
 	int32 LeftCarsNoted = 0;
 	int32 LeftCarsTaken = 0;
 	void UpdateLeftCars(const APawn* Player);
