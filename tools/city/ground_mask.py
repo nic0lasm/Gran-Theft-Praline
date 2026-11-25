@@ -27,6 +27,10 @@ ends. Output (not committed, like the rest; route_dressing.py makes it before it
 
   python3 tools/city/ground_mask.py --far [--processed <the zone's folder of processed data>]
 
+--probe <Map>.circuit.csv: nothing is made; one line of JSON says what the focus, far and route
+masks of this machine hold under the points of the driven line (asphalt, marking, paving, kerb,
+sidewalk). route_dressing.py puts it in the note of its materials step.
+
 --route <Map>.circuit.csv: the route mask. On the quay the far mask tells carriageway from
 pavement, but a kerb or a lane line is thinner than one of its texels: gate 83, long take, the
 flight drives a plain of asphalt with no line and no kerb. This mask is as fine as the focus mask
@@ -37,7 +41,9 @@ far mask past it. Nothing is written when the focus mask holds the whole line. O
 
 Lane lines: a one-way road of two lanes or more has a dashed line between each pair of its
 lanes when they are at least 2.5 m wide (the quays: four lanes, three lines); a two-way road
-keeps its one centre line. A focus mask made before 2026-11-25 has the centre lines only.
+keeps its one centre line. In the focus and route masks a line is two texels wide at least.
+A focus mask made before 2026-11-25 has thin centre lines only: route_dressing.py now makes the
+focus mask again before its materials step, from the data of the machine.
 """
 
 import argparse
@@ -195,6 +201,40 @@ def lane_offsets(p, width_m):
     return [(k - n / 2.0) * width_m / n for k in range(1, n)]
 
 
+def probe(zone, focus, points, processed=None):
+    """What each mask of this machine says under the driven line: {mask: {"extent_ue_cm",
+    "size_px", "points", "asphalt", "marking", "paving", "kerb", "sidewalk"}} for the focus, far
+    and route masks that exist, counting the points of the line inside each. Gate 86: the quay
+    the flight drives was pale and smooth in the game while the far mask made in the cloud has
+    asphalt there, and the focus mask of the PC, made days before, could not be read from here."""
+    base = processed or os.path.join(REPO, "assets", "geo", "processed", zone)
+    files = {"focus": (os.path.join(base, "gen", focus, "ground", "T_GroundMask.png"),
+                       os.path.join(base, "gen", focus, "ground", "ground.json")),
+             "far": (os.path.join(base, "ground_far", "T_GroundMaskFar.png"),
+                     os.path.join(base, "ground_far", "ground_far.json")),
+             "route": (os.path.join(base, "ground_far", "T_GroundMaskRoute.png"),
+                       os.path.join(base, "ground_far", "ground_route.json"))}
+    out = {}
+    for name, (png, meta_path) in files.items():
+        if not (os.path.exists(png) and os.path.exists(meta_path)):
+            continue
+        with open(meta_path, encoding="utf-8") as f:
+            x0, y0, x1, y1 = json.load(f)["extent_ue_cm"]
+        img = Image.open(png).convert("RGB")
+        w, h = img.size
+        n = {"extent_ue_cm": [round(v) for v in (x0, y0, x1, y1)], "size_px": [w, h], "points": 0,
+             "asphalt": 0, "marking": 0, "paving": 0, "kerb": 0, "sidewalk": 0}
+        for x, y in points:
+            if not (x0 <= x < x1 and y0 <= y < y1):
+                continue
+            r, g, b = img.getpixel((int((x - x0) / (x1 - x0) * w), int((y - y0) / (y1 - y0) * h)))
+            n["points"] += 1
+            n["marking" if r > 127 and b > 127 else "asphalt" if r > 127 else "paving" if g > 127
+              else "kerb" if b > 127 else "sidewalk"] += 1
+        out[name] = n
+    return out
+
+
 def build(zone, focus, far=False, processed=None, far_texels=FAR_TEXELS, route=None):
     """route: the points of the driven line (circuit_points): the route mask, as fine as the
     focus mask, around the part of the line the focus mask does not hold. None is returned, and
@@ -238,9 +278,10 @@ def build(zone, focus, far=False, processed=None, far_texels=FAR_TEXELS, route=N
     layers = {k: Image.new("L", (cw, ch), 0) for k in ("asphalt", "kerb", "paving", "mark")}
     draw = {k: ImageDraw.Draw(v) for k, v in layers.items()}
     m2px = 100.0 / s
-    # Gate 86: the lane lines of the route mask, one texel wide, did not show in the game. A line
-    # of the route mask is two texels of the coarser axis at least (31 cm today).
-    mark_w_m = max(MARK_W_M, 2.0 * cm_per_px / 100.0) if route is not None else MARK_W_M
+    # Gate 86: no lane line showed on the quay. A line one texel wide is lost to the filtering of
+    # the texture a few metres from the camera: in the focus and route masks a line is two texels
+    # of the coarser axis at least (29 cm in the focus mask). The far mask is seen from afar.
+    mark_w_m = MARK_W_M if far else max(MARK_W_M, 2.0 * cm_per_px / 100.0)
     counts = {"asphalt": 0, "paving": 0, "marked": 0, "lane_lines": 0, "tunnel": 0}
 
     def line(d, pts, width_m):
@@ -377,8 +418,13 @@ def main():
     ap.add_argument("--far", action="store_true", help="the far mask, over the whole terrain")
     ap.add_argument("--route", metavar="CIRCUIT_CSV",
                     help="the route mask: as fine as the focus mask, around the part of this circuit past it")
+    ap.add_argument("--probe", metavar="CIRCUIT_CSV",
+                    help="make nothing: print what the masks of this machine say under this circuit")
     ap.add_argument("--processed", help="folder of the zone's processed data (default assets/geo/processed/<zone>)")
     a = ap.parse_args()
+    if a.probe:
+        print(json.dumps(probe(a.zone, a.focus, circuit_points(a.probe), a.processed)))
+        return
     meta = build(a.zone, a.focus, a.far, a.processed, route=circuit_points(a.route) if a.route else None)
     if meta is None:
         stale = os.path.join(a.processed or os.path.join(REPO, "assets", "geo", "processed", a.zone), "ground_far")

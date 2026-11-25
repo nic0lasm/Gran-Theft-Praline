@@ -170,6 +170,16 @@ class RouteMaskTests(unittest.TestCase):
                                             route=[(5000.0, 12000.0), (9000.0, 15000.0)]))
         self.assertIsNone(ground_mask.route_box([], (0, 0, 1, 1), (0, 0, 1, 1)))
 
+    def test_the_probe_says_what_each_mask_holds_under_the_line(self):
+        seen = ground_mask.probe("zone", "focus", [(14000.0, 12000.0), (14000.0, 12300.0), (14655.0, 14000.0),
+                                                   (90000.0, 0.0)], processed=self.dir.name)
+        self.assertEqual(sorted(seen), ["route"])                  # no focus or far mask made here
+        r = seen["route"]
+        self.assertEqual(r["points"], 3)                            # the fourth is off the mask
+        self.assertEqual(r["asphalt"] + r["marking"], 2)            # on the carriageway at x 140 m
+        self.assertEqual(r["kerb"], 1)                              # x 146.55 m: its east kerb
+        self.assertEqual(r["size_px"], list(self.img.size))
+
     def test_the_circuit_file_gives_its_line(self):
         path = os.path.join(self.dir.name, "c.circuit.csv")
         with open(path, "w", encoding="utf-8") as f:

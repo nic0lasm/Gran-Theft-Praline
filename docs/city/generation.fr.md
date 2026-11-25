@@ -477,6 +477,14 @@ dans une rampe de parking.
    comme le masque lointain ; `materials_report.json` donne `route_mask` (`texture`,
    `read_on_the_route`).
 
+6. **Le masque de la zone refait** (étape `materials`, `route_dressing.ground_masks`) : sur le
+   PC le masque de la zone va jusqu'au quai (4096 x 8192 : le masque du trajet n'y est pas
+   nécessaire et n'est pas écrit) et datait de la fabrication de la ville : pas de ligne de
+   voie, et à la porte 86 la chaussée que roule la fuite était claire et lisse. L'étape refait
+   maintenant le masque de la zone avec les données de la machine, puis les masques lointain
+   et du trajet, et sa note dit ce que chaque masque portait sous la ligne conduite avant et
+   après (`ground_mask.py --probe` : asphalte, marquage, pavage, bordure, trottoir).
+
 `materials_report.json` donne `far_mask` (`texture`, `read_past_the_mask`, `rivers`, `laid`) ;
 `pit_cover_report.json` donne `heights_from`, `cells_read`, `covered`. Pas encore vu en jeu.
 
