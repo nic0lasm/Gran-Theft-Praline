@@ -13,6 +13,7 @@
 #include "GameFramework/PlayerController.h"
 #include "GTPGraphicsProfile.h"
 #include "GTPLog.h"
+#include "GTPVehicle.h"
 #include "TimerManager.h"
 
 DEFINE_LOG_CATEGORY(LogGTPRagdoll);
@@ -45,6 +46,15 @@ bool UGTPRagdollComponent::BeginRagdoll(FVector LaunchVelocity, EGTPImpactSeveri
 {
 	if (bActive || !UGTPRagdollSubsystem::IsEnabled())
 	{
+		return false;
+	}
+	// At the wheel: none. A seated body has no collision (AGTPVehicle::AttachToSeat): its parts would fall through the
+	// car and the street, the capsule would follow the pelvis, and getting up would stand the driver where his pelvis
+	// lay, still attached to the car (gate 86, long take, 75 to 91 s: a head and a shoulder out of the driver's door,
+	// riding with the car).
+	if (const AActor* SeatedIn = GetOwner() ? GetOwner()->GetAttachParentActor() : nullptr; SeatedIn && SeatedIn->IsA<AGTPVehicle>())
+	{
+		GTP_TRACE(LogGTPRagdoll, TEXT("ragdoll: %s is seated in %s, no ragdoll at the wheel"), *GetOwner()->GetName(), *SeatedIn->GetName());
 		return false;
 	}
 	Mesh = FindMesh();

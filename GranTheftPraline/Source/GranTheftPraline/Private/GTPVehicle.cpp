@@ -1754,6 +1754,7 @@ void AGTPVehicle::Tick(float DeltaSeconds)
 		{
 			UpdateDriveAssist(DeltaSeconds);
 		}
+		KeepDriverSeated();
 		UpdateChaseCamera(DeltaSeconds);
 	}
 	else
@@ -2256,6 +2257,44 @@ void AGTPVehicle::AttachToSeat(ACharacter* Character)
 		DriverMesh->bNoSkeletonUpdate = true;
 		DriverMesh->ComponentTags.AddUnique(SeatDormantTag());
 	}
+}
+
+void AGTPVehicle::KeepDriverSeated()
+{
+	// Gate 86, long take, 75 to 91 s: a head and a shoulder out of the driver's door, riding with the car at 18 km/h.
+	// The driver is attached to the seat and nothing moves him there on purpose. Whatever does is said here, with what
+	// his body was doing, and he is seated again.
+	static const bool bWatched = !FParse::Param(FCommandLine::Get(), TEXT("DriverSeatFree"));
+	ACharacter* Seated = Driver;
+	USkeletalMeshComponent* Hull = GetMesh();
+	if (!bWatched || !Seated || !Hull)
+	{
+		return;
+	}
+	const FVector SeatPlace = Hull->DoesSocketExist(DriverSeatSocket) ? Hull->GetSocketLocation(DriverSeatSocket)
+		: Hull->GetComponentTransform().TransformPosition(DriverSeatOffset);
+	const double OffSeat = FVector::Dist(Seated->GetActorLocation(), SeatPlace);
+	if (OffSeat <= 15.0 && Seated->GetAttachParentActor() == this)
+	{
+		return;
+	}
+	++SeatedAgainCount;
+	UCharacterMovementComponent* Legs = Seated->GetCharacterMovement();
+	if (SeatedAgainCount <= 5 || SeatedAgainCount % 100 == 0)
+	{
+		const USkeletalMeshComponent* Own = Seated->GetMesh();
+		const FVector Local = GetActorTransform().InverseTransformPosition(Seated->GetActorLocation());
+		GTP_TRACE(LogGTPVehicle, TEXT("%s: the driver %s is %.0f cm off the seat (%.0f ahead, %.0f to the right, %.0f up of the car's origin), attached to %s, movement mode %d, his mesh simulating %d, hidden %d: seated again (%d time(s) so far)"),
+			*GetName(), *Seated->GetName(), OffSeat, Local.X, Local.Y, Local.Z,
+			Seated->GetAttachParentActor() ? *Seated->GetAttachParentActor()->GetName() : TEXT("nothing"),
+			Legs ? static_cast<int32>(Legs->MovementMode.GetValue()) : -1, Own && Own->IsSimulatingPhysics() ? 1 : 0, Seated->IsHidden() ? 1 : 0, SeatedAgainCount);
+	}
+	if (Legs)
+	{
+		Legs->StopMovementImmediately();
+		Legs->DisableMovement();
+	}
+	AttachToSeat(Seated);
 }
 
 FName AGTPVehicle::SeatDormantTag()

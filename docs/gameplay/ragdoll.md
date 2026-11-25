@@ -32,6 +32,16 @@ The body leaves at about 55 % of the car's speed (shared by mass), with a lift o
 Crouching halves the speed counted. Leaving a car moving at 8-30 km/h: stumble;
 30-55: knocked down; over 55: thrown. About 3 m of fall is a stumble, 8 m a ragdoll.
 
+## At the wheel
+
+A seated driver gets no ragdoll and is not run over (`UGTPRagdollComponent::BeginRagdoll`,
+`UGTPPlayerReactionComponent::CheckCars`). A seated body has no collision: its parts would fall through the car
+and the street, and getting up would stand the driver where his pelvis lay, still attached to the car. Gate 86,
+long take, 75 to 91 s: a head and a shoulder out of the driver's door, riding with the car. Which of the two did
+it is not proved: the log of that take was not read. So the player's car also checks every frame that its driver
+is on the seat (`AGTPVehicle::KeepDriverSeated`): found more than 15 cm off, it says where he was and what his
+body was doing (`the driver ... is N cm off the seat`), and seats him again. `-DriverSeatFree`: no check.
+
 ## Cost
 
 At most 3 ragdolls simulate on m1 (6 fidelity, 10 ultra); beyond that the farthest
