@@ -426,7 +426,8 @@ void FGTPLaneFollower::Plan()
 	}
 }
 
-bool FGTPLaneFollower::Step(const FVector& Location, float YawDegrees, float SpeedKmh, float MaxSpeedKmh, float ObstacleMetres, FGTPDriveCommand& Out)
+bool FGTPLaneFollower::Step(const FVector& Location, float YawDegrees, float SpeedKmh, float MaxSpeedKmh, float ObstacleMetres, FGTPDriveCommand& Out,
+	float LeaderSpeedMps)
 {
 	AGTPTrafficNetwork* Net = Network.Get();
 	if (!Net || Route.Num() == 0)
@@ -477,7 +478,7 @@ bool FGTPLaneFollower::Step(const FVector& Location, float YawDegrees, float Spe
 		}
 	}
 	Out = GTPDrive::Decide(Path, static_cast<float>(Location.X) * CmToM, static_cast<float>(Location.Y) * CmToM,
-		FMath::DegreesToRadians(YawDegrees), Speed, LaneSpeed, ObstacleMetres, Settings, Closest);
+		FMath::DegreesToRadians(YawDegrees), Speed, LaneSpeed, ObstacleMetres, Settings, Closest, LeaderSpeedMps);
 	if (Closest >= CurrentLaneLength && Route.Num() > 1)
 	{
 		// The lane goes, its last metres stay: where lanes meet in a corner the car is in the middle of it, and the

@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "GTPPoliceBrainLogic.h"
 #include "GTPPoliceTactics.h"
+#include "GTPPoliceIntercept.h"
 #include "Components/ActorComponent.h"
 #include "GameFramework/Actor.h"
 #include "UObject/SoftObjectPath.h"
@@ -377,6 +378,34 @@ protected:
 	float UpstreamStartKmh = 50.f;
 
 	/**
+	 * A car that waits for him (GTPPoliceIntercept.h): from two stars, the cars that replace one lost and the flank
+	 * cars of a level are made in a side street ahead of a player who drives, out of his sight, 25 m from the road he
+	 * is on, and stand there until he comes by; they pull out behind him. Where no such street is found the car is
+	 * made as before (upstream, then in front, then anywhere). While it waits a car is not counted in the pursuit's
+	 * numbers (FGTPChaseTally), as a roadblock car is not: it stands by design. A unit left more than 180 m behind a
+	 * player who drives for 6 s is taken away out of his sight, as past the leash, once a car waits ahead of him in its place.
+	 * Gates 99 to 102: a unit within 80 m of him 5 to 43 % of the time with every car made behind him.
+	 * -PoliceIntercept=0 turns both off.
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Police")
+	bool bInterceptSpawn = true;
+
+	/**
+	 * A unit behind something that drives its way follows it at a time gap, as the traffic's cars do, and no longer
+	 * brakes for it as for a wall (GTPPoliceTactics::LeaderSpeed; gate 102: the whole brake at 66 km/h for a colleague
+	 * 30 m ahead). -PoliceFollow=0: as until gate 104.
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Police|Driving")
+	bool bFollowLeaders = true;
+
+	/**
+	 * A unit left behind may drive faster than its level's speed, up to 140 km/h from 150 m behind him
+	 * (GTPPoliceTactics::CatchUpKmh). -PoliceCatchUp=0: its level's speed whatever the distance, as until gate 104.
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Police|Driving")
+	bool bCatchUp = true;
+
+	/**
 	 * Scenery on a unit's way (gate 75: nine cars held against lamp posts, lights and trees in 68 s; a unit only
 	 * looked ahead for cars and people). A unit looks ahead for what does not move, steers round it on the side
 	 * that is free and slows to what it can stop from (GTPUnitAvoid.h). -PoliceAvoid=0 turns it off, and the
@@ -540,6 +569,21 @@ private:
 		/** No scenery between it and the player, looked at four times a second. */
 		bool bWayClear = false;
 		float NextWayLookTime = 0.f;
+		/** Waits in a side street for him to come by (GTPPoliceIntercept.h): how long, and the nearest he has been (m). */
+		bool bWaits = false;
+		float WaitSeconds = 0.f;
+		float WaitNearestM = 1.e9f;
+		/** Pulled out as he came by: until JoinUntil (s) it drives to JoinGoal, on his road past its junction, whichever
+		 *  side of that junction he still is; then after him like any other unit. */
+		FVector JoinGoal = FVector::ZeroVector;
+		float JoinUntil = 0.f;
+		/** Seconds left far behind a player who drives (GTPPoliceIntercept::LeftBehindSeconds), and since it was made. */
+		float BehindSeconds = 0.f;
+		float AliveSeconds = 0.f;
+		/** The speed of what the probe last met along the unit's heading when the unit follows it (m/s); negative: it does not. */
+		float LastLeaderMps = -1.f;
+		/** The top speed it was last given (km/h). */
+		float LastTopKmh = 0.f;
 	};
 
 	/** Siren follows the lights: off without stars, yelp in pursuit, two-tone otherwise. */
@@ -596,6 +640,14 @@ private:
 	bool FindSpawnPoint(const FVector& PlayerLocation, int32& OutLane, int32& OutPoint, FTransform& OutTransform) const;
 	/** A place for a car upstream of a player who drives (bUpstreamSpawn); OutAlongM: the road it has to him (m). */
 	bool FindUpstreamPoint(const FVector& PlayerLocation, int32& OutLane, int32& OutPoint, FTransform& OutTransform, float& OutAlongM) const;
+	/**
+	 * A place for a car that waits for a player who drives (bInterceptSpawn): in a side street ahead of him on his
+	 * way, the way of the map's flight circuit when a script drives the flight; OutAlongM: his way to the junction (m);
+	 * OutJoin: a place on the lane of his way the side street leads into, 30 m past the junction.
+	 */
+	bool FindInterceptPoint(const FVector& PlayerLocation, int32& OutLane, int32& OutPoint, FTransform& OutTransform, float& OutAlongM, FVector& OutJoin) const;
+	/** The top speed of a unit after him (km/h): LevelKmh, more when it is left behind (bCatchUp). Kept in the unit for its line. */
+	float TopSpeedFor(FUnit& Unit, float LevelKmh, const AActor& Player, int32 Stars) const;
 	/**
 	 * True when a police car can be made at Place, on the ground the trace Ground found there. False when that trace
 	 * stopped on a car or a person (the "ground" was a roof), or when one stands in the room the new car takes.
@@ -667,6 +719,21 @@ private:
 	bool bFarSpawn = false;
 	/** Spawn bias: when set, SpawnUnit looks upstream of the player first (FindUpstreamPoint). */
 	bool bUpstreamTry = false;
+	/** Spawn bias: when set, SpawnUnit looks for a side street ahead of the player before anything else (FindInterceptPoint). */
+	bool bInterceptTry = false;
+	/** With bInterceptTry: no car is made where no side street is found (asked for a unit left behind, which then stays). */
+	bool bInterceptOnly = false;
+	float NextInterceptLookTime = 0.f;
+	/** Cars made to wait since the start, tries that found no side street, cars that pulled out, units taken away left behind. */
+	int32 InterceptMade = 0;
+	int32 InterceptNoPlace = 0;
+	int32 InterceptJoined = 0;
+	int32 LeftBehindTaken = 0;
+	/** No other unit is taken away left behind before then (s): the car made in the place of the last one has to pull out first. */
+	float NextLeftBehindTime = 0.f;
+	GTPPoliceIntercept::FSettings InterceptSettings;
+	GTPPoliceIntercept::FLeftBehind LeftBehind;
+	GTPPoliceTactics::FCatchUp CatchUp;
 	/** Cars made upstream since the start, and tries that found no place there (the ring was used). */
 	int32 UpstreamMade = 0;
 	int32 UpstreamNoPlace = 0;
