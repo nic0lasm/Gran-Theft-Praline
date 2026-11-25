@@ -447,6 +447,15 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Missions")
 	float ParkBodyClearance = 130.f;
 
+	/**
+	 * A parked car's centre stays at least this far from the driving line of the map's flight circuit (cm): the two
+	 * half widths, and what the filmed flight strays from its line. The line is not the middle of a lane, and
+	 * ParkLaneClearance says nothing of it. Gate 91: the flight 1.6 m to the right of its line behind a row of
+	 * parked cars 2.4 m from it, stopped at 62 s and arrested there. 0 turns it off.
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Missions")
+	float ParkFlightClearance = 340.f;
+
 	// --- Real cars parked along the streets around the player, to steal (-StreetParked=N) ---
 
 	UPROPERTY(Config, EditAnywhere, Category = "Traffic|Parked")

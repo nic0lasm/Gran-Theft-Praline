@@ -1989,10 +1989,31 @@ AGTPVehicle* AGTPTrafficNetwork::SpawnParkedVehicle(FName Tag, const FVector& Ne
 	// points are 4 m apart, so 10 m more than the request's radius holds them all.
 	const std::vector<GTPKerb::FSegmentRef> Nearby = GTPKerb::SegmentsNear(Polylines,
 		{static_cast<float>(Near.X), static_cast<float>(Near.Y)}, FMath::Max(RadiusCm, 100.f) + FMath::Max(ParkOffset, 0.f) + 1000.f);
+	// The lines of the map's flight circuit (cm): a flight does not drive the middle of its lanes, and its line runs up to
+	// 6.6 m beside them (GTPFlightCircuit.h, tools/city/line_room.py).
+	std::vector<std::vector<GTPKerb::FPoint2>> FlightLines;
+	if (ParkFlightClearance > 0.f && FlightCircuit.IsValid())
+	{
+		for (const std::vector<std::vector<GTPFlightCircuit::FLinePoint>>* Lines : {&FlightCircuit.Lines, &FlightCircuit.ApproachLines})
+		{
+			for (const std::vector<GTPFlightCircuit::FLinePoint>& From : *Lines)
+			{
+				std::vector<GTPKerb::FPoint2>& Line = FlightLines.emplace_back();
+				Line.reserve(From.size());
+				for (const GTPFlightCircuit::FLinePoint& Point : From)
+				{
+					Line.push_back({Point.X * 100.f, Point.Y * 100.f});
+				}
+			}
+		}
+	}
+	const std::vector<GTPKerb::FSegmentRef> FlightNearby = GTPKerb::SegmentsNear(FlightLines,
+		{static_cast<float>(Near.X), static_cast<float>(Near.Y)}, FMath::Max(RadiusCm, 100.f) + FMath::Max(ParkOffset, 0.f) + ParkFlightClearance + 1000.f);
 	int32 OnLane = 0;
 	int32 OnFurniture = 0;
 	int32 NearEnd = 0;
 	int32 BodyOnLane = 0;
+	int32 OnFlightLine = 0;
 	float BodyFront = 230.f;
 	float BodyBack = 230.f;
 	float BodyHalfWidth = 95.f;
@@ -2039,6 +2060,14 @@ AGTPVehicle* AGTPTrafficNetwork::SpawnParkedVehicle(FName Tag, const FVector& Ne
 					BodyOnLane += Pass == 0 ? 1 : 0;
 					continue;
 				}
+				// Nor beside the line of the filmed flight: two half widths, and what the flight strays from its line
+				// (gate 91: stopped 1.6 m to the right of it in the rue Bellecordiere, behind a row of parked cars 2.4 m from it;
+				// at 62 s, pushed into the first one, arrested at 70 s).
+				if (!GTPKerb::IsClearOfLanes(FlightLines, FlightNearby, Spot.Position, ParkFlightClearance))
+				{
+					OnFlightLine += Pass == 0 ? 1 : 0;
+					continue;
+				}
 			}
 			FVector Location(Spot.Position.X, Spot.Position.Y, (A.Z + B.Z) * 0.5);
 			if (bUnseenOnly && IsSeenByPlayer(Location))
@@ -2074,16 +2103,16 @@ AGTPVehicle* AGTPTrafficNetwork::SpawnParkedVehicle(FName Tag, const FVector& Ne
 			{
 				Car->Tags.AddUnique(Tag);
 			}
-			GTP_TRACE(LogGTPTraffic, TEXT("traffic: parked %s (%s) on lane %d at %s, %.0f m from the request, pivot %.0f cm above the ground (the mesh's lowest point at 40 cm), %d spot(s) on another lane left out, %d on street furniture, %d near a lane end or bend, %d with the body over a lane%s"),
+			GTP_TRACE(LogGTPTraffic, TEXT("traffic: parked %s (%s) on lane %d at %s, %.0f m from the request, pivot %.0f cm above the ground (the mesh's lowest point at 40 cm), %d spot(s) on another lane left out, %d on street furniture, %d near a lane end or bend, %d with the body over a lane, %d beside the flight's line%s"),
 				*Car->GetName(), *Tag.ToString(), Ref.Lane, *Location.ToCompactString(), Ref.Distance / 100.f, Clearance, OnLane, OnFurniture,
-				NearEnd, BodyOnLane, bClearSpotsOnly ? TEXT("") : TEXT(" (no clear spot: one in the way of traffic)"));
+				NearEnd, BodyOnLane, OnFlightLine, bClearSpotsOnly ? TEXT("") : TEXT(" (no clear spot: one in the way of traffic)"));
 			return Car;
 		}
 	}
 	if (!bQuietMiss)
 	{
-		GTP_TRACE(LogGTPTraffic, TEXT("traffic: no free spot for a parked car (%s) within %.0f m of %s (%d spot(s) on another lane left out, %d on street furniture, %d near a lane end or bend, %d with the body over a lane)"),
-			*Tag.ToString(), RadiusCm / 100.f, *Near.ToCompactString(), OnLane, OnFurniture, NearEnd, BodyOnLane);
+		GTP_TRACE(LogGTPTraffic, TEXT("traffic: no free spot for a parked car (%s) within %.0f m of %s (%d spot(s) on another lane left out, %d on street furniture, %d near a lane end or bend, %d with the body over a lane, %d beside the flight's line)"),
+			*Tag.ToString(), RadiusCm / 100.f, *Near.ToCompactString(), OnLane, OnFurniture, NearEnd, BodyOnLane, OnFlightLine);
 	}
 	return nullptr;
 }
