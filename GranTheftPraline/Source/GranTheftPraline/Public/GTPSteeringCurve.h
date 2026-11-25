@@ -10,13 +10,13 @@
 
 namespace GTPSteeringCurve
 {
-	struct FKey
+	struct FSpeedShare
 	{
 		float Speed;    // as the vehicle reads it (mph)
 		float Share;    // of the steering asked, 0..1
 	};
 
-	constexpr FKey Keys[] = {{0.f, 1.f}, {30.f, 0.75f}, {80.f, 0.3f}, {120.f, 0.22f}};
+	constexpr FSpeedShare Keys[] = {{0.f, 1.f}, {30.f, 0.75f}, {80.f, 0.3f}, {120.f, 0.22f}};
 	constexpr int KeyCount = sizeof(Keys) / sizeof(Keys[0]);
 	constexpr float MphPerKmh = 0.621371f;
 

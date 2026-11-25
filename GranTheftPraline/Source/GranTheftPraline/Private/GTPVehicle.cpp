@@ -205,7 +205,7 @@ void AGTPVehicle::ApplyCityCarTuning()
 	{
 		Steering->Reset();
 		// The keys are in GTPSteeringCurve.h: the script of the filmed flight undoes them at speed (GTPFlightPedals.h).
-		for (const GTPSteeringCurve::FKey& Key : GTPSteeringCurve::Keys)
+		for (const GTPSteeringCurve::FSpeedShare& Key : GTPSteeringCurve::Keys)
 		{
 			Steering->AddKey(Key.Speed, Key.Share);
 		}
