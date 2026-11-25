@@ -643,6 +643,15 @@ def is_landmark(item):
     return int(item.get("index", 0)) == -1 and str(item.get("folder", "")).startswith("City/Landmarks")
 
 
+def landmarks_not_moved(report):
+    """Labels of lane_clear.LANDMARK_MOVES the prep step did not move: line_room.py draws the line for their new
+    place whatever the map says, so a carrousel left on the carriageway would stand in the line's way unseen."""
+    import lane_clear  # noqa: PLC0415
+
+    moved = {entry.get("label") for entry in report.get("landmarks_moved", []) if entry.get("moved")}
+    return sorted(label for label in lane_clear.LANDMARK_MOVES if label not in moved)
+
+
 def report_blockers(report_path, lap):
     """Objects the prep step "lanes" only reported (never taken out) on a lane of the lap."""
     with open(report_path, encoding="utf-8-sig") as f:
@@ -856,6 +865,11 @@ def cmd_check(args):
             print("    landmark by lane %s: %s (%s), its bounding box %s cm from the line; not failed, the line has to go round it"
                   % (item.get("lane"), item.get("label"), item.get("actor"), item.get("gap_cm")))
         failed = failed or bool(kept)
+        unmoved = landmarks_not_moved(report)
+        if unmoved:
+            print("flight circuit: FAIL landmark(s) not moved by the prep step \"lanes\" (landmarks_moved): %s; the line is drawn "
+                  "for their new place and would go through them" % ", ".join(unmoved))
+            failed = True
         if int(report.get("lanes", len(lanes))) != len(lanes):
             print("flight circuit: FAIL the report was made with %s lanes, this lanes file has %d" % (report.get("lanes"), len(lanes)))
             failed = True
