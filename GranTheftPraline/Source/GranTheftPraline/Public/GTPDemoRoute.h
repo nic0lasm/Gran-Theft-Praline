@@ -163,6 +163,9 @@ private:
 	bool bOnLaneOnce = false;
 	TWeakObjectPtr<AGTPVehicle> RelocatedCar;
 	double RelocateHoldUntil = 0.0;
+	/** From the end of that hold and for 4 s: the car's attitude is watched, and who is in it said if it leans. */
+	bool bRelocationWatched = false;
+	int32 RelocationsTipped = 0;
 	double NextDriveDiag = 0.0;
 	/** Highest speed of the driven car in the chase (km/h), logged with DemoChase. */
 	float PeakKmh = 0.f;
