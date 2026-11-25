@@ -39,6 +39,14 @@ Each row also carries the speed the flight asks on it (column `kmh`), from 4 s a
 
 What the simulation says (`flight_circuit_test.cpp`: the game's decisions, a bicycle model of a car, not the game's physics): on the line a lap takes about two minutes, the first minute averages 52 to 53 km/h, the top speed is 100 km/h. As the film starts, from a standstill at the kerb and through the turn back: 50 to 52 km/h over the first minute, the place de la République at about 38 s, Bellecour at about 70 s, the place des Jacobins at about 85 s. Only a gate on the PC says what the game's car does.
 
+## The pedals in the corners
+
+Gate 83: the stolen car left its lane at three corners (quay to rue Childebert, rue Childebert to the place de la République, rue Herriot to rue Jean de Tournes) and was put back on a lane 6 times in one pass, 3 in the other. Its lines, one a second, show why. The lane follower drops the points of a lane the moment the car's closest point is on the next one, and a corner at the very start of a path is not counted as a bend: the speed wanted goes from 24 to 57 km/h in the middle of the corner, and the car gets the whole throttle at full lock (`lane=45 kmh=36 throttle=1.00 steer=1.00`, then `kmh=52`, then 27 m from its lane).
+
+Since then the script's pedals follow its steering (`GTPFlightPedals.h`): with more than a third of lock asked, no throttle and some brake while the car is faster than that lock holds at 6 m/s² (15 km/h at full lock, 28 at a third). Under a third of lock nothing changes: on the quay the car asks 0.14 of lock at 98 km/h, and in the lines of gate 83 it never asks a third above 45 km/h. The steering is left as asked. `DemoDrive` lines show the pedals the car gets.
+
+Not proven on the game's car at the time of writing. `flight_pedals_test.cpp` drives the three corners on the circuit's own lines with the game's decisions: the jump of the speed wanted is there, the rule takes the throttle away and costs under half a second a corner, but the car of that model holds the corners either way. The cause in the lane follower (the corner forgotten as the lane is left) is still there for every driver.
+
 ## Where the film ends
 
 In `-GTARun` the player gives up after the pursuit step: the car stops and the police come to it. By the clock alone that fell 100 to 200 m short of the place Bellecour. The circuit file marks the lanes the flight is to end on (column `mark`, value `end`): the last 65 m of the rue de la Barre and the 30 m of the place Bellecour, along the north side of the square. Once its 40 s are over, the pursuit step goes on until the car is on one of them, 20 s more at most; a car that crossed them before the 40 s were over stops where it is. The step says which: `ended after N s on the place the circuit ends on`, `past` it or `short of` it.
@@ -60,6 +68,8 @@ When the roads of the circuit change: `write` on a lanes file that has them (mad
 ## Switch
 
 `-FlightCircuit=0`: the flight is free on the lanes, as until gate 78.
+
+`-DemoPedalsAlone`: the pedals no longer follow the steering, as until gate 83.
 
 ## Also changed for every driver
 

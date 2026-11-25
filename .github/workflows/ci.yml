@@ -89,6 +89,12 @@ jobs:
         run: |
           g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/wanted_sim/corner_drive_test.cpp -o /tmp/corner_drive_test
           /tmp/corner_drive_test
+      - name: The flight's pedals in the corners of the circuit
+        run: |
+          g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/wanted_sim/flight_pedals_test.cpp -o /tmp/flight_pedals_test
+          /tmp/flight_pedals_test
+          printf '#include "GTPFlightPedals.h"\nint main() { return 0; }\n' > /tmp/hdr_pedals.cpp
+          clang++ -std=c++17 -fsyntax-only -Wall -Wextra -Werror -Wshadow -I GranTheftPraline/Source/GranTheftPraline/Public /tmp/hdr_pedals.cpp
       - name: Chase speed of the drive logic (known path and bend horizon)
         run: |
           g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/wanted_sim/chase_speed_test.cpp -o /tmp/chase_speed_test
