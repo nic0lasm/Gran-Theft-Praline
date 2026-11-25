@@ -12,6 +12,13 @@ open the map, BlockAll on the static mesh components in the outliner folder City
 Then an audit: every standing thing of the map (2.5 m or more) whose
 component stops nothing, counted by outliner folder, and those within 60 m of the line the
 flight drives listed by name (walls_without_collision in the report).
+A landmark that stands for a whole building (landmarks.json, kind "building") is a LiDAR hull
+whose walls let a walker in, although the audit below sees a collision on it (quads wound
+either way, gaps where the roof edge reads at street level: which of the two is not known):
+at gate 101 the player walked into the cinema at the south end of the street and stayed in it,
+the picture black for 47 s. Boxes that are not drawn fill its outline (footprint_fill.strips),
+6 m high, in the folder City/Blockers; the report gives landmark_blockers.
+GTP_LANDMARK_BLOCKERS=0 leaves them out.
 GTP_BACKDROP_COLLISION=0: nothing is changed (report only). Report:
 Saved/CityImport/backdrop_collision_report.json.
 """
@@ -28,6 +35,12 @@ CAMEL = "".join(p.capitalize() for p in FOCUS.split("-"))
 ROOT = "/Game/Environment/City/" + "".join(p.capitalize() for p in ZONE.split("-"))
 MAP = "/Game/Maps/L_City_" + CAMEL
 FOLDER = "City/Backdrop"
+LANDMARK_BLOCKERS = os.environ.get("GTP_LANDMARK_BLOCKERS", "1") != "0"
+LANDMARK_FOLDER = "City/Landmarks"
+BLOCKER_FOLDER = "City/Blockers"
+BLOCKER_LABEL = "Landmark_Blockers"
+BLOCKER_TALL_CM = 600.0         # over a walker, a car and the camera behind them
+CUBE = "/Engine/BasicShapes/Cube.Cube"       # 100 cm, centred on its origin
 
 eal = unreal.EditorAssetLibrary
 
@@ -84,6 +97,100 @@ def audit(actors):
     return out
 
 
+def hidden_boxes(actor_sub):
+    """One actor, one instanced cube that is not drawn in the game and stops everything (as the
+    trunk posts of clear_lane_instances.py). Raises when it cannot be hidden: white boxes over a
+    building are worse than a hull one can walk into."""
+    sds = unreal.get_engine_subsystem(unreal.SubobjectDataSubsystem)
+    sdl = unreal.SubobjectDataBlueprintFunctionLibrary
+    actor = actor_sub.spawn_actor_from_class(unreal.StaticMeshActor, unreal.Vector(0, 0, 0))
+    try:
+        actor.set_actor_label(BLOCKER_LABEL)
+        actor.set_folder_path(BLOCKER_FOLDER)
+        root = sds.k2_gather_subobject_data_for_instance(actor)[0]
+        handle, _ = sds.add_new_subobject(unreal.AddNewSubobjectParams(
+            parent_handle=root, new_class=unreal.HierarchicalInstancedStaticMeshComponent))
+        comp = sdl.get_object(sdl.get_data(handle))
+        comp.set_static_mesh(eal.load_asset(CUBE))
+        comp.set_editor_property("mobility", unreal.ComponentMobility.STATIC)
+        comp.set_collision_profile_name("BlockAll")
+        try:
+            comp.set_hidden_in_game(True)
+        except Exception:  # noqa: BLE001  the property, when the call is not there
+            comp.set_editor_property("hidden_in_game", True)
+        for prop in ("cast_shadow", "visible_in_ray_tracing", "affect_distance_field_lighting"):
+            try:
+                comp.set_editor_property(prop, False)
+            except Exception:  # noqa: BLE001  hidden already: these only spare the renderer
+                pass
+    except Exception:
+        actor_sub.destroy_actor(actor)
+        raise
+    return actor, comp
+
+
+def landmark_blockers(actor_sub):
+    """Boxes that are not drawn inside the outline of every landmark of the map that stands for a
+    building. {"on", "landmarks": {label: boxes}, "instances"}; the map changed when instances
+    or removed is not 0."""
+    import sys
+    repo = os.path.abspath(os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_dir()), ".."))
+    sys.path.insert(0, os.path.join(repo, "tools", "city"))
+    import footprint_fill
+    import squares
+    out = {"on": LANDMARK_BLOCKERS, "landmarks": {}, "instances": 0, "removed": 0}
+    hulls = {}
+    for a in actor_sub.get_all_level_actors():
+        folder = str(a.get_folder_path())
+        if folder.startswith(BLOCKER_FOLDER):
+            actor_sub.destroy_actor(a)          # idempotent: laid again from the outlines
+            out["removed"] += 1
+        elif folder.startswith(LANDMARK_FOLDER):
+            hulls[a.get_actor_label()] = a
+    if not LANDMARK_BLOCKERS:
+        return out
+    path = os.path.join(repo, "assets", "geo", "processed", ZONE, "landmarks.json")
+    if not os.path.exists(path):
+        out["skipped"] = "no landmarks.json for the zone"
+        return out
+    with open(path, encoding="utf-8") as f:
+        records = json.load(f).get("landmarks", [])
+    todo = []
+    for r in records:
+        hull = hulls.get(r.get("mesh"))
+        if r.get("kind") != "building" or hull is None or not r.get("polygon_xy"):
+            continue
+        origin, extent = hull.get_actor_bounds(False)
+        foot = origin.z - extent.z
+        tall = min(BLOCKER_TALL_CM, 2.0 * extent.z)
+        boxes = []
+        for ring in r["polygon_xy"]:
+            boxes += footprint_fill.strips(squares.to_ue(ring))
+        # the outline is where the hull stands: a landmark moved since is left alone
+        boxes = [b for b in boxes if abs(0.5 * (b[0] + b[2]) - origin.x) <= extent.x
+                 and abs(0.5 * (b[1] + b[3]) - origin.y) <= extent.y]
+        out["landmarks"][r["mesh"]] = len(boxes)
+        todo += [(b, foot, tall) for b in boxes]
+    if not todo:
+        return out
+    actor, comp = hidden_boxes(actor_sub)
+    try:
+        for (x0, y0, x1, y1), foot, tall in todo:
+            comp.add_instance(unreal.Transform(unreal.Vector(0.5 * (x0 + x1), 0.5 * (y0 + y1), foot + 0.5 * tall),
+                                               unreal.Rotator(0, 0, 0),
+                                               unreal.Vector((x1 - x0) / 100.0, (y1 - y0) / 100.0, tall / 100.0)), True)
+    except Exception:
+        actor_sub.destroy_actor(actor)
+        raise
+    try:
+        actor.set_editor_property("is_spatially_loaded", False)
+    except Exception:  # noqa: BLE001  plain level: no such property to set
+        pass
+    out["instances"] = len(todo)
+    out["actor"] = actor.get_actor_label()
+    return out
+
+
 def main():
     t0 = time.time()
     report = {"map": MAP, "errors": [], "meshes": 0, "components": 0}
@@ -125,6 +232,12 @@ def main():
             level_sub.save_current_level()
         else:
             report["errors"].append("no component in folder " + FOLDER)
+        try:
+            report["landmark_blockers"] = landmark_blockers(actor_sub)
+            if report["landmark_blockers"]["instances"] or report["landmark_blockers"]["removed"]:
+                level_sub.save_current_level()
+        except Exception as e:  # noqa: BLE001  the backdrop is solid: the blockers never fail the step
+            report["landmark_blockers"] = {"on": LANDMARK_BLOCKERS, "error": repr(e)}
         try:
             report["walls_without_collision"] = audit(actor_sub.get_all_level_actors())
         except Exception as e:  # noqa: BLE001  the audit never fails the step

@@ -680,6 +680,11 @@ def shell_material():
 # All ALU, no texture, faded to its average before it aliases. Per building face, the bay width,
 # storey heights and balcony come from a hash of the wall plane. GTP_BACKDROP_FACADES=0: plain shell.
 BACKDROP_FACADES = os.environ.get("GTP_BACKDROP_FACADES", "1") != "0"
+# A landmark that stands for an ordinary building of the street is a bare hull: it takes the
+# drawn front of the backdrop volumes (windows, storeys, ground floor) instead of the shell
+# material. Gate 101: the cinema at the south end of rue de la Republique was a blank pale block
+# 20 m from the flight's line. Mesh names, comma separated; empty leaves the hulls bare.
+LANDMARK_FRONTS = [n for n in os.environ.get("GTP_LANDMARK_FRONTS", "SM_Landmark_PatheBellecour").split(",") if n]
 BACKDROP_HLSL = r"""
 // Procedural Lyon facade on a backdrop volume wall: bays of windows over a shop ground floor.
 // In: P world position (cm, floats), N vertex normal (WS), V camera vector (WS, to the eye),
@@ -1572,8 +1577,10 @@ def main():
         report["terrain_meshes"] = assign(ROOT + "/Terrain", ground)
         report["shell_meshes"] = assign(ROOT + "/Buildings/" + CAMEL, shell)
         backdrop_dir = ROOT + "/Backdrop/" + CAMEL
+        drawn = None
         if eal.does_directory_exist(backdrop_dir):
-            report["backdrop_meshes"] = assign(backdrop_dir, backdrop_material() if BACKDROP_FACADES else shell)
+            drawn = backdrop_material() if BACKDROP_FACADES else None
+            report["backdrop_meshes"] = assign(backdrop_dir, drawn or shell)
             report["backdrop_facades"] = BACKDROP_FACADES
         report["facade_tone"] = dict(on=FACADE_TONE, keep=facade_tone().KEEP, knee=facade_tone().KNEE,
                                      slope=facade_tone().SLOPE) if FACADE_TONE else {"on": False}
@@ -1588,7 +1595,15 @@ def main():
         report["route_mask"] = ROUTE_REPORT
         report["horizon_materials"] = horizon_materials()
         if eal.does_directory_exist(ROOT + "/Landmarks/" + CAMEL):
-            report["landmark_meshes"] = assign(ROOT + "/Landmarks/" + CAMEL, shell)
+            fronts = {}
+            if LANDMARK_FRONTS and BACKDROP_FACADES:
+                try:
+                    drawn = drawn or backdrop_material()
+                    fronts = {n: drawn for n in LANDMARK_FRONTS}
+                except Exception as e:  # noqa: BLE001  the hulls keep the shell material
+                    report["landmark_fronts_error"] = repr(e)
+            report["landmark_meshes"] = assign(ROOT + "/Landmarks/" + CAMEL, shell, fronts)
+            report["landmark_fronts"] = sorted(fronts)
         river_dir = ROOT + "/Riverside/" + CAMEL
         if eal.does_directory_exist(river_dir):
             report["riverside_meshes"] = assign(river_dir, shell, {"SM_River_Water": water_material()})
