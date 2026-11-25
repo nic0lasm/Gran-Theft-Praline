@@ -208,6 +208,7 @@ def main():  # noqa: C901
                 note += " removed %s %s, of which %s within %s cm of the %s driven lines, reported only %s" % (
                     r.get("removed_total"), r.get("removed"), r.get("circuit_removed"), r.get("circuit_clear_cm"),
                     r.get("circuit_lines"), r.get("reported_only_total"))
+                note += ", plain actors removed %s" % [e.get("label") for e in r.get("removed_actors") or []]
         elif step == "pits":
             ok, _, note = qb.run_editor("route_pits", "cover_pits", "pit_cover_report.json", 2400, {}, args)
             rep = os.path.join(qb.SAVED, "pit_cover_report.json")
@@ -218,6 +219,13 @@ def main():  # noqa: C901
         elif step == "collision":
             ok, _, note = qb.run_editor("route_collision", "backdrop_collision", "backdrop_collision_report.json", 900,
                                         {}, args)
+            rep = os.path.join(qb.SAVED, "backdrop_collision_report.json")
+            if os.path.exists(rep):
+                with open(rep, encoding="utf-8") as f:
+                    r = json.load(f)
+                w = r.get("walls_without_collision") or {}
+                note += " backdrop components made solid %s; standing without collision %s, %s near the driven line" % (
+                    r.get("components"), w.get("by_folder"), w.get("near_total"))
         elif step == "horizon":
             ok, _, note = qb.run_editor("route_horizon", "place_horizon", "horizon_report.json", 900, {}, args)
         elif step == "lights":

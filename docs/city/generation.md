@@ -439,6 +439,14 @@ far bank, the Rhône paved like a sidewalk. At 50 s the stolen car rolled into a
    (`GTP_CIRCUIT_CLEAR_M`); the report gives `circuit_lines`, `circuit_clear_cm`,
    `circuit_removed`, and such an instance has `"lane": "circuit"`.
 
+   Plain actors count as well as instances since gate 86 (the octagonal kiosk of rue de la
+   République, one static mesh actor 0.1 m off the line, stopped the car at gates 85 and 86):
+   one of those sets, at most 30 m wide, is destroyed (`removed_actors`); a landmark or a facade
+   is only reported. And the `collision` step (`backdrop_collision.py`) now ends on an audit:
+   what stands 2.5 m or more and stops nothing, by outliner folder, and by name within 60 m of
+   the driven line (`walls_without_collision`): at 171 s of that take the player walked through
+   a blind stone wall and the picture stayed black for 18 s.
+
 5. **The route mask** (`ground_mask.py --route <Map>.circuit.csv`, made by the `materials`
    step after the far mask): at 34 cm a texel the far mask cannot hold a kerb or a lane line,
    and in the long take of gate 83 the quay is a plain of asphalt. The route mask is as fine as
