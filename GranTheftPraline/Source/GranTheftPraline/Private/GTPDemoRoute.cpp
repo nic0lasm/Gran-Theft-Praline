@@ -4,8 +4,11 @@
 #include "Engine/GameInstance.h"
 #include "CollisionQueryParams.h"
 #include "Engine/World.h"
+#include "Engine/OverlapResult.h"
 #include "EngineUtils.h"
+#include "Components/CapsuleComponent.h"
 #include "GameFramework/Character.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "GTPDeterminism.h"
 #include "GTPFlightCircuit.h"
@@ -49,6 +52,89 @@ namespace
 	{
 		static const TCHAR* Names[] = { TEXT("lane"), TEXT("bend"), TEXT("follow"), TEXT("obstacle"), TEXT("pathend") };
 		return (Limit >= 0 && Limit < 5) ? Names[Limit] : TEXT("?");
+	}
+
+	/**
+	 * Who is in the car, said in the log after a relocation. Gate 88's long take, 87 to 92 s: put on a lane, the car
+	 * stood on its tail 0.6 s after its physics came back and lay on its side for 4 s, a man standing upright where it
+	 * had been put (gate 86: "on its nose, a passer-by under it"). The pictures do not say who he is. Named here: the
+	 * car's driver and what hangs from him, every character within 5 m (with or without collision), and every body in
+	 * the car's box that a car collides with.
+	 */
+	void DemoWhoIsInTheCar(const AGTPVehicle* Car, const TCHAR* When)
+	{
+		UWorld* World = Car ? Car->GetWorld() : nullptr;
+		if (!World)
+		{
+			return;
+		}
+		const FTransform CarFrame = Car->GetActorTransform();
+		auto Told = [&CarFrame](const AActor* Who)
+		{
+			const FVector In = CarFrame.InverseTransformPosition(Who->GetActorLocation());
+			const ACharacter* Body = Cast<ACharacter>(Who);
+			const UCapsuleComponent* Capsule = Body ? Body->GetCapsuleComponent() : nullptr;
+			const UCharacterMovementComponent* Legs = Body ? Body->GetCharacterMovement() : nullptr;
+			const USkeletalMeshComponent* Skin = Body ? Body->GetMesh() : nullptr;
+			return FString::Printf(TEXT("%s (%s) at %.0f %.0f %.0f of the car, collision %d, capsule against a car %d, hidden %d, attached to %s, movement mode %d, mesh simulating %d, mesh %.0f cm from its actor"),
+				*Who->GetName(), *Who->GetClass()->GetName(), In.X, In.Y, In.Z, Who->GetActorEnableCollision() ? 1 : 0,
+				Capsule ? static_cast<int32>(Capsule->GetCollisionResponseToChannel(ECC_Vehicle)) : -1, Who->IsHidden() ? 1 : 0,
+				Who->GetAttachParentActor() ? *Who->GetAttachParentActor()->GetName() : TEXT("nothing"),
+				Legs ? static_cast<int32>(Legs->MovementMode.GetValue()) : -1, Skin && Skin->IsSimulatingPhysics() ? 1 : 0,
+				Skin ? FVector::Dist(Skin->GetComponentLocation(), Who->GetActorLocation()) : 0.0);
+		};
+		GTP_TRACE(LogGTPDemo, TEXT("Demo chase, who is in the car (%s): the car at %s, up %.2f, %.0f km/h"), When, *Car->GetActorLocation().ToCompactString(),
+			Car->GetActorUpVector().Z, Car->GetSpeedKmh());
+		if (const ACharacter* Seated = Car->GetDriver())
+		{
+			GTP_TRACE(LogGTPDemo, TEXT("Demo chase, who is in the car: its driver %s"), *Told(Seated));
+			TArray<AActor*> Hanging;
+			Seated->GetAttachedActors(Hanging, true, true);
+			for (const AActor* Carried : Hanging)
+			{
+				if (Carried)
+				{
+					GTP_TRACE(LogGTPDemo, TEXT("Demo chase, who is in the car: hanging from the driver, %s"), *Told(Carried));
+				}
+			}
+		}
+		else
+		{
+			GTP_TRACE(LogGTPDemo, TEXT("Demo chase, who is in the car: it has no driver"));
+		}
+		int32 Near = 0;
+		for (TActorIterator<APawn> It(World); It && Near < 8; ++It)
+		{
+			if (*It != Car && *It != Car->GetDriver() && FVector::Dist(It->GetActorLocation(), Car->GetActorLocation()) < 500.0)
+			{
+				++Near;
+				GTP_TRACE(LogGTPDemo, TEXT("Demo chase, who is in the car: within 5 m, %s"), *Told(*It));
+			}
+		}
+		TArray<FOverlapResult> Inside;
+		FCollisionObjectQueryParams Kinds;
+		Kinds.AddObjectTypesToQuery(ECC_Pawn);
+		Kinds.AddObjectTypesToQuery(ECC_PhysicsBody);
+		Kinds.AddObjectTypesToQuery(ECC_Vehicle);
+		Kinds.AddObjectTypesToQuery(ECC_WorldDynamic);
+		FCollisionQueryParams NotTheCar(SCENE_QUERY_STAT(GTPDemoInCar), false, Car);
+		World->OverlapMultiByObjectType(Inside, Car->GetActorLocation() + Car->GetActorUpVector() * 80.f, Car->GetActorQuat(), Kinds,
+			FCollisionShape::MakeBox(FVector(250.f, 110.f, 70.f)), NotTheCar);
+		TSet<const UPrimitiveComponent*> Parts;
+		for (const FOverlapResult& Touch : Inside)
+		{
+			const UPrimitiveComponent* Part = Touch.GetComponent();
+			if (!Part || !Touch.GetActor() || Parts.Contains(Part) || Parts.Num() >= 8)
+			{
+				continue;
+			}
+			Parts.Add(Part);
+			GTP_TRACE(LogGTPDemo, TEXT("Demo chase, who is in the car: in its box, %s of %s (%s), object type %d, against a car %d, simulating %d, its actor attached to %s"),
+				*Part->GetName(), *Touch.GetActor()->GetName(), *Touch.GetActor()->GetClass()->GetName(), static_cast<int32>(Part->GetCollisionObjectType()),
+				static_cast<int32>(Part->GetCollisionResponseToChannel(ECC_Vehicle)), Part->IsSimulatingPhysics() ? 1 : 0,
+				Touch.GetActor()->GetAttachParentActor() ? *Touch.GetActor()->GetAttachParentActor()->GetName() : TEXT("nothing"));
+		}
+		GTP_TRACE(LogGTPDemo, TEXT("Demo chase, who is in the car: %d pawn(s) within 5 m, %d body(ies) in its box"), Near, Parts.Num());
 	}
 
 	const TCHAR* PhaseName(int32 Phase)
@@ -129,6 +215,7 @@ void UGTPDemoRoute::StartEncore()
 	bRelocateHeld = false;
 	RelocatedCar.Reset();
 	RelocateHoldUntil = 0.0;
+	bRelocationWatched = false;
 	OffLaneSince = 0.0;
 	bOnLaneOnce = false;
 	NextDriveDiag = 0.0;
@@ -855,7 +942,21 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 			Driven->NotePlaced(TEXT("chase relocation"));
 			SlowSince = 0.0;
 			GTP_TRACE(LogGTPDemo, TEXT("Demo chase: the car is on its new lane at %s, physics back on"), *Driven->GetActorLocation().ToCompactString());
+			DemoWhoIsInTheCar(Driven, TEXT("physics back on"));
+			bRelocationWatched = true;
 			break;
+		}
+		// For 4 s after a relocation: the first time the car leans past 45 degrees, who is in it is said again.
+		if (bRelocationWatched && (Now - RelocateHoldUntil > 4.0 || Driven->GetActorUpVector().Z < 0.7071))
+		{
+			bRelocationWatched = false;
+			if (Now - RelocateHoldUntil <= 4.0)
+			{
+				++RelocationsTipped;
+				GTP_TRACE(LogGTPDemo, TEXT("Demo chase: the car leans past 45 degrees %.1f s after its relocation (%d relocation(s) ended so, of %d)"),
+					Now - RelocateHoldUntil, RelocationsTipped, ChaseRelocations);
+				DemoWhoIsInTheCar(Driven, TEXT("leaning"));
+			}
 		}
 		if (bChase && bGaveUp)
 		{
