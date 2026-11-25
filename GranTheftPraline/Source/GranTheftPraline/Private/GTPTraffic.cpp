@@ -15,6 +15,7 @@
 #include "GTPHornComponent.h"
 #include "GTPThreat.h"
 #include "GTPIncidentLogic.h"
+#include "GTPLeftCars.h"
 #include "GTPTrafficIncident.h"
 #include "GTPWeapon.h"
 #include "GameFramework/Controller.h"
@@ -2623,6 +2624,12 @@ void AGTPTrafficNetwork::Tick(float DeltaSeconds)
 				}
 				// The player's car now: full detail again.
 				UpdateDetail(Car, 0.f);
+				// Or nobody's: its driver ran (UpdateLeftCars tells them apart once he is out).
+				if (!LeftCars.ContainsByPredicate([Car](const FLeftCar& Left) { return Left.Car.Get() == Car; }))
+				{
+					LeftCars.Add({Car, GetWorld()->GetTimeSeconds()});
+					++LeftCarsNoted;
+				}
 			}
 			Cars.RemoveAt(Index);
 			continue;
@@ -2677,6 +2684,7 @@ void AGTPTrafficNetwork::Tick(float DeltaSeconds)
 	UpdatePlayerShots(Player);
 	UpdateStreetParked(Player);
 	UpdateIncidents(Player);
+	UpdateLeftCars(Player);
 	AIDrivers.RemoveAll([](const TWeakObjectPtr<UGTPAIDriverComponent>& Weak) { return !Weak.IsValid(); });
 
 	// New cars out of sight: one a second when it means spawning an actor (no burst of spawns),
@@ -3519,6 +3527,87 @@ void AGTPTrafficNetwork::UpdateIncidents(const APawn* Player)
 			IncidentCars.RemoveAt(Index);
 		}
 	}
+}
+
+// --- Cars left in the street by a driver who ran (GTPLeftCars.h) -------------------
+
+namespace
+{
+	GTPLeftCars::FCar LeftCarState(const AGTPVehicle& Car)
+	{
+		GTPLeftCars::FCar Out;
+		const ACharacter* InIt = Car.GetDriver();
+		Out.bDrivenAgain = Car.HasAIDriver();
+		Out.bPlayers = Car.IsPlayerControlled() || (InIt && InIt->IsPlayerControlled()) || Car.GetVehicleState() == EGTPVehicleState::Entering
+			|| (!Out.bDrivenAgain && Car.GetVehicleState() == EGTPVehicleState::Driven);
+		Out.bWrecked = Car.IsWrecked();
+		Out.bEmpty = !InIt && Car.GetVehicleState() == EGTPVehicleState::Parked;
+		return Out;
+	}
+}
+
+void AGTPTrafficNetwork::UpdateLeftCars(const APawn* Player)
+{
+	for (int32 Index = LeftCars.Num() - 1; Index >= 0; --Index)
+	{
+		AGTPVehicle* Car = LeftCars[Index].Car.Get();
+		if (!IsValid(Car))
+		{
+			LeftCars.RemoveAt(Index);
+			continue;
+		}
+		// The cars of a crash have their own rule (their driver may come back and drive on).
+		if (IncidentCars.Contains(Car))
+		{
+			continue;
+		}
+		GTPLeftCars::FCar State = LeftCarState(*Car);
+		State.ToPlayerM = Player ? static_cast<float>(FVector::Dist2D(Car->GetActorLocation(), Player->GetActorLocation())) * CmToM : 0.f;
+		State.bSeenByPlayer = !Player || IsSeenByPlayer(Car->GetActorLocation());
+		const GTPLeftCars::EFate Fate = GTPLeftCars::Fate(State, LeftCarRemoveDistance * CmToM);
+		if (Fate == GTPLeftCars::EFate::Forget)
+		{
+			LeftCars.RemoveAt(Index);
+		}
+		else if (Fate == GTPLeftCars::EFate::TakeAway)
+		{
+			TakeLeftCarAway(Car, TEXT("far from the player and out of sight"));
+		}
+	}
+}
+
+bool AGTPTrafficNetwork::IsLeftInTheStreet(const AGTPVehicle* Car) const
+{
+	if (!IsValid(Car) || !(IncidentCars.ContainsByPredicate([Car](const TWeakObjectPtr<AGTPVehicle>& Left) { return Left.Get() == Car; })
+		|| LeftCars.ContainsByPredicate([Car](const FLeftCar& Left) { return Left.Car.Get() == Car; })))
+	{
+		return false;
+	}
+	const GTPLeftCars::FCar State = LeftCarState(*Car);
+	return State.bEmpty && !State.bDrivenAgain && !State.bPlayers && !State.bWrecked;
+}
+
+bool AGTPTrafficNetwork::TakeLeftCarAway(AGTPVehicle* Car, const TCHAR* Why)
+{
+	if (!IsLeftInTheStreet(Car))
+	{
+		return false;
+	}
+	double Since = -1.0;
+	const int32 At = LeftCars.IndexOfByPredicate([Car](const FLeftCar& Left) { return Left.Car.Get() == Car; });
+	if (At != INDEX_NONE)
+	{
+		Since = LeftCars[At].Since;
+		LeftCars.RemoveAt(At);
+	}
+	IncidentCars.Remove(Car);
+	const APawn* Player = UGameplayStatics::GetPlayerPawn(this, 0);
+	++LeftCarsTaken;
+	GTP_TRACE(LogGTPTraffic, TEXT("traffic: %s, left in the street by its driver %.0f s ago (-1 = after a crash), taken away %.0f m from the player: %s (%d taken away so, %d car(s) lost their driver since the start, %d on the list now)"),
+		*Car->GetName(), Since < 0.0 ? -1.0 : GetWorld()->GetTimeSeconds() - Since,
+		Player ? FVector::Dist2D(Car->GetActorLocation(), Player->GetActorLocation()) * CmToM : -1.0, Why, LeftCarsTaken, LeftCarsNoted, LeftCars.Num());
+	Car->Destroy();
+	return true;
 }
 
 void AGTPTrafficNetwork::NotifyTrafficCrash(AGTPVehicle* A, AGTPVehicle* B, float SpeedChange)

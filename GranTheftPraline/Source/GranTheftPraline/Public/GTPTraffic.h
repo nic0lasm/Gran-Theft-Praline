@@ -604,6 +604,18 @@ public:
 	 */
 	float GapAlongLanes(const UGTPAIDriverComponent* Driver, float MaxMetres) const;
 
+	/**
+	 * Car is a car of the traffic its driver left in the street (he ran from a threat or from a crash), empty now.
+	 * TakeLeftCarAway takes such a car off the road and says so; false, and nothing done, for any other car. The far
+	 * ones go by themselves out of the player's sight (GTPLeftCars.h); the chase script hands in the one in its way.
+	 */
+	bool IsLeftInTheStreet(const AGTPVehicle* Car) const;
+	bool TakeLeftCarAway(AGTPVehicle* Car, const TCHAR* Why);
+
+	/** A car left in the street by its driver is taken away beyond this (cm), out of the player's sight. */
+	UPROPERTY(Config, EditAnywhere, Category = "Traffic")
+	float LeftCarRemoveDistance = 8000.f;
+
 	/** Lane and point closest to Location whose direction is within 60 degrees of YawDegrees; bFlightCircuitOnly: among
 	 *  the lanes of the flight circuit (lap and approach) only. */
 	bool FindNearestLane(const FVector& Location, float YawDegrees, float MaxDistanceCm, int32& OutLane, int32& OutPoint, bool bFlightCircuitOnly = false) const;
@@ -854,6 +866,16 @@ private:
 	/** Cars left in the street by a crash: forgotten once driven again, removed far out of sight. */
 	TArray<TWeakObjectPtr<AGTPVehicle>> IncidentCars;
 	void UpdateIncidents(const APawn* Player);
+	/** Cars a driver of the traffic left without a crash (AGTPVehicle::PanicExit), and when (world seconds). */
+	struct FLeftCar
+	{
+		TWeakObjectPtr<AGTPVehicle> Car;
+		double Since = 0.0;
+	};
+	TArray<FLeftCar> LeftCars;
+	int32 LeftCarsNoted = 0;
+	int32 LeftCarsTaken = 0;
+	void UpdateLeftCars(const APawn* Player);
 	int32 LastPlayerMagazine = -1;
 	int32 PlayerShotSerial = 0;
 	FVector PlayerShotFrom = FVector::ZeroVector;

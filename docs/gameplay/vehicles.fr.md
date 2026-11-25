@@ -336,6 +336,14 @@ Pas de plugin Water ni de volume physique : de simples événements de chevauche
 - **Les conducteurs du trafic sortent vraiment** : braqué, craintif ou après un accident, le
   conducteur s'arrête et quitte la voiture (avant, `PanicExit` ne faisait rien sur une
   voiture du trafic).
+- **Une voiture laissée dans la rue n'y reste plus pour toujours** : le réseau oubliait une
+  voiture du trafic dès qu'elle n'avait plus de conducteur, et seules les voitures d'un
+  accident étaient retirées. Une voiture dont le conducteur s'est enfui est maintenant gardée
+  sur une liste (`GTPLeftCars.h`, testé dans `tools/vehicles/wanted_sim/left_cars_test.cpp`) :
+  vide, à plus de 80 m du joueur et hors de sa vue, elle est retirée (`traffic: <car>, left in
+  the street by its driver N s ago, taken away N m from the player`). Une voiture que le joueur
+  prend, une voiture reconduite et une épave sortent de la liste. Ni compilé ni joué à
+  l'écriture.
 - **Réactions aux armes actives par défaut** : sans le système de menace
   (`-ThreatResponse=1`), le trafic lit lui-même l'arme du joueur : visée (cône de 10 degrés,
   20 m) et tirs (35 m).

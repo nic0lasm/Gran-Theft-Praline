@@ -12,6 +12,7 @@
 #include "GameFramework/PlayerController.h"
 #include "GTPDeterminism.h"
 #include "GTPFarTraffic.h"
+#include "GTPLeftCars.h"
 #include "GTPFlightCircuit.h"
 #include "GTPFlightPedals.h"
 #include "GTPLog.h"
@@ -1078,16 +1079,26 @@ bool UGTPDemoRoute::RunStep(float DeltaTime)
 				for (TActorIterator<AGTPVehicle> It(Driven->GetWorld()); Network && It; ++It)
 				{
 					AGTPVehicle* Other = *It;
-					if (Other == Driven || !Other->HasAIDriver() || Other->ActorHasTag(TEXT("GTPPolice")))
+					// A car its driver left in the street (he ran from the shots) has no driver to be known by and stood
+					// in the way for good (GTPLeftCars.h).
+					const bool bLeftThere = Other != Driven && !Other->HasAIDriver() && Network->IsLeftInTheStreet(Other);
+					if (Other == Driven || !(Other->HasAIDriver() || bLeftThere) || Other->ActorHasTag(TEXT("GTPPolice")))
 					{
 						continue;
 					}
 					const FVector Offset = Other->GetActorLocation() - Driven->GetActorLocation();
 					const double Along = Offset.X * Forward.X + Offset.Y * Forward.Y;
-					const double Aside = FMath::Abs(Offset.X * Forward.Y - Offset.Y * Forward.X);
-					if (Along > 0.0 && Along < 3500.0 && Aside < 250.0)
+					const double Aside = Offset.X * Forward.Y - Offset.Y * Forward.X;
+					if (GTPLeftCars::InTheWay(static_cast<float>(Along) * 0.01f, static_cast<float>(Aside) * 0.01f))
 					{
-						Network->Recycle(Other);
+						if (bLeftThere)
+						{
+							Network->TakeLeftCarAway(Other, TEXT("in the way of the chase script"));
+						}
+						else
+						{
+							Network->Recycle(Other);
+						}
 					}
 				}
 			}

@@ -320,6 +320,13 @@ Written in one batch, not compiled yet (`GTPIncidentLogic.h`, checked offline by
   `UGTPTrafficArgueComponent`; `-TrafficIncidents=0` turns it off.
 - **Traffic drivers get out for real**: a driver at gunpoint, a timid one, or after a crash
   now stops and leaves the car (before, `PanicExit` did nothing on a traffic car).
+- **A car left in the street does not stay there for good**: the network forgot a traffic car
+  the moment it had no driver, and only the cars of a crash were ever taken away. A car whose
+  driver ran is now kept on a list (`GTPLeftCars.h`, tested in
+  `tools/vehicles/wanted_sim/left_cars_test.cpp`): empty, more than 80 m from the player and
+  out of his sight, it is taken away (`traffic: <car>, left in the street by its driver N s
+  ago, taken away N m from the player`). A car the player takes, a car driven again and a
+  wreck leave the list. Not compiled nor played when written.
 - **Reactions to guns on by default**: without the threat system (`-ThreatResponse=1`), the
   traffic reads the player's weapon itself: aiming (cone of 10 degrees, 20 m) and shots (35 m).
 - **Bailing out of a moving car**: from 20 km/h (40 before) the player jumps, rolls or is
