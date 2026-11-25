@@ -169,6 +169,40 @@ namespace GTPPoliceTactics
 		return Faster < C.TopKmh ? Faster : C.TopKmh;
 	}
 
+	/**
+	 * A roadblock car and a man who can no longer flee. Gate 103: the player gave up 17 m from a roadblock car. It stood
+	 * where it had been put, as a roadblock car does, saw him for 9 s, was taken away after 12 s as a car that does not
+	 * move, and nobody arrested him: the level was lost 40 s later. Such a car is from then on a unit like the others.
+	 */
+	struct FBlockRelease
+	{
+		/** He is within this of the car (m), on foot or slower than StandKmh, for this long (s). */
+		float WithinM = 60.f;
+		float StandKmh = 12.f;
+		float Seconds = 1.5f;
+	};
+
+	/** The seconds a roadblock car has had a man who stands near it, after one more frame; nothing as soon as he does not. */
+	inline float BlockNearSeconds(float Seconds, float Dt, float AwayM, float QuarryKmh, bool bOnFoot, int Stars, const FBlockRelease& R)
+	{
+		return Stars > 0 && AwayM <= R.WithinM && (bOnFoot || QuarryKmh < R.StandKmh) ? Seconds + Dt : 0.f;
+	}
+
+	/** Does the roadblock car leave its place for him now? */
+	inline bool LeavesBlock(float NearSeconds, const FBlockRelease& R)
+	{
+		return NearSeconds >= R.Seconds;
+	}
+
+	/**
+	 * Does a unit that stands far from him push through what is ahead of it? Not through a colleague: it climbed on it
+	 * (gate 103: two units off their wheels, one 1.5 m above the road, in the queue behind a standing car).
+	 */
+	inline bool PushesThrough(float StoppedSeconds, EMet Met)
+	{
+		return StoppedSeconds > 4.f && Met != EMet::Police;
+	}
+
 	inline const char* MetName(EMet Met)
 	{
 		static const char* const Names[] = {"nothing", "quarry", "police", "person", "other"};
