@@ -392,6 +392,17 @@ de cent mètres, grises sur le ciel. Sur une colline boisée un bloc est mainten
 maison (18 à 34 m, trois ou quatre étages) et aucun ne se tient au-dessus des quatre cinquièmes
 de la hauteur de la colline : la crête est laissée aux arbres, à la basilique et à la tour
 métallique (`horizon.WOODED_WIDTH_M`, `WOODED_CREST`).
+Vu en jeu à la porte 104 : les maisons se tiennent au pied de la colline avec leurs toits de
+tuile, et la colline au-dessus est un dôme lisse d'une seule teinte, sa crête un arc tracé au
+compas. Deux choses maintenant. Le matériau du bois va entre deux teintes, houppiers sombres
+et houppiers au soleil, par le bruit du sable à la taille des massifs, des groupes et des
+houppiers (`wood_material` ; `GTP_HORIZON_WOOD_GRAIN=0` rend la teinte unique, `horizon_wood`
+dans `materials_report.json`). Et 260 bouquets de houppiers, des sphères du moteur aplaties de
+18 à 38 m dans ce matériau, se tiennent sur le versant tourné vers la ville et sur la crête, à
+l'écart des maisons, de la basilique et de la tour (`horizon.crowns`, un seul acteur instancié
+`Horizon_Crowns` ; `GTP_HILL_CROWNS=0` les retire, `crowns` dans `horizon_report.json`) :
+depuis le côté est de la place Bellecour un houppier dépasse l'arc sur sept degrés sur dix.
+Pas encore vu en jeu.
 
 La même prise montrait la place Bellecour sans son cavalier. La statue de Louis XIV est dans
 la table de `landmarks.py`, mais une carte générée autour d'une rue ne garde que les repères à
@@ -428,7 +439,11 @@ lointain), et la colline derrière ne portait aucun monument.
    lisaient comme une toile tissée sous la voiture, et la teinte était saumon au soleil. Les
    nuances sont maintenant un bruit de valeur (`squares.grain_hlsl` : taches de 9 m, de 1,4 m,
    grain de 30 cm ; `GTP_SQUARE_GRAIN=0` rend les sinus, `squares.grain` de
-   `materials_report.json` dit lequel) et le sable un huitième plus sombre. `GTP_SQUARES=0` le coupe,
+   `materials_report.json` dit lequel) et le sable un huitième plus sombre. La porte 104 a montré ce bruit comme un
+   orange uni : ses poids ne bougeaient le sable que de 4 %. Ils sont quatre fois plus forts
+   (taches de 15 m, 4 m, 90 cm, grain de 30 cm) et le bruit va entre deux teintes, sable foulé
+   humide et sable sec poussiéreux, au lieu d'éclaircir et de foncer une seule teinte
+   (`SAND_DAMP`, `SAND_DRY` ; `tones` au rapport). Pas encore vu en jeu. `GTP_SQUARES=0` le coupe,
    `GTP_SQUARE_INSET_M=<m>` rentre le contour (si le contour OpenStreetMap va jusqu'aux
    façades) ; `materials_report.json` donne `squares` (surface, sommets, emprise, `laid`). Un
    échec de cette partie y est noté (`error`) et laisse le sol comme il était.

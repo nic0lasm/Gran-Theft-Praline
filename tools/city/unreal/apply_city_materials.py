@@ -521,6 +521,9 @@ SQUARE_BORDER_CM = 60.0         # stone border inside the outline
 # it stood salmon under the sun, lighter than the sand is: an eighth darker.
 RED_GRAVEL = (0.29, 0.135, 0.085)
 SQUARE_GRAIN = os.environ.get("GTP_SQUARE_GRAIN", "1") != "0"
+SAND_DAMP = (0.205, 0.09, 0.056)    # the two tones the grain goes between; their middle is RED_GRAVEL
+SAND_DRY = (0.375, 0.18, 0.114)
+SAND_CONTRAST = 1.5
 SQUARE_STONE = (0.24, 0.225, 0.20)  # its pale stone border
 SQUARE_REPORT = {"on": SQUARES, "squares": []}
 
@@ -590,6 +593,15 @@ def square_ground(mat, g, wp, xy, s, uv, size_cm):
         except Exception as e:  # noqa: BLE001  the sines, as before
             info["grain_error"] = repr(e)
     gravel = g.mul(g.const(RED_GRAVEL), mottle)
+    if info["grain"] == "noise":
+        # two tones, not one tone made lighter and darker: trodden damp sand and dry dusty sand
+        try:
+            dry = g.unary(unreal.MaterialExpressionSaturate, g.add(
+                g.const(0.5), g.mul(g.sub(mottle, g.const(1.0)), g.const(SAND_CONTRAST))))
+            gravel = g.lerp(g.const(SAND_DAMP), g.const(SAND_DRY), dry)
+            info["tones"] = 2
+        except Exception as e:  # noqa: BLE001  one tone, with its grain
+            info["tones_error"] = repr(e)
 
     def over(base, base_out, layer, alpha):
         e = g.node(unreal.MaterialExpressionLinearInterpolate)
@@ -939,6 +951,10 @@ def backdrop_material(name="M_City_Backdrop", colour=None):
 HORIZON_ROOF = (0.16, 0.17, 0.18)          # zinc and slate, seen from the street as a dark edge
 HORIZON_GROUND = (0.085, 0.085, 0.08)      # roofs, streets and trees a kilometre away, as one tone
 HORIZON_WOOD = (0.055, 0.06, 0.035)        # Fourviere under its trees
+HORIZON_WOOD_LIGHT = (0.115, 0.105, 0.04)  # crowns in the sun, some turned by October
+WOOD_GRAIN = os.environ.get("GTP_HORIZON_WOOD_GRAIN", "1") != "0"
+WOOD_OCTAVES = ((9000.0, 0.8), (2600.0, 0.7), (800.0, 0.5))    # cell (cm), weight: stands, groups, crowns
+WOOD_REPORT = {}
 HORIZON_TOWN = (0.21, 0.19, 0.16)          # the Croix-Rousse: walls and tiles, as one tone
 HORIZON_TILE = (0.27, 0.13, 0.085)         # Roman tiles, the roofs of Lyon from across the river
 HORIZON_STONE = (0.56, 0.54, 0.49)         # the basilica of Fourviere: white stone
@@ -964,6 +980,35 @@ def flat_material(name, colour, roughness=0.92, mottle=0.0):
     return mat
 
 
+def wood_material(name="M_City_HorizonWood"):
+    """The wooded hill. Gate 104, from place Bellecour: one flat tone under the haze. Two tones
+    now, dark crowns and crowns in the sun, drawn by the noise of the sand (squares.grain_hlsl) at
+    the size of stands, groups and single crowns; the sines of flat_material if that fails."""
+    WOOD_REPORT.clear()
+    WOOD_REPORT["on"] = WOOD_GRAIN
+    if WOOD_GRAIN:
+        try:
+            mat = new_material(name)
+            g = Graph(mat)
+            wp = g.world_position()
+            grain = g.node(unreal.MaterialExpressionCustom, code=squares_module().grain_hlsl(WOOD_OCTAVES),
+                           output_type=unreal.CustomMaterialOutputType.CMOT_FLOAT1, description="WoodGrain",
+                           inputs=[custom_input("XY")])
+            g.link(g.mask(wp, r=True, g=True), "", grain, "XY")
+            lit = g.unary(unreal.MaterialExpressionSaturate, g.add(
+                g.const(0.4), g.mul(g.sub(grain, g.const(1.0)), g.const(1.3))))
+            col = g.lerp(g.const(HORIZON_WOOD), g.const(HORIZON_WOOD_LIGHT), lit)
+            mel.connect_material_property(col, "", unreal.MaterialProperty.MP_BASE_COLOR)
+            mel.connect_material_property(g.const(0.92), "", unreal.MaterialProperty.MP_ROUGHNESS)
+            g.done()
+            WOOD_REPORT["grain"] = "noise"
+            return mat
+        except Exception as e:  # noqa: BLE001  the hill keeps its one tone
+            WOOD_REPORT["grain_error"] = repr(e)
+    WOOD_REPORT["grain"] = "sines"
+    return flat_material(name, HORIZON_WOOD, mottle=0.5)
+
+
 def horizon_colours():
     """The far blocks' wall colours: palette colours through the Lyon stone tone."""
     ft = facade_tone()
@@ -976,7 +1021,7 @@ def horizon_materials():
     for i, colour in enumerate(horizon_colours()):
         names.append(backdrop_material("M_City_Horizon_%d" % i, colour).get_name())
     names.append(flat_material("M_City_HorizonGround", HORIZON_GROUND, mottle=0.25).get_name())
-    names.append(flat_material("M_City_HorizonWood", HORIZON_WOOD, mottle=0.5).get_name())
+    names.append(wood_material().get_name())
     names.append(flat_material("M_City_HorizonTown", HORIZON_TOWN, mottle=0.35).get_name())
     names.append(flat_material("M_City_HorizonRoof", HORIZON_ROOF, roughness=0.6, mottle=0.2).get_name())
     names.append(flat_material("M_City_HorizonTile", HORIZON_TILE, mottle=0.35).get_name())
@@ -1594,6 +1639,7 @@ def main():
         report["far_mask"] = FAR_REPORT
         report["route_mask"] = ROUTE_REPORT
         report["horizon_materials"] = horizon_materials()
+        report["horizon_wood"] = dict(WOOD_REPORT)
         if eal.does_directory_exist(ROOT + "/Landmarks/" + CAMEL):
             fronts = {}
             if LANDMARK_FRONTS and BACKDROP_FACADES:

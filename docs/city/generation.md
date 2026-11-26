@@ -371,6 +371,16 @@ From place Bellecour (gate 99, 76 s) Fourvière carried slabs of seven storeys a
 long, grey against the sky. On a wooded hill a block is now a large house (18 to 34 m, three or
 four storeys) and none stands above four fifths of the hill's height: the crest is left to the
 trees, the basilica and the metal tower (`horizon.WOODED_WIDTH_M`, `WOODED_CREST`).
+Seen in game at gate 104: the houses stand at the foot of the hill with their tiled roofs, and
+the hill above them is a smooth dome of one tone, its skyline an arc drawn with a compass. Two
+things now. The wood material goes between two tones, dark crowns and crowns in the sun, by
+the noise of the sand at the size of stands, groups and single crowns (`wood_material`;
+`GTP_HORIZON_WOOD_GRAIN=0` gives the one tone back, `horizon_wood` in `materials_report.json`).
+And 260 clumps of crowns, flattened engine spheres of 18 to 38 m in that material, stand on the
+side that looks at the town and on the crest, clear of the houses, the basilica and the tower
+(`horizon.crowns`, one instanced actor `Horizon_Crowns`; `GTP_HILL_CROWNS=0` leaves them out,
+`crowns` in `horizon_report.json`): from the east side of place Bellecour a crown stands above
+the arc on seven degrees of ten. Not seen in game yet.
 
 The same take showed place Bellecour without its horseman. The statue of Louis XIV is in the
 table of `landmarks.py`, but a map generated round one street only keeps the landmarks within
@@ -407,7 +417,11 @@ and the hill behind it carried no monument.
    the car, and the tone stood salmon in the sun. The mottle is now a value noise
    (`squares.grain_hlsl`: patches of 9 m, of 1.4 m, a grain of 30 cm; `GTP_SQUARE_GRAIN=0` gives
    the sines back, `squares.grain` in `materials_report.json` says which) and the sand an
-   eighth darker. `GTP_SQUARES=0` turns it off, `GTP_SQUARE_INSET_M=<m>`
+   eighth darker. Gate 104 showed that noise as one flat orange: its weights moved the sand by
+   4 %. They are four times stronger now (patches of 15 m, 4 m, 90 cm, a grain of 30 cm) and
+   the noise goes between two tones, trodden damp sand and dry dusty sand, instead of making
+   one tone lighter and darker (`SAND_DAMP`, `SAND_DRY`; `tones` in the report). Not seen in
+   game yet. `GTP_SQUARES=0` turns it off, `GTP_SQUARE_INSET_M=<m>`
    takes the outline in (if the OpenStreetMap outline turns out to run to the fronts);
    `materials_report.json` gives `squares` (area, corners, bounds, `laid`). A failure in this
    part is reported there (`error`) and leaves the ground as it was.
