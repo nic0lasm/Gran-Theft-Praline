@@ -8,6 +8,7 @@
 #include "GTPDriveLogic.h"
 #include "GTPFlightCircuit.h"
 #include "GTPTrafficReactLogic.h"
+#include "GTPTrafficHeld.h"
 #include "GTPTrafficLights.h"
 #include "GTPTraffic.generated.h"
 
@@ -270,6 +271,9 @@ public:
 	/** What held the car back at its last decision (none when nothing within the probe or the lane's stops). */
 	GTPTrafficStop::ELimit GetLimit() const { return Limit; }
 
+	/** What the sweep ahead met at the last decision (a car, a person, a thing), whatever stopped the car in the end; null: nothing, or a ghost. */
+	const AActor* GetAhead() const { return AheadActor.Get(); }
+
 	/**
 	 * Seconds between two decisions (0 = every frame). The pedals keep their
 	 * last value in between, so far cars can decide 4 to 10 times a second
@@ -371,6 +375,8 @@ private:
 	TWeakObjectPtr<AActor> BypassBlocker;
 	/** What the last reaction step saw ahead while Waiting (GetWaitingFor). */
 	TWeakObjectPtr<AActor> WaitingFor;
+	/** What the sweep ahead met at the last decision (GetAhead). */
+	TWeakObjectPtr<AActor> AheadActor;
 	int32 SeenShotSerial = -1;
 	bool bHornOn = false;
 	float InjectAimLeft = 0.f;
@@ -593,6 +599,34 @@ public:
 
 	/** Next lane of Lane whose end is closest to Target (world cm); INDEX_NONE at a dead end. */
 	int32 PickNextToward(int32 Lane, const FVector& Target) const;
+
+	/**
+	 * Next lane for a car of the traffic: as PickNext, but not a lane that is shut (IsLaneShut) when another exit is
+	 * not. With -TrafficHeldLanes=0 it is PickNext.
+	 */
+	int32 PickNextOpen(int32 Lane, FRandomStream* Stream = nullptr);
+
+	/** The traffic cannot get along Lane for now: it is held, or leads nowhere but to held lanes (GTPTrafficHeld.h). */
+	bool IsLaneShut(int32 Lane) const;
+
+	/** A car on Lane can do nothing but wait there (FGTPHeldLanes::Report). Told when the lane was not held before. */
+	void ReportLaneHeld(int32 Lane, const AActor* Car, float StoppedSeconds, const TCHAR* Behind);
+
+	/** A car meant to take a lane that is shut and planned another way (the "traffic cars" line). */
+	void NoteTurnedAway() { ++CarsTurnedAway; }
+
+	const FGTPHeldLanes& GetHeldLanes() const { return HeldLanes; }
+
+	/**
+	 * Gates 103 to 106: the car the player left astride his street held a queue each way, the last car of each queue
+	 * kept the junction it stood before, and the streets around filled one after the other (0 to 9 cars of 28 moving).
+	 * The cars keep off a lane that is held (-TrafficHeldLanes=0: they drive into it, as until gate 106), a car that
+	 * stands in a queue gives its junction back (-TrafficJunctionGiveBack=0: it keeps it), and the cars of one lane
+	 * follow each other through a junction (-TrafficJunctionFollow=0: one car at a time).
+	 * tools/vehicles/traffic_sim/standing_sim.cpp counts each of the three.
+	 */
+	bool bKeepOffHeldLanes = true;
+	bool bQueueGivesJunctionBack = true;
 
 	FGTPJunctionTable& GetJunctionTable() { return JunctionTable; }
 
@@ -994,6 +1028,10 @@ private:
 	int32 SignalHeadsBesideOther = 0;
 
 	FGTPJunctionTable JunctionTable;
+	FGTPHeldLanes HeldLanes;
+	int32 CarsTurnedAway = 0;
+	/** Places on a shut lane where no car was put on the road (FindSpawnPoint is const). */
+	mutable int32 PlacesLeftOnShutLanes = 0;
 	FGTPTrafficLights Lights;
 	TArray<FSignalHead> SignalHeads;
 	/** AI drivers of the cars spawned here (stolen ones stop ticking), for GapAlongLanes. */

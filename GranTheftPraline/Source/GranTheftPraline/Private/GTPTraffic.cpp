@@ -752,7 +752,7 @@ void UGTPAIDriverComponent::PlanRoute()
 	}
 	while (AheadM < RouteAheadM)
 	{
-		const int32 Next = Network->PickNext(Route.Last(), GTPDeterminism::IsOn() ? &DriverRandom : nullptr);
+		const int32 Next = Network->PickNextOpen(Route.Last(), GTPDeterminism::IsOn() ? &DriverRandom : nullptr);
 		if (Next == INDEX_NONE)
 		{
 			break;
@@ -830,8 +830,9 @@ bool UGTPAIDriverComponent::IsStillObstacle(const AActor* Actor) const
 				return State == GTPTrafficReact::EState::Waiting || State == GTPTrafficReact::EState::Shaken
 					|| State == GTPTrafficReact::EState::Flee;
 			}
-			// Police, mission drivers: they move on their own.
-			return false;
+			// Mission drivers move on their own. A police car that stands (a roadblock, a unit stopped by its man, one
+			// that waits in a side street) does not: until gate 106 the traffic waited behind it for as long as it stood.
+			return Car->ActorHasTag(GTPPolice::PoliceTag);
 		}
 	}
 	// The player's car, a wreck, an abandoned car, a person standing in the road.
@@ -1011,6 +1012,7 @@ void UGTPAIDriverComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 	float Obstacle = bPassing ? -1.f : Probe;
 	// What holds the car back, the nearest stop winning as below (the "traffic cars" line of the network).
 	Limit = GTPTrafficStop::ELimit::None;
+	AheadActor = Obstacle >= 0.f ? ProbeHit : nullptr;
 	if (Obstacle >= 0.f)
 	{
 		Limit = Cast<AGTPVehicle>(ProbeHit) ? GTPTrafficStop::ELimit::CarAhead
@@ -1044,8 +1046,14 @@ void UGTPAIDriverComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 	{
 		Junctions.Drop(Network->GetJunctionTable(), static_cast<int>(Vehicle->GetUniqueID()), Lane.ToJunction);
 	}
+	// What stops the car so far is on its own way (a car, a queue, a person, a thing): standing behind it, the car
+	// gives back the junction it asked for on its way in (FGTPJunctionClaims::HeldUpSeconds).
+	const GTPTrafficStop::ELimit BehindWhat = Limit;
+	const bool bBehindSomething = BehindWhat == GTPTrafficStop::ELimit::CarAhead || BehindWhat == GTPTrafficStop::ELimit::PersonAhead
+		|| BehindWhat == GTPTrafficStop::ELimit::OtherAhead || BehindWhat == GTPTrafficStop::ELimit::Queue;
 	const float StopLine = Reaction.bIgnoreSignals ? -1.f : Junctions.Update(Network->GetJunctionTable(), static_cast<int>(Vehicle->GetUniqueID()), LightStop >= 0.f ? -1 : Lane.ToJunction,
-		{static_cast<float>(LaneEnd.X) * CmToM, static_cast<float>(LaneEnd.Y) * CmToM}, X, Y, Speed, Settings.ComfortDecel, StoppedTime);
+		{static_cast<float>(LaneEnd.X) * CmToM, static_cast<float>(LaneEnd.Y) * CmToM}, X, Y, Speed, Settings.ComfortDecel, StoppedTime, Route[0],
+		Network->bQueueGivesJunctionBack && bBehindSomething);
 	if (StopLine >= 0.f && (Obstacle < 0.f || StopLine < Obstacle))
 	{
 		Obstacle = StopLine;
@@ -1124,6 +1132,34 @@ void UGTPAIDriverComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 		}
 	}
 
+	if (Network->bKeepOffHeldLanes)
+	{
+		// Nothing to do but wait behind a car, a queue, a person who stands or a thing on the road (and not at a light
+		// or a junction, which is still what stops it): the lane is held. A car that waits for a thing that does not
+		// move and found no room to go round it says so sooner.
+		const bool bBehind = bBehindSomething && Limit == BehindWhat;
+		const bool bNoWayRound = !bGhost && React.State == GTPTrafficReact::EState::Waiting && React.BlockedTime >= DriverSettings.BypassAfter;
+		if (Network->GetHeldLanes().ShouldReport(StoppedTime, bBehind, bNoWayRound))
+		{
+			Network->ReportLaneHeld(Route[0], Vehicle, StoppedTime, bNoWayRound ? *FString::Printf(TEXT("%s, with no room to go round it"), *GetNameSafe(WaitingFor.Get()))
+				: (Limit == GTPTrafficStop::ELimit::Queue ? TEXT("the queue along the lanes") : (Limit == GTPTrafficStop::ELimit::CarAhead ? TEXT("a car")
+					: (Limit == GTPTrafficStop::ELimit::PersonAhead ? TEXT("a person") : TEXT("a thing on the road")))));
+		}
+		// The lane it meant to take next is shut and another exit is not: it plans its way again, while it still has
+		// the room to turn (8 m before the end of its lane) or stands.
+		if (Route.Num() > 1 && (ToLaneEnd > 8.f || FMath::Abs(Speed) < 0.3f) && Network->IsLaneShut(Route[1]))
+		{
+			const TArray<int32>& Exits = Lane.Next;
+			if (FGTPHeldLanes::ShouldTurnAway(Route[1], Exits.Num(), [&Exits](int ExitIndex) { return Exits[ExitIndex]; }, [this](int ExitLane) { return Network->IsLaneShut(ExitLane); }))
+			{
+				const int32 ShutLane = Route[1];
+				Route.SetNum(1);
+				PlanRoute();
+				Network->NoteTurnedAway();
+				GTP_TRACE(LogGTPTraffic, TEXT("%s: lane %d ahead is held, takes lane %d from lane %d"), *Vehicle->GetName(), ShutLane, Route.Num() > 1 ? Route[1] : INDEX_NONE, Route[0]);
+			}
+		}
+	}
 	if (Closest >= CurrentLaneLength && Route.Num() > 1)
 	{
 		Closest -= CurrentLaneLength;
@@ -1682,6 +1718,52 @@ int32 AGTPTrafficNetwork::PickNext(int32 Lane, FRandomStream* Stream)
 	return Next[(Stream ? *Stream : Random).RandRange(0, Next.Num() - 1)];
 }
 
+int32 AGTPTrafficNetwork::PickNextOpen(int32 Lane, FRandomStream* Stream)
+{
+	if (!bKeepOffHeldLanes || !Lanes.IsValidIndex(Lane) || Lanes[Lane].Next.Num() < 2)
+	{
+		return PickNext(Lane, Stream);
+	}
+	const TArray<int32>& Exits = Lanes[Lane].Next;
+	FRandomStream& Draw = Stream ? *Stream : Random;
+	return FGTPHeldLanes::Pick(Exits.Num(), [&Exits](int ExitIndex) { return Exits[ExitIndex]; }, [this](int ExitLane) { return IsLaneShut(ExitLane); },
+		[&Draw](int Among) { return Draw.RandRange(0, Among - 1); });
+}
+
+bool AGTPTrafficNetwork::IsLaneShut(int32 Lane) const
+{
+	if (!bKeepOffHeldLanes || !Lanes.IsValidIndex(Lane) || !GetWorld())
+	{
+		return false;
+	}
+	return HeldLanes.IsShut(Lane, [this](int OfLane, const auto& Visit)
+	{
+		for (const int32 ExitLane : Lanes[OfLane].Next)
+		{
+			Visit(ExitLane);
+		}
+	}, GetWorld()->GetTimeSeconds());
+}
+
+void AGTPTrafficNetwork::ReportLaneHeld(int32 Lane, const AActor* Car, float StoppedSeconds, const TCHAR* Behind)
+{
+	if (!bKeepOffHeldLanes || !GetWorld())
+	{
+		return;
+	}
+	if (HeldLanes.NumLanes() != Lanes.Num())
+	{
+		// Lanes read after the game began.
+		HeldLanes.Reset(Lanes.Num());
+	}
+	const double TimeNow = GetWorld()->GetTimeSeconds();
+	if (HeldLanes.Report(Lane, TimeNow))
+	{
+		GTP_TRACE(LogGTPTraffic, TEXT("traffic: lane %d is held: %s has stood there %.0f s behind %s; the cars keep off it (%d lane(s) held now, %d time(s) so far)"),
+			Lane, *GetNameSafe(Car), StoppedSeconds, Behind, HeldLanes.NumHeld(TimeNow), HeldLanes.GetNumReports());
+	}
+}
+
 int32 AGTPTrafficNetwork::PickNextToward(int32 Lane, const FVector& Target) const
 {
 	if (!Lanes.IsValidIndex(Lane) || Lanes[Lane].Next.Num() == 0)
@@ -1795,6 +1877,23 @@ void AGTPTrafficNetwork::BeginPlay()
 		: TEXT("with room from the traffic's own cars only (-TrafficPoliceRoom=0)"));
 	GTP_TRACE(LogGTPTraffic, TEXT("traffic: car pool %s, cooldown %.1f s, spot check %d"), bTrafficPool ? TEXT("on") : TEXT("off"), PoolCooldown,
 		bPoolSpawnCheck ? 1 : 0);
+	{
+		int32 HeldLanesSwitch = bKeepOffHeldLanes ? 1 : 0;
+		FParse::Value(FCommandLine::Get(), TEXT("TrafficHeldLanes="), HeldLanesSwitch);
+		bKeepOffHeldLanes = HeldLanesSwitch != 0;
+		int32 GiveBackSwitch = bQueueGivesJunctionBack ? 1 : 0;
+		FParse::Value(FCommandLine::Get(), TEXT("TrafficJunctionGiveBack="), GiveBackSwitch);
+		bQueueGivesJunctionBack = GiveBackSwitch != 0;
+		int32 FollowSwitch = JunctionTable.bPlatoons ? 1 : 0;
+		FParse::Value(FCommandLine::Get(), TEXT("TrafficJunctionFollow="), FollowSwitch);
+		JunctionTable.bPlatoons = FollowSwitch != 0;
+		HeldLanes.Reset(Lanes.Num());
+		GTP_TRACE(LogGTPTraffic, TEXT("traffic: %s; %s; %s"),
+			bKeepOffHeldLanes ? *FString::Printf(TEXT("the cars keep off a lane where one has stood %.0f s behind another, or %.0f s behind a thing it cannot go round, for %.0f s after the last one said so"),
+				HeldLanes.ReportAfter, HeldLanes.ReportAfterNoWayRound, HeldLanes.HoldSeconds) : TEXT("the cars drive into a held lane (-TrafficHeldLanes=0)"),
+			bQueueGivesJunctionBack ? TEXT("a car that stands in a queue gives its junction back") : TEXT("a car that stands in a queue keeps its junction (-TrafficJunctionGiveBack=0)"),
+			JunctionTable.bPlatoons ? TEXT("the cars of one lane follow each other through a junction") : TEXT("one car at a time through a junction (-TrafficJunctionFollow=0)"));
+	}
 	int32 ReactSwitch = bTrafficReact ? 1 : 0;
 	FParse::Value(FCommandLine::Get(), TEXT("TrafficReact="), ReactSwitch);
 	bTrafficReact = ReactSwitch != 0;
@@ -2166,6 +2265,12 @@ bool AGTPTrafficNetwork::FindSpawnPoint(int32& OutLane, int32& OutPoint, FTransf
 		const double Distance = FVector::Dist2D(Location, PlayerLocation);
 		if (Player && (Distance < MinSpawnDistance || Distance > MaxCarDistance))
 		{
+			continue;
+		}
+		// Not behind a queue that does not move (GTPTrafficHeld.h).
+		if (IsLaneShut(Lane))
+		{
+			++PlacesLeftOnShutLanes;
 			continue;
 		}
 		// Onto the ground.
@@ -2893,14 +2998,49 @@ void AGTPTrafficNetwork::LogCars(const APawn* Player)
 	// The far traffic's puppets drawn near the player: cars he sees too, with no body (they become driven cars at the ghost distance).
 	const int32 FarWithin150 = Player && FarTraffic ? FarTraffic->CountDrawnWithin(15000.f) : 0;
 	using GTPTrafficStop::ELimit;
-	GTP_TRACE(LogGTPTraffic, TEXT("traffic cars t=%.0fs: driven=%d of %d wanted (ghosts=%d) moving=%d (over 1 m/s, upright: %.0f %%) stopped=%d lying=%d not driving (no route or no decisions)=%d mean speed=%.0f km/h | within 100 m=%d (moving %d, stopped %d) within 150 m=%d (moving %d, upright %d, ghosts %d; far puppets drawn there %d) within 200 m=%d nearest=%s | stopped for: a car ahead=%d, the queue along the lanes=%d, a person=%d, something else ahead=%d, a red light=%d, a junction in use=%d, held (reaction or stop asked)=%d, wedged=%d, nothing ahead=%d; stopped over 20 s=%d, at a dead end=%d | recycled so far: stuck=%d far=%d overturned=%d by the chase script or the police=%d, reused from the pool=%d"),
+	GTP_TRACE(LogGTPTraffic, TEXT("traffic cars t=%.0fs: driven=%d of %d wanted (ghosts=%d) moving=%d (over 1 m/s, upright: %.0f %%) stopped=%d lying=%d not driving (no route or no decisions)=%d mean speed=%.0f km/h | within 100 m=%d (moving %d, stopped %d) within 150 m=%d (moving %d, upright %d, ghosts %d; far puppets drawn there %d) within 200 m=%d nearest=%s | stopped for: a car ahead=%d, the queue along the lanes=%d, a person=%d, something else ahead=%d, a red light=%d, a junction in use=%d, held (reaction or stop asked)=%d, wedged=%d, nothing ahead=%d; stopped over 20 s=%d, at a dead end=%d | recycled so far: stuck=%d far=%d overturned=%d by the chase script or the police=%d, reused from the pool=%d | lanes held=%d (%d time(s) so far, %d car(s) turned away, %d place(s) left empty there), junctions given back by a queue=%d, cars that followed another through a junction=%d"),
 		Now, Driven, WantedCars, Ghosts, Moving, Driven > 0 ? 100.0 * Moving / Driven : 0.0, Stopped, Lying, NotDriving, Driven > 0 ? SpeedSum / Driven * 3.6 : 0.0,
 		Within100, MovingWithin100, StoppedWithin100, Within150, MovingWithin150, UprightWithin150, GhostsWithin150, FarWithin150, Within200, *NearestText,
 		Why[static_cast<int32>(ELimit::CarAhead)], Why[static_cast<int32>(ELimit::Queue)], Why[static_cast<int32>(ELimit::PersonAhead)],
 		Why[static_cast<int32>(ELimit::OtherAhead)], Why[static_cast<int32>(ELimit::RedLight)], Why[static_cast<int32>(ELimit::Junction)],
 		Why[static_cast<int32>(ELimit::Held)], Why[static_cast<int32>(ELimit::Wedged)], Why[static_cast<int32>(ELimit::None)],
 		LongStopped, AtDeadEnd, RecycledStuck, RecycledFar, RecycledOverturned, RecycledAll - RecycledStuck - RecycledFar - RecycledOverturned,
-		ReusedFromPool);
+		ReusedFromPool, HeldLanes.NumHeld(Now), HeldLanes.GetNumReports(), CarsTurnedAway, PlacesLeftOnShutLanes, JunctionTable.NumGivenBack(), JunctionTable.NumFollowed());
+
+	// The heads of the queues, named: the cars that have stood over 20 s for something other than the queue ahead of
+	// them, the longest first. Gates 103 to 106 counted up to 21 cars held by "the queue along the lanes" and could
+	// not say behind what.
+	struct FHead
+	{
+		const AGTPVehicle* Car;
+		const UGTPAIDriverComponent* Driver;
+	};
+	TArray<FHead, TInlineAllocator<32>> Heads;
+	for (const AGTPVehicle* Car : Cars)
+	{
+		const UGTPAIDriverComponent* Driver = IsValid(Car) ? Car->FindComponentByClass<UGTPAIDriverComponent>() : nullptr;
+		if (Driver && Driver->GetStoppedTime() > 20.f && Driver->GetLimit() != ELimit::Queue)
+		{
+			Heads.Add({Car, Driver});
+		}
+	}
+	if (Heads.Num() > 0)
+	{
+		Heads.Sort([](const FHead& A, const FHead& B) { return A.Driver->GetStoppedTime() > B.Driver->GetStoppedTime(); });
+		static const TCHAR* const LimitNames[static_cast<int32>(ELimit::Num)] = {TEXT("nothing ahead"), TEXT("a car ahead"), TEXT("a person"), TEXT("something else ahead"),
+			TEXT("the queue along the lanes"), TEXT("a red light"), TEXT("a junction in use"), TEXT("held (reaction or stop asked)"), TEXT("wedged")};
+		FString Text;
+		for (int32 Index = 0; Index < Heads.Num() && Index < 6; ++Index)
+		{
+			const FHead& Head = Heads[Index];
+			const AActor* Met = Head.Driver->GetAhead();
+			Text += FString::Printf(TEXT("%s%s%s on lane %d, %.0f s for %s%s%s, %s from the player"), Index > 0 ? TEXT("; ") : TEXT(""), *Head.Car->GetName(),
+				Head.Driver->IsGhost() ? TEXT(" (ghost)") : TEXT(""), Head.Driver->GetLane(), Head.Driver->GetStoppedTime(),
+				LimitNames[static_cast<int32>(Head.Driver->GetLimit())], Met ? TEXT(": ") : TEXT(""), Met ? *Met->GetName() : TEXT(""),
+				Player ? *FString::Printf(TEXT("%.0f m"), FVector::Dist(Head.Car->GetActorLocation(), PlayerAt) / 100.0) : TEXT("no distance"));
+		}
+		GTP_TRACE(LogGTPTraffic, TEXT("traffic heads t=%.0fs: %d car(s) stopped over 20 s for something other than the queue ahead: %s"), Now, Heads.Num(), *Text);
+	}
 }
 
 void AGTPTrafficNetwork::LogOverturned(const AGTPVehicle* Car, const APawn* Player, const TCHAR* What) const

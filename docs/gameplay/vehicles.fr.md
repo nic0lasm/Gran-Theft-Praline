@@ -212,7 +212,8 @@ trafic complet avec feux et priorités, c'est la 0.9) :
   poursuite pure, vitesse limitée par la voie, réduite avant les virages et
   pour s'arrêter 4 m derrière ce qui est devant (voitures, gens). Une seule
   voiture à la fois traverse un carrefour (les nœuds proches d'un grand
-  carrefour comptent pour un) ; les autres attendent à une ligne d'arrêt.
+  carrefour comptent pour un) ; les autres attendent à une ligne d'arrêt
+  (depuis le 26/11, les voitures d'une même voie s'y suivent, voir 8.10).
   Sur une route à plusieurs files, chaque file continue dans celle de même
   position. Les voies restent à moins de 60 m d'un bâtiment généré, sauf les routes du circuit de fuite, gardées entières ([flight-circuit.fr.md](flight-circuit.fr.md)). Le même
   en-tête tourne dans `tools/vehicles/traffic_sim/` sur les vraies voies,
@@ -742,6 +743,58 @@ de ce pâté ; `StaticMeshActor_22` rue Claudia (voie 4) ; `StaticMeshActor_0` r
   rencontrer une fois environ 190 m après le vol et y être posée sur une autre voie, ce que l'étape
   pursuit compte comme une aide. La part de la police dans la fuite (passe mesurée de la porte 75 :
   unités à 23 km/h de moyenne pour 25 attendus) relève du fil Police.
+
+### 8.10 Le trafic autour d'un joueur immobile (26/11)
+
+Portes 103, 104 et 106 : pendant la fuite filmée, 13 à 24 voitures roulaient à moins de 150 m du joueur ;
+une fois le joueur arrêté, 0 à 9 sur 28, dont jusqu'à 21 tenues par « the queue along the lanes », jusqu'à
+la fin de la passe. Sur la vidéo du 104, la voiture volée reste à cheval sur le milieu d'une rue à deux
+voies à partir de 78 s : aucune voiture, dans aucun sens, n'a la place de la contourner (le regard de côté
+demande une voie entière libre à gauche).
+
+- **Ce que les règles faisaient de cette voiture** (`tools/vehicles/traffic_sim/standing_sim.cpp`, les
+  en-têtes du jeu, des voitures qui glissent le long des voies comme les voitures lointaines, 28 voitures
+  dans l'anneau de 40 à 250 m autour de lui, sa voiture qui ferme la voie où il est et celle d'à côté).
+  Sans rien sur la chaussée, les règles du 106 ne bouchent pas : 7,9 voitures sur 15 roulent à moins de
+  150 m (moyenne de 14 lieux d'un fichier de 255 voies du quartier). Avec sa voiture : 5,3 sur 18,
+  5,9 km/h en moyenne, 8 voitures arrêtées depuis plus de 20 s, et plus aucune voiture qui roule au pire
+  moment. La dernière voiture de chaque file se tenait devant un carrefour qu'elle avait demandé en
+  arrivant, et le gardait tant que la file ne bougeait pas : aucune voiture des autres rues ne passait ce
+  carrefour, leurs files atteignaient les carrefours d'avant, et ainsi de suite. Rien ne disait à une
+  voiture, au carrefour d'avant, que la rue était fermée, et de nouvelles voitures étaient posées
+  derrière la file.
+- **Ce qui change** (trois règles, chacune avec son interrupteur) :
+  - une voiture arrêtée depuis 2 s derrière une voiture, une file, une personne ou un objet rend le
+    carrefour devant elle et le redemande quand elle repart (`FGTPJunctionClaims::HeldUpSeconds` ;
+    `-TrafficJunctionGiveBack=0` : elle le garde, comme jusqu'au 106) ;
+  - les voitures évitent une voie tenue (`GTPTrafficHeld.h`) : une voiture arrêtée depuis 30 s derrière
+    une autre ou une file (un feu rouge tient une file 22 s), ou depuis 8 s derrière une chose immobile
+    sans place pour la contourner, le dit ; pendant 20 s après le dernier signalement, aucune voiture ne
+    prend cette voie au carrefour d'avant si une autre sortie est ouverte, une voiture qui comptait la
+    prendre refait son chemin, et aucune voiture n'y est posée. Une voie qui ne mène qu'à des voies
+    tenues compte comme fermée aussi (`-TrafficHeldLanes=0` : coupé) ;
+  - les voitures d'une même voie se suivent dans un carrefour au lieu de passer une par une ; celles
+    d'une autre voie attendent qu'il soit vide, trois voitures passent encore une fois que l'une d'elles
+    attend, puis la voie qui avait le carrefour laisse passer l'autre d'abord (`FGTPJunctionTable` ;
+    `-TrafficJunctionFollow=0` : une voiture à la fois).
+  Une voiture de police à l'arrêt (un barrage, une unité arrêtée par son homme, celle qui attend dans une
+  rue de côté) est maintenant une chose que le trafic peut contourner après ses 5 s ; jusqu'au 106, le
+  trafic attendait derrière elle tant qu'elle restait là.
+- **Compté hors Unreal, pas joué.** Mêmes 14 lieux, sa voiture sur la chaussée : 7,1 voitures sur 16
+  roulent (5,3 avant), 9,0 km/h (5,9), 4,7 arrêtées depuis plus de 20 s (8,2) ; sans rien sur la chaussée
+  8,5 (7,9). Chaque règle seule : le carrefour rendu 5,9, les voies tenues 6,3. Sur une grille de rues à
+  double sens sans fichier (`standing_sim grid`, lancée par la CI avec ce que les règles doivent tenir) :
+  6,6 qui roulent autour de sa voiture avec les règles du 106, 8,5 maintenant, 9,0 dans la rue vide.
+  `junction_test.cpp` vérifie les règles une à une. Les voitures juste derrière la sienne attendent
+  toujours là : rien ici ne leur donne un passage.
+- **Non prouvé :** que sa voiture est bien ce qui tenait les files dans le jeu, et pas aussi une voiture
+  de police ou autre chose ; le modèle n'a ni physique, ni police, ni trafic lointain. Les lignes à lire
+  à la prochaine porte : « traffic heads t=...: N car(s) stopped over 20 s for something other than the
+  queue ahead: voiture on lane L, S s for quoi: la chose rencontrée, D m from the player » (les six
+  arrêtées depuis le plus longtemps, toutes les 10 s) ; « traffic: lane L is held: voiture has stood
+  there S s behind ... » ; « voiture: lane L ahead is held, takes lane M from lane K » ; et à la fin de
+  la ligne « traffic cars », « lanes held=N (T time(s) so far, C car(s) turned away, P place(s) left
+  empty there), junctions given back by a queue=G, cars that followed another through a junction=F ».
 
 ## 9. Préparer une voiture conduisible
 
