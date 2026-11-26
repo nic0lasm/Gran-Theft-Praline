@@ -436,9 +436,56 @@ def roofs(blocks, seed=7):
     return out
 
 
+# --- the trees of a wooded hill ----------------------------------------------------------------
+# Gate 104, from place Bellecour: Fourviere is a smooth dome of one tone, its skyline an arc drawn
+# with a compass. Clumps of crowns (flattened spheres of the hill's own material) stand on the
+# side that looks at the town and on the crest: they break the arc and give the slope a relief.
+CROWN_SEED = 2027               # their own draw: the blocks stay where they were
+CROWNS = 260                    # clumps on a wooded hill
+CROWN_M = (18.0, 38.0)          # width of a clump
+CROWN_FLAT = (0.45, 0.7)        # its height over its width
+CROWN_ABOVE = 0.12              # none under this share of the hill's height: the foot is the town's
+CROWN_BACK = 0.35               # none farther behind the top than this share of the hill's half width
+CROWN_CLEAR_M = 45.0            # none this close to a monument
+CROWN_HOUSE_M = 6.0             # nor this close to the walls of a house
+
+
+def crowns(blocks, parts, seed=7):
+    """Clumps of tree crowns on the wooded hills: [{"x", "y", "ground", "width", "depth", "height"}],
+    ground above the street; the same for a seed. blocks and parts (monuments) are kept clear."""
+    out = []
+    for n, hill in enumerate(HILLS):
+        _, cx, cy, rx, ry, top, wooded = hill
+        if not wooded:
+            continue
+        rng = random.Random(CROWN_SEED + 31 * seed + n)
+        side = 1.0 if cx < 0.0 else -1.0            # the side of the hill that looks at the street
+        tries = 0
+        placed = 0
+        while placed < CROWNS and tries < 40 * CROWNS:
+            tries += 1
+            x = cx + side * rng.uniform(-CROWN_BACK, 1.0) * rx
+            y = cy + rng.uniform(-1.0, 1.0) * ry
+            width = rng.uniform(*CROWN_M)
+            depth = width * rng.uniform(0.8, 1.25)
+            height = width * rng.uniform(*CROWN_FLAT)
+            ground, which = hill_at(x, y)
+            if which is not hill or ground < CROWN_ABOVE * top:
+                continue
+            if any(math.hypot(x - m["x"], y - m["y"]) < CROWN_CLEAR_M + 0.5 * width for m in parts):
+                continue
+            if any(math.hypot(x - b["x"], y - b["y"]) < 0.5 * (width + max(b["width"], b["depth"])) + CROWN_HOUSE_M
+                   for b in blocks if b["ground"] > 0.0):
+                continue
+            out.append({"x": round(x, 1), "y": round(y, 1), "ground": round(ground, 1), "width": round(width, 1),
+                        "depth": round(depth, 1), "height": round(height, 1)})
+            placed += 1
+    return out
+
+
 def layout(seed=7):
-    """The whole far view: {"skirt": {...}, "hills": [...], "blocks": [...], "monuments": [...]}, the
-    same for a seed."""
+    """The whole far view: {"skirt": {...}, "hills": [...], "blocks": [...], "monuments": [...],
+    "roofs": {...}, "crowns": [...]}, the same for a seed."""
     rng = random.Random(seed)
     blocks = []
     for row, distance in enumerate(ROWS_M):
@@ -468,5 +515,6 @@ def layout(seed=7):
                        "top": top, "colour": TOWER_COLOUR, "kind": "tower"})
     hills = [{"name": name, "x": cx, "y": cy, "half_x": rx, "half_y": ry, "top": top, "wooded": wooded}
              for name, cx, cy, rx, ry, top, wooded in HILLS]
-    return {"skirt": {"half": SKIRT_HALF_M}, "hills": hills, "blocks": blocks, "monuments": monuments(),
-            "roofs": roofs(blocks, seed)}
+    parts = monuments()
+    return {"skirt": {"half": SKIRT_HALF_M}, "hills": hills, "blocks": blocks, "monuments": parts,
+            "roofs": roofs(blocks, seed), "crowns": crowns(blocks, parts, seed)}

@@ -8,7 +8,8 @@ built by apply_city_materials.py: run the materials step first); the two hills; 
 of Fourviere and its metal tower, on the edge of the hill; and, where a square runs past the
 end of the map's ground (place Bellecour), that ground carried on, the fronts round the square
 and two rows of trees (GTP_SQUARE_SETTING=0 leaves them out), and the statue in the middle of
-the square (GTP_SQUARE_STATUE=0 leaves it out). Engine basic shapes only (cube,
+the square (GTP_SQUARE_STATUE=0 leaves it out), and clumps of tree crowns on the wooded hill
+(GTP_HILL_CROWNS=0 leaves them out). Engine basic shapes only (cube,
 plane, sphere, cylinder, cone): no mesh to import, about 250 actors of a few triangles that the
 renderer batches by material. No collision, no shadow, not in the ray tracing scene.
 
@@ -59,6 +60,7 @@ TREE_CLEAR_M = 8.0             # no tree this close to the line the flight drive
 ROUTE_MAPLES = os.environ.get("GTP_ROUTE_MAPLES", "0") == "1"
 ROUTE_FOLDER = "City/Route"
 ROOFS = os.environ.get("GTP_HORIZON_ROOFS", "1") != "0"
+CROWNS = os.environ.get("GTP_HILL_CROWNS", "1") != "0"
 TREE_CULL_CM = 60000.0
 
 eal = unreal.EditorAssetLibrary
@@ -305,6 +307,37 @@ def block_roofs(plan, cube, report):
     return out
 
 
+def hill_crowns(items, sphere, report):
+    """The clumps of crowns of the wooded hills (horizon.crowns), as instances of the engine
+    sphere in the hill's own material: one actor. Instances placed; 0 when CROWNS is off."""
+    path = MAT_DIR + "/M_City_HorizonWood"
+    if not CROWNS or not items or sphere is None or not eal.does_asset_exist(path):
+        return 0
+    sds = unreal.get_engine_subsystem(unreal.SubobjectDataSubsystem)
+    sdl = unreal.SubobjectDataBlueprintFunctionLibrary
+    actor = actor_sub_().spawn_actor_from_class(unreal.StaticMeshActor, unreal.Vector(0.0, 0.0, 0.0))
+    actor.set_actor_label("Horizon_Crowns")
+    actor.set_folder_path(FOLDER)
+    try:
+        actor.set_editor_property("is_spatially_loaded", False)
+    except Exception:  # noqa: BLE001  plain level: no such property to set
+        pass
+    root = sds.k2_gather_subobject_data_for_instance(actor)[0]
+    handle, _ = sds.add_new_subobject(unreal.AddNewSubobjectParams(
+        parent_handle=root, new_class=unreal.HierarchicalInstancedStaticMeshComponent))
+    comp = sdl.get_object(sdl.get_data(handle))
+    comp.set_static_mesh(sphere)
+    comp.set_material(0, eal.load_asset(path))
+    quiet(comp, report)
+    for c in items:
+        # the sphere is 100 cm across, centred: a quarter of the clump is in the hill
+        comp.add_instance(unreal.Transform(
+            unreal.Vector(c["x"] * 100.0, c["y"] * 100.0, (c["ground"] + 0.25 * c["height"]) * 100.0),
+            unreal.Rotator(roll=0.0, pitch=0.0, yaw=0.0),
+            unreal.Vector(c["width"], c["depth"], c["height"])), True)
+    return comp.get_instance_count()
+
+
 def mesh_height(mesh):
     box = mesh.get_bounding_box()
     return box.max.z - box.min.z
@@ -449,6 +482,10 @@ def main():  # noqa: C901
             report["roofs"] = block_roofs(plan.get("roofs") or {}, shapes["Cube"], report)
         except Exception as e:  # noqa: BLE001  the blocks stay, flat topped as before
             report["roofs_error"] = repr(e)
+        try:
+            report["crowns"] = hill_crowns(plan.get("crowns") or [], shapes["Sphere"], report)
+        except Exception as e:  # noqa: BLE001  the hill stays, smooth as before
+            report["crowns_error"] = repr(e)
         for m in plan["monuments"]:
             mat = MONUMENT_MATERIALS[m["material"]]
             if shapes.get(m["shape"]) is None or mats.get(mat) is None:
