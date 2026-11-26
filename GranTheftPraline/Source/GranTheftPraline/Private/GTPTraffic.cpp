@@ -6,6 +6,7 @@
 #include "GTPRoadWidth.h"
 #include "GTPLog.h"
 #include "GTPVehicle.h"
+#include "GTPCarPaint.h"
 #include "GTPTrafficGhost.h"
 #include "GTPParkedCars.h"
 #include "GTPFarTraffic.h"
@@ -1877,6 +1878,11 @@ void AGTPTrafficNetwork::BeginPlay()
 		: TEXT("with room from the traffic's own cars only (-TrafficPoliceRoom=0)"));
 	GTP_TRACE(LogGTPTraffic, TEXT("traffic: car pool %s, cooldown %.1f s, spot check %d"), bTrafficPool ? TEXT("on") : TEXT("off"), PoolCooldown,
 		bPoolSpawnCheck ? 1 : 0);
+	FParse::Value(FCommandLine::Get(), TEXT("TrafficPaint="), TrafficPaintMode);
+	TrafficPaintMode = FMath::Clamp(TrafficPaintMode, 0, 2);
+	GTP_TRACE(LogGTPTraffic, TEXT("traffic: %s"), TrafficPaintMode == 0 ? TEXT("the cars keep the paint of their model (-TrafficPaint=0)")
+		: (TrafficPaintMode == 1 ? TEXT("each car is painted as it is made, one of 13 colours, never that of the car before (BaseColor of the slot veh_carPaint)")
+			: TEXT("each car gets a look-up of its own on its paint, the colour is not touched (-TrafficPaint=2)")));
 	{
 		int32 HeldLanesSwitch = bKeepOffHeldLanes ? 1 : 0;
 		FParse::Value(FCommandLine::Get(), TEXT("TrafficHeldLanes="), HeldLanesSwitch);
@@ -2206,6 +2212,7 @@ AGTPVehicle* AGTPTrafficNetwork::SpawnParkedVehicle(FName Tag, const FVector& Ne
 			{
 				continue;
 			}
+			PaintCar(Car);
 			if (!Tag.IsNone())
 			{
 				Car->Tags.AddUnique(Tag);
@@ -2319,6 +2326,33 @@ bool AGTPTrafficNetwork::FindSpawnPoint(int32& OutLane, int32& OutPoint, FTransf
 	return false;
 }
 
+void AGTPTrafficNetwork::PaintCar(AGTPVehicle* Car)
+{
+	if (TrafficPaintMode == 0 || !Car)
+	{
+		return;
+	}
+	const int32 Picked = GTPCarPaint::Draw(PaintRandom.FRand(), LastPaint);
+	const float LookUp = PaintRandom.FRand();
+	if (Picked < 0)
+	{
+		return;
+	}
+	const GTPCarPaint::FPaint& Paint = GTPCarPaint::Paints[Picked];
+	const int32 Slots = Car->SetPaint(FLinearColor(Paint.R, Paint.G, Paint.B), TrafficPaintMode, LookUp);
+	CarsPainted += Slots > 0 ? 1 : 0;
+	CarsWithNoPaintSlot += Slots > 0 ? 0 : 1;
+	LastPaint = Slots > 0 ? Picked : LastPaint;
+	// The first cars, then one in twenty: what a gate reads to know the paint was found on the car.
+	const int32 Made = CarsPainted + CarsWithNoPaintSlot;
+	if (Made <= 12 || Made % 20 == 0)
+	{
+		GTP_TRACE(LogGTPTraffic, TEXT("traffic: %s %s (%d slot(s) veh_carPaint%s; %d car(s) painted so far, %d with no such slot)"), *Car->GetName(),
+			Slots > 0 ? *FString::Printf(TEXT("painted %s"), ANSI_TO_TCHAR(Paint.Name)) : TEXT("left as it is"), Slots,
+			TrafficPaintMode == 2 ? *FString::Printf(TEXT(", look-up %.2f in place of the colour"), LookUp) : TEXT(""), CarsPainted, CarsWithNoPaintSlot);
+	}
+}
+
 AGTPVehicle* AGTPTrafficNetwork::CreateCar(const FTransform& Transform, ESpawnActorCollisionHandlingMethod Collision)
 {
 	if (LoadedVehicleClasses.Num() == 0)
@@ -2334,6 +2368,7 @@ AGTPVehicle* AGTPTrafficNetwork::CreateCar(const FTransform& Transform, ESpawnAc
 		return nullptr;
 	}
 	Car->NotePlaced(TEXT("spawn"));
+	PaintCar(Car);
 	if (LoadedDriverClass)
 	{
 		FActorSpawnParameters DriverParams;

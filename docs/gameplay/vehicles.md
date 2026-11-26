@@ -740,6 +740,35 @@ lane on the left).
   far, C car(s) turned away, P place(s) left empty there), junctions given back by a queue=G, cars
   that followed another through a junction=F".
 
+### 8.11 The cars of the traffic are not all one colour (26/11)
+
+Gate 104's film: the cars of the traffic are all of the blue of the car the player stole (a blue queue
+at 62 s, a blue jam from 128 to 158 s).
+
+- **Read in the editor** (a read-only pass on the reference PC, nothing written): the paint of the nine
+  City Sample cars is the slot `veh_carPaint` of their `SKM_Exterior_...` mesh, one chain for all of
+  them, `MI_<car>_N` → `M_veh_carPaint` of the car → `MI_Veh_CarPaint` → `M_Veh_CarPaint`. Seven of
+  the nine set no colour of their own. The material has a scalar "MassTraffic PackedParam1" and a
+  scalar "Paint Var Lookup", both 0 by default: City Sample's own traffic gives each car a datum
+  there, and ours gives none, so every car reads the same paint. Vehicle 12, the only one with a
+  colour of its own, sets the vector `BaseColor` with an alpha of 1; the paint the others inherit has
+  an alpha of 0.
+- **What changed**: each car the traffic network makes, driven, far or parked, is painted as it is
+  made (`AGTPTrafficNetwork::PaintCar`, `AGTPVehicle::SetPaint`): the material of that slot becomes an
+  instance of the car's own and its `BaseColor` one of 13 colours with an alpha of 1
+  (`GTPCarPaint.h`: greys, whites and blacks seven cars in ten, then blues, reds, a few greens,
+  beiges, an orange brown and a yellow), never the colour of the car made just before. The police
+  cars and the cars a script asks for are not touched. A car taken back from the pool keeps its paint.
+- **Checked outside Unreal** (`tools/vehicles/paint_test`): the shares, no two cars in a row alike over
+  200 000 draws, and among 28 cars six colours at least and eleven cars of one colour at most
+  (1 000 streets).
+- **Not proven**: that an alpha of 1 on `BaseColor` is what makes the material take that colour; it is
+  read from vehicle 12 alone. The lines of a gate say whether the slot was found ("traffic: car painted
+  white (1 slot(s) veh_carPaint; N car(s) painted so far, M with no such slot)", the first twelve cars
+  then one in twenty), the film says whether the colour shows. If the cars stay blue:
+  `-TrafficPaint=2` moves "Paint Var Lookup" on each car instead (a number from 0 to 1) and leaves the
+  colour alone; `-TrafficPaint=0` paints nothing, as until gate 108.
+
 ## 9. Making a drivable car
 
 ### 9.1 First test car (no Tripo)
