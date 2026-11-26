@@ -624,9 +624,12 @@ public:
 	 * stands in a queue gives its junction back (-TrafficJunctionGiveBack=0: it keeps it), and the cars of one lane
 	 * follow each other through a junction (-TrafficJunctionFollow=0: one car at a time).
 	 * tools/vehicles/traffic_sim/standing_sim.cpp counts each of the three.
+	 * Gate 110 measured each one off: with the junction given back the police stayed 139 m away on average, within 80 m
+	 * 13 % of the time (3/4); kept, 85 m and 67 % (4/4), and more cars moving within 150 m (12.1 against 8.5). So a car
+	 * keeps its junction unless -TrafficJunctionGiveBack=1.
 	 */
 	bool bKeepOffHeldLanes = true;
-	bool bQueueGivesJunctionBack = true;
+	bool bQueueGivesJunctionBack = false;
 
 	FGTPJunctionTable& GetJunctionTable() { return JunctionTable; }
 
