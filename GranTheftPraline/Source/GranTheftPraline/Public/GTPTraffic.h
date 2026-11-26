@@ -1027,6 +1027,19 @@ private:
 	int32 SignalHeadsBorrowed = 0;
 	int32 SignalHeadsBesideOther = 0;
 
+	/**
+	 * Gate 104's film: the cars of the traffic all of one blue. Each car made by the network, driven, far or parked,
+	 * is painted as it is made (GTPCarPaint.h, AGTPVehicle::SetPaint), never the colour of the one made before.
+	 * -TrafficPaint=0: no paint, as until gate 108; 1: the colour set on the paint (default); 2: the paint's own
+	 * look-up moved instead, should a gate show that 1 changes nothing.
+	 */
+	int32 TrafficPaintMode = 1;
+	FRandomStream PaintRandom{0x5041494E};
+	int32 LastPaint = -1;
+	int32 CarsPainted = 0;
+	int32 CarsWithNoPaintSlot = 0;
+	void PaintCar(AGTPVehicle* Car);
+
 	FGTPJunctionTable JunctionTable;
 	FGTPHeldLanes HeldLanes;
 	int32 CarsTurnedAway = 0;

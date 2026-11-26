@@ -26,6 +26,7 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/SkeletalMesh.h"
 #include "Engine/SkinnedAsset.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "ReferenceSkeleton.h"
 #include "PhysicsEngine/BodySetup.h"
 #include "PhysicsEngine/ConstraintInstance.h"
@@ -610,6 +611,57 @@ void AGTPVehicle::OnConstruction(const FTransform& Transform)
 		Part->SetLeaderPoseComponent(Body);
 		LookComponents.Add(Part);
 	}
+	if (PaintMode != 0)
+	{
+		// The parts are new: their paint again.
+		SetPaint(PaintColour, PaintMode, PaintLookUp);
+	}
+}
+
+int32 AGTPVehicle::SetPaint(const FLinearColor& Colour, int32 Mode, float LookUp)
+{
+	static const FName PaintSlot(TEXT("veh_carPaint"));
+	PaintColour = Colour;
+	PaintMode = Mode;
+	PaintLookUp = LookUp;
+	if (Mode == 0)
+	{
+		return 0;
+	}
+	TArray<UMeshComponent*, TInlineAllocator<4>> Parts;
+	if (USkeletalMeshComponent* OwnBody = GetMesh())
+	{
+		Parts.Add(OwnBody);
+	}
+	for (USkeletalMeshComponent* Look : LookComponents)
+	{
+		if (Look)
+		{
+			Parts.Add(Look);
+		}
+	}
+	int32 Painted = 0;
+	for (UMeshComponent* Part : Parts)
+	{
+		const int32 Slot = Part->GetMaterialIndex(PaintSlot);
+		if (Slot == INDEX_NONE || !Part->GetMaterial(Slot))
+		{
+			continue;
+		}
+		if (UMaterialInstanceDynamic* Paint = Part->CreateDynamicMaterialInstance(Slot))
+		{
+			if (Mode == 2)
+			{
+				Paint->SetScalarParameterValue(TEXT("Paint Var Lookup"), LookUp);
+			}
+			else
+			{
+				Paint->SetVectorParameterValue(TEXT("BaseColor"), FLinearColor(Colour.R, Colour.G, Colour.B, 1.f));
+			}
+			++Painted;
+		}
+	}
+	return Painted;
 }
 
 bool AGTPVehicle::IsClassDrawn(const UClass* Class, FString& OutWhy)

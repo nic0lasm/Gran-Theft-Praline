@@ -796,6 +796,37 @@ demande une voie entière libre à gauche).
   la ligne « traffic cars », « lanes held=N (T time(s) so far, C car(s) turned away, P place(s) left
   empty there), junctions given back by a queue=G, cars that followed another through a junction=F ».
 
+### 8.11 Les voitures du trafic ne sont plus toutes de la même couleur (26/11)
+
+Vidéo du 104 : les voitures du trafic sont toutes du bleu de la voiture volée (file bleue à 62 s, bouchon
+bleu de 128 à 158 s).
+
+- **Lu dans l'éditeur** (passage en lecture seule sur le PC de référence, rien d'écrit) : la peinture des
+  neuf voitures City Sample est l'emplacement `veh_carPaint` de leur maillage `SKM_Exterior_...`, avec
+  une seule chaîne pour toutes, `MI_<voiture>_N` → `M_veh_carPaint` de la voiture → `MI_Veh_CarPaint` →
+  `M_Veh_CarPaint`. Sept sur neuf ne fixent aucune couleur propre. Le matériau a un scalaire
+  « MassTraffic PackedParam1 » et un scalaire « Paint Var Lookup », à 0 par défaut : le trafic de City
+  Sample y donne une valeur à chaque voiture, le nôtre n'en donne pas, donc toutes lisent la même
+  peinture. Le véhicule 12, le seul à avoir sa couleur, règle le vecteur `BaseColor` avec un alpha de
+  1 ; la peinture dont héritent les autres a un alpha de 0.
+- **Ce qui change** : chaque voiture créée par le réseau de trafic, conduite, lointaine ou garée, est
+  peinte à sa création (`AGTPTrafficNetwork::PaintCar`, `AGTPVehicle::SetPaint`) : le matériau de cet
+  emplacement devient une instance propre à la voiture, et son `BaseColor` l'une de 13 couleurs avec un
+  alpha de 1 (`GTPCarPaint.h` : gris, blancs et noirs sept voitures sur dix, puis des bleus, des
+  rouges, quelques verts, des beiges, un brun orangé et un jaune), jamais la couleur de la voiture
+  créée juste avant. Les voitures de police et celles qu'un script demande ne sont pas touchées. Une
+  voiture reprise dans la réserve garde sa peinture.
+- **Vérifié hors Unreal** (`tools/vehicles/paint_test`) : les parts, jamais deux voitures de suite
+  pareilles sur 200 000 tirages, et parmi 28 voitures au moins six couleurs et au plus onze voitures
+  d'une même couleur (1 000 rues).
+- **Non prouvé** : qu'un alpha de 1 sur `BaseColor` est bien ce qui fait prendre cette couleur au
+  matériau ; c'est lu sur le seul véhicule 12. Les lignes d'une porte disent si l'emplacement a été
+  trouvé (« traffic: voiture painted white (1 slot(s) veh_carPaint; N car(s) painted so far, M with no
+  such slot) », les douze premières voitures puis une sur vingt), la vidéo dit si la couleur se voit.
+  Si les voitures restent bleues : `-TrafficPaint=2` déplace « Paint Var Lookup » sur chaque voiture à
+  la place (un nombre de 0 à 1) et laisse la couleur ; `-TrafficPaint=0` ne peint rien, comme jusqu'au
+  108.
+
 ## 9. Préparer une voiture conduisible
 
 ### 9.1 Première voiture d'essai (sans Tripo)

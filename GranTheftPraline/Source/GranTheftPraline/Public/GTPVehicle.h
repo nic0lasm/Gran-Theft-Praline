@@ -548,6 +548,16 @@ public:
 	const TArray<TObjectPtr<USkeletalMeshComponent>>& GetLookComponents() const { return LookComponents; }
 
 	/**
+	 * Paints a City Sample car (GTPCarPaint.h): on the body and on each look component, the material of the slot
+	 * "veh_carPaint" becomes an instance of the car's own. Mode 1: its vector BaseColor is Colour with an alpha of 1
+	 * (taken as "this colour, not the looked-up one": the one car Epic gave a colour of its own is set that way).
+	 * Mode 2: its scalar "Paint Var Lookup" is LookUp, the colour is not touched. Mode 0: nothing.
+	 * Returns the slots painted: 0 on a car with no such slot (our own models). Kept, and put back when the look
+	 * components are built again.
+	 */
+	int32 SetPaint(const FLinearColor& Colour, int32 Mode = 1, float LookUp = 0.f);
+
+	/**
 	 * Whether a car class draws anything a player sees as a car, read from its defaults (no spawn): its
 	 * body mesh or one of its LookMeshes at least 1 m long. OutWhy: each mesh with its box (cm) and its
 	 * material slots, how many have a material.
@@ -761,6 +771,10 @@ private:
 	/** Components built from LookMeshes (rebuilt on each construction). */
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<USkeletalMeshComponent>> LookComponents;
+	/** The last SetPaint (PaintMode 0: never painted). */
+	FLinearColor PaintColour = FLinearColor::Black;
+	int32 PaintMode = 0;
+	float PaintLookUp = 0.f;
 	float LastImpactTime = -1000.f;
 	float IgnoredLogTime = -1000.f;
 	int32 IgnoredSinceLog = 0;

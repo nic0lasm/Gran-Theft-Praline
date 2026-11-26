@@ -183,6 +183,12 @@ jobs:
         run: |
           g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/ghost_test/ghost_test.cpp -o /tmp/ghost_test
           /tmp/ghost_test
+      - name: Paint of the traffic cars
+        run: |
+          g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/paint_test/paint_test.cpp -o /tmp/paint_test
+          /tmp/paint_test
+          printf '#include "GTPCarPaint.h"\nint main() { return 0; }\n' > /tmp/hdr.cpp
+          clang++ -std=c++17 -fsyntax-only -Wall -Wextra -Werror -Wconversion -Wsign-conversion -Wshadow -Wdouble-promotion -I GranTheftPraline/Source/GranTheftPraline/Public /tmp/hdr.cpp
       - name: Junctions, held lanes and the traffic around a player who stands still
         run: |
           g++ -O2 -std=c++17 -Wall -Wextra -Werror -I GranTheftPraline/Source/GranTheftPraline/Public tools/vehicles/traffic_sim/junction_test.cpp -o /tmp/junction_test
