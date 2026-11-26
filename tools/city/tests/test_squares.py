@@ -108,8 +108,10 @@ class SquaresTests(unittest.TestCase):
 
     @unittest.skipUnless(shutil.which(os.environ.get("CXX", "g++")), "no C++ compiler")
     def test_the_grain_of_the_sand_compiles_and_is_no_regular_pattern(self):
-        step, n = 10.0, 400                                        # a line of 40 m, a point every 10 cm
-        lines = [[(-9000.0 + i * step, 61000.0 + 137.0 * row) for i in range(n)] for row in range(6)]
+        # six lines of 40 m, a point every 10 cm; then six lines of 400 m, a point every metre
+        n = 400
+        fine = [[(-9000.0 + i * 10.0, 61000.0 + 137.0 * row) for i in range(n)] for row in range(6)]
+        wide = [[(-22000.0 + i * 100.0, 50000.0 + 3100.0 * row) for i in range(n)] for row in range(6)]
         with tempfile.TemporaryDirectory() as tmp:
             with open(os.path.join(tmp, "square_body.inc"), "w", encoding="utf-8") as f:
                 f.write(squares.grain_hlsl())
@@ -117,23 +119,35 @@ class SquaresTests(unittest.TestCase):
             subprocess.run([os.environ.get("CXX", "g++"), "-O2", "-std=c++17", "-Wall", "-Wextra", "-Werror",
                             "-I", tmp, "-I", HARNESS, os.path.join(HARNESS, "square_distance.cpp"), "-o", exe],
                            check=True)
-            got = subprocess.run([exe], input="".join("%f %f\n" % p for line in lines for p in line), check=True,
-                                 capture_output=True, text=True).stdout.split()
+            got = subprocess.run([exe], input="".join("%f %f\n" % p for line in fine + wide for p in line),
+                                 check=True, capture_output=True, text=True).stdout.split()
         values = [float(v) for v in got]
-        self.assertEqual(len(values), 6 * n)
+        self.assertEqual(len(values), 12 * n)
         half = 0.5 * sum(w for _, w in squares.GRAIN_OCTAVES)
         self.assertTrue(all(1.0 - half - 1e-3 <= v <= 1.0 + half + 1e-3 for v in values))
-        mean = sum(values) / len(values)
-        self.assertAlmostEqual(mean, 1.0, delta=0.03)
-        self.assertGreater(max(values) - min(values), 0.12)        # it shows
-        # no jump from a point to the next (continuous), and no period: a line never comes back on itself
-        row = values[:n]
-        self.assertLess(max(abs(a - b) for a, b in zip(row, row[1:])), 0.05)
+        far = values[6 * n:]
+        mean = sum(far) / len(far)
+        self.assertAlmostEqual(mean, 1.0, delta=0.04)
+        # it shows: gate 104 had a deviation of 0.04 and the sand was one flat orange
+        deviation = (sum((v - mean) ** 2 for v in far) / len(far)) ** 0.5
+        self.assertGreater(deviation, 0.10)
+        self.assertLess(deviation, 0.22)
+        # no jump from a point to the next (continuous)
+        for r in range(6):
+            row = values[r * n:(r + 1) * n]
+            self.assertLess(max(abs(a - b) for a, b in zip(row, row[1:])), 0.12)
+        # and no period: a line of 400 m never comes back on itself
+        row = far[:n]
         dev = [v - sum(row) / n for v in row]
         power = sum(d * d for d in dev)
-        for lag in range(20, 200):
+        for lag in range(40, 200):
             auto = sum(dev[i] * dev[i + lag] for i in range(n - lag)) / power
-            self.assertLess(auto, 0.75, lag)
+            self.assertLess(auto, 0.6, lag)
+
+    def test_the_noise_takes_other_sizes(self):
+        text = squares.grain_hlsl(((9000.0, 0.8), (800.0, 0.5)))
+        self.assertIn("XY.x / 9000.0", text)
+        self.assertEqual(text.count("total +="), 2)
 
 
 if __name__ == "__main__":

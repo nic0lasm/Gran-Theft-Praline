@@ -128,7 +128,9 @@ FAR_CM = 100000.0       # what the shader answers away from every square
 # The grain of a sanded ground. Gate 99 (112 s, the car on place Bellecour): two products of sines
 # made a woven pattern, as regular as a cloth, on a ground of one tone. Value noise instead:
 # patches of several metres, footprints of a metre, a grain of a hand's width.
-GRAIN_OCTAVES = ((900.0, 0.14), (140.0, 0.10), (31.0, 0.07))     # cell (cm), weight
+# Gate 104 showed the first weights (0.14, 0.10, 0.07) as one flat orange: value noise keeps near
+# its middle, a fifth of its weight as a standard deviation, so they moved the sand by 4 %.
+GRAIN_OCTAVES = ((1500.0, 0.55), (400.0, 0.35), (90.0, 0.22), (31.0, 0.16))     # cell (cm), weight
 GRAIN_WRAP = 289.0             # cells before the draw repeats: small numbers in the hash
 
 

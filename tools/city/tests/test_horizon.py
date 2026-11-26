@@ -118,6 +118,38 @@ class HorizonTests(unittest.TestCase):
             if math.hypot(b["x"] - nave["x"], b["y"] - nave["y"]) < 150.0:
                 self.assertLess(b["top"], nave["top"], b)
 
+    def test_the_wooded_hill_carries_clumps_of_crowns(self):
+        crowns = self.plan["crowns"]
+        self.assertEqual(len(crowns), horizon.CROWNS)                 # one wooded hill
+        self.assertEqual(crowns, horizon.layout(7)["crowns"])        # one seed, one wood
+        self.assertEqual(self.plan["blocks"], horizon.layout(7)["blocks"])
+        fourviere = [h for h in horizon.HILLS if h[6]][0]
+        for c in crowns:
+            ground, hill = horizon.hill_at(c["x"], c["y"])
+            self.assertIs(hill, fourviere)
+            self.assertAlmostEqual(ground, c["ground"], delta=0.5)
+            self.assertGreaterEqual(ground, horizon.CROWN_ABOVE * fourviere[5] - 0.5)
+            self.assertTrue(horizon.CROWN_M[0] <= c["width"] <= horizon.CROWN_M[1])
+            self.assertLess(c["height"], c["width"])
+            for m in self.plan["monuments"]:                           # the basilica and the tower stay clear
+                self.assertGreater(math.hypot(c["x"] - m["x"], c["y"] - m["y"]), horizon.CROWN_CLEAR_M)
+        # seen from the east side of place Bellecour, crowns stand above the arc of the dome
+        eye_x, eye_y, eye_z = 30.0, 545.0, 2.0
+        arc, top = {}, {}
+        for az in range(150, 260):
+            for k in range(300, 2600, 10):
+                x, y = eye_x + k * math.cos(math.radians(az)), eye_y + k * math.sin(math.radians(az))
+                h, hill = horizon.hill_at(x, y)
+                if hill is fourviere:
+                    arc[az] = max(arc.get(az, 0.0), math.atan2(h - eye_z, k))
+        for c in crowns:
+            d = math.hypot(c["x"] - eye_x, c["y"] - eye_y)
+            az = int(round(math.degrees(math.atan2(c["y"] - eye_y, c["x"] - eye_x)))) % 360
+            top[az] = max(top.get(az, 0.0), math.atan2(c["ground"] + 0.75 * c["height"] - eye_z, d))
+        self.assertGreater(len(arc), 60)
+        broken = [az for az in arc if top.get(az, 0.0) > arc[az]]
+        self.assertGreater(len(broken), 0.5 * len(arc))
+
     def test_the_horseman_stands_on_place_bellecour(self):
         # the outline of the square as OpenStreetMap draws it, through oriented_box
         box = (-101.37, 607.9, 0.939, 0.343, 132.57, 95.13)
