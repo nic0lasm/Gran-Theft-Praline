@@ -1,39 +1,18 @@
 {
   "_doc": "What the Windows gate queue checks for this candidate. Edited by the pilot for each candidate; read by the PC queue script. No machine paths here. From candidate 60 the gate judges what the player sees: the default traffic, which is the legacy one (MassTraffic runs only with -Traffic=mass). The 'blocking' criteria are read on the blocking passes; everything under 'informative_mass' is measured and reported on the MassTraffic passes but never fails the gate, and never stops it. Those criteria become blocking again only for switching the default traffic to mass, once a whole gate passes them (ADR-0015).",
-  "candidate": 107,
+  "candidate": 108,
   "map_md5": null,
   "game_p50_max_ms": 13.95,
   "game_p95_max_ms": 50,
   "gtarun_min_ok": 6,
   "blocking_passes": [
     "default",
-    "noparked",
-    "notraffic",
-    "gtarun",
-    "gtarun -DemoFreeCar=Car02",
-    "launch",
-    "crowd-base",
-    "crowd-parts3",
-    "crowd-parts5",
-    "crowd-cs0"
+    "gtarun"
   ],
-  "informative_passes": [
-    "gtarun -GTPNoSkinRT -DPCVars=r.RayTracing.Geometry.SkeletalMeshes=0",
-    "gtarun -GTPSoftLumen -DPCVars=r.Lumen.HardwareRayTracing=0"
-  ],
+  "informative_passes": [],
   "passes": [
     "default",
-    "noparked",
-    "notraffic",
-    "gtarun",
-    "gtarun -DemoFreeCar=Car02",
-    "launch",
-    "crowd-base",
-    "crowd-parts3",
-    "crowd-parts5",
-    "crowd-cs0",
-    "gtarun -GTPNoSkinRT -DPCVars=r.RayTracing.Geometry.SkeletalMeshes=0",
-    "gtarun -GTPSoftLumen -DPCVars=r.Lumen.HardwareRayTracing=0"
+    "gtarun"
   ],
   "blocking": {
     "fatal_max": 0,
@@ -260,7 +239,7 @@
   "_pre_gate_79": "78 plus Image 386130f (lot 3, far view): 'horizon' step puts a ground to the horizon, 229 far blocks, 5 Part-Dieu towers and 2 hills beyond the map (engine basic shapes, no collision, no shadow, out of ray tracing); the backdrop keeps its windows far away; dark ground past the ground mask. Gate 76 at 60 s: the quay looked out on a blue band like a sea. Steps: materials, then backup,facades,lanes,pits,horizon (all idempotent, one map save). Undo: GTP_HORIZON=0 on horizon, GTP_FAR_GROUND=0 on materials, or the map backup.",
   "_pre_gate_80": "Same as 79 (abandoned: built on 78 85a3e96, which failed to compile, C4459 PersonRadius in the unity build), now on 78 f2e65fe. Réalisme 0998ff1: a facade module is turned back only with 3 votes or more (prep 78 turned 8 small Blank faces on 2 votes); facade_flip_report gains a 'watch' list around (26250, -14825). Map restored to fb26cac9 before the steps. Window glass NameError fixed (dda197f).",
   "_pre_gate_81": "80 plus the roadmap V6 (dde936e); Jeu d31450a, 9498b01, d366ab9: the filmed flight keeps to a circuit THROUGH PLACE BELLECOUR (Nico 24/11 13:05Z): loop of 1793 m, 37 lanes (quai Jules Courmont, Childebert, République, Bellecordière, rue de la Barre, Bellecour corner, Herriot, Jean de Tournes, Stella, Grolée, Carnot), approach 488 m with a U-turn at the pont Lafayette crossing; Décor 729075a: Bellecour's red ground, Fourvière on the skyline. Video should show: a faster flight, no relocation, Bellecour around 70 s. Grid points aimed at: 2, 3, 8. Steps: traffic.py regenerates the lanes (26 new lanes, through roads of the circuit), materials, base map fb26cac9 restored then backup,facades,lanes,pits,horizon, then flight_circuit.py check (blocking). Lines: 'flight circuit of 37 lanes, 1793 m a lap', 'driven on its line of 604 points', 'speeds asked by 47 of 47', 'approach of 10 lanes', NOT USED / WITHOUT with their reason, 'relocations='. Switch: -FlightCircuit=0. Plus Jeu 4f1f152 (police units drive the circuit's smoothed line on its lanes; -PoliceCircuitLines=0) and 1e797c6 (the filmed flight ends on the north side of Bellecour: pursuit step limit 50 -> 70 s, chase window 40 to 60 s by the arrival on the place). Plus Décor 93b8911, 1ad66b9 (lot 5, horizon step only): the ground of Bellecour carried on past y = 617 m, the square's facades beyond the map and two rows of trees, basilica moved 70 m; horizon_report keys square_settings, level_from, ground_box_m; undo GTP_SQUARE_SETTING=0.",
-  "gate_kind": "full",
+  "gate_kind": "short",
   "next_full_gate_extra_passes": [
     "gtarun -GTPNoSkinRT -DPCVars=r.RayTracing.Geometry.SkeletalMeshes=0",
     "gtarun -GTPSoftLumen -DPCVars=r.Lumen.HardwareRayTracing=0"
@@ -296,5 +275,6 @@
   "_pre_gate_104": "103's code plus Jeu 6c7f046: whoever is in the way of a fast car (the player from 14 km/h, police and traffic from 40) leaps aside or runs off the crossing; one in eight reacts late (47 run over at gate 93; offline street test 475 to 10). -CrowdDodgeCars=0 undoes it. Video should show: people leaping out of the way of the flight on Bellecour, far fewer bodies. Log: 'crowd: fast cars: ... N leapt aside, N ran off', 'crowd: run over: N'. C++ touched, not compiled before the gate. Short gate. Plus Décor a9a008a (lot 18): the sand of place Bellecour without its woven pattern (irregular noise, an eighth darker), the wooded hill of Fourviere with houses instead of seven-storey grey bars, nothing on the crest. Materials and horizon steps (GTP_SQUARE_GRAIN=0 undoes it). Video should show: Bellecour's sand under the car without weave or salmon tint, Fourviere green at 76 s (grid point 8). Plus Décor a37cae6 (lot 19): the statue of Louis XIV on place Bellecour, 17 simple shapes set by the horizon step, 126 m from the driven line (GTP_SQUARE_STATUE=0 undoes it). horizon_report square_settings 'statue' = 17 pieces. Plus Jeu a0b795b: the car of an arrest is taken away once the player is 80 m off and does not see it (at gate 100 the stolen 208 left on the circuit's line stood on its roof at 235 s and held up the replay; -KeepArrestCars undoes it); a car no AI drives that leaves its wheels says who is near and whether they push. Log: 'the car the player was arrested in, stays at', '... taken away ... far from the player and out of sight', '<car>: nobody|the player at the wheel and it is off its wheels'.",
   "_pre_gate_105": "104's code plus Jeu 477918e: from 2 stars a replacement or flank car waits in a side street ahead of the player, out of sight, and pulls out behind him; a unit 180 m behind for 6 s is taken away out of sight when another waits ahead; a unit follows what drives its way instead of braking hard; a unit left behind may reach 140 km/h (-PoliceIntercept=0, -PoliceFollow=0, -PoliceCatchUp=0). At gate 102 every unit was behind, 10 s back, 5 % of the time within 80 m. The pursuit measure no longer counts a car while it waits (as a roadblock car). Video should show: police cars pulling out behind the flight, not into it. Log: 'waits in a side street ... N made so, N time(s) no street found', 'pulls out of its side street after', leader= top= waits= behind=. Plus Jeu b60e8fc and c046d5f: the catch-up to 140 km/h and the way out of a side street hold whenever the police know where he is (seen, or last known place on him), not only in the pursuit phase; a car waiting in a side street pulls out once he has stood still 2 s ('pulls out of its side street ... : he stands still'); the driver made inside a car no longer logs 'touched by'. At gate 103 he stood 41 s after giving up and no unit came (three blocked in a line 84-101 m away, lines-103-giveup.txt). C++ touched, not compiled. Short gate.",
   "_pre_gate_106": "105's code (b9a72b2) plus Décor 0e64a12 (lot 20): the Pathé Bellecour landmark footprint, where the BD TOPO block is replaced by a bare LiDAR hull, is filled with 47 undrawn collision boxes (collision step, 'landmark_blockers' in backdrop_collision_report.json) and the hull gets the drawn front of the backdrop volumes (materials step, 'landmark_fronts' in materials_report.json); switches GTP_LANDMARK_BLOCKERS=0, GTP_LANDMARK_FRONTS empty. At gate 101 the player walked into that hull at x=7103 y=48240 and the screen stayed black 47 s. Video should show: a drawn cinema front at the end of the street, no way into it. Plus Jeu fc52eb6: a car under 1.5 m/s (a colleague too, never the player's) is gone round like the scenery and no longer makes a unit brake; a stopped unit no longer pushes against a colleague (two rode up on each other at gate 103); a roadblock car within 60 m of a player on foot or under 12 km/h for 1.5 s leaves its place to arrest him and counts as a pursuit unit from then on (-PoliceRoundCars=0, -PoliceBlocksArrest=0). At gate 103 three units stayed 84-101 m behind a standing Clio for 40 s and nobody arrested him. Log: 'police unit: X goes round Y', 'police: X leaves its roadblock for a player who stands'. Video should show: an arrest instead of 40 s of waiting, no unit on the pavement into the crowd. Plus Jeu c398979: no traffic car is put on the road (made or reused) within 50 m of a police car (-TrafficPoliceRoom=<m>, 0 off); at gate 103 a Clio was reused on lane 187 one length ahead of the leading unit. Log: 'traffic: no car put on lane N at ..., a police car is N m from that place'. Watch the 8 moving cars within 150 m. C++ touched, not compiled. Short gate.",
-  "_pre_gate_107": "The full gate of the day on 106's code (b8ecc00), the head that brought the police back: at gate 106 police 4/4 for the first time since 92, 25 % of the time within 80 m, GTARun 7/7, gtarun 99.8 % of frames within 33 ms. Gate 103 (f13d8e2) is the last short gate passed; 106's long take is held behind a Windows Security prompt. Blocking passes as at full gate 87; next_full_gate_extra_passes run as informative. Watch: moving cars within 150 m (4 at gate 106, measured after the flight). Full gate, moves main."
+  "_pre_gate_107": "The full gate of the day on 106's code (b8ecc00), the head that brought the police back: at gate 106 police 4/4 for the first time since 92, 25 % of the time within 80 m, GTARun 7/7, gtarun 99.8 % of frames within 33 ms. Gate 103 (f13d8e2) is the last short gate passed; 106's long take is held behind a Windows Security prompt. Blocking passes as at full gate 87; next_full_gate_extra_passes run as informative. Watch: moving cars within 150 m (4 at gate 106, measured after the flight). Full gate, moves main.",
+  "_pre_gate_108": "106's code (b8ecc00, through the full gate spec 107) plus Décor fac9721 (lot 21): Bellecour's sand grain weights x4 and two tones; two tones for the Fourvière wood; 260 instanced tree crowns (about 250,000 triangles, one actor) break the smooth arc of the hill. Steps materials and horizon only. Report: materials_report.json squares.grain = noise, squares.tones = 2, horizon_wood; horizon_report.json crowns = 260. Switches GTP_HILL_CROWNS=0, GTP_HORIZON_WOOD_GRAIN=0. At gate 104 the sand read as flat orange. Video should show: grain on the sand at 60-67 s, trees on Fourvière. Short gate."
 }
