@@ -473,51 +473,135 @@ namespace GTPDrive
 	}
 }
 
-/** Who is crossing each junction now (shared by all the drivers of a network). */
+/**
+ * Who is crossing each junction now (shared by all the drivers of a network).
+ *
+ * Until gate 106 a junction let ONE car through at a time, whatever lane it came from: the car behind it on the same
+ * lane found the junction taken, braked to the line, and set off again from a standstill once the first was ten
+ * metres past, so no two cars ever crossed a junction in a row (tools/vehicles/traffic_sim/standing_sim.cpp counts
+ * what moves around a player who stands still under that rule and under this one).
+ * Now the cars of ONE LANE follow each other through: they do not cross each other's way, and the car ahead keeps
+ * them apart as it does on the rest of the lane. Cars of another lane still wait for the junction to be empty; once
+ * one of them waits, MaxInARow more cars of the holding lane get through, and when the junction empties that lane
+ * lets the other one go first.
+ */
 class FGTPJunctionTable
 {
 public:
-	/** True when Car may cross Junction (free, or already its own). Junction < 0 is always free. */
-	bool TryClaim(int Junction, int Car)
+	/** false: one car at a time, as until gate 106. */
+	bool bPlatoons = true;
+	/** Cars of the lane that holds a junction let in after a car of another lane began to wait for it. */
+	int MaxInARow = 3;
+	/** Times the lane that just held a junction is refused while it is empty, for the car that waited to take it. */
+	int YieldAsks = 12;
+
+	/** True when Car, coming from Lane, may cross Junction (free, already its own, or held by its lane). Junction < 0 is always free. */
+	bool TryClaim(int Junction, int Car, int Lane = -1)
 	{
 		if (Junction < 0)
 		{
 			return true;
 		}
-		const auto Found = Holder.find(Junction);
-		if (Found == Holder.end() || Found->second == Car)
+		FHold& Hold = Holds[Junction];
+		for (const int Holder : Hold.Cars)
 		{
-			Holder[Junction] = Car;
+			if (Holder == Car)
+			{
+				return true;
+			}
+		}
+		const bool bSameLane = Lane >= 0 && Lane == Hold.Lane;
+		if (Hold.Cars.empty())
+		{
+			if (bPlatoons && Hold.bWaited && bSameLane && Hold.Yielded < YieldAsks)
+			{
+				++Hold.Yielded;
+				return false;
+			}
+			Hold.Lane = Lane;
+			Hold.Cars.push_back(Car);
+			Hold.bWaited = false;
+			Hold.InARow = 0;
+			Hold.Yielded = 0;
 			return true;
 		}
+		if (bPlatoons && bSameLane && (!Hold.bWaited || Hold.InARow < MaxInARow))
+		{
+			Hold.InARow += Hold.bWaited ? 1 : 0;
+			Hold.Cars.push_back(Car);
+			++Followed;
+			return true;
+		}
+		Hold.bWaited = Hold.bWaited || !bSameLane;
 		return false;
 	}
 
-	void Release(int Junction, int Car)
+	/** True when Car was crossing Junction. */
+	bool Release(int Junction, int Car)
 	{
-		const auto Found = Holder.find(Junction);
-		if (Found != Holder.end() && Found->second == Car)
-		{
-			Holder.erase(Found);
-		}
+		const auto Found = Holds.find(Junction);
+		return Found != Holds.end() && Remove(Found->second, Car);
+	}
+
+	/** Release by a car that stands in a queue before the junction (FGTPJunctionClaims::HeldUpSeconds): counted. */
+	void GiveBack(int Junction, int Car)
+	{
+		GivenBack += Release(Junction, Car) ? 1 : 0;
 	}
 
 	/** Frees everything Car holds (car taken away, stolen or wrecked). */
 	void ReleaseAll(int Car)
 	{
-		for (auto It = Holder.begin(); It != Holder.end();)
+		for (auto& Entry : Holds)
 		{
-			It = It->second == Car ? Holder.erase(It) : std::next(It);
+			Remove(Entry.second, Car);
 		}
 	}
 
+	/** Cars crossing Junction now. */
+	int NumCrossing(int Junction) const
+	{
+		const auto Found = Holds.find(Junction);
+		return Found == Holds.end() ? 0 : static_cast<int>(Found->second.Cars.size());
+	}
+
+	/** Cars that crossed a junction behind another car of their lane, since the start. */
+	int NumFollowed() const { return Followed; }
+
+	/** Junctions given back by a car that stood in a queue before them, since the start. */
+	int NumGivenBack() const { return GivenBack; }
+
 private:
-	std::unordered_map<int, int> Holder;
+	struct FHold
+	{
+		int Lane = -1;          // the lane the cars crossing now came from (kept once empty: who had the last turn)
+		std::vector<int> Cars;
+		bool bWaited = false;   // a car of another lane asked and was refused
+		int InARow = 0;         // cars of the lane let in since then
+		int Yielded = 0;
+	};
+
+	bool Remove(FHold& Hold, int Car)
+	{
+		for (size_t Index = 0; Index < Hold.Cars.size(); ++Index)
+		{
+			if (Hold.Cars[Index] == Car)
+			{
+				Hold.Cars.erase(Hold.Cars.begin() + static_cast<long>(Index));
+				return true;
+			}
+		}
+		return false;
+	}
+
+	std::unordered_map<int, FHold> Holds;
+	int Followed = 0;
+	int GivenBack = 0;
 };
 
 /**
  * Junction handling of one car. Each tick: Update() with the junction at the
- * end of the current lane and the distance to it; it returns the distance to
+ * end of the current lane (Lane) and the distance to it; it returns the distance to
  * stop at (stop line) when that junction is taken, else a negative value.
  * Claimed junctions are released once the car is ReleaseDistance past them.
  */
@@ -533,12 +617,26 @@ struct FGTPJunctionClaims
 	float ReleaseDistance = 10.f;    // release this far past it
 	float StopLineBack = 3.f;        // stop this far before the end of the lane
 	float GiveUpSeconds = 6.f;       // stopped this long past a junction: let the others go (gridlock)
+	/**
+	 * Stopped this long BEFORE a junction behind something on its own way (a queue, a car, a thing on the road): the
+	 * junction is given back, and not asked for until the car moves again. Until gate 106 the last car of a queue kept
+	 * the junction it had asked for on its way in for as long as the queue stood, and no car of any other street
+	 * crossed it: one street shut by a standing car shut the junction behind it, then the streets that lead there.
+	 */
+	float HeldUpSeconds = 2.f;       // negative: never (as until gate 106)
 	std::vector<FClaim> Claims;
 
-	/** StoppedSeconds: how long the car has been standing still. */
+	/** StoppedSeconds: how long the car has been standing still. Lane: the lane it is on. bBehind: what stops it is
+	 *  on its own way (not a light, not this junction taken by another). */
 	float Update(FGTPJunctionTable& Table, int Car, int NextJunction, const FGTPDrivePoint& LaneEnd,
-		float X, float Y, float Speed, float ComfortDecel, float StoppedSeconds = 0.f)
+		float X, float Y, float Speed, float ComfortDecel, float StoppedSeconds = 0.f, int Lane = -1, bool bBehind = false)
 	{
+		if (NextJunction >= 0 && bBehind && HeldUpSeconds >= 0.f && StoppedSeconds > HeldUpSeconds)
+		{
+			Table.GiveBack(NextJunction, Car);
+			Forget(NextJunction);
+			NextJunction = -1;
+		}
 		for (size_t Index = 0; Index < Claims.size();)
 		{
 			const FClaim& Claim = Claims[Index];
@@ -561,7 +659,7 @@ struct FGTPJunctionClaims
 		{
 			return -1.f;
 		}
-		if (Table.TryClaim(NextJunction, Car))
+		if (Table.TryClaim(NextJunction, Car, Lane))
 		{
 			bool bKnown = false;
 			for (const FClaim& Claim : Claims)
@@ -586,6 +684,11 @@ struct FGTPJunctionClaims
 			return;
 		}
 		Table.Release(Junction, Car);
+		Forget(Junction);
+	}
+
+	void Forget(int Junction)
+	{
 		for (size_t Index = 0; Index < Claims.size(); ++Index)
 		{
 			if (Claims[Index].Junction == Junction)

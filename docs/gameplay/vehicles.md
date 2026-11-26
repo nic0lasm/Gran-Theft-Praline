@@ -208,7 +208,7 @@ lights and priorities is 0.9):
   steering, speed from the lane limit, lowered before bends and to stop
   4 m behind whatever is in front (cars, people). One car at a time crosses
   a junction (nearby nodes of a big crossing count as one); the others wait
-  at a stop line. Lanes of a multi-lane road continue into the lane in the
+  at a stop line (since 26/11 the cars of one lane follow each other through, see 8.10). Lanes of a multi-lane road continue into the lane in the
   same position. Lanes stay within 60 m of a generated building, except the roads of the flight circuit, kept whole ([flight-circuit.md](flight-circuit.md)). The same header runs in
   `tools/vehicles/traffic_sim/` on the real lanes, with pass criteria.
 - Carjack: nobody gets into a car above 12 km/h; a car stops for a person
@@ -690,6 +690,55 @@ on five lanes: `StaticMeshActor_27`, the white block, 0.5 m from the middle of t
   to meet it once about 190 m after the carjack and be put on another lane there, which the pursuit
   step counts as help. The police's part of the flight (gate 75's measured pass: units at 23 km/h on
   average for 25 wanted) belongs to the Police thread.
+
+### 8.10 The traffic around a player who stands still (26/11)
+
+Gates 103, 104 and 106: during the filmed flight 13 to 24 cars moved within 150 m of the player; once he
+stood still, 0 to 9 of 28 did, up to 21 of them held by "the queue along the lanes", for as long as the
+pass lasted. On the film of gate 104 the car he stole stands astride the middle of a two-lane street from
+78 s on: no car of either way has the room to go round it (the look to the side asks for a whole free
+lane on the left).
+
+- **What the rules did with that car** (`tools/vehicles/traffic_sim/standing_sim.cpp`, the game's own
+  headers, cars that slide along the lanes as far cars do, 28 cars in the ring of 40 to 250 m around
+  him, his car shutting the lane he stands on and the one beside it). With nothing on the road the
+  rules of gate 106 do not jam: 7.9 cars of 15 move within 150 m (mean of 14 places of a 255-lane file
+  of the quarter). With his car: 5.3 of 18, 5.9 km/h on average, 8 cars stopped for over 20 s, and no
+  car moving at all at the worst moment. The last car of each queue stood before a junction it had
+  asked for on its way in, and kept it for as long as the queue stood: no car of the other streets
+  crossed that junction, their queues reached the junctions before, and so on. Nothing told a car at
+  the junction before that the street was shut, and new cars were put on the road behind the queue.
+- **What changed** (three rules, each with its switch):
+  - a car that has stood 2 s behind a car, a queue, a person or a thing gives back the junction ahead
+    of it and asks again when it moves (`FGTPJunctionClaims::HeldUpSeconds`; `-TrafficJunctionGiveBack=0`:
+    it keeps it, as until gate 106);
+  - the cars keep off a lane that is held (`GTPTrafficHeld.h`): a car that has stood 30 s behind another
+    car or a queue (a red light holds a queue 22 s), or 8 s behind a thing that does not move with no
+    room to go round it, says so; for 20 s after the last word no car takes that lane at the junction
+    before it when another exit is open, a car that meant to take it plans its way again, and no car
+    is put on the road there. A lane that leads nowhere but to held lanes counts as shut too
+    (`-TrafficHeldLanes=0`: off);
+  - the cars of one lane follow each other through a junction instead of one car at a time; cars of
+    another lane wait for it to be empty, three more cars get through once one of them waits, then
+    the lane that had the junction lets the other go first (`FGTPJunctionTable`;
+    `-TrafficJunctionFollow=0`: one car at a time).
+  A police car that stands (a roadblock, a unit stopped by its man, one that waits in a side street) is
+  now a thing the traffic may go round after its 5 s; until gate 106 the traffic waited behind it for as
+  long as it stood.
+- **Counted outside Unreal, not played.** Same 14 places, his car on the road: 7.1 cars of 16 move
+  (5.3 before), 9.0 km/h (5.9), 4.7 stopped over 20 s (8.2); with nothing on the road 8.5 (7.9). Each rule
+  alone: the junction given back 5.9, the held lanes 6.3. On a grid of two-way streets with no file
+  (`standing_sim grid`, run by the CI with what the rules have to keep): 6.6 moving around his car
+  under the rules of gate 106, 8.5 now, 9.0 on the empty street. `junction_test.cpp` checks the rules
+  one by one. The cars right behind his car still wait there: nothing here gives them a way round.
+- **Not proven:** that his car is what held the queues in the game, and not a police car or another
+  thing as well; the model has no physics, no police and no far traffic. The lines to read at the next
+  gate: "traffic heads t=...: N car(s) stopped over 20 s for something other than the queue ahead: car
+  on lane L, S s for what: the thing met, D m from the player" (the six that have stood longest, every
+  10 s); "traffic: lane L is held: car has stood there S s behind ..."; "car: lane L ahead is held,
+  takes lane M from lane K"; and at the end of the "traffic cars" line, "lanes held=N (T time(s) so
+  far, C car(s) turned away, P place(s) left empty there), junctions given back by a queue=G, cars
+  that followed another through a junction=F".
 
 ## 9. Making a drivable car
 
