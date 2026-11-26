@@ -1,6 +1,6 @@
 {
   "_doc": "What the Windows gate queue checks for this candidate. Edited by the pilot for each candidate; read by the PC queue script. No machine paths here. From candidate 60 the gate judges what the player sees: the default traffic, which is the legacy one (MassTraffic runs only with -Traffic=mass). The 'blocking' criteria are read on the blocking passes; everything under 'informative_mass' is measured and reported on the MassTraffic passes but never fails the gate, and never stops it. Those criteria become blocking again only for switching the default traffic to mass, once a whole gate passes them (ADR-0015).",
-  "candidate": 112,
+  "candidate": 113,
   "map_md5": null,
   "game_p50_max_ms": 13.95,
   "game_p95_max_ms": 50,
@@ -10,16 +10,16 @@
     "gtarun"
   ],
   "informative_passes": [
-    "gtarun -TrafficJunctionGiveBack=0",
-    "gtarun -TrafficJunctionGiveBack=0 -TrafficHeldLanes=1",
-    "gtarun -TrafficJunctionGiveBack=1"
+    "gtarun -GTPRepeatA",
+    "gtarun -GTPRepeatB",
+    "gtarun -GTPRepeatC"
   ],
   "passes": [
     "default",
     "gtarun",
-    "gtarun -TrafficJunctionGiveBack=0",
-    "gtarun -TrafficJunctionGiveBack=0 -TrafficHeldLanes=1",
-    "gtarun -TrafficJunctionGiveBack=1"
+    "gtarun -GTPRepeatA",
+    "gtarun -GTPRepeatB",
+    "gtarun -GTPRepeatC"
   ],
   "blocking": {
     "fatal_max": 0,
@@ -287,5 +287,6 @@
   "_pre_gate_109": "108's code (e290a4f) plus Jeu 541b3d2: every car the traffic network makes (driven, far, parked) gets a material instance on its veh_carPaint slot with BaseColor one of 13 colours, alpha 1, never the colour of the car before (greys, whites, blacks 7 in 10, then blues, reds, greens, beiges); police and script cars untouched; own random stream. 7 of 9 City Sample models read one shared paint, so at gate 104 most traffic was the stolen car's blue. -TrafficPaint=0 off, -TrafficPaint=2 drives 'Paint Var Lookup' instead. Log: 'traffic: X painted <colour> (1 slot(s) veh_carPaint; N car(s) painted so far, M with no such slot)'. Cost: one material instance a car; watch p95 and draw calls. Video should show: traffic of many colours. C++ touched, not compiled. Short gate.",
   "_pre_gate_110": "A measuring gate on 109's code (fa51fcb), while no new code waits. At gate 108 the police fell from 4/4 (gates 106, 107) to 3/4, 'units stay far from the player', nearest 134 m on average; the only game change between 107 and 108 is Jeu 75800b1 (junctions given back, held lanes kept off, cars of one lane follow through a junction). Three informative gtarun passes each turn one of those switches off, to say which one keeps the police away. The blocking passes repeat 109's, to say whether 109's draw calls (default p50 781 against 576 at 108, with no car painted) are noise. Report for each pass: police verdict, nearest unit on average, % of time within 80 m, moving cars within 150 m, draw calls. Short gate.",
   "_pre_gate_111": "110's code with a car that stands in a queue keeping its junction by default (bQueueGivesJunctionBack false; -TrafficJunctionGiveBack=1 gives it back). Gate 110: that switch alone brought the police back to 4/4 (nearest 85 m on average against 139, within 80 m 67 % of the time against 13 %) and more cars moving within 150 m (12.1 against 8.5); held lanes and cars following through a junction stay on. The paint of 109 stays in and paints nothing (the traffic blueprints have no veh_carPaint slot). Video should show: police near the flight, traffic still moving after the surrender. C++ touched (one default), not compiled. Short gate.",
-  "_pre_gate_112": "A measuring gate on 111's code (917efb1), while no new code waits: how much does the police measure move from one run to the next? Gate 110's pass with -TrafficJunctionGiveBack=0 had the police within 80 m 67 % of the time; gate 111, where that is the default, 17 %. Here the blocking gtarun and the first two informative passes run the very same settings (the second only says the default out loud), so three samples of one setting; the last gives the junction back, as at gate 110's base. Report for each pass: police verdict, nearest unit on average, % of time within 80 m, the player's mean speed, replacements sent and how far they were put, moving cars within 150 m. Short gate."
+  "_pre_gate_112": "A measuring gate on 111's code (917efb1), while no new code waits: how much does the police measure move from one run to the next? Gate 110's pass with -TrafficJunctionGiveBack=0 had the police within 80 m 67 % of the time; gate 111, where that is the default, 17 %. Here the blocking gtarun and the first two informative passes run the very same settings (the second only says the default out loud), so three samples of one setting; the last gives the junction back, as at gate 110's base. Report for each pass: police verdict, nearest unit on average, % of time within 80 m, the player's mean speed, replacements sent and how far they were put, moving cars within 150 m. Short gate.",
+  "_pre_gate_113": "A second measuring gate on 111's code (as 112), while no new code waits. The police measure with the junction kept: 67 % of the time within 80 m (110), 17 % (111), 73 % (112); with it given back: 13 % (110), 7 % (112). Three informative gtarun passes with the same settings; their only extra argument (-GTPRepeatA/B/C, read by nothing) gives each its own folder, since the queue names a pass folder by its arguments without their values. Report for each pass: police verdict and why, nearest unit on average, % of time within 80 m, the player's mean speed, times his car was put back on a lane, replacements and how far they were put, moving cars within 150 m. Short gate."
 }
