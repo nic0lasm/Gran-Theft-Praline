@@ -158,6 +158,16 @@ if ($interiors) {
 }
 
 # The files build_interior_level.py writes for one interior, relative to Content.
+# Defined before the first step that may stop a process (Build-Interior at gate 114 called StopTree before it existed).
+function FileSize([string]$Path) {
+  if (Test-Path -LiteralPath $Path) { return (Get-Item -LiteralPath $Path).Length }
+  return 0
+}
+
+function StopTree([int]$ProcessId) {
+  & taskkill.exe /T /F /PID $ProcessId 2>&1 | Out-Null
+}
+
 function InteriorFiles([string]$Id) {
   return @("Interiors\L_Interior_$Id.umap", "__ExternalActors__\Interiors\L_Interior_$Id", "__ExternalObjects__\Interiors\L_Interior_$Id")
 }
@@ -344,15 +354,6 @@ if ($DryRun) {
 
 New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 if (Test-Path -LiteralPath $stagingDir) { Remove-Item -LiteralPath $stagingDir -Recurse -Force }
-
-function FileSize([string]$Path) {
-  if (Test-Path -LiteralPath $Path) { return (Get-Item -LiteralPath $Path).Length }
-  return 0
-}
-
-function StopTree([int]$ProcessId) {
-  & taskkill.exe /T /F /PID $ProcessId 2>&1 | Out-Null
-}
 
 # One BuildCookRun attempt under a watchdog.
 # Returns 0 on success, 1 on failure, 2 on a stall or time-out.
