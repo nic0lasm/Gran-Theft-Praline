@@ -6,12 +6,12 @@
 
 <p align="center">
   <b>Un jeu en monde ouvert original, dans un Lyon fidèle, rue par rue.</b><br>
-  Voler une voiture rue de la République, puis tenter de semer la police.
+  Voler une voiture au bord du Rhône, puis tenter de semer la police jusqu'à la place Bellecour.
 </p>
 
 <p align="center">
-  <img src="docs/media/readme/hero-cafe-terrace.jpg" alt="En jeu : une terrasse de café et une voiture qui roule rue de la République, version 0.2" width="100%">
-  <br><sub><i>En jeu, version 0.2, rue de la République. Filmé par le jeu lui-même sur un MacBook Pro M1 Pro.</i></sub>
+  <img src="docs/media/readme/pc-getaway-bellecour.jpg" alt="En jeu : une voiture bleue arrive sur la place Bellecour pendant que des passants s'enfuient, trois étoiles de recherche à l'écran" width="100%">
+  <br><sub><i>En jeu, place Bellecour, trois étoiles de recherche. Une image de la vidéo de fuite que le jeu a enregistrée de lui-même sur le PC de référence (candidat 104, 26 novembre 2026), recadrée à gauche pour masquer un compteur de débogage, sans autre retouche.</i></sub>
 </p>
 
 <p align="center">
@@ -46,36 +46,46 @@ ouverts actuels : une voiture qu'on vole, une circulation et des passants
 qui réagissent, une police qui vous traque, et une image qui tient la
 comparaison avec une photo de la vraie rue.
 
-Le travail porte sur **une tranche de 300 à 400 m de la rue de la
-République, de Bellecour aux Jacobins**, jugée sur un PC Windows
+Le travail porte sur **un circuit de fuite de 1,8 km** dans le centre de
+Lyon : le vol sur le quai Jean-Moulin, au bord du Rhône, puis la rue
+Childebert, la place de la République, la rue de la Barre, **la place
+Bellecour** et la rue du Président-Édouard-Herriot jusqu'aux Jacobins. Il
+traverse la première tranche du projet, 300 à 400 m de rue entre Bellecour
+et les Jacobins, et va au-delà. Le tout est jugé sur un PC Windows
 (RTX 3070 Ti). Pas encore d'histoire, c'est voulu : le terrain de jeu
 d'abord.
 
 ## Où on en est
 
-*Vérifié le 24 novembre 2026 pour le vol, la fuite, la police et la
-circulation, d'après la porte et la vidéo du dernier candidat fusionné sur
-`main` (76) ; le 21 novembre pour le reste.*
+*Vérifié le 28 novembre 2026, d'après les journaux de porte et la vidéo du
+candidat 103 (25 novembre), le dernier à avoir passé la porte sur le PC de
+référence, et, pour la police et la circulation, d'après les journaux de
+porte des candidats 104 à 113.*
 
 C'est un travail en cours, et cette partie dit ce qui est **prouvé** dans le
 jeu packagé, pas ce que le code est censé faire.
 
-| | Ce que fait le joueur | État sur `main` |
+| | Ce que fait le joueur | État au candidat 103 |
 | :--: | ---- | ---- |
 | ✅ | Marcher, courir et regarder autour de soi en **Nicolito**, un personnage fictif fait de pièces de City Sample | Prouvé à chaque test automatique |
-| ✅ | S'approcher d'une voiture garée et la voler | Prouvé à chaque test automatique |
-| ✅ | Braquer un passant au pistolet : il lève les mains | Prouvé par la mesure ; la vue de près reste trop sombre |
-| ✅ | Un passant témoin du vol appelle la police : une étoile de recherche | Prouvé avec un modèle de voiture ; vérification en cours avec un second |
-| 🟡 | Voler une voiture en circulation et fuir avec la police derrière | Vol en 6 s, pointe à 89 km/h ; la fuite est conduite par le test automatique, qui se coince encore : 35 km/h de moyenne |
-| 🟡 | La police prend le joueur en chasse et l'arrête | Voiture de police reconnaissable, sommation à l'écran, arrestation à 63 s ; les unités roulent à 17 km/h de moyenne au lieu de 25 |
-| 🟡 | Rouler dans une circulation vivante | Les voitures roulent debout, au moins 8 en mouvement à moins de 150 m pendant la fuite ; feux et évitement pas encore mesurés |
+| ✅ | S'approcher d'une voiture garée et la voler | Prouvé à chaque test automatique ; une voiture en mouvement est prise en 6 s (candidat 76) |
+| ✅ | Braquer un passant au pistolet : il lève les mains | Prouvé par la mesure ; la vue de près reste presque noire |
+| ✅ | Un passant témoin du vol appelle la police : une étoile de recherche | Prouvé par le test automatique |
+| 🟡 | Fuir avec la police derrière | La fuite automatique, filmée sur le circuit de 1,8 km, atteint 98 km/h sur le quai et arrive place Bellecour en une minute environ, sans être une seule fois remise sur une voie. Sa vitesse moyenne n'est pas encore lue (35 km/h au candidat 76, pour 50 voulus), et personne n'y a joué à la main |
+| 🟡 | La police prend le joueur en chasse et l'arrête | Voiture de police blanche reconnaissable et sommation à l'écran, mais elle n'atteint pas le joueur de façon fiable : une unité est à moins de 80 m de lui 9 % du temps (25 % voulus), et personne ne vient quand il se rend. Les candidats 104 à 113 passent ce contrôle sur certaines passes et pas sur d'autres |
+| 🟡 | Rouler dans une circulation vivante | Les voitures roulent debout (aucune couchée sur le flanc aux candidats 103 et 107) ; entre 2 et 11 roulent à moins de 150 m du joueur pendant la fuite, selon la passe, pour 8 voulues. Feux et évitement pas encore mesurés |
+| 🟡 | Des passants qui réagissent | Ils s'enfuient et s'écartent à l'approche de la voiture, et les gens à pied ne poussent plus les voitures garées. Certains personnages ont encore le crâne rasé |
 | ⬜ | Semer la police, mourir et revenir | Pas encore mesuré |
-| ⬜ | Une image fidèle à la vraie rue | 1 sur 5 à la première comparaison photo / capture (12 novembre) ; hors de la rue habillée, le lointain est encore vide |
+| ⬜ | Une image fidèle à la vraie rue | 1 sur 5 à la seule comparaison photo / capture (12 novembre). Depuis, la place Bellecour a son sol rouge, sa statue équestre et ses arbres, avec une colline pour Fourvière à l'horizon ; les enseignes sont encore des bandes vides et la pierre paraît pâle |
 
 Le jalon A, *voler une voiture et fuir la police*, est attendu vers le
-4 décembre 2026. Il est jugé sur une grille de 10 points lue sur une vidéo
-de trois minutes sans montage, enregistrée sur le PC ; le candidat 76 en
-tient 3 ([tableau de bord](production/roadmap-status.fr.md)).
+4 décembre 2026, en trois étapes : le circuit tient, ce que voit la caméra,
+puis une vidéo de trois minutes et un essai manette en main. Il est jugé sur
+une grille de 10 points lue sur une vidéo sans montage, enregistrée sur le
+PC. La dernière lecture complète (candidat 76, 24 novembre) en tenait 3 sur
+10 ([tableau de bord](production/roadmap-status.fr.md)). Depuis, le circuit
+est choisi et tient à l'image ; ce qui bloque maintenant, c'est la police
+qui doit atteindre le joueur.
 
 ## Lyon, pour de vrai
 
@@ -109,15 +119,21 @@ travail.
 ## En images
 
 Ce sont des images extraites des vidéos que le jeu a enregistrées de
-lui-même pendant ses tests automatiques, sur un MacBook Pro M1 Pro
-(versions 0.2 et 0.3, avant le passage au PC). Rien n'est retouché. Elles
-montrent la rue, pas les personnages ni la circulation actuels : de
-nouvelles captures arriveront une fois le jalon A atteint.
+lui-même pendant ses tests automatiques. La première vient du PC de
+référence (candidat 104, circuit de fuite) ; les autres d'un MacBook Pro M1
+Pro (versions 0.2 et 0.3, avant le passage au PC) et montrent la rue, pas
+les personnages ni la circulation d'aujourd'hui. Rien n'est retouché ;
+l'image du PC est seulement recadrée à gauche pour masquer un compteur de
+débogage.
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/media/readme/0.3-driving-rue-republique.jpg" alt="En jeu : au volant dans la rue de la République, vue à la troisième personne" width="100%"><br><sub>Au volant dans la rue de la République (0.3)</sub></td>
-    <td width="50%"><img src="docs/media/readme/0.2-carjack-approach.jpg" alt="En jeu : le personnage s'approche d'une voiture garée pour la voler" width="100%"><br><sub>S'approcher d'une voiture garée pour la prendre (0.2)</sub></td>
+    <td width="50%"><img src="docs/media/readme/pc-getaway-quay.jpg" alt="En jeu : une voiture bleue à 99 km/h le long du quai, des arbres à gauche, un immeuble en pierre à droite, deux étoiles de recherche" width="100%"><br><sub>Fuite le long du quai à 99 km/h, deux étoiles de recherche (candidat 104, PC)</sub></td>
+    <td width="50%"><img src="docs/media/readme/hero-cafe-terrace.jpg" alt="En jeu : une terrasse de café et une voiture qui roule rue de la République, version 0.2" width="100%"><br><sub>Une terrasse de café et une voiture rue de la République (0.2)</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/media/readme/0.3-driving-rue-republique.jpg" alt="En jeu : au volant dans la rue de la République, vue à la troisième personne" width="100%"><br><sub>Au volant dans la rue de la République (0.3)</sub></td>
+    <td><img src="docs/media/readme/0.2-carjack-approach.jpg" alt="En jeu : le personnage s'approche d'une voiture garée pour la voler" width="100%"><br><sub>S'approcher d'une voiture garée pour la prendre (0.2)</sub></td>
   </tr>
   <tr>
     <td><img src="docs/media/readme/0.3-square-benches.jpg" alt="En jeu : une petite place avec des bancs en fonte, des platanes et un lampadaire lyonnais" width="100%"><br><sub>Bancs en fonte et lampadaire lyonnais, là où sont les vrais (0.3)</sub></td>
@@ -139,7 +155,7 @@ d'Epic plutôt que sur des systèmes maison : le Game Animation Sample pour
 les déplacements, City Sample pour la foule, les voitures et la ville
 procédurale, le framework Mass pour des centaines de piétons et de
 voitures, Lyra pour le combat, Chaos Vehicles, StateTree, Perception et EQS
-pour la police. Le C++ maison (environ 59 000 lignes en deux modules) les
+pour la police. Le C++ maison (environ 69 000 lignes en deux modules) les
 relie à la ville de Lyon et aux règles du jeu.
 
 **La ville à partir de données ouvertes.** Des outils Python transforment
@@ -151,23 +167,41 @@ trafic Mass. Voir [tools/city](tools/city/) et
 
 **Chaque changement est joué avant d'entrer.** Un changement n'arrive sur
 la branche `next`, puis sur `main`, qu'après une *porte* sur le PC de
-référence : le jeu est compilé et packagé, puis il se joue lui-même
-pendant plusieurs minutes dans une dizaine de configurations. La porte
+référence. Chaque candidat passe une porte courte : le jeu est compilé et
+packagé, il se joue lui-même pendant plusieurs minutes, et la fuite est
+filmée ; `next` avance sur elle. Une fois par jour, une porte complète, une
+douzaine de configurations, décide de ce que reçoit `main`. Une porte
 échoue sur tout plantage, sur une régression du temps d'image (médiane de
 la logique de jeu au plus 1,3 fois celle de la porte précédente,
-actuellement environ 13 ms), sur un comptage de circulation cassé, ou
-quand le parcours automatique `-GTARun` rate plus d'une de ses sept
-étapes : voler une voiture, être vu par un témoin, attirer la police, être
-poursuivi, braquer quelqu'un, etc. Plus de cinquante candidats sont passés
-par cette porte depuis le 9 novembre 2026 ; les résultats sont dans le
+actuellement environ 14 ms), sur trop peu de voitures en mouvement ou une
+voiture couchée sur le flanc, ou quand le parcours automatique `-GTARun`
+rate plus d'une de ses sept étapes : voler une voiture, être vu par un
+témoin, attirer la police, être poursuivi, braquer quelqu'un, etc. **Et une
+personne regarde la vidéo** : un candidat qui tient tous les chiffres peut
+encore être refusé sur ce que montrent les images. Plus d'une centaine de
+candidats sont passés par là depuis le 9 novembre 2026 (113 au moment
+d'écrire) ; les résultats sont dans le
 [tableau de bord](production/roadmap-status.fr.md).
+
+**Un circuit de fuite, une grille.** Depuis le 24 novembre, la fuite n'est
+plus libre sur toute la carte : elle suit un tour fixe de 1,8 km, choisi
+une fois sur les données de voies et gardé dans Git
+([circuit de fuite](docs/gameplay/flight-circuit.fr.md)). Le film est jugé
+sur une grille de 10 points lue sur ses images : le vol en moins de 10 s,
+50 km/h de moyenne, sans aide, la police à l'image, 8 voitures en
+mouvement autour, une fin lisible, une caméra qui tient, pas de vide, des
+personnages entiers, fluide et propre. La carte sur laquelle le jeu tourne
+est une base figée plus des étapes rejouées dans l'ordre, le tout dans Git,
+jamais l'état laissé par la passe précédente.
 
 **Des mesures honnêtes.** Un test qui passe n'est pas pris pour une preuve
 tant qu'on n'a pas vérifié ce qu'il mesure. Deux exemples tirés des
 journaux : le comptage de la circulation incluait des voitures couchées
 sur le flanc, et un test de témoin passait avec un modèle de voiture que
 le correctif ne concernait pas. Les deux ont été repérés et les tests
-réécrits.
+réécrits. Un exemple plus récent : un candidat qui peignait la circulation
+en treize couleurs n'a peint aucune voiture et coûtait 36 % d'appels de
+dessin de plus ; la porte l'a dit, et il a été abandonné.
 
 **Un dépôt propre.** L'intégration continue lance les tests des outils et
 un contrôle de provenance à chaque push (identités des commits, fichiers
@@ -181,7 +215,7 @@ de la ville restent hors de Git pour des raisons de licence.
 | Code | C++ pour les systèmes de jeu, Python pour les outils de ville et de build, Blueprint pour les prototypes |
 | Machine de référence | Windows 11, Ryzen 9 3900, RTX 3070 Ti, DirectX 12 |
 | Versions précédentes | macOS sur Apple Silicon (Metal), versions 0.1 à 0.3 |
-| Décisions d'architecture | [docs/adr](docs/adr/), 13 fiches de décision |
+| Décisions d'architecture | [docs/adr](docs/adr/), 14 fiches de décision |
 
 Toute la documentation, en français et en anglais :
 **[docs/README.fr.md](docs/README.fr.md)**.
@@ -193,7 +227,7 @@ livre en trois jalons, chacun jugé sur une vidéo sans montage :
 
 | Quand (ordre de grandeur) | Quoi |
 | ---- | ---- |
-| Vers le 4 décembre 2026 | **A.** Voler une voiture et fuir la police sur un circuit de fuite fixe, sur PC, en vidéo sans montage |
+| Vers le 4 décembre 2026 | **A.** Voler une voiture et fuir la police sur le circuit de fuite fixe qui passe par la place Bellecour, sur PC, en vidéo sans montage, puis un essai manette en main. Étapes : le circuit tient (visé le 27 novembre), ce que voit la caméra (1er décembre), la vidéo |
 | Fin décembre 2026 | **B.** Dix minutes de jeu qui font GTA : circulation, passants qui réagissent, combat, étoiles de recherche, poursuite |
 | Fin janvier 2027 | **C.** Cinq paires photo réelle / capture du jeu qui tiennent |
 | Février 2027 | Le nord de la Presqu'île, de Bellecour aux Terreaux |

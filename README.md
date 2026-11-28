@@ -6,12 +6,12 @@
 
 <p align="center">
   <b>An original open-world game in a faithful Lyon, street by street.</b><br>
-  Steal a car on rue de la République, then try to lose the police.
+  Steal a car by the Rhône, then try to lose the police all the way to place Bellecour.
 </p>
 
 <p align="center">
-  <img src="docs/media/readme/hero-cafe-terrace.jpg" alt="In-game: a café terrace and a car driving down rue de la République, version 0.2" width="100%">
-  <br><sub><i>In-game, version 0.2, rue de la République. Recorded by the game itself on a MacBook Pro M1 Pro.</i></sub>
+  <img src="docs/media/readme/pc-getaway-bellecour.jpg" alt="In-game: a blue car drives onto place Bellecour while passers-by run away, three wanted stars on screen" width="100%">
+  <br><sub><i>In-game, place Bellecour, three wanted stars. A frame of the getaway video the game recorded of itself on the reference PC (candidate 104, 26 November 2026), cropped on the left to hide a debug counter, otherwise untouched.</i></sub>
 </p>
 
 <p align="center">
@@ -45,35 +45,45 @@ the feel of today's best open-world games: a car you can steal, traffic and
 passers-by who react, a police that hunts you down, and an image that holds
 up next to a photo of the real street.
 
-The work is focused on one **300 to 400 m slice of rue de la République,
-from Bellecour to the Jacobins**, judged on a Windows PC (RTX 3070 Ti).
-There is no story yet, on purpose: the playground comes first.
+The work is focused on **one getaway circuit of 1.8 km** through central
+Lyon: the theft on the quai Jean-Moulin by the Rhône, then rue Childebert,
+place de la République, rue de la Barre, **place Bellecour** and rue du
+Président-Édouard-Herriot past the Jacobins. It runs through the project's
+first slice, 300 to 400 m of street between Bellecour and the Jacobins,
+and beyond. Everything is judged on a Windows PC (RTX 3070 Ti). There is no
+story yet, on purpose: the playground comes first.
 
 ## Where it stands
 
-*Last checked on 24 November 2026 for the theft, the getaway, the police
-and the traffic, against the gate and the video of the latest candidate
-merged on `main` (76); on 21 November for the rest.*
+*Last checked on 28 November 2026, against the gate logs and the video of
+candidate 103 (25 November), the latest one to have passed the gate on the
+reference PC, and for the police and the traffic against the gate logs of
+candidates 104 to 113.*
 
 This is a work in progress, and this section says what is **proven** in the
 packaged game, not what the code is meant to do.
 
-| | What the player does | State on `main` |
+| | What the player does | State at candidate 103 |
 | :--: | ---- | ---- |
 | ✅ | Walk, run and look around as **Nicolito**, a fictional character made from City Sample parts | Proven in every automated run |
-| ✅ | Walk up to a parked car and steal it | Proven in every automated run |
-| ✅ | Hold up a passer-by with a pistol: they raise their hands | Proven by measurement; the close-up view still renders too dark |
-| ✅ | A passer-by who saw the theft calls the police: a wanted star | Proven with one car model; being checked with a second one |
-| 🟡 | Steal a moving car and drive away with the police behind | Theft in 6 s, peak at 89 km/h; the getaway is driven by the automated test, which still gets stuck: 35 km/h on average |
-| 🟡 | The police chase the player and arrest him | Recognisable police car, warning on screen, arrest at 63 s; units average 17 km/h instead of 25 |
-| 🟡 | Drive through living traffic | Cars drive upright, at least 8 moving within 150 m during the getaway; lights and avoidance not measured yet |
+| ✅ | Walk up to a parked car and steal it | Proven in every automated run; a moving car is taken in 6 s (candidate 76) |
+| ✅ | Hold up a passer-by with a pistol: they raise their hands | Proven by measurement; the close-up view still renders almost black |
+| ✅ | A passer-by who saw the theft calls the police: a wanted star | Proven in the automated run |
+| 🟡 | Drive away with the police behind | The automated getaway, filmed on the 1.8 km circuit, peaks at 98 km/h on the quay and reaches place Bellecour after about a minute, without once being put back on a lane. Its average speed is not read yet (35 km/h at candidate 76, for 50 wanted), and nobody has played it by hand |
+| 🟡 | The police chase the player and arrest him | A recognisable white police car and a warning on screen, but they do not reach the player reliably: a unit is within 80 m of him 9 % of the time (25 % wanted), and nobody comes once he gives up. Candidates 104 to 113 pass that check on some runs and not on others |
+| 🟡 | Drive through living traffic | Cars drive upright (none lying on its side at candidates 103 and 107); between 2 and 11 move within 150 m of the player during the getaway, depending on the run, for 8 wanted. Lights and avoidance not measured yet |
+| 🟡 | Passers-by who react | They run away and step aside as the car comes, and people on foot no longer shove parked cars. Some characters still have shaved heads |
 | ⬜ | Lose the police, die and respawn | Not measured yet |
-| ⬜ | An image that matches the real street | 1 out of 5 on the first photo / capture comparison (12 November); outside the dressed street the distance is still empty |
+| ⬜ | An image that matches the real street | 1 out of 5 on the only photo / capture comparison (12 November). Since then place Bellecour has its red ground, its equestrian statue and its trees, with a hill for Fourvière on the skyline; shop signs are still blank bands and the stone looks pale |
 
 Milestone A, *steal a car and flee the police*, is due around 4 December
-2026. It is judged on a 10-point grid read on an unedited three-minute
-video recorded on the PC; candidate 76 meets 3 of them
-([dashboard](production/roadmap-status.md)).
+2026, in three steps: the circuit holds, what the camera sees, then a
+three-minute video and a hands-on session. It is judged on a 10-point grid
+read on an unedited video recorded on the PC. The last full reading
+(candidate 76, 24 November) met 3 of the 10 points
+([dashboard](production/roadmap-status.md)). Since then the circuit has
+been chosen and holds on film; the police reaching the player is what
+stands in the way now.
 
 ## Lyon, for real
 
@@ -106,14 +116,20 @@ procedural tools; the pictures here predate that work.
 ## In pictures
 
 These are frames from videos the game recorded of itself during its
-automated tests on a MacBook Pro M1 Pro (versions 0.2 and 0.3, before the
-move to PC). Nothing is retouched. They show the street, not the current
-characters or traffic: newer captures will be added once milestone A is met.
+automated tests. The first is from the reference PC (candidate 104, the
+getaway circuit); the others are from a MacBook Pro M1 Pro (versions 0.2
+and 0.3, before the move to PC) and show the street, not today's
+characters or traffic. Nothing is retouched; the PC frame is only cropped
+on the left to hide a debug counter.
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/media/readme/0.3-driving-rue-republique.jpg" alt="In-game: driving a car down rue de la République in third person" width="100%"><br><sub>Behind the wheel down rue de la République (0.3)</sub></td>
-    <td width="50%"><img src="docs/media/readme/0.2-carjack-approach.jpg" alt="In-game: the character walks up to a parked car to steal it" width="100%"><br><sub>Walking up to a parked car to take it (0.2)</sub></td>
+    <td width="50%"><img src="docs/media/readme/pc-getaway-quay.jpg" alt="In-game: a blue car at 99 km/h along the quai, trees on the left, a stone block on the right, two wanted stars" width="100%"><br><sub>Fleeing along the quai at 99 km/h, two wanted stars (candidate 104, PC)</sub></td>
+    <td width="50%"><img src="docs/media/readme/hero-cafe-terrace.jpg" alt="In-game: a café terrace and a car driving down rue de la République, version 0.2" width="100%"><br><sub>A café terrace and a car on rue de la République (0.2)</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/media/readme/0.3-driving-rue-republique.jpg" alt="In-game: driving a car down rue de la République in third person" width="100%"><br><sub>Behind the wheel down rue de la République (0.3)</sub></td>
+    <td><img src="docs/media/readme/0.2-carjack-approach.jpg" alt="In-game: the character walks up to a parked car to steal it" width="100%"><br><sub>Walking up to a parked car to take it (0.2)</sub></td>
   </tr>
   <tr>
     <td><img src="docs/media/readme/0.3-square-benches.jpg" alt="In-game: a small square with cast-iron benches, plane trees and a Lyon lamppost" width="100%"><br><sub>Cast-iron benches and a Lyon lamppost, where the real ones are (0.3)</sub></td>
@@ -134,7 +150,7 @@ made and checked.
 rather than home-made systems: the Game Animation Sample for movement,
 City Sample for crowds, cars and the procedural city, the Mass framework
 for hundreds of pedestrians and cars, Lyra for combat, Chaos Vehicles,
-StateTree, Perception and EQS for the police. Home-made C++ (about 59,000
+StateTree, Perception and EQS for the police. Home-made C++ (about 69,000
 lines in two modules) glues them to the city of Lyon and to the rules of
 the game.
 
@@ -145,20 +161,36 @@ coordinates, traffic lanes for the Mass traffic system.
 See [tools/city](tools/city/) and [tools/geo-pipeline](tools/geo-pipeline/).
 
 **Every change is played before it lands.** A change reaches the `next`
-branch, then `main`, only after a *gate* on the reference PC: the game is
-compiled and packaged, then plays itself for several minutes under a dozen
-configurations. The gate fails on any crash, on a frame-time regression
-(game logic median at most 1.3 times the previous gate, currently about
-13 ms), on a broken traffic count, or when the automated run `-GTARun`
-fails more than one of its seven steps: steal a car, be seen by a witness,
-draw the police, get chased, hold someone up, and more. More than fifty
-candidates have gone through this gate since 9 November 2026; the results
-are kept in the [dashboard](production/roadmap-status.md).
+branch, then `main`, only after a *gate* on the reference PC. Every
+candidate goes through a short gate: the game is compiled and packaged,
+plays itself for several minutes, and the getaway is filmed; `next` moves on
+it. Once a day a full gate, a dozen configurations, decides what `main`
+gets. A gate fails on any crash, on a frame-time regression (game logic
+median at most 1.3 times the previous gate, about 14 ms today), on too few
+moving cars or any car lying on its side, or when the automated run
+`-GTARun` fails more than one of its seven steps: steal a car, be seen by a
+witness, draw the police, get chased, hold someone up, and more. **And a
+person watches the video**: a candidate that meets every number can still
+be turned down on what the frames show. More than a hundred candidates have
+gone through since 9 November 2026 (113 at the time of writing); the
+results are kept in the [dashboard](production/roadmap-status.md).
+
+**One getaway circuit, one grid.** Since 24 November the getaway is no
+longer free over the whole map: it follows one fixed lap of 1.8 km, chosen
+once on the lane data and kept in Git
+([flight circuit](docs/gameplay/flight-circuit.md)). The film is judged on
+a 10-point grid read on its frames: the theft in under 10 s, 50 km/h on
+average, no aid, the police in frame, 8 moving cars around, a readable
+ending, a camera that holds, no emptiness, whole characters, smooth and
+clean. The map the game plays on is a frozen base plus steps replayed in
+order, all in Git, never the state left by the previous run.
 
 **Honest measurements.** A test that passes is not taken as proof until we
 check what it measures. Two examples from the logs: the traffic count used
 to include cars lying on their side, and a witness test passed with a car
-model the fix did not concern. Both were caught and the tests rewritten.
+model the fix did not concern. Both were caught and the tests rewritten. A more recent one: a candidate
+that painted the traffic in thirteen colours painted no car at all and cost
+36 % more draw calls; the gate said so, and it was dropped.
 
 **A clean repository.** Continuous integration runs the tool tests and a
 provenance check on every push (commit identities, tracked files, branch
@@ -171,7 +203,7 @@ content and the raw city tables stay out of Git for licence reasons.
 | Code | C++ for the game systems, Python for the city and build tools, Blueprint for prototypes |
 | Reference machine | Windows 11, Ryzen 9 3900, RTX 3070 Ti, DirectX 12 |
 | Earlier releases | macOS on Apple Silicon (Metal), versions 0.1 to 0.3 |
-| Architecture decisions | [docs/adr](docs/adr/), 13 decision records |
+| Architecture decisions | [docs/adr](docs/adr/), 14 decision records |
 
 All documentation, in English and French: **[docs/README.md](docs/README.md)**.
 
@@ -182,7 +214,7 @@ slice is delivered in three milestones, each judged on an unedited video:
 
 | When (order of magnitude) | What |
 | ---- | ---- |
-| Around 4 December 2026 | **A.** Steal a car and flee the police on a fixed getaway circuit, on PC, as an unedited video |
+| Around 4 December 2026 | **A.** Steal a car and flee the police on the fixed getaway circuit through place Bellecour, on PC, as an unedited video, then a hands-on session. Steps: the circuit holds (aimed for 27 November), what the camera sees (1 December), the video |
 | End of December 2026 | **B.** Ten minutes of play that feel like GTA: traffic, passers-by who react, combat, wanted stars, a chase |
 | End of January 2027 | **C.** Five real photo / game capture pairs that hold up |
 | February 2027 | The northern Presqu'île, Bellecour to Terreaux |
