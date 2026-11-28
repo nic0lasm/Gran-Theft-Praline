@@ -197,6 +197,13 @@ home-made). Details: [roadmap](production/roadmap.md),
 
 ## Play or build it
 
+### Web version (three.js)
+
+A complete version playable in the browser lives in [`web/`](web/README.md):
+the same IGN slice of rue de la République, extended to the quays and
+Bellecour, with traffic, pedestrians, 5-star police, traboules, shops and
+5 missions. `cd web && npm install && npm run dev` (after `git lfs pull`).
+
 **The latest public build is [version 0.3.0 for macOS](https://github.com/nic0lasm/Gran-Theft-Praline/releases/tag/v0.3.0)**
 (Apple Silicon, 10 November 2026): steal a car and drive through traffic
 from rue de la République to the Rhône. It is older than the PC work

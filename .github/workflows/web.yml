@@ -1,0 +1,56 @@
+name: Web version
+
+on:
+  push:
+    branches: ["**"]
+    paths: ["web/**", "assets/geo/processed/rue-republique/**", ".github/workflows/web.yml"]
+  pull_request:
+    paths: ["web/**", "assets/geo/processed/rue-republique/**", ".github/workflows/web.yml"]
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: "Publish to GitHub Pages"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build the three.js version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - name: Fetch the city slice from LFS
+        run: git lfs pull --include="assets/geo/processed/rue-republique/rue-republique.glb"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+        working-directory: web
+      - run: npm run build
+        working-directory: web
+      - uses: actions/upload-pages-artifact@v3
+        if: github.event_name == 'workflow_dispatch' && inputs.deploy
+        with:
+          path: web/dist
+
+  deploy:
+    name: Publish to GitHub Pages
+    if: github.event_name == 'workflow_dispatch' && inputs.deploy
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

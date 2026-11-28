@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Gran Theft Praline</title>
+</head>
+<body>
+<div id="app"></div>
+
+<div id="loading" class="overlay">
+  <div class="logo"><span class="a">GRAN THEFT</span><span class="b">PRALINE</span></div>
+  <div id="loading-text">Chargement…</div>
+</div>
+
+<div id="title" class="overlay">
+  <div class="logo"><span class="a">GRAN THEFT</span><span class="b">PRALINE</span></div>
+  <div class="tag">Lyon, Presqu’île. La chaîne Sucrerouge a raflé toutes les pralines de la ville.<br>Tatie Rose compte sur vous, Nicolito.</div>
+  <button class="btn" id="btn-new">Nouvelle partie</button>
+  <button class="btn alt" id="btn-continue">Continuer</button>
+  <div class="controls">
+    <div><b>ZQSD / WASD</b> se déplacer</div>
+    <div><b>Souris</b> regarder</div>
+    <div><b>Maj</b> sprinter</div>
+    <div><b>Espace</b> sauter · frein à main</div>
+    <div><b>F</b> voler / monter / descendre</div>
+    <div><b>E</b> interagir, traboules, boutiques</div>
+    <div><b>Clic droit</b> viser (braquer)</div>
+    <div><b>Clic gauche</b> tirer / frapper</div>
+    <div><b>Molette, 1-4</b> changer d’arme</div>
+    <div><b>R</b> recharger</div>
+    <div><b>H</b> klaxon</div>
+    <div><b>M</b> carte</div>
+    <div><b>P / Échap</b> pause</div>
+    <div><b>Manette</b> prise en charge</div>
+  </div>
+  <div class="credits">Rue de la République : bâtiments et voies IGN BD TOPO (Licence Ouverte Etalab 2.0). Tout le reste est généré par le code. Personnages, marques et commerces fictifs.</div>
+</div>
+
+<div id="pause" class="overlay">
+  <h1>Pause</h1>
+  <button class="btn" id="btn-resume">Reprendre</button>
+  <button class="btn alt" id="btn-save">Comment sauvegarder ?</button>
+  <label>Volume <input id="vol" type="range" min="0" max="100" value="60"></label>
+  <label>Sensibilité souris <input id="sens" type="range" min="10" max="150" value="50"></label>
+  <div class="controls">
+    <div><b>ZQSD / WASD</b> se déplacer · conduire</div>
+    <div><b>F</b> voler / monter / descendre</div>
+    <div><b>E</b> traboules, boutiques, missions</div>
+    <div><b>Clic droit</b> viser</div>
+    <div><b>Clic gauche</b> tirer</div>
+    <div><b>Espace</b> sauter · frein à main</div>
+    <div><b>M</b> carte</div>
+    <div><b>Manette</b> prise en charge</div>
+  </div>
+</div>
+
+<div id="fullmap" class="overlay"><canvas id="map-canvas"></canvas><div id="map-legend"></div></div>
+<div id="shop"></div>
+<div id="fade"></div>
+<div id="hurt"></div>
+
+<div id="hud">
+  <div id="help"></div>
+  <div id="topright">
+    <div id="clock"></div>
+    <div id="weapon"></div>
+    <div id="ammo"></div>
+    <div id="money"></div>
+    <div id="stars"></div>
+  </div>
+  <div id="timer"></div>
+  <div id="progress"><div id="progress-label"></div><div class="bar"><div id="progress-bar"></div></div></div>
+  <div id="toast"></div>
+  <div id="crosshair"></div>
+  <div id="arrest">Arrestation en cours… éloignez-vous !</div>
+  <div id="subtitle"></div>
+  <div id="objective"></div>
+  <div id="big"><div id="big-title"></div><div id="big-sub"></div></div>
+  <div id="speed"></div>
+  <div id="bottomleft">
+    <canvas id="minimap" width="220" height="220"></canvas>
+    <div class="bar"><div id="health-bar"></div></div>
+    <div class="bar"><div id="armor-bar"></div></div>
+    <div id="zone"></div>
+  </div>
+</div>
+
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>

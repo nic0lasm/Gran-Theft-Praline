@@ -209,6 +209,14 @@ contenus Fab gratuits, fait maison). Détails :
 
 ## Jouer ou compiler
 
+### Version web (three.js)
+
+Une version complète jouable dans le navigateur vit dans [`web/`](web/README.md) :
+la même tranche IGN de la rue de la République, étendue jusqu'aux quais et à
+Bellecour, avec circulation, piétons, police à 5 étoiles, traboules, boutiques
+et 5 missions. `cd web && npm install && npm run dev` (après
+`git lfs pull`).
+
 **La dernière version publique est la [0.3.0 pour macOS](https://github.com/nic0lasm/Gran-Theft-Praline/releases/tag/v0.3.0)**
 (Apple Silicon, 10 novembre 2026) : voler une voiture et rouler dans la
 circulation de la rue de la République jusqu'au Rhône. Elle est antérieure
