@@ -157,7 +157,6 @@ if ($interiors) {
   if (-not (Test-Path -LiteralPath (Join-Path $contentDir 'Python\gtp_run.py'))) { Fail 'Content\Python\gtp_run.py missing' }
 }
 
-# The files build_interior_level.py writes for one interior, relative to Content.
 # Defined before the first step that may stop a process (Build-Interior at gate 114 called StopTree before it existed).
 function FileSize([string]$Path) {
   if (Test-Path -LiteralPath $Path) { return (Get-Item -LiteralPath $Path).Length }
@@ -168,6 +167,7 @@ function StopTree([int]$ProcessId) {
   & taskkill.exe /T /F /PID $ProcessId 2>&1 | Out-Null
 }
 
+# The files build_interior_level.py writes for one interior, relative to Content.
 function InteriorFiles([string]$Id) {
   return @("Interiors\L_Interior_$Id.umap", "__ExternalActors__\Interiors\L_Interior_$Id", "__ExternalObjects__\Interiors\L_Interior_$Id")
 }
