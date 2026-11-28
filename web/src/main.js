@@ -1,3 +1,4 @@
+import './style.css';
 import { Game } from './game.js';
 
 const loading = document.getElementById('loading-text');

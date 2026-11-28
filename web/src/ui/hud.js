@@ -170,14 +170,14 @@ export class Hud {
       <h3>Carte de la Presqu'île</h3>
       <p>Données : IGN BD TOPO (rue de la République), le reste est procédural.</p>
       <ul>
-        <li><i style="background:#c2185b"></i>Tatie Rose (missions)</li>
-        <li><i style="background:#2e7d32"></i>Planque (sauvegarde)</li>
-        <li><i style="background:#37474f"></i>Armurerie</li>
-        <li><i style="background:#8d6e63"></i>Boulangerie (soins)</li>
-        <li><i style="background:#1565c0"></i>Peinture Express (efface la recherche)</li>
-        <li><i style="background:#ef6c00"></i>Garage (revente de voitures)</li>
-        <li><i style="background:#8fd3ff;border-radius:0"></i>Traboules</li>
-        <li><i style="background:#ff4fa3"></i>Objectif</li>
+        <li><i class="c-tatie"></i>Tatie Rose (missions)</li>
+        <li><i class="c-planque"></i>Planque (sauvegarde)</li>
+        <li><i class="c-arme"></i>Armurerie</li>
+        <li><i class="c-boul"></i>Boulangerie (soins)</li>
+        <li><i class="c-peint"></i>Peinture Express (efface la recherche)</li>
+        <li><i class="c-garage"></i>Garage (revente de voitures)</li>
+        <li><i class="c-trab"></i>Traboules</li>
+        <li><i class="c-obj"></i>Objectif</li>
       </ul>
       <p>Missions : ${Math.min(g.missions.index, MISSIONS.length)} / ${MISSIONS.length}<br>
       Pralines cachées : ${g.save.pralines.length} / ${PRALINE_COUNT}</p>
@@ -296,13 +296,26 @@ export class Hud {
     // Toasts.
     for (const t of this.toasts) t.life -= dt;
     this.toasts = this.toasts.filter((t) => t.life > 0);
-    el.toast.innerHTML = this.toasts.map((t) => `<div style="opacity:${Math.min(1, t.life)}">${t.t}</div>`).join('');
+    // DOM nodes, not markup: the page must run under a CSP without 'unsafe-inline'.
+    while (el.toast.children.length > this.toasts.length) el.toast.lastChild.remove();
+    this.toasts.forEach((t, i) => {
+      let d = el.toast.children[i];
+      if (!d) { d = document.createElement('div'); el.toast.appendChild(d); }
+      if (d.textContent !== t.t) d.textContent = t.t;
+      d.style.opacity = Math.min(1, t.life);
+    });
     if (this.bigT > 0) { this.bigT -= dt; if (this.bigT <= 0) el.big.style.display = 'none'; }
     el.crosshair.style.display = !pl.vehicle && !pl.dead && (g.input.aiming() || g.input.firing()) && pl.weapon !== 'fists' ? 'block' : 'none';
     el.crosshair.classList.toggle('target', !!(pl.aimTarget && (pl.aimTarget.kind === 'ped' || pl.aimTarget.kind === 'vehicle')));
     if (pl.vehicle) {
       el.speed.style.display = 'block';
-      el.speed.innerHTML = `${Math.round(pl.vehicle.speed * 3.6)} <small>km/h</small><div class="vh"><div style="width:${(100 * pl.vehicle.health) / pl.vehicle.maxHealth}%"></div></div>`;
+      if (!this.speedNum) {
+        el.speed.innerHTML = '<span></span> <small>km/h</small><div class="vh"><div></div></div>';
+        this.speedNum = el.speed.querySelector('span');
+        this.speedBar = el.speed.querySelector('.vh div');
+      }
+      this.speedNum.textContent = Math.round(pl.vehicle.speed * 3.6);
+      this.speedBar.style.width = `${(100 * pl.vehicle.health) / pl.vehicle.maxHealth}%`;
     } else el.speed.style.display = 'none';
     el.hurt.style.opacity = Math.min(0.6, pl.hurtFlash * 2 + (pl.health < 25 ? 0.25 + Math.sin(g.time * 5) * 0.1 : 0));
     el.arrest.style.display = g.police.arrest > 0.1 ? 'block' : 'none';
